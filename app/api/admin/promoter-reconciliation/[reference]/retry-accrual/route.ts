@@ -1,0 +1,1 @@
+import type { NextRequest } from "next/server"; import { promoterRecoveryRoute } from "@/lib/promoters/reconciliation-route"; export const POST = (r: NextRequest, c: { params: Promise<{ reference: string }> }) => promoterRecoveryRoute(r, "/api/admin/promoter-reconciliation/[reference]/retry-accrual", c, "accrual");

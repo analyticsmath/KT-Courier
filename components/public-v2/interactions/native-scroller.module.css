@@ -1,0 +1,138 @@
+.root {
+  min-width: 0;
+}
+
+.viewport {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--kt-public-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.viewport:focus-visible {
+  outline: 2px solid var(--kt-public-signal);
+  outline-offset: 4px;
+}
+
+.track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.buttonGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--kt-public-line-strong);
+  border-radius: 0;
+  background: var(--kt-public-canvas-primary);
+  color: var(--kt-public-text-primary);
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--kt-public-text-primary);
+  background: var(--kt-public-canvas-secondary);
+}
+
+.button:disabled {
+  border-style: dashed;
+  border-color: var(--kt-public-line-default);
+  background: var(--kt-public-canvas-muted);
+  color: var(--kt-public-text-muted);
+  cursor: not-allowed;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 74px;
+}
+
+.count {
+  color: var(--kt-public-text-muted);
+  font-family: var(--kt-public-font-interface);
+  font-size: 0.72rem;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.bar {
+  display: block;
+  width: 58px;
+  height: 2px;
+  overflow: hidden;
+  background: var(--kt-public-line-strong);
+}
+
+.barFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: var(--kt-public-signal);
+  transition: transform 160ms ease;
+}
+
+.liveStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .barFill {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .viewport:focus-visible,
+  .button:focus-visible {
+    outline-color: Highlight;
+  }
+
+  .button {
+    border-color: ButtonText;
+    background: Canvas;
+    color: ButtonText;
+  }
+
+  .button:disabled {
+    border-color: GrayText;
+    background: Canvas;
+    color: GrayText;
+  }
+
+  .bar {
+    background: GrayText;
+  }
+
+  .barFill {
+    background: Highlight;
+  }
+}

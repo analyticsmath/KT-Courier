@@ -1,0 +1,44 @@
+.workspace {
+  min-width: 0;
+}
+
+/*
+ * R21 has a long-lived mix of route-local surfaces. These bounded selectors
+ * retain the route data and controls while bringing legacy administration
+ * panels into the protected-v2 density, contrast, focus, and reflow system.
+ * They intentionally do not target R13-R20 protected primitives.
+ */
+.workspace :global(.max-w-7xl),
+.workspace :global(.max-w-6xl) {
+  width: 100%;
+  max-width: none;
+}
+
+.workspace :global(table) {
+  max-width: 100%;
+}
+
+.workspace :global(th) {
+  font-size: .6875rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.workspace :global(a:focus-visible),
+.workspace :global(button:focus-visible),
+.workspace :global(input:focus-visible),
+.workspace :global(select:focus-visible),
+.workspace :global(textarea:focus-visible) {
+  outline: 2px solid var(--eo-operational);
+  outline-offset: 2px;
+}
+
+@media (max-width: 599px) {
+  .workspace :global(.overflow-x-auto) {
+    max-width: 100%;
+  }
+
+  .workspace :global(.grid) {
+    min-width: 0;
+  }
+}

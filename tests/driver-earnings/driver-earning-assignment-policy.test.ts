@@ -1,0 +1,6 @@
+import { expect, it } from "vitest";
+import { assertAuthoritativeAssignment, assertUnambiguousHandoff } from "@/lib/driver-earnings/driver-earning-assignment-policy";
+const evidence = { id: "a", publicReference: "ASG-A", version: "3", driverId: "d", orderId: "o", status: "COMPLETED", completedAt: "2026-07-17T00:00:00.000Z", podAssignmentId: "a", podDriverId: "d", podOrderId: "o", podDeliveredAt: "2026-07-17T00:00:00.000Z", hasDeliveryCompletedEvent: true, hasAssignmentCompletedEvent: true };
+it("requires exact assignment driver and version", () => expect(() => assertAuthoritativeAssignment(evidence, { assignmentId: "a", assignmentPublicReference: "ASG-A", assignmentVersion: "3", driverId: "d", orderId: "o", serviceCompletedAt: evidence.completedAt! })).not.toThrow());
+it("rejects changed driver/version", () => expect(() => assertAuthoritativeAssignment({ ...evidence, version: "4" }, { assignmentId: "a", assignmentPublicReference: "ASG-A", assignmentVersion: "3", driverId: "d", orderId: "o", serviceCompletedAt: evidence.completedAt! })).toThrow());
+it("fails closed on ambiguous handoff", () => expect(() => assertUnambiguousHandoff({ settledAssignmentIds: ["a", "a"], settledDriverIds: ["d1", "d2"], independentBasisCount: 2 })).toThrow());

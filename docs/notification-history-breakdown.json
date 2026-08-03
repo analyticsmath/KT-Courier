@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-07-31T08:48:14.932Z",
+  "totalNotifications": 768,
+  "countByCategory": {
+    "orders": 48,
+    "dispatch": 48,
+    "delivery": 48,
+    "payments": 48,
+    "refunds": 48,
+    "withdrawals": 48,
+    "subscriptions": 48,
+    "promotions": 48,
+    "advertising": 48,
+    "drivers": 48,
+    "stores": 48,
+    "promoters": 48,
+    "recruitment": 48,
+    "developer_api": 48,
+    "reports": 48,
+    "security": 48
+  },
+  "countByChannel": {
+    "IN_APP": 384,
+    "SMS": 384
+  },
+  "countByStatus": {
+    "DELIVERED": 256,
+    "QUEUED": 256,
+    "FAILED_RETRYABLE": 256
+  },
+  "countByRole": {
+    "CUSTOMER": 336,
+    "DRIVER": 96,
+    "STORE": 144,
+    "PROMOTER": 48,
+    "ADMIN": 144
+  },
+  "countByMonth": {
+    "2026-07": 256,
+    "2026-05": 256,
+    "2026-03": 256
+  }
+}

@@ -1,0 +1,11 @@
+export const LEDGER_POLICY_VERSION = "phase9-v1";
+export const LEDGER_CURRENCY = "ZAR" as const;
+export const LEDGER_MAX_AMOUNT = "9999999999999999.99";
+export const LEDGER_MAX_MEMO_LENGTH = 500;
+export const LEDGER_MAX_LINE_MEMO_LENGTH = 240;
+export const LEDGER_MAX_KEY_LENGTH = 160;
+export const LEDGER_MAX_LINE_CODE_LENGTH = 80;
+export const LEDGER_MAX_METADATA_BYTES = 2048;
+export const LEDGER_MAX_METADATA_KEYS = 24;
+export const LEDGER_MAX_METADATA_DEPTH = 3;
+export const LEDGER_SERIALIZABLE_RETRIES = 3;

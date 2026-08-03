@@ -1,0 +1,2 @@
+import { Card } from "@/components/ui/Card";
+export default async function CheckoutCancelPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8" aria-live="polite"><h1 className="text-2xl font-black">Payment status</h1><Card className="mt-5"><p className="text-sm">Leaving the provider does not cancel {reference}. Any pending or unknown payment stays pending while authoritative confirmation is checked.</p></Card></section>; }

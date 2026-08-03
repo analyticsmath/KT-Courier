@@ -1,0 +1,46 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+type LifecycleStatus = "DRAFT" | "UNDER_REVIEW" | "APPROVED" | "ACTIVE" | "RETIRED" | "REJECTED";
+const nextAction: Partial<Record<LifecycleStatus, "submit" | "approve" | "reject" | "activate" | "retire">> = { DRAFT: "submit", UNDER_REVIEW: "approve", APPROVED: "activate", ACTIVE: "retire" };
+function operationId() { return `storefront-${crypto.randomUUID()}`; }
+
+async function submit(url: string, body: unknown, method = "POST") {
+  const response = await fetch(url, { method, credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error("The storefront administration request was not accepted.");
+  return response.json() as Promise<unknown>;
+}
+
+export function StorefrontLifecycleControls({ basePath, reference, version, status }: Readonly<{ basePath: string; reference: string; version: number; status: LifecycleStatus }>) {
+  const [message, setMessage] = useState("");
+  const action = nextAction[status];
+  async function run(next: string) { try { await submit(`${basePath}/${reference}/${next}`, { version, operationId: operationId() }); setMessage("Lifecycle request recorded. Reload to inspect immutable history."); } catch { setMessage("The lifecycle request could not be applied safely."); } }
+  return <div className="mt-3 flex flex-wrap items-center gap-2"><span className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold">{status}</span>{action ? <button type="button" className="rounded bg-[var(--kt-brand-blue)] px-3 py-1 text-xs font-semibold text-white" onClick={() => void run(action)}>{action}</button> : null}{status === "UNDER_REVIEW" ? <button type="button" className="rounded border px-3 py-1 text-xs font-semibold" onClick={() => void run("reject")}>reject</button> : null}<span role="status" className="text-xs text-[var(--kt-text-muted)]">{message}</span></div>;
+}
+
+export function StorefrontCollectionCreateControl() {
+  const [message, setMessage] = useState("");
+  async function create(form: FormData) { try { await submit("/api/admin/storefront/collections", { name: String(form.get("name") ?? ""), slug: String(form.get("slug") ?? ""), collectionType: String(form.get("collectionType") ?? "EDITORIAL"), operationId: operationId() }); setMessage("Draft collection created. Reload to manage items and review it."); } catch { setMessage("The draft collection could not be created."); } }
+  return <form action={create} className="grid gap-3 rounded-xl border border-black/10 bg-white p-4 md:grid-cols-3"><label className="text-sm font-semibold">Name<input required name="name" maxLength={160} className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Slug<input required name="slug" pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={100} className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Type<select name="collectionType" className="mt-1 block w-full rounded border p-2"><option value="EDITORIAL">Editorial</option><option value="SEASONAL">Seasonal</option><option value="CATEGORY_LANDING">Category landing</option></select></label><div className="md:col-span-3"><button className="rounded bg-[var(--kt-brand-blue)] px-4 py-2 text-sm font-bold text-white">Create draft</button><span role="status" className="ml-3 text-sm text-[var(--kt-text-muted)]">{message}</span></div></form>;
+}
+
+export function StorefrontCollectionItemControl({ reference, version }: Readonly<{ reference: string; version: number }>) {
+  const [message, setMessage] = useState("");
+  async function add(form: FormData) { try { await submit(`/api/admin/storefront/collections/${reference}/items`, { version, targetType: String(form.get("targetType") ?? "PRODUCT"), targetReference: String(form.get("targetReference") ?? ""), displayOrder: Number(form.get("displayOrder") ?? 0), safeLabelOverride: String(form.get("label") ?? "") || undefined, operationId: operationId() }); setMessage("Item evidence added. Reload to inspect current eligibility."); } catch { setMessage("Only an eligible projected category, product, variant, or store can be added."); } }
+  return <form action={add} className="mt-5 grid gap-3 rounded-xl border border-black/10 bg-white p-4 md:grid-cols-4"><label className="text-sm font-semibold">Target type<select name="targetType" className="mt-1 block w-full rounded border p-2"><option>CATEGORY</option><option>PRODUCT</option><option>VARIANT</option><option>STORE</option></select></label><label className="text-sm font-semibold">Public reference<input required name="targetReference" maxLength={160} className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Order<input required name="displayOrder" type="number" min="0" defaultValue="0" className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Editorial label<input name="label" maxLength={240} className="mt-1 block w-full rounded border p-2" /></label><div className="md:col-span-4"><button className="rounded bg-[var(--kt-brand-blue)] px-4 py-2 text-sm font-bold text-white">Add eligible item</button><span role="status" className="ml-3 text-sm text-[var(--kt-text-muted)]">{message}</span></div></form>;
+}
+
+export function StorefrontSynonymCreateControl() {
+  const [input, setInput] = useState(""); const [output, setOutput] = useState(""); const [direction, setDirection] = useState<"EQUIVALENT" | "ONE_WAY">("EQUIVALENT"); const [message, setMessage] = useState("");
+  const preview = useMemo(() => `${input.trim().normalize("NFKC").toLocaleLowerCase("en-ZA")} → ${output.trim().normalize("NFKC").toLocaleLowerCase("en-ZA")}`, [input, output]);
+  async function create(form: FormData) { try { await submit("/api/admin/storefront/search-synonyms", { name: String(form.get("name") ?? ""), language: String(form.get("language") ?? "en-ZA"), terms: [{ input, outputs: [output], direction }], operationId: operationId() }); setMessage("Draft synonym version created. Reload to review its immutable lifecycle history."); } catch { setMessage("Use distinct, plain-language terms; executable, regex, and SQL rules are not accepted."); } }
+  return <form action={create} className="grid gap-3 rounded-xl border border-black/10 bg-white p-4 md:grid-cols-2"><label className="text-sm font-semibold">Set name<input required name="name" maxLength={120} className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Language<input required name="language" defaultValue="en-ZA" pattern="[a-z]{2,3}(-[A-Z]{2})?" className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Input term<input required value={input} onChange={(event) => setInput(event.target.value)} maxLength={120} className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Output term<input required value={output} onChange={(event) => setOutput(event.target.value)} maxLength={120} className="mt-1 block w-full rounded border p-2" /></label><label className="text-sm font-semibold">Direction<select value={direction} onChange={(event) => setDirection(event.target.value as "EQUIVALENT" | "ONE_WAY")} className="mt-1 block w-full rounded border p-2"><option value="EQUIVALENT">Equivalent</option><option value="ONE_WAY">One way</option></select></label><div className="self-end text-sm text-[var(--kt-text-muted)]"><p>Validation preview: {preview || "enter two terms"}</p><p>{input && output && input.trim().toLocaleLowerCase() === output.trim().toLocaleLowerCase() ? "Conflict: terms must remain distinct." : "Conflict warning: review brand and distinct-product meaning before submission."}</p></div><div className="md:col-span-2"><button className="rounded bg-[var(--kt-brand-blue)] px-4 py-2 text-sm font-bold text-white">Create synonym draft</button><span role="status" className="ml-3 text-sm text-[var(--kt-text-muted)]">{message}</span></div></form>;
+}
+
+export function StorefrontProjectionControls({ reference, version, resolved }: Readonly<{ reference: string; version: number; resolved: boolean }>) {
+  const [message, setMessage] = useState("");
+  async function run(action: "rebuild" | "resolve") { try { await submit(`/api/admin/storefront/projections/${reference}/${action}`, { version, operationId: operationId() }); setMessage(action === "rebuild" ? "Canonical rebuild requested; reload to inspect source coherence." : "Resolved only after canonical rebuild succeeded."); } catch { setMessage("This case could not be changed safely. No public override is available."); } }
+  if (resolved) return <span className="text-xs text-[var(--kt-text-muted)]">Resolved historical evidence</span>;
+  return <div className="mt-3 flex flex-wrap gap-2"><button type="button" className="rounded border px-3 py-1 text-xs font-semibold" onClick={() => void run("rebuild")}>Request canonical rebuild</button><button type="button" className="rounded bg-[var(--kt-brand-blue)] px-3 py-1 text-xs font-semibold text-white" onClick={() => void run("resolve")}>Resolve after coherence</button><span role="status" className="text-xs text-[var(--kt-text-muted)]">{message}</span></div>;
+}

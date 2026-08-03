@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest"; import { assertCatalogImportCanApply, assertCatalogImportFile, catalogImportCellIssues } from "@/lib/catalog/catalog-import-policy";
+describe("catalog imports",()=>{it("accepts bounded versioned CSV metadata",()=>expect(()=>assertCatalogImportFile({filename:"catalog.csv",mimeType:"text/csv",byteSize:100,templateVersion:1})).not.toThrow());it("rejects formula injection, HTML and remote URLs",()=>expect(catalogImportCellIssues("=HYPERLINK(\"https://bad.example\",\"x\")<b>x</b>")).toEqual(expect.arrayContaining(["CSV_FORMULA_INJECTION","HTML_NOT_ALLOWED","REMOTE_URL_NOT_ALLOWED"])));it("requires a clean dry-run",()=>expect(()=>assertCatalogImportCanApply({dryRunCompleted:false,invalidRows:0,status:"UPLOADED"})).toThrow());});
+

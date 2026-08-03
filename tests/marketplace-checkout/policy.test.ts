@@ -1,0 +1,19 @@
+import { describe, expect, it } from "vitest";
+import { assertCartMutable, assertCheckoutTotals, assertCheckoutTransition, cartLineFingerprint, centsToZar, CHECKOUT_LIVE_STATUSES, parseZarToCents, reservationReleaseAllowed, sellerBasis, variableWeightCheckoutEligibility } from "@/lib/marketplace-checkout/policy";
+import { MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED, assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-checkout/production-lock";
+import { hashMarketplaceGuestSecret, verifyMarketplaceGuestSecret } from "@/lib/marketplace-checkout/tokens";
+
+describe("marketplace checkout policy", () => {
+  it("keeps cart, checkout and payment lifecycles distinct", () => expect(CHECKOUT_LIVE_STATUSES.has("PAYMENT_PENDING")).toBe(true));
+  it("makes terminal and locked carts immutable", () => { expect(() => assertCartMutable("CONVERTED")).toThrow(); expect(() => assertCartMutable("CHECKOUT_LOCKED")).toThrow(); });
+  it("allows only explicit checkout transitions", () => { expect(() => assertCheckoutTransition("READY_FOR_REVIEW", "RESERVING")).not.toThrow(); expect(() => assertCheckoutTransition("COMPLETED", "PAYMENT_PENDING")).toThrow(); });
+  it("creates a deterministic modifier-sensitive line fingerprint", () => { const a = cartLineFingerprint({ offerReference: "offer", variantReference: "variant", modifiers: [{ groupReference: "g", optionReference: "a", quantity: 1 }, { groupReference: "g", optionReference: "b", quantity: 2 }] }); const b = cartLineFingerprint({ offerReference: "offer", variantReference: "variant", modifiers: [{ groupReference: "g", optionReference: "b", quantity: 2 }, { groupReference: "g", optionReference: "a", quantity: 1 }] }); expect(a).toBe(b); });
+  it("does not combine differing modifier choices", () => expect(cartLineFingerprint({ offerReference: "offer", variantReference: "variant", modifiers: [] })).not.toBe(cartLineFingerprint({ offerReference: "offer", variantReference: "variant", modifiers: [{ groupReference: "g", optionReference: "a", quantity: 1 }] })));
+  it("preserves exact ZAR cents without number arithmetic", () => { expect(parseZarToCents("9999999999999999.99")).toBe("999999999999999999"); expect(centsToZar("100")).toBe("1.00"); });
+  it("requires exact checkout totals", () => { expect(() => assertCheckoutTotals({ merchandiseSubtotal: "12.50", modifierSubtotal: "0.25", deliveryFeeTotal: "10.00", grandTotal: "22.75" })).not.toThrow(); expect(() => assertCheckoutTotals({ merchandiseSubtotal: "12.50", modifierSubtotal: "0.25", deliveryFeeTotal: "10.00", grandTotal: "22.74" })).toThrow(); });
+  it("blocks variable weight until exact prepacked evidence exists", () => { expect(variableWeightCheckoutEligibility({ sellingUnit: "VARIABLE_WEIGHT" })).toBe("VARIABLE_WEIGHT_UNSUPPORTED"); expect(variableWeightCheckoutEligibility({ sellingUnit: "VARIABLE_WEIGHT", packagedQuantity: "1.0000" })).toBe("ELIGIBLE"); });
+  it("does not release unknown payment stock holds", () => { expect(reservationReleaseAllowed({ reservationStatus: "PAYMENT_UNCERTAIN", paymentStatus: "PROCESSING", paymentOutcomeKnown: false })).toBe(false); expect(reservationReleaseAllowed({ reservationStatus: "ACTIVE", paymentStatus: "FAILED", paymentOutcomeKnown: true })).toBe(true); });
+  it("excludes delivery fee from seller basis", () => expect(sellerBasis({ merchandiseSubtotal: "10.00", modifierSubtotal: "1.25" })).toBe("11.25"));
+  it("verifies guest secrets without using the public reference", () => { const hash = hashMarketplaceGuestSecret("high-entropy-secret"); expect(verifyMarketplaceGuestSecret("high-entropy-secret", hash)).toBe(true); expect(verifyMarketplaceGuestSecret("wrong", hash)).toBe(false); });
+  it("remains source locked without an environment bypass", () => { expect(MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED).toBe(false); expect(() => assertMarketplaceCheckoutProductionReady("RESERVATION")).toThrow(); });
+});

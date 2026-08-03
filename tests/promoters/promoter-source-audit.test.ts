@@ -1,0 +1,6 @@
+import { describe, expect, it } from "vitest"; import { execFileSync } from "node:child_process"; import { existsSync } from "node:fs"; import { join } from "node:path";
+const root = process.cwd();
+describe("Phase 25 source audit", () => {
+  it("has every required promoter self-service route", () => { for (const file of ["app/api/promoter/route.ts", "app/api/promoter/programs/route.ts", "app/api/promoter/programs/[reference]/route.ts", "app/api/promoter/programs/[reference]/enroll/route.ts", "app/api/promoter/channels/route.ts", "app/api/promoter/referral-codes/route.ts", "app/api/promoter/referral-codes/[reference]/archive/route.ts", "app/api/promoter/referrals/route.ts", "app/api/promoter/referrals/[reference]/route.ts", "app/api/promoter/earnings/route.ts", "app/api/promoter/earnings/[reference]/route.ts", "app/api/promoter/wallet/route.ts", "app/api/promoter/withdrawals/route.ts", "app/api/promoter/performance/route.ts", "app/api/promoter/assets/route.ts", "app/api/promoter/profile/route.ts", "app/api/promoter/compliance/route.ts"]) expect(existsSync(join(root, file))).toBe(true); });
+  it("rejects prohibited production scaffolding", () => expect(() => execFileSync(process.execPath, ["scripts/audit-phase25-promoter-source.mjs"], { cwd: root, stdio: "pipe" })).not.toThrow());
+});

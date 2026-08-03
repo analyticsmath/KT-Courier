@@ -1,0 +1,2 @@
+import { runBoundedMarketplaceScan } from "./marketplace-checkout-script-support.mjs";
+await runBoundedMarketplaceScan("finalize-paid-marketplace-checkouts", (limit) => `SELECT p."publicReference" FROM "Payment" p JOIN "MarketplaceCheckout" c ON c."id"=p."marketplaceCheckoutId" LEFT JOIN "MarketplaceOrder" o ON o."checkoutId"=c."id" WHERE p."status"::text='SUCCEEDED' AND p."subjectType"::text='MARKETPLACE_CHECKOUT' AND o."id" IS NULL ORDER BY p."createdAt" ASC LIMIT ${limit}`, "scripts/phase20-finalize-paid-marketplace-checkouts.worker.ts");

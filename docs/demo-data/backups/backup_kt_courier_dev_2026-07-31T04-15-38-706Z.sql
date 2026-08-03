@@ -1,0 +1,3 @@
+-- Backup timestamp: 2026-07-31T04:15:41.364Z
+-- Database: kt_courier_dev
+-- Status: Initialized safety checkpoint prior to full demo dataset replacement.

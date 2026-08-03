@@ -1,0 +1,1 @@
+export default function Loading() { return <div aria-label="Loading notification administration" className="rounded-xl border border-[var(--kt-soft-border)] bg-white p-5 text-sm text-[var(--kt-text-muted)]">Loading notification authority…</div>; }

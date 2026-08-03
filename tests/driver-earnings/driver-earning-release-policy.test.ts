@@ -1,0 +1,6 @@
+import { Prisma } from "@prisma/client";
+import { expect, it } from "vitest";
+import { driverEarningReleaseBlockReasons } from "@/lib/driver-earnings/driver-earning-release-policy";
+const base = { status: "ACCRUED", productionValidationApproved: true, completionEvidenceValid: true, assignmentDriverMatch: true, releaseEligibleAt: new Date("2026-01-01"), now: new Date("2026-01-02"), refundReservedAmount: new Prisma.Decimal(0), remainingAmount: new Prisma.Decimal(10), hasOpenEarningReconciliation: false, hasOpenRefundReconciliation: false, hasOpenPaymentReconciliation: false, hasOpenDeliveryIncidentOrAssignmentConflict: false, commissionAttributionCoherent: true, activeFinanciallyEligibleDriver: true, activeDriverWallet: true, validDriverPayableAccount: true, validOwnerWithdrawableAccount: true, releaseLedgerJournalId: null, reversalLedgerJournalId: null };
+it("accepts all nineteen release conditions", () => expect(driverEarningReleaseBlockReasons(base)).toEqual([]));
+it("blocks refund races and incidents", () => expect(driverEarningReleaseBlockReasons({ ...base, refundReservedAmount: new Prisma.Decimal(1), hasOpenDeliveryIncidentOrAssignmentConflict: true })).toEqual(expect.arrayContaining(["REFUND_RESERVATION_OPEN", "DELIVERY_INCIDENT_OR_ASSIGNMENT_CONFLICT"])));

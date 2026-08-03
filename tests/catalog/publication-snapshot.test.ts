@@ -1,0 +1,4 @@
+import { describe, expect, it } from "vitest"; import { assertSnapshotContainsNoPrivateKeys, buildCatalogPublicationSnapshot } from "@/lib/catalog/catalog-publication-snapshot";
+const input={productReference:"CP-A",variantReference:"CV-A",offerReference:"CO-A",storeReference:"store-a",productTypeCode:"PHONE",productTypeVersion:1,categoryPath:"/phones",title:"Phone",description:"Description",identifiers:{},attributes:{},variantOptions:{},price:{versionReference:"P-A",amount:"10.00",currency:"ZAR" as const,includesTax:true as const},availability:{},media:[],compliance:{}};
+describe("publication snapshots",()=>{it("has a stable content version",()=>expect(buildCatalogPublicationSnapshot(input).publicationVersion).toBe(buildCatalogPublicationSnapshot(input).publicationVersion));it("rejects private evidence",()=>expect(()=>assertSnapshotContainsNoPrivateKeys({actorUserId:"secret"})).toThrow(/private/));});
+

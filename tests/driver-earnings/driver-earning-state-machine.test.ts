@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { assertDriverEarningTransition, isTerminalDriverEarningStatus } from "@/lib/driver-earnings/driver-earning-state-machine";
+describe("driver earning state", () => { it.each(["RELEASED", "FULLY_REFUNDED", "REVERSED"] as const)("marks %s terminal", (status) => expect(isTerminalDriverEarningStatus(status)).toBe(true)); it.each(["RELEASED", "FULLY_REFUNDED", "REVERSED", "RECONCILIATION_REQUIRED"] as const)("allows ACCRUED to %s", (to) => expect(() => assertDriverEarningTransition("ACCRUED", to)).not.toThrow()); it("rejects terminal transitions", () => expect(() => assertDriverEarningTransition("RELEASED", "ACCRUED")).toThrow()); });

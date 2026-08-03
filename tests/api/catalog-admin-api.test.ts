@@ -1,0 +1,4 @@
+import { readFileSync } from "node:fs"; import path from "node:path"; import { describe,expect,it } from "vitest";
+const source=readFileSync(path.join(process.cwd(),"lib/catalog/catalog-route-handlers.ts"),"utf8");
+describe("admin catalog API policy",()=>{it("uses exact taxonomy, product-type and moderation permissions",()=>{for(const key of ["CATALOG_TAXONOMY_MANAGE","CATALOG_PRODUCT_TYPES_APPROVE","CATALOG_MODERATION_APPROVE","CATALOG_MODERATION_SUSPEND"])expect(source).toContain(`PERMISSIONS.${key}`)});it("uses action-specific endpoints, not arbitrary status",()=>{expect(source).toMatch(/adminProductAction/);expect(source).not.toMatch(/status:\s*z\.string/)});it("preserves production lock errors",()=>{const policy=readFileSync(path.join(process.cwd(),"lib/catalog/catalog-api-policy.ts"),"utf8");expect(policy).toMatch(/CatalogProductionLockedError/);expect(policy).toMatch(/423/)});});
+

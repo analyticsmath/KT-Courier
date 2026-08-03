@@ -1,0 +1,3 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { NextRequest } from "next/server"; import { PERMISSIONS } from "@/lib/auth/permission-keys"; import { requirePromoterRead } from "@/lib/promoters/api-policy"; import { db, promoterJson, safeRows } from "@/lib/promoters/route-support";
+export async function GET(request: NextRequest) { const auth = await requirePromoterRead(PERMISSIONS.PROMOTER_EARNINGS_READ_OWN, request, "/api/promoter/earnings"); if ("response" in auth) return auth.response; return promoterJson({ earnings: safeRows(await db.promoterEarning.findMany({ where: { promoterAccountId: auth.account.id }, orderBy: { createdAt: "desc" } }) as any) }); }

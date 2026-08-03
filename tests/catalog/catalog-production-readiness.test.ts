@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest"; import { assertCatalogProductionActivationAllowed, CATALOG_PRODUCTION_BLOCK_REASON, CATALOG_PRODUCTION_VALIDATION_APPROVED } from "@/lib/catalog/catalog-production-lock";
+describe("catalog production readiness",()=>{it("is source locked without environment bypass",()=>{expect(CATALOG_PRODUCTION_VALIDATION_APPROVED).toBe(false);expect(()=>assertCatalogProductionActivationAllowed("PRODUCT")).toThrowError(expect.objectContaining({code:CATALOG_PRODUCTION_BLOCK_REASON}))});it("permits direct isolated-test injection only",()=>expect(()=>assertCatalogProductionActivationAllowed("PRODUCT",{approved:true})).not.toThrow());});
+

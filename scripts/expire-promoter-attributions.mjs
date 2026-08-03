@@ -1,0 +1,2 @@
+import { runPromoterProcessor } from "./promoter-processor.mjs";
+await runPromoterProcessor({ name: "expire-promoter-attributions", selectCandidates: async (prisma, limit) => prisma.promoterAttribution.findMany({ where: { expiresAt: { lt: new Date() }, status: { in: ["ATTRIBUTED", "PENDING_QUALIFICATION"] } }, take: limit, select: { id: true, publicReference: true } }), process: async ({ prisma, root, candidate, operationId }) => root.services.qualificationEarning.expirePromoterAttribution(prisma, { attributionId: candidate.id, operationId }) });

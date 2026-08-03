@@ -1,0 +1,10 @@
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { prepareOrderPayment } from "@/lib/services/payment-preparation.service";
+import { createPayableOrder, paymentPrisma, resetPaymentTables } from "./payment-fixtures";
+afterAll(async () => paymentPrisma.$disconnect());
+beforeEach(async () => resetPaymentTables());
+describe("Phase 10 live payment preparation", () => {
+  it("copies exact order pricing once without attempts, ledger journals, or order mutation", async () => { const fixture = await createPayableOrder(); const before = await paymentPrisma.order.findUniqueOrThrow({ where: { id: fixture.order.id } }); const result = await prepareOrderPayment({ id: fixture.user.id, email: fixture.user.email }, { orderId: fixture.order.id, idempotencyKey: `${fixture.tag}:prepare` }); const after = await paymentPrisma.order.findUniqueOrThrow({ where: { id: fixture.order.id } }); expect(result).toMatchObject({ amount: "115.00", currency: "ZAR", status: "CREATED" }); expect(await paymentPrisma.payment.count({ where: { orderId: fixture.order.id } })).toBe(1); expect(await paymentPrisma.paymentAttempt.count({ where: { paymentId: result.id } })).toBe(0); expect(await paymentPrisma.ledgerJournal.count()).toBe(0); expect(after.status).toBe(before.status); expect(after.pricingSnapshot).toEqual(before.pricingSnapshot); });
+  it("converges same-key concurrency and conflicts on changed meaning", async () => { const fixture = await createPayableOrder(); const key = `${fixture.tag}:prepare`; const results = await Promise.all([prepareOrderPayment({ id: fixture.user.id, email: fixture.user.email }, { orderId: fixture.order.id, idempotencyKey: key }), prepareOrderPayment({ id: fixture.user.id, email: fixture.user.email }, { orderId: fixture.order.id, idempotencyKey: key })]); expect(new Set(results.map((result) => result.id)).size).toBe(1); const other = await createPayableOrder(); await expect(prepareOrderPayment({ id: other.user.id, email: other.user.email }, { orderId: other.order.id, idempotencyKey: key })).rejects.toMatchObject({ code: "PAYMENT_IDEMPOTENCY_CONFLICT" }); });
+});
+

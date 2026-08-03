@@ -1,0 +1,11 @@
+# R22 defect register
+
+| ID | Severity | Route/context | Finding and evidence | Disposition / files | Validation |
+| --- | --- | --- | --- | --- | --- |
+| R22-SEC-001 | CRITICAL | Store catalog draft | `StoreCatalogWizard` persisted product, media and compliance draft data in `localStorage`, contrary to the protected-record browser-storage boundary. | Fixed: removed persistence/recovery; draft is in-memory only and submission remains canonical. `components/catalog/StoreCatalogWizard.tsx` | R22 storage-source contract; ESLint; manual reload check required. |
+| R22-SEC-002 | HIGH | Developer, commerce, store fulfilment, catalog, payments | Action islands could surface API `error`/`title` text directly; raw internal detail must not be browser presentation. | Fixed: safe conflict/rate-limit/provider/generic messages. `DeveloperPortalActions.tsx`, `CommerceAdminActions.tsx`, `StoreFulfilmentActions.tsx`, `StoreCatalogWizard.tsx`, `PaymentCheckoutClient.tsx` | R22 raw-error source contract; focused Vitest; runtime error mapping still manual. |
+| R22-PRES-001 | HIGH | `/admin/delivery-exceptions`, `/admin/pickup-exceptions`, payment handoff | These route bodies used legacy `PageHeader`/`Card` presentation despite protected shell ownership. | Fixed: protected-v2 page frames, panels, semantic tables, status mapping, mobile stack policy and pagination navigation. Four payment pages also migrated. | ESLint; R22 body-boundary source contract; browser table/reflow review required. |
+| R22-SEC-003 | MEDIUM | Root error boundary | `app/error.tsx` logged the raw caught error object in the browser console. | Fixed: generic presentation only; no raw object logging. `app/error.tsx` | R22 source contract; runtime error simulation remains manual. |
+| R22-PERF-001 | MEDIUM | `/driver/assignments/[id]` | Pre-existing large client action screen remains a hydration/performance risk. Its OTP/pickup/delivery state and ownership actions are coupled to the legacy island. | Open, frontend follow-up: split only with dedicated operational browser regression coverage; no safe R22 refactor attempted. | Manual performance/network/operation regression required. |
+
+No blocker was found in the source-level R22 frontend audit. No defect is downgraded to hide a backend/runtime prerequisite.

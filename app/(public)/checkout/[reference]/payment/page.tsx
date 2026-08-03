@@ -1,0 +1,2 @@
+import { Card } from "@/components/ui/Card";
+export default async function CheckoutPaymentPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8"><h1 className="text-2xl font-black">Payment</h1><Card className="mt-5"><p className="text-sm">The final “Pay R…” action uses a server-prepared payment amount for {reference}. Card data is handled only by the authorised provider and is never stored here.</p></Card></section>; }

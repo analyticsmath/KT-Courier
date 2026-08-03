@@ -1,0 +1,6 @@
+import { expect, test, vi } from "vitest";
+const dependencies = vi.hoisted(() => ({ findFirst: vi.fn(), findMany: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { deliveryRegion: { findFirst: dependencies.findFirst, findMany: dependencies.findMany } } }));
+import { resolveStorefrontLocation } from "@/lib/storefront/storefront-location.service";
+test("location resolution uses a mocked coarse region and no coordinates", async () => { process.env.STOREFRONT_LOCATION_CONTEXT_SECRET = "x".repeat(32); dependencies.findFirst.mockResolvedValue({ slug: "cape-town", province: "WC" }); const resolved = await resolveStorefrontLocation({ serviceAreaReference: "cape-town" }); expect(resolved.context).toEqual({ serviceAreaReference: "cape-town", province: "WC", resolutionStatus: "RESOLVED" }); expect(JSON.stringify(resolved)).not.toMatch(/latitude|longitude|address/i); });
+test("unknown and unsupported location paths never calculate delivery price or ETA", async () => { process.env.STOREFRONT_LOCATION_CONTEXT_SECRET = "x".repeat(32); dependencies.findFirst.mockResolvedValue(null); dependencies.findMany.mockResolvedValue([]); expect((await resolveStorefrontLocation({})).context.resolutionStatus).toBe("UNSUPPORTED"); expect((await resolveStorefrontLocation({ serviceAreaReference: "invalid" })).context.resolutionStatus).toBe("UNSUPPORTED"); });

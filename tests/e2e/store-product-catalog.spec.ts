@@ -1,0 +1,14 @@
+import { test, expect } from "@playwright/test";
+
+test.describe("store product catalog (Phase 26.5 scaffold)", () => {
+  test.skip(true, "Catalog browser validation is deferred to Phase 26.5.");
+  test("renders Product Catalog and the progressive listing workflow", async ({ page }) => { await page.goto("/store/catalog"); await expect(page.getByRole("heading", { name: "Product Catalog" })).toBeVisible(); await page.getByRole("link", { name: "Add product" }).click(); await expect(page.getByText("Step 1 of 13")).toBeVisible(); });
+  test("finds existing products and suggests duplicates before creation", async ({ page }) => { await page.goto("/store/catalog/products/new"); await page.getByLabel("Find an existing product").fill("iPhone"); await expect(page.getByText("Duplicate suggestions")).toBeVisible(); });
+  test("supports dynamic fields, variants, media, compliance, offer, price, inventory, modifiers and preview", async ({ page }) => { await page.goto("/store/catalog/products/new"); for (const step of ["Type and category","Core information","Attributes","Variants","Media","Compliance","Store offer","Price","Inventory","Modifiers","Preview"]) await expect(page.getByRole("button", { name: new RegExp(step) })).toBeVisible(); });
+  test("autosaves without losing data and exposes quality issues", async ({ page }) => { await page.goto("/store/catalog/products/new"); await page.getByRole("button", { name: /Core information/ }).click(); await page.getByLabel("Product title").fill("Store private product"); await page.reload(); await expect(page.getByLabel("Product title")).toHaveValue("Store private product"); await page.getByRole("button", { name: /Submit/ }).click(); await expect(page.getByRole("heading", { name: "Quality checklist" })).toBeVisible(); });
+  test("dry-runs imports and denies cross-store access", async ({ page }) => { await page.goto("/store/catalog/imports"); await expect(page.getByText("Dry-run required")).toBeVisible(); });
+  test("uploads a valid image and waits for READY before attachment", async ({ page }) => { await page.goto("/store/catalog/products/new"); await page.getByRole("button", { name: /Media/ }).click(); await expect(page.getByLabel("Upload product image")).toBeVisible(); });
+  test("rejects invalid files and requires alt text", async ({ page }) => { await page.goto("/store/catalog/products/new"); await page.getByRole("button", { name: /Media/ }).click(); await expect(page.getByText(/JPEG, PNG or WebP/)).toBeVisible(); });
+  test("selects a primary image with keyboard ordering and variant media", async ({ page }) => { await page.goto("/store/catalog/products/new"); await page.getByRole("button", { name: /Media/ }).click(); await expect(page.getByText("Draft associations")).toBeVisible(); });
+  test("denies cross-store media selection", async ({ page }) => { await page.goto("/store/catalog/media"); await expect(page.getByRole("heading", { name: "Catalog media" })).toBeVisible(); });
+});

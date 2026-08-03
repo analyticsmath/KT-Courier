@@ -1,0 +1,5 @@
+import { expect, test, vi } from "vitest";
+const dependencies = vi.hoisted(() => ({ categoryFindUnique: vi.fn(), queryRaw: vi.fn(), categoryUpsert: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { catalogCategory: { findUnique: dependencies.categoryFindUnique }, $queryRaw: dependencies.queryRaw, storefrontCategoryDocument: { upsert: dependencies.categoryUpsert } } }));
+import { rebuildStorefrontCategoryDocument } from "@/lib/services/storefront-category.service";
+test("category service builds a public projection from mocked active taxonomy only", async () => { dependencies.categoryFindUnique.mockResolvedValue({ id: "cat", publicReference: "CC-1", status: "ACTIVE", imageAsset: null, parent: null, children: [], productTypeMappings: [], path: "food", name: "Food", description: null, seoTitle: null, seoDescription: null, updatedAt: new Date() }); dependencies.queryRaw.mockResolvedValue([{ count: BigInt(1) }]); await rebuildStorefrontCategoryDocument("cat"); expect(dependencies.categoryUpsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ productCount: 1 }) })); });

@@ -1,0 +1,40 @@
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { prisma } from "@/lib/db/prisma";
+import { ApplicantProfileService } from "@/lib/recruitment/applicant-profile.service";
+import { BackgroundCheckService } from "@/lib/recruitment/background-check.service";
+import { PrivacyRetentionService } from "@/lib/recruitment/privacy-retention.service";
+import { RecruitmentConsentStatus } from "@/types/db";
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ reference: string }> }
+) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+
+    const { reference } = await params;
+    const body = await request.json();
+
+    const profileService = new ApplicantProfileService(prisma);
+    const profile = await profileService.getProfileByUserId(user.id);
+    if (!profile) return NextResponse.json({ success: false, error: "Applicant profile required." }, { status: 400 });
+
+    const privacyService = new PrivacyRetentionService(prisma);
+    const consent = await privacyService.recordConsent({
+      applicantProfileId: profile.id,
+      consentType: body.consentType || "BACKGROUND_CHECK",
+      status: RecruitmentConsentStatus.ACCEPTED,
+      operationId: body.operationId || `CNS-OP-${Date.now()}`,
+      requestHash: body.requestHash || `HASH-${Date.now()}`,
+    });
+
+    const checkService = new BackgroundCheckService(prisma);
+    const checkCase = await checkService.recordApplicantConsent(reference, consent.id);
+
+    return NextResponse.json({ success: true, data: { checkCase, consent } });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  }
+}

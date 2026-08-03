@@ -1,0 +1,3 @@
+# R19 applicant privacy and security
+
+Applicant pages use the existing server-side authenticated session and owner-scoped profile/application queries. They expose no session material, token, storage key, reviewer identity, check evidence, internal score, raw API error, or browser storage. Applicant metadata is noindex with canonical suppression and the sitemap registry has no applicant paths. The absence of candidate-session/token routes is a documented repository discrepancy from the R19 conceptual brief. Published privacy notices, privacy-request receipts, secure upload handoff, and candidate notification DTOs remain backend blockers.

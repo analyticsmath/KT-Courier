@@ -1,0 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Prisma client generation is intentionally deferred. */
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { prisma } from "@/lib/db/prisma";
+import { notificationAdminAccess, notificationFailure, parseNotificationBody } from "@/lib/notifications/admin-api";
+const body = z.object({ operationId: z.string().min(8).max(160) });
+export async function POST(request: Request, context: RouteContext<"/api/admin/notifications/deliveries/[reference]/retry">) { const access = await notificationAdminAccess(request, PERMISSIONS.NOTIFICATION_DELIVERY_RETRY, true); if ("response" in access) return access.response; const parsed = await parseNotificationBody(request, body); if ("response" in parsed) return parsed.response; const { reference } = await context.params; const db: any = prisma; const delivery = await db.notificationDelivery.findUnique({ where: { publicReference: reference } }); if (!delivery) return NextResponse.json({ error: "Delivery not found." }, { status: 404 }); const user = await db.user.findUnique({ where: { id: delivery.recipientUserId }, select: { email: true, emailVerifiedAt: true } }); if (!user?.email || !user.emailVerifiedAt) return NextResponse.json({ error: "VERIFIED_NOTIFICATION_DESTINATION_REQUIRED" }, { status: 422 }); try { return NextResponse.json({ data: await access.authority.delivery.deliver({ deliveryId: delivery.id, destination: user.email, operationId: parsed.data.operationId }) }); } catch (error) { return notificationFailure(error); } }

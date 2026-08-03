@@ -1,0 +1,1 @@
+"use client"; export default function ErrorState() { return <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-5 text-sm text-red-900">Notification administration could not be loaded.</div>; }

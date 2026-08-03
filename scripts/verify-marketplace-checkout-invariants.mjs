@@ -1,0 +1,2 @@
+import { runBoundedMarketplaceScan } from "./marketplace-checkout-script-support.mjs";
+await runBoundedMarketplaceScan("verify-marketplace-checkout-invariants", `SELECT c."publicReference" FROM "MarketplaceCheckout" c WHERE c."grandTotal"<>c."merchandiseSubtotal"+c."modifierSubtotal"+c."deliveryFeeTotal" UNION ALL SELECT o."publicReference" FROM "MarketplaceOrder" o WHERE o."grandTotal"<>o."merchandiseSubtotal"+o."modifierSubtotal"+o."deliveryFeeTotal" LIMIT 100`);

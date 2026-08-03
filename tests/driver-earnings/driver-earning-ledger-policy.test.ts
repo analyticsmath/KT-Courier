@@ -1,0 +1,5 @@
+import { expect, it } from "vitest";
+import { driverEarningAccrualPosting, driverEarningReleasePosting } from "@/lib/driver-earnings/driver-earning-ledger-policy";
+const common = { earningReference: "DE-X", amount: "90.00", driverPublicReference: "DRV-X", assignmentPublicReference: "ASG-X", assignmentVersion: "2", orderPublicReference: "KT-X", settlementVersion: "v1", completionEvidenceReference: "POD-X" };
+it("accrues held debit to payable credit without cash", () => { const post = driverEarningAccrualPosting({ ...common, customerFundsHeldAccountId: "held", driverPayableAccountId: "payable" }); expect(post.entries).toEqual([{ accountId: "held", direction: "DEBIT", amount: "90.00", lineCode: "CUSTOMER_FUNDS_HELD" }, { accountId: "payable", direction: "CREDIT", amount: "90.00", lineCode: "DRIVER_EARNINGS_PAYABLE" }]); expect(JSON.stringify(post)).not.toMatch(/cash/i); });
+it("releases payable to owner withdrawable", () => expect(driverEarningReleasePosting({ ...common, driverPayableAccountId: "payable", ownerWithdrawableAccountId: "withdrawable", releaseEligibleAt: "2026-07-18T00:00:00.000Z" }).entries.map((e) => e.direction)).toEqual(["DEBIT", "CREDIT"]));

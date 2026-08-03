@@ -1,0 +1,2 @@
+import { runBoundedMarketplaceScan } from "./marketplace-checkout-script-support.mjs";
+await runBoundedMarketplaceScan("settle-marketplace-store-orders", (limit) => `SELECT j."publicReference" FROM "MarketplaceStoreSettlementJob" j WHERE j."status"::text IN ('PENDING','RETRYABLE') AND j."nextAttemptAt"<=CURRENT_TIMESTAMP ORDER BY j."createdAt" ASC LIMIT ${limit}`, "scripts/phase20-settle-marketplace-store-orders.worker.ts");

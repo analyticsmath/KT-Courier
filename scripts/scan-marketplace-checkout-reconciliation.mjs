@@ -1,0 +1,2 @@
+import { runBoundedMarketplaceScan } from "./marketplace-checkout-script-support.mjs";
+await runBoundedMarketplaceScan("scan-marketplace-checkout-reconciliation", (limit) => `SELECT "publicReference", "reason", "status" FROM "MarketplaceCheckoutReconciliationCase" WHERE "status"::text<>'RESOLVED' ORDER BY "updatedAt" ASC LIMIT ${limit}`, "scripts/phase20-scan-marketplace-checkout-reconciliation.worker.ts");

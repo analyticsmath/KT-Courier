@@ -1,0 +1,5 @@
+import { DEVELOPER_API_PRODUCTION_LOCK_REASON, DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED, DeveloperApiError } from "./contracts";
+export { DEVELOPER_API_PRODUCTION_LOCK_REASON, DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED };
+export function assertDeveloperApiProductionReady(): void {
+  if (!DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED) throw new DeveloperApiError(DEVELOPER_API_PRODUCTION_LOCK_REASON, 423, "The live developer API is not activated.");
+}

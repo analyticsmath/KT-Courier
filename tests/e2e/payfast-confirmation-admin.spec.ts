@@ -1,0 +1,22 @@
+import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
+import { expect, test } from "@playwright/test";
+import { applyVerifiedPayfastItn } from "@/lib/services/payfast-itn-application.service";
+import { createPhase12Attempt, verifiedEvent } from "../integration/payfast-itn-fixtures";
+import { login, logout } from "./fixtures/auth";
+
+const prisma = new PrismaClient(); let eventReference = ""; let caseReference = "";
+test.beforeAll(async () => {
+  const { attempt } = await createPhase12Attempt(); const complete = verifiedEvent(attempt, "COMPLETE", { providerPaymentId: "pf-e2e-admin", fingerprintSeed: "e2e-admin-complete" }); await applyVerifiedPayfastItn(complete); await applyVerifiedPayfastItn(verifiedEvent(attempt, "FAILED", { providerPaymentId: "pf-e2e-admin", fingerprintSeed: "e2e-admin-conflict" }));
+  eventReference = (await prisma.paymentWebhookEvent.findUniqueOrThrow({ where: { eventFingerprint: complete.receipt.fingerprint } })).publicReference; caseReference = (await prisma.paymentReconciliationCase.findFirstOrThrow({ where: { paymentId: attempt.paymentId, reason: "CONFLICTING_PROVIDER_STATUS" } })).publicReference;
+  const [webhookPermission, reconciliationPermission] = await Promise.all([prisma.permission.findUniqueOrThrow({ where: { key: "payment_webhooks.read" } }), prisma.permission.findUniqueOrThrow({ where: { key: "payment_reconciliation.read" } })]);
+  const denied = await prisma.user.upsert({ where: { email: "e2e-confirmation-denied@ktcouriers.local" }, update: { role: "ADMIN", status: "ACTIVE" }, create: { email: "e2e-confirmation-denied@ktcouriers.local", passwordHash: await bcrypt.hash("ChangeMe123!", 10), name: "Confirmation denied", role: "ADMIN", status: "ACTIVE", emailVerifiedAt: new Date() } });
+  for (const permission of [webhookPermission, reconciliationPermission]) await prisma.userPermission.upsert({ where: { userId_permissionId: { userId: denied.id, permissionId: permission.id } }, update: { effect: "DENY", reason: "Phase 12 E2E" }, create: { userId: denied.id, permissionId: permission.id, effect: "DENY", reason: "Phase 12 E2E" } });
+});
+test.afterAll(async () => prisma.$disconnect());
+test.describe.serial("Payfast confirmation admin", () => {
+  test("authorized admin inspects safe webhook verification and journal linkage", async ({ page }) => { await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/payment-webhooks/${eventReference}`); await expect(page.getByRole("heading", { name: "Payment Webhooks", exact: true })).toBeVisible(); await expect(page.getByRole("heading", { name: "Verification checklist", exact: true })).toBeVisible(); await expect(page.getByText("Verified", { exact: true }).first()).toBeVisible(); await expect(page.getByText(/LJ-/)).toBeVisible(); });
+  test("authorized admin inspects reconciliation with no financial mutation control", async ({ page }) => { await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/payment-reconciliation/${caseReference}`); await expect(page.getByRole("heading", { name: "Payment Reconciliation", exact: true })).toBeVisible(); await expect(page.getByText("CONFLICTING PROVIDER STATUS", { exact: true })).toBeVisible(); for (const label of ["Mark success", "Approve payment", "Post journal"]) await expect(page.getByRole("button", { name: label, exact: true })).toHaveCount(0); });
+  test("explicit DENY and non-admin access are rejected", async ({ page }) => { await login(page, "e2e-confirmation-denied@ktcouriers.local"); await page.goto("/admin/payment-webhooks"); await expect(page).not.toHaveURL(/\/admin\/payment-webhooks/); await logout(page); await login(page, "customer@ktcouriers.local"); await page.goto("/admin/payment-reconciliation"); await expect(page).not.toHaveURL(/\/admin\/payment-reconciliation/); });
+  test("visible text, URLs and storage contain no protected evidence", async ({ page }) => { await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/payment-webhooks/${eventReference}`); const visible = (await page.locator("body").innerText()).toLowerCase(); const storage = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage }, href: location.href })); for (const value of ["passphrase", "merchant key", "signature base", "raw body", "request hash", "integration-private-passphrase"]) { expect(visible).not.toContain(value); expect(storage.toLowerCase()).not.toContain(value); } });
+});

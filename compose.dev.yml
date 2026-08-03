@@ -1,0 +1,8 @@
+services:
+  db:
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+  app:
+    environment:
+      KT_RUNTIME_ENV: ${KT_RUNTIME_ENV:-}
+      KT_E2E_RATE_LIMIT_MODE: ${KT_E2E_RATE_LIMIT_MODE:-}

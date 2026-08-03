@@ -1,0 +1,2 @@
+import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
+export default function NotificationsPage(){return <><ProtectedPageHeader eyebrow="Candidate dossier" title="Application notifications"/><ProtectedState className="mt-6" kind="unavailable" title="No applicant notification centre" description="The repository has no dedicated candidate-safe notification projection. This workspace does not reuse account navigation or expose another role’s inbox."/></>}

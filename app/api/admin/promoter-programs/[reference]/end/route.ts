@@ -1,0 +1,1 @@
+import type { NextRequest } from "next/server"; import { programAction } from "@/lib/promoters/admin-lifecycle-route"; export const POST = (r: NextRequest, c: { params: Promise<{ reference: string }> }) => programAction(r, c, "end");

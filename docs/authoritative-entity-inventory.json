@@ -1,0 +1,3832 @@
+{
+  "timestamp": "2026-07-31T08:17:58.233Z",
+  "results": [
+    {
+      "modelName": "User",
+      "count": 927,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 912,
+          "status": "ACTIVE"
+        },
+        {
+          "_count": 5,
+          "status": "DISABLED"
+        },
+        {
+          "_count": 10,
+          "status": "SUSPENDED"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2025-07-02T16:01:41.847Z",
+      "latestTimestamp": "2026-07-31T05:09:10.795Z"
+    },
+    {
+      "modelName": "CustomerProfile",
+      "count": 500,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": 500,
+      "earliestTimestamp": "2026-07-31T05:08:57.799Z",
+      "latestTimestamp": "2026-07-31T05:09:03.433Z"
+    },
+    {
+      "modelName": "StoreProfile",
+      "count": 40,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 4,
+          "status": "PENDING"
+        },
+        {
+          "_count": 34,
+          "status": "ACTIVE"
+        },
+        {
+          "_count": 2,
+          "status": "SUSPENDED"
+        }
+      ],
+      "ownerField": "userId",
+      "distinctOwners": 40,
+      "earliestTimestamp": "2026-07-31T05:09:03.452Z",
+      "latestTimestamp": "2026-07-31T05:09:04.315Z"
+    },
+    {
+      "modelName": "AdminProfile",
+      "count": 17,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": 17,
+      "earliestTimestamp": "2026-07-31T05:08:56.607Z",
+      "latestTimestamp": "2026-07-31T05:08:57.784Z"
+    },
+    {
+      "modelName": "Permission",
+      "count": 349,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:08:52.704Z",
+      "latestTimestamp": "2026-07-31T05:08:54.953Z"
+    },
+    {
+      "modelName": "RolePermission",
+      "count": 271,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:08:54.962Z",
+      "latestTimestamp": "2026-07-31T05:08:57.598Z"
+    },
+    {
+      "modelName": "UserPermission",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DriverProfile",
+      "count": 80,
+      "statusField": "availability",
+      "statusDist": [
+        {
+          "_count": 56,
+          "availability": "OFFLINE"
+        },
+        {
+          "_count": 24,
+          "availability": "AVAILABLE"
+        }
+      ],
+      "ownerField": "userId",
+      "distinctOwners": 80,
+      "earliestTimestamp": "2026-07-31T05:09:04.333Z",
+      "latestTimestamp": "2026-07-31T05:09:06.217Z"
+    },
+    {
+      "modelName": "Session",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LoginHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SecurityEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "OtpCode",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PasswordResetToken",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "Store",
+      "count": 40,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 4,
+          "status": "PENDING"
+        },
+        {
+          "_count": 34,
+          "status": "ACTIVE"
+        },
+        {
+          "_count": 2,
+          "status": "SUSPENDED"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:03.462Z",
+      "latestTimestamp": "2026-07-31T05:09:04.320Z"
+    },
+    {
+      "modelName": "StoreSellerLegalIdentity",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "Address",
+      "count": 45002,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:12:19.337Z",
+      "latestTimestamp": "2026-07-31T06:05:19.989Z"
+    },
+    {
+      "modelName": "Order",
+      "count": 2500,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 2000,
+          "status": "DELIVERED"
+        },
+        {
+          "_count": 125,
+          "status": "IN_TRANSIT"
+        },
+        {
+          "_count": 125,
+          "status": "CANCELLED"
+        },
+        {
+          "_count": 125,
+          "status": "FAILED"
+        },
+        {
+          "_count": 125,
+          "status": "PENDING"
+        }
+      ],
+      "ownerField": "storeId",
+      "distinctOwners": 34,
+      "earliestTimestamp": "2025-07-01T00:43:53.333Z",
+      "latestTimestamp": "2026-07-30T22:32:12.333Z"
+    },
+    {
+      "modelName": "OrderStatusHistory",
+      "count": 22500,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1125,
+          "status": "PENDING"
+        },
+        {
+          "_count": 1125,
+          "status": "CANCELLED"
+        },
+        {
+          "_count": 1125,
+          "status": "IN_TRANSIT"
+        },
+        {
+          "_count": 18000,
+          "status": "DELIVERED"
+        },
+        {
+          "_count": 1125,
+          "status": "FAILED"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2025-07-01T00:43:53.333Z",
+      "latestTimestamp": "2026-07-30T22:32:12.333Z"
+    },
+    {
+      "modelName": "DeliveryRegion",
+      "count": 8,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:08:56.499Z",
+      "latestTimestamp": "2026-07-31T05:08:56.551Z"
+    },
+    {
+      "modelName": "PricingRule",
+      "count": 5,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:08:56.565Z",
+      "latestTimestamp": "2026-07-31T05:08:56.599Z"
+    },
+    {
+      "modelName": "PricingQuote",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PricingQuoteLineItem",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PricingAuditLog",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "EmailLog",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ContactMessage",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdminActivityLog",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SystemSetting",
+      "count": 10,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:08:56.291Z",
+      "latestTimestamp": "2026-07-31T05:08:56.351Z"
+    },
+    {
+      "modelName": "DriverServiceRegion",
+      "count": 80,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:04.346Z",
+      "latestTimestamp": "2026-07-31T05:09:06.222Z"
+    },
+    {
+      "modelName": "DriverDocument",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "OrderAssignment",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "OrderAssignmentEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "OrderOperationalEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ProofOfDelivery",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeliveryAttempt",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DriverOperationCommand",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeliveryOtp",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "Payment",
+      "count": 4100,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 250,
+          "status": "FAILED"
+        },
+        {
+          "_count": 3850,
+          "status": "CREATED"
+        }
+      ],
+      "ownerField": "userId",
+      "distinctOwners": 500,
+      "earliestTimestamp": "2025-07-01T00:43:53.333Z",
+      "latestTimestamp": "2026-07-30T22:32:12.333Z"
+    },
+    {
+      "modelName": "PaymentAttempt",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PaymentStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PaymentWebhookEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PaymentReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PaymentRefund",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RefundFundingAllocation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RefundExecutionAttempt",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RefundStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RefundReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "Wallet",
+      "count": 1,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": "ownerType",
+      "distinctOwners": 1,
+      "earliestTimestamp": "2026-07-31T05:08:56.397Z",
+      "latestTimestamp": "2026-07-31T05:08:56.397Z"
+    },
+    {
+      "modelName": "LedgerAccount",
+      "count": 5,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 5,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:08:56.408Z",
+      "latestTimestamp": "2026-07-31T05:08:56.459Z"
+    },
+    {
+      "modelName": "LedgerJournal",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LedgerEntry",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "WalletTransaction",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "WithdrawalRequest",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PayoutDestination",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "WithdrawalPolicy",
+      "count": 3,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "ownerType",
+      "distinctOwners": 3,
+      "earliestTimestamp": "2026-07-31T05:08:56.470Z",
+      "latestTimestamp": "2026-07-31T05:08:56.491Z"
+    },
+    {
+      "modelName": "WithdrawalPayoutAttempt",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "WithdrawalStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "WithdrawalReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LegacyCommissionRule",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionTransaction",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionPlan",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionPlanStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionRule",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionAccrual",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionAllocation",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CommissionReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreEarning",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreEarningCommissionCharge",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreEarningStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreEarningReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DriverEarning",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "driverId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DriverEarningCommissionCharge",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DriverEarningStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DriverEarningReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LegacySubscriptionPlan",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LegacyStoreSubscription",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LegacySubscriptionInvoice",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionProgram",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionStoreBillingAuthority",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionPlanVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionBenefitDefinition",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionDunningPolicy",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionPlanVersionStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionContract",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionContractStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionCancellationNotice",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionReview",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionAcknowledgement",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionPaymentAuthority",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionBillingCycle",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionInvoice",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionInvoiceSettlement",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionRevenueRecognitionSchedule",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionRevenueRecognitionEntry",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionRenewalJob",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionEntitlementGrant",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionEntitlementUsage",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionContractChange",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionEventIntent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionOperationReceipt",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionProviderSynchronizationEvidence",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionRefundAdjustment",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionEntitlementRefundAdjustment",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "SubscriptionRenewalApplication",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ProductCategory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "Product",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ProductImage",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "InventoryItem",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "InventoryMovement",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "Cart",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CartItem",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "OrderItem",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LegacyPromotion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LegacyCoupon",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "LegacyPromotionRedemption",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionCampaign",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionCampaignVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionCampaignVersionTarget",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionCampaignVersionEligibility",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionCampaignVersionCustomerAllowlist",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionCode",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionCodeBatch",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionBudget",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionBudgetMovement",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionReservation",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionRedemption",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionFinancialAllocation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionStatusHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionEventIntent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromotionOperation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdPlacement",
+      "count": 5,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:08:56.360Z",
+      "latestTimestamp": "2026-07-31T05:08:56.392Z"
+    },
+    {
+      "modelName": "AdCampaign",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterProfile",
+      "count": 50,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 50,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": "userId",
+      "distinctOwners": 50,
+      "earliestTimestamp": "2026-07-31T05:09:06.241Z",
+      "latestTimestamp": "2026-07-31T05:09:07.291Z"
+    },
+    {
+      "modelName": "ReferralCode",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ReferralEvent",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterAccount",
+      "count": 50,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 4,
+          "status": "SUSPENDED"
+        },
+        {
+          "_count": 46,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": "userId",
+      "distinctOwners": 50,
+      "earliestTimestamp": "2026-07-31T05:09:06.253Z",
+      "latestTimestamp": "2026-07-31T05:09:07.302Z"
+    },
+    {
+      "modelName": "PromoterAgreementVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterAgreementAcceptance",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterProgram",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterProgramVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterEnrollment",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterChannel",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterReferralCode",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterTouch",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterAttribution",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterQualification",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterEarning",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterFraudCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterDispute",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterMarketingAsset",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "PromoterEventIntent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ApiClient",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ApiKey",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ApiRequestLog",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "WebhookEndpoint",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "WebhookDelivery",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "Vacancy",
+      "count": 120,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 120,
+          "status": "OPEN"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:07.313Z",
+      "latestTimestamp": "2026-07-31T06:02:58.277Z"
+    },
+    {
+      "modelName": "VacancyApplication",
+      "count": 2400,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 530,
+          "status": "REJECTED"
+        },
+        {
+          "_count": 370,
+          "status": "UNDER_REVIEW"
+        },
+        {
+          "_count": 540,
+          "status": "SHORTLISTED"
+        },
+        {
+          "_count": 490,
+          "status": "SUBMITTED"
+        },
+        {
+          "_count": 470,
+          "status": "APPROVED"
+        }
+      ],
+      "ownerField": "userId",
+      "distinctOwners": 240,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "2026-07-31T06:02:59.978Z"
+    },
+    {
+      "modelName": "Notification",
+      "count": 100,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 100,
+          "status": "DELIVERED"
+        }
+      ],
+      "ownerField": "userId",
+      "distinctOwners": 100,
+      "earliestTimestamp": "2025-07-14T05:20:27.744Z",
+      "latestTimestamp": "2026-07-29T10:39:12.707Z"
+    },
+    {
+      "modelName": "CatalogCategory",
+      "count": 9,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 9,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:10.866Z",
+      "latestTimestamp": "2026-07-31T05:09:10.927Z"
+    },
+    {
+      "modelName": "ProductTypeDefinition",
+      "count": 7,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 7,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:10.809Z",
+      "latestTimestamp": "2026-07-31T05:09:10.855Z"
+    },
+    {
+      "modelName": "CatalogCategoryProductType",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogBrand",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogProduct",
+      "count": 840,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 840,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": "sourceStoreId",
+      "distinctOwners": 1,
+      "earliestTimestamp": "2026-07-31T05:09:11.007Z",
+      "latestTimestamp": "2026-07-31T05:12:18.669Z"
+    },
+    {
+      "modelName": "CatalogProductVariant",
+      "count": 1260,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1260,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:11.051Z",
+      "latestTimestamp": "2026-07-31T05:12:18.690Z"
+    },
+    {
+      "modelName": "CatalogProductOption",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogProductOptionValue",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogVariantOptionValue",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreCatalogOffer",
+      "count": 1260,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1260,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": "storeId",
+      "distinctOwners": 34,
+      "earliestTimestamp": "2026-07-31T05:09:11.083Z",
+      "latestTimestamp": "2026-07-31T05:12:18.708Z"
+    },
+    {
+      "modelName": "StoreOfferPriceVersion",
+      "count": 1260,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1260,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:11.101Z",
+      "latestTimestamp": "2026-07-31T05:12:18.717Z"
+    },
+    {
+      "modelName": "InventoryLocation",
+      "count": 34,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 34,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": "storeId",
+      "distinctOwners": 34,
+      "earliestTimestamp": "2026-07-31T05:09:11.137Z",
+      "latestTimestamp": "2026-07-31T05:12:14.470Z"
+    },
+    {
+      "modelName": "CatalogInventoryItem",
+      "count": 1260,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:11.123Z",
+      "latestTimestamp": "2026-07-31T05:12:18.727Z"
+    },
+    {
+      "modelName": "CatalogInventoryLevel",
+      "count": 1260,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "2026-07-31T06:04:35.723Z"
+    },
+    {
+      "modelName": "CatalogInventoryMovement",
+      "count": 1260,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:11.152Z",
+      "latestTimestamp": "2026-07-31T05:12:18.739Z"
+    },
+    {
+      "modelName": "CatalogMediaAsset",
+      "count": 7,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 7,
+          "status": "READY"
+        }
+      ],
+      "ownerField": "ownerType",
+      "distinctOwners": 1,
+      "earliestTimestamp": "2026-07-31T05:09:10.938Z",
+      "latestTimestamp": "2026-07-31T05:09:11.000Z"
+    },
+    {
+      "modelName": "CatalogMediaUploadIntent",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "ownerType",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogMediaHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogProductMedia",
+      "count": 840,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T06:03:00.121Z",
+      "latestTimestamp": "2026-07-31T06:04:35.691Z"
+    },
+    {
+      "modelName": "StoreModifierGroup",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreModifierOption",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreOfferModifierGroup",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogModerationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogModerationHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogDuplicateCandidate",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogImportJob",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogImportRow",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogPublicationSnapshot",
+      "count": 1260,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1260,
+          "status": "PUBLISHED"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:11.171Z",
+      "latestTimestamp": "2026-07-31T05:12:18.750Z"
+    },
+    {
+      "modelName": "CatalogChangeEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogAuditHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "CatalogOperationReceipt",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontProductDocument",
+      "count": 1260,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1260,
+          "status": "ACTIVE"
+        }
+      ],
+      "ownerField": "storeId",
+      "distinctOwners": 34,
+      "earliestTimestamp": "2026-07-31T05:09:11.171Z",
+      "latestTimestamp": "2026-07-31T05:12:18.771Z"
+    },
+    {
+      "modelName": "StorefrontStoreDocument",
+      "count": 34,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "storeId",
+      "distinctOwners": 34,
+      "earliestTimestamp": "2026-07-31T05:12:18.844Z",
+      "latestTimestamp": "2026-07-31T05:12:19.204Z"
+    },
+    {
+      "modelName": "StorefrontCategoryDocument",
+      "count": 9,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:12:19.221Z",
+      "latestTimestamp": "2026-07-31T05:12:19.331Z"
+    },
+    {
+      "modelName": "StorefrontProjectionHistory",
+      "count": 12600,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:11.277Z",
+      "latestTimestamp": "2026-07-31T06:04:35.752Z"
+    },
+    {
+      "modelName": "StorefrontProjectionCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontEventProcessing",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontCacheInvalidation",
+      "count": 6300,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 6300,
+          "status": "PENDING"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:09:11.286Z",
+      "latestTimestamp": "2026-07-31T05:12:18.825Z"
+    },
+    {
+      "modelName": "StorefrontSearchSynonymSet",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontCollection",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontCollectionItem",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontCollectionLifecycleHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontSearchSynonymHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StorefrontTelemetryEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCart",
+      "count": 1600,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 500,
+          "status": "ACTIVE"
+        },
+        {
+          "_count": 1100,
+          "status": "CONVERTED"
+        }
+      ],
+      "ownerField": "ownerType",
+      "distinctOwners": 1,
+      "earliestTimestamp": "2025-07-01T11:47:05.924Z",
+      "latestTimestamp": "2026-07-30T15:18:11.593Z"
+    },
+    {
+      "modelName": "MarketplaceCartStoreGroup",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCartLine",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCartLineModifier",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCartOperation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckout",
+      "count": 1600,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1600,
+          "status": "COMPLETED"
+        }
+      ],
+      "ownerField": "customerUserId",
+      "distinctOwners": 500,
+      "earliestTimestamp": "2025-07-01T11:47:05.924Z",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutContactSnapshot",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutAddressSnapshot",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutStoreGroup",
+      "count": 1600,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1600,
+          "status": "READY"
+        }
+      ],
+      "ownerField": "storeId",
+      "distinctOwners": 34,
+      "earliestTimestamp": "2026-07-31T05:52:14.411Z",
+      "latestTimestamp": "2026-07-31T05:59:55.675Z"
+    },
+    {
+      "modelName": "MarketplaceCheckoutLineSnapshot",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutModifierSnapshot",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutStoreSettlementEvidence",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutSettlementLineAllocation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutChange",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutOperation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutAcknowledgement",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceInventoryReservation",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceInventoryReservationItem",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceOrder",
+      "count": 1600,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1520,
+          "status": "CONFIRMED"
+        },
+        {
+          "_count": 80,
+          "status": "CANCELLED"
+        }
+      ],
+      "ownerField": "customerUserId",
+      "distinctOwners": 500,
+      "earliestTimestamp": "2025-07-01T11:47:05.924Z",
+      "latestTimestamp": "2026-07-30T15:18:11.593Z"
+    },
+    {
+      "modelName": "MarketplaceStoreOrder",
+      "count": 1600,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 1600,
+          "status": "SETTLED"
+        }
+      ],
+      "ownerField": "storeId",
+      "distinctOwners": 34,
+      "earliestTimestamp": "2025-07-01T11:47:05.924Z",
+      "latestTimestamp": "2026-07-30T15:18:11.593Z"
+    },
+    {
+      "modelName": "MarketplaceOrderLine",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceOrderLineModifier",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceOrderLineFinancialAllocation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceSettlementSnapshot",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreSettlementJob",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceSettlementHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceSettlementAllocation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceCheckoutReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreOrderOperationalPolicy",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "StoreOrderOperationalPolicyHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderLineFulfilment",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderIssue",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderSubstitutionProposal",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderSubstitutionReservation",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderCustomerDecision",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "customerUserId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderAdjustment",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderAdjustmentAllocation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderAmendment",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderCancellationRequest",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderDeliveryBridge",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderPickupHandoff",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderHistory",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderOperation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderEventIntent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "MarketplaceStoreOrderReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingAccount",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingPlacementDefinition",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingRateCardVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingCampaign",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingCampaignVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingCreativeSnapshot",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingTarget",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingFundingAllocation",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingFundingMovement",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingServeDecision",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingMeasurementEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingClickCharge",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingAttribution",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingDailyAggregate",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "AdvertisingReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentPositionFamily",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentRequisition",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentOpening",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentOpeningVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentApplicationFormVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentApplicationSectionVersion",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentApplicationQuestionVersion",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentApplicantProfile",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentApplication",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentSubmittedAnswer",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentApplicationDocument",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentPrivacyNoticeVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentConsentRecord",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentEmploymentEquityDeclaration",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentEmploymentEquityConfiguration",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentScreeningPolicyVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentReviewAssignment",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentEvaluationRubricVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentRubricCriteria",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentInterviewPlan",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentInterviewSlot",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentInterview",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentInterviewPanelMember",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentScorecard",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentAccommodationRequest",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentBackgroundCheckPolicyVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentCheckCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentDecision",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentOffer",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentOfferVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentOnboardingHandoff",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentRetentionPolicyVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentApplicantDataRequest",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentFraudCase",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "RecruitmentEventIntent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationCategory",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationTemplate",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationTemplateVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationTemplateVariable",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationEventRoute",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationEventRouteVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationRecipientPolicyVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationSourceReceipt",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationMessage",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationRecipient",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationDelivery",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationDeliveryAttempt",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationProviderReceipt",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationInboxItem",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationPreference",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationConsentRecord",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationEndpoint",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationSuppression",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationDigestBucket",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "userId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationAuditEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationEventIntent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "NotificationSecurePayload",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApplication",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApplicationReview",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperTermsVersion",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperTermsAcceptance",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperScopeDefinition",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperScopeGrant",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperScopeGrantVersion",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiCredential",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiCredentialRotation",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiRequestAudit",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiIdempotencyRecord",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiRateLimitPolicyVersion",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiRateUsage",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiQuotaPolicyVersion",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiQuotaUsage",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookEventType",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookEventVersion",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookSubscription",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookSubscriptionVersion",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookVerification",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookSecret",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookPublicEvent",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": "storeId",
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookDelivery",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperWebhookAttempt",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiAuditEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "DeveloperApiReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ReportDefinition",
+      "count": 6,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:59:55.687Z",
+      "latestTimestamp": "2026-07-31T05:59:55.820Z"
+    },
+    {
+      "modelName": "ReportDefinitionVersion",
+      "count": 6,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:59:55.700Z",
+      "latestTimestamp": "2026-07-31T05:59:55.823Z"
+    },
+    {
+      "modelName": "ReportJob",
+      "count": 6,
+      "statusField": "status",
+      "statusDist": [
+        {
+          "_count": 6,
+          "status": "COMPLETED"
+        }
+      ],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:59:55.712Z",
+      "latestTimestamp": "2026-07-31T05:59:55.830Z"
+    },
+    {
+      "modelName": "ReportExportArtifact",
+      "count": 6,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "2026-07-31T05:59:55.723Z",
+      "latestTimestamp": "2026-07-31T05:59:55.833Z"
+    },
+    {
+      "modelName": "ReportDownloadAudit",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ReportAuditEvent",
+      "count": 0,
+      "statusField": null,
+      "statusDist": null,
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    },
+    {
+      "modelName": "ReportReconciliationCase",
+      "count": 0,
+      "statusField": "status",
+      "statusDist": [],
+      "ownerField": null,
+      "distinctOwners": null,
+      "earliestTimestamp": "N/A",
+      "latestTimestamp": "N/A"
+    }
+  ]
+}

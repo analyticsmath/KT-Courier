@@ -1,0 +1,2 @@
+import { Card } from "@/components/ui/Card";
+export default async function CheckoutReviewPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8"><h1 className="text-2xl font-black">Review your order</h1><Card className="mt-5"><p className="text-sm">Review all store groups, item prices, modifiers, delivery fees, seller terms and policies for {reference}. Changed prices, quantities, and delivery fees require explicit acknowledgement.</p></Card></section>; }

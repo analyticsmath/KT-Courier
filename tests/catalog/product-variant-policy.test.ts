@@ -1,0 +1,2 @@
+import { describe, expect, it } from "vitest"; import { productOptionFingerprint } from "@/lib/catalog/product-option-fingerprint";
+describe("variant policy",()=>{it("gives products without options one stable default variant identity",()=>expect(productOptionFingerprint([])).toMatch(/^[a-f0-9]{64}$/));it("separates exact option combinations",()=>expect(productOptionFingerprint([{code:"size",value:"S"}])).not.toBe(productOptionFingerprint([{code:"size",value:"M"}])));});

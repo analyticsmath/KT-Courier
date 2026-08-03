@@ -1,0 +1,1 @@
+import type { NextRequest } from "next/server"; import { PERMISSIONS } from "@/lib/auth/permission-keys"; import { promoterAdminCollection } from "@/lib/promoters/admin-read"; export const GET = (request: NextRequest) => promoterAdminCollection(request, PERMISSIONS.PROMOTER_ATTRIBUTIONS_READ, "promoter-attributions");

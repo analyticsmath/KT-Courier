@@ -1,0 +1,14 @@
+import { notFound } from "next/navigation";
+import { AdministrationPanel } from "@/components/protected-v2/admin/AdministrationRoutePrimitives";
+import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
+import { CommissionReversalForm } from "@/components/admin/CommissionReversalForm";
+import { requireAdminPagePermission } from "@/lib/auth/guards";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { hasPermission } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { getCommissionAccrual } from "@/lib/services/commission-query.service";
+
+export default async function CommissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPagePermission(PERMISSIONS.COMMISSIONS_READ); const commission = await getCommissionAccrual((await params).id); if (!commission) notFound(); const user = await getCurrentUser(); const canReverse = Boolean(user && commission.status === "ACCRUED" && await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.COMMISSIONS_REVERSE }));
+  return <div className="max-w-5xl space-y-6"><ProtectedPageHeader eyebrow="Commission evidence" title="Commissions" description={`${commission.publicReference} — ${commission.status}`} /><AdministrationPanel><dl><dt>Subject</dt><dd>{commission.subjectPublicReference}</dd><dt>Settlement version</dt><dd>{commission.settlementVersion}</dd><dt>Basis</dt><dd>{commission.basisType}: R {commission.basisAmount}</dd><dt>Plan</dt><dd>{commission.plan.publicReference} v{commission.plan.versionNumber}</dd><dt>Accrual journal</dt><dd>{commission.ledgerJournalReference}</dd><dt>Reversal journal</dt><dd>{commission.reversalLedgerJournalReference ?? "None"}</dd></dl></AdministrationPanel><AdministrationPanel><h2 className="mb-3 text-lg font-semibold">Allocations</h2><table className="w-full text-left text-sm" aria-label="commission-allocations"><thead><tr><th>Rule</th><th>Allocation</th><th>Beneficiary</th><th>Amount</th><th>Account</th><th>Status</th></tr></thead><tbody>{commission.allocations.map((allocation) => <tr key={allocation.publicReference}><td>{allocation.ruleCode}</td><td>{allocation.allocationType}</td><td>{allocation.beneficiaryType}</td><td>R {allocation.amount}</td><td>{allocation.accountCode}</td><td>{allocation.status}</td></tr>)}</tbody></table></AdministrationPanel><AdministrationPanel><h2 className="mb-3 text-lg font-semibold">Status history</h2><ul>{commission.history.map((event, index) => <li key={`${event.createdAt}-${index}`}>{event.toStatus} — {event.reasonCode ?? "No reason"} — {event.createdAt}</li>)}</ul></AdministrationPanel>{canReverse ? <AdministrationPanel><CommissionReversalForm accrualId={commission.id} /></AdministrationPanel> : null}</div>;
+}

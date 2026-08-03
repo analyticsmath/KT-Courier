@@ -1,0 +1,1 @@
+import type { NextRequest } from "next/server"; import { promoterDisputeAdminRoute } from "@/lib/promoters/dispute-admin-route"; export const POST = (r: NextRequest, c: { params: Promise<{ reference: string }> }) => promoterDisputeAdminRoute(r, c, "/api/admin/promoter-disputes/[reference]/close", "close");

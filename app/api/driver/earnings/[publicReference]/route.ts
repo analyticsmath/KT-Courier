@@ -1,0 +1,6 @@
+import type { NextRequest } from "next/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { getDriverEarningForOwner } from "@/lib/services/driver-earning-query.service";
+import { driverEarningApiError, driverEarningNoStoreJson } from "@/lib/driver-earnings/api-policy";
+import { DriverEarningPublicReferenceParamsSchema } from "@/lib/validation/driver-earnings";
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ publicReference: string }> }) { const user = await getCurrentUser(); if (!user) return driverEarningNoStoreJson({ error: "Authentication required." }, 401); if (user.role !== "DRIVER" || user.status !== "ACTIVE") return driverEarningNoStoreJson({ error: "Driver earnings are unavailable for this account." }, 403); const parsed = DriverEarningPublicReferenceParamsSchema.safeParse(await params); if (!parsed.success) return driverEarningNoStoreJson({ error: "Driver earning was not found." }, 404); try { const earning = await getDriverEarningForOwner(user.id, parsed.data.publicReference); return earning ? driverEarningNoStoreJson({ earning }) : driverEarningNoStoreJson({ error: "Driver earning was not found." }, 404); } catch (error) { return driverEarningApiError(error); } }

@@ -1,0 +1,2 @@
+import { runPromoterProcessor } from "./promoter-processor.mjs";
+await runPromoterProcessor({ name: "release-promoter-earnings", selectCandidates: async (prisma, limit) => prisma.promoterEarning.findMany({ where: { status: "ACCRUED_HELD", holdUntil: { lte: new Date() } }, take: limit, select: { id: true, publicReference: true } }), process: async ({ prisma, root, candidate, operationId }) => root.services.qualificationEarning.releasePromoterEarning(prisma, { earningId: candidate.id, operationId }) });

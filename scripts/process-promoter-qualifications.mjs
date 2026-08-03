@@ -1,0 +1,2 @@
+import { runPromoterProcessor } from "./promoter-processor.mjs";
+await runPromoterProcessor({ name: "process-promoter-qualifications", selectCandidates: async (prisma, limit) => prisma.promoterQualification.findMany({ where: { status: "EVIDENCE_OBSERVED" }, take: limit, select: { id: true, publicReference: true } }), process: async ({ prisma, root, candidate, operationId }) => root.services.qualificationEarning.confirmPromoterQualification(prisma, { qualificationId: candidate.id, operationId }) });

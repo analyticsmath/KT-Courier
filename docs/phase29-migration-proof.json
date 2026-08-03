@@ -1,0 +1,17 @@
+{
+  "exactMigrationFolder": "20260728000000_phase29_reporting_exports",
+  "precedingMigration": "20260727000000_phase28_public_api_webhooks",
+  "completeSHA256": "6e7053d9c4e4403d76a67e473a72ff7102e4cbf722eb91f1bb20cd7d13391665",
+  "repositoryMigrationCount": 26,
+  "phase29MigrationPosition": 26,
+  "appliedStatus": "APPLIED_SUCCESSFULLY",
+  "appliedFinishedAt": "2026-07-31T05:08:21.707Z",
+  "schemaToSqlCoverage": "100% COMPLETE",
+  "whetherAnyEarlierMigrationChanged": "NO (All historical migration hashes intact)",
+  "whetherOperationalReportDataWasInsertedInMigrationSQL": "NO (Pure DDL migration)",
+  "cleanMigrationDeployment": "PASSED (Validated against shadow DB)",
+  "incrementalMigrationDeployment": "PASSED (Deployed seamlessly over Phase 28)",
+  "secondRunNoOp": "PASSED (0 pending migrations)",
+  "prismaSchemaDriftCheck": "PASSED (Database schema is up to date)",
+  "prismaClientGeneration": "Command failed: npx prisma generate\nError: \nEPERM: operation not permitted, rename 'D:\\KT-Courier\\kt-courier\\node_modules\\.prisma\\client\\query_engine-windows.dll.node.tmp11408' -> 'D:\\KT-Courier\\kt-courier\\node_modules\\.prisma\\client\\query_engine-windows.dll.node'\n\n\n"
+}

@@ -1,0 +1,499 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kt_courier_ci?schema=public
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and API tests with coverage
+        run: npm run test:coverage
+
+      - name: Check migration safety
+        run: npm run migrations:check
+
+      - name: Build
+        run: npm run build
+
+  container-build:
+    runs-on: ubuntu-latest
+
+    env:
+      POSTGRES_DB: kt_courier_ci
+      POSTGRES_USER: kt_courier_ci
+      POSTGRES_PASSWORD: ci_local_only_password
+      SHADOW_POSTGRES_DB: kt_courier_ci_shadow
+      DATABASE_URL: postgresql://kt_courier_ci:ci_local_only_password@localhost:5433/kt_courier_ci?schema=public
+      SHADOW_DATABASE_URL: postgresql://kt_courier_ci:ci_local_only_password@localhost:5433/kt_courier_ci_shadow?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      EMAIL_PROVIDER: console
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Docker doctor
+        run: npm run docker:doctor
+
+      - name: Validate Compose configuration
+        run: npm run docker:config
+
+      - name: Build Docker image
+        run: npm run docker:build
+
+  migration-smoke:
+    runs-on: ubuntu-latest
+
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-ci-${{ github.run_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run empty-database migration smoke
+        run: npm run docker:migration-smoke
+
+  pricing-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration:pricing
+
+  dispatch-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration:dispatch
+
+  cross-module-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration:auth
+      - run: npm run test:integration:permissions
+      - run: npm run test:integration:orders
+      - run: npm run test:integration:cross-module
+
+  ledger-integration:
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-ledger-ci-${{ github.run_id }}
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Empty-database migration smoke
+        run: npm run docker:migration-smoke
+      - name: Seed-twice, preflight, integration, and invariant verification
+        run: npm run test:integration:ledger
+      - name: Install Chromium for read-only ledger E2E
+        run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Read-only ledger E2E
+        run: npm run test:e2e -- --grep "read-only admin ledger"
+
+  payment-foundation-integration:
+    if: ${{ vars.ENABLE_DEFERRED_PAYMENT_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-payment-ci-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable PostgreSQL payment foundation tests
+        run: npm run test:integration:payment-foundation
+
+  payment-foundation-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_PAYMENT_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Read-only payment foundation E2E
+        run: npm run test:e2e -- --grep "read-only payment foundation admin"
+
+  payfast-integration:
+    if: ${{ vars.ENABLE_DEFERRED_PAYFAST_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-payfast-ci-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable PostgreSQL Payfast integration tests
+        run: npm run test:integration:payfast
+
+  payfast-checkout-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_PAYFAST_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      PAYFAST_MODE: sandbox
+      PAYFAST_MERCHANT_ID: integration-merchant-id
+      PAYFAST_MERCHANT_KEY: integration-merchant-key
+      PAYFAST_PASSPHRASE: integration-private-passphrase
+      PAYMENT_APP_ORIGIN: https://payfast-e2e.example.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Isolated Payfast form handoff E2E
+        run: npm run test:e2e -- --grep "Payfast sandbox checkout"
+
+  payfast-confirmation-integration:
+    if: ${{ vars.ENABLE_DEFERRED_PAYFAST_CONFIRMATION_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-payfast-confirmation-ci-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable deterministic Payfast confirmation tests
+        run: npm run test:integration:payfast-confirmation
+
+  payfast-confirmation-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_PAYFAST_CONFIRMATION_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      PAYFAST_MODE: sandbox
+      PAYFAST_MERCHANT_ID: deterministic-merchant-id
+      PAYFAST_MERCHANT_KEY: deterministic-merchant-key
+      PAYFAST_PASSPHRASE: deterministic-private-passphrase
+      PAYFAST_CREDENTIAL_VERSION: e2e-sandbox-v1
+      PAYMENT_PROXY_MODE: single_trusted_proxy
+      PAYMENT_APP_ORIGIN: https://payfast-confirmation-e2e.example.test
+      KT_PAYFAST_TEST_DEPENDENCIES: deterministic-injected
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Controlled local Payfast confirmation browser flows
+        run: npm run test:e2e -- --grep "Payfast confirmation"
+
+  withdrawal-integration:
+    if: ${{ vars.ENABLE_DEFERRED_WITHDRAWAL_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-withdrawal-ci-${{ github.run_id }}
+      KT_WITHDRAWAL_INTEGRATION_APPROVED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable deterministic withdrawal integration tests
+        run: npm run test:integration:withdrawals
+
+  withdrawal-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_WITHDRAWAL_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      KT_RUNTIME_ENV: e2e
+      KT_E2E_RATE_LIMIT_MODE: relaxed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Deterministic withdrawal browser flows without external banking
+        run: npm run test:e2e -- --grep "withdrawal"
+
+  refund-integration:
+    if: ${{ vars.ENABLE_DEFERRED_REFUND_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-refund-${{ github.run_id }}
+      KT_REFUND_INTEGRATION_APPROVED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable deterministic refund integration tests
+        run: npm run test:integration:refunds
+
+  refund-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_REFUND_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      KT_RUNTIME_ENV: e2e
+      KT_E2E_RATE_LIMIT_MODE: relaxed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Customer wallet and finance refund browser flows
+        run: npm run test:e2e -- --grep "refund"
+
+  store-earning-integration:
+    if: ${{ vars.ENABLE_DEFERRED_STORE_EARNING_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-store-earning-${{ github.run_id }}
+      KT_STORE_EARNING_INTEGRATION_APPROVED: "true"
+      KT_NETWORK_DISABLED: "true"
+      NO_PROXY: "*"
+      no_proxy: "*"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable deterministic store earning integration tests
+        run: npm run test:integration:store-earnings
+
+  store-earning-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_STORE_EARNING_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      KT_RUNTIME_ENV: e2e
+      KT_E2E_RATE_LIMIT_MODE: relaxed
+      KT_NETWORK_DISABLED: "true"
+      NO_PROXY: "*"
+      no_proxy: "*"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Store and finance earning browser flows
+        run: npm run test:e2e -- --grep "store earning"
+
+  driver-earning-integration:
+    if: ${{ vars.ENABLE_DEFERRED_DRIVER_EARNING_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-driver-earning-${{ github.run_id }}
+      KT_DRIVER_EARNING_INTEGRATION_APPROVED: "true"
+      KT_NETWORK_DISABLED: "true"
+      NO_PROXY: "*"
+      no_proxy: "*"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable deterministic driver earning integration tests
+        run: npm run test:integration:driver-earnings
+
+  driver-earning-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_DRIVER_EARNING_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      KT_RUNTIME_ENV: e2e
+      KT_E2E_RATE_LIMIT_MODE: relaxed
+      KT_NETWORK_DISABLED: "true"
+      NO_PROXY: "*"
+      no_proxy: "*"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Driver and finance earning Chromium flows with failure traces only
+        run: npm run test:e2e -- --grep "driver earning"
+
+  docker-runtime:
+    runs-on: ubuntu-latest
+    env:
+      KT_SMOKE_PROJECT_NAME: kt-couriers-ci-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run docker:smoke
+
+  e2e-chromium:
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - run: npm run test:e2e
+
+  storefront-integration:
+    if: ${{ vars.ENABLE_DEFERRED_STOREFRONT_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      KT_STOREFRONT_INTEGRATION_APPROVED: "true"
+      KT_SMOKE_PROJECT_NAME: kt-couriers-storefront-${{ github.run_id }}
+      KT_NETWORK_DISABLED: "true"
+      NO_PROXY: "*"
+      no_proxy: "*"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Disposable PostgreSQL storefront integration
+        run: npm run test:integration:storefront
+
+  storefront-e2e:
+    if: ${{ vars.ENABLE_DEFERRED_STOREFRONT_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      KT_NETWORK_DISABLED: "true"
+      NO_PROXY: "*"
+      no_proxy: "*"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Storefront browser flows with failure traces only
+        run: npm run test:e2e -- --grep "storefront"
+
+  storefront-accessibility:
+    if: ${{ vars.ENABLE_DEFERRED_STOREFRONT_VALIDATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      KT_NETWORK_DISABLED: "true"
+      NO_PROXY: "*"
+      no_proxy: "*"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Storefront keyboard and accessibility flows
+        run: npm run test:e2e -- --grep "storefront accessibility"

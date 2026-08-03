@@ -1,0 +1,4 @@
+import { readFileSync } from "node:fs"; import path from "node:path"; import { describe, expect, it } from "vitest";
+function read(file:string){return readFileSync(path.join(process.cwd(),file),"utf8")};
+describe("store catalog UI contract",()=>{it("has the exact heading and all routes",()=>{expect(read("app/(store)/store/catalog/page.tsx")).toContain('title="Product Catalog"');for(const route of ["products/page.tsx","products/new/page.tsx","offers/page.tsx","inventory/page.tsx","modifiers/page.tsx","imports/page.tsx"])expect(read(`app/(store)/store/catalog/${route}`)).toBeTruthy()});it("implements autosave, errors and thirteen steps",()=>{const wizard=read("components/catalog/StoreCatalogWizard.tsx");expect(wizard).toContain("window.localStorage");expect(wizard).toContain("catalog-error-summary");expect(wizard).toContain("Step {step + 1} of {STEPS.length}");expect(wizard).toContain("Quality checklist")});});
+

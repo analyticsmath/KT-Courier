@@ -1,0 +1,6 @@
+import { readFileSync } from "node:fs";
+import { expect, it } from "vitest";
+
+const handlers = ["lib/catalog/media/catalog-media-route-handlers.ts", "lib/catalog/media/catalog-media-attachment-route-handlers.ts", "lib/catalog/catalog-api-policy.ts", "lib/validation/catalog-media.ts"].map((path) => readFileSync(path, "utf8")).join("\n");
+const routes = ["app/api/store/catalog/media/route.ts", "app/api/store/catalog/media/uploads/route.ts", "app/api/store/catalog/media/uploads/[publicReference]/content/route.ts", "app/api/store/catalog/media/uploads/[publicReference]/complete/route.ts", "app/api/store/catalog/media/[publicReference]/route.ts", "app/api/store/catalog/media/[publicReference]/archive/route.ts"].map((path) => readFileSync(path, "utf8")).join("\n");
+it("requires auth exact permission explicit ownership origin rates strict schemas bounded streams and operation IDs", () => { for (const token of ["requireStoreCatalogPermission", "CATALOG_MANAGE", "prepareCatalogMutation", "prepareCatalogMediaStream", "safeParse", ".strict()", "X-Catalog-Operation-Id", "CATALOG_MEDIA_STREAM_LIMIT", "ownerType: \"STORE\"", "storeId: auth.store.id"]) expect(handlers).toContain(token); expect(routes).not.toMatch(/export async function DELETE/); expect(handlers).not.toMatch(/storageKey:\s*prepared|ownerStoreId:\s*parsed/); });

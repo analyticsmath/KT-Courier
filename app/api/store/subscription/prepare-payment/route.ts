@@ -1,0 +1,10 @@
+import type { NextRequest } from "next/server";
+import { assertSubscriptionsProductionReady } from "@/lib/subscriptions/production-lock";
+import { prepareInitialSubscriptionPayment } from "@/lib/subscriptions/subscription-contract.service";
+import { resolveSubscriptionProductionComposition } from "@/lib/subscriptions/composition-root";
+import { enforceSubscriptionMutation, exactSubscriptionKeys, readSubscriptionJson, requireSubscriptionStoreActor, requiredSubscriptionString, subscriptionApiError, subscriptionJson } from "@/lib/subscriptions/api-policy";
+
+export async function POST(request: NextRequest) {
+  const limited = await enforceSubscriptionMutation(request); if (limited) return limited;
+  try { const body = await readSubscriptionJson(request); exactSubscriptionKeys(body, ["storeId", "reviewReference", "commercialFingerprint", "operationId", "serviceStartConsent"]); const storeId = requiredSubscriptionString(body, "storeId"); const auth = await requireSubscriptionStoreActor(request, storeId, "store_subscriptions.billing"); if (auth.response) return auth.response; if (typeof body.serviceStartConsent !== "boolean") return subscriptionJson({ error: "Invalid membership request." }, 422); assertSubscriptionsProductionReady("INITIAL_PAYMENT"); const composition = resolveSubscriptionProductionComposition(); const action = await prepareInitialSubscriptionPayment(composition.contracts, composition.recurringProvider, { reviewReference: requiredSubscriptionString(body, "reviewReference"), payerUserId: auth.user.id, commercialFingerprint: requiredSubscriptionString(body, "commercialFingerprint", 128), payerEmail: auth.user.email, returnUrl: new URL("/store/subscription/billing", request.url).toString(), cancelUrl: new URL("/store/subscription/billing", request.url).toString(), notificationUrl: new URL("/api/payments/payfast/itn", request.url).toString(), operationId: requiredSubscriptionString(body, "operationId", 160), serviceStartConsent: body.serviceStartConsent }); return subscriptionJson({ action }); } catch (error) { return subscriptionApiError(error); }
+}

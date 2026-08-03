@@ -1,0 +1,14 @@
+import { notFound } from "next/navigation";
+import { AdministrationPanel } from "@/components/protected-v2/admin/AdministrationRoutePrimitives";
+import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
+import { CommissionPlanActions } from "@/components/admin/CommissionPlanActions";
+import { requireAdminPagePermission } from "@/lib/auth/guards";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { hasPermission } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { getCommissionPlan } from "@/lib/services/commission-plan-query.service";
+
+export default async function CommissionPlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPagePermission(PERMISSIONS.COMMISSION_PLANS_READ); const plan = await getCommissionPlan((await params).id); if (!plan) notFound(); const user = await getCurrentUser(); const [canReview, canApprove] = user ? await Promise.all([hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.COMMISSION_PLANS_REVIEW }), hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.COMMISSION_PLANS_APPROVE })]) : [false, false];
+  return <div className="max-w-5xl space-y-6"><ProtectedPageHeader eyebrow="Commission policy" title="Commission Plans" description={`${plan.publicReference} — ${plan.status}`} /><AdministrationPanel><dl><dt>Version</dt><dd>{plan.versionNumber}</dd><dt>Scope</dt><dd>{plan.scopeKey}</dd><dt>Basis</dt><dd>{plan.basisType}</dd><dt>Effective period</dt><dd>{plan.effectiveFrom} to {plan.effectiveUntil ?? "open"}</dd><dt>Creator</dt><dd>{plan.createdBy?.label ?? "Unknown"}</dd><dt>Approver</dt><dd>{plan.approvedBy?.label ?? "Not approved"}</dd></dl></AdministrationPanel><AdministrationPanel><h2 className="mb-3 text-lg font-semibold">Rules</h2><table className="w-full text-left text-sm" aria-label="commission-plan-rules"><thead><tr><th>Code</th><th>Allocation</th><th>Beneficiary</th><th>Method</th><th>Value</th><th>Priority</th></tr></thead><tbody>{plan.rules.map((rule) => <tr key={rule.publicReference}><td>{rule.ruleCode}</td><td>{rule.allocationType}</td><td>{rule.beneficiaryType}</td><td>{rule.calculationMethod}</td><td>{rule.rateBasisPoints ?? rule.fixedAmount}</td><td>{rule.priority}</td></tr>)}</tbody></table></AdministrationPanel><AdministrationPanel><h2 className="mb-3 text-lg font-semibold">Lifecycle history</h2><ol>{plan.history.map((entry) => <li key={entry.operationId}>{entry.toStatus} — {entry.reasonCode ?? "No reason"} — {entry.actorLabel} — {entry.createdAt}</li>)}</ol></AdministrationPanel><AdministrationPanel><CommissionPlanActions id={plan.id} status={plan.status} canReview={canReview} canApprove={canApprove} /></AdministrationPanel></div>;
+}

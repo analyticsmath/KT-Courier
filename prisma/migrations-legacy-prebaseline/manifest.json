@@ -1,0 +1,53 @@
+{
+  "archive": "pre-production migration baseline consolidation",
+  "migrations": [
+    {
+      "order": 1,
+      "folder": "20260611000000_phase_2_3_address_book",
+      "sqlFile": "migration.sql",
+      "sha256": "7a799dd9593ba7601d449dfe9be0f26eb6138398512bd1eabc400fcfd17af365"
+    },
+    {
+      "order": 2,
+      "folder": "20260611000001_phase_2_4_driver_foundation",
+      "sqlFile": "migration.sql",
+      "sha256": "2c5fd51990810c478a4357f2cf237f6877143e1acf682fa8104d62ce100cf2f3"
+    },
+    {
+      "order": 3,
+      "folder": "20260611000002_phase_2_5_dispatch_assignment",
+      "sqlFile": "migration.sql",
+      "sha256": "c80467a0ab0567db0f64643fb16c562722159fa3db6fc1297cef2392c2aa8e6f"
+    },
+    {
+      "order": 4,
+      "folder": "20260611000003_phase_2_6_pickup_custody",
+      "sqlFile": "migration.sql",
+      "sha256": "7aafc7c0cd274e24c2a1faf2ba342dcf7ba318b2e9f1a7456923f0625a05320c"
+    },
+    {
+      "order": 5,
+      "folder": "20260611000004_phase_2_7_delivery_pod",
+      "sqlFile": "migration.sql",
+      "sha256": "ac96900da8977604a84cb7219b883a89b475b64660da66ff78acaa8b6826cf9a"
+    },
+    {
+      "order": 6,
+      "folder": "20260708000000_phase1_security_session_hardening",
+      "sqlFile": "migration.sql",
+      "sha256": "521e92fc4f5b7ab9c3c2ae6538a70f3d2c077f08601660308cb59a39d36ee140"
+    },
+    {
+      "order": 7,
+      "folder": "20260708010000_phase2_employee_permissions",
+      "sqlFile": "migration.sql",
+      "sha256": "06707427d457ad54c5c76550cabf2d70998a5c055d4c845f3d1c04c1e083bd7c"
+    },
+    {
+      "order": 8,
+      "folder": "20260710000000_phase4_database_foundation_expansion",
+      "sqlFile": "migration.sql",
+      "sha256": "8de8eb92d5836058d4d3a8b9bda775bf49e414629ac4ff673af56bcf701b70de"
+    }
+  ]
+}

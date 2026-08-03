@@ -1,0 +1,2 @@
+import { runPromoterProcessor } from "./promoter-processor.mjs";
+await runPromoterProcessor({ name: "process-promoter-reversals", selectCandidates: async (prisma, limit) => prisma.promoterEarning.findMany({ where: { status: "REVERSAL_REQUIRED" }, take: limit, select: { id: true, publicReference: true } }), process: async ({ prisma, root, candidate, operationId }) => root.services.qualificationEarning.reversePromoterEarning(prisma, { earningId: candidate.id, operationId }) });

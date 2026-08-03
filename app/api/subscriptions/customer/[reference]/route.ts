@@ -1,0 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { NextRequest } from "next/server";
+import { prisma } from "@/lib/db/prisma";
+import { requireSubscriptionCustomer, subscriptionApiError, subscriptionJson } from "@/lib/subscriptions/api-policy";
+export async function GET(request: NextRequest, context: { params: Promise<{ reference: string }> }) { const auth = await requireSubscriptionCustomer(request); if (auth.response) return auth.response; try { const { reference } = await context.params; const contract = await (prisma as any).subscriptionContract.findFirst({ where: { publicReference: reference, customerUserId: auth.user.id }, select: { publicReference: true, status: true, currentPeriodStart: true, currentPeriodEnd: true, paidThroughAt: true, cancellationEffectiveAt: true, contractedPrice: true, currency: true, planVersion: { select: { displayName: true } } } }); return contract ? subscriptionJson({ contract }) : subscriptionJson({ error: "Membership was not found." }, 404); } catch (error) { return subscriptionApiError(error); } }

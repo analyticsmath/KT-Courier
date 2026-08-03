@@ -1,0 +1,5 @@
+import { expect, test, vi } from "vitest";
+const dependencies = vi.hoisted(() => ({ storeFindUnique: vi.fn(), queryRaw: vi.fn(), storeUpsert: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { store: { findUnique: dependencies.storeFindUnique }, $queryRaw: dependencies.queryRaw, storefrontStoreDocument: { upsert: dependencies.storeUpsert } } }));
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
+test("store service projects mocked eligible offer facts without contacts or addresses", async () => { dependencies.storeFindUnique.mockResolvedValue({ id: "store", slug: "tea-store", name: "Tea Store", status: "ACTIVE", updatedAt: new Date() }); dependencies.queryRaw.mockResolvedValue([{ categoryPublicReference: "CC-1", fulfilmentMode: "COURIER_DELIVERY" }]); await rebuildStorefrontStoreDocument("store"); const create = dependencies.storeUpsert.mock.calls[0][0].create; expect(create).toMatchObject({ publicStatus: "ACTIVE", publishedOfferCount: 1 }); expect(JSON.stringify(create)).not.toMatch(/address|phone|email/i); });

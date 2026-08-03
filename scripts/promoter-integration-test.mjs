@@ -1,0 +1,2 @@
+import { runPromoterProcessor } from "./promoter-processor.mjs";
+await runPromoterProcessor({ name: "promoter-integration-test", selectCandidates: async (prisma, limit) => prisma.promoterReconciliationCase.findMany({ where: { status: { in: ["OPEN", "MONITORING"] } }, take: limit, select: { id: true, publicReference: true } }), process: async ({ prisma, root, candidate, operationId }) => root.services.reconciliation.rescanPromoterReconciliationCase(prisma, { reference: candidate.publicReference, comparison: {}, operationId }) });

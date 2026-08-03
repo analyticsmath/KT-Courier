@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest"; import { detectDuplicateSignals } from "@/lib/catalog/catalog-duplicate-detection";
+describe("duplicate detection",()=>{it("prioritizes exact GTIN",()=>expect(detectDuplicateSignals({productId:"a",title:"Phone",productTypeCode:"PHONE",gtins:["4006381333931"]},[{productId:"b",title:"Other",productTypeCode:"PHONE",gtins:["4006381333931"]}])).toEqual([{candidateProductId:"b",reason:"EXACT_GTIN",confidenceBand:"EXACT"}]));it("does not automatically merge",()=>expect(detectDuplicateSignals({productId:"a",title:"A",productTypeCode:"A"},[])).toEqual([]));});
+

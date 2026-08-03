@@ -1,0 +1,33 @@
+.scope { --developer-ink: #18333a; --developer-accent: #187178; --developer-alert: #9a4c2f; }
+
+.scope :global(.eo-developer-secret) { display: block; margin-top: 1rem; padding: .875rem; overflow-x: auto; border: 1px solid color-mix(in srgb, white 35%, transparent); border-radius: var(--eo-radius-control); background: rgba(0, 0, 0, .22); color: white; font-size: .875rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.recordMeta { margin: .25rem 0 0; color: var(--eo-text-muted); font-size: .8125rem; }
+
+.definitionList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0 0; }
+.definitionList div { min-width: 0; }
+.definitionList dt { color: var(--eo-text-muted); font-size: .8125rem; }
+.definitionList dd { margin: .25rem 0 0; font-weight: 600; overflow-wrap: anywhere; }
+
+.scopeList, .attemptList, .bulletList { margin: 0; padding: 0; list-style: none; }
+.scopeList { display: grid; gap: .75rem; }
+.scopeList li { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--eo-line-soft); padding-top: .75rem; }
+.scopeList li:first-child { border-top: 0; padding-top: 0; }
+.scopeList code { font-weight: 700; overflow-wrap: anywhere; }
+.scopeList p { margin: .35rem 0 0; color: var(--eo-text-secondary); font-size: .875rem; }
+
+.bulletList { display: grid; gap: .65rem; }
+.bulletList li { position: relative; padding-left: 1rem; color: var(--eo-text-secondary); }
+.bulletList li::before { position: absolute; left: 0; color: var(--developer-accent); content: "•"; }
+
+.attemptList { display: grid; gap: .6rem; counter-reset: attempts; }
+.attemptList li { display: grid; grid-template-columns: minmax(8rem, 1.2fr) repeat(3, minmax(0, 1fr)) minmax(10rem, 1.2fr); gap: .75rem; align-items: center; border: 1px solid var(--eo-line-soft); border-radius: var(--eo-radius-control); padding: .75rem; font-size: .875rem; }
+.attemptList span, .attemptList time { color: var(--eo-text-secondary); overflow-wrap: anywhere; }
+
+.codeBlock { max-width: 100%; margin: 1rem 0 0; padding: 1rem; overflow: auto; border: 1px solid var(--eo-line-strong); border-radius: var(--eo-radius-control); background: var(--eo-surface-muted); color: var(--developer-ink); font-size: .8125rem; line-height: 1.6; white-space: pre; }
+
+@media (max-width: 699px) {
+  .definitionList { grid-template-columns: 1fr; }
+  .scopeList li { display: grid; }
+  .attemptList li { grid-template-columns: 1fr; gap: .35rem; }
+}

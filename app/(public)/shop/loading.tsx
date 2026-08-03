@@ -1,0 +1,2 @@
+export default function StorefrontLoading() { return <main className="container-public py-8" aria-busy="true"><div className="h-10 w-48 animate-pulse rounded bg-[var(--kt-studio-mist)]" /><div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <div className="aspect-[4/5] animate-pulse rounded-xl bg-[var(--kt-studio-mist)]" key={index} />)}</div></main>; }
+

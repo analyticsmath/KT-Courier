@@ -1,0 +1,74 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Phase 25 Prisma delegates are generated during deferred validation. */
+import { createHash, randomUUID } from "node:crypto";
+import { accrueCommissionInTransaction } from "@/lib/services/commission-accrual.service";
+import { createWithdrawalRequest } from "@/lib/services/withdrawal-request.service";
+import { reverseCommissionInTransaction } from "@/lib/services/commission-reversal.service";
+import { assertExactlyOneAttributionSubject, assertPromoterTargetAvailable } from "./policy";
+import { PromoterError } from "./errors";
+import { assertPromotersProductionReady } from "./production-readiness";
+
+type Db = any; type Input = Record<string, any>;
+const op = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/;
+const ref = (p: string) => `${p}-${randomUUID().replaceAll("-", "").toUpperCase()}`;
+const fingerprint = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const ready = () => assertPromotersProductionReady();
+function command(input: Input) { if (!op.test(input.operationId ?? "")) throw new PromoterError("PROMOTER_INVALID_COMMAND", "A stable operation ID is required."); }
+async function append(tx: Db, eventType: string, aggregateReference: string, operationId: string, safePayload: object = {}) { return tx.promoterEventIntent.create({ data: { eventType, aggregateReference, operationId, safePayload } }); }
+
+/** Registration-bound, first-valid-touch attribution with no administration path. */
+export async function bindPromoterAttribution(db: Db, input: Input) {
+  ready(); command(input); assertExactlyOneAttributionSubject(input);
+  return db.$transaction(async (tx: Db) => {
+    const replay = await tx.promoterAttribution.findUnique({ where: { operationId: input.operationId } });
+    const requestHash = input.requestHash ?? fingerprint(input);
+    if (replay) { if (replay.requestHash !== requestHash) throw new PromoterError("PROMOTER_INVALID_COMMAND", "Operation request conflict."); return replay; }
+    const touch = await tx.promoterTouch.findUnique({ where: { id: input.touchId }, include: { promoterAccount: true, enrollment: true, programVersion: { include: { program: true } } } });
+    if (!touch || touch.validityStatus !== "VALID" || touch.occurredAt > input.subjectCreatedAt || touch.promoterAccount.status !== "ACTIVE" || touch.enrollment.status !== "ACTIVE" || touch.programVersion.status !== "ACTIVE" || touch.programVersionId !== input.programVersionId || touch.programVersion.program.targetType !== input.subjectType) throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Only a pre-registration valid touch for an active matching program may bind attribution.");
+    // The accepted schema deliberately has no BusinessAccount relation/table.
+    // Do not invent an authority: business attribution stays closed until its
+    // canonical registration aggregate exists.
+    assertPromoterTargetAvailable(input.subjectType);
+    const existed = input.subjectType === "CUSTOMER" ? await tx.user.findUnique({ where: { id: input.customerUserId }, select: { id: true } }) : await tx.store.findUnique({ where: { id: input.storeId }, select: { id: true } });
+    if (existed) throw new PromoterError("PROMOTER_ATTRIBUTION_CONFLICT", "Existing subjects cannot be attributed.");
+    const duplicate = await tx.promoterAttribution.findUnique({ where: { programVersionId_subjectKey: { programVersionId: input.programVersionId, subjectKey: input.subjectKey } } });
+    if (duplicate) throw new PromoterError("PROMOTER_ATTRIBUTION_CONFLICT", "First valid acquisition touch already won.");
+    if (input.selfReferralOutcome && input.selfReferralOutcome !== "PASS") { await tx.promoterFraudCase.create({ data: { publicReference: ref("PFC"), promoterAccountId: touch.promoterAccountId, subjectType: input.subjectType, subjectReference: input.subjectKey, reason: "SELF_REFERRAL", status: "OPEN", priority: "HIGH", safeSummary: "Deterministic identity conflict blocked acquisition attribution.", safeEvidence: { outcome: input.selfReferralOutcome } } }); throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Attribution requires review."); }
+    const attribution = await tx.promoterAttribution.create({ data: { publicReference: ref("PAT"), promoterAccountId: touch.promoterAccountId, enrollmentId: touch.enrollmentId, programVersionId: touch.programVersionId, touchId: touch.id, subjectType: input.subjectType, customerUserId: input.customerUserId ?? null, businessAccountId: input.businessAccountId ?? null, storeId: input.storeId ?? null, subjectKey: input.subjectKey, expiresAt: input.expiresAt, operationId: input.operationId, requestHash } });
+    await append(tx, "PROMOTER_ATTRIBUTION_CREATED", attribution.publicReference, `event:${input.operationId}`); return attribution;
+  });
+}
+/** Canonical expiry preserves attribution history and never rewrites a winning touch. */
+export async function expirePromoterAttribution(db: Db, input: Input) {
+  ready(); command(input);
+  return db.promoterAttribution.updateMany({ where: { id: input.attributionId, status: { in: ["ATTRIBUTED", "PENDING_QUALIFICATION"] }, expiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
+}
+
+function assertQualifyingEvidence(input: Input) {
+  if (!input.paymentSucceeded || input.paymentSettled !== true || !input.fulfilmentCompleted || input.fullyRefunded || input.chargeback || input.confirmedFraud) throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Completed settled payment evidence is required.");
+}
+
+/** Customer/business/store adapters pass only canonical evidence into this lifecycle; registrations are never qualifying evidence. */
+export async function observePromoterQualificationEvidence(db: Db, input: Input) {
+  ready(); command(input); assertQualifyingEvidence(input);
+  assertPromoterTargetAvailable(input.subjectType);
+  return db.$transaction(async (tx: Db) => {
+    const attribution = await tx.promoterAttribution.findUnique({ where: { id: input.attributionId }, include: { programVersion: true } });
+    if (!attribution || attribution.status === "INVALIDATED" || attribution.subjectType !== input.subjectType || attribution.programVersion.qualifyingEventType !== input.qualifyingEventType) throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "The event does not match a valid attributed program.");
+    const duplicate = await tx.promoterQualification.findUnique({ where: { attributionId_programVersionId: { attributionId: attribution.id, programVersionId: attribution.programVersionId } } });
+    const requestHash = input.requestHash ?? fingerprint(input.evidence);
+    if (duplicate) { if (duplicate.evidenceFingerprint !== input.evidenceFingerprint) throw new PromoterError("PROMOTER_INVALID_COMMAND", "A different event cannot replace qualification evidence."); return duplicate; }
+    const qualification = await tx.promoterQualification.create({ data: { publicReference: ref("PQL"), attributionId: attribution.id, programVersionId: attribution.programVersionId, status: "EVIDENCE_OBSERVED", qualifyingEventType: input.qualifyingEventType, courierOrderId: input.courierOrderId ?? null, marketplaceOrderId: input.marketplaceOrderId ?? null, marketplaceStoreOrderId: input.marketplaceStoreOrderId ?? null, paymentId: input.paymentId ?? null, storeSettlementId: input.storeSettlementId ?? null, qualifyingAmount: input.qualifyingAmount ?? null, evidenceFingerprint: input.evidenceFingerprint, operationId: input.operationId, requestHash } });
+    await append(tx, "PROMOTER_QUALIFICATION_PENDING", qualification.publicReference, `event:${input.operationId}`); return qualification;
+  });
+}
+export async function confirmPromoterQualification(db: Db, input: Input) { ready(); command(input); return db.$transaction(async (tx: Db) => { const q = await tx.promoterQualification.findUnique({ where: { id: input.qualificationId }, include: { programVersion: true } }); if (!q || q.status !== "EVIDENCE_OBSERVED") throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Qualification evidence is not confirmable."); const now = new Date(); const row = await tx.promoterQualification.update({ where: { id: q.id }, data: { status: "QUALIFIED_HELD", qualifiedAt: now, holdUntil: new Date(now.getTime() + q.programVersion.qualificationHoldDays * 86_400_000) } }); await append(tx, "PROMOTER_QUALIFICATION_CONFIRMED", row.publicReference, input.operationId); return row; }); }
+export async function markPromoterQualificationReleasable(db: Db, input: Input) { ready(); command(input); return db.promoterQualification.updateMany({ where: { id: input.qualificationId, status: "QUALIFIED_HELD", holdUntil: { lte: new Date() } }, data: { status: "RELEASABLE" } }); }
+export async function invalidatePromoterQualification(db: Db, input: Input) { ready(); command(input); return db.promoterQualification.update({ where: { id: input.qualificationId }, data: { status: "INVALIDATED", invalidatedAt: new Date() } }); }
+export async function reversePromoterQualification(db: Db, input: Input) { ready(); command(input); return db.promoterQualification.update({ where: { id: input.qualificationId }, data: { status: "REVERSED", invalidatedAt: new Date() } }); }
+
+export async function accruePromoterQualificationCommission(db: Db, input: Input) {
+  ready(); command(input); return db.$transaction(async (tx: Db) => { const q = await tx.promoterQualification.findUnique({ where: { id: input.qualificationId }, include: { attribution: true, programVersion: true, earning: true } }); if (!q || q.status !== "QUALIFIED_HELD" || q.earning) throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "A unique held qualification is required for accrual."); const accrual = await accrueCommissionInTransaction(tx, input.authoritativeCommissionSnapshot, { operationId: input.commissionOperationId, actorUserId: input.actorUserId }); const earning = await tx.promoterEarning.create({ data: { publicReference: ref("PER"), promoterAccountId: q.attribution.promoterAccountId, qualificationId: q.id, commissionPlanVersionId: q.programVersion.commissionPlanVersionId, commissionAccrualId: accrual.id, status: "ACCRUED_HELD", grossAmount: input.grossAmount, holdUntil: q.holdUntil, operationId: input.operationId, requestHash: input.requestHash ?? fingerprint(input) } }); await append(tx, "PROMOTER_EARNING_ACCRUED", earning.publicReference, `event:${input.operationId}`); return earning; });
+}
+export async function releasePromoterEarning(db: Db, input: Input) { ready(); command(input); return db.$transaction(async (tx: Db) => { const earning = await tx.promoterEarning.findUnique({ where: { id: input.earningId }, include: { qualification: { include: { attribution: true } }, promoterAccount: { include: { fraudCases: { where: { status: { in: ["OPEN", "UNDER_REVIEW", "ACTION_REQUIRED", "CONFIRMED"] } } } } } } }); const unresolvedReconciliation = earning ? await tx.promoterReconciliationCase.findFirst({ where: { earningId: earning.id, status: { in: ["OPEN", "MONITORING"] } } }) : null; if (!earning || unresolvedReconciliation || earning.status !== "ACCRUED_HELD" || earning.holdUntil > new Date() || earning.qualification.status !== "RELEASABLE" || earning.qualification.attribution.status === "INVALIDATED" || earning.promoterAccount.fraudCases.length || earning.promoterAccount.identityStatus !== "VERIFIED" || earning.promoterAccount.taxProfileStatus !== "READY" || earning.promoterAccount.payoutReadinessStatus !== "READY") throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Held earning is not payable."); const row = await tx.promoterEarning.update({ where: { id: earning.id }, data: { status: "PAYABLE", payableAmount: earning.grossAmount, releasedAt: new Date() } }); await tx.promoterQualification.update({ where: { id: earning.qualificationId }, data: { status: "RELEASED", releasedAt: new Date() } }); await append(tx, "PROMOTER_EARNING_RELEASED", row.publicReference, input.operationId); return row; }); }
+export async function requestPromoterWithdrawal(db: Db, input: Input) { ready(); command(input); const account = await db.promoterAccount.findFirst({ where: { id: input.promoterAccountId, userId: input.actorUserId, identityStatus: "VERIFIED", taxProfileStatus: "READY", payoutReadinessStatus: "READY", status: "ACTIVE" } }); if (!account) throw new PromoterError("PROMOTER_FORBIDDEN", "Promoter withdrawal ownership or readiness failed."); return createWithdrawalRequest({ actorUserId: input.actorUserId, amount: input.amount, payoutDestinationPublicReference: input.payoutDestinationPublicReference, operationId: input.operationId }); }
+export async function reversePromoterEarning(db: Db, input: Input) { ready(); command(input); const amount = Number(input.amount); if (!Number.isFinite(amount) || amount <= 0) throw new PromoterError("PROMOTER_INVALID_COMMAND", "A positive reversal amount is required."); return db.$transaction(async (tx: Db) => { const earning = await tx.promoterEarning.findUnique({ where: { id: input.earningId }, include: { qualification: true } }); if (!earning || ["REVERSED", "RECONCILIATION_REQUIRED"].includes(earning.status) || Number(earning.reversedAmount) + amount > Number(earning.grossAmount)) throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Reversal exceeds immutable earning evidence."); if (["WITHDRAWN", "PARTIALLY_WITHDRAWN"].includes(earning.status)) { const reconciliation = await tx.promoterReconciliationCase.create({ data: { publicReference: ref("PRC"), earningId: earning.id, reason: "WITHDRAWAL_EVIDENCE_MISMATCH", priority: "CRITICAL", safeSummary: "A post-withdrawal reversal requires canonical finance reconciliation.", safeEvidence: { postWithdrawal: true, requestedAmount: amount } } }); await append(tx, "PROMOTER_RECONCILIATION_REQUIRED", reconciliation.publicReference, input.operationId, { reason: "WITHDRAWAL_EVIDENCE_MISMATCH" }); await tx.promoterEarning.update({ where: { id: earning.id }, data: { status: "RECONCILIATION_REQUIRED" } }); return reconciliation; } await reverseCommissionInTransaction(tx, input.frozenCommissionAllocation, { amount: String(amount) }, { operationId: input.commissionOperationId, actorUserId: input.actorUserId, reasonCode: input.reason }); const row = await tx.promoterEarning.update({ where: { id: earning.id }, data: { reversedAmount: { increment: amount }, reversedAt: new Date(), status: amount === Number(earning.grossAmount) ? "REVERSED" : "PARTIALLY_REVERSED" } }); await reversePromoterQualification(tx, { qualificationId: earning.qualificationId, operationId: `qualification:${input.operationId}` }); await append(tx, "PROMOTER_EARNING_REVERSED", row.publicReference, input.operationId, { reason: input.reason }); return row; }); }

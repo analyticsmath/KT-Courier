@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest"; import { evaluateCatalogCompliance } from "@/lib/catalog/catalog-compliance-policy";
+describe("catalog compliance",()=>{it("fails prohibited products closed",()=>expect(evaluateCatalogCompliance({categoryPath:"/goods",title:"Nicotine product",condition:"NEW",values:{},requirements:[]})).toMatchObject({allowed:false,blockingCodes:["PROHIBITED_PRODUCT"]}));it("requires condition disclosure",()=>expect(evaluateCatalogCompliance({categoryPath:"/devices",title:"Phone",condition:"REFURBISHED",values:{},requirements:[]}).blockingCodes).toContain("CONDITION_DISCLOSURE_REQUIRED"));});
+

@@ -1,0 +1,3 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { NextRequest } from "next/server"; import { PERMISSIONS } from "@/lib/auth/permission-keys"; import { requirePromoterRead } from "@/lib/promoters/api-policy"; import { db, promoterJson, safeRows } from "@/lib/promoters/route-support";
+export async function GET(request: NextRequest) { const auth = await requirePromoterRead(PERMISSIONS.PROMOTER_ASSETS_READ, request, "/api/promoter/assets"); if ("response" in auth) return auth.response; return promoterJson({ assets: safeRows(await db.promoterMarketingAsset.findMany({ where: { status: { in: ["APPROVED", "ACTIVE"] } }, orderBy: { approvedAt: "desc" } }) as any) }); }

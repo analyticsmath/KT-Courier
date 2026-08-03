@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest"; import { validateProductTypeAttributeSchema } from "@/lib/catalog/product-type-schema";
+describe("product type schemas",()=>{it("accepts typed reviewed definitions",()=>expect(validateProductTypeAttributeSchema({attributes:[{code:"colour",label:"Colour",type:"ENUM",options:["Black","Blue"]}]})).toEqual([]));it("rejects duplicate codes and unsafe regex",()=>expect(validateProductTypeAttributeSchema({attributes:[{code:"size",label:"Size",type:"TEXT"},{code:"size",label:"Again",type:"TEXT",regex:"(a+)\\1"}]})).toEqual(expect.arrayContaining(["ATTRIBUTE_1_CODE_DUPLICATE","ATTRIBUTE_1_REGEX_UNSAFE"])));});
+

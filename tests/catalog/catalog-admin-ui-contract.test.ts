@@ -1,0 +1,4 @@
+import { readFileSync } from "node:fs"; import path from "node:path"; import { describe, expect, it } from "vitest";
+const read=(file:string)=>readFileSync(path.join(process.cwd(),file),"utf8");
+describe("admin catalog UI contract",()=>{it("uses required headings",()=>{expect(read("app/(admin)/admin/catalog/page.tsx")).toContain('title="Catalog Administration"');expect(read("app/(admin)/admin/catalog/product-types/page.tsx")).toContain('title="Product Types"');expect(read("app/(admin)/admin/catalog/moderation/page.tsx")).toContain('title="Catalog Moderation"');expect(read("app/(admin)/admin/catalog/duplicates/page.tsx")).toContain('title="Duplicate Products"')});it("provides reason-coded safe controls",()=>expect(read("components/catalog/CatalogModerationControls.tsx")).toMatch(/reasonCode[\s\S]*suspend/));});
+

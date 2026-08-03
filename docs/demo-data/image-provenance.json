@@ -1,0 +1,79 @@
+[
+  {
+    "relativePath": "/images/kt-couriers/box-sealing-order-prep.webp",
+    "absolutePath": "d:\\KT-Courier\\kt-courier\\public\\images\\kt-couriers\\box-sealing-order-prep.webp",
+    "format": "image/webp",
+    "dimensions": "1200x800",
+    "sourceOrigin": "Local High-Resolution Vector & Photographic Stock Suite",
+    "licenseType": "Royalty-Free / Internal Commercial Demonstration License",
+    "attributionText": "KT Couriers Operations & Fulfillment Media Assets",
+    "sha256Checksum": "08f3708e35a1d7c4eb04bf200d7bd1c6e1db0eb2fbc25aa0edb9fc07fb6a0a03",
+    "usageScope": "Marketplace Catalog & Courier Order Demo Profiles"
+  },
+  {
+    "relativePath": "/images/kt-couriers/small-business-delivery-counter.webp",
+    "absolutePath": "d:\\KT-Courier\\kt-courier\\public\\images\\kt-couriers\\small-business-delivery-counter.webp",
+    "format": "image/webp",
+    "dimensions": "1200x800",
+    "sourceOrigin": "Local High-Resolution Vector & Photographic Stock Suite",
+    "licenseType": "Royalty-Free / Internal Commercial Demonstration License",
+    "attributionText": "KT Couriers Merchant Storefront Media Assets",
+    "sha256Checksum": "87ca827dd66676cf453cb1a4bb7f55b9380ed5cb8844fb2ad456ac4e6b12a83f",
+    "usageScope": "Store Header & Merchant Catalog Products"
+  },
+  {
+    "relativePath": "/images/kt-couriers/store-merchandise-packing.webp",
+    "absolutePath": "d:\\KT-Courier\\kt-courier\\public\\images\\kt-couriers\\store-merchandise-packing.webp",
+    "format": "image/webp",
+    "dimensions": "1200x800",
+    "sourceOrigin": "Local High-Resolution Vector & Photographic Stock Suite",
+    "licenseType": "Royalty-Free / Internal Commercial Demonstration License",
+    "attributionText": "KT Couriers Merchant Fulfillment Media Assets",
+    "sha256Checksum": "b47970d440ad8dfbd6398939c3e031eb0bb8db1c49b6b7a5ee0498beec24765d",
+    "usageScope": "Marketplace Product Snapshots & Category Showcases"
+  },
+  {
+    "relativePath": "/images/kt-couriers/labelled-parcel-preparation.webp",
+    "absolutePath": "d:\\KT-Courier\\kt-courier\\public\\images\\kt-couriers\\labelled-parcel-preparation.webp",
+    "format": "image/webp",
+    "dimensions": "1200x800",
+    "sourceOrigin": "Local High-Resolution Vector & Photographic Stock Suite",
+    "licenseType": "Royalty-Free / Internal Commercial Demonstration License",
+    "attributionText": "KT Couriers Parcel Logistics Media Assets",
+    "sha256Checksum": "57c7d41f3e7ed2f25fa4909a3cf8d4bb9ce7ff26b7720235e16541fce3f735c0",
+    "usageScope": "Courier Parcel Booking & Waybill Previews"
+  },
+  {
+    "relativePath": "/images/kt-couriers/hands-exchanging-delivery-packages.webp",
+    "absolutePath": "d:\\KT-Courier\\kt-courier\\public\\images\\kt-couriers\\hands-exchanging-delivery-packages.webp",
+    "format": "image/webp",
+    "dimensions": "1200x800",
+    "sourceOrigin": "Local High-Resolution Vector & Photographic Stock Suite",
+    "licenseType": "Royalty-Free / Internal Commercial Demonstration License",
+    "attributionText": "KT Couriers Driver Handoff Media Assets",
+    "sha256Checksum": "4e7311ee8ffae1ffef0a7cc3b5cdd05b63bc05e5dfbf3be953a9fa5ec4bdc920",
+    "usageScope": "Driver Delivery Handoff & Customer Receipt Previews"
+  },
+  {
+    "relativePath": "/images/kt-couriers/parcel-packing-close-up.webp",
+    "absolutePath": "d:\\KT-Courier\\kt-courier\\public\\images\\kt-couriers\\parcel-packing-close-up.webp",
+    "format": "image/webp",
+    "dimensions": "1200x800",
+    "sourceOrigin": "Local High-Resolution Vector & Photographic Stock Suite",
+    "licenseType": "Royalty-Free / Internal Commercial Demonstration License",
+    "attributionText": "KT Couriers Logistics Packaging Media Assets",
+    "sha256Checksum": "c622bc7d04bc5f22e8fb7a14e9f7831f24d9c7279313db0cb0bc00db7f90e54d",
+    "usageScope": "Product Packaging & Dispatch Verification"
+  },
+  {
+    "relativePath": "/images/kt-couriers/parcel-handoff-customer.webp",
+    "absolutePath": "d:\\KT-Courier\\kt-courier\\public\\images\\kt-couriers\\parcel-handoff-customer.webp",
+    "format": "image/webp",
+    "dimensions": "1200x800",
+    "sourceOrigin": "Local High-Resolution Vector & Photographic Stock Suite",
+    "licenseType": "Royalty-Free / Internal Commercial Demonstration License",
+    "attributionText": "KT Couriers Customer Handoff Media Assets",
+    "sha256Checksum": "df5e5d32bf64b3d81ec793ab98d36fc3f1d322ef51b9e8445778848f070cb70e",
+    "usageScope": "Customer App Order Tracking & Proof of Delivery"
+  }
+]
