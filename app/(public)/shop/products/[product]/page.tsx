@@ -6,6 +6,7 @@ import styles from "@/components/public-v2/marketplace/market-hall.module.css";
 import { marketplaceCategoryHref, marketplaceHref, marketplaceProductHref, marketplaceStoreHref, marketplaceVariantHref, parseMarketplaceProductParameter } from "@/lib/public-marketplace/routes";
 import { AVAILABILITY_ADVISORY, availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
 import { storefrontBreadcrumbJsonLd, storefrontProductGroupJsonLd } from "@/lib/storefront/seo/storefront-structured-data";
+import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { getStorefrontProduct, getStorefrontStore } from "@/lib/services/storefront-catalog.service";
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
@@ -16,6 +17,7 @@ function formatPrice(amount: string, currency: "ZAR") {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ product: string }> }): Promise<Metadata> {
+  if (!publicStorefrontPageExposureAllowed()) return { robots: { index: false, follow: true } };
   const parsed = parseMarketplaceProductParameter((await params).product);
   if (!parsed) return {};
   const data = await getStorefrontProduct(parsed.reference);

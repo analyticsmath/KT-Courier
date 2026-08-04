@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCartMutable, assertSupportedQuantity, cartLineFingerprint, MAX_CART_LINES, MAX_CART_STORES } from "@/lib/marketplace-checkout/policy";
+import { assertStorefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
 
 type MarketplaceDelegate = {
   findFirst: (args: unknown) => Promise<any>;
@@ -36,6 +37,7 @@ export function ownerWhere(owner: CartOwner): Record<string, unknown> {
 
 /** Resolves client references against Phase 18 records; clients never supply store, price or modifier amounts. */
 export async function resolveMarketplaceCartLine(input: { offerReference: string; variantReference: string; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; quantity: number }): Promise<CartLineSelection> {
+  assertStorefrontPublicExposureAllowed();
   assertSupportedQuantity(input.quantity);
   const offer = await prisma.storeCatalogOffer.findFirst({
     where: { publicReference: input.offerReference, variant: { publicReference: input.variantReference }, status: "ACTIVE", publicationStatus: "PUBLISHED" },

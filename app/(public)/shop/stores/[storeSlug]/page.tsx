@@ -8,11 +8,13 @@ import { marketplaceHref, marketplaceSlug, marketplaceStoreHref, marketplaceStor
 import { getStorefrontStore } from "@/lib/services/storefront-catalog.service";
 import { parseMarketplaceSearchParams, type MarketplaceSearchParams } from "@/lib/public-marketplace/search-params";
 import { storefrontFilterHasCrawlRisk } from "@/lib/storefront/search/storefront-filter-url";
+import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({ params, searchParams }: { params: Promise<{ storeSlug: string }>; searchParams: Promise<MarketplaceSearchParams> }): Promise<Metadata> {
+  if (!publicStorefrontPageExposureAllowed()) return { robots: { index: false, follow: true } };
   const storeSlug = marketplaceSlug((await params).storeSlug);
   if (!storeSlug) return {};
   const store = await getStorefrontStore(storeSlug);

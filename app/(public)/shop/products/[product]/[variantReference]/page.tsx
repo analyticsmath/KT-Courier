@@ -6,10 +6,12 @@ import styles from "@/components/public-v2/marketplace/market-hall.module.css";
 import { marketplaceHref, marketplaceProductHref, marketplacePublicReference, marketplaceVariantHref, parseMarketplaceProductParameter } from "@/lib/public-marketplace/routes";
 import { availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
 import { storefrontVariantJsonLd } from "@/lib/storefront/seo/storefront-structured-data";
+import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { getStorefrontVariant } from "@/lib/services/storefront-catalog.service";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({ params }: { params: Promise<{ product: string; variantReference: string }> }): Promise<Metadata> {
+  if (!publicStorefrontPageExposureAllowed()) return { robots: { index: false, follow: true } };
   const { product, variantReference } = await params;
   const parsed = parseMarketplaceProductParameter(product);
   if (!parsed || !marketplacePublicReference(variantReference)) return {};

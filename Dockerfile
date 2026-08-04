@@ -27,6 +27,7 @@ FROM base AS builder
 
 ARG NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES
 ENV NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES=${NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES}
+ENV NEXT_PRIVATE_WORKERS=2
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/package.json ./package.json

@@ -12,5 +12,25 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" } }],
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
+      testMatch: [
+        /storefront-browsing\.spec\.ts/,
+        /marketplace-cart\.spec\.ts/,
+        /marketplace-checkout-guest\.spec\.ts/,
+      ],
+    },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 5"], channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
+      testMatch: [/mobile-viewport\.spec\.ts/],
+    },
+    {
+      name: "keyboard",
+      use: { ...devices["Desktop Chrome"], channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
+      testMatch: [/keyboard-navigation\.spec\.ts/],
+    },
+  ],
 });

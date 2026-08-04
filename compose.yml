@@ -49,6 +49,7 @@ services:
       target: migrator
     restart: "no"
     environment:
+      NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: *container_database_url
       SHADOW_DATABASE_URL: *container_shadow_database_url
     command: ["npx", "prisma", "db", "seed"]
@@ -70,7 +71,7 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       NEXT_TELEMETRY_DISABLED: "1"
       HOSTNAME: 0.0.0.0
       PORT: "3000"
@@ -80,6 +81,8 @@ services:
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
       E2E_ROUTE_PROVIDER: ${E2E_ROUTE_PROVIDER:-}
       NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: ${NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES:-}
+      KT_LOCAL_STOREFRONT_VALIDATION: ${KT_LOCAL_STOREFRONT_VALIDATION:-true}
+      KT_LOCAL_CHECKOUT_VALIDATION: ${KT_LOCAL_CHECKOUT_VALIDATION:-true}
     ports:
       - "${APP_PORT:-3000}:3000"
     healthcheck:

@@ -7,11 +7,13 @@ import { marketplaceCategoriesHref, marketplaceCategoryHref, marketplaceCategory
 import { getStorefrontCategory } from "@/lib/services/storefront-catalog.service";
 import { parseMarketplaceSearchParams, type MarketplaceSearchParams } from "@/lib/public-marketplace/search-params";
 import { storefrontFilterHasCrawlRisk } from "@/lib/storefront/search/storefront-filter-url";
+import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({ params, searchParams }: { params: Promise<{ categoryPath: string[] }>; searchParams: Promise<MarketplaceSearchParams> }): Promise<Metadata> {
+  if (!publicStorefrontPageExposureAllowed()) return { robots: { index: false, follow: true } };
   const categoryPath = marketplaceCategoryPath((await params).categoryPath);
   if (!categoryPath) return {};
   const category = await getStorefrontCategory(categoryPath);

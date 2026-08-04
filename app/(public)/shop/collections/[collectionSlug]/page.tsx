@@ -3,9 +3,11 @@ import Link from "next/link";
 import styles from "@/components/public-v2/marketplace/market-hall.module.css";
 import { marketplaceCategoryHref, marketplaceCollectionHref, marketplaceCollectionsHref, marketplaceHref, marketplaceProductHref, marketplaceSlug, marketplaceStoreHref, marketplaceVariantHref } from "@/lib/public-marketplace/routes";
 import { getStorefrontCollection } from "@/lib/services/storefront-catalog.service";
+import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({ params }: { params: Promise<{ collectionSlug: string }> }): Promise<Metadata> {
+  if (!publicStorefrontPageExposureAllowed()) return { robots: { index: false, follow: true } };
   const collectionSlug = marketplaceSlug((await params).collectionSlug);
   if (!collectionSlug) return {};
   const collection = await getStorefrontCollection(collectionSlug);

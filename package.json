@@ -113,6 +113,8 @@
     "storefront:search:rebuild": "node scripts/rebuild-storefront-search-index.mjs",
     "storefront:projections:scan": "node scripts/scan-storefront-projection-cases.mjs",
     "test:integration:storefront": "node scripts/storefront-integration-test.mjs",
+    "test:integration:marketplace-checkout": "node scripts/marketplace-checkout-integration-test.mjs",
+    "test:integration:store-orders": "node scripts/store-order-integration-test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "prisma": {

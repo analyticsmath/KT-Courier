@@ -1,2 +1,9 @@
-const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false;
-console.log(JSON.stringify({ operation: "marketplace-checkout-integration-test", executed: false, reason: "POSTGRESQL_COMPOSE_VALIDATION_DEFERRED_TO_PHASE_26_5", productionValidationApproved: MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED }));
+import { runSafePostgresIntegrationSuite } from "./safe-postgres-runner.mjs";
+
+const result = await runSafePostgresIntegrationSuite({
+  suiteKey: "MARKETPLACE_CHECKOUT",
+  configFile: "vitest.marketplace-checkout-integration.config.ts",
+  runnerMode: "cli",
+});
+
+process.exit(result.exitCode);

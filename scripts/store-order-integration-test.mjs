@@ -1,8 +1,8 @@
 import { runSafePostgresIntegrationSuite } from "./safe-postgres-runner.mjs";
 
 const result = await runSafePostgresIntegrationSuite({
-  suiteKey: "CATALOG",
-  configFile: "vitest.catalog-integration.config.ts",
+  suiteKey: "STORE_ORDER",
+  configFile: "vitest.store-order-integration.config.ts",
   runnerMode: "cli",
 });
 
