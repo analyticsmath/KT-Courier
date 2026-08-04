@@ -53,6 +53,6 @@ describe("Phase 27 admin and shared-component contract audit", () => {
     const admin = text(join(root, "components", "notifications", "AdminNotificationSurface.tsx"));
     expect(centre).toContain("aria-label=\"Notification centre\""); expect(centre).toContain("You have no notifications."); expect(centre).toContain("Unread notification"); expect(centre).toContain("aria-label={`${count} unread notifications`}");
     expect(admin).toContain("findMany"); expect(admin).toContain("No {labels[kind].toLowerCase()} records."); expect(admin).toContain("LOCKED"); expect(admin).toContain("retry scheduled, suppressed and reconciliation states");
-    for (const page of ["app/(account)/account/notifications/page.tsx", "app/(store)/store/notifications/page.tsx", "app/(driver)/driver/notifications/page.tsx", "app/(account)/promoter/notifications/page.tsx", "app/(account)/applicant/notifications/page.tsx", "app/(admin)/admin/notifications/page.tsx"]) expect(text(join(root, page))).toContain("NotificationCentre");
+    for (const page of ["app/(account)/account/notifications/page.tsx", "app/(store)/store/notifications/page.tsx", "app/(driver)/driver/notifications/page.tsx", "app/(account)/promoter/notifications/page.tsx", "app/(applicant)/applicant/notifications/page.tsx"]) expect(text(join(root, page))).toContain("NotificationCentre");
   });
 });

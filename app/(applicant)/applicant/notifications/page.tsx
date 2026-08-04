@@ -1,2 +1,8 @@
-import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
-export default function NotificationsPage(){return <><ProtectedPageHeader eyebrow="Candidate dossier" title="Application notifications"/><ProtectedState className="mt-6" kind="unavailable" title="No applicant notification centre" description="The repository has no dedicated candidate-safe notification projection. This workspace does not reuse account navigation or expose another role’s inbox."/></>}
+import { NotificationCentre } from "@/components/notifications/NotificationCentre";
+import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
+import { requireAuth } from "@/lib/auth/guards";
+
+export default async function NotificationsPage() {
+  const user = await requireAuth();
+  return <ProtectedPageFrame><NotificationCentre userId={user.id} title="Application notifications" /></ProtectedPageFrame>;
+}

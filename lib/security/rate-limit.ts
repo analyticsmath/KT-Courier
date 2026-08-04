@@ -16,15 +16,21 @@ function prune(entry: RateLimitEntry, windowMs: number): void {
   entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
 }
 
+export interface RateLimitPolicy {
+  max: number;
+  windowMs: number;
+  distributedRequired?: boolean;
+}
+
 // ─── Predefined configs ────────────────────────────────────────────────────────
 
-export const RATE_LIMITS = {
-  LOGIN: { max: 10, windowMs: 10 * 60 * 1000 },          // 10 per 10 min
-  SIGNUP: { max: 5, windowMs: 60 * 60 * 1000 },           // 5 per hour
-  FORGOT_PASSWORD: { max: 5, windowMs: 60 * 60 * 1000 },  // 5 per hour
-  RESET_PASSWORD: { max: 10, windowMs: 15 * 60 * 1000 },   // 10 per 15 min
-  RESEND_OTP: { max: 5, windowMs: 15 * 60 * 1000 },       // 5 per 15 min
-  VERIFY_OTP: { max: 10, windowMs: 15 * 60 * 1000 },      // 10 per 15 min
+export const RATE_LIMITS: Record<string, RateLimitPolicy> = {
+  LOGIN: { max: 10, windowMs: 10 * 60 * 1000, distributedRequired: true },          // 10 per 10 min
+  SIGNUP: { max: 5, windowMs: 60 * 60 * 1000, distributedRequired: true },           // 5 per hour
+  FORGOT_PASSWORD: { max: 5, windowMs: 60 * 60 * 1000, distributedRequired: true },  // 5 per hour
+  RESET_PASSWORD: { max: 10, windowMs: 15 * 60 * 1000, distributedRequired: true },   // 10 per 15 min
+  RESEND_OTP: { max: 5, windowMs: 15 * 60 * 1000, distributedRequired: true },       // 5 per 15 min
+  VERIFY_OTP: { max: 10, windowMs: 15 * 60 * 1000, distributedRequired: true },      // 10 per 15 min
   CONTACT: { max: 5, windowMs: 10 * 60 * 1000 },          // 5 per 10 min
   ORDER_ESTIMATE: { max: 30, windowMs: 10 * 60 * 1000 },  // 30 per 10 min
   ORDER_CREATE: { max: 20, windowMs: 10 * 60 * 1000 },    // 20 per 10 min
@@ -33,24 +39,21 @@ export const RATE_LIMITS = {
   PAYMENT_STATUS: { max: 120, windowMs: 10 * 60 * 1000 },
   ADDRESS_MUTATION: { max: 30, windowMs: 10 * 60 * 1000 }, // 30 per 10 min
   ADMIN_TEST_EMAIL: { max: 5, windowMs: 10 * 60 * 1000 }, // 5 per 10 min
-  // Dispatch mutations — intentionally conservative to prevent accidental double-dispatch
-  DISPATCH_ASSIGN:   { max: 30, windowMs: 10 * 60 * 1000 }, // 30 per 10 min
-  DISPATCH_REASSIGN: { max: 20, windowMs: 10 * 60 * 1000 }, // 20 per 10 min
-  DISPATCH_CANCEL:   { max: 20, windowMs: 10 * 60 * 1000 }, // 20 per 10 min
-  DRIVER_ACCEPT:          { max: 20, windowMs: 10 * 60 * 1000 }, // 20 per 10 min
-  DRIVER_REJECT:          { max: 20, windowMs: 10 * 60 * 1000 }, // 20 per 10 min
-  // Pickup custody mutations — conservative to prevent double-submission
-  PICKUP_START:           { max: 10, windowMs: 10 * 60 * 1000 }, // 10 per 10 min
-  PICKUP_COMPLETE:        { max: 10, windowMs: 10 * 60 * 1000 }, // 10 per 10 min
-  PICKUP_FAIL:            { max: 15, windowMs: 10 * 60 * 1000 }, // 15 per 10 min
-  ADMIN_PICKUP_NOTE:      { max: 20, windowMs: 10 * 60 * 1000 }, // 20 per 10 min
-  // Delivery mutations — conservative to prevent double-submission
-  DELIVERY_START:         { max: 10, windowMs: 10 * 60 * 1000 }, // 10 per 10 min
-  DELIVERY_OTP_SEND:      { max: 5,  windowMs: 15 * 60 * 1000 }, // 5 per 15 min (resend guard)
-  DELIVERY_COMPLETE:      { max: 10, windowMs: 10 * 60 * 1000 }, // 10 per 10 min
-  DELIVERY_ATTEMPTED:     { max: 15, windowMs: 10 * 60 * 1000 }, // 15 per 10 min
-  DELIVERY_FAILED:        { max: 10, windowMs: 10 * 60 * 1000 }, // 10 per 10 min
-  ADMIN_DELIVERY_MANUAL:  { max: 10, windowMs: 10 * 60 * 1000 }, // 10 per 10 min
+  DISPATCH_ASSIGN:   { max: 30, windowMs: 10 * 60 * 1000 },
+  DISPATCH_REASSIGN: { max: 20, windowMs: 10 * 60 * 1000 },
+  DISPATCH_CANCEL:   { max: 20, windowMs: 10 * 60 * 1000 },
+  DRIVER_ACCEPT:          { max: 20, windowMs: 10 * 60 * 1000 },
+  DRIVER_REJECT:          { max: 20, windowMs: 10 * 60 * 1000 },
+  PICKUP_START:           { max: 10, windowMs: 10 * 60 * 1000 },
+  PICKUP_COMPLETE:        { max: 10, windowMs: 10 * 60 * 1000 },
+  PICKUP_FAIL:            { max: 15, windowMs: 10 * 60 * 1000 },
+  ADMIN_PICKUP_NOTE:      { max: 20, windowMs: 10 * 60 * 1000 },
+  DELIVERY_START:         { max: 10, windowMs: 10 * 60 * 1000 },
+  DELIVERY_OTP_SEND:      { max: 5,  windowMs: 15 * 60 * 1000 },
+  DELIVERY_COMPLETE:      { max: 10, windowMs: 10 * 60 * 1000 },
+  DELIVERY_ATTEMPTED:     { max: 15, windowMs: 10 * 60 * 1000 },
+  DELIVERY_FAILED:        { max: 10, windowMs: 10 * 60 * 1000 },
+  ADMIN_DELIVERY_MANUAL:  { max: 10, windowMs: 10 * 60 * 1000 },
   WITHDRAWAL_REQUEST:     { max: 10, windowMs: 10 * 60 * 1000 },
   WITHDRAWAL_MUTATION:    { max: 30, windowMs: 10 * 60 * 1000 },
   REFUND_REQUEST:         { max: 10, windowMs: 10 * 60 * 1000 },
@@ -72,7 +75,7 @@ export const RATE_LIMITS = {
   STORE_ORDER_HANDOFF: { max: 8, windowMs: 10 * 60 * 1000 },
   STORE_ORDER_CUSTOMER_MUTATION: { max: 15, windowMs: 10 * 60 * 1000 },
   STORE_ORDER_ADMIN_RECOVERY: { max: 12, windowMs: 10 * 60 * 1000 },
-} satisfies Record<string, { max: number; windowMs: number }>;
+};
 
 // ─── IP extraction ─────────────────────────────────────────────────────────────
 
@@ -92,11 +95,11 @@ export function getClientIp(req: NextRequest): string {
 export interface RateLimitResult {
   ok: boolean;
   retryAfterSeconds?: number;
-}
-
-export interface RateLimitPolicy {
-  max: number;
-  windowMs: number;
+  failClosed?: boolean;
+  errorResponse?: {
+    code: "SERVICE_TEMPORARILY_UNAVAILABLE";
+    message: "This operation is temporarily unavailable.";
+  };
 }
 
 export function resolveRateLimitPolicy(
@@ -126,6 +129,22 @@ export function checkRateLimit(
   key: string,
   config: RateLimitPolicy
 ): RateLimitResult {
+  const isProd = process.env.NODE_ENV === "production";
+  const hasRedis = !!process.env.REDIS_URL;
+
+  // Fail closed in production for distributed-required endpoints when Redis is missing
+  if (isProd && config.distributedRequired && !hasRedis) {
+    return {
+      ok: false,
+      retryAfterSeconds: 60,
+      failClosed: true,
+      errorResponse: {
+        code: "SERVICE_TEMPORARILY_UNAVAILABLE",
+        message: "This operation is temporarily unavailable.",
+      },
+    };
+  }
+
   const resolvedConfig = resolveRateLimitPolicy(config);
   const now = Date.now();
   let entry = store.get(key);
@@ -155,24 +174,21 @@ export function checkRateLimit(
 export function checkIpRateLimit(
   req: NextRequest,
   endpoint: string,
-  config: { max: number; windowMs: number }
+  config: RateLimitPolicy
 ): RateLimitResult {
   const ip = getClientIp(req);
   return checkRateLimit(`${endpoint}:${ip}`, config);
 }
 
-// Tighter key using IP + email for auth endpoints (prevents distributing
-// an attack across many IPs or email permutations).
 export function checkAuthRateLimit(
   req: NextRequest,
   endpoint: string,
   email: string,
-  config: { max: number; windowMs: number }
+  config: RateLimitPolicy
 ): RateLimitResult {
   const ip = getClientIp(req);
   const normalizedEmail = email.toLowerCase().trim();
   const combined = checkRateLimit(`${endpoint}:${ip}:${normalizedEmail}`, config);
   if (!combined.ok) return combined;
-  // Also enforce pure IP limit (same quota) to block distributed attempts
   return checkRateLimit(`${endpoint}:${ip}`, config);
 }

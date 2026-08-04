@@ -49,7 +49,8 @@ describe("R23 public marketplace experience", () => {
       expect(page).not.toContain("MarketplaceUnavailable");
     }
     expect(product).toContain("storefrontProductGroupJsonLd");
-    expect(sitemap).not.toContain("storefrontPublicExposureAllowed");
+    expect(sitemap).toContain("storefrontPublicExposureAllowed");
+    expect(sitemap).toContain('export const dynamic = "force-dynamic"');
     expect(error).toContain("Marketplace source unavailable");
   });
 

@@ -24,79 +24,130 @@ production lock remain the authority.
 | Exact paths | Existing authority / purpose | Read and action boundary | Sensitivity / R21 state |
 | --- | --- | --- | --- |
 | `/admin/finance` | `getFinanceDashboard`; decision queues | `finance_dashboard.read`; no action | Decimal ZAR evidence; direct protected command centre |
-| `/admin/ledger`, `/admin/ledger/accounts/[id]`, `/admin/ledger/journals/[id]` | Ledger account/journal query services | `ledger.read`; no posting/edit/delete | Immutable double-entry records; protected list/detail |
-| `/admin/payments`, `/admin/payments/[id]` | `payment-query.service` list/detail, attempts/history | `payments.read`; no completion | Currency explicit; no payload/secret/success inference; protected list/detail |
-| `/admin/payment-reconciliation`, `/admin/payment-reconciliation/[id]` | Existing payment reconciliation case authority | Existing reconciliation permissions; canonical recovery only | No journal posting or status invention; protected queue/detail boundary |
-| `/admin/payment-webhooks`, `/admin/payment-webhooks/[id]`, `/admin/payment-providers` | Existing webhook audit/provider readiness authority | Existing provider-status authority; no mutation | Signature/headers/credentials withheld; protected readiness boundary |
-| `/admin/payout-destinations`, `/admin/payout-destinations/[id]` | Existing withdrawal destination query authority | Existing withdrawal authority; no action | Masked destination only; protected list/detail boundary |
-| `/admin/refunds`, `/admin/refunds/[id]` | `refund-query.service` | `refunds.read`; review/approve/process/reconcile only when server-projected | Held/approved/complete/reconciliation distinct; direct protected list/detail/action/timeline |
-| `/admin/refund-reconciliation`, `/admin/refund-reconciliation/[id]` | Existing refund reconciliation authority | `refunds.reconcile`; canonical recovery only | Unknown retains funds; no manual release/completion; protected boundary |
-| `/admin/withdrawals`, `/admin/withdrawals/[id]` | `withdrawal-query.service` | `withdrawals.read`; review/approve/process only when server-projected | Masked destination; no “mark paid”; direct protected list/detail/action/timeline |
-| `/admin/withdrawal-reconciliation`, `/admin/withdrawal-reconciliation/[id]` | Existing withdrawal reconciliation authority | `withdrawals.reconcile`; canonical recovery only | Unresolved funds stay held; protected boundary |
-| `/admin/store-earnings`, `/admin/store-earnings/[id]` | Existing store earning finance query services | `finance_store_earnings.read`; existing reverse only | Exact values distinct; no payout inference; protected boundary |
-| `/admin/store-earning-reconciliation`, `/admin/store-earning-reconciliation/[id]` | Existing store earning reconciliation services | Existing reconciliation authority only | No manual financial override; protected boundary |
-| `/admin/driver-earnings`, `/admin/driver-earnings/[id]` | Existing driver earning finance query services | `finance_driver_earnings.read`; existing reverse only | No GPS/POD/account internals; protected boundary |
-| `/admin/driver-earning-reconciliation`, `/admin/driver-earning-reconciliation/[id]` | Existing driver earning reconciliation services | Existing reconciliation authority only | No manual financial override; protected boundary |
-| `/admin/commissions`, `/admin/commissions/[id]` | Existing commission query services | `commissions.read`; existing reverse only | No browser commission calculation; protected boundary |
-| `/admin/commission-plans`, `/admin/commission-plans/[id]` | Existing plan list/detail/action contracts | `finance_commissions.read`; existing draft/review actions | Version/lifecycle rules unchanged; protected boundary |
-| `/admin/commission-reconciliation`, `/admin/commission-reconciliation/[id]` | Existing commission reconciliation services | Existing reconciliation authority only | Safe evidence / no manual adjustment; protected boundary |
+| `/admin/ledger` | Ledger account/journal query services | `ledger.read`; no posting/edit/delete | Immutable double-entry records; protected list/detail |
+| `/admin/ledger/accounts/[id]` | Ledger account detail query service | `ledger.read`; no posting/edit/delete | Immutable double-entry records; protected detail |
+| `/admin/ledger/journals/[id]` | Ledger journal detail query service | `ledger.read`; no posting/edit/delete | Immutable double-entry records; protected detail |
+| `/admin/payments` | `payment-query.service` list/detail | `payments.read`; no completion | Currency explicit; protected list |
+| `/admin/payments/[id]` | `payment-query.service` attempts/history | `payments.read`; no completion | Currency explicit; protected detail |
+| `/admin/payment-reconciliation` | Existing payment reconciliation queue authority | Existing reconciliation permissions | Protected queue boundary |
+| `/admin/payment-reconciliation/[id]` | Existing payment reconciliation case detail authority | Existing reconciliation permissions | Protected detail boundary |
+| `/admin/payment-webhooks` | Existing webhook audit readiness authority | Existing provider-status authority | Signature/headers withheld |
+| `/admin/payment-webhooks/[id]` | Existing webhook detail audit authority | Existing provider-status authority | Credentials withheld |
+| `/admin/payment-providers` | Existing provider readiness authority | Existing provider-status authority | Protected readiness boundary |
+| `/admin/payout-destinations` | Existing withdrawal destination query authority | Existing withdrawal authority | Masked destination only |
+| `/admin/payout-destinations/[id]` | Existing withdrawal destination detail authority | Existing withdrawal authority | Masked detail only |
+| `/admin/refunds` | `refund-query.service` list | `refunds.read` | Direct protected list |
+| `/admin/refunds/[id]` | `refund-query.service` detail | `refunds.read` | Direct protected detail |
+| `/admin/refund-reconciliation` | Existing refund reconciliation queue authority | `refunds.reconcile` | Protected queue boundary |
+| `/admin/refund-reconciliation/[id]` | Existing refund reconciliation case detail authority | `refunds.reconcile` | Protected detail boundary |
+| `/admin/withdrawals` | `withdrawal-query.service` list | `withdrawals.read` | Direct protected list |
+| `/admin/withdrawals/[id]` | `withdrawal-query.service` detail | `withdrawals.read` | Direct protected detail |
+| `/admin/withdrawal-reconciliation` | Existing withdrawal reconciliation queue authority | `withdrawals.reconcile` | Protected queue boundary |
+| `/admin/withdrawal-reconciliation/[id]` | Existing withdrawal reconciliation case detail authority | `withdrawals.reconcile` | Protected detail boundary |
+| `/admin/store-earnings` | Existing store earning finance query services | `finance_store_earnings.read` | Protected list boundary |
+| `/admin/store-earnings/[id]` | Existing store earning detail finance query services | `finance_store_earnings.read` | Protected detail boundary |
+| `/admin/store-earning-reconciliation` | Existing store earning reconciliation services | Existing reconciliation authority | Protected queue boundary |
+| `/admin/store-earning-reconciliation/[id]` | Existing store earning reconciliation detail services | Existing reconciliation authority | Protected detail boundary |
+| `/admin/driver-earnings` | Existing driver earning finance query services | `finance_driver_earnings.read` | Protected list boundary |
+| `/admin/driver-earnings/[id]` | Existing driver earning detail finance query services | `finance_driver_earnings.read` | Protected detail boundary |
+| `/admin/driver-earning-reconciliation` | Existing driver earning reconciliation services | Existing reconciliation authority | Protected queue boundary |
+| `/admin/driver-earning-reconciliation/[id]` | Existing driver earning reconciliation detail services | Existing reconciliation authority | Protected detail boundary |
+| `/admin/commissions` | Existing commission query services | `commissions.read` | Protected list boundary |
+| `/admin/commissions/[id]` | Existing commission detail query services | `commissions.read` | Protected detail boundary |
+| `/admin/commission-plans` | Existing plan list authority | `finance_commissions.read` | Protected list boundary |
+| `/admin/commission-plans/[id]` | Existing plan detail authority | `finance_commissions.read` | Protected detail boundary |
+| `/admin/commission-reconciliation` | Existing commission reconciliation services | Existing reconciliation authority | Protected queue boundary |
+| `/admin/commission-reconciliation/[id]` | Existing commission reconciliation detail services | Existing reconciliation authority | Protected detail boundary |
 
 ## Commercial programmes — 10 routes
 
 | Exact paths | Existing authority / purpose | Read and action boundary | Lock / R21 state |
 | --- | --- | --- | --- |
-| `/admin/subscriptions/contracts`, `/admin/subscriptions/plans`, `/admin/subscriptions/programs`, `/admin/subscriptions/reconciliation` | Existing subscription route authorities | Existing subscriptions permissions only | Provider/activation/lifecycle lock remains authoritative; protected boundary |
-| `/admin/promotions`, `/admin/promotions/new`, `/admin/promotions/[reference]` | Existing promotion list/draft/detail authority | Existing manage/lifecycle authority only | No fabricated performance; settlement lock retained; protected boundary |
-| `/admin/promotions/reconciliation`, `/admin/promotions/reconciliation/[reference]` | Existing promotion reconciliation authority | Canonical recovery only | No manual settlement; protected boundary |
-| `/admin/advertising` | Existing advertising administration authority | Existing advertising permissions only | Activation/rate-card lock; no invented metrics; protected boundary |
+| `/admin/subscriptions/contracts` | Existing subscription contract authority | Existing subscriptions permissions | Protected boundary |
+| `/admin/subscriptions/plans` | Existing subscription plan authority | Existing subscriptions permissions | Protected boundary |
+| `/admin/subscriptions/programs` | Existing subscription program authority | Existing subscriptions permissions | Protected boundary |
+| `/admin/subscriptions/reconciliation` | Existing subscription reconciliation authority | Existing subscriptions permissions | Protected boundary |
+| `/admin/promotions` | Existing promotion list authority | Existing manage/lifecycle authority | Protected list boundary |
+| `/admin/promotions/new` | Existing promotion draft creation authority | Existing manage/lifecycle authority | Protected draft boundary |
+| `/admin/promotions/[reference]` | Existing promotion detail authority | Existing manage/lifecycle authority | Protected detail boundary |
+| `/admin/promotions/reconciliation` | Existing promotion reconciliation queue authority | Canonical recovery only | Protected queue boundary |
+| `/admin/promotions/reconciliation/[reference]` | Existing promotion reconciliation detail authority | Canonical recovery only | Protected detail boundary |
+| `/admin/advertising` | Existing advertising administration authority | Existing advertising permissions | Protected boundary |
 
 ## Promoter administration — 16 routes
 
 | Exact paths | Existing authority / purpose | Read and action boundary | Sensitivity / R21 state |
 | --- | --- | --- | --- |
-| `/admin/promoters`, `/admin/promoters/[reference]` | Existing promoter directory/safe dossier | `promoters.read`; canonical lifecycle only | Customer privacy; no manual earning; protected boundary |
-| `/admin/promoter-programs`, `/admin/promoter-programs/new`, `/admin/promoter-programs/[reference]` | Existing programme list/draft/detail | Existing manage/review/approve/activate/pause/end only | Immutable approved version / production lock; protected boundary |
-| `/admin/promoter-attributions`, `/admin/promoter-qualifications`, `/admin/promoter-earnings` | Existing evidence/reference queries | Read-only canonical evidence | Attribution and finance boundaries preserved; protected boundary |
-| `/admin/promoter-fraud`, `/admin/promoter-fraud/[reference]` | Existing fraud case authority | Existing review/rescan action only | Safe deterministic evidence; protected boundary |
-| `/admin/promoter-reconciliation`, `/admin/promoter-reconciliation/[reference]` | Existing reconciliation case authority | Canonical retry only | No force resolve/adjustment; protected boundary |
-| `/admin/promoter-disputes`, `/admin/promoter-disputes/[reference]` | Existing dispute authority | Existing response/close only | Privacy-limited / no financial override; protected boundary |
-| `/admin/promoter-assets`, `/admin/promoter-agreements` | Existing asset/agreement authority | Existing trusted-asset/version actions | No custom HTML/script/pixel; acceptance stays canonical; protected boundary |
+| `/admin/promoters` | Existing promoter directory | `promoters.read` | Protected directory boundary |
+| `/admin/promoters/[reference]` | Existing promoter safe dossier | `promoters.read` | Protected dossier boundary |
+| `/admin/promoter-programs` | Existing programme list | Existing manage/review authority | Protected list boundary |
+| `/admin/promoter-programs/new` | Existing programme draft | Existing manage/review authority | Protected draft boundary |
+| `/admin/promoter-programs/[reference]` | Existing programme detail | Existing manage/review authority | Protected detail boundary |
+| `/admin/promoter-attributions` | Existing evidence query | Read-only canonical evidence | Protected evidence boundary |
+| `/admin/promoter-qualifications` | Existing qualification query | Read-only canonical evidence | Protected evidence boundary |
+| `/admin/promoter-earnings` | Existing earning reference query | Read-only canonical evidence | Protected evidence boundary |
+| `/admin/promoter-fraud` | Existing fraud case queue | Existing review/rescan action | Protected queue boundary |
+| `/admin/promoter-fraud/[reference]` | Existing fraud case detail | Existing review/rescan action | Protected detail boundary |
+| `/admin/promoter-reconciliation` | Existing reconciliation case queue | Canonical retry only | Protected queue boundary |
+| `/admin/promoter-reconciliation/[reference]` | Existing reconciliation case detail | Canonical retry only | Protected detail boundary |
+| `/admin/promoter-disputes` | Existing dispute queue | Existing response/close | Protected queue boundary |
+| `/admin/promoter-disputes/[reference]` | Existing dispute detail | Existing response/close | Protected detail boundary |
+| `/admin/promoter-assets` | Existing asset authority | Existing trusted-asset actions | Protected asset boundary |
+| `/admin/promoter-agreements` | Existing agreement version authority | Existing trusted-version actions | Protected agreement boundary |
 
 ## Recruitment administration — 23 routes
 
 | Exact paths | Existing authority / purpose | Read and action boundary | Sensitivity / R21 state |
 | --- | --- | --- | --- |
-| `/admin/recruitment` | Existing recruitment overview authority | `recruitment.read` | No score/rank/prediction; protected boundary |
-| `/admin/recruitment/requisitions`, `/admin/recruitment/requisitions/[reference]` | Existing requisition authority | Existing manage/approve authority | Workforce approval unchanged; protected boundary |
-| `/admin/recruitment/openings`, `/admin/recruitment/openings/new`, `/admin/recruitment/openings/[reference]` | Existing opening authority | Existing manage/review/publish authority | Production lock/lifecycle retained; protected boundary |
-| `/admin/recruitment/applications`, `/admin/recruitment/applications/[reference]` | Existing application/dossier authority | Existing read/review/assign/decision authority | Applicant/internal fields permission-scoped; protected boundary |
-| `/admin/recruitment/interviews`, `/admin/recruitment/interviews/[reference]` | Existing interview authority | Existing scheduling/scorecard authority | No invented slots or client scoring; protected boundary |
-| `/admin/recruitment/checks`, `/admin/recruitment/checks/[reference]` | Existing checks authority | Existing read/request/review authority | Restricted check evidence; protected boundary |
-| `/admin/recruitment/offers`, `/admin/recruitment/offers/[reference]` | Existing offer authority | Existing manage/approve authority | Terms only from canonical data; protected boundary |
-| `/admin/recruitment/handoffs`, `/admin/recruitment/handoffs/[reference]` | Existing onboarding handoff authority | Existing read/process authority | No inferred employee creation; protected boundary |
-| `/admin/recruitment/fraud`, `/admin/recruitment/fraud/[reference]` | Existing recruitment fraud authority | Existing review authority | Restricted evidence; protected boundary |
-| `/admin/recruitment/reconciliation`, `/admin/recruitment/reconciliation/[reference]` | Existing lifecycle reconciliation authority | Canonical recovery only | No force resolution; protected boundary |
-| `/admin/recruitment/privacy`, `/admin/recruitment/retention`, `/admin/recruitment/employment-equity` | Existing privacy/retention/equity authorities | Existing specific permissions | Privacy, retention lock, anonymised equity only; protected boundary |
+| `/admin/recruitment` | Existing recruitment overview authority | `recruitment.read` | Protected overview boundary |
+| `/admin/recruitment/requisitions` | Existing requisition list authority | Existing manage/approve authority | Protected list boundary |
+| `/admin/recruitment/requisitions/[reference]` | Existing requisition detail authority | Existing manage/approve authority | Protected detail boundary |
+| `/admin/recruitment/openings` | Existing opening list authority | Existing manage/review authority | Protected list boundary |
+| `/admin/recruitment/openings/new` | Existing opening creation authority | Existing manage/review authority | Protected creation boundary |
+| `/admin/recruitment/openings/[reference]` | Existing opening detail authority | Existing manage/review authority | Protected detail boundary |
+| `/admin/recruitment/applications` | Existing application list authority | Existing read/review authority | Protected list boundary |
+| `/admin/recruitment/applications/[reference]` | Existing application dossier authority | Existing read/review authority | Protected dossier boundary |
+| `/admin/recruitment/interviews` | Existing interview list authority | Existing scheduling authority | Protected list boundary |
+| `/admin/recruitment/interviews/[reference]` | Existing interview detail authority | Existing scheduling authority | Protected detail boundary |
+| `/admin/recruitment/checks` | Existing checks list authority | Existing read/request authority | Protected list boundary |
+| `/admin/recruitment/checks/[reference]` | Existing check detail authority | Existing read/request authority | Protected detail boundary |
+| `/admin/recruitment/offers` | Existing offer list authority | Existing manage/approve authority | Protected list boundary |
+| `/admin/recruitment/offers/[reference]` | Existing offer detail authority | Existing manage/approve authority | Protected detail boundary |
+| `/admin/recruitment/handoffs` | Existing handoff list authority | Existing read/process authority | Protected list boundary |
+| `/admin/recruitment/handoffs/[reference]` | Existing handoff detail authority | Existing read/process authority | Protected detail boundary |
+| `/admin/recruitment/fraud` | Existing recruitment fraud queue | Existing review authority | Protected queue boundary |
+| `/admin/recruitment/fraud/[reference]` | Existing recruitment fraud detail | Existing review authority | Protected detail boundary |
+| `/admin/recruitment/reconciliation` | Existing lifecycle reconciliation queue | Canonical recovery only | Protected queue boundary |
+| `/admin/recruitment/reconciliation/[reference]` | Existing lifecycle reconciliation detail | Canonical recovery only | Protected detail boundary |
+| `/admin/recruitment/privacy` | Existing recruitment privacy authority | Existing specific permissions | Protected privacy boundary |
+| `/admin/recruitment/retention` | Existing recruitment retention authority | Existing specific permissions | Protected retention boundary |
+| `/admin/recruitment/employment-equity` | Existing employment equity authority | Existing specific permissions | Protected equity boundary |
 
 ## Platform, notifications, and governance — 21 routes
 
 | Exact paths | Existing authority / purpose | Read and action boundary | Sensitivity / R21 state |
 | --- | --- | --- | --- |
-| `/admin/developers/[[...segments]]` | Existing developer administration catch-all | Existing application/scope/credential/webhook permissions | No credential/signing secret/raw payload/live console; protected boundary |
-| `/admin/notifications` | Existing notification administration/inbox | Existing notification authority | Recipient minimisation; protected boundary |
-| `/admin/notifications/categories` | Existing category authority | Existing read/manage | No active-channel inference; protected boundary |
-| `/admin/notifications/templates`, `/admin/notifications/templates/[reference]` | Existing template/version authority | Existing manage/approve/publish/retire | Canonical variables only; protected boundary |
-| `/admin/notifications/routes`, `/admin/notifications/routes/[reference]` | Existing routing authority | Existing manage/approve/activate/retire | No routing implementation change; protected boundary |
-| `/admin/notifications/deliveries`, `/admin/notifications/deliveries/[reference]` | Existing delivery metadata authority | Existing read/retry/cancel if server-eligible | No payload/fake delivery statistics; protected boundary |
-| `/admin/notifications/providers` | Existing provider readiness authority | Existing provider-status read | Credentials unavailable; protected locked boundary |
-| `/admin/notifications/suppressions` | Existing consent/suppression authority | Existing read/manage | Recipient privacy; protected boundary |
-| `/admin/notifications/reconciliation`, `/admin/notifications/reconciliation/[reference]` | Existing reconciliation authority | Canonical retry only | No force delivery; protected boundary |
-| `/admin/employees` | `listAdminEmployees` | `employees.read` | Effective access server-projected; direct protected stacked table |
-| `/admin/permissions` | Permission registry/defaults services | `employees.permissions.manage` | No R21 key/default/override change; direct protected textual review |
-| `/admin/settings` | `listSettings` and existing manager | `settings.read`; existing server update | No secret/environment rendering; direct protected panel |
-| `/admin/activity` | `listAdminActivity` | `activity.read` | Bounded append-only audit; direct protected timeline |
-| `/admin/contact-messages`, `/admin/contact-messages/[id]` | Existing contact authority | Existing contacts read/update | No out-of-scope messaging; protected boundary |
-| `/admin/emails`, `/admin/emails/[id]` | Existing email administration authority | Existing canonical status authority | Recipient/content privacy; protected boundary |
+| `/admin/developers/[[...segments]]` | Existing developer administration catch-all | Existing permissions | Protected catch-all boundary |
+| `/admin/notifications` | Existing notification inbox | Existing notification authority | Protected inbox boundary |
+| `/admin/notifications/categories` | Existing category authority | Existing read/manage | Protected category boundary |
+| `/admin/notifications/templates` | Existing template list authority | Existing manage/approve | Protected template list boundary |
+| `/admin/notifications/templates/[reference]` | Existing template detail authority | Existing manage/approve | Protected template detail boundary |
+| `/admin/notifications/routes` | Existing routing list authority | Existing manage/activate | Protected route list boundary |
+| `/admin/notifications/routes/[reference]` | Existing routing detail authority | Existing manage/activate | Protected route detail boundary |
+| `/admin/notifications/deliveries` | Existing delivery metadata list | Existing read/retry | Protected delivery list boundary |
+| `/admin/notifications/deliveries/[reference]` | Existing delivery metadata detail | Existing read/retry | Protected delivery detail boundary |
+| `/admin/notifications/providers` | Existing provider readiness authority | Existing status read | Protected provider boundary |
+| `/admin/notifications/suppressions` | Existing consent/suppression authority | Existing read/manage | Protected suppression boundary |
+| `/admin/notifications/reconciliation` | Existing reconciliation queue | Canonical retry only | Protected queue boundary |
+| `/admin/notifications/reconciliation/[reference]` | Existing reconciliation detail | Canonical retry only | Protected detail boundary |
+| `/admin/employees` | `listAdminEmployees` | `employees.read` | Direct protected table |
+| `/admin/permissions` | Permission registry/defaults | `employees.permissions.manage` | Direct protected panel |
+| `/admin/settings` | `listSettings` and manager | `settings.read` | Direct protected panel |
+| `/admin/activity` | `listAdminActivity` | `activity.read` | Direct protected timeline |
+| `/admin/contact-messages` | Existing contact list | Existing contacts read | Protected list boundary |
+| `/admin/contact-messages/[id]` | Existing contact detail | Existing contacts update | Protected detail boundary |
+| `/admin/emails` | Existing email administration list | Existing status authority | Protected list boundary |
+| `/admin/emails/[id]` | Existing email administration detail | Existing status authority | Protected detail boundary |
 
 ## Migration result and residual risk
 

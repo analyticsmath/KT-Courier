@@ -12,6 +12,15 @@ export async function GET() {
   const artifacts = await db.reportExportArtifact.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
+    select: {
+      id: true,
+      publicReference: true,
+      format: true,
+      byteSize: true,
+      checksum: true,
+      downloadCount: true,
+      expiresAt: true,
+    },
   });
 
   return ok({ data: artifacts });

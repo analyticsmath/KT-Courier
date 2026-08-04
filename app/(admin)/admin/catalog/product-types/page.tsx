@@ -16,7 +16,7 @@ export default async function CatalogProductTypesPage() {
   await requireAdminPagePermission(PERMISSIONS.CATALOG_PRODUCT_TYPES_READ);
   const types = await listProductTypeDefinitions();
   return <ProtectedPageFrame>
-    <ProtectedPageHeader eyebrow="Catalog administration" title="Product types" description="Versioned schema definitions. This presentation does not expose or alter schema internals." />
+    <ProtectedPageHeader eyebrow="Catalog administration" title="Product Types" description="Versioned schema definitions. This presentation does not expose or alter schema internals." />
     <CatalogAdministrationNav currentPath="/admin/catalog/product-types" />
     {!storefrontPublicExposureAllowed() ? <CommerceLockNotice title="Public exposure is locked" description="Reviewed schema records remain visible, while public storefront activation is unavailable." /> : null}
     <OperationalPanel title="Product type definitions" description="Active definitions are canonical immutable records. No product-type create or edit page exists in the current admin route tree.">

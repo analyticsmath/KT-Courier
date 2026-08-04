@@ -1,7 +1,19 @@
 // Shared types for Google Maps integration (Phase 2.1).
 // Safe to import in both server and client files — contains no env access.
 
-// ─── Address DTO (normalized from Google Places or manual input) ──────────────
+export type MapsResultCode =
+  | "MAPS_PROVIDER_DISABLED"
+  | "MAPS_CREDENTIALS_MISSING"
+  | "MAPS_PROVIDER_UNAVAILABLE"
+  | "MAPS_PROVIDER_TIMEOUT"
+  | "MAPS_QUOTA_EXCEEDED"
+  | "MAPS_ADDRESS_NOT_FOUND"
+  | "MAPS_ROUTE_NOT_FOUND"
+  | "MAPS_APPROXIMATE_RESULT"
+  | "MAPS_PROVIDER_RESULT"
+  | "MAPS_MOCK_REJECTED_IN_PRODUCTION";
+
+// ─── Address DTO ─────────────────────────────────────────────────────────────
 
 export interface AddressDto {
   formattedAddress: string;
@@ -23,10 +35,11 @@ export interface RouteResult {
   durationSeconds: number;
   routeSummary: string;
   provider: "google_routes" | "e2e_deterministic";
+  isApproximate?: boolean;
 }
 
 export interface RouteError {
-  code: "MISSING_KEYS" | "MISSING_COORDINATES" | "API_ERROR" | "TIMEOUT" | "PARSE_ERROR";
+  code: MapsResultCode | "MISSING_KEYS" | "MISSING_COORDINATES" | "API_ERROR" | "TIMEOUT" | "PARSE_ERROR" | "MOCK_REJECTED_IN_PRODUCTION";
   message: string;
 }
 
@@ -42,6 +55,7 @@ export interface DeliveryZoneCheckResult {
   regionName: string | null;
   withinMaxDistance: boolean | null;
   warningMessage: string | null;
+  calculationType: "geometric_haversine" | "provider_road";
 }
 
 // ─── Google Places prediction (client-side) ───────────────────────────────────

@@ -6,8 +6,8 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { publicFontVariables } from "@/app/fonts/public-fonts";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
+import { ProtectedPageFrame } from "@/components/protected-v2";
 
-/** R18 boundary: this exact public entry remains outside the protected shell. */
 export const metadata: Metadata = publicPageMetadata({
   title: "Developer API",
   description: "Documentation-led entry to the KT Couriers server-to-server developer API.",
@@ -15,9 +15,20 @@ export const metadata: Metadata = publicPageMetadata({
 });
 
 export default async function PublicDevelopersPage() {
-  return <PublicVisualRoot className={`layout-public flex min-h-screen flex-col ${publicFontVariables}`}>
-    <PublicHeader />
-    <main className="flex-1" id="main-content"><DeveloperOverviewPage signedIn={Boolean(await getCurrentUser())} /></main>
-    <PublicFooter />
-  </PublicVisualRoot>;
+  const signedIn = Boolean(await getCurrentUser());
+  return (
+    <PublicVisualRoot className={`layout-public flex min-h-screen flex-col ${publicFontVariables}`}>
+      <PublicHeader />
+      <main className="flex-1" id="main-content">
+        {signedIn ? (
+          <ProtectedPageFrame>
+            <DeveloperOverviewPage signedIn={signedIn} />
+          </ProtectedPageFrame>
+        ) : (
+          <DeveloperOverviewPage signedIn={signedIn} />
+        )}
+      </main>
+      <PublicFooter />
+    </PublicVisualRoot>
+  );
 }

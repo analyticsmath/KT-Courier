@@ -47,7 +47,7 @@ describe("Phase 4 foundation seed registry", () => {
       expect.objectContaining({ code: "PLATFORM-ADJUSTMENT-ZAR", currency: "ZAR", allowNegative: false }),
       expect.objectContaining({ code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR", allowNegative: false }),
       expect.objectContaining({ code: "PLATFORM-COMMISSION-REVENUE-ZAR", purpose: "PLATFORM_REVENUE", category: "REVENUE", currency: "ZAR", allowNegative: false }),
-      expect.objectContaining({ code: "PLATFORM-PROMOTION-EXPENSE-ZAR", purpose: "PLATFORM_PROMOTION_EXPENSE", category: "EXPENSE", currency: "ZAR", allowNegative: false }),
+      expect.objectContaining({ code: "PLATFORM-PROMOTION-EXPENSE-ZAR", purpose: "SUSPENSE", category: "EXPENSE", currency: "ZAR", allowNegative: false }),
     ]);
     expect(new Set(FOUNDATION_PLATFORM_LEDGER_ACCOUNTS.map((account) => account.code)).size).toBe(FOUNDATION_PLATFORM_LEDGER_ACCOUNTS.length);
   });

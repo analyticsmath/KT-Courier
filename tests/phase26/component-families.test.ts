@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- focused fake UI components exercise DB-free UI page surfaces. */
 import { describe, expect, it } from "vitest";
 import { recruitmentUiPages } from "@/tests/phase26/route-inventory.test";
 
@@ -21,7 +20,7 @@ describe("Phase 26 Focused Component Surfaces and UI States", () => {
     expect(applicantPages.length).toBeGreaterThanOrEqual(6);
 
     for (const page of applicantPages) {
-      expect(page).toMatch(/^app\/\(public\)\/applicant/);
+      expect(page).toMatch(/^app\/\(applicant\)\/applicant/);
     }
   });
 

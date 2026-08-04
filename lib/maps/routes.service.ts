@@ -21,6 +21,15 @@ export async function calculateRoute(
   // The isolated browser suite supplies a deterministic in-process provider. It
   // is intentionally opt-in and never available in normal runtime deployments.
   if (process.env.E2E_ROUTE_PROVIDER === "deterministic") {
+    if (process.env.NODE_ENV === "production") {
+      return {
+        ok: false,
+        error: {
+          code: "MAPS_MOCK_REJECTED_IN_PRODUCTION",
+          message: "Deterministic route mock provider is strictly prohibited in production.",
+        },
+      };
+    }
     if (![pickupLat, pickupLng, dropoffLat, dropoffLng].every(Number.isFinite)) {
       return { ok: false, error: { code: "PARSE_ERROR", message: "E2E route coordinates are invalid." } };
     }
@@ -40,7 +49,7 @@ export async function calculateRoute(
     return {
       ok: false,
       error: {
-        code: "MISSING_KEYS",
+        code: "MAPS_CREDENTIALS_MISSING",
         message: "GOOGLE_MAPS_SERVER_KEY is not configured. Route calculation unavailable.",
       },
     };
@@ -71,12 +80,22 @@ export async function calculateRoute(
 
     clearTimeout(timeoutId);
 
+    if (response.status === 429) {
+      return {
+        ok: false,
+        error: {
+          code: "MAPS_QUOTA_EXCEEDED",
+          message: "Google Routes API quota exceeded.",
+        },
+      };
+    }
+
     if (!response.ok) {
       const text = await response.text().catch(() => "unknown");
       return {
         ok: false,
         error: {
-          code: "API_ERROR",
+          code: "MAPS_PROVIDER_UNAVAILABLE",
           message: `Routes API returned HTTP ${response.status}: ${text.slice(0, 200)}`,
         },
       };
@@ -88,7 +107,7 @@ export async function calculateRoute(
       return {
         ok: false,
         error: {
-          code: "API_ERROR",
+          code: "MAPS_PROVIDER_UNAVAILABLE",
           message: `Routes API error ${data.error.code}: ${data.error.message}`,
         },
       };
@@ -99,8 +118,8 @@ export async function calculateRoute(
       return {
         ok: false,
         error: {
-          code: "PARSE_ERROR",
-          message: "Routes API returned no routes.",
+          code: "MAPS_ROUTE_NOT_FOUND",
+          message: "Routes API returned no routes between specified origin and destination.",
         },
       };
     }
@@ -125,14 +144,14 @@ export async function calculateRoute(
     if (err instanceof Error && err.name === "AbortError") {
       return {
         ok: false,
-        error: { code: "TIMEOUT", message: "Route calculation request timed out." },
+        error: { code: "MAPS_PROVIDER_TIMEOUT", message: "Route calculation request timed out." },
       };
     }
 
     return {
       ok: false,
       error: {
-        code: "API_ERROR",
+        code: "MAPS_PROVIDER_UNAVAILABLE",
         message: err instanceof Error ? err.message : "Unknown route calculation error.",
       },
     };
@@ -143,7 +162,6 @@ export async function calculateRoute(
 
 function parseDurationSeconds(duration: string | undefined): number {
   if (!duration) return 0;
-  // Format: "1234s" or "1234.5s"
   const match = /^([0-9.]+)s$/.exec(duration);
   if (match) return Math.round(parseFloat(match[1]));
   return 0;

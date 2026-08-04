@@ -21,7 +21,7 @@ export default async function CatalogModerationPage({ searchParams }: { searchPa
   const input = await searchParams; const status = MODERATION_FILTERS.includes(input.status as typeof MODERATION_FILTERS[number]) ? input.status : undefined;
   const cases = await listCatalogModerationCases({ status });
   return <ProtectedPageFrame>
-    <ProtectedPageHeader eyebrow="Catalog administration" title="Moderation" description="Source-backed review cases with safe summaries and canonical immutable history." />
+    <ProtectedPageHeader eyebrow="Catalog administration" title="Catalog Moderation" description="Source-backed review cases with safe summaries and canonical immutable history." />
     <CatalogAdministrationNav currentPath="/admin/catalog/moderation" />
     <ProtectedFilterBar activeFilterCount={Number(Boolean(status))} clearHref={status ? "/admin/catalog/moderation" : undefined}><div aria-label="Moderation status filters" className="eo-filter-chips">{MODERATION_FILTERS.map((filter) => <Link aria-current={(status ?? "") === filter ? "page" : undefined} className={(status ?? "") === filter ? "is-active" : undefined} href={buildHref(filter || undefined)} key={filter || "all"}>{filter ? presentCommerceStatus(filter).label : "All states"}</Link>)}</div></ProtectedFilterBar>
     <OperationalPanel title="Moderation queue" description="Review evidence is intentionally limited to canonical safe summaries, reason codes, and source state.">

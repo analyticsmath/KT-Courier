@@ -4,8 +4,14 @@ import { ok, unauthorized, forbidden, badRequest } from "@/lib/api/response";
 import { ReportReconciliationService } from "@/lib/reporting/reconciliation";
 import { db } from "@/lib/db";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
+import { z } from "zod";
 
 const reconService = new ReportReconciliationService();
+const reconciliationActionSchema = z.object({
+  action: z.enum(["SCAN", "CANCEL_STUCK_JOB", "RETRY_GENERATION"]).default("SCAN"),
+  dryRun: z.boolean().optional(),
+  jobId: z.string().trim().min(1).optional(),
+});
 
 export async function GET() {
   const session = await getCurrentUser();
@@ -17,6 +23,14 @@ export async function GET() {
   const cases = await db.reportReconciliationCase.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
+    select: {
+      id: true,
+      publicReference: true,
+      reason: true,
+      status: true,
+      safeSummary: true,
+      openedAt: true,
+    },
   });
 
   return ok({ data: cases });
@@ -32,14 +46,10 @@ export async function POST(req: NextRequest) {
     return forbidden("Admin access required.");
   }
 
-  let body: any = {};
-  try {
-    body = await req.json();
-  } catch {
-    // optional body
-  }
-
-  const action = body.action || "SCAN";
+  const parsedBody = reconciliationActionSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsedBody.success) return badRequest("Invalid reconciliation action.");
+  const body = parsedBody.data;
+  const action = body.action;
 
   try {
     if (action === "SCAN") {
@@ -58,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     return badRequest(`Unknown action: ${action}`);
-  } catch (err: any) {
-    return badRequest(err.message || "Failed to perform reconciliation action.");
+  } catch (error: unknown) {
+    return badRequest(error instanceof Error ? error.message : "Failed to perform reconciliation action.");
   }
 }

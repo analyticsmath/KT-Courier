@@ -14,6 +14,18 @@ export async function GET(
 
   const job = await db.reportJob.findUnique({
     where: { publicReference: reference },
+    select: {
+      id: true,
+      publicReference: true,
+      definitionKey: true,
+      requesterUserId: true,
+      requesterRole: true,
+      status: true,
+      outputFormat: true,
+      rowCount: true,
+      createdAt: true,
+      errorMessage: true,
+    },
   });
 
   if (!job) return notFound("Report job not found.");
@@ -25,21 +37,29 @@ export async function GET(
 
   const artifact = await db.reportExportArtifact.findUnique({
     where: { jobId: job.id },
+    select: {
+      id: true,
+      publicReference: true,
+      format: true,
+      byteSize: true,
+      checksum: true,
+      downloadCount: true,
+      expiresAt: true,
+    },
   });
 
   return ok({
     data: {
-      ...job,
-      artifact: artifact
-        ? {
-            publicReference: artifact.publicReference,
-            format: artifact.format,
-            byteSize: artifact.byteSize,
-            checksum: artifact.checksum,
-            expiresAt: artifact.expiresAt,
-            downloadCount: artifact.downloadCount,
-          }
-        : null,
+      id: job.id,
+      publicReference: job.publicReference,
+      definitionKey: job.definitionKey,
+      requesterRole: job.requesterRole,
+      status: job.status,
+      outputFormat: job.outputFormat,
+      rowCount: job.rowCount,
+      createdAt: job.createdAt,
+      errorMessage: job.errorMessage,
+      artifact,
     },
   });
 }

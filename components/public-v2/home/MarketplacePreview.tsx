@@ -42,7 +42,7 @@ export async function MarketplacePreview() {
             <p className={styles.sectionMarker}>Marketplace source unavailable</p>
             <h2 id="marketplace-heading">Marketplace records cannot load right now.</h2>
           </div>
-          <p>No store, product, price, or availability record is substituted while the canonical marketplace source is unavailable.</p>
+          <p>No store, product, pricing, or availability record is substituted while the canonical marketplace source is unavailable.</p>
         </div>
 
         <div className={styles.marketplaceFooter}>

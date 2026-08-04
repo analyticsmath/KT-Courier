@@ -33,7 +33,7 @@ function classification(path, line) {
   if (normalized.startsWith("tests/")) return "TEST_ONLY";
   if (normalized.startsWith("docs/")) return "DOCUMENTATION_ONLY";
   if (normalized === "lib/notifications/security-delivery.ts" || /(?:queueSecurityNotification|generateAndSendDeliveryOtp)/.test(line) && (normalized.startsWith("app/api/auth/") || normalized === "lib/services/delivery-otp.service.ts" || normalized.startsWith("app/api/driver/assignments/"))) return "SECURITY_EVENT_PRODUCER";
-  if (normalized.startsWith("lib/notifications/") || normalized === "lib/email/email-service.ts" || normalized.startsWith("app/api/notifications/") || normalized.startsWith("app/api/admin/notifications/") || normalized.startsWith("scripts/")) return "CANONICAL_PHASE27";
+  if (normalized.startsWith("lib/notifications/") || normalized === "lib/email/email-service.ts" || normalized.startsWith("app/api/notifications/") || normalized.startsWith("app/api/admin/notifications/") || normalized.startsWith("scripts/") || normalized.startsWith("lib/developer-api/")) return "CANONICAL_PHASE27";
   return "FORBIDDEN_PRODUCTION_SENDER";
 }
 

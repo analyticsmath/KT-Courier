@@ -39,10 +39,12 @@ export async function hasPermission(args: HasPermissionArgs): Promise<boolean> {
   if (args.role === UserRole.SUPER_ADMIN) return true;
   if (!isPermissionBearingRole(args.role)) return false;
 
-  if (await permissionTableIsEmpty()) {
-    return args.role === UserRole.ADMIN
-      ? true
-      : (ROLE_DEFAULT_PERMISSION_KEYS[args.role] ?? []).includes(args.permissionKey as never);
+  if (args.role === UserRole.ADMIN || args.role === UserRole.PROMOTER) {
+    if (await permissionTableIsEmpty()) {
+      return args.role === UserRole.ADMIN
+        ? true
+        : (ROLE_DEFAULT_PERMISSION_KEYS[args.role] ?? []).includes(args.permissionKey as never);
+    }
   }
 
   const permission = await prisma.permission.findUnique({

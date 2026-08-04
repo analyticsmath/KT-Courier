@@ -9,7 +9,7 @@
  *   or: npm run prisma:seed
  */
 
-import { PrismaClient, UserRole, UserStatus, SystemSettingType, DeliveryType, DriverStatus, DriverAvailability, DriverOnboardingStatus, VehicleType, OrderStatus, OrderSource, AddressType, OrderAssignmentStatus } from "@prisma/client";
+import { PrismaClient, UserRole, UserStatus, SystemSettingType, DeliveryType, DriverStatus, DriverAvailability, DriverOnboardingStatus, VehicleType, OrderStatus, OrderSource, AddressType, OrderAssignmentStatus, LedgerAccountPurpose } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { syncSystemPermissions } from "../lib/auth/permissions";
 import {
@@ -27,6 +27,8 @@ import {
   FOUNDATION_DRIVER_EARNING_JOURNAL_TYPES,
 } from "../lib/constants/foundation-models";
 
+import { assertSeedExecutionAllowed } from "../lib/security/seed-safety";
+
 const prisma = new PrismaClient();
 
 // Demo password for all seeded accounts — change before any real deployment.
@@ -35,10 +37,12 @@ const DEMO_PASSWORD = "ChangeMe123!";
 const SALT_ROUNDS = 12;
 
 async function main() {
+  assertSeedExecutionAllowed();
+
   const dbUrl = process.env.DATABASE_URL || "";
   const isLocalDb = dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1") || dbUrl.includes("db:5432") || dbUrl.includes("db:5433");
-  if (process.env.NODE_ENV === "production" || !isLocalDb) {
-    throw new Error("❌ ERROR: Development seed script refused to run! Must run in development environment against a local database.");
+  if (!isLocalDb) {
+    throw new Error("❌ ERROR: Development seed script refused to run! Target database host is not a recognized local or compose database.");
   }
 
   console.log("🌱  Starting KT Couriers development seed...");
@@ -446,7 +450,7 @@ async function main() {
       create: {
         walletId: platformWallet.id,
         code: definition.code,
-        purpose: definition.purpose as any,
+        purpose: LedgerAccountPurpose[definition.purpose],
         category: definition.category,
         currency: definition.currency,
         allowNegative: definition.allowNegative,

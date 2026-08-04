@@ -15,7 +15,7 @@ export default async function DuplicateProductsPage() {
   await requireAdminPagePermission(PERMISSIONS.CATALOG_MODERATION_READ);
   const candidates = await listCatalogDuplicateCandidates();
   return <ProtectedPageFrame>
-    <ProtectedPageHeader eyebrow="Catalog administration" title="Duplicate products" description="Canonical candidate records based on stored duplicate authority. This page does not calculate similarity or provide an automatic merge." />
+    <ProtectedPageHeader eyebrow="Catalog administration" title="Duplicate Products" description="Canonical candidate records based on stored duplicate authority. This page does not calculate similarity or provide an automatic merge." />
     <CatalogAdministrationNav currentPath="/admin/catalog/duplicates" />
     <OperationalPanel title="Open duplicate candidates" description="Compare canonical product identity and the authority-provided reason. Resolution remains in the existing canonical API and is not introduced here.">
       <EditorialTable caption="Open catalog duplicate candidates" mobileMode="stack" rows={candidates} emptyState={<ProtectedState kind="empty" title="No open duplicate candidates" description="No canonical duplicate candidate is awaiting review." />} columns={[

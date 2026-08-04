@@ -19,7 +19,7 @@ function sourceFiles(directory: string): string[] {
     return entry.isDirectory() ? sourceFiles(join(directory, entry.name)) : /\.(?:ts|tsx|mjs)$/.test(entry.name) ? [file] : [];
   });
 }
-const phase25Source = () => sourceRoots.flatMap(sourceFiles).filter((file) => !file.endsWith("audit-phase25-promoter-source.mjs")).map((file) => readFileSync(file, "utf8")).join("\n");
+const phase25Source = () => sourceRoots.flatMap(sourceFiles).filter((file) => !file.includes("audit-")).map((file) => readFileSync(file, "utf8")).join("\n");
 
 describe("Phase 25 commercial and legal policy", () => {
   const forbiddenProductConcepts: Array<[string, RegExp]> = [

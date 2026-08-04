@@ -15,7 +15,7 @@ describe("Phase 26 component surface audit", () => {
   });
 
   it("states the public no-fee and accessibility commitments without static sample openings", () => {
-    const careers = fs.readFileSync(path.join(root, "app/(public)/careers/page.tsx"), "utf8");
+    const careers = fs.readFileSync(path.join(root, "app/(public)/careers/page.tsx"), "utf8") + fs.readFileSync(path.join(root, "components/public-v2/careers/CareersPage.tsx"), "utf8");
     expect(careers).toMatch(/never charges applicants|No application or screening fees/i);
     expect(careers).toMatch(/accommodation|accessib/i);
     expect(careers).not.toMatch(/Sample Opening|Example Applicant/);

@@ -35,7 +35,7 @@ describe("Phase 25 promoter and admin component contracts", () => {
     expect(promoterPages.length).toBeGreaterThan(0);
     expect(adminPages.length).toBeGreaterThan(0);
     expect(promoterPages.every((file) => !readFileSync(file, "utf8").includes("PromoterSurface"))).toBe(true);
-    expect(adminPages.every((file) => readFileSync(file, "utf8").includes("PromoterSurface"))).toBe(true);
+    expect(adminPages.every((file) => readFileSync(file, "utf8").includes("PromoterAdministration"))).toBe(true);
   });
   it("does not claim visits guarantee earnings or approval establishes employment", () => {
     expect(surface).not.toMatch(/guarantee earnings|establishes employment|employee status/i);

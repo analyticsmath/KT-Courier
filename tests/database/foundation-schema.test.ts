@@ -112,7 +112,7 @@ describe("Phase 4 foundation schema", () => {
       "NotificationChannel",
       "NotificationStatus",
       "ReportJobStatus",
-      "ExportFormat",
+      "ReportExportFormat",
     ];
 
     for (const enumName of requiredEnums) {

@@ -33,7 +33,7 @@ export const adminRoutes = [
 
 export const recruitmentUiPages = [
   "app/(public)/careers/page.tsx", "app/(public)/careers/jobs/page.tsx", "app/(public)/careers/jobs/[reference]/page.tsx",
-  "app/(public)/applicant/page.tsx", "app/(public)/applicant/profile/page.tsx", "app/(public)/applicant/applications/page.tsx", "app/(public)/applicant/applications/[reference]/page.tsx", "app/(public)/applicant/privacy/page.tsx", "app/(public)/applicant/data-requests/page.tsx",
+  "app/(applicant)/applicant/page.tsx", "app/(applicant)/applicant/profile/page.tsx", "app/(applicant)/applicant/applications/page.tsx", "app/(applicant)/applicant/applications/[reference]/page.tsx", "app/(applicant)/applicant/privacy/page.tsx", "app/(applicant)/applicant/data-requests/page.tsx",
   "app/(admin)/admin/recruitment/page.tsx", "app/(admin)/admin/recruitment/requisitions/page.tsx", "app/(admin)/admin/recruitment/openings/page.tsx", "app/(admin)/admin/recruitment/applications/page.tsx", "app/(admin)/admin/recruitment/interviews/page.tsx", "app/(admin)/admin/recruitment/checks/page.tsx", "app/(admin)/admin/recruitment/offers/page.tsx", "app/(admin)/admin/recruitment/handoffs/page.tsx", "app/(admin)/admin/recruitment/fraud/page.tsx", "app/(admin)/admin/recruitment/reconciliation/page.tsx", "app/(admin)/admin/recruitment/privacy/page.tsx", "app/(admin)/admin/recruitment/retention/page.tsx", "app/(admin)/admin/recruitment/employment-equity/page.tsx",
 ];
 

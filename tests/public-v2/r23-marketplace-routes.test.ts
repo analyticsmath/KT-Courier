@@ -61,7 +61,8 @@ describe("R23 marketplace route activation", () => {
     expect(homepage).toContain("MarketplaceProductGrid");
     expect(search).toContain("MarketplaceSearchDiscovery");
     expect(sitemap).toContain("marketplaceVariantHref");
-    expect(sitemap).not.toContain("storefrontPublicExposureAllowed");
+    expect(sitemap).toContain("storefrontPublicExposureAllowed");
+    expect(sitemap).toContain('export const dynamic = "force-dynamic"');
   });
 
   it("resolves public records before presentation and never lets an obsolete browse placeholder intercept them", () => {

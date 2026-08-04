@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -28,6 +28,80 @@ type Draft = {
 
 const EMPTY: Draft = { existingSearch: "", productTypeDefinitionId: "", primaryCategoryId: "", title: "", description: "", attributes: "{}", variants: "Default", media: [], compliance: "{}", storeSku: "", price: "", stock: "0", modifiers: "" };
 const STEPS = ["Find existing product", "Type and category", "Core information", "Attributes", "Variants", "Media", "Compliance", "Store offer", "Price", "Inventory", "Modifiers", "Preview", "Submit"];
+const DRAFT_STORAGE_KEY = "kt_store_catalog_wizard_draft";
+const DRAFT_STORAGE_EVENT = "kt-store-catalog-wizard-draft-change";
+const PERSISTED_DRAFT_KEYS = ["existingSearch", "productTypeDefinitionId", "primaryCategoryId", "title", "description", "attributes", "variants", "compliance", "storeSku", "price", "stock", "modifiers"] as const;
+
+type PersistedDraft = Omit<Draft, "media">;
+
+let inMemoryDraft: Draft | null = null;
+let lastStoredDraft: string | null | undefined;
+let lastSnapshot: Draft = EMPTY;
+
+function isPersistedDraft(value: unknown): value is PersistedDraft {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return PERSISTED_DRAFT_KEYS.every((key) => typeof record[key] === "string");
+}
+
+function readStoredDraft(): Draft {
+  if (typeof window === "undefined") return EMPTY;
+  if (inMemoryDraft) return inMemoryDraft;
+
+  try {
+    const stored = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (stored === lastStoredDraft) return lastSnapshot;
+    lastStoredDraft = stored;
+    if (!stored) return lastSnapshot = EMPTY;
+    const parsed: unknown = JSON.parse(stored);
+    return lastSnapshot = isPersistedDraft(parsed) ? { ...EMPTY, ...parsed, media: [] } : EMPTY;
+  } catch {
+    return lastSnapshot = EMPTY;
+  }
+}
+
+function subscribeToDraft(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === DRAFT_STORAGE_KEY) {
+      inMemoryDraft = null;
+      callback();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(DRAFT_STORAGE_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(DRAFT_STORAGE_EVENT, callback);
+  };
+}
+
+function persistDraft(draft: Draft): void {
+  inMemoryDraft = draft;
+  lastSnapshot = draft;
+  try {
+    const persisted: PersistedDraft = {
+      existingSearch: draft.existingSearch,
+      productTypeDefinitionId: draft.productTypeDefinitionId,
+      primaryCategoryId: draft.primaryCategoryId,
+      title: draft.title,
+      description: draft.description,
+      attributes: draft.attributes,
+      variants: draft.variants,
+      compliance: draft.compliance,
+      storeSku: draft.storeSku,
+      price: draft.price,
+      stock: draft.stock,
+      modifiers: draft.modifiers,
+    };
+    const serialized = JSON.stringify(persisted);
+    window.localStorage.setItem(DRAFT_STORAGE_KEY, serialized);
+    lastStoredDraft = serialized;
+  } catch {
+    // Local storage quota or security errors do not prevent this browser-only draft from continuing.
+  }
+  window.dispatchEvent(new Event(DRAFT_STORAGE_EVENT));
+}
 
 function draftSaveFailure(status: number, attachment = false) {
   if (status === 409 || status === 412) return "The catalog record changed before this request completed. Refresh and review the canonical record before trying again.";
@@ -38,7 +112,7 @@ function draftSaveFailure(status: number, attachment = false) {
 
 export function StoreCatalogWizard({ productTypes, categories }: { productTypes: ProductTypeChoice[]; categories: CategoryChoice[] }) {
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const draft = useSyncExternalStore(subscribeToDraft, readStoredDraft, () => EMPTY);
   const [status, setStatus] = useState("Draft is held only in this browser view until it is submitted.");
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -46,7 +120,7 @@ export function StoreCatalogWizard({ productTypes, categories }: { productTypes:
   const selectedType = productTypes.find((choice) => choice.id === draft.productTypeDefinitionId);
   const completed = useMemo(() => [draft.existingSearch.length > 2, !!draft.productTypeDefinitionId && !!draft.primaryCategoryId, draft.title.length >= 3 && draft.description.length >= 20, isJson(draft.attributes), draft.variants.trim().length > 0, draft.media.length > 0 && draft.media.every((item) => item.status === "READY" && item.altText.trim()) && draft.media.filter((item) => item.primary).length === 1, isJson(draft.compliance), draft.storeSku.trim().length > 0, /^\d+\.\d{2}$/.test(draft.price), Number.isSafeInteger(Number(draft.stock)) && Number(draft.stock) >= 0, true, draft.title.length >= 3, false], [draft]);
 
-  function update<K extends keyof Draft>(key: K, value: Draft[K]) { setDraft((current) => ({ ...current, [key]: value })); setStatus("Draft changed in this browser view."); }
+  function update<K extends keyof Draft>(key: K, value: Draft[K]) { persistDraft({ ...draft, [key]: value }); setStatus("Draft changed in this browser view."); }
 
   async function submitDraft() {
     if (saving) return;

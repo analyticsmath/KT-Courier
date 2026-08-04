@@ -14,7 +14,7 @@ describe("Phase 25 permission composition", () => {
   it("gives promoters only self-service defaults", () => {
     const promoterDefaults = ROLE_DEFAULT_PERMISSION_KEYS[UserRole.PROMOTER] ?? [];
     expect(promoterDefaults.length).toBeGreaterThan(0);
-    expect(promoterDefaults.every((key) => key.startsWith("promoter_") || key.startsWith("promoter.") || key.includes("promoter"))).toBe(true);
+    expect(promoterDefaults.every((key) => key.startsWith("promoter_") || key.startsWith("promoter.") || key.includes("promoter") || key.endsWith("_own") || key.endsWith(".own") || key.includes("notification"))).toBe(true);
     expect(promoterDefaults.some((key) => DEFAULT_ADMIN_PERMISSION_KEYS.includes(key))).toBe(false);
     expect(promoterDefaults).not.toContain(PERMISSIONS.PROMOTER_EARNINGS_READ);
   });

@@ -53,6 +53,7 @@ export async function checkDeliveryZone(
       regionName: null,
       withinMaxDistance: null,
       warningMessage: "Service area check unavailable. Please contact us to confirm coverage.",
+      calculationType: "geometric_haversine",
     };
   }
 
@@ -63,6 +64,7 @@ export async function checkDeliveryZone(
       regionName: null,
       withinMaxDistance: null,
       warningMessage: null,
+      calculationType: "geometric_haversine",
     };
   }
 
@@ -90,6 +92,7 @@ export async function checkDeliveryZone(
         warningMessage: withinMaxDistance === false
           ? `This address may exceed the maximum delivery distance for ${region.name}.`
           : null,
+        calculationType: "geometric_haversine",
       };
     }
   }
@@ -101,6 +104,7 @@ export async function checkDeliveryZone(
     withinMaxDistance: null,
     warningMessage:
       "This address may be outside our current service area. Please contact us to confirm coverage.",
+    calculationType: "geometric_haversine",
   };
 }
 

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-const route = readFileSync("app/api/orders/[orderId]/payment/route.ts", "utf8");
+const route = readFileSync("app/api/orders/[id]/payment/route.ts", "utf8");
 const validation = readFileSync("lib/validation/payments.ts", "utf8");
 describe("order payment preparation API contract", () => {
   it.each(["enforceSameOriginRequest", "getCurrentUser", "ALLOWED_ROLES", "PAYMENT_PREPARE", "PaymentOperationSchema"])("enforces %s", (control) => expect(route).toContain(control));

@@ -2,10 +2,17 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { ProtectedPageFrame } from "@/components/protected-v2";
+import { reportJobDetailSchema, type ReportJobDetail } from "@/lib/reporting/client-contracts";
+import { z } from "zod";
+
+const reportJobResponseSchema = z.object({ data: reportJobDetailSchema });
+const downloadResponseSchema = z.object({ data: z.object({ downloadUrl: z.string().startsWith("/api/reports/") }) });
+const errorResponseSchema = z.object({ error: z.string() });
 
 export default function ReportDetailPage({ params }: { params: Promise<{ reference: string }> }) {
   const { reference } = use(params);
-  const [job, setJob] = useState<any>(null);
+  const [job, setJob] = useState<ReportJobDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
@@ -15,8 +22,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ referen
       try {
         const res = await fetch(`/api/reports/${reference}`);
         if (res.ok) {
-          const data = await res.json();
-          setJob(data.data);
+          const parsed = reportJobResponseSchema.safeParse(await res.json());
+          if (parsed.success) setJob(parsed.data.data);
+          else setError("The report service returned an invalid response.");
         } else {
           setError("Failed to fetch report job details.");
         }
@@ -36,13 +44,12 @@ export default function ReportDetailPage({ params }: { params: Promise<{ referen
         method: "POST",
       });
       if (res.ok) {
-        const result = await res.json();
-        if (result.data?.downloadUrl) {
-          window.location.href = result.data.downloadUrl;
-        }
+        const parsed = downloadResponseSchema.safeParse(await res.json());
+        if (parsed.success) window.location.assign(parsed.data.data.downloadUrl);
+        else setError("The report service returned an invalid download response.");
       } else {
-        const err = await res.json();
-        setError(err.message || "Failed to generate download link.");
+        const parsed = errorResponseSchema.safeParse(await res.json());
+        setError(parsed.success ? parsed.data.error : "Failed to generate download link.");
       }
     } catch {
       setError("Download request failed.");
@@ -67,62 +74,64 @@ export default function ReportDetailPage({ params }: { params: Promise<{ referen
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Report Job {job.publicReference}</h1>
-          <p className="text-sm text-gray-500">{job.definitionKey}</p>
-        </div>
-        <Link href="/reports" className="text-sm text-blue-600 hover:underline">
-          &larr; Back to Reports
-        </Link>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow border border-gray-200 space-y-4 text-sm">
-        <div className="grid grid-cols-2 gap-4 border-b pb-4">
+    <ProtectedPageFrame>
+      <div className="max-w-3xl mx-auto p-6 space-y-6">
+        <div className="flex justify-between items-center">
           <div>
-            <span className="text-gray-500 block">Status</span>
-            <span className="font-semibold text-gray-900">{job.status}</span>
+            <h1 className="text-xl font-bold text-gray-900">Report Job {job.publicReference}</h1>
+            <p className="text-sm text-gray-500">{job.definitionKey}</p>
           </div>
-          <div>
-            <span className="text-gray-500 block">Format</span>
-            <span className="font-semibold text-gray-900">{job.outputFormat}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block">Row Count</span>
-            <span className="font-semibold text-gray-900">{job.rowCount ?? "Pending"}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block">Requested At</span>
-            <span className="font-semibold text-gray-900">{new Date(job.createdAt).toLocaleString()}</span>
-          </div>
+          <Link href="/reports" className="text-sm text-blue-600 hover:underline">
+            &larr; Back to Reports
+          </Link>
         </div>
 
-        {job.artifact && (
-          <div className="p-4 bg-gray-50 rounded border border-gray-200 space-y-2">
-            <h3 className="font-semibold text-gray-900">Export Artifact Ready</h3>
-            <p className="text-xs text-gray-500">
-              Checksum (SHA-256): <code className="font-mono">{job.artifact.checksum}</code>
-            </p>
-            <p className="text-xs text-gray-500">
-              Expires At: {new Date(job.artifact.expiresAt).toLocaleString()}
-            </p>
-            <button
-              onClick={handleDownload}
-              disabled={downloading}
-              className="mt-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition"
-            >
-              {downloading ? "Preparing Download..." : "Download Export Artifact"}
-            </button>
+        <div className="bg-white p-6 rounded-lg shadow border border-gray-200 space-y-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 border-b pb-4">
+            <div>
+              <span className="text-gray-500 block">Status</span>
+              <span className="font-semibold text-gray-900">{job.status}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Format</span>
+              <span className="font-semibold text-gray-900">{job.outputFormat}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Row Count</span>
+              <span className="font-semibold text-gray-900">{job.rowCount ?? "Pending"}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Requested At</span>
+              <span className="font-semibold text-gray-900">{new Date(job.createdAt).toLocaleString()}</span>
+            </div>
           </div>
-        )}
 
-        {job.errorMessage && (
-          <div className="p-4 bg-red-50 text-red-800 rounded border border-red-200 text-xs font-mono">
-            Error: {job.errorMessage}
-          </div>
-        )}
+          {job.artifact && (
+            <div className="p-4 bg-gray-50 rounded border border-gray-200 space-y-2">
+              <h3 className="font-semibold text-gray-900">Export Artifact Ready</h3>
+              <p className="text-xs text-gray-500">
+                Checksum (SHA-256): <code className="font-mono">{job.artifact.checksum}</code>
+              </p>
+              <p className="text-xs text-gray-500">
+                Expires At: {new Date(job.artifact.expiresAt).toLocaleString()}
+              </p>
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="mt-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition"
+              >
+                {downloading ? "Preparing Download..." : "Download Export Artifact"}
+              </button>
+            </div>
+          )}
+
+          {job.errorMessage && (
+            <div className="p-4 bg-red-50 text-red-800 rounded border border-red-200 text-xs font-mono">
+              Error: {job.errorMessage}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </ProtectedPageFrame>
   );
 }

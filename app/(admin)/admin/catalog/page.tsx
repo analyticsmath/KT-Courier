@@ -24,7 +24,7 @@ export default async function CatalogAdministrationPage() {
   ]);
   const publicExposureLocked = !storefrontPublicExposureAllowed();
   return <ProtectedPageFrame>
-    <ProtectedPageHeader eyebrow="Commerce operations" title="Catalog administration" description="Canonical taxonomy, product review, media evidence, and duplicate records. No sales analytics or public storefront performance is shown." />
+    <ProtectedPageHeader eyebrow="Commerce operations" title="Catalog Administration" description="Canonical taxonomy, product review, media evidence, and duplicate records. No sales analytics or public storefront performance is shown." />
     <CatalogAdministrationNav currentPath="/admin/catalog" />
     {publicExposureLocked ? <CommerceLockNotice title="Storefront exposure is locked" description="Catalog records can be drafted and reviewed, but this workspace does not claim public visibility or provide an activation control." /> : null}
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -12,6 +12,16 @@ export async function GET() {
   const jobs = await db.reportJob.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
+    select: {
+      id: true,
+      publicReference: true,
+      definitionKey: true,
+      requesterRole: true,
+      status: true,
+      outputFormat: true,
+      rowCount: true,
+      createdAt: true,
+    },
   });
 
   return ok({ data: jobs });

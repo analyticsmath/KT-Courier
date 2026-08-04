@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getStoreForUser } from "@/lib/auth/store-context";
 import { UserRole } from "@/types/db";
 import { ok, unauthorized, forbidden, unprocessable, serverError } from "@/lib/api/response";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
@@ -16,9 +17,12 @@ export async function GET(
   if (!session) return unauthorized();
   if (session.role !== UserRole.STORE) return forbidden();
 
+  const store = await getStoreForUser(session.id);
+  if (!store) return forbidden("No store found for this account.");
+
   try {
     const params = await context.params;
-    const campaign = await getStoreCampaign(session.id, params.reference);
+    const campaign = await getStoreCampaign(store.id, params.reference);
     return ok(campaign);
   } catch {
     return serverError();
@@ -36,12 +40,15 @@ export async function PATCH(
   if (!session) return unauthorized();
   if (session.role !== UserRole.STORE) return forbidden();
 
+  const store = await getStoreForUser(session.id);
+  if (!store) return forbidden("No store found for this account.");
+
   try {
     const params = await context.params;
     const body = await request.json();
     assertPromotionsProductionReady("CAMPAIGN_UPDATE");
 
-    const campaign = await updateStoreCampaign(session.id, params.reference, body);
+    const campaign = await updateStoreCampaign(store.id, params.reference, body);
     return ok(campaign);
   } catch {
     return unprocessable("Update failed");

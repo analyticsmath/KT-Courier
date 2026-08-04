@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description: "Browse published marketplace categories from local stores connected to KT Couriers.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function CategoriesPage() {
   const categories = await listStorefrontCategories();
 
