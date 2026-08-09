@@ -55,6 +55,7 @@ export const PERMISSIONS = {
   CONTACTS_UPDATE: "contacts.update",
 
   SECURITY_READ: "security.read",
+  SECURITY_SESSIONS_MANAGE: "security.sessions.manage",
 
   FINANCE_READ: "finance.read",
   LEDGER_READ: "ledger.read",
@@ -381,6 +382,16 @@ export const PERMISSIONS = {
   REPORT_RESTRICTED_DATA_READ: "report_restricted_data.read",
   REPORT_RECONCILIATION_READ: "report_reconciliation.read",
   REPORT_RECONCILIATION_RETRY: "report_reconciliation.retry",
+
+  SYSTEM_READINESS_READ: "system_readiness.read",
+  INCIDENTS_READ: "incidents.read",
+  INCIDENTS_MANAGE: "incidents.manage",
+  PRIVACY_REQUESTS_READ: "privacy_requests.read",
+  PRIVACY_REQUESTS_MANAGE: "privacy_requests.manage",
+  LEGAL_DOCUMENTS_READ: "legal_documents.read",
+  LEGAL_DOCUMENTS_MANAGE: "legal_documents.manage",
+  LEGAL_DOCUMENTS_PUBLISH: "legal_documents.publish",
+  PROCESSORS_READ: "processors.read",
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -632,6 +643,12 @@ export const SYSTEM_PERMISSION_DEFINITIONS: SystemPermissionDefinition[] = [
     name: "Read security events",
     category: "Security",
     description: "View security events and access-control audit records.",
+  },
+  {
+    key: PERMISSIONS.SECURITY_SESSIONS_MANAGE,
+    name: "Manage user sessions",
+    category: "Security",
+    description: "List and revoke user sessions with attributable security evidence.",
   },
   {
     key: PERMISSIONS.FINANCE_READ,
@@ -1303,6 +1320,15 @@ export const SYSTEM_PERMISSION_DEFINITIONS: SystemPermissionDefinition[] = [
   { key: PERMISSIONS.REPORT_RESTRICTED_DATA_READ, name: "Read restricted reporting data", category: "Reporting Administration", description: "Access high-sensitivity report projections under exact permission." },
   { key: PERMISSIONS.REPORT_RECONCILIATION_READ, name: "Read report reconciliation", category: "Reporting Administration", description: "Inspect reporting reconciliation cases." },
   { key: PERMISSIONS.REPORT_RECONCILIATION_RETRY, name: "Retry report reconciliation", category: "Reporting Administration", description: "Run report reconciliation recovery actions." },
+  { key: PERMISSIONS.SYSTEM_READINESS_READ, name: "Read system readiness diagnostics", category: "Command Centre", description: "Read safe privileged readiness and production-lock diagnostics." },
+  { key: PERMISSIONS.INCIDENTS_READ, name: "Read operational incidents", category: "Command Centre", description: "Read operational incident records and safe timelines." },
+  { key: PERMISSIONS.INCIDENTS_MANAGE, name: "Manage operational incidents", category: "Command Centre", description: "Create and transition operational incidents." },
+  { key: PERMISSIONS.PRIVACY_REQUESTS_READ, name: "Read privacy requests", category: "Governance", description: "Read identity-verified privacy request records." },
+  { key: PERMISSIONS.PRIVACY_REQUESTS_MANAGE, name: "Manage privacy requests", category: "Governance", description: "Transition privacy requests after verification and hold review." },
+  { key: PERMISSIONS.LEGAL_DOCUMENTS_READ, name: "Read legal document versions", category: "Governance", description: "Read legal-document version metadata." },
+  { key: PERMISSIONS.LEGAL_DOCUMENTS_MANAGE, name: "Manage legal document drafts", category: "Governance", description: "Create legal-document drafts with immutable content hashes." },
+  { key: PERMISSIONS.LEGAL_DOCUMENTS_PUBLISH, name: "Publish legal document versions", category: "Governance", description: "Publish immutable legal-document versions." },
+  { key: PERMISSIONS.PROCESSORS_READ, name: "Read processor status", category: "Command Centre", description: "Read safe processor-run and lease visibility." },
 ];
 
 export const DEFAULT_ADMIN_PERMISSION_KEYS: PermissionKey[] = [
@@ -1469,6 +1495,12 @@ export const DEFAULT_ADMIN_PERMISSION_KEYS: PermissionKey[] = [
   PERMISSIONS.REPORT_JOB_READ,
   PERMISSIONS.REPORT_ARTIFACT_READ,
   PERMISSIONS.REPORT_RECONCILIATION_READ,
+  PERMISSIONS.SYSTEM_READINESS_READ,
+  PERMISSIONS.SECURITY_SESSIONS_MANAGE,
+  PERMISSIONS.INCIDENTS_READ,
+  PERMISSIONS.PRIVACY_REQUESTS_READ,
+  PERMISSIONS.LEGAL_DOCUMENTS_READ,
+  PERMISSIONS.PROCESSORS_READ,
 ];
 
 export const SELF_REPORT_PERMISSION_KEYS: PermissionKey[] = [

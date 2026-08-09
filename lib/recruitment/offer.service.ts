@@ -169,6 +169,7 @@ export class OfferService {
     expectedTermsHash?: string,
     _applicantProfileId?: string
   ) {
+    void _applicantProfileId;
     const offerVersion = await this.db.recruitmentOfferVersion.findUnique({
       where: { id: offerVersionReferenceOrId },
       include: { offer: true },

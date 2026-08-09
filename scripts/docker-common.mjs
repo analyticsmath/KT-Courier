@@ -39,6 +39,110 @@ export function runCompose(args, options = {}) {
   });
 }
 
+/**
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function isSchemaDiffVerbose(env = process.env) {
+  const value = env?.KT_SCHEMA_DIFF_VERBOSE;
+  if (!value) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return ["1", "true", "yes", "on"].includes(normalized);
+}
+
+/**
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function getSchemaVerifierComposeArgs(env = process.env) {
+  const args = ["run", "--rm"];
+  if (isSchemaDiffVerbose(env)) {
+    args.push("-e", "KT_SCHEMA_DIFF_VERBOSE=1");
+  }
+  args.push("migrate", "node", "scripts/verify-database-schema.mjs");
+  return args;
+}
+
+/**
+ * Validates that the execution context matches a disposable smoke test environment
+ * before granting seed authorization.
+ *
+ * @param {string} projectName
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function assertDisposableGate4Identity(projectName, env = process.env) {
+  if (projectName === normalComposeProject || !/^kt-couriers-(gate4|ci-gate4)/.test(projectName)) {
+    throw new Error(`Refusing execution for non-disposable Gate 4 Compose project '${projectName}'.`);
+  }
+
+  const dbName = env?.POSTGRES_DB;
+  if (!dbName || !/^kt_courier_gate4_disposable/.test(dbName)) {
+    throw new Error(`Refusing execution for non-disposable Gate 4 database '${dbName}'.`);
+  }
+
+  const dbUrl = env?.DATABASE_URL;
+  if (dbUrl) {
+    try {
+      const parsed = new URL(dbUrl);
+      const host = parsed.hostname;
+      if (!["db", "localhost", "127.0.0.1", "::1"].includes(host)) {
+        throw new Error(`Refusing execution for non-local database host '${host}'.`);
+      }
+      if (parsed.pathname.includes("prod") || parsed.pathname.includes("staging")) {
+        throw new Error("Refusing execution for production/staging database in URL.");
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("Refusing")) throw e;
+    }
+  }
+}
+
+export function assertDisposableSmokeIdentity(projectName, env = process.env) {
+  if (projectName === normalComposeProject || !/^kt-couriers-(baseline-smoke|ci-)/.test(projectName)) {
+    throw new Error(`Refusing seed authorization for non-disposable Compose project '${projectName}'.`);
+  }
+
+  const dbName = env?.POSTGRES_DB;
+  if (!dbName || !/^kt_courier_(baseline_smoke|smoke)/.test(dbName)) {
+    throw new Error(`Refusing seed authorization for non-disposable database '${dbName}'.`);
+  }
+
+  const dbUrl = env?.DATABASE_URL;
+  if (dbUrl) {
+    try {
+      const parsed = new URL(dbUrl);
+      const host = parsed.hostname;
+      if (!["db", "localhost", "127.0.0.1", "::1"].includes(host)) {
+        throw new Error(`Refusing seed authorization for non-local database host '${host}'.`);
+      }
+      if (parsed.pathname.includes("prod") || parsed.pathname.includes("staging")) {
+        throw new Error("Refusing seed authorization for production/staging database in URL.");
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("Refusing")) throw e;
+    }
+  }
+}
+
+/**
+ * Returns Compose arguments for running the seed in a disposable smoke environment.
+ * Injects explicit authorization (-e KT_ALLOW_DEMO_SEED=true) strictly for this command.
+ *
+ * @param {{ service?: string, command?: string[] }} [options]
+ * @returns {string[]}
+ */
+export function getDisposableSmokeSeedComposeArgs({
+  service = "seed",
+  command = [],
+} = {}) {
+  return [
+    "run",
+    "--rm",
+    "-e",
+    "KT_ALLOW_DEMO_SEED=true",
+    service,
+    ...command,
+  ];
+}
+
 export function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -170,7 +274,12 @@ export function safeError(value = "") {
 
 export function assertSuccess(result, label) {
   if (result.status === 0) return;
-  const detail = sanitize(result.stderr || result.stdout || "command failed");
+  const detail =
+    [result.stdout, result.stderr]
+      .filter(Boolean)
+      .map((value) => sanitize(value))
+      .filter(Boolean)
+      .join("\n") || "command failed";
   throw new Error(`${label} failed: ${detail}`);
 }
 

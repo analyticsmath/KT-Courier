@@ -16,7 +16,7 @@ export type CatalogMediaDeliveryEvidence = Readonly<{
   snapshotStatus: string;
 }>;
 
-export function assertCatalogMediaPublicDeliveryEvidence(evidence: CatalogMediaDeliveryEvidence): void {
+export function assertCatalogMediaPublicDeliveryEvidence(evidence: CatalogMediaDeliveryEvidence): asserts evidence is CatalogMediaDeliveryEvidence & Readonly<{ mimeType: string; byteSize: number; checksum: string }> {
   if (evidence.status !== "READY" || !evidence.mimeType || !evidence.byteSize || !evidence.checksum || !evidence.privacyInspectionPassed) throw new CatalogNotFoundError("Public catalog media is unavailable.");
   if (evidence.associationRole === "COMPLIANCE_DOCUMENT") throw new CatalogNotFoundError("Compliance media is private.");
   if (evidence.productPublicationStatus !== "PUBLISHED" || evidence.snapshotStatus !== "PUBLISHED") throw new CatalogNotFoundError("Public catalog media lacks publication evidence.");

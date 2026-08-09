@@ -1,3 +1,4 @@
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
@@ -29,11 +30,11 @@ export async function GET(
       currentStage: application.currentStage,
       submittedAt: application.submittedAt,
       openingTitle: application.openingVersion?.publicTitle,
-      answers: application.answers?.map((a: any) => ({
+      answers: application.answers?.map((a: { questionKey: string; answerValue: unknown }) => ({
         questionKey: a.questionKey,
         answerValue: a.answerValue,
       })),
-      documents: application.documents?.map((d: any) => ({
+      documents: application.documents?.map((d: { documentCategory: string; originalFileName: string; validationStatus: string }) => ({
         category: d.documentCategory,
         fileName: d.originalFileName,
         validationStatus: d.validationStatus,
@@ -41,8 +42,8 @@ export async function GET(
     };
 
     return NextResponse.json({ success: true, data: safeDto });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error) {
+    return recruitmentRouteError(error, 500);
   }
 }
 
@@ -68,7 +69,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, data: { reference, status: "UPDATED" } });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { NotificationDigestService, NotificationEndpointService, NotificationInboxService, NotificationPreferenceService, NotificationRouteService, RecipientPolicyService, RECIPIENT_SUBJECTS, inQuietHours, isValidNotificationTimezone } from "@/lib/notifications/authority";
 import { createNotificationMemoryDb } from "./helpers/in-memory-notification-db";
 
-const transactional = { key: "ORDER_STATUS", purpose: "TRANSACTIONAL", mandatory: false, preferenceControlled: true, consentRequired: false, quietHoursBypass: false, digestEligible: true };
-const security = { key: "ACCOUNT_SECURITY", purpose: "SECURITY", mandatory: true, preferenceControlled: false, consentRequired: false, quietHoursBypass: true, digestEligible: false };
+const transactional = { key: "ORDER_STATUS", purpose: "TRANSACTIONAL", mandatory: false, preferenceControlled: true, consentRequired: false, quietHoursBypass: false, digestEligible: true } as const;
+const security = { key: "ACCOUNT_SECURITY", purpose: "SECURITY", mandatory: true, preferenceControlled: false, consentRequired: false, quietHoursBypass: true, digestEligible: false } as const;
 
 describe("Phase 27 exact recipient resolution and privacy", () => {
   it("resolves every bounded subject through canonical active users and never an all-admin fallback", async () => {
@@ -63,7 +63,8 @@ describe("Phase 27 preference, quiet-hour, and digest policy", () => {
     const replay = await digests.add({ userId: "u1", channel: "EMAIL", timezone: "Africa/Johannesburg", scheduledAt, messageId: "m1", category: transactional, priority: "NORMAL" });
     const second = await digests.add({ userId: "u1", channel: "EMAIL", timezone: "Africa/Johannesburg", scheduledAt, messageId: "m2", category: transactional, priority: "NORMAL" });
     expect(replay.id).toBe(first.id); expect(second.includedMessageIds).toEqual(["m1", "m2"]);
-    for (const [category, priority, expiresAt] of [[security, "NORMAL", null], [{ ...transactional, purpose: "LEGAL", digestEligible: true }, "NORMAL", null], [transactional, "URGENT", null], [transactional, "NORMAL", new Date(Date.now() - 1)]] as any[]) await expect(digests.add({ userId: "u1", channel: "EMAIL", timezone: "Africa/Johannesburg", scheduledAt, messageId: crypto.randomUUID(), category, priority, expiresAt })).rejects.toMatchObject({ code: "NOTIFICATION_NOT_DIGEST_ELIGIBLE" });
+    const rejectedInputs = [[security, "NORMAL", null], [{ ...transactional, purpose: "LEGAL" as const, digestEligible: true }, "NORMAL", null], [transactional, "URGENT", null], [transactional, "NORMAL", new Date(Date.now() - 1)]] as const;
+    for (const [category, priority, expiresAt] of rejectedInputs) await expect(digests.add({ userId: "u1", channel: "EMAIL", timezone: "Africa/Johannesburg", scheduledAt, messageId: crypto.randomUUID(), category, priority, expiresAt })).rejects.toMatchObject({ code: "NOTIFICATION_NOT_DIGEST_ELIGIBLE" });
   });
 });
 
@@ -76,7 +77,7 @@ describe("Phase 27 inbox and endpoint ownership", () => {
     await inbox.changeState("u1", "inbox-one", "READ"); await inbox.changeState("u1", "inbox-one", "ARCHIVED");
     await expect(inbox.changeState("u1", "inbox-one", "UNREAD")).rejects.toMatchObject({ code: "NOTIFICATION_INBOX_ITEM_ARCHIVED" });
     await expect(inbox.changeState("u1", "inbox-old", "READ")).rejects.toMatchObject({ code: "NOTIFICATION_INBOX_ITEM_EXPIRED" });
-    expect(db.__state.notificationInboxItem.find((item: any) => item.id === "inbox-1")).toMatchObject({ state: "ARCHIVED", archivedAt: expect.any(Date) });
+    expect(db.__state.notificationInboxItem.find((item: { id: string }) => item.id === "inbox-1")).toMatchObject({ state: "ARCHIVED", archivedAt: expect.any(Date) });
   });
 
   it("marks stale endpoints and permits revocation only by their exact owner", async () => {

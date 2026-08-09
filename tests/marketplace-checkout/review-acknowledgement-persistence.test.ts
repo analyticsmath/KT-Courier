@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { acknowledgeMarketplaceCheckoutReviewPersisted, reviewMarketplaceCheckout } from "@/lib/marketplace-checkout/checkout-review-persistence.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
+import type { ReviewLine } from "@/lib/marketplace-checkout/checkout-review.service";
 
 const owner = { type: "CUSTOMER" as const, userId: "customer-1" };
 const checkout = {
@@ -17,7 +18,7 @@ describe("marketplace checkout review and acknowledgement persistence", () => {
     const result = await reviewMarketplaceCheckout(repository as never, {
       reference: "checkout-1", owner, operationId: "review-0001", requestHash: "same", expectedVersion: 2, commissionPolicyVersion: "plan-1",
       quoteAdapter: { quoteStoreGroup: async () => ({ fee: "5.00", currency: "ZAR", publicReference: "quote-1", version: "rule-1", expiresAt: new Date(Date.now() + 60_000), serviceabilityReference: "area-1", serviceLevel: "SAME_DAY" }) },
-      resolveLine: async (line: any) => ({ lineReference: line?.lineReference ?? "line-1", available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
+      resolveLine: async (line: ReviewLine) => ({ lineReference: line.lineReference, available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
     });
     expect(result).toMatchObject({ status: "READY_FOR_REVIEW", grandTotal: "15.00", reviewVersion: 2 });
     expect(persistReview).toHaveBeenCalledOnce();
@@ -36,7 +37,7 @@ describe("marketplace checkout review and acknowledgement persistence", () => {
     await expect(reviewMarketplaceCheckout(repository as never, {
       reference: "checkout-1", owner, operationId: "review-evidence-missing", requestHash: "same", expectedVersion: 2, commissionPolicyVersion: "plan-1",
       quoteAdapter: { quoteStoreGroup: async () => ({ fee: "5.00", currency: "ZAR", publicReference: "quote-1", version: "rule-1", expiresAt: new Date(Date.now() + 60_000), serviceabilityReference: "area-1", serviceLevel: "SAME_DAY" }) },
-      resolveLine: async (line: any) => ({ lineReference: line?.lineReference ?? "line-1", available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
+      resolveLine: async (line: ReviewLine) => ({ lineReference: line.lineReference, available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
     })).rejects.toMatchObject({ code: "SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE" });
     expect(persistReview).not.toHaveBeenCalled();
   });

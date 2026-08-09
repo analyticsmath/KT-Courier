@@ -252,12 +252,12 @@ export class AdvertisingFundingService {
       await tx.$queryRaw`SELECT id FROM "AdvertisingCampaignVersion" WHERE id = ${version.id} FOR UPDATE`;
 
       // Campaign must be ENDED, REJECTED, or SUSPENDED
-      const allowed = [
+      const allowed: readonly AdvertisingCampaignStatus[] = [
         AdvertisingCampaignStatus.ENDED,
         AdvertisingCampaignStatus.REJECTED,
         AdvertisingCampaignStatus.SUSPENDED
       ];
-      if (!allowed.includes(version.campaign.status as any)) {
+      if (!allowed.includes(version.campaign.status)) {
         throw new AdvertisingFundingError("INVALID_STATUS", "Unused funding can only be returned for ended, rejected, or suspended campaigns.");
       }
 

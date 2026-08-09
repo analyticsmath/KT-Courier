@@ -1,9 +1,11 @@
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { prisma } from "@/lib/db/prisma";
 import { RecruitmentReconciliationService } from "@/lib/recruitment/reconciliation.service";
+import { RecruitmentReconciliationStatus } from "@/types/db";
 
 export async function GET(request: Request) {
   try {
@@ -12,12 +14,17 @@ export async function GET(request: Request) {
     await requirePermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.RECRUITMENT_RECONCILIATION_READ });
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") as any;
+    const requestedStatus = searchParams.get("status");
+    const status = Object.values(RecruitmentReconciliationStatus).includes(
+      requestedStatus as RecruitmentReconciliationStatus
+    )
+      ? (requestedStatus as RecruitmentReconciliationStatus)
+      : undefined;
     const service = new RecruitmentReconciliationService(prisma);
     const cases = await service.listReconciliationCases({ status });
 
     return NextResponse.json({ success: true, data: cases });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }

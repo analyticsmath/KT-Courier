@@ -3,33 +3,50 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type PublicOpening = {
+  openingReference: string;
+  title: string | null;
+  track: string | null;
+  primaryLocation: string | null;
+  summary: string | null;
+};
+
+function hasPublicOpenings(value: unknown): value is { success: true; data: PublicOpening[] } {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "success" in value &&
+      (value as { success?: unknown }).success === true &&
+      "data" in value &&
+      Array.isArray((value as { data?: unknown }).data)
+  );
+}
+
 export default function CareersJobsPage() {
-  const [openings, setOpenings] = useState<any[]>([]);
+  const [openings, setOpenings] = useState<PublicOpening[]>([]);
   const [loading, setLoading] = useState(true);
   const [track, setTrack] = useState("");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetchOpenings();
-  }, [track, search]);
-
-  const fetchOpenings = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (track) params.set("track", track);
-      if (search) params.set("search", search);
-      const res = await fetch(`/api/careers/openings?${params.toString()}`);
-      const json = await res.json();
-      if (json.success) {
-        setOpenings(json.data || []);
+    let current = true;
+    async function loadOpenings() {
+      try {
+        const params = new URLSearchParams();
+        if (track) params.set("track", track);
+        if (search) params.set("search", search);
+        const res = await fetch(`/api/careers/openings?${params.toString()}`);
+        const json: unknown = await res.json();
+        if (current && hasPublicOpenings(json)) setOpenings(json.data);
+      } catch {
+        // Keep the previous safe results when network loading fails.
+      } finally {
+        if (current) setLoading(false);
       }
-    } catch {
-      // safe error state handling
-    } finally {
-      setLoading(false);
     }
-  };
+    void loadOpenings();
+    return () => { current = false; };
+  }, [search, track]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -42,12 +59,12 @@ export default function CareersJobsPage() {
           placeholder="Search positions..."
           className="border rounded px-4 py-2 flex-1"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setLoading(true); setSearch(e.target.value); }}
         />
         <select
           className="border rounded px-4 py-2"
           value={track}
-          onChange={(e) => setTrack(e.target.value)}
+          onChange={(e) => { setLoading(true); setTrack(e.target.value); }}
         >
           <option value="">All Tracks</option>
           <option value="INTERNAL_EMPLOYEE">Internal Employee</option>
@@ -63,9 +80,9 @@ export default function CareersJobsPage() {
         <div className="grid gap-6 md:grid-cols-2">
           {openings.map((op) => (
             <div key={op.openingReference} className="border rounded p-6 shadow-sm hover:shadow transition">
-              <h2 className="text-xl font-semibold mb-2">{op.title}</h2>
+              <h2 className="text-xl font-semibold mb-2">{op.title ?? "Position"}</h2>
               <p className="text-sm text-gray-500 mb-3">{op.track} • {op.primaryLocation || "Flexible"}</p>
-              <p className="text-gray-700 line-clamp-3 mb-4">{op.summary}</p>
+              <p className="text-gray-700 line-clamp-3 mb-4">{op.summary ?? "Opening details are available on the application page."}</p>
               <Link
                 href={`/careers/jobs/${op.openingReference}`}
                 className="inline-block bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"

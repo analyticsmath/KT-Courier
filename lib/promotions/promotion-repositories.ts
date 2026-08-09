@@ -1,6 +1,5 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { Decimal } from "@prisma/client/runtime/library";
 
 // Helper for stable database lock ordering
 export async function lockCampaignVersions(ids: string[], tx: Prisma.TransactionClient) {
@@ -36,6 +35,7 @@ export async function checkIdempotence(
   requestHash: string,
   operationType: string
 ) {
+  void operationType;
   const existing = await tx.promotionOperation.findUnique({
     where: { operationId }
   });

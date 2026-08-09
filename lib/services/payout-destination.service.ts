@@ -19,7 +19,8 @@ export async function registerPayoutDestination(input: Readonly<{
   accountLast4?: string;
   countryCode?: string;
 }>) {
-  if (!isWithdrawalOwnerType(input.ownerType)) throw new WithdrawalError("WITHDRAWAL_DESTINATION_INVALID", "Only supported owners may have payout destinations.");
+  const ownerType = input.ownerType;
+  if (!isWithdrawalOwnerType(ownerType)) throw new WithdrawalError("WITHDRAWAL_DESTINATION_INVALID", "Only supported owners may have payout destinations.");
   const externalReference = assertPayoutDestinationExternalReference(input.externalReference);
   assertMaskedDestinationMetadata({ maskedLabel: input.maskedLabel, accountLast4: input.accountLast4 });
   const countryCode = (input.countryCode ?? "ZA").trim().toUpperCase();
@@ -28,7 +29,7 @@ export async function registerPayoutDestination(input: Readonly<{
   try {
     return await prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({
-        where: { ownerType_ownerId_currency: { ownerType: input.ownerType as any, ownerId: input.ownerId, currency: "ZAR" } },
+        where: { ownerType_ownerId_currency: { ownerType, ownerId: input.ownerId, currency: "ZAR" } },
         select: { id: true, status: true },
       });
       if (!wallet || wallet.status !== "ACTIVE") throw new WithdrawalError("WITHDRAWAL_DESTINATION_INVALID", "A matching active owner wallet is required.");
@@ -36,7 +37,7 @@ export async function registerPayoutDestination(input: Readonly<{
         data: {
           publicReference: destinationReference(),
           walletId: wallet.id,
-          ownerType: input.ownerType as any,
+          ownerType,
           ownerId: input.ownerId,
           method: "MANUAL_EXTERNAL",
           providerCode: "MANUAL_FINANCE",

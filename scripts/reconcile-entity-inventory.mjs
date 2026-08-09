@@ -33,7 +33,7 @@ async function main() {
             by: [statusField.name],
             _count: true,
           });
-        } catch (e) {}
+} catch {}
       }
 
       const createdField = model.fields.find((f) => f.name === "createdAt" || f.name === "created_at" || f.name === "timestamp" || f.name === "publishedAt");
@@ -49,7 +49,7 @@ async function main() {
             select: { [createdField.name]: true },
           });
           earliestTimestamp = earliestRow?.[createdField.name] ?? null;
-        } catch (e) {}
+} catch {}
       }
 
       if (updatedField && count > 0) {
@@ -59,7 +59,7 @@ async function main() {
             select: { [updatedField.name]: true },
           });
           latestTimestamp = latestRow?.[updatedField.name] ?? null;
-        } catch (e) {}
+} catch {}
       }
 
       const ownerField = model.fields.find((f) => ["storeId", "sourceStoreId", "userId", "driverId", "promoterId", "customerUserId", "applicantUserId", "ownerType"].includes(f.name));
@@ -70,7 +70,7 @@ async function main() {
             by: [ownerField.name],
             _count: true,
           });
-        } catch (e) {}
+} catch {}
       }
 
       results.push({

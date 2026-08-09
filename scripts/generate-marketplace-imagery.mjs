@@ -91,6 +91,7 @@ function generateStoreCoverSvg(storeName, categoryName, storeId) {
 }
 
 function generateCategorySvg(categoryName, catId) {
+  void catId;
   const theme = getThemeForCategory(categoryName);
   const cleanName = cleanText(categoryName);
 

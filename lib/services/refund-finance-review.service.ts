@@ -57,7 +57,7 @@ export async function approveRefund(input: Readonly<{ actorUserId: string; publi
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
     assertRefundApprovalControl({ customerUserId: refund.customerUserId ?? "", approverUserId: input.actorUserId });
-    assertRefundTransition(refund.status as any, "APPROVED");
+    assertRefundTransition(refund.status, "APPROVED");
     assertDecisionCoherence(refund);
     const updated = await tx.paymentRefund.update({ where: { id: refund.id }, data: { status: "APPROVED", approvedByUserId: input.actorUserId, approvedAt: new Date(), financeNote, version: { increment: 1 } } });
     await tx.refundStatusHistory.create({ data: { refundId: refund.id, fromStatus: refund.status, toStatus: "APPROVED", actorType: "FINANCE_ADMIN", actorUserId: input.actorUserId, operationId, reasonCode: "FINANCE_APPROVED" } });
@@ -68,4 +68,3 @@ export async function approveRefund(input: Readonly<{ actorUserId: string; publi
 export function rejectRefund(input: Readonly<{ actorUserId: string; publicReference: string; operationId: string; financeNote?: string }>) {
   return rejectRefundRequest(input);
 }
-

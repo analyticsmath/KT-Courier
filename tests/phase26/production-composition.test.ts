@@ -18,9 +18,12 @@ describe("Phase 26 — Production Composition & Lock Gates", () => {
     expect(() => assertRecruitmentProductionReady()).toThrow(RecruitmentProductionLockError);
     try {
       assertRecruitmentProductionReady();
-    } catch (err: any) {
-      expect(err.code).toBe(RECRUITMENT_PRODUCTION_BLOCK_REASON);
-      expect(err.message).toMatch(/Phase 26.5/);
+    } catch (error) {
+      expect(error).toBeInstanceOf(RecruitmentProductionLockError);
+      if (error instanceof RecruitmentProductionLockError) {
+        expect(error.code).toBe(RECRUITMENT_PRODUCTION_BLOCK_REASON);
+        expect(error.message).toMatch(/Phase 26.5/);
+      }
     }
   });
 

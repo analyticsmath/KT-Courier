@@ -25,12 +25,19 @@ function deliveryOtpExpiresAt(): Date {
 //   MUST NOT be stored or logged anywhere.
 
 export type GenerateDeliveryOtpResult =
-  | { ok: true; otpId: string; plainCode: string; expiresAt: Date; sentToEmail: string }
+  | { ok: true; otpId: string; plainCode: string; expiresAt: Date; sentToEmailMasked: string }
   | { ok: false; error: string };
+
+function maskEmail(email: string | null): string {
+  if (!email) return "recipient address";
+  const [local, domain] = email.split("@", 2);
+  if (!local || !domain) return "recipient address";
+  return `${local.slice(0, 1)}***@${domain}`;
+}
 
 export async function generateAndSendDeliveryOtp(
   orderId: string,
-  assignmentId: string | null,
+  assignmentId: string,
   driverUserId: string,
   recipientEmail: string,
   recipientName: string,
@@ -39,6 +46,17 @@ export async function generateAndSendDeliveryOtp(
   operationId?: string
 ): Promise<GenerateDeliveryOtpResult> {
   const now = new Date();
+  const authority = await prisma.orderAssignment.findFirst({
+    where: {
+      id: assignmentId,
+      orderId,
+      status: "ACCEPTED",
+      driverProfile: { userId: driverUserId, status: "ACTIVE", user: { status: "ACTIVE", role: "DRIVER" } },
+      order: { currentDriverProfileId: { not: null }, status: { in: ["IN_TRANSIT", "DELIVERY_ATTEMPTED"] } },
+    },
+    select: { id: true },
+  });
+  if (!authority) return { ok: false, error: "Only the active assigned driver can issue a delivery OTP." };
   const active = await prisma.deliveryOtp.findFirst({ where: { orderId, consumedAt: null, expiresAt: { gt: now } }, orderBy: { createdAt: "desc" } });
   if (active?.lastSentAt && now.getTime() - active.lastSentAt.getTime() < DELIVERY_OTP_REISSUE_COOLDOWN_SECONDS * 1000) {
     return { ok: false, error: "Please wait before requesting another delivery OTP." };
@@ -115,7 +133,7 @@ export async function generateAndSendDeliveryOtp(
     otpId: otp.id,
     plainCode,
     expiresAt,
-    sentToEmail: recipientEmail,
+    sentToEmailMasked: maskEmail(recipientEmail),
   };
 }
 
@@ -133,6 +151,7 @@ export async function resendDeliveryOtp(
   operationId?: string
 ): Promise<GenerateDeliveryOtpResult> {
   // Reuse generate — it always invalidates previous OTPs
+  if (!assignmentId) return { ok: false, error: "An active assignment is required to resend a delivery OTP." };
   return generateAndSendDeliveryOtp(
     orderId,
     assignmentId,
@@ -167,15 +186,16 @@ export async function verifyDeliveryOtp(
 export async function verifyDeliveryOtpInTx(
   tx: Prisma.TransactionClient,
   orderId: string,
-  plainCode: string
+  plainCode: string,
+  assignmentId?: string,
 ): Promise<VerifyOtpResult> {
   const now = new Date();
   const otp = await tx.deliveryOtp.findFirst({
-    where: { orderId, consumedAt: null, expiresAt: { gt: now } },
+    where: { orderId, ...(assignmentId ? { assignmentId } : {}), consumedAt: null, expiresAt: { gt: now } },
     orderBy: { createdAt: "desc" },
   });
   if (!otp) {
-    const expired = await tx.deliveryOtp.findFirst({ where: { orderId, consumedAt: null }, orderBy: { createdAt: "desc" } });
+    const expired = await tx.deliveryOtp.findFirst({ where: { orderId, ...(assignmentId ? { assignmentId } : {}), consumedAt: null }, orderBy: { createdAt: "desc" } });
     return { ok: false, error: expired ? "Delivery OTP has expired. Please request a new code." : "No active delivery OTP found. Please request a new code." };
   }
   if (otp.lockedAt || isOtpLocked(otp.attempts, otp.maxAttempts)) {
@@ -247,7 +267,7 @@ export async function getDeliveryOtpStatus(orderId: string): Promise<OtpStatusDt
 
   return {
     hasActiveOtp: true,
-    sentToEmail: otp.sentToEmail,
+    sentToEmail: maskEmail(otp.sentToEmail),
     expiresAt: otp.expiresAt,
     attemptsUsed: otp.attempts,
     maxAttempts: otp.maxAttempts,

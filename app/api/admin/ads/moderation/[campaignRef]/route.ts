@@ -1,7 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { apiRouteError } from "@/lib/api/route-error";
+import { type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import { ok, unprocessable, serverError } from "@/lib/api/response";
+import { ok } from "@/lib/api/response";
 import { AdvertisingCampaignService } from "@/lib/advertising/campaign.service";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ campaignRef: string }> }) {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       body.rejectionReason
     );
     return ok(result);
-  } catch (error: any) {
-    return unprocessable(error.message || "Moderation failed.");
+  } catch (error) {
+    return apiRouteError(error, { fallbackMessage: "Moderation failed.", domainErrorStatus: 422 });
   }
 }

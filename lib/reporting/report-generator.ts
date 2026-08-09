@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { MarketplaceStoreOrderStatus, OrderStatus, type Prisma } from "@prisma/client";
 import { REPORT_DEFINITIONS, ReportingError } from "./contracts";
 
 export interface ReportQueryContext {
@@ -16,6 +17,10 @@ export interface ReportQueryContext {
   limit: number;
 }
 
+function parseEnumFilter<T extends string>(value: unknown, options: readonly T[]): T | undefined {
+  return typeof value === "string" ? options.find((option) => option === value) : undefined;
+}
+
 export async function generateReportData(
   context: ReportQueryContext
 ): Promise<{ headers: string[]; rows: Record<string, unknown>[] }> {
@@ -29,10 +34,9 @@ export async function generateReportData(
   switch (context.definitionKey) {
     case "customer-courier-orders": {
       const userId = context.ownerScope.userId || context.requesterUserId;
-      const where: any = { customerId: userId };
-      if (context.filters.status && typeof context.filters.status === "string") {
-        where.status = context.filters.status;
-      }
+      const where: Prisma.OrderWhereInput = { customerId: userId };
+      const status = parseEnumFilter(context.filters.status, Object.values(OrderStatus));
+      if (status) where.status = status;
       const orders = await db.order.findMany({
         where,
         take: limit,
@@ -77,7 +81,7 @@ export async function generateReportData(
         },
       });
       const headers = ["Payment Reference", "Provider", "Purpose", "Status", "Amount", "Currency", "Created At"];
-      const rows = payments.map((p: any) => ({
+      const rows = payments.map((p) => ({
         "Payment Reference": p.publicReference,
         Provider: p.provider || "N/A",
         Purpose: p.purpose,
@@ -104,7 +108,7 @@ export async function generateReportData(
         },
       });
       const headers = ["Marketplace Order Reference", "Status", "Grand Total", "Currency", "Created At"];
-      const rows = parentOrders.map((p: any) => ({
+      const rows = parentOrders.map((p) => ({
         "Marketplace Order Reference": p.publicReference,
         Status: p.status,
         "Grand Total": Number(p.grandTotal).toFixed(2),
@@ -139,10 +143,9 @@ export async function generateReportData(
     case "store-orders": {
       const storeId = context.ownerScope.storeId;
       if (!storeId) throw new ReportingError("STORE_ID_REQUIRED", 400, "Store context is required.");
-      const where: any = { storeId };
-      if (context.filters.status && typeof context.filters.status === "string") {
-        where.status = context.filters.status;
-      }
+      const where: Prisma.MarketplaceStoreOrderWhereInput = { storeId };
+      const status = parseEnumFilter(context.filters.status, Object.values(MarketplaceStoreOrderStatus));
+      if (status) where.status = status;
       const storeOrders = await db.marketplaceStoreOrder.findMany({
         where,
         take: limit,
@@ -428,7 +431,7 @@ export async function generateReportData(
         },
       });
       const headers = ["Application Reference", "Opening ID", "Status", "Created At"];
-      const rows = applications.map((a: any) => ({
+      const rows = applications.map((a) => ({
         "Application Reference": a.publicReference,
         "Opening ID": a.openingId,
         Status: a.status,

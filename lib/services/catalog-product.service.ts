@@ -7,6 +7,7 @@ import { catalogPublicReference, catalogSlug, normalizeCatalogKey } from "@/lib/
 import { productOptionFingerprint } from "@/lib/catalog/product-option-fingerprint";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { toInputJsonObject } from "@/lib/json/input-json";
 
 export type CatalogProductDraftInput = {
   scope: "GLOBAL_CANONICAL" | "STORE_PRIVATE";
@@ -99,8 +100,8 @@ export async function createStorePrivateCatalogProduct(storeId: string, actorUse
         modelNumber: input.modelNumber,
         countryOfOrigin: input.countryOfOrigin,
         condition: input.condition,
-        attributeValues: input.attributeValues as any,
-        complianceValues: input.complianceValues as any,
+        attributeValues: toInputJsonObject(input.attributeValues),
+        complianceValues: toInputJsonObject(input.complianceValues),
         slug,
         qualityScore: quality.score,
         qualityIssues: quality.issues,
@@ -136,8 +137,8 @@ export async function updateStoreCatalogProduct(storeId: string, publicReference
         modelNumber: input.modelNumber,
         countryOfOrigin: input.countryOfOrigin,
         condition: input.condition,
-        attributeValues: input.attributeValues as any,
-        complianceValues: input.complianceValues as any,
+        attributeValues: input.attributeValues ? toInputJsonObject(input.attributeValues) : undefined,
+        complianceValues: input.complianceValues ? toInputJsonObject(input.complianceValues) : undefined,
         version: { increment: 1 },
       },
     });

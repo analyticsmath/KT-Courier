@@ -21,6 +21,9 @@ import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
 import { completeOperationReceiptInTx, createOperationReceiptInTx, findOperationReplay, getCompletedOperationResult, isOperationReceiptConflict, type DriverOperationSnapshot } from "@/lib/driver-operations/idempotency";
 import { isRetryableDeliveryFailure, requiresAttemptEvidence } from "@/lib/driver-operations/delivery-attempt-policy";
+import { consumeProofEvidenceInTx } from "@/lib/driver-operations/proof-evidence-authority";
+import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
+import { requireVerifiedDeliveryLocationInTx } from "@/lib/services/driver-location-evidence.service";
 
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
@@ -267,6 +270,13 @@ export async function startDelivery(
 
       await tx.order.update({ where: { id: order.id }, data: { transitStartedAt: new Date() } });
 
+      await projectMarketplaceCourierExecutionInTx(tx, {
+        courierOrderId: order.id,
+        status: "IN_TRANSIT",
+        operationId: input.operationId,
+        actorUserId: driverUserId,
+      });
+
       await createOpEvent(tx, {
         orderId: order.id,
         assignmentId,
@@ -277,8 +287,6 @@ export async function startDelivery(
         statusAfter,
         publicNote: "Your delivery is on its way.",
         internalNote: input.driverNote ?? null,
-        latitude: input.latitude ?? null,
-        longitude: input.longitude ?? null,
       });
 
       await createAssignEvent(tx, {
@@ -369,10 +377,24 @@ export async function completeDelivery(
   try {
     await prisma.$transaction(async (tx) => {
       await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "DELIVERY_COMPLETE" });
-      const otpResult = await verifyDeliveryOtpInTx(tx, order.id, input.otpCode);
+      const otpResult = await verifyDeliveryOtpInTx(tx, order.id, input.otpCode, assignmentId);
       if (!otpResult.ok) {
         throw new OrderTransitionError(otpResult.error ?? "OTP verification failed.", "INVALID_TRANSITION");
       }
+      const verifiedLocation = await requireVerifiedDeliveryLocationInTx(tx, {
+        orderId: order.id,
+        assignmentId,
+        driverProfileId,
+        now: deliveredAt,
+      });
+      const evidenceReference = await consumeProofEvidenceInTx(tx, {
+        reference: input.evidenceReference,
+        orderId: order.id,
+        assignmentId,
+        driverProfileId,
+        driverUserId,
+        operationId: input.operationId,
+      });
       // Create ProofOfDelivery
       const pod = await tx.proofOfDelivery.create({
         data: {
@@ -386,9 +408,9 @@ export async function completeDelivery(
           deliveredAt,
           publicNote: input.publicNote ?? null,
           internalNote: input.driverNote ?? null,
-          evidenceReference: input.evidenceReference ?? null,
-          latitude: input.latitude ?? null,
-          longitude: input.longitude ?? null,
+          evidenceReference,
+          latitude: verifiedLocation.latitude,
+          longitude: verifiedLocation.longitude,
           createdByUserId: driverUserId,
           createdByRole: "DRIVER",
         },
@@ -434,8 +456,8 @@ export async function completeDelivery(
         statusAfter,
         publicNote: input.publicNote ?? `Your parcel has been delivered to ${input.recipientName}.`,
         internalNote: input.driverNote ?? null,
-        latitude: input.latitude ?? null,
-        longitude: input.longitude ?? null,
+        latitude: verifiedLocation.latitude,
+        longitude: verifiedLocation.longitude,
       });
 
       await createOpEvent(tx, {
@@ -463,6 +485,12 @@ export async function completeDelivery(
       await tx.order.update({
         where: { id: order.id },
         data: { currentDriverProfileId: null },
+      });
+      await projectMarketplaceCourierExecutionInTx(tx, {
+        courierOrderId: order.id,
+        status: "DELIVERED",
+        operationId: input.operationId,
+        actorUserId: driverUserId,
       });
 
       await createAssignEvent(tx, {
@@ -603,11 +631,17 @@ export async function recordDeliveryAttempted(
         publicNote: input.publicNote ?? "Delivery was attempted but could not be completed. KT Couriers will be in touch.",
         internalNote: input.driverNote,
         deliveryExceptionReason: input.reason,
-        latitude: input.latitude ?? null,
-        longitude: input.longitude ?? null,
       });
 
       const lastAttempt = await tx.deliveryAttempt.aggregate({ where: { orderId: order.id }, _max: { attemptNumber: true } });
+      const evidenceReference = await consumeProofEvidenceInTx(tx, {
+        reference: input.evidenceReference,
+        orderId: order.id,
+        assignmentId,
+        driverProfileId,
+        driverUserId,
+        operationId: input.operationId,
+      });
       const attempt = await tx.deliveryAttempt.create({
         data: {
           orderId: order.id,
@@ -618,7 +652,7 @@ export async function recordDeliveryAttempted(
           retryable: isRetryableDeliveryFailure(input.reason),
           publicNote: input.publicNote ?? null,
           internalNote: input.driverNote,
-          evidenceReference: input.evidenceReference ?? null,
+          evidenceReference,
         },
       });
 
@@ -631,6 +665,12 @@ export async function recordDeliveryAttempted(
         previousStatus: OrderAssignmentStatus.ACCEPTED,
         newStatus: OrderAssignmentStatus.ACCEPTED,
         note: input.driverNote,
+      });
+      await projectMarketplaceCourierExecutionInTx(tx, {
+        courierOrderId: order.id,
+        status: "DELIVERY_ATTEMPTED",
+        operationId: input.operationId,
+        actorUserId: driverUserId,
       });
       await completeOperationReceiptInTx(tx, input.operationId, {
         type: "DELIVERY_ATTEMPT", orderId: order.id, assignmentId, driverProfileId,
@@ -853,6 +893,12 @@ export async function adminManualDeliveryComplete(
           data: { currentDriverProfileId: null },
         });
       }
+      await projectMarketplaceCourierExecutionInTx(tx, {
+        courierOrderId: orderId,
+        status: "DELIVERED",
+        operationId: `admin-delivery-complete:${orderId}:${deliveredAt.toISOString()}`,
+        actorUserId: adminUserId,
+      });
     });
   } catch (error) {
     if (error instanceof OrderTransitionError) {

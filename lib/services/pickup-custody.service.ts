@@ -18,6 +18,7 @@ import { OrderTransitionError } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
 import { completeOperationReceiptInTx, createOperationReceiptInTx, findOperationReplay, getCompletedOperationResult, isOperationReceiptConflict, type DriverOperationSnapshot } from "@/lib/driver-operations/idempotency";
+import { DriverOperationError } from "@/lib/driver-operations/errors";
 
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
@@ -318,6 +319,20 @@ export async function completePickup(
   const order = assignment.order;
   const statusBefore = order.status;
 
+  // Marketplace pickup has a store-issued challenge and a bridge projection.
+  // It must enter through the combined handoff command below, never through
+  // this generic driver route, otherwise the two authorities could diverge.
+  const marketplaceDatabase = prisma as unknown as {
+    marketplaceStoreOrderDeliveryBridge?: { findFirst: (args: unknown) => Promise<{ id: string } | null> };
+  };
+  const marketplaceBridge = await marketplaceDatabase.marketplaceStoreOrderDeliveryBridge?.findFirst({
+    where: { courierOrderId: order.id },
+    select: { id: true },
+  });
+  if (marketplaceBridge) {
+    return { ok: false, error: "Marketplace pickups must be completed through the verified store handoff." };
+  }
+
   // Ensure we can reach PICKED_UP from current status
   // CONFIRMED → PICKUP_SCHEDULED → PICKED_UP; we may need two hops if order is still CONFIRMED
   // Preferred path: if order is CONFIRMED, transition CONFIRMED→PICKUP_SCHEDULED first
@@ -451,6 +466,128 @@ export async function completePickup(
   });
 
   return { ok: true, assignment: toWorkbenchAssignmentDto(updated!), operationResult: await getCompletedOperationResult(input.operationId) ?? undefined };
+}
+
+/**
+ * Canonical courier-side half of a marketplace pickup. The caller owns the
+ * encompassing serializable transaction and has already acquired the
+ * marketplace order, bridge, assignment and challenge locks. Keeping this in
+ * the existing custody authority avoids a second pickup aggregate or a nested
+ * transaction.
+ */
+export async function completeMarketplacePickupInTx(
+  tx: TxClient,
+  input: Readonly<{
+    assignmentId: string;
+    assignmentVersion: number;
+    driverProfileId: string;
+    driverUserId: string;
+    operationId: string;
+    receiptPayload: unknown;
+    parcelCount: number;
+  }>,
+): Promise<DriverOperationSnapshot> {
+  const assignment = await tx.orderAssignment.findFirst({
+    where: { id: input.assignmentId, driverProfileId: input.driverProfileId },
+    include: {
+      order: { select: { id: true, orderNumber: true, status: true, parcelCount: true, currentDriverProfileId: true } },
+      driverProfile: { select: { userId: true, status: true, user: { select: { status: true, role: true } } } },
+    },
+  });
+
+  if (!assignment) throw new DriverOperationError("Assignment not found.", "DRIVER_OPERATION_FORBIDDEN");
+  if (assignment.version !== input.assignmentVersion) throw new DriverOperationError("Assignment is stale. Refresh the workbench and retry.", "DRIVER_OPERATION_STALE");
+  if (assignment.status !== OrderAssignmentStatus.ACCEPTED || assignment.order.currentDriverProfileId !== input.driverProfileId) {
+    throw new DriverOperationError("Only the current accepted driver can operate this order.", "DRIVER_OPERATION_FORBIDDEN");
+  }
+  if (
+    assignment.driverProfile.userId !== input.driverUserId ||
+    assignment.driverProfile.status !== DriverStatus.ACTIVE ||
+    assignment.driverProfile.user.status !== "ACTIVE" ||
+    assignment.driverProfile.user.role !== "DRIVER"
+  ) {
+    throw new DriverOperationError("Driver profile is not active.", "DRIVER_OPERATION_FORBIDDEN");
+  }
+  const pickupEligibleStatuses: OrderStatus[] = [OrderStatus.CONFIRMED, OrderStatus.PICKUP_SCHEDULED];
+  if (!pickupEligibleStatuses.includes(assignment.order.status)) {
+    throw new DriverOperationError("Order is not eligible for pickup.", "DRIVER_OPERATION_STALE");
+  }
+  if (assignment.order.parcelCount !== input.parcelCount) {
+    throw new DriverOperationError("Package count does not match the canonical courier order.", "DRIVER_OPERATION_FORBIDDEN");
+  }
+
+  const statusBefore = assignment.order.status;
+  const intermediateStatus = statusBefore === OrderStatus.CONFIRMED ? OrderStatus.PICKUP_SCHEDULED : null;
+  const targetStatus = OrderStatus.PICKED_UP;
+
+  if (intermediateStatus) {
+    await transitionOrderStatusInTx(tx, {
+      orderId: assignment.order.id,
+      fromStatus: statusBefore,
+      toStatus: intermediateStatus,
+      actorUserId: input.driverUserId,
+      actorRole: "DRIVER",
+      note: "Marketplace pickup moved to the scheduled state before verified handoff.",
+      source: "marketplace_store_handoff_intermediate",
+      context: { actorIsAssignedDriver: true, hasAcceptedAssignment: true },
+    });
+  }
+
+  await transitionOrderStatusInTx(tx, {
+    orderId: assignment.order.id,
+    fromStatus: intermediateStatus ?? statusBefore,
+    toStatus: targetStatus,
+    actorUserId: input.driverUserId,
+    actorRole: "DRIVER",
+    note: "Marketplace store handoff verified.",
+    source: "marketplace_store_handoff",
+    context: { actorIsAssignedDriver: true, hasAcceptedAssignment: true, hasPickupProof: true },
+  });
+  await tx.order.update({ where: { id: assignment.order.id }, data: { custodyEstablishedAt: new Date() } });
+
+  await createOperationalEventInTx(tx, {
+    orderId: assignment.order.id,
+    assignmentId: assignment.id,
+    driverProfileId: input.driverProfileId,
+    actorUserId: input.driverUserId,
+    actorRole: "DRIVER",
+    eventType: OrderOperationalEventType.PICKUP_COMPLETED,
+    statusBefore,
+    statusAfter: targetStatus,
+    publicNote: "Parcel has been collected.",
+    internalNote: "Marketplace store handoff verified.",
+    parcelCondition: "NOT_RECORDED",
+    parcelCount: input.parcelCount,
+  });
+  await createAssignmentEventInTx(tx, {
+    assignmentId: assignment.id,
+    orderId: assignment.order.id,
+    driverProfileId: input.driverProfileId,
+    actorUserId: input.driverUserId,
+    actorRole: "DRIVER",
+    eventType: OrderAssignmentEventType.PICKUP_COMPLETED,
+    note: "Marketplace store handoff verified.",
+  });
+
+  const snapshot: DriverOperationSnapshot = {
+    type: "PICKUP_CONFIRM",
+    orderId: assignment.order.id,
+    assignmentId: assignment.id,
+    driverProfileId: input.driverProfileId,
+    orderStatus: targetStatus,
+    assignmentStatus: OrderAssignmentStatus.ACCEPTED,
+    completedAt: new Date().toISOString(),
+  };
+  await createOperationReceiptInTx(tx, {
+    operationId: input.operationId,
+    payload: input.receiptPayload,
+    orderId: assignment.order.id,
+    assignmentId: assignment.id,
+    driverProfileId: input.driverProfileId,
+    type: "PICKUP_CONFIRM",
+  });
+  await completeOperationReceiptInTx(tx, input.operationId, snapshot);
+  return snapshot;
 }
 
 // ─── FAIL PICKUP ──────────────────────────────────────────────────────────────

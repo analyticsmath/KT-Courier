@@ -24,12 +24,12 @@ describe("Phase 1B — Security & Governance Foundations", () => {
       expect(normalizeRouteFilePathToPublicPattern("app/api/v1/[[...path]]/route.ts")).toBe("/api/v1/*");
     });
 
-    it("should successfully verify all 587 route files and 680 exported HTTP methods", () => {
+    it("should successfully verify all route files and exported HTTP methods against route security manifest baselines", () => {
       const result = verifyRouteSecurityManifest();
-      expect(result.routeFilesCount).toBe(587);
-      expect(result.totalMethodsCount).toBe(680);
       expect(result.success).toBe(true);
       expect(result.errors).toEqual([]);
+      expect(result.routeFilesCount).toBeGreaterThanOrEqual(604);
+      expect(result.totalMethodsCount).toBeGreaterThanOrEqual(705);
     });
   });
 

@@ -802,74 +802,19 @@ describe("Phase 24: Advertising Policy Tests (25 Constraints)", () => {
     }));
   });
 
-  // 23. Last valid click attribution model selects correct click.
-  it("Policy 23: Last valid click attribution selects correct click", async () => {
-    const attributionService = new AdvertisingAttributionService(mockDb as any);
-
-    const orderConfirmedAt = new Date();
-    m(mockDb.marketplaceOrder.findUnique).mockResolvedValueOnce({
-      id: "order-1",
-      confirmedAt: orderConfirmedAt,
-      storeOrders: [
-        { id: "store-order-1", storeId: "store-1", merchandiseSubtotal: new Prisma.Decimal(500) }
-      ],
-      checkout: { sessionFingerprint: "finger-1" }
-    });
-
-    m(mockDb.advertisingMeasurementEvent.findMany).mockResolvedValueOnce([
-      {
-        id: "click-2",
-        eventTimestamp: new Date(orderConfirmedAt.getTime() - 1000), // 1s ago
-        campaignVersionId: "ver-2",
-        placementDefinitionId: "pl-1",
-        campaignVersion: { id: "ver-2", attributionWindowDays: 7, sponsoredObjectType: "PRODUCT", campaign: { storeId: "store-1" } }
-      },
-      {
-        id: "click-1",
-        eventTimestamp: new Date(orderConfirmedAt.getTime() - 10000), // 10s ago
-        campaignVersionId: "ver-1",
-        placementDefinitionId: "pl-1",
-        campaignVersion: { id: "ver-1", attributionWindowDays: 7, sponsoredObjectType: "PRODUCT", campaign: { storeId: "store-1" } }
-      }
-    ]);
-
-    m(mockDb.advertisingAttribution.create).mockResolvedValueOnce({ id: "attr-1" });
-
+  // 23. Conversion attribution requires canonical consented click evidence.
+  it("Policy 23: Conversion attribution never infers a checkout session identity", async () => {
+    const attributionService = new AdvertisingAttributionService();
     await attributionService.attributeOrder("order-1");
-
-    expect(mockDb.advertisingAttribution.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        clickEventId: "click-2"
-      })
-    }));
+    expect(mockDb.marketplaceOrder.findUnique).not.toHaveBeenCalled();
+    expect(mockDb.advertisingMeasurementEvent.findMany).not.toHaveBeenCalled();
+    expect(mockDb.advertisingAttribution.create).not.toHaveBeenCalled();
   });
 
-  // 24. Attribution window limits how old a click can be.
-  it("Policy 24: Attribution window limits how old a click can be", async () => {
-    const attributionService = new AdvertisingAttributionService(mockDb as any);
-
-    const orderConfirmedAt = new Date();
-    m(mockDb.marketplaceOrder.findUnique).mockResolvedValueOnce({
-      id: "order-1",
-      confirmedAt: orderConfirmedAt,
-      storeOrders: [
-        { id: "store-order-1", storeId: "store-1", merchandiseSubtotal: new Prisma.Decimal(500) }
-      ],
-      checkout: { sessionFingerprint: "finger-1" }
-    });
-
-    m(mockDb.advertisingMeasurementEvent.findMany).mockResolvedValueOnce([
-      {
-        id: "click-1",
-        eventTimestamp: new Date(orderConfirmedAt.getTime() - 10 * 24 * 3600 * 1000), // 10 days ago (window 7 days)
-        campaignVersionId: "ver-1",
-        placementDefinitionId: "pl-1",
-        campaignVersion: { id: "ver-1", attributionWindowDays: 7, sponsoredObjectType: "PRODUCT", campaign: { storeId: "store-1" } }
-      }
-    ]);
-
+  // 24. An order reference alone is not conversion-attribution evidence.
+  it("Policy 24: Order identity alone cannot create attribution", async () => {
+    const attributionService = new AdvertisingAttributionService();
     await attributionService.attributeOrder("order-1");
-
     expect(mockDb.advertisingAttribution.create).not.toHaveBeenCalled();
   });
 

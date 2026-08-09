@@ -64,7 +64,7 @@ describe("Phase 27 source-event intake", () => {
     await activeOrderRoute(db);
     const unresolved = await intake.intake({ sourceAuthority: "LEGACY_ORDER", sourceEventId: "event-5", sourceEventType: "ORDER_STATUS_CHANGED", aggregateReference: "order-5", payload: { customerUserId: "missing", order: "ORD-5" } });
     await expect(intake.fanout({ receiptId: unresolved.receipt.id, payload: { customerUserId: "missing", order: "ORD-5" } })).resolves.toMatchObject({ reconciliationRequired: true });
-    expect(db.__state.notificationReconciliationCase.map((item: any) => item.reason)).toEqual(expect.arrayContaining(["EVENT_ROUTE_NOT_CONFIGURED", "RECIPIENT_NOT_RESOLVED"]));
+    expect(db.__state.notificationReconciliationCase.map((item: { reason: string }) => item.reason)).toEqual(expect.arrayContaining(["EVENT_ROUTE_NOT_CONFIGURED", "RECIPIENT_NOT_RESOLVED"]));
   });
 });
 

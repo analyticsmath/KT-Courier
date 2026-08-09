@@ -1,6 +1,7 @@
 import { type Prisma } from "@prisma/client";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { catalogRequestHash } from "@/lib/catalog/catalog-normalization";
+import { toInputJsonObject } from "@/lib/json/input-json";
 
 export async function recordCatalogEvidence(
   tx: Prisma.TransactionClient,
@@ -16,7 +17,7 @@ export async function recordCatalogEvidence(
     operation?: { operationId: string; storeId?: string; request: unknown };
   },
 ): Promise<void> {
-  const payload = args.safeMetadata ?? {};
+  const payload = toInputJsonObject(args.safeMetadata ?? {});
   await tx.catalogAuditHistory.create({
     data: {
       aggregateType: args.aggregateType,
@@ -25,7 +26,7 @@ export async function recordCatalogEvidence(
       action: args.action,
       actorUserId: args.actorUserId,
       reasonCode: args.reasonCode,
-      safeMetadata: payload as any,
+      safeMetadata: payload,
     },
   });
   await tx.catalogChangeEvent.create({
@@ -35,7 +36,7 @@ export async function recordCatalogEvidence(
       aggregateReference: args.aggregateReference,
       eventType: args.eventType,
       aggregateVersion: args.aggregateVersion,
-      payload: payload as any,
+      payload,
     },
   });
   if (args.operation) {

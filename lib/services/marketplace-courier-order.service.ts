@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- the Phase 21 schema is intentionally not generated before Phase 26.5. */
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { OrderSource, OrderStatus } from "@/types/db";
@@ -52,4 +53,94 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
     } });
     return Object.freeze({ courierOrderId: courierOrder.id, courierOrderReference: courierOrder.orderNumber, replayed: false });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+type MarketplaceBridgeRow = Readonly<{
+  bridgeId: string;
+  storeOrderId: string;
+  preparationStatus: string;
+  resolutionStatus: string;
+}>;
+
+type CourierProjectionStatus = "DRIVER_ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERY_ATTEMPTED" | "DELIVERED" | "FAILED";
+
+function projectedStoreStatus(status: CourierProjectionStatus): string {
+  switch (status) {
+    case "DRIVER_ASSIGNED": return "HANDOFF_IN_PROGRESS";
+    case "PICKED_UP": return "HANDED_OFF_TO_COURIER";
+    case "IN_TRANSIT": return "IN_TRANSIT";
+    case "DELIVERY_ATTEMPTED": return "DELIVERY_ATTEMPTED";
+    case "DELIVERED": return "DELIVERED";
+    case "FAILED": return "RECONCILIATION_REQUIRED";
+  }
+}
+
+/**
+ * Projects courier execution into the single MarketplaceStoreOrder bridge in
+ * the same transaction as the canonical courier mutation. It never alters a
+ * marketplace commercial record or manually advances the parent order.
+ */
+export async function projectMarketplaceCourierExecutionInTx(
+  tx: Prisma.TransactionClient,
+  input: Readonly<{
+    courierOrderId: string;
+    status: CourierProjectionStatus;
+    operationId: string;
+    actorUserId: string;
+  }>,
+): Promise<boolean> {
+  const rows = await tx.$queryRaw<MarketplaceBridgeRow[]>(Prisma.sql`
+    SELECT bridge."id" AS "bridgeId", store."id" AS "storeOrderId",
+      store."preparationStatus", store."resolutionStatus"
+    FROM "MarketplaceStoreOrderDeliveryBridge" bridge
+    JOIN "MarketplaceStoreOrder" store ON store."id" = bridge."marketplaceStoreOrderId"
+    WHERE bridge."courierOrderId" = ${input.courierOrderId}
+    FOR UPDATE OF bridge, store
+  `);
+  const bridge = rows[0];
+  if (!bridge) return false;
+
+  const bridgeStatus = input.status === "PICKED_UP" ? "HANDED_OFF" : input.status;
+  const derivedStatus = projectedStoreStatus(input.status);
+  await tx.$executeRaw(Prisma.sql`
+    UPDATE "MarketplaceStoreOrderDeliveryBridge"
+    SET "status" = ${bridgeStatus}::"StoreOrderDeliveryBridgeStatus", "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "id" = ${bridge.bridgeId}
+  `);
+  if (input.status === "FAILED") {
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE "MarketplaceStoreOrder"
+      SET "deliveryBridgeStatus" = 'FAILED', "resolutionStatus" = 'RECONCILIATION_REQUIRED',
+        "financialResolutionStatus" = 'RECONCILIATION_REQUIRED',
+        "derivedStatus" = ${derivedStatus}::"StoreOrderDerivedStatus",
+        "operationalVersion" = "operationalVersion" + 1
+      WHERE "id" = ${bridge.storeOrderId}
+    `);
+  } else {
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE "MarketplaceStoreOrder"
+      SET "deliveryBridgeStatus" = ${bridgeStatus}::"StoreOrderDeliveryBridgeStatus",
+        "derivedStatus" = ${derivedStatus}::"StoreOrderDerivedStatus",
+        "operationalVersion" = "operationalVersion" + 1
+      WHERE "id" = ${bridge.storeOrderId}
+    `);
+  }
+
+  const eventType = `COURIER_${input.status}`;
+  const evidence = JSON.stringify({ courierOrderId: input.courierOrderId, status: input.status });
+  await tx.$executeRaw(Prisma.sql`
+    INSERT INTO "MarketplaceStoreOrderHistory"
+      ("id", "marketplaceStoreOrderId", "operationId", "eventType", "actorUserId", "safeEvidence", "createdAt")
+    VALUES
+      (${`msoh_${randomUUID().replaceAll("-", "")}`}, ${bridge.storeOrderId}, ${input.operationId}, ${eventType}, ${input.actorUserId}, ${evidence}::jsonb, CURRENT_TIMESTAMP)
+    ON CONFLICT ("marketplaceStoreOrderId", "operationId", "eventType") DO NOTHING
+  `);
+  await tx.$executeRaw(Prisma.sql`
+    INSERT INTO "MarketplaceStoreOrderEventIntent"
+      ("id", "publicReference", "marketplaceStoreOrderId", "eventType", "payload", "dedupeKey", "createdAt")
+    VALUES
+      (${`msoei_${randomUUID().replaceAll("-", "")}`}, ${`soevt_${randomUUID().replaceAll("-", "")}`}, ${bridge.storeOrderId}, ${eventType}, ${evidence}::jsonb, ${`${bridge.storeOrderId}:${input.operationId}:${eventType}`}, CURRENT_TIMESTAMP)
+    ON CONFLICT ("dedupeKey") DO NOTHING
+  `);
+  return true;
 }

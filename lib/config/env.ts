@@ -1,5 +1,7 @@
 // Server-only. Do NOT import this into Client Components.
 
+import { evaluateProductionConfiguration } from "./production-validation";
+
 export type EmailProviderMode = "resend" | "console";
 
 export interface RuntimeConfigStatus {
@@ -15,6 +17,12 @@ export interface RuntimeConfigStatus {
   mapsServerKeyConfigured: boolean;
   warnings: string[];
   productionReady: boolean;
+  productionIssues: Array<{
+    capability: string;
+    reasonCode: string;
+    correctiveClass: string;
+    blocks: "STARTUP" | "READINESS" | "NONE";
+  }>;
 }
 
 export function getRuntimeConfigStatus(): RuntimeConfigStatus {
@@ -69,10 +77,12 @@ export function getRuntimeConfigStatus(): RuntimeConfigStatus {
     );
   }
 
+  const productionAssessment = evaluateProductionConfiguration();
   const productionReady =
     database &&
     (!isProduction || emailProvider === "resend") &&
-    appUrl;
+    appUrl &&
+    !productionAssessment.readinessBlocked;
 
   return {
     database,
@@ -86,6 +96,7 @@ export function getRuntimeConfigStatus(): RuntimeConfigStatus {
     mapsServerKeyConfigured: mapsServerKey,
     warnings,
     productionReady,
+    productionIssues: productionAssessment.issues,
   };
 }
 

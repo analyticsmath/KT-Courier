@@ -1,3 +1,4 @@
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -11,7 +12,6 @@ export async function GET() {
     if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     await requirePermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.RECRUITMENT_OPENINGS_MANAGE });
 
-    const service = new OpeningService(prisma);
     const openings = await prisma.recruitmentOpening.findMany({
       include: {
         currentVersion: true,
@@ -22,8 +22,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ success: true, data: openings });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }
 
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: opening });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }

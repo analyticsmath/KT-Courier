@@ -64,7 +64,7 @@ export async function storeProductsGet(request: NextRequest) {
 }
 
 export async function storeProductsPost(request: NextRequest) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, "/api/store/catalog/products"); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, "/api/store/catalog/products"); if (!("body" in prepared)) return prepared.response;
   const parsed = CatalogProductCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ product: await createStorePrivateCatalogProduct(prepared.store.id, prepared.user.id, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
 }
@@ -75,14 +75,14 @@ export async function storeProductGet(request: NextRequest, publicReference: str
 }
 
 export async function storeProductPatch(request: NextRequest, publicReference: string) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, `/api/store/catalog/products/${publicReference}`); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, `/api/store/catalog/products/${publicReference}`); if (!("body" in prepared)) return prepared.response;
   const parsed = CatalogProductPatchSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ product: await updateStoreCatalogProduct(prepared.store.id, publicReference, prepared.user.id, parsed.data as never) }); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storeProductAction(request: NextRequest, publicReference: string, action: "submit" | "archive") {
   const permission = action === "submit" ? PERMISSIONS.CATALOG_SUBMIT : PERMISSIONS.CATALOG_MANAGE;
-  const prepared = await storeMutation(request, permission, `/api/store/catalog/products/${publicReference}/${action}`); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, permission, `/api/store/catalog/products/${publicReference}/${action}`); if (!("body" in prepared)) return prepared.response;
   const parsed = CatalogActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try {
     const product = action === "submit" ? await submitStoreCatalogProduct(prepared.store.id, publicReference, prepared.user.id, parsed.data) : await archiveStoreCatalogProduct(prepared.store.id, publicReference, prepared.user.id, parsed.data);
@@ -97,7 +97,7 @@ export async function storeOffersGet(request: NextRequest) {
 }
 
 export async function storeOffersPost(request: NextRequest) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, "/api/store/catalog/offers"); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, "/api/store/catalog/offers"); if (!("body" in prepared)) return prepared.response;
   const parsed = StoreOfferCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ offer: await createStoreCatalogOffer(prepared.store.id, prepared.user.id, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
 }
@@ -108,13 +108,13 @@ export async function storeOfferGet(request: NextRequest, publicReference: strin
 }
 
 export async function storeOfferPatch(request: NextRequest, publicReference: string) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, `/api/store/catalog/offers/${publicReference}`); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, `/api/store/catalog/offers/${publicReference}`); if (!("body" in prepared)) return prepared.response;
   const parsed = StoreOfferPatchSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ offer: await updateStoreCatalogOffer(prepared.store.id, publicReference, prepared.user.id, parsed.data) }); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storeOfferAction(request: NextRequest, publicReference: string, action: "submit" | "pause" | "archive") {
-  const prepared = await storeMutation(request, action === "submit" ? PERMISSIONS.CATALOG_SUBMIT : PERMISSIONS.CATALOG_MANAGE, `/api/store/catalog/offers/${publicReference}/${action}`); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, action === "submit" ? PERMISSIONS.CATALOG_SUBMIT : PERMISSIONS.CATALOG_MANAGE, `/api/store/catalog/offers/${publicReference}/${action}`); if (!("body" in prepared)) return prepared.response;
   const parsed = CatalogActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   const target = { submit: "SUBMITTED", pause: "PAUSED", archive: "ARCHIVED" }[action] as "SUBMITTED" | "PAUSED" | "ARCHIVED";
   try { return catalogJson({ offer: await transitionStoreCatalogOffer(prepared.store.id, publicReference, prepared.user.id, target, parsed.data) }); } catch (error) { return catalogApiError(error); }
@@ -139,7 +139,7 @@ export async function storeInventoryGet(request: NextRequest) {
 }
 
 export async function storeInventoryMovementPost(request: NextRequest, publicReference: string) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_INVENTORY_MANAGE, `/api/store/catalog/inventory/${publicReference}/movements`); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_INVENTORY_MANAGE, `/api/store/catalog/inventory/${publicReference}/movements`); if (!("body" in prepared)) return prepared.response;
   const parsed = InventoryMovementCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ movement: await postCatalogInventoryMovement(prepared.store.id, prepared.user.id, publicReference, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
 }
@@ -150,7 +150,7 @@ export async function storeModifiersGet(request: NextRequest) {
 }
 
 export async function storeModifiersPost(request: NextRequest) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, "/api/store/catalog/modifier-groups"); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_MANAGE, "/api/store/catalog/modifier-groups"); if (!("body" in prepared)) return prepared.response;
   const parsed = ModifierGroupCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ modifierGroup: await createStoreModifierGroup(prepared.store.id, prepared.user.id, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
 }
@@ -161,19 +161,19 @@ export async function storeImportsGet(request: NextRequest) {
 }
 
 export async function storeImportsPost(request: NextRequest) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_IMPORTS_MANAGE, "/api/store/catalog/imports"); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_IMPORTS_MANAGE, "/api/store/catalog/imports"); if (!("body" in prepared)) return prepared.response;
   const parsed = CatalogImportCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ importJob: await createCatalogImportJob(prepared.store.id, prepared.user.id, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storeImportAction(request: NextRequest, publicReference: string, action: "validate" | "apply") {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_IMPORTS_MANAGE, `/api/store/catalog/imports/${publicReference}/${action}`); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_IMPORTS_MANAGE, `/api/store/catalog/imports/${publicReference}/${action}`); if (!("body" in prepared)) return prepared.response;
   const parsed = CatalogActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ importJob: action === "validate" ? await validateCatalogImportJob(prepared.store.id, publicReference) : await applyCatalogImportJob(prepared.store.id, prepared.user.id, publicReference) }); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storePricesPost(request: NextRequest) {
-  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_PRICING_MANAGE, "/api/store/catalog/prices"); if ("response" in prepared) return prepared.response;
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_PRICING_MANAGE, "/api/store/catalog/prices"); if (!("body" in prepared)) return prepared.response;
   const parsed = StorePriceVersionCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ price: await createStoreOfferPriceVersion(prepared.store.id, prepared.user.id, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
 }
@@ -184,8 +184,8 @@ export async function adminCategoriesGet(request: NextRequest) {
 }
 
 export async function adminCategoriesPost(request: NextRequest) {
-  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_TAXONOMY_MANAGE, "/api/admin/catalog/categories"); if ("response" in prepared) return prepared.response;
-  const parsed = CatalogCategoryCreateSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_TAXONOMY_MANAGE, "/api/admin/catalog/categories"); if (!("body" in prepared)) return prepared.response;
+  const parsed = CatalogCategoryCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ category: await createCatalogCategory({ actorUserId: prepared.user.id, ...parsed.data }) }, 201); } catch (error) { return catalogApiError(error); }
 }
 
@@ -195,8 +195,8 @@ export async function adminCategoryGet(request: NextRequest, id: string) {
 }
 
 export async function adminCategoryPatch(request: NextRequest, id: string) {
-  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_TAXONOMY_MANAGE, `/api/admin/catalog/categories/${id}`); if ("response" in prepared) return prepared.response;
-  const parsed = CatalogCategoryPatchSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_TAXONOMY_MANAGE, `/api/admin/catalog/categories/${id}`); if (!("body" in prepared)) return prepared.response;
+  const parsed = CatalogCategoryPatchSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ category: await updateCatalogCategory(id, { actorUserId: prepared.user.id, ...parsed.data }) }); } catch (error) { return catalogApiError(error); }
 }
 
@@ -206,8 +206,8 @@ export async function adminProductTypesGet(request: NextRequest) {
 }
 
 export async function adminProductTypesPost(request: NextRequest) {
-  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_PRODUCT_TYPES_MANAGE, "/api/admin/catalog/product-types"); if ("response" in prepared) return prepared.response;
-  const parsed = ProductTypeDefinitionCreateSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_PRODUCT_TYPES_MANAGE, "/api/admin/catalog/product-types"); if (!("body" in prepared)) return prepared.response;
+  const parsed = ProductTypeDefinitionCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ productType: await createProductTypeDefinition({ actorUserId: prepared.user.id, ...parsed.data }) }, 201); } catch (error) { return catalogApiError(error); }
 }
 
@@ -217,15 +217,15 @@ export async function adminProductTypeGet(request: NextRequest, id: string) {
 }
 
 export async function adminProductTypePatch(request: NextRequest, id: string) {
-  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_PRODUCT_TYPES_MANAGE, `/api/admin/catalog/product-types/${id}`); if ("response" in prepared) return prepared.response;
-  const parsed = ProductTypeDefinitionPatchSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_PRODUCT_TYPES_MANAGE, `/api/admin/catalog/product-types/${id}`); if (!("body" in prepared)) return prepared.response;
+  const parsed = ProductTypeDefinitionPatchSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ productType: await updateProductTypeDefinition(id, { actorUserId: prepared.user.id, ...parsed.data }) }); } catch (error) { return catalogApiError(error); }
 }
 
 export async function adminProductTypeAction(request: NextRequest, id: string, action: "submit" | "approve" | "activate" | "retire") {
   const permission = action === "approve" || action === "activate" ? PERMISSIONS.CATALOG_PRODUCT_TYPES_APPROVE : PERMISSIONS.CATALOG_PRODUCT_TYPES_MANAGE;
-  const prepared = await adminMutation(request, permission, `/api/admin/catalog/product-types/${id}/${action}`); if ("response" in prepared) return prepared.response;
-  const parsed = CatalogActionSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, permission, `/api/admin/catalog/product-types/${id}/${action}`); if (!("body" in prepared)) return prepared.response;
+  const parsed = CatalogActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   const status = { submit: "UNDER_REVIEW", approve: "APPROVED", activate: "ACTIVE", retire: "RETIRED" }[action] as "UNDER_REVIEW" | "APPROVED" | "ACTIVE" | "RETIRED";
   try { return catalogJson({ productType: await transitionProductTypeDefinition(id, status, { actorUserId: prepared.user.id, version: parsed.data.version, operationId: parsed.data.operationId }) }); } catch (error) { return catalogApiError(error); }
 }
@@ -243,8 +243,8 @@ export async function adminProductGet(request: NextRequest, id: string) {
 
 export async function adminProductAction(request: NextRequest, id: string, action: "approve" | "request-changes" | "reject" | "suspend") {
   const permission = action === "approve" ? PERMISSIONS.CATALOG_MODERATION_APPROVE : action === "suspend" ? PERMISSIONS.CATALOG_MODERATION_SUSPEND : PERMISSIONS.CATALOG_MODERATION_REVIEW;
-  const prepared = await adminMutation(request, permission, `/api/admin/catalog/products/${id}/${action}`); if ("response" in prepared) return prepared.response;
-  const parsed = CatalogModerationActionSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, permission, `/api/admin/catalog/products/${id}/${action}`); if (!("body" in prepared)) return prepared.response;
+  const parsed = CatalogModerationActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   const operation = { approve: "APPROVE", "request-changes": "REQUEST_CHANGES", reject: "REJECT", suspend: "SUSPEND" }[action] as "APPROVE" | "REQUEST_CHANGES" | "REJECT" | "SUSPEND";
   try { return catalogJson({ product: await moderateCatalogProduct(id, prepared.user.id, operation, parsed.data) }); } catch (error) { return catalogApiError(error); }
 }
@@ -262,8 +262,8 @@ export async function adminOfferGet(request: NextRequest, id: string) {
 
 export async function adminOfferAction(request: NextRequest, id: string, action: "approve" | "request-changes" | "suspend") {
   const permission = action === "approve" ? PERMISSIONS.CATALOG_MODERATION_APPROVE : action === "suspend" ? PERMISSIONS.CATALOG_MODERATION_SUSPEND : PERMISSIONS.CATALOG_MODERATION_REVIEW;
-  const prepared = await adminMutation(request, permission, `/api/admin/catalog/offers/${id}/${action}`); if ("response" in prepared) return prepared.response;
-  const parsed = CatalogModerationActionSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, permission, `/api/admin/catalog/offers/${id}/${action}`); if (!("body" in prepared)) return prepared.response;
+  const parsed = CatalogModerationActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   const operation = { approve: "APPROVE", "request-changes": "REQUEST_CHANGES", suspend: "SUSPEND" }[action] as "APPROVE" | "REQUEST_CHANGES" | "SUSPEND";
   try { return catalogJson({ offer: await moderateCatalogOffer(id, prepared.user.id, operation, parsed.data) }); } catch (error) { return catalogApiError(error); }
 }
@@ -279,7 +279,7 @@ export async function adminDuplicatesGet(request: NextRequest) {
 }
 
 export async function adminDuplicateResolve(request: NextRequest, id: string) {
-  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_MODERATION_REVIEW, `/api/admin/catalog/duplicates/${id}/resolve`); if ("response" in prepared) return prepared.response;
-  const parsed = CatalogDuplicateResolveSchema.safeParse((prepared as any).body); if (!parsed.success) return invalid();
+  const prepared = await adminMutation(request, PERMISSIONS.CATALOG_MODERATION_REVIEW, `/api/admin/catalog/duplicates/${id}/resolve`); if (!("body" in prepared)) return prepared.response;
+  const parsed = CatalogDuplicateResolveSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ candidate: await resolveCatalogDuplicate(id, prepared.user.id, parsed.data.action, parsed.data.operationId) }); } catch (error) { return catalogApiError(error); }
 }

@@ -12,7 +12,7 @@ describe("Phase 26 processor manifest and lock", () => {
     expect(Object.keys(manifest.PHASE26_PROCESSORS)).toEqual(operations);
     for (const operation of operations) {
       expect(fs.existsSync(path.join(root, `scripts/phase26-${operation}.mjs`))).toBe(true);
-      const proc = (manifest.PHASE26_PROCESSORS as Record<string, any>)[operation];
+      const proc = manifest.PHASE26_PROCESSORS[operation as keyof typeof manifest.PHASE26_PROCESSORS];
       expect(proc.handler).toBeTruthy();
       expect(proc.service).toBeTruthy();
     }

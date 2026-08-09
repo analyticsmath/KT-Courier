@@ -6,7 +6,8 @@ import { calculateAvailableBudget, validateBudgetMovement } from '@/lib/promotio
 
 describe('promotion-budget service', () => {
   it('recordBudgetMovement throws PromotionsProductionLockedError', async () => {
-    await expect(recordBudgetMovement({} as any, {} as any)).rejects.toThrow(PromotionsProductionLockedError);
+    const input: BudgetMovementInput = { budgetId: "budget-1", campaignVersionId: "campaign-version-1", movementType: "RESERVE", amount: new Prisma.Decimal("1.00"), operationId: "operation-1", requestHash: "hash-1" };
+    await expect(recordBudgetMovement(input, {} as Prisma.TransactionClient)).rejects.toThrow(PromotionsProductionLockedError);
   });
 
   it('calculateAvailableBudget with mixed inputs', () => {

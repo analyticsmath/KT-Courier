@@ -21,7 +21,7 @@ async function prepareDatabases() {
     try {
       // Create database if not exists
       const createDbCmd = `docker exec ${containerName} psql -U postgres -c "CREATE DATABASE \\"${dbName}\\";"`;
-      try { execSync(createDbCmd, { stdio: ['ignore', 'pipe', 'pipe'] }); } catch (e) {}
+try { execSync(createDbCmd, { stdio: ['ignore', 'pipe', 'pipe'] }); } catch {}
 
       // Reset schema public
       const resetSchemaCmd = `docker exec ${containerName} psql -U postgres -d "${dbName}" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres; GRANT ALL ON SCHEMA public TO public;"`;

@@ -1,4 +1,5 @@
 import { AdminActionType, DriverAvailability, DriverStatus, OrderAssignmentEventType, OrderAssignmentStatus, OrderOperationalEventType, OrderStatus, type Prisma, UserRole, UserStatus } from "@/types/db";
+import { randomUUID } from "node:crypto";
 import { Prisma as PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { canTransitionAssignment } from "@/lib/dispatch/assignment-state-machine";
@@ -6,6 +7,8 @@ import { dispatchError } from "@/lib/dispatch/errors";
 import { evaluateDriverEligibility } from "@/lib/dispatch/eligibility";
 import { withDispatchRetry } from "@/lib/dispatch/retry";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
+import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
+import { createDispatchCandidateEvaluationInTx, selectDispatchCandidateInTx, setDispatchCandidateDispositionForAssignmentInTx } from "@/lib/services/dispatch-candidate-evidence.service";
 import type { AdminAssignOrderInput, AdminCancelAssignmentInput, AdminReassignOrderInput, DriverAcceptAssignmentInput, DriverRejectAssignmentInput } from "@/lib/validation/assignment";
 
 type Tx = Prisma.TransactionClient;
@@ -59,6 +62,7 @@ function assertAssignable(order: { status: OrderStatus } | null) {
 function assertBeforeCustody(status: OrderStatus) { if (CUSTODY.includes(status)) throw dispatchError.custody(); }
 
 export async function offerAssignment(adminUserId: string, orderId: string, input: AdminAssignOrderInput) {
+  const evaluationOperationId = randomUUID();
   return withDispatchRetry(() => prisma.$transaction(async (tx) => {
     await lockOrderAndDrivers(tx, orderId, [input.driverProfileId]);
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true } });
@@ -67,9 +71,17 @@ export async function offerAssignment(adminUserId: string, orderId: string, inpu
     const current = await tx.orderAssignment.findFirst({ where: { orderId, activeOrderGuard: orderId } });
     if (current?.driverProfileId === input.driverProfileId && current.status === OrderAssignmentStatus.ASSIGNED) return current;
     if (current) throw dispatchError.assignmentExists();
+    const evaluation = await createDispatchCandidateEvaluationInTx(tx, {
+      courierOrderId: orderId,
+      operationId: evaluationOperationId,
+      requestedDriverProfileId: input.driverProfileId,
+    });
+    // The evidence is a snapshot. Validate again immediately before the
+    // assignment write so a stale candidate can never become assignable.
     const { eligibility, config } = await validateDriver(tx, input.driverProfileId, order!);
     const reasonCode = input.reasonCode ?? "INITIAL_ASSIGNMENT";
-    const assignment = await tx.orderAssignment.create({ data: { orderId, driverProfileId: input.driverProfileId, assignedByAdminId: adminUserId, status: OrderAssignmentStatus.ASSIGNED, assignedAt: new Date(), offeredAt: new Date(), expiresAt: new Date(Date.now() + config.ttlMinutes * 60_000), activeOrderGuard: orderId, dispatchPolicyVersion: config.policyVersion, eligibilitySnapshot: eligibility, reasonCode, adminNote: input.adminNote ?? null } });
+    const assignment = await (tx as unknown as { orderAssignment: { create(args: unknown): Promise<{ id: string; status: OrderAssignmentStatus; version: number; expiresAt: Date | null }> } }).orderAssignment.create({ data: { orderId, driverProfileId: input.driverProfileId, assignedByAdminId: adminUserId, status: OrderAssignmentStatus.ASSIGNED, assignedAt: new Date(), offeredAt: new Date(), expiresAt: new Date(Date.now() + config.ttlMinutes * 60_000), activeOrderGuard: orderId, dispatchPolicyVersion: config.policyVersion, eligibilitySnapshot: eligibility, reasonCode, adminNote: input.adminNote ?? null, dispatchCandidateEvaluationId: evaluation.evaluationId } });
+    await selectDispatchCandidateInTx(tx, evaluation.evaluationId, input.driverProfileId, assignment.id);
     await writeEvents(tx, { assignmentId: assignment.id, orderId, driverProfileId: input.driverProfileId, actorUserId: adminUserId, actorRole: "ADMIN", eventType: OrderAssignmentEventType.ASSIGNMENT_CREATED, operationalType: OrderOperationalEventType.ASSIGNMENT_OFFERED, previousStatus: null, nextStatus: OrderAssignmentStatus.ASSIGNED, reasonCode, note: input.adminNote });
     await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: AdminActionType.CREATE, entityType: "OrderAssignment", entityId: assignment.id, message: "Dispatch offer created.", metadata: { orderId, driverProfileId: input.driverProfileId, reasonCode } } });
     return assignment;
@@ -94,6 +106,12 @@ export async function acceptDispatchAssignment(driverProfileId: string, assignme
     await tx.order.update({ where: { id: assignment.orderId }, data: { currentDriverProfileId: driverProfileId } });
     if (assignment.order.status === OrderStatus.CONFIRMED) await transitionOrderStatusInTx(tx, { orderId: assignment.orderId, fromStatus: OrderStatus.CONFIRMED, toStatus: OrderStatus.PICKUP_SCHEDULED, actorUserId: assignment.driverProfile.userId, actorRole: UserRole.DRIVER, source: "dispatch_accept", context: { actorIsAssignedDriver: true, hasAcceptedAssignment: true } });
     await writeEvents(tx, { assignmentId, orderId: assignment.orderId, driverProfileId, actorUserId: assignment.driverProfile.userId, actorRole: "DRIVER", eventType: OrderAssignmentEventType.ASSIGNMENT_ACCEPTED, operationalType: OrderOperationalEventType.ASSIGNMENT_ACCEPTED, previousStatus: OrderAssignmentStatus.ASSIGNED, nextStatus: OrderAssignmentStatus.ACCEPTED });
+    await projectMarketplaceCourierExecutionInTx(tx, {
+      courierOrderId: assignment.orderId,
+      status: "DRIVER_ASSIGNED",
+      operationId: `dispatch-accept:${assignmentId}:${input.expectedVersion}`,
+      actorUserId: assignment.driverProfile.userId,
+    });
     return tx.orderAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
   }, { isolationLevel: PrismaClient.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 10_000 }));
 }
@@ -124,6 +142,7 @@ async function closeCurrent(tx: Tx, assignment: { id: string; orderId: string; d
 }
 
 export async function reassignDispatchOrder(adminUserId: string, orderId: string, input: AdminReassignOrderInput) {
+  const evaluationOperationId = randomUUID();
   return withDispatchRetry(() => prisma.$transaction(async (tx) => {
     if (!input.currentAssignmentId || !input.expectedVersion || !input.newDriverProfileId || !input.reasonCode) throw dispatchError.stale();
     const current = await tx.orderAssignment.findUnique({ where: { id: input.currentAssignmentId }, select: { orderId: true, driverProfileId: true } });
@@ -133,11 +152,20 @@ export async function reassignDispatchOrder(adminUserId: string, orderId: string
     assertBeforeCustody(order!.status); assertAssignable(order);
     if (assignment.activeOrderGuard !== orderId || assignment.version !== input.expectedVersion) throw dispatchError.stale();
     if (assignment.driverProfileId === input.newDriverProfileId) throw dispatchError.driverIneligible("A reassignment must use a different driver.");
-    await validateDriver(tx, input.newDriverProfileId, order!);
+    const evaluation = await createDispatchCandidateEvaluationInTx(tx, {
+      courierOrderId: orderId,
+      operationId: evaluationOperationId,
+      requestedDriverProfileId: input.newDriverProfileId,
+      allowExistingAssignment: true,
+      excludeAssignmentId: assignment.id,
+    });
+    await validateDriver(tx, input.newDriverProfileId, order!, assignment.id);
     await closeCurrent(tx, assignment, OrderAssignmentStatus.SUPERSEDED, adminUserId, input.reasonCode, input.note);
+    await setDispatchCandidateDispositionForAssignmentInTx(tx, assignment.id, "SUPERSEDED");
     await tx.order.update({ where: { id: orderId }, data: { currentDriverProfileId: null } });
     const config = await settings(tx);
-    const replacement = await tx.orderAssignment.create({ data: { orderId, driverProfileId: input.newDriverProfileId, assignedByAdminId: adminUserId, status: OrderAssignmentStatus.ASSIGNED, assignedAt: new Date(), offeredAt: new Date(), expiresAt: new Date(Date.now() + config.ttlMinutes * 60_000), activeOrderGuard: orderId, dispatchPolicyVersion: config.policyVersion, reassignedFromId: assignment.id, reasonCode: input.reasonCode, reasonNote: input.note ?? null } });
+    const replacement = await (tx as unknown as { orderAssignment: { create(args: unknown): Promise<{ id: string; status: OrderAssignmentStatus; version: number; expiresAt: Date | null }> } }).orderAssignment.create({ data: { orderId, driverProfileId: input.newDriverProfileId, assignedByAdminId: adminUserId, status: OrderAssignmentStatus.ASSIGNED, assignedAt: new Date(), offeredAt: new Date(), expiresAt: new Date(Date.now() + config.ttlMinutes * 60_000), activeOrderGuard: orderId, dispatchPolicyVersion: config.policyVersion, reassignedFromId: assignment.id, reasonCode: input.reasonCode, reasonNote: input.note ?? null, dispatchCandidateEvaluationId: evaluation.evaluationId } });
+    await selectDispatchCandidateInTx(tx, evaluation.evaluationId, input.newDriverProfileId, replacement.id);
     await writeEvents(tx, { assignmentId: replacement.id, orderId, driverProfileId: input.newDriverProfileId, actorUserId: adminUserId, actorRole: "ADMIN", eventType: OrderAssignmentEventType.ASSIGNMENT_REASSIGNED, operationalType: OrderOperationalEventType.ASSIGNMENT_OFFERED, previousStatus: null, nextStatus: OrderAssignmentStatus.ASSIGNED, reasonCode: input.reasonCode, note: input.note });
     await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: AdminActionType.UPDATE, entityType: "OrderAssignment", entityId: replacement.id, message: "Dispatch assignment reassigned.", metadata: { orderId, previousAssignmentId: assignment.id, reasonCode: input.reasonCode } } });
     return replacement;
@@ -155,6 +183,7 @@ export async function unassignDispatchOrder(adminUserId: string, orderId: string
     assertBeforeCustody(order.status);
     if (assignment.activeOrderGuard !== orderId || assignment.version !== input.expectedVersion) throw dispatchError.stale();
     await closeCurrent(tx, assignment, OrderAssignmentStatus.REVOKED, adminUserId, input.reasonCode, input.note);
+    await setDispatchCandidateDispositionForAssignmentInTx(tx, assignment.id, "REJECTED");
     await tx.order.update({ where: { id: orderId }, data: { currentDriverProfileId: null } });
     await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: AdminActionType.UPDATE, entityType: "OrderAssignment", entityId: assignment.id, message: "Dispatch assignment revoked.", metadata: { orderId, reasonCode: input.reasonCode } } });
     return { ok: true };
@@ -171,6 +200,7 @@ export async function reconcileExpiredDispatchOffers(limit = 100) {
       const changed = await tx.orderAssignment.updateMany({ where: { id: candidate.id, status: OrderAssignmentStatus.ASSIGNED, version: candidate.version, expiresAt: { lte: new Date() } }, data: { status: OrderAssignmentStatus.EXPIRED, activeOrderGuard: null, expiredAt: new Date(), respondedAt: new Date(), version: { increment: 1 } } });
       if (changed.count) {
         expired += 1;
+        await setDispatchCandidateDispositionForAssignmentInTx(tx, candidate.id, "EXPIRED");
         await writeEvents(tx, { assignmentId: candidate.id, orderId: candidate.orderId, driverProfileId: candidate.driverProfileId, actorUserId: candidate.assignedByAdminId, actorRole: "SYSTEM", eventType: OrderAssignmentEventType.ASSIGNMENT_EXPIRED, operationalType: OrderOperationalEventType.ASSIGNMENT_EXPIRED, previousStatus: OrderAssignmentStatus.ASSIGNED, nextStatus: OrderAssignmentStatus.EXPIRED, reasonCode: "OFFER_EXPIRED" });
       }
     }, { isolationLevel: PrismaClient.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 10_000 });

@@ -4,6 +4,7 @@ import { assertCatalogProductionActivationAllowed } from "@/lib/catalog/catalog-
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { CatalogNotFoundError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { toInputJsonObject } from "@/lib/json/input-json";
 
 export async function rebuildCatalogPublicationSnapshot(offerId: string, actorUserId: string, publish = false) {
   if (publish) assertCatalogProductionActivationAllowed("PUBLICATION");
@@ -37,7 +38,7 @@ export async function rebuildCatalogPublicationSnapshot(offerId: string, actorUs
   const latest = await prisma.catalogPublicationSnapshot.findFirst({ where: { offerId }, orderBy: { versionNumber: "desc" } });
   const versionNumber = (latest?.versionNumber ?? 0) + 1;
   return prisma.$transaction(async (tx) => {
-    const record = await tx.catalogPublicationSnapshot.create({ data: { publicReference: catalogPublicReference("CPS"), productId: offer.productId, variantId: offer.variantId, offerId, versionNumber, publicationVersion: snapshot.publicationVersion, snapshot: snapshot as any, status: publish ? "PUBLISHED" : "BLOCKED", createdByUserId: actorUserId } });
+    const record = await tx.catalogPublicationSnapshot.create({ data: { publicReference: catalogPublicReference("CPS"), productId: offer.productId, variantId: offer.variantId, offerId, versionNumber, publicationVersion: snapshot.publicationVersion, snapshot: toInputJsonObject(snapshot), status: publish ? "PUBLISHED" : "BLOCKED", createdByUserId: actorUserId } });
     await recordCatalogEvidence(tx, { aggregateType: "SNAPSHOT", aggregateReference: record.publicReference, aggregateVersion: versionNumber, action: publish ? "PUBLISHED" : "PREVIEW_REBUILT", eventType: "SNAPSHOT_REBUILT", actorUserId, safeMetadata: { offerReference: offer.publicReference, status: record.status } });
     return record;
   });

@@ -16,7 +16,7 @@ type CustomerRefundRow = Readonly<{
   statusHistory: readonly Readonly<{ toStatus: RefundStatusCode; reasonCode: string; createdAt: Date }>[];
 }>;
 
-type FinanceRefundRow = CustomerRefundRow & Readonly<{
+type FinanceRefundRow = Omit<CustomerRefundRow, "payment" | "statusHistory"> & Readonly<{
   id: string; financeNote: string | null; approvedByUserId: string | null; approvedAt: Date | null;
   completedByUserId: string | null; customer: Readonly<{ name: string | null; email: string }>;
   payment: Readonly<{ publicReference: string; amount: Prisma.Decimal; totalRefundedAmount: Prisma.Decimal; totalRefundReservedAmount: Prisma.Decimal; order: Readonly<{ orderNumber: string }> }>;
@@ -80,7 +80,7 @@ function financeDetail(value: unknown) {
     journals: Object.freeze({ reserve: row.reserveLedgerJournal.reference, release: row.releaseLedgerJournal?.reference ?? null, completion: row.completionLedgerJournal?.reference ?? null, completionType: row.completionLedgerJournal?.type ?? null }),
     attempts: Object.freeze(row.attempts.map((attempt) => Object.freeze({ publicReference: attempt.publicReference, attemptNumber: attempt.attemptNumber, provider: attempt.provider, status: attempt.status, providerRefundId: attempt.providerRefundId, providerPaymentId: attempt.providerPaymentId, failureCategory: attempt.failureCategory, failureCode: attempt.failureCode, safeResult: attempt.safeResultSnapshot, initiatedByUserId: attempt.initiatedByUserId, completedByUserId: attempt.completedByUserId, createdAt: attempt.createdAt.toISOString(), completedAt: attempt.completedAt?.toISOString() ?? null }))),
     approval: Object.freeze({ approvedByUserId: row.approvedByUserId, approvedAt: row.approvedAt?.toISOString() ?? null, completedByUserId: row.completedByUserId, completedAt: row.completedAt?.toISOString() ?? null }),
-    history: Object.freeze(row.statusHistory.map((history: any) => Object.freeze({ fromStatus: history.fromStatus ?? null, toStatus: history.toStatus, actorType: history.actorType ?? null, reasonCode: history.reasonCode, safeMetadata: history.safeMetadata ?? null, createdAt: history.createdAt.toISOString() }))),
+    history: Object.freeze(row.statusHistory.map((history) => Object.freeze({ fromStatus: history.fromStatus ?? null, toStatus: history.toStatus, actorType: history.actorType ?? null, reasonCode: history.reasonCode, safeMetadata: history.safeMetadata ?? null, createdAt: history.createdAt.toISOString() }))),
     reconciliation: Object.freeze(row.reconciliationCases.map((item) => Object.freeze({ ...item }))),
     productionLock: Object.freeze({ active: true, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }),
   });
@@ -100,7 +100,7 @@ export async function getCustomerRefund(userId: string, publicReference: string)
 }
 
 export async function listFinanceRefunds(query: FinanceListQuery) {
-  const where: any = { ...(query.status && { status: query.status }), ...(query.method && { method: query.method }), ...(query.reasonCode && { reasonCode: query.reasonCode }), ...(query.reconciliation !== undefined && { reconciliationCases: query.reconciliation ? { some: { status: { in: ["OPEN", "MONITORING"] } } } : { none: { status: { in: ["OPEN", "MONITORING"] } } } }), ...(query.reference && { OR: [{ publicReference: { contains: query.reference, mode: "insensitive" as const } }, { payment: { publicReference: { contains: query.reference, mode: "insensitive" as const } } }] }), ...(query.from || query.to ? { createdAt: { ...(query.from && { gte: new Date(query.from) }), ...(query.to && { lte: new Date(query.to) }) } } : {}) };
+  const where: Prisma.PaymentRefundWhereInput = { ...(query.status && { status: query.status }), ...(query.method && { method: query.method }), ...(query.reasonCode && { reasonCode: query.reasonCode }), ...(query.reconciliation !== undefined && { reconciliationCases: query.reconciliation ? { some: { status: { in: ["OPEN", "MONITORING"] } } } : { none: { status: { in: ["OPEN", "MONITORING"] } } } }), ...(query.reference && { OR: [{ publicReference: { contains: query.reference, mode: "insensitive" as const } }, { payment: { publicReference: { contains: query.reference, mode: "insensitive" as const } } }] }), ...(query.from || query.to ? { createdAt: { ...(query.from && { gte: new Date(query.from) }), ...(query.to && { lte: new Date(query.to) }) } } : {}) };
   const [total, rows] = await prisma.$transaction([prisma.paymentRefund.count({ where }), prisma.paymentRefund.findMany({ where, include: financeInclude, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize })]);
   return Object.freeze({ data: Object.freeze(rows.map(financeItem)), pagination: pagination(query.page, query.pageSize, total) });
 }

@@ -6,9 +6,7 @@ import { DriverOperationCommandSchema } from "./pickup";
 
 export const StartDeliverySchema = DriverOperationCommandSchema.extend({
   driverNote: z.string().trim().max(1000).optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
-});
+}).strict();
 
 export type StartDeliveryInput = z.infer<typeof StartDeliverySchema>;
 
@@ -17,7 +15,7 @@ export type StartDeliveryInput = z.infer<typeof StartDeliverySchema>;
 export const RequestDeliveryOtpSchema = DriverOperationCommandSchema.extend({
   // Optional override email — used only if order has no customer/store email
   // in practice not exposed to driver UI, kept for admin manual flows
-});
+}).strict();
 
 export type RequestDeliveryOtpInput = z.infer<typeof RequestDeliveryOtpSchema>;
 
@@ -32,15 +30,14 @@ export const CompleteDeliverySchema = DriverOperationCommandSchema.extend({
   recipientName: z.string().trim().min(1, "Recipient name is required").max(150),
   recipientPhone: z.string().trim().max(30).optional(),
   publicNote: z.string().trim().max(1000).optional(),
-  driverNote: z.string().trim().max(1000).optional(),
-  // Reserved for a future trusted media service; never accepts URLs or paths.
+  driverNote: z.string().trim().min(1, "A delivery note is required.").max(1000),
+  // This is an opaque reference issued by the trusted private-media boundary;
+  // arbitrary URLs and filesystem paths are rejected at the contract edge.
   evidenceReference: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/, "Invalid evidence reference.").optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
   confirmDelivery: z.literal(true, {
     error: "You must confirm the delivery has been completed.",
   }),
-});
+}).strict();
 
 export type CompleteDeliveryInput = z.infer<typeof CompleteDeliverySchema>;
 
@@ -53,9 +50,7 @@ export const DeliveryAttemptedSchema = DriverOperationCommandSchema.extend({
   publicNote: z.string().trim().max(1000).optional(),
   driverNote: z.string().trim().min(1, "A note is required.").max(1000),
   evidenceReference: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/, "Invalid evidence reference.").optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
-});
+}).strict();
 
 export type DeliveryAttemptedInput = z.infer<typeof DeliveryAttemptedSchema>;
 
@@ -68,7 +63,7 @@ export const DeliveryFailedSchema = z.object({
   note: z.string().trim().min(1, "A note is required for delivery failure.").max(1000),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
-});
+}).strict();
 
 export type DeliveryFailedInput = z.infer<typeof DeliveryFailedSchema>;
 
@@ -80,6 +75,6 @@ export const AdminManualDeliverySchema = z.object({
   reason: z.string().trim().min(1, "A reason is required for manual delivery override.").max(1000),
   publicNote: z.string().trim().max(1000).optional(),
   deliveredAt: z.string().datetime().optional(),
-});
+}).strict();
 
 export type AdminManualDeliveryInput = z.infer<typeof AdminManualDeliverySchema>;

@@ -1,21 +1,17 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ok, unauthorized } from "@/lib/api/response";
 import { REPORT_DEFINITIONS } from "@/lib/reporting/contracts";
+import { authorizeReportDefinition } from "@/lib/reporting/authorization";
 
 export async function GET() {
   const session = await getCurrentUser();
   if (!session) return unauthorized();
 
-  const role = session.role;
-  const definitions = Object.values(REPORT_DEFINITIONS).filter((def) => {
-    if (role === "ADMIN" || role === "SUPER_ADMIN") return true;
-    if (role === "CUSTOMER" && def.audience === "CUSTOMER") return true;
-    if (role === "STORE" && (def.audience === "STORE" || def.audience === "CUSTOMER")) return true;
-    if (role === "DRIVER" && def.audience === "DRIVER") return true;
-    if (role === "PROMOTER" && def.audience === "PROMOTER") return true;
-    if (def.audience === "DEVELOPER") return true;
-    return false;
-  });
+  const candidates = Object.values(REPORT_DEFINITIONS);
+  const authorized = await Promise.all(candidates.map(async (definition) => {
+    try { await authorizeReportDefinition(session, definition, "READ"); return definition; } catch { return null; }
+  }));
+  const definitions = authorized.filter((definition): definition is (typeof candidates)[number] => Boolean(definition));
 
   return ok({ data: definitions });
 }

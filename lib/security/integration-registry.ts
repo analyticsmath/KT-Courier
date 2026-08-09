@@ -10,6 +10,16 @@ export type IntegrationReadiness =
   | "LIVE_READY"
   | "DISABLED";
 
+export type ReadinessLockState =
+  | "READY"
+  | "SOURCE_COMPLETE_FINAL_VALIDATION_PENDING"
+  | "CREDENTIAL_PENDING"
+  | "INFRASTRUCTURE_PENDING"
+  | "PROVIDER_APPROVAL_PENDING"
+  | "DISABLED_BY_POLICY"
+  | "DEGRADED"
+  | "UNAVAILABLE";
+
 export interface IntegrationRecord {
   id: string;
   name: string;
@@ -22,6 +32,44 @@ export interface IntegrationRecord {
   webhookStatus: string;
   safeStatusText: string;
   productionEligible: boolean;
+}
+
+export interface ReadinessLockRecord {
+  id: string;
+  category: string;
+  state: ReadinessLockState;
+  blocksDependentFeature: boolean;
+  reasonCode: string;
+}
+
+function mapIntegrationReadiness(readiness: IntegrationReadiness): ReadinessLockState {
+  switch (readiness) {
+    case "LIVE_READY":
+    case "SANDBOX_READY":
+    case "MOCK_READY":
+      return "SOURCE_COMPLETE_FINAL_VALIDATION_PENDING";
+    case "CREDENTIAL_PENDING":
+      return "CREDENTIAL_PENDING";
+    case "ACTIVATION_PENDING":
+      return "PROVIDER_APPROVAL_PENDING";
+    case "DISABLED":
+      return "DISABLED_BY_POLICY";
+    case "PARTIAL":
+      return "DEGRADED";
+    case "NOT_IMPLEMENTED":
+      return "UNAVAILABLE";
+  }
+}
+
+/** The sole operational lock projection for provider capabilities. */
+export function getReadinessLockRegistry(): ReadinessLockRecord[] {
+  return getIntegrationRegistry().map((integration) => ({
+    id: integration.id,
+    category: integration.category,
+    state: mapIntegrationReadiness(integration.readiness),
+    blocksDependentFeature: integration.enabled && !integration.productionEligible,
+    reasonCode: integration.readiness,
+  }));
 }
 
 export function getIntegrationRegistry(): IntegrationRecord[] {

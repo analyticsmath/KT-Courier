@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { REPORT_DEFINITIONS, ReportDefinitionContract, ReportingError } from "@/lib/reporting/contracts";
+import { REPORT_DEFINITIONS } from "@/lib/reporting/contracts";
 import { generateReportData } from "@/lib/reporting/report-generator";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
@@ -129,8 +129,9 @@ describe("Phase 29 Comprehensive Reporting Verification", () => {
         limit: 10,
       });
       expect.fail("Should have thrown error");
-    } catch (err: any) {
-      expect(err.code).toBe("REPORT_DEFINITION_NOT_FOUND");
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      if (error instanceof Error) expect((error as { code?: string }).code).toBe("REPORT_DEFINITION_NOT_FOUND");
     }
   });
 });

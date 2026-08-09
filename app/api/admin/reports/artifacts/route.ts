@@ -1,27 +1,12 @@
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { ok, unauthorized, forbidden } from "@/lib/api/response";
-import { db } from "@/lib/db";
+import { requireAdminApiPermission } from "@/lib/auth/admin-api";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { ok, serverError } from "@/lib/api/response";
+import { ReportAdministrationService } from "@/lib/reporting/services";
 
-export async function GET() {
-  const session = await getCurrentUser();
-  if (!session) return unauthorized();
-  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
-    return forbidden("Admin access required.");
-  }
+const reports = new ReportAdministrationService();
 
-  const artifacts = await db.reportExportArtifact.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      publicReference: true,
-      format: true,
-      byteSize: true,
-      checksum: true,
-      downloadCount: true,
-      expiresAt: true,
-    },
-  });
-
-  return ok({ data: artifacts });
+export async function GET(request: Request) {
+  const auth = await requireAdminApiPermission(PERMISSIONS.REPORT_ARTIFACT_READ, { request });
+  if (auth.response) return auth.response;
+  try { return ok({ data: await reports.listArtifacts() }); } catch { return serverError(); }
 }

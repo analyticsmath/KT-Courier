@@ -81,3 +81,6 @@ export const DispatchUnassignSchema = z.object({
 }).strict();
 export const DispatchAcceptSchema = z.object({ expectedVersion: z.number().int().positive() }).strict();
 export const DispatchRejectSchema = z.object({ expectedVersion: z.number().int().positive(), reasonCode: z.string().trim().min(2).max(80), note: z.string().trim().max(500).optional() }).strict();
+export const DispatchCandidateEvaluationSchema = z.object({
+  operationId: z.string().uuid(),
+}).strict();

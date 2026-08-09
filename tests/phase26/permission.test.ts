@@ -41,7 +41,7 @@ describe("Phase 26 — Recruitment Permission Keys & Definitions", () => {
 
   it("verifies NO prohibited automated/bypass permissions exist in PERMISSIONS or definitions", () => {
     const keys = Object.values(PERMISSIONS);
-    const defKeys = SYSTEM_PERMISSION_DEFINITIONS.map((d: any) => d.key);
+    const defKeys = SYSTEM_PERMISSION_DEFINITIONS.map((definition) => definition.key);
 
     for (const forbiddenKey of FORBIDDEN_PERMISSION_KEYS) {
       expect(keys).not.toContain(forbiddenKey);

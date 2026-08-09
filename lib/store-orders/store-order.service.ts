@@ -11,6 +11,8 @@ import { StoreOrderError, assertStoreOrder } from "@/lib/store-orders/errors";
 import { assertStoreOrderProductionReady } from "@/lib/store-orders/production-lock";
 import { requireStoreOrderActor, type StoreOrderPermission } from "@/lib/store-orders/store-order-auth";
 import { assertAcceptanceTransition, assertFinancialTransition, assertPreparationTransition, deriveStoreOrderStatus } from "@/lib/store-orders/state-machine";
+import { completeMarketplacePickupInTx } from "@/lib/services/pickup-custody.service";
+import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 
 type Delegate = { findUnique: (args: unknown) => Promise<any>; findFirst: (args: unknown) => Promise<any>; findMany: (args: unknown) => Promise<any[]>; create: (args: unknown) => Promise<any>; update: (args: unknown) => Promise<any>; updateMany: (args: unknown) => Promise<{ count: number }>; upsert: (args: unknown) => Promise<any> };
 type Phase21Database = Record<string, Delegate>;
@@ -510,6 +512,24 @@ export async function createMarketplaceDeliveryBridge(input: Readonly<{ storeOrd
       const safeError = error instanceof Error ? error.message.slice(0, 500) : "Canonical courier authority failed.";
       await model(tx, "marketplaceStoreOrderDeliveryBridge").update({ where: { marketplaceStoreOrderId: order.id }, data: { status: "FAILED", dispatchEvidence: { failure: safeError, operationId: input.operationId } } });
       await updateOrder(tx, order, { deliveryBridgeStatus: "FAILED" });
+      await model(tx, "marketplaceStoreOrderReconciliationCase").upsert({
+        where: { caseKey: `${order.id}:COURIER_BRIDGE_CREATION_FAILED` },
+        create: {
+          publicReference: ref("sorec"),
+          caseKey: `${order.id}:COURIER_BRIDGE_CREATION_FAILED`,
+          marketplaceStoreOrderId: order.id,
+          reasonCode: "COURIER_BRIDGE_CREATION_FAILED",
+          priority: "HIGH",
+          safeSummary: "Canonical courier bridge creation did not complete.",
+          safeEvidence: { operationId: input.operationId, failure: safeError },
+          retryOperationId: input.operationId,
+        },
+        update: {
+          observationCount: { increment: 1 },
+          safeEvidence: { operationId: input.operationId, failure: safeError },
+          retryOperationId: input.operationId,
+        },
+      });
       await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "COURIER_ORDER_BRIDGE_FAILED", actorUserId: input.actorUserId, evidence: { failure: safeError } });
     });
     throw error;
@@ -570,48 +590,69 @@ function sameChallenge(candidate: string, expectedHash: string): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
+/**
+ * Marketplace pickup follows the courier execution lock order: courier order,
+ * bridge and store projection, active assignment, then challenge evidence.
+ * The store row is version-checked by updateOrder before the transaction can
+ * commit. Every read below uses the same interactive Prisma transaction.
+ */
+async function lockMarketplacePickup(tx: Phase21Database, publicReference: string) {
+  const preliminary = await lockOrder(tx, publicReference);
+  const courierOrderId = preliminary.deliveryBridge?.courierOrderId;
+  assertStoreOrder(courierOrderId, "STORE_ORDER_HANDOFF_NOT_READY", "A canonical courier bridge is required.");
+  const sqlTx = tx as unknown as Prisma.TransactionClient;
+  await sqlTx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${courierOrderId} FOR UPDATE`);
+  const bridgeRows = await sqlTx.$queryRaw<Array<{ bridgeId: string }>>(Prisma.sql`
+    SELECT bridge."id" AS "bridgeId"
+    FROM "MarketplaceStoreOrderDeliveryBridge" bridge
+    JOIN "MarketplaceStoreOrder" store ON store."id" = bridge."marketplaceStoreOrderId"
+    WHERE bridge."courierOrderId" = ${courierOrderId}
+      AND store."publicReference" = ${publicReference}
+    FOR UPDATE OF bridge, store
+  `);
+  assertStoreOrder(bridgeRows.length === 1, "STORE_ORDER_HANDOFF_NOT_READY", "A canonical courier bridge is required.");
+  const order = await lockOrder(tx, publicReference);
+  const assignmentId = order.pickupHandoff?.assignmentId;
+  assertStoreOrder(assignmentId, "STORE_ORDER_HANDOFF_CHALLENGE_INVALID", "A store-verified active pickup challenge is required.");
+  await sqlTx.$queryRaw(Prisma.sql`SELECT "id" FROM "OrderAssignment" WHERE "id" = ${assignmentId} FOR UPDATE`);
+  await sqlTx.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrderPickupHandoff" WHERE "id" = ${order.pickupHandoff?.id ?? ""} FOR UPDATE`);
+  return order;
+}
+
 export async function verifyStoreOrderPickupHandoff(input: Readonly<{ storeOrderReference: string; driverUserId: string; driverProfileId: string; pickupCode: string; packageEvidence?: Record<string, unknown>; sealEvidence?: Record<string, unknown>; operationId: string; requestHash: string; dependencies?: StoreOrderDependencies; testApproval?: TestApproval }>) {
-  const dependencies = { ...resolveStoreOrderProductionComposition(), ...input.dependencies };
   assertStoreOrderProductionReady("HANDOFF", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   assertStoreOrder(/^\d{6}$/.test(input.pickupCode), "STORE_ORDER_HANDOFF_CODE_INVALID", "Pickup code is invalid.");
-  assertStoreOrder(dependencies.pickupAuthority, "STORE_ORDER_PICKUP_AUTHORITY_UNAVAILABLE", "The existing Phase 8 pickup authority is unavailable.");
-  const staged = await transaction(async (tx) => {
-    const order = await lockOrder(tx, input.storeOrderReference);
+  const result = await transaction(async (tx) => {
+    const order = await lockMarketplacePickup(tx, input.storeOrderReference);
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const handoff = order.pickupHandoff;
     assertStoreOrder(handoff && handoff.status === "CHALLENGE_ACTIVE" && handoff.expiresAt > new Date() && handoff.storeVerifiedByUserId, "STORE_ORDER_HANDOFF_CHALLENGE_INVALID", "A store-verified active pickup challenge is required.");
-    const assignment = await prisma.orderAssignment.findFirst({ where: { id: handoff.assignmentId, orderId: handoff.courierOrderId, driverProfileId: input.driverProfileId, status: "ACCEPTED", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, include: { driverProfile: { select: { userId: true, status: true } }, order: { select: { parcelCount: true } } } });
-    assertStoreOrder(assignment?.driverProfile.userId === input.driverUserId && assignment.driverProfile.status === "ACTIVE", "STORE_ORDER_DRIVER_ASSIGNMENT_INVALID", "The active assignment does not belong to this driver.");
-    const packageCount = input.packageEvidence?.packageCount;
-    assertStoreOrder(Number.isInteger(packageCount) && packageCount === assignment.order.parcelCount, "STORE_ORDER_HANDOFF_PACKAGE_MISMATCH", "Package count does not match the canonical courier order.");
+    const assignment = await model(tx, "orderAssignment").findFirst({ where: { id: handoff.assignmentId, orderId: handoff.courierOrderId, driverProfileId: input.driverProfileId, status: "ACCEPTED", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, include: { driverProfile: { include: { user: { select: { status: true, role: true } } } }, order: { select: { parcelCount: true, currentDriverProfileId: true } } } });
+    assertStoreOrder(assignment?.driverProfile.userId === input.driverUserId && assignment.driverProfile.status === "ACTIVE" && assignment.driverProfile.user.status === "ACTIVE" && assignment.driverProfile.user.role === "DRIVER" && assignment.order.currentDriverProfileId === input.driverProfileId, "STORE_ORDER_DRIVER_ASSIGNMENT_INVALID", "The active assignment does not belong to this driver.");
+    const packageCountValue = input.packageEvidence?.packageCount;
+    assertStoreOrder(typeof packageCountValue === "number" && Number.isInteger(packageCountValue) && packageCountValue === assignment.order.parcelCount, "STORE_ORDER_HANDOFF_PACKAGE_MISMATCH", "Package count does not match the canonical courier order.");
+    const packageCount = packageCountValue;
     if (!sameChallenge(input.pickupCode, handoff.challengeHash)) {
       const attempts = handoff.failedAttemptCount + 1;
       await model(tx, "marketplaceStoreOrderPickupHandoff").update({ where: { id: handoff.id }, data: { failedAttemptCount: attempts, status: attempts >= 5 ? "EXPIRED" : "CHALLENGE_ACTIVE" } });
       return { invalidCode: true };
     }
-    return { storeOrderReference: order.publicReference, handoffReference: handoff.publicReference, handoffId: handoff.id, assignmentId: assignment.id, assignmentVersion: assignment.version, courierOrderReference: order.deliveryBridge?.courierOrderReference ?? null, packageCount };
-  });
-  if ("replayed" in staged) return staged;
-  if ("invalidCode" in staged) throw new StoreOrderError("STORE_ORDER_HANDOFF_CODE_INVALID", "Pickup code is invalid.");
-  try {
-    // Phase 8 owns this canonical custody mutation. It intentionally occurs
-    // outside the local marketplace transaction; the final transaction below
-    // persists only Phase 21 evidence after the canonical transition succeeds.
-    await dependencies.pickupAuthority.completeCanonicalPickup({ assignmentId: staged.assignmentId, assignmentVersion: staged.assignmentVersion, driverProfileId: input.driverProfileId, driverUserId: input.driverUserId, operationId: `${input.operationId}:phase8-pickup`, packageCount: staged.packageCount });
-  } catch (error) {
-    await transaction(async (tx) => {
-      const order = await lockOrder(tx, input.storeOrderReference);
-      if (order.pickupHandoff?.status !== "CHALLENGE_ACTIVE") return;
-      const safeError = error instanceof Error ? error.message.slice(0, 500) : "Canonical pickup authority failed.";
-      await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "STORE_PICKUP_HANDOFF_CANONICAL_FAILED", actorUserId: input.driverUserId, evidence: { failure: safeError, handoffReference: order.pickupHandoff.publicReference } });
-    });
-    throw error;
-  }
-  return transaction(async (tx) => {
-    const order = await lockOrder(tx, input.storeOrderReference);
-    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
-    const handoff = order.pickupHandoff;
-    if (handoff?.id !== staged.handoffId || handoff.status !== "CHALLENGE_ACTIVE" || !sameChallenge(input.pickupCode, handoff.challengeHash)) throw new StoreOrderError("STORE_ORDER_HANDOFF_CONCURRENCY_CONFLICT", "Pickup challenge changed before handoff evidence could be persisted.", true);
+
+    try {
+      await completeMarketplacePickupInTx(tx as unknown as Parameters<typeof completeMarketplacePickupInTx>[0], {
+        assignmentId: assignment.id,
+        assignmentVersion: assignment.version,
+        driverProfileId: input.driverProfileId,
+        driverUserId: input.driverUserId,
+        operationId: input.operationId,
+        receiptPayload: { operationId: input.operationId, assignmentVersion: assignment.version, parcelCount: packageCount, storeOrderReference: order.publicReference },
+        parcelCount: packageCount,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Canonical pickup authority rejected the handoff.";
+      throw new StoreOrderError("STORE_ORDER_CANONICAL_PICKUP_FAILED", message.slice(0, 500));
+    }
+
     await model(tx, "marketplaceStoreOrderPickupHandoff").update({ where: { id: handoff.id }, data: { status: "VERIFIED", packageEvidence: input.packageEvidence ?? null, sealEvidence: input.sealEvidence ?? null, driverVerifiedAt: new Date(), verifiedAt: new Date() } });
     for (const line of order.lines) {
       if (line.fulfilment?.status !== "READY") continue;
@@ -619,25 +660,34 @@ export async function verifyStoreOrderPickupHandoff(input: Readonly<{ storeOrder
     }
     assertPreparationTransition(order.preparationStatus, "HANDED_OFF");
     await updateOrder(tx, order, { preparationStatus: "HANDED_OFF", deliveryBridgeStatus: "HANDED_OFF" });
-    const response = { storeOrderReference: order.publicReference, handoffReference: handoff.publicReference, handoffStatus: "VERIFIED", courierOrderReference: staged.courierOrderReference };
+    await projectMarketplaceCourierExecutionInTx(tx as unknown as Prisma.TransactionClient, {
+      courierOrderId: handoff.courierOrderId,
+      status: "PICKED_UP",
+      operationId: input.operationId,
+      actorUserId: input.driverUserId,
+    });
+    const response = { storeOrderReference: order.publicReference, handoffReference: handoff.publicReference, handoffStatus: "VERIFIED", courierOrderReference: order.deliveryBridge?.courierOrderReference ?? null, courierOrderStatus: "PICKED_UP" };
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "STORE_PICKUP_HANDOFF_VERIFIED", actorUserId: input.driverUserId, evidence: response });
     await receipt(tx, { storeOrderId: order.id, operationId: input.operationId, hash: input.requestHash, type: "HANDOFF_VERIFY", response });
-    // Phase 8 owns the canonical pickup transition. This function never writes
-    // customer-delivery completion or an Order delivery status directly.
     return { ...response, replayed: false };
   });
+  if ("invalidCode" in result) throw new StoreOrderError("STORE_ORDER_HANDOFF_CODE_INVALID", "Pickup code is invalid.");
+  return result;
 }
 
 export function projectMarketplaceParentStatus(storeOrders: readonly Readonly<{ acceptanceStatus: string; preparationStatus: string; resolutionStatus: string; deliveryBridgeStatus: string }>[]) {
   assertStoreOrder(storeOrders.length > 0, "STORE_ORDER_PARENT_EMPTY", "Parent order has no store orders.");
   const summary = {
     total: storeOrders.length,
-    handedOff: storeOrders.filter((item) => item.preparationStatus === "HANDED_OFF").length,
+    delivered: storeOrders.filter((item) => item.deliveryBridgeStatus === "DELIVERED").length,
+    deliveryAttempted: storeOrders.filter((item) => item.deliveryBridgeStatus === "DELIVERY_ATTEMPTED").length,
+    inTransit: storeOrders.filter((item) => item.deliveryBridgeStatus === "IN_TRANSIT").length,
+    handedOff: storeOrders.filter((item) => item.preparationStatus === "HANDED_OFF" || item.deliveryBridgeStatus === "HANDED_OFF").length,
     rejectedOrCancelled: storeOrders.filter((item) => ["REJECTED", "TIMED_OUT"].includes(item.acceptanceStatus) || item.preparationStatus === "ABORTED").length,
     customerActionRequired: storeOrders.filter((item) => item.acceptanceStatus === "CUSTOMER_ACTION_REQUIRED" || item.resolutionStatus === "ISSUE_OPEN").length,
     reconciliationRequired: storeOrders.filter((item) => item.resolutionStatus === "RECONCILIATION_REQUIRED").length,
   };
-  const status = summary.reconciliationRequired > 0 ? "RECONCILIATION_REQUIRED" : summary.handedOff === summary.total ? "ALL_STORES_HANDED_OFF" : summary.rejectedOrCancelled === summary.total ? "ALL_STORES_CANCELLED" : summary.customerActionRequired > 0 ? "CUSTOMER_ACTION_REQUIRED" : "IN_PROGRESS";
+  const status = summary.reconciliationRequired > 0 ? "RECONCILIATION_REQUIRED" : summary.delivered === summary.total ? "ALL_STORES_DELIVERED" : summary.rejectedOrCancelled === summary.total ? "ALL_STORES_CANCELLED" : summary.customerActionRequired > 0 ? "CUSTOMER_ACTION_REQUIRED" : summary.deliveryAttempted > 0 ? "DELIVERY_ATTEMPTED" : summary.inTransit > 0 ? "IN_TRANSIT" : summary.handedOff === summary.total ? "ALL_STORES_HANDED_OFF" : "IN_PROGRESS";
   return { status, ...summary } as const;
 }
 

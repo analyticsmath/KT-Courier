@@ -8,6 +8,7 @@ import { buildCatalogPublicationSnapshot } from "../lib/catalog/catalog-publicat
 import { StorefrontProjectionService } from "../lib/services/storefront-projection.service";
 import { rebuildStorefrontStoreDocument } from "../lib/services/storefront-store.service";
 import { rebuildStorefrontCategoryDocument } from "../lib/services/storefront-category.service";
+import { toInputJsonObject } from "../lib/json/input-json";
 
 const prisma = new PrismaClient();
 const projectionService = new StorefrontProjectionService();
@@ -575,7 +576,7 @@ async function main() {
           variantId,
           offerId: offer.id,
           status: "PUBLISHED",
-          snapshot: snapshotPayload as any,
+          snapshot: toInputJsonObject(snapshotPayload),
           createdByUserId: adminId,
         },
       });

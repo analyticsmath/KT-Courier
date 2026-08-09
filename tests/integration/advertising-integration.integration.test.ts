@@ -1,10 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { UserRole } from "@/types/db";
-import { AdvertisingCampaignService } from "@/lib/advertising/campaign.service";
-import { AdvertisingFundingService } from "@/lib/advertising/funding.service";
-import { AdvertisingBillingService } from "@/lib/advertising/billing.service";
-import { AdvertisingServingService } from "@/lib/advertising/serving.service";
-import { integrationPrisma } from "./phase7-5-fixtures";
 
 describe("Phase 24: Advertising Live PostgreSQL Integration Tests (Scaffolding)", () => {
   // 1. AdvertisingAccount binds to store

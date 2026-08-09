@@ -5,12 +5,13 @@
  * It intentionally never receives or persists a destination address.
  */
 import { prisma } from "@/lib/db/prisma";
+import { toInputJsonObject } from "@/lib/json/input-json";
 
 async function append(eventType: string, aggregateReference: string, operationId: string, safePayload: Record<string, unknown>) {
-  return (prisma as any).notificationEventIntent.upsert({
+  return prisma.notificationEventIntent.upsert({
     where: { operationId },
     update: {},
-    create: { sourceAuthority: "LEGACY_ORDER", eventType, aggregateReference, operationId, safePayload },
+    create: { sourceAuthority: "LEGACY_ORDER", eventType, aggregateReference, operationId, safePayload: toInputJsonObject(safePayload) },
   });
 }
 

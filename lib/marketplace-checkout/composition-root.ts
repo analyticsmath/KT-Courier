@@ -4,14 +4,14 @@ import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-chec
 import { createPrismaMarketplaceAcknowledgementRepository, createPrismaMarketplaceReviewRepository } from "@/lib/marketplace-checkout/prisma-review-composition.repository";
 import { acknowledgeMarketplaceCheckoutReviewPersisted, reviewMarketplaceCheckout } from "@/lib/marketplace-checkout/checkout-review-persistence.service";
 import { resolveMarketplaceCartLine, type CartOwner } from "@/lib/marketplace-checkout/cart.service";
-import type { PromotionEvaluationAdapter, ReviewLine } from "@/lib/marketplace-checkout/checkout-review.service";
+import type { PromotionEvaluationAdapter, ReviewLine, RevalidatedLine } from "@/lib/marketplace-checkout/checkout-review.service";
 import { createPrismaCustomerDeliveryEntitlementRepository, SubscriptionAwareMarketplaceDeliveryQuoteAdapter } from "@/lib/subscriptions/subscription-delivery-benefit.service";
-import { evaluateMarketplacePromotions } from "@/lib/promotions/promotion-evaluation.service";
+import { resolvePromotionProductionComposition } from "@/lib/promotions/promotion-composition-root";
 
 class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
   async evaluate(input: Parameters<PromotionEvaluationAdapter["evaluate"]>[0]) {
     try {
-      const result = await evaluateMarketplacePromotions(input as any, {} as any);
+      const result = await resolvePromotionProductionComposition("EVALUATION").evaluate(input);
       return {
         totalDiscount: result.totalDiscount,
         totalPlatformFunding: result.totalPlatformFunding,
@@ -22,8 +22,8 @@ class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
           stackingEvidence: result.stackingEvidence,
         },
       };
-    } catch (error: any) {
-      if (error?.name === "PromotionsProductionLockedError") return null;
+    } catch (error) {
+      if (error instanceof Error && error.name === "PromotionsProductionLockedError") return null;
       throw error;
     }
   }
@@ -54,7 +54,7 @@ export function resolveAndAssertMarketplaceCheckoutOperation(
   return composition;
 }
 
-function revalidatedLine(line: ReviewLine) {
+function revalidatedLine(line: ReviewLine): Promise<RevalidatedLine> {
   return resolveMarketplaceCartLine({
     offerReference: line.offerReference,
     variantReference: line.variantReference,
@@ -64,6 +64,7 @@ function revalidatedLine(line: ReviewLine) {
     const modifierUnitTotal = resolved.modifiers.reduce((total, modifier) => total + Number(modifier.priceDelta) * modifier.quantity, 0);
     const base = Number(resolved.unitPrice);
     return Object.freeze({
+      lineReference: line.lineReference,
       available: true,
       quantity: resolved.quantity,
       priceVersion: resolved.priceVersion,
@@ -88,7 +89,7 @@ export async function executeMarketplaceCheckoutReview(input: Readonly<{
     commissionPolicyVersion: "phase14-frozen-policy-v1",
     quoteAdapter,
     promotionAdapter: new Phase23PromotionEvaluationAdapter(),
-    resolveLine: (line: any) => revalidatedLine(line) as any,
+    resolveLine: revalidatedLine,
   });
 }
 

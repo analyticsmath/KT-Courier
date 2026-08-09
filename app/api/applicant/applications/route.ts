@@ -1,3 +1,4 @@
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
@@ -17,7 +18,7 @@ export async function GET() {
     const applications = await appService.listApplications({ applicantProfileId: profile.id });
 
     // Clean DTO: exclude internal reviewer notes, EE data, check evidence
-    const safeApplications = applications.map((app: any) => ({
+    const safeApplications = applications.map((app: { publicReference: string; openingVersion: { publicTitle: string | null } | null; status: string; currentStage: string | null; submittedAt: Date | null; createdAt: Date }) => ({
       reference: app.publicReference,
       openingTitle: app.openingVersion?.publicTitle || "Position",
       status: app.status,
@@ -27,8 +28,8 @@ export async function GET() {
     }));
 
     return NextResponse.json({ success: true, data: safeApplications });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error) {
+    return recruitmentRouteError(error, 500);
   }
 }
 
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: application });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as adminAuth from "@/lib/auth/admin-api";
 import * as currentUserAuth from "@/lib/auth/current-user";
-import { GET as getPlacements, POST as postPlacements } from "@/app/api/admin/ads/placements/route";
-import { GET as getStoreCampaigns, POST as postStoreCampaigns } from "@/app/api/store/ads/campaigns/route";
+import { GET as getPlacements } from "@/app/api/admin/ads/placements/route";
+import { POST as postStoreCampaigns } from "@/app/api/store/ads/campaigns/route";
 import { UserRole } from "@/types/db";
 
 vi.mock("@/lib/auth/admin-api", () => ({
@@ -31,8 +31,8 @@ describe("Phase 24: Advertising API Endpoint Tests", () => {
   it("GET /api/admin/ads/placements returns unauthorized/forbidden response if permissions check fails", async () => {
     // Mock permission failure
     vi.mocked(adminAuth.requireAdminApiPermission).mockResolvedValueOnce({
-      response: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 })
-    } as any);
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    });
 
     const req = new NextRequest("http://localhost/api/admin/ads/placements");
     const response = await getPlacements(req);
@@ -54,8 +54,10 @@ describe("Phase 24: Advertising API Endpoint Tests", () => {
     vi.mocked(currentUserAuth.getCurrentUser).mockResolvedValueOnce({
       id: "user-1",
       role: UserRole.DRIVER,
-      name: "Driver"
-    } as any);
+      name: "Driver",
+      email: "driver@example.test",
+      status: "ACTIVE",
+    });
 
     const req = new NextRequest("http://localhost/api/store/ads/campaigns", {
       method: "POST",

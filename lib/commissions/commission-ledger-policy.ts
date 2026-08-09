@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { CalculatedCommissionComponent } from "./commission-calculator";
 import { CommissionError } from "./errors";
-import type { PostLedgerJournalInput } from "@/lib/ledger/types";
+import type { LedgerActor, PostLedgerJournalInput } from "@/lib/ledger/types";
 
 const Decimal = Prisma.Decimal;
 
@@ -10,6 +10,10 @@ type ResolvedCommissionAllocation = CalculatedCommissionComponent & Readonly<{
   beneficiaryOwnerId: string | null;
   beneficiaryWalletId: string | null;
 }>;
+
+function ledgerActor(actorUserId?: string): LedgerActor {
+  return actorUserId ? { kind: "USER", userId: actorUserId } : { kind: "SYSTEM" };
+}
 
 function creditLines(allocations: readonly ResolvedCommissionAllocation[]) {
   const byAccount = new Map<string, Prisma.Decimal>();
@@ -34,7 +38,7 @@ export function commissionAccrualPosting(input: Readonly<{
     sourceReference: `commission:${input.accrualReference}:accrue`,
     type: "COMMISSION_ACCRUAL",
     currency: "ZAR",
-    actor: (input.actorUserId ? { kind: "USER" as const, userId: input.actorUserId } : { kind: "SYSTEM" as const }) as any,
+    actor: ledgerActor(input.actorUserId),
     memo: `Commission accrual ${input.accrualReference}`,
     metadata: input.safeMetadata,
     entries: Object.freeze([{ accountId: input.heldAccountId, direction: "DEBIT" as const, amount: total.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" }, ...credits]),
@@ -54,7 +58,7 @@ export function commissionReversalPosting(input: Readonly<{
     type: "COMMISSION_REVERSAL",
     currency: "ZAR",
     reversalOfJournalId: input.originalJournalId,
-    actor: (input.actorUserId ? { kind: "USER" as const, userId: input.actorUserId } : { kind: "SYSTEM" as const }) as any,
+    actor: ledgerActor(input.actorUserId),
     memo: `Commission reversal ${input.accrualReference}`,
     metadata: { accrualReference: input.accrualReference },
     entries: Object.freeze(entries),
@@ -82,7 +86,7 @@ export function commissionAdjustmentReversalPosting(input: Readonly<{
     type: "COMMISSION_REVERSAL",
     currency: "ZAR",
     reversalOfJournalId: input.originalJournalId,
-    actor: (input.actorUserId ? { kind: "USER" as const, userId: input.actorUserId } : { kind: "SYSTEM" as const }) as any,
+    actor: ledgerActor(input.actorUserId),
     memo: `Commission adjustment reversal ${input.accrualReference}`,
     metadata: { accrualReference: input.accrualReference, operationId: input.operationId, adjustmentAmount: input.amount },
     entries: Object.freeze([

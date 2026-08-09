@@ -1,7 +1,8 @@
+import { apiRouteError } from "@/lib/api/route-error";
 import { type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import { ok, unprocessable, serverError } from "@/lib/api/response";
+import { ok, serverError } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET(request: NextRequest) {
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       }
     });
     return ok(placement);
-  } catch (error: any) {
-    return unprocessable(error.message || "Could not create placement definition.");
+  } catch (error) {
+    return apiRouteError(error, { fallbackMessage: "Could not create placement definition.", domainErrorStatus: 422 });
   }
 }

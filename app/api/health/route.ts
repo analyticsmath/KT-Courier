@@ -8,6 +8,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

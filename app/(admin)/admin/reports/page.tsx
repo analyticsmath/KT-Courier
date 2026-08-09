@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { ProtectedPageFrame } from "@/components/protected-v2";
+import { requireAdminPagePermission } from "@/lib/auth/guards";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
-export default function AdminReportsOverviewPage() {
+export default async function AdminReportsOverviewPage() {
+  await requireAdminPagePermission(PERMISSIONS.REPORT_DEFINITION_READ);
   return (
     <ProtectedPageFrame>
       <div className="space-y-6">

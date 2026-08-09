@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { ok, unauthorized, forbidden, badRequest, serverError } from "@/lib/api/response";
+import { ok, unauthorized, badRequest, serverError } from "@/lib/api/response";
 import { ReportJobService } from "@/lib/reporting/services";
-import { REPORT_DEFINITIONS } from "@/lib/reporting/contracts";
 import { db } from "@/lib/db";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
+import { authorizeReportDefinition, getApprovedReportDefinition } from "@/lib/reporting/authorization";
+import { resolveReportOwnerScope } from "@/lib/reporting/owner-scope";
 
 const jobService = new ReportJobService();
 
@@ -31,31 +32,23 @@ export async function POST(req: NextRequest) {
   const session = await getCurrentUser();
   if (!session) return unauthorized();
 
-  let body: any;
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
     return badRequest("Invalid JSON body.");
   }
 
-  const { definitionKey, filters = {}, executionMode = "ASYNCHRONOUS_EXPORT", outputFormat = "CSV" } = body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) return badRequest("Invalid report request.");
+  const { definitionKey, filters = {}, executionMode = "ASYNCHRONOUS_EXPORT", outputFormat = "CSV" } = body as Record<string, unknown>;
   if (!definitionKey || typeof definitionKey !== "string") {
     return badRequest("definitionKey is required.");
   }
 
-  const definition = REPORT_DEFINITIONS[definitionKey];
-  if (!definition) {
-    return badRequest(`Unknown report definition: ${definitionKey}`);
-  }
-
-  // Build owner scope from user session
-  const user = session as any;
-  const ownerScope: Record<string, unknown> = { userId: user.id };
-  if (user.storeId) ownerScope.storeId = user.storeId;
-  if (user.driverProfileId) ownerScope.driverProfileId = user.driverProfileId;
-  if (user.promoterProfileId) ownerScope.promoterId = user.promoterProfileId;
-
   try {
+    const definition = getApprovedReportDefinition(definitionKey);
+    await authorizeReportDefinition(session, definition, "GENERATE");
+    const ownerScope = await resolveReportOwnerScope(session);
     const job = await jobService.createJob({
       definitionKey,
       requesterUserId: session.id,
@@ -63,12 +56,15 @@ export async function POST(req: NextRequest) {
       ownerScope,
       permissionSnapshot: [definition.requiredPermission],
       filters,
-      executionMode,
+      executionMode: executionMode === "SYNCHRONOUS_SUMMARY" || executionMode === "ASYNCHRONOUS_REPORT" || executionMode === "ASYNCHRONOUS_EXPORT" ? executionMode : "ASYNCHRONOUS_EXPORT",
       outputFormat,
     });
 
     return ok({ data: job });
-  } catch (err: any) {
-    return badRequest(err.message || "Failed to create report job.");
+  } catch (err: unknown) {
+    if (err && typeof err === "object" && "statusCode" in err) {
+      return Response.json({ error: "Report request could not be accepted." }, { status: Number((err as { statusCode: unknown }).statusCode) || 400 });
+    }
+    return serverError();
   }
 }

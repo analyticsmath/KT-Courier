@@ -39,6 +39,14 @@ const verified: VerifiedPayfastItn = Object.freeze({
 });
 
 function transactionDouble() {
+  const payment = {
+    ...fixedAttempt.payment,
+    subjectType: "COURIER_ORDER" as const,
+    orderId: "order-id",
+    marketplaceCheckoutId: null,
+    subscriptionInvoiceId: null,
+    userId: "payer-id",
+  };
   const account = (id: string, code: string, purpose: "CASH_CLEARING" | "HELD", category: "ASSET" | "LIABILITY") => ({
     id, code, purpose, category, currency: "ZAR", status: "ACTIVE", allowNegative: false,
     currentBalance: new Prisma.Decimal("0"), debitTotal: new Prisma.Decimal("0"), creditTotal: new Prisma.Decimal("0"), version: 0,
@@ -62,8 +70,11 @@ function transactionDouble() {
       .mockResolvedValueOnce([{ id: "attempt-id" }])
       .mockResolvedValue([{ id: "account-cash" }, { id: "account-held" }]),
     paymentWebhookEvent: { findUnique: vi.fn().mockResolvedValue(event), update: vi.fn().mockResolvedValue(event) },
-    payment: { findUnique: vi.fn().mockResolvedValue(fixedAttempt.payment), update: vi.fn().mockResolvedValue({}) },
+    payment: { findUnique: vi.fn().mockResolvedValue(payment), update: vi.fn().mockResolvedValue({}) },
     paymentAttempt: { findUnique: vi.fn().mockResolvedValue({ ...fixedAttempt, provider: "PAYFAST", providerConfirmedAt: null }), findFirst: vi.fn().mockResolvedValue(null), update: vi.fn().mockResolvedValue({}) },
+    order: { findUnique: vi.fn().mockResolvedValue({ orderNumber: "ORD-TEST-1" }) },
+    paymentVerifiedEventIntent: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ publicReference: "pve_abcdefghijklmnopqrstuvwx" }) },
+    notificationEventIntent: { upsert: vi.fn().mockResolvedValue({}) },
     ledgerAccount: { findMany: vi.fn().mockResolvedValue(accounts), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     ledgerJournal: { findUnique: vi.fn().mockImplementation(({ where }) => Promise.resolve(where.idempotencyKey ? null : journal)), create: vi.fn().mockResolvedValue({ id: journal.id }) },
     ledgerEntry: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
@@ -93,6 +104,8 @@ describe("Payfast ITN application service transaction contract", () => {
     expect(tx.paymentStatusHistory.create).toHaveBeenCalledTimes(1);
     expect(tx.paymentReconciliationCase.updateMany).toHaveBeenCalledTimes(1);
     expect(tx.paymentWebhookEvent.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ processingStatus: "APPLIED" }) }));
+    expect(tx.paymentVerifiedEventIntent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ eventType: "PAYMENT_SUCCEEDED_VERIFIED", paymentId: "payment-id", webhookEventId: event.id }) }));
+    expect(tx.notificationEventIntent.upsert).toHaveBeenCalledOnce();
   });
 
   it("retries a serializable conflict before applying exactly once", async () => {

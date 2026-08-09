@@ -10,6 +10,7 @@ import { resumeDelivery } from "@/lib/services/delivery-execution.service";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
+  if (req.headers.get("content-type")?.split(";", 1)[0]?.toLowerCase() !== "application/json") return badRequest("Content-Type must be application/json.");
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   if (user.role !== UserRole.DRIVER) return forbidden();

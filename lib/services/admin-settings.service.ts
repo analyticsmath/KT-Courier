@@ -10,6 +10,7 @@ import {
 } from "@/lib/validation/admin-settings";
 import { recordAdminActivity } from "./admin-activity.service";
 import { AdminActionType } from "@/types/db";
+import { getSystemSettingDefinition } from "@/lib/settings/catalog";
 
 // ─── List all settings ────────────────────────────────────────────────────────
 
@@ -46,7 +47,12 @@ export async function updateSettingValue(
     return { error: "Setting not found." };
   }
 
-  const validated = validateSettingValue(existing.type, rawValue);
+  const definition = getSystemSettingDefinition(key);
+  if (!definition || definition.mutability !== "MUTABLE") {
+    return { error: "This setting is not mutable through administrative settings." };
+  }
+
+  const validated = validateSettingValue(existing.type, rawValue, key);
   if (!validated.ok) {
     return { error: validated.error };
   }

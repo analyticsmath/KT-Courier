@@ -1,6 +1,10 @@
 import process from "node:process";
 import {
+  assertDisposableSmokeIdentity,
   assertSuccess,
+  getDisposableSmokeSeedComposeArgs,
+  getSchemaVerifierComposeArgs,
+  isSchemaDiffVerbose,
   normalComposeProject,
   runCompose,
   runDocker,
@@ -17,7 +21,7 @@ const smokeEnv = {
   POSTGRES_USER: "kt_courier_baseline_smoke",
   POSTGRES_PASSWORD: "smoke_local_only_password",
   SHADOW_POSTGRES_DB: "kt_courier_baseline_smoke_shadow",
-  POSTGRES_PORT: "55433",
+  POSTGRES_PORT: process.env.KT_SMOKE_POSTGRES_PORT || "55832",
   APP_PORT: "3100",
   NEXT_PUBLIC_APP_URL: "http://localhost:3100",
   EMAIL_PROVIDER: "console",
@@ -76,24 +80,33 @@ async function main() {
     }),
     "migration status"
   );
+  if (isSchemaDiffVerbose(smokeEnv)) {
+    safeLog("Schema drift verbose reporting: ENABLED");
+  }
   assertSuccess(
     runCompose(
-      [
-        "run",
-        "--rm",
-        "migrate",
-        "sh",
-        "-lc",
-        "npx prisma migrate diff --from-url \"$DATABASE_URL\" --to-schema-datamodel prisma/schema.prisma --exit-code",
-      ],
+      getSchemaVerifierComposeArgs(smokeEnv),
       { projectName, env: smokeEnv }
     ),
     "database-to-schema diff"
   );
 
-  assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env: smokeEnv }), "first seed service");
+  assertDisposableSmokeIdentity(projectName, smokeEnv);
+
+  safeLog("First disposable smoke seed authorization: ENABLED");
+  safeLog(`Seed target authorization: project=${projectName} database=${smokeEnv.POSTGRES_DB} host=db authorized=true`);
+  assertSuccess(
+    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), { projectName, env: smokeEnv }),
+    "first seed service"
+  );
   const firstSeedState = readSeedState();
-  assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env: smokeEnv }), "second seed service");
+
+  safeLog("Second disposable smoke seed authorization: ENABLED");
+  safeLog(`Seed target authorization: project=${projectName} database=${smokeEnv.POSTGRES_DB} host=db authorized=true`);
+  assertSuccess(
+    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), { projectName, env: smokeEnv }),
+    "second seed service"
+  );
   const secondSeedState = readSeedState();
   if (firstSeedState !== secondSeedState) throw new Error("Seed changed idempotent record counts on its second run.");
   safeLog(`Seed verification: ${secondSeedState}`);

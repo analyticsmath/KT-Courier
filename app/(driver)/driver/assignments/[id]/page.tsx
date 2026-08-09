@@ -76,7 +76,7 @@ type PickupAction = "idle" | "start" | "complete" | "fail";
 
 // ─── Delivery action enum ──────────────────────────────────────────────────────
 
-type DeliveryAction = "idle" | "start" | "send_otp" | "complete" | "attempted" | "failed";
+type DeliveryAction = "idle" | "start" | "send_otp" | "complete" | "attempted";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -115,6 +115,8 @@ export default function DriverAssignmentDetailPage() {
   const [deliveryError, setDeliveryError] = useState<string | null>(null);
   const [otpStatus, setOtpStatus] = useState<OtpStatus | null>(null);
   const [otpSending, setOtpSending] = useState(false);
+  const [locationRecording, setLocationRecording] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<string | null>(null);
 
   // Start delivery form
   const [deliveryStartNote, setDeliveryStartNote] = useState("");
@@ -124,15 +126,12 @@ export default function DriverAssignmentDetailPage() {
   const [deliveryRecipientName, setDeliveryRecipientName] = useState("");
   const [deliveryRecipientPhone, setDeliveryRecipientPhone] = useState("");
   const [deliveryPublicNote, setDeliveryPublicNote] = useState("");
+  const [deliveryDriverNote, setDeliveryDriverNote] = useState("");
   const [deliveryConfirm, setDeliveryConfirm] = useState(false);
 
   // Attempted form
   const [attemptReason, setAttemptReason] = useState("");
   const [attemptDriverNote, setAttemptDriverNote] = useState("");
-
-  // Failed form
-  const [failDeliveryReason, setFailDeliveryReason] = useState("");
-  const [failDeliveryNote, setFailDeliveryNote] = useState("");
 
   // Start pickup form
   const [startNote, setStartNote] = useState("");
@@ -376,6 +375,54 @@ export default function DriverAssignmentDetailPage() {
     }
   }
 
+  async function handleRecordLocation() {
+    if (!assignment || !navigator.geolocation) {
+      setDeliveryError("Location is unavailable on this device.");
+      return;
+    }
+    setLocationRecording(true);
+    setLocationStatus(null);
+    setDeliveryError(null);
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const capturedAt = new Date(position.timestamp).toISOString();
+      const payload = {
+        ...operationCommand("location-sample", {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          capturedAt,
+        }),
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        clientCapturedAt: capturedAt,
+        accuracyMeters: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : undefined,
+        headingDegrees: position.coords.heading ?? undefined,
+        speedMetersPerSecond: position.coords.speed ?? undefined,
+        source: "DEVICE_GPS",
+      };
+      try {
+        const response = await fetch(`/api/driver/assignments/${id}/location`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          setDeliveryError(data.error || "Location evidence could not be recorded.");
+          return;
+        }
+        clearOperation("location-sample");
+        setLocationStatus(data.validationStatus === "ACCEPTED" ? "Verified location recorded." : "Location recorded with a verification warning.");
+      } catch {
+        setDeliveryError("Location evidence could not be recorded.");
+      } finally {
+        setLocationRecording(false);
+      }
+    }, () => {
+      setLocationRecording(false);
+      setDeliveryError("Location permission is required to record a location sample.");
+    }, { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 });
+  }
+
   async function handleStartDelivery(e: React.FormEvent) {
     e.preventDefault();
     setDeliveryLoading(true);
@@ -413,6 +460,10 @@ export default function DriverAssignmentDetailPage() {
       setDeliveryError("OTP code must be 6 digits.");
       return;
     }
+    if (!deliveryDriverNote.trim()) {
+      setDeliveryError("A delivery note is required.");
+      return;
+    }
     setDeliveryLoading(true);
     setDeliveryError(null);
     try {
@@ -420,11 +471,12 @@ export default function DriverAssignmentDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...operationCommand("delivery-complete", { recipientName: deliveryRecipientName, recipientPhone: deliveryRecipientPhone, publicNote: deliveryPublicNote }),
+          ...operationCommand("delivery-complete", { recipientName: deliveryRecipientName, recipientPhone: deliveryRecipientPhone, publicNote: deliveryPublicNote, driverNote: deliveryDriverNote }),
           otpCode,
           recipientName: deliveryRecipientName,
           recipientPhone: deliveryRecipientPhone || undefined,
           publicNote: deliveryPublicNote || undefined,
+          driverNote: deliveryDriverNote,
           confirmDelivery: true,
         }),
       });
@@ -470,38 +522,6 @@ export default function DriverAssignmentDetailPage() {
       }
       setDeliveryAction("idle");
       clearOperation("delivery-attempt");
-      loadAssignment();
-    } catch {
-      setDeliveryError("Network error. Please try again.");
-    } finally {
-      setDeliveryLoading(false);
-    }
-  }
-
-  async function handleDeliveryFailed(e: React.FormEvent) {
-    e.preventDefault();
-    if (!failDeliveryReason) {
-      setDeliveryError("A failure reason is required.");
-      return;
-    }
-    if (!failDeliveryNote.trim()) {
-      setDeliveryError("A note is required.");
-      return;
-    }
-    setDeliveryLoading(true);
-    setDeliveryError(null);
-    try {
-      const res = await fetch(`/api/driver/assignments/${id}/delivery/fail`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: failDeliveryReason, note: failDeliveryNote }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setDeliveryError(data.error || "Could not record delivery failure.");
-        return;
-      }
-      setDeliveryAction("idle");
       loadAssignment();
     } catch {
       setDeliveryError("Network error. Please try again.");
@@ -839,6 +859,7 @@ export default function DriverAssignmentDetailPage() {
                   </p>
                 </div>
               )}
+              {locationStatus && <p className="text-xs text-[var(--kt-text-muted)]" role="status">{locationStatus}</p>}
               <div className="flex gap-3 flex-wrap">
                 {assignment.orderStatus === "PICKED_UP" && (
                   <Button variant="primary" onClick={() => { setDeliveryAction("start"); setDeliveryError(null); }}>
@@ -869,13 +890,11 @@ export default function DriverAssignmentDetailPage() {
                 >
                   Delivery Attempted
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => { setDeliveryAction("failed"); setDeliveryError(null); }}
-                  className="text-[var(--kt-signal-red)] border-[var(--kt-signal-red)]/30 hover:bg-[var(--kt-signal-red)]/5"
-                >
-                  Delivery Failed
-                </Button>
+                {["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
+                  <Button variant="ghost" onClick={handleRecordLocation} disabled={locationRecording}>
+                    {locationRecording ? "Recording location…" : "Record Location"}
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -884,7 +903,7 @@ export default function DriverAssignmentDetailPage() {
           {deliveryAction === "start" && (
             <form onSubmit={handleStartDelivery} className="space-y-4">
               <p className="text-sm text-[var(--kt-text-muted)]">
-                Confirm you are heading to the delivery address. The order will move to IN TRANSIT.
+                Confirm you are heading to the delivery address. The order will move to IN TRANSIT. Record a fresh verified location at the destination before completing delivery.
               </p>
               <div>
                 <Label htmlFor="del-start-note">Driver Note (optional)</Label>
@@ -980,6 +999,17 @@ export default function DriverAssignmentDetailPage() {
                   rows={2}
                 />
               </div>
+              <div>
+                <Label htmlFor="del-driver-note">Delivery Note *</Label>
+                <Textarea
+                  id="del-driver-note"
+                  value={deliveryDriverNote}
+                  onChange={(e) => setDeliveryDriverNote(e.target.value)}
+                  placeholder="Record the handoff or delivery conditions."
+                  rows={2}
+                  required
+                />
+              </div>
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input
                   type="checkbox"
@@ -992,11 +1022,12 @@ export default function DriverAssignmentDetailPage() {
                 </span>
               </label>
               <div className="flex gap-3">
-                <Button type="submit" variant="primary" disabled={deliveryLoading || !deliveryConfirm || otpCode.length !== 6}>
+                <Button type="submit" variant="primary" disabled={deliveryLoading || !deliveryConfirm || otpCode.length !== 6 || !deliveryDriverNote.trim()}>
                   {deliveryLoading ? "Confirming…" : "Confirm Delivery"}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => setDeliveryAction("idle")} disabled={deliveryLoading}>Cancel</Button>
               </div>
+              <p className="text-xs text-[var(--kt-text-muted)]">Completion also requires a recent verified device-location sample near the delivery address. Use “Record Location” after arrival.</p>
             </form>
           )}
 
@@ -1036,46 +1067,6 @@ export default function DriverAssignmentDetailPage() {
             </form>
           )}
 
-          {/* Record delivery failed */}
-          {deliveryAction === "failed" && (
-            <form onSubmit={handleDeliveryFailed} className="space-y-4">
-              <div>
-                <Label htmlFor="fail-del-reason">Failure Reason *</Label>
-                <Select
-                  id="fail-del-reason"
-                  value={failDeliveryReason}
-                  onChange={(e) => setFailDeliveryReason(e.target.value)}
-                  options={[{ value: "", label: "Select a reason…" }, ...deliveryExceptionOptions]}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="fail-del-note">Note *</Label>
-                <Textarea
-                  id="fail-del-note"
-                  value={failDeliveryNote}
-                  onChange={(e) => setFailDeliveryNote(e.target.value)}
-                  placeholder="Describe what happened and why the delivery cannot be completed…"
-                  rows={3}
-                  required
-                />
-              </div>
-              <div className="p-3 rounded-xl bg-[var(--kt-signal-red)]/8 border border-[var(--kt-signal-red)]/20 text-xs text-[var(--kt-ink-navy)]">
-                Hard failure: The order will be marked as FAILED. This action cannot be undone from the driver app.
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  disabled={deliveryLoading}
-                  className="border-[var(--kt-signal-red)]/40 text-[var(--kt-signal-red)] hover:bg-[var(--kt-signal-red)]/5"
-                >
-                  {deliveryLoading ? "Submitting…" : "Record Delivery Failed"}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setDeliveryAction("idle")} disabled={deliveryLoading}>Cancel</Button>
-              </div>
-            </form>
-          )}
         </Card>
       )}
 

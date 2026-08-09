@@ -1,3 +1,4 @@
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -18,7 +19,7 @@ export async function POST(
     const service = new RequisitionService(prisma);
     const approved = await service.approveRequisition(reference, user.id);
     return NextResponse.json({ success: true, data: approved });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }

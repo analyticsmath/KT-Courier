@@ -52,6 +52,8 @@ const prismaMock = vi.hoisted(() => ({
 const transitionOrderStatusInTxMock = vi.hoisted(() => vi.fn());
 const verifyDeliveryOtpMock = vi.hoisted(() => vi.fn());
 const verifyDeliveryOtpInTxMock = vi.hoisted(() => vi.fn());
+const requireVerifiedDeliveryLocationInTxMock = vi.hoisted(() => vi.fn());
+const projectMarketplaceCourierExecutionInTxMock = vi.hoisted(() => vi.fn());
 const notifyOrderStatusChangedMock = vi.hoisted(() => vi.fn());
 const recordAdminActivityMock = vi.hoisted(() => vi.fn());
 
@@ -62,6 +64,12 @@ vi.mock("@/lib/services/order-status.service", () => ({
 vi.mock("@/lib/services/delivery-otp.service", () => ({
   verifyDeliveryOtp: verifyDeliveryOtpMock,
   verifyDeliveryOtpInTx: verifyDeliveryOtpInTxMock,
+}));
+vi.mock("@/lib/services/driver-location-evidence.service", () => ({
+  requireVerifiedDeliveryLocationInTx: requireVerifiedDeliveryLocationInTxMock,
+}));
+vi.mock("@/lib/services/marketplace-courier-order.service", () => ({
+  projectMarketplaceCourierExecutionInTx: projectMarketplaceCourierExecutionInTxMock,
 }));
 vi.mock("@/lib/services/notification-events.service", () => ({
   notifyOrderStatusChanged: notifyOrderStatusChangedMock,
@@ -139,6 +147,8 @@ describe("driver delivery service status flows", () => {
     transitionOrderStatusInTxMock.mockReset();
     verifyDeliveryOtpMock.mockReset();
     verifyDeliveryOtpInTxMock.mockReset();
+    requireVerifiedDeliveryLocationInTxMock.mockReset();
+    projectMarketplaceCourierExecutionInTxMock.mockReset();
     notifyOrderStatusChangedMock.mockReset();
     recordAdminActivityMock.mockReset();
 
@@ -149,6 +159,8 @@ describe("driver delivery service status flows", () => {
     txMock.deliveryAttempt.aggregate.mockResolvedValue({ _max: { attemptNumber: 0 } });
     txMock.deliveryAttempt.create.mockResolvedValue({ id: "attempt-1" });
     txMock.proofOfDelivery.create.mockResolvedValue({ id: "pod-1" });
+    requireVerifiedDeliveryLocationInTxMock.mockResolvedValue({ latitude: -33.9249, longitude: 18.4241, capturedAt: new Date("2026-08-04T10:00:00.000Z") });
+    projectMarketplaceCourierExecutionInTxMock.mockResolvedValue(false);
     prismaMock.orderAssignment.findFirst.mockImplementation(async () =>
       assignment(OrderStatus.IN_TRANSIT)
     );
@@ -247,12 +259,14 @@ describe("driver delivery service status flows", () => {
         assignmentVersion: 1,
         otpCode: "123456",
         recipientName: "Recipient",
+        driverNote: "Delivered to recipient.",
         confirmDelivery: true,
       }
     );
 
     expect(result.ok).toBe(true);
-    expect(verifyDeliveryOtpInTxMock).toHaveBeenCalledWith(txMock, "order-1", "123456");
+    expect(verifyDeliveryOtpInTxMock).toHaveBeenCalledWith(txMock, "order-1", "123456", "assignment-1");
+    expect(requireVerifiedDeliveryLocationInTxMock).toHaveBeenCalledWith(txMock, expect.objectContaining({ orderId: "order-1", assignmentId: "assignment-1", driverProfileId: "driver-profile-1" }));
     expect(txMock.order.update).toHaveBeenCalledWith({
       where: { id: "order-1" },
       data: { currentDriverProfileId: null },
@@ -292,6 +306,7 @@ describe("driver delivery service status flows", () => {
         assignmentVersion: 1,
         otpCode: "123456",
         recipientName: "Recipient",
+        driverNote: "Delivered to recipient.",
         confirmDelivery: true,
       }
     );

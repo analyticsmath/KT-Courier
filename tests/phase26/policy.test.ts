@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { BackgroundCheckService } from "../../lib/recruitment/background-check.service";
+import { RecruitmentCheckType } from "../../types/db";
 import { RecruitmentCreditCheckNotAuthorizedError } from "../../lib/recruitment/errors";
 import { ScreeningService } from "../../lib/recruitment/screening.service";
 
 describe("Phase 26 — Recruitment Policy & Screening Unit Tests", () => {
-  let mockDb: any;
+  let mockDb: {
+    recruitmentApplication: { findUnique: () => Promise<unknown> };
+    recruitmentCheckCase: { create: (data: { data: Record<string, unknown> }) => Promise<Record<string, unknown>> };
+    recruitmentBackgroundCheckPolicyVersion: { create: (data: { data: Record<string, unknown> }) => Promise<Record<string, unknown>> };
+  };
 
   beforeEach(() => {
     mockDb = {
@@ -26,10 +31,10 @@ describe("Phase 26 — Recruitment Policy & Screening Unit Tests", () => {
         }),
       },
       recruitmentCheckCase: {
-        create: async (data: any) => ({ id: "check-1", ...data.data }),
+        create: async (data) => ({ id: "check-1", ...data.data }),
       },
       recruitmentBackgroundCheckPolicyVersion: {
-        create: async (data: any) => ({ id: "policy-1", ...data.data }),
+        create: async (data) => ({ id: "policy-1", ...data.data }),
       },
     };
   });
@@ -40,7 +45,7 @@ describe("Phase 26 — Recruitment Policy & Screening Unit Tests", () => {
     await expect(
       bgService.initiateCheckCase({
         applicationId: "app-1",
-        checkType: "ROLE_RELATED_CREDIT" as any,
+        checkType: RecruitmentCheckType.ROLE_RELATED_CREDIT,
         policyVersionId: "policy-1",
         operationId: "op-1",
         requestHash: "hash-1",

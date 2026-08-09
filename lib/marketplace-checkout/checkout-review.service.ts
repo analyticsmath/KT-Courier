@@ -1,20 +1,12 @@
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCheckoutTotals, canonicalMarketplaceFingerprint, centsToZar, parseZarToCents } from "@/lib/marketplace-checkout/policy";
 import type { MarketplaceDeliveryQuoteAdapter } from "@/lib/marketplace-checkout/marketplace-delivery-quote.service";
+import type { PromotionEvaluationInput } from "@/lib/promotions/promotion-evaluation.service";
 import { Decimal } from "@prisma/client/runtime/library";
 
 // Phase 23: Promotion evaluation
 export interface PromotionEvaluationAdapter {
-  evaluate(input: {
-    checkoutId: string;
-    customerUserId?: string;
-    guestEvidenceReference?: string;
-    storeGroups: { storeReference: string; lines: { lineReference: string; merchandiseSubtotal: Decimal; modifierSubtotal: Decimal; }[] }[];
-    deliveryQuotes: { storeReference: string; feeAmount: Decimal; }[];
-    appliedCouponCode?: string;
-    subscriptionBenefitEvidence?: unknown;
-    now: Date;
-  }): Promise<{ totalDiscount: Decimal; totalPlatformFunding: Decimal; totalStoreFunding: Decimal; allocations: unknown[]; evidence: unknown; } | null>;
+  evaluate(input: PromotionEvaluationInput): Promise<{ totalDiscount: Decimal; totalPlatformFunding: Decimal; totalStoreFunding: Decimal; allocations: unknown[]; evidence: unknown; } | null>;
 }
 
 export type ReviewLine = Readonly<{ lineReference: string; storeReference: string; offerReference: string; variantReference: string; quantity: number; priceVersion: string; publicationVersion: string; baseUnitPrice: string; modifierUnitTotal: string; lineTotal: string; productReference?: string; productTitle?: string; variantTitle?: string; sellingUnit?: string; taxTreatment?: string; includedTaxAmount?: string | null; inventoryItemId?: string | null; inventoryLocationId?: string | null; modifiers?: readonly { groupReference: string; groupName: string; optionReference: string; optionName: string; quantity: number; priceDelta: string; totalContribution: string; sourceVersion: string }[] }>;
@@ -28,7 +20,7 @@ function sum(values: readonly string[]): string { return centsToZar(values.reduc
 function multiplied(unit: string, quantity: number): string { let total = "0"; const cents = parseZarToCents(unit); for (let index = 0; index < quantity; index += 1) total = add(total, cents); return centsToZar(total); }
 
 export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId: string; checkoutReference: string; customerUserId?: string; guestEvidenceReference?: string; appliedCouponCode?: string; serviceAreaReference: string | null; reviewVersion: number; groups: readonly ReviewGroup[]; resolveLine(line: ReviewLine): Promise<RevalidatedLine>; quoteAdapter: MarketplaceDeliveryQuoteAdapter; promotionAdapter?: PromotionEvaluationAdapter; previousDeliveryFees?: Readonly<Record<string, string>>; commissionPolicyVersion: string }>): Promise<MarketplaceCheckoutReviewResult> {
-  const changes: CheckoutReviewChange[] = []; const effectiveGroups: { storeReference: string; lines: ReviewLine[]; deliveryFee: string }[] = []; const quotes: MarketplaceCheckoutReviewResult["quotes"] = [];
+  const changes: CheckoutReviewChange[] = []; const effectiveGroups: { storeReference: string; lines: ReviewLine[]; deliveryFee: string }[] = []; const quotes: Array<{ storeReference: string; quoteReference: string; quoteVersion: string; quoteExpiresAt: Date; deliveryFee: string; serviceabilityReference: string }> = [];
   for (const group of input.groups) {
     const lines: ReviewLine[] = [];
     for (const line of group.lines) {
@@ -45,7 +37,7 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
     try {
       const quote = await input.quoteAdapter.quoteStoreGroup({ checkoutReference: input.checkoutReference, storeReference: group.storeReference, pickupLocationReference: group.pickupLocationReference, serviceAreaReference: input.serviceAreaReference, fulfilmentMode: group.fulfilmentMode, lineCount: lines.length });
       const previous = input.previousDeliveryFees?.[group.storeReference]; if (previous && previous !== quote.fee) changes.push({ type: "DELIVERY_FEE_CHANGED", details: { storeReference: group.storeReference, from: previous, to: quote.fee } });
-      effectiveGroups.push({ storeReference: group.storeReference, lines, deliveryFee: quote.fee }); (quotes as any).push({ storeReference: group.storeReference, quoteReference: quote.publicReference, quoteVersion: quote.version, quoteExpiresAt: quote.expiresAt, deliveryFee: quote.fee, serviceabilityReference: quote.serviceabilityReference });
+      effectiveGroups.push({ storeReference: group.storeReference, lines, deliveryFee: quote.fee }); quotes.push({ storeReference: group.storeReference, quoteReference: quote.publicReference, quoteVersion: quote.version, quoteExpiresAt: quote.expiresAt, deliveryFee: quote.fee, serviceabilityReference: quote.serviceabilityReference });
     } catch (error) { changes.push({ type: "NOT_SERVICEABLE", details: { storeReference: group.storeReference, reason: error instanceof Error ? error.message : "QUOTE_UNAVAILABLE" } }); }
   }
   const merchandiseSubtotal = sum(effectiveGroups.flatMap((group) => group.lines.map((line) => multiplied(line.baseUnitPrice, line.quantity))));
@@ -67,11 +59,16 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
           lineReference: line.lineReference,
           merchandiseSubtotal: new Decimal(multiplied(line.baseUnitPrice, line.quantity)),
           modifierSubtotal: new Decimal(multiplied(line.modifierUnitTotal, line.quantity)),
+          productId: line.productReference ?? line.lineReference,
+          variantId: line.variantReference,
+          categoryId: "",
         })),
       })),
       deliveryQuotes: quotes.map((quote) => ({
         storeReference: quote.storeReference,
         feeAmount: new Decimal(quote.deliveryFee),
+        deliveryServiceType: input.groups.find((group) => group.storeReference === quote.storeReference)?.fulfilmentMode ?? "",
+        deliveryRegion: quote.serviceabilityReference,
       })),
       appliedCouponCode: input.appliedCouponCode,
       now: new Date(),

@@ -6,7 +6,7 @@ const isLocalValidationServerAvailable = Boolean(
 );
 
 test.describe("Storefront Browsing & Discovery", () => {
-  test.beforeEach(({ page }) => {
+  test.beforeEach(() => {
     test.skip(!isLocalValidationServerAvailable, "Requires active local app instance with KT_LOCAL_STOREFRONT_VALIDATION=true");
   });
 

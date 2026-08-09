@@ -6,7 +6,7 @@ import type { DeliveryZoneCheckResult } from "./google-maps.types";
 
 // ─── Haversine distance (km) between two lat/lng points ──────────────────────
 
-function haversineKm(
+export function haversineKm(
   lat1: number,
   lng1: number,
   lat2: number,

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Prisma client generation is deferred to Phase 26.5. */
+ 
 import { resolveRecruitmentProductionComposition } from "../composition-root";
 import { OnboardingHandoffService } from "../onboarding-handoff.service";
 

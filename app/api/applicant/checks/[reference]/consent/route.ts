@@ -1,3 +1,4 @@
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
@@ -34,7 +35,7 @@ export async function POST(
     const checkCase = await checkService.recordApplicantConsent(reference, consent.id);
 
     return NextResponse.json({ success: true, data: { checkCase, consent } });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }

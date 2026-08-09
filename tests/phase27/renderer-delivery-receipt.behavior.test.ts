@@ -62,7 +62,7 @@ describe("Phase 27 provider adapters and provider receipts", () => {
     expect(replay.id).toBe(created.id); expect(created.status).toBe("DELIVERED");
     await receipts.ingestProviderReceipt({ provider: "EMAIL_PROVIDER_NOT_CONFIGURED", providerReceiptId: "provider-1", deliveryId: "delivery-1", type: "DELIVERED" });
     await receipts.ingestProviderReceipt({ provider: "EMAIL_PROVIDER_NOT_CONFIGURED", providerReceiptId: "provider-2", deliveryId: "delivery-1", type: "ACCEPTED" });
-    expect(db.__state.notificationDelivery.find((delivery: any) => delivery.id === "delivery-1")).toMatchObject({ status: "DELIVERED" });
+    expect(db.__state.notificationDelivery.find((delivery: { id: string }) => delivery.id === "delivery-1")).toMatchObject({ status: "DELIVERED" });
     await expect(receipts.ingestProviderReceipt({ provider: "EMAIL_PROVIDER_NOT_CONFIGURED", providerReceiptId: "provider-1", deliveryId: "delivery-1", type: "BOUNCED" })).rejects.toMatchObject({ code: "NOTIFICATION_PROVIDER_RECEIPT_CONFLICT" });
     await expect(receipts.ingestProviderReceipt({ provider: "OTHER", providerReceiptId: "provider-3", deliveryId: "delivery-1", type: "DELIVERED" })).rejects.toMatchObject({ code: "NOTIFICATION_PROVIDER_RECEIPT_MISMATCH" });
   });

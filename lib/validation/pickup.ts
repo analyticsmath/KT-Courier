@@ -4,7 +4,7 @@ import { PickupFailureReason, ParcelCondition } from "@/types/db";
 export const DriverOperationCommandSchema = z.object({
   operationId: z.string().uuid("operationId must be a UUID"),
   assignmentVersion: z.number().int().positive("assignmentVersion is required"),
-});
+}).strict();
 
 // ─── Start pickup ─────────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ export const FailPickupSchema = z
     note: z.string().trim().min(1, "A note is required for pickup failure").max(1000),
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),
-  });
+  }).strict();
 
 export type FailPickupInput = z.infer<typeof FailPickupSchema>;
 
@@ -49,6 +49,6 @@ export type FailPickupInput = z.infer<typeof FailPickupSchema>;
 export const AdminOperationalNoteSchema = z.object({
   internalNote: z.string().trim().min(1, "Note is required").max(2000),
   publicNote: z.string().trim().max(500).optional(),
-});
+}).strict();
 
 export type AdminOperationalNoteInput = z.infer<typeof AdminOperationalNoteSchema>;

@@ -1,3 +1,4 @@
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
@@ -24,7 +25,7 @@ export async function GET(
     const interviews = await interviewService.listInterviewsForApplication(app.id);
 
     // Filter out internal interviewer notes / scorecards from candidate view
-    const safeInterviews = interviews.map((inv: any) => ({
+    const safeInterviews = interviews.map((inv: { publicReference: string; interviewType: string; status: string; scheduledAt: Date | null; locationOrUrl: string | null; slot: { publicReference: string; startTime: Date; endTime: Date } | null }) => ({
       reference: inv.publicReference,
       interviewType: inv.interviewType,
       status: inv.status,
@@ -40,7 +41,7 @@ export async function GET(
     }));
 
     return NextResponse.json({ success: true, data: safeInterviews });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error) {
+    return recruitmentRouteError(error, 500);
   }
 }

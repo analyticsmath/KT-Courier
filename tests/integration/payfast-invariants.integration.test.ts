@@ -17,7 +17,7 @@ describe("Phase 11 Payfast persisted invariants", () => {
       expect(JSON.stringify({
         request: attempt.requestSnapshot,
         result: attempt.resultSnapshot,
-        payload: (attempt as any).providerPayload,
+        payload: "providerPayload" in attempt ? attempt.providerPayload : undefined,
       })).not.toMatch(/"(merchant[_-]?key|passphrase|signature|email_address)"\s*:/i);
     }
   });

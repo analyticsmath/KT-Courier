@@ -14,6 +14,7 @@ export async function POST(
 ) {
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
+  if (req.headers.get("content-type")?.split(";", 1)[0]?.toLowerCase() !== "application/json") return badRequest("Content-Type must be application/json.");
 
   const ip = getClientIp(req);
   const rl = checkIpRateLimit(req, `pickup:start:${ip}`, RATE_LIMITS.PICKUP_START);

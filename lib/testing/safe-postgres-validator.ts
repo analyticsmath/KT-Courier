@@ -17,7 +17,7 @@ export function isSafeLocalTestDatabaseUrl(dbUrl: string | undefined): boolean {
     const unsafeDbNames = ["kt_courier", "kt_courier_dev", "postgres", "dev", "production", "staging", "main", "master"];
     if (unsafeDbNames.includes(dbName)) return false;
 
-    const testMarkers = ["test", "integration", "phase2", "disposable", "ci", "e2e"];
+    const testMarkers = ["test", "integration", "phase2", "disposable", "ci", "e2e", "demo", "demo_full"];
     if (!testMarkers.some((marker) => dbName.includes(marker))) return false;
 
     const fullUrlLower = dbUrl.toLowerCase();

@@ -5,6 +5,7 @@ import { assertProductTypeSchemaBundle } from "@/lib/catalog/product-type-schema
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { CatalogConflictError, CatalogNotFoundError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { toInputJsonObject } from "@/lib/json/input-json";
 
 export async function listProductTypeDefinitions() {
   return prisma.productTypeDefinition.findMany({ orderBy: [{ code: "asc" }, { versionNumber: "desc" }] });
@@ -28,7 +29,15 @@ export async function createProductTypeDefinition(args: {
   const publicReference = catalogPublicReference("PT");
   const { actorUserId, operationId, ...definitionData } = args;
   return prisma.$transaction(async (tx) => {
-    const definition = await tx.productTypeDefinition.create({ data: { publicReference, createdByUserId: actorUserId, ...definitionData } as any });
+    const definition = await tx.productTypeDefinition.create({ data: {
+      publicReference,
+      createdByUserId: actorUserId,
+      ...definitionData,
+      attributeSchema: toInputJsonObject(definitionData.attributeSchema),
+      variantSchema: toInputJsonObject(definitionData.variantSchema),
+      complianceSchema: toInputJsonObject(definitionData.complianceSchema),
+      searchFacetSchema: toInputJsonObject(definitionData.searchFacetSchema),
+    } });
     await recordCatalogEvidence(tx, { aggregateType: "PRODUCT_TYPE", aggregateReference: publicReference, aggregateVersion: 1, action: "CREATED", eventType: "PRODUCT_TYPE_UPDATED", actorUserId, operation: { operationId, request: args } });
     return definition;
   });
@@ -58,7 +67,14 @@ export async function updateProductTypeDefinition(id: string, args: {
     searchFacetSchema: args.searchFacetSchema ?? current.searchFacetSchema,
   });
   return prisma.$transaction(async (tx) => {
-    const result = await tx.productTypeDefinition.updateMany({ where: { id, version, status: "DRAFT" }, data: { ...definitionData, version: { increment: 1 } } as any });
+    const result = await tx.productTypeDefinition.updateMany({ where: { id, version, status: "DRAFT" }, data: {
+      ...definitionData,
+      attributeSchema: definitionData.attributeSchema ? toInputJsonObject(definitionData.attributeSchema) : undefined,
+      variantSchema: definitionData.variantSchema ? toInputJsonObject(definitionData.variantSchema) : undefined,
+      complianceSchema: definitionData.complianceSchema ? toInputJsonObject(definitionData.complianceSchema) : undefined,
+      searchFacetSchema: definitionData.searchFacetSchema ? toInputJsonObject(definitionData.searchFacetSchema) : undefined,
+      version: { increment: 1 },
+    } });
     if (result.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product type changed; reload before saving.");
     await recordCatalogEvidence(tx, { aggregateType: "PRODUCT_TYPE", aggregateReference: current.publicReference, aggregateVersion: current.version + 1, action: "UPDATED", eventType: "PRODUCT_TYPE_UPDATED", actorUserId, operation: { operationId, request: args } });
     return tx.productTypeDefinition.findUniqueOrThrow({ where: { id } });

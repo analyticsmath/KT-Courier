@@ -3,9 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
-const compose = readFileSync(path.join(root, "compose.yml"), "utf8");
-const composeDev = readFileSync(path.join(root, "compose.dev.yml"), "utf8");
-const legacyCompose = readFileSync(path.join(root, "docker-compose.dev.yml"), "utf8");
+const compose = readFileSync(path.join(root, "compose.yml"), "utf8").replaceAll("\r\n", "\n");
+const composeDev = readFileSync(path.join(root, "compose.dev.yml"), "utf8").replaceAll("\r\n", "\n");
+const legacyCompose = readFileSync(path.join(root, "docker-compose.dev.yml"), "utf8").replaceAll("\r\n", "\n");
 
 describe("Compose configuration consistency", () => {
   it("uses the canonical db service, new baselined volume, and host/container port split", () => {

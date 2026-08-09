@@ -3,28 +3,21 @@
 import { useEffect, useState } from "react";
 
 export function OfflineBanner() {
-  const [mounted, setMounted] = useState(false);
+  // A stable online default renders identically on the server and client.
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
-    if (typeof window !== "undefined") {
-      setIsOnline(navigator.onLine);
-
-      const handleOnline = () => setIsOnline(true);
-      const handleOffline = () => setIsOnline(false);
-
-      window.addEventListener("online", handleOnline);
-      window.addEventListener("offline", handleOffline);
-
-      return () => {
-        window.removeEventListener("online", handleOnline);
-        window.removeEventListener("offline", handleOffline);
-      };
-    }
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
-  if (!mounted || isOnline) return null;
+  if (isOnline) return null;
 
   return (
     <div

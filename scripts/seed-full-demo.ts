@@ -11,6 +11,7 @@
 
 import {
   PrismaClient,
+  Prisma,
   UserRole,
   UserStatus,
   StoreStatus,
@@ -32,6 +33,7 @@ import {
   PaymentSubjectType,
   PaymentPurpose,
   PaymentStatus,
+  PaymentProvider,
   LedgerCurrency,
   VacancyStatus,
   RecruitmentApplicationStatus,
@@ -58,6 +60,7 @@ import { buildCatalogPublicationSnapshot } from "../lib/catalog/catalog-publicat
 import { StorefrontProjectionService } from "../lib/services/storefront-projection.service";
 import { rebuildStorefrontStoreDocument } from "../lib/services/storefront-store.service";
 import { rebuildStorefrontCategoryDocument } from "../lib/services/storefront-category.service";
+import { toInputJsonObject } from "../lib/json/input-json";
 
 const prisma = new PrismaClient();
 const projectionService = new StorefrontProjectionService();
@@ -106,6 +109,139 @@ function computeFileSHA256(filePath: string): { checksum: string; byteSize: numb
 // Historical Period: 1 July 2025 – 30 July 2026
 const HISTORICAL_START = new Date("2025-07-01T00:00:00Z");
 const HISTORICAL_END = new Date("2026-07-30T23:59:59Z");
+
+async function seedPaymentWithEvidence(params: {
+  publicReference: string;
+  userId: string;
+  orderId?: string;
+  marketplaceCheckoutId?: string;
+  subjectType: PaymentSubjectType;
+  purpose: PaymentPurpose;
+  status: PaymentStatus;
+  amount: number;
+  creationIdempotencyKey: string;
+  orderNumber: string;
+  createdAt: Date;
+}) {
+  const amountDec = new Prisma.Decimal(params.amount);
+  const pHash = createHash("sha256").update(params.orderNumber).digest("hex");
+
+  const existingPayment = await prisma.payment.findUnique({
+    where: { publicReference: params.publicReference },
+  });
+
+  if (existingPayment && existingPayment.status === PaymentStatus.SUCCEEDED) {
+    return existingPayment;
+  }
+
+  const payment = await prisma.payment.upsert({
+    where: { publicReference: params.publicReference },
+    update: {},
+    create: {
+      publicReference: params.publicReference,
+      userId: params.userId,
+      orderId: params.orderId,
+      marketplaceCheckoutId: params.marketplaceCheckoutId,
+      subjectType: params.subjectType,
+      purpose: params.purpose,
+      provider: params.status === PaymentStatus.SUCCEEDED ? PaymentProvider.PAYFAST : null,
+      status: params.status === PaymentStatus.SUCCEEDED ? PaymentStatus.PROCESSING : params.status,
+      amount: amountDec,
+      currency: LedgerCurrency.ZAR,
+      creationIdempotencyKey: params.creationIdempotencyKey,
+      creationRequestHash: pHash,
+      failedAt: params.status === PaymentStatus.FAILED ? params.createdAt : null,
+      createdAt: params.createdAt,
+    },
+  });
+
+  if (params.status === PaymentStatus.SUCCEEDED) {
+    const mRef = `mref_seed_${payment.id}`.slice(0, 100);
+    const patRef = `pat_seed_${payment.id}`.slice(0, 100);
+    const pweRef = `pwe_seed_${payment.id}`.slice(0, 100);
+
+    const attempt = await prisma.paymentAttempt.upsert({
+      where: { publicReference: patRef },
+      update: { status: "SUCCEEDED" },
+      create: {
+        publicReference: patRef,
+        paymentId: payment.id,
+        merchantReference: mRef,
+        provider: PaymentProvider.PAYFAST,
+        providerEnvironment: "SANDBOX",
+        amount: amountDec,
+        currency: LedgerCurrency.ZAR,
+        attemptNumber: 1,
+        idempotencyKey: `idem_att_${payment.id}`,
+        requestHash: pHash,
+        status: "SUCCEEDED",
+        createdAt: params.createdAt,
+      },
+    });
+
+    const journal = await prisma.ledgerJournal.upsert({
+      where: { idempotencyKey: `idem_jnl_${payment.id}` },
+      update: {},
+      create: {
+        reference: `jnl_pay_${payment.id}`,
+        type: "EXTERNAL_PAYMENT_RECEIPT",
+        currency: LedgerCurrency.ZAR,
+        idempotencyKey: `idem_jnl_${payment.id}`,
+        correlationId: payment.publicReference,
+        requestHash: pHash,
+        policyVersion: "v1",
+        totalDebits: amountDec,
+        totalCredits: amountDec,
+        postedAt: params.createdAt,
+        createdAt: params.createdAt,
+      },
+    });
+
+    const fingerprint = createHash("sha256").update(`fp_${payment.id}`).digest("hex");
+    const webhook = await prisma.paymentWebhookEvent.upsert({
+      where: { publicReference: pweRef },
+      update: {},
+      create: {
+        publicReference: pweRef,
+        provider: PaymentProvider.PAYFAST,
+        environment: "SANDBOX",
+        eventFingerprint: fingerprint,
+        merchantReference: mRef,
+        providerPaymentId: `pf_seed_${payment.id}`,
+        providerStatus: "COMPLETE",
+        normalizedStatus: "COMPLETE",
+        processingStatus: "APPLIED",
+        paymentId: payment.id,
+        attemptId: attempt.id,
+        ledgerJournalId: journal.id,
+        sourceAddressVerified: true,
+        signatureVerified: true,
+        merchantVerified: true,
+        amountVerified: true,
+        providerDataVerified: true,
+        verifiedAt: params.createdAt,
+        appliedAt: params.createdAt,
+        createdAt: params.createdAt,
+      },
+    });
+
+    return await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: PaymentStatus.SUCCEEDED,
+        succeededAt: params.createdAt,
+        providerConfirmedAt: params.createdAt,
+        successfulAttemptId: attempt.id,
+        successWebhookEventId: webhook.id,
+        successLedgerJournalId: journal.id,
+        latestAttemptNumber: 1,
+        version: { increment: 1 },
+      },
+    });
+  }
+
+  return payment;
+}
 
 async function main() {
   const dbUrl = process.env.DATABASE_URL || "";
@@ -201,7 +337,7 @@ async function main() {
     await prisma.ledgerAccount.upsert({
       where: { code: def.code },
       update: {},
-      create: { walletId: platformWallet.id, code: def.code, purpose: def.purpose as any, category: def.category, currency: def.currency, allowNegative: def.allowNegative },
+      create: { walletId: platformWallet.id, code: def.code, purpose: def.purpose, category: def.category, currency: def.currency, allowNegative: def.allowNegative },
     });
   }
 
@@ -992,7 +1128,7 @@ async function main() {
             variantId,
             offerId: offer.id,
             status: "PUBLISHED",
-            snapshot: snapshotPayload as any,
+            snapshot: toInputJsonObject(snapshotPayload),
             createdByUserId: superAdmin.id,
           },
         });
@@ -1076,28 +1212,23 @@ async function main() {
       data: { orderId: order.id, status, note: `Status updated to ${status} during historical workflow simulation.`, createdAt },
     });
 
+
+
     // Create Payment record for completed/historical order
     const pRef = `PAY-ORD-${20250000 + i}`;
     const pStatus = (status === OrderStatus.CANCELLED || status === OrderStatus.FAILED) ? PaymentStatus.FAILED : PaymentStatus.SUCCEEDED;
     
-    await prisma.payment.upsert({
-      where: { publicReference: pRef },
-      update: { status: pStatus },
-      create: {
-        publicReference: pRef,
-        userId: customerId,
-        orderId: order.id,
-        subjectType: PaymentSubjectType.COURIER_ORDER,
-        purpose: PaymentPurpose.ORDER,
-        status: pStatus,
-        amount: price,
-        currency: LedgerCurrency.ZAR,
-        creationIdempotencyKey: `IDEM-PAY-ORD-${i}`,
-        creationRequestHash: createHash("sha256").update(orderNumber).digest("hex"),
-        succeededAt: pStatus === PaymentStatus.SUCCEEDED ? createdAt : null,
-        failedAt: pStatus === PaymentStatus.FAILED ? createdAt : null,
-        createdAt,
-      },
+    await seedPaymentWithEvidence({
+      publicReference: pRef,
+      userId: customerId,
+      orderId: order.id,
+      subjectType: PaymentSubjectType.COURIER_ORDER,
+      purpose: PaymentPurpose.ORDER,
+      status: pStatus,
+      amount: price,
+      creationIdempotencyKey: `IDEM-PAY-ORD-${i}`,
+      orderNumber,
+      createdAt,
     });
 
     totalCourierOrders++;
@@ -1155,23 +1286,17 @@ async function main() {
     });
 
     const pRef = `PAY-MKT-${20250000 + i}`;
-    const payment = await prisma.payment.upsert({
-      where: { publicReference: pRef },
-      update: { status: PaymentStatus.SUCCEEDED },
-      create: {
-        publicReference: pRef,
-        userId: customerId,
-        marketplaceCheckoutId: checkout.id,
-        subjectType: PaymentSubjectType.MARKETPLACE_CHECKOUT,
-        purpose: PaymentPurpose.ORDER,
-        status: PaymentStatus.SUCCEEDED,
-        amount: totalAmount,
-        currency: LedgerCurrency.ZAR,
-        creationIdempotencyKey: `IDEM-PAY-MKT-${i}`,
-        creationRequestHash: createHash("sha256").update(orderNumber).digest("hex"),
-        succeededAt: createdAt,
-        createdAt,
-      },
+    const payment = await seedPaymentWithEvidence({
+      publicReference: pRef,
+      userId: customerId,
+      marketplaceCheckoutId: checkout.id,
+      subjectType: PaymentSubjectType.MARKETPLACE_CHECKOUT,
+      purpose: PaymentPurpose.ORDER,
+      status: PaymentStatus.SUCCEEDED,
+      amount: totalAmount,
+      creationIdempotencyKey: `IDEM-PAY-MKT-${i}`,
+      orderNumber,
+      createdAt,
     });
 
     const mktOrder = await prisma.marketplaceOrder.upsert({

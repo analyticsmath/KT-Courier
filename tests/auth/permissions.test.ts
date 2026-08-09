@@ -19,7 +19,6 @@ const prismaMock = vi.hoisted(() => ({
 vi.mock("@/lib/db/prisma", () => ({ prisma: prismaMock }));
 
 import {
-  DEFAULT_ADMIN_PERMISSION_KEYS,
   PERMISSIONS,
   ROLE_DEFAULT_PERMISSION_KEYS,
   SYSTEM_PERMISSION_DEFINITIONS,

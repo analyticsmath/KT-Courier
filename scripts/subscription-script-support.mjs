@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 
 export function subscriptionScriptOptions(argv = process.argv.slice(2)) {
-  const apply = argv.includes("--apply");
+const apply = argv.includes("--apply");
+void apply;
   const dryRun = argv.includes("--dry-run") || !apply;
   const limitIndex = argv.indexOf("--limit");
   const limit = limitIndex >= 0 ? Number(argv[limitIndex + 1]) : 50;
@@ -24,6 +25,7 @@ const CANONICAL_SERVICES = Object.freeze({
 /** The .mjs layer never mutates records. Apply delegates to the canonical TypeScript service process. */
 export async function runSubscriptionOperation(name, argv = process.argv.slice(2)) {
   const { apply, dryRun, limit } = subscriptionScriptOptions(argv);
+  void apply;
   const canonicalService = CANONICAL_SERVICES[name];
   if (!canonicalService) throw new Error(`${name}: canonical subscription processor is not declared.`);
   if (dryRun) {

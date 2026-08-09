@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { OpeningService } from "@/lib/recruitment/opening.service";
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
 
 export async function GET(
   request: Request,
@@ -40,10 +41,7 @@ export async function GET(
     };
 
     return NextResponse.json({ success: true, data: safeDto });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to fetch job opening details." },
-      { status: 500 }
-    );
+  } catch (error) {
+    return recruitmentRouteError(error, 500);
   }
 }

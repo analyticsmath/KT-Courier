@@ -43,6 +43,7 @@ export async function POST(
 ) {
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
+  if (req.headers.get("content-type")?.split(";", 1)[0]?.toLowerCase() !== "application/json") return conflict("Content-Type must be application/json.");
 
   const ip = getClientIp(req);
   const rl = checkIpRateLimit(req, `delivery:otp:${ip}`, RATE_LIMITS.DELIVERY_OTP_SEND);
@@ -124,7 +125,7 @@ export async function POST(
 
     return ok({
       sent: true,
-      sentToEmail: result.sentToEmail,
+      sentToEmail: result.sentToEmailMasked,
       expiresAt: result.expiresAt,
     });
   } catch (err) {

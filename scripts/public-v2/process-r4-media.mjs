@@ -1,6 +1,5 @@
 import { mkdir, stat } from "node:fs/promises";
 import path from "node:path";
-import process from "node:process";
 import sharp from "sharp";
 
 const workspaceRoot = path.resolve(import.meta.dirname, "..", "..");

@@ -9,8 +9,11 @@ function toCustomerStatus(payment: {
   status: string;
   amount: { toFixed(digits: number): string };
   updatedAt: Date;
-  order: { orderNumber: string };
+  order: { orderNumber: string } | null;
 }): CustomerPaymentStatusDto {
+  if (!payment.order) {
+    throw new PaymentError("PAYMENT_ORDER_NOT_FOUND", "Payment order relationship is incomplete.");
+  }
   return Object.freeze({
     publicReference: payment.publicReference,
     orderReference: payment.order.orderNumber,
@@ -30,7 +33,7 @@ export async function getCustomerPaymentStatus(
     where: { publicReference, userId: payerId },
     include: { order: { select: { orderNumber: true } } },
   });
-  return payment ? toCustomerStatus(payment as any) : null;
+  return payment?.order ? toCustomerStatus(payment) : null;
 }
 
 export async function getOwnedPaymentIdentity(
@@ -90,7 +93,7 @@ export async function getCustomerPaymentPage(
       orderReference: order.orderNumber,
       amount: payment.amount.toFixed(2),
       currency: "ZAR",
-      payment: toCustomerStatus(payment as any),
+      payment: toCustomerStatus(payment),
     });
   }
   const subject = await resolveOrderPaymentSubject(order.id, payer.id);

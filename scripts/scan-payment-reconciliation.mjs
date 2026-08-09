@@ -22,7 +22,7 @@ async function openCase(tx, input) {
 }
 
 async function main() {
-  const [staleAttempts, credentialMismatches, unappliedEvents, repeatedTemporaryFailures, unlinkedSuccesses, orphanJournals, conflictingReferences] = await Promise.all([
+  const [staleAttempts, credentialMismatches, unappliedEvents, repeatedTemporaryFailures, unlinkedSuccesses, orphanJournals, conflictingReferences, missingVerifiedPaymentEvents, staleVerifiedPaymentDispatches] = await Promise.all([
     prisma.paymentAttempt.findMany({ where: { provider: "PAYFAST", updatedAt: { lt: threshold }, OR: [{ status: "UNKNOWN" }, { status: "PROCESSING", webhookEvents: { none: { providerDataVerified: true } } }, { status: "REQUIRES_ACTION", expiresAt: { lt: new Date() } }] }, select: { id: true, paymentId: true, status: true, publicReference: true, providerCredentialVersion: true } }),
     activeCredentialVersion
       ? prisma.paymentAttempt.findMany({ where: { provider: "PAYFAST", providerCredentialVersion: { not: activeCredentialVersion }, status: { in: ["RESERVED", "REQUESTING", "REQUIRES_ACTION", "PROCESSING", "UNKNOWN"] } }, select: { id: true, paymentId: true, publicReference: true } })
@@ -32,6 +32,8 @@ async function main() {
     prisma.payment.findMany({ where: { status: "SUCCEEDED", OR: [{ successLedgerJournalId: null }, { successWebhookEventId: null }] }, select: { id: true, successfulAttemptId: true, publicReference: true } }),
     prisma.ledgerJournal.findMany({ where: { type: "EXTERNAL_PAYMENT_RECEIPT", successfulForPayment: null }, select: { id: true, correlationId: true, reference: true } }),
     prisma.$queryRaw`SELECT e."id", e."paymentId", e."attemptId", e."publicReference" FROM "PaymentWebhookEvent" e JOIN "PaymentAttempt" a ON a."id" = e."attemptId" WHERE e."providerDataVerified" AND a."providerReference" IS NOT NULL AND e."providerPaymentId" <> a."providerReference"`,
+    prisma.$queryRaw`SELECT p."id", p."successfulAttemptId", p."successWebhookEventId", p."publicReference" FROM "Payment" p LEFT JOIN "PaymentVerifiedEventIntent" i ON i."paymentId" = p."id" WHERE p."status"::text = 'SUCCEEDED' AND i."id" IS NULL`,
+    prisma.$queryRaw`SELECT i."id", i."paymentId", i."successfulAttemptId", i."webhookEventId", i."publicReference" FROM "PaymentVerifiedEventIntent" i LEFT JOIN "PaymentVerifiedEventConsumerReceipt" r ON r."eventIntentId" = i."id" AND r."consumer" = 'PAYMENT_SUCCESS_DISPATCH_V1' WHERE (r."id" IS NULL OR (r."status"::text = 'PROCESSING' AND r."updatedAt" < ${threshold}))`,
   ]);
   await prisma.$transaction(async (tx) => {
     for (const attempt of staleAttempts) await openCase(tx, { paymentId: attempt.paymentId, attemptId: attempt.id, webhookEventId: null, reason: attempt.providerCredentialVersion ? "STALE_PROCESSING_ATTEMPT" : "CREDENTIAL_VERSION_MISMATCH", priority: "MEDIUM", summary: `Payfast ${attempt.status} attempt is stale.`, safeEvidence: { attemptReference: attempt.publicReference, observedStatus: attempt.status } });
@@ -44,8 +46,10 @@ async function main() {
       const payment = journal.correlationId ? await tx.payment.findUnique({ where: { publicReference: journal.correlationId }, select: { id: true, successfulAttemptId: true } }) : null;
       if (payment) await openCase(tx, { paymentId: payment.id, attemptId: payment.successfulAttemptId, webhookEventId: null, reason: "APPLICATION_FAILURE_AFTER_VERIFICATION", priority: "CRITICAL", summary: "Payment receipt journal is not linked to its payment.", safeEvidence: { ledgerJournalReference: journal.reference } });
     }
+    for (const payment of missingVerifiedPaymentEvents) await openCase(tx, { paymentId: payment.id, attemptId: payment.successfulAttemptId, webhookEventId: payment.successWebhookEventId, reason: "APPLICATION_FAILURE_AFTER_VERIFICATION", priority: "CRITICAL", summary: "Successful payment is missing its immutable verified-payment event.", safeEvidence: { paymentReference: payment.publicReference } });
+    for (const event of staleVerifiedPaymentDispatches) await openCase(tx, { paymentId: event.paymentId, attemptId: event.successfulAttemptId, webhookEventId: event.webhookEventId, reason: "APPLICATION_FAILURE_AFTER_VERIFICATION", priority: "HIGH", summary: "Verified-payment downstream dispatch has not converged.", safeEvidence: { verifiedPaymentEventReference: event.publicReference } });
   }, { isolationLevel: "Serializable" });
-  console.log(`Reconciliation scan observed ${staleAttempts.length + credentialMismatches.length + unappliedEvents.length + repeatedTemporaryFailures.length + unlinkedSuccesses.length + orphanJournals.length + conflictingReferences.length} anomaly candidates.`);
+  console.log(`Reconciliation scan observed ${staleAttempts.length + credentialMismatches.length + unappliedEvents.length + repeatedTemporaryFailures.length + unlinkedSuccesses.length + orphanJournals.length + conflictingReferences.length + missingVerifiedPaymentEvents.length + staleVerifiedPaymentDispatches.length} anomaly candidates.`);
 }
 
 try { await main(); } catch (error) { console.error(error instanceof Error ? error.message : "Payment reconciliation scan failed."); process.exitCode = 1; }

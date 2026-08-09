@@ -189,7 +189,8 @@ async function main() {
 
   // Gate E: Fresh migration path against kt_courier_phase265_clean
   ok = await executeGate('Gate E', async () => {
-    const env = { DATABASE_URL: DISPOSABLE_CLEAN_URL };
+const env = { DATABASE_URL: DISPOSABLE_CLEAN_URL };
+void env;
     const deploy1 = runCmd('npx prisma migrate deploy', { env });
     if (!deploy1.success) return { success: false, error: deploy1.stderr || deploy1.stdout || deploy1.error };
     const statusRes = runCmd('npx prisma migrate status', { env });
@@ -208,6 +209,7 @@ async function main() {
   // Gate G: Prisma generation and drift
   ok = await executeGate('Gate G', async () => {
     const env = { DATABASE_URL: DISPOSABLE_CLEAN_URL };
+    void env;
     const vRes = runCmd('npx prisma validate');
     if (!vRes.success) return { success: false, error: vRes.stderr || vRes.error };
     const gRes = runCmd('npx prisma generate');

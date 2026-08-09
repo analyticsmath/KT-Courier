@@ -3,7 +3,13 @@ import { Prisma, StoreStatus, ProductStatus, AdvertisingCampaignStatus, Advertis
 import { createHmac } from "node:crypto";
 import { assertAdvertisingProductionReady } from "./production-lock";
 
-const AD_SECRET = process.env.AD_SECRET || "ad_placement_secret_default_kt_courier_phase_24";
+function getAdSecret(): string {
+  if (process.env.AD_SECRET) return process.env.AD_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("[KT ADVERTISING] AD_SECRET must be configured in production.");
+  }
+  return "ad_placement_secret_default_kt_courier_phase_24";
+}
 
 export type ContextualRequest = {
   searchKeyword?: string;
@@ -37,7 +43,7 @@ export class AdvertisingServingService {
 
   static generateSignedToken(payload: ServeTokenPayload): string {
     const data = JSON.stringify(payload);
-    const signature = createHmac("sha256", AD_SECRET).update(data).digest("hex");
+    const signature = createHmac("sha256", getAdSecret()).update(data).digest("hex");
     return Buffer.from(JSON.stringify({ payload, signature })).toString("base64url");
   }
 
@@ -45,7 +51,7 @@ export class AdvertisingServingService {
     try {
       const decoded = Buffer.from(token, "base64url").toString("utf-8");
       const { payload, signature } = JSON.parse(decoded);
-      const expected = createHmac("sha256", AD_SECRET).update(JSON.stringify(payload)).digest("hex");
+      const expected = createHmac("sha256", getAdSecret()).update(JSON.stringify(payload)).digest("hex");
       if (signature !== expected) return null;
       if (Date.now() > payload.expiresAt) return null;
       return payload;

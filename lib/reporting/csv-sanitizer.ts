@@ -3,7 +3,8 @@
  * Protects against spreadsheet formula injection (=, +, -, @, \t, \r).
  */
 
-const FORMULA_PREFIX_REGEX = /^[=+\-@\t\r]/;
+const FORMULA_PREFIX_REGEX = /^\s*[=+\-@]/;
+const MAX_CELL_LENGTH = 10_000;
 
 export function sanitizeCsvCell(value: unknown): string {
   if (value === null || value === undefined) {
@@ -19,7 +20,9 @@ export function sanitizeCsvCell(value: unknown): string {
     str = String(value);
   }
 
-  // Prevent formula injection
+  str = str.replace(/\0/g, "").slice(0, MAX_CELL_LENGTH);
+
+  // Prevent formula injection, including values padded with whitespace.
   if (FORMULA_PREFIX_REGEX.test(str)) {
     str = `'${str}`;
   }

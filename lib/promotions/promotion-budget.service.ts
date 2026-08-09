@@ -32,6 +32,12 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
   const budgetRecord = await tx.promotionBudget.findUniqueOrThrow({
     where: { id: input.budgetId },
   });
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const committedToday = await tx.promotionBudgetMovement.aggregate({
+    where: { budgetId: input.budgetId, movementType: "COMMIT", createdAt: { gte: startOfToday } },
+    _sum: { amount: true },
+  });
 
   const budgetState: BudgetState = {
     version: budgetRecord.version,
@@ -40,7 +46,7 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
     committedAmount: new Decimal(budgetRecord.committedAmount),
     releasedAmount: new Decimal(budgetRecord.releasedAmount),
     reversedAmount: new Decimal(budgetRecord.reversedAmount),
-    dailyCommitmentSum: new Decimal((budgetRecord as any).dailyCommitmentSum ?? 0),
+    dailyCommitmentSum: new Decimal(committedToday._sum.amount ?? 0),
     dailyLimitAmount: budgetRecord.dailyLimit ? new Decimal(budgetRecord.dailyLimit) : undefined,
   };
 
@@ -68,7 +74,7 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
     releasedAmount: budgetState.releasedAmount,
     reversedAmount: budgetState.reversedAmount,
     status: isBudgetExhausted(budgetState) ? 'EXHAUSTED' : 'ACTIVE',
-  } as any, tx);
+  }, tx);
 
   const movement = await tx.promotionBudgetMovement.create({
     data: {
@@ -76,13 +82,12 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
       movementType: input.movementType,
       amount: input.amount,
       balanceAfter,
-      budgetVersion: budgetState.version,
       operationId: input.operationId,
       requestHash: input.requestHash,
       checkoutId: input.checkoutId,
       storeOrderId: input.storeOrderId,
       redemptionId: input.redemptionId,
-    } as any
+    }
   });
 
   return {

@@ -10,8 +10,6 @@ import {
   PayfastItnVerificationFailure,
   verifyPayfastItn,
 } from "@/lib/services/payfast-itn-verification.service";
-import { onVerifiedMarketplacePaymentSucceededInProduction } from "@/lib/marketplace-checkout/marketplace-payment-success-hook.service";
-import { onVerifiedSubscriptionPaymentSucceededInProduction } from "@/lib/subscriptions/subscription-payment-success-hook.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,12 +71,10 @@ export async function POST(request: Request): Promise<Response> {
       return text("INVALID", 400);
     }
     observePayfastItn("verified", { environment: result.receipt.environment, normalizedStatus: result.receipt.normalizedStatus });
-    const application = await applyVerifiedPayfastItn(result, {
-      afterVerifiedPaymentSucceeded: async (paymentId) => {
-        await onVerifiedMarketplacePaymentSucceededInProduction(paymentId);
-        await onVerifiedSubscriptionPaymentSucceededInProduction(paymentId);
-      },
-    });
+    // The transaction persists PAYMENT_SUCCEEDED_VERIFIED for an out-of-band,
+    // idempotent processor. This HTTP boundary never finalizes marketplace
+    // orders or activates subscriptions.
+    const application = await applyVerifiedPayfastItn(result);
     if (application.outcome === "RECONCILIATION_REQUIRED") {
       observePayfastItn("reconciliation_required", { eventPublicReference: application.eventPublicReference, durationMs: Date.now() - startedAt });
       return text("INVALID", 409);

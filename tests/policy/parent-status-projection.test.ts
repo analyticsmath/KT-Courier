@@ -5,4 +5,8 @@ describe("parent-status-projection", () => {
     const result = projectMarketplaceParentStatus([{ acceptanceStatus: "ACCEPTED", preparationStatus: "HANDED_OFF", resolutionStatus: "CLEAR", deliveryBridgeStatus: "HANDED_OFF" }, { acceptanceStatus: "REJECTED", preparationStatus: "ABORTED", resolutionStatus: "RESOLVED", deliveryBridgeStatus: "NOT_REQUESTED" }]);
     expect(result).toMatchObject({ status: "IN_PROGRESS", handedOff: 1, rejectedOrCancelled: 1 });
   });
+  it("requires every required store delivery before projecting complete", () => {
+    const result = projectMarketplaceParentStatus([{ acceptanceStatus: "ACCEPTED", preparationStatus: "HANDED_OFF", resolutionStatus: "CLEAR", deliveryBridgeStatus: "DELIVERED" }, { acceptanceStatus: "ACCEPTED", preparationStatus: "HANDED_OFF", resolutionStatus: "CLEAR", deliveryBridgeStatus: "DELIVERED" }]);
+    expect(result).toMatchObject({ status: "ALL_STORES_DELIVERED", delivered: 2 });
+  });
 });

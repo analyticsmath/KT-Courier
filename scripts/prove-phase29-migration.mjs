@@ -41,7 +41,8 @@ async function main() {
 
   // Run deployment checks
   console.log("Running Prisma schema drift check...");
-  let driftCheckOutput = "Clean (no drift)";
+let driftCheckOutput = "Clean (no drift)";
+void driftCheckOutput;
   try {
     const output = execSync("npx prisma migrate status", { encoding: "utf8" });
     driftCheckOutput = output.trim();

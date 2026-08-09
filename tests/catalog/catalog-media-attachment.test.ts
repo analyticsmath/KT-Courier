@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertCatalogMediaAttachment } from "@/lib/catalog/media/catalog-media-attachment";
 
-const common = { role: "PRIMARY", altText: "Front of product package", existingProductImageCount: 0, existingVariantImageCount: 0, resultingPrimaryImageCount: 1 };
+const common = { role: "PRIMARY" as const, altText: "Front of product package", existingProductImageCount: 0, existingVariantImageCount: 0, resultingPrimaryImageCount: 1 };
 describe("catalog media attachment", () => {
   it("allows same-store READY media for a private product", () => expect(() => assertCatalogMediaAttachment({ ...common, product: { id: "p", scope: "STORE_PRIVATE", sourceStoreId: "s1" }, variant: null, asset: { status: "READY", ownerType: "STORE", ownerStoreId: "s1", purpose: "PRODUCT_IMAGE" } })).not.toThrow());
   it("requires platform media for canonical products and denies rejected or cross-store assets", () => { expect(() => assertCatalogMediaAttachment({ ...common, product: { id: "p", scope: "GLOBAL_CANONICAL", sourceStoreId: null }, variant: null, asset: { status: "READY", ownerType: "PLATFORM", ownerStoreId: null, purpose: "PRODUCT_IMAGE" } })).not.toThrow(); expect(() => assertCatalogMediaAttachment({ ...common, product: { id: "p", scope: "STORE_PRIVATE", sourceStoreId: "s1" }, variant: null, asset: { status: "READY", ownerType: "STORE", ownerStoreId: "s2", purpose: "PRODUCT_IMAGE" } })).toThrow(); expect(() => assertCatalogMediaAttachment({ ...common, product: { id: "p", scope: "STORE_PRIVATE", sourceStoreId: "s1" }, variant: null, asset: { status: "REJECTED", ownerType: "STORE", ownerStoreId: "s1", purpose: "PRODUCT_IMAGE" } })).toThrow(); });

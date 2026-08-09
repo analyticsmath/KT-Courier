@@ -69,7 +69,7 @@ export function createMarketplaceDeliveryQuoteAdapter(dependencies: Readonly<{
   resolvePhase6Evidence(input: MarketplaceDeliveryQuoteInput): Promise<MarketplaceDeliveryQuoteResult | null>;
 }>): MarketplaceDeliveryQuoteAdapter {
   return Object.freeze({
-    async quoteStoreGroup(input: any) {
+    async quoteStoreGroup(input: MarketplaceDeliveryQuoteInput) {
       if (!input.pickupLocationReference || !input.serviceAreaReference || input.lineCount < 1) {
         throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A trusted pickup location and service area are required for delivery quoting.");
       }

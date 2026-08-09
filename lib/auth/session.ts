@@ -80,6 +80,19 @@ export async function revokeSessionByToken(args: {
   });
 }
 
+export async function revokeSessionById(args: {
+  sessionId: string;
+  userId: string;
+  reason: string;
+  revokedByUserId?: string | null;
+}): Promise<boolean> {
+  const result = await prisma.session.updateMany({
+    where: { id: args.sessionId, userId: args.userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    data: { revokedAt: new Date(), revokedReason: args.reason, revokedByUserId: args.revokedByUserId ?? null },
+  });
+  return result.count === 1;
+}
+
 export async function revokeAllUserSessions(args: {
   userId: string;
   reason: string;

@@ -48,10 +48,12 @@ describe("Phase 20 settlement and recovery composition", () => {
   });
 
   it("wires Phase 12 successful payment handling to the durable marketplace finalizer", () => {
-    expect(source("lib/services/payfast-itn-application.service.ts")).toContain("afterVerifiedPaymentSucceeded");
+    expect(source("lib/services/payfast-itn-application.service.ts")).toContain("PAYMENT_SUCCEEDED_VERIFIED");
     const hook = source("lib/marketplace-checkout/marketplace-payment-success-hook.service.ts");
     for (const token of ["createOrResolveFinalizationReceipt", "finalizePaidMarketplaceCheckout", "markCheckoutReconciliationRequired"]) expect(hook).toContain(token);
-    expect(source("app/api/payments/payfast/itn/route.ts")).toContain("onVerifiedMarketplacePaymentSucceededInProduction");
+    const processor = source("lib/payments/verified-payment-event-processor.service.ts");
+    expect(processor).toContain("onVerifiedMarketplacePaymentSucceededInProduction");
+    expect(source("app/api/payments/payfast/itn/route.ts")).not.toContain("onVerifiedMarketplacePaymentSucceededInProduction");
   });
 
   it("uses concrete reservation and payment repositories from customer composition", () => {
@@ -71,7 +73,7 @@ describe("Phase 20 settlement and recovery composition", () => {
   it("operational processors support dry-run/apply/limit and call canonical services", () => {
     const support = source("scripts/marketplace-checkout-script-support.mjs");
     for (const token of ["--dry-run", "--apply", "--limit"]) expect(support).toContain(token);
-    expect(source("scripts/phase20-finalize-paid-marketplace-checkouts.worker.ts")).toContain("onVerifiedMarketplacePaymentSucceededInProduction");
+    expect(source("scripts/phase20-finalize-paid-marketplace-checkouts.worker.ts")).toContain("consumeVerifiedPaymentEvents");
     expect(source("scripts/phase20-settle-marketplace-store-orders.worker.ts")).toContain("settleMarketplaceStoreOrder");
     expect(source("scripts/phase20-expire-checkout-reservations.worker.ts")).toContain("expireMarketplaceCheckoutReservation");
   });

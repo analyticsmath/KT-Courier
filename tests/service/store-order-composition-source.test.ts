@@ -26,11 +26,16 @@ describe("store-order production composition source", () => {
     expect(service).toContain("const dependencies = { ...resolveStoreOrderProductionComposition()");
   });
 
-  it("keeps canonical authorities outside the local staging transactions", () => {
-    expect(service).toContain("const staged = await transaction");
+  it("keeps financial and delivery authorities outside their local staging transactions", () => {
     expect(service).toContain("await dependencies.financialAuthority.applyExactAdjustment");
     expect(service).toContain("await dependencies.deliveryAuthority.createCourierOrder");
-    expect(service).toContain("await dependencies.pickupAuthority.completeCanonicalPickup");
+  });
+
+  it("executes marketplace pickup through one propagated transaction", () => {
+    expect(service).toContain("const result = await transaction(async (tx) => {");
+    expect(service).toContain("completeMarketplacePickupInTx");
+    expect(service).toContain("projectMarketplaceCourierExecutionInTx");
+    expect(service).not.toContain("dependencies.pickupAuthority.completeCanonicalPickup");
   });
 
   it("requires package-count evidence and does not complete delivery", () => {

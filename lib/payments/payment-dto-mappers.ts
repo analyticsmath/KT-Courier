@@ -12,6 +12,7 @@ import type {
   PaymentState,
 } from "./types";
 import type { PaymentProviderFailureCategory } from "./providers/provider-errors";
+import { PaymentError } from "./errors";
 
 export function toPaymentSummaryDto(payment: {
   id: string;
@@ -33,9 +34,12 @@ export function toPaymentSummaryDto(payment: {
   reconciliationStatus?: string;
   createdAt: Date;
   updatedAt: Date;
-  order: { id: string; orderNumber: string };
-  user: { id: string; name: string | null };
+  order: { id: string; orderNumber: string } | null;
+  user: { id: string; name: string | null } | null;
 }): PaymentSummaryDto {
+  if (!payment.order || !payment.user) {
+    throw new PaymentError("PAYMENT_ORDER_NOT_FOUND", "Payment subject relationships are incomplete.");
+  }
   return Object.freeze({
     id: payment.id,
     publicReference: payment.publicReference,

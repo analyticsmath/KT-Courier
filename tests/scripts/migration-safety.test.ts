@@ -6,6 +6,13 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 
 const checkerPath = path.join(process.cwd(), "scripts", "check-migrations-safety.mjs");
+const reconciliationMigrationPath = path.join(
+  process.cwd(),
+  "prisma",
+  "migrations",
+  "20260805030000_schema_drift_reconciliation",
+  "migration.sql"
+);
 const tempDirs: string[] = [];
 
 function sha256(value: string): string {
@@ -39,6 +46,10 @@ function createMigrationFixture(extraSql = ""): string {
   mkdirSync(phase13Dir, { recursive: true });
   const realPhase13Sql = readFileSync(path.join(process.cwd(), "prisma", "migrations", "20260717050000_phase13_withdrawals_finance_admin", "migration.sql"), "utf8");
   writeFileSync(path.join(phase13Dir, "migration.sql"), realPhase13Sql, "utf8");
+  const phase29Dir = path.join(migrationsDir, "20260728000000_phase29_reporting_exports");
+  mkdirSync(phase29Dir, { recursive: true });
+  const realPhase29Sql = readFileSync(path.join(process.cwd(), "prisma", "migrations", "20260728000000_phase29_reporting_exports", "migration.sql"), "utf8");
+  writeFileSync(path.join(phase29Dir, "migration.sql"), realPhase29Sql, "utf8");
 
   const realSchemaPrisma = readFileSync(path.join(process.cwd(), "prisma", "schema.prisma"), "utf8");
   writeFileSync(path.join(dir, "prisma", "schema.prisma"), realSchemaPrisma, "utf8");
@@ -60,7 +71,7 @@ afterEach(() => {
 });
 
 describe("migration safety checker", () => {
-  it("passes a valid archived chain and additive initial baseline", () => {
+  it("passes the approved Phase 29 obsolete-report replacement and additive initial baseline", () => {
     const cwd = createMigrationFixture();
     const output = execFileSync(process.execPath, [checkerPath], { cwd, encoding: "utf8" });
 
@@ -73,5 +84,23 @@ describe("migration safety checker", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("DROP TABLE");
+  });
+
+  it("continues to reject an unrelated DROP INDEX statement", () => {
+    const cwd = createMigrationFixture('DROP INDEX "User_email_idx";');
+    const result = spawnSync(process.execPath, [checkerPath], { cwd, encoding: "utf8" });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("DROP INDEX");
+  });
+
+  it("keeps the schema-drift reconciliation forward-only and fail-closed", () => {
+    const sql = readFileSync(reconciliationMigrationPath, "utf8");
+
+    expect(sql).toContain('ADD COLUMN "orderId" TEXT');
+    expect(sql).toContain('ADD COLUMN "currency" "LedgerCurrency"');
+    expect(sql).toContain("Schema drift reconciliation blocked");
+    expect(sql).toContain('ALTER COLUMN "currency" SET NOT NULL');
+    expect(sql).not.toMatch(/\bDROP\s+(?:TABLE|COLUMN|TYPE)\b/i);
   });
 });

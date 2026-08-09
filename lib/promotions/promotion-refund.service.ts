@@ -41,9 +41,6 @@ export async function applyPromotionRefundAdjustment(context: PromotionRefundCon
       throw new Error(`Conflict: Replay of operation ${context.operationId} with different hash.`);
     }
     // We can compute the result for replay
-    const redemption = await tx.promotionRedemption.findUniqueOrThrow({
-      where: { id: context.redemptionId }
-    });
     const lineAllocations = context.frozenPromotionAllocations.filter(a => a.lineId === context.lineReference);
     let totalCustomerRefundAmount = new Decimal(0);
     let totalPlatformSubventionReversal = new Decimal(0);
@@ -116,7 +113,7 @@ export async function applyPromotionRefundAdjustment(context: PromotionRefundCon
       campaignVersionId: redemption.campaignVersionId,
       movementType: 'REVERSE',
       amount: promotionDiscountReversal,
-      operationId: context.operationId + '_' + ((allocation as any).id ?? (allocation as any).lineReference ?? "1"),
+      operationId: context.operationId + '_' + allocation.lineId,
       requestHash: context.requestHash,
       storeOrderId: context.storeOrderId,
       redemptionId: context.redemptionId,

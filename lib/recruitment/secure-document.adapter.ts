@@ -185,6 +185,7 @@ export class RecruitmentSecureDocumentAdapter {
   }
 
   projectSafeDocumentDto(doc: any, _accessor: SecureDocumentAccessor) {
+    void _accessor;
     return {
       id: doc.id,
       publicReference: doc.publicReference,

@@ -8,7 +8,7 @@ const isLocalValidationServerAvailable = Boolean(
 const SAFE_HASH = "request-hash-1234567890123456";
 
 test.describe("Marketplace Guest Checkout Journey", () => {
-  test.beforeEach(({ page }) => {
+  test.beforeEach(() => {
     test.skip(!isLocalValidationServerAvailable, "Requires active local app instance with KT_LOCAL_STOREFRONT_VALIDATION=true");
   });
 

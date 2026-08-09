@@ -64,7 +64,7 @@ export async function listPayments(query: PaymentListQuery): Promise<PaymentList
     }),
   ]);
   return Object.freeze({
-    data: Object.freeze(rows.map((row: any) => toPaymentSummaryDto(row))),
+    data: Object.freeze(rows.map(toPaymentSummaryDto)),
     pagination: pagination(query.page, query.pageSize, total),
   });
 }
@@ -80,7 +80,7 @@ export async function getPaymentDetail(id: string): Promise<PaymentDetailDto | n
   });
   if (!payment) return null;
   return Object.freeze({
-    payment: toPaymentSummaryDto(payment as any),
+    payment: toPaymentSummaryDto(payment),
     attempts: Object.freeze(payment.attempts.map(toPaymentAttemptDto)),
     history: Object.freeze(payment.statusHistory.map(toPaymentHistoryDto)),
   });
@@ -91,4 +91,3 @@ export function listPaymentProviders(
 ): PaymentProviderListDto {
   return Object.freeze({ data: Object.freeze([...registry.readiness()]) });
 }
-

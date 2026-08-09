@@ -10,7 +10,8 @@ export type DriverOperationType =
   | "DELIVERY_OTP_REQUEST"
   | "DELIVERY_ATTEMPT"
   | "DELIVERY_RESUME"
-  | "DELIVERY_COMPLETE";
+  | "DELIVERY_COMPLETE"
+  | "LOCATION_SAMPLE";
 
 export type DriverOperationActions = {
   canAcceptOffer: boolean;

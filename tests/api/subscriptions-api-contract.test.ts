@@ -6,7 +6,7 @@ const root = process.cwd(); const read = (file: string) => readFileSync(path.joi
 describe("subscription API contract", () => {
   it("has no public mark-paid or manual-entitlement endpoint", () => {
     expect(read("app/api/subscriptions/customer/prepare-payment/route.ts")).toContain("assertSubscriptionsProductionReady");
-    expect(read("app/api/payments/payfast/itn/route.ts")).toContain("onVerifiedSubscriptionPaymentSucceededInProduction");
+    expect(read("lib/payments/verified-payment-event-processor.service.ts")).toContain("onVerifiedSubscriptionPaymentSucceededInProduction");
     expect(read("app/api/admin/subscription-contracts/route.ts")).not.toContain("mark-paid");
     expect(read("app/api/admin/subscription-plan-versions/[reference]/activate/route.ts")).toContain("SUBSCRIPTION_PLANS_ACTIVATE");
   });

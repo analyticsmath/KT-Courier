@@ -1,7 +1,7 @@
 import { Decimal } from '@prisma/client/runtime/library';
 import { assertPromotionsProductionReady } from './production-lock';
 import { calculateDiscountAmount, type DiscountScope, type DiscountType } from './promotion-discount-policy';
-import { evaluateStackingPolicy, type StackablePromotion, type PromotionCategory, type StackingEvidence } from './promotion-stacking-policy';
+import { evaluateStackingPolicy, type PromotionCategory, type StackingEvidence } from './promotion-stacking-policy';
 import { evaluateEligibilityRule, type RuleDefinition, type EligibilityContext } from './promotion-eligibility-policy';
 import { evaluateTargeting, type TargetDefinition, type LineContext } from './promotion-targeting-policy';
 import { allocatePromotionDiscount, type LineAllocationEvidence, type LineAllocationContext } from './promotion-allocation-policy';
@@ -137,11 +137,13 @@ export async function evaluateMarketplacePromotions(
 
   const eligible: EligiblePromotion[] = [];
   const rejected: RejectedPromotion[] = [];
-  const validStackableCandidates: (EligiblePromotion & {
+  type StackableCandidate = EligiblePromotion & {
     id: string;
     category: PromotionCategory;
     scope: DiscountScope;
-  })[] = [];
+    allocationLines: LineAllocationContext[];
+  };
+  const validStackableCandidates: StackableCandidate[] = [];
 
   for (const candidate of candidates) {
     // Check schedule
@@ -265,9 +267,7 @@ export async function evaluateMarketplacePromotions(
       id: candidate.id,
       category,
       scope: candidate.discountScope,
-      // Pass the line contexts temporarily inside the object to access later
-      // @ts-ignore
-      _lines: validLineAllocations,
+      allocationLines: validLineAllocations,
     });
   }
 
@@ -286,8 +286,7 @@ export async function evaluateMarketplacePromotions(
 
   for (const selected of stackResult.selected) {
     const promo = validStackableCandidates.find((c) => c.id === selected.id)!;
-    // @ts-ignore
-    const validLines = promo._lines as LineAllocationContext[];
+    const validLines = promo.allocationLines;
 
     const allocs = allocatePromotionDiscount({
       totalDiscountAmount: selected.calculatedDiscount,

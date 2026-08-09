@@ -21,12 +21,60 @@ const withdrawalLegacyCompatibilityFields = [
   ["legacyPaidAt", "DateTime?", "paidAt"],
 ];
 const dangerousPatterns = [
-  { label: "DROP TABLE", pattern: /\bDROP\s+TABLE\b/i },
-  { label: "DROP COLUMN", pattern: /\bDROP\s+COLUMN\b/i },
-  { label: "DROP TYPE", pattern: /\bDROP\s+TYPE\b/i },
-  { label: "TRUNCATE", pattern: /\bTRUNCATE\b/i },
-  { label: "DELETE FROM", pattern: /\bDELETE\s+FROM\b/i },
-  { label: "ALTER TABLE ... DROP", pattern: /\bALTER\s+TABLE\b[\s\S]*?\bDROP\b/i },
+  { label: "DROP TABLE", pattern: /\bDROP\s+TABLE\b/gi },
+  { label: "DROP COLUMN", pattern: /\bDROP\s+COLUMN\b/gi },
+  { label: "DROP TYPE", pattern: /\bDROP\s+TYPE\b/gi },
+  { label: "DROP CONSTRAINT", pattern: /\bDROP\s+CONSTRAINT\b/gi },
+  { label: "DROP INDEX", pattern: /\bDROP\s+INDEX\b/gi },
+  { label: "TRUNCATE", pattern: /\bTRUNCATE\b/gi },
+  { label: "DELETE FROM", pattern: /\bDELETE\s+FROM\b/gi },
+];
+const approvedDestructiveOperations = [
+  {
+    migration: "20260728000000_phase29_reporting_exports",
+    label: "DROP TABLE",
+    statement: /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+"ReportJob"\s+CASCADE\s*;\s*$/i,
+    // Phase 29 replaces the baseline's obsolete ReportJob shape before any
+    // reporting data is relied upon; the same migration recreates it with the
+    // governed export schema below.
+    reason: "Replaces the obsolete baseline ReportJob placeholder with the governed reporting job schema.",
+  },
+  {
+    migration: "20260728000000_phase29_reporting_exports",
+    label: "DROP TYPE",
+    statement: /^\s*DROP\s+TYPE\s+IF\s+EXISTS\s+"ReportJobStatus"\s+CASCADE\s*;\s*$/i,
+    // The replacement enum is created immediately afterwards with the status
+    // values required by the recreated Phase 29 ReportJob table.
+    reason: "Replaces the obsolete baseline ReportJobStatus enum for the recreated reporting job schema.",
+  },
+  {
+    migration: "20260805040000_legacy_schema_cleanup",
+    label: "DROP TYPE",
+    statement: /^\s*DROP\s+TYPE\s+"ExportFormat"\s*;\s*$/i,
+    // Baseline ExportFormat enum is obsolete, superseded by ReportExportFormat, and has no remaining catalog dependencies.
+    reason: "Removes obsolete baseline ExportFormat enum after catalog dependency preflight verification.",
+  },
+  {
+    migration: "20260805040000_legacy_schema_cleanup",
+    label: "DROP TYPE",
+    statement: /^\s*DROP\s+TYPE\s+"WithdrawalStatus_legacy_phase4"\s*;\s*$/i,
+    // Phase 4 withdrawal status enum was retained during Phase 13 and has no remaining catalog dependencies.
+    reason: "Removes obsolete Phase 4 withdrawal status enum after Phase 13 migration and catalog dependency preflight verification.",
+  },
+  {
+    migration: "20260805050000_final_schema_alignment",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"CatalogCategory"\s+DROP\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?"CatalogCategory_(?:createdByUserId|updatedByUserId)_fkey"\s*;\s*$/i,
+    // CatalogCategory user foreign keys are un-navigated; user relations are intentionally omitted in Prisma to preserve independent audit evidence and unblock user lifecycle.
+    reason: "Removes un-navigated CatalogCategory user foreign keys to preserve independent audit evidence and unblock user lifecycle.",
+  },
+  {
+    migration: "20260805070000_comprehensive_schema_reconciliation",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"PaymentWebhookEvent"\s+DROP\s+CONSTRAINT\s+"PaymentWebhookEvent_paymentId_fkey"\s*;\s*$/i,
+    // Baseline PaymentWebhookEvent_paymentId_fkey foreign key was superseded by Phase 12 PaymentWebhookEvent_paymentId_phase12_restrict_fkey constraint; legacy constraint drop is verified by fail-closed preflight.
+    reason: "Removes obsolete baseline duplicate foreign key PaymentWebhookEvent_paymentId_fkey after fail-closed preflight verification.",
+  },
 ];
 
 function checksum(file) {
@@ -53,6 +101,21 @@ function statementLine(sql, index) {
   return sql.slice(0, index).split(/\r?\n/).length;
 }
 
+function statementContaining(sql, index) {
+  const statementStart = sql.lastIndexOf(";", index) + 1;
+  const statementEnd = sql.indexOf(";", index);
+  return sql.slice(statementStart, statementEnd === -1 ? sql.length : statementEnd + 1);
+}
+
+function approvedDestructiveOperation(migration, finding) {
+  return approvedDestructiveOperations.find(
+    (approval) =>
+      approval.migration === migration &&
+      approval.label === finding.label &&
+      approval.statement.test(finding.statement)
+  );
+}
+
 function findDangerousSql(sql, file) {
   // Replacing the two nullable Phase 4 payment FKs with required RESTRICT FKs
   // is a reviewed structural hardening, not a data/table/column drop.
@@ -73,12 +136,28 @@ function findDangerousSql(sql, file) {
         ? sql
           .replace(/ALTER\s+TABLE\s+"WithdrawalRequest"\s+ALTER\s+COLUMN\s+"(?:status|currency)"\s+DROP\s+DEFAULT\s*;/gi, "")
           .replace(/ALTER\s+TABLE\s+"WithdrawalRequest"\s+DROP\s+CONSTRAINT\s+"WithdrawalRequest_requestedByUserId_fkey"\s*;/gi, "")
+      : file.includes("20260717070000_phase15_customer_wallet_refunds")
+        ? sql.replace(/ALTER\s+TABLE\s+"PaymentRefund"\s+DROP\s+CONSTRAINT\s+"PaymentRefund_paymentId_fkey"\s*;/gi, "")
+      : file.includes("20260717080000_phase16_store_earnings")
+        ? sql.replace(/ALTER\s+TABLE\s+"RefundFundingAllocation"\s+DROP\s+CONSTRAINT\s+"RefundFundingAllocation_source_shape_check"\s*;/gi, "")
+      : file.includes("20260717090000_phase17_driver_earnings")
+        ? sql.replace(/ALTER\s+TABLE\s+"(?:CommissionAllocation|RefundFundingAllocation)"\s+DROP\s+CONSTRAINT\s+"[^"]+"\s*;/gi, "")
+      : file.includes("20260717140000_phase22_subscriptions")
+        ? sql.replace(/ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+"Payment_subject_shape_check"\s*;/gi, "")
+      : file.includes("20260805030000_schema_drift_reconciliation")
+        ? sql.replace(/DROP\s+CONSTRAINT\s+"(?:AdvertisingFundingMovement_ledgerJournalId_fkey|AdvertisingClickCharge_ledgerJournalId_fkey|AdvertisingClickCharge_reversedByJournalId_fkey)"\s*;/gi, "")
+      : file.includes("20260805070000_comprehensive_schema_reconciliation")
+        ? sql.replace(/ALTER\s+TABLE\s+"PaymentWebhookEvent"\s+DROP\s+CONSTRAINT\s+"PaymentWebhookEvent_paymentId_fkey"\s*;/gi, "")
       : sql;
   const findings = [];
   for (const { label, pattern } of dangerousPatterns) {
-    const match = pattern.exec(inspectedSql);
-    if (match) {
-      findings.push({ file, line: statementLine(sql, match.index), label });
+    for (const match of inspectedSql.matchAll(pattern)) {
+      findings.push({
+        file,
+        line: statementLine(sql, match.index),
+        label,
+        statement: statementContaining(inspectedSql, match.index),
+      });
     }
   }
   return findings;
@@ -204,6 +283,28 @@ function verifyWithdrawalCompatibility(activeDirs) {
   }
 }
 
+function verifyActiveMigrationManifest(activeDirs) {
+  const activeManifestPath = path.join(root, "artifacts", "phase26-5", "migrations", "migration-manifest.json");
+  if (!existsSync(activeManifestPath)) return;
+
+  const manifestData = JSON.parse(readFileSync(activeManifestPath, "utf8"));
+  if (!Array.isArray(manifestData.manifest)) return;
+
+  const manifestMap = new Map(manifestData.manifest.map((item) => [item.directory, item]));
+  for (const dir of activeDirs) {
+    const authority = manifestMap.get(dir);
+    if (!authority) continue;
+    const sqlPath = path.join(migrationsDir, dir, "migration.sql");
+    if (!existsSync(sqlPath)) {
+      throw new Error(`Active migration ${dir} does not contain migration.sql.`);
+    }
+    const actualHash = checksum(sqlPath);
+    if (actualHash !== authority.hash) {
+      throw new Error(`Historical active migration checksum mismatch for ${dir}. Approved authority hash: ${authority.hash}; actual hash: ${actualHash}.`);
+    }
+  }
+}
+
 try {
   const archiveManifest = loadArchiveManifest();
   verifyArchive(archiveManifest);
@@ -211,9 +312,11 @@ try {
   const activeDirs = migrationDirectories(migrationsDir);
   const { baseline, sql } = verifyActiveBaseline(activeDirs, archiveManifest);
   verifyWithdrawalCompatibility(activeDirs);
+  verifyActiveMigrationManifest(activeDirs);
   const findings = activeDirs.flatMap((migration) => {
     const migrationSql = migration === baseline ? sql : stripSqlComments(readFileSync(path.join(migrationsDir, migration, "migration.sql"), "utf8"));
-    return findDangerousSql(migrationSql, path.join("prisma", "migrations", migration, "migration.sql"));
+    const file = path.join("prisma", "migrations", migration, "migration.sql");
+    return findDangerousSql(migrationSql, file).filter((finding) => !approvedDestructiveOperation(migration, finding));
   });
 
   if (findings.length > 0) {

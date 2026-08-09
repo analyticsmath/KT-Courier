@@ -4,6 +4,7 @@ import {
   toAdminActivityDto,
   type AdminActivityDto,
 } from "@/lib/dto/admin-activity.dto";
+import { logApplicationEvent, sanitizeLogContext } from "@/lib/observability/logger";
 
 // ─── Write: record an activity log entry ─────────────────────────────────────
 
@@ -18,21 +19,32 @@ export interface RecordActivityInput {
 
 export async function recordAdminActivity(input: RecordActivityInput): Promise<void> {
   try {
-    await prisma.adminActivityLog.create({
-      data: {
-        actorUserId: input.actorUserId,
-        action: input.action,
-        entityType: input.entityType ?? null,
-        entityId: input.entityId ?? null,
-        message: input.message ?? null,
-        metadata:
-          input.metadata !== undefined
-            ? (input.metadata as unknown as Prisma.InputJsonValue)
-            : undefined,
-      },
-    });
+    await Promise.race([
+      prisma.adminActivityLog.create({
+        data: {
+          actorUserId: input.actorUserId,
+          action: input.action,
+          entityType: input.entityType ?? null,
+          entityId: input.entityId ?? null,
+          message: input.message ? input.message.replace(/[\r\n\0]/g, " ").slice(0, 512) : null,
+          metadata:
+            input.metadata !== undefined
+              ? (sanitizeLogContext(input.metadata) as unknown as Prisma.InputJsonValue)
+              : undefined,
+        },
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("DB_OFFLINE")), 100)),
+    ]);
   } catch {
-    // Activity logging must never block the primary operation
+    logApplicationEvent({
+      level: "ERROR",
+      event: "admin_activity.write_failed",
+      message: "Administrative activity persistence failed.",
+      actorReference: input.actorUserId,
+      resourceReference: input.entityId,
+      outcome: "FAILURE",
+      errorCategory: "ADMIN_ACTIVITY_WRITE_FAILED",
+    });
   }
 }
 
@@ -76,8 +88,8 @@ export async function listAdminActivity(
       orderBy: { createdAt: "desc" },
       skip,
       take: filters.pageSize,
-    }),
-    prisma.adminActivityLog.count({ where }),
+    }).catch(() => []),
+    prisma.adminActivityLog.count({ where }).catch(() => 0),
   ]);
 
   return { data: logs.map(toAdminActivityDto), total };

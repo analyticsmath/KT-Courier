@@ -21,10 +21,11 @@ async function verify() {
     _count: true,
   });
 
-  const promoterCounts = await prisma.promoterProfile.groupBy({
+const promoterCounts = await prisma.promoterProfile.groupBy({
     by: ["status"],
     _count: true,
   });
+  void promoterCounts;
 
   const appCounts = await prisma.vacancyApplication.groupBy({
     by: ["status"],

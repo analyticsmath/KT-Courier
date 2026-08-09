@@ -39,12 +39,12 @@ function cleanTerm(value: string): string {
 
 /** Normalises static data only; it deliberately rejects regex, SQL, and executable rules. */
 export function normaliseStorefrontSynonymTerms(input: readonly { input: string; outputs: readonly string[]; direction: StorefrontSynonymDirection }[]): StorefrontSynonymTerm[] {
-  if (!Array.isArray(input) || input.length < 1 || input.length > 48) throw new StorefrontEditorialPolicyError("INVALID_SYNONYM_SET", "A synonym set must contain between 1 and 48 deterministic rules.");
+  if (input.length < 1 || input.length > 48) throw new StorefrontEditorialPolicyError("INVALID_SYNONYM_SET", "A synonym set must contain between 1 and 48 deterministic rules.");
   const seen = new Set<string>();
   return input.map((rule) => {
     if (!rule || (rule.direction !== "EQUIVALENT" && rule.direction !== "ONE_WAY") || !Array.isArray(rule.outputs) || rule.outputs.length < 1 || rule.outputs.length > 12) throw new StorefrontEditorialPolicyError("INVALID_SYNONYM_RULE", "Synonym rules must have a supported direction and bounded outputs.");
     const source = cleanTerm(rule.input);
-    const outputs = [...new Set((rule.outputs as any[]).map((o: any) => cleanTerm(String(o))))].filter((value) => value !== source).sort((a: any, b: any) => String(a).localeCompare(String(b), "en-ZA"));
+    const outputs = [...new Set(rule.outputs.map((output) => cleanTerm(output)))].filter((value) => value !== source).sort((left, right) => left.localeCompare(right, "en-ZA"));
     if (!outputs.length) throw new StorefrontEditorialPolicyError("INVALID_SYNONYM_RULE", "A synonym rule must point to a distinct normalized term.");
     const key = `${rule.direction}:${source}`;
     if (seen.has(key)) throw new StorefrontEditorialPolicyError("DUPLICATE_SYNONYM_RULE", "A synonym source may occur once per direction.");

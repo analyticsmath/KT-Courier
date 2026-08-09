@@ -2,7 +2,11 @@ import process from "node:process";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 import {
+  assertDisposableSmokeIdentity,
   assertSuccess,
+  getDisposableSmokeSeedComposeArgs,
+  getSchemaVerifierComposeArgs,
+  isSchemaDiffVerbose,
   normalComposeProject,
   runCompose,
   safeError,
@@ -17,7 +21,7 @@ const smokeEnv = {
   POSTGRES_USER: "kt_courier_baseline_smoke",
   POSTGRES_PASSWORD: "smoke_local_only_password",
   SHADOW_POSTGRES_DB: "kt_courier_baseline_smoke_shadow",
-  POSTGRES_PORT: "55433",
+  POSTGRES_PORT: process.env.KT_SMOKE_POSTGRES_PORT || "55832",
   APP_PORT: "3100",
   NEXT_PUBLIC_APP_URL: "http://localhost:3100",
   EMAIL_PROVIDER: "console",
@@ -62,16 +66,12 @@ async function main() {
     }),
     "fresh migration status"
   );
+  if (isSchemaDiffVerbose(smokeEnv)) {
+    safeLog("Schema drift verbose reporting: ENABLED");
+  }
   assertSuccess(
     runCompose(
-      [
-        "run",
-        "--rm",
-        "migrate",
-        "sh",
-        "-lc",
-        "npx prisma migrate diff --from-url \"$DATABASE_URL\" --to-schema-datamodel prisma/schema.prisma --exit-code",
-      ],
+      getSchemaVerifierComposeArgs(smokeEnv),
       { projectName, env: smokeEnv }
     ),
     "fresh database-to-schema diff"
@@ -101,8 +101,22 @@ async function main() {
   if (JSON.stringify(appliedNames) !== JSON.stringify(expectedMigrations)) {
     throw new Error(`Fresh database migration chain does not match the repository migration chain (expected ${expectedMigrations.join(", ")}; applied ${appliedNames.join(", ") || "none"}).`);
   }
-  assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env: smokeEnv }), "first smoke seed");
-  assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env: smokeEnv }), "second smoke seed");
+
+  assertDisposableSmokeIdentity(projectName, smokeEnv);
+
+  safeLog("First disposable smoke seed authorization: ENABLED");
+  safeLog(`Seed target authorization: project=${projectName} database=${smokeEnv.POSTGRES_DB} host=db authorized=true`);
+  assertSuccess(
+    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), { projectName, env: smokeEnv }),
+    "first smoke seed"
+  );
+
+  safeLog("Second disposable smoke seed authorization: ENABLED");
+  safeLog(`Seed target authorization: project=${projectName} database=${smokeEnv.POSTGRES_DB} host=db authorized=true`);
+  assertSuccess(
+    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), { projectName, env: smokeEnv }),
+    "second smoke seed"
+  );
 
   safeLog("Fresh migration smoke passed: the complete migration chain, idempotent seed, and schema drift check succeeded from an empty database.");
 }

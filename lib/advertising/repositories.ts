@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
-import { Prisma } from "@prisma/client";
+import {
+  AdvertisingCampaignStatus,
+  AdvertisingCampaignVersionStatus,
+  AdvertisingClickChargeStatus,
+  AdvertisingReconciliationStatus,
+  Prisma,
+  PrismaClient,
+} from "@prisma/client";
 
 // Custom error for repository level issues
 export class AdvertisingRepositoryError extends Error {
@@ -10,11 +17,32 @@ export class AdvertisingRepositoryError extends Error {
 }
 
 // Helper to check operation replay and request hash mismatch
-async function verifyOperationReplay(
-  table: any,
+type AdvertisingPrisma = Pick<
+  PrismaClient,
+  | "advertisingAccount"
+  | "advertisingPlacementDefinition"
+  | "advertisingRateCardVersion"
+  | "advertisingCampaign"
+  | "advertisingCampaignVersion"
+  | "advertisingCreativeSnapshot"
+  | "advertisingTarget"
+  | "advertisingFundingAllocation"
+  | "advertisingFundingMovement"
+  | "advertisingServeDecision"
+  | "advertisingMeasurementEvent"
+  | "advertisingClickCharge"
+  | "advertisingAttribution"
+  | "advertisingDailyAggregate"
+  | "advertisingReconciliationCase"
+>;
+
+type OperationReplayRow = { operationId: string; requestHash: string };
+
+async function verifyOperationReplay<T extends OperationReplayRow>(
+  table: { findFirst(args: { where: { operationId: string } }): Promise<T | null> },
   operationId: string,
   requestHash: string
-): Promise<any | null> {
+): Promise<T | null> {
   const existing = await table.findFirst({
     where: { operationId }
   });
@@ -30,7 +58,7 @@ async function verifyOperationReplay(
   return null;
 }
 
-export function createPrismaAdvertisingAccountRepository(db: any = prisma) {
+export function createPrismaAdvertisingAccountRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       const row = await db.advertisingAccount.findUnique({
@@ -67,7 +95,7 @@ export function createPrismaAdvertisingAccountRepository(db: any = prisma) {
   });
 }
 
-export function createPrismaAdvertisingPlacementDefinitionRepository(db: any = prisma) {
+export function createPrismaAdvertisingPlacementDefinitionRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingPlacementDefinition.findUnique({
@@ -82,7 +110,7 @@ export function createPrismaAdvertisingPlacementDefinitionRepository(db: any = p
   });
 }
 
-export function createPrismaAdvertisingRateCardVersionRepository(db: any = prisma) {
+export function createPrismaAdvertisingRateCardVersionRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingRateCardVersion.findUnique({
@@ -92,7 +120,7 @@ export function createPrismaAdvertisingRateCardVersionRepository(db: any = prism
   });
 }
 
-export function createPrismaAdvertisingCampaignRepository(db: any = prisma) {
+export function createPrismaAdvertisingCampaignRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingCampaign.findUnique({
@@ -117,8 +145,7 @@ export function createPrismaAdvertisingCampaignRepository(db: any = prisma) {
         }
       });
     },
-    async updateStatus(id: string, status: any, expectedVersion?: number) {
-      // If version is provided, do optimistic locking or check current status
+    async updateStatus(id: string, status: AdvertisingCampaignStatus) {
       return db.advertisingCampaign.update({
         where: { id },
         data: { status }
@@ -127,7 +154,7 @@ export function createPrismaAdvertisingCampaignRepository(db: any = prisma) {
   });
 }
 
-export function createPrismaAdvertisingCampaignVersionRepository(db: any = prisma) {
+export function createPrismaAdvertisingCampaignVersionRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingCampaignVersion.findUnique({
@@ -140,7 +167,7 @@ export function createPrismaAdvertisingCampaignVersionRepository(db: any = prism
         data
       });
     },
-    async updateStatus(id: string, status: any) {
+    async updateStatus(id: string, status: AdvertisingCampaignVersionStatus) {
       const current = await db.advertisingCampaignVersion.findUnique({ where: { id } });
       if (current && current.status === "RETIRED") {
         throw new AdvertisingRepositoryError("IMMUTABLE_VERSION", "Cannot update a retired campaign version.");
@@ -159,7 +186,7 @@ export function createPrismaAdvertisingCampaignVersionRepository(db: any = prism
   });
 }
 
-export function createPrismaAdvertisingCreativeSnapshotRepository(db: any = prisma) {
+export function createPrismaAdvertisingCreativeSnapshotRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingCreativeSnapshot.findUnique({
@@ -169,7 +196,7 @@ export function createPrismaAdvertisingCreativeSnapshotRepository(db: any = pris
   });
 }
 
-export function createPrismaAdvertisingTargetRepository(db: any = prisma) {
+export function createPrismaAdvertisingTargetRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findManyForVersion(campaignVersionId: string) {
       return db.advertisingTarget.findMany({
@@ -179,7 +206,7 @@ export function createPrismaAdvertisingTargetRepository(db: any = prisma) {
   });
 }
 
-export function createPrismaAdvertisingFundingAllocationRepository(db: any = prisma) {
+export function createPrismaAdvertisingFundingAllocationRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingFundingAllocation.findUnique({
@@ -236,7 +263,7 @@ export function createPrismaAdvertisingFundingAllocationRepository(db: any = pri
   });
 }
 
-export function createPrismaAdvertisingFundingMovementRepository(db: any = prisma) {
+export function createPrismaAdvertisingFundingMovementRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingFundingMovement.findUnique({
@@ -255,7 +282,7 @@ export function createPrismaAdvertisingFundingMovementRepository(db: any = prism
   });
 }
 
-export function createPrismaAdvertisingServeDecisionRepository(db: any = prisma) {
+export function createPrismaAdvertisingServeDecisionRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingServeDecision.findUnique({
@@ -270,7 +297,7 @@ export function createPrismaAdvertisingServeDecisionRepository(db: any = prisma)
   });
 }
 
-export function createPrismaAdvertisingMeasurementEventRepository(db: any = prisma) {
+export function createPrismaAdvertisingMeasurementEventRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingMeasurementEvent.findUnique({
@@ -295,7 +322,7 @@ export function createPrismaAdvertisingMeasurementEventRepository(db: any = pris
   });
 }
 
-export function createPrismaAdvertisingClickChargeRepository(db: any = prisma) {
+export function createPrismaAdvertisingClickChargeRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingClickCharge.findUnique({
@@ -310,7 +337,7 @@ export function createPrismaAdvertisingClickChargeRepository(db: any = prisma) {
         data
       });
     },
-    async updateStatus(id: string, status: any, journalId?: string) {
+    async updateStatus(id: string, status: AdvertisingClickChargeStatus, journalId?: string) {
       return db.advertisingClickCharge.update({
         where: { id },
         data: {
@@ -323,7 +350,7 @@ export function createPrismaAdvertisingClickChargeRepository(db: any = prisma) {
   });
 }
 
-export function createPrismaAdvertisingAttributionRepository(db: any = prisma) {
+export function createPrismaAdvertisingAttributionRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingAttribution.findUnique({
@@ -338,7 +365,7 @@ export function createPrismaAdvertisingAttributionRepository(db: any = prisma) {
   });
 }
 
-export function createPrismaAdvertisingDailyAggregateRepository(db: any = prisma) {
+export function createPrismaAdvertisingDailyAggregateRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findUnique(campaignVersionId: string, placementDefinitionId: string, date: Date) {
       return db.advertisingDailyAggregate.findUnique({
@@ -357,7 +384,7 @@ export function createPrismaAdvertisingDailyAggregateRepository(db: any = prisma
   });
 }
 
-export function createPrismaAdvertisingReconciliationCaseRepository(db: any = prisma) {
+export function createPrismaAdvertisingReconciliationCaseRepository(db: AdvertisingPrisma = prisma) {
   return Object.freeze({
     async findByPublicReference(publicReference: string) {
       return db.advertisingReconciliationCase.findUnique({
@@ -365,14 +392,18 @@ export function createPrismaAdvertisingReconciliationCaseRepository(db: any = pr
       });
     },
     async checkReplay(operationId: string, requestHash: string) {
-      return verifyOperationReplay(db.advertisingReconciliationCase, operationId, requestHash);
+      // Reconciliation cases have no operation-id/request-hash columns. They
+      // cannot serve as an idempotency receipt without fabricating a query.
+      void operationId;
+      void requestHash;
+      return null;
     },
     async create(data: Prisma.AdvertisingReconciliationCaseCreateInput) {
       return db.advertisingReconciliationCase.create({
         data
       });
     },
-    async updateStatus(id: string, status: any, resolutionCode?: string, summary?: string) {
+    async updateStatus(id: string, status: AdvertisingReconciliationStatus, resolutionCode?: string, summary?: string) {
       return db.advertisingReconciliationCase.update({
         where: { id },
         data: {

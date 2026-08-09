@@ -1,55 +1,42 @@
 import { NextRequest } from "next/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { ok, unauthorized, forbidden, badRequest } from "@/lib/api/response";
+import { requireAdminApiPermission } from "@/lib/auth/admin-api";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { ok, badRequest, serverError } from "@/lib/api/response";
 import { ReportReconciliationService } from "@/lib/reporting/reconciliation";
-import { db } from "@/lib/db";
+import { ReportAdministrationService } from "@/lib/reporting/services";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { z } from "zod";
 
 const reconService = new ReportReconciliationService();
+const reportAdministration = new ReportAdministrationService();
 const reconciliationActionSchema = z.object({
   action: z.enum(["SCAN", "CANCEL_STUCK_JOB", "RETRY_GENERATION"]).default("SCAN"),
   dryRun: z.boolean().optional(),
   jobId: z.string().trim().min(1).optional(),
 });
 
-export async function GET() {
-  const session = await getCurrentUser();
-  if (!session) return unauthorized();
-  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
-    return forbidden("Admin access required.");
-  }
-
-  const cases = await db.reportReconciliationCase.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      publicReference: true,
-      reason: true,
-      status: true,
-      safeSummary: true,
-      openedAt: true,
-    },
-  });
-
-  return ok({ data: cases });
+export async function GET(request: NextRequest) {
+  const auth = await requireAdminApiPermission(PERMISSIONS.REPORT_RECONCILIATION_READ, { request });
+  if (auth.response) return auth.response;
+  try { return ok({ data: await reportAdministration.listReconciliationCases() }); } catch { return serverError(); }
 }
 
 export async function POST(req: NextRequest) {
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
 
-  const session = await getCurrentUser();
-  if (!session) return unauthorized();
-  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
-    return forbidden("Admin access required.");
-  }
-
   const parsedBody = reconciliationActionSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsedBody.success) return badRequest("Invalid reconciliation action.");
   const body = parsedBody.data;
   const action = body.action;
+
+  const requiredPermission = action === "CANCEL_STUCK_JOB"
+    ? PERMISSIONS.REPORT_JOB_CANCEL
+    : action === "RETRY_GENERATION"
+      ? PERMISSIONS.REPORT_JOB_RETRY
+      : PERMISSIONS.REPORT_RECONCILIATION_RETRY;
+  const auth = await requireAdminApiPermission(requiredPermission, { request: req });
+  if (auth.response) return auth.response;
 
   try {
     if (action === "SCAN") {
@@ -68,7 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     return badRequest(`Unknown action: ${action}`);
-  } catch (error: unknown) {
-    return badRequest(error instanceof Error ? error.message : "Failed to perform reconciliation action.");
+  } catch {
+    return badRequest("The requested reconciliation action could not be completed.");
   }
 }

@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { AdvertisingServingService } from "@/lib/advertising/serving.service";
 import { AdvertisingServingService as RealServingService } from "@/lib/advertising/serving.service";
 
 describe("Phase 24: Advertising Code Compliance Audits", () => {
@@ -96,7 +95,7 @@ describe("Phase 24: Advertising Code Compliance Audits", () => {
     });
 
     // Remove sponsored elements helper
-    const removeSponsored = (list: any[]) => list.filter(item => !item.sponsored);
+    const removeSponsored = <T extends object>(list: readonly T[]) => list.filter((item) => !("sponsored" in item && item.sponsored === true));
 
     const filtered = removeSponsored(composed);
     expect(filtered).toEqual(organicResults);

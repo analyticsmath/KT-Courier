@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- focused fake repositories exercise DB-free API family boundaries. */
+ 
 import { describe, expect, it } from "vitest";
 import { publicRoutes, applicantRoutes, adminRoutes } from "@/tests/phase26/route-inventory.test";
 

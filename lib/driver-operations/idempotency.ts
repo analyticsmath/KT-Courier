@@ -13,6 +13,8 @@ export type DriverOperationSnapshot = {
   assignmentStatus: string;
   createdAttemptId?: string;
   createdPodId?: string;
+  locationEvidenceReference?: string;
+  locationValidationStatus?: string;
   completedAt: string;
 };
 

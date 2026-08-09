@@ -3,9 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
-const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
-const compose = readFileSync(path.join(root, "compose.yml"), "utf8");
-const dockerEnv = readFileSync(path.join(root, ".env.docker.example"), "utf8");
+const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8").replaceAll("\r\n", "\n");
+const compose = readFileSync(path.join(root, "compose.yml"), "utf8").replaceAll("\r\n", "\n");
+const dockerEnv = readFileSync(path.join(root, ".env.docker.example"), "utf8").replaceAll("\r\n", "\n");
 
 describe("Docker infrastructure configuration", () => {
   it("uses a hardened production runner image", () => {

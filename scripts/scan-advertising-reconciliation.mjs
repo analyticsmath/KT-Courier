@@ -11,7 +11,8 @@ async function main() {
   const dryRun = args.includes("--dry-run");
   const apply = args.includes("--apply");
   const limitArg = args.find(arg => arg.startsWith("--limit="));
-  const limit = limitArg ? parseInt(limitArg.split("=")[1]) : null;
+const limit = limitArg ? parseInt(limitArg.split("=")[1]) : null;
+void limit;
 
   if (!dryRun && !apply) {
     console.log("Usage: node scan-advertising-reconciliation.mjs [--dry-run | --apply] [--limit=N]");

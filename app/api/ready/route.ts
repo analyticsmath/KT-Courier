@@ -9,6 +9,7 @@ export async function GET() {
     status: payload.status === "ready" ? 200 : 503,
     headers: {
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

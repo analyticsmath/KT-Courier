@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { Prisma, AdvertisingReconciliationReason, AdvertisingReconciliationStatus, AdvertisingReconciliationPriority } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export class AdvertisingReconciliationService {
   constructor(private readonly tx?: Prisma.TransactionClient) {}

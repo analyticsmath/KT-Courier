@@ -1,308 +1,235 @@
-import crypto from "crypto";
-import fs from "fs";
-import path from "path";
+import crypto from "node:crypto";
 import { db } from "@/lib/db";
-import { REPORT_DEFINITIONS, ReportExportFormat, ReportingError } from "./contracts";
+import { logApplicationEvent } from "@/lib/observability/logger";
+import { recordTelemetry } from "@/lib/observability/telemetry";
+import { getReportArtifactStorage, type ReportArtifactStorage } from "./artifact-storage";
+import { authorizeReportDefinition, getApprovedReportDefinition, normalizeReportRequest, type ReportActor } from "./authorization";
+import { ReportingError } from "./contracts";
 import { formatCsvReport, formatJsonReport } from "./csv-sanitizer";
-import { generateReportData, ReportQueryContext } from "./report-generator";
+import { generateReportData, type ReportQueryContext } from "./report-generator";
 
-const DOWNLOAD_SECRET_KEY = process.env.REPORTING_DOWNLOAD_HMAC_KEY || "kt_courier_reporting_download_secret_key_32bytes_min!";
-const ARTIFACT_STORAGE_DIR = process.env.REPORT_ARTIFACT_DIR || path.join(process.cwd(), "artifacts", "reports");
-
-function ensureStorageDirExists(): void {
-  if (!fs.existsSync(ARTIFACT_STORAGE_DIR)) {
-    fs.mkdirSync(ARTIFACT_STORAGE_DIR, { recursive: true });
-  }
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`);
+  return `{${entries.join(",")}}`;
 }
 
 export function computeFilterHash(filters: Record<string, unknown>): string {
-  const sorted = Object.keys(filters)
-    .sort()
-    .reduce((acc, key) => {
-      acc[key] = filters[key];
-      return acc;
-    }, {} as Record<string, unknown>);
-  return crypto.createHash("sha256").update(JSON.stringify(sorted)).digest("hex");
+  return crypto.createHash("sha256").update(stableJson(filters)).digest("hex");
 }
 
-export function computeRequestHash(
-  definitionKey: string,
-  requesterUserId: string,
-  filterHash: string,
-  format: string
-): string {
-  return crypto
-    .createHash("sha256")
-    .update(`${definitionKey}:${requesterUserId}:${filterHash}:${format}`)
-    .digest("hex");
+export function computeRequestHash(definitionKey: string, requesterUserId: string, filterHash: string, format: string): string {
+  return crypto.createHash("sha256").update(`${definitionKey}:${requesterUserId}:${filterHash}:${format}`).digest("hex");
+}
+
+function publicReference(prefix: "REP" | "ART" | "RPTAUD"): string {
+  return `${prefix}-${Date.now()}-${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
+}
+
+export interface CreateReportJobInput {
+  definitionKey: string;
+  requesterUserId: string;
+  requesterRole: string;
+  ownerScope: Record<string, unknown>;
+  permissionSnapshot: string[];
+  filters: unknown;
+  executionMode: "SYNCHRONOUS_SUMMARY" | "ASYNCHRONOUS_REPORT" | "ASYNCHRONOUS_EXPORT";
+  outputFormat: unknown;
 }
 
 export class ReportJobService {
-  async createJob(input: {
-    definitionKey: string;
-    requesterUserId: string;
-    requesterRole: string;
-    ownerScope: Record<string, unknown>;
-    permissionSnapshot: string[];
-    filters: Record<string, unknown>;
-    executionMode: "SYNCHRONOUS_SUMMARY" | "ASYNCHRONOUS_REPORT" | "ASYNCHRONOUS_EXPORT";
-    outputFormat: ReportExportFormat;
-  }) {
-    const definition = REPORT_DEFINITIONS[input.definitionKey];
-    if (!definition) {
-      throw new ReportingError("REPORT_DEFINITION_NOT_FOUND", 404, `Unknown report definition: ${input.definitionKey}`);
-    }
+  constructor(private readonly storage: ReportArtifactStorage = getReportArtifactStorage()) {}
 
-    const filterHash = computeFilterHash(input.filters);
-    const requestHash = computeRequestHash(input.definitionKey, input.requesterUserId, filterHash, input.outputFormat);
+  async createJob(input: CreateReportJobInput) {
+    const definition = getApprovedReportDefinition(input.definitionKey);
+    const actor: ReportActor = { id: input.requesterUserId, role: input.requesterRole };
+    await authorizeReportDefinition(actor, definition, "GENERATE");
+    const normalized = normalizeReportRequest({ definition, filters: input.filters, outputFormat: input.outputFormat });
+    const filterHash = computeFilterHash(normalized.filters);
+    const requestHash = computeRequestHash(definition.key, input.requesterUserId, filterHash, normalized.outputFormat);
 
-    // Check for recent completed identical job within 5 minutes for idempotency
-    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const existingJob = await db.reportJob.findFirst({
-      where: {
-        requestHash,
-        requesterUserId: input.requesterUserId,
-        status: "COMPLETED",
-        createdAt: { gte: fiveMinsAgo },
-      },
+    const existing = await db.reportJob.findFirst({
+      where: { requestHash, requesterUserId: input.requesterUserId, status: { notIn: ["CANCELLED", "EXPIRED"] } },
       orderBy: { createdAt: "desc" },
     });
+    if (existing) return existing;
 
-    if (existingJob) {
-      return existingJob;
+    const expiresAt = new Date(Date.now() + definition.retentionDays * 86_400_000);
+    try {
+      const job = await db.reportJob.create({
+        data: {
+          publicReference: publicReference("REP"),
+          definitionKey: definition.key,
+          definitionVersion: definition.version,
+          requesterUserId: input.requesterUserId,
+          requesterRole: input.requesterRole,
+          ownerScope: input.ownerScope as never,
+          permissionSnapshot: Array.from(new Set([...input.permissionSnapshot, definition.requiredPermission])) as never,
+          normalizedFilters: normalized.filters as never,
+          filterHash,
+          executionMode: input.executionMode === "SYNCHRONOUS_SUMMARY" ? "ASYNCHRONOUS_REPORT" : input.executionMode,
+          outputFormat: normalized.outputFormat,
+          rowCountLimit: definition.maximumRowCount,
+          status: "QUEUED",
+          requestHash,
+          expiresAt,
+        },
+      });
+
+      await this.recordAudit(input.requesterUserId, "REPORT_JOB_REQUESTED", job.publicReference, { definitionKey: definition.key, outputFormat: normalized.outputFormat });
+      if (input.executionMode === "SYNCHRONOUS_SUMMARY") return this.processJob(job.publicReference);
+      return job;
+    } catch (error: unknown) {
+      if ((error as { code?: string }).code === "P2002") {
+        const duplicate = await db.reportJob.findFirst({ where: { requestHash, requesterUserId: input.requesterUserId }, orderBy: { createdAt: "desc" } });
+        if (duplicate) return duplicate;
+      }
+      throw error;
     }
-
-    const publicReference = `REP-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-    const expiresAt = new Date(Date.now() + definition.retentionDays * 86400 * 1000);
-
-    const job = await db.reportJob.create({
-      data: {
-        publicReference,
-        definitionKey: input.definitionKey,
-        definitionVersion: definition.version,
-        requesterUserId: input.requesterUserId,
-        requesterRole: input.requesterRole,
-        ownerScope: input.ownerScope as any,
-        permissionSnapshot: input.permissionSnapshot as any,
-        normalizedFilters: input.filters as any,
-        filterHash,
-        executionMode: input.executionMode,
-        outputFormat: input.outputFormat,
-        rowCountLimit: definition.maximumRowCount,
-        status: input.executionMode === "SYNCHRONOUS_SUMMARY" ? "RUNNING" : "QUEUED",
-        requestHash,
-        expiresAt,
-      },
-    });
-
-    // If synchronous, execute inline immediately
-    if (input.executionMode === "SYNCHRONOUS_SUMMARY") {
-      await this.processJob(job.publicReference);
-      return db.reportJob.findUnique({ where: { id: job.id } });
-    }
-
-    return job;
   }
 
-  async processJob(publicReference: string) {
-    const job = await db.reportJob.findUnique({ where: { publicReference } });
-    if (!job) {
-      throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, `Job ${publicReference} not found`);
-    }
+  async processJob(publicReferenceValue: string) {
+    const job = await db.reportJob.findUnique({ where: { publicReference: publicReferenceValue } });
+    if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
+    if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(job.status)) return job;
 
-    if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(job.status)) {
-      return job;
-    }
-
-    await db.reportJob.update({
-      where: { id: job.id },
-      data: { status: "RUNNING", startedAt: new Date() },
+    const claimed = await db.reportJob.updateMany({
+      where: { id: job.id, status: { in: ["REQUESTED", "QUEUED", "FAILED_RETRYABLE"] } },
+      data: { status: "RUNNING", startedAt: new Date(), errorMessage: null },
     });
+    if (claimed.count !== 1) return db.reportJob.findUnique({ where: { id: job.id } });
 
+    const startedAt = Date.now();
+    let storedKey: string | null = null;
     try {
+      const definition = getApprovedReportDefinition(job.definitionKey);
       const queryContext: ReportQueryContext = {
         definitionKey: job.definitionKey,
         requesterUserId: job.requesterUserId,
         requesterRole: job.requesterRole,
-        ownerScope: job.ownerScope as any,
-        filters: job.normalizedFilters as any,
-        limit: job.rowCountLimit,
+        ownerScope: job.ownerScope as ReportQueryContext["ownerScope"],
+        filters: job.normalizedFilters as Record<string, unknown>,
+        limit: Math.min(job.rowCountLimit, definition.maximumRowCount),
       };
-
       const data = await generateReportData(queryContext);
-
-      // Generate content based on format
-      let contentString: string;
-      let contentType: string;
-
-      if (job.outputFormat === "JSON") {
-        contentString = formatJsonReport(data.rows);
-        contentType = "application/json";
-      } else {
-        contentString = formatCsvReport(data.headers, data.rows);
-        contentType = "text/csv";
-      }
-
-      ensureStorageDirExists();
-      const storageKey = `report_${job.publicReference}.${job.outputFormat.toLowerCase()}`;
-      const filePath = path.join(ARTIFACT_STORAGE_DIR, storageKey);
-      fs.writeFileSync(filePath, contentString, "utf8");
-
-      const checksum = crypto.createHash("sha256").update(contentString).digest("hex");
-      const byteSize = Buffer.byteLength(contentString, "utf8");
-      const artifactExpiresAt = job.expiresAt || new Date(Date.now() + 30 * 86400 * 1000);
-
-      const artifactRef = `ART-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+      const content = job.outputFormat === "JSON" ? formatJsonReport(data.rows) : formatCsvReport(data.headers, data.rows);
+      const contentType = job.outputFormat === "JSON" ? "application/json; charset=utf-8" : "text/csv; charset=utf-8";
+      const storageKey = this.storage.createStorageKey(job.publicReference, job.outputFormat, content);
+      storedKey = storageKey;
+      await this.storage.store(storageKey, content);
+      const checksum = crypto.createHash("sha256").update(content).digest("hex");
 
       await db.reportExportArtifact.create({
         data: {
-          publicReference: artifactRef,
+          publicReference: publicReference("ART"),
           jobId: job.id,
           format: job.outputFormat,
-          storageProvider: "LOCAL_SECURE",
+          storageProvider: this.storage.provider,
           storageKey,
           contentType,
-          byteSize,
+          byteSize: Buffer.byteLength(content, "utf8"),
           checksum,
-          expiresAt: artifactExpiresAt,
+          expiresAt: job.expiresAt ?? new Date(Date.now() + definition.retentionDays * 86_400_000),
         },
       });
 
-      await db.reportJob.update({
+      const completed = await db.reportJob.update({
         where: { id: job.id },
-        data: {
-          status: "COMPLETED",
-          rowCount: data.rows.length,
-          completedAt: new Date(),
-        },
+        data: { status: "COMPLETED", rowCount: data.rows.length, completedAt: new Date() },
       });
-
-      return db.reportJob.findUnique({ where: { id: job.id } });
-    } catch (err: any) {
-      await db.reportJob.update({
-        where: { id: job.id },
-        data: {
-          status: "FAILED_PERMANENT",
-          errorMessage: err.message || "Failed to generate report",
-          failedAt: new Date(),
-        },
+      await this.recordAudit(job.requesterUserId, "REPORT_JOB_COMPLETED", job.publicReference, { rowCount: data.rows.length });
+      await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "SUCCESS" });
+      return completed;
+    } catch {
+      if (storedKey) await this.storage.delete(storedKey).catch(() => undefined);
+      await db.reportJob.updateMany({
+        where: { id: job.id, status: "RUNNING" },
+        data: { status: "FAILED_RETRYABLE", errorMessage: "REPORT_GENERATION_FAILED", failedAt: new Date() },
       });
-      throw err;
+      await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "FAILURE" });
+      logApplicationEvent({ level: "ERROR", event: "report.generation_failed", message: "Report generation failed.", operation: "report_generation", resourceReference: job.publicReference, outcome: "FAILURE", errorCategory: "REPORT_GENERATION_FAILED" });
+      throw new ReportingError("REPORT_GENERATION_FAILED", 503, "Report generation could not be completed.");
     }
   }
 
-  async cancelJob(publicReference: string, requesterUserId: string, isAdmin = false) {
-    const job = await db.reportJob.findUnique({ where: { publicReference } });
+  async cancelJob(publicReferenceValue: string, requesterUserId: string, isAdmin = false) {
+    const job = await db.reportJob.findUnique({ where: { publicReference: publicReferenceValue } });
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
-
-    if (!isAdmin && job.requesterUserId !== requesterUserId) {
-      throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
-    }
-
-    if (job.status === "COMPLETED") {
-      throw new ReportingError("CANNOT_CANCEL_COMPLETED", 400, "Completed report jobs cannot be cancelled.");
-    }
-
-    return db.reportJob.update({
-      where: { id: job.id },
-      data: { status: "CANCELLED" },
-    });
+    if (!isAdmin && job.requesterUserId !== requesterUserId) throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
+    if (["COMPLETED", "EXPIRED"].includes(job.status)) throw new ReportingError("CANNOT_CANCEL_REPORT_JOB", 409, "This report job cannot be cancelled.");
+    const updated = await db.reportJob.update({ where: { id: job.id }, data: { status: "CANCELLED" } });
+    await this.recordAudit(requesterUserId, "REPORT_JOB_CANCELLED", job.publicReference, {});
+    return updated;
   }
 
-  async retryJob(publicReference: string, requesterUserId: string, isAdmin = false) {
-    const job = await db.reportJob.findUnique({ where: { publicReference } });
+  async retryJob(publicReferenceValue: string, requesterUserId: string, isAdmin = false) {
+    const job = await db.reportJob.findUnique({ where: { publicReference: publicReferenceValue } });
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
+    if (!isAdmin && job.requesterUserId !== requesterUserId) throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
+    if (!['FAILED_RETRYABLE', 'FAILED_PERMANENT'].includes(job.status)) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job is not retryable.");
+    await db.reportJob.update({ where: { id: job.id }, data: { status: "QUEUED", errorMessage: null, failedAt: null } });
+    return this.processJob(publicReferenceValue);
+  }
 
-    if (!isAdmin && job.requesterUserId !== requesterUserId) {
-      throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
-    }
-
-    await db.reportJob.update({
-      where: { id: job.id },
-      data: { status: "QUEUED", errorMessage: null },
+  private async recordAudit(actorUserId: string, eventType: string, entityReference: string, safeEvidence: Record<string, unknown>): Promise<void> {
+    await db.reportAuditEvent.create({
+      data: { publicReference: publicReference("RPTAUD"), actorUserId, eventType, entityReference, safeEvidence: safeEvidence as never },
+    }).catch(() => {
+      logApplicationEvent({ level: "ERROR", event: "report.audit_write_failed", message: "Required report audit evidence could not be written.", operation: "report_audit", actorReference: actorUserId, resourceReference: entityReference, outcome: "FAILURE", errorCategory: "REPORT_AUDIT_WRITE_FAILED" });
+      throw new ReportingError("REPORT_AUDIT_WRITE_FAILED", 503, "Report operation could not be recorded safely.");
     });
-
-    return this.processJob(publicReference);
   }
 }
 
 export class ReportDownloadService {
-  generateDownloadToken(artifactId: string, userId: string, role: string, ttlSeconds = 900): string {
-    const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
-    const payload = `${artifactId}:${userId}:${role}:${expiresAt}`;
-    const hmac = crypto.createHmac("sha256", DOWNLOAD_SECRET_KEY).update(payload).digest("hex");
-    return Buffer.from(`${payload}:${hmac}`).toString("base64url");
-  }
-
-  verifyDownloadToken(token: string) {
-    try {
-      const decoded = Buffer.from(token, "base64url").toString("utf8");
-      const parts = decoded.split(":");
-      if (parts.length !== 5) throw new Error("Invalid token structure");
-
-      const [artifactId, userId, role, expiresAtStr, hmac] = parts;
-      const expiresAt = parseInt(expiresAtStr!, 10);
-
-      if (Date.now() / 1000 > expiresAt) {
-        throw new ReportingError("DOWNLOAD_TOKEN_EXPIRED", 410, "Download link has expired.");
-      }
-
-      const expectedPayload = `${artifactId}:${userId}:${role}:${expiresAt}`;
-      const expectedHmac = crypto.createHmac("sha256", DOWNLOAD_SECRET_KEY).update(expectedPayload).digest("hex");
-
-      if (!crypto.timingSafeEqual(Buffer.from(hmac!), Buffer.from(expectedHmac))) {
-        throw new ReportingError("INVALID_DOWNLOAD_TOKEN", 403, "Invalid download signature.");
-      }
-
-      return { artifactId: artifactId!, userId: userId!, role: role! };
-    } catch (err: any) {
-      if (err instanceof ReportingError) throw err;
-      throw new ReportingError("INVALID_DOWNLOAD_TOKEN", 403, "Invalid download token.");
-    }
-  }
+  constructor(private readonly storage: ReportArtifactStorage = getReportArtifactStorage()) {}
 
   async getArtifactFile(artifactId: string, userId: string, role: string, ipAddress?: string, userAgent?: string) {
-    const artifact = await db.reportExportArtifact.findUnique({
-      where: { id: artifactId },
-    });
-
+    const artifact = await db.reportExportArtifact.findUnique({ where: { id: artifactId } });
     if (!artifact) throw new ReportingError("ARTIFACT_NOT_FOUND", 404, "Export artifact not found.");
+    if (new Date() >= artifact.expiresAt) throw new ReportingError("ARTIFACT_EXPIRED", 410, "Export artifact has expired.");
 
-    if (new Date() > artifact.expiresAt) {
-      throw new ReportingError("ARTIFACT_EXPIRED", 410, "Export artifact has expired.");
-    }
+    const content = await this.storage.open(artifact.storageKey);
+    await db.$transaction([
+      db.reportDownloadAudit.create({
+        data: {
+          publicReference: publicReference("RPTAUD"), artifactId: artifact.id,
+          downloadTokenHash: crypto.createHash("sha256").update(`${artifactId}:${userId}:${Date.now()}`).digest("hex"),
+          authenticatedUserId: userId, authenticatedRole: role,
+          ipAddress: ipAddress?.slice(0, 64), userAgent: userAgent?.replace(/[\r\n\0]/g, " ").slice(0, 512),
+        },
+      }),
+      db.reportExportArtifact.update({ where: { id: artifact.id }, data: { downloadCount: { increment: 1 } } }),
+    ]);
 
-    const filePath = path.join(ARTIFACT_STORAGE_DIR, artifact.storageKey);
-    if (!fs.existsSync(filePath)) {
-      throw new ReportingError("FILE_NOT_FOUND", 404, "Artifact file is missing from storage.");
-    }
+    const extension = artifact.format === "JSON" ? "json" : "csv";
+    return { content, contentType: artifact.contentType, filename: `kt-couriers-report-${artifact.publicReference}.${extension}` };
+  }
+}
 
-    // Record audit
-    const downloadTokenHash = crypto.createHash("sha256").update(`${artifactId}:${userId}:${Date.now()}`).digest("hex");
-    const publicReference = `AUD-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-
-    await db.reportDownloadAudit.create({
-      data: {
-        publicReference,
-        artifactId: artifact.id,
-        downloadTokenHash,
-        authenticatedUserId: userId,
-        authenticatedRole: role,
-        ipAddress,
-        userAgent,
-      },
+/** Permission enforcement remains at the route boundary; this is the canonical read authority. */
+export class ReportAdministrationService {
+  async listJobs() {
+    return db.reportJob.findMany({
+      orderBy: { createdAt: "desc" }, take: 100,
+      select: { id: true, publicReference: true, definitionKey: true, requesterRole: true, status: true, outputFormat: true, rowCount: true, createdAt: true },
     });
+  }
 
-    await db.reportExportArtifact.update({
-      where: { id: artifact.id },
-      data: { downloadCount: { increment: 1 } },
+  async listArtifacts() {
+    return db.reportExportArtifact.findMany({
+      orderBy: { createdAt: "desc" }, take: 100,
+      select: { id: true, publicReference: true, format: true, byteSize: true, checksum: true, downloadCount: true, expiresAt: true },
     });
+  }
 
-    const content = fs.readFileSync(filePath, "utf8");
-    return {
-      content,
-      contentType: artifact.contentType,
-      filename: artifact.storageKey,
-    };
+  async listReconciliationCases() {
+    return db.reportReconciliationCase.findMany({
+      orderBy: { createdAt: "desc" }, take: 100,
+      select: { id: true, publicReference: true, reason: true, status: true, safeSummary: true, openedAt: true },
+    });
   }
 }

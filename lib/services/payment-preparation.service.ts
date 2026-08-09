@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Phase 20 delegates remain dynamic until Prisma generation is permitted. */
 import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -33,7 +32,7 @@ async function replayAfterUniqueRace(
   if (winner.creationRequestHash !== requestHash) {
     throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for a different request.");
   }
-  return toPaymentSummaryDto(winner as any);
+  return toPaymentSummaryDto(winner);
 }
 
 export async function prepareOrderPayment(
@@ -66,7 +65,7 @@ export async function prepareOrderPayment(
         if (existing.creationRequestHash !== requestHash) {
           throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for a different request.");
         }
-        return toPaymentSummaryDto(existing as any);
+        return toPaymentSummaryDto(existing);
       }
 
       const existingForOrder = await tx.payment.findUnique({
@@ -115,10 +114,10 @@ const SUCCEEDED_STATUS = "SUCCEEDED" as const;
           metadata: { policyVersion: PAYMENT_POLICY_VERSION },
         },
       });
-      return toPaymentSummaryDto(payment as any);
+      return toPaymentSummaryDto(payment);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
   } catch (error) {
-    if ((error as { code?: string })?.code === "P2002") {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const replay = await replayAfterUniqueRace(parsed.data.idempotencyKey, requestHash);
       if (replay) return replay;
       const orderWinner = await prisma.payment.findUnique({
@@ -143,7 +142,7 @@ export type MarketplacePaymentPreparationCommand = Readonly<{
   operationId: string;
 }>;
 
-export async function prepareMarketplacePayment(command: MarketplacePaymentPreparationCommand) {
+export async function prepareMarketplacePayment(command: MarketplacePaymentPreparationCommand): Promise<MarketplacePreparedPayment> {
   return prepareMarketplaceCheckoutPayment(
     {
       checkoutId: command.checkoutId,
@@ -152,7 +151,6 @@ export async function prepareMarketplacePayment(command: MarketplacePaymentPrepa
       currency: command.currency,
       commercialFingerprint: command.commercialFingerprint,
       operationId: command.operationId,
-      requestHash: "",
     },
     {
       subjectType: "MARKETPLACE_CHECKOUT",
@@ -178,7 +176,6 @@ export async function prepareMarketplaceCheckoutPayment(
     currency: "ZAR";
     commercialFingerprint: string;
     operationId: string;
-    requestHash: string;
   }>,
   subject: Readonly<{
     subjectType: "MARKETPLACE_CHECKOUT";
@@ -186,8 +183,12 @@ export async function prepareMarketplaceCheckoutPayment(
     customerUserId?: string | null;
     guestAccessTokenHash?: string | null;
   }>,
-) {
-  assertPaymentSubjectIntegrity(subject as any);
+): Promise<MarketplacePreparedPayment> {
+  const paymentSubject = marketplacePaymentSubject({
+    checkoutId: command.checkoutId,
+    customerUserId: subject.customerUserId ?? null,
+    guestAccessTokenHash: subject.guestAccessTokenHash ?? null,
+  });
   const requestHash = canonicalPaymentHash({
     subjectType: subject.subjectType,
     subjectId: subject.subjectId,
@@ -196,13 +197,16 @@ export async function prepareMarketplaceCheckoutPayment(
     commercialFingerprint: command.commercialFingerprint,
     policyVersion: PAYMENT_POLICY_VERSION,
   });
-  const db = prisma as any;
-  return withPaymentDatabaseRetry(() => db.$transaction(async (tx: any) => {
+  return withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
     const checkout = await tx.marketplaceCheckout.findUnique({ where: { id: command.checkoutId }, select: { id: true, publicReference: true, customerUserId: true, guestAccessTokenHash: true, acceptedFingerprint: true, grandTotal: true, currency: true } });
     if (!checkout || checkout.publicReference !== command.checkoutReference || checkout.acceptedFingerprint !== command.commercialFingerprint || checkout.currency !== "ZAR" || checkout.grandTotal.toFixed(2) !== command.amount) {
       throw new PaymentError("PAYMENT_METADATA_INVALID", "Marketplace checkout evidence changed before payment preparation.");
     }
-    assertPaymentSubjectIntegrity({ ...subject, checkoutCustomerUserId: checkout.customerUserId, checkoutGuestAccessTokenHash: checkout.guestAccessTokenHash } as any);
+    assertPaymentSubjectIntegrity({
+      ...paymentSubject,
+      checkoutCustomerUserId: checkout.customerUserId,
+      checkoutGuestAccessTokenHash: checkout.guestAccessTokenHash,
+    });
     const existing = await tx.payment.findUnique({ where: { creationIdempotencyKey: command.operationId } });
     if (existing) {
       if (existing.creationRequestHash !== requestHash) throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for different marketplace evidence.");

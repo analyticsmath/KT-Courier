@@ -4,6 +4,7 @@ import { productOptionFingerprint, type VariantOptionSelection } from "@/lib/cat
 import { catalogPublicReference, normalizeCatalogKey } from "@/lib/catalog/catalog-normalization";
 import { CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { toInputJsonObject } from "@/lib/json/input-json";
 
 export async function createCatalogVariant(args: {
   storeId: string;
@@ -33,11 +34,10 @@ export async function createCatalogVariant(args: {
         gtin: gtinResult?.normalized,
         gtinType: gtinResult?.type,
         mpn: args.mpn ? normalizeMpn(args.mpn) : undefined,
-        attributeValues: args.attributeValues as any,
+        attributeValues: toInputJsonObject(args.attributeValues),
       },
     });
     await recordCatalogEvidence(tx, { aggregateType: "VARIANT", aggregateReference: publicReference, aggregateVersion: 1, action: "CREATED", eventType: "VARIANT_UPDATED", actorUserId: args.actorUserId, safeMetadata: { productReference: product.publicReference } });
     return variant;
   });
 }
-

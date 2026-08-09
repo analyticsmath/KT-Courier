@@ -1,3 +1,4 @@
+import { CatalogInventoryTrackingMode, StorefrontDocumentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { assertSnapshotContainsNoPrivateKeys, type CatalogPublicationSnapshotValue } from "@/lib/catalog/catalog-publication-snapshot";
@@ -7,13 +8,7 @@ import { normalizeStorefrontQuery } from "@/lib/storefront/search/storefront-que
 import { STOREFRONT_SEARCH_INDEX_VERSION } from "@/lib/storefront/search/storefront-search-adapter";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
 
-type StorefrontProjectionClient = {
-  storefrontProductDocument: { findUnique(args: unknown): Promise<{ projectionVersion: number; publicReference: string } | null>; upsert(args: unknown): Promise<{ id: string }>; updateMany(args: unknown): Promise<unknown> };
-  storefrontProjectionHistory: { create(args: unknown): Promise<unknown> };
-  storefrontProjectionCase: { upsert(args: unknown): Promise<unknown> };
-  storefrontCacheInvalidation: { upsert(args: unknown): Promise<unknown> };
-};
-const storefrontClient = prisma as unknown as StorefrontProjectionClient;
+const storefrontClient = prisma;
 
 export class StorefrontProjectionError extends Error {
   constructor(readonly reason: string, message: string, readonly aggregateReference: string) { super(message); this.name = "StorefrontProjectionError"; }
@@ -21,7 +16,7 @@ export class StorefrontProjectionError extends Error {
 
 function publicScalarAttributes(value: unknown): Record<string, string | number | boolean | string[]> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(Object.entries(value as Record<string, unknown>).flatMap(([key, item]): Array<[string, any]> => {
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).flatMap(([key, item]): Array<[string, string | number | boolean | string[]]> => {
     if (!/^[a-z][a-z0-9_]{0,39}$/i.test(key)) return [];
     if (typeof item === "string") return [[key, item.normalize("NFKC").slice(0, 240)]];
     if (typeof item === "number" && Number.isFinite(item)) return [[key, item]];
@@ -96,8 +91,13 @@ export class StorefrontProjectionService {
     const existing = await storefrontClient.storefrontProductDocument.findUnique({ where: { publicationSnapshotId: snapshotId }, select: { projectionVersion: true, publicReference: true } });
     if (existing) document.publicReference = existing.publicReference;
     const projectionVersion = (existing?.projectionVersion ?? 0) + 1;
+    const inventoryTrackingMode = document.availability === "MADE_TO_ORDER"
+      ? CatalogInventoryTrackingMode.MADE_TO_ORDER
+      : document.availability === "UNTRACKED"
+        ? CatalogInventoryTrackingMode.UNTRACKED
+        : CatalogInventoryTrackingMode.TRACKED;
     const commonData = {
-      publicationSnapshotId: snapshotId, publicationVersion: document.publicationVersion, productId, productPublicReference: document.productReference, productSlug: document.productSlug, productScope: document.productScope, variantId, variantPublicReference: document.variantReference, offerId, offerPublicReference: document.offerReference, storeId, storePublicReference: document.storeReference, storeSlug: document.storeSlug, categoryId, categoryPublicReference: document.categoryReference, categoryPath: document.categoryPath, productTypeCode: document.productTypeCode, productTypeVersion: document.productTypeVersion, brandPublicReference: document.brandReference ?? null, brandName: document.brandName ?? null, title: document.title, normalizedTitle: document.normalizedTitle, shortDescription: document.shortDescription ?? null, publicDescription: document.description ?? null, searchText: document.searchText, searchableAttributes: document.searchableAttributes, filterableAttributes: document.filterableAttributes, variantOptions: document.variantOptions, condition: document.condition, fulfilmentMode: document.fulfilmentMode, sellingUnit: document.sellingUnit, priceVersionId, pricePublicReference: document.price.publicReference, priceAmount: document.price.amount, currency: "ZAR", priceIncludesTax: true, unitPriceAmount: document.price.unitAmount ?? null, unitPriceUnit: document.price.unit ?? null, unitPriceQuantity: document.price.quantity ?? null, inventoryTrackingMode: document.availability === "MADE_TO_ORDER" ? "MADE_TO_ORDER" : document.availability === "UNTRACKED" ? "UNTRACKED" : "TRACKED", availabilityState: document.availability, primaryMediaPublicReference: document.primaryMedia?.publicReference ?? null, primaryMediaWidth: document.primaryMedia?.width ?? null, primaryMediaHeight: document.primaryMedia?.height ?? null, primaryMediaAlt: document.primaryMedia?.alt ?? null, searchable: true, indexable: false, status: "ACTIVE", publishedAt: new Date(document.publishedAt), sourceUpdatedAt: new Date(document.sourceUpdatedAt), indexedAt: new Date(), projectionVersion,
+      publicationSnapshotId: snapshotId, publicationVersion: document.publicationVersion, productId, productPublicReference: document.productReference, productSlug: document.productSlug, productScope: document.productScope, variantId, variantPublicReference: document.variantReference, offerId, offerPublicReference: document.offerReference, storeId, storePublicReference: document.storeReference, storeSlug: document.storeSlug, categoryId, categoryPublicReference: document.categoryReference, categoryPath: document.categoryPath, productTypeCode: document.productTypeCode, productTypeVersion: document.productTypeVersion, brandPublicReference: document.brandReference ?? null, brandName: document.brandName ?? null, title: document.title, normalizedTitle: document.normalizedTitle, shortDescription: document.shortDescription ?? null, publicDescription: document.description ?? null, searchText: document.searchText, searchableAttributes: document.searchableAttributes, filterableAttributes: document.filterableAttributes, variantOptions: document.variantOptions, condition: document.condition, fulfilmentMode: document.fulfilmentMode, sellingUnit: document.sellingUnit, priceVersionId, pricePublicReference: document.price.publicReference, priceAmount: document.price.amount, currency: "ZAR", priceIncludesTax: true, unitPriceAmount: document.price.unitAmount ?? null, unitPriceUnit: document.price.unit ?? null, unitPriceQuantity: document.price.quantity ?? null, inventoryTrackingMode, availabilityState: document.availability, primaryMediaPublicReference: document.primaryMedia?.publicReference ?? null, primaryMediaWidth: document.primaryMedia?.width ?? null, primaryMediaHeight: document.primaryMedia?.height ?? null, primaryMediaAlt: document.primaryMedia?.alt ?? null, searchable: true, indexable: false, status: StorefrontDocumentStatus.ACTIVE, publishedAt: new Date(document.publishedAt), sourceUpdatedAt: new Date(document.sourceUpdatedAt), indexedAt: new Date(), projectionVersion,
     };
     const saved = await storefrontClient.storefrontProductDocument.upsert({ where: { publicationSnapshotId: snapshotId }, create: { ...commonData, publicReference: document.publicReference }, update: commonData });
     await storefrontClient.storefrontProductDocument.updateMany({ where: { offerId, publicationSnapshotId: { not: snapshotId }, status: "ACTIVE" }, data: { status: "WITHDRAWN", searchable: false, indexable: false } });

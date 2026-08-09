@@ -1,7 +1,8 @@
+import { apiRouteError } from "@/lib/api/route-error";
 import { type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import { ok, forbidden, unprocessable, notFound } from "@/lib/api/response";
+import { ok, forbidden, notFound } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
 import { checkIpRateLimit } from "@/lib/security/rate-limit";
 import { AdvertisingReconciliationService } from "@/lib/advertising/reconciliation.service";
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const result = await service.scanForReconciliationDiscrepancies();
 
     return ok({ message: "Rescan completed", result });
-  } catch (error: any) {
-    return unprocessable(error.message || "Failed to run reconciliation rescan.");
+  } catch (error) {
+    return apiRouteError(error, { fallbackMessage: "Failed to run reconciliation rescan.", domainErrorStatus: 422 });
   }
 }

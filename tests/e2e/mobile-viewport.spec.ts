@@ -10,7 +10,7 @@ const SAFE_HASH = "request-hash-1234567890123456";
 test.describe("Mobile Viewport Execution", () => {
   test.use({ viewport: { width: 375, height: 667 }, isMobile: true, hasTouch: true });
 
-  test.beforeEach(({ page }) => {
+  test.beforeEach(() => {
     test.skip(!isLocalValidationServerAvailable, "Requires active local app instance with KT_LOCAL_STOREFRONT_VALIDATION=true");
   });
 

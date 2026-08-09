@@ -32,7 +32,7 @@ export async function completeRefundToCustomerWallet(input: Readonly<{
     }
     if (refund.method !== "CUSTOMER_WALLET" || refund.status !== "APPROVED") throw new RefundError("REFUND_INVALID_STATE", "Only approved customer-wallet refunds can be completed internally.");
     assertRefundCompletionControl({ customerUserId: refund.customerUserId ?? "", approvedByUserId: refund.approvedByUserId, completedByUserId: input.actorUserId });
-    assertRefundTransition(refund.status as any, "SUCCEEDED");
+    assertRefundTransition(refund.status, "SUCCEEDED");
     if (refund.releaseLedgerJournalId || refund.completionLedgerJournalId || !refund.reserveLedgerJournalId) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Refund financial evidence is not coherent for wallet completion.");
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${refund.paymentId} FOR UPDATE`);
     const accounts = await tx.ledgerAccount.findMany({ where: { currency: "ZAR", purpose: { in: ["CUSTOMER_REFUND_HELD", "CUSTOMER_WALLET_AVAILABLE"] }, wallet: { ownerType: "CUSTOMER", ownerId: refund.customerUserId ?? undefined, status: "ACTIVE" } }, orderBy: { id: "asc" } });

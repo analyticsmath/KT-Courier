@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import { createPayableOrder, paymentPrisma } from '../tests/integration/payment-fixtures.js';
 
 async function main() {

@@ -55,6 +55,10 @@ export class AdvertisingCampaignService {
     return this.tx || prisma;
   }
 
+  private transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.tx ? work(this.tx) : prisma.$transaction(work);
+  }
+
   private async assertStoreActive(storeId: string) {
     const store = await this.db.store.findUnique({
       where: { id: storeId },
@@ -318,7 +322,7 @@ export class AdvertisingCampaignService {
     }
 
     if (action === "APPROVE") {
-      return (this.db as any).$transaction(async (tx: any) => {
+      return this.transaction(async (tx) => {
         await tx.advertisingCampaignVersion.update({
           where: { id: version.id },
           data: {
@@ -334,7 +338,7 @@ export class AdvertisingCampaignService {
         });
       });
     } else {
-      return (this.db as any).$transaction(async (tx: any) => {
+      return this.transaction(async (tx) => {
         await tx.advertisingCampaignVersion.update({
           where: { id: version.id },
           data: {
@@ -370,13 +374,13 @@ export class AdvertisingCampaignService {
     }
 
     // Must be APPROVED or FUNDED or SCHEDULED or PAUSED
-    const allowed = [
+    const allowed: readonly AdvertisingCampaignStatus[] = [
       AdvertisingCampaignStatus.APPROVED,
       AdvertisingCampaignStatus.FUNDED,
       AdvertisingCampaignStatus.SCHEDULED,
       AdvertisingCampaignStatus.PAUSED
     ];
-    if (!allowed.includes(campaign.status as any)) {
+    if (!allowed.includes(campaign.status)) {
       throw new AdvertisingCampaignError("INVALID_STATUS", "Campaign cannot be activated in its current state.");
     }
 
@@ -393,7 +397,7 @@ export class AdvertisingCampaignService {
       throw new AdvertisingCampaignError("FUNDING_REQUIRED", "Campaign must have funding allocated before activation.");
     }
 
-    return (this.db as any).$transaction(async (tx: any) => {
+    return this.transaction(async (tx) => {
       await tx.advertisingCampaignVersion.update({
         where: { id: version.id },
         data: {
@@ -418,7 +422,7 @@ export class AdvertisingCampaignService {
     const version = campaign.versions[0];
     if (!version) throw new AdvertisingCampaignError("VERSION_REQUIRED", "No active version found.");
 
-    return (this.db as any).$transaction(async (tx: any) => {
+    return this.transaction(async (tx) => {
       await tx.advertisingCampaignVersion.update({
         where: { id: version.id },
         data: {
@@ -436,14 +440,14 @@ export class AdvertisingCampaignService {
 
   async endCampaign(storeId: string, campaignPublicReference: string) {
     const campaign = await this.getCampaignByRef(storeId, campaignPublicReference);
-    const endable = [AdvertisingCampaignStatus.ACTIVE, AdvertisingCampaignStatus.PAUSED, AdvertisingCampaignStatus.EXHAUSTED];
-    if (!endable.includes(campaign.status as any)) {
+    const endable: readonly AdvertisingCampaignStatus[] = [AdvertisingCampaignStatus.ACTIVE, AdvertisingCampaignStatus.PAUSED, AdvertisingCampaignStatus.EXHAUSTED];
+    if (!endable.includes(campaign.status)) {
       throw new AdvertisingCampaignError("INVALID_STATUS", "Only active, paused or exhausted campaigns can be ended.");
     }
     const version = campaign.versions[0];
     if (!version) throw new AdvertisingCampaignError("VERSION_REQUIRED", "No active version found.");
 
-    return (this.db as any).$transaction(async (tx: any) => {
+    return this.transaction(async (tx) => {
       await tx.advertisingCampaignVersion.update({
         where: { id: version.id },
         data: {

@@ -31,18 +31,32 @@ export async function fundPlatformPromotionInTransaction(input: PlatformFundingI
 
   const journalIntent = createPlatformSubsidyJournal(input.redemptionId, input.platformFundedAmount);
 
-  // Here you would typically write the intent to an outbox/event table
-  // @ts-ignore
-  await tx.promotionFundingIntent.create({
-    data: {
-      redemptionId: input.redemptionId,
-      campaignVersionId: input.campaignVersionId,
-      amount: input.platformFundedAmount,
-      journalData: JSON.stringify(journalIntent),
-      operationId: input.operationId,
-      requestHash: input.requestHash,
-    }
-  }).catch(() => {});
+  await tx.promotionEventIntent.upsert({
+    where: { dedupeKey: `promotion_funding_${input.operationId}` },
+    create: {
+      eventType: "PROMOTION_FUNDING_INTENT",
+      dedupeKey: `promotion_funding_${input.operationId}`,
+      payload: {
+        redemptionId: input.redemptionId,
+        campaignVersionId: input.campaignVersionId,
+        amount: input.platformFundedAmount.toFixed(2),
+        paymentId: input.paymentId,
+        marketplaceOrderId: input.marketplaceOrderId,
+        requestHash: input.requestHash,
+        journal: {
+          journalType: journalIntent.journalType,
+          referenceId: journalIntent.referenceId,
+          lines: journalIntent.lines.map((line) => ({
+            accountCode: line.accountCode,
+            lineCode: line.lineCode,
+            amount: line.amount.toFixed(2),
+            direction: line.direction,
+          })),
+        },
+      },
+    },
+    update: {},
+  });
 
   return {
     journalIntent,

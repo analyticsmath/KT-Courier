@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { PaymentError } from "@/lib/payments/errors";
@@ -25,6 +25,118 @@ export type PayfastItnApplicationResult = Readonly<{
 
 function eventReference(): string {
   return `pwe_${randomBytes(18).toString("base64url")}`;
+}
+
+export const VERIFIED_PAYMENT_EVENT_TYPE = "PAYMENT_SUCCEEDED_VERIFIED" as const;
+export const VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION = 1 as const;
+
+type Phase4TransactionExtensions = Readonly<{
+  marketplaceCheckout: Readonly<{ findUnique(input: unknown): Promise<Readonly<{ publicReference: string }> | null> }>;
+  subscriptionInvoice: Readonly<{ findUnique(input: unknown): Promise<Readonly<{ publicReference: string }> | null> }>;
+  paymentVerifiedEventIntent: Readonly<{
+    findUnique(input: unknown): Promise<Readonly<{ publicReference: string; paymentId: string; successfulAttemptId: string; webhookEventId: string; amount: Readonly<{ toFixed(scale: number): string }>; currency: string }> | null>;
+    create(input: unknown): Promise<Readonly<{ publicReference: string }>>;
+  }>;
+  notificationEventIntent: Readonly<{ upsert(input: unknown): Promise<unknown> }>;
+}>;
+
+function phase4Tx(tx: Prisma.TransactionClient): Prisma.TransactionClient & Phase4TransactionExtensions {
+  return tx as Prisma.TransactionClient & Phase4TransactionExtensions;
+}
+
+function verifiedPaymentEventIdentity(paymentReference: string, webhookEventReference: string): string {
+  return `payment-verified:${paymentReference}:${webhookEventReference}:v${VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION}`;
+}
+
+function verifiedPaymentEventReference(identity: string): string {
+  return `pve_${createHash("sha256").update(identity).digest("base64url").slice(0, 40)}`;
+}
+
+async function resolveVerifiedPaymentSubjectReference(
+  tx: Prisma.TransactionClient,
+  payment: { subjectType: string; orderId: string | null; marketplaceCheckoutId: string | null; subscriptionInvoiceId: string | null },
+): Promise<string> {
+  if (payment.subjectType === "COURIER_ORDER") {
+    const order = payment.orderId ? await tx.order.findUnique({ where: { id: payment.orderId }, select: { orderNumber: true } }) : null;
+    if (!order) throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Successful courier payment is missing its canonical order reference.");
+    return order.orderNumber;
+  }
+  if (payment.subjectType === "MARKETPLACE_CHECKOUT") {
+    const checkout = payment.marketplaceCheckoutId ? await phase4Tx(tx).marketplaceCheckout.findUnique({ where: { id: payment.marketplaceCheckoutId }, select: { publicReference: true } }) : null;
+    if (!checkout?.publicReference) throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Successful marketplace payment is missing its canonical checkout reference.");
+    return checkout.publicReference;
+  }
+  if (payment.subjectType === "SUBSCRIPTION_INVOICE") {
+    const invoice = payment.subscriptionInvoiceId ? await phase4Tx(tx).subscriptionInvoice.findUnique({ where: { id: payment.subscriptionInvoiceId }, select: { publicReference: true } }) : null;
+    if (!invoice?.publicReference) throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Successful subscription payment is missing its canonical invoice reference.");
+    return invoice.publicReference;
+  }
+  throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Successful payment has an unsupported subject.");
+}
+
+async function appendVerifiedPaymentEventWithinTransaction(
+  tx: Prisma.TransactionClient,
+  input: Readonly<{
+    payment: { id: string; publicReference: string; subjectType: string; orderId: string | null; marketplaceCheckoutId: string | null; subscriptionInvoiceId: string | null; userId: string | null; amount: Prisma.Decimal; currency: string; successfulAttemptId: string | null; successWebhookEventId: string | null };
+    attemptId: string;
+    webhookEventId: string;
+    webhookEventReference: string;
+    verifiedAt: Date;
+  }>,
+): Promise<{ publicReference: string }> {
+  if (!input.payment.successfulAttemptId || !input.payment.successWebhookEventId || input.payment.successfulAttemptId !== input.attemptId || input.payment.successWebhookEventId !== input.webhookEventId || input.payment.currency !== "ZAR" || input.payment.amount.lessThanOrEqualTo(0)) {
+    throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Verified payment event evidence is not coherent.");
+  }
+  const subjectReference = await resolveVerifiedPaymentSubjectReference(tx, input.payment);
+  const eventIdentity = verifiedPaymentEventIdentity(input.payment.publicReference, input.webhookEventReference);
+  const eventStore = phase4Tx(tx).paymentVerifiedEventIntent;
+  const existing = await eventStore.findUnique({ where: { eventIdentity } });
+  if (existing) {
+    if (existing.paymentId !== input.payment.id || existing.successfulAttemptId !== input.attemptId || existing.webhookEventId !== input.webhookEventId || existing.amount.toFixed(2) !== input.payment.amount.toFixed(2) || existing.currency !== input.payment.currency) {
+      throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Verified payment event identity conflicts with canonical evidence.");
+    }
+    return { publicReference: existing.publicReference };
+  }
+  const created = await eventStore.create({
+    data: {
+      publicReference: verifiedPaymentEventReference(eventIdentity),
+      eventIdentity,
+      eventType: VERIFIED_PAYMENT_EVENT_TYPE,
+      paymentId: input.payment.id,
+      successfulAttemptId: input.attemptId,
+      webhookEventId: input.webhookEventId,
+      paymentReference: input.payment.publicReference,
+      subjectType: input.payment.subjectType,
+      subjectReference,
+      payerUserId: input.payment.userId,
+      amount: input.payment.amount,
+      currency: "ZAR",
+      provider: "PAYFAST",
+      verifiedAt: input.verifiedAt,
+      schemaVersion: VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION,
+    },
+  });
+  await phase4Tx(tx).notificationEventIntent.upsert({
+    where: { operationId: `payment-verified-notification:${eventIdentity}` },
+    update: {},
+    create: {
+      sourceAuthority: "PAYMENT",
+      eventType: VERIFIED_PAYMENT_EVENT_TYPE,
+      aggregateReference: input.payment.publicReference,
+      operationId: `payment-verified-notification:${eventIdentity}`,
+      safePayload: {
+        paymentReference: input.payment.publicReference,
+        subjectType: input.payment.subjectType,
+        subjectReference,
+        amount: input.payment.amount.toFixed(2),
+        currency: "ZAR",
+        provider: "PAYFAST",
+        verifiedPaymentEventReference: created.publicReference,
+        schemaVersion: VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION,
+      },
+    },
+  });
+  return { publicReference: created.publicReference };
 }
 
 function eventCreateData(
@@ -164,8 +276,6 @@ async function reconcileWithinApplication(
 
 type PayfastApplicationDependencies = Readonly<{
   afterLedgerPosted?: (journalId: string) => Promise<void> | void;
-  /** Runs after the Phase 12 transaction commits; it must not roll back receipt application. */
-  afterVerifiedPaymentSucceeded?: (paymentId: string) => Promise<void> | void;
 }>;
 
 async function applyVerifiedEventTransaction(eventId: string, verified: VerifiedPayfastItn, dependencies: PayfastApplicationDependencies): Promise<PayfastItnApplicationResult> {
@@ -358,6 +468,25 @@ async function applyVerifiedEventTransaction(eventId: string, verified: Verified
       });
       await resolvePaymentReconciliationCasesWithinTransaction(tx, payment.id, attempt.id, "VERIFIED_COMPLETE");
       await tx.paymentWebhookEvent.update({ where: { id: event.id }, data: { processingStatus: "APPLIED", appliedAt: now } });
+      await appendVerifiedPaymentEventWithinTransaction(tx, {
+        payment: {
+          id: payment.id,
+          publicReference: payment.publicReference,
+          subjectType: payment.subjectType,
+          orderId: payment.orderId,
+          marketplaceCheckoutId: payment.marketplaceCheckoutId,
+          subscriptionInvoiceId: payment.subscriptionInvoiceId,
+          userId: payment.userId,
+          amount: payment.amount,
+          currency: payment.currency,
+          successfulAttemptId: attempt.id,
+          successWebhookEventId: event.id,
+        },
+        attemptId: attempt.id,
+        webhookEventId: event.id,
+        webhookEventReference: event.publicReference,
+        verifiedAt: now,
+      });
       return Object.freeze({ outcome: "APPLIED", eventPublicReference: event.publicReference, ledgerJournalReference: journal.reference });
     }
 
@@ -429,11 +558,7 @@ export async function applyVerifiedPayfastItn(
 ): Promise<PayfastItnApplicationResult> {
   const receipt = await ensureVerifiedReceipt(verified);
   try {
-    const result = await withPaymentDatabaseRetry(() => applyVerifiedEventTransaction(receipt.id, verified, dependencies));
-    if (result.outcome === "APPLIED" && verified.receipt.normalizedStatus === "COMPLETE") {
-      await Promise.resolve(dependencies.afterVerifiedPaymentSucceeded?.(verified.attempt.paymentId)).catch(() => undefined);
-    }
-    return result;
+    return await withPaymentDatabaseRetry(() => applyVerifiedEventTransaction(receipt.id, verified, dependencies));
   } catch (error) {
     await recordApplicationFailure(receipt.id, verified).catch(() => undefined);
     if (error instanceof PaymentError) throw error;

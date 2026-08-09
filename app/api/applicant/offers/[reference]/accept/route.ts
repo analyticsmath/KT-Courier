@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- route error projection is deferred to generated API error types. */
+import { recruitmentRouteError } from "@/lib/recruitment/route-error";
+ 
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
@@ -23,7 +24,7 @@ export async function POST(
 
     const accepted = await offerService.acceptOffer(reference, body.offerVersionReference);
     return NextResponse.json({ success: true, data: accepted });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    return recruitmentRouteError(error, 400);
   }
 }

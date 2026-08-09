@@ -52,6 +52,7 @@ export const RATE_LIMITS: Record<string, RateLimitPolicy> = {
   DELIVERY_OTP_SEND:      { max: 5,  windowMs: 15 * 60 * 1000 },
   DELIVERY_COMPLETE:      { max: 10, windowMs: 10 * 60 * 1000 },
   DELIVERY_ATTEMPTED:     { max: 15, windowMs: 10 * 60 * 1000 },
+  DRIVER_LOCATION:        { max: 60, windowMs: 10 * 60 * 1000, distributedRequired: true },
   DELIVERY_FAILED:        { max: 10, windowMs: 10 * 60 * 1000 },
   ADMIN_DELIVERY_MANUAL:  { max: 10, windowMs: 10 * 60 * 1000 },
   WITHDRAWAL_REQUEST:     { max: 10, windowMs: 10 * 60 * 1000 },

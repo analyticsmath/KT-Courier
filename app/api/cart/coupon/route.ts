@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 import { marketplaceOwner, marketplaceJson, marketplaceError } from "@/lib/marketplace-checkout/api-policy";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
 import { applyCouponToCart, removeCouponFromCart } from "@/lib/promotions/cart-coupon.service";

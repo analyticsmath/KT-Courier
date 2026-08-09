@@ -36,20 +36,24 @@ function addOrigin(origins: string[], value: string | undefined): void {
 }
 
 function getAllowedOrigins(request?: Request): string[] {
-  const origins: string[] = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-    "http://localhost:3200",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "http://127.0.0.1:3002",
-    "http://127.0.0.1:3200",
-  ];
+  const isProduction = process.env.NODE_ENV === "production";
+  const origins: string[] = isProduction
+    ? []
+    : [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3200",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
+        "http://127.0.0.1:3200",
+      ];
 
   addOrigin(origins, process.env.NEXT_PUBLIC_APP_URL);
   addOrigin(origins, process.env.APP_URL);
   addOrigin(origins, process.env.VERCEL_URL);
+  addOrigin(origins, process.env.CORS_ALLOW_ORIGIN);
 
   if (request) {
     addOrigin(origins, request.url);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateMarketplacePromotions, type PromotionEvaluationInput, type PromotionEvaluationResult } from '@/lib/promotions/promotion-evaluation.service';
+import { evaluateMarketplacePromotions, type PromotionEvaluationDependencies, type PromotionEvaluationInput, type PromotionEvaluationResult } from '@/lib/promotions/promotion-evaluation.service';
 import { PromotionsProductionLockedError } from '@/lib/promotions/production-lock';
 
 describe('promotion-evaluation service', () => {
@@ -11,7 +11,9 @@ describe('promotion-evaluation service', () => {
   });
 
   it('evaluateMarketplacePromotions throws PromotionsProductionLockedError without test approval', async () => {
-    await expect(evaluateMarketplacePromotions({} as any, {} as any)).rejects.toThrow(PromotionsProductionLockedError);
+    const input: PromotionEvaluationInput = { checkoutId: "checkout-1", storeGroups: [], deliveryQuotes: [], now: new Date() };
+    const dependencies: PromotionEvaluationDependencies = { fetchActiveCampaignVersions: async () => [] };
+    await expect(evaluateMarketplacePromotions(input, dependencies)).rejects.toThrow(PromotionsProductionLockedError);
   });
 
   it('evaluateMarketplacePromotions is a function', () => {

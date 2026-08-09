@@ -1,4 +1,4 @@
-import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
+import { EditorialTable, type EditorialTableColumn } from "@/components/protected-v2/data/EditorialTable";
 import { OperationalPanel, MetricTile } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
@@ -23,6 +23,37 @@ function FinancialDefinitionList({ entries }: { entries: readonly { label: strin
   );
 }
 
+type DriverEarningRow = { id: string; publicReference: string; assignmentPublicReference: string; amount: string; accruedAt: string };
+type DriverPeriodTotalRow = { id: string; driverPublicReference: string; amount: string };
+type RefundRow = { id: string; publicReference: string; amount: string; method: string; status: string };
+type WithdrawalRow = { id: string; publicReference: string; ownerType: string; amount: string; status: string };
+
+const driverEarningColumns: readonly EditorialTableColumn<DriverEarningRow>[] = [
+  { id: "reference", header: "Reference", cell: (row) => row.publicReference, priority: "primary" },
+  { id: "assignment", header: "Assignment", cell: (row) => row.assignmentPublicReference, priority: "secondary" },
+  { id: "amount", header: "Amount", align: "end", cell: (row) => <Amount value={row.amount} /> },
+  { id: "accrued", header: "Accrued", cell: (row) => row.accruedAt, priority: "optional" },
+];
+
+const driverPeriodTotalColumns: readonly EditorialTableColumn<DriverPeriodTotalRow>[] = [
+  { id: "driver", header: "Driver", cell: (row) => row.driverPublicReference, priority: "primary" },
+  { id: "amount", header: "Amount", align: "end", cell: (row) => <Amount value={row.amount} /> },
+];
+
+const refundColumns: readonly EditorialTableColumn<RefundRow>[] = [
+  { id: "reference", header: "Reference", cell: (row) => row.publicReference, priority: "primary" },
+  { id: "amount", header: "Amount", align: "end", cell: (row) => <Amount value={row.amount} /> },
+  { id: "method", header: "Method", cell: (row) => row.method, priority: "secondary" },
+  { id: "status", header: "State", cell: (row) => <ProtectedStatus {...presentR21Status(row.status)} /> },
+];
+
+const withdrawalColumns: readonly EditorialTableColumn<WithdrawalRow>[] = [
+  { id: "reference", header: "Reference", cell: (row) => row.publicReference, priority: "primary" },
+  { id: "owner", header: "Owner", cell: (row) => row.ownerType, priority: "secondary" },
+  { id: "amount", header: "Amount", align: "end", cell: (row) => <Amount value={row.amount} /> },
+  { id: "status", header: "State", cell: (row) => <ProtectedStatus {...presentR21Status(row.status)} /> },
+];
+
 export default async function FinanceOverviewPage() {
   await requireAdminPagePermission(PERMISSIONS.FINANCE_DASHBOARD_READ);
   await requireRefundPagePermission(PERMISSIONS.FINANCE_REFUNDS_READ);
@@ -30,9 +61,10 @@ export default async function FinanceOverviewPage() {
   await requireDriverEarningFinancePagePermission(PERMISSIONS.FINANCE_DRIVER_EARNINGS_READ);
   const dashboard = await getFinanceDashboard();
 
-  const driverRows = dashboard.driverEarnings.oldestUnreleasedEarnings.map((row: any) => ({ ...row, id: row.publicReference }));
-  const refundRows = dashboard.refunds.oldestPending;
-  const withdrawalRows = dashboard.oldestPending;
+  const driverRows: readonly DriverEarningRow[] = dashboard.driverEarnings.oldestUnreleasedEarnings.map((row: DriverEarningRow) => ({ ...row, id: row.publicReference }));
+  const driverPeriodRows: readonly DriverPeriodTotalRow[] = dashboard.driverEarnings.driverTotalsByPeriod.drivers.map((row: DriverPeriodTotalRow) => ({ ...row, id: row.driverPublicReference }));
+  const refundRows: readonly RefundRow[] = dashboard.refunds.oldestPending;
+  const withdrawalRows: readonly WithdrawalRow[] = dashboard.oldestPending;
 
   return (
     <ProtectedPageFrame>
@@ -77,34 +109,16 @@ export default async function FinanceOverviewPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <OperationalPanel title="Oldest unreleased driver earnings" description="Ordered source records requiring the existing lifecycle evidence.">
-          <EditorialTable caption="Oldest unreleased driver earnings" mobileMode="stack" rows={driverRows} columns={[
-            { id: "reference", header: "Reference", cell: (row: any) => row.publicReference, priority: "primary" },
-            { id: "assignment", header: "Assignment", cell: (row: any) => row.assignmentPublicReference, priority: "secondary" },
-            { id: "amount", header: "Amount", align: "end", cell: (row: any) => <Amount value={row.amount} /> },
-            { id: "accrued", header: "Accrued", cell: (row: any) => String(row.accruedAt), priority: "optional" },
-          ]} />
+          <EditorialTable caption="Oldest unreleased driver earnings" mobileMode="stack" rows={driverRows} columns={driverEarningColumns} />
         </OperationalPanel>
         <OperationalPanel title="Current-period driver totals" description="Recorded period totals, not a client-side calculation.">
-          <EditorialTable caption="Current-period driver totals" mobileMode="stack" rows={dashboard.driverEarnings.driverTotalsByPeriod.drivers.map((row: any) => ({ ...row, id: row.driverPublicReference }))} columns={[
-            { id: "driver", header: "Driver", cell: (row: any) => row.driverPublicReference, priority: "primary" },
-            { id: "amount", header: "Amount", align: "end", cell: (row: any) => <Amount value={row.amount} /> },
-          ]} />
+          <EditorialTable caption="Current-period driver totals" mobileMode="stack" rows={driverPeriodRows} columns={driverPeriodTotalColumns} />
         </OperationalPanel>
         <OperationalPanel title="Oldest pending refunds" description="Provider outcome and funding state remain authoritative elsewhere.">
-          <EditorialTable caption="Oldest pending refunds" mobileMode="stack" rows={refundRows} columns={[
-            { id: "reference", header: "Reference", cell: (row: any) => row.publicReference, priority: "primary" },
-            { id: "amount", header: "Amount", align: "end", cell: (row: any) => <Amount value={row.amount} /> },
-            { id: "method", header: "Method", cell: (row: any) => row.method, priority: "secondary" },
-            { id: "status", header: "State", cell: (row: any) => { const status = presentR21Status(row.status); return <ProtectedStatus {...status} />; } },
-          ]} />
+          <EditorialTable caption="Oldest pending refunds" mobileMode="stack" rows={refundRows} columns={refundColumns} />
         </OperationalPanel>
         <OperationalPanel title="Oldest pending withdrawals" description="Destination labels are safe projections; payout completion is never inferred.">
-          <EditorialTable caption="Oldest pending withdrawals" mobileMode="stack" rows={withdrawalRows} columns={[
-            { id: "reference", header: "Reference", cell: (row: any) => row.publicReference, priority: "primary" },
-            { id: "owner", header: "Owner", cell: (row: any) => row.ownerType, priority: "secondary" },
-            { id: "amount", header: "Amount", align: "end", cell: (row: any) => <Amount value={row.amount} /> },
-            { id: "status", header: "State", cell: (row: any) => { const status = presentR21Status(row.status); return <ProtectedStatus {...status} />; } },
-          ]} />
+          <EditorialTable caption="Oldest pending withdrawals" mobileMode="stack" rows={withdrawalRows} columns={withdrawalColumns} />
         </OperationalPanel>
       </div>
 

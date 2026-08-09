@@ -130,7 +130,8 @@ export class PayfastRecurringPaymentAdapter implements RecurringPaymentProvider,
     return Object.freeze({ status: status === "UNKNOWN" && result.status >= 200 && result.status < 300 ? "CANCELLED" : status, safeEvidence: safeMetadata(result.body, result.status) });
   }
 
-  async chargeTokenizedCycle(_input?: any): Promise<Readonly<{ status: "PENDING" | "UNKNOWN" | "FAILED"; safeEvidence: Record<string, string> }>> {
+  async chargeTokenizedCycle(_input?: Parameters<PayfastRecurringProtocol["chargeTokenizedCycle"]>[0]): Promise<Readonly<{ status: "PENDING" | "UNKNOWN" | "FAILED"; safeEvidence: Record<string, string> }>> {
+    void _input;
     // Platform-scheduled token charging remains source-locked. Provider-managed
     // cycles are charged by PayFast and resolved by authoritative ITN instead.
     throw new SubscriptionError("CONSOLIDATED_VALIDATION_NOT_APPROVED", "PLATFORM_SCHEDULED_TOKEN recurring charges are source-locked; provider-managed cycles await authoritative ITN.");
@@ -140,7 +141,8 @@ export class PayfastRecurringPaymentAdapter implements RecurringPaymentProvider,
     return this.createRecurringAuthorization({ invoiceReference: input.paymentReference, contractReference: input.contractReference, amount: input.amount, currency: input.currency, billingDate: this.now().toISOString(), returnUrl: input.returnUrl, cancelUrl: input.cancelUrl, notificationUrl: input.notificationUrl, operationId: input.operationId });
   }
 
-  async createOrUpdateSubscription(_input?: any): Promise<Readonly<{ status: SubscriptionProviderStatus; providerSubscriptionReference?: string; safeEvidence: Record<string, string> }>> {
+  async createOrUpdateSubscription(_input?: Parameters<RecurringPaymentProvider["createOrUpdateSubscription"]>[0]): Promise<Readonly<{ status: SubscriptionProviderStatus; providerSubscriptionReference?: string; safeEvidence: Record<string, string> }>> {
+    void _input;
     throw new SubscriptionError("CONSOLIDATED_VALIDATION_NOT_APPROVED", "Provider-managed plan updates are source-locked until update semantics are validated.");
   }
 
@@ -151,15 +153,17 @@ export class PayfastRecurringPaymentAdapter implements RecurringPaymentProvider,
     return Object.freeze({ status: "PENDING" as const, safeEvidence: Object.freeze({ mode: "PROVIDER_MANAGED_SUBSCRIPTION", authority: "PROVIDER_ITN_REQUIRED" }) });
   }
 
-  async pause(_input?: any): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> { throw new SubscriptionError("CONSOLIDATED_VALIDATION_NOT_APPROVED", "Subscription pause is unsupported for launch."); }
-  async resume(_input?: any): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> { throw new SubscriptionError("CONSOLIDATED_VALIDATION_NOT_APPROVED", "Subscription resume is unsupported for launch."); }
-  async cancel(_input?: any): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> {
+  async pause(_input?: Parameters<RecurringPaymentProvider["pause"]>[0]): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> { void _input; throw new SubscriptionError("CONSOLIDATED_VALIDATION_NOT_APPROVED", "Subscription pause is unsupported for launch."); }
+  async resume(_input?: Parameters<RecurringPaymentProvider["resume"]>[0]): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> { void _input; throw new SubscriptionError("CONSOLIDATED_VALIDATION_NOT_APPROVED", "Subscription resume is unsupported for launch."); }
+  async cancel(_input?: Parameters<RecurringPaymentProvider["cancel"]>[0]): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> {
+    void _input;
     // The canonical cancellation service resolves exact provider ownership
     // before calling `cancelRecurringAuthority`; this untyped legacy seam must
     // not turn an internal reference into a provider reference.
     throw new SubscriptionError("SUBSCRIPTION_PROVIDER_PROTOCOL_INVALID", "Cancellation requires a resolved provider authority.");
   }
-  async fetchStatus(_input?: any): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> {
+  async fetchStatus(_input?: Parameters<RecurringPaymentProvider["fetchStatus"]>[0]): Promise<Readonly<{ status: SubscriptionProviderStatus; safeEvidence: Record<string, string> }>> {
+    void _input;
     throw new SubscriptionError("SUBSCRIPTION_PROVIDER_PROTOCOL_INVALID", "Status synchronization requires a resolved provider authority.");
   }
 }

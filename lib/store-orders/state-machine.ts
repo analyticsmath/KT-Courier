@@ -52,6 +52,9 @@ export function assertFinancialTransition(from: Financial, to: Financial): void 
 export function deriveStoreOrderStatus(input: Readonly<{ acceptance: Acceptance; preparation: Preparation; resolution: Resolution; delivery: string }>) {
   if (input.resolution === "RECONCILIATION_REQUIRED") return "RECONCILIATION_REQUIRED" as const;
   if (["REJECTED", "TIMED_OUT"].includes(input.acceptance) || input.preparation === "ABORTED") return "REJECTED_OR_CANCELLED" as const;
+  if (input.delivery === "DELIVERED") return "DELIVERED" as const;
+  if (input.delivery === "DELIVERY_ATTEMPTED") return "DELIVERY_ATTEMPTED" as const;
+  if (input.delivery === "IN_TRANSIT") return "IN_TRANSIT" as const;
   if (input.preparation === "HANDED_OFF" || input.delivery === "HANDED_OFF") return "HANDED_OFF_TO_COURIER" as const;
   if (input.preparation === "READY_FOR_HANDOFF") return input.delivery === "DRIVER_ASSIGNED" || input.delivery === "HANDOFF_READY" ? "HANDOFF_IN_PROGRESS" as const : "READY_FOR_PICKUP" as const;
   if (input.preparation === "PREPARING") return "PREPARING" as const;

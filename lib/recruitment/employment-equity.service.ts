@@ -46,6 +46,7 @@ export class EmploymentEquityService {
   }
 
   async evaluateSelectionSupport(applicantProfileId: string, _jobId: string) {
+    void _jobId;
     const config = await this.getConfiguration();
     if (!config.selectionSupportEnabled) {
       throw new RecruitmentError("Lawful selection support is disabled without an approved effective policy.");

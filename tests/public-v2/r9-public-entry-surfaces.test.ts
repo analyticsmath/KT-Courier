@@ -45,18 +45,29 @@ describe("R9 public marketplace, participation, and developer entry surfaces", (
     }
   });
 
-  it("does not simulate cart, checkout, or order confirmation", () => {
+  it("uses canonical owner-scoped delivery tracking on order confirmation while cart and checkout remain unavailable", () => {
     const cart = read("app/(public)/cart/page.tsx");
     const checkout = read("app/(public)/checkout/page.tsx");
     const confirmation = read("app/(public)/order-confirmation/[publicReference]/page.tsx");
 
     for (const source of [cart, checkout, confirmation]) {
       expect(source).toContain("robots: { index: false, follow: true }");
+    }
+
+    for (const source of [cart, checkout]) {
       expect(source).toContain("MarketplaceUnavailable");
     }
+
     expect(cart).not.toMatch(/Continue to checkout|total|fixture|localStorage/i);
     expect(checkout).not.toMatch(/payment|PayFast|address|form/i);
-    expect(confirmation).not.toMatch(/publicReference|payment successful|Store progress/i);
+
+    expect(confirmation).toContain("publicReference");
+    expect(confirmation).toContain("getMarketplaceDeliveryTracking");
+    expect(confirmation).toContain("MARKETPLACE_ORDER_COOKIE");
+    expect(confirmation).toContain("MarketplaceUnavailable");
+    expect(confirmation).toContain("approximate");
+    expect(confirmation).not.toMatch(/payment successful|localStorage|clientConfirmation/i);
+    expect(confirmation).not.toMatch(/driverPhone|driverLicense|fullLocationHistory/i);
   });
 
   it("uses only verified participation actions and excludes earnings or requirement promises", () => {

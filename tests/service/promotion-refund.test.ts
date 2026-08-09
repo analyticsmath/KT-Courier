@@ -6,7 +6,8 @@ import { calculateRefundAllocations } from '@/lib/promotions/promotion-refund-po
 
 describe('promotion-refund service', () => {
   it('applyPromotionRefundAdjustment throws PromotionsProductionLockedError', async () => {
-    await expect(applyPromotionRefundAdjustment({} as any, {} as any)).rejects.toThrow(PromotionsProductionLockedError);
+    const input: PromotionRefundContext = { refundId: "refund-1", storeOrderId: "store-order-1", lineReference: "line-1", refundProportion: new Prisma.Decimal(1), lineTotal: new Prisma.Decimal("1.00"), frozenPromotionAllocations: [], redemptionId: "redemption-1", operationId: "operation-1", requestHash: "hash-1" };
+    await expect(applyPromotionRefundAdjustment(input, {} as Prisma.TransactionClient)).rejects.toThrow(PromotionsProductionLockedError);
   });
 
   it('calculateRefundAllocations full refund', () => {

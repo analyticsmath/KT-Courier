@@ -1,7 +1,8 @@
+import { apiRouteError } from "@/lib/api/route-error";
 import { type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import { ok, forbidden, unprocessable, notFound } from "@/lib/api/response";
+import { ok, forbidden, notFound } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
 import { checkIpRateLimit } from "@/lib/security/rate-limit";
 import { AdvertisingAggregationService } from "@/lib/advertising/aggregation.service";
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await service.aggregateDailyMetrics(targetDate);
 
     return ok({ message: "Daily aggregate rebuild triggered successfully", date: targetDate.toISOString() });
-  } catch (error: any) {
-    return unprocessable(error.message || "Failed to rebuild daily aggregate.");
+  } catch (error) {
+    return apiRouteError(error, { fallbackMessage: "Failed to rebuild daily aggregate.", domainErrorStatus: 422 });
   }
 }

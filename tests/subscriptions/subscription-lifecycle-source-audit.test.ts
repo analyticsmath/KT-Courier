@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
 describe("phase 22 final lifecycle source audit", () => {
   it("wires renewal ITN, cancellation, synchronization, refund and entitlement services concretely", () => {
-    expect(read("app/api/payments/payfast/itn/route.ts")).toContain("onVerifiedSubscriptionPaymentSucceededInProduction");
+    expect(read("lib/payments/verified-payment-event-processor.service.ts")).toContain("onVerifiedSubscriptionPaymentSucceededInProduction");
     expect(read("lib/subscriptions/subscription-payment-success-hook.service.ts")).toContain("resolveSubscriptionProviderEvent");
     expect(read("lib/subscriptions/subscription-cancellation.service.ts")).toContain("cancelRecurringAuthority");
     expect(read("lib/subscriptions/subscription-provider-synchronization.service.ts")).toContain("synchronizeRecurringAuthority");

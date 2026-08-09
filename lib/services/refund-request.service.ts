@@ -30,7 +30,7 @@ type RequestDependencies = Readonly<{
 }>;
 
 async function lockPaymentByReference(tx: Prisma.TransactionClient, publicReference: string) {
-  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "publicReference" = ${publicReference} OR "paymentNumber" = ${publicReference} FOR UPDATE`);
+  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "paymentNumber" = ${publicReference} FOR UPDATE`);
   if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Successful payment was not found.");
   const payment = await tx.payment.findUnique({
     where: { id: rows[0].id },
@@ -68,7 +68,7 @@ async function resolveOriginalCommissionAllocations(tx: Prisma.TransactionClient
   if (accruals.some((accrual) => accrual.status === "RECONCILIATION_REQUIRED") || accruals.length > 1) {
     throw new RefundError("REFUND_FUNDING_UNAVAILABLE", "Commission evidence requires reconciliation before refund reservation.");
   }
-  const allocationIds = (accruals[0] as any)?.allocations.map((allocation: any) => allocation.id) ?? [];
+  const allocationIds = accruals[0]?.allocations.map((allocation) => allocation.id) ?? [];
   if (allocationIds.length > 0) {
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CommissionAllocation" WHERE "id" IN (${Prisma.join(allocationIds)}) ORDER BY "id" ASC FOR UPDATE`);
     if (locked.length !== allocationIds.length) throw new RefundError("REFUND_FUNDING_UNAVAILABLE", "Original commission allocations could not be locked coherently.");
@@ -100,7 +100,7 @@ async function lockAndVerifyFundingAccounts(tx: Prisma.TransactionClient, fundin
   const accountIds = [...new Set([...funding.map((item) => item.ledgerAccountId), heldAccountId])].sort();
   const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "LedgerAccount" WHERE "id" IN (${Prisma.join(accountIds)}) ORDER BY "id" ASC FOR UPDATE`);
   if (locked.length !== accountIds.length) throw new RefundError("REFUND_FUNDING_UNAVAILABLE", "One or more refund funding accounts are unavailable.");
-  const accounts = await tx.ledgerAccount.findMany({ where: { id: { in: accountIds } }, include: { wallet: { select: { status: true } } } });
+  const accounts = await tx.ledgerAccount.findMany({ where: { id: { in: accountIds } }, include: { wallet: { select: { status: true, ownerType: true, ownerId: true } } } });
   for (const item of funding) {
     const account = accounts.find((candidate) => candidate.id === item.ledgerAccountId);
     if (!account || account.status !== "ACTIVE" || account.wallet.status !== "ACTIVE" || account.currency !== "ZAR" || LedgerMoney.fromDecimal(account.currentBalance).lessThan(LedgerMoney.parse(item.amount))) {
@@ -108,7 +108,7 @@ async function lockAndVerifyFundingAccounts(tx: Prisma.TransactionClient, fundin
     }
   }
   const held = accounts.find((candidate) => candidate.id === heldAccountId);
-  const validGuestHeld = options.allowPlatformHeld && held?.purpose === "HELD" && held.category === "LIABILITY" && !held.allowNegative && (held.wallet as any).ownerType === "PLATFORM" && (held.wallet as any).ownerId === "platform";
+  const validGuestHeld = options.allowPlatformHeld && held?.purpose === "HELD" && held.category === "LIABILITY" && !held.allowNegative && held.wallet.ownerType === "PLATFORM" && held.wallet.ownerId === "platform";
   if (!held || (!validGuestHeld && (held.purpose !== "CUSTOMER_REFUND_HELD" || held.category !== "LIABILITY" || held.allowNegative))) {
     throw new RefundError("REFUND_LEDGER_INCOHERENT", "Customer refund-held account is invalid.");
   }
@@ -301,7 +301,7 @@ async function releaseRefundReservation(input: Readonly<{ actorUserId: string; p
     if (input.targetStatus === "CANCELLED" && refund.customerUserId !== input.actorUserId) throw new RefundError("REFUND_FORBIDDEN", "Refund request does not belong to the customer.");
     if (input.targetStatus === "REJECTED" && refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot reject their own refund administratively.");
     if (!((["REQUESTED", "UNDER_REVIEW"] as string[]).includes(refund.status))) throw new RefundError("REFUND_INVALID_STATE", "Refund reservation cannot be released from its current state.");
-    assertRefundTransition(refund.status as any, input.targetStatus);
+    assertRefundTransition(refund.status, input.targetStatus);
     if (refund.releaseLedgerJournalId || refund.completionLedgerJournalId) throw new RefundError("REFUND_INVALID_STATE", "Refund already has release or completion evidence.");
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${refund.paymentId} FOR UPDATE`);
     const held = await tx.ledgerAccount.findFirst({ where: { purpose: "CUSTOMER_REFUND_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", allowNegative: false, wallet: { ownerType: "CUSTOMER", ownerId: refund.customerUserId ?? undefined, status: "ACTIVE" } } });

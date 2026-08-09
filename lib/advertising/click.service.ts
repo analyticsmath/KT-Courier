@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { Prisma, AdvertisingMeasurementValidity, AdvertisingMeasurementEventType, AdvertisingClickChargeStatus, AdvertisingReconciliationReason } from "@prisma/client";
+import { Prisma, AdvertisingMeasurementValidity, AdvertisingReconciliationReason } from "@prisma/client";
 import { ServeTokenPayload } from "./serving.service";
 import { AdvertisingMeasurementService } from "./measurement.service";
 import { AdvertisingBillingService, AdvertisingBillingError } from "./billing.service";
@@ -83,7 +83,10 @@ export class AdvertisingClickService {
           operationId: `OP-CHG-${measurementEvent.id}`,
           requestHash: `HASH-CHG-${measurementEvent.id}`
         });
-      } catch (billingError: any) {
+      } catch (billingError) {
+        const billingFailure = billingError instanceof AdvertisingBillingError
+          ? billingError.message
+          : "Billing reconciliation is required.";
         // Billing failure opens reconciliation case
         const publicRef = `AD-REC-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
         await this.db.advertisingReconciliationCase.create({
@@ -94,8 +97,8 @@ export class AdvertisingClickService {
             reason: AdvertisingReconciliationReason.VALID_CLICK_WITHOUT_CHARGE,
             status: "OPEN",
             priority: "HIGH",
-            safeSummary: `Valid click was recorded but charging failed: ${billingError.message || "Unknown error"}`,
-            safeEvidence: { error: billingError.message || "Unknown error" }
+            safeSummary: `Valid click was recorded but charging failed: ${billingFailure}`,
+            safeEvidence: { error: billingFailure }
           }
         });
       }

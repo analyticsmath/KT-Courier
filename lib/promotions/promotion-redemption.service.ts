@@ -274,11 +274,20 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
             redemptionId: record.id,
             checkoutId: input.checkoutId,
             marketplaceOrderId: input.marketplaceOrderId,
-            discountAmount: record.discountAmount.toNumber(),
-            platformFunding: record.platformFunding.toNumber(),
-            storeFunding: record.storeFunding.toNumber(),
-            journalIntent: intent
-          } as any,
+            discountAmount: record.discountAmount.toFixed(2),
+            platformFunding: record.platformFunding.toFixed(2),
+            storeFunding: record.storeFunding.toFixed(2),
+            journalIntent: {
+              journalType: intent.journalType,
+              referenceId: intent.referenceId,
+              lines: intent.lines.map((line) => ({
+                accountCode: line.accountCode,
+                lineCode: line.lineCode,
+                amount: line.amount.toFixed(2),
+                direction: line.direction,
+              })),
+            },
+          },
           dedupeKey: `redemption_committed_${record.id}`
         }
       });
