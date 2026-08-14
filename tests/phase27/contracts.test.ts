@@ -4,7 +4,8 @@ import { renderNotificationTemplate } from "@/lib/notifications/template-rendere
 
 describe("Phase 27 policy contracts", () => {
   it("requires channel-specific marketing consent and verified destinations", () => {
-    expect(deliveryEligible({ purpose: "MARKETING", channel: "EMAIL", consent: "REVOKED", verifiedDestination: true }).reason).toBe("CONSENT_REQUIRED");
+    expect(deliveryEligible({ purpose: "MARKETING", channel: "EMAIL", consent: "REVOKED", verifiedDestination: true }).reason).toBe("USER_OPTED_OUT");
+    expect(deliveryEligible({ purpose: "MARKETING", channel: "EMAIL", consent: "NOT_REQUESTED", verifiedDestination: true }).reason).toBe("CONSENT_REQUIRED");
     expect(deliveryEligible({ purpose: "TRANSACTIONAL", channel: "SMS", verifiedDestination: false }).reason).toBe("VERIFIED_NOTIFICATION_DESTINATION_REQUIRED");
     expect(deliveryEligible({ purpose: "SECURITY", channel: "IN_APP" }).eligible).toBe(true);
   });

@@ -65,6 +65,8 @@ export const RATE_LIMITS: Record<string, RateLimitPolicy> = {
   CATALOG_MUTATION: { max: 60, windowMs: 10 * 60 * 1000 },
   CATALOG_IMPORT: { max: 10, windowMs: 60 * 60 * 1000 },
   CATALOG_MEDIA_UPLOAD: { max: 30, windowMs: 60 * 60 * 1000 },
+  PRIVATE_MEDIA_UPLOAD: { max: 20, windowMs: 60 * 60 * 1000, distributedRequired: true },
+  PRIVACY_REQUEST_SUBMISSION: { max: 5, windowMs: 60 * 60 * 1000, distributedRequired: true },
   STOREFRONT_SEARCH: { max: 120, windowMs: 10 * 60 * 1000 },
   STOREFRONT_SUGGESTIONS: { max: 90, windowMs: 10 * 60 * 1000 },
   STOREFRONT_LOCATION: { max: 30, windowMs: 10 * 60 * 1000 },
@@ -76,6 +78,15 @@ export const RATE_LIMITS: Record<string, RateLimitPolicy> = {
   STORE_ORDER_HANDOFF: { max: 8, windowMs: 10 * 60 * 1000 },
   STORE_ORDER_CUSTOMER_MUTATION: { max: 15, windowMs: 10 * 60 * 1000 },
   STORE_ORDER_ADMIN_RECOVERY: { max: 12, windowMs: 10 * 60 * 1000 },
+  COD_COLLECTION: { max: 12, windowMs: 10 * 60 * 1000, distributedRequired: true },
+  COD_RECONCILIATION: { max: 12, windowMs: 10 * 60 * 1000, distributedRequired: true },
+  CLAIM_CREATE: { max: 8, windowMs: 60 * 60 * 1000, distributedRequired: true },
+  CLAIM_MUTATION: { max: 30, windowMs: 10 * 60 * 1000, distributedRequired: true },
+  MANAGED_MARKETING_REQUEST_CREATE: { max: 10, windowMs: 60 * 60 * 1000, distributedRequired: true },
+  MANAGED_MARKETING_REQUEST_MUTATION: { max: 40, windowMs: 10 * 60 * 1000, distributedRequired: true },
+  MANAGED_MARKETING_CREATIVE_ATTACH: { max: 20, windowMs: 60 * 60 * 1000, distributedRequired: true },
+  MANAGED_MARKETING_PAYMENT_PREPARE: { max: 8, windowMs: 60 * 60 * 1000, distributedRequired: true },
+  COOKIE_PREFERENCE_MUTATION: { max: 30, windowMs: 10 * 60 * 1000, distributedRequired: true },
 };
 
 // ─── IP extraction ─────────────────────────────────────────────────────────────

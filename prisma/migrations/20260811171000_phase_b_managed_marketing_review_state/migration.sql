@@ -1,0 +1,1 @@
+ALTER TYPE "ManagedMarketingRequestStatus" ADD VALUE IF NOT EXISTS 'UNDER_REVIEW';

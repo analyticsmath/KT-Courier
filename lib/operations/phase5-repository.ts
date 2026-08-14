@@ -16,6 +16,8 @@ const DEFAULT_MODEL_VALUES: Record<string, Record<string, unknown>> = {
   operationalProcessorRun: { status: "REQUESTED", partition: "default", itemsClaimed: 0, itemsCompleted: 0, itemsRetried: 0, itemsReconciled: 0 },
   privacyRequest: { status: "RECEIVED", identityVerificationStatus: "REQUIRED" },
   retentionHold: { releasedAt: null },
+  privacyRequestExecutionPlan: { executionState: "PLANNED" },
+  retentionPolicyVersion: { status: "DRAFT", legalReviewStatus: "LEGAL_REVIEW_REQUIRED" },
   legalDocumentVersion: { publicationStatus: "DRAFT" },
   legalDocumentAcceptance: { subjectReference: "" },
 };
@@ -81,10 +83,13 @@ function matchesWhere(item: Record<string, unknown>, where?: Record<string, unkn
 }
 
 function createModelDelegate(modelName: string): RepositoryDelegate {
+  // Tests use the explicit in-memory adapter. Mixing a timeout fallback write
+  // with a successful database read can hide append-only timeline events.
+  const useTestMemoryStore = process.env.NODE_ENV === "test";
   return {
     async findMany(args?: Record<string, unknown>) {
       const realDelegate = Reflect.get(db, modelName);
-      if (realDelegate && typeof realDelegate.findMany === "function") {
+      if (!useTestMemoryStore && realDelegate && typeof realDelegate.findMany === "function") {
         try {
           return await Promise.race([
             realDelegate.findMany(args),
@@ -107,7 +112,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
     },
     async findFirst(args?: Record<string, unknown>) {
       const realDelegate = Reflect.get(db, modelName);
-      if (realDelegate && typeof realDelegate.findFirst === "function") {
+      if (!useTestMemoryStore && realDelegate && typeof realDelegate.findFirst === "function") {
         try {
           return await Promise.race([
             realDelegate.findFirst(args),
@@ -128,7 +133,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
     },
     async findUnique(args: Record<string, unknown>) {
       const realDelegate = Reflect.get(db, modelName);
-      if (realDelegate && typeof realDelegate.findUnique === "function") {
+      if (!useTestMemoryStore && realDelegate && typeof realDelegate.findUnique === "function") {
         try {
           return await Promise.race([
             realDelegate.findUnique(args),
@@ -149,7 +154,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
     },
     async create(args: Record<string, unknown>) {
       const realDelegate = Reflect.get(db, modelName);
-      if (realDelegate && typeof realDelegate.create === "function") {
+      if (!useTestMemoryStore && realDelegate && typeof realDelegate.create === "function") {
         try {
           return await Promise.race([
             realDelegate.create(args),
@@ -172,7 +177,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
     },
     async update(args: Record<string, unknown>) {
       const realDelegate = Reflect.get(db, modelName);
-      if (realDelegate && typeof realDelegate.update === "function") {
+      if (!useTestMemoryStore && realDelegate && typeof realDelegate.update === "function") {
         try {
           return await Promise.race([
             realDelegate.update(args),
@@ -195,7 +200,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
     },
     async updateMany(args: Record<string, unknown>) {
       const realDelegate = Reflect.get(db, modelName);
-      if (realDelegate && typeof realDelegate.updateMany === "function") {
+      if (!useTestMemoryStore && realDelegate && typeof realDelegate.updateMany === "function") {
         try {
           return await Promise.race([
             realDelegate.updateMany(args),
@@ -220,7 +225,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
     },
     async upsert(args: Record<string, unknown>) {
       const realDelegate = Reflect.get(db, modelName);
-      if (realDelegate && typeof realDelegate.upsert === "function") {
+      if (!useTestMemoryStore && realDelegate && typeof realDelegate.upsert === "function") {
         try {
           return await Promise.race([
             realDelegate.upsert(args),
@@ -245,10 +250,19 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
 export const phase5Repository = {
   operationalIncident: createModelDelegate("operationalIncident"),
   operationalIncidentTimeline: createModelDelegate("operationalIncidentTimeline"),
+  operationalIncidentEvidence: createModelDelegate("operationalIncidentEvidence"),
   operationalProcessorRun: createModelDelegate("operationalProcessorRun"),
   privacyRequest: createModelDelegate("privacyRequest"),
   privacyRequestEvent: createModelDelegate("privacyRequestEvent"),
   retentionHold: createModelDelegate("retentionHold"),
+  privacyRequestExecutionPlan: createModelDelegate("privacyRequestExecutionPlan"),
+  retentionPolicyVersion: createModelDelegate("retentionPolicyVersion"),
+  retentionExecution: createModelDelegate("retentionExecution"),
+  sensitiveDataClass: createModelDelegate("sensitiveDataClass"),
+  sensitiveDataResourceMapping: createModelDelegate("sensitiveDataResourceMapping"),
+  providerPrivacyGovernance: createModelDelegate("providerPrivacyGovernance"),
+  providerPrivacyDataClass: createModelDelegate("providerPrivacyDataClass"),
+  policyRuntimeLink: createModelDelegate("policyRuntimeLink"),
   legalDocumentVersion: createModelDelegate("legalDocumentVersion"),
   legalDocumentAcceptance: createModelDelegate("legalDocumentAcceptance"),
 };

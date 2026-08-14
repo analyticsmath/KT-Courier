@@ -155,9 +155,9 @@ export async function recordDriverLocationSample(
 export async function getLatestSafeDriverLocationProjection(
   assignmentId: string,
   driverProfileId: string,
-): Promise<Readonly<{ observedAt: string; validationStatus: string; latitude: number; longitude: number }> | null> {
-  const rows = await prisma.$queryRaw<Array<Readonly<{ latitude: Prisma.Decimal; longitude: Prisma.Decimal; receivedAt: Date; validationStatus: string }>>>(Prisma.sql`
-    SELECT "latitude", "longitude", "receivedAt", "validationStatus"
+): Promise<Readonly<{ observedAt: string; source: string; validationStatus: string; latitude: number; longitude: number }> | null> {
+  const rows = await prisma.$queryRaw<Array<Readonly<{ latitude: Prisma.Decimal; longitude: Prisma.Decimal; receivedAt: Date; validationStatus: string; source: string }>>>(Prisma.sql`
+    SELECT "latitude", "longitude", "receivedAt", "validationStatus", "source"
     FROM "DriverLocationEvidence"
     WHERE "assignmentId" = ${assignmentId} AND "driverProfileId" = ${driverProfileId} AND "validationStatus" = 'ACCEPTED'
     ORDER BY "receivedAt" DESC
@@ -167,6 +167,7 @@ export async function getLatestSafeDriverLocationProjection(
   if (!latest) return null;
   return Object.freeze({
     observedAt: latest.receivedAt.toISOString(),
+    source: latest.source,
     validationStatus: latest.validationStatus,
     latitude: Math.round(Number(latest.latitude) * 100) / 100,
     longitude: Math.round(Number(latest.longitude) * 100) / 100,

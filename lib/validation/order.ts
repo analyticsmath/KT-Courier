@@ -52,6 +52,7 @@ export const CreateOrderSchema = z
       .default(1),
     scheduledFor: z.string().datetime({ message: "Scheduled date must be a valid date-time" }).optional(),
     customerNote: z.string().trim().max(1000).optional(),
+    paymentMethod: z.enum(["DIGITAL_ONLY", "FULL_COD", "DEPOSIT_PLUS_COD"]).optional(),
     // Non-monetary parcel facts are revalidated against the immutable quote.
     // Prices, rates, totals, and route values remain intentionally absent.
     vehicleClass: z.nativeEnum(VehicleType).optional(),

@@ -18,6 +18,9 @@ const root = process.cwd();
 const verifier = readFileSync(path.join(root, "scripts", "verify-database-schema.mjs"), "utf8");
 const dockerMigrationSmoke = readFileSync(path.join(root, "scripts", "docker-migration-smoke.mjs"), "utf8");
 const dockerSmoke = readFileSync(path.join(root, "scripts", "docker-smoke.mjs"), "utf8");
+const dockerPhaseBRuntimeClosure = readFileSync(path.join(root, "scripts", "docker-phase-b-runtime-closure.mjs"), "utf8");
+const dockerGate4Integration = readFileSync(path.join(root, "scripts", "docker-gate4-integration.mjs"), "utf8");
+const duplicatedSchemaVerifierArgs = '["run", "--rm", "migrate", "node", "scripts/verify-database-schema.mjs"]';
 
 describe("database schema verification script", () => {
   it("compares a database URL with the current datamodel using Prisma diff exit codes", () => {
@@ -367,7 +370,7 @@ describe("database schema verification script", () => {
       }
     });
 
-    it("ensures docker-migration-smoke and docker-smoke use the shared helper and log verbose confirmation", () => {
+    it("ensures every Docker schema-verifier harness uses the shared helper", () => {
       expect(dockerMigrationSmoke).toContain("getSchemaVerifierComposeArgs");
       expect(dockerMigrationSmoke).toContain("isSchemaDiffVerbose");
       expect(dockerMigrationSmoke).toContain('safeLog("Schema drift verbose reporting: ENABLED")');
@@ -375,7 +378,14 @@ describe("database schema verification script", () => {
       expect(dockerSmoke).toContain("getSchemaVerifierComposeArgs");
       expect(dockerSmoke).toContain("isSchemaDiffVerbose");
       expect(dockerSmoke).toContain('safeLog("Schema drift verbose reporting: ENABLED")');
+
+      expect(dockerPhaseBRuntimeClosure).toContain("getSchemaVerifierComposeArgs");
+      expect(dockerPhaseBRuntimeClosure).toContain("compose(getSchemaVerifierComposeArgs(env), env)");
+      expect(dockerPhaseBRuntimeClosure).not.toContain(duplicatedSchemaVerifierArgs);
+
+      expect(dockerGate4Integration).toContain("getSchemaVerifierComposeArgs");
+      expect(dockerGate4Integration).toContain("getSchemaVerifierComposeArgs(gate4Env)");
+      expect(dockerGate4Integration).not.toContain(duplicatedSchemaVerifierArgs);
     });
   });
 });
-

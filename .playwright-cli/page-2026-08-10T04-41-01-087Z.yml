@@ -1,0 +1,29 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "KT Couriers" [ref=e5] [cursor=pointer]:
+        - /url: /
+    - main [ref=e7]:
+      - generic [ref=e8]:
+        - paragraph [ref=e9]: "404"
+        - heading "That route is not on this map." [level=1] [ref=e11]
+        - paragraph [ref=e12]: The page may have moved, or the link may be incorrect. Choose a public route to continue.
+        - generic [ref=e13]:
+          - link "Return home" [ref=e14] [cursor=pointer]:
+            - /url: /
+          - link "Explore services" [ref=e15] [cursor=pointer]:
+            - /url: /services
+          - link "Contact support" [ref=e16] [cursor=pointer]:
+            - /url: /contact
+    - contentinfo [ref=e17]:
+      - generic [ref=e18]: KT Couriers
+  - generic [ref=e23] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e24]
+    - generic [ref=e28]:
+      - button "Open issues overlay" [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]: "0"
+          - generic [ref=e32]: "1"
+        - generic [ref=e33]: Issue
+      - button "Collapse issues badge" [ref=e34]
+  - alert [ref=e37]

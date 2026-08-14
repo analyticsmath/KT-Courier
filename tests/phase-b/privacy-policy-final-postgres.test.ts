@@ -1,0 +1,13 @@
+import { randomUUID } from "node:crypto";
+import { beforeAll, describe, expect, it } from "vitest";
+import { prisma } from "@/lib/db/prisma";
+import { UserRole, UserStatus } from "@/types/db";
+import { registerSensitiveDataClass, maskSensitiveValue } from "@/lib/privacy/sensitive-data.service";
+import { registerProviderGovernance, transitionProviderReview } from "@/lib/privacy/provider-governance.service";
+import { createLegalDocumentDraft, getCurrentPolicy, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
+const marker = `PPC${randomUUID().replaceAll("-", "").toUpperCase()}`; let admin = "";
+beforeAll(async () => { await prisma.$queryRaw`SELECT 1`; admin = (await prisma.user.create({ data: { email: `${marker.toLowerCase()}@example.test`, name: "Policy proof", passwordHash: "proof-only", role: UserRole.ADMIN, status: UserStatus.ACTIVE } })).id; });
+describe("Phase B privacy policy PostgreSQL production-service proof", () => {
+  it("keeps provider governance secret-free and linked to sensitive classes", async () => { const cls = await registerSensitiveDataClass({ actorUserId: admin, code: "PAYMENT_METADATA", classificationLevel: "HIGH", storageRequirement: "DATABASE_RESTRICTED", loggingRule: "REDACT", allowedPurposes: ["PAYMENTS"], retentionDataClass: "PAYMENT_METADATA" }); const provider = await registerProviderGovernance({ actorUserId: admin, providerCode: `${marker}-PAYFAST`, providerCategory: "PAYMENTS", servicePurpose: "PAYMENTS", processingRole: "PROCESSOR", regionMetadata: { region: "ZA", apiKey: "must-not-persist" }, sensitiveDataClassIds: [String(cls.id)] }); const reviewRequired = await transitionProviderReview({ actorUserId: admin, publicReference: String(provider.publicReference), nextStatus: "REVIEW_REQUIRED", operationId: `${marker}-TRIAGE` }); const reviewed = await transitionProviderReview({ actorUserId: admin, publicReference: String(provider.publicReference), nextStatus: "ACTIVE", operationId: `${marker}-ACTIVATE` }); expect(reviewRequired.status).toBe("REVIEW_REQUIRED"); expect(reviewed.status).toBe("ACTIVE"); expect(JSON.stringify(reviewed)).not.toContain("must-not-persist"); expect(maskSensitiveValue("1234567890")).toBe("******7890"); });
+  it("publishes effective immutable refund policy separately from runtime text", async () => { const doc = await createLegalDocumentDraft({ actorUserId: admin, documentType: "REFUND_POLICY", version: "1", jurisdiction: "ZA", content: "Refund policy text is not executable configuration." }); await publishLegalDocumentVersion({ actorUserId: admin, publicReference: String(doc.publicReference), operationId: `${marker}-PUBLISH` }); expect((await getCurrentPolicy("REFUND_POLICY", { jurisdiction: "ZA" }))?.version).toBe("1"); });
+});

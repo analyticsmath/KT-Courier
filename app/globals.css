@@ -1013,23 +1013,55 @@ svg {
 }
 
 @layer base {
+  /* Phase 2 signature public authority. Existing public tokens remain
+     available for unmigrated routes; these aliases are additive. */
+  [data-kt-signature="v2"] {
+    --kt-surface-canvas: #F5F6F7;
+    --kt-surface-base: #FFFFFF;
+    --kt-surface-raised: #ECEEF0;
+    --kt-surface-inverse: #0B0D0F;
+    --kt-text-primary: #15171A;
+    --kt-text-secondary: #62686E;
+    --kt-text-tertiary: #62686E;
+    --kt-text-inverse: #FFFFFF;
+    --kt-line-subtle: #D9DDE1;
+    --kt-line-strong: #D9DDE1;
+    --kt-brand-blue: #3479F8;
+    --kt-brand-red: #E10F1B;
+    --kt-action-primary: var(--kt-surface-inverse);
+    --kt-action-primary-hover: #121519;
+    --kt-focus-ring: var(--kt-brand-blue);
+    --kt-font-display: var(--kt-public-font-schibsted-source), ui-sans-serif, system-ui, sans-serif;
+    --kt-font-body: var(--kt-public-font-schibsted-source), ui-sans-serif, system-ui, sans-serif;
+    --kt-font-mono: var(--kt-public-font-mono-source), ui-monospace, monospace;
+    background: var(--kt-surface-canvas);
+    color: var(--kt-text-primary);
+    font-family: var(--kt-font-body);
+    font-optical-sizing: auto;
+  }
+
+  [data-kt-signature="v2"] :focus-visible {
+    outline: 3px solid var(--kt-focus-ring);
+    outline-offset: 3px;
+  }
+
   [data-kt-visual-system="editorial-freight-v1"] {
-    --kt-public-canvas-primary: #FFFFFF;
-    --kt-public-canvas-secondary: #F3F5F3;
-    --kt-public-canvas-muted: #E9ECE9;
+    --kt-public-canvas-primary: #F5F6F7;
+    --kt-public-canvas-secondary: #ECEEF0;
+    --kt-public-canvas-muted: #ECEEF0;
     --kt-public-surface-primary: #FFFFFF;
     --kt-public-surface-raised: #FFFFFF;
-    --kt-public-surface-dark: #101210;
+    --kt-public-surface-dark: #0B0D0F;
 
-    --kt-public-text-primary: #0A0B0A;
-    --kt-public-text-secondary: #252825;
-    --kt-public-text-muted: #646B66;
+    --kt-public-text-primary: #15171A;
+    --kt-public-text-secondary: #15171A;
+    --kt-public-text-muted: #62686E;
     --kt-public-text-inverse: #FFFFFF;
     --kt-public-text-on-accent: #FFFFFF;
 
-    --kt-public-line-subtle: #ECEFEC;
-    --kt-public-line-default: #D9DEDA;
-    --kt-public-line-strong: #AEB7B0;
+    --kt-public-line-subtle: #ECEEF0;
+    --kt-public-line-default: #D9DDE1;
+    --kt-public-line-strong: #D9DDE1;
     --kt-public-line-inverse: rgba(255, 255, 255, 0.22);
 
     --kt-public-signal: #D83A2E;
@@ -1063,11 +1095,11 @@ svg {
     --kt-public-locked-border: #C6CBD1;
     --kt-public-locked-strong: #58616B;
 
-    --kt-public-font-display: var(--kt-public-font-mona-source), "Helvetica Neue", Arial, sans-serif;
-    --kt-public-font-body: var(--kt-public-font-mona-source), "Helvetica Neue", Arial, system-ui, sans-serif;
-    --kt-public-font-interface: var(--kt-public-font-mona-source), "Helvetica Neue", Arial, system-ui, sans-serif;
-    --kt-public-font-editorial: var(--kt-public-font-editorial-source), Georgia, serif;
-    --kt-public-font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --kt-public-font-display: var(--kt-public-font-schibsted-source), "Helvetica Neue", Arial, sans-serif;
+    --kt-public-font-body: var(--kt-public-font-schibsted-source), "Helvetica Neue", Arial, system-ui, sans-serif;
+    --kt-public-font-interface: var(--kt-public-font-schibsted-source), "Helvetica Neue", Arial, system-ui, sans-serif;
+    --kt-public-font-editorial: var(--kt-public-font-schibsted-source), "Helvetica Neue", Arial, system-ui, sans-serif;
+    --kt-public-font-mono: var(--kt-public-font-mono-source), ui-monospace, "SFMono-Regular", Consolas, monospace;
 
     --kt-public-space-1: 4px;
     --kt-public-space-2: 8px;

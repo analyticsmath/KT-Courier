@@ -21,6 +21,7 @@ export function PublicVisualRoot({
   return (
     <Component
       className={cn(className)}
+      data-kt-signature="v2"
       data-kt-visual-system="editorial-freight-v1"
     >
       {children}

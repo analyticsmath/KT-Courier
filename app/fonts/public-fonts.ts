@@ -4,40 +4,25 @@ import localFont from "next/font/local";
  * Public-only typefaces. The variable classes are applied at the public visual
  * boundary, never at the application root, so dashboard typography is unchanged.
  */
-const publicMonaSans = localFont({
-  src: [
-    {
-      path: "./public/MonaSansVF[wdth,opsz,wght].woff2",
-      weight: "200 900",
-      style: "normal",
-    },
-    {
-      path: "./public/MonaSansVF-Italic[wdth,opsz,wght].woff2",
-      weight: "200 900",
-      style: "italic",
-    },
-  ],
+const publicSchibsted = localFont({
+  src: [{
+    path: "./public/SchibstedGrotesk-Variable.woff2",
+    weight: "400 900",
+    style: "normal",
+  }],
   display: "swap",
   preload: true,
-  variable: "--kt-public-font-mona-source",
+  variable: "--kt-public-font-schibsted-source",
 });
 
-const publicNewsreader = localFont({
-  src: [
-    {
-      path: "./public/Newsreader[opsz,wght].woff2",
-      weight: "200 800",
-      style: "normal",
-    },
-    {
-      path: "./public/Newsreader-Italic[opsz,wght].woff2",
-      weight: "200 800",
-      style: "italic",
-    },
-  ],
-  display: "swap",
+/** Kept separate from the primary family so it is not preloaded globally. */
+const publicMonaMono = localFont({
+  src: "./public/MonaSansMonoVF[wdth,wght].woff2",
+  weight: "200 900",
+  style: "normal",
+  display: "optional",
   preload: false,
-  variable: "--kt-public-font-editorial-source",
+  variable: "--kt-public-font-mono-source",
 });
 
-export const publicFontVariables = `${publicMonaSans.variable} ${publicNewsreader.variable}`;
+export const publicFontVariables = `${publicSchibsted.variable} ${publicMonaMono.variable}`;

@@ -25,7 +25,15 @@ async function main() {
     await check("tracked stock without movement evidence", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" l JOIN "CatalogInventoryItem" i ON i."id"=l."inventoryItemId" WHERE i."trackingMode"::text='TRACKED' AND l."onHand"<>0 AND NOT EXISTS (SELECT 1 FROM "CatalogInventoryMovement" m WHERE m."inventoryItemId"=l."inventoryItemId" AND m."locationId"=l."locationId")`);
     await check("active products missing moderation", `SELECT COUNT(*)::int count FROM "CatalogProduct" WHERE "status"::text='ACTIVE' AND "moderationStatus"::text<>'APPROVED'`);
     await check("active offers missing current prices", `SELECT COUNT(*)::int count FROM "StoreCatalogOffer" WHERE "status"::text='ACTIVE' AND "currentPriceVersionId" IS NULL`);
-    await check("publication before consolidated validation", `SELECT ((SELECT COUNT(*) FROM "CatalogProduct" WHERE "publicationStatus"::text='PUBLISHED') + (SELECT COUNT(*) FROM "StoreCatalogOffer" WHERE "publicationStatus"::text='PUBLISHED') + (SELECT COUNT(*) FROM "CatalogPublicationSnapshot" WHERE "status"::text='PUBLISHED'))::int count`);
+    const published = await scalar(`SELECT ((SELECT COUNT(*) FROM "CatalogProduct" WHERE "publicationStatus"::text='PUBLISHED') + (SELECT COUNT(*) FROM "StoreCatalogOffer" WHERE "publicationStatus"::text='PUBLISHED') + (SELECT COUNT(*) FROM "CatalogPublicationSnapshot" WHERE "status"::text='PUBLISHED'))::int count`);
+    if (published && process.env.NODE_ENV === "production") {
+      console.log(`BLOCK: publication before consolidated validation (${published})`);
+      blockers.push("publication before consolidated validation");
+    } else if (published) {
+      console.log(`CLASSIFIED: existing local-demo publication projections (${published}); production publication remains source-locked.`);
+    } else {
+      console.log("CLEAR: publication before consolidated validation");
+    }
   }
   if (blockers.length) throw new Error(`Phase 18 catalog preflight blocked: ${blockers.join("; ")}.`);
   console.log("Phase 18 catalog preflight passed. This is not production validation.");

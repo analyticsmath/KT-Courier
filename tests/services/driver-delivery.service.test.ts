@@ -30,6 +30,9 @@ const txMock = vi.hoisted(() => ({
     aggregate: vi.fn(),
     create: vi.fn(),
   },
+  driverDeliveryResponsibilityReport: {
+    findMany: vi.fn(),
+  },
 }));
 
 const prismaMock = vi.hoisted(() => ({
@@ -142,6 +145,7 @@ describe("driver delivery service status flows", () => {
     txMock.driverOperationCommand.update.mockReset();
     txMock.deliveryAttempt.aggregate.mockReset();
     txMock.deliveryAttempt.create.mockReset();
+    txMock.driverDeliveryResponsibilityReport.findMany.mockReset();
     txMock.proofOfDelivery.create.mockReset();
     txMock.$queryRaw.mockReset();
     transitionOrderStatusInTxMock.mockReset();
@@ -158,6 +162,10 @@ describe("driver delivery service status flows", () => {
     txMock.$queryRaw.mockResolvedValue([{ id: "order-1" }]);
     txMock.deliveryAttempt.aggregate.mockResolvedValue({ _max: { attemptNumber: 0 } });
     txMock.deliveryAttempt.create.mockResolvedValue({ id: "attempt-1" });
+    txMock.driverDeliveryResponsibilityReport.findMany.mockResolvedValue([
+      { reportType: "SAFETY_CHECK", requiresReview: false },
+      { reportType: "LAWFUL_TRANSPORT_CONFIRMATION", requiresReview: false },
+    ]);
     txMock.proofOfDelivery.create.mockResolvedValue({ id: "pod-1" });
     requireVerifiedDeliveryLocationInTxMock.mockResolvedValue({ latitude: -33.9249, longitude: 18.4241, capturedAt: new Date("2026-08-04T10:00:00.000Z") });
     projectMarketplaceCourierExecutionInTxMock.mockResolvedValue(false);

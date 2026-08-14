@@ -9,12 +9,8 @@ import styles from "./public-site-shell.module.css";
 export const publicNavigationLinks = [
   { label: "Services", href: "/services" },
   { label: "Coverage", href: "/coverage-areas" },
-  { label: "Shop", href: marketplaceHref() },
+  { label: "Marketplace", href: marketplaceHref() },
   { label: "Join", href: "/join" },
-  { label: "Membership", href: "/membership" },
-  { label: "Careers", href: "/careers" },
-  { label: "About", href: "/about" },
-  { label: "Support", href: "/contact" },
 ] as const;
 
 type PublicNavigationProps = {

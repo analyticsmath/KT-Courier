@@ -15,6 +15,8 @@ import { hashPricingInput, pricingInputSnapshot } from "@/lib/pricing/input-hash
 import { ownedActiveQuoteForOrder } from "@/lib/services/pricing-quote.service";
 import { canTransitionOrderStatus } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
+import { resolvePaymentBreakdown } from "@/lib/payments/payment-policy.service";
+import { createCashOnDeliveryObligationWithinTransaction } from "@/lib/services/cash-on-delivery.service";
 
 // ─── Full include for order queries ──────────────────────────────────────────
 
@@ -75,6 +77,8 @@ export async function createOrder(
 
   const result = await prisma.$transaction(async (tx) => {
     const quote = await ownedActiveQuoteForOrder(tx, user, input.pricingQuoteId, quoteInputHash);
+    const committedPayment = input.paymentMethod ? await resolvePaymentBreakdown({ storeId, orderType: input.deliveryType, authoritativeTotal: quote.total.toFixed(2) }) : null;
+    if (input.paymentMethod && committedPayment!.mode !== input.paymentMethod) throw new Error("PAYMENT_METHOD_NOT_ALLOWED");
     const pickup = await tx.address.create({
       data: {
         type: "PICKUP",
@@ -142,6 +146,7 @@ export async function createOrder(
           regions: quote.regionSnapshot,
           tax: quote.taxSnapshot,
           lineItems: quote.lineItems.map((item) => ({ code: item.code, label: item.label, quantity: item.quantity?.toString() ?? null, unitRate: item.unitRate?.toString() ?? null, amount: item.amount.toFixed(2), currency: item.currency })),
+          paymentPolicy: committedPayment ? { ...committedPayment.policyEvidence, digitalRequired: committedPayment.digitalRequired, cashRequired: committedPayment.cashRequired } : null,
         },
         customerNote: input.customerNote ?? null,
         distanceMeters: quote.distanceMeters,
@@ -162,6 +167,9 @@ export async function createOrder(
         actorUserId: user.id,
       },
     });
+    if (committedPayment && committedPayment.mode !== "DIGITAL_ONLY") {
+      await createCashOnDeliveryObligationWithinTransaction(tx, { orderId: order.id, policyMode: committedPayment.mode, authoritativePayable: committedPayment.authoritativeTotal, digitalRequired: committedPayment.digitalRequired, policyEvidence: committedPayment.policyEvidence });
+    }
 
     return order;
   });

@@ -3,6 +3,7 @@ import { evaluateRetentionHolds } from "./hold-evaluator";
 import { RETENTION_POLICY_REGISTRY, type RetentionPolicyDefinition } from "./policy-registry";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
 import { safeOperationalText } from "@/lib/operations/phase5-repository";
+import { runPrivacyRetentionWorker } from "./privacy-retention-worker";
 
 export interface RetentionRunOptions {
   mode: "DRY_RUN" | "APPLY";
@@ -68,6 +69,16 @@ export async function runRetentionProcessor(options: RetentionRunOptions): Promi
     } else {
       totalSkipped += result.itemsEligible;
     }
+  }
+
+  // This shares the registered retention processor lease; policy-versioned
+  // private-media targets never invent a retention duration when no policy is active.
+  if (mode === "APPLY") {
+    const privacyRun = await runPrivacyRetentionWorker({ operationId: `retention:${Date.now()}`, actorReference: options.actorUserId ?? "RETENTION_PROCESSOR", batchSize: options.batchSize });
+    totalExamined += privacyRun.examined;
+    totalClaimed += privacyRun.outcomes.length;
+    totalCompleted += privacyRun.outcomes.filter((outcome) => outcome.status === "COMPLETED").length;
+    totalSkipped += privacyRun.outcomes.filter((outcome) => outcome.status === "HELD" || outcome.status === "DEFERRED").length;
   }
 
   const safeSummary = safeOperationalText(

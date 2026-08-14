@@ -1,0 +1,9 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
+describe("final privacy and policy authorities", () => {
+  it("keeps provider governance safe, versioned and separate from credentials", () => { const schema = read("prisma/schema.prisma"); const service = read("lib/privacy/provider-governance.service.ts"); expect(schema).toMatch(/model ProviderPrivacyGovernance[\s\S]*providerCode[\s\S]*governanceStatus/); expect(schema).toMatch(/model ProviderPrivacyDataClass/); expect(service).toMatch(/safeSensitiveMetadata/); expect(service).not.toMatch(/apiKey|privateKey|webhookSecret/); expect(service).toMatch(/transitionProviderReview/); });
+  it("classifies sensitive resources with masking/redaction and retention integration", () => { const service = read("lib/privacy/sensitive-data.service.ts"); const schema = read("prisma/schema.prisma"); expect(service).toMatch(/maskSensitiveValue/); expect(service).toMatch(/safeSensitiveMetadata/); expect(schema).toMatch(/model SensitiveDataClass[\s\S]*retentionDataClass[\s\S]*accessAuditRequired/); expect(schema).toMatch(/model SensitiveDataResourceMapping/); });
+  it("uses one legal resolver for public legal documents and explicit runtime links", () => { const legal = read("lib/services/legal-documents.service.ts"); const resolver = read("lib/policy/policy-runtime-resolver.service.ts"); const route = read("app/api/legal/[documentType]/route.ts"); expect(legal).toMatch(/REFUND_POLICY/); expect(legal).toMatch(/SHIPPING_POLICY/); expect(legal).toMatch(/resolveEffectiveLegalDocument/); expect(resolver).toMatch(/PolicyRuntimeDomain/); expect(resolver).not.toMatch(/policyText\.includes/); expect(route).toMatch(/getCurrentPolicy/); });
+});

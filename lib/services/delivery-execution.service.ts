@@ -24,6 +24,7 @@ import { isRetryableDeliveryFailure, requiresAttemptEvidence } from "@/lib/drive
 import { consumeProofEvidenceInTx } from "@/lib/driver-operations/proof-evidence-authority";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import { requireVerifiedDeliveryLocationInTx } from "@/lib/services/driver-location-evidence.service";
+import { assertDriverDeliveryResponsibilitiesInTx, ShippingObligationError } from "@/lib/services/shipping-obligations.service";
 
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
@@ -377,6 +378,7 @@ export async function completeDelivery(
   try {
     await prisma.$transaction(async (tx) => {
       await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "DELIVERY_COMPLETE" });
+      await assertDriverDeliveryResponsibilitiesInTx(tx, { assignmentId });
       const otpResult = await verifyDeliveryOtpInTx(tx, order.id, input.otpCode, assignmentId);
       if (!otpResult.ok) {
         throw new OrderTransitionError(otpResult.error ?? "OTP verification failed.", "INVALID_TRANSITION");
@@ -527,6 +529,9 @@ export async function completeDelivery(
     }
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
+    }
+    if (error instanceof ShippingObligationError) {
+      return { ok: false, error: error.code };
     }
     throw error;
   }

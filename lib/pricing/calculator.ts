@@ -10,6 +10,7 @@ import type {
   PricingRuleSnapshot,
   PricingTaxConfig,
 } from "./types";
+import type { AppliedCommercialSurcharge } from "@/lib/commercial/configuration.service";
 
 function ceilToIncrement(value: Prisma.Decimal, increment: Prisma.Decimal): Prisma.Decimal {
   if (increment.lessThanOrEqualTo(ZERO)) throw pricingError.invalidRule("Billing increment must be greater than zero.");
@@ -34,6 +35,7 @@ export function calculateDeliveryPrice(args: {
   regionContext: PricingRegionContext;
   taxConfig: PricingTaxConfig;
   calculationVersion: string;
+  configuredSurcharges?: readonly AppliedCommercialSurcharge[];
 }): PricingCalculationResult {
   const { input, rule, regionContext, taxConfig } = args;
   if (rule.currency !== "ZAR") throw pricingError.invalidRule("Only ZAR rules are supported.");
@@ -72,6 +74,20 @@ export function calculateDeliveryPrice(args: {
     const extra = Decimal.max(chargeableWeightKg.minus(rule.includedWeightKg), ZERO);
     const billable = ceilToIncrement(extra, rule.weightIncrementKg);
     if (billable.greaterThan(ZERO)) items.push(line(PricingLineItemCode.WEIGHT_SURCHARGE, "Additional weight surcharge", billable.mul(rule.perAdditionalKgRate), billable, rule.perAdditionalKgRate));
+  }
+  const configuredSubtotal = items.reduce((sum, item) => sum.plus(item.amount), ZERO);
+  for (const surcharge of args.configuredSurcharges ?? []) {
+    const amount = surcharge.calculationType === "PERCENTAGE"
+      ? configuredSubtotal.mul(surcharge.value)
+      : surcharge.value;
+    if (amount.greaterThan(ZERO)) {
+      items.push(line(PricingLineItemCode.RULE_SURCHARGE, surcharge.customerMessage ?? surcharge.reason, amount, null, surcharge.value, {
+        commercialSurchargeId: surcharge.id,
+        stableKey: surcharge.stableKey,
+        versionNumber: String(surcharge.versionNumber),
+        calculationType: surcharge.calculationType,
+      }));
+    }
   }
   let subtotal = items.reduce((sum, item) => sum.plus(item.amount), ZERO);
   if (rule.minimumCharge && subtotal.lessThan(rule.minimumCharge)) {

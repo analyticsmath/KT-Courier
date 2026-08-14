@@ -9,6 +9,7 @@ import { withDispatchRetry } from "@/lib/dispatch/retry";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import { createDispatchCandidateEvaluationInTx, selectDispatchCandidateInTx, setDispatchCandidateDispositionForAssignmentInTx } from "@/lib/services/dispatch-candidate-evidence.service";
+import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
 import type { AdminAssignOrderInput, AdminCancelAssignmentInput, AdminReassignOrderInput, DriverAcceptAssignmentInput, DriverRejectAssignmentInput } from "@/lib/validation/assignment";
 
 type Tx = Prisma.TransactionClient;
@@ -36,12 +37,13 @@ async function reconcileExpired(tx: Tx, orderId: string, actorUserId: string) {
 
 async function validateDriver(tx: Tx, driverProfileId: string, order: { id: string; deliveryRegionId: string | null }, excludeAssignmentId?: string) {
   const [driver, currentCount, config] = await Promise.all([
-    tx.driverProfile.findUnique({ where: { id: driverProfileId }, include: { user: true, serviceRegions: true } }),
+    tx.driverProfile.findUnique({ where: { id: driverProfileId }, include: { user: true, serviceRegions: true, documents: true, vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } } } }),
     tx.orderAssignment.count({ where: { driverProfileId, ...(excludeAssignmentId ? { id: { not: excludeAssignmentId } } : {}), status: { in: CURRENT }, OR: [{ status: OrderAssignmentStatus.ACCEPTED }, { status: OrderAssignmentStatus.ASSIGNED, expiresAt: { gt: new Date() } }, { status: OrderAssignmentStatus.ASSIGNED, expiresAt: null }] } }),
     settings(tx),
   ]);
   if (!driver) throw dispatchError.driverIneligible("Driver profile not found.");
-  const result = evaluateDriverEligibility({ userActive: driver.user.role === UserRole.DRIVER && driver.user.status === UserStatus.ACTIVE, profileActive: driver.status === DriverStatus.ACTIVE, available: driver.availability === DriverAvailability.AVAILABLE, regionMatch: !!order.deliveryRegionId && driver.serviceRegions.some((region) => region.deliveryRegionId === order.deliveryRegionId), activeLoad: currentCount, capacity: driver.maxConcurrentAssignments || config.defaultCapacity });
+  const compliance = driver.vehicleComplianceRequiredAt ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+  const result = evaluateDriverEligibility({ userActive: driver.user.role === UserRole.DRIVER && driver.user.status === UserStatus.ACTIVE, profileActive: driver.status === DriverStatus.ACTIVE, available: driver.availability === DriverAvailability.AVAILABLE, regionMatch: !!order.deliveryRegionId && driver.serviceRegions.some((region) => region.deliveryRegionId === order.deliveryRegionId), activeLoad: currentCount, capacity: driver.maxConcurrentAssignments || config.defaultCapacity, complianceEligible: compliance.eligible });
   if (!result.eligible) {
     if (result.reasons.includes("DRIVER_CAPACITY_REACHED")) throw dispatchError.capacity();
     throw dispatchError.driverIneligible(result.reasons.join(", "));

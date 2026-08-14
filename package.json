@@ -9,6 +9,8 @@
     "lint": "eslint",
     "db:preflight": "node scripts/db-preflight.mjs",
     "db:gate4:preflight": "node scripts/run-gate4-integration.mjs --preflight-only",
+    "db:phase-b:proof-source:preflight": "node scripts/phase-b-proof-source-preflight.mjs",
+    "db:phase-b:runtime": "node scripts/docker-phase-b-runtime-closure.mjs",
     "test:integration:gate4": "node scripts/run-gate4-integration.mjs",
     "db:start": "node scripts/start-local-postgres.mjs",
     "db:ensure-shadow": "node scripts/ensure-shadow-db.mjs",
@@ -121,12 +123,14 @@
     "test:integration:storefront": "node scripts/storefront-integration-test.mjs",
     "test:integration:marketplace-checkout": "node scripts/marketplace-checkout-integration-test.mjs",
     "test:integration:store-orders": "node scripts/store-order-integration-test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "promoters:periods:evaluate": "tsx scripts/process-promoter-period-evaluations.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "gsap": "^3.15.0",

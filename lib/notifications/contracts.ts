@@ -36,6 +36,7 @@ export function deliveryEligible(input: { purpose: NotificationPurpose; channel:
   if (input.channel === "IN_APP") return { eligible: true };
   if (input.suppressed) return { eligible: false, reason: "SUPPRESSED_DESTINATION" };
   if (!input.verifiedDestination) return { eligible: false, reason: "VERIFIED_NOTIFICATION_DESTINATION_REQUIRED" };
+  if (input.purpose === "MARKETING" && input.consent === "REVOKED") return { eligible: false, reason: "USER_OPTED_OUT" };
   if (input.purpose === "MARKETING" && input.consent !== "GRANTED") return { eligible: false, reason: "CONSENT_REQUIRED" };
   if (input.purpose !== "SECURITY" && input.purpose !== "LEGAL" && input.preference === "DISABLED") return { eligible: false, reason: "PREFERENCE_DISABLED" };
   return { eligible: true };

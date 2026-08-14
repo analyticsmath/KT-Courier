@@ -149,8 +149,8 @@ function addedOrRemovedObject(line, objectType) {
   return { name: match[2], direction: match[1] === "+" ? "MISSING" : "EXTRA" };
 }
 
-export function parseDriftLine(line, currentTable) {
-  const trimmed = sanitizeSchemaDiff(line).trim();
+export function parseDriftLine(line, currentTable, alreadySanitized = false) {
+  const trimmed = (alreadySanitized ? line : sanitizeSchemaDiff(line)).trim();
   const changedTable = tableHeading(trimmed);
   if (changedTable) {
     return { newTable: changedTable, formatted: null, structural: false };
@@ -278,7 +278,7 @@ export function parsePrismaDrift(output) {
     const trimmed = rawLine.trim();
     if (!trimmed) continue;
 
-    const result = parseDriftLine(trimmed, currentTable);
+    const result = parseDriftLine(trimmed, currentTable, true);
     if (result.newTable) currentTable = result.newTable;
     else if (result.clearTable) currentTable = null;
     if (result.structural) structuralLineCount += 1;

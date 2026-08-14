@@ -1,0 +1,4 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentPolicy } from "@/lib/services/legal-documents.service";
+const types = { refund: "REFUND_POLICY", shipping: "SHIPPING_POLICY" } as const;
+export async function GET(request: NextRequest, { params }: { params: Promise<{ documentType: string }> }) { const { documentType } = await params; const type = types[documentType as keyof typeof types]; if (!type) return NextResponse.json({ error: "LEGAL_DOCUMENT_NOT_FOUND" }, { status: 404 }); const jurisdiction = new URL(request.url).searchParams.get("jurisdiction")?.trim() || undefined; const document = await getCurrentPolicy(type, { jurisdiction }); return document ? NextResponse.json({ policy: document }) : NextResponse.json({ error: "LEGAL_DOCUMENT_NOT_FOUND" }, { status: 404 }); }

@@ -75,6 +75,12 @@ const approvedDestructiveOperations = [
     // Baseline PaymentWebhookEvent_paymentId_fkey foreign key was superseded by Phase 12 PaymentWebhookEvent_paymentId_phase12_restrict_fkey constraint; legacy constraint drop is verified by fail-closed preflight.
     reason: "Removes obsolete baseline duplicate foreign key PaymentWebhookEvent_paymentId_fkey after fail-closed preflight verification.",
   },
+  {
+    migration: "20260811160000_phase_b_promoter_programme_closure",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"PromoterAttribution"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"PromoterAttribution_one_subject"\s*;\s*$/i,
+    reason: "Replaces the three-subject check with the additive four-subject check required for driver acquisition; no attribution rows or columns are removed.",
+  },
 ];
 
 function checksum(file) {

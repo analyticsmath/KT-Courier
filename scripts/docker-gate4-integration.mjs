@@ -51,6 +51,15 @@ async function cleanup() {
 async function main() {
   assertDisposableProject();
   assertDisposableGate4Identity(projectName, gate4Env);
+  assertSuccess(
+    spawnSync(process.execPath, [path.join("scripts", "source-schema-preflight.mjs"), "--suite", "gate4"], {
+      cwd: process.cwd(),
+      env: process.env,
+      encoding: "utf8",
+      shell: false,
+    }),
+    "local source/schema preflight",
+  );
 
   safeLog("=========================================================================");
   safeLog("   KT COURIER — GATE 4 DISPOSABLE POSTGRESQL DOCKER HARNESS ORCHESTRATOR ");

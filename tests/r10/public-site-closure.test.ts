@@ -94,7 +94,7 @@ describe("R10 metadata and sitemap contracts", () => {
 
 describe("R10 brand assets and public-link contracts", () => {
   it("has the required Next metadata route sources and a local default social asset", () => {
-    for (const path of ["app/icon.tsx", "app/apple-icon.tsx", "app/opengraph-image.tsx", "app/manifest.ts", "app/favicon.ico", "public/images/kt-couriers/brand/kt-couriers-mark.svg"]) {
+    for (const path of ["app/icon.tsx", "app/apple-icon.tsx", "app/opengraph-image.tsx", "app/manifest.ts", "app/favicon.ico", "public/images/kt-couriers/brand/logo.svg"]) {
       expect(existsSync(resolve(root, path))).toBe(true);
     }
     expect(read("app/opengraph-image.tsx")).toContain("width: 1200");

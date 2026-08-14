@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { MobileSheet } from "@/components/public-v2/overlays";
 import { HeaderScrollState } from "./HeaderScrollState";
 import { PublicNavigation } from "./PublicNavigation";
@@ -10,6 +11,7 @@ import { KtCouriersWordmark } from "@/components/public-v2/brand";
 import styles from "./public-site-shell.module.css";
 
 export function PublicHeaderV2() {
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const handleScrolledChange = useCallback((nextScrolled: boolean) => setScrolled(nextScrolled), []);
@@ -18,7 +20,7 @@ export function PublicHeaderV2() {
     <>
       <a className={styles.skipLink} href="#main-content">Skip to main content</a>
       <HeaderScrollState className={styles.headerSentinel} onScrolledChange={handleScrolledChange} />
-      <header className={styles.header} data-scrolled={scrolled || undefined}>
+      <header className={styles.header} data-homepage={pathname === "/" || undefined} data-scrolled={scrolled || undefined}>
         <div className={styles.headerInner}>
           <Link aria-label="KT Couriers" className={styles.wordmark} href="/">
             <KtCouriersWordmark compactMark />
@@ -27,9 +29,6 @@ export function PublicHeaderV2() {
           <PublicNavigation />
 
           <div className={styles.headerActions}>
-            <Link className={styles.trackLink} href={anonymousTracking.href}>
-              {anonymousTracking.actionLabel}
-            </Link>
             <Link className={styles.accountLink} href="/login">
               Sign in
             </Link>

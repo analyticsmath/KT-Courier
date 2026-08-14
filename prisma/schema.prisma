@@ -285,6 +285,7 @@ model User {
   legacyPaymentRefundsCreated          PaymentRefund[]                     @relation("PaymentRefundLegacyCreatedBy")
   legacyWithdrawalsReviewed            WithdrawalRequest[]                 @relation("WithdrawalRequestLegacyReviewedBy")
   catalogOperationReceipts             CatalogOperationReceipt[]
+  claimsFiled                          Claim[]                             @relation("ClaimantClaims")
 
   @@index([email])
   @@index([role])
@@ -380,53 +381,55 @@ model UserPermission {
 }
 
 model DriverProfile {
-  id                        String                      @id @default(cuid())
-  userId                    String                      @unique
-  displayName               String?
-  phone                     String?
-  active                    Boolean                     @default(false)
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @updatedAt
-  approvedAt                DateTime?
-  approvedByAdminId         String?
-  availability              DriverAvailability          @default(OFFLINE)
-  driverCode                String                      @unique
-  emergencyContactName      String?
-  emergencyContactPhone     String?
-  internalNotes             String?
-  licenseExpiryDate         DateTime?
-  licenseNumber             String?
-  onboardingStatus          DriverOnboardingStatus      @default(PROFILE_INCOMPLETE)
-  rejectedAt                DateTime?
-  rejectedByAdminId         String?
-  rejectionReason           String?
-  serviceNotes              String?
-  status                    DriverStatus                @default(PENDING_REVIEW)
-  suspendedAt               DateTime?
-  suspendedByAdminId        String?
-  suspensionReason          String?
-  vehicleColor              String?
-  vehicleMake               String?
-  vehicleModel              String?
-  vehicleRegistration       String?
-  vehicleType               VehicleType?
-  maxConcurrentAssignments  Int                         @default(1)
-  availabilityUpdatedAt     DateTime?
-  availabilityRevision      Int                         @default(1)
-  documents                 DriverDocument[]
-  user                      User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  serviceRegions            DriverServiceRegion[]
-  assignments               OrderAssignment[]
-  operationalEvents         OrderOperationalEvent[]
-  proofOfDeliveries         ProofOfDelivery[]
-  deliveryOtps              DeliveryOtp[]
-  deliveryAttempts          DeliveryAttempt[]
-  driverOperationCommands   DriverOperationCommand[]
-  locationEvidence          DriverLocationEvidence[]
-  proofEvidence             DeliveryProofEvidence[]
-  currentOrders             Order[]                     @relation("CurrentOrderDriver")
-  driverEarnings            DriverEarning[]
-  DispatchCandidateEvidence DispatchCandidateEvidence[]
+  id                          String                      @id @default(cuid())
+  userId                      String                      @unique
+  displayName                 String?
+  phone                       String?
+  active                      Boolean                     @default(false)
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  approvedAt                  DateTime?
+  approvedByAdminId           String?
+  availability                DriverAvailability          @default(OFFLINE)
+  driverCode                  String                      @unique
+  emergencyContactName        String?
+  emergencyContactPhone       String?
+  internalNotes               String?
+  licenseExpiryDate           DateTime?
+  licenseNumber               String?
+  vehicleComplianceRequiredAt DateTime?
+  onboardingStatus            DriverOnboardingStatus      @default(PROFILE_INCOMPLETE)
+  rejectedAt                  DateTime?
+  rejectedByAdminId           String?
+  rejectionReason             String?
+  serviceNotes                String?
+  status                      DriverStatus                @default(PENDING_REVIEW)
+  suspendedAt                 DateTime?
+  suspendedByAdminId          String?
+  suspensionReason            String?
+  vehicleColor                String?
+  vehicleMake                 String?
+  vehicleModel                String?
+  vehicleRegistration         String?
+  vehicleType                 VehicleType?
+  maxConcurrentAssignments    Int                         @default(1)
+  availabilityUpdatedAt       DateTime?
+  availabilityRevision        Int                         @default(1)
+  documents                   DriverDocument[]
+  user                        User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceRegions              DriverServiceRegion[]
+  assignments                 OrderAssignment[]
+  operationalEvents           OrderOperationalEvent[]
+  proofOfDeliveries           ProofOfDelivery[]
+  deliveryOtps                DeliveryOtp[]
+  deliveryAttempts            DeliveryAttempt[]
+  driverOperationCommands     DriverOperationCommand[]
+  locationEvidence            DriverLocationEvidence[]
+  proofEvidence               DeliveryProofEvidence[]
+  currentOrders               Order[]                     @relation("CurrentOrderDriver")
+  driverEarnings              DriverEarning[]
+  DispatchCandidateEvidence   DispatchCandidateEvidence[]
+  vehicles                    Vehicle[]
 
   @@index([status])
   @@index([availability])
@@ -574,6 +577,7 @@ model Store {
   advertisingCampaigns           AdvertisingCampaign[]
   sponsoredCampaignVersions      AdvertisingCampaignVersion[]
   advertisingFundingAllocations  AdvertisingFundingAllocation[]
+  sellingTerritory               StoreSellingTerritory?
 
   CatalogOperationReceipt CatalogOperationReceipt[]
 
@@ -711,6 +715,11 @@ model Order {
   driverEarnings               DriverEarning[]
   marketplaceStoreOrderBridge  MarketplaceStoreOrderDeliveryBridge? @relation("MarketplaceStoreOrderBridgeCourierOrder")
   dispatchCandidateEvaluations DispatchCandidateEvaluation[]
+  cashOnDelivery               CashOnDelivery?
+  claims                       Claim[]
+  packagePolicyDeclaration     ShipmentPackagePolicyDeclaration?
+  preparationObligation        ShipmentPreparationObligation?
+  driverResponsibilityReports  DriverDeliveryResponsibilityReport[]
 
   @@index([orderNumber])
   @@index([source])
@@ -723,6 +732,224 @@ model Order {
   @@index([scheduledFor])
   @@index([pricingQuoteId])
   @@index([currentDriverProfileId])
+}
+
+enum CashOnDeliveryStatus {
+  PENDING
+  READY_FOR_COLLECTION
+  COLLECTED
+  COLLECTION_FAILED
+  UNDER_RECONCILIATION
+  RECONCILED
+  DISPUTED
+  CANCELLED
+}
+
+model CashOnDelivery {
+  id                      String                         @id @default(cuid())
+  publicReference         String                         @unique
+  orderId                 String                         @unique
+  paymentId               String?
+  policyMode              PaymentMethodPolicyMode
+  currency                LedgerCurrency                 @default(ZAR)
+  authoritativePayable    Decimal                        @db.Decimal(18, 2)
+  digitalRequired         Decimal                        @default(0) @db.Decimal(18, 2)
+  digitalPaid             Decimal                        @default(0) @db.Decimal(18, 2)
+  cashObligation          Decimal                        @db.Decimal(18, 2)
+  cashCollected           Decimal                        @default(0) @db.Decimal(18, 2)
+  cashReconciled          Decimal                        @default(0) @db.Decimal(18, 2)
+  status                  CashOnDeliveryStatus           @default(PENDING)
+  collectorDriverId       String?
+  collectedAt             DateTime?
+  collectionOperationId   String?                        @unique
+  collectionRequestHash   String?
+  collectionJournalId     String?                        @unique
+  failureReasonCode       String?
+  reconciliationStatus    String                         @default("PENDING")
+  reconciledAt            DateTime?
+  reconciliationActorId   String?
+  reconciliationJournalId String?                        @unique
+  version                 Int                            @default(0)
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+  order                   Order                          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  events                  CashOnDeliveryEvent[]
+  reconciliations         CashOnDeliveryReconciliation[]
+
+  @@index([status, collectorDriverId])
+  @@index([paymentId])
+}
+
+model CashOnDeliveryEvent {
+  id               String         @id @default(cuid())
+  cashOnDeliveryId String
+  operationId      String         @unique
+  requestHash      String
+  eventType        String
+  actorUserId      String?
+  safeReasonCode   String?
+  safeEvidence     Json?
+  createdAt        DateTime       @default(now())
+  cashOnDelivery   CashOnDelivery @relation(fields: [cashOnDeliveryId], references: [id], onDelete: Restrict)
+
+  @@index([cashOnDeliveryId, createdAt])
+}
+
+model CashOnDeliveryReconciliation {
+  id                 String         @id @default(cuid())
+  cashOnDeliveryId   String
+  operationId        String         @unique
+  requestHash        String
+  expectedAmount     Decimal        @db.Decimal(18, 2)
+  receivedAmount     Decimal        @db.Decimal(18, 2)
+  discrepancyAmount  Decimal        @default(0) @db.Decimal(18, 2)
+  collectorDriverId  String
+  reconciledByUserId String
+  evidenceReference  String?
+  journalId          String         @unique
+  createdAt          DateTime       @default(now())
+  cashOnDelivery     CashOnDelivery @relation(fields: [cashOnDeliveryId], references: [id], onDelete: Restrict)
+
+  @@unique([cashOnDeliveryId])
+}
+
+// Phase B claims/remedies are a case and evidence authority only. Monetary
+// effects remain exclusively in PaymentRefund and the canonical ledger flow.
+enum ClaimReason {
+  WRONG_ITEM
+  MISSING_ITEM
+  DAMAGED
+  DEFECTIVE
+  SPOILED_OR_UNSAFE
+  NON_DELIVERY
+  DELIVERY_ISSUE
+  PAYMENT_ISSUE
+  OTHER
+}
+
+enum ClaimStatus {
+  OPEN
+  AWAITING_PARTICIPANT_RESPONSE
+  UNDER_INVESTIGATION
+  DECIDED
+  REMEDY_IN_PROGRESS
+  CLOSED
+  REJECTED
+  CANCELLED
+}
+
+enum ClaimResponsibility {
+  STORE
+  DRIVER
+  CUSTOMER
+  PLATFORM
+  PAYMENT_PROVIDER
+  UNDETERMINED
+  MULTIPLE
+}
+
+enum ClaimRemedyType {
+  NO_REMEDY
+  REDELIVERY
+  REPLACEMENT
+  PARTIAL_REFUND
+  FULL_REFUND
+  STORE_CREDIT
+}
+
+enum ClaimPaymentSource {
+  DIGITAL
+  CASH
+  MIXED
+}
+
+model Claim {
+  id                      String              @id @default(cuid())
+  publicReference         String              @unique
+  claimantUserId          String
+  orderId                 String?
+  marketplaceOrderId      String?
+  marketplaceOrderLineId  String?
+  reason                  ClaimReason
+  description             String
+  status                  ClaimStatus         @default(OPEN)
+  paymentSource           ClaimPaymentSource
+  duplicateFingerprint    String
+  fraudFlaggedAt          DateTime?
+  fraudFlagReason         String?
+  finding                 ClaimResponsibility @default(UNDETERMINED)
+  findingReason           String?
+  findingActorUserId      String?
+  findingAt               DateTime?
+  decisionReason          String?
+  decisionPolicyReference String?
+  decidedByUserId         String?
+  decidedAt               DateTime?
+  version                 Int                 @default(1)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  claimant   User            @relation("ClaimantClaims", fields: [claimantUserId], references: [id], onDelete: Restrict)
+  order      Order?          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  evidence   ClaimEvidence[]
+  activities ClaimActivity[]
+  remedy     ClaimRemedy?
+
+  @@unique([claimantUserId, duplicateFingerprint])
+  @@index([claimantUserId, createdAt])
+  @@index([orderId, status])
+  @@index([marketplaceOrderId, status])
+  @@index([status, createdAt])
+}
+
+model ClaimEvidence {
+  id                   String   @id @default(cuid())
+  claimId              String
+  privateMediaObjectId String?
+  textualEvidence      String?
+  submittedByUserId    String
+  createdAt            DateTime @default(now())
+
+  claim              Claim               @relation(fields: [claimId], references: [id], onDelete: Restrict)
+  privateMediaObject PrivateMediaObject? @relation(fields: [privateMediaObjectId], references: [id], onDelete: Restrict)
+
+  @@unique([claimId, privateMediaObjectId])
+  @@index([claimId, createdAt])
+}
+
+model ClaimActivity {
+  id                String   @id @default(cuid())
+  claimId           String
+  eventType         String
+  actorUserId       String?
+  participantRole   String?
+  safeDetail        String?
+  evidenceReference String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Restrict)
+
+  @@index([claimId, createdAt])
+}
+
+model ClaimRemedy {
+  id                   String          @id @default(cuid())
+  claimId              String          @unique
+  type                 ClaimRemedyType
+  operationId          String          @unique
+  requestHash          String
+  amount               Decimal?        @db.Decimal(18, 2)
+  currency             LedgerCurrency?
+  paymentRefundId      String?         @unique
+  fulfilmentReference  String?
+  mixedPaymentStrategy String?
+  decidedByUserId      String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  claim         Claim          @relation(fields: [claimId], references: [id], onDelete: Restrict)
+  paymentRefund PaymentRefund? @relation(fields: [paymentRefundId], references: [id], onDelete: Restrict)
 }
 
 model OrderStatusHistory {
@@ -983,23 +1210,146 @@ model DriverServiceRegion {
 }
 
 model DriverDocument {
-  id                String         @id @default(cuid())
-  driverProfileId   String
-  documentType      DocumentType
-  status            DocumentStatus @default(PENDING)
-  fileUrl           String?
-  fileName          String?
-  expiresAt         DateTime?
-  reviewedAt        DateTime?
-  reviewedByAdminId String?
-  rejectionReason   String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  driverProfile     DriverProfile  @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  id                   String              @id @default(cuid())
+  driverProfileId      String
+  documentType         DocumentType
+  status               DocumentStatus      @default(PENDING)
+  fileUrl              String?
+  fileName             String?
+  expiresAt            DateTime?
+  reviewedAt           DateTime?
+  reviewedByAdminId    String?
+  rejectionReason      String?
+  privateMediaObjectId String?             @unique
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  driverProfile        DriverProfile       @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  privateMediaObject   PrivateMediaObject? @relation("DriverDocumentPrivateMedia", fields: [privateMediaObjectId], references: [id], onDelete: Restrict)
 
   @@index([driverProfileId])
   @@index([documentType])
   @@index([status])
+}
+
+// PrivateMediaObject is an authorization-aware storage record. Its object key is
+// never returned to a browser; access is only through a server-side policy check.
+model PrivateMediaObject {
+  id                               String                            @id @default(cuid())
+  publicReference                  String                            @unique
+  ownerType                        PrivateMediaOwnerType
+  ownerId                          String
+  purpose                          PrivateMediaPurpose
+  status                           PrivateMediaStatus                @default(PENDING_UPLOAD)
+  storageProvider                  String
+  storageKey                       String                            @unique
+  originalFileName                 String
+  declaredMimeType                 String
+  detectedMimeType                 String?
+  byteSize                         Int?
+  checksum                         String?
+  retentionUntil                   DateTime?
+  deleteRequestedAt                DateTime?
+  deletedAt                        DateTime?
+  createdByUserId                  String
+  reviewedByUserId                 String?
+  reviewedAt                       DateTime?
+  rejectionReason                  String?
+  metadata                         Json?
+  version                          Int                               @default(1)
+  createdAt                        DateTime                          @default(now())
+  updatedAt                        DateTime                          @updatedAt
+  driverDocument                   DriverDocument?                   @relation("DriverDocumentPrivateMedia")
+  vehicleDocument                  VehicleDocument?                  @relation("VehicleDocumentPrivateMedia")
+  vehicleMedia                     VehicleMedia?                     @relation("VehicleMediaPrivateMedia")
+  claimEvidence                    ClaimEvidence[]
+  managedMarketingRequestCreatives ManagedMarketingRequestCreative[]
+  accessLogs                       PrivateMediaAccessLog[]
+  operationalIncidentEvidence      OperationalIncidentEvidence[]
+
+  @@index([ownerType, ownerId, status])
+  @@index([status, retentionUntil])
+  @@index([purpose, status])
+}
+
+model PrivateMediaAccessLog {
+  id                   String             @id @default(cuid())
+  privateMediaObjectId String
+  actorUserId          String
+  action               String
+  outcome              String
+  requestReference     String?
+  createdAt            DateTime           @default(now())
+  privateMediaObject   PrivateMediaObject @relation(fields: [privateMediaObjectId], references: [id], onDelete: Cascade)
+
+  @@index([privateMediaObjectId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+// Vehicle approval is intentionally independent from DriverProfile approval.
+// Legacy vehicle columns stay in place for existing demo compatibility only.
+model Vehicle {
+  id                 String                  @id @default(cuid())
+  publicReference    String                  @unique
+  driverProfileId    String
+  make               String
+  model              String
+  year               Int?
+  colour             String?
+  registrationNumber String
+  vehicleType        VehicleType
+  capacityKg         Decimal?                @db.Decimal(12, 3)
+  status             VehicleComplianceStatus @default(PENDING_REVIEW)
+  approvedAt         DateTime?
+  approvedByUserId   String?
+  rejectedAt         DateTime?
+  rejectedByUserId   String?
+  rejectionReason    String?
+  suspendedAt        DateTime?
+  suspendedByUserId  String?
+  suspensionReason   String?
+  archivedAt         DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  version            Int                     @default(1)
+  driverProfile      DriverProfile           @relation(fields: [driverProfileId], references: [id], onDelete: Restrict)
+  documents          VehicleDocument[]
+  media              VehicleMedia[]
+
+  @@index([driverProfileId, status])
+  @@index([registrationNumber])
+  @@index([status, vehicleType])
+}
+
+model VehicleDocument {
+  id                   String              @id @default(cuid())
+  vehicleId            String
+  documentType         VehicleDocumentType
+  status               DocumentStatus      @default(PENDING)
+  privateMediaObjectId String              @unique
+  expiresAt            DateTime?
+  reviewedAt           DateTime?
+  reviewedByUserId     String?
+  rejectionReason      String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  vehicle              Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  privateMediaObject   PrivateMediaObject  @relation("VehicleDocumentPrivateMedia", fields: [privateMediaObjectId], references: [id], onDelete: Restrict)
+
+  @@index([vehicleId, documentType, status])
+  @@index([status, expiresAt])
+}
+
+model VehicleMedia {
+  id                   String              @id @default(cuid())
+  vehicleId            String
+  purpose              VehicleMediaPurpose
+  privateMediaObjectId String              @unique
+  createdAt            DateTime            @default(now())
+  vehicle              Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  privateMediaObject   PrivateMediaObject  @relation("VehicleMediaPrivateMedia", fields: [privateMediaObjectId], references: [id], onDelete: Restrict)
+
+  @@unique([vehicleId, purpose])
+  @@index([vehicleId])
 }
 
 enum UserRole {
@@ -1194,6 +1544,65 @@ enum DocumentStatus {
   APPROVED
   REJECTED
   EXPIRED
+}
+
+// Phase B: private evidence is intentionally distinct from public catalog media.
+// These values describe the storage lifecycle, not a business approval decision.
+enum PrivateMediaStatus {
+  PENDING_UPLOAD
+  READY
+  QUARANTINED
+  RETAINED
+  DELETE_REQUESTED
+  DELETED
+}
+
+enum PrivateMediaOwnerType {
+  DRIVER
+  VEHICLE
+  CLAIM
+  PROOF_OF_DELIVERY
+  STORE
+  APPLICANT
+}
+
+enum PrivateMediaPurpose {
+  DRIVER_IDENTITY_DOCUMENT
+  DRIVER_LICENCE
+  DRIVER_PROFILE_PHOTO
+  VEHICLE_REGISTRATION
+  VEHICLE_LICENCE_DISC
+  VEHICLE_INSURANCE
+  VEHICLE_COMPLIANCE_IMAGE
+  CLAIM_EVIDENCE
+  POD_EVIDENCE
+  STORE_VERIFICATION_DOCUMENT
+  OTHER
+}
+
+enum VehicleComplianceStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum VehicleDocumentType {
+  REGISTRATION
+  LICENCE_DISC
+  INSURANCE
+  ROADWORTHINESS
+  OTHER
+}
+
+enum VehicleMediaPurpose {
+  FRONT
+  REAR
+  SIDE
+  INTERIOR
+  OTHER
 }
 
 // ─── Phase 2.5: Dispatch & Assignment ─────────────────────────────────────────
@@ -1419,6 +1828,12 @@ enum OrderOperationalEventType {
   ASSIGNMENT_REVOKED
   ASSIGNMENT_SUPERSEDED
   ASSIGNMENT_COMPLETED
+  VENDOR_PACKAGING_CONFIRMED
+  VENDOR_LAWFUL_LISTING_CONFIRMED
+  VENDOR_HANDOFF_READY
+  DRIVER_SAFETY_CONFIRMED
+  DRIVER_LAWFUL_TRANSPORT_CONFIRMED
+  DRIVER_SUSPICIOUS_PACKAGE_REPORTED
 }
 
 enum PickupFailureReason {
@@ -1718,6 +2133,7 @@ enum PaymentSubjectType {
   COURIER_ORDER
   MARKETPLACE_CHECKOUT
   SUBSCRIPTION_INVOICE
+  MANAGED_MARKETING_REQUEST
 }
 
 enum PaymentStatus {
@@ -1854,6 +2270,7 @@ model Payment {
   marketplaceCheckoutId     String?                    @unique
   marketplaceOrderId        String?                    @unique
   subscriptionInvoiceId     String?                    @unique
+  managedMarketingRequestId String?                    @unique
   provider                  PaymentProvider?
   purpose                   PaymentPurpose             @default(ORDER)
   status                    PaymentStatus              @default(CREATED)
@@ -1900,6 +2317,8 @@ model Payment {
   reconciliationCases                    PaymentReconciliationCase[]
   refunds                                PaymentRefund[]
   subscriptionInvoice                    SubscriptionInvoice?                    @relation("SubscriptionInvoicePayment", fields: [subscriptionInvoiceId], references: [id], onDelete: Restrict, map: "Payment_subscriptionInvoice_fkey")
+  managedMarketingRequest                ManagedMarketingRequest?                @relation("ManagedMarketingRequestPayment", fields: [managedMarketingRequestId], references: [id], onDelete: Restrict)
+  managedMarketingBillingEvidence        ManagedMarketingBillingEvidence?        @relation("ManagedMarketingBillingEvidencePayment")
   verifiedEventIntent                    PaymentVerifiedEventIntent?             @relation("PaymentVerifiedEventIntentPayment")
   adCampaigns                            AdCampaign[]
   storeEarnings                          StoreEarning[]
@@ -2274,6 +2693,7 @@ model PaymentRefund {
   version                   Int              @default(0)
   createdAt                 DateTime         @default(now())
   updatedAt                 DateTime         @updatedAt
+  claimRemedy               ClaimRemedy?
 
   // Phase 4 placeholder columns are retained physically for migration safety
   // and excluded from every Phase 15 operational contract.
@@ -2474,6 +2894,7 @@ enum LedgerAccountPurpose {
   DRIVER_EARNINGS_PAYABLE
   SUBSCRIPTION_DEFERRED_REVENUE
   SUBSCRIPTION_TAX_PAYABLE
+  MANAGED_MARKETING_TAX_PAYABLE
 }
 
 enum LedgerAccountCategory {
@@ -2624,32 +3045,34 @@ model LedgerJournal {
   createdByUserId     String?
   createdAt           DateTime          @default(now())
 
-  entries                        LedgerEntry[]
-  subscriptionSettlements        SubscriptionInvoiceSettlement[]       @relation("SubscriptionSettlementJournal")
-  subscriptionRevenueEntries     SubscriptionRevenueRecognitionEntry[] @relation("SubscriptionRevenueRecognitionJournal")
-  createdBy                      User?                                 @relation("LedgerJournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  originalJournal                LedgerJournal?                        @relation("LedgerJournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
-  reversalJournal                LedgerJournal?                        @relation("LedgerJournalReversal")
-  successfulForPayment           Payment?                              @relation("PaymentSuccessLedgerJournal")
-  webhookEvent                   PaymentWebhookEvent?                  @relation("WebhookLedgerJournal")
-  withdrawalReserve              WithdrawalRequest?                    @relation("WithdrawalReserveLedgerJournal")
-  withdrawalRelease              WithdrawalRequest?                    @relation("WithdrawalReleaseLedgerJournal")
-  withdrawalPayout               WithdrawalRequest?                    @relation("WithdrawalPayoutLedgerJournal")
-  commissionAccrual              CommissionAccrual?                    @relation("CommissionAccrualLedgerJournal")
-  commissionReversal             CommissionAccrual?                    @relation("CommissionReversalLedgerJournal")
-  refundReserve                  PaymentRefund?                        @relation("RefundReserveLedgerJournal")
-  refundRelease                  PaymentRefund?                        @relation("RefundReleaseLedgerJournal")
-  refundCompletion               PaymentRefund?                        @relation("RefundCompletionLedgerJournal")
-  storeEarningAccrual            StoreEarning?                         @relation("StoreEarningAccrualLedgerJournal")
-  storeEarningRelease            StoreEarning?                         @relation("StoreEarningReleaseLedgerJournal")
-  storeEarningReversal           StoreEarning?                         @relation("StoreEarningReversalLedgerJournal")
-  driverEarningAccrual           DriverEarning?                        @relation("DriverEarningAccrualLedgerJournal")
-  driverEarningRelease           DriverEarning?                        @relation("DriverEarningReleaseLedgerJournal")
-  driverEarningReversal          DriverEarning?                        @relation("DriverEarningReversalLedgerJournal")
-  advertisingFundingMovements    AdvertisingFundingMovement[]
-  clickCharges                   AdvertisingClickCharge[]              @relation("ClickChargeJournal")
-  reversedClickCharges           AdvertisingClickCharge[]              @relation("ClickReversalJournal")
-  advertisingReconciliationCases AdvertisingReconciliationCase[]
+  entries                         LedgerEntry[]
+  subscriptionSettlements         SubscriptionInvoiceSettlement[]       @relation("SubscriptionSettlementJournal")
+  subscriptionRevenueEntries      SubscriptionRevenueRecognitionEntry[] @relation("SubscriptionRevenueRecognitionJournal")
+  createdBy                       User?                                 @relation("LedgerJournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  originalJournal                 LedgerJournal?                        @relation("LedgerJournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
+  reversalJournal                 LedgerJournal?                        @relation("LedgerJournalReversal")
+  successfulForPayment            Payment?                              @relation("PaymentSuccessLedgerJournal")
+  webhookEvent                    PaymentWebhookEvent?                  @relation("WebhookLedgerJournal")
+  withdrawalReserve               WithdrawalRequest?                    @relation("WithdrawalReserveLedgerJournal")
+  withdrawalRelease               WithdrawalRequest?                    @relation("WithdrawalReleaseLedgerJournal")
+  withdrawalPayout                WithdrawalRequest?                    @relation("WithdrawalPayoutLedgerJournal")
+  commissionAccrual               CommissionAccrual?                    @relation("CommissionAccrualLedgerJournal")
+  commissionReversal              CommissionAccrual?                    @relation("CommissionReversalLedgerJournal")
+  refundReserve                   PaymentRefund?                        @relation("RefundReserveLedgerJournal")
+  refundRelease                   PaymentRefund?                        @relation("RefundReleaseLedgerJournal")
+  refundCompletion                PaymentRefund?                        @relation("RefundCompletionLedgerJournal")
+  storeEarningAccrual             StoreEarning?                         @relation("StoreEarningAccrualLedgerJournal")
+  storeEarningRelease             StoreEarning?                         @relation("StoreEarningReleaseLedgerJournal")
+  storeEarningReversal            StoreEarning?                         @relation("StoreEarningReversalLedgerJournal")
+  driverEarningAccrual            DriverEarning?                        @relation("DriverEarningAccrualLedgerJournal")
+  driverEarningRelease            DriverEarning?                        @relation("DriverEarningReleaseLedgerJournal")
+  driverEarningReversal           DriverEarning?                        @relation("DriverEarningReversalLedgerJournal")
+  advertisingFundingMovements     AdvertisingFundingMovement[]
+  clickCharges                    AdvertisingClickCharge[]              @relation("ClickChargeJournal")
+  reversedClickCharges            AdvertisingClickCharge[]              @relation("ClickReversalJournal")
+  advertisingReconciliationCases  AdvertisingReconciliationCase[]
+  managedMarketingReceiptEvidence ManagedMarketingBillingEvidence[]     @relation("ManagedMarketingReceiptJournal")
+  managedMarketingRevenueEvidence ManagedMarketingBillingEvidence[]     @relation("ManagedMarketingRevenueJournal")
 
   SubscriptionRefundAdjustment SubscriptionRefundAdjustment?
 
@@ -5879,6 +6302,7 @@ enum PromoterProgramTargetType {
   CUSTOMER
   BUSINESS_CUSTOMER
   STORE
+  DRIVER
 }
 
 enum PromoterProgramStatus {
@@ -5950,6 +6374,22 @@ enum PromoterAttributionSubjectType {
   CUSTOMER
   BUSINESS_CUSTOMER
   STORE
+  DRIVER
+}
+
+enum PromoterQualificationRuleType {
+  DIRECT_REFERRAL_COUNT
+  QUALIFIED_TARGET_COUNT
+  MONTHLY_ACTIVITY_COUNT
+  TEAM_MEMBER_COUNT
+  TEAM_QUALIFIED_COUNT
+  QUALIFYING_TRANSACTION_COUNT
+  QUALIFYING_REVENUE_AMOUNT
+}
+
+enum PromoterQualificationEvaluationStatus {
+  COMPLETED
+  RECONCILIATION_REQUIRED
 }
 
 enum PromoterAttributionStatus {
@@ -5970,6 +6410,7 @@ enum PromoterQualifyingEventType {
   CUSTOMER_FIRST_COMPLETED_SETTLED_MARKETPLACE_ORDER
   BUSINESS_FIRST_COMPLETED_SETTLED_ORDER
   STORE_FIRST_SETTLED_MARKETPLACE_ORDER
+  DRIVER_FIRST_COMPLETED_SETTLED_DELIVERY
 }
 
 enum PromoterQualificationStatus {
@@ -6102,35 +6543,38 @@ enum PromoterEventIntentType {
 }
 
 model PromoterAccount {
-  id                    String                        @id @default(cuid())
-  publicReference       String                        @unique
-  userId                String                        @unique
-  status                PromoterAccountStatus         @default(APPLIED)
-  legalName             String
-  displayName           String?
-  identityStatus        PromoterIdentityStatus        @default(PENDING)
-  taxProfileStatus      PromoterReadinessStatus       @default(PENDING)
-  payoutReadinessStatus PromoterReadinessStatus       @default(PENDING)
-  agreementStatus       PromoterAgreementStatus       @default(REQUIRED)
-  complianceEvidence    Json?
-  operationId           String?                       @unique
-  requestHash           String?
-  approvedAt            DateTime?
-  activatedAt           DateTime?
-  suspendedAt           DateTime?
-  terminatedAt          DateTime?
-  createdAt             DateTime                      @default(now())
-  updatedAt             DateTime                      @updatedAt
-  user                  User                          @relation(fields: [userId], references: [id], onDelete: Restrict, map: "PromoterAccount_userId_fkey")
-  acceptances           PromoterAgreementAcceptance[]
-  enrollments           PromoterEnrollment[]
-  channels              PromoterChannel[]
-  referralCodes         PromoterReferralCode[]
-  touches               PromoterTouch[]
-  attributions          PromoterAttribution[]
-  earnings              PromoterEarning[]
-  fraudCases            PromoterFraudCase[]
-  disputes              PromoterDispute[]
+  id                       String                            @id @default(cuid())
+  publicReference          String                            @unique
+  userId                   String                            @unique
+  status                   PromoterAccountStatus             @default(APPLIED)
+  legalName                String
+  displayName              String?
+  identityStatus           PromoterIdentityStatus            @default(PENDING)
+  taxProfileStatus         PromoterReadinessStatus           @default(PENDING)
+  payoutReadinessStatus    PromoterReadinessStatus           @default(PENDING)
+  agreementStatus          PromoterAgreementStatus           @default(REQUIRED)
+  complianceEvidence       Json?
+  operationId              String?                           @unique
+  requestHash              String?
+  approvedAt               DateTime?
+  activatedAt              DateTime?
+  suspendedAt              DateTime?
+  terminatedAt             DateTime?
+  createdAt                DateTime                          @default(now())
+  updatedAt                DateTime                          @updatedAt
+  user                     User                              @relation(fields: [userId], references: [id], onDelete: Restrict, map: "PromoterAccount_userId_fkey")
+  acceptances              PromoterAgreementAcceptance[]
+  enrollments              PromoterEnrollment[]
+  channels                 PromoterChannel[]
+  referralCodes            PromoterReferralCode[]
+  touches                  PromoterTouch[]
+  attributions             PromoterAttribution[]
+  earnings                 PromoterEarning[]
+  fraudCases               PromoterFraudCase[]
+  disputes                 PromoterDispute[]
+  teamEdgesAsParent        PromoterTeamEdge[]                @relation("PromoterTeamParent")
+  teamEdgesAsChild         PromoterTeamEdge[]                @relation("PromoterTeamChild")
+  qualificationEvaluations PromoterQualificationEvaluation[]
 
   @@index([status])
 }
@@ -6188,12 +6632,12 @@ model PromoterProgram {
 }
 
 model PromoterProgramVersion {
-  id                               String                       @id @default(cuid())
-  publicReference                  String                       @unique
+  id                               String                            @id @default(cuid())
+  publicReference                  String                            @unique
   programId                        String
   versionNumber                    Int
-  status                           PromoterProgramVersionStatus @default(DRAFT)
-  attributionModel                 PromoterAttributionModel     @default(FIRST_VALID_ACQUISITION_TOUCH)
+  status                           PromoterProgramVersionStatus      @default(DRAFT)
+  attributionModel                 PromoterAttributionModel          @default(FIRST_VALID_ACQUISITION_TOUCH)
   attributionWindowDays            Int
   qualifyingEventType              PromoterQualifyingEventType
   qualificationHoldDays            Int
@@ -6206,6 +6650,8 @@ model PromoterProgramVersion {
   disclosurePolicyVersion          String
   reversalPolicyVersion            String
   legalTermsVersion                String
+  teamRules                        Json?
+  bonusRules                       Json?
   startsAt                         DateTime
   endsAt                           DateTime?
   approvedByUserId                 String?
@@ -6215,17 +6661,107 @@ model PromoterProgramVersion {
   endedAt                          DateTime?
   rejectedAt                       DateTime?
   rejectionReason                  String?
-  createdAt                        DateTime                     @default(now())
-  program                          PromoterProgram              @relation(fields: [programId], references: [id], onDelete: Restrict)
-  approvedBy                       User?                        @relation("PromoterProgramApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull, map: "PromoterProgramVersion_approvedByUserId_fkey")
+  createdAt                        DateTime                          @default(now())
+  program                          PromoterProgram                   @relation(fields: [programId], references: [id], onDelete: Restrict)
+  approvedBy                       User?                             @relation("PromoterProgramApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull, map: "PromoterProgramVersion_approvedByUserId_fkey")
   enrollments                      PromoterEnrollment[]
   touches                          PromoterTouch[]
   attributions                     PromoterAttribution[]
   qualifications                   PromoterQualification[]
   marketingAssets                  PromoterMarketingAsset[]
+  rankDefinitions                  PromoterRankDefinition[]
+  qualificationRules               PromoterQualificationRule[]
+  teamEdges                        PromoterTeamEdge[]
+  qualificationEvaluations         PromoterQualificationEvaluation[]
 
   @@unique([programId, versionNumber])
   @@index([status, startsAt, endsAt])
+}
+
+// Version-bound configuration. Rule numeric values are JSON configuration so
+// launch economics remain client-controlled, while codes and effective dates
+// are immutable once the containing programme version is approved.
+model PromoterRankDefinition {
+  id                     String   @id @default(cuid())
+  publicReference        String   @unique
+  programVersionId       String
+  code                   String
+  displayName            String
+  rankOrder              Int
+  qualificationRuleCodes Json
+  benefitConfiguration   Json?
+  createdAt              DateTime @default(now())
+
+  programVersion PromoterProgramVersion            @relation(fields: [programVersionId], references: [id], onDelete: Restrict)
+  evaluations    PromoterQualificationEvaluation[]
+
+  @@unique([programVersionId, code])
+  @@unique([programVersionId, rankOrder])
+  @@index([programVersionId, rankOrder])
+}
+
+model PromoterQualificationRule {
+  id               String                        @id @default(cuid())
+  publicReference  String                        @unique
+  programVersionId String
+  code             String
+  type             PromoterQualificationRuleType
+  configuration    Json
+  required         Boolean                       @default(true)
+  createdAt        DateTime                      @default(now())
+
+  programVersion PromoterProgramVersion @relation(fields: [programVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([programVersionId, code])
+  @@index([programVersionId, type])
+}
+
+// The active edge is unique per child. Prior edges are ended, never rewritten,
+// so referral ancestry remains auditable across re-parenting.
+model PromoterTeamEdge {
+  id                      String    @id @default(cuid())
+  publicReference         String    @unique
+  programVersionId        String
+  parentPromoterAccountId String
+  childPromoterAccountId  String
+  attributionId           String?
+  effectiveFrom           DateTime  @default(now())
+  effectiveUntil          DateTime?
+  operationId             String    @unique
+  requestHash             String
+  createdByUserId         String?
+  createdAt               DateTime  @default(now())
+
+  programVersion PromoterProgramVersion @relation(fields: [programVersionId], references: [id], onDelete: Restrict)
+  parent         PromoterAccount        @relation("PromoterTeamParent", fields: [parentPromoterAccountId], references: [id], onDelete: Restrict)
+  child          PromoterAccount        @relation("PromoterTeamChild", fields: [childPromoterAccountId], references: [id], onDelete: Restrict)
+  attribution    PromoterAttribution?   @relation(fields: [attributionId], references: [id], onDelete: SetNull)
+
+  @@index([programVersionId, parentPromoterAccountId, effectiveUntil], map: "PromoterTeamEdge_parent_active_idx")
+  @@index([programVersionId, childPromoterAccountId, effectiveUntil], map: "PromoterTeamEdge_child_active_idx")
+}
+
+model PromoterQualificationEvaluation {
+  id                String                                @id @default(cuid())
+  publicReference   String                                @unique
+  promoterAccountId String
+  programVersionId  String
+  periodKey         String
+  status            PromoterQualificationEvaluationStatus @default(COMPLETED)
+  qualified         Boolean
+  rankDefinitionId  String?
+  result            Json
+  operationId       String                                @unique
+  requestHash       String
+  evaluatedAt       DateTime                              @default(now())
+  createdAt         DateTime                              @default(now())
+
+  promoterAccount PromoterAccount         @relation(fields: [promoterAccountId], references: [id], onDelete: Restrict)
+  programVersion  PromoterProgramVersion  @relation(fields: [programVersionId], references: [id], onDelete: Restrict)
+  rankDefinition  PromoterRankDefinition? @relation(fields: [rankDefinitionId], references: [id], onDelete: SetNull)
+
+  @@unique([promoterAccountId, programVersionId, periodKey], map: "PromoterQualificationEvaluation_period_key")
+  @@index([programVersionId, periodKey, status], map: "PromoterQualificationEvaluation_period_status_idx")
 }
 
 model PromoterEnrollment {
@@ -6336,6 +6872,7 @@ model PromoterAttribution {
   customerUserId    String?
   businessAccountId String?
   storeId           String?
+  driverProfileId   String?
   subjectKey        String
   status            PromoterAttributionStatus      @default(ATTRIBUTED)
   attributionModel  PromoterAttributionModel       @default(FIRST_VALID_ACQUISITION_TOUCH)
@@ -6352,6 +6889,7 @@ model PromoterAttribution {
   qualifications    PromoterQualification[]
   fraudCases        PromoterFraudCase[]
   disputes          PromoterDispute[]
+  teamEdges         PromoterTeamEdge[]
 
   @@unique([programVersionId, subjectKey])
   @@index([subjectType, status])
@@ -7191,26 +7729,28 @@ enum StorefrontTelemetryEventType {
 }
 
 model CatalogCategory {
-  id              String                @id @default(cuid())
-  publicReference String                @unique
-  name            String
-  slug            String
-  description     String?
-  parentId        String?
-  depth           Int                   @default(0)
-  path            String                @unique
-  status          CatalogCategoryStatus @default(DRAFT)
-  displayOrder    Int                   @default(0)
-  imageAssetId    String?
-  seoTitle        String?
-  seoDescription  String?
-  createdByUserId String
-  updatedByUserId String
-  version         Int                   @default(1)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id               String                @id @default(cuid())
+  publicReference  String                @unique
+  businessModuleId String?
+  name             String
+  slug             String
+  description      String?
+  parentId         String?
+  depth            Int                   @default(0)
+  path             String                @unique
+  status           CatalogCategoryStatus @default(DRAFT)
+  displayOrder     Int                   @default(0)
+  imageAssetId     String?
+  seoTitle         String?
+  seoDescription   String?
+  createdByUserId  String
+  updatedByUserId  String
+  version          Int                   @default(1)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   parent              CatalogCategory?             @relation("CatalogCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  businessModule      BusinessModule?              @relation(fields: [businessModuleId], references: [id], onDelete: Restrict)
   children            CatalogCategory[]            @relation("CatalogCategoryTree")
   productTypeMappings CatalogCategoryProductType[]
   products            CatalogProduct[]
@@ -7220,6 +7760,7 @@ model CatalogCategory {
 
   @@unique([parentId, slug])
   @@index([parentId, displayOrder])
+  @@index([businessModuleId, status, displayOrder])
   @@index([status, path])
 }
 
@@ -7630,13 +8171,14 @@ model CatalogMediaAsset {
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @updatedAt
 
-  ownerStore     Store?                      @relation("CatalogMediaAssets", fields: [ownerStoreId], references: [id], onDelete: Restrict, map: "CatalogMediaAsset_store_fkey")
-  productMedia   CatalogProductMedia[]
-  optionValues   CatalogProductOptionValue[]
-  uploadIntents  CatalogMediaUploadIntent[]
-  history        CatalogMediaHistory[]
-  categoryImages CatalogCategory[]           @relation("CatalogCategoryImage")
-  brandLogos     CatalogBrand[]              @relation("CatalogBrandLogo")
+  ownerStore                       Store?                            @relation("CatalogMediaAssets", fields: [ownerStoreId], references: [id], onDelete: Restrict, map: "CatalogMediaAsset_store_fkey")
+  productMedia                     CatalogProductMedia[]
+  optionValues                     CatalogProductOptionValue[]
+  uploadIntents                    CatalogMediaUploadIntent[]
+  history                          CatalogMediaHistory[]
+  categoryImages                   CatalogCategory[]                 @relation("CatalogCategoryImage")
+  brandLogos                       CatalogBrand[]                    @relation("CatalogBrandLogo")
+  managedMarketingRequestCreatives ManagedMarketingRequestCreative[]
 
   @@index([ownerType, ownerStoreId, status], map: "CatalogMediaAsset_owner_status_idx")
   @@index([checksum])
@@ -9868,11 +10410,12 @@ model AdvertisingPlacementDefinition {
   createdAt                DateTime                   @default(now())
   updatedAt                DateTime                   @updatedAt
 
-  rateCards         AdvertisingRateCardVersion[]
-  campaignVersions  AdvertisingCampaignVersion[]
-  serveDecisions    AdvertisingServeDecision[]
-  dailyAggregates   AdvertisingDailyAggregate[]
-  measurementEvents AdvertisingMeasurementEvent[]
+  rateCards                         AdvertisingRateCardVersion[]
+  campaignVersions                  AdvertisingCampaignVersion[]
+  serveDecisions                    AdvertisingServeDecision[]
+  dailyAggregates                   AdvertisingDailyAggregate[]
+  measurementEvents                 AdvertisingMeasurementEvent[]
+  managedMarketingChannelPlacements ManagedMarketingChannelPlacement[]
 }
 
 enum AdvertisingRateCardStatus {
@@ -11756,6 +12299,42 @@ model NotificationConsentRecord {
   @@index([userId, channel, purpose, status])
 }
 
+model CookiePreference {
+  id                   String   @id @default(cuid())
+  publicReference      String   @unique
+  userId               String?
+  anonymousSubjectHash String?
+  schemaVersion        String
+  necessary            Boolean  @default(true)
+  functional           Boolean  @default(false)
+  analytics            Boolean  @default(false)
+  marketing            Boolean  @default(false)
+  source               String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  events CookiePreferenceEvent[]
+
+  @@unique([userId, schemaVersion])
+  @@unique([anonymousSubjectHash, schemaVersion])
+  @@index([userId, updatedAt])
+}
+
+model CookiePreferenceEvent {
+  id                 String   @id @default(cuid())
+  cookiePreferenceId String
+  operationId        String   @unique
+  actorUserId        String?
+  source             String
+  schemaVersion      String
+  stateSnapshot      Json
+  createdAt          DateTime @default(now())
+
+  preference CookiePreference @relation(fields: [cookiePreferenceId], references: [id], onDelete: Restrict)
+
+  @@index([cookiePreferenceId, createdAt])
+}
+
 model NotificationEndpoint {
   id                       String                     @id @default(cuid())
   publicReference          String                     @unique
@@ -12633,6 +13212,11 @@ model OperationalIncident {
   commanderUserId      String?
   mitigationSummary    String?
   resolutionSummary    String?
+  affectedDataClasses  Json?
+  affectedUserId       String?
+  affectedResourceType String?
+  affectedResourceRef  String?
+  notificationDecision Json?
   openedAt             DateTime  @default(now())
   resolvedAt           DateTime?
   closedAt             DateTime?
@@ -12640,6 +13224,7 @@ model OperationalIncident {
   updatedAt            DateTime  @updatedAt
 
   timeline OperationalIncidentTimeline[]
+  evidence OperationalIncidentEvidence[]
 
   @@index([status, severity, openedAt])
   @@index([commanderUserId, status])
@@ -12654,6 +13239,21 @@ model OperationalIncidentTimeline {
   operationId String              @unique
   createdAt   DateTime            @default(now())
   incident    OperationalIncident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId, createdAt])
+}
+
+model OperationalIncidentEvidence {
+  id                   String              @id @default(cuid())
+  incidentId           String
+  privateMediaObjectId String?
+  evidenceType         String
+  safeReference        String?
+  createdByUserId      String
+  operationId          String              @unique
+  createdAt            DateTime            @default(now())
+  incident             OperationalIncident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  privateMediaObject   PrivateMediaObject? @relation(fields: [privateMediaObjectId], references: [id], onDelete: Restrict)
 
   @@index([incidentId, createdAt])
 }
@@ -12695,6 +13295,11 @@ model PrivacyRequest {
   assignedUserId             String?
   holdEvaluation             String?
   safeOutcome                String?
+  requestContext             Json?
+  decision                   String?
+  decisionReason             String?
+  reviewedAt                 DateTime?
+  exportReference            String?
   operationId                String    @unique
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
@@ -12724,11 +13329,137 @@ model RetentionHold {
   createdByUserId  String?
   releasedByUserId String?
   releasedAt       DateTime?
+  expiresAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@unique([subjectType, subjectReference])
   @@index([releasedAt])
+}
+
+model PrivacyRequestExecutionPlan {
+  id               String   @id @default(cuid())
+  privacyRequestId String   @unique
+  policySnapshot   Json
+  executionState   String   @default("PLANNED")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([executionState, createdAt])
+}
+
+model RetentionPolicyVersion {
+  id                String    @id @default(cuid())
+  publicReference   String    @unique
+  dataClass         String
+  version           Int
+  action            String
+  retentionDays     Int?
+  effectiveAt       DateTime?
+  status            String    @default("DRAFT")
+  legalReviewStatus String    @default("LEGAL_REVIEW_REQUIRED")
+  createdByUserId   String?
+  activatedByUserId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([dataClass, version])
+  @@index([dataClass, status, effectiveAt])
+}
+
+model RetentionExecution {
+  id                String   @id @default(cuid())
+  executionKey      String   @unique
+  policyVersionId   String?
+  dataClass         String
+  resourceType      String
+  resourceReference String
+  action            String
+  status            String
+  safeReasonCode    String?
+  actorReference    String?
+  executedAt        DateTime @default(now())
+
+  @@index([resourceType, resourceReference, executedAt], map: "RetentionExecution_resourceType_resourceReference_executedAt_id")
+  @@index([status, executedAt])
+}
+
+model SensitiveDataClass {
+  id                  String                         @id @default(cuid())
+  code                String                         @unique
+  classificationLevel String
+  storageRequirement  String
+  loggingRule         String
+  retentionDataClass  String?
+  accessAuditRequired Boolean                        @default(false)
+  exportable          Boolean                        @default(false)
+  allowedPurposes     Json
+  status              String                         @default("ACTIVE")
+  createdAt           DateTime                       @default(now())
+  updatedAt           DateTime                       @updatedAt
+  resourceMappings    SensitiveDataResourceMapping[]
+  providerGovernance  ProviderPrivacyDataClass[]
+}
+
+model SensitiveDataResourceMapping {
+  id                   String             @id @default(cuid())
+  resourceType         String
+  resourceField        String?
+  sensitiveDataClassId String
+  purpose              String
+  createdAt            DateTime           @default(now())
+  sensitiveDataClass   SensitiveDataClass @relation(fields: [sensitiveDataClassId], references: [id], onDelete: Restrict)
+
+  @@unique([resourceType, resourceField, sensitiveDataClassId], map: "SensitiveDataResourceMapping_resourceType_resourceField_sensiti")
+  @@index([sensitiveDataClassId])
+}
+
+model ProviderPrivacyGovernance {
+  id                     String                     @id @default(cuid())
+  publicReference        String                     @unique
+  providerCode           String
+  providerCategory       String
+  servicePurpose         String
+  processingRole         String
+  governanceStatus       String                     @default("PENDING_REVIEW")
+  capabilityState        String                     @default("NOT_CONFIGURED")
+  regionMetadata         Json?
+  documentationReference String?
+  safeNotes              String?
+  reviewedAt             DateTime?
+  reviewedByUserId       String?
+  nextReviewAt           DateTime?
+  effectiveVersion       Int                        @default(1)
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  dataClasses            ProviderPrivacyDataClass[]
+
+  @@unique([providerCode, effectiveVersion])
+  @@index([providerCode, governanceStatus])
+}
+
+model ProviderPrivacyDataClass {
+  id                   String                    @id @default(cuid())
+  providerGovernanceId String
+  sensitiveDataClassId String
+  createdAt            DateTime                  @default(now())
+  providerGovernance   ProviderPrivacyGovernance @relation(fields: [providerGovernanceId], references: [id], onDelete: Restrict)
+  sensitiveDataClass   SensitiveDataClass        @relation(fields: [sensitiveDataClassId], references: [id], onDelete: Restrict)
+
+  @@unique([providerGovernanceId, sensitiveDataClassId], map: "ProviderPrivacyDataClass_providerGovernanceId_sensitiveDataClas")
+}
+
+model PolicyRuntimeLink {
+  id                     String   @id @default(cuid())
+  legalDocumentVersionId String
+  runtimeDomain          String
+  runtimeReference       String
+  runtimeVersion         String
+  createdByUserId        String
+  createdAt              DateTime @default(now())
+
+  @@unique([legalDocumentVersionId, runtimeDomain, runtimeReference, runtimeVersion], map: "PolicyRuntimeLink_legalDocumentVersionId_runtimeDomain_runtimeR")
+  @@index([runtimeDomain, runtimeReference])
 }
 
 model LegalDocumentVersion {
@@ -12738,6 +13469,8 @@ model LegalDocumentVersion {
   version                String
   jurisdiction           String
   contentHash            String
+  content                String?
+  contentReference       String?
   publicationStatus      String    @default("DRAFT")
   effectiveAt            DateTime?
   supersededById         String?
@@ -12752,6 +13485,7 @@ model LegalDocumentVersion {
 
   @@unique([documentType, version, jurisdiction])
   @@index([documentType, publicationStatus])
+  @@index([documentType, publicationStatus, effectiveAt], map: "LegalDocumentVersion_documentType_publicationStatus_effectiveAt")
 }
 
 model LegalDocumentAcceptance {
@@ -12760,10 +13494,636 @@ model LegalDocumentAcceptance {
   userId              String
   subjectReference    String               @default("")
   termsHash           String
+  evidenceType        String               @default("TERMS_ACCEPTANCE")
   acceptedAt          DateTime             @default(now())
   safeRequestEvidence Json?
   documentVersion     LegalDocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
 
   @@unique([documentVersionId, userId, subjectReference], map: "LegalDocumentAcceptance_documentVersionId_userId_subjectReferen")
   @@index([userId, acceptedAt])
+  @@index([documentVersionId, evidenceType], map: "LegalDocumentAcceptance_documentVersionId_evidenceType_idx")
+}
+
+// Distinct from on-platform AdvertisingCampaign: external campaigns are managed
+// commercial work orders and never imply that a social provider published anything.
+enum ManagedMarketingChannel {
+  TIKTOK
+  FACEBOOK
+  INSTAGRAM
+  GOOGLE
+}
+
+enum ManagedMarketingExecutionMode {
+  MANUAL
+  AUTOMATED_PROVIDER
+}
+
+enum ManagedMarketingPackageStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum ManagedMarketingPlacementKind {
+  ON_PLATFORM
+  MANUAL_EXTERNAL
+}
+
+enum ManagedMarketingRequestStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SCHEDULED
+  RUNNING
+  PAUSED
+  ENDED
+  COMPLETED
+  CANCELLED
+}
+
+model ManagedMarketingChannelConfiguration {
+  id                             String                  @id @default(cuid())
+  publicReference                String                  @unique
+  channel                        ManagedMarketingChannel @unique
+  automatedProviderEnabled       Boolean                 @default(false)
+  providerConfigurationReference String?
+  createdAt                      DateTime                @default(now())
+  updatedAt                      DateTime                @updatedAt
+}
+
+model ManagedMarketingPackageVersion {
+  id                     String                           @id @default(cuid())
+  publicReference        String                           @unique
+  code                   String
+  versionNumber          Int
+  name                   String                           @default("Managed marketing package")
+  description            String?
+  sortOrder              Int                              @default(0)
+  status                 ManagedMarketingPackageStatus    @default(DRAFT)
+  channel                ManagedMarketingChannel
+  packageTerms           Json
+  durationDays           Int?
+  postCount              Int                              @default(0)
+  videoCount             Int                              @default(0)
+  storyCount             Int                              @default(0)
+  estimatedReachMetadata Json?
+  priceAmount            Decimal                          @db.Decimal(18, 2)
+  taxRate                Decimal                          @db.Decimal(6, 4)
+  currency               LedgerCurrency                   @default(ZAR)
+  effectiveAt            DateTime
+  retiredAt              DateTime?
+  createdByUserId        String?
+  activatedByUserId      String?
+  createdAt              DateTime                         @default(now())
+  requests               ManagedMarketingRequest[]
+  channels               ManagedMarketingPackageChannel[]
+
+  @@unique([code, versionNumber])
+}
+
+model ManagedMarketingChannelDefinition {
+  id                          String                             @id @default(cuid())
+  publicReference             String                             @unique
+  code                        String                             @unique
+  displayName                 String
+  active                      Boolean                            @default(true)
+  sortOrder                   Int                                @default(0)
+  manualExecutionSupported    Boolean                            @default(true)
+  automatedProviderCapability String                             @default("MANUAL_AVAILABLE")
+  providerConfigurationState  String                             @default("NOT_CONFIGURED")
+  metadata                    Json?
+  createdByUserId             String?
+  updatedByUserId             String?
+  createdAt                   DateTime                           @default(now())
+  updatedAt                   DateTime                           @updatedAt
+  packageChannels             ManagedMarketingPackageChannel[]
+  placements                  ManagedMarketingChannelPlacement[]
+  requestChannels             ManagedMarketingRequestChannel[]
+}
+
+model ManagedMarketingPackageChannel {
+  id                  String                            @id @default(cuid())
+  packageVersionId    String
+  channelDefinitionId String
+  createdAt           DateTime                          @default(now())
+  packageVersion      ManagedMarketingPackageVersion    @relation(fields: [packageVersionId], references: [id], onDelete: Restrict, map: "ManagedMarketingPackageChannel_package_fkey")
+  channelDefinition   ManagedMarketingChannelDefinition @relation(fields: [channelDefinitionId], references: [id], onDelete: Restrict, map: "ManagedMarketingPackageChannel_channel_fkey")
+
+  @@unique([packageVersionId, channelDefinitionId], map: "ManagedMarketingPackageChannel_package_channel_key")
+}
+
+/// Canonical channel-to-placement authority for managed marketing. On-platform
+/// entries reuse the established AdvertisingPlacementDefinition authority; an
+/// external placement is intentionally manual and records only a safe operator
+/// reference, never provider credentials.
+model ManagedMarketingChannelPlacement {
+  id                               String                             @id @default(cuid())
+  publicReference                  String                             @unique
+  code                             String                             @unique
+  displayName                      String
+  channelDefinitionId              String
+  kind                             ManagedMarketingPlacementKind
+  advertisingPlacementDefinitionId String?
+  externalPlacementReference       String?
+  active                           Boolean                            @default(true)
+  sortOrder                        Int                                @default(0)
+  metadata                         Json?
+  createdByUserId                  String?
+  updatedByUserId                  String?
+  createdAt                        DateTime                           @default(now())
+  updatedAt                        DateTime                           @updatedAt
+  channelDefinition                ManagedMarketingChannelDefinition  @relation(fields: [channelDefinitionId], references: [id], onDelete: Restrict)
+  advertisingPlacementDefinition   AdvertisingPlacementDefinition?    @relation(fields: [advertisingPlacementDefinitionId], references: [id], onDelete: Restrict, map: "ManagedMarketingChannelPlacement_advertisingPlacementDefinition")
+  requestPlacements                ManagedMarketingRequestPlacement[]
+
+  @@unique([channelDefinitionId, displayName], map: "ManagedMarketingChannelPlacement_channelDefinitionId_displayNam")
+  @@index([channelDefinitionId, active, sortOrder], map: "ManagedMarketingChannelPlacement_channelDefinitionId_active_sor")
+}
+
+enum ManagedMarketingCreativeSource {
+  PRIVATE_MEDIA
+  CATALOG_MEDIA
+}
+
+model ManagedMarketingRequest {
+  id                     String                              @id @default(cuid())
+  publicReference        String                              @unique
+  storeId                String
+  requesterUserId        String?
+  packageVersionId       String
+  channel                ManagedMarketingChannel
+  executionMode          ManagedMarketingExecutionMode
+  status                 ManagedMarketingRequestStatus       @default(DRAFT)
+  objective              String
+  audience               Json
+  message                String
+  destinationLink        String
+  creativeAssetReference String?
+  instructions           String?
+  startsAt               DateTime
+  endsAt                 DateTime
+  priceSnapshot          Decimal                             @db.Decimal(18, 2)
+  taxSnapshot            Decimal                             @db.Decimal(6, 4)
+  currency               LedgerCurrency                      @default(ZAR)
+  paymentReference       String?
+  ledgerJournalId        String?
+  operationId            String                              @unique
+  requestHash            String
+  reviewedByUserId       String?
+  reviewReason           String?
+  submittedAt            DateTime?
+  scheduledAt            DateTime?
+  runningAt              DateTime?
+  pausedAt               DateTime?
+  endedAt                DateTime?
+  completedAt            DateTime?
+  cancelledAt            DateTime?
+  createdAt              DateTime                            @default(now())
+  updatedAt              DateTime                            @updatedAt
+  packageVersion         ManagedMarketingPackageVersion      @relation(fields: [packageVersionId], references: [id], onDelete: Restrict)
+  channels               ManagedMarketingRequestChannel[]
+  creatives              ManagedMarketingRequestCreative[]
+  events                 ManagedMarketingRequestEvent[]
+  payment                Payment?                            @relation("ManagedMarketingRequestPayment")
+  billingEvidence        ManagedMarketingBillingEvidence?
+  performanceRecords     ManagedMarketingPerformanceRecord[]
+
+  @@index([storeId, status])
+}
+
+model ManagedMarketingRequestChannel {
+  id                        String                             @id @default(cuid())
+  managedMarketingRequestId String
+  channelDefinitionId       String
+  createdAt                 DateTime                           @default(now())
+  request                   ManagedMarketingRequest            @relation(fields: [managedMarketingRequestId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestChannel_request_fkey")
+  channelDefinition         ManagedMarketingChannelDefinition  @relation(fields: [channelDefinitionId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestChannel_channel_fkey")
+  placements                ManagedMarketingRequestPlacement[]
+
+  @@unique([managedMarketingRequestId, channelDefinitionId], map: "ManagedMarketingRequestChannel_request_channel_key")
+}
+
+model ManagedMarketingRequestPlacement {
+  id                               String                           @id @default(cuid())
+  managedMarketingRequestChannelId String
+  placementId                      String
+  createdAt                        DateTime                         @default(now())
+  requestChannel                   ManagedMarketingRequestChannel   @relation(fields: [managedMarketingRequestChannelId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestPlacement_requestChannel_fkey")
+  placement                        ManagedMarketingChannelPlacement @relation(fields: [placementId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestPlacement_placement_fkey")
+
+  @@unique([managedMarketingRequestChannelId, placementId], map: "ManagedMarketingRequestPlacement_channel_placement_key")
+}
+
+model ManagedMarketingRequestCreative {
+  id                        String                         @id @default(cuid())
+  publicReference           String                         @unique
+  managedMarketingRequestId String
+  source                    ManagedMarketingCreativeSource
+  privateMediaObjectId      String?
+  catalogMediaAssetId       String?
+  role                      String                         @default("CREATIVE")
+  createdByUserId           String
+  createdAt                 DateTime                       @default(now())
+  request                   ManagedMarketingRequest        @relation(fields: [managedMarketingRequestId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestCreative_request_fkey")
+  privateMediaObject        PrivateMediaObject?            @relation(fields: [privateMediaObjectId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestCreative_privateMedia_fkey")
+  catalogMediaAsset         CatalogMediaAsset?             @relation(fields: [catalogMediaAssetId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestCreative_catalogMedia_fkey")
+
+  @@unique([managedMarketingRequestId, privateMediaObjectId], map: "ManagedMarketingRequestCreative_request_privateMedia_key")
+  @@unique([managedMarketingRequestId, catalogMediaAssetId], map: "ManagedMarketingRequestCreative_request_catalogMedia_key")
+  @@index([managedMarketingRequestId, createdAt], map: "ManagedMarketingRequestCreative_request_createdAt_idx")
+}
+
+model ManagedMarketingRequestEvent {
+  id                        String                  @id @default(cuid())
+  managedMarketingRequestId String
+  operationId               String                  @unique
+  eventType                 String
+  actorUserId               String?
+  safeEvidence              Json?
+  createdAt                 DateTime                @default(now())
+  request                   ManagedMarketingRequest @relation(fields: [managedMarketingRequestId], references: [id], onDelete: Restrict, map: "ManagedMarketingRequestEvent_request_fkey")
+}
+
+model ManagedMarketingBillingEvidence {
+  id                        String                  @id @default(cuid())
+  managedMarketingRequestId String                  @unique
+  paymentId                 String                  @unique
+  receiptLedgerJournalId    String                  @unique
+  revenueLedgerJournalId    String                  @unique
+  grossAmount               Decimal                 @db.Decimal(18, 2)
+  revenueAmount             Decimal                 @db.Decimal(18, 2)
+  taxAmount                 Decimal                 @db.Decimal(18, 2)
+  currency                  LedgerCurrency          @default(ZAR)
+  operationId               String                  @unique
+  recognizedAt              DateTime                @default(now())
+  request                   ManagedMarketingRequest @relation(fields: [managedMarketingRequestId], references: [id], onDelete: Restrict, map: "ManagedMarketingBillingEvidence_request_fkey")
+  payment                   Payment                 @relation("ManagedMarketingBillingEvidencePayment", fields: [paymentId], references: [id], onDelete: Restrict, map: "ManagedMarketingBillingEvidence_payment_fkey")
+  receiptLedgerJournal      LedgerJournal           @relation("ManagedMarketingReceiptJournal", fields: [receiptLedgerJournalId], references: [id], onDelete: Restrict, map: "ManagedMarketingBillingEvidence_receipt_journal_fkey")
+  revenueLedgerJournal      LedgerJournal           @relation("ManagedMarketingRevenueJournal", fields: [revenueLedgerJournalId], references: [id], onDelete: Restrict, map: "ManagedMarketingBillingEvidence_revenue_journal_fkey")
+
+  @@index([recognizedAt])
+}
+
+model ManagedMarketingPerformanceRecord {
+  id                        String                  @id @default(cuid())
+  publicReference           String                  @unique
+  managedMarketingRequestId String
+  operationId               String                  @unique
+  periodStartsAt            DateTime
+  periodEndsAt              DateTime
+  impressions               Int                     @default(0)
+  clicks                    Int                     @default(0)
+  conversions               Int                     @default(0)
+  externalReference         String
+  safeEvidence              Json?
+  recordedByUserId          String
+  recordedAt                DateTime                @default(now())
+  request                   ManagedMarketingRequest @relation(fields: [managedMarketingRequestId], references: [id], onDelete: Restrict, map: "ManagedMarketingPerformanceRecord_request_fkey")
+
+  @@index([managedMarketingRequestId, periodStartsAt], map: "ManagedMarketingPerformanceRecord_request_period_idx")
+}
+
+// Phase B commercial configuration. These records are deliberately versioned
+// rather than embedded in source constants so an accepted quote can preserve
+// its own immutable evidence while future configuration changes take effect.
+enum CompanyProfileVersionStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum DeliveryServiceDefinitionStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+  RETIRED
+}
+
+enum DeliveryServiceOperationalMode {
+  FULL_DIGITAL
+  QUOTE_REQUEST
+  LEAD_ONLY
+  DISABLED
+}
+
+enum CommercialSurchargeCalculationType {
+  FIXED
+  PERCENTAGE
+}
+
+enum PaymentMethodPolicyMode {
+  DIGITAL
+  FULL_COD
+  DEPOSIT_PLUS_COD
+}
+
+enum StoreSellingTerritoryScope {
+  NATIONWIDE
+  PROVINCES
+  ZONES
+}
+
+enum BusinessModuleKind {
+  MARKETPLACE
+  COURIER
+  HYBRID
+}
+
+model CompanyProfileVersion {
+  id                       String                      @id @default(cuid())
+  publicReference          String                      @unique
+  versionNumber            Int                         @unique
+  status                   CompanyProfileVersionStatus @default(DRAFT)
+  legalName                String
+  tradingName              String?
+  registrationNumber       String?
+  vatNumber                String?
+  physicalAddress          Json?
+  supportEmail             String?
+  businessEmail            String?
+  telephoneNumbers         Json?
+  website                  String?
+  publicMetadata           Json?
+  documentIdentityMetadata Json?
+  effectiveAt              DateTime?
+  createdByUserId          String
+  activatedByUserId        String?
+  activatedAt              DateTime?
+  retiredAt                DateTime?
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
+  issuerSnapshots          CompanyIssuerSnapshot[]
+
+  @@index([status, effectiveAt])
+}
+
+/// Immutable issuer evidence attached to a formal transactional artifact.
+/// The reference remains polymorphic because invoices, receipts and waybills
+/// are currently emitted by separate established authorities.
+model CompanyIssuerSnapshot {
+  id                      String                @id @default(cuid())
+  companyProfileVersionId String
+  documentType            String
+  documentReference       String
+  issuerSnapshot          Json
+  createdAt               DateTime              @default(now())
+  companyProfileVersion   CompanyProfileVersion @relation(fields: [companyProfileVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([documentType, documentReference])
+  @@index([companyProfileVersionId, createdAt])
+}
+
+model BusinessModule {
+  id                     String             @id @default(cuid())
+  code                   String             @unique
+  displayName            String
+  kind                   BusinessModuleKind
+  enabled                Boolean            @default(true)
+  publicEnabled          Boolean            @default(true)
+  archivedAt             DateTime?
+  sortOrder              Int                @default(0)
+  commercialPolicy       Json?
+  storeOnboardingEnabled Boolean            @default(true)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  categories             CatalogCategory[]
+
+  @@index([enabled, publicEnabled, archivedAt, sortOrder])
+}
+
+model DeliveryServiceDefinition {
+  id              String                          @id @default(cuid())
+  stableKey       String
+  versionNumber   Int
+  displayName     String
+  status          DeliveryServiceDefinitionStatus @default(DRAFT)
+  operationalMode DeliveryServiceOperationalMode  @default(FULL_DIGITAL)
+  slaMetadata     Json?
+  pricingPolicy   Json?
+  coveragePolicy  Json?
+  launchScope     String                          @default("FULL_DIGITAL")
+  sortOrder       Int                             @default(0)
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  createdByUserId String
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+
+  @@unique([stableKey, versionNumber])
+  @@index([stableKey, status, effectiveFrom, effectiveTo])
+}
+
+model RedeliveryRequest {
+  id                 String    @id @default(cuid())
+  publicReference    String    @unique
+  orderId            String
+  priorAttemptId     String
+  sourceClaimId      String?   @unique
+  remedyType         String?
+  requestedByUserId  String?
+  status             String    @default("REQUESTED")
+  scheduledFor       DateTime?
+  responsibilityCode String?
+  safeNote           String?
+  commercialEvidence Json?
+  operationId        String    @unique
+  decidedByUserId    String?
+  decidedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([orderId, status])
+  @@index([priorAttemptId])
+}
+
+model ParcelProfileVersion {
+  id              String    @id @default(cuid())
+  stableKey       String
+  versionNumber   Int
+  displayName     String
+  lengthCm        Decimal?  @db.Decimal(12, 3)
+  widthCm         Decimal?  @db.Decimal(12, 3)
+  heightCm        Decimal?  @db.Decimal(12, 3)
+  maximumWeightKg Decimal?  @db.Decimal(12, 3)
+  status          String    @default("DRAFT")
+  sortOrder       Int       @default(0)
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([stableKey, versionNumber])
+  @@index([stableKey, status, effectiveFrom, effectiveTo])
+}
+
+// Package and insurance controls remain typed, versioned configuration. Legal
+// shipping-policy prose is linked separately and never parsed at runtime.
+model ShippingPackagePolicyVersion {
+  id                           String                             @id @default(cuid())
+  stableKey                    String
+  versionNumber                Int
+  status                       String                             @default("DRAFT")
+  prohibitedClassifications    Json?
+  fragileHandlingRequired      Boolean                            @default(false)
+  highValueDeclarationRequired Boolean                            @default(false)
+  declaredValueMinimum         Decimal?                           @db.Decimal(18, 2)
+  declaredValueMaximum         Decimal?                           @db.Decimal(18, 2)
+  insuranceMode                String                             @default("CLIENT_VALUE_REQUIRED")
+  insuranceCoverageLimit       Decimal?                           @db.Decimal(18, 2)
+  packagingRequirements        Json?
+  acceptanceRequired           Boolean                            @default(true)
+  claimsEvidenceRequired       Boolean                            @default(true)
+  effectiveFrom                DateTime
+  effectiveTo                  DateTime?
+  createdByUserId              String
+  createdAt                    DateTime                           @default(now())
+  updatedAt                    DateTime                           @updatedAt
+  declarations                 ShipmentPackagePolicyDeclaration[]
+
+  @@unique([stableKey, versionNumber])
+  @@index([stableKey, status, effectiveFrom, effectiveTo], map: "ShippingPackagePolicyVersion_stableKey_status_effectiveFrom_eff")
+}
+
+// Immutable acceptance snapshot attached to the courier order. A later claim
+// resolves this declaration through Claim.orderId rather than duplicating claim
+// or refund state.
+model ShipmentPackagePolicyDeclaration {
+  id                 String   @id @default(cuid())
+  publicReference    String   @unique
+  orderId            String   @unique
+  policyVersionId    String
+  declaredValue      Decimal? @db.Decimal(18, 2)
+  currency           String?
+  classification     String?
+  fragile            Boolean  @default(false)
+  highValue          Boolean  @default(false)
+  packagingConfirmed Boolean  @default(false)
+  insuranceRequested Boolean  @default(false)
+  acceptedByUserId   String
+  acceptedAt         DateTime @default(now())
+  policySnapshot     Json
+  operationId        String   @unique
+  createdAt          DateTime @default(now())
+
+  order         Order                        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  policyVersion ShippingPackagePolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+
+  @@index([policyVersionId, createdAt])
+}
+
+// A mutable current preparation summary is paired with append-only events, so
+// preparation and handoff observability does not rewrite historical evidence.
+model ShipmentPreparationObligation {
+  id                       String                     @id @default(cuid())
+  publicReference          String                     @unique
+  orderId                  String                     @unique
+  preparationDueAt         DateTime?
+  packagingConfirmedAt     DateTime?
+  lawfulListingConfirmedAt DateTime?
+  handoffReadyAt           DateTime?
+  status                   String                     @default("PENDING")
+  updatedByUserId          String
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  order                    Order                      @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  events                   ShipmentPreparationEvent[]
+
+  @@index([status, preparationDueAt])
+}
+
+model ShipmentPreparationEvent {
+  id           String                        @id @default(cuid())
+  obligationId String
+  eventType    String
+  actorUserId  String
+  safeNote     String?
+  operationId  String                        @unique
+  createdAt    DateTime                      @default(now())
+  obligation   ShipmentPreparationObligation @relation(fields: [obligationId], references: [id], onDelete: Restrict)
+
+  @@index([obligationId, createdAt])
+}
+
+// Driver reports are assignment-bound, idempotent operational evidence. Private
+// media remains an opaque reference owned by the private-media boundary.
+model DriverDeliveryResponsibilityReport {
+  id                String    @id @default(cuid())
+  publicReference   String    @unique
+  orderId           String
+  assignmentId      String
+  driverProfileId   String
+  reportType        String
+  safeNote          String?
+  evidenceReference String?
+  requiresReview    Boolean   @default(false)
+  resolvedAt        DateTime?
+  resolvedByUserId  String?
+  operationId       String    @unique
+  createdAt         DateTime  @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([assignmentId, reportType, createdAt], map: "DriverDeliveryResponsibilityReport_assignmentId_reportType_crea")
+  @@index([orderId, requiresReview])
+}
+
+model CommercialSurcharge {
+  id              String                             @id @default(cuid())
+  stableKey       String
+  versionNumber   Int
+  enabled         Boolean                            @default(false)
+  calculationType CommercialSurchargeCalculationType
+  value           Decimal                            @db.Decimal(18, 4)
+  reason          String
+  customerMessage String?
+  serviceScope    Json?
+  moduleScope     Json?
+  regionScope     Json?
+  priority        Int                                @default(0)
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  createdByUserId String
+  createdAt       DateTime                           @default(now())
+  updatedAt       DateTime                           @updatedAt
+
+  @@unique([stableKey, versionNumber])
+  @@index([enabled, effectiveFrom, effectiveTo, priority])
+}
+
+model PaymentMethodPolicy {
+  id                String                  @id @default(cuid())
+  versionNumber     Int
+  status            String                  @default("DRAFT")
+  mode              PaymentMethodPolicyMode
+  businessModuleId  String?
+  storeId           String?
+  deliveryServiceId String?
+  orderType         String?
+  depositAmount     Decimal?                @db.Decimal(18, 2)
+  depositPercent    Decimal?                @db.Decimal(8, 4)
+  maximumCodAmount  Decimal?                @db.Decimal(18, 2)
+  policyEvidence    Json?
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  createdByUserId   String
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([status, effectiveFrom, effectiveTo])
+  @@index([businessModuleId, storeId, deliveryServiceId])
+}
+
+model StoreSellingTerritory {
+  id          String                     @id @default(cuid())
+  storeId     String                     @unique
+  scope       StoreSellingTerritoryScope @default(NATIONWIDE)
+  provinces   Json?
+  zoneIds     Json?
+  updatedById String?
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  store       Store                      @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }

@@ -80,6 +80,9 @@ function transactionDouble() {
     ledgerEntry: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
     paymentStatusHistory: { create: vi.fn().mockResolvedValue({}), createMany: vi.fn().mockResolvedValue({ count: 0 }) },
     paymentReconciliationCase: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), create: vi.fn(), update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    // The canonical success transaction always reaches COD activation. This
+    // fixture represents its valid non-COD branch rather than bypassing it.
+    cashOnDelivery: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
   };
   return tx;
 }
@@ -103,6 +106,8 @@ describe("Payfast ITN application service transaction contract", () => {
     expect(tx.payment.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SUCCEEDED", successWebhookEventId: event.id, successLedgerJournalId: "journal-id" }) }));
     expect(tx.paymentStatusHistory.create).toHaveBeenCalledTimes(1);
     expect(tx.paymentReconciliationCase.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.cashOnDelivery.findUnique).toHaveBeenCalledWith({ where: { orderId: "order-id" } });
+    expect(tx.cashOnDelivery.update).not.toHaveBeenCalled();
     expect(tx.paymentWebhookEvent.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ processingStatus: "APPLIED" }) }));
     expect(tx.paymentVerifiedEventIntent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ eventType: "PAYMENT_SUCCEEDED_VERIFIED", paymentId: "payment-id", webhookEventId: event.id }) }));
     expect(tx.notificationEventIntent.upsert).toHaveBeenCalledOnce();

@@ -7,6 +7,7 @@ import {
 } from "@/lib/dto/assignment.dto";
 import { ACTIVE_ASSIGNMENT_STATUSES } from "@/lib/constants/assignments";
 import { UserStatus, UserRole } from "@/types/db";
+import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
 
 // ─── Eligibility check for a single driver ────────────────────────────────────
 
@@ -19,6 +20,8 @@ export async function computeDriverEligibility(
     include: {
       user: true,
       serviceRegions: { include: { deliveryRegion: true } },
+      documents: true,
+      vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } },
     },
   });
 
@@ -49,7 +52,9 @@ export async function computeDriverEligibility(
 
   if (!driver.phone) warnings.push("No phone number on file");
 
-  const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER);
+  const compliance = driver.vehicleComplianceRequiredAt ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+  if (!compliance.eligible) warnings.push(...compliance.reasons);
+  const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER, compliance.eligible);
 
   return {
     ...base,
@@ -81,6 +86,8 @@ export async function listEligibleDrivers(
     include: {
       user: true,
       serviceRegions: { include: { deliveryRegion: true } },
+      documents: true,
+      vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } },
     },
     orderBy: { displayName: "asc" },
   });
@@ -127,7 +134,9 @@ export async function listEligibleDrivers(
     if (!driver.phone) warnings.push("No phone number on file");
     if (activeCount > 0) warnings.push(`${activeCount} active assignment(s)`);
 
-    const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER);
+    const compliance = driver.vehicleComplianceRequiredAt ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+    if (!compliance.eligible) warnings.push(...compliance.reasons);
+    const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER, compliance.eligible);
 
     const dto: DriverEligibilityDto = {
       ...base,
@@ -166,9 +175,10 @@ function computeCategory(
   regionMatch: boolean,
   activeCount: number,
   capacity: number,
-  userActive: boolean
+  userActive: boolean,
+  complianceEligible: boolean
 ): EligibilityCategory {
-  if (!userActive || status !== DriverStatus.ACTIVE) return "NOT_ELIGIBLE";
+  if (!userActive || status !== DriverStatus.ACTIVE || !complianceEligible) return "NOT_ELIGIBLE";
 
   if (availability === DriverAvailability.AVAILABLE && regionMatch && activeCount < capacity) {
     if (activeCount === 0) return "RECOMMENDED";

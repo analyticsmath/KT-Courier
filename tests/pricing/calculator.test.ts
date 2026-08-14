@@ -24,4 +24,19 @@ describe("pricing calculator", () => {
     expect(result.lineItems.at(-1)?.code).toBe(PricingLineItemCode.VAT);
     expect(calculate(1101, true).total.toString()).toBe(result.total.toString());
   });
+  it("applies a versioned surcharge without mutating the base rule", () => {
+    const result = calculateDeliveryPrice({
+      input: { deliveryType: "SAME_DAY", distanceMeters: 1000, durationSeconds: null, vehicleClass: null, actualWeightKg: null, lengthCm: null, widthCm: null, heightCm: null },
+      rule,
+      regionContext: { origin: null, destination: null },
+      taxConfig: { enabled: true, rate: new Decimal("0.15"), source: "test" },
+      calculationVersion: "test",
+      configuredSurcharges: [{ id: "fuel-v2", stableKey: "FUEL", versionNumber: 2, calculationType: "PERCENTAGE", value: new Decimal("0.1"), reason: "Fuel adjustment", customerMessage: null, priority: 0 }],
+    });
+    expect(rule.baseFee.toString()).toBe("20");
+    expect(result.subtotal.toFixed(2)).toBe("22.00");
+    expect(result.taxAmount.toFixed(2)).toBe("3.30");
+    expect(result.total.toFixed(2)).toBe("25.30");
+    expect(result.lineItems.find((item) => item.metadata?.stableKey === "FUEL")?.amount.toFixed(2)).toBe("2.00");
+  });
 });

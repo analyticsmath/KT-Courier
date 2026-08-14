@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { onVerifiedMarketplacePaymentSucceededInProduction } from "@/lib/marketplace-checkout/marketplace-payment-success-hook.service";
 import { onVerifiedSubscriptionPaymentSucceededInProduction } from "@/lib/subscriptions/subscription-payment-success-hook.service";
+import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
 import { openPaymentReconciliationCaseWithinTransaction } from "@/lib/services/payment-reconciliation.service";
 import { VERIFIED_PAYMENT_EVENT_TYPE } from "@/lib/services/payfast-itn-application.service";
 
@@ -16,7 +17,7 @@ export type VerifiedPaymentEvent = Readonly<{
   paymentId: string;
   successfulAttemptId: string;
   webhookEventId: string;
-  subjectType: "COURIER_ORDER" | "MARKETPLACE_CHECKOUT" | "SUBSCRIPTION_INVOICE";
+  subjectType: "COURIER_ORDER" | "MARKETPLACE_CHECKOUT" | "SUBSCRIPTION_INVOICE" | "MANAGED_MARKETING_REQUEST";
 }>;
 
 type EventClaim = Readonly<{ kind: "CLAIMED"; receiptId: string } | { kind: "SKIPPED" }>;
@@ -30,9 +31,10 @@ export type VerifiedPaymentEventRepository = Readonly<{
 export type VerifiedPaymentEventEffects = Readonly<{
   finalizeMarketplacePayment(paymentId: string): Promise<void>;
   activateSubscriptionPayment(paymentId: string): Promise<void>;
+  recognizeManagedMarketingRevenue(paymentId: string): Promise<unknown>;
 }>;
 
-export type VerifiedPaymentEventConsumeOutcome = "MARKETPLACE_FINALIZED" | "SUBSCRIPTION_ACTIVATED" | "NO_DOWNSTREAM_EFFECT" | "SKIPPED" | "RECONCILIATION_REQUIRED";
+export type VerifiedPaymentEventConsumeOutcome = "MARKETPLACE_FINALIZED" | "SUBSCRIPTION_ACTIVATED" | "MANAGED_MARKETING_RECOGNIZED" | "NO_DOWNSTREAM_EFFECT" | "SKIPPED" | "RECONCILIATION_REQUIRED";
 
 function safeErrorCode(error: unknown): string {
   const code = error && typeof error === "object" && "code" in error && typeof (error as { code?: unknown }).code === "string"
@@ -61,6 +63,9 @@ export async function consumeVerifiedPaymentEvent(
     } else if (event.subjectType === "SUBSCRIPTION_INVOICE") {
       await effects.activateSubscriptionPayment(event.paymentId);
       outcome = "SUBSCRIPTION_ACTIVATED";
+    } else if (event.subjectType === "MANAGED_MARKETING_REQUEST") {
+      await effects.recognizeManagedMarketingRevenue(event.paymentId);
+      outcome = "MANAGED_MARKETING_RECOGNIZED";
     } else {
       outcome = "NO_DOWNSTREAM_EFFECT";
     }
@@ -147,6 +152,7 @@ export async function consumeVerifiedPaymentEvents(input: Readonly<{ limit: numb
   const outcomes: Record<VerifiedPaymentEventConsumeOutcome, number> = {
     MARKETPLACE_FINALIZED: 0,
     SUBSCRIPTION_ACTIVATED: 0,
+    MANAGED_MARKETING_RECOGNIZED: 0,
     NO_DOWNSTREAM_EFFECT: 0,
     SKIPPED: 0,
     RECONCILIATION_REQUIRED: 0,
@@ -154,6 +160,7 @@ export async function consumeVerifiedPaymentEvents(input: Readonly<{ limit: numb
   const effects: VerifiedPaymentEventEffects = {
     finalizeMarketplacePayment: onVerifiedMarketplacePaymentSucceededInProduction,
     activateSubscriptionPayment: onVerifiedSubscriptionPaymentSucceededInProduction,
+    recognizeManagedMarketingRevenue: (paymentId) => new ManagedMarketingService().recognizeVerifiedPayment(paymentId),
   };
   for (const event of events) outcomes[await consumeVerifiedPaymentEvent(repository, effects, event)] += 1;
   return Object.freeze(outcomes);

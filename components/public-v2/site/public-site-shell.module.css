@@ -20,13 +20,16 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  border-bottom: 1px solid var(--kt-public-line-default);
+  border-bottom: 1px solid transparent;
   background: var(--kt-public-canvas-primary);
 }
 
+.header[data-homepage] {
+  background: var(--kt-surface-base, var(--kt-public-canvas-primary));
+}
+
 .header[data-scrolled] {
-  border-bottom-color: var(--kt-public-line-strong);
-  box-shadow: var(--kt-public-shadow-quiet);
+  border-bottom-color: var(--kt-line-subtle, var(--kt-public-line-default));
 }
 
 .headerSentinel {
@@ -42,7 +45,7 @@
 }
 
 .headerInner {
-  min-height: 64px;
+  min-height: 68px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -52,10 +55,6 @@
 .wordmark,
 .footerWordmark {
   color: var(--kt-public-text-primary);
-  font-family: var(--kt-public-font-display);
-  font-size: 1.15rem;
-  font-weight: 650;
-  letter-spacing: -0.05em;
   white-space: nowrap;
 }
 
@@ -87,15 +86,15 @@
 }
 
 .desktopNavLink {
-  border-bottom: 2px solid transparent;
-  padding: 27px 8px 24px;
+  border-bottom: 1px solid transparent;
+  padding: 25px 9px 23px;
   transition: border-color 160ms ease, color 160ms ease;
 }
 
 .desktopNavLink:hover,
 .navLinkActive {
-  color: var(--kt-public-text-primary);
-  border-bottom-color: var(--kt-public-signal);
+  color: var(--kt-text-primary, var(--kt-public-text-primary));
+  border-bottom-color: var(--kt-brand-blue, var(--kt-public-signal));
 }
 
 .headerActions {
@@ -109,7 +108,7 @@
 
 .trackLink:hover,
 .accountLink:hover {
-  color: var(--kt-public-signal);
+  color: var(--kt-brand-blue, var(--kt-public-signal));
 }
 
 .quoteLink,
@@ -117,8 +116,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--kt-public-signal);
-  background: var(--kt-public-signal);
+  border: 1px solid var(--kt-action-primary, var(--kt-public-surface-dark));
+  background: var(--kt-action-primary, var(--kt-public-surface-dark));
   color: var(--kt-public-text-inverse);
   font-family: var(--kt-public-font-interface);
   font-size: 0.78rem;
@@ -131,8 +130,8 @@
 
 .quoteLink:hover,
 .footerQuote:hover {
-  background: var(--kt-public-signal-hover);
-  border-color: var(--kt-public-signal-hover);
+  background: var(--kt-action-primary-hover, var(--kt-public-text-primary));
+  border-color: var(--kt-action-primary-hover, var(--kt-public-text-primary));
 }
 
 .mobileActions,
@@ -164,8 +163,12 @@
   font-size: clamp(1.8rem, 3vw, 2.7rem);
 }
 
+.footerWordmark > span {
+  width: min(10rem, 42vw);
+}
+
 .footerLead p {
-  max-width: 440px;
+  max-width: 520px;
   margin-top: 12px;
   color: rgba(255, 255, 255, 0.66);
   font-family: var(--kt-public-font-body);
@@ -188,7 +191,7 @@
 
 .footerColumns {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1.35fr 1.2fr .9fr .95fr;
   gap: 28px;
   padding-block: 38px;
 }
@@ -236,7 +239,7 @@
   }
 
   .headerInner {
-    min-height: 76px;
+    min-height: 70px;
   }
 }
 
@@ -271,8 +274,8 @@
 
   .mobileQuote {
     color: var(--kt-public-text-inverse);
-    background: var(--kt-public-signal);
-    border-color: var(--kt-public-signal);
+    background: var(--kt-action-primary, var(--kt-public-surface-dark));
+    border-color: var(--kt-action-primary, var(--kt-public-surface-dark));
   }
 
   .menuButton {

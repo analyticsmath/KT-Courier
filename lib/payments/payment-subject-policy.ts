@@ -1,12 +1,14 @@
 import { PaymentError } from "@/lib/payments/errors";
 
 export type PaymentSubjectIntegrityInput = Readonly<{
-  subjectType: "COURIER_ORDER" | "MARKETPLACE_CHECKOUT" | "SUBSCRIPTION_INVOICE";
+  subjectType: "COURIER_ORDER" | "MARKETPLACE_CHECKOUT" | "SUBSCRIPTION_INVOICE" | "MANAGED_MARKETING_REQUEST";
   userId: string | null;
   orderId: string | null;
   marketplaceCheckoutId: string | null;
   marketplaceOrderId?: string | null;
   subscriptionInvoiceId?: string | null;
+  managedMarketingRequestId?: string | null;
+  managedMarketingRequesterUserId?: string | null;
   subscriptionInvoicePayerUserId?: string | null;
   checkoutCustomerUserId?: string | null;
   checkoutGuestAccessTokenHash?: string | null;
@@ -28,6 +30,13 @@ export function assertPaymentSubjectIntegrity(input: PaymentSubjectIntegrityInpu
   if (input.subjectType === "SUBSCRIPTION_INVOICE") {
     if (!input.subscriptionInvoiceId || !input.userId || input.orderId || input.marketplaceCheckoutId || input.marketplaceOrderId || input.subscriptionInvoicePayerUserId !== input.userId) {
       throw new PaymentError("PAYMENT_METADATA_INVALID", "Subscription payments require exactly one subscription invoice and its authorised payer.");
+    }
+    return;
+  }
+
+  if (input.subjectType === "MANAGED_MARKETING_REQUEST") {
+    if (!input.managedMarketingRequestId || !input.userId || input.orderId || input.marketplaceCheckoutId || input.marketplaceOrderId || input.subscriptionInvoiceId || input.managedMarketingRequesterUserId !== input.userId) {
+      throw new PaymentError("PAYMENT_METADATA_INVALID", "Managed marketing payments require the requesting store actor and exactly one campaign request.");
     }
     return;
   }

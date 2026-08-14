@@ -17,6 +17,7 @@ export async function evaluateRetentionHolds(request: HoldEvaluationRequest): Pr
       subjectType: request.subjectType,
       subjectReference: request.subjectReference,
       releasedAt: null, // Active hold
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
     take: 5,
   }).catch(() => []);
@@ -30,6 +31,7 @@ export async function evaluateRetentionHolds(request: HoldEvaluationRequest): Pr
           subjectType: request.subjectType,
           subjectReference: parentRef,
           releasedAt: null,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
         take: 5,
       }).catch(() => []);
@@ -58,6 +60,7 @@ export async function createRetentionHold(input: {
   subjectReference: string;
   reasonCode: string;
   actorUserId?: string;
+  expiresAt?: Date;
 }) {
   return phase5Repository.retentionHold.upsert({
     where: {
@@ -70,12 +73,14 @@ export async function createRetentionHold(input: {
       reasonCode: input.reasonCode,
       releasedAt: null,
       releasedByUserId: null,
+      expiresAt: input.expiresAt ?? null,
     },
     create: {
       subjectType: input.subjectType,
       subjectReference: input.subjectReference,
       reasonCode: input.reasonCode,
       createdByUserId: input.actorUserId ?? null,
+      expiresAt: input.expiresAt ?? null,
     },
   });
 }

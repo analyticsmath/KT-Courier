@@ -95,6 +95,16 @@ export function evaluateProductionConfiguration(
     issues.push(issue("report_artifacts", "LOCAL_STORAGE_NOT_PRODUCTION_APPROVED", "DURABLE_ARTIFACT_STORAGE", "READINESS"));
   }
 
+  const privateMediaReady = source.PRIVATE_MEDIA_STORAGE === "s3"
+    && hasUsableValue(source.PRIVATE_MEDIA_S3_ENDPOINT)
+    && hasUsableValue(source.PRIVATE_MEDIA_S3_BUCKET)
+    && hasUsableValue(source.PRIVATE_MEDIA_S3_REGION)
+    && hasUsableValue(source.PRIVATE_MEDIA_S3_ACCESS_KEY_ID)
+    && hasUsableValue(source.PRIVATE_MEDIA_S3_SECRET_ACCESS_KEY);
+  if (!privateMediaReady) {
+    issues.push(issue("private_media", "PRIVATE_MEDIA_STORAGE_UNCONFIGURED", "DURABLE_PRIVATE_OBJECT_STORAGE", "READINESS"));
+  }
+
   if (source.CORS_ALLOW_ORIGIN === "*") {
     issues.push(issue("request_boundary", "CORS_WILDCARD_FORBIDDEN", "EXPLICIT_TRUSTED_ORIGINS", "STARTUP"));
   }

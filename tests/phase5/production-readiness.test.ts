@@ -26,11 +26,12 @@ describe("Phase 5 production readiness", () => {
     expect(assessment.issues).toContainEqual(expect.objectContaining({ reasonCode: "TEST_BYPASS_ENABLED", blocks: "STARTUP" }));
   });
 
-  it("does not block unrelated readiness when optional email delivery is disabled", () => {
+  it("keeps optional email disabled without weakening required private-media readiness", () => {
     const assessment = evaluateProductionConfiguration({ ...productionBase, EMAIL_PROVIDER: "console" });
     expect(assessment.startupBlocked).toBe(false);
-    expect(assessment.readinessBlocked).toBe(false);
+    expect(assessment.readinessBlocked).toBe(true);
     expect(assessment.issues).toContainEqual(expect.objectContaining({ capability: "transactional_email", blocks: "NONE" }));
+    expect(assessment.issues).toContainEqual(expect.objectContaining({ capability: "private_media", reasonCode: "PRIVATE_MEDIA_STORAGE_UNCONFIGURED", blocks: "READINESS" }));
   });
 
   it("uses only the canonical readiness-lock state vocabulary", () => {

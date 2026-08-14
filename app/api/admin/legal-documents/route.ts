@@ -6,7 +6,7 @@ import { created, ok, unprocessable } from "@/lib/api/response";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { createLegalDocumentDraft, listLegalDocumentVersions } from "@/lib/services/legal-documents.service";
 
-const createSchema = z.object({ documentType: z.string().trim().min(2).max(80), version: z.string().trim().min(1).max(80), jurisdiction: z.string().trim().min(2).max(80), contentHash: z.string().regex(/^[a-f0-9]{64}$/i), acceptancePolicy: z.string().trim().max(160).optional() }).strict();
+const createSchema = z.object({ documentType: z.string().trim().min(2).max(80), version: z.string().trim().min(1).max(80), jurisdiction: z.string().trim().min(2).max(80), contentHash: z.string().regex(/^[a-f0-9]{64}$/i).optional(), content: z.string().trim().min(1).max(200_000).nullable().optional(), contentReference: z.string().trim().min(1).max(2000).nullable().optional(), acceptancePolicy: z.string().trim().max(160).optional() }).strict();
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminApiPermission(PERMISSIONS.LEGAL_DOCUMENTS_READ, { request });

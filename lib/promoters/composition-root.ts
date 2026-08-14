@@ -8,6 +8,8 @@ import { PromoterLifecycleService } from "./lifecycle.service";
 import * as qualificationEarning from "./qualification-earning.service";
 import * as fraud from "./promoter-fraud.service";
 import * as reconciliation from "./promoter-reconciliation.service";
+import { PromoterProgrammeConfigService } from "./programme-config.service";
+import { PromoterTeamQualificationService } from "./team-qualification.service";
 import { assertPromotersProductionReady, PROMOTERS_PRODUCTION_BLOCK_REASON } from "./production-readiness";
 
 /** Durable DB outbox: event intents are committed in the same transaction as the aggregate. */
@@ -38,7 +40,7 @@ export function resolvePromoterProductionComposition() {
   const qualification = concreteQualificationAdapters(database);
   const finance = Object.freeze({ accrueCommissionInTransaction, ensureWalletForOwner, ensureLedgerAccount, getWalletAccount, requestWithdrawal: createWithdrawalRequest });
   const outbox = new PrismaPromoterOutbox(database);
-  const services = Object.freeze({ lifecycle: new PromoterLifecycleService(database), qualificationEarning, fraud, reconciliation });
+  const services = Object.freeze({ lifecycle: new PromoterLifecycleService(database), qualificationEarning, fraud, reconciliation, programmeConfig: new PromoterProgrammeConfigService(database), teamQualification: new PromoterTeamQualificationService(database) });
   const composition = Object.freeze({ repositories, identity, qualification, finance, outbox, services });
   try { assertPromotersProductionReady(); return Object.freeze({ status: "READY" as const, ...composition }); }
   catch { return Object.freeze({ status: "LOCKED" as const, code: PROMOTERS_PRODUCTION_BLOCK_REASON, ...composition }); }

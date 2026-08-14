@@ -57,6 +57,12 @@ export const OPERATIONAL_EVENT_LABELS: Record<OrderOperationalEventType, string>
   ASSIGNMENT_REVOKED: "Driver assignment revoked",
   ASSIGNMENT_SUPERSEDED: "Driver assignment superseded",
   ASSIGNMENT_COMPLETED: "Driver assignment completed",
+  VENDOR_PACKAGING_CONFIRMED: "Vendor packaging confirmed",
+  VENDOR_LAWFUL_LISTING_CONFIRMED: "Vendor lawful listing confirmed",
+  VENDOR_HANDOFF_READY: "Vendor handoff ready",
+  DRIVER_SAFETY_CONFIRMED: "Driver safety confirmed",
+  DRIVER_LAWFUL_TRANSPORT_CONFIRMED: "Driver lawful transport confirmed",
+  DRIVER_SUSPICIOUS_PACKAGE_REPORTED: "Suspicious package reported by driver",
 };
 
 // ─── Customer-safe operational event labels ───────────────────────────────────
@@ -83,6 +89,12 @@ export const CUSTOMER_OPERATIONAL_EVENT_LABELS: Record<OrderOperationalEventType
   ASSIGNMENT_REVOKED: "Driver assignment changed.",
   ASSIGNMENT_SUPERSEDED: "Driver assignment changed.",
   ASSIGNMENT_COMPLETED: "Delivery assignment completed.",
+  VENDOR_PACKAGING_CONFIRMED: "Parcel packaging has been confirmed.",
+  VENDOR_LAWFUL_LISTING_CONFIRMED: "The order listing has been verified.",
+  VENDOR_HANDOFF_READY: "The vendor is preparing the parcel for handoff.",
+  DRIVER_SAFETY_CONFIRMED: "Driver safety checks are complete.",
+  DRIVER_LAWFUL_TRANSPORT_CONFIRMED: "Transport compliance has been confirmed.",
+  DRIVER_SUSPICIOUS_PACKAGE_REPORTED: "A delivery safety review is in progress.",
 };
 
 // ─── Pickup failure reason display labels ─────────────────────────────────────

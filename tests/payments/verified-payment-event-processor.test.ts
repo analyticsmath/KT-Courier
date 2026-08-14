@@ -28,6 +28,7 @@ function effects() {
   return {
     finalizeMarketplacePayment: vi.fn().mockResolvedValue(undefined),
     activateSubscriptionPayment: vi.fn().mockResolvedValue(undefined),
+    recognizeManagedMarketingRevenue: vi.fn().mockResolvedValue(undefined),
   } satisfies VerifiedPaymentEventEffects;
 }
 

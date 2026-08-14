@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { rankDispatchCandidates } from "@/lib/dispatch/candidate-ranking";
 import { evaluateDriverEligibility, type DispatchEligibilityReason } from "@/lib/dispatch/eligibility";
 import { dispatchError } from "@/lib/dispatch/errors";
+import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
 
 type Tx = Prisma.TransactionClient;
 type DynamicDelegate = {
@@ -181,7 +182,7 @@ export async function createDispatchCandidateEvaluationInTx(
     policy(tx),
     db.marketplaceStoreOrderDeliveryBridge?.findFirst({ where: { courierOrderId: order.id }, select: { marketplaceStoreOrderId: true, publicReference: true } }),
     tx.driverProfile.findMany({
-      include: { user: { select: { status: true, role: true } }, serviceRegions: { select: { deliveryRegionId: true } } },
+      include: { user: { select: { status: true, role: true } }, serviceRegions: { select: { deliveryRegionId: true } }, documents: true, vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } } },
       orderBy: [{ driverCode: "asc" }, { id: "asc" }],
       take: 500,
     }),
@@ -204,6 +205,7 @@ export async function createDispatchCandidateEvaluationInTx(
   const evaluated = drivers.map((driver) => {
     const activeLoad = counts.get(driver.id) ?? 0;
     const regionMatch = Boolean(order.deliveryRegionId) && driver.serviceRegions.some((region) => region.deliveryRegionId === order.deliveryRegionId);
+    const compliance = driver.vehicleComplianceRequiredAt ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
     const eligibility = evaluateDriverEligibility({
       userActive: driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER,
       profileActive: driver.status === DriverStatus.ACTIVE,
@@ -212,6 +214,7 @@ export async function createDispatchCandidateEvaluationInTx(
       activeLoad,
       capacity: driver.maxConcurrentAssignments || config.defaultCapacity,
       orderAlreadyAssigned: Boolean(activeAssignment) && !input.allowExistingAssignment,
+      complianceEligible: compliance.eligible,
     });
     return { driver, activeLoad, regionMatch, eligibility };
   });

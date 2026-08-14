@@ -6,7 +6,7 @@ const checks = [
   ["payment amounts are positive and ZAR", `SELECT COUNT(*)::int AS count FROM "Payment" WHERE "amount" <= 0 OR "currency"::text <> 'ZAR'`],
   ["public references are unique", `SELECT COUNT(*)::int AS count FROM (SELECT "paymentNumber" FROM "Payment" GROUP BY "paymentNumber" HAVING COUNT(*) > 1) d`],
   ["preparation keys are unique", `SELECT COUNT(*)::int AS count FROM (SELECT "idempotencyKey" FROM "Payment" GROUP BY "idempotencyKey" HAVING COUNT(*) > 1) d`],
-  ["one business payment exists per order", `SELECT COUNT(*)::int AS count FROM (SELECT "orderId" FROM "Payment" GROUP BY "orderId" HAVING COUNT(*) > 1) d`],
+  ["one courier-order payment exists per order", `SELECT COUNT(*)::int AS count FROM (SELECT "orderId" FROM "Payment" WHERE "subjectType"::text='COURIER_ORDER' AND "orderId" IS NOT NULL GROUP BY "orderId" HAVING COUNT(*) > 1) d`],
   ["attempt keys are unique", `SELECT COUNT(*)::int AS count FROM (SELECT "idempotencyKey" FROM "PaymentAttempt" GROUP BY "idempotencyKey" HAVING COUNT(*) > 1) d`],
   ["merchant references are unique", `SELECT COUNT(*)::int AS count FROM (SELECT "merchantReference" FROM "PaymentAttempt" GROUP BY "merchantReference" HAVING COUNT(*) > 1) d`],
   ["provider references are unique within provider", `SELECT COUNT(*)::int AS count FROM (SELECT "provider", "providerReference" FROM "PaymentAttempt" WHERE "providerReference" IS NOT NULL GROUP BY "provider", "providerReference" HAVING COUNT(*) > 1) d`],

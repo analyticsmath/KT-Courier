@@ -1,8 +1,8 @@
 {
   "seedVersion": "1.0.0",
-  "seedRunId": "SEED-1786196817945",
+  "seedRunId": "SEED-1786281179277",
   "randomSeed": 123456789,
-  "creationTime": "2026-08-08T13:50:18.733Z",
+  "creationTime": "2026-08-09T13:19:58.034Z",
   "datasetPeriod": {
     "start": "2025-07-01T00:00:00.000Z",
     "end": "2026-07-30T23:59:59.000Z"
@@ -12,15 +12,15 @@
     "stores": 40,
     "drivers": 80,
     "promoters": 50,
-    "vacancies": 60,
-    "applications": 1200,
+    "vacancies": 72,
+    "applications": 1440,
     "products": 800,
     "variants": 1200,
     "courierOrders": 2500,
     "marketplaceOrders": 1600,
-    "notifications": 100,
+    "notifications": 200,
     "reportJobs": 6
   },
-  "checksum": "c03e2a17fc58e5dd9b164a06d233e1cd0be668e7883572b39703be3a97b24420",
+  "checksum": "1aca69915c4f3335c1be51f721297969642bda6842ac19868a770c45b87bf95e",
   "completionStatus": "SUCCESS"
 }

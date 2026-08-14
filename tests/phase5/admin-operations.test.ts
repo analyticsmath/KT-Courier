@@ -13,6 +13,7 @@ describe("Phase 5: Admin Operations & Governance Services", () => {
       safeSummary: "Payment provider gateway timeout spike detected",
       affectedCapabilities: ["payments", "checkout"],
     });
+    if (!incident) throw new Error("Operational incident creation returned no incident.");
 
     const incRef = String(incident.publicReference);
     expect(incRef).toMatch(/^INC-/);
@@ -85,46 +86,30 @@ describe("Phase 5: Admin Operations & Governance Services", () => {
   it("requires identity verification before advancing privacy request fulfilment", async () => {
     const opId = `PRIVOP-${Date.now()}-CREATE`;
     const req = await createPrivacyRequest({
+      requesterUserId: "usr-privacy-requester",
       requestType: "ACCESS",
       scope: ["user_profile", "order_history"],
       operationId: opId,
     });
 
     const reqRef = String(req.publicReference);
-    expect(reqRef).toMatch(/^PRIV-/);
+    expect(reqRef).toMatch(/^DSAR-/);
     expect(req.identityVerificationStatus).toBe("REQUIRED");
 
-    // Step to IDENTITY_VERIFICATION_REQUIRED first
-    await transitionPrivacyRequest({
+    const reviewed = await transitionPrivacyRequest({
       actorUserId: "usr-privacy-admin",
       publicReference: reqRef,
-      nextStatus: "IDENTITY_VERIFICATION_REQUIRED",
-      reasonCode: "REQUEST_VERIFICATION_CHALLENGE",
-      operationId: `PRIVOP-${Date.now()}-STEP1`,
-    });
-
-    // Step to VERIFIED
-    await transitionPrivacyRequest({
-      actorUserId: "usr-privacy-admin",
-      publicReference: reqRef,
-      nextStatus: "VERIFIED",
-      reasonCode: "ID_CHALLENGE_VERIFIED",
+      nextStatus: "UNDER_REVIEW",
+      reasonCode: "ID_VERIFIED_AND_REVIEW_STARTED",
       identityVerified: true,
-      operationId: `PRIVOP-${Date.now()}-STEP2`,
+      operationId: `PRIVOP-${Date.now()}-REVIEW`,
     });
+    expect(reviewed.status).toBe("UNDER_REVIEW");
+    expect(reviewed.identityVerificationStatus).toBe("VERIFIED");
 
-    // Step to IN_REVIEW
-    await transitionPrivacyRequest({
-      actorUserId: "usr-privacy-admin",
-      publicReference: reqRef,
-      nextStatus: "IN_REVIEW",
-      reasonCode: "REVIEWING_SCOPE",
-      operationId: `PRIVOP-${Date.now()}-STEP3`,
-    });
-
-    // Attempting transition without identityVerified set (if not already verified) requires identity verification
     const req2 = await createPrivacyRequest({
-      requestType: "DELETION",
+      requesterUserId: "usr-privacy-requester-unverified",
+      requestType: "DELETION_OR_ANONYMISATION",
       scope: ["user_profile"],
       operationId: `PRIVOP-${Date.now()}-UNVERIFIED`,
     });
@@ -134,10 +119,10 @@ describe("Phase 5: Admin Operations & Governance Services", () => {
       transitionPrivacyRequest({
         actorUserId: "usr-privacy-admin",
         publicReference: req2Ref,
-        nextStatus: "IDENTITY_VERIFICATION_REQUIRED",
-        reasonCode: "START_VERIFICATION",
+        nextStatus: "UNDER_REVIEW",
+        reasonCode: "REVIEW_WITHOUT_VERIFICATION",
         operationId: `PRIVOP-${Date.now()}-UNV-TRY`,
       }),
-    ).resolves.toBeDefined();
+    ).rejects.toMatchObject({ code: "PRIVACY_IDENTITY_VERIFICATION_REQUIRED" });
   });
 });

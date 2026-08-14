@@ -36,7 +36,8 @@ describe("Phase 27 strict template renderer and content contracts", () => {
     expect(nextRetryAt({ failure: "PROVIDER_RATE_LIMIT", attemptNumber: 1, now: new Date("2026-07-26T00:00:00Z"), retryAfterSeconds: 90 })).toEqual(new Date("2026-07-26T00:01:30Z"));
     expect(nextRetryAt({ failure: "PROVIDER_RATE_LIMIT", attemptNumber: 5 })).toBeNull();
     expect(nextRetryAt({ failure: "TRANSIENT_NETWORK", attemptNumber: 1, now: new Date("2026-07-26T00:00:00Z"), expiresAt: new Date("2026-07-26T00:00:20Z") })).toBeNull();
-    expect(deliveryEligible({ purpose: "MARKETING", channel: "EMAIL", consent: "REVOKED", verifiedDestination: true })).toEqual({ eligible: false, reason: "CONSENT_REQUIRED" });
+    expect(deliveryEligible({ purpose: "MARKETING", channel: "EMAIL", consent: "REVOKED", verifiedDestination: true })).toEqual({ eligible: false, reason: "USER_OPTED_OUT" });
+    expect(deliveryEligible({ purpose: "MARKETING", channel: "EMAIL", consent: "NOT_REQUESTED", verifiedDestination: true })).toEqual({ eligible: false, reason: "CONSENT_REQUIRED" });
     expect(deliveryEligible({ purpose: "SECURITY", channel: "IN_APP" })).toEqual({ eligible: true });
     const token = signMarketingUnsubscribe({ subjectId: "user-private-id", channel: "EMAIL", expiresAt: new Date(Date.now() + 60_000) }, "test-secret");
     expect(token).not.toContain("user-private-id"); expect(verifyMarketingUnsubscribe(token, "test-secret")).toEqual({ subjectId: "user-private-id", channel: "EMAIL" });

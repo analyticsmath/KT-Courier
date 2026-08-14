@@ -22,15 +22,15 @@ export type BrandAssetRecord = {
 export const brandAssets = [
   {
     id: "kt-r10-compact-mark-source",
-    path: "/images/kt-couriers/brand/kt-couriers-mark.svg",
-    width: 64,
-    height: 64,
+    path: "/images/kt-couriers/brand/logo.svg",
+    width: 1024,
+    height: 1024,
     format: "svg",
     use: ["Brand documentation", "Compact-mark reference"],
     backgrounds: ["light", "dark"],
     status: "R10_DIGITAL_MARK",
-    source: "R10 in-repository vector asset",
-    hash: "sha256:bb405592867bf02a407890f8c91d2137e851cd5cc890505f28cffad67bfcc208",
+    source: "Existing in-repository KT Couriers vector asset",
+    hash: null,
     replacementNote: "Replace only with an approved brand asset; do not add trademark claims to the replacement.",
   },
   {

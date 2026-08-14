@@ -10,11 +10,12 @@ const schema = z
   .object({
     nextStatus: z.enum([
       "IDENTITY_VERIFICATION_REQUIRED",
-      "VERIFIED",
-      "IN_REVIEW",
-      "FULFILMENT_IN_PROGRESS",
+      "UNDER_REVIEW",
+      "APPROVED",
+      "PARTIALLY_APPROVED",
+      "PROCESSING",
       "COMPLETED",
-      "REJECTED_WITH_REASON",
+      "REJECTED",
       "CANCELLED",
     ]),
     reasonCode: z.string().trim().min(2).max(80),
@@ -44,7 +45,7 @@ export async function PATCH(
   const originFailure = await enforceSameOriginRequest(request);
   if (originFailure) return originFailure;
 
-  const auth = await requireAdminApiPermission(PERMISSIONS.PRIVACY_REQUESTS_MANAGE, { request });
+  const auth = await requireAdminApiPermission([PERMISSIONS.PRIVACY_REQUESTS_MANAGE, PERMISSIONS.PRIVACY_REQUESTS_RESOLVE], { request });
   if (auth.response) return auth.response;
 
   const parsed = schema.safeParse(await request.json().catch(() => null));

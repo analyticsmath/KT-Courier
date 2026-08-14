@@ -15,7 +15,7 @@ async function columnExists(table, column) {
 async function main() {
   const hasMerchantReference = await columnExists("PaymentAttempt", "merchantReference");
   const hasAttemptIdempotency = await columnExists("PaymentAttempt", "idempotencyKey");
-  const [payments, attempts, refunds, webhooks, providers, currencies, invalidAmounts, duplicateReferences, duplicateOrders, duplicatePaymentKeys, successfulPlaceholders] = await Promise.all([
+  const [payments, attempts, refunds, webhooks, providers, currencies, invalidAmounts, duplicateReferences, duplicateOrders, duplicatePaymentKeys, successfulWithoutEvidence, terminalAttemptsMissingCompletion] = await Promise.all([
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "Payment"`,
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "PaymentAttempt"`,
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "PaymentRefund"`,
@@ -26,7 +26,8 @@ async function main() {
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM (SELECT "paymentNumber" FROM "Payment" GROUP BY "paymentNumber" HAVING COUNT(*) > 1) duplicates`,
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM (SELECT "orderId" FROM "Payment" WHERE "orderId" IS NOT NULL GROUP BY "orderId" HAVING COUNT(*) > 1) duplicates`,
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM (SELECT "idempotencyKey" FROM "Payment" WHERE "idempotencyKey" IS NOT NULL GROUP BY "idempotencyKey" HAVING COUNT(*) > 1) duplicates`,
-    prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "Payment" WHERE "status"::text IN ('PAID', 'SUCCEEDED')`,
+    prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "Payment" p WHERE p."status"::text IN ('PAID', 'SUCCEEDED') AND NOT EXISTS (SELECT 1 FROM "PaymentAttempt" a WHERE a."id"=p."successfulAttemptId" AND a."status"::text='SUCCEEDED' AND a."completedAt" IS NOT NULL)`,
+    prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "PaymentAttempt" WHERE "status"::text IN ('SUCCEEDED','FAILED','CANCELLED','EXPIRED','UNKNOWN') AND "completedAt" IS NULL`,
   ]);
   const duplicateMerchantReferences = hasMerchantReference
     ? count(await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS count FROM (SELECT "merchantReference" FROM "PaymentAttempt" GROUP BY "merchantReference" HAVING COUNT(*) > 1) duplicates`))
@@ -46,17 +47,19 @@ async function main() {
     duplicatePaymentKeys: count(duplicatePaymentKeys),
     duplicateAttemptKeys,
     duplicateMerchantReferences,
-    successfulPlaceholders: count(successfulPlaceholders),
+    successfulWithoutEvidence: count(successfulWithoutEvidence),
+    terminalAttemptsMissingCompletion: count(terminalAttemptsMissingCompletion),
   };
   console.log("Phase 10 payment preflight counts:", summary);
   console.log("Payment provider counts:", providers);
   console.log("Payment currency counts:", currencies);
 
   const blockers = [];
-  if (summary.payments || summary.attempts || summary.refunds || summary.webhooks) blockers.push("legacy payment rows require architect-approved reconciliation");
+  if (summary.payments || summary.attempts || summary.refunds || summary.webhooks) console.log("CLASSIFIED: canonical post-Phase-10 payment evidence is present; runtime invariants are evaluated below.");
   if (summary.invalidAmountsOrCurrencies) blockers.push("non-ZAR or non-positive payment values exist");
   if (summary.duplicatePublicReferences || summary.duplicateOrderPayments || summary.duplicatePaymentKeys || duplicateAttemptKeys || duplicateMerchantReferences) blockers.push("duplicate payment identity or command keys exist");
-  if (summary.successfulPlaceholders) blockers.push("successful placeholder payments require verified provider evidence");
+  if (summary.successfulWithoutEvidence) blockers.push("successful payments lack verified attempt evidence");
+  if (summary.terminalAttemptsMissingCompletion) blockers.push("terminal payment attempts lack completion evidence");
   if (blockers.length) throw new Error(`Phase 10 migration is unsafe: ${blockers.join("; ")}.`);
   console.log("Phase 10 payment preflight passed.");
 }

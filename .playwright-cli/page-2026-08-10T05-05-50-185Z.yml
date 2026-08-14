@@ -1,0 +1,378 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - link "Skip to comparison sheets" [ref=e3] [cursor=pointer]:
+      - /url: "#h0-sheet"
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - paragraph [ref=e6]: KT COURIER / PHASE 2D-B2
+        - heading "The Relay — static filmboard correction" [level=1] [ref=e7]
+        - paragraph [ref=e8]: VISUAL OPTIONS READY · PRINCIPAL REVIEW PENDING
+      - generic [ref=e9]:
+        - generic [ref=e10]: WORLD → ENTER → SELECT → PREPARE → TRANSFER → RELEASE
+        - generic [ref=e11]: THE RELAY / THERE → HERE
+        - generic [ref=e12]: No motion · no production approval
+    - region [ref=e13]:
+      - generic [ref=e14]:
+        - paragraph [ref=e15]: REVIEW INTENT
+        - heading "Before anything moves, it matters to someone." [level=2] [ref=e16]
+      - paragraph [ref=e17]: Focused comparisons are shown first. H0, H2, H3, and H4 remain open choices; the full contact sheets below are provisional implementer selections only.
+    - region [ref=e18]:
+      - generic [ref=e19]:
+        - paragraph [ref=e20]: A / H0 — WORLD
+        - heading "Opening composition A/B" [level=2] [ref=e21]
+        - paragraph [ref=e22]: Judge living commerce before courier, parcel, or delivery. Each frame keeps the header inside the scene.
+      - generic [ref=e23]:
+        - article [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: H0-A / ROSEBANK
+            - generic [ref=e27]: existing image · desktop
+          - generic [ref=e28]:
+            - img "Busy indoor market with independent stalls and shoppers" [ref=e29]
+            - generic [ref=e30]:
+              - img "KT Couriers" [ref=e31]
+              - navigation "KT Couriers A navigation" [ref=e32]:
+                - generic [ref=e33]: Send
+                - generic [ref=e34]: For business
+                - generic [ref=e35]: Track
+              - generic [ref=e36]: Get a quote
+            - generic [ref=e37]:
+              - paragraph [ref=e38]: H0 / WORLD
+              - heading "Move what matters." [level=3] [ref=e39]
+              - paragraph [ref=e40]: Before anything moves, it matters to someone.
+        - article [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: H0-B / MARKET AISLE
+            - generic [ref=e44]: local editorial image · desktop
+          - generic [ref=e45]:
+            - img "People walking through a busy market aisle with food and retail displays" [ref=e46]
+            - generic [ref=e47]:
+              - img "KT Couriers" [ref=e48]
+              - navigation "KT Couriers B navigation" [ref=e49]:
+                - generic [ref=e50]: Send
+                - generic [ref=e51]: For business
+                - generic [ref=e52]: Track
+              - generic [ref=e53]: Get a quote
+            - generic [ref=e54]:
+              - paragraph [ref=e55]: H0 / WORLD
+              - heading "Move what matters." [level=3] [ref=e56]
+              - paragraph [ref=e57]: Before anything moves, it matters to someone.
+        - article [ref=e58]:
+          - generic [ref=e59]:
+            - generic [ref=e60]: H0-A / ROSEBANK
+            - generic [ref=e61]: 390 crop
+          - generic [ref=e62]:
+            - img "Busy indoor market with independent stalls and shoppers" [ref=e63]
+            - generic [ref=e64]:
+              - img "KT Couriers" [ref=e65]
+              - generic [ref=e66]: Get a quote
+            - generic [ref=e67]:
+              - paragraph [ref=e68]: H0 / WORLD
+              - heading "Move what matters." [level=3] [ref=e69]
+              - paragraph [ref=e70]: Before anything moves, it matters to someone.
+        - article [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]: H0-B / MARKET AISLE
+            - generic [ref=e74]: 390 crop
+          - generic [ref=e75]:
+            - img "People walking through a busy market aisle with food and retail displays" [ref=e76]
+            - generic [ref=e77]:
+              - img "KT Couriers" [ref=e78]
+              - generic [ref=e79]: Get a quote
+            - generic [ref=e80]:
+              - paragraph [ref=e81]: H0 / WORLD
+              - heading "Move what matters." [level=3] [ref=e82]
+              - paragraph [ref=e83]: Before anything moves, it matters to someone.
+      - paragraph [ref=e84]: H0-B is intentionally not labeled Johannesburg or South Africa. Header contrast stays provisional until the principal chooses the opening.
+    - region [ref=e85]:
+      - generic [ref=e86]:
+        - paragraph [ref=e87]: PRESERVED / H1 — ENTER
+        - heading "Threshold stays; mobile crop changes" [level=2] [ref=e88]
+        - paragraph [ref=e89]: The approved photograph remains unchanged. The mobile crop moves toward person + hand + door while retaining foreground foliage depth.
+      - generic [ref=e90]:
+        - article [ref=e91]:
+          - generic [ref=e92]:
+            - generic [ref=e93]: H1 / DESKTOP
+            - generic [ref=e94]: preserved approved frame
+          - img "Approved threshold photograph" [ref=e96]
+        - article [ref=e97]:
+          - generic [ref=e98]:
+            - generic [ref=e99]: H1 / 390
+            - generic [ref=e100]: repositioned crop
+          - img "Threshold crop showing the person, hand, door, and foliage" [ref=e102]
+    - region [ref=e103]:
+      - generic [ref=e104]:
+        - paragraph [ref=e105]: B / H2 — CHOICE
+        - 'heading "Visible-verb test: SELECT" [level=2] [ref=e106]'
+        - paragraph [ref=e107]: No supporting copy is used in the image area. Compare whether the hand is selecting an actual product rather than touching plastic.
+      - generic [ref=e108]:
+        - article [ref=e109]:
+          - generic [ref=e110]:
+            - generic [ref=e111]: H2-A / DESKTOP
+            - generic [ref=e112]: current
+          - generic [ref=e113]:
+            - img "A hand touching the plastic wrap around flowers" [ref=e114]
+            - generic [ref=e115]: SELECT
+        - article [ref=e118]:
+          - generic [ref=e119]:
+            - generic [ref=e120]: H2-B / DESKTOP
+            - generic [ref=e121]: candidate
+          - generic [ref=e122]:
+            - img "A gloved shopper choosing a bouquet at a flower stall" [ref=e123]
+            - generic [ref=e124]: SELECT
+        - article [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e129]: H2-C / DESKTOP
+            - generic [ref=e130]: candidate
+          - generic [ref=e131]:
+            - img "Two shoppers selecting flowers at an outdoor flower shop" [ref=e132]
+            - generic [ref=e133]: SELECT
+        - article [ref=e136]:
+          - generic [ref=e137]:
+            - generic [ref=e138]: H2-A / 390
+            - generic [ref=e139]: current
+          - generic [ref=e140]:
+            - img "A hand touching the plastic wrap around flowers" [ref=e141]
+            - generic [ref=e142]: SELECT
+        - article [ref=e145]:
+          - generic [ref=e146]:
+            - generic [ref=e147]: H2-B / 390
+            - generic [ref=e148]: candidate
+          - generic [ref=e149]:
+            - img "A gloved shopper choosing a bouquet at a flower stall" [ref=e150]
+            - generic [ref=e151]: SELECT
+        - article [ref=e154]:
+          - generic [ref=e155]:
+            - generic [ref=e156]: H2-C / 390
+            - generic [ref=e157]: candidate
+          - generic [ref=e158]:
+            - img "Two shoppers selecting flowers at an outdoor flower shop" [ref=e159]
+            - generic [ref=e160]: SELECT
+      - paragraph [ref=e163]: H2-C is the provisional contact-sheet choice because the selection gesture remains legible at narrow width; this is not principal approval.
+    - region [ref=e164]:
+      - generic [ref=e165]:
+        - paragraph [ref=e166]: C / H3 — PREPARE
+        - heading "Hands + bouquet + work" [level=2] [ref=e167]
+        - paragraph [ref=e168]: The current source is recomposed first. The alternative is retained as a mobile fallback only if the current crop fails the tactile work test.
+      - generic [ref=e169]:
+        - article [ref=e170]:
+          - generic [ref=e171]:
+            - generic [ref=e172]: H3 / CURRENT · DESKTOP
+            - generic [ref=e173]: revised crop
+          - generic [ref=e174]:
+            - img "Florist preparing a bouquet at a work surface" [ref=e175]
+            - generic [ref=e176]:
+              - paragraph [ref=e177]: H3 / PREPARE
+              - paragraph [ref=e178]: Someone gets it ready.
+        - article [ref=e179]:
+          - generic [ref=e180]:
+            - generic [ref=e181]: H3 / CURRENT · 390
+            - generic [ref=e182]: revised crop
+          - generic [ref=e183]:
+            - img "Florist preparing a bouquet at a work surface" [ref=e184]
+            - generic [ref=e185]:
+              - paragraph [ref=e186]: H3 / PREPARE
+              - paragraph [ref=e187]: Someone gets it ready.
+        - article [ref=e188]:
+          - generic [ref=e189]:
+            - generic [ref=e190]: H3 / ALTERNATIVE · 390
+            - generic [ref=e191]: fallback comparison
+          - generic [ref=e192]:
+            - img "Close-up of hands arranging stems into a bouquet" [ref=e193]
+            - generic [ref=e194]:
+              - paragraph [ref=e195]: H3 / PREPARE
+              - paragraph [ref=e196]: Someone gets it ready.
+    - region [ref=e197]:
+      - generic [ref=e198]:
+        - paragraph [ref=e199]: PRESERVED / D — H4 — TRANSFER
+        - heading "Typography placement studies" [level=2] [ref=e200]
+        - paragraph [ref=e201]: The handoff photograph is locked. The phrase stays exact; only placement and wrap change. Schibsted remains regular/medium.
+      - generic [ref=e202]:
+        - article [ref=e203]:
+          - generic [ref=e204]:
+            - generic [ref=e205]: H4 / DESKTOP OPTION A
+            - generic [ref=e206]: same photograph
+          - generic [ref=e207]:
+            - img "Florist and customer exchanging a bag containing a bouquet" [ref=e208]
+            - generic [ref=e209]:
+              - paragraph [ref=e210]: H4 / TRANSFER
+              - heading "Responsibility changes hands." [level=3] [ref=e211]
+        - article [ref=e212]:
+          - generic [ref=e213]:
+            - generic [ref=e214]: H4 / DESKTOP OPTION B
+            - generic [ref=e215]: same photograph
+          - generic [ref=e216]:
+            - img "Florist and customer exchanging a bag containing a bouquet" [ref=e217]
+            - generic [ref=e218]:
+              - paragraph [ref=e219]: H4 / TRANSFER
+              - heading "Responsibility changes hands." [level=3] [ref=e220]
+        - article [ref=e221]:
+          - generic [ref=e222]:
+            - generic [ref=e223]: H4 / DESKTOP OPTION C
+            - generic [ref=e224]: same photograph
+          - generic [ref=e225]:
+            - img "Florist and customer exchanging a bag containing a bouquet" [ref=e226]
+            - generic [ref=e227]:
+              - paragraph [ref=e228]: H4 / TRANSFER
+              - heading "Responsibility changes hands." [level=3] [ref=e229]
+        - article [ref=e230]:
+          - generic [ref=e231]:
+            - generic [ref=e232]: H4 / 390 OPTION B
+            - generic [ref=e233]: different mobile placement
+          - generic [ref=e234]:
+            - img "Florist and customer exchanging a bag containing a bouquet" [ref=e235]
+            - generic [ref=e236]:
+              - paragraph [ref=e237]: H4 / TRANSFER
+              - heading "Responsibility changes hands." [level=3] [ref=e238]
+        - article [ref=e239]:
+          - generic [ref=e240]:
+            - generic [ref=e241]: H4 / 390 OPTION C
+            - generic [ref=e242]: different mobile placement
+          - generic [ref=e243]:
+            - img "Florist and customer exchanging a bag containing a bouquet" [ref=e244]
+            - generic [ref=e245]:
+              - paragraph [ref=e246]: H4 / TRANSFER
+              - heading "Responsibility changes hands." [level=3] [ref=e247]
+      - paragraph [ref=e248]: The transfer gesture remains the protagonist in every study. No box, gradient, darkening, or separate text column is used.
+    - region [ref=e249]:
+      - generic [ref=e250]:
+        - paragraph [ref=e251]: PROVISIONAL / FULL CONTACT SHEETS
+        - heading "Best provisional sequence" [level=2] [ref=e252]
+        - paragraph [ref=e253]: "These are implementer choices for review: H0-B, H1 preserved, H2-C, current H3 revised crop, H4 option C, and H5 preserved carbon environment."
+      - generic [ref=e254]:
+        - article [ref=e255]:
+          - generic [ref=e256]:
+            - generic [ref=e257]: DESKTOP / 1440
+            - generic [ref=e258]: provisional
+          - generic [ref=e259]:
+            - generic [ref=e260]:
+              - img "Provisional H0 market-aisle opening" [ref=e261]
+              - generic [ref=e262]:
+                - strong [ref=e263]: H0
+                - generic [ref=e264]: WORLD
+            - generic [ref=e265]:
+              - img "Approved H1 threshold frame" [ref=e266]
+              - generic [ref=e267]:
+                - strong [ref=e268]: H1
+                - generic [ref=e269]: ENTER
+            - generic [ref=e270]:
+              - img "Provisional H2 shoppers selecting flowers" [ref=e271]
+              - generic [ref=e272]:
+                - strong [ref=e273]: H2
+                - generic [ref=e274]: CHOICE
+            - generic [ref=e275]:
+              - img "Provisional H3 bouquet preparation frame" [ref=e276]
+              - generic [ref=e277]:
+                - strong [ref=e278]: H3
+                - generic [ref=e279]: PREPARE
+            - generic [ref=e280]:
+              - img "Approved H4 handoff frame" [ref=e281]
+              - generic [ref=e282]:
+                - strong [ref=e283]: H4
+                - generic [ref=e284]: TRANSFER
+            - generic [ref=e285]:
+              - generic [ref=e286]: REAL KT MEDIA
+              - generic [ref=e288]:
+                - strong [ref=e289]: H5
+                - generic [ref=e290]: RELEASE
+            - generic [ref=e291]: WORLD → ENTER → CHOICE → PREPARE → TRANSFER → RELEASE
+        - article [ref=e292]:
+          - generic [ref=e293]:
+            - generic [ref=e294]: MOBILE / 390
+            - generic [ref=e295]: provisional
+          - generic [ref=e296]:
+            - generic [ref=e297]:
+              - img "Provisional H0 market-aisle opening" [ref=e298]
+              - generic [ref=e299]:
+                - strong [ref=e300]: H0
+                - generic [ref=e301]: WORLD
+            - generic [ref=e302]:
+              - img "Approved H1 threshold frame" [ref=e303]
+              - generic [ref=e304]:
+                - strong [ref=e305]: H1
+                - generic [ref=e306]: ENTER
+            - generic [ref=e307]:
+              - img "Provisional H2 shoppers selecting flowers" [ref=e308]
+              - generic [ref=e309]:
+                - strong [ref=e310]: H2
+                - generic [ref=e311]: CHOICE
+            - generic [ref=e312]:
+              - img "Provisional H3 bouquet preparation frame" [ref=e313]
+              - generic [ref=e314]:
+                - strong [ref=e315]: H3
+                - generic [ref=e316]: PREPARE
+            - generic [ref=e317]:
+              - img "Approved H4 handoff frame" [ref=e318]
+              - generic [ref=e319]:
+                - strong [ref=e320]: H4
+                - generic [ref=e321]: TRANSFER
+            - generic [ref=e322]:
+              - generic [ref=e323]: REAL KT MEDIA
+              - generic [ref=e325]:
+                - strong [ref=e326]: H5
+                - generic [ref=e327]: RELEASE
+            - generic [ref=e328]: WORLD → ENTER → CHOICE → PREPARE → TRANSFER → RELEASE
+    - region [ref=e329]:
+      - generic [ref=e330]:
+        - paragraph [ref=e331]: MEDIA LEDGER
+        - heading "Added and reused media" [level=2] [ref=e332]
+        - paragraph [ref=e333]: These paths are dev review assets only. Production authority, routes, API, marketplace media, and configuration safety are unchanged.
+      - generic [ref=e334]:
+        - generic [ref=e335]:
+          - generic [ref=e336]: REUSED / LOCAL
+          - link "relay-h0-rosebank-market.webp" [ref=e337] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/relay-h0-rosebank-market.webp
+          - link "relay-h1-threshold.webp" [ref=e338] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/relay-h1-threshold.webp
+          - link "relay-h2-choice.webp" [ref=e339] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/relay-h2-choice.webp
+          - link "relay-h3-preparation.webp" [ref=e340] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/relay-h3-preparation.webp
+          - link "relay-h4-handoff.webp" [ref=e341] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/relay-h4-handoff.webp
+        - generic [ref=e342]:
+          - generic [ref=e343]: REUSED / EARLIER LOCAL SOURCE
+          - link "h0-b-market-aisle.jpg" [ref=e344] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/options/h0-b-market-aisle.jpg
+          - generic [ref=e345]:
+            - text: "Source:"
+            - link "Unsplash candidate" [ref=e346] [cursor=pointer]:
+              - /url: https://unsplash.com/photos/people-walking-through-a-busy-market-aisle-fKdUakd75kU
+        - generic [ref=e347]:
+          - generic [ref=e348]: ADDED / EXACT REVIEW CANDIDATES
+          - link "h2-b-woman-buying-flowers.jpg" [ref=e349] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/options/h2-b-woman-buying-flowers.jpg
+          - link "h2-c-women-selecting-flowers.jpg" [ref=e350] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/options/h2-c-women-selecting-flowers.jpg
+          - link "h3-alt-arranging-bouquet.jpg" [ref=e351] [cursor=pointer]:
+            - /url: /images/kt-couriers/relay/options/h3-alt-arranging-bouquet.jpg
+          - generic [ref=e352]:
+            - link "H2-B source" [ref=e353] [cursor=pointer]:
+              - /url: https://www.pexels.com/photo/woman-buying-flowers-in-floral-shop-6097858/
+            - text: ·
+            - link "H2-C source" [ref=e354] [cursor=pointer]:
+              - /url: https://www.pexels.com/photo/women-picking-flowers-from-a-flower-shop-in-a-city-5047068/
+            - text: ·
+            - link "H3 alternative source" [ref=e355] [cursor=pointer]:
+              - /url: https://www.pexels.com/photo/person-arranging-a-bouquet-of-flowers-6764313/
+    - navigation "Filmboard frame selector" [ref=e356]:
+      - button "H0 WORLD" [ref=e357] [cursor=pointer]:
+        - generic [ref=e358]: H0
+        - generic [ref=e359]: WORLD
+      - button "H1 ENTER" [ref=e360] [cursor=pointer]:
+        - generic [ref=e361]: H1
+        - generic [ref=e362]: ENTER
+      - button "H2 CHOICE" [ref=e363] [cursor=pointer]:
+        - generic [ref=e364]: H2
+        - generic [ref=e365]: CHOICE
+      - button "H3 PREPARE" [ref=e366] [cursor=pointer]:
+        - generic [ref=e367]: H3
+        - generic [ref=e368]: PREPARE
+      - button "H4 TRANSFER" [ref=e369] [cursor=pointer]:
+        - generic [ref=e370]: H4
+        - generic [ref=e371]: TRANSFER
+      - button "H5 RELEASE" [ref=e372] [cursor=pointer]:
+        - generic [ref=e373]: H5
+        - generic [ref=e374]: RELEASE
+    - paragraph [ref=e375]: "Review focus: H0 / WORLD · design-lab notation only"
+  - button "Open Next.js Dev Tools" [ref=e381] [cursor=pointer]
+  - alert [ref=e394]

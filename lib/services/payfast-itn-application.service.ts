@@ -7,6 +7,7 @@ import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
 import { decidePayfastItnApplication } from "@/lib/payments/providers/payfast/payfast-itn-status-policy";
 import { buildPayfastReceiptPosting } from "@/lib/payments/providers/payfast/payfast-ledger-posting-policy";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
+import { activateDepositCashOnDeliveryWithinTransaction } from "@/lib/services/cash-on-delivery.service";
 import {
   openPaymentReconciliationCaseWithinTransaction,
   resolvePaymentReconciliationCasesWithinTransaction,
@@ -54,7 +55,7 @@ function verifiedPaymentEventReference(identity: string): string {
 
 async function resolveVerifiedPaymentSubjectReference(
   tx: Prisma.TransactionClient,
-  payment: { subjectType: string; orderId: string | null; marketplaceCheckoutId: string | null; subscriptionInvoiceId: string | null },
+  payment: { subjectType: string; orderId: string | null; marketplaceCheckoutId: string | null; subscriptionInvoiceId: string | null; managedMarketingRequestId?: string | null },
 ): Promise<string> {
   if (payment.subjectType === "COURIER_ORDER") {
     const order = payment.orderId ? await tx.order.findUnique({ where: { id: payment.orderId }, select: { orderNumber: true } }) : null;
@@ -71,13 +72,18 @@ async function resolveVerifiedPaymentSubjectReference(
     if (!invoice?.publicReference) throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Successful subscription payment is missing its canonical invoice reference.");
     return invoice.publicReference;
   }
+  if (payment.subjectType === "MANAGED_MARKETING_REQUEST") {
+    const request = payment.managedMarketingRequestId ? await (tx as any).managedMarketingRequest.findUnique({ where: { id: payment.managedMarketingRequestId }, select: { publicReference: true } }) : null;
+    if (!request?.publicReference) throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Successful managed marketing payment is missing its canonical campaign reference.");
+    return request.publicReference;
+  }
   throw new PaymentError("PAYFAST_EVENT_CONFLICT", "Successful payment has an unsupported subject.");
 }
 
 async function appendVerifiedPaymentEventWithinTransaction(
   tx: Prisma.TransactionClient,
   input: Readonly<{
-    payment: { id: string; publicReference: string; subjectType: string; orderId: string | null; marketplaceCheckoutId: string | null; subscriptionInvoiceId: string | null; userId: string | null; amount: Prisma.Decimal; currency: string; successfulAttemptId: string | null; successWebhookEventId: string | null };
+    payment: { id: string; publicReference: string; subjectType: string; orderId: string | null; marketplaceCheckoutId: string | null; subscriptionInvoiceId: string | null; managedMarketingRequestId?: string | null; userId: string | null; amount: Prisma.Decimal; currency: string; successfulAttemptId: string | null; successWebhookEventId: string | null };
     attemptId: string;
     webhookEventId: string;
     webhookEventReference: string;
@@ -455,6 +461,12 @@ async function applyVerifiedEventTransaction(eventId: string, verified: Verified
           version: { increment: 1 },
         },
       });
+      await activateDepositCashOnDeliveryWithinTransaction(tx, {
+        paymentId: payment.id,
+        orderId: payment.orderId,
+        amount: payment.amount,
+        verifiedEventReference: event.publicReference,
+      });
       await tx.paymentStatusHistory.create({
         data: {
           paymentId: payment.id,
@@ -476,6 +488,7 @@ async function applyVerifiedEventTransaction(eventId: string, verified: Verified
           orderId: payment.orderId,
           marketplaceCheckoutId: payment.marketplaceCheckoutId,
           subscriptionInvoiceId: payment.subscriptionInvoiceId,
+          managedMarketingRequestId: (payment as any).managedMarketingRequestId,
           userId: payment.userId,
           amount: payment.amount,
           currency: payment.currency,

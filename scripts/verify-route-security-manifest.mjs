@@ -73,7 +73,7 @@ export function classifyRoute(pathPattern, method, code) {
   }
 
   if (pathPattern.startsWith("/api/admin/") || pathPattern.startsWith("/admin/")) {
-    if (code.includes("hasPermission") || code.includes("requireAdminPagePermission")) {
+    if (code.includes("hasPermission") || code.includes("requireAdminPagePermission") || code.includes("requireAdminApiPermission") || code.includes("managedMarketingAdmin")) {
       return "PERMISSION_GATED";
     }
     return "ROLE_GATED";

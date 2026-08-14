@@ -146,6 +146,7 @@ export async function createDriverProfile(
       vehicleRegistration: input.vehicleRegistration,
       licenseNumber: input.licenseNumber,
       licenseExpiryDate: input.licenseExpiryDate,
+      vehicleComplianceRequiredAt: new Date(),
       serviceNotes: input.serviceNotes,
       internalNotes: input.internalNotes,
     },

@@ -162,7 +162,7 @@ async function seedPaymentWithEvidence(params: {
 
     const attempt = await prisma.paymentAttempt.upsert({
       where: { publicReference: patRef },
-      update: { status: "SUCCEEDED" },
+      update: { status: "SUCCEEDED", completedAt: params.createdAt },
       create: {
         publicReference: patRef,
         paymentId: payment.id,
@@ -175,6 +175,7 @@ async function seedPaymentWithEvidence(params: {
         idempotencyKey: `idem_att_${payment.id}`,
         requestHash: pHash,
         status: "SUCCEEDED",
+        completedAt: params.createdAt,
         createdAt: params.createdAt,
       },
     });

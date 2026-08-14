@@ -99,6 +99,15 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
       itemsSkipped = retentionResult.itemsSkipped;
       itemsReconciled = retentionResult.itemsReconciled;
       safeSummary = retentionResult.safeSummary;
+    } else if (processor.name === "process-managed-marketing-lifecycle") {
+      const { ManagedMarketingService } = await import("@/lib/advertising/managed-marketing.service");
+      const lifecycleResult = await new ManagedMarketingService().runLifecycleProcessor({ mode, batchSize, processorOperationId: operationId });
+      itemsExamined = lifecycleResult.itemsExamined;
+      itemsClaimed = lifecycleResult.itemsClaimed;
+      itemsCompleted = lifecycleResult.itemsCompleted;
+      itemsSkipped = lifecycleResult.itemsSkipped;
+      itemsReconciled = lifecycleResult.itemsReconciled;
+      safeSummary = lifecycleResult.safeSummary;
     } else {
       // General inspection/dry run logic for registered processors
       itemsExamined = batchSize;

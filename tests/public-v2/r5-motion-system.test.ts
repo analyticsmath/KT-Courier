@@ -119,7 +119,7 @@ describe("R5 homepage motion system", () => {
     expect(nativeScrollerSource).not.toMatch(/gsap|ScrollTrigger/i);
   });
 
-  it("keeps GSAP inside the client motion boundary and adds no motion dependency", () => {
+  it("keeps GSAP inside the client motion boundary with the approved React hook", () => {
     const serverSources = [
       readSource("app/(public)/page.tsx"),
       readSource("app/(public)/layout.tsx"),
@@ -131,6 +131,7 @@ describe("R5 homepage motion system", () => {
 
     expect(serverSources).not.toMatch(/from "gsap|from 'gsap/);
     expect(packageJson.dependencies?.gsap).toBe("^3.15.0");
-    expect(motionDependencies).toEqual(["gsap"]);
+    expect(packageJson.dependencies?.["@gsap/react"]).toBe("^2.1.2");
+    expect(motionDependencies).toEqual(["@gsap/react", "gsap"]);
   });
 });
