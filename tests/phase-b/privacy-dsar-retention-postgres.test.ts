@@ -20,10 +20,24 @@ describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
     const exportData = await buildPrivacyExport(userA); expect(exportData).toHaveProperty("profile"); expect(JSON.stringify(exportData)).not.toContain("passwordHash");
   });
   it("delegates consent withdrawal and holds/retries retention without removing economic relationships", async () => {
-    const withdrawal = await createPrivacyRequest({ requesterUserId: userB, requestType: "CONSENT_WITHDRAWAL", operationId: `${marker}-WITHDRAW-001` }); await processConsentWithdrawal({ actorUserId: userB, publicReference: String(withdrawal.publicReference), operationId: `${marker}-WITHDRAW-DONE` });
-    const policy = await createRetentionPolicyVersion({ dataClass: "ACCOUNT_PROFILE", action: "ANONYMIZE", retentionDays: 0, actorUserId: admin }); const active = await activateRetentionPolicy({ publicReference: String(policy.publicReference), actorUserId: admin });
-    await createRetentionHold({ subjectType: "User", subjectReference: userB, reasonCode: "OPEN_CLAIM", actorUserId: admin }); const held = await executeRetentionTarget({ dataClass: "ACCOUNT_PROFILE", resourceType: "User", resourceReference: userB, resourceCreatedAt: new Date(0), subjectType: "User", subjectReference: userB, operationId: `${marker}-HELD`, actorReference: "POSTGRES_PROOF" }); expect(held.status).toBe("HELD");
-    await releaseRetentionHold({ subjectType: "User", subjectReference: userB, actorUserId: admin }); const [first, second] = await Promise.all([executeAccountAnonymisation({ userId: userB, policyVersionId: String(active.id), operationId: `${marker}-ANON`, actorReference: "POSTGRES_PROOF" }), executeAccountAnonymisation({ userId: userB, policyVersionId: String(active.id), operationId: `${marker}-ANON`, actorReference: "POSTGRES_PROOF" })]); expect(first.executionKey).toBe(second.executionKey);
-    const anonymized = await prisma.user.findUnique({ where: { id: userB } }); expect(anonymized?.status).toBe(UserStatus.DISABLED); expect(anonymized?.email).toMatch(/@anonymized\.invalid$/); expect(await (prisma as any).retentionExecution.count({ where: { executionKey: first.executionKey } })).toBe(1);
+    const withdrawal = await createPrivacyRequest({ requesterUserId: userB, requestType: "CONSENT_WITHDRAWAL", operationId: `${marker}-WITHDRAW-001` });
+    await processConsentWithdrawal({ actorUserId: userB, publicReference: String(withdrawal.publicReference), operationId: `${marker}-WITHDRAW-DONE` });
+    const withdrawalEvents = await (prisma as any).privacyRequestEvent.findMany({ where: { privacyRequestId: withdrawal.id } });
+    expect(withdrawalEvents.map((event: any) => event.eventType)).toEqual(expect.arrayContaining(["UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED"]));
+
+    const policy = await createRetentionPolicyVersion({ dataClass: "ACCOUNT_PROFILE", action: "ANONYMIZE", retentionDays: 0, actorUserId: admin });
+    const active = await activateRetentionPolicy({ publicReference: String(policy.publicReference), actorUserId: admin });
+    await createRetentionHold({ subjectType: "User", subjectReference: userB, reasonCode: "OPEN_CLAIM", actorUserId: admin });
+    const held = await executeRetentionTarget({ dataClass: "ACCOUNT_PROFILE", resourceType: "User", resourceReference: userB, resourceCreatedAt: new Date(0), subjectType: "User", subjectReference: userB, operationId: `${marker}-HELD`, actorReference: "POSTGRES_PROOF" });
+    expect(held.status).toBe("HELD");
+
+    await releaseRetentionHold({ subjectType: "User", subjectReference: userB, actorUserId: admin });
+    const [first, second] = await Promise.all([executeAccountAnonymisation({ userId: userB, policyVersionId: String(active.id), operationId: `${marker}-ANON`, actorReference: "POSTGRES_PROOF" }), executeAccountAnonymisation({ userId: userB, policyVersionId: String(active.id), operationId: `${marker}-ANON`, actorReference: "POSTGRES_PROOF" })]);
+    expect(first.executionKey).toBe(second.executionKey);
+    const anonymized = await prisma.user.findUnique({ where: { id: userB } });
+    const executionCount = await (prisma as any).retentionExecution.count({ where: { executionKey: first.executionKey } });
+    expect(anonymized?.status).toBe(UserStatus.DISABLED);
+    expect(anonymized?.email).toMatch(/@anonymized\.invalid$/);
+    expect(executionCount).toBe(1);
   });
 });

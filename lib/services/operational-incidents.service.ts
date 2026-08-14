@@ -31,6 +31,25 @@ const transitions: Record<string, readonly string[]> = {
   CLOSED: [],
 };
 
+function isOperationIdUniqueConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object" || (error as { code?: string }).code !== "P2002") return false;
+  const target = (error as { meta?: { target?: string | string[] } }).meta?.target;
+  const values = Array.isArray(target) ? target : [target ?? ""];
+  return values.some((value) => value.includes("operationId"));
+}
+
+function assertIncidentEvidenceReplay(
+  replay: Record<string, unknown>,
+  input: { incidentId: string; actorUserId: string; privateMediaObjectId?: string; evidenceType: string; safeReference?: string }
+) {
+  const matches = String(replay.incidentId) === input.incidentId
+    && String(replay.createdByUserId) === input.actorUserId
+    && (replay.privateMediaObjectId ?? null) === (input.privateMediaObjectId ?? null)
+    && String(replay.evidenceType) === safeOperationalText(input.evidenceType, 80)
+    && (replay.safeReference ?? null) === (input.safeReference ? safeOperationalText(input.safeReference, 160) : null);
+  if (!matches) throw new SecurityIncidentError("SECURITY_INCIDENT_IDEMPOTENCY_CONFLICT");
+}
+
 export async function listOperationalIncidents() {
   return phase5Repository.operationalIncident.findMany({ orderBy: { openedAt: "desc" }, take: 100 });
 }
@@ -121,8 +140,18 @@ export async function recordIncidentActivity(input: { actorUserId: string; publi
 export async function attachIncidentEvidence(input: { actorUserId: string; publicReference: string; privateMediaObjectId?: string; evidenceType: string; safeReference?: string; operationId: string }) {
   const incident = await phase5Repository.operationalIncident.findUnique({ where: { publicReference: input.publicReference } }); if (!incident) throw new SecurityIncidentError("SECURITY_INCIDENT_NOT_FOUND");
   if (input.privateMediaObjectId) { const media = await (prisma as any).privateMediaObject.findUnique({ where: { id: input.privateMediaObjectId }, select: { id: true } }); if (!media) throw new SecurityIncidentError("SECURITY_INCIDENT_EVIDENCE_NOT_FOUND"); }
-  const replay = await phase5Repository.operationalIncidentEvidence.findUnique({ where: { operationId: input.operationId } }); if (replay) return replay;
-  return phase5Repository.operationalIncidentEvidence.create({ data: { incidentId: String(incident.id), privateMediaObjectId: input.privateMediaObjectId ?? null, evidenceType: safeOperationalText(input.evidenceType, 80), safeReference: input.safeReference ? safeOperationalText(input.safeReference, 160) : null, createdByUserId: input.actorUserId, operationId: input.operationId } });
+  const replay = await phase5Repository.operationalIncidentEvidence.findUnique({ where: { operationId: input.operationId } });
+  if (replay) { assertIncidentEvidenceReplay(replay, { incidentId: String(incident.id), ...input }); return replay; }
+  const data = { incidentId: String(incident.id), privateMediaObjectId: input.privateMediaObjectId ?? null, evidenceType: safeOperationalText(input.evidenceType, 80), safeReference: input.safeReference ? safeOperationalText(input.safeReference, 160) : null, createdByUserId: input.actorUserId, operationId: input.operationId };
+  try {
+    return await phase5Repository.operationalIncidentEvidence.create({ data });
+  } catch (error) {
+    if (!isOperationIdUniqueConflict(error)) throw error;
+    const winner = await phase5Repository.operationalIncidentEvidence.findUnique({ where: { operationId: input.operationId } });
+    if (!winner) throw error;
+    assertIncidentEvidenceReplay(winner, { incidentId: String(incident.id), ...input });
+    return winner;
+  }
 }
 
 export async function recordIncidentNotificationDecision(input: { actorUserId: string; publicReference: string; decision: "NOT_REQUIRED" | "PENDING_LEGAL_REVIEW" | "USER_NOTIFICATION" | "REGULATOR_NOTIFICATION" | "PROVIDER_ESCALATION"; reasonCode: string; operationId: string }) {
@@ -134,11 +163,26 @@ export async function recordIncidentNotificationDecision(input: { actorUserId: s
 
 export async function containSecurityIncident(input: { actorUserId: string; publicReference: string; operationId: string; affectedUserId?: string; createPreservationHold?: boolean }) {
   const incident = await phase5Repository.operationalIncident.findUnique({ where: { publicReference: input.publicReference } }); if (!incident) throw new SecurityIncidentError("SECURITY_INCIDENT_NOT_FOUND");
-  const replay = await phase5Repository.operationalIncidentTimeline.findUnique({ where: { operationId: input.operationId } }); if (replay) return incident;
+  const replay = await phase5Repository.operationalIncidentTimeline.findUnique({ where: { operationId: input.operationId } });
+  if (replay) {
+    if (String(replay.incidentId) !== String(incident.id) || String(replay.eventType) !== "CONTAINMENT") throw new SecurityIncidentError("SECURITY_INCIDENT_IDEMPOTENCY_CONFLICT");
+    return incident;
+  }
+  try {
+    // The timeline operation key is the database arbiter. It is claimed before
+    // any idempotent safeguard work, so concurrent callers cannot duplicate
+    // containment effects.
+    await phase5Repository.operationalIncidentTimeline.create({ data: { incidentId: String(incident.id), eventType: "CONTAINMENT", safeNote: "CONTAINMENT_IN_PROGRESS", actorUserId: input.actorUserId, operationId: input.operationId } });
+  } catch (error) {
+    if (!isOperationIdUniqueConflict(error)) throw error;
+    const winner = await phase5Repository.operationalIncidentTimeline.findUnique({ where: { operationId: input.operationId } });
+    if (!winner) throw error;
+    if (String(winner.incidentId) !== String(incident.id) || String(winner.eventType) !== "CONTAINMENT") throw new SecurityIncidentError("SECURITY_INCIDENT_IDEMPOTENCY_CONFLICT");
+    return incident;
+  }
   const userId = input.affectedUserId ?? (incident.affectedUserId as string | null); let safeguard = "NO_ACCOUNT_ACTION";
   try { if (userId) { await revokeAllUserSessions({ userId, reason: "SECURITY_INCIDENT", revokedByUserId: input.actorUserId }); await recordSecurityEvent({ type: "INCIDENT_SESSION_REVOKED", severity: "HIGH", userId, actorUserId: input.actorUserId, message: "Sessions revoked under a security incident." }); safeguard = "SESSIONS_REVOKED"; } if (input.createPreservationHold && userId) await createRetentionHold({ subjectType: "User", subjectReference: userId, reasonCode: `SECURITY_INCIDENT:${incident.publicReference}`, actorUserId: input.actorUserId }); }
-  catch { await recordIncidentActivity({ actorUserId: input.actorUserId, publicReference: input.publicReference, eventType: "CONTAINMENT_FAILED", safeNote: "SAFEGUARD_ACTION_FAILED", operationId: input.operationId }); throw new SecurityIncidentError("SECURITY_INCIDENT_CONTAINMENT_FAILED"); }
-  await recordIncidentActivity({ actorUserId: input.actorUserId, publicReference: input.publicReference, eventType: "CONTAINMENT", safeNote: safeguard, operationId: input.operationId });
+  catch { await recordIncidentActivity({ actorUserId: input.actorUserId, publicReference: input.publicReference, eventType: "CONTAINMENT_FAILED", safeNote: "SAFEGUARD_ACTION_FAILED", operationId: `${input.operationId}:FAILED` }); throw new SecurityIncidentError("SECURITY_INCIDENT_CONTAINMENT_FAILED"); }
   if (String(incident.status) === "OPEN") await transitionOperationalIncident({ actorUserId: input.actorUserId, publicReference: input.publicReference, nextStatus: "INVESTIGATING", reasonCode: "CONTAINMENT_TRIAGE", operationId: `${input.operationId}:TRIAGE` });
   return transitionOperationalIncident({ actorUserId: input.actorUserId, publicReference: input.publicReference, nextStatus: "MITIGATING", reasonCode: safeguard, operationId: `${input.operationId}:STATUS` });
 }

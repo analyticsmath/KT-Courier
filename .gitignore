@@ -57,3 +57,6 @@ gen_report.js
 next-env.d.ts
 
 /.claude
+
+# generated Playwright output
+/output/

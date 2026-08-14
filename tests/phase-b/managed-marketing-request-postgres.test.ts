@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { syncSystemPermissions } from "@/lib/auth/permissions";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
+import { expectManagedMarketingError } from "./managed-marketing-test-helpers";
 import { PrivateMediaOwnerType, PrivateMediaPurpose, PrivateMediaStatus, StoreStatus, UserRole, UserStatus } from "@/types/db";
 
 const marker = `MMR${randomUUID().replaceAll("-", "").toUpperCase()}`;
@@ -56,13 +57,13 @@ describe("Phase B managed-marketing request PostgreSQL production-service proof"
     const draft = await service.createDraft({ ...draftInput(`${marker}-CREATE-A`), actor: storeAActor() });
     expect(draft.storeId).toBe(storeAId);
     expect(draft.packageVersionId).toBeTruthy();
-    await expect(service.getOwnRequest(storeBActor(), draft.publicReference)).rejects.toThrow("MANAGED_MARKETING_REQUEST_NOT_FOUND");
-    await expect(service.attachCreative(storeAActor(), draft.publicReference, { source: "PRIVATE_MEDIA", mediaReference: privateBReference })).rejects.toThrow("MANAGED_MARKETING_CREATIVE_FORBIDDEN");
+    await expectManagedMarketingError(service.getOwnRequest(storeBActor(), draft.publicReference), "MANAGED_MARKETING_REQUEST_NOT_FOUND");
+    await expectManagedMarketingError(service.attachCreative(storeAActor(), draft.publicReference, { source: "PRIVATE_MEDIA", mediaReference: privateBReference }), "MANAGED_MARKETING_CREATIVE_FORBIDDEN");
 
     const updated = await service.updateDraft(storeAActor(), draft.publicReference, { ...draftInput(`${marker}-UPDATE-A`), message: "Updated still-editable campaign copy." });
     expect(updated.message).toBe("Updated still-editable campaign copy.");
     const creative = await service.attachCreative(storeAActor(), draft.publicReference, { source: "PRIVATE_MEDIA", mediaReference: privateAReference });
-    await expect(service.attachCreative(storeAActor(), draft.publicReference, { source: "PRIVATE_MEDIA", mediaReference: privateAReference })).rejects.toThrow("MANAGED_MARKETING_CREATIVE_ALREADY_ATTACHED");
+    await expectManagedMarketingError(service.attachCreative(storeAActor(), draft.publicReference, { source: "PRIVATE_MEDIA", mediaReference: privateAReference }), "MANAGED_MARKETING_CREATIVE_ALREADY_ATTACHED");
 
     const submitted = await service.submitDraft(storeAActor(), draft.publicReference, `${marker}-SUBMIT-A`);
     expect(submitted.status).toBe("SUBMITTED");
@@ -70,7 +71,7 @@ describe("Phase B managed-marketing request PostgreSQL production-service proof"
     const committed = await prisma.managedMarketingRequest.findUniqueOrThrow({ where: { publicReference: draft.publicReference }, include: { packageVersion: true, creatives: true } });
     expect(committed.packageVersion.publicReference).toBe(packageReference);
     expect(committed.creatives.some((item) => item.publicReference === creative.publicReference)).toBe(true);
-    await expect(service.updateDraft(storeAActor(), draft.publicReference, draftInput(`${marker}-LOCKED`))).rejects.toThrow("MANAGED_MARKETING_REQUEST_LOCKED");
-    await expect(service.removeCreative(storeAActor(), draft.publicReference, creative.publicReference)).rejects.toThrow("MANAGED_MARKETING_REQUEST_LOCKED");
+    await expectManagedMarketingError(service.updateDraft(storeAActor(), draft.publicReference, draftInput(`${marker}-LOCKED`)), "MANAGED_MARKETING_REQUEST_LOCKED");
+    await expectManagedMarketingError(service.removeCreative(storeAActor(), draft.publicReference, creative.publicReference), "MANAGED_MARKETING_REQUEST_LOCKED");
   });
 });

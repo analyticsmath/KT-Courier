@@ -150,6 +150,10 @@ function findDangerousSql(sql, file) {
         ? sql.replace(/ALTER\s+TABLE\s+"(?:CommissionAllocation|RefundFundingAllocation)"\s+DROP\s+CONSTRAINT\s+"[^"]+"\s*;/gi, "")
       : file.includes("20260717140000_phase22_subscriptions")
         ? sql.replace(/ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+"Payment_subject_shape_check"\s*;/gi, "")
+      : file.includes("20260814100000_phase_b_payment_subject_integrity_reconciliation")
+        // Replaces the prior, marketplace/subscription-era check with the
+        // stricter four-subject invariant in the same forward-only migration.
+        ? sql.replace(/ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+"Payment_subject_shape_check"\s*;/gi, "")
       : file.includes("20260805030000_schema_drift_reconciliation")
         ? sql.replace(/DROP\s+CONSTRAINT\s+"(?:AdvertisingFundingMovement_ledgerJournalId_fkey|AdvertisingClickCharge_ledgerJournalId_fkey|AdvertisingClickCharge_reversedByJournalId_fkey)"\s*;/gi, "")
       : file.includes("20260805070000_comprehensive_schema_reconciliation")

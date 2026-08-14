@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { syncSystemPermissions } from "@/lib/auth/permissions";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
+import { expectManagedMarketingError } from "./managed-marketing-test-helpers";
 import { PrivateMediaOwnerType, PrivateMediaPurpose, PrivateMediaStatus, StoreStatus, UserRole, UserStatus } from "@/types/db";
 
 const marker = `MMB${randomUUID().replaceAll("-", "").toUpperCase()}`;
@@ -36,14 +37,14 @@ beforeAll(async () => {
 
 describe("Phase B managed-marketing external boundary PostgreSQL production-service proof", () => {
   it("keeps manual execution operational, rejects automation without a real publisher, and preserves historical evidence after channel disablement", async () => {
-    await expect(service.createDraft(draft(`${marker}-AUTO`, "AUTOMATED_PROVIDER"))).rejects.toThrow("MANAGED_MARKETING_PROVIDER_NOT_CONFIGURED");
+    await expectManagedMarketingError(service.createDraft(draft(`${marker}-AUTO`, "AUTOMATED_PROVIDER")), "MANAGED_MARKETING_PROVIDER_NOT_CONFIGURED");
     const request = await service.createDraft(draft(`${marker}-MANUAL`));
     await service.attachCreative(store(), request.publicReference, { source: "PRIVATE_MEDIA", mediaReference: creativeReference });
     await service.submitDraft(store(), request.publicReference, `${marker}-SUBMIT`);
     await service.beginReview(admin(), request.publicReference, `${marker}-REVIEW`);
     await service.approveRequest(admin(), request.publicReference, `${marker}-APPROVE`);
     await service.setChannelActive(channelReference, false, admin());
-    await expect(service.scheduleRequest(admin(), request.publicReference, `${marker}-SCHEDULE`)).rejects.toThrow("MANAGED_MARKETING_CHANNEL_DISABLED");
+    await expectManagedMarketingError(service.scheduleRequest(admin(), request.publicReference, `${marker}-SCHEDULE`), "MANAGED_MARKETING_CHANNEL_DISABLED");
     const persisted = await prisma.managedMarketingRequest.findUniqueOrThrow({ where: { publicReference: request.publicReference }, include: { events: true } });
     expect(persisted.executionMode).toBe("MANUAL");
     expect(persisted.events.some((event) => event.eventType === "DRAFT_CREATED" && JSON.stringify(event.safeEvidence).includes("MANUAL"))).toBe(true);

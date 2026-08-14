@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createOperationalIncident, getOperationalIncident, transitionOperationalIncident } from "@/lib/services/operational-incidents.service";
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
 import { createPrivacyRequest, transitionPrivacyRequest } from "@/lib/services/privacy-requests.service";
+
+beforeAll(() => { process.env.PHASE5_REPOSITORY_USE_MEMORY = "true"; });
+afterAll(() => { delete process.env.PHASE5_REPOSITORY_USE_MEMORY; });
 
 describe("Phase 5: Admin Operations & Governance Services", () => {
   it("creates, transitions, and reads operational incident with append-only timeline", async () => {

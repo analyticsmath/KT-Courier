@@ -83,22 +83,19 @@ function matchesWhere(item: Record<string, unknown>, where?: Record<string, unkn
 }
 
 function createModelDelegate(modelName: string): RepositoryDelegate {
-  // Tests use the explicit in-memory adapter. Mixing a timeout fallback write
-  // with a successful database read can hide append-only timeline events.
-  const useTestMemoryStore = process.env.NODE_ENV === "test";
+  // The memory adapter is reserved for explicitly opted-in isolated unit tests.
+  // PostgreSQL proof suites run under NODE_ENV=test too, so selecting memory
+  // merely from NODE_ENV would silently split production authorities from their
+  // database assertions.
+  const useTestMemoryStore = () => process.env.PHASE5_REPOSITORY_USE_MEMORY === "true";
+  const databaseDelegate = () => {
+    const delegate = Reflect.get(db, modelName);
+    if (!delegate) throw new Error(`Phase 5 database delegate is unavailable: ${modelName}`);
+    return delegate as Record<string, (args?: Record<string, unknown>) => Promise<unknown>>;
+  };
   return {
     async findMany(args?: Record<string, unknown>) {
-      const realDelegate = Reflect.get(db, modelName);
-      if (!useTestMemoryStore && realDelegate && typeof realDelegate.findMany === "function") {
-        try {
-          return await Promise.race([
-            realDelegate.findMany(args),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), 100)),
-          ]);
-        } catch {
-          // Fall through to memory store
-        }
-      }
+      if (!useTestMemoryStore()) return databaseDelegate().findMany(args) as Promise<Record<string, unknown>[]>;
       const store = getMemoryStore(modelName);
       const where = args?.where as Record<string, unknown> | undefined;
       const take = (args?.take as number) ?? 100;
@@ -111,17 +108,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return results.slice(0, take);
     },
     async findFirst(args?: Record<string, unknown>) {
-      const realDelegate = Reflect.get(db, modelName);
-      if (!useTestMemoryStore && realDelegate && typeof realDelegate.findFirst === "function") {
-        try {
-          return await Promise.race([
-            realDelegate.findFirst(args),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), 100)),
-          ]);
-        } catch {
-          // Fall through
-        }
-      }
+      if (!useTestMemoryStore()) return databaseDelegate().findFirst(args) as Promise<Record<string, unknown> | null>;
       const store = getMemoryStore(modelName);
       const where = args?.where as Record<string, unknown> | undefined;
       for (const item of store.values()) {
@@ -132,17 +119,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return null;
     },
     async findUnique(args: Record<string, unknown>) {
-      const realDelegate = Reflect.get(db, modelName);
-      if (!useTestMemoryStore && realDelegate && typeof realDelegate.findUnique === "function") {
-        try {
-          return await Promise.race([
-            realDelegate.findUnique(args),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), 100)),
-          ]);
-        } catch {
-          // Fall through
-        }
-      }
+      if (!useTestMemoryStore()) return databaseDelegate().findUnique(args) as Promise<Record<string, unknown> | null>;
       const store = getMemoryStore(modelName);
       const where = args.where as Record<string, unknown>;
       if (!where) return null;
@@ -153,17 +130,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return null;
     },
     async create(args: Record<string, unknown>) {
-      const realDelegate = Reflect.get(db, modelName);
-      if (!useTestMemoryStore && realDelegate && typeof realDelegate.create === "function") {
-        try {
-          return await Promise.race([
-            realDelegate.create(args),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), 100)),
-          ]);
-        } catch {
-          // Fall through
-        }
-      }
+      if (!useTestMemoryStore()) return databaseDelegate().create(args) as Promise<Record<string, unknown>>;
       const store = getMemoryStore(modelName);
       const defaults = DEFAULT_MODEL_VALUES[modelName] ?? {};
       const data = { ...defaults, ...(args.data as Record<string, unknown>) };
@@ -176,17 +143,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return data;
     },
     async update(args: Record<string, unknown>) {
-      const realDelegate = Reflect.get(db, modelName);
-      if (!useTestMemoryStore && realDelegate && typeof realDelegate.update === "function") {
-        try {
-          return await Promise.race([
-            realDelegate.update(args),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), 100)),
-          ]);
-        } catch {
-          // Fall through
-        }
-      }
+      if (!useTestMemoryStore()) return databaseDelegate().update(args) as Promise<Record<string, unknown>>;
       const store = getMemoryStore(modelName);
       const where = args.where as Record<string, unknown>;
       const existing = await this.findUnique({ where });
@@ -199,17 +156,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return existing;
     },
     async updateMany(args: Record<string, unknown>) {
-      const realDelegate = Reflect.get(db, modelName);
-      if (!useTestMemoryStore && realDelegate && typeof realDelegate.updateMany === "function") {
-        try {
-          return await Promise.race([
-            realDelegate.updateMany(args),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), 100)),
-          ]);
-        } catch {
-          // Fall through
-        }
-      }
+      if (!useTestMemoryStore()) return databaseDelegate().updateMany(args) as Promise<{ count: number }>;
       const store = getMemoryStore(modelName);
       const where = args.where as Record<string, unknown>;
       const data = args.data as Record<string, unknown>;
@@ -224,17 +171,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return { count };
     },
     async upsert(args: Record<string, unknown>) {
-      const realDelegate = Reflect.get(db, modelName);
-      if (!useTestMemoryStore && realDelegate && typeof realDelegate.upsert === "function") {
-        try {
-          return await Promise.race([
-            realDelegate.upsert(args),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), 100)),
-          ]);
-        } catch {
-          // Fall through
-        }
-      }
+      if (!useTestMemoryStore()) return databaseDelegate().upsert(args) as Promise<Record<string, unknown>>;
       const where = args.where as Record<string, unknown>;
       const existing = await this.findUnique({ where });
       if (existing) {

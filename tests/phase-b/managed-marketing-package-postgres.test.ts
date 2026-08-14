@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { syncSystemPermissions } from "@/lib/auth/permissions";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
+import { expectManagedMarketingError } from "./managed-marketing-test-helpers";
 import { PermissionEffect, UserRole, UserStatus } from "@/types/db";
 
 const marker = `MM${randomUUID().replaceAll("-", "").toUpperCase()}`;
@@ -33,7 +34,7 @@ beforeAll(async () => {
 
 describe("Phase B managed-marketing package/channel PostgreSQL production-service proof", () => {
   it("preserves effective commercial versions, channel structure, authorization and audit evidence", async () => {
-    await expect(service.createChannel({ ...unauthorizedActor(), code: `${marker}_DENIED`, displayName: "Unauthorized channel" })).rejects.toThrow("MARKETING_CONFIGURATION_FORBIDDEN");
+    await expectManagedMarketingError(service.createChannel({ ...unauthorizedActor(), code: `${marker}_DENIED`, displayName: "Unauthorized channel" }), "MANAGED_MARKETING_CONFIGURATION_FORBIDDEN");
 
     const channel = await service.createChannel({ ...authorizedActor(), code: `${marker}_SOCIAL`, displayName: "Phase B social channel", metadata: { fixture: marker, tier: "primary" } });
     await service.updateChannel(channel.publicReference, { ...authorizedActor(), displayName: "Phase B social channel configured", sortOrder: 10, manualExecutionSupported: true, automatedProviderCapability: "MANUAL_AVAILABLE", providerConfigurationState: "NOT_CONFIGURED", metadata: { fixture: marker, tier: "primary", configured: true } });
@@ -52,8 +53,10 @@ describe("Phase B managed-marketing package/channel PostgreSQL production-servic
     expect(historicalA.priceAmount.toFixed(2)).toBe("1299.50");
     expect(historicalA.estimatedReachMetadata).toEqual({ minimum: 1500, maximum: 2500, source: "fixture-A" });
 
-    await expect(service.createPackageVersion(`${marker}_PACKAGE`, { ...authorizedActor(), name: "Duplicate structural association", channel: "FACEBOOK", channelReferences: [channel.publicReference, channel.publicReference], packageTerms: {}, priceAmount: "1.00", taxRate: "0", effectiveAt: effectiveB })).rejects.toThrow("MARKETING_CHANNEL_NOT_ALLOWED");
-    await expect(service.createPackage({ ...authorizedActor(), code: `${marker}_INVALID_CHANNEL`, name: "Inactive channel rejected", channel: "FACEBOOK", channelReferences: [inactiveChannel.publicReference], packageTerms: {}, priceAmount: "1.00", taxRate: "0", effectiveAt: effectiveA })).rejects.toThrow("MARKETING_CHANNEL_NOT_ALLOWED");
+    // The association is version-scoped; malformed duplicate input within one
+    // version is rejected before the per-version unique key acts as backstop.
+    await expectManagedMarketingError(service.createPackageVersion(`${marker}_PACKAGE`, { ...authorizedActor(), name: "Duplicate structural association", channel: "FACEBOOK", channelReferences: [channel.publicReference, channel.publicReference], packageTerms: {}, priceAmount: "1.00", taxRate: "0", effectiveAt: effectiveB }), "MANAGED_MARKETING_CHANNEL_NOT_ALLOWED");
+    await expectManagedMarketingError(service.createPackage({ ...authorizedActor(), code: `${marker}_INVALID_CHANNEL`, name: "Inactive channel rejected", channel: "FACEBOOK", channelReferences: [inactiveChannel.publicReference], packageTerms: {}, priceAmount: "1.00", taxRate: "0", effectiveAt: effectiveA }), "MANAGED_MARKETING_CHANNEL_NOT_ALLOWED");
     await service.setChannelActive(inactiveChannel.publicReference, true, authorizedActor());
 
     const versionB = await service.createPackageVersion(`${marker}_PACKAGE`, {
@@ -76,7 +79,7 @@ describe("Phase B managed-marketing package/channel PostgreSQL production-servic
     expect(selectedB.priceAmount.toFixed(2)).toBe("1899.75");
 
     await service.retirePackage(versionA.publicReference, authorizedActor());
-    await expect(service.selectActivePackageVersion({ reference: versionA.publicReference, channelReference: channel.publicReference, at: new Date("2030-02-15T00:00:00.000Z") })).rejects.toThrow("MANAGED_MARKETING_PACKAGE_UNAVAILABLE");
+    await expectManagedMarketingError(service.selectActivePackageVersion({ reference: versionA.publicReference, channelReference: channel.publicReference, at: new Date("2030-02-15T00:00:00.000Z") }), "MANAGED_MARKETING_PACKAGE_UNAVAILABLE");
 
     const auditEvidence = await prisma.adminActivityLog.findMany({ where: { actorUserId: authorizedActorId, entityType: { in: ["ManagedMarketingPackageVersion", "ManagedMarketingChannelDefinition"] } }, select: { action: true, entityType: true, entityId: true, metadata: true } });
     expect(auditEvidence).toEqual(expect.arrayContaining([

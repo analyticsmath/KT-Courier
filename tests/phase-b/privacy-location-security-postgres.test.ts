@@ -19,6 +19,7 @@ describe("Phase B location/security PostgreSQL production-service proof", () => 
     const evidence = { actorUserId: admin, publicReference, evidenceType: "SAFE_REFERENCE" as const, safeReference: "EVID-ONLY", operationId: `${marker}-EVIDENCE` };
     const [firstEvidence, repeatedEvidence] = await Promise.all([attachIncidentEvidence(evidence), attachIncidentEvidence(evidence)]);
     expect(repeatedEvidence.id).toBe(firstEvidence.id);
+    await expect(attachIncidentEvidence({ ...evidence, safeReference: "DIFFERENT-PAYLOAD" })).rejects.toMatchObject({ code: "SECURITY_INCIDENT_IDEMPOTENCY_CONFLICT" });
     const containment = { actorUserId: admin, publicReference, affectedUserId: customer, createPreservationHold: true, operationId: `${marker}-CONTAIN` };
     const [contained, repeatedContainment] = await Promise.all([containSecurityIncident(containment), containSecurityIncident(containment)]);
     expect(repeatedContainment.id).toBe(contained.id);

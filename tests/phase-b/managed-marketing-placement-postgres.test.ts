@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { syncSystemPermissions } from "@/lib/auth/permissions";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
+import { expectManagedMarketingError } from "./managed-marketing-test-helpers";
 import { PermissionEffect, UserRole, UserStatus } from "@/types/db";
 
 const marker = `MMP${randomUUID().replaceAll("-", "").toUpperCase()}`;
@@ -31,8 +32,8 @@ describe("Phase B managed-marketing channel placement PostgreSQL production-serv
     const channel = await service.createChannel({ ...authorizedActor(), code: `${marker}_CHANNEL`, displayName: "Placement proof channel" });
     const platform = await prisma.advertisingPlacementDefinition.create({ data: { publicReference: `ADPL-${marker}`, code: `${marker}_PLATFORM`, sponsoredObjectType: "STORE", surface: "STOREFRONT", status: "ACTIVE", maximumSponsoredItems: 1, minimumOrganicGap: 1, allowedCardType: "CANONICAL_STORE_CARD", measurementPolicyVersion: "proof", selectionPolicyVersion: "proof", disclosurePolicyVersion: "proof" } });
 
-    await expect(service.createPlacement({ ...unauthorizedActor(), code: `${marker}_DENIED`, displayName: "Denied", channelReference: channel.publicReference, kind: "MANUAL_EXTERNAL", externalPlacementReference: "external:denied" })).rejects.toThrow("MARKETING_CONFIGURATION_FORBIDDEN");
-    await expect(service.createPlacement({ ...authorizedActor(), code: `${marker}_INVALID`, displayName: "Invalid", channelReference: channel.publicReference, kind: "ON_PLATFORM", externalPlacementReference: "external:invalid" })).rejects.toThrow("MARKETING_PLACEMENT_INVALID");
+    await expectManagedMarketingError(service.createPlacement({ ...unauthorizedActor(), code: `${marker}_DENIED`, displayName: "Denied", channelReference: channel.publicReference, kind: "MANUAL_EXTERNAL", externalPlacementReference: "external:denied" }), "MANAGED_MARKETING_CONFIGURATION_FORBIDDEN");
+    await expectManagedMarketingError(service.createPlacement({ ...authorizedActor(), code: `${marker}_INVALID`, displayName: "Invalid", channelReference: channel.publicReference, kind: "ON_PLATFORM", externalPlacementReference: "external:invalid" }), "MANAGED_MARKETING_PLACEMENT_INVALID");
 
     const onPlatform = await service.createPlacement({ ...authorizedActor(), code: `${marker}_ON_PLATFORM`, displayName: "Storefront sponsored card", channelReference: channel.publicReference, kind: "ON_PLATFORM", advertisingPlacementReference: platform.publicReference });
     const manual = await service.createPlacement({ ...authorizedActor(), code: `${marker}_EXTERNAL`, displayName: "Manual social post", channelReference: channel.publicReference, kind: "MANUAL_EXTERNAL", externalPlacementReference: "social:operator-run" });
@@ -40,7 +41,7 @@ describe("Phase B managed-marketing channel placement PostgreSQL production-serv
     expect((await service.selectActivePlacement({ reference: manual.publicReference, channelReference: channel.publicReference })).externalPlacementReference).toBe("social:operator-run");
 
     await service.setPlacementActive(manual.publicReference, false, authorizedActor());
-    await expect(service.selectActivePlacement({ reference: manual.publicReference, channelReference: channel.publicReference })).rejects.toThrow("MANAGED_MARKETING_PLACEMENT_UNAVAILABLE");
+    await expectManagedMarketingError(service.selectActivePlacement({ reference: manual.publicReference, channelReference: channel.publicReference }), "MANAGED_MARKETING_PLACEMENT_UNAVAILABLE");
     const audit = await prisma.adminActivityLog.findMany({ where: { actorUserId: authorizedActorId, entityType: "ManagedMarketingChannelPlacement" }, select: { action: true, entityId: true } });
     expect(audit).toEqual(expect.arrayContaining([expect.objectContaining({ action: "CREATE", entityId: onPlatform.id }), expect.objectContaining({ action: "STATUS_CHANGE", entityId: manual.id })]));
   });

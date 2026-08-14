@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { syncSystemPermissions } from "@/lib/auth/permissions";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
+import { expectManagedMarketingError } from "./managed-marketing-test-helpers";
 import { PermissionEffect, PrivateMediaOwnerType, PrivateMediaPurpose, PrivateMediaStatus, StoreStatus, UserRole, UserStatus } from "@/types/db";
 
 const marker = `MMAP${randomUUID().replaceAll("-", "").toUpperCase()}`;
@@ -52,9 +53,9 @@ async function submittedRequest(operationId: string) {
 describe("Phase B managed-marketing approval PostgreSQL production-service proof", () => {
   it("enforces review authority, gates approval by state, preserves event history, and makes retries idempotent", async () => {
     const request = await submittedRequest(`${marker}-APPROVAL`);
-    await expect(service.beginReview(deniedReviewer(), request.publicReference, `${marker}-DENIED-REVIEW`)).rejects.toThrow("MANAGED_MARKETING_REVIEW_FORBIDDEN");
-    await expect(service.approveRequest(storeActor(), request.publicReference, `${marker}-STORE-APPROVE`)).rejects.toThrow("MANAGED_MARKETING_REVIEW_FORBIDDEN");
-    await expect(service.approveRequest(reviewer(), request.publicReference, `${marker}-EARLY-APPROVE`)).rejects.toThrow("MANAGED_MARKETING_TRANSITION_FORBIDDEN");
+    await expectManagedMarketingError(service.beginReview(deniedReviewer(), request.publicReference, `${marker}-DENIED-REVIEW`), "MANAGED_MARKETING_REVIEW_FORBIDDEN");
+    await expectManagedMarketingError(service.approveRequest(storeActor(), request.publicReference, `${marker}-STORE-APPROVE`), "MANAGED_MARKETING_REVIEW_FORBIDDEN");
+    await expectManagedMarketingError(service.approveRequest(reviewer(), request.publicReference, `${marker}-EARLY-APPROVE`), "MANAGED_MARKETING_TRANSITION_FORBIDDEN");
     expect((await service.beginReview(reviewer(), request.publicReference, `${marker}-REVIEW`)).status).toBe("UNDER_REVIEW");
     expect((await service.approveRequest(reviewer(), request.publicReference, `${marker}-APPROVE`, "All required creative and placement evidence reviewed.")).status).toBe("APPROVED");
     expect((await service.approveRequest(reviewer(), request.publicReference, `${marker}-APPROVE`)).status).toBe("APPROVED");

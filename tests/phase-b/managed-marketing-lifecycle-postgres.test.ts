@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
+import { expectManagedMarketingError } from "./managed-marketing-test-helpers";
 import { PermissionEffect, PrivateMediaOwnerType, PrivateMediaPurpose, PrivateMediaStatus, StoreStatus, UserRole, UserStatus } from "@/types/db";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { syncSystemPermissions } from "@/lib/auth/permissions";
@@ -54,7 +55,7 @@ async function approvedCampaign(operationId: string) {
 describe("Phase B managed-marketing lifecycle PostgreSQL production-service proof", () => {
   it("keeps lifecycle authority approval-gated, records manual evidence, and completes ended campaigns with processor evidence", async () => {
     const request = await approvedCampaign(`${marker}-LIFECYCLE`);
-    await expect(service.scheduleRequest(deniedOperator(), request.publicReference, `${marker}-DENIED-SCHEDULE`)).rejects.toThrow("MANAGED_MARKETING_LIFECYCLE_FORBIDDEN");
+    await expectManagedMarketingError(service.scheduleRequest(deniedOperator(), request.publicReference, `${marker}-DENIED-SCHEDULE`), "MANAGED_MARKETING_LIFECYCLE_FORBIDDEN");
     expect((await service.scheduleRequest(operator(), request.publicReference, `${marker}-SCHEDULE`)).status).toBe("SCHEDULED");
     expect((await service.scheduleRequest(operator(), request.publicReference, `${marker}-SCHEDULE`)).status).toBe("SCHEDULED");
     expect((await service.runManually(operator(), request.publicReference, { operationId: `${marker}-RUN`, externalReference: "manual-proof-001", actualStartedAt: new Date("2032-02-02T00:00:00.000Z") })).status).toBe("RUNNING");
