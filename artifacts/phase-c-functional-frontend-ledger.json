@@ -1,0 +1,403 @@
+{
+  "schemaVersion": "phase-a-normalized-phase-c-ledger-v1",
+  "generatedAt": "2026-08-10T18:50:15.202653Z",
+  "sourceBasis": "Normalized interactive workflows only; visual beautification excluded.",
+  "records": [
+    {
+      "workflowId": "FW-001",
+      "capabilityId": "CAP-GEOGRAPHY",
+      "portal": "public",
+      "route": "/shop",
+      "workflow": "Browse nationwide stores/products then receive explicit serviceability state",
+      "requirementIds": [
+        "ENG-GEO-001",
+        "ENG-GEO-002"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": false,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": false
+      },
+      "basis": "Existing public shop/search and coverage authorities; explicit serviceability failure remains a delta.",
+      "score": 80.0,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-002",
+      "capabilityId": "CAP-PAYMENTS-COD",
+      "portal": "customer",
+      "route": "/checkout/:reference/payment",
+      "workflow": "Select payment method and complete digital/COD payment state",
+      "requirementIds": [
+        "ENG-PAY-001",
+        "ENG-PAY-002",
+        "ENG-COD-001"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": false
+      },
+      "basis": "PayFast path is mature; COD/partial state and standardized failure mapping are not closed.",
+      "score": 83.3,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-003",
+      "capabilityId": "CAP-COMMERCIAL",
+      "portal": "admin",
+      "route": "/admin/pricing",
+      "workflow": "Configure versioned commercial rules with validation and audit",
+      "requirementIds": [
+        "ENG-COMMERCIAL-001",
+        "ENG-COMMERCIAL-002",
+        "ENG-COMMERCIAL-003",
+        "ENG-COMMERCIAL-004"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": false,
+        "errorState": false
+      },
+      "basis": "Pricing authority exists; normalized configuration permission/snapshot/error proof remains.",
+      "score": 66.7,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-004",
+      "capabilityId": "CAP-MODULE-TAXONOMY",
+      "portal": "store/admin",
+      "route": "/store/catalog",
+      "workflow": "Manage catalog through governed modules/categories and variants",
+      "requirementIds": [
+        "ENG-MODULE-001",
+        "ENG-MODULE-002",
+        "ENG-MODULE-003",
+        "ENG-MODULE-004"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": false,
+        "errorState": false
+      },
+      "basis": "Catalog surfaces and authorities exist; module governance and route-level permission/failure proof remain.",
+      "score": 66.7,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-005",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "portal": "driver/admin",
+      "route": "/driver/profile",
+      "workflow": "Complete driver, vehicle and compliance workflow",
+      "requirementIds": [
+        "ENG-DRIVER-001",
+        "ENG-DRIVER-002",
+        "ENG-DRIVER-003",
+        "ENG-VEHICLE-001",
+        "ENG-VEHICLE-002",
+        "ENG-VEHICLE-003"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": false
+      },
+      "basis": "Driver page/profile authority exists; first-class vehicle, private documents and independent approvals are gaps.",
+      "score": 83.3,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-006",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "portal": "driver",
+      "route": "/driver/assignments/:id",
+      "workflow": "Accept, pickup, deliver and record POD/exception evidence",
+      "requirementIds": [
+        "ENG-SHIP-002",
+        "ENG-SHIP-004",
+        "ENG-SHIP-005",
+        "ENG-SHIP-008"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": false
+      },
+      "basis": "Delivery execution exists; normalized COD/POD/exception failure evidence remains.",
+      "score": 83.3,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-007",
+      "capabilityId": "CAP-PROMOTER",
+      "portal": "promoter/admin",
+      "route": "/promoter",
+      "workflow": "View referrals, team, qualification, earnings and withdrawals",
+      "requirementIds": [
+        "ENG-PROM-001",
+        "ENG-PROM-002",
+        "ENG-PROM-003",
+        "ENG-PROM-004",
+        "ENG-PROM-005",
+        "ENG-PROM-006",
+        "ENG-PROM-007",
+        "ENG-PROM-008"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": false
+      },
+      "basis": "Promoter authorities and surface exist; final economics and blocked/error states remain.",
+      "score": 83.3,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-008",
+      "capabilityId": "CAP-ADVERTISING",
+      "portal": "store/admin",
+      "route": "/store/advertising",
+      "workflow": "Request, approve, schedule and report an on-platform campaign",
+      "requirementIds": [
+        "ENG-ADS-001",
+        "ENG-ADS-002",
+        "ENG-ADS-004",
+        "ENG-ADS-005",
+        "ENG-ADS-006",
+        "ENG-ADS-007"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": false
+      },
+      "basis": "On-platform lifecycle is mature; normalized creative/error/provider-unavailable states remain.",
+      "score": 83.3,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-009",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "portal": "customer/store/admin",
+      "route": "/account/refunds",
+      "workflow": "Submit, investigate, decide and execute claim remedy/refund",
+      "requirementIds": [
+        "ENG-CLAIM-001",
+        "ENG-CLAIM-002",
+        "ENG-CLAIM-003",
+        "ENG-CLAIM-004",
+        "ENG-CLAIM-005",
+        "ENG-CLAIM-006",
+        "ENG-CLAIM-007",
+        "ENG-CLAIM-008"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": false,
+        "backend": false,
+        "permissions": true,
+        "errorState": false
+      },
+      "basis": "Refund/issue surfaces exist; distinct claim case, remedy and investigation authority is not proven.",
+      "score": 50.0,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-010",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "portal": "public/account/admin",
+      "route": "/privacy-policy and /admin/privacy-requests",
+      "workflow": "Read policy and submit/process data-subject request",
+      "requirementIds": [
+        "ENG-PRIV-001",
+        "ENG-PRIV-005",
+        "ENG-PRIV-006",
+        "ENG-PRIV-008",
+        "ENG-POLICY-001"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "contentAuthority": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true
+      },
+      "evidence": {
+        "page": true,
+        "contentAuthority": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true
+      },
+      "basis": "Policy page/content and privacy request authorities exist; new data-class controls remain implementation deltas.",
+      "contentWorkflow": true,
+      "score": 100.0,
+      "accepted": true
+    },
+    {
+      "workflowId": "FW-011",
+      "capabilityId": "CAP-COMPANY",
+      "portal": "admin",
+      "route": "/admin/settings",
+      "workflow": "Manage company settings and issuer values",
+      "requirementIds": [
+        "ENG-COMPANY-001",
+        "ENG-COMPANY-002",
+        "ENG-COMPANY-003"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": true,
+        "errorState": true
+      },
+      "evidence": {
+        "page": true,
+        "data": true,
+        "actions": true,
+        "backend": true,
+        "permissions": false,
+        "errorState": false
+      },
+      "basis": "SystemSetting/admin settings evidence exists; canonical issuer and granular permission closure remains.",
+      "score": 66.7,
+      "accepted": false
+    },
+    {
+      "workflowId": "FW-012",
+      "capabilityId": "CAP-POLICY-CONTROLS",
+      "portal": "public/admin",
+      "route": "/terms, /privacy-policy, /services",
+      "workflow": "Publish/version legal documents and link acceptance/behavior",
+      "requirementIds": [
+        "ENG-POLICY-001",
+        "ENG-POLICY-002",
+        "ENG-PRIV-002",
+        "ENG-PRIV-003",
+        "ENG-PRIV-004"
+      ],
+      "requiredEvidence": {
+        "page": true,
+        "contentAuthority": true,
+        "data": true,
+        "actions": true,
+        "backend": true
+      },
+      "evidence": {
+        "page": true,
+        "contentAuthority": true,
+        "data": true,
+        "actions": true,
+        "backend": true
+      },
+      "basis": "Legal document authority and public pages exist; policy precedence/legal decisions remain separate from page polish.",
+      "contentWorkflow": true,
+      "score": 100.0,
+      "accepted": true
+    }
+  ],
+  "functionalGate": "Interactive workflow score requires every evidence item marked required; content workflows use page/content-authority sufficiency.",
+  "visualBeautificationIncluded": false
+}

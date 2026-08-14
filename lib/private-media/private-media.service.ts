@@ -57,6 +57,7 @@ function assertPurposeOwner(ownerType: PrivateMediaOwnerType, purpose: PrivateMe
   if (ownerType === "CLAIM" && purpose === "CLAIM_EVIDENCE") return;
   if (ownerType === "PROOF_OF_DELIVERY" && purpose === "POD_EVIDENCE") return;
   if (ownerType === "STORE" && purpose === "STORE_VERIFICATION_DOCUMENT") return;
+  if (ownerType === "INCIDENT" && purpose === "INCIDENT_EVIDENCE") return;
   if (purpose === "OTHER") return;
   throw new PrivateMediaPolicyError("PRIVATE_MEDIA_PURPOSE_OWNER_MISMATCH", 422, "This private-media purpose is not allowed for the selected owner.");
 }
@@ -158,6 +159,21 @@ export class PrivateMediaService {
     return this.safeMetadata(record);
   }
 
+  /** Reusable authorization authority for a controlled reference association.
+   * It never returns a storage key or file content. */
+  async assertIncidentEvidenceEntitlement(input: Readonly<{ actor: PrivateMediaActor; privateMediaObjectId: string; incidentId: string }>) {
+    const record = await prisma.privateMediaObject.findUnique({ where: { id: input.privateMediaObjectId } });
+    if (!record) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_NOT_FOUND", 404, "Private media was not found.");
+    const allowed = record.ownerType === PrivateMediaOwnerType.INCIDENT
+      && record.ownerId === input.incidentId
+      && record.purpose === PrivateMediaPurpose.INCIDENT_EVIDENCE
+      && await this.canAccess(input.actor, record.ownerType, record.ownerId);
+    await prisma.privateMediaAccessLog.create({ data: { privateMediaObjectId: record.id, actorUserId: input.actor.userId, action: "INCIDENT_EVIDENCE_ATTACH", outcome: allowed ? "ALLOWED" : "DENIED" } });
+    if (!allowed) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "Private media is not authorized as incident evidence.");
+    if (record.status !== PrivateMediaStatus.READY && record.status !== PrivateMediaStatus.RETAINED) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_UNAVAILABLE", 409, "Private media is not available.");
+    return { id: record.id };
+  }
+
   private safeMetadata(record: { publicReference: string; ownerType: PrivateMediaOwnerType; purpose: PrivateMediaPurpose; status: PrivateMediaStatus; detectedMimeType: string | null; byteSize: number | null; retentionUntil: Date | null; createdAt: Date }) {
     return { publicReference: record.publicReference, ownerType: record.ownerType, purpose: record.purpose, status: record.status, mimeType: record.detectedMimeType, byteSize: record.byteSize, retentionUntil: record.retentionUntil?.toISOString() ?? null, createdAt: record.createdAt.toISOString() };
   }
@@ -196,6 +212,11 @@ export class PrivateMediaService {
     if (ownerType === PrivateMediaOwnerType.STORE) {
       const owner = await prisma.store.findUnique({ where: { id: ownerId }, select: { ownerUserId: true } });
       return owner?.ownerUserId === actor.userId;
+    }
+    if (ownerType === PrivateMediaOwnerType.INCIDENT) {
+      // Incident evidence is restricted to the established private-media read
+      // authority; no incident-local bypass is introduced.
+      return await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ });
     }
     return false;
   }

@@ -1,0 +1,421 @@
+{
+  "generatedAt": "2026-08-10T17:12:22.171795Z",
+  "sourceBasis": "Actual client DOCX bodies under docs/client-authority/2026-08",
+  "documents": {
+    "KT_Couriers_Updated Details..docx": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+    "KT COURIERS (PTY) LTD – ABOUT US.docx": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – ABOUT US.docx",
+    "KT COURIERS (PTY) LTD – SHIPPING & DELIVERY.docx": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – SHIPPING & DELIVERY.docx",
+    "KT COURIERS (PTY) LTD – PRIVACY POLICY.docx": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+    "KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx",
+    "KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx"
+  },
+  "conflicts": [
+    {
+      "id": "DOC-CONFLICT-001",
+      "issue": "Economy, Standard and Scheduled service names/turnarounds are not one canonical launch contract.",
+      "status": "CLIENT_VALUE_REQUIRED",
+      "sourceEvidence": [
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "1. Official Business Details",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-P0015",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 15,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "1. Official Business Details",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-P0016",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 16,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – SHIPPING & DELIVERY.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – SHIPPING & DELIVERY.docx",
+          "sourceDocumentSha256": "1a52e791f64bfc75fae1e80460c66a4ba860586cba2b534074c070ff69700b77",
+          "sourceSection": "4.2 Standard Parcel Delivery",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "SHIPPING-P0044",
+          "sourceElement": "HEADING",
+          "paragraphIndex": 44,
+          "tableIndex": null,
+          "tableRowIndex": null
+        }
+      ],
+      "affects": [
+        "pricing",
+        "delivery method labels",
+        "shipping policy",
+        "customer-facing SLA"
+      ],
+      "action": "Approve canonical Economy/Standard/Scheduled names, turnaround semantics, and whether Scheduled is a service type or a booking window."
+    },
+    {
+      "id": "DOC-CONFLICT-002",
+      "issue": "Express R5.50/km is stated alongside parcel-size values Small R5.50, Medium R8.50 and Large R13.00.",
+      "status": "CLIENT_VALUE_REQUIRED",
+      "sourceEvidence": [
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "1. Official Business Details",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-P0017",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 17,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "1. Official Business Details",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-P0018",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 18,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "1. Official Business Details",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-T01R002",
+          "sourceElement": "TABLE_ROW",
+          "paragraphIndex": null,
+          "tableIndex": 1,
+          "tableRowIndex": 2
+        }
+      ],
+      "affects": [
+        "pricing rules",
+        "parcel profiles",
+        "quote explanation",
+        "admin configuration"
+      ],
+      "action": "Confirm whether these are distance, base-size, or example rates; keep the production rule versioned and configurable."
+    },
+    {
+      "id": "DOC-CONFLICT-003",
+      "issue": "Terms state a 24-hour refund-request window while the newer refund policy uses prompt/as-soon-as-possible reporting and case-specific investigation language.",
+      "status": "LEGAL_REVIEW_REQUIRED",
+      "sourceEvidence": [
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourceDocumentSha256": "16b4598a8867d257576a5dd3f6a35e8701ab9af826a33e27408667b147b73e08",
+          "sourceSection": "Refunds",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "TERMS-P0074",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 74,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx",
+          "sourceDocumentSha256": "6b5531dccbdaa9eaf3bfb22ad276b09c3b8a468940c3d5339bcce2ec2a636b7f",
+          "sourceSection": "3. WRONG, DAMAGED OR MISSING ITEMS",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "REFUND-P0037",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 37,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx",
+          "sourceDocumentSha256": "6b5531dccbdaa9eaf3bfb22ad276b09c3b8a468940c3d5339bcce2ec2a636b7f",
+          "sourceSection": "4. FOOD AND PERISHABLE PRODUCTS",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "REFUND-P0063",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 63,
+          "tableIndex": null,
+          "tableRowIndex": null
+        }
+      ],
+      "affects": [
+        "refund eligibility",
+        "claims intake",
+        "food/perishable complaints",
+        "consumer-facing policy version"
+      ],
+      "action": "Choose the controlling policy version and obtain legal approval before encoding an eligibility deadline."
+    },
+    {
+      "id": "DOC-CONFLICT-004",
+      "issue": "The updated-details document places an email address in the Business address field and separately names support/business email fields.",
+      "status": "CLIENT_VALUE_REQUIRED",
+      "sourceEvidence": [
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "1. Official Business Details",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-P0009",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 9,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "1. Official Business Details",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-P0010",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 10,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourceDocumentSha256": "16b4598a8867d257576a5dd3f6a35e8701ab9af826a33e27408667b147b73e08",
+          "sourceSection": "22. CONTACT DETAILS",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "TERMS-P0131",
+          "sourceElement": "HEADING",
+          "paragraphIndex": 131,
+          "tableIndex": null,
+          "tableRowIndex": null
+        }
+      ],
+      "affects": [
+        "company settings",
+        "legal-document issuer",
+        "invoice/receipt/waybill output",
+        "support contact"
+      ],
+      "action": "Supply and approve the physical business address; retain the email only in the appropriate email field."
+    },
+    {
+      "id": "DOC-CONFLICT-005",
+      "issue": "Promoter entry values include R100 registration wording and a Starter row showing R99.",
+      "status": "CLIENT_VALUE_REQUIRED",
+      "sourceEvidence": [
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "8. Promoter / KT Growth Structure",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-P0128",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 128,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT_Couriers_Updated Details..docx",
+          "sourcePath": "docs/client-authority/2026-08/KT_Couriers_Updated Details..docx",
+          "sourceDocumentSha256": "78ce11d58f55972c0a71862401969b1b8c908b40e17edd23b68b77778a903a51",
+          "sourceSection": "8. Promoter / KT Growth Structure",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "UPDATED-T05R002",
+          "sourceElement": "TABLE_ROW",
+          "paragraphIndex": null,
+          "tableIndex": 5,
+          "tableRowIndex": 2
+        }
+      ],
+      "affects": [
+        "promoter onboarding",
+        "commission/rank rules",
+        "legal/economic disclosures"
+      ],
+      "action": "Approve one signed launch rate table and define whether entry is a fee, deposit, or programme value threshold."
+    },
+    {
+      "id": "DOC-CONFLICT-006",
+      "issue": "Privacy acknowledgement, Terms acceptance, general consent, and non-essential cookie consent are distinct controls and must not be represented by one boolean.",
+      "status": "LEGAL_REVIEW_REQUIRED",
+      "sourceEvidence": [
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+          "sourceDocumentSha256": "b2fa2d484fa7c55c39361741eac9bb5065e320c7ec2bea31e17f1870c16d46a9",
+          "sourceSection": "KT COURIERS PRIVACY POLICY",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "PRIVACY-P0006",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 6,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourceDocumentSha256": "16b4598a8867d257576a5dd3f6a35e8701ab9af826a33e27408667b147b73e08",
+          "sourceSection": "20. AMENDMENTS",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "TERMS-P0127",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 127,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+          "sourceDocumentSha256": "b2fa2d484fa7c55c39361741eac9bb5065e320c7ec2bea31e17f1870c16d46a9",
+          "sourceSection": "4.5 Marketing",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "PRIVACY-P0180",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 180,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+          "sourceDocumentSha256": "16b4598a8867d257576a5dd3f6a35e8701ab9af826a33e27408667b147b73e08",
+          "sourceSection": "12. DATA PROTECTION & PRIVACY",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "TERMS-P0085",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 85,
+          "tableIndex": null,
+          "tableRowIndex": null
+        },
+        {
+          "sourceDocument": "KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+          "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+          "sourceDocumentSha256": "b2fa2d484fa7c55c39361741eac9bb5065e320c7ec2bea31e17f1870c16d46a9",
+          "sourceSection": "7. COOKIES AND TRACKING TECHNOLOGIES",
+          "sourcePage": null,
+          "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+          "sourceUnitId": "PRIVACY-P0269",
+          "sourceElement": "PARAGRAPH",
+          "paragraphIndex": 269,
+          "tableIndex": null,
+          "tableRowIndex": null
+        }
+      ],
+      "affects": [
+        "policy versioning",
+        "account/order acknowledgements",
+        "direct marketing consent",
+        "cookie controls",
+        "audit evidence"
+      ],
+      "action": "Implement separate versioned acknowledgement, acceptance, processing-consent, direct-marketing-consent, and cookie-preference evidence only after legal mapping."
+    }
+  ],
+  "privacyControlDistinctions": {
+    "acknowledgment": [
+      {
+        "sourceDocument": "KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+        "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+        "sourceDocumentSha256": "b2fa2d484fa7c55c39361741eac9bb5065e320c7ec2bea31e17f1870c16d46a9",
+        "sourceSection": "KT COURIERS PRIVACY POLICY",
+        "sourcePage": null,
+        "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+        "sourceUnitId": "PRIVACY-P0006",
+        "sourceElement": "PARAGRAPH",
+        "paragraphIndex": 6,
+        "tableIndex": null,
+        "tableRowIndex": null
+      }
+    ],
+    "acceptance": [
+      {
+        "sourceDocument": "KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+        "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+        "sourceDocumentSha256": "16b4598a8867d257576a5dd3f6a35e8701ab9af826a33e27408667b147b73e08",
+        "sourceSection": "20. AMENDMENTS",
+        "sourcePage": null,
+        "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+        "sourceUnitId": "TERMS-P0127",
+        "sourceElement": "PARAGRAPH",
+        "paragraphIndex": 127,
+        "tableIndex": null,
+        "tableRowIndex": null
+      }
+    ],
+    "consent": [
+      {
+        "sourceDocument": "KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+        "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+        "sourceDocumentSha256": "b2fa2d484fa7c55c39361741eac9bb5065e320c7ec2bea31e17f1870c16d46a9",
+        "sourceSection": "4.5 Marketing",
+        "sourcePage": null,
+        "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+        "sourceUnitId": "PRIVACY-P0180",
+        "sourceElement": "PARAGRAPH",
+        "paragraphIndex": 180,
+        "tableIndex": null,
+        "tableRowIndex": null
+      },
+      {
+        "sourceDocument": "KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+        "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx",
+        "sourceDocumentSha256": "16b4598a8867d257576a5dd3f6a35e8701ab9af826a33e27408667b147b73e08",
+        "sourceSection": "12. DATA PROTECTION & PRIVACY",
+        "sourcePage": null,
+        "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+        "sourceUnitId": "TERMS-P0085",
+        "sourceElement": "PARAGRAPH",
+        "paragraphIndex": 85,
+        "tableIndex": null,
+        "tableRowIndex": null
+      }
+    ],
+    "cookieConsent": [
+      {
+        "sourceDocument": "KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+        "sourcePath": "docs/client-authority/2026-08/KT COURIERS (PTY) LTD – PRIVACY POLICY.docx",
+        "sourceDocumentSha256": "b2fa2d484fa7c55c39361741eac9bb5065e320c7ec2bea31e17f1870c16d46a9",
+        "sourceSection": "7. COOKIES AND TRACKING TECHNOLOGIES",
+        "sourcePage": null,
+        "sourcePageBasis": "Not available: the packaged DOCX renderer could not start because LibreOffice/soffice is not installed.",
+        "sourceUnitId": "PRIVACY-P0269",
+        "sourceElement": "PARAGRAPH",
+        "paragraphIndex": 269,
+        "tableIndex": null,
+        "tableRowIndex": null
+      }
+    ]
+  },
+  "note": "The register separates source conflicts and legal-review decisions from implementable generic architecture. No production policy value was silently selected."
+}

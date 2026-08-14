@@ -16,8 +16,9 @@ describe("privacy location and security incident controls", () => {
   });
   it("extends the existing incident aggregate with controlled evidence, containment, notification and hold boundaries", () => {
     const schema = read("prisma/schema.prisma"); const service = read("lib/services/operational-incidents.service.ts"); const contain = read("app/api/admin/incidents/[reference]/contain/route.ts");
-    expect(schema).toMatch(/model OperationalIncident[\s\S]*affectedDataClasses[\s\S]*notificationDecision/); expect(schema).toMatch(/model OperationalIncidentEvidence[\s\S]*privateMediaObjectId[\s\S]*operationId/);
-    expect(service).toMatch(/transitions/); expect(service).toMatch(/SECURITY_INCIDENT_CONTAINMENT_FAILED/); expect(service).toMatch(/createRetentionHold/); expect(service).toMatch(/revokeAllUserSessions/); expect(service).toMatch(/recordIncidentNotificationDecision/);
+    expect(schema).toMatch(/model OperationalIncident[\s\S]*affectedDataClasses[\s\S]*notificationDecision/); expect(schema).toMatch(/model OperationalIncidentEvidence[\s\S]*privateMediaObjectId[\s\S]*operationId/); expect(schema).toMatch(/model OperationalIncidentOperation[\s\S]*requestHash[\s\S]*state/);
+    expect(service).toMatch(/transitions/); expect(service).toMatch(/SECURITY_INCIDENT_OPERATION_PENDING/); expect(service).toMatch(/operationalIncidentOperation/); expect(service).toMatch(/assertIncidentEvidenceEntitlement/); expect(service).toMatch(/recordIncidentNotificationDecision/);
+    expect(service).toMatch(/tx\.session\.updateMany/); expect(service).toMatch(/tx\.securityEvent\.create/); expect(service).toMatch(/tx\.retentionHold\.upsert/); expect(service).not.toMatch(/\.catch\(\(\) => \[\]\)/); expect(service).not.toMatch(/prisma\s+as\s+any/);
     expect(contain).toMatch(/SECURITY_INCIDENTS_RESOLVE/); expect(service).not.toMatch(/storageReference/);
   });
 });

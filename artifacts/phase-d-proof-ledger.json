@@ -1,0 +1,2073 @@
+{
+  "schemaVersion": "phase-a-normalized-phase-d-ledger-v1",
+  "generatedAt": "2026-08-10T18:50:15.202653Z",
+  "sourceBasis": "Normalized engineering requirements.",
+  "proofs": [
+    {
+      "proofType": "static",
+      "requirementsCovered": "all normalized P0/P1 requirements",
+      "method": "typecheck/lint/static route, permission, contract and source-link scans",
+      "traceability": "phase-a-normalized-engineering-requirements.json"
+    },
+    {
+      "proofType": "migration",
+      "requirementsCovered": "all database-required normalized deltas",
+      "method": "migration safety, shadow deploy and rollback review",
+      "traceability": "phase-b-implementation-ledger.json"
+    },
+    {
+      "proofType": "real PostgreSQL",
+      "requirementsCovered": "all financial and operational normalized clusters",
+      "method": "real transaction, invariant and persistence suite",
+      "traceability": "phase-b-implementation-ledger.json"
+    },
+    {
+      "proofType": "concurrency",
+      "requirementsCovered": "COD, payment, refunds, commissions, claims, approvals",
+      "method": "parallel mutation races and idempotency tests",
+      "traceability": "phase-a-normalized-engineering-requirements.json"
+    },
+    {
+      "proofType": "provider contract",
+      "requirementsCovered": "required PayFast, Maps, email and private storage capabilities",
+      "method": "fixtures/contract tests only; no live provider calls",
+      "traceability": "phase-a-provider-readiness-matrix.json"
+    },
+    {
+      "proofType": "E2E",
+      "requirementsCovered": "all normalized interactive frontend workflows",
+      "method": "observable browser flows with failure/error states",
+      "traceability": "phase-c-functional-frontend-ledger.json"
+    },
+    {
+      "proofType": "security",
+      "requirementsCovered": "securityRelevant normalized requirements",
+      "method": "tenant/auth/rate-limit/redaction/retention/private-media proof",
+      "traceability": "phase-a-client-delta-security-audit.json"
+    }
+  ],
+  "requirementProofs": [
+    {
+      "requirementId": "ENG-COMPANY-001",
+      "capabilityId": "CAP-COMPANY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0003",
+        "KT-ACTUAL-UPDATED-0005",
+        "KT-ACTUAL-UPDATED-0006",
+        "KT-ACTUAL-UPDATED-0009",
+        "KT-ACTUAL-UPDATED-0013",
+        "KT-ACTUAL-UPDATED-0018",
+        "KT-ACTUAL-UPDATED-0205",
+        "KT-ACTUAL-UPDATED-0207",
+        "KT-ACTUAL-UPDATED-0208",
+        "KT-ACTUAL-UPDATED-0209",
+        "KT-ACTUAL-UPDATED-0210",
+        "KT-ACTUAL-UPDATED-0211",
+        "KT-ACTUAL-UPDATED-0212",
+        "KT-ACTUAL-UPDATED-0213",
+        "KT-ACTUAL-UPDATED-0214",
+        "KT-ACTUAL-UPDATED-0215",
+        "KT-ACTUAL-UPDATED-0216",
+        "KT-ACTUAL-UPDATED-0217",
+        "KT-ACTUAL-UPDATED-0218",
+        "KT-ACTUAL-UPDATED-0219",
+        "KT-ACTUAL-UPDATED-0296",
+        "KT-ACTUAL-UPDATED-0301",
+        "KT-ACTUAL-UPDATED-0354",
+        "KT-ACTUAL-UPDATED-0355",
+        "KT-ACTUAL-UPDATED-0362",
+        "KT-ACTUAL-UPDATED-0380",
+        "KT-ACTUAL-UPDATED-0382",
+        "KT-ACTUAL-UPDATED-0383",
+        "KT-ACTUAL-UPDATED-0391"
+      ]
+    },
+    {
+      "requirementId": "ENG-COMPANY-002",
+      "capabilityId": "CAP-COMPANY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0001"
+      ]
+    },
+    {
+      "requirementId": "ENG-COMPANY-003",
+      "capabilityId": "CAP-COMPANY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0001",
+        "KT-ACTUAL-UPDATED-0352",
+        "KT-ACTUAL-UPDATED-0353"
+      ]
+    },
+    {
+      "requirementId": "ENG-COMMERCIAL-001",
+      "capabilityId": "CAP-COMMERCIAL",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0010",
+        "KT-ACTUAL-UPDATED-0011",
+        "KT-ACTUAL-UPDATED-0041",
+        "KT-ACTUAL-UPDATED-0082",
+        "KT-ACTUAL-UPDATED-0302",
+        "KT-ACTUAL-UPDATED-0304",
+        "KT-ACTUAL-UPDATED-0311",
+        "KT-ACTUAL-UPDATED-0358",
+        "KT-ACTUAL-UPDATED-0397",
+        "KT-ACTUAL-SHIPPING-0013",
+        "KT-ACTUAL-SHIPPING-0014",
+        "KT-ACTUAL-SHIPPING-0016",
+        "KT-ACTUAL-SHIPPING-0035",
+        "KT-ACTUAL-SHIPPING-0036",
+        "KT-ACTUAL-SHIPPING-0038",
+        "KT-ACTUAL-SHIPPING-0039",
+        "KT-ACTUAL-SHIPPING-0041",
+        "KT-ACTUAL-SHIPPING-0042",
+        "KT-ACTUAL-SHIPPING-0093",
+        "KT-ACTUAL-SHIPPING-0120",
+        "KT-ACTUAL-SHIPPING-0134",
+        "KT-ACTUAL-SHIPPING-0144",
+        "KT-ACTUAL-SHIPPING-0155",
+        "KT-ACTUAL-SHIPPING-0166",
+        "KT-ACTUAL-SHIPPING-0211",
+        "KT-ACTUAL-SHIPPING-0226",
+        "KT-ACTUAL-SHIPPING-0260",
+        "KT-ACTUAL-SHIPPING-0299",
+        "KT-ACTUAL-SHIPPING-0302",
+        "KT-ACTUAL-SHIPPING-0324",
+        "KT-ACTUAL-SHIPPING-0326",
+        "KT-ACTUAL-PRIVACY-0070",
+        "KT-ACTUAL-PRIVACY-0125",
+        "KT-ACTUAL-PRIVACY-0218",
+        "KT-ACTUAL-REFUND-0110",
+        "KT-ACTUAL-REFUND-0183"
+      ]
+    },
+    {
+      "requirementId": "ENG-COMMERCIAL-003",
+      "capabilityId": "CAP-COMMERCIAL",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0023",
+        "KT-ACTUAL-UPDATED-0320",
+        "KT-ACTUAL-UPDATED-0321",
+        "KT-ACTUAL-UPDATED-0326",
+        "KT-ACTUAL-UPDATED-0333",
+        "KT-ACTUAL-UPDATED-0339",
+        "KT-ACTUAL-UPDATED-0368",
+        "KT-ACTUAL-UPDATED-0381",
+        "KT-ACTUAL-UPDATED-0394"
+      ]
+    },
+    {
+      "requirementId": "ENG-COMMERCIAL-005",
+      "capabilityId": "CAP-COMMERCIAL",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0284",
+        "KT-ACTUAL-UPDATED-0290",
+        "KT-ACTUAL-UPDATED-0292",
+        "KT-ACTUAL-UPDATED-0392"
+      ]
+    },
+    {
+      "requirementId": "ENG-COMMERCIAL-006",
+      "capabilityId": "CAP-COMMERCIAL",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0004"
+      ]
+    },
+    {
+      "requirementId": "ENG-MODULE-001",
+      "capabilityId": "CAP-MODULE-TAXONOMY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "projection",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0280",
+        "KT-ACTUAL-UPDATED-0369",
+        "KT-ACTUAL-SHIPPING-0056",
+        "KT-ACTUAL-SHIPPING-0065",
+        "KT-ACTUAL-SHIPPING-0068"
+      ]
+    },
+    {
+      "requirementId": "ENG-MODULE-002",
+      "capabilityId": "CAP-MODULE-TAXONOMY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "projection",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0059",
+        "KT-ACTUAL-SHIPPING-0060",
+        "KT-ACTUAL-SHIPPING-0061",
+        "KT-ACTUAL-SHIPPING-0064",
+        "KT-ACTUAL-SHIPPING-0066",
+        "KT-ACTUAL-SHIPPING-0069",
+        "KT-ACTUAL-SHIPPING-0076",
+        "KT-ACTUAL-SHIPPING-0077",
+        "KT-ACTUAL-SHIPPING-0078",
+        "KT-ACTUAL-SHIPPING-0079",
+        "KT-ACTUAL-SHIPPING-0100",
+        "KT-ACTUAL-SHIPPING-0106",
+        "KT-ACTUAL-SHIPPING-0145",
+        "KT-ACTUAL-SHIPPING-0230",
+        "KT-ACTUAL-TERMS-0077"
+      ]
+    },
+    {
+      "requirementId": "ENG-MODULE-004",
+      "capabilityId": "CAP-MODULE-TAXONOMY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "projection",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0068",
+        "KT-ACTUAL-UPDATED-0070",
+        "KT-ACTUAL-UPDATED-0071",
+        "KT-ACTUAL-UPDATED-0072",
+        "KT-ACTUAL-UPDATED-0073",
+        "KT-ACTUAL-UPDATED-0074",
+        "KT-ACTUAL-UPDATED-0075",
+        "KT-ACTUAL-UPDATED-0076",
+        "KT-ACTUAL-UPDATED-0083",
+        "KT-ACTUAL-UPDATED-0266",
+        "KT-ACTUAL-UPDATED-0267",
+        "KT-ACTUAL-UPDATED-0268",
+        "KT-ACTUAL-UPDATED-0269",
+        "KT-ACTUAL-UPDATED-0272",
+        "KT-ACTUAL-UPDATED-0273",
+        "KT-ACTUAL-UPDATED-0274",
+        "KT-ACTUAL-UPDATED-0275",
+        "KT-ACTUAL-UPDATED-0276",
+        "KT-ACTUAL-UPDATED-0278",
+        "KT-ACTUAL-UPDATED-0279",
+        "KT-ACTUAL-UPDATED-0281",
+        "KT-ACTUAL-UPDATED-0285",
+        "KT-ACTUAL-UPDATED-0365",
+        "KT-ACTUAL-UPDATED-0366",
+        "KT-ACTUAL-UPDATED-0367",
+        "KT-ACTUAL-TERMS-0038"
+      ]
+    },
+    {
+      "requirementId": "ENG-GEO-001",
+      "capabilityId": "CAP-GEOGRAPHY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "provider contract",
+        "real PostgreSQL",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0077",
+        "KT-ACTUAL-UPDATED-0078",
+        "KT-ACTUAL-UPDATED-0079",
+        "KT-ACTUAL-UPDATED-0081",
+        "KT-ACTUAL-UPDATED-0286",
+        "KT-ACTUAL-UPDATED-0370"
+      ]
+    },
+    {
+      "requirementId": "ENG-GEO-002",
+      "capabilityId": "CAP-GEOGRAPHY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "provider contract",
+        "real PostgreSQL",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0080",
+        "KT-ACTUAL-UPDATED-0084",
+        "KT-ACTUAL-UPDATED-0361",
+        "KT-ACTUAL-SHIPPING-0032",
+        "KT-ACTUAL-SHIPPING-0328"
+      ]
+    },
+    {
+      "requirementId": "ENG-GEO-003",
+      "capabilityId": "CAP-GEOGRAPHY",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "provider contract",
+        "real PostgreSQL",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0045",
+        "KT-ACTUAL-SHIPPING-0135",
+        "KT-ACTUAL-SHIPPING-0156",
+        "KT-ACTUAL-PRIVACY-0217"
+      ]
+    },
+    {
+      "requirementId": "ENG-DRIVER-001",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0002",
+        "KT-ACTUAL-UPDATED-0007",
+        "KT-ACTUAL-UPDATED-0008",
+        "KT-ACTUAL-UPDATED-0069",
+        "KT-ACTUAL-UPDATED-0086",
+        "KT-ACTUAL-UPDATED-0087",
+        "KT-ACTUAL-UPDATED-0088",
+        "KT-ACTUAL-UPDATED-0089",
+        "KT-ACTUAL-UPDATED-0090",
+        "KT-ACTUAL-UPDATED-0091",
+        "KT-ACTUAL-UPDATED-0092",
+        "KT-ACTUAL-UPDATED-0093",
+        "KT-ACTUAL-UPDATED-0094",
+        "KT-ACTUAL-UPDATED-0096",
+        "KT-ACTUAL-UPDATED-0098",
+        "KT-ACTUAL-UPDATED-0101",
+        "KT-ACTUAL-UPDATED-0102",
+        "KT-ACTUAL-UPDATED-0115",
+        "KT-ACTUAL-UPDATED-0122",
+        "KT-ACTUAL-UPDATED-0123",
+        "KT-ACTUAL-UPDATED-0124",
+        "KT-ACTUAL-UPDATED-0126",
+        "KT-ACTUAL-UPDATED-0127",
+        "KT-ACTUAL-UPDATED-0128",
+        "KT-ACTUAL-UPDATED-0131",
+        "KT-ACTUAL-UPDATED-0132",
+        "KT-ACTUAL-UPDATED-0133",
+        "KT-ACTUAL-UPDATED-0149",
+        "KT-ACTUAL-UPDATED-0171",
+        "KT-ACTUAL-UPDATED-0181",
+        "KT-ACTUAL-UPDATED-0182",
+        "KT-ACTUAL-UPDATED-0317",
+        "KT-ACTUAL-UPDATED-0318",
+        "KT-ACTUAL-UPDATED-0319",
+        "KT-ACTUAL-UPDATED-0340",
+        "KT-ACTUAL-UPDATED-0364",
+        "KT-ACTUAL-UPDATED-0371",
+        "KT-ACTUAL-UPDATED-0372",
+        "KT-ACTUAL-UPDATED-0373",
+        "KT-ACTUAL-UPDATED-0376",
+        "KT-ACTUAL-UPDATED-0396",
+        "KT-ACTUAL-SHIPPING-0020",
+        "KT-ACTUAL-SHIPPING-0063",
+        "KT-ACTUAL-SHIPPING-0072",
+        "KT-ACTUAL-SHIPPING-0222",
+        "KT-ACTUAL-SHIPPING-0245",
+        "KT-ACTUAL-SHIPPING-0271",
+        "KT-ACTUAL-SHIPPING-0338",
+        "KT-ACTUAL-SHIPPING-0345",
+        "KT-ACTUAL-PRIVACY-0132",
+        "KT-ACTUAL-PRIVACY-0154",
+        "KT-ACTUAL-PRIVACY-0367",
+        "KT-ACTUAL-REFUND-0070",
+        "KT-ACTUAL-REFUND-0135",
+        "KT-ACTUAL-REFUND-0197",
+        "KT-ACTUAL-TERMS-0011",
+        "KT-ACTUAL-TERMS-0024",
+        "KT-ACTUAL-TERMS-0044",
+        "KT-ACTUAL-TERMS-0071",
+        "KT-ACTUAL-TERMS-0076",
+        "KT-ACTUAL-TERMS-0092",
+        "KT-ACTUAL-TERMS-0099"
+      ]
+    },
+    {
+      "requirementId": "ENG-DRIVER-002",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0095",
+        "KT-ACTUAL-UPDATED-0097",
+        "KT-ACTUAL-UPDATED-0099",
+        "KT-ACTUAL-UPDATED-0375"
+      ]
+    },
+    {
+      "requirementId": "ENG-DRIVER-003",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0002"
+      ]
+    },
+    {
+      "requirementId": "ENG-VEHICLE-001",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0103",
+        "KT-ACTUAL-UPDATED-0104",
+        "KT-ACTUAL-UPDATED-0105",
+        "KT-ACTUAL-UPDATED-0106",
+        "KT-ACTUAL-UPDATED-0107",
+        "KT-ACTUAL-UPDATED-0108",
+        "KT-ACTUAL-UPDATED-0112",
+        "KT-ACTUAL-UPDATED-0114",
+        "KT-ACTUAL-UPDATED-0116",
+        "KT-ACTUAL-UPDATED-0117",
+        "KT-ACTUAL-UPDATED-0118",
+        "KT-ACTUAL-UPDATED-0119",
+        "KT-ACTUAL-UPDATED-0120",
+        "KT-ACTUAL-UPDATED-0121",
+        "KT-ACTUAL-UPDATED-0129",
+        "KT-ACTUAL-UPDATED-0350",
+        "KT-ACTUAL-UPDATED-0374"
+      ]
+    },
+    {
+      "requirementId": "ENG-VEHICLE-002",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0109",
+        "KT-ACTUAL-UPDATED-0110",
+        "KT-ACTUAL-UPDATED-0111",
+        "KT-ACTUAL-SHIPPING-0270",
+        "KT-ACTUAL-SHIPPING-0272"
+      ]
+    },
+    {
+      "requirementId": "ENG-VEHICLE-003",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0125"
+      ]
+    },
+    {
+      "requirementId": "ENG-DRIVER-004",
+      "capabilityId": "CAP-DRIVER-VEHICLE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0085",
+        "KT-ACTUAL-SHIPPING-0017",
+        "KT-ACTUAL-SHIPPING-0019",
+        "KT-ACTUAL-SHIPPING-0023",
+        "KT-ACTUAL-SHIPPING-0031",
+        "KT-ACTUAL-SHIPPING-0033",
+        "KT-ACTUAL-SHIPPING-0034",
+        "KT-ACTUAL-SHIPPING-0037",
+        "KT-ACTUAL-SHIPPING-0062",
+        "KT-ACTUAL-SHIPPING-0126",
+        "KT-ACTUAL-SHIPPING-0162",
+        "KT-ACTUAL-SHIPPING-0163",
+        "KT-ACTUAL-SHIPPING-0178",
+        "KT-ACTUAL-SHIPPING-0185",
+        "KT-ACTUAL-SHIPPING-0186",
+        "KT-ACTUAL-SHIPPING-0193",
+        "KT-ACTUAL-SHIPPING-0238",
+        "KT-ACTUAL-SHIPPING-0242",
+        "KT-ACTUAL-SHIPPING-0279",
+        "KT-ACTUAL-SHIPPING-0337",
+        "KT-ACTUAL-PRIVACY-0018",
+        "KT-ACTUAL-PRIVACY-0074",
+        "KT-ACTUAL-PRIVACY-0076",
+        "KT-ACTUAL-PRIVACY-0080",
+        "KT-ACTUAL-PRIVACY-0081",
+        "KT-ACTUAL-PRIVACY-0214",
+        "KT-ACTUAL-PRIVACY-0216",
+        "KT-ACTUAL-PRIVACY-0226",
+        "KT-ACTUAL-PRIVACY-0227",
+        "KT-ACTUAL-PRIVACY-0340"
+      ]
+    },
+    {
+      "requirementId": "ENG-MEDIA-001",
+      "capabilityId": "CAP-PRIVATE-MEDIA",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "provider contract",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0130"
+      ]
+    },
+    {
+      "requirementId": "ENG-MEDIA-002",
+      "capabilityId": "CAP-PRIVATE-MEDIA",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "provider contract",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0002"
+      ]
+    },
+    {
+      "requirementId": "ENG-MEDIA-003",
+      "capabilityId": "CAP-PRIVATE-MEDIA",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "provider contract",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0316",
+        "KT-ACTUAL-PRIVACY-0338"
+      ]
+    },
+    {
+      "requirementId": "ENG-MEDIA-004",
+      "capabilityId": "CAP-PRIVATE-MEDIA",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "provider contract",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0265",
+        "KT-ACTUAL-PRIVACY-0271"
+      ]
+    },
+    {
+      "requirementId": "ENG-PAY-001",
+      "capabilityId": "CAP-PAYMENTS-COD",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0004"
+      ]
+    },
+    {
+      "requirementId": "ENG-PAY-002",
+      "capabilityId": "CAP-PAYMENTS-COD",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0004",
+        "KT-ACTUAL-UPDATED-0221",
+        "KT-ACTUAL-UPDATED-0222",
+        "KT-ACTUAL-UPDATED-0271",
+        "KT-ACTUAL-UPDATED-0288",
+        "KT-ACTUAL-UPDATED-0291",
+        "KT-ACTUAL-UPDATED-0303",
+        "KT-ACTUAL-UPDATED-0305",
+        "KT-ACTUAL-UPDATED-0306",
+        "KT-ACTUAL-UPDATED-0307",
+        "KT-ACTUAL-UPDATED-0308",
+        "KT-ACTUAL-UPDATED-0309",
+        "KT-ACTUAL-UPDATED-0310",
+        "KT-ACTUAL-UPDATED-0312",
+        "KT-ACTUAL-UPDATED-0313",
+        "KT-ACTUAL-UPDATED-0314",
+        "KT-ACTUAL-UPDATED-0315",
+        "KT-ACTUAL-UPDATED-0316",
+        "KT-ACTUAL-UPDATED-0330",
+        "KT-ACTUAL-UPDATED-0356",
+        "KT-ACTUAL-UPDATED-0363",
+        "KT-ACTUAL-SHIPPING-0125",
+        "KT-ACTUAL-REFUND-0130"
+      ]
+    },
+    {
+      "requirementId": "ENG-COD-001",
+      "capabilityId": "CAP-PAYMENTS-COD",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0283",
+        "KT-ACTUAL-UPDATED-0331",
+        "KT-ACTUAL-UPDATED-0338",
+        "KT-ACTUAL-UPDATED-0345",
+        "KT-ACTUAL-UPDATED-0346",
+        "KT-ACTUAL-UPDATED-0347",
+        "KT-ACTUAL-UPDATED-0349",
+        "KT-ACTUAL-UPDATED-0395",
+        "KT-ACTUAL-SHIPPING-0219"
+      ]
+    },
+    {
+      "requirementId": "ENG-COD-002",
+      "capabilityId": "CAP-PAYMENTS-COD",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0055",
+        "KT-ACTUAL-SHIPPING-0171",
+        "KT-ACTUAL-SHIPPING-0273",
+        "KT-ACTUAL-SHIPPING-0274",
+        "KT-ACTUAL-SHIPPING-0312"
+      ]
+    },
+    {
+      "requirementId": "ENG-COD-003",
+      "capabilityId": "CAP-PAYMENTS-COD",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0004"
+      ]
+    },
+    {
+      "requirementId": "ENG-PAY-003",
+      "capabilityId": "CAP-PAYMENTS-COD",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0390",
+        "KT-ACTUAL-UPDATED-0393",
+        "KT-ACTUAL-PRIVACY-0128",
+        "KT-ACTUAL-PRIVACY-0131",
+        "KT-ACTUAL-PRIVACY-0148",
+        "KT-ACTUAL-REFUND-0004",
+        "KT-ACTUAL-REFUND-0020",
+        "KT-ACTUAL-REFUND-0134",
+        "KT-ACTUAL-REFUND-0136",
+        "KT-ACTUAL-REFUND-0157",
+        "KT-ACTUAL-REFUND-0158",
+        "KT-ACTUAL-REFUND-0160",
+        "KT-ACTUAL-REFUND-0168",
+        "KT-ACTUAL-REFUND-0195",
+        "KT-ACTUAL-TERMS-0057"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-001",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0030",
+        "KT-ACTUAL-SHIPPING-0209",
+        "KT-ACTUAL-SHIPPING-0282",
+        "KT-ACTUAL-SHIPPING-0283",
+        "KT-ACTUAL-SHIPPING-0307",
+        "KT-ACTUAL-SHIPPING-0314",
+        "KT-ACTUAL-SHIPPING-0316",
+        "KT-ACTUAL-SHIPPING-0317",
+        "KT-ACTUAL-REFUND-0015",
+        "KT-ACTUAL-REFUND-0024",
+        "KT-ACTUAL-REFUND-0029",
+        "KT-ACTUAL-REFUND-0031",
+        "KT-ACTUAL-REFUND-0038",
+        "KT-ACTUAL-REFUND-0056",
+        "KT-ACTUAL-REFUND-0075",
+        "KT-ACTUAL-REFUND-0089",
+        "KT-ACTUAL-REFUND-0094",
+        "KT-ACTUAL-REFUND-0111",
+        "KT-ACTUAL-REFUND-0143",
+        "KT-ACTUAL-REFUND-0146",
+        "KT-ACTUAL-REFUND-0147",
+        "KT-ACTUAL-REFUND-0149",
+        "KT-ACTUAL-REFUND-0152",
+        "KT-ACTUAL-REFUND-0174",
+        "KT-ACTUAL-REFUND-0175",
+        "KT-ACTUAL-REFUND-0189",
+        "KT-ACTUAL-REFUND-0191",
+        "KT-ACTUAL-REFUND-0202",
+        "KT-ACTUAL-REFUND-0213"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-002",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0319",
+        "KT-ACTUAL-SHIPPING-0320",
+        "KT-ACTUAL-REFUND-0037"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-003",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0138",
+        "KT-ACTUAL-UPDATED-0139",
+        "KT-ACTUAL-UPDATED-0140",
+        "KT-ACTUAL-UPDATED-0141",
+        "KT-ACTUAL-UPDATED-0143",
+        "KT-ACTUAL-SHIPPING-0002",
+        "KT-ACTUAL-SHIPPING-0003",
+        "KT-ACTUAL-SHIPPING-0021",
+        "KT-ACTUAL-SHIPPING-0046",
+        "KT-ACTUAL-SHIPPING-0047",
+        "KT-ACTUAL-SHIPPING-0052",
+        "KT-ACTUAL-SHIPPING-0082",
+        "KT-ACTUAL-SHIPPING-0172",
+        "KT-ACTUAL-SHIPPING-0174",
+        "KT-ACTUAL-SHIPPING-0196",
+        "KT-ACTUAL-SHIPPING-0201",
+        "KT-ACTUAL-SHIPPING-0261",
+        "KT-ACTUAL-SHIPPING-0297",
+        "KT-ACTUAL-SHIPPING-0304",
+        "KT-ACTUAL-SHIPPING-0315",
+        "KT-ACTUAL-SHIPPING-0321",
+        "KT-ACTUAL-SHIPPING-0322",
+        "KT-ACTUAL-PRIVACY-0006",
+        "KT-ACTUAL-PRIVACY-0048",
+        "KT-ACTUAL-PRIVACY-0053",
+        "KT-ACTUAL-PRIVACY-0079",
+        "KT-ACTUAL-PRIVACY-0168",
+        "KT-ACTUAL-PRIVACY-0225",
+        "KT-ACTUAL-REFUND-0017",
+        "KT-ACTUAL-REFUND-0046",
+        "KT-ACTUAL-REFUND-0057",
+        "KT-ACTUAL-REFUND-0062",
+        "KT-ACTUAL-REFUND-0073",
+        "KT-ACTUAL-REFUND-0076",
+        "KT-ACTUAL-REFUND-0088",
+        "KT-ACTUAL-REFUND-0100",
+        "KT-ACTUAL-REFUND-0109",
+        "KT-ACTUAL-REFUND-0148",
+        "KT-ACTUAL-REFUND-0151",
+        "KT-ACTUAL-REFUND-0186",
+        "KT-ACTUAL-REFUND-0198",
+        "KT-ACTUAL-TERMS-0063"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-004",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0341",
+        "KT-ACTUAL-SHIPPING-0342",
+        "KT-ACTUAL-PRIVACY-0003",
+        "KT-ACTUAL-PRIVACY-0005",
+        "KT-ACTUAL-PRIVACY-0356",
+        "KT-ACTUAL-PRIVACY-0365",
+        "KT-ACTUAL-PRIVACY-0368",
+        "KT-ACTUAL-PRIVACY-0369",
+        "KT-ACTUAL-REFUND-0005",
+        "KT-ACTUAL-REFUND-0123",
+        "KT-ACTUAL-REFUND-0206",
+        "KT-ACTUAL-REFUND-0207",
+        "KT-ACTUAL-REFUND-0218",
+        "KT-ACTUAL-REFUND-0219"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-005",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-REFUND-0042",
+        "KT-ACTUAL-REFUND-0044",
+        "KT-ACTUAL-REFUND-0048",
+        "KT-ACTUAL-REFUND-0095",
+        "KT-ACTUAL-REFUND-0204"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-006",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0323",
+        "KT-ACTUAL-PRIVACY-0072",
+        "KT-ACTUAL-REFUND-0006",
+        "KT-ACTUAL-REFUND-0018",
+        "KT-ACTUAL-REFUND-0041",
+        "KT-ACTUAL-REFUND-0059",
+        "KT-ACTUAL-REFUND-0071",
+        "KT-ACTUAL-REFUND-0108",
+        "KT-ACTUAL-REFUND-0112",
+        "KT-ACTUAL-REFUND-0116",
+        "KT-ACTUAL-REFUND-0117",
+        "KT-ACTUAL-REFUND-0121",
+        "KT-ACTUAL-REFUND-0127",
+        "KT-ACTUAL-REFUND-0128",
+        "KT-ACTUAL-REFUND-0137",
+        "KT-ACTUAL-REFUND-0156",
+        "KT-ACTUAL-REFUND-0167",
+        "KT-ACTUAL-REFUND-0215"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-007",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0022",
+        "KT-ACTUAL-SHIPPING-0025",
+        "KT-ACTUAL-SHIPPING-0058",
+        "KT-ACTUAL-SHIPPING-0067",
+        "KT-ACTUAL-SHIPPING-0073",
+        "KT-ACTUAL-SHIPPING-0075",
+        "KT-ACTUAL-SHIPPING-0227",
+        "KT-ACTUAL-SHIPPING-0318",
+        "KT-ACTUAL-SHIPPING-0343",
+        "KT-ACTUAL-PRIVACY-0016",
+        "KT-ACTUAL-PRIVACY-0047",
+        "KT-ACTUAL-PRIVACY-0064",
+        "KT-ACTUAL-PRIVACY-0122",
+        "KT-ACTUAL-PRIVACY-0129",
+        "KT-ACTUAL-PRIVACY-0158",
+        "KT-ACTUAL-REFUND-0002",
+        "KT-ACTUAL-REFUND-0003",
+        "KT-ACTUAL-REFUND-0019",
+        "KT-ACTUAL-REFUND-0022",
+        "KT-ACTUAL-REFUND-0060",
+        "KT-ACTUAL-REFUND-0067",
+        "KT-ACTUAL-REFUND-0069",
+        "KT-ACTUAL-REFUND-0087",
+        "KT-ACTUAL-REFUND-0091",
+        "KT-ACTUAL-REFUND-0092",
+        "KT-ACTUAL-REFUND-0119",
+        "KT-ACTUAL-REFUND-0150",
+        "KT-ACTUAL-REFUND-0159",
+        "KT-ACTUAL-REFUND-0161",
+        "KT-ACTUAL-REFUND-0163",
+        "KT-ACTUAL-REFUND-0173",
+        "KT-ACTUAL-REFUND-0177",
+        "KT-ACTUAL-REFUND-0178",
+        "KT-ACTUAL-REFUND-0210",
+        "KT-ACTUAL-TERMS-0008",
+        "KT-ACTUAL-TERMS-0012",
+        "KT-ACTUAL-TERMS-0013",
+        "KT-ACTUAL-TERMS-0037",
+        "KT-ACTUAL-TERMS-0041",
+        "KT-ACTUAL-TERMS-0042",
+        "KT-ACTUAL-TERMS-0078"
+      ]
+    },
+    {
+      "requirementId": "ENG-CLAIM-008",
+      "capabilityId": "CAP-CLAIMS-REMEDIES",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-REFUND-0187"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-001",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0136",
+        "KT-ACTUAL-UPDATED-0144",
+        "KT-ACTUAL-UPDATED-0147",
+        "KT-ACTUAL-UPDATED-0150",
+        "KT-ACTUAL-UPDATED-0151",
+        "KT-ACTUAL-UPDATED-0165",
+        "KT-ACTUAL-UPDATED-0166",
+        "KT-ACTUAL-UPDATED-0172",
+        "KT-ACTUAL-UPDATED-0177",
+        "KT-ACTUAL-UPDATED-0270",
+        "KT-ACTUAL-UPDATED-0322",
+        "KT-ACTUAL-UPDATED-0341",
+        "KT-ACTUAL-UPDATED-0342",
+        "KT-ACTUAL-UPDATED-0377",
+        "KT-ACTUAL-UPDATED-0378"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-002",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0137",
+        "KT-ACTUAL-UPDATED-0142",
+        "KT-ACTUAL-UPDATED-0146",
+        "KT-ACTUAL-UPDATED-0158",
+        "KT-ACTUAL-UPDATED-0164",
+        "KT-ACTUAL-UPDATED-0167",
+        "KT-ACTUAL-UPDATED-0176",
+        "KT-ACTUAL-UPDATED-0379"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-003",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0152",
+        "KT-ACTUAL-UPDATED-0153",
+        "KT-ACTUAL-UPDATED-0154",
+        "KT-ACTUAL-UPDATED-0168",
+        "KT-ACTUAL-UPDATED-0323"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-004",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0148",
+        "KT-ACTUAL-UPDATED-0156",
+        "KT-ACTUAL-UPDATED-0157",
+        "KT-ACTUAL-UPDATED-0169",
+        "KT-ACTUAL-UPDATED-0174"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-005",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0159",
+        "KT-ACTUAL-UPDATED-0163",
+        "KT-ACTUAL-UPDATED-0175"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-006",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0160",
+        "KT-ACTUAL-UPDATED-0161",
+        "KT-ACTUAL-UPDATED-0162",
+        "KT-ACTUAL-UPDATED-0170",
+        "KT-ACTUAL-UPDATED-0180",
+        "KT-ACTUAL-UPDATED-0325"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-007",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0178",
+        "KT-ACTUAL-UPDATED-0179"
+      ]
+    },
+    {
+      "requirementId": "ENG-PROM-008",
+      "capabilityId": "CAP-PROMOTER",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "concurrency",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0145"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-001",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0183",
+        "KT-ACTUAL-UPDATED-0184",
+        "KT-ACTUAL-UPDATED-0195",
+        "KT-ACTUAL-UPDATED-0196",
+        "KT-ACTUAL-UPDATED-0198",
+        "KT-ACTUAL-UPDATED-0204",
+        "KT-ACTUAL-UPDATED-0206",
+        "KT-ACTUAL-UPDATED-0220",
+        "KT-ACTUAL-UPDATED-0223",
+        "KT-ACTUAL-UPDATED-0224",
+        "KT-ACTUAL-UPDATED-0225",
+        "KT-ACTUAL-UPDATED-0227",
+        "KT-ACTUAL-UPDATED-0232",
+        "KT-ACTUAL-UPDATED-0233",
+        "KT-ACTUAL-UPDATED-0234",
+        "KT-ACTUAL-UPDATED-0235",
+        "KT-ACTUAL-UPDATED-0236",
+        "KT-ACTUAL-UPDATED-0237",
+        "KT-ACTUAL-UPDATED-0238",
+        "KT-ACTUAL-UPDATED-0239",
+        "KT-ACTUAL-UPDATED-0244",
+        "KT-ACTUAL-UPDATED-0245",
+        "KT-ACTUAL-UPDATED-0246",
+        "KT-ACTUAL-UPDATED-0248",
+        "KT-ACTUAL-UPDATED-0252",
+        "KT-ACTUAL-UPDATED-0253",
+        "KT-ACTUAL-UPDATED-0255",
+        "KT-ACTUAL-UPDATED-0256",
+        "KT-ACTUAL-UPDATED-0257",
+        "KT-ACTUAL-UPDATED-0259",
+        "KT-ACTUAL-UPDATED-0261",
+        "KT-ACTUAL-UPDATED-0262",
+        "KT-ACTUAL-UPDATED-0263",
+        "KT-ACTUAL-UPDATED-0264",
+        "KT-ACTUAL-UPDATED-0327",
+        "KT-ACTUAL-UPDATED-0328",
+        "KT-ACTUAL-UPDATED-0329",
+        "KT-ACTUAL-UPDATED-0343",
+        "KT-ACTUAL-UPDATED-0344",
+        "KT-ACTUAL-UPDATED-0348",
+        "KT-ACTUAL-UPDATED-0384",
+        "KT-ACTUAL-UPDATED-0385",
+        "KT-ACTUAL-UPDATED-0386",
+        "KT-ACTUAL-UPDATED-0387",
+        "KT-ACTUAL-UPDATED-0389"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-002",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0250"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-003",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0185",
+        "KT-ACTUAL-UPDATED-0186",
+        "KT-ACTUAL-UPDATED-0187",
+        "KT-ACTUAL-UPDATED-0190",
+        "KT-ACTUAL-UPDATED-0191",
+        "KT-ACTUAL-UPDATED-0192",
+        "KT-ACTUAL-UPDATED-0193",
+        "KT-ACTUAL-UPDATED-0194",
+        "KT-ACTUAL-UPDATED-0199",
+        "KT-ACTUAL-UPDATED-0200",
+        "KT-ACTUAL-UPDATED-0201",
+        "KT-ACTUAL-UPDATED-0202",
+        "KT-ACTUAL-UPDATED-0203",
+        "KT-ACTUAL-UPDATED-0228",
+        "KT-ACTUAL-UPDATED-0229",
+        "KT-ACTUAL-UPDATED-0230",
+        "KT-ACTUAL-UPDATED-0231",
+        "KT-ACTUAL-UPDATED-0247",
+        "KT-ACTUAL-UPDATED-0251",
+        "KT-ACTUAL-UPDATED-0260",
+        "KT-ACTUAL-UPDATED-0388"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-004",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0226",
+        "KT-ACTUAL-UPDATED-0240",
+        "KT-ACTUAL-UPDATED-0241",
+        "KT-ACTUAL-UPDATED-0242",
+        "KT-ACTUAL-UPDATED-0243",
+        "KT-ACTUAL-UPDATED-0249",
+        "KT-ACTUAL-UPDATED-0277"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-005",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0254"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-006",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0265"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-007",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0258"
+      ]
+    },
+    {
+      "requirementId": "ENG-ADS-008",
+      "capabilityId": "CAP-ADVERTISING",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "provider contract",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0183"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-001",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0019",
+        "KT-ACTUAL-PRIVACY-0115",
+        "KT-ACTUAL-PRIVACY-0137",
+        "KT-ACTUAL-PRIVACY-0142",
+        "KT-ACTUAL-PRIVACY-0174",
+        "KT-ACTUAL-PRIVACY-0213",
+        "KT-ACTUAL-PRIVACY-0232",
+        "KT-ACTUAL-PRIVACY-0237",
+        "KT-ACTUAL-PRIVACY-0243",
+        "KT-ACTUAL-PRIVACY-0266",
+        "KT-ACTUAL-PRIVACY-0282",
+        "KT-ACTUAL-PRIVACY-0290",
+        "KT-ACTUAL-PRIVACY-0291",
+        "KT-ACTUAL-PRIVACY-0293",
+        "KT-ACTUAL-PRIVACY-0306",
+        "KT-ACTUAL-PRIVACY-0307",
+        "KT-ACTUAL-PRIVACY-0309",
+        "KT-ACTUAL-PRIVACY-0346",
+        "KT-ACTUAL-PRIVACY-0348",
+        "KT-ACTUAL-PRIVACY-0355",
+        "KT-ACTUAL-PRIVACY-0360",
+        "KT-ACTUAL-PRIVACY-0362"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-002",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-TERMS-0003",
+        "KT-ACTUAL-TERMS-0004",
+        "KT-ACTUAL-TERMS-0020",
+        "KT-ACTUAL-TERMS-0104"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-003",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0164",
+        "KT-ACTUAL-PRIVACY-0276",
+        "KT-ACTUAL-PRIVACY-0311",
+        "KT-ACTUAL-PRIVACY-0325",
+        "KT-ACTUAL-TERMS-0068"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-004",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0112",
+        "KT-ACTUAL-PRIVACY-0228",
+        "KT-ACTUAL-PRIVACY-0239",
+        "KT-ACTUAL-PRIVACY-0240",
+        "KT-ACTUAL-PRIVACY-0241"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-005",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0175",
+        "KT-ACTUAL-PRIVACY-0272",
+        "KT-ACTUAL-PRIVACY-0284",
+        "KT-ACTUAL-PRIVACY-0288",
+        "KT-ACTUAL-PRIVACY-0327"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-006",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0002"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-007",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0082"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-008",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0002",
+        "KT-ACTUAL-PRIVACY-0004",
+        "KT-ACTUAL-PRIVACY-0150",
+        "KT-ACTUAL-PRIVACY-0238",
+        "KT-ACTUAL-PRIVACY-0253",
+        "KT-ACTUAL-PRIVACY-0255",
+        "KT-ACTUAL-PRIVACY-0283",
+        "KT-ACTUAL-PRIVACY-0295",
+        "KT-ACTUAL-PRIVACY-0302",
+        "KT-ACTUAL-PRIVACY-0326",
+        "KT-ACTUAL-PRIVACY-0343",
+        "KT-ACTUAL-PRIVACY-0353",
+        "KT-ACTUAL-TERMS-0069"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-009",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0020",
+        "KT-ACTUAL-PRIVACY-0133",
+        "KT-ACTUAL-PRIVACY-0181",
+        "KT-ACTUAL-PRIVACY-0210",
+        "KT-ACTUAL-PRIVACY-0242",
+        "KT-ACTUAL-PRIVACY-0244"
+      ]
+    },
+    {
+      "requirementId": "ENG-PRIV-010",
+      "capabilityId": "CAP-PRIVACY-COMPLIANCE",
+      "priority": "P0",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0100",
+        "KT-ACTUAL-PRIVACY-0179",
+        "KT-ACTUAL-TERMS-0082"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-001",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0012",
+        "KT-ACTUAL-UPDATED-0039",
+        "KT-ACTUAL-UPDATED-0046",
+        "KT-ACTUAL-UPDATED-0047",
+        "KT-ACTUAL-UPDATED-0048",
+        "KT-ACTUAL-UPDATED-0049",
+        "KT-ACTUAL-UPDATED-0050",
+        "KT-ACTUAL-UPDATED-0051",
+        "KT-ACTUAL-UPDATED-0052",
+        "KT-ACTUAL-UPDATED-0053",
+        "KT-ACTUAL-UPDATED-0054",
+        "KT-ACTUAL-UPDATED-0055",
+        "KT-ACTUAL-UPDATED-0058",
+        "KT-ACTUAL-UPDATED-0059",
+        "KT-ACTUAL-UPDATED-0060",
+        "KT-ACTUAL-UPDATED-0062",
+        "KT-ACTUAL-UPDATED-0063",
+        "KT-ACTUAL-UPDATED-0065",
+        "KT-ACTUAL-UPDATED-0066",
+        "KT-ACTUAL-UPDATED-0067",
+        "KT-ACTUAL-UPDATED-0135",
+        "KT-ACTUAL-UPDATED-0155",
+        "KT-ACTUAL-UPDATED-0173",
+        "KT-ACTUAL-UPDATED-0282",
+        "KT-ACTUAL-UPDATED-0289",
+        "KT-ACTUAL-UPDATED-0293",
+        "KT-ACTUAL-UPDATED-0324",
+        "KT-ACTUAL-UPDATED-0332",
+        "KT-ACTUAL-UPDATED-0334",
+        "KT-ACTUAL-UPDATED-0357",
+        "KT-ACTUAL-SHIPPING-0005",
+        "KT-ACTUAL-SHIPPING-0006",
+        "KT-ACTUAL-SHIPPING-0007",
+        "KT-ACTUAL-SHIPPING-0008",
+        "KT-ACTUAL-SHIPPING-0009",
+        "KT-ACTUAL-SHIPPING-0010",
+        "KT-ACTUAL-SHIPPING-0011",
+        "KT-ACTUAL-SHIPPING-0012",
+        "KT-ACTUAL-SHIPPING-0018",
+        "KT-ACTUAL-SHIPPING-0026",
+        "KT-ACTUAL-SHIPPING-0028",
+        "KT-ACTUAL-SHIPPING-0029",
+        "KT-ACTUAL-SHIPPING-0044",
+        "KT-ACTUAL-SHIPPING-0048",
+        "KT-ACTUAL-SHIPPING-0049",
+        "KT-ACTUAL-SHIPPING-0050",
+        "KT-ACTUAL-SHIPPING-0057",
+        "KT-ACTUAL-SHIPPING-0070",
+        "KT-ACTUAL-SHIPPING-0080",
+        "KT-ACTUAL-SHIPPING-0081",
+        "KT-ACTUAL-SHIPPING-0083",
+        "KT-ACTUAL-SHIPPING-0084",
+        "KT-ACTUAL-SHIPPING-0085",
+        "KT-ACTUAL-SHIPPING-0087",
+        "KT-ACTUAL-SHIPPING-0088",
+        "KT-ACTUAL-SHIPPING-0089",
+        "KT-ACTUAL-SHIPPING-0090",
+        "KT-ACTUAL-SHIPPING-0091",
+        "KT-ACTUAL-SHIPPING-0092",
+        "KT-ACTUAL-SHIPPING-0096",
+        "KT-ACTUAL-SHIPPING-0098",
+        "KT-ACTUAL-SHIPPING-0102",
+        "KT-ACTUAL-SHIPPING-0103",
+        "KT-ACTUAL-SHIPPING-0104",
+        "KT-ACTUAL-SHIPPING-0109",
+        "KT-ACTUAL-SHIPPING-0110",
+        "KT-ACTUAL-SHIPPING-0112",
+        "KT-ACTUAL-SHIPPING-0113",
+        "KT-ACTUAL-SHIPPING-0116",
+        "KT-ACTUAL-SHIPPING-0117",
+        "KT-ACTUAL-SHIPPING-0118",
+        "KT-ACTUAL-SHIPPING-0119",
+        "KT-ACTUAL-SHIPPING-0121",
+        "KT-ACTUAL-SHIPPING-0122",
+        "KT-ACTUAL-SHIPPING-0123",
+        "KT-ACTUAL-SHIPPING-0127",
+        "KT-ACTUAL-SHIPPING-0128",
+        "KT-ACTUAL-SHIPPING-0129",
+        "KT-ACTUAL-SHIPPING-0130",
+        "KT-ACTUAL-SHIPPING-0131",
+        "KT-ACTUAL-SHIPPING-0132",
+        "KT-ACTUAL-SHIPPING-0133",
+        "KT-ACTUAL-SHIPPING-0136",
+        "KT-ACTUAL-SHIPPING-0137",
+        "KT-ACTUAL-SHIPPING-0139",
+        "KT-ACTUAL-SHIPPING-0140",
+        "KT-ACTUAL-SHIPPING-0141",
+        "KT-ACTUAL-SHIPPING-0142",
+        "KT-ACTUAL-SHIPPING-0143",
+        "KT-ACTUAL-SHIPPING-0146",
+        "KT-ACTUAL-SHIPPING-0150",
+        "KT-ACTUAL-SHIPPING-0151",
+        "KT-ACTUAL-SHIPPING-0152",
+        "KT-ACTUAL-SHIPPING-0154",
+        "KT-ACTUAL-SHIPPING-0157",
+        "KT-ACTUAL-SHIPPING-0158",
+        "KT-ACTUAL-SHIPPING-0159",
+        "KT-ACTUAL-SHIPPING-0160",
+        "KT-ACTUAL-SHIPPING-0161",
+        "KT-ACTUAL-SHIPPING-0164",
+        "KT-ACTUAL-SHIPPING-0165",
+        "KT-ACTUAL-SHIPPING-0167",
+        "KT-ACTUAL-SHIPPING-0170",
+        "KT-ACTUAL-SHIPPING-0173",
+        "KT-ACTUAL-SHIPPING-0176",
+        "KT-ACTUAL-SHIPPING-0177",
+        "KT-ACTUAL-SHIPPING-0179",
+        "KT-ACTUAL-SHIPPING-0180",
+        "KT-ACTUAL-SHIPPING-0181",
+        "KT-ACTUAL-SHIPPING-0182",
+        "KT-ACTUAL-SHIPPING-0184",
+        "KT-ACTUAL-SHIPPING-0187",
+        "KT-ACTUAL-SHIPPING-0188",
+        "KT-ACTUAL-SHIPPING-0190",
+        "KT-ACTUAL-SHIPPING-0197",
+        "KT-ACTUAL-SHIPPING-0198",
+        "KT-ACTUAL-SHIPPING-0199",
+        "KT-ACTUAL-SHIPPING-0200",
+        "KT-ACTUAL-SHIPPING-0202",
+        "KT-ACTUAL-SHIPPING-0203",
+        "KT-ACTUAL-SHIPPING-0204",
+        "KT-ACTUAL-SHIPPING-0205",
+        "KT-ACTUAL-SHIPPING-0206",
+        "KT-ACTUAL-SHIPPING-0207",
+        "KT-ACTUAL-SHIPPING-0208",
+        "KT-ACTUAL-SHIPPING-0210",
+        "KT-ACTUAL-SHIPPING-0212",
+        "KT-ACTUAL-SHIPPING-0213",
+        "KT-ACTUAL-SHIPPING-0214",
+        "KT-ACTUAL-SHIPPING-0215",
+        "KT-ACTUAL-SHIPPING-0216",
+        "KT-ACTUAL-SHIPPING-0217",
+        "KT-ACTUAL-SHIPPING-0218",
+        "KT-ACTUAL-SHIPPING-0220",
+        "KT-ACTUAL-SHIPPING-0221",
+        "KT-ACTUAL-SHIPPING-0223",
+        "KT-ACTUAL-SHIPPING-0224",
+        "KT-ACTUAL-SHIPPING-0225",
+        "KT-ACTUAL-SHIPPING-0229",
+        "KT-ACTUAL-SHIPPING-0231",
+        "KT-ACTUAL-SHIPPING-0232",
+        "KT-ACTUAL-SHIPPING-0233",
+        "KT-ACTUAL-SHIPPING-0234",
+        "KT-ACTUAL-SHIPPING-0235",
+        "KT-ACTUAL-SHIPPING-0236",
+        "KT-ACTUAL-SHIPPING-0237",
+        "KT-ACTUAL-SHIPPING-0239",
+        "KT-ACTUAL-SHIPPING-0240",
+        "KT-ACTUAL-SHIPPING-0241",
+        "KT-ACTUAL-SHIPPING-0243",
+        "KT-ACTUAL-SHIPPING-0249",
+        "KT-ACTUAL-SHIPPING-0250",
+        "KT-ACTUAL-SHIPPING-0251",
+        "KT-ACTUAL-SHIPPING-0253",
+        "KT-ACTUAL-SHIPPING-0254",
+        "KT-ACTUAL-SHIPPING-0255",
+        "KT-ACTUAL-SHIPPING-0256",
+        "KT-ACTUAL-SHIPPING-0257",
+        "KT-ACTUAL-SHIPPING-0259",
+        "KT-ACTUAL-SHIPPING-0263",
+        "KT-ACTUAL-SHIPPING-0264",
+        "KT-ACTUAL-SHIPPING-0265",
+        "KT-ACTUAL-SHIPPING-0266",
+        "KT-ACTUAL-SHIPPING-0277",
+        "KT-ACTUAL-SHIPPING-0280",
+        "KT-ACTUAL-SHIPPING-0281",
+        "KT-ACTUAL-SHIPPING-0284",
+        "KT-ACTUAL-SHIPPING-0285",
+        "KT-ACTUAL-SHIPPING-0286",
+        "KT-ACTUAL-SHIPPING-0287",
+        "KT-ACTUAL-SHIPPING-0288",
+        "KT-ACTUAL-SHIPPING-0289",
+        "KT-ACTUAL-SHIPPING-0290",
+        "KT-ACTUAL-SHIPPING-0291",
+        "KT-ACTUAL-SHIPPING-0292",
+        "KT-ACTUAL-SHIPPING-0293",
+        "KT-ACTUAL-SHIPPING-0294",
+        "KT-ACTUAL-SHIPPING-0295",
+        "KT-ACTUAL-SHIPPING-0296",
+        "KT-ACTUAL-SHIPPING-0298",
+        "KT-ACTUAL-SHIPPING-0300",
+        "KT-ACTUAL-SHIPPING-0303",
+        "KT-ACTUAL-SHIPPING-0305",
+        "KT-ACTUAL-SHIPPING-0306",
+        "KT-ACTUAL-SHIPPING-0308",
+        "KT-ACTUAL-SHIPPING-0309",
+        "KT-ACTUAL-SHIPPING-0311",
+        "KT-ACTUAL-SHIPPING-0313",
+        "KT-ACTUAL-SHIPPING-0325",
+        "KT-ACTUAL-SHIPPING-0327",
+        "KT-ACTUAL-SHIPPING-0329",
+        "KT-ACTUAL-SHIPPING-0330",
+        "KT-ACTUAL-SHIPPING-0332",
+        "KT-ACTUAL-SHIPPING-0333",
+        "KT-ACTUAL-SHIPPING-0334",
+        "KT-ACTUAL-SHIPPING-0335",
+        "KT-ACTUAL-SHIPPING-0336",
+        "KT-ACTUAL-SHIPPING-0339",
+        "KT-ACTUAL-PRIVACY-0015",
+        "KT-ACTUAL-PRIVACY-0027",
+        "KT-ACTUAL-PRIVACY-0056",
+        "KT-ACTUAL-PRIVACY-0061",
+        "KT-ACTUAL-PRIVACY-0067",
+        "KT-ACTUAL-PRIVACY-0109",
+        "KT-ACTUAL-PRIVACY-0114",
+        "KT-ACTUAL-PRIVACY-0130",
+        "KT-ACTUAL-PRIVACY-0136",
+        "KT-ACTUAL-PRIVACY-0160",
+        "KT-ACTUAL-PRIVACY-0186",
+        "KT-ACTUAL-PRIVACY-0188",
+        "KT-ACTUAL-PRIVACY-0192",
+        "KT-ACTUAL-PRIVACY-0195",
+        "KT-ACTUAL-PRIVACY-0219",
+        "KT-ACTUAL-PRIVACY-0220",
+        "KT-ACTUAL-PRIVACY-0223",
+        "KT-ACTUAL-PRIVACY-0224",
+        "KT-ACTUAL-REFUND-0072",
+        "KT-ACTUAL-REFUND-0074",
+        "KT-ACTUAL-REFUND-0082",
+        "KT-ACTUAL-REFUND-0106",
+        "KT-ACTUAL-REFUND-0113",
+        "KT-ACTUAL-REFUND-0115",
+        "KT-ACTUAL-REFUND-0182",
+        "KT-ACTUAL-REFUND-0185",
+        "KT-ACTUAL-REFUND-0212",
+        "KT-ACTUAL-TERMS-0007",
+        "KT-ACTUAL-TERMS-0010",
+        "KT-ACTUAL-TERMS-0028",
+        "KT-ACTUAL-TERMS-0034",
+        "KT-ACTUAL-TERMS-0051",
+        "KT-ACTUAL-TERMS-0052",
+        "KT-ACTUAL-TERMS-0053",
+        "KT-ACTUAL-TERMS-0054"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-002",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0027",
+        "KT-ACTUAL-SHIPPING-0051",
+        "KT-ACTUAL-SHIPPING-0053",
+        "KT-ACTUAL-SHIPPING-0124",
+        "KT-ACTUAL-SHIPPING-0153",
+        "KT-ACTUAL-SHIPPING-0168",
+        "KT-ACTUAL-SHIPPING-0169",
+        "KT-ACTUAL-SHIPPING-0175",
+        "KT-ACTUAL-SHIPPING-0183",
+        "KT-ACTUAL-SHIPPING-0189",
+        "KT-ACTUAL-SHIPPING-0192",
+        "KT-ACTUAL-SHIPPING-0244"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-003",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0015",
+        "KT-ACTUAL-SHIPPING-0024",
+        "KT-ACTUAL-SHIPPING-0040",
+        "KT-ACTUAL-SHIPPING-0043",
+        "KT-ACTUAL-SHIPPING-0054",
+        "KT-ACTUAL-SHIPPING-0074",
+        "KT-ACTUAL-SHIPPING-0191",
+        "KT-ACTUAL-SHIPPING-0194",
+        "KT-ACTUAL-SHIPPING-0195",
+        "KT-ACTUAL-SHIPPING-0331",
+        "KT-ACTUAL-REFUND-0096",
+        "KT-ACTUAL-REFUND-0097"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-004",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0275",
+        "KT-ACTUAL-SHIPPING-0276",
+        "KT-ACTUAL-SHIPPING-0278",
+        "KT-ACTUAL-PRIVACY-0066"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-005",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0228",
+        "KT-ACTUAL-SHIPPING-0246"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-006",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0147",
+        "KT-ACTUAL-SHIPPING-0148",
+        "KT-ACTUAL-SHIPPING-0247",
+        "KT-ACTUAL-SHIPPING-0248",
+        "KT-ACTUAL-SHIPPING-0258",
+        "KT-ACTUAL-SHIPPING-0262",
+        "KT-ACTUAL-SHIPPING-0268",
+        "KT-ACTUAL-SHIPPING-0269",
+        "KT-ACTUAL-SHIPPING-0301",
+        "KT-ACTUAL-REFUND-0083",
+        "KT-ACTUAL-REFUND-0205",
+        "KT-ACTUAL-TERMS-0084"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-007",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-UPDATED-0010"
+      ]
+    },
+    {
+      "requirementId": "ENG-SHIP-008",
+      "capabilityId": "CAP-SHIPPING-OPERATIONS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "real PostgreSQL",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0071",
+        "KT-ACTUAL-SHIPPING-0252",
+        "KT-ACTUAL-SHIPPING-0310",
+        "KT-ACTUAL-PRIVACY-0060",
+        "KT-ACTUAL-PRIVACY-0196",
+        "KT-ACTUAL-REFUND-0199",
+        "KT-ACTUAL-TERMS-0009",
+        "KT-ACTUAL-TERMS-0014",
+        "KT-ACTUAL-TERMS-0045",
+        "KT-ACTUAL-TERMS-0047",
+        "KT-ACTUAL-TERMS-0050"
+      ]
+    },
+    {
+      "requirementId": "ENG-POLICY-001",
+      "capabilityId": "CAP-POLICY-CONTROLS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-SHIPPING-0001",
+        "KT-ACTUAL-SHIPPING-0004",
+        "KT-ACTUAL-SHIPPING-0340",
+        "KT-ACTUAL-SHIPPING-0344",
+        "KT-ACTUAL-PRIVACY-0364",
+        "KT-ACTUAL-TERMS-0015",
+        "KT-ACTUAL-TERMS-0019",
+        "KT-ACTUAL-TERMS-0025",
+        "KT-ACTUAL-TERMS-0073",
+        "KT-ACTUAL-TERMS-0088"
+      ]
+    },
+    {
+      "requirementId": "ENG-POLICY-002",
+      "capabilityId": "CAP-POLICY-CONTROLS",
+      "priority": "P1",
+      "proofTypes": [
+        "static",
+        "security",
+        "E2E"
+      ],
+      "acceptance": "Static, service, database, concurrency, and browser proof as applicable to the capability.",
+      "sourceAtomIds": [
+        "KT-ACTUAL-PRIVACY-0211",
+        "KT-ACTUAL-PRIVACY-0277",
+        "KT-ACTUAL-PRIVACY-0278",
+        "KT-ACTUAL-PRIVACY-0289",
+        "KT-ACTUAL-PRIVACY-0354",
+        "KT-ACTUAL-TERMS-0070"
+      ]
+    }
+  ],
+  "p0p1RequirementCount": 74,
+  "p0p1CoverageComplete": true
+}

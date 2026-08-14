@@ -31,6 +31,18 @@ describe("Phase B claims/remedies source contract", () => {
     expect(read("lib/services/shipping-governance.service.ts")).toMatch(/NO_HARDCODED_REDELIVERY_FEE/);
   });
 
+  it("composes canonical Shipping and Refund authorities through the Claim transaction client", () => {
+    const claims = read("lib/claims/claim.service.ts");
+    const shipping = read("lib/services/shipping-governance.service.ts");
+    const refunds = read("lib/services/refund-request.service.ts");
+    expect(claims).toMatch(/requestClaimFulfilmentRemedyInTransaction\(tx,/);
+    expect(claims).toMatch(/createRefundRequestInTransaction\(tx,/);
+    expect(claims).not.toMatch(/requestClaimFulfilmentRemedy\(\{ claimId: claim\.id/);
+    expect(claims).not.toMatch(/createRefundRequest\(\{ actorUserId: claim\.claimantUserId/);
+    expect(shipping).toMatch(/requestClaimFulfilmentRemedyInTransaction\(tx:/);
+    expect(refunds).toMatch(/createRefundRequestInTransaction\(tx:/);
+  });
+
   it("exposes thin customer, participant, and authorized-admin route contracts", () => {
     for (const file of [
       "app/api/claims/route.ts",

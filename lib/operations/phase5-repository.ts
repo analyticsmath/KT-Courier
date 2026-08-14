@@ -87,7 +87,11 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
   // PostgreSQL proof suites run under NODE_ENV=test too, so selecting memory
   // merely from NODE_ENV would silently split production authorities from their
   // database assertions.
-  const useTestMemoryStore = () => process.env.PHASE5_REPOSITORY_USE_MEMORY === "true";
+  const useTestMemoryStore = () => {
+    if (process.env.PHASE5_REPOSITORY_USE_MEMORY !== "true") return false;
+    if (process.env.NODE_ENV === "test" && process.env.PHASE5_REPOSITORY_TEST_MEMORY === "true") return true;
+    throw new Error("PHASE5_REPOSITORY_USE_MEMORY is only permitted for explicitly opted-in unit tests (NODE_ENV=test and PHASE5_REPOSITORY_TEST_MEMORY=true).");
+  };
   const databaseDelegate = () => {
     const delegate = Reflect.get(db, modelName);
     if (!delegate) throw new Error(`Phase 5 database delegate is unavailable: ${modelName}`);
@@ -188,6 +192,7 @@ export const phase5Repository = {
   operationalIncident: createModelDelegate("operationalIncident"),
   operationalIncidentTimeline: createModelDelegate("operationalIncidentTimeline"),
   operationalIncidentEvidence: createModelDelegate("operationalIncidentEvidence"),
+  operationalIncidentOperation: createModelDelegate("operationalIncidentOperation"),
   operationalProcessorRun: createModelDelegate("operationalProcessorRun"),
   privacyRequest: createModelDelegate("privacyRequest"),
   privacyRequestEvent: createModelDelegate("privacyRequestEvent"),

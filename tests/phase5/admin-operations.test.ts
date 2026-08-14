@@ -3,8 +3,8 @@ import { createOperationalIncident, getOperationalIncident, transitionOperationa
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
 import { createPrivacyRequest, transitionPrivacyRequest } from "@/lib/services/privacy-requests.service";
 
-beforeAll(() => { process.env.PHASE5_REPOSITORY_USE_MEMORY = "true"; });
-afterAll(() => { delete process.env.PHASE5_REPOSITORY_USE_MEMORY; });
+beforeAll(() => { process.env.PHASE5_REPOSITORY_USE_MEMORY = "true"; process.env.PHASE5_REPOSITORY_TEST_MEMORY = "true"; });
+afterAll(() => { delete process.env.PHASE5_REPOSITORY_USE_MEMORY; delete process.env.PHASE5_REPOSITORY_TEST_MEMORY; });
 
 describe("Phase 5: Admin Operations & Governance Services", () => {
   it("creates, transitions, and reads operational incident with append-only timeline", async () => {

@@ -38,6 +38,24 @@ yarn-error.log*
 /coverage
 /artifacts
 
+# Version-controlled Phase A/B governance authority.  Keep all other artifact
+# output ignored: only these current, human-audited source-of-truth records may
+# be selected by the human Git workflow.
+!/artifacts/
+/artifacts/*
+!/artifacts/phase-a-normalized-engineering-requirements.json
+!/artifacts/phase-a-normalized-capability-map.json
+!/artifacts/phase-a-normalization-coverage.json
+!/artifacts/phase-a-client-source-traceability.json
+!/artifacts/phase-b-implementation-ledger.json
+!/artifacts/phase-b-requirement-closure.json
+!/artifacts/phase-c-functional-frontend-ledger.json
+!/artifacts/phase-d-proof-ledger.json
+!/artifacts/client-authority-document-manifest.json
+!/artifacts/client-clarification-register.json
+!/artifacts/phase-a-findings.json
+!/artifacts/phase-a-legal-document-conflict-register.json
+
 # local audit scratch files
 route_report.json
 components_report.json

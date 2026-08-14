@@ -31,6 +31,14 @@ const dangerousPatterns = [
 ];
 const approvedDestructiveOperations = [
   {
+    migration: "20260814101000_phase_b_drop_redundant_payment_managed_marketing_index",
+    label: "DROP INDEX",
+    statement: /^\s*DROP\s+INDEX\s+IF\s+EXISTS\s+"Payment_subjectType_managedMarketingRequestId_idx"\s*;\s*$/i,
+    // managedMarketingRequestId is already uniquely indexed; this exact
+    // redundant composite index is the sole approved destructive exception.
+    reason: "Removes only the redundant managed-marketing Payment composite index.",
+  },
+  {
     migration: "20260728000000_phase29_reporting_exports",
     label: "DROP TABLE",
     statement: /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+"ReportJob"\s+CASCADE\s*;\s*$/i,

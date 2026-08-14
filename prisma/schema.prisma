@@ -1564,6 +1564,7 @@ enum PrivateMediaOwnerType {
   PROOF_OF_DELIVERY
   STORE
   APPLICANT
+  INCIDENT
 }
 
 enum PrivateMediaPurpose {
@@ -1578,6 +1579,7 @@ enum PrivateMediaPurpose {
   POD_EVIDENCE
   STORE_VERIFICATION_DOCUMENT
   OTHER
+  INCIDENT_EVIDENCE
 }
 
 enum VehicleComplianceStatus {
@@ -13225,9 +13227,30 @@ model OperationalIncident {
 
   timeline OperationalIncidentTimeline[]
   evidence OperationalIncidentEvidence[]
+  operations OperationalIncidentOperation[]
 
   @@index([status, severity, openedAt])
   @@index([commanderUserId, status])
+}
+
+// Durable idempotency state for incident commands.  A key is not success until
+// its operation row is SUCCEEDED; failed and interrupted work remains visible
+// for retry/reconciliation rather than replaying a false success.
+model OperationalIncidentOperation {
+  id          String              @id @default(cuid())
+  incidentId  String
+  operationId String              @unique
+  operation   String
+  requestHash String
+  state       String              @default("PENDING")
+  result      Json?
+  safeError   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  incident    OperationalIncident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId, operation])
+  @@index([state, updatedAt])
 }
 
 model OperationalIncidentTimeline {

@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { RefundError } from "@/lib/refunds/errors";
-import { createRefundRequest } from "@/lib/services/refund-request.service";
-import { requestClaimFulfilmentRemedy, ShippingGovernanceError } from "@/lib/services/shipping-governance.service";
+import { createRefundRequestInTransaction } from "@/lib/services/refund-request.service";
+import { requestClaimFulfilmentRemedyInTransaction, ShippingGovernanceError } from "@/lib/services/shipping-governance.service";
 import { ClaimPaymentSource, ClaimReason, ClaimRemedyType, ClaimResponsibility, ClaimStatus, UserRole } from "@/types/db";
 import { runSerializableTransaction } from "@/lib/db/transaction-runner";
 
@@ -140,9 +140,9 @@ export async function addClaimEvidence(input: Readonly<{ publicReference: string
   return evidence;
 }
 
-async function assertClaimEvidenceReference(claimId: string, reference: string | undefined) {
+async function assertClaimEvidenceReference(claimId: string, reference: string | undefined, client: Pick<typeof prisma, "claimEvidence"> = prisma) {
   if (!reference) return;
-  const evidence = await prisma.claimEvidence.findFirst({ where: { claimId, privateMediaObject: { publicReference: reference, ownerType: "CLAIM", ownerId: claimId, purpose: "CLAIM_EVIDENCE" } }, select: { id: true } });
+  const evidence = await client.claimEvidence.findFirst({ where: { claimId, privateMediaObject: { publicReference: reference, ownerType: "CLAIM", ownerId: claimId, purpose: "CLAIM_EVIDENCE" } }, select: { id: true } });
   if (!evidence) throw new ClaimDomainError("CLAIM_EVIDENCE_FORBIDDEN", "Supporting evidence does not belong to this claim.");
 }
 
@@ -182,25 +182,25 @@ export async function flagClaimForFraudReview(input: Readonly<{ publicReference:
   });
 }
 
-async function resolveRefundPaymentReference(claim: Awaited<ReturnType<typeof prisma.claim.findUniqueOrThrow>>) {
+async function resolveRefundPaymentReference(claim: Awaited<ReturnType<typeof prisma.claim.findUniqueOrThrow>>, client: Pick<typeof prisma, "payment" | "marketplaceOrder"> = prisma) {
   if (claim.orderId) {
-    const payment = await prisma.payment.findFirst({ where: { orderId: claim.orderId, status: "SUCCEEDED" }, select: { publicReference: true } });
+    const payment = await client.payment.findFirst({ where: { orderId: claim.orderId, status: "SUCCEEDED" }, select: { publicReference: true } });
     return payment?.publicReference ?? null;
   }
   if (claim.marketplaceOrderId) {
-    const market = await prisma.marketplaceOrder.findUnique({ where: { id: claim.marketplaceOrderId }, include: { payment: { select: { publicReference: true } } } });
+    const market = await client.marketplaceOrder.findUnique({ where: { id: claim.marketplaceOrderId }, include: { payment: { select: { publicReference: true } } } });
     return market?.payment.publicReference ?? null;
   }
   return null;
 }
 
-async function resolveFinancialAmount(input: Readonly<{ claim: { paymentSource: ClaimPaymentSource }; paymentReference: string; remedy: ClaimRemedyType; amount?: string }>) {
+async function resolveFinancialAmount(input: Readonly<{ claim: { paymentSource: ClaimPaymentSource }; paymentReference: string; remedy: ClaimRemedyType; amount?: string }>, client: Pick<typeof prisma, "payment"> = prisma) {
   if (input.remedy === ClaimRemedyType.PARTIAL_REFUND || input.remedy === ClaimRemedyType.STORE_CREDIT) {
     if (!input.amount) throw new ClaimDomainError("CLAIM_REMEDY_AMOUNT_REQUIRED", "A remedy amount is required.");
     return input.amount;
   }
   if (input.amount) throw new ClaimDomainError("CLAIM_FULL_REFUND_AMOUNT_SERVER_CONTROLLED", "Full refund amount is determined by the canonical refund authority.");
-  const payment = await prisma.payment.findUnique({ where: { publicReference: input.paymentReference }, select: { amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true } });
+  const payment = await client.payment.findUnique({ where: { publicReference: input.paymentReference }, select: { amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true } });
   if (!payment) throw new ClaimDomainError("CLAIM_REFUND_SOURCE_UNAVAILABLE", "No canonical digital payment is available for this claim remedy.");
   const remaining = payment.amount.sub(payment.totalRefundedAmount).sub(payment.totalRefundReservedAmount);
   if (remaining.lte(0)) throw new ClaimDomainError("CLAIM_REFUND_NOT_AVAILABLE", "No refundable value remains for this claim.");
@@ -213,11 +213,10 @@ export async function decideClaimRemedy(input: Readonly<{ publicReference: strin
   const reason = input.reason.trim(); if (reason.length < 2 || reason.length > 2000) throw new ClaimDomainError("CLAIM_DECISION_INVALID", "Decision reason is invalid.");
   const requestHash = operationHash({ publicReference: input.publicReference, remedy: input.remedy, reason, amount: input.amount, policyReference: input.policyReference, mixedPaymentStrategy: input.mixedPaymentStrategy });
   return runSerializableTransaction(async (tx) => {
-    // Everything below is retried as a single logical remedy decision. Each
-    // attempt rereads the authoritative claim and canonical idempotency rows.
+    // All Claim, Shipping, Refund and ledger writes below share this transaction.
     const claim = await tx.claim.findUnique({ where: { publicReference: input.publicReference } });
     if (!claim) throw new ClaimDomainError("CLAIM_NOT_FOUND", "Claim was not found.");
-    await assertClaimEvidenceReference(claim.id, input.evidenceReference);
+    await assertClaimEvidenceReference(claim.id, input.evidenceReference, tx);
     if (claim.paymentSource === ClaimPaymentSource.MIXED && FINANCIAL_REMEDIES.has(input.remedy) && !input.mixedPaymentStrategy) throw new ClaimDomainError("CLAIM_MIXED_POLICY_REQUIRED", "A mixed-payment remedy strategy is required.");
     const existingOperation = await tx.claimRemedy.findUnique({ where: { operationId: input.operationId } });
     if (existingOperation) { if (existingOperation.requestHash !== requestHash) throw new ClaimDomainError("CLAIM_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another remedy."); return existingOperation; }
@@ -226,9 +225,7 @@ export async function decideClaimRemedy(input: Readonly<{ publicReference: strin
     if (input.remedy === ClaimRemedyType.REDELIVERY || input.remedy === ClaimRemedyType.REPLACEMENT) {
       if (!claim.orderId) throw new ClaimDomainError("CLAIM_REMEDY_ORDER_REQUIRED", "A courier order is required for a fulfilment remedy.");
       try {
-        // Shipping has its own database-backed claim identity and is safe to
-        // re-enter when this serializable decision retries.
-        const request = await requestClaimFulfilmentRemedy({ claimId: claim.id, orderId: claim.orderId, claimantUserId: claim.claimantUserId, remedyType: input.remedy, operationId: `claim-fulfilment:${claim.id}` });
+        const request = await requestClaimFulfilmentRemedyInTransaction(tx, { claimId: claim.id, orderId: claim.orderId, claimantUserId: claim.claimantUserId, remedyType: input.remedy, operationId: `claim-fulfilment:${claim.id}` });
         redeliveryRequestId = request.id;
       } catch (error) {
         if (error instanceof ShippingGovernanceError) throw new ClaimDomainError(error.code, "The claim fulfilment remedy could not be prepared.");
@@ -239,13 +236,11 @@ export async function decideClaimRemedy(input: Readonly<{ publicReference: strin
     let financialAmount: string | undefined;
     if (FINANCIAL_REMEDIES.has(input.remedy)) {
       if (claim.paymentSource === ClaimPaymentSource.CASH) throw new ClaimDomainError("CLAIM_CASH_REMEDY_POLICY_REQUIRED", "Cash claim remedies require the configured cash settlement policy.");
-      const paymentReference = await resolveRefundPaymentReference(claim);
+      const paymentReference = await resolveRefundPaymentReference(claim, tx);
       if (!paymentReference) throw new ClaimDomainError("CLAIM_REFUND_SOURCE_UNAVAILABLE", "No canonical digital payment is available for this claim remedy.");
-      financialAmount = await resolveFinancialAmount({ claim, paymentReference, remedy: input.remedy, amount: input.amount });
+      financialAmount = await resolveFinancialAmount({ claim, paymentReference, remedy: input.remedy, amount: input.amount }, tx);
       try {
-        // This is intentionally claim-stable rather than request-stable: concurrent
-        // operators and retried requests can reach the Refund authority only once.
-        const refund = await createRefundRequest({ actorUserId: claim.claimantUserId, paymentPublicReference: paymentReference, amount: financialAmount, method: input.remedy === ClaimRemedyType.STORE_CREDIT ? "CUSTOMER_WALLET" : "ORIGINAL_PAYMENT_METHOD", reasonCode: "CUSTOMER_SERVICE_RESOLUTION", customerNote: `Claim ${claim.publicReference}: ${reason}`, operationId: `claim-refund:${claim.id}` });
+        const refund = await createRefundRequestInTransaction(tx, { actorUserId: claim.claimantUserId, paymentPublicReference: paymentReference, amount: financialAmount, method: input.remedy === ClaimRemedyType.STORE_CREDIT ? "CUSTOMER_WALLET" : "ORIGINAL_PAYMENT_METHOD", reasonCode: "CUSTOMER_SERVICE_RESOLUTION", customerNote: `Claim ${claim.publicReference}: ${reason}`, operationId: `claim-refund:${claim.id}` });
         refundId = refund.id;
       } catch (error) {
         if (error instanceof RefundError) throw new ClaimDomainError(error.code === "REFUND_IDEMPOTENCY_CONFLICT" ? "CLAIM_DECISION_CONFLICT" : error.code, error.message);
