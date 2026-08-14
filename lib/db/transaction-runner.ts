@@ -49,7 +49,7 @@ export interface TransactionRunnerOptions {
   operationName?: string;
 }
 
-const RETRYABLE_PRISMA_CODES = new Set(["P2034"]);
+const RETRYABLE_PRISMA_CODES = new Set(["P2034", "P2002"]);
 const RETRYABLE_SQLSTATES = new Set(["40001", "40P01"]);
 
 export function isRetryableTransactionError(error: unknown): boolean {

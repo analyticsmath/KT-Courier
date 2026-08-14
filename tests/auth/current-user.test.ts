@@ -12,6 +12,7 @@ vi.mock("next/headers", () => ({
 
 vi.mock("@/lib/auth/session", () => ({
   SESSION_COOKIE_NAME: "kt_session",
+  HOST_SESSION_COOKIE_NAME: "__Host-kt_session",
   findSessionWithUser: findSessionWithUserMock,
   isUserStatusAllowedForSession: (status: string) => status === "ACTIVE",
   revokeSessionByTokenHash: revokeSessionByTokenHashMock,

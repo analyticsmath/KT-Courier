@@ -2,7 +2,17 @@ import { prisma } from "@/lib/db/prisma";
 import { generateToken, hashToken } from "./tokens";
 import { UserStatus } from "@/types/db";
 
-export const SESSION_COOKIE_NAME = "kt_session";
+export const BASE_SESSION_COOKIE_NAME = "kt_session";
+export const HOST_SESSION_COOKIE_NAME = "__Host-kt_session";
+
+export function getSessionCookieName(): string {
+  if (process.env.NODE_ENV === "production" && process.env.USE_HOST_COOKIE !== "false") {
+    return HOST_SESSION_COOKIE_NAME;
+  }
+  return BASE_SESSION_COOKIE_NAME;
+}
+
+export const SESSION_COOKIE_NAME = BASE_SESSION_COOKIE_NAME;
 export const SESSION_DURATION_DAYS = 14;
 
 export function sessionExpiresAt(): Date {

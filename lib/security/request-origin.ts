@@ -55,7 +55,15 @@ function getAllowedOrigins(request?: Request): string[] {
   addOrigin(origins, process.env.VERCEL_URL);
   addOrigin(origins, process.env.CORS_ALLOW_ORIGIN);
 
-  if (request) {
+  if (process.env.TRUSTED_PROXY_ORIGINS) {
+    const trusted = process.env.TRUSTED_PROXY_ORIGINS.split(",").map((o) => o.trim());
+    for (const origin of trusted) {
+      addOrigin(origins, origin);
+    }
+  }
+
+  // In non-production development environments only, allow current local request URL
+  if (!isProduction && request) {
     addOrigin(origins, request.url);
   }
 

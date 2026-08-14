@@ -2,7 +2,7 @@ import { PaymentError } from "./errors";
 
 export type SafeProviderJson = null | boolean | string | number | SafeProviderJson[] | { [key: string]: SafeProviderJson };
 
-const SENSITIVE_KEY = /(?:secret|token|password|authorization|signature|merchant[_-]?key|private[_-]?key|card|cvv|cvc|bank[_-]?account|cookie|session|passphrase)/i;
+const SENSITIVE_KEY = /(?:secret|token|password|authorization|signature|merchant[_-]?key|private[_-]?key|card|cvv|cvc|bank[_-]?account|cookie|session|passphrase|email[_-]?address)/i;
 const MAX_DEPTH = 5;
 const MAX_KEYS = 64;
 const MAX_ARRAY_ITEMS = 50;

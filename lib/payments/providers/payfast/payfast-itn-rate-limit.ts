@@ -1,8 +1,8 @@
 import { PaymentError } from "@/lib/payments/errors";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
-const GLOBAL_POLICY = Object.freeze({ max: 600, windowMs: 60_000 });
-const SOURCE_POLICY = Object.freeze({ max: 180, windowMs: 60_000 });
+const GLOBAL_POLICY = Object.freeze({ max: 600, windowMs: 60_000, distributedRequired: true });
+const SOURCE_POLICY = Object.freeze({ max: 180, windowMs: 60_000, distributedRequired: true });
 const MAX_CONCURRENT_REQUESTS = 16;
 let activeRequests = 0;
 

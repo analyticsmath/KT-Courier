@@ -18,7 +18,7 @@ COPY package.json package-lock.json ./
 # Docker Desktop proxy fetches observable/recoverable without weakening npm
 # integrity or TLS verification.
 RUN --mount=type=cache,target=/root/.npm \
-  npm ci --fetch-retries=3 --fetch-retry-factor=2 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000 --fetch-timeout=120000
+  npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000 --fetch-timeout=120000
 
 COPY prisma ./prisma
 RUN npx prisma generate

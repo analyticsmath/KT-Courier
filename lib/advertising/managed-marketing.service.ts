@@ -10,6 +10,7 @@ import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-postin
 import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
 import { AdvertisingFundingService } from "@/lib/advertising/funding.service";
 import { assertPaymentSubjectIntegrity } from "@/lib/payments/payment-subject-policy";
+import { runSerializableTransaction } from "@/lib/db/transaction-runner";
 import { AdminActionType, UserRole } from "@/types/db";
 
 const ref = (prefix: string) => `${prefix}-${randomUUID().replaceAll("-", "").toUpperCase()}`;
@@ -186,7 +187,7 @@ export class ManagedMarketingService {
     if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(input.code) || !String(input.name ?? "").trim() || !Array.isArray(input.channelReferences) || !input.channelReferences.length || !["TIKTOK", "FACEBOOK", "INSTAGRAM", "GOOGLE"].includes(input.channel ?? "FACEBOOK") || !Number.isInteger(Number(input.sortOrder ?? 0)) || Number(input.sortOrder ?? 0) < 0 || !Number.isFinite(new Date(input.effectiveAt).getTime())) throw new ManagedMarketingRequestError("MANAGED_MARKETING_PACKAGE_INVALID", "Package configuration is invalid.");
     if ([input.priceAmount, input.taxRate, input.durationDays ?? 0, input.postCount ?? 0, input.videoCount ?? 0, input.storyCount ?? 0].some((value) => String(value ?? "").trim() === "" || !Number.isFinite(Number(value)) || Number(value) < 0) || Number(input.taxRate) > 1) throw new ManagedMarketingRequestError("MANAGED_MARKETING_PACKAGE_INVALID", "Package commercial values are invalid.");
     const channels = await (prisma as any).managedMarketingChannelDefinition.findMany({ where: { publicReference: { in: input.channelReferences }, active: true } });
-    if (channels.length !== new Set(input.channelReferences).size) throw new ManagedMarketingRequestError("MANAGED_MARKETING_CHANNEL_NOT_ALLOWED", "MARKETING_CHANNEL_NOT_ALLOWED");
+    if (channels.length !== input.channelReferences.length || channels.length !== new Set(input.channelReferences).size) throw new ManagedMarketingRequestError("MANAGED_MARKETING_CHANNEL_NOT_ALLOWED", "MARKETING_CHANNEL_NOT_ALLOWED");
     const prior = await (prisma as any).managedMarketingPackageVersion.findFirst({ where: { code: input.code }, orderBy: { versionNumber: "desc" }, select: { versionNumber: true } });
     const pack = await (prisma as any).managedMarketingPackageVersion.create({ data: { publicReference: ref("MMP"), code: input.code, versionNumber: (prior?.versionNumber ?? 0) + 1, name: input.name.trim(), description: input.description ?? null, sortOrder: input.sortOrder ?? 0, status: "DRAFT", channel: input.channel ?? "FACEBOOK", packageTerms: input.packageTerms ?? {}, durationDays: input.durationDays ?? null, postCount: input.postCount ?? 0, videoCount: input.videoCount ?? 0, storyCount: input.storyCount ?? 0, estimatedReachMetadata: input.estimatedReachMetadata ?? null, priceAmount: String(input.priceAmount), taxRate: String(input.taxRate), currency: input.currency ?? "ZAR", effectiveAt: new Date(input.effectiveAt), createdByUserId: input.actorUserId, channels: { create: channels.map((channel: any) => ({ channelDefinitionId: channel.id })) } }, include: { channels: { include: { channelDefinition: true } } } });
     await this.audit(input.actorUserId, AdminActionType.CREATE, "ManagedMarketingPackageVersion", pack.id, "Managed marketing package version created.", { packageReference: pack.publicReference, code: pack.code, versionNumber: pack.versionNumber });
@@ -456,6 +457,10 @@ export class ManagedMarketingService {
 
   async scheduleRequest(actor: ConfigurationActor, reference: string, operationId: string, note?: string | null) {
     await this.requireLifecyclePermission(actor, PERMISSIONS.MANAGED_MARKETING_REQUESTS_SCHEDULE);
+    const existingEvent = await (prisma as any).managedMarketingRequestEvent.findUnique({ where: { operationId } });
+    if (existingEvent) {
+      return (await this.applyLifecycleTransition({ reference, actor, permission: PERMISSIONS.MANAGED_MARKETING_REQUESTS_SCHEDULE, operationId, eventType: "SCHEDULED", expectedStatuses: ["APPROVED", "SCHEDULED"], nextStatus: "SCHEDULED" })).request;
+    }
     const current = await this.requireApprovedForExecution(reference);
     await this.validateCommittedRequest(current);
     this.assertLifecycleWindow(current, new Date());
@@ -531,7 +536,7 @@ export class ManagedMarketingService {
       }
       const existing = await tx.payment.findUnique({ where: { managedMarketingRequestId: request.id } });
       if (existing) throw new ManagedMarketingRequestError("MANAGED_MARKETING_PAYMENT_CONFLICT", "This managed marketing request already has canonical payment evidence.");
-      const created = await tx.payment.create({ data: { publicReference: ref("PAY"), userId: actor.actorUserId, subjectType: "MANAGED_MARKETING_REQUEST", managedMarketingRequestId: request.id, purpose: "AD_PURCHASE", status: "CREATED", amount: amounts.gross, currency: request.currency, creationIdempotencyKey: operationId, creationRequestHash: requestHash, metadata: { managedMarketingRequestReference: request.publicReference, packageVersionReference: request.packageVersion.publicReference, baseAmount: amounts.revenue.toFixed(2), taxAmount: amounts.tax.toFixed(2), policyVersion: "managed-marketing-commercial-v1" } } });
+      const created = await tx.payment.create({ data: { publicReference: ref("PAY"), user: actor.actorUserId ? { connect: { id: actor.actorUserId } } : undefined, subjectType: "MANAGED_MARKETING_REQUEST", managedMarketingRequest: { connect: { id: request.id } }, purpose: "AD_PURCHASE", provider: "PAYFAST", status: "CREATED", amount: amounts.gross, currency: request.currency, creationIdempotencyKey: operationId, creationRequestHash: requestHash, metadata: { managedMarketingRequestReference: request.publicReference, packageVersionReference: request.packageVersion.publicReference, baseAmount: amounts.revenue.toFixed(2), taxAmount: amounts.tax.toFixed(2), policyVersion: "managed-marketing-commercial-v1" } } });
       await tx.paymentStatusHistory.create({ data: { paymentId: created.id, fromStatus: null, toStatus: "CREATED", reasonCode: "MANAGED_MARKETING_PAYMENT_PREPARED", actorType: "PAYER", actorId: actor.actorUserId, metadata: { managedMarketingRequestReference: request.publicReference, packageVersionReference: request.packageVersion.publicReference } } });
       await tx.managedMarketingRequestEvent.create({ data: { managedMarketingRequestId: request.id, operationId: `payment-prepared:${operationId}`, eventType: "PAYMENT_PREPARED", actorUserId: actor.actorUserId, safeEvidence: { paymentReference: created.publicReference, grossAmount: amounts.gross.toFixed(2), currency: request.currency } } });
       return created;
@@ -583,9 +588,8 @@ export class ManagedMarketingService {
   async recognizeVerifiedPayment(paymentId: string) {
     const platform = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
     const taxPayable = await ensureLedgerAccount({ walletId: platform.id, code: "PLATFORM-MANAGED-MARKETING-TAX-PAYABLE-ZAR", purpose: "MANAGED_MARKETING_TAX_PAYABLE", category: "LIABILITY", currency: "ZAR" });
-    const { revenue } = await AdvertisingFundingService.getPlatformAccounts();
-    try {
-      return await prisma.$transaction(async (tx: any) => {
+    const { held, revenue } = await AdvertisingFundingService.getPlatformAccounts();
+    return runSerializableTransaction(async (tx: any) => {
       const payment = await tx.payment.findUnique({ where: { id: paymentId }, include: { managedMarketingRequest: true, successLedgerJournal: true, successfulAttempt: true, successWebhookEvent: true } });
       if (!payment?.managedMarketingRequest || payment.subjectType !== "MANAGED_MARKETING_REQUEST" || payment.purpose !== "AD_PURCHASE" || payment.status !== "SUCCEEDED" || payment.currency !== "ZAR" || !payment.successLedgerJournal || payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successWebhookEvent?.processingStatus !== "APPLIED" || !payment.successWebhookEvent.signatureVerified || !payment.successWebhookEvent.merchantVerified || !payment.successWebhookEvent.amountVerified || !payment.successWebhookEvent.providerDataVerified) throw new ManagedMarketingRequestError("MANAGED_MARKETING_BILLING_EVIDENCE_INVALID", "Verified managed marketing payment evidence is incomplete.");
       const existing = await tx.managedMarketingBillingEvidence.findUnique({ where: { paymentId } });
@@ -593,22 +597,15 @@ export class ManagedMarketingService {
       const request = payment.managedMarketingRequest;
       const amounts = this.committedCommercialAmounts(request);
       if (!payment.amount.equals(amounts.gross)) throw new ManagedMarketingRequestError("MANAGED_MARKETING_BILLING_EVIDENCE_INVALID", "Verified payment amount does not match committed managed marketing commercial evidence.");
-      const held = await tx.ledgerAccount.findFirst({ where: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE" }, select: { id: true } });
-      if (!held) throw new ManagedMarketingRequestError("MANAGED_MARKETING_BILLING_EVIDENCE_INVALID", "Canonical verified payment holding account is unavailable.");
-      const entries: Array<{ accountId: string; direction: "DEBIT" | "CREDIT"; amount: string; lineCode: string }> = [{ accountId: held.id, direction: "DEBIT", amount: amounts.gross.toFixed(2), lineCode: "MM_REVENUE_HELD_DEBIT" }, { accountId: revenue.id, direction: "CREDIT", amount: amounts.revenue.toFixed(2), lineCode: "MM_REVENUE_CREDIT" }];
+      const heldAccount = await tx.ledgerAccount.findFirst({ where: { id: held.id, status: "ACTIVE" }, select: { id: true } });
+      if (!heldAccount) throw new ManagedMarketingRequestError("MANAGED_MARKETING_BILLING_EVIDENCE_INVALID", "Canonical verified payment holding account is unavailable.");
+      const entries: Array<{ accountId: string; direction: "DEBIT" | "CREDIT"; amount: string; lineCode: string }> = [{ accountId: heldAccount.id, direction: "DEBIT", amount: amounts.gross.toFixed(2), lineCode: "MM_REVENUE_HELD_DEBIT" }, { accountId: revenue.id, direction: "CREDIT", amount: amounts.revenue.toFixed(2), lineCode: "MM_REVENUE_CREDIT" }];
       if (amounts.tax.greaterThan(0)) entries.push({ accountId: taxPayable.id, direction: "CREDIT", amount: amounts.tax.toFixed(2), lineCode: "MM_TAX_PAYABLE_CREDIT" });
-      const revenueJournal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `MM-REVENUE-${payment.id}`, type: "ACCOUNT_TRANSFER", currency: "ZAR", sourceReference: `MM-REVENUE-${request.publicReference}`, correlationId: payment.publicReference, memo: `Managed marketing revenue recognition ${request.publicReference}`, actor: { kind: "SYSTEM" }, entries });
+      const revenueJournal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `MM-REVENUE-${payment.id}`, type: "ACCOUNT_TRANSFER", currency: "ZAR", sourceReference: `mm_revenue:${request.publicReference}`, correlationId: payment.publicReference, memo: `Managed marketing revenue recognition ${request.publicReference}`, actor: { kind: "SYSTEM" }, entries });
       const evidence = await tx.managedMarketingBillingEvidence.create({ data: { managedMarketingRequestId: request.id, paymentId: payment.id, receiptLedgerJournalId: payment.successLedgerJournal.id, revenueLedgerJournalId: revenueJournal.id, grossAmount: amounts.gross, revenueAmount: amounts.revenue, taxAmount: amounts.tax, currency: "ZAR", operationId: `verified-payment:${payment.id}` } });
       await tx.managedMarketingRequest.update({ where: { id: request.id }, data: { paymentReference: payment.publicReference, ledgerJournalId: revenueJournal.id, events: { create: { operationId: `billing-recognized:${payment.id}`, eventType: "BILLING_RECOGNIZED", actorUserId: null, safeEvidence: { paymentReference: payment.publicReference, receiptLedgerJournalReference: payment.successLedgerJournal.reference, revenueLedgerJournalReference: revenueJournal.reference, grossAmount: amounts.gross.toFixed(2), revenueAmount: amounts.revenue.toFixed(2), taxAmount: amounts.tax.toFixed(2), currency: "ZAR" } } } } });
-        return evidence;
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    } catch (error) {
-      if ((error as { code?: string }).code === "P2002") {
-        const existing = await (prisma as any).managedMarketingBillingEvidence.findUnique({ where: { paymentId } });
-        if (existing) return existing;
-      }
-      throw error;
-    }
+      return evidence;
+    }, { operationName: `managed_marketing_recognize_payment:${paymentId}` });
   }
 
   async requireApprovedForExecution(reference: string) {

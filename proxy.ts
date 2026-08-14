@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export const SESSION_COOKIE_NAME = "kt_session";
+export const HOST_SESSION_COOKIE_NAME = "__Host-kt_session";
 
 /**
  * Public browser routes that never require authentication session cookies.
@@ -71,7 +72,9 @@ export function proxy(request: NextRequest): NextResponse {
   );
 
   if (isProtectedBrowserPath) {
-    const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const sessionCookie =
+      request.cookies.get(HOST_SESSION_COOKIE_NAME)?.value ||
+      request.cookies.get(SESSION_COOKIE_NAME)?.value;
     if (!sessionCookie) {
       const returnUrl = sanitizeReturnUrl(pathname + request.nextUrl.search);
       const loginUrl = new URL("/login", request.url);

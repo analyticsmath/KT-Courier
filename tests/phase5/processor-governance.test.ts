@@ -1,9 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { PROCESSOR_REGISTRY } from "@/lib/processors/processor-registry";
 import { acquireProcessorLease, completeProcessorRun } from "@/lib/processors/lease-authority";
 import { executeRegisteredProcessor, getProcessorInventory } from "@/lib/processors/processor-service";
 
 describe("Phase 5: Processor Inventory & Lease Governance", () => {
+  const originalUseMem = process.env.PHASE5_REPOSITORY_USE_MEMORY;
+  const originalTestMem = process.env.PHASE5_REPOSITORY_TEST_MEMORY;
+
+  beforeEach(() => {
+    process.env.PHASE5_REPOSITORY_USE_MEMORY = "true";
+    process.env.PHASE5_REPOSITORY_TEST_MEMORY = "true";
+  });
+
+  afterEach(() => {
+    process.env.PHASE5_REPOSITORY_USE_MEMORY = originalUseMem;
+    process.env.PHASE5_REPOSITORY_TEST_MEMORY = originalTestMem;
+  });
   it("registers all operational processors with required metadata", () => {
     const requiredProcessors = [
       "consume-verified-payment-events",

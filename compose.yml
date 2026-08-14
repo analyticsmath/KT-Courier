@@ -52,6 +52,8 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: *container_database_url
       SHADOW_DATABASE_URL: *container_shadow_database_url
+      KT_ALLOW_DEMO_SEED: ${KT_ALLOW_DEMO_SEED:-true}
+      KT_DATABASE_CLASSIFICATION: ${KT_DATABASE_CLASSIFICATION:-development}
     command: ["npx", "prisma", "db", "seed"]
     depends_on:
       migrate:

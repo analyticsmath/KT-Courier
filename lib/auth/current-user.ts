@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import {
   SESSION_COOKIE_NAME,
+  HOST_SESSION_COOKIE_NAME,
   findSessionWithUser,
   isUserStatusAllowedForSession,
   revokeSessionByTokenHash,
@@ -13,7 +14,9 @@ import {
 
 export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   const cookieStore = await cookies();
-  const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const rawToken =
+    cookieStore.get(HOST_SESSION_COOKIE_NAME)?.value ||
+    cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!rawToken) return null;
 
   const session = await findSessionWithUser(rawToken);

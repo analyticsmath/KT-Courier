@@ -21,21 +21,13 @@ export async function requestClaimFulfilmentRemedyInTransaction(tx: PrismaTransa
   if (existing) return existing;
   const order = await tx.order.findUnique({ where: { id: input.orderId }, select: { id: true } });
   if (!order) throw new ShippingGovernanceError("CLAIM_REDELIVERY_ORDER_NOT_FOUND");
-  try {
-    return await tx.redeliveryRequest.create({ data: {
-      publicReference: phase5Reference("RED"), orderId: input.orderId,
-      priorAttemptId: `CLAIM:${input.claimId}`, sourceClaimId: input.claimId,
-      remedyType: input.remedyType, requestedByUserId: input.claimantUserId,
-      operationId: input.operationId,
-      commercialEvidence: { source: "CLAIM_REMEDY", status: "CLIENT_VALUE_REQUIRED", feeRule: "NO_HARDCODED_REDELIVERY_FEE" },
-    } });
-  } catch (error) {
-    if ((error as { code?: string })?.code === "P2002") {
-      const replay = await tx.redeliveryRequest.findFirst({ where: { sourceClaimId: input.claimId } });
-      if (replay) return replay;
-    }
-    throw error;
-  }
+  return tx.redeliveryRequest.create({ data: {
+    publicReference: phase5Reference("RED"), orderId: input.orderId,
+    priorAttemptId: `CLAIM:${input.claimId}`, sourceClaimId: input.claimId,
+    remedyType: input.remedyType, requestedByUserId: input.claimantUserId,
+    operationId: input.operationId,
+    commercialEvidence: { source: "CLAIM_REMEDY", status: "CLIENT_VALUE_REQUIRED", feeRule: "NO_HARDCODED_REDELIVERY_FEE" },
+  } });
 }
 
 export async function requestClaimFulfilmentRemedy(input: ClaimFulfilmentRemedyInput) {

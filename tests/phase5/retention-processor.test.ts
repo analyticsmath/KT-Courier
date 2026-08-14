@@ -1,9 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { RETENTION_POLICY_REGISTRY } from "@/lib/retention/policy-registry";
 import { createRetentionHold, evaluateRetentionHolds, releaseRetentionHold } from "@/lib/retention/hold-evaluator";
 import { runRetentionProcessor } from "@/lib/retention/retention-processor";
 
 describe("Phase 5: Retention Processor & Hold Governance", () => {
+  const originalUseMem = process.env.PHASE5_REPOSITORY_USE_MEMORY;
+  const originalTestMem = process.env.PHASE5_REPOSITORY_TEST_MEMORY;
+
+  beforeEach(() => {
+    process.env.PHASE5_REPOSITORY_USE_MEMORY = "true";
+    process.env.PHASE5_REPOSITORY_TEST_MEMORY = "true";
+  });
+
+  afterEach(() => {
+    process.env.PHASE5_REPOSITORY_USE_MEMORY = originalUseMem;
+    process.env.PHASE5_REPOSITORY_TEST_MEMORY = originalTestMem;
+  });
   it("defines typed policies for required data categories", () => {
     const categories = [
       "EXPIRED_SESSIONS",
