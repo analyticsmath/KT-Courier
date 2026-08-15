@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
   if (req.headers.get("content-type")?.split(";", 1)[0]?.toLowerCase() !== "application/json") return badRequest("Content-Type must be application/json.");
-  const rate = checkIpRateLimit(req, `dispatch:candidates:${getClientIp(req)}`, RATE_LIMITS.DISPATCH_ASSIGN);
+  const rate = await checkIpRateLimit(req, `dispatch:candidates:${getClientIp(req)}`, RATE_LIMITS.DISPATCH_ASSIGN);
   if (!rate.ok) return tooManyRequests(rate.retryAfterSeconds);
 
   const auth = await requireAdminApiPermission(PERMISSIONS.DISPATCH_READ, { request: req });

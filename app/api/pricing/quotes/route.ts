@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   if (user.role !== "CUSTOMER" && user.role !== "STORE") return forbidden();
-  const limit = checkIpRateLimit(req, `pricing-quote:${user.id}`, RATE_LIMITS.ORDER_ESTIMATE);
+  const limit = await checkIpRateLimit(req, `pricing-quote:${user.id}`, RATE_LIMITS.ORDER_ESTIMATE);
   if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
   let body: unknown;
   try { body = await req.json(); } catch { return unprocessable("Invalid request body."); }

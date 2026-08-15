@@ -6,7 +6,7 @@ import { storeEarningNoStoreJson, validateStoreEarningJsonRequest } from "./api-
 export async function prepareStoreEarningReversalMutation(request: NextRequest, actorUserId: string) {
   const originFailure = await enforceSameOriginRequest(request, { path: "/api/admin/store-earnings/[id]/reverse" });
   if (originFailure) return { response: originFailure } as const;
-  const rate = checkIpRateLimit(request, `store-earning-reversal:${actorUserId}`, RATE_LIMITS.COMMISSION_REVERSAL);
+  const rate = await checkIpRateLimit(request, `store-earning-reversal:${actorUserId}`, RATE_LIMITS.COMMISSION_REVERSAL);
   if (!rate.ok) return { response: storeEarningNoStoreJson({ error: "Too many store earning reversal actions." }, 429) } as const;
   const requestFailure = validateStoreEarningJsonRequest(request);
   if (requestFailure) return { response: requestFailure } as const;

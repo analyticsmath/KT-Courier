@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
 
-  const rl = checkIpRateLimit(req, "reset-password", RATE_LIMITS.RESET_PASSWORD);
+  const rl = await checkIpRateLimit(req, "reset-password", RATE_LIMITS.RESET_PASSWORD);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;

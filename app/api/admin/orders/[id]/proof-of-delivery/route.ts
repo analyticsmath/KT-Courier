@@ -37,7 +37,7 @@ export async function POST(
   if (originFailure) return originFailure;
 
   const ip = getClientIp(req);
-  const rl = checkIpRateLimit(req, `admin:delivery:manual:${ip}`, RATE_LIMITS.ADMIN_DELIVERY_MANUAL);
+  const rl = await checkIpRateLimit(req, `admin:delivery:manual:${ip}`, RATE_LIMITS.ADMIN_DELIVERY_MANUAL);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const auth = await requireAdminApiPermission(PERMISSIONS.ORDERS_UPDATE, {

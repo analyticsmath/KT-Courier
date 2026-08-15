@@ -13,7 +13,7 @@ export async function notificationAdminAccess(request: Request, permission: stri
   }
   const auth = await requireAdminApiPermission(permission, { request });
   if (auth.response) return auth;
-  const rate = checkIpRateLimit(request as never, `notification-admin:${mutation ? "write" : "read"}:${auth.user.id}`, { max: mutation ? 60 : 180, windowMs: 60_000 });
+  const rate = await checkIpRateLimit(request as never, `notification-admin:${mutation ? "write" : "read"}:${auth.user.id}`, { max: mutation ? 60 : 180, windowMs: 60_000 });
   if (!rate.ok) return { response: NextResponse.json({ error: "Rate limit exceeded." }, { status: 429 }) } as const;
   return { user: auth.user, authority: resolveNotificationProductionComposition().services } as const;
 }

@@ -21,6 +21,51 @@ export function sessionExpiresAt(): Date {
   return d;
 }
 
+export function getSessionCookieOptions(options?: { expires?: Date }) {
+  const isProd = process.env.NODE_ENV === "production" && process.env.USE_HOST_COOKIE !== "false";
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax" as const,
+    path: "/",
+    expires: options?.expires ?? sessionExpiresAt(),
+  };
+}
+
+export function setSessionCookie(
+  cookieStore: { set: (name: string, value: string, options: any) => void },
+  rawToken: string,
+  expiresAt = sessionExpiresAt()
+): void {
+  const cookieName = getSessionCookieName();
+  const options = getSessionCookieOptions({ expires: expiresAt });
+  cookieStore.set(cookieName, rawToken, options);
+}
+
+export function deleteSessionCookies(
+  cookieStore: { delete: (name: string) => any }
+): void {
+  cookieStore.delete(HOST_SESSION_COOKIE_NAME);
+  cookieStore.delete(BASE_SESSION_COOKIE_NAME);
+}
+
+export function extractSessionToken(
+  cookieSource:
+    | { get: (name: string) => { value?: string } | undefined }
+    | { cookies: { get: (name: string) => { value?: string } | undefined } }
+): string | undefined {
+  if ("cookies" in cookieSource) {
+    return (
+      cookieSource.cookies.get(HOST_SESSION_COOKIE_NAME)?.value ||
+      cookieSource.cookies.get(BASE_SESSION_COOKIE_NAME)?.value
+    );
+  }
+  return (
+    cookieSource.get(HOST_SESSION_COOKIE_NAME)?.value ||
+    cookieSource.get(BASE_SESSION_COOKIE_NAME)?.value
+  );
+}
+
 export async function createSession(userId: string): Promise<string> {
   const rawToken = generateToken(32);
   const tokenHash = hashToken(rawToken);

@@ -100,7 +100,7 @@ export async function verifyPayfastItn(input: {
     peerAddress: dependencies.peerAddress,
   });
   await (dependencies.sourceResolver ?? payfastSourceIpResolver).verify(environment, sourceAddress);
-  assertPayfastSourceRateLimit(sourceAddress);
+  await assertPayfastSourceRateLimit(sourceAddress);
   const fingerprint = fingerprintPayfastWebhook(environment, input.bodyBytes);
   const findReceipt = dependencies.findReceipt ?? (async (identity: string) => {
     return prisma.paymentWebhookEvent.findUnique({ where: { eventFingerprint: identity }, select: { id: true, processingStatus: true } });

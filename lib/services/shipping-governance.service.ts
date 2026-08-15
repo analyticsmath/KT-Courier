@@ -17,17 +17,29 @@ type ClaimFulfilmentRemedyInput = { claimId: string; orderId: string; claimantUs
  * redelivery request when the parent decision is rolled back.
  */
 export async function requestClaimFulfilmentRemedyInTransaction(tx: PrismaTransactionClient, input: ClaimFulfilmentRemedyInput) {
-  const existing = await tx.redeliveryRequest.findFirst({ where: { sourceClaimId: input.claimId } });
+  const existing = await tx.redeliveryRequest.findFirst({
+    where: { OR: [{ sourceClaimId: input.claimId }, { operationId: input.operationId }] },
+  });
   if (existing) return existing;
   const order = await tx.order.findUnique({ where: { id: input.orderId }, select: { id: true } });
   if (!order) throw new ShippingGovernanceError("CLAIM_REDELIVERY_ORDER_NOT_FOUND");
-  return tx.redeliveryRequest.create({ data: {
-    publicReference: phase5Reference("RED"), orderId: input.orderId,
-    priorAttemptId: `CLAIM:${input.claimId}`, sourceClaimId: input.claimId,
-    remedyType: input.remedyType, requestedByUserId: input.claimantUserId,
-    operationId: input.operationId,
-    commercialEvidence: { source: "CLAIM_REMEDY", status: "CLIENT_VALUE_REQUIRED", feeRule: "NO_HARDCODED_REDELIVERY_FEE" },
-  } });
+  try {
+    return await tx.redeliveryRequest.create({ data: {
+      publicReference: phase5Reference("RED"), orderId: input.orderId,
+      priorAttemptId: `CLAIM:${input.claimId}`, sourceClaimId: input.claimId,
+      remedyType: input.remedyType, requestedByUserId: input.claimantUserId,
+      operationId: input.operationId,
+      commercialEvidence: { source: "CLAIM_REMEDY", status: "CLIENT_VALUE_REQUIRED", feeRule: "NO_HARDCODED_REDELIVERY_FEE" },
+    } });
+  } catch (error: unknown) {
+    if ((error as { code?: string })?.code === "P2002") {
+      const winner = await tx.redeliveryRequest.findFirst({
+        where: { OR: [{ sourceClaimId: input.claimId }, { operationId: input.operationId }] },
+      });
+      if (winner) return winner;
+    }
+    throw error;
+  }
 }
 
 export async function requestClaimFulfilmentRemedy(input: ClaimFulfilmentRemedyInput) {

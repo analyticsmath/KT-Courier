@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!user) return withdrawalNoStoreJson({ error: "Authentication required." }, 401);
   const parameter = WithdrawalPublicParamsSchema.safeParse(await params);
   if (!parameter.success) return withdrawalNoStoreJson({ error: "Withdrawal not found." }, 404);
-  const rate = checkIpRateLimit(request, `withdrawal-cancel:${user.id}`, RATE_LIMITS.WITHDRAWAL_MUTATION);
+  const rate = await checkIpRateLimit(request, `withdrawal-cancel:${user.id}`, RATE_LIMITS.WITHDRAWAL_MUTATION);
   if (!rate.ok) return withdrawalNoStoreJson({ error: "Too many withdrawal actions." }, 429);
   const requestFailure = validateWithdrawalJsonRequest(request);
   if (requestFailure) return requestFailure;

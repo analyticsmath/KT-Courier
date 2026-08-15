@@ -20,7 +20,7 @@ export async function requirePromoterPermission(permission: string) {
 
 export async function requirePromoterMutation(request: NextRequest, permission: string, endpoint: string) {
   const origin = await enforceSameOriginRequest(request, { path: endpoint }); if (origin) return { response: origin } as const;
-  const rate = checkIpRateLimit(request, endpoint, { max: 30, windowMs: 10 * 60 * 1000 }); if (!rate.ok) return { response: tooManyRequests(rate.retryAfterSeconds) } as const;
+  const rate = await checkIpRateLimit(request, endpoint, { max: 30, windowMs: 10 * 60 * 1000 }); if (!rate.ok) return { response: tooManyRequests(rate.retryAfterSeconds) } as const;
   const auth = await requirePromoterPermission(permission); if ("response" in auth) return auth;
   if (!PROMOTERS_PRODUCTION_VALIDATION_APPROVED) return { response: serviceUnavailable("Promoter operations are locked pending consolidated validation.") } as const;
   return auth;
@@ -28,7 +28,7 @@ export async function requirePromoterMutation(request: NextRequest, permission: 
 
 export async function requirePromoterRead(permission: string, request?: NextRequest, endpoint = "promoter-read") {
   if (request) {
-    const rate = checkIpRateLimit(request, endpoint, { max: 120, windowMs: 10 * 60 * 1000 });
+    const rate = await checkIpRateLimit(request, endpoint, { max: 120, windowMs: 10 * 60 * 1000 });
     if (!rate.ok) return { response: tooManyRequests(rate.retryAfterSeconds) } as const;
   }
   return requirePromoterPermission(permission);

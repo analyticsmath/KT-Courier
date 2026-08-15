@@ -10,7 +10,7 @@ const schema = z.object({ detail: z.string().trim().min(1).max(4000), evidenceRe
 export async function POST(request: NextRequest, { params }: { params: Promise<{ reference: string }> }) {
   const origin = await enforceSameOriginRequest(request); if (origin) return origin;
   const user = await getCurrentUser(); if (!user) return unauthorized(); if (user.role !== "STORE") return forbidden();
-  const limit = checkIpRateLimit(request, `claim-store-response:${user.id}`, RATE_LIMITS.CLAIM_MUTATION); if (!limit.ok) return badRequest("CLAIM_RATE_LIMITED");
+  const limit = await checkIpRateLimit(request, `claim-store-response:${user.id}`, RATE_LIMITS.CLAIM_MUTATION); if (!limit.ok) return badRequest("CLAIM_RATE_LIMITED");
   const parsed = schema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return unprocessable("Validation failed.");
   try { return ok({ data: await addClaimResponse({ publicReference: (await params).reference, actorUserId: user.id, role: user.role, ...parsed.data }) }); }
   catch (error) { return badRequest(error instanceof ClaimDomainError ? error.code : "CLAIM_RESPONSE_FAILED"); }

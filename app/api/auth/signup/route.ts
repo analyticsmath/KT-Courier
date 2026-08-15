@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
 
-  const rl = checkIpRateLimit(req, "signup", RATE_LIMITS.SIGNUP);
+  const rl = await checkIpRateLimit(req, "signup", RATE_LIMITS.SIGNUP);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;

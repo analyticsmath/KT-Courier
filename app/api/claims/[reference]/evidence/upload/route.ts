@@ -9,7 +9,7 @@ import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-medi
 export async function POST(request: NextRequest, { params }: { params: Promise<{ reference: string }> }) {
   const origin = await enforceSameOriginRequest(request); if (origin) return origin;
   const user = await getCurrentUser(); if (!user) return unauthorized();
-  const limit = checkIpRateLimit(request, `claim-evidence:${user.id}`, RATE_LIMITS.CLAIM_MUTATION); if (!limit.ok) return badRequest("CLAIM_RATE_LIMITED");
+  const limit = await checkIpRateLimit(request, `claim-evidence:${user.id}`, RATE_LIMITS.CLAIM_MUTATION); if (!limit.ok) return badRequest("CLAIM_RATE_LIMITED");
   const form = await request.formData().catch(() => null); if (!form) return unprocessable("A multipart form is required.");
   const file = form.get("file"); if (!(file instanceof File)) return unprocessable("A file is required.");
   try {

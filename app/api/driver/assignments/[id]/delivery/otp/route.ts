@@ -46,7 +46,7 @@ export async function POST(
   if (req.headers.get("content-type")?.split(";", 1)[0]?.toLowerCase() !== "application/json") return conflict("Content-Type must be application/json.");
 
   const ip = getClientIp(req);
-  const rl = checkIpRateLimit(req, `delivery:otp:${ip}`, RATE_LIMITS.DELIVERY_OTP_SEND);
+  const rl = await checkIpRateLimit(req, `delivery:otp:${ip}`, RATE_LIMITS.DELIVERY_OTP_SEND);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const user = await getCurrentUser();

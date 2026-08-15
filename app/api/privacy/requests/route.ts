@@ -11,7 +11,7 @@ export async function GET() { const user = await getCurrentUser(); if (!user) re
 export async function POST(request: NextRequest) {
   const origin = await enforceSameOriginRequest(request); if (origin) return origin;
   const user = await getCurrentUser(); if (!user) return unauthorized();
-  const rate = checkIpRateLimit(request, `privacy-request:${user.id}`, RATE_LIMITS.PRIVACY_REQUEST_SUBMISSION); if (!rate.ok) return badRequest("PRIVACY_REQUEST_RATE_LIMITED");
+  const rate = await checkIpRateLimit(request, `privacy-request:${user.id}`, RATE_LIMITS.PRIVACY_REQUEST_SUBMISSION); if (!rate.ok) return badRequest("PRIVACY_REQUEST_RATE_LIMITED");
   const parsed = schema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return unprocessable("Privacy request validation failed.");
   try { return ok({ data: await createPrivacyRequest({ requesterUserId: user.id, ...parsed.data }) }); } catch (error) { return badRequest(error instanceof PrivacyRequestError ? error.code : "PRIVACY_REQUEST_CREATE_FAILED"); }
 }

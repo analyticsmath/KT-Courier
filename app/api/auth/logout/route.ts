@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
-  SESSION_COOKIE_NAME,
+  extractSessionToken,
+  deleteSessionCookies,
   findSessionWithUser,
   revokeSessionByToken,
 } from "@/lib/auth/session";
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
   if (originFailure) return originFailure;
 
   const cookieStore = await cookies();
-  const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const rawToken = extractSessionToken(cookieStore);
   let userId: string | null = null;
 
   if (rawToken) {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  cookieStore.delete(SESSION_COOKIE_NAME);
+  deleteSessionCookies(cookieStore);
 
   await recordSecurityEvent({
     type: SECURITY_EVENT_TYPES.LOGOUT,

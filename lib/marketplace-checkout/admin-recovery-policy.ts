@@ -11,7 +11,7 @@ export async function prepareMarketplaceAdminRecovery(request: NextRequest, inpu
   if (explicitDeny) return { response: marketplaceJson({ error: "Administrative recovery permission denied." }, 403) };
   const origin = await enforceSameOriginRequest(request, { path: input.path });
   if (origin) return { response: origin };
-  const rate = checkIpRateLimit(request, `marketplace-recovery:${input.permission}:${input.actorUserId}`, RATE_LIMITS.MARKETPLACE_CHECKOUT_MUTATION);
+  const rate = await checkIpRateLimit(request, `marketplace-recovery:${input.permission}:${input.actorUserId}`, RATE_LIMITS.MARKETPLACE_CHECKOUT_MUTATION);
   if (!rate.ok) return { response: marketplaceJson({ error: "Too many marketplace recovery requests." }, 429) };
   if (request.headers.get("content-type")?.split(";", 1)[0]?.toLowerCase() !== "application/json") return { response: marketplaceJson({ error: "Invalid request body." }, 422) };
   let body: unknown; try { body = await request.json(); } catch { return { response: marketplaceJson({ error: "Invalid request body." }, 422) }; }

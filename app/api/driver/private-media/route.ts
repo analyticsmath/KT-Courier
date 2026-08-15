@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   if (user.role !== UserRole.DRIVER) return forbidden();
-  const rateLimit = checkIpRateLimit(request, `private-media-upload:${user.id}`, RATE_LIMITS.PRIVATE_MEDIA_UPLOAD);
+  const rateLimit = await checkIpRateLimit(request, `private-media-upload:${user.id}`, RATE_LIMITS.PRIVATE_MEDIA_UPLOAD);
   if (!rateLimit.ok) return tooManyRequests(rateLimit.retryAfterSeconds);
   const form = await request.formData().catch(() => null);
   if (!form) return unprocessable("A multipart form is required.");

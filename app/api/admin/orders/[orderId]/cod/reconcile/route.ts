@@ -11,7 +11,7 @@ import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 export async function POST(request: NextRequest, { params }: { params: Promise<{ orderId: string }> }) {
   const origin = await enforceSameOriginRequest(request); if (origin) return origin;
   const auth = await requireAdminApiPermission(PERMISSIONS.COD_OPERATIONS_MANAGE, { request }); if (auth.response) return auth.response;
-  const limit = checkIpRateLimit(request, `cod-reconciliation:${auth.user.id}`, RATE_LIMITS.COD_RECONCILIATION); if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
+  const limit = await checkIpRateLimit(request, `cod-reconciliation:${auth.user.id}`, RATE_LIMITS.COD_RECONCILIATION); if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
   const parsed = CodReconciliationSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return unprocessable("Validation failed.", formatZodErrors(parsed.error.issues));
   try { return ok(await reconcileCashCollection({ orderId: (await params).orderId, actorUserId: auth.user.id, receivedAmount: parsed.data.amount, operationId: parsed.data.operationId, evidenceReference: parsed.data.evidenceReference })); }
   catch (error) { if (error instanceof CashOnDeliveryError) return badRequest(error.code); return serverError(); }

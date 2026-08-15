@@ -11,7 +11,7 @@ export async function enforceStoreOrderMutation(request: NextRequest, type: "sto
   const origin = await enforceSameOriginRequest(request, { path: request.nextUrl.pathname });
   if (origin) return origin;
   const policy = type === "handoff" ? RATE_LIMITS.STORE_ORDER_HANDOFF : type === "customer" ? RATE_LIMITS.STORE_ORDER_CUSTOMER_MUTATION : type === "admin" ? RATE_LIMITS.STORE_ORDER_ADMIN_RECOVERY : RATE_LIMITS.STORE_ORDER_MUTATION;
-  return checkIpRateLimit(request, `store-order:${type}`, policy).ok ? null : storeOrderJson({ error: "Too many store-order requests. Please wait and try again." }, 429);
+  return (await checkIpRateLimit(request, `store-order:${type}`, policy)).ok ? null : storeOrderJson({ error: "Too many store-order requests. Please wait and try again." }, 429);
 }
 
 export async function storeOrderBody(request: NextRequest, limit = 4096): Promise<Record<string, unknown>> {

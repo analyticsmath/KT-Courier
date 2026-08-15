@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import { hashOtp } from "@/lib/auth/otp";
-import { createSession, SESSION_COOKIE_NAME, sessionExpiresAt } from "@/lib/auth/session";
+import { createSession, setSessionCookie } from "@/lib/auth/session";
 import { VerifyOtpSchema, formatZodErrors } from "@/lib/validation/auth";
 import { OtpPurpose, UserStatus } from "@/types/db";
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const { email, code } = parsed.data;
 
-  const rl = checkAuthRateLimit(req, "verify-otp", email, RATE_LIMITS.VERIFY_OTP);
+  const rl = await checkAuthRateLimit(req, "verify-otp", email, RATE_LIMITS.VERIFY_OTP);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const codeHash = hashOtp(code);
@@ -83,13 +83,7 @@ export async function POST(req: NextRequest) {
   // Create a session so the user is logged in immediately after verification
   const rawToken = await createSession(user.id);
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, rawToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: sessionExpiresAt(),
-  });
+  setSessionCookie(cookieStore, rawToken);
 
   const redirect = getPostAuthRedirect(user.role);
 

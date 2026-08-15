@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await requireAdminApiPermission(PERMISSIONS.PAYOUT_DESTINATIONS_MANAGE, { request }); if (auth.response) return auth.response;
   const originFailure = await enforceSameOriginRequest(request, { path: "/api/admin/payout-destinations" }); if (originFailure) return originFailure;
-  const rate = checkIpRateLimit(request, `payout-destination:${auth.user.id}`, RATE_LIMITS.PAYOUT_DESTINATION_MANAGE); if (!rate.ok) return withdrawalNoStoreJson({ error: "Too many payout destination actions." }, 429);
+  const rate = await checkIpRateLimit(request, `payout-destination:${auth.user.id}`, RATE_LIMITS.PAYOUT_DESTINATION_MANAGE); if (!rate.ok) return withdrawalNoStoreJson({ error: "Too many payout destination actions." }, 429);
   const requestFailure = validateWithdrawalJsonRequest(request); if (requestFailure) return requestFailure;
   let body: unknown; try { body = await request.json(); } catch { return withdrawalNoStoreJson({ error: "Invalid JSON body." }, 422); }
   const parsed = PayoutDestinationCreateSchema.safeParse(body); if (!parsed.success) return withdrawalNoStoreJson({ error: "Invalid payout destination. Raw bank data is not accepted." }, 422);

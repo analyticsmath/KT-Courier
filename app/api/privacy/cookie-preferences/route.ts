@@ -15,7 +15,7 @@ export async function GET() { const value = await subject(); return NextResponse
 export async function PATCH(request: NextRequest) {
   const originFailure = await enforceSameOriginRequest(request, { path: new URL(request.url).pathname }); if (originFailure) return originFailure;
   const parsed = schema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: "COOKIE_PREFERENCE_INVALID" }, { status: 422 });
-  const limited = checkIpRateLimit(request, "cookie-preference", RATE_LIMITS.COOKIE_PREFERENCE_MUTATION); if (!limited.ok) return NextResponse.json({ error: limited.failClosed ? "SERVICE_TEMPORARILY_UNAVAILABLE" : "COOKIE_PREFERENCE_RATE_LIMIT" }, { status: limited.failClosed ? 503 : 429 });
+  const limited = await checkIpRateLimit(request, "cookie-preference", RATE_LIMITS.COOKIE_PREFERENCE_MUTATION); if (!limited.ok) return NextResponse.json({ error: limited.failClosed ? "SERVICE_TEMPORARILY_UNAVAILABLE" : "COOKIE_PREFERENCE_RATE_LIMIT" }, { status: limited.failClosed ? 503 : 429 });
   const value = await subject();
   try {
     let anonymousCookie: string | undefined;

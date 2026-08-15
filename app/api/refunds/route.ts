@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return refundNoStoreJson({ error: "Authentication required." }, 401);
   if (user.role !== "CUSTOMER" || user.status !== "ACTIVE") return refundNoStoreJson({ error: "Refunds are unavailable for this account." }, 403);
-  const rate = checkIpRateLimit(request, `refund-request:${user.id}`, RATE_LIMITS.REFUND_REQUEST);
+  const rate = await checkIpRateLimit(request, `refund-request:${user.id}`, RATE_LIMITS.REFUND_REQUEST);
   if (!rate.ok) return refundNoStoreJson({ error: "Too many refund requests." }, 429);
   const requestFailure = validateRefundJsonRequest(request);
   if (requestFailure) return requestFailure;

@@ -16,7 +16,7 @@ const RouteEstimateSchema = z.object({
 
 export async function POST(req: NextRequest) {
   // Rate limit — prevent Google Maps cost abuse
-  const rl = checkIpRateLimit(req, "route-estimate", RATE_LIMITS.ORDER_ESTIMATE);
+  const rl = await checkIpRateLimit(req, "route-estimate", RATE_LIMITS.ORDER_ESTIMATE);
   if (!rl.ok) {
     return tooManyRequests(rl.retryAfterSeconds);
   }

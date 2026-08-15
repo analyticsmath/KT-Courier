@@ -10,7 +10,7 @@ export async function prepareAdminRefundMutation(request: NextRequest, params: P
   if (originFailure) return { response: originFailure } as const;
   const parsedParams = RefundAdminParamsSchema.safeParse(await params);
   if (!parsedParams.success) return { response: refundNoStoreJson({ error: "Refund not found." }, 404) } as const;
-  const rate = checkIpRateLimit(request, `refund-admin:${actorUserId}`, RATE_LIMITS.REFUND_MUTATION);
+  const rate = await checkIpRateLimit(request, `refund-admin:${actorUserId}`, RATE_LIMITS.REFUND_MUTATION);
   if (!rate.ok) return { response: refundNoStoreJson({ error: "Too many refund actions." }, 429) } as const;
   const requestFailure = validateRefundJsonRequest(request);
   if (requestFailure) return { response: requestFailure } as const;

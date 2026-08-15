@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // 4. Rate limiting
-  const rateLimit = checkIpRateLimit(request, "ad-reconciliation:retry-funding-return", { max: 30, windowMs: 10 * 60 * 1000 });
+  const rateLimit = await checkIpRateLimit(request, "ad-reconciliation:retry-funding-return", { max: 30, windowMs: 10 * 60 * 1000 });
   if (!rateLimit.ok) {
     return new Response(JSON.stringify({ error: "Too many requests." }), { status: 429 });
   }

@@ -20,7 +20,7 @@ describe("Rate Limiting Security & Policy Tests", () => {
     clearRateLimitStoreForTesting();
   });
 
-  it("proves public environment flags cannot relax limits", () => {
+  it("proves public environment flags cannot relax limits", async () => {
     // Set public E2E deterministic coordinates flag, but no server-only flags
     process.env.NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES = "true";
     delete process.env.KT_RUNTIME_ENV;
@@ -33,10 +33,10 @@ describe("Rate Limiting Security & Policy Tests", () => {
     // Limit must still trigger at normal limit
     const key = "test-public-flag-ip";
     for (let i = 0; i < RATE_LIMITS.LOGIN.max; i++) {
-      const res = checkRateLimit(key, RATE_LIMITS.LOGIN);
+      const res = await checkRateLimit(key, RATE_LIMITS.LOGIN);
       expect(res.ok).toBe(true);
     }
-    const failRes = checkRateLimit(key, RATE_LIMITS.LOGIN);
+    const failRes = await checkRateLimit(key, RATE_LIMITS.LOGIN);
     expect(failRes.ok).toBe(false);
     expect(failRes.retryAfterSeconds).toBeGreaterThan(0);
   });
@@ -85,21 +85,21 @@ describe("Rate Limiting Security & Policy Tests", () => {
     expect(policy.max).toBe(10000); // 10000 is high but finite
   });
 
-  it("proves E2E requests still increment limiter state", () => {
+  it("proves E2E requests still increment limiter state", async () => {
     process.env.KT_RUNTIME_ENV = "e2e";
     process.env.KT_E2E_RATE_LIMIT_MODE = "relaxed";
 
     const key = "e2e-increment-test-key";
     
     // Perform a request
-    const firstRes = checkRateLimit(key, RATE_LIMITS.LOGIN);
+    const firstRes = await checkRateLimit(key, RATE_LIMITS.LOGIN);
     expect(firstRes.ok).toBe(true);
 
     // We can prove it increments by changing the E2E flags back to production mid-flight
     // and verifying that the count has indeed been recorded and now hits the normal limit.
     // For LOGIN, the limit is 10. Let's do 9 requests under E2E:
     for (let i = 1; i < 9; i++) {
-      const res = checkRateLimit(key, RATE_LIMITS.LOGIN);
+      const res = await checkRateLimit(key, RATE_LIMITS.LOGIN);
       expect(res.ok).toBe(true);
     }
 
@@ -109,11 +109,11 @@ describe("Rate Limiting Security & Policy Tests", () => {
     delete process.env.KT_E2E_RATE_LIMIT_MODE;
 
     // The 10th request should succeed.
-    const tenthRes = checkRateLimit(key, RATE_LIMITS.LOGIN);
+    const tenthRes = await checkRateLimit(key, RATE_LIMITS.LOGIN);
     expect(tenthRes.ok).toBe(true);
 
     // The 11th request must fail because we now have 10 requests stored.
-    const eleventhRes = checkRateLimit(key, RATE_LIMITS.LOGIN);
+    const eleventhRes = await checkRateLimit(key, RATE_LIMITS.LOGIN);
     expect(eleventhRes.ok).toBe(false);
   });
 

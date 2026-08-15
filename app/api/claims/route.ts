@@ -16,7 +16,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const origin = await enforceSameOriginRequest(request); if (origin) return origin;
   const user = await getCurrentUser(); if (!user) return unauthorized();
-  const limit = checkIpRateLimit(request, `claim-create:${user.id}`, RATE_LIMITS.CLAIM_CREATE); if (!limit.ok) return badRequest("CLAIM_RATE_LIMITED");
+  const limit = await checkIpRateLimit(request, `claim-create:${user.id}`, RATE_LIMITS.CLAIM_CREATE); if (!limit.ok) return badRequest("CLAIM_RATE_LIMITED");
   const parsed = createSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return unprocessable("Validation failed.");
   try { return ok({ data: await createClaim({ claimantUserId: user.id, ...parsed.data }) }); }
   catch (error) { return badRequest(error instanceof ClaimDomainError ? error.code : "CLAIM_CREATE_FAILED"); }

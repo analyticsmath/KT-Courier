@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorized();
   if (!ALLOWED_ROLES.includes(user.role as (typeof ALLOWED_ROLES)[number])) return forbidden();
 
-  const rl = checkIpRateLimit(req, `order-estimate:${user.id}`, RATE_LIMITS.ORDER_ESTIMATE);
+  const rl = await checkIpRateLimit(req, `order-estimate:${user.id}`, RATE_LIMITS.ORDER_ESTIMATE);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;

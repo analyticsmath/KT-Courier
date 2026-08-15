@@ -11,7 +11,7 @@ import { checkIpRateLimit, getClientIp, RATE_LIMITS } from "@/lib/security/rate-
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const originFailure = await enforceSameOriginRequest(request);
   if (originFailure) return originFailure;
-  const rateLimit = checkIpRateLimit(request, `driver-location:${getClientIp(request)}`, RATE_LIMITS.DRIVER_LOCATION);
+  const rateLimit = await checkIpRateLimit(request, `driver-location:${getClientIp(request)}`, RATE_LIMITS.DRIVER_LOCATION);
   if (!rateLimit.ok) return tooManyRequests(rateLimit.retryAfterSeconds);
   if (request.headers.get("content-type")?.split(";", 1)[0]?.toLowerCase() !== "application/json") return badRequest("Content-Type must be application/json.");
 

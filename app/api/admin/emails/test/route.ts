@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (auth.response) return auth.response;
   const user = auth.user;
 
-  const rl = checkIpRateLimit(req, `admin-test-email:${user.id}`, RATE_LIMITS.ADMIN_TEST_EMAIL);
+  const rl = await checkIpRateLimit(req, `admin-test-email:${user.id}`, RATE_LIMITS.ADMIN_TEST_EMAIL);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;

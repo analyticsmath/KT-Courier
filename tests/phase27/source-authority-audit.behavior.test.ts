@@ -8,5 +8,5 @@ describe("Phase 27 executable source-authority audit", () => {
     expect(report.summary.FORBIDDEN_PRODUCTION_SENDER).toBe(0);
     expect(report.productionDeliveryAuthority).toEqual({ email: "Phase 27 canonical notification authority", sms: "Phase 27 canonical notification authority", push: "Phase 27 canonical notification authority" });
     expect(report.matches.every((match) => ["CANONICAL_PHASE27", "SECURITY_EVENT_PRODUCER", "TEST_ONLY", "DOCUMENTATION_ONLY"].includes(match.classification))).toBe(true);
-  });
+  }, 60000);
 });

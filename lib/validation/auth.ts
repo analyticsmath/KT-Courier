@@ -3,10 +3,20 @@ import { z } from "zod";
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 const emailField = z.string().min(1, "Email is required").email("Enter a valid email address").toLowerCase().trim();
+export const BCRYPT_MAX_BYTES = 72;
+
+export function isBcryptByteLengthValid(password: string): boolean {
+  return Buffer.byteLength(password, "utf8") <= BCRYPT_MAX_BYTES;
+}
+
 const passwordField = z
   .string()
   .min(8, "Password must be at least 8 characters")
-  .max(128, "Password is too long");
+  .max(128, "Password is too long")
+  .refine(
+    (val) => Buffer.byteLength(val, "utf8") <= BCRYPT_MAX_BYTES,
+    `Password cannot exceed ${BCRYPT_MAX_BYTES} bytes`
+  );
 
 // ─── Signup ───────────────────────────────────────────────────────────────────
 
@@ -54,7 +64,13 @@ export const StoreSignupSchema = z
 
 export const LoginSchema = z.object({
   email: emailField,
-  password: z.string().min(1, "Password is required"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .refine(
+      (val) => Buffer.byteLength(val, "utf8") <= BCRYPT_MAX_BYTES,
+      `Password cannot exceed ${BCRYPT_MAX_BYTES} bytes`
+    ),
 });
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────

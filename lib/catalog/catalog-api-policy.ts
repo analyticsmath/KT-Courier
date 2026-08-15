@@ -56,7 +56,7 @@ export async function prepareCatalogMutation(
 ): Promise<{ body: unknown } | { response: NextResponse }> {
   const originFailure = await enforceSameOriginRequest(request, { path: endpoint });
   if (originFailure) return { response: originFailure };
-  const rateLimit = checkIpRateLimit(request, `${endpoint}:${actorId}`, RATE_LIMITS.CATALOG_MUTATION);
+  const rateLimit = await checkIpRateLimit(request, `${endpoint}:${actorId}`, RATE_LIMITS.CATALOG_MUTATION);
   if (!rateLimit.ok) return { response: catalogJson({ error: "Too many catalog requests." }, 429) };
   return readCatalogJsonBody(request, limit);
 }
@@ -94,7 +94,7 @@ export async function readCatalogMediaStream(
 export async function prepareCatalogMediaStream(request: NextRequest, actorId: string, endpoint: string) {
   const originFailure = await enforceSameOriginRequest(request, { path: endpoint });
   if (originFailure) return { response: originFailure };
-  const rateLimit = checkIpRateLimit(request, `${endpoint}:${actorId}`, RATE_LIMITS.CATALOG_MEDIA_UPLOAD);
+  const rateLimit = await checkIpRateLimit(request, `${endpoint}:${actorId}`, RATE_LIMITS.CATALOG_MEDIA_UPLOAD);
   if (!rateLimit.ok) return { response: catalogJson({ error: "Too many catalog media uploads." }, 429) };
   return readCatalogMediaStream(request);
 }

@@ -6,8 +6,9 @@ const SOURCE_POLICY = Object.freeze({ max: 180, windowMs: 60_000, distributedReq
 const MAX_CONCURRENT_REQUESTS = 16;
 let activeRequests = 0;
 
-export function beginPayfastItnRequest(): () => void {
-  if (!checkRateLimit("payfast-itn:global", GLOBAL_POLICY).ok || activeRequests >= MAX_CONCURRENT_REQUESTS) {
+export async function beginPayfastItnRequest(): Promise<() => void> {
+  const globalCheck = await checkRateLimit("payfast-itn:global", GLOBAL_POLICY);
+  if (!globalCheck.ok || activeRequests >= MAX_CONCURRENT_REQUESTS) {
     throw new PaymentError("PAYFAST_APPLICATION_UNAVAILABLE", "Payfast ITN intake is temporarily busy.", true);
   }
   activeRequests += 1;
@@ -19,8 +20,9 @@ export function beginPayfastItnRequest(): () => void {
   };
 }
 
-export function assertPayfastSourceRateLimit(sourceAddress: string): void {
-  if (!checkRateLimit(`payfast-itn:source:${sourceAddress}`, SOURCE_POLICY).ok) {
+export async function assertPayfastSourceRateLimit(sourceAddress: string): Promise<void> {
+  const sourceCheck = await checkRateLimit(`payfast-itn:source:${sourceAddress}`, SOURCE_POLICY);
+  if (!sourceCheck.ok) {
     throw new PaymentError("PAYFAST_APPLICATION_UNAVAILABLE", "Payfast ITN source rate limit was reached.", true);
   }
 }

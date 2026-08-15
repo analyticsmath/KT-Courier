@@ -55,7 +55,7 @@ export async function PATCH(
     return forbidden("This endpoint is for customer accounts.");
   }
 
-  const rl = checkIpRateLimit(req, `account-address:${user.id}`, RATE_LIMITS.ADDRESS_MUTATION);
+  const rl = await checkIpRateLimit(req, `account-address:${user.id}`, RATE_LIMITS.ADDRESS_MUTATION);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const { id } = await params;
@@ -94,7 +94,7 @@ export async function DELETE(
     return forbidden("This endpoint is for customer accounts.");
   }
 
-  const rl = checkIpRateLimit(req, `account-address:${user.id}`, RATE_LIMITS.ADDRESS_MUTATION);
+  const rl = await checkIpRateLimit(req, `account-address:${user.id}`, RATE_LIMITS.ADDRESS_MUTATION);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const { id } = await params;

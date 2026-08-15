@@ -14,7 +14,7 @@ export async function GET(
   const user = await getCurrentUser();
   if (!user) return noStoreJson({ error: "Authentication required." }, 401);
   if (!ALLOWED_ROLES.has(user.role)) return noStoreJson({ error: "Payment is unavailable for this account." }, 403);
-  const rate = checkIpRateLimit(request, `payment-status:${user.id}`, RATE_LIMITS.PAYMENT_STATUS);
+  const rate = await checkIpRateLimit(request, `payment-status:${user.id}`, RATE_LIMITS.PAYMENT_STATUS);
   if (!rate.ok) return noStoreJson({ error: "Too many status requests." }, 429);
   const parsed = CustomerPaymentParamsSchema.safeParse(await params);
   if (!parsed.success) return noStoreJson({ error: "Payment not found." }, 404);

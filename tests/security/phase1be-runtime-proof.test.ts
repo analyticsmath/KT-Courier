@@ -14,7 +14,7 @@ describe("Phase 1B-E — Runtime Wiring & Behavioural Proof", () => {
   });
 
   describe("Workstream 1 & 2 — Rate Limit Request-Level Integration", () => {
-    it("should return failClosed result in production without Redis for LOGIN policy", () => {
+    it("should return failClosed result in production without Redis for LOGIN policy", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("REDIS_URL", "");
 
@@ -23,14 +23,14 @@ describe("Phase 1B-E — Runtime Wiring & Behavioural Proof", () => {
         body: JSON.stringify({ email: "user@example.com", password: "SecretPassword123!" }),
       });
 
-      const res = checkAuthRateLimit(req, "login", "user@example.com", RATE_LIMITS.LOGIN);
+      const res = await checkAuthRateLimit(req, "login", "user@example.com", RATE_LIMITS.LOGIN);
 
       expect(res.ok).toBe(false);
       expect(res.failClosed).toBe(true);
       expect(res.errorResponse?.code).toBe("SERVICE_TEMPORARILY_UNAVAILABLE");
     });
 
-    it("should return failClosed result in production without Redis for SIGNUP policy", () => {
+    it("should return failClosed result in production without Redis for SIGNUP policy", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("REDIS_URL", "");
 
@@ -38,7 +38,7 @@ describe("Phase 1B-E — Runtime Wiring & Behavioural Proof", () => {
         method: "POST",
       });
 
-      const res = checkIpRateLimit(req, "signup", RATE_LIMITS.SIGNUP);
+      const res = await checkIpRateLimit(req, "signup", RATE_LIMITS.SIGNUP);
 
       expect(res.ok).toBe(false);
       expect(res.failClosed).toBe(true);

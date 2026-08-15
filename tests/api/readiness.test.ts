@@ -23,10 +23,10 @@ describe("GET /api/ready", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({
-      status: "ready",
-      database: "reachable",
-    });
+    expect(body.status).toBe("ready");
+    expect(body.database).toBe("reachable");
+    expect(body.redis).toBeDefined();
+    expect(body.redis.status).toBeDefined();
   });
 
   it("returns 503 without exposing raw database errors", async () => {
@@ -36,10 +36,9 @@ describe("GET /api/ready", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body).toEqual({
-      status: "not_ready",
-      database: "unreachable",
-    });
+    expect(body.status).toBe("not_ready");
+    expect(body.database).toBe("unreachable");
+    expect(body.redis).toBeDefined();
     expect(JSON.stringify(body)).not.toContain("secret");
     expect(JSON.stringify(body)).not.toContain("postgresql://");
   });

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const { email } = parsed.data;
 
-  const rl = checkAuthRateLimit(req, "resend-otp", email, RATE_LIMITS.RESEND_OTP);
+  const rl = await checkAuthRateLimit(req, "resend-otp", email, RATE_LIMITS.RESEND_OTP);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const user = await prisma.user.findUnique({ where: { email } });

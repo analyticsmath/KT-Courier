@@ -14,7 +14,11 @@ export const AdminEmployeeCreateSchema = z.object({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
-    .max(128, "Password is too long"),
+    .max(128, "Password is too long")
+    .refine(
+      (val) => Buffer.byteLength(val, "utf8") <= 72,
+      "Password cannot exceed 72 bytes"
+    ),
   name: optionalText(100),
   displayName: optionalText(100),
   jobTitle: optionalText(100),

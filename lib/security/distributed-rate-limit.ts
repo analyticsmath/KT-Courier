@@ -1,4 +1,4 @@
-import { checkRateLimit, resolveRateLimitPolicy } from "./rate-limit";
+import { randomUUID } from "node:crypto";
 import { getRedisClient, isRedisConfigured } from "./redis-client";
 
 export type RateLimitBackendStatus =
@@ -18,6 +18,8 @@ export interface RateLimitPolicyWithDistributed {
 export interface RateLimitConsumeInput {
   key: string;
   policy: RateLimitPolicyWithDistributed;
+  customNow?: number;
+  customMember?: string;
 }
 
 export interface RateLimitDecision {
@@ -35,20 +37,80 @@ export interface RateLimitStore {
   consume(input: RateLimitConsumeInput): Promise<RateLimitDecision>;
 }
 
-// Atomic sliding-window rate limit script in Lua
-const SLIDING_WINDOW_LUA = `
+export function resolveRateLimitPolicy(
+  normalPolicy: RateLimitPolicyWithDistributed
+): RateLimitPolicyWithDistributed {
+  const isIsolatedE2E =
+    process.env.KT_RUNTIME_ENV === "e2e" &&
+    process.env.KT_E2E_RATE_LIMIT_MODE === "relaxed";
+
+  if (!isIsolatedE2E) {
+    return normalPolicy;
+  }
+
+  const E2E_FINITE_LIMIT = 10000;
+
+  return {
+    ...normalPolicy,
+    max: Math.max(normalPolicy.max, E2E_FINITE_LIMIT),
+  };
+}
+
+// ─── Process-memory sliding-window fallback (dev/test only) ───────────────────
+
+const memoryStore = new Map<string, number[]>();
+
+export function clearRateLimitMemoryStore(): void {
+  memoryStore.clear();
+}
+
+export function consumeInMemory(
+  key: string,
+  policy: RateLimitPolicyWithDistributed,
+  now = Date.now()
+): RateLimitDecision {
+  const resolvedConfig = resolveRateLimitPolicy(policy);
+  let timestamps = memoryStore.get(key) || [];
+  const cutoff = now - resolvedConfig.windowMs;
+  timestamps = timestamps.filter((t) => t > cutoff);
+
+  if (timestamps.length >= resolvedConfig.max) {
+    const oldest = timestamps[0] ?? now;
+    const retryAfterMs = Math.max(oldest + resolvedConfig.windowMs - now, 0);
+    return {
+      accepted: false,
+      retryAfterSeconds: Math.max(Math.ceil(retryAfterMs / 1000), 1),
+      backendUsed: process.env.NODE_ENV === "test" ? "MEMORY_TEST" : "MEMORY_DEVELOPMENT",
+    };
+  }
+
+  timestamps.push(now);
+  memoryStore.set(key, timestamps);
+
+  return {
+    accepted: true,
+    backendUsed: process.env.NODE_ENV === "test" ? "MEMORY_TEST" : "MEMORY_DEVELOPMENT",
+  };
+}
+
+// ─── Atomic Lua sliding-window rate limit script ─────────────────────────────
+// Member identity uses <timestamp>:<uuid-nonce> passed as ARGV[5] so that requests
+// occurring within the same millisecond are stored as distinct sorted-set entries.
+
+export const SLIDING_WINDOW_LUA = `
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
 local max = tonumber(ARGV[3])
 local ttl = tonumber(ARGV[4])
+local memberId = ARGV[5]
 
 local clearBefore = now - window
 redis.call('ZREMRANGEBYSCORE', key, '-inf', clearBefore)
 local currentCount = redis.call('ZCARD', key)
 
 if currentCount < max then
-  redis.call('ZADD', key, now, now)
+  redis.call('ZADD', key, now, memberId)
   redis.call('EXPIRE', key, ttl)
   return { 1, max - currentCount - 1, 0 }
 else
@@ -68,14 +130,12 @@ end
  * Real Redis-backed distributed rate limiter store.
  */
 export class RedisRateLimitStore implements RateLimitStore {
-  private scriptSha: string | null = null;
-
   async consume(input: RateLimitConsumeInput): Promise<RateLimitDecision> {
     const isProd = process.env.NODE_ENV === "production";
     const resolvedPolicy = resolveRateLimitPolicy(input.policy);
     const client = getRedisClient();
 
-    if (!client) {
+    if (!client || !isRedisConfigured()) {
       if (isProd && input.policy.distributedRequired) {
         return {
           accepted: false,
@@ -87,27 +147,22 @@ export class RedisRateLimitStore implements RateLimitStore {
           },
         };
       }
-      // Fall back to memory
-      const memRes = checkRateLimit(input.key, input.policy);
-      return {
-        accepted: memRes.ok,
-        retryAfterSeconds: memRes.retryAfterSeconds,
-        backendUsed: process.env.NODE_ENV === "test" ? "MEMORY_TEST" : "MEMORY_DEVELOPMENT",
-      };
+      // Fall back to memory in dev/test
+      return consumeInMemory(input.key, input.policy, input.customNow);
     }
 
     const redisKey = `ratelimit:${input.key}`;
-    const now = Date.now();
+    const now = input.customNow ?? Date.now();
     const windowMs = resolvedPolicy.windowMs;
     const max = resolvedPolicy.max;
     const ttlSeconds = Math.max(Math.ceil(windowMs / 1000) * 2, 60);
+    const memberId = input.customMember ?? `${now}:${randomUUID()}`;
 
     try {
       if (client.status === "wait" || client.status === "close") {
         await client.connect();
       }
 
-      // Execute atomic Lua sliding-window script
       const result = (await client.eval(
         SLIDING_WINDOW_LUA,
         1,
@@ -115,7 +170,8 @@ export class RedisRateLimitStore implements RateLimitStore {
         String(now),
         String(windowMs),
         String(max),
-        String(ttlSeconds)
+        String(ttlSeconds),
+        memberId
       )) as [number, number, number];
 
       const [allowed, , retryAfterSeconds] = result;
@@ -141,11 +197,9 @@ export class RedisRateLimitStore implements RateLimitStore {
       }
 
       // In non-production or non-distributed routes, fallback to memory
-      const memRes = checkRateLimit(input.key, input.policy);
+      const memRes = consumeInMemory(input.key, input.policy, input.customNow);
       return {
-        accepted: memRes.ok,
-        retryAfterSeconds: memRes.retryAfterSeconds,
-        backendUsed: "DISTRIBUTED_UNAVAILABLE",
+        ...memRes,
         warning: `Redis failed, fell back to memory: ${errMsg}`,
       };
     }
@@ -154,19 +208,19 @@ export class RedisRateLimitStore implements RateLimitStore {
 
 /**
  * Shared/Distributed Rate Limiter Test Adapter.
- * Used in tests or multi-instance environments when a concrete shared store is injected.
+ * Used in tests when a concrete shared in-memory store is injected across instances.
  */
 export class ConcreteSharedRateLimitStore implements RateLimitStore {
-  private readonly memoryStore = new Map<string, number[]>();
+  private readonly sharedEntries = new Map<string, Array<{ score: number; member: string }>>();
 
   async consume(input: RateLimitConsumeInput): Promise<RateLimitDecision> {
     const resolvedPolicy = resolveRateLimitPolicy(input.policy);
-    const now = Date.now();
+    const now = input.customNow ?? Date.now();
     const cutoff = now - resolvedPolicy.windowMs;
-    const timestamps = (this.memoryStore.get(input.key) || []).filter((t) => t > cutoff);
+    const existing = (this.sharedEntries.get(input.key) || []).filter((e) => e.score > cutoff);
 
-    if (timestamps.length >= resolvedPolicy.max) {
-      const oldest = timestamps[0] || now;
+    if (existing.length >= resolvedPolicy.max) {
+      const oldest = existing[0]?.score ?? now;
       const retryAfterMs = Math.max(oldest + resolvedPolicy.windowMs - now, 0);
       return {
         accepted: false,
@@ -175,8 +229,9 @@ export class ConcreteSharedRateLimitStore implements RateLimitStore {
       };
     }
 
-    timestamps.push(now);
-    this.memoryStore.set(input.key, timestamps);
+    const memberId = input.customMember ?? `${now}:${randomUUID()}`;
+    existing.push({ score: now, member: memberId });
+    this.sharedEntries.set(input.key, existing);
 
     return {
       accepted: true,
@@ -187,7 +242,6 @@ export class ConcreteSharedRateLimitStore implements RateLimitStore {
 
 /**
  * Production-aware Rate Limiter Store implementation.
- * Delegates to RedisRateLimitStore when REDIS_URL is present, or shared adapter if provided.
  */
 export class InMemoryRateLimitStore implements RateLimitStore {
   private readonly redisStore = new RedisRateLimitStore();
@@ -198,23 +252,20 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     const isProd = process.env.NODE_ENV === "production";
     const isTest = process.env.NODE_ENV === "test";
 
-    // If a concrete shared adapter is injected, delegate directly
     if (this.sharedAdapter) {
       return this.sharedAdapter.consume(input);
     }
 
-    // If Redis is configured, delegate to Redis store
     if (isRedisConfigured()) {
       return this.redisStore.consume(input);
     }
 
-    // Production safety: If distributed required but Redis is absent, fail closed.
     if (isProd && input.policy.distributedRequired) {
       return {
         accepted: false,
         backendUsed: "FAIL_CLOSED",
         warning:
-          "Production distributed rate limiter implementation absent (DISTRIBUTED_NOT_CONFIGURED). Operation failed closed.",
+          "Production distributed rate limiter unconfigured for distributed-required policy. Operation failed closed.",
         errorResponse: {
           code: "SERVICE_TEMPORARILY_UNAVAILABLE",
           message: "This operation is temporarily unavailable.",
@@ -222,28 +273,39 @@ export class InMemoryRateLimitStore implements RateLimitStore {
       };
     }
 
-    const res = checkRateLimit(input.key, input.policy);
-
+    const memRes = consumeInMemory(input.key, input.policy, input.customNow);
     return {
-      accepted: res.ok,
-      retryAfterSeconds: res.retryAfterSeconds,
+      ...memRes,
       backendUsed: isTest ? "MEMORY_TEST" : "MEMORY_DEVELOPMENT",
       ...(isProd && {
         warning:
-          "Production environment operating process-memory rate limiter for non-critical route.",
+          "Production environment operating process-memory rate limiter for non-distributed route.",
       }),
     };
   }
 }
 
 /**
- * Rate limiting service abstraction.
+ * Authoritative Rate Limiting Service.
  */
 export class RateLimitService {
-  constructor(private readonly store: RateLimitStore = new InMemoryRateLimitStore()) {}
+  constructor(private store: RateLimitStore = new InMemoryRateLimitStore()) {}
 
-  async consume(key: string, policy: RateLimitPolicyWithDistributed): Promise<RateLimitDecision> {
-    return this.store.consume({ key, policy });
+  setStore(store: RateLimitStore): void {
+    this.store = store;
+  }
+
+  async consume(
+    key: string,
+    policy: RateLimitPolicyWithDistributed,
+    options?: { customNow?: number; customMember?: string }
+  ): Promise<RateLimitDecision> {
+    return this.store.consume({
+      key,
+      policy,
+      customNow: options?.customNow,
+      customMember: options?.customMember,
+    });
   }
 }
 

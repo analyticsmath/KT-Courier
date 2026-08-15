@@ -14,9 +14,9 @@ export function storefrontError(error: unknown): NextResponse {
   if (error instanceof StorefrontProductionLockedError) return storefrontUnavailable();
   return storefrontJson({ error: "The shop could not complete this request." }, 503, { private: true });
 }
-export function enforceStorefrontRateLimit(request: NextRequest, kind: "search" | "suggestions" | "location"): NextResponse | null {
+export async function enforceStorefrontRateLimit(request: NextRequest, kind: "search" | "suggestions" | "location"): Promise<NextResponse | null> {
   const config = kind === "search" ? RATE_LIMITS.STOREFRONT_SEARCH : kind === "suggestions" ? RATE_LIMITS.STOREFRONT_SUGGESTIONS : RATE_LIMITS.STOREFRONT_LOCATION;
-  const result = checkIpRateLimit(request, `storefront:${kind}`, config);
+  const result = await checkIpRateLimit(request, `storefront:${kind}`, config);
   return result.ok ? null : storefrontJson({ error: "Too many shop requests. Please wait and try again." }, 429, { private: true });
 }
 export async function readBoundedStorefrontJson(request: NextRequest, limit = 2048): Promise<unknown> {

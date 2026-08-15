@@ -16,7 +16,7 @@ export async function POST(
   if (originFailure) return originFailure;
 
   const ip = getClientIp(req);
-  const rl = checkIpRateLimit(req, `dispatch:assign:${ip}`, RATE_LIMITS.DISPATCH_ASSIGN);
+  const rl = await checkIpRateLimit(req, `dispatch:assign:${ip}`, RATE_LIMITS.DISPATCH_ASSIGN);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const auth = await requireAdminApiPermission(PERMISSIONS.DISPATCH_ASSIGN, {

@@ -15,7 +15,7 @@ export async function POST(
   if (originFailure) return originFailure;
 
   const ip = getClientIp(req);
-  const rl = checkIpRateLimit(req, `admin:pickup-note:${ip}`, RATE_LIMITS.ADMIN_PICKUP_NOTE);
+  const rl = await checkIpRateLimit(req, `admin:pickup-note:${ip}`, RATE_LIMITS.ADMIN_PICKUP_NOTE);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const auth = await requireAdminApiPermission(PERMISSIONS.ORDERS_UPDATE, {

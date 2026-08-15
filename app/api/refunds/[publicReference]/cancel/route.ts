@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (user.role !== "CUSTOMER" || user.status !== "ACTIVE") return refundNoStoreJson({ error: "Refund not found." }, 404);
   const parameter = RefundPublicParamsSchema.safeParse(await params);
   if (!parameter.success) return refundNoStoreJson({ error: "Refund not found." }, 404);
-  const rate = checkIpRateLimit(request, `refund-cancel:${user.id}`, RATE_LIMITS.REFUND_MUTATION);
+  const rate = await checkIpRateLimit(request, `refund-cancel:${user.id}`, RATE_LIMITS.REFUND_MUTATION);
   if (!rate.ok) return refundNoStoreJson({ error: "Too many refund actions." }, 429);
   const requestFailure = validateRefundJsonRequest(request);
   if (requestFailure) return requestFailure;

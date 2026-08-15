@@ -40,7 +40,7 @@ export async function requireSubscriptionStoreReference(request: NextRequest, re
 export async function enforceSubscriptionMutation(request: NextRequest) {
   const origin = await enforceSameOriginRequest(request, { path: request.nextUrl.pathname });
   if (origin) return origin;
-  const result = checkIpRateLimit(request, "subscriptions:mutation", RATE_LIMITS.MARKETPLACE_CHECKOUT_MUTATION);
+  const result = await checkIpRateLimit(request, "subscriptions:mutation", RATE_LIMITS.MARKETPLACE_CHECKOUT_MUTATION);
   return result.ok ? null : subscriptionJson({ error: "Too many membership requests. Please wait and try again." }, 429);
 }
 

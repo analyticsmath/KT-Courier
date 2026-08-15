@@ -6,7 +6,7 @@ import { commissionNoStoreJson, validateCommissionJsonRequest } from "./api-poli
 export async function prepareCommissionMutation(request: NextRequest, actorUserId: string, path: string, kind: "plan" | "reversal") {
   const originFailure = await enforceSameOriginRequest(request, { path });
   if (originFailure) return { response: originFailure } as const;
-  const rate = checkIpRateLimit(request, `commission:${kind}:${actorUserId}`, kind === "reversal" ? RATE_LIMITS.COMMISSION_REVERSAL : RATE_LIMITS.COMMISSION_PLAN_MUTATION);
+  const rate = await checkIpRateLimit(request, `commission:${kind}:${actorUserId}`, kind === "reversal" ? RATE_LIMITS.COMMISSION_REVERSAL : RATE_LIMITS.COMMISSION_PLAN_MUTATION);
   if (!rate.ok) return { response: commissionNoStoreJson({ error: "Too many commission actions." }, 429) } as const;
   const requestFailure = validateCommissionJsonRequest(request);
   if (requestFailure) return { response: requestFailure } as const;

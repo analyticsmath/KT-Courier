@@ -8,7 +8,7 @@ import { PERMISSIONS, type PermissionKey } from "@/lib/auth/permission-keys";
 export async function requireNotificationUser(request: Request, mutation = false, permission: PermissionKey = mutation ? PERMISSIONS.NOTIFICATION_MANAGE_OWN_READ_STATE : PERMISSIONS.NOTIFICATION_READ_OWN) {
   const user = await getCurrentUser();
   if (!user) return { response: unauthorized() } as const;
-  const rate = checkIpRateLimit(request as any, `notifications:${mutation ? "write" : "read"}:${user.id}`, { max: mutation ? 60 : 180, windowMs: 60_000 });
+  const rate = await checkIpRateLimit(request as any, `notifications:${mutation ? "write" : "read"}:${user.id}`, { max: mutation ? 60 : 180, windowMs: 60_000 });
   if (!rate.ok) return { response: tooManyRequests() } as const;
   if (!await hasPermission({ userId: user.id, role: user.role, permissionKey: permission })) return { response: forbidden("Notification permission denied.") } as const;
   if (mutation) {

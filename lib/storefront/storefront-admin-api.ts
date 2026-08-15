@@ -12,7 +12,7 @@ export async function requireStorefrontAdminMutation(request: NextRequest, permi
   if ("response" in auth) return auth;
   const origin = await enforceSameOriginRequest(request, { path: request.nextUrl.pathname });
   if (origin) return { response: origin };
-  const rate = checkIpRateLimit(request, "storefront:admin:mutation", RATE_LIMITS.STOREFRONT_ADMIN_MUTATION);
+  const rate = await checkIpRateLimit(request, "storefront:admin:mutation", RATE_LIMITS.STOREFRONT_ADMIN_MUTATION);
   if (!rate.ok) return { response: storefrontJson({ error: "Too many storefront administration requests. Please wait and try again." }, 429, { private: true }) };
   return auth;
 }

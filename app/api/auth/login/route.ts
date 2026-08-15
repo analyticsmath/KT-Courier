@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPassword } from "@/lib/auth/password";
-import { createSession, SESSION_COOKIE_NAME, sessionExpiresAt } from "@/lib/auth/session";
+import { createSession, setSessionCookie } from "@/lib/auth/session";
 import { LoginSchema, formatZodErrors } from "@/lib/validation/auth";
 import { UserStatus } from "@/types/db";
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   const { email, password } = parsed.data;
 
-  const rl = checkAuthRateLimit(req, "login", email, RATE_LIMITS.LOGIN);
+  const rl = await checkAuthRateLimit(req, "login", email, RATE_LIMITS.LOGIN);
   if (!rl.ok) {
     await recordLoginFailure({
       request: req,
@@ -157,13 +157,7 @@ export async function POST(req: NextRequest) {
 
     // Set HTTP-only cookie
     const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, rawToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      expires: sessionExpiresAt(),
-    });
+    setSessionCookie(cookieStore, rawToken);
 
     await recordLoginAttempt({
       userId: user.id,

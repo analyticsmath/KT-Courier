@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest) {
     return forbidden("This endpoint is for store accounts.");
   }
 
-  const rl = checkIpRateLimit(req, `store-pickup-address:${user.id}`, RATE_LIMITS.ADDRESS_MUTATION);
+  const rl = await checkIpRateLimit(req, `store-pickup-address:${user.id}`, RATE_LIMITS.ADDRESS_MUTATION);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;

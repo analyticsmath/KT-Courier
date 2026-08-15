@@ -17,7 +17,7 @@ export async function POST(
   const user = await getCurrentUser();
   if (!user) return noStoreJson({ error: "Authentication required." }, 401);
   if (!ALLOWED_ROLES.has(user.role)) return noStoreJson({ error: "Payment is unavailable for this account." }, 403);
-  const rate = checkIpRateLimit(request, `payment-prepare:${user.id}`, RATE_LIMITS.PAYMENT_PREPARE);
+  const rate = await checkIpRateLimit(request, `payment-prepare:${user.id}`, RATE_LIMITS.PAYMENT_PREPARE);
   if (!rate.ok) return noStoreJson({ error: "Too many payment requests." }, 429);
   const requestFailure = validatePaymentJsonRequest(request);
   if (requestFailure) return requestFailure;

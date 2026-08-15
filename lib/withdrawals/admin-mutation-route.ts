@@ -10,7 +10,7 @@ export async function prepareAdminWithdrawalMutation(request: NextRequest, param
   if (originFailure) return { response: originFailure } as const;
   const parsedParams = WithdrawalAdminParamsSchema.safeParse(await params);
   if (!parsedParams.success) return { response: withdrawalNoStoreJson({ error: "Withdrawal not found." }, 404) } as const;
-  const rate = checkIpRateLimit(request, `withdrawal-admin:${actorUserId}`, RATE_LIMITS.WITHDRAWAL_MUTATION);
+  const rate = await checkIpRateLimit(request, `withdrawal-admin:${actorUserId}`, RATE_LIMITS.WITHDRAWAL_MUTATION);
   if (!rate.ok) return { response: withdrawalNoStoreJson({ error: "Too many withdrawal actions." }, 429) } as const;
   const requestFailure = validateWithdrawalJsonRequest(request);
   if (requestFailure) return { response: requestFailure } as const;

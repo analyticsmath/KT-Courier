@@ -1,4 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { UserRole, PrivateMediaOwnerType, PermissionEffect } from "@/types/db";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { hasPermission } from "@/lib/auth/permissions";
+import {
+  listCustomerAddresses,
+  getCustomerAddress,
+  deleteCustomerAddress,
+} from "@/lib/services/customer-addresses.service";
+import { PrivateMediaService, PrivateMediaPolicyError } from "@/lib/private-media/private-media.service";
+import type { PrivateMediaStorageAdapter } from "@/lib/private-media/private-media-storage";
 
 const prismaMock = vi.hoisted(() => ({
   permission: {
@@ -10,16 +20,25 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   userPermission: {
+    findFirst: vi.fn(),
     findMany: vi.fn(),
+  },
+  address: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    delete: vi.fn(),
   },
   privateMediaObject: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   },
   driverProfile: {
     findUnique: vi.fn(),
   },
   vehicle: {
+    findFirst: vi.fn(),
     findUnique: vi.fn(),
   },
   store: {
@@ -38,181 +57,191 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock("@/lib/db/prisma", () => ({ prisma: prismaMock }));
 
-import { UserRole, UserStatus } from "@/types/db";
-import { hasPermission } from "@/lib/auth/permissions";
-import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import { PrivateMediaService } from "@/lib/private-media/private-media.service";
+describe("Workstream C / P1R-008: BOLA & Object-Level Authorization Adversarial Matrix", () => {
+  let privateMediaService: PrivateMediaService;
+  const mockStorage: PrivateMediaStorageAdapter = {
+    code: "MOCK_STORAGE",
+    write: vi.fn().mockResolvedValue(undefined),
+    read: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+    delete: vi.fn().mockResolvedValue(undefined),
+  };
 
-describe("Workstream C: BOLA & Object-Level Authorization Adversarial Matrix", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.permission.count.mockResolvedValue(1);
     prismaMock.rolePermission.findMany.mockResolvedValue([]);
     prismaMock.userPermission.findMany.mockResolvedValue([]);
+    prismaMock.userPermission.findFirst.mockResolvedValue(null);
+
+    privateMediaService = new PrivateMediaService(mockStorage);
   });
 
-  describe("Customer vs Customer Object Boundaries", () => {
-    it("proves Customer A cannot read or access Customer B courier order", async () => {
-      const orderOwnerId = "cust-user-b";
-      const requestingUserId = "cust-user-a";
+  describe("1. Customer vs Customer Object Boundaries (Customer Addresses)", () => {
+    it("proves listCustomerAddresses strictly scopes queries by userId in where clause", async () => {
+      const customerAId = "cust-user-a";
+      prismaMock.address.findMany.mockResolvedValue([]);
 
-      const canAccess = (orderOwner: string, requester: string, role: UserRole) => {
-        if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) return true;
-        return orderOwner === requester;
-      };
+      await listCustomerAddresses(customerAId);
 
-      expect(canAccess(orderOwnerId, requestingUserId, UserRole.CUSTOMER)).toBe(false);
-      expect(canAccess(orderOwnerId, orderOwnerId, UserRole.CUSTOMER)).toBe(true);
-    });
-
-    it("proves Customer A cannot cancel Customer B order", async () => {
-      const orderOwnerId = "cust-user-b";
-      const requestingUserId = "cust-user-a";
-
-      const canCancel = (orderOwner: string, requester: string, role: UserRole) => {
-        if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) return true;
-        return orderOwner === requester;
-      };
-
-      expect(canCancel(orderOwnerId, requestingUserId, UserRole.CUSTOMER)).toBe(false);
-    });
-  });
-
-  describe("Store vs Store Boundaries", () => {
-    it("proves Store Owner A cannot read or mutate Store B orders", () => {
-      const storeBId = "store-b-id";
-      const storeAOwnerId = "user-store-a";
-      const storeBOwnerId = "user-store-b";
-
-      const canMutateStoreOrder = (storeOwner: string, requester: string) => {
-        return storeOwner === requester;
-      };
-
-      expect(canMutateStoreOrder(storeBOwnerId, storeAOwnerId)).toBe(false);
-      expect(canMutateStoreOrder(storeBOwnerId, storeBOwnerId)).toBe(true);
-    });
-
-    it("proves Store A cannot access Store B claim evidence or resolution", () => {
-      const claimStoreId = "store-b-id";
-      const storeAId = "store-a-id";
-
-      const canAccessClaim = (cStoreId: string, reqStoreId: string) => {
-        return cStoreId === reqStoreId;
-      };
-
-      expect(canAccessClaim(claimStoreId, storeAId)).toBe(false);
-    });
-  });
-
-  describe("Driver vs Driver & Vehicle Boundaries", () => {
-    it("proves Driver A cannot execute delivery transitions for Driver B assigned delivery", () => {
-      const assignedDriverId = "driver-b-id";
-      const requestingDriverId = "driver-a-id";
-
-      const canExecuteTransition = (assignedDriver: string, requester: string) => {
-        return assignedDriver === requester;
-      };
-
-      expect(canExecuteTransition(assignedDriverId, requestingDriverId)).toBe(false);
-      expect(canExecuteTransition(assignedDriverId, assignedDriverId)).toBe(true);
-    });
-
-    it("proves Driver A cannot collect COD for a job assigned to Driver B", () => {
-      const jobAssignedDriver = "driver-b-id";
-      const collectingDriver = "driver-a-id";
-
-      const canCollectCod = (assigned: string, collector: string) => {
-        return assigned === collector;
-      };
-
-      expect(canCollectCod(jobAssignedDriver, collectingDriver)).toBe(false);
-    });
-
-    it("proves Driver A cannot attach or modify Driver B vehicle registration", () => {
-      const vehicleOwnerId = "driver-b-id";
-      const requestingDriverId = "driver-a-id";
-
-      const canMutateVehicle = (vOwner: string, requester: string) => {
-        return vOwner === requester;
-      };
-
-      expect(canMutateVehicle(vehicleOwnerId, requestingDriverId)).toBe(false);
-    });
-  });
-
-  describe("Promoter Boundaries", () => {
-    it("proves Promoter A cannot view or claim Promoter B earnings and payouts", () => {
-      const promoterBUserId = "promoter-b-user";
-      const requestingPromoterId = "promoter-a-user";
-
-      const canAccessEarnings = (promoterUser: string, requester: string) => {
-        return promoterUser === requester;
-      };
-
-      expect(canAccessEarnings(promoterBUserId, requestingPromoterId)).toBe(false);
-    });
-  });
-
-  describe("Administrative Privilege Boundaries", () => {
-    it("proves non-finance customer without finance permission cannot execute finance operations", async () => {
-      const hasFinancePerm = await hasPermission({
-        userId: "regular-customer-id",
-        role: UserRole.CUSTOMER,
-        permissionKey: PERMISSIONS.WITHDRAWALS_RECONCILE,
+      expect(prismaMock.address.findMany).toHaveBeenCalledWith({
+        where: { userId: customerAId, storeId: null },
+        orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
       });
-
-      expect(hasFinancePerm).toBe(false);
     });
 
-    it("proves non-privileged user cannot perform administrative settings mutations", async () => {
-      const hasSuperAdminPerm = await hasPermission({
-        userId: "regular-customer-id",
-        role: UserRole.CUSTOMER,
-        permissionKey: PERMISSIONS.SETTINGS_UPDATE,
-      });
+    it("proves Customer A querying Customer B address returns null due to userId scoping", async () => {
+      const customerAId = "cust-user-a";
+      const customerBAddressId = "addr-b-123";
+      
+      prismaMock.address.findFirst.mockResolvedValue(null);
 
-      expect(hasSuperAdminPerm).toBe(false);
+      const result = await getCustomerAddress(customerAId, customerBAddressId);
+
+      expect(result).toBeNull();
+      expect(prismaMock.address.findFirst).toHaveBeenCalledWith({
+        where: { id: customerBAddressId, userId: customerAId, storeId: null },
+      });
+    });
+
+    it("proves Customer A deleting Customer B address returns ok=false without database mutation", async () => {
+      const customerAId = "cust-user-a";
+      const customerBAddressId = "addr-b-123";
+
+      // findFirst returns null because customerA does not own customerB address
+      prismaMock.address.findFirst.mockResolvedValue(null);
+
+      const deleted = await deleteCustomerAddress(customerAId, customerBAddressId);
+
+      expect(deleted.ok).toBe(false);
+      expect(prismaMock.address.findFirst).toHaveBeenCalledWith({
+        where: { id: customerBAddressId, userId: customerAId, storeId: null },
+        select: expect.any(Object),
+      });
+      expect(prismaMock.address.delete).not.toHaveBeenCalled();
     });
   });
 
-  describe("Private Media Access Authorization", () => {
-    it("proves non-existent private media returns 404", async () => {
+  describe("2. Private Media Object Authorization Boundaries", () => {
+    it("proves non-existent private media throws 404 NOT_FOUND", async () => {
       prismaMock.privateMediaObject.findUnique.mockResolvedValue(null);
-      const service = new PrivateMediaService();
 
       await expect(
-        service.read({
-          actor: { userId: "customer-456", role: UserRole.CUSTOMER },
-          reference: "NON-EXISTENT-PMO",
+        privateMediaService.read({
+          actor: { userId: "user-123", role: UserRole.CUSTOMER },
+          reference: "PMO-nonexistent",
         })
-      ).rejects.toThrow("Private media was not found.");
+      ).rejects.toThrowError(PrivateMediaPolicyError);
     });
 
-    it("proves unauthorized user is forbidden from reading another driver's private media", async () => {
-      prismaMock.privateMediaObject.findUnique.mockResolvedValue({
-        id: "pmo-1",
-        publicReference: "PMO-1",
-        ownerType: "DRIVER",
-        ownerId: "driver-profile-1",
-        status: "READY",
-        storageKey: "private-media/pmo-1",
-        detectedMimeType: "image/jpeg",
-        declaredMimeType: "image/jpeg",
-        originalFileName: "licence.jpg",
-      });
-      prismaMock.driverProfile.findUnique.mockResolvedValue({
-        userId: "other-driver-user-id",
-      });
-      prismaMock.privateMediaAccessLog.create.mockResolvedValue({});
+    it("proves Driver B attempting to read Driver A private media throws 403 FORBIDDEN and logs DENIED", async () => {
+      const driverAProfileId = "driver-prof-a";
+      const driverBUserId = "user-driver-b";
+      const mediaRef = "PMO-driver-a-id";
 
-      const service = new PrivateMediaService();
+      prismaMock.privateMediaObject.findUnique.mockResolvedValue({
+        id: "pmo-123",
+        publicReference: mediaRef,
+        ownerType: PrivateMediaOwnerType.DRIVER,
+        ownerId: driverAProfileId,
+        status: "READY",
+        storageKey: "private-media/pmo-123",
+        declaredMimeType: "application/pdf",
+        detectedMimeType: "application/pdf",
+        originalFileName: "driver_a.pdf",
+      });
+
+      prismaMock.driverProfile.findUnique.mockResolvedValue({ id: "driver-prof-b" });
+      prismaMock.privateMediaAccessLog.create.mockResolvedValue({ id: "log-1" });
 
       await expect(
-        service.read({
-          actor: { userId: "customer-attacker", role: UserRole.CUSTOMER },
-          reference: "PMO-1",
+        privateMediaService.read({
+          actor: { userId: driverBUserId, role: UserRole.DRIVER },
+          reference: mediaRef,
         })
-      ).rejects.toThrow("You cannot access this private media.");
+      ).rejects.toThrowError("You cannot access this private media.");
+
+      expect(prismaMock.privateMediaAccessLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          privateMediaObjectId: "pmo-123",
+          actorUserId: driverBUserId,
+          action: "READ",
+          outcome: "DENIED",
+        }),
+      });
+    });
+
+    it("proves Customer A attempting to read Driver A private media throws 403 FORBIDDEN", async () => {
+      const driverAProfileId = "driver-prof-a";
+      const customerAUserId = "user-customer-a";
+      const mediaRef = "PMO-driver-a-id";
+
+      prismaMock.privateMediaObject.findUnique.mockResolvedValue({
+        id: "pmo-123",
+        publicReference: mediaRef,
+        ownerType: PrivateMediaOwnerType.DRIVER,
+        ownerId: driverAProfileId,
+        status: "READY",
+        storageKey: "private-media/pmo-123",
+        declaredMimeType: "application/pdf",
+      });
+
+      prismaMock.driverProfile.findUnique.mockResolvedValue(null);
+      prismaMock.privateMediaAccessLog.create.mockResolvedValue({ id: "log-2" });
+
+      await expect(
+        privateMediaService.read({
+          actor: { userId: customerAUserId, role: UserRole.CUSTOMER },
+          reference: mediaRef,
+        })
+      ).rejects.toThrowError("You cannot access this private media.");
+    });
+  });
+
+  describe("3. Administrative & Finance Privilege Boundaries", () => {
+    it("proves regular Customer without finance permissions receives false from hasPermission", async () => {
+      prismaMock.permission.findUnique.mockResolvedValue(null);
+
+      const result = await hasPermission({
+        userId: "cust-user-123",
+        role: UserRole.CUSTOMER,
+        permissionKey: PERMISSIONS.FINANCE_READ,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it("proves explicit DENY overrides role-based permissions", async () => {
+      prismaMock.permission.findUnique.mockResolvedValue({
+        id: "perm-orders",
+        key: PERMISSIONS.ORDERS_READ,
+        rolePermissions: [{ id: "rp-1", role: UserRole.ADMIN, enabled: true }],
+        userPermissions: [{ id: "deny-1", effect: PermissionEffect.DENY }],
+      });
+
+      const result = await hasPermission({
+        userId: "admin-user-123",
+        role: UserRole.ADMIN,
+        permissionKey: PERMISSIONS.ORDERS_READ,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it("proves Admin with explicit ALLOW permission evaluates to true", async () => {
+      prismaMock.permission.findUnique.mockResolvedValue({
+        id: "perm-fin",
+        key: PERMISSIONS.FINANCE_READ,
+        rolePermissions: [],
+        userPermissions: [{ id: "allow-1", effect: PermissionEffect.ALLOW }],
+      });
+
+      const result = await hasPermission({
+        userId: "finance-admin-123",
+        role: UserRole.ADMIN,
+        permissionKey: PERMISSIONS.FINANCE_READ,
+      });
+
+      expect(result).toBe(true);
     });
   });
 });

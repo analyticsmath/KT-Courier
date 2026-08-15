@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return withdrawalNoStoreJson({ error: "Authentication required." }, 401);
   if (!ownerRoles.has(user.role)) return withdrawalNoStoreJson({ error: "Withdrawals are unavailable for this account." }, 403);
-  const rate = checkIpRateLimit(request, `withdrawal-request:${user.id}`, RATE_LIMITS.WITHDRAWAL_REQUEST);
+  const rate = await checkIpRateLimit(request, `withdrawal-request:${user.id}`, RATE_LIMITS.WITHDRAWAL_REQUEST);
   if (!rate.ok) return withdrawalNoStoreJson({ error: "Too many withdrawal requests." }, 429);
   const requestFailure = validateWithdrawalJsonRequest(request);
   if (requestFailure) return requestFailure;

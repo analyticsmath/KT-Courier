@@ -1,26 +1,14 @@
 import { type NextRequest } from "next/server";
+import {
+  defaultRateLimitService,
+  clearRateLimitMemoryStore,
+  resolveRateLimitPolicy,
+  type RateLimitBackendStatus,
+  type RateLimitPolicyWithDistributed,
+} from "./distributed-rate-limit";
+import { isRedisConfigured } from "./redis-client";
 
-// ─── In-memory sliding window rate limiter ─────────────────────────────────────
-// Single-instance only. For multi-instance deployments (Vercel serverless,
-// multiple workers), replace the Map store with Redis/Upstash KV.
-// See docs/deployment-readiness.md for upgrade path.
-
-interface RateLimitEntry {
-  timestamps: number[];
-}
-
-const store = new Map<string, RateLimitEntry>();
-
-function prune(entry: RateLimitEntry, windowMs: number): void {
-  const cutoff = Date.now() - windowMs;
-  entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
-}
-
-export interface RateLimitPolicy {
-  max: number;
-  windowMs: number;
-  distributedRequired?: boolean;
-}
+export type RateLimitPolicy = RateLimitPolicyWithDistributed;
 
 // ─── Predefined configs ────────────────────────────────────────────────────────
 
@@ -108,48 +96,39 @@ export interface RateLimitResult {
   ok: boolean;
   retryAfterSeconds?: number;
   failClosed?: boolean;
+  backendUsed?: RateLimitBackendStatus;
+  warning?: string;
   errorResponse?: {
     code: "SERVICE_TEMPORARILY_UNAVAILABLE";
     message: "This operation is temporarily unavailable.";
   };
 }
 
-export function resolveRateLimitPolicy(
-  normalPolicy: RateLimitPolicy,
-): RateLimitPolicy {
-  const isIsolatedE2E =
-    process.env.KT_RUNTIME_ENV === "e2e" &&
-    process.env.KT_E2E_RATE_LIMIT_MODE === "relaxed";
-
-  if (!isIsolatedE2E) {
-    return normalPolicy;
-  }
-
-  const E2E_FINITE_LIMIT = 10000;
-
-  return {
-    ...normalPolicy,
-    max: Math.max(normalPolicy.max, E2E_FINITE_LIMIT),
-  };
-}
+export { resolveRateLimitPolicy };
 
 export function clearRateLimitStoreForTesting(): void {
-  store.clear();
+  clearRateLimitMemoryStore();
 }
 
-export function checkRateLimit(
+/**
+ * Single authoritative rate limit evaluation function.
+ * Uses Redis in production or when configured; falls back cleanly in development/test.
+ */
+export async function checkRateLimit(
   key: string,
-  config: RateLimitPolicy
-): RateLimitResult {
+  config: RateLimitPolicy,
+  options?: { customNow?: number; customMember?: string }
+): Promise<RateLimitResult> {
   const isProd = process.env.NODE_ENV === "production";
-  const hasRedis = !!process.env.REDIS_URL;
+  const hasRedis = isRedisConfigured();
 
-  // Fail closed in production for distributed-required endpoints when Redis is missing
+  // Fail closed in production for distributed-required endpoints when Redis is absent
   if (isProd && config.distributedRequired && !hasRedis) {
     return {
       ok: false,
       retryAfterSeconds: 60,
       failClosed: true,
+      backendUsed: "FAIL_CLOSED",
       errorResponse: {
         code: "SERVICE_TEMPORARILY_UNAVAILABLE",
         message: "This operation is temporarily unavailable.",
@@ -157,50 +136,40 @@ export function checkRateLimit(
     };
   }
 
-  const resolvedConfig = resolveRateLimitPolicy(config);
-  const now = Date.now();
-  let entry = store.get(key);
+  const decision = await defaultRateLimitService.consume(key, config, options);
 
-  if (!entry) {
-    entry = { timestamps: [] };
-    store.set(key, entry);
-  }
-
-  prune(entry, resolvedConfig.windowMs);
-
-  if (entry.timestamps.length >= resolvedConfig.max) {
-    const oldest = entry.timestamps[0];
-    const retryAfterMs = oldest !== undefined ? Math.max(oldest + resolvedConfig.windowMs - now, 0) : resolvedConfig.windowMs;
-    return {
-      ok: false,
-      retryAfterSeconds: Math.ceil(retryAfterMs / 1000),
-    };
-  }
-
-  entry.timestamps.push(now);
-  return { ok: true };
+  return {
+    ok: decision.accepted,
+    retryAfterSeconds: decision.retryAfterSeconds,
+    failClosed:
+      decision.backendUsed === "FAIL_CLOSED" ||
+      decision.backendUsed === "DISTRIBUTED_UNAVAILABLE",
+    backendUsed: decision.backendUsed,
+    warning: decision.warning,
+    errorResponse: decision.errorResponse,
+  };
 }
 
 // ─── Convenience wrappers ──────────────────────────────────────────────────────
 
-export function checkIpRateLimit(
+export async function checkIpRateLimit(
   req: NextRequest,
   endpoint: string,
   config: RateLimitPolicy
-): RateLimitResult {
+): Promise<RateLimitResult> {
   const ip = getClientIp(req);
   return checkRateLimit(`${endpoint}:${ip}`, config);
 }
 
-export function checkAuthRateLimit(
+export async function checkAuthRateLimit(
   req: NextRequest,
   endpoint: string,
   email: string,
   config: RateLimitPolicy
-): RateLimitResult {
+): Promise<RateLimitResult> {
   const ip = getClientIp(req);
   const normalizedEmail = email.toLowerCase().trim();
-  const combined = checkRateLimit(`${endpoint}:${ip}:${normalizedEmail}`, config);
+  const combined = await checkRateLimit(`${endpoint}:${ip}:${normalizedEmail}`, config);
   if (!combined.ok) return combined;
   return checkRateLimit(`${endpoint}:${ip}`, config);
 }

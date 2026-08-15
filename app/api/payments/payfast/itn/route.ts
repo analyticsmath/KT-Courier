@@ -54,7 +54,7 @@ export async function POST(request: Request): Promise<Response> {
   const startedAt = Date.now();
   let release: (() => void) | null = null;
   try {
-    release = beginPayfastItnRequest();
+    release = await beginPayfastItnRequest();
     observePayfastItn("received");
     const body = await readBoundedPayfastItnBody(request);
     const result = await verifyPayfastItn({ bodyBytes: body.bytes, bodyText: body.text, headers: request.headers });

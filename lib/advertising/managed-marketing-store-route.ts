@@ -41,7 +41,7 @@ export async function storeMarketingActor(permission: string): Promise<{ actor: 
 export async function prepareStoreMarketingMutation(request: NextRequest, actor: ManagedMarketingRequestActor, policy: RateLimitPolicy) {
   const originFailure = await enforceSameOriginRequest(request, { path: new URL(request.url).pathname });
   if (originFailure) return { response: originFailure } as const;
-  const result = checkIpRateLimit(request, `managed-marketing:${actor.actorUserId}`, policy);
+  const result = await checkIpRateLimit(request, `managed-marketing:${actor.actorUserId}`, policy);
   if (!result.ok) return { response: NextResponse.json({ error: result.failClosed ? "SERVICE_TEMPORARILY_UNAVAILABLE" : "MANAGED_MARKETING_RATE_LIMIT" }, { status: result.failClosed ? 503 : 429, headers: result.retryAfterSeconds ? { "Retry-After": String(result.retryAfterSeconds) } : undefined }) } as const;
   return {} as const;
 }

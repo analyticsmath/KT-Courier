@@ -6,7 +6,7 @@ import { loadActiveStorefrontSynonymTerms } from "@/lib/services/storefront-syno
 import { assertStorefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
 
 export async function GET(request: NextRequest) {
-  const limited = enforceStorefrontRateLimit(request, "suggestions"); if (limited) return limited;
+  const limited = await enforceStorefrontRateLimit(request, "suggestions"); if (limited) return limited;
   try {
     assertStorefrontPublicExposureAllowed();
     const query = request.nextUrl.searchParams.get("q") ?? "";

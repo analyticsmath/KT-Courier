@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (!ALLOWED_ROLES.includes(user.role as (typeof ALLOWED_ROLES)[number])) return forbidden();
 
   // Rate limit by user ID to prevent order flooding from authenticated users
-  const rl = checkIpRateLimit(req, `order-create:${user.id}`, RATE_LIMITS.ORDER_CREATE);
+  const rl = await checkIpRateLimit(req, `order-create:${user.id}`, RATE_LIMITS.ORDER_CREATE);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;

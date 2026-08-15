@@ -24,7 +24,7 @@ export async function enforceMarketplaceMutation(request: NextRequest, kind: "ca
   const originFailure = await enforceSameOriginRequest(request, { path: request.nextUrl.pathname });
   if (originFailure) return originFailure;
   const policy = kind === "cart" ? RATE_LIMITS.MARKETPLACE_CART_MUTATION : kind === "checkout" ? RATE_LIMITS.MARKETPLACE_CHECKOUT_MUTATION : RATE_LIMITS.MARKETPLACE_RESERVATION;
-  const result = checkIpRateLimit(request, `marketplace:${kind}`, policy);
+  const result = await checkIpRateLimit(request, `marketplace:${kind}`, policy);
   return result.ok ? null : marketplaceJson({ error: "Too many checkout requests. Please wait and try again." }, 429);
 }
 
