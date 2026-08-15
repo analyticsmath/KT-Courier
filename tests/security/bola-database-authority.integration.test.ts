@@ -25,6 +25,7 @@ import { getOrder, cancelOrder } from "../../lib/services/orders.service";
 import { offerAssignment, acceptDispatchAssignment } from "../../lib/services/dispatch-assignment.service";
 import { requireStoreOrderActor } from "../../lib/store-orders/store-order-auth";
 import { StoreOrderError } from "../../lib/store-orders/errors";
+import { beginStoreOrderReview } from "../../lib/store-orders/store-order.service";
 import {
   getClaimForActor,
   addClaimResponse,
@@ -38,6 +39,7 @@ import {
   CashOnDeliveryError,
 } from "../../lib/services/cash-on-delivery.service";
 import { getPromoterEarningRecord, getPromoterEarningRecords } from "../../lib/promoter-presentation/promoter-data";
+import { createSession } from "../../lib/auth/session";
 import { hasPermission } from "../../lib/auth/permissions";
 import { PERMISSIONS } from "../../lib/auth/permission-keys";
 import { prepareMarketplaceAdminRecovery } from "../../lib/marketplace-checkout/admin-recovery-policy";
@@ -736,20 +738,24 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       return;
     }
 
-    // 1. Store A attempting to act on Store B's store order using production requireStoreOrderActor authority
+    // 1. Store A attempting to review Store B's order using actual production beginStoreOrderReview service
     await expect(
-      requireStoreOrderActor({
+      beginStoreOrderReview({
+        storeOrderReference: storeOrderBRef,
         actorUserId: storeAOwnerId,
-        storeId: storeBId,
-        permission: "store_orders.accept",
+        operationId: `op_review_malicious_${nonce}`,
+        requestHash: "0".repeat(64),
+        testApproval: { approved: true },
       })
     ).rejects.toThrowError(StoreOrderError);
 
     try {
-      await requireStoreOrderActor({
+      await beginStoreOrderReview({
+        storeOrderReference: storeOrderBRef,
         actorUserId: storeAOwnerId,
-        storeId: storeBId,
-        permission: "store_orders.accept",
+        operationId: `op_review_malicious_${nonce}`,
+        requestHash: "0".repeat(64),
+        testApproval: { approved: true },
       });
       expect.unreachable("Should have thrown StoreOrderError");
     } catch (err: any) {
@@ -769,12 +775,12 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
     expect(storeOrderInDb?.acceptedByUserId).toBeNull();
     expect(storeOrderInDb?.acceptedAt).toBeNull();
 
-    // 3. Assert Store B owner CAN legitimately execute store order authority
+    // 3. Assert Store B owner CAN legitimately execute store order review authority
     await expect(
       requireStoreOrderActor({
         actorUserId: storeBOwnerId,
         storeId: storeBId,
-        permission: "store_orders.accept",
+        permission: "store_orders.review",
       })
     ).resolves.not.toThrow();
   });
@@ -969,7 +975,10 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       return;
     }
 
-    // 1. Permission evaluation checks
+    // 1. Create real restricted-admin DB session
+    const restrictedSessionToken = await createSession(restrictedAdminId);
+
+    // 2. Permission evaluation checks against canonical database authority
     const restrictedAllowed = await hasPermission({
       userId: restrictedAdminId,
       role: UserRole.ADMIN,
@@ -984,12 +993,14 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
     });
     expect(financeAllowed).toBe(true);
 
-    // 2. Restricted admin attempting finance admin recovery / reconciliation command
-    const req = new NextRequest("http://localhost:3000/api/admin/marketplace-store-orders/mso_test/retry-settlement", {
+    // 3. Exercise actual production finance route authority composition (prepareMarketplaceAdminRecovery)
+    // with a real restricted-admin DB session against the retry-settlement route
+    const req = new NextRequest(`http://localhost:3000/api/admin/marketplace-store-orders/${storeOrderBRef}/retry-settlement`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         origin: "http://localhost:3000",
+        cookie: `kt_session=${restrictedSessionToken}`,
       },
       body: JSON.stringify({ operationId: `op_reconcile_unauth_${nonce}` }),
     });
@@ -997,7 +1008,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
     const recoveryAttempt = await prepareMarketplaceAdminRecovery(req, {
       actorUserId: restrictedAdminId,
       permission: PERMISSIONS.MARKETPLACE_SETTLEMENT_RECONCILE,
-      path: "/api/admin/marketplace-store-orders/mso_test/retry-settlement",
+      path: `/api/admin/marketplace-store-orders/${storeOrderBRef}/retry-settlement`,
     });
 
     expect("response" in recoveryAttempt).toBe(true);
@@ -1005,7 +1016,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       expect(recoveryAttempt.response.status).toBe(403);
     }
 
-    // 3. Assert PostgreSQL financial ledger has NO mutations or entries from restricted admin
+    // 4. Assert PostgreSQL financial ledger has NO mutations or entries from restricted admin
     const restrictedJournals = await prisma.ledgerJournal.findMany({
       where: {
         createdByUserId: restrictedAdminId,

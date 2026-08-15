@@ -1,14 +1,16 @@
 {
   "phase": "PHASE_1",
   "verdict": "PHASE_1_COMPLETE_READY_FOR_ARCHITECT_REVIEW",
-  "timestamp": "2026-08-15T10:30:00Z",
+  "timestamp": "2026-08-15T12:55:00Z",
   "provenance": {
     "startingCommitSha": "7eec80914672ee9341f37c91fa0e729f370a08fc",
+    "currentCommitSha": "200ad909ec179336161758e02a69afca24920026",
     "passType": "PHASE_1_FINAL_ACCEPTANCE_EVIDENCE_CLOSURE",
     "framework": {
       "next": "16.2.12",
       "eslintConfigNext": "16.2.12",
-      "node": "v24.x",
+      "ioredis": "^5.4.1",
+      "node": "v24.18.0",
       "buildStatus": "PASSED"
     }
   },
@@ -102,13 +104,13 @@
       "casesProven": [
         "A. Customer A cannot read Customer B courier order (ownership query boundary)",
         "B. Customer A cannot cancel Customer B courier order",
-        "C. Store A cannot read/mutate Store B marketplace order",
-        "D. Store A cannot access Store B claim evidence/resolution",
+        "C. Store A cannot read/mutate Store B marketplace order (beginStoreOrderReview rejects with STORE_ORDER_ACCESS_DENIED)",
+        "D. Store A cannot access Store B claim evidence/resolution (getClaimForActor & addClaimResponse reject with CLAIM_FORBIDDEN)",
         "E. Driver A cannot execute delivery transition assigned to Driver B",
-        "F. Driver A cannot collect COD for Driver B",
+        "F. Driver A cannot collect COD for Driver B (recordCashCollection rejects with COD_COLLECTOR_NOT_AUTHORIZED)",
         "G. Driver A cannot modify/attach Driver B vehicle or documents",
         "H. Promoter A cannot access Promoter B earnings",
-        "I. Restricted admin without finance permission cannot execute finance reconciliation/mutation",
+        "I. Restricted admin with real DB session cannot execute finance reconciliation route (prepareMarketplaceAdminRecovery rejects with 403, 0 journals in DB)",
         "J. Foreign actor cannot access private evidence"
       ]
     },
@@ -161,7 +163,7 @@
       "exitCode": 0,
       "status": "PASSED",
       "testFiles": 641,
-      "tests": 2329,
+      "tests": 2330,
       "failures": 0
     },
     "gate4_migrationsCheck": {
@@ -217,6 +219,11 @@
       "status": "PASSED",
       "testsExecuted": 2,
       "failures": 0
+    },
+    "gate12_productionBuild": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "status": "PASSED"
     }
   },
   "governance": {

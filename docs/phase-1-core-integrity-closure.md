@@ -4,7 +4,8 @@
 **Phase**: Phase 1 — Final Acceptance-Evidence Micro-Closure  
 **Status**: `PHASE_1_COMPLETE_READY_FOR_ARCHITECT_REVIEW`  
 **Starting Baseline Commit SHA**: `7eec80914672ee9341f37c91fa0e729f370a08fc`  
-**Execution Timestamp**: 2026-08-15T11:45:00Z  
+**Current Baseline Commit SHA**: `200ad909ec179336161758e02a69afca24920026`  
+**Execution Timestamp**: 2026-08-15T12:55:00Z  
 
 ---
 
@@ -12,10 +13,10 @@
 
 Phase 1 completes core transaction invariants, security posture hardening, framework maintenance, clean-clone test reproducibility, and non-mocked real runtime proof execution across the entire KT Courier platform.
 
-All 11 consolidated verification gates execute cleanly and exit 0:
+All 12 consolidated verification gates execute cleanly and exit 0:
 - `npm run lint` (0 errors, 0 warnings)
 - `npm run typecheck` (0 errors)
-- `npm test` (**641 passed test files, 2,329 passed tests, 0 failures**)
+- `npm test` (**641 passed test files, 2,330 passed tests, 0 failures**)
 - `npm run migrations:check` (62 incremental migrations, 8 archived migrations, active baseline intact)
 - `npm run db:phase-b:proof-source:preflight` (17 PostgreSQL suites discovered and validated)
 - `npm run test:integration:redis-rate-limit` (**7/7 strict Redis integration proofs passed on disposable container**)
@@ -24,7 +25,7 @@ All 11 consolidated verification gates execute cleanly and exit 0:
 - `npm run test:integration:auth` (Live auth session integration passed)
 - `npm run test:integration:permissions` (Live permissions integration passed)
 - `npm run test:integration:orders` (Live orders & pricing integration passed)
-- `npm run build` (Next.js production build succeeded)
+- `npm run build` (Next.js production build succeeded with 8GB heap allocation)
 
 ---
 
@@ -32,7 +33,7 @@ All 11 consolidated verification gates execute cleanly and exit 0:
 
 - **Next.js**: `16.2.12` (security-patched LTS line)
 - **ESLint Config**: `eslint-config-next@16.2.12`
-- **Distributed Store**: `ioredis@^5.4.2` (production distributed rate limit engine)
+- **Distributed Store**: `ioredis@^5.4.1` (production distributed rate limit engine)
 - **Node.js**: `v24.18.0` / Windows x64
 
 ---
@@ -65,13 +66,13 @@ All 11 consolidated verification gates execute cleanly and exit 0:
 ### Multi-Actor Domains & Non-Mutation Evidence:
 - **Case A (Customer Order Read Boundary)**: Customer A querying Customer B's courier order via production `getOrder` authority returns `null`. Customer B querying their own order succeeds.
 - **Case B (Customer Order Cancellation Boundary)**: Customer A invoking `cancelOrder` against Customer B's order is rejected (`Order not found`). PostgreSQL database assertion verifies Customer B's order status remains unchanged (`CONFIRMED`).
-- **Case C (Store Marketplace Order Boundary)**: Store A attempting to review/accept Store B's marketplace order via `requireStoreOrderActor` receives `STORE_ORDER_ACCESS_DENIED`. PostgreSQL database assertions confirm Store B's order status remains `PENDING_STORE_REVIEW` and unmutated. Store B owner legitimately executes the authority.
+- **Case C (Store Marketplace Order Boundary)**: Store A attempting to review Store B's marketplace order via actual order-specific production service `beginStoreOrderReview` (with test approval token) receives `STORE_ORDER_ACCESS_DENIED`. PostgreSQL database assertions confirm Store B's order status remains `PENDING_STORE_REVIEW` and unmutated. Store B owner legitimately executes the review authority.
 - **Case D (Store Marketplace Claim Boundary)**: Store A attempting `getClaimForActor` or `addClaimResponse` against Store B's marketplace claim is denied with `CLAIM_FORBIDDEN`. PostgreSQL database assertions prove zero `ClaimActivity` records from Store A and claim status remains `OPEN`. Store B owner successfully records legitimate response.
 - **Case E (Driver Assignment Execution Boundary)**: Driver A invoking `assertAcceptedCurrentDriver` on Driver B's active order assignment is rejected with `DRIVER_OPERATION_FORBIDDEN`.
 - **Case F (Actual COD Collection Authority)**: Driver A attempting to collect COD via production `recordCashCollection` on Driver B's assigned order is rejected with `COD_COLLECTOR_NOT_AUTHORIZED`. PostgreSQL database assertions prove `CashOnDelivery.cashCollected` remains `0.00`, status remains `READY_FOR_COLLECTION`, collector remains unassigned, and Driver B remains the assigned driver.
 - **Case G (Driver Vehicle & Document Modification Boundary)**: Driver A attempting to upload vehicle registration or identity documents to Driver B's profile via `privateMediaService.upload` is rejected with `PrivateMediaPolicyError`.
 - **Case H (Promoter Cross-Account Earning Boundary)**: Promoter A querying Promoter B's earning record via `getPromoterEarningRecord` returns `null`. Listing all earnings for Promoter A excludes Promoter B's records. Promoter B querying their own earning succeeds.
-- **Case I (Finance Reconciliation Mutation Boundary)**: Restricted admin lacking `MARKETPLACE_SETTLEMENT_RECONCILE` attempting administrative finance reconciliation via `prepareMarketplaceAdminRecovery` receives `403 Forbidden`. PostgreSQL database assertions verify zero ledger journals or settlement mutations are created by the restricted admin. Finance admin with permission check evaluates to `true`.
+- **Case I (Finance Reconciliation Mutation Boundary)**: Restricted admin with real DB session attempting administrative finance recovery route `/api/admin/marketplace-store-orders/[reference]/retry-settlement` via canonical route authority composition `prepareMarketplaceAdminRecovery` receives `403 Forbidden`. The route's guard is deliberately treated as the canonical authorization authority, rejecting unauthorized recovery before mutation. PostgreSQL database assertions verify zero ledger journals or settlement mutations are created by the restricted admin.
 - **Case J (Private Media Foreign Access Boundary)**: Foreign actor attempting to download Driver B's private identity document via `privateMediaService.read` is rejected with `403`. Security audit log in PostgreSQL records the access rejection with `outcome: "DENIED"`.
 
 ---
@@ -119,5 +120,5 @@ All 11 consolidated verification gates execute cleanly and exit 0:
 ## 8. Remaining Roadmap (Phase 2 & Phase 3)
 
 With Phase 1 core transaction, security, migration, and runtime integrity closure fully achieved and verified, the codebase is ready for:
-- **Phase 2**: Order fulfilment state transitions, multi-stop routing optimizations, and advanced live tracking streams.
-- **Phase 3**: Automated store settlement disbursements, tiered merchant commission schedules, and external accounting bridge integrations.
+- **Phase 2**: Order fulfilment state transitions, multi-stop routing optimizations, live delivery tracking streams, customer OTP handoff workflows, and real-time dispatcher dispatching.
+- **Phase 3**: Automated merchant settlement disbursements, tiered merchant commission schedules, driver payout batches, and external accounting ledger export bridge integrations.
