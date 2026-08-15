@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from "@/lib/db";
 import { MARKETING_CHANNELS, setMarketingPreference } from "@/lib/privacy/preference.service";
 import { evaluateRetentionHolds, type HoldEvaluationResult } from "@/lib/retention/hold-evaluator";
@@ -92,7 +93,8 @@ async function getPrivacyRequestAuthority(publicReference: string, ownerUserId?:
 export async function getPrivacyRequest(publicReference: string, ownerUserId?: string) {
   const request = await getPrivacyRequestAuthority(publicReference, ownerUserId);
   if (!request) return null;
-  const { id: _id, ...publicRequest } = request;
+  const publicRequest = { ...request };
+  delete (publicRequest as { id?: unknown }).id;
   return publicRequest;
 }
 

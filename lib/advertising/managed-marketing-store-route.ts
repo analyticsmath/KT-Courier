@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { hasPermission } from "@/lib/auth/permissions";
-import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, type RateLimitPolicy } from "@/lib/security/rate-limit";
 import { UserRole } from "@/types/db";

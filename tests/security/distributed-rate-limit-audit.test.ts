@@ -117,4 +117,36 @@ describe("P1R-001: Static Source Audit — Distributed Rate Limiting Coverage & 
     expect(content).toContain("await checkRateLimit(`payfast-itn:source:${sourceAddress}`, SOURCE_POLICY)");
     expect(content).toContain("MAX_CONCURRENT_REQUESTS");
   });
+
+  it("proves every beginPayfastItnRequest and assertPayfastSourceRateLimit call-site is strictly awaited", () => {
+    const allSourceFiles = [
+      ...getSourceFiles(path.join(root, "app")),
+      ...getSourceFiles(path.join(root, "lib")),
+    ];
+
+    const unawaitedPayfastCalls: string[] = [];
+
+    for (const file of allSourceFiles) {
+      if (file.endsWith("payfast-itn-rate-limit.ts")) continue;
+      const content = fs.readFileSync(file, "utf8");
+      const lines = content.split("\n");
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) return;
+        if (trimmed.startsWith("import ")) return;
+
+        if (trimmed.includes("beginPayfastItnRequest(") && !trimmed.includes("await beginPayfastItnRequest(")) {
+          unawaitedPayfastCalls.push(`${path.relative(root, file)}:${idx + 1}: ${trimmed}`);
+        }
+        if (trimmed.includes("assertPayfastSourceRateLimit(") && !trimmed.includes("await assertPayfastSourceRateLimit(")) {
+          unawaitedPayfastCalls.push(`${path.relative(root, file)}:${idx + 1}: ${trimmed}`);
+        }
+      });
+    }
+
+    expect(
+      unawaitedPayfastCalls,
+      `Found unawaited PayFast rate limiter calls:\n${unawaitedPayfastCalls.join("\n")}`
+    ).toEqual([]);
+  });
 });

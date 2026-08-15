@@ -37,7 +37,8 @@ export async function getOperationalIncident(publicReference: string) {
   if (!incident) return null;
   // An unavailable audit read must propagate; an empty timeline is false evidence.
   const timeline = isTestMemory() ? await phase5Repository.operationalIncidentTimeline.findMany({ where: { incidentId: String(incident.id) }, orderBy: { createdAt: "asc" } }) : await prisma.operationalIncidentTimeline.findMany({ where: { incidentId: String(incident.id) }, orderBy: { createdAt: "asc" } });
-  const { id: _id, ...publicIncident } = incident;
+  const publicIncident = { ...incident };
+  delete (publicIncident as { id?: unknown }).id;
   return { ...publicIncident, timeline };
 }
 

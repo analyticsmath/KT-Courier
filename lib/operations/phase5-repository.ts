@@ -87,7 +87,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
   // PostgreSQL proof suites run under NODE_ENV=test too, so selecting memory
   // merely from NODE_ENV would silently split production authorities from their
   // database assertions.
-  const useTestMemoryStore = () => {
+  const isTestMemoryStoreEnabled = () => {
     if (process.env.PHASE5_REPOSITORY_USE_MEMORY !== "true") return false;
     if (process.env.NODE_ENV === "test" && process.env.PHASE5_REPOSITORY_TEST_MEMORY === "true") return true;
     throw new Error("PHASE5_REPOSITORY_USE_MEMORY is only permitted for explicitly opted-in unit tests (NODE_ENV=test and PHASE5_REPOSITORY_TEST_MEMORY=true).");
@@ -99,7 +99,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
   };
   return {
     async findMany(args?: Record<string, unknown>) {
-      if (!useTestMemoryStore()) return databaseDelegate().findMany(args) as Promise<Record<string, unknown>[]>;
+      if (!isTestMemoryStoreEnabled()) return databaseDelegate().findMany(args) as Promise<Record<string, unknown>[]>;
       const store = getMemoryStore(modelName);
       const where = args?.where as Record<string, unknown> | undefined;
       const take = (args?.take as number) ?? 100;
@@ -112,7 +112,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return results.slice(0, take);
     },
     async findFirst(args?: Record<string, unknown>) {
-      if (!useTestMemoryStore()) return databaseDelegate().findFirst(args) as Promise<Record<string, unknown> | null>;
+      if (!isTestMemoryStoreEnabled()) return databaseDelegate().findFirst(args) as Promise<Record<string, unknown> | null>;
       const store = getMemoryStore(modelName);
       const where = args?.where as Record<string, unknown> | undefined;
       for (const item of store.values()) {
@@ -123,7 +123,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return null;
     },
     async findUnique(args: Record<string, unknown>) {
-      if (!useTestMemoryStore()) return databaseDelegate().findUnique(args) as Promise<Record<string, unknown> | null>;
+      if (!isTestMemoryStoreEnabled()) return databaseDelegate().findUnique(args) as Promise<Record<string, unknown> | null>;
       const store = getMemoryStore(modelName);
       const where = args.where as Record<string, unknown>;
       if (!where) return null;
@@ -134,7 +134,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return null;
     },
     async create(args: Record<string, unknown>) {
-      if (!useTestMemoryStore()) return databaseDelegate().create(args) as Promise<Record<string, unknown>>;
+      if (!isTestMemoryStoreEnabled()) return databaseDelegate().create(args) as Promise<Record<string, unknown>>;
       const store = getMemoryStore(modelName);
       const defaults = DEFAULT_MODEL_VALUES[modelName] ?? {};
       const data = { ...defaults, ...(args.data as Record<string, unknown>) };
@@ -147,7 +147,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return data;
     },
     async update(args: Record<string, unknown>) {
-      if (!useTestMemoryStore()) return databaseDelegate().update(args) as Promise<Record<string, unknown>>;
+      if (!isTestMemoryStoreEnabled()) return databaseDelegate().update(args) as Promise<Record<string, unknown>>;
       const store = getMemoryStore(modelName);
       const where = args.where as Record<string, unknown>;
       const existing = await this.findUnique({ where });
@@ -160,7 +160,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return existing;
     },
     async updateMany(args: Record<string, unknown>) {
-      if (!useTestMemoryStore()) return databaseDelegate().updateMany(args) as Promise<{ count: number }>;
+      if (!isTestMemoryStoreEnabled()) return databaseDelegate().updateMany(args) as Promise<{ count: number }>;
       const store = getMemoryStore(modelName);
       const where = args.where as Record<string, unknown>;
       const data = args.data as Record<string, unknown>;
@@ -175,7 +175,7 @@ function createModelDelegate(modelName: string): RepositoryDelegate {
       return { count };
     },
     async upsert(args: Record<string, unknown>) {
-      if (!useTestMemoryStore()) return databaseDelegate().upsert(args) as Promise<Record<string, unknown>>;
+      if (!isTestMemoryStoreEnabled()) return databaseDelegate().upsert(args) as Promise<Record<string, unknown>>;
       const where = args.where as Record<string, unknown>;
       const existing = await this.findUnique({ where });
       if (existing) {

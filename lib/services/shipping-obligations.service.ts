@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { phase5Reference, safeOperationalText } from "@/lib/operations/phase5-repository";

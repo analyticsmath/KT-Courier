@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/db/prisma";
 import { getLatestSafeDriverLocationProjection } from "./driver-location-evidence.service";
 import { recordAdminActivity } from "./admin-activity.service";

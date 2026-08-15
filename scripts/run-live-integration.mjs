@@ -42,6 +42,8 @@ const env = {
   SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
   EMAIL_PROVIDER: "console",
   NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+  KT_ALLOW_DEMO_SEED: "true",
+  KT_DATABASE_CLASSIFICATION: "development",
 };
 
 function assertDisposableProject() {

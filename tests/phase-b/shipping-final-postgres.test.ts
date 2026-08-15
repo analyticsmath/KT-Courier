@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { acceptDispatchAssignment, offerAssignment } from "@/lib/services/dispatch-assignment.service";

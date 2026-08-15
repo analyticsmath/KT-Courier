@@ -8,45 +8,61 @@ import {
   RedisRateLimitStore,
   type RateLimitPolicyWithDistributed,
 } from "../../lib/security/distributed-rate-limit";
+import { redactRedisUrl } from "../../lib/security/redis-client";
 
 const REDIS_CONTAINER_NAME = `kt-redis-it-${Date.now()}`;
-const REDIS_PORT = 6389;
-const REDIS_URL = `redis://localhost:${REDIS_PORT}`;
+const REDIS_PORT = process.env.KT_STRICT_REDIS_PORT ? Number(process.env.KT_STRICT_REDIS_PORT) : 6389;
+const REDIS_URL = process.env.REDIS_URL || `redis://localhost:${REDIS_PORT}`;
+const isStrict = process.env.STRICT_REDIS_INTEGRATION === "1";
 
 describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millisecond Collision Proof", () => {
   let clientA: Redis;
   let clientB: Redis;
   let redisAvailable = false;
+  let containerStarted = false;
 
   beforeAll(async () => {
     try {
-      // Start a disposable, isolated Redis test container
-      execSync(`docker run --rm -d --name ${REDIS_CONTAINER_NAME} -p ${REDIS_PORT}:6379 redis:7-alpine`, {
-        stdio: "ignore",
-      });
-      
-      // Wait for Redis to accept connections
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!process.env.REDIS_URL) {
+        // Start a disposable, isolated Redis test container if not already provided by runner
+        try {
+          execSync(`docker run --rm -d --name ${REDIS_CONTAINER_NAME} -p ${REDIS_PORT}:6379 redis:7-alpine`, {
+            stdio: "ignore",
+          });
+          containerStarted = true;
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        } catch {}
+      }
 
       clientA = new Redis(REDIS_URL, {
         lazyConnect: true,
         maxRetriesPerRequest: 2,
         connectTimeout: 3000,
       });
+      clientA.on("error", () => {});
 
       clientB = new Redis(REDIS_URL, {
         lazyConnect: true,
         maxRetriesPerRequest: 2,
         connectTimeout: 3000,
       });
+      clientB.on("error", () => {});
 
       await clientA.connect();
       await clientB.connect();
-      redisAvailable = true;
+      
+      const pingA = await clientA.ping();
+      const pingB = await clientB.ping();
+      if (pingA === "PONG" && pingB === "PONG") {
+        redisAvailable = true;
+      }
     } catch (err) {
+      if (isStrict) {
+        throw new Error(`[STRICT_REDIS_FAILURE] Redis integration instance required but unreachable: ${err}`);
+      }
       console.warn("[SKIP_REDIS_INTEGRATION] Docker or Redis unavailable:", err);
     }
-  }, 15000);
+  }, 20000);
 
   afterAll(async () => {
     if (clientA) {
@@ -63,13 +79,18 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
         clientB.disconnect();
       }
     }
-    try {
-      execSync(`docker stop ${REDIS_CONTAINER_NAME}`, { stdio: "ignore" });
-    } catch {}
+    if (containerStarted) {
+      try {
+        execSync(`docker stop ${REDIS_CONTAINER_NAME}`, { stdio: "ignore" });
+      } catch {}
+    }
   }, 10000);
 
-  it("1 & 2 & 3 & 4 & 5: Global limit observed across two independent ioredis clients consuming alternately", async () => {
-    if (!redisAvailable) return;
+  it("1 & 2: Client A consumption affects Client B across two independent Redis instances enforcing shared global limit", async () => {
+    if (!redisAvailable) {
+      if (isStrict) throw new Error("Redis required in strict mode.");
+      return;
+    }
 
     const testKey = `test-global-cross-instance-${randomUUID()}`;
     const policy: RateLimitPolicyWithDistributed = {
@@ -189,62 +210,68 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
     expect(res8[0]).toBe(0); // rejected
   });
 
-  it("6: Same-millisecond contention test proves all requests at identical timestamp are counted independently", async () => {
-    if (!redisAvailable) return;
+  it("3: Different rate limit keys remain strictly isolated across instances", async () => {
+    if (!redisAvailable) {
+      if (isStrict) throw new Error("Redis required in strict mode.");
+      return;
+    }
 
-    const testKey = `test-same-ms-collision-${randomUUID()}`;
+    const key1 = `user-alpha-${randomUUID()}`;
+    const key2 = `user-beta-${randomUUID()}`;
     const policy: RateLimitPolicyWithDistributed = {
-      max: 5,
+      max: 1,
       windowMs: 60_000,
       distributedRequired: true,
     };
 
-    const redisKey = `ratelimit:${testKey}`;
-    const windowMs = policy.windowMs;
-    const max = policy.max;
-    const ttlSeconds = 120;
+    const redisKey1 = `ratelimit:${key1}`;
+    const redisKey2 = `ratelimit:${key2}`;
 
-    // Use a fixed timestamp for ALL requests to simulate concurrent same-millisecond intake
-    const fixedTimestamp = 1750000000000;
-    const totalRequests = 10;
+    // Fill key1 via Client A
+    const r1 = (await clientA.eval(
+      SLIDING_WINDOW_LUA,
+      1,
+      redisKey1,
+      String(Date.now()),
+      String(60000),
+      String(1),
+      String(60),
+      `${Date.now()}:${randomUUID()}`
+    )) as [number, number, number];
+    expect(r1[0]).toBe(1);
 
-    const results: Array<[number, number, number]> = [];
+    // Key1 is now full; subsequent request via Client A is rejected
+    const r2 = (await clientA.eval(
+      SLIDING_WINDOW_LUA,
+      1,
+      redisKey1,
+      String(Date.now()),
+      String(60000),
+      String(1),
+      String(60),
+      `${Date.now()}:${randomUUID()}`
+    )) as [number, number, number];
+    expect(r2[0]).toBe(0);
 
-    for (let i = 0; i < totalRequests; i++) {
-      // Unique member id generated server-side for each request
-      const memberId = `${fixedTimestamp}:${randomUUID()}`;
-      const client = i % 2 === 0 ? clientA : clientB;
-
-      const res = (await client.eval(
-        SLIDING_WINDOW_LUA,
-        1,
-        redisKey,
-        String(fixedTimestamp),
-        String(windowMs),
-        String(max),
-        String(ttlSeconds),
-        memberId
-      )) as [number, number, number];
-
-      results.push(res);
-    }
-
-    const acceptedCount = results.filter((r) => r[0] === 1).length;
-    const rejectedCount = results.filter((r) => r[0] === 0).length;
-
-    // Exactly `max` (5) must succeed, and the remaining 5 must be rejected.
-    // If requests had collapsed due to same timestamp, all 10 would have overwritten one member
-    // and all 10 would have returned accepted (count would remain 1).
-    expect(acceptedCount).toBe(5);
-    expect(rejectedCount).toBe(5);
-
-    // Verify raw ZCARD in Redis is exactly 5
-    const card = await clientA.zcard(redisKey);
-    expect(card).toBe(5);
+    // Key2 is independent and must succeed via Client B
+    const r3 = (await clientB.eval(
+      SLIDING_WINDOW_LUA,
+      1,
+      redisKey2,
+      String(Date.now()),
+      String(60000),
+      String(1),
+      String(60),
+      `${Date.now()}:${randomUUID()}`
+    )) as [number, number, number];
+    expect(r3[0]).toBe(1);
   });
 
-  it("7: TTL/sliding window expiration frees capacity after window elapsed", async () => {
-    if (!redisAvailable) return;
+  it("4: Rolling-window expiration frees capacity after window elapsed", async () => {
+    if (!redisAvailable) {
+      if (isStrict) throw new Error("Redis required in strict mode.");
+      return;
+    }
 
     const testKey = `test-window-expiry-${randomUUID()}`;
     const policy: RateLimitPolicyWithDistributed = {
@@ -313,61 +340,7 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
     expect(r4[0]).toBe(1); // Capacity restored!
   });
 
-  it("8: Different rate limit keys remain strictly isolated", async () => {
-    if (!redisAvailable) return;
-
-    const key1 = `user-alpha-${randomUUID()}`;
-    const key2 = `user-beta-${randomUUID()}`;
-    const policy: RateLimitPolicyWithDistributed = {
-      max: 1,
-      windowMs: 60_000,
-      distributedRequired: true,
-    };
-
-    const redisKey1 = `ratelimit:${key1}`;
-    const redisKey2 = `ratelimit:${key2}`;
-
-    // Fill key1
-    const r1 = (await clientA.eval(
-      SLIDING_WINDOW_LUA,
-      1,
-      redisKey1,
-      String(Date.now()),
-      String(60000),
-      String(1),
-      String(60),
-      `${Date.now()}:${randomUUID()}`
-    )) as [number, number, number];
-    expect(r1[0]).toBe(1);
-
-    // Key1 is full
-    const r2 = (await clientA.eval(
-      SLIDING_WINDOW_LUA,
-      1,
-      redisKey1,
-      String(Date.now()),
-      String(60000),
-      String(1),
-      String(60),
-      `${Date.now()}:${randomUUID()}`
-    )) as [number, number, number];
-    expect(r2[0]).toBe(0);
-
-    // Key2 is independent and must succeed
-    const r3 = (await clientB.eval(
-      SLIDING_WINDOW_LUA,
-      1,
-      redisKey2,
-      String(Date.now()),
-      String(60000),
-      String(1),
-      String(60),
-      `${Date.now()}:${randomUUID()}`
-    )) as [number, number, number];
-    expect(r3[0]).toBe(1);
-  });
-
-  it("9 & 10: Missing/unreachable Redis in production fails closed for distributedRequired policies", async () => {
+  it("5: Missing/unreachable Redis in production fails closed for distributedRequired policies", async () => {
     const originalEnv = process.env.NODE_ENV;
     const originalRedis = process.env.REDIS_URL;
 
@@ -391,6 +364,90 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
     } finally {
       (process.env as any).NODE_ENV = originalEnv;
       process.env.REDIS_URL = originalRedis;
+    }
+  });
+
+  it("6: Credentials and sensitive secrets in Redis URLs are never exposed in decisions or logs", () => {
+    const rawSecretUrl = "redis://secure_admin:super_secret_redis_password_987@127.0.0.1:6379";
+    const redacted = redactRedisUrl(rawSecretUrl);
+
+    expect(redacted).not.toContain("super_secret_redis_password_987");
+    expect(redacted).toContain("REDACTED");
+    expect(redacted).toContain("127.0.0.1:6379");
+
+    const unconfigured = redactRedisUrl(undefined);
+    expect(unconfigured).toBe("NOT_CONFIGURED");
+
+    const malformed = redactRedisUrl("not a valid url :// invalid");
+    expect(malformed).toBe("[MALFORMED_REDIS_URL]");
+  });
+
+  it("7: Same-millisecond contention with concurrent Promise.all operations across two clients proves independent counting and exact ZCARD cardinality", async () => {
+    if (!redisAvailable) {
+      if (isStrict) throw new Error("Redis required in strict mode.");
+      return;
+    }
+
+    const testKey = `test-same-ms-collision-${randomUUID()}`;
+    const policy: RateLimitPolicyWithDistributed = {
+      max: 8,
+      windowMs: 60_000,
+      distributedRequired: true,
+    };
+
+    const redisKey = `ratelimit:${testKey}`;
+    const windowMs = policy.windowMs;
+    const max = policy.max;
+    const ttlSeconds = 120;
+
+    // Use a fixed timestamp for ALL requests to simulate concurrent same-millisecond intake
+    const fixedTimestamp = 1750000000000;
+    const totalRequests = 24;
+
+    // Launch all 24 requests concurrently with Promise.all, alternating between clientA and clientB
+    const promises: Array<Promise<[number, number, number]>> = [];
+
+    for (let i = 0; i < totalRequests; i++) {
+      const memberId = `${fixedTimestamp}:${randomUUID()}`;
+      const client = i % 2 === 0 ? clientA : clientB;
+
+      promises.push(
+        client.eval(
+          SLIDING_WINDOW_LUA,
+          1,
+          redisKey,
+          String(fixedTimestamp),
+          String(windowMs),
+          String(max),
+          String(ttlSeconds),
+          memberId
+        ) as Promise<[number, number, number]>
+      );
+    }
+
+    const results = await Promise.all(promises);
+
+    const acceptedCount = results.filter((r) => r[0] === 1).length;
+    const rejectedCount = results.filter((r) => r[0] === 0).length;
+
+    // Exactly `max` (8) must succeed, and the remaining 16 must be rejected.
+    // If requests had collapsed due to same timestamp, all 24 would have overwritten one member
+    // and all 24 would have returned accepted (count would remain 1).
+    expect(acceptedCount).toBe(8);
+    expect(rejectedCount).toBe(16);
+
+    // Verify raw ZCARD in Redis is exactly 8
+    const card = await clientA.zcard(redisKey);
+    expect(card).toBe(8);
+
+    // Verify all 8 members in ZSET have score equal to fixedTimestamp and are distinct
+    const membersWithScores = await clientA.zrange(redisKey, 0, -1, "WITHSCORES");
+    expect(membersWithScores.length).toBe(16); // 8 pairs of [member, score]
+    for (let j = 0; j < membersWithScores.length; j += 2) {
+      const member = membersWithScores[j];
+      const score = Number(membersWithScores[j + 1]);
+      expect(score).toBe(fixedTimestamp);
+      expect(member.startsWith(`${fixedTimestamp}:`)).toBe(true);
     }
   });
 });

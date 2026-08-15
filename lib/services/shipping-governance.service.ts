@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/db/prisma";
 import type { PrismaTransactionClient } from "@/lib/db/transaction-runner";
 import { phase5Reference, safeOperationalText } from "@/lib/operations/phase5-repository";

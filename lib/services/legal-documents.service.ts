@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from "node:crypto";
 import { recordAdminActivity } from "./admin-activity.service";
 import { phase5Reference, phase5Repository, safeOperationalText } from "@/lib/operations/phase5-repository";

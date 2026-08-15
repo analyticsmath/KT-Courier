@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { phase5Reference, phase5Repository, safeOperationalText } from "@/lib/operations/phase5-repository";

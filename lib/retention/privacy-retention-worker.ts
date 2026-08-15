@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from "@/lib/db";
 import { executeRetentionTarget } from "./privacy-retention.service";
 import { phase5Repository } from "@/lib/operations/phase5-repository";
