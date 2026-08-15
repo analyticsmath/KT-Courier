@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/db/prisma";
 import {
   UserRole,
@@ -23,12 +25,22 @@ import { getOrder, cancelOrder } from "../../lib/services/orders.service";
 import { offerAssignment, acceptDispatchAssignment } from "../../lib/services/dispatch-assignment.service";
 import { requireStoreOrderActor } from "../../lib/store-orders/store-order-auth";
 import { StoreOrderError } from "../../lib/store-orders/errors";
-import { getClaimForActor, assertClaimParticipant, ClaimDomainError } from "../../lib/claims/claim.service";
+import {
+  getClaimForActor,
+  addClaimResponse,
+  assertClaimParticipant,
+  ClaimDomainError,
+} from "../../lib/claims/claim.service";
 import { assertAcceptedCurrentDriver } from "../../lib/driver-operations/authority";
 import { DriverOperationError } from "../../lib/driver-operations/errors";
+import {
+  recordCashCollection,
+  CashOnDeliveryError,
+} from "../../lib/services/cash-on-delivery.service";
 import { getPromoterEarningRecord, getPromoterEarningRecords } from "../../lib/promoter-presentation/promoter-data";
 import { hasPermission } from "../../lib/auth/permissions";
 import { PERMISSIONS } from "../../lib/auth/permission-keys";
+import { prepareMarketplaceAdminRecovery } from "../../lib/marketplace-checkout/admin-recovery-policy";
 import { PrivateMediaService, PrivateMediaPolicyError } from "../../lib/private-media/private-media.service";
 import type { PrivateMediaStorageAdapter } from "../../lib/private-media/private-media-storage";
 
@@ -62,10 +74,21 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
   let customerBOrderId: string;
   let customerBOrderNumber: string;
 
+  let cartBId: string;
+  let checkoutBId: string;
+  let paymentBId: string;
+  let marketplaceOrderBId: string;
+  let marketplaceOrderBRef: string;
+  let storeOrderBGroupId: string;
+  let storeOrderBId: string;
+  let storeOrderBRef: string;
+
   let driverAProfileId: string;
   let driverBProfileId: string;
   let driverBAssignmentId: string;
   let driverBPrivateMediaRef: string;
+
+  let codBId: string;
 
   let storeBClaimId: string;
   let storeBClaimRef: string;
@@ -224,23 +247,183 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       });
       driverBAssignmentId = assignB.id;
 
-      // 7. Create Claim for Store B / Order B
-      storeBClaimRef = `CLM-B-${nonce}`;
+      // 7. Create Genuine Store B Marketplace Order and Store Order Fixture
+      const cartB = await prisma.marketplaceCart.create({
+        data: {
+          publicReference: `cart_b_${nonce}`,
+          ownerType: "CUSTOMER",
+          customerUserId: customerBUserId,
+          status: "CONVERTED",
+        },
+      });
+      cartBId = cartB.id;
+
+      const checkoutB = await prisma.marketplaceCheckout.create({
+        data: {
+          publicReference: `chk_b_${nonce}`,
+          cartId: cartB.id,
+          customerUserId: customerBUserId,
+          status: "PAYMENT_CONFIRMED",
+          merchandiseSubtotal: 100.0,
+          grandTotal: 100.0,
+        },
+      });
+      checkoutBId = checkoutB.id;
+
+      const paymentB = await prisma.payment.create({
+        data: {
+          publicReference: `pay_b_${nonce}`,
+          userId: customerBUserId,
+          subjectType: "MARKETPLACE_CHECKOUT",
+          marketplaceCheckoutId: checkoutB.id,
+          status: "CREATED",
+          amount: 100.0,
+          currency: "ZAR",
+          provider: "PAYFAST",
+          creationIdempotencyKey: `idem_b_${nonce}`,
+          creationRequestHash: "a".repeat(64),
+        },
+      });
+      paymentBId = paymentB.id;
+
+      marketplaceOrderBRef = `mkt_ord_b_${nonce}`;
+      const mktOrderB = await prisma.marketplaceOrder.create({
+        data: {
+          publicReference: marketplaceOrderBRef,
+          checkoutId: checkoutB.id,
+          paymentId: paymentB.id,
+          customerUserId: customerBUserId,
+          merchandiseSubtotal: new Prisma.Decimal("100.00"),
+          modifierSubtotal: new Prisma.Decimal("0.00"),
+          deliveryFeeTotal: new Prisma.Decimal("0.00"),
+          grandTotal: new Prisma.Decimal("100.00"),
+          commercialFingerprint: `fp_mkt_${nonce}`,
+          status: "CONFIRMED",
+        },
+      });
+      marketplaceOrderBId = mktOrderB.id;
+
+      const groupB = await prisma.marketplaceCheckoutStoreGroup.create({
+        data: {
+          checkoutId: checkoutB.id,
+          storeId: storeBId,
+          fulfilmentMode: "COURIER_DELIVERY",
+        },
+      });
+      storeOrderBGroupId = groupB.id;
+
+      storeOrderBRef = `mso_b_${nonce}`;
+      const storeOrderB = await prisma.marketplaceStoreOrder.create({
+        data: {
+          publicReference: storeOrderBRef,
+          marketplaceOrderId: mktOrderB.id,
+          checkoutStoreGroupId: groupB.id,
+          storeId: storeBId,
+          status: "PENDING_STORE_REVIEW",
+          merchandiseSubtotal: new Prisma.Decimal("100.00"),
+          modifierSubtotal: new Prisma.Decimal("0.00"),
+          deliveryFee: new Prisma.Decimal("0.00"),
+          groupTotal: new Prisma.Decimal("100.00"),
+        },
+      });
+      storeOrderBId = storeOrderB.id;
+
+      // 8. Create Genuine Marketplace Claim for Store B's Order
+      storeBClaimRef = `CLM-MKT-B-${nonce}`;
       const claimB = await prisma.claim.create({
         data: {
           publicReference: storeBClaimRef,
           claimantUserId: customerBUserId,
-          orderId: customerBOrderId,
+          marketplaceOrderId: mktOrderB.id,
           reason: "DAMAGED" as any,
           paymentSource: "DIGITAL" as any,
-          description: "Items arrived damaged",
-          duplicateFingerprint: `FP-CLM-B-${nonce}`,
+          description: "Marketplace item arrived damaged in transit",
+          duplicateFingerprint: `FP-CLM-MKT-B-${nonce}`,
           status: ClaimStatus.OPEN,
         },
       });
       storeBClaimId = claimB.id;
 
-      // 8. Create Promoter Programs, Plans, Accounts and Earnings
+      // 9. Create Genuine COD Obligation for Driver B's Courier Order
+      const codB = await prisma.cashOnDelivery.create({
+        data: {
+          publicReference: `COD-B-${nonce}`,
+          orderId: customerBOrderId,
+          status: "READY_FOR_COLLECTION",
+          policyMode: "FULL_COD" as any,
+          authoritativePayable: new Prisma.Decimal("100.00"),
+          cashObligation: new Prisma.Decimal("100.00"),
+          cashCollected: new Prisma.Decimal("0.00"),
+          cashReconciled: new Prisma.Decimal("0.00"),
+          digitalRequired: new Prisma.Decimal("0.00"),
+          digitalPaid: new Prisma.Decimal("0.00"),
+        },
+      });
+      codBId = codB.id;
+
+      // 9b. Ensure platform and driver wallets & ledger accounts for COD
+      const platformWallet = await prisma.wallet.upsert({
+        where: { ownerType_ownerId_currency: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" } },
+        update: {},
+        create: {
+          ownerType: "PLATFORM",
+          ownerId: "platform",
+          currency: "ZAR",
+          status: "ACTIVE",
+        },
+      });
+
+      await prisma.ledgerAccount.upsert({
+        where: { walletId_purpose_currency: { walletId: platformWallet.id, purpose: "HELD", currency: "ZAR" } },
+        update: {},
+        create: {
+          walletId: platformWallet.id,
+          code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR",
+          purpose: "HELD",
+          category: "LIABILITY",
+          currency: "ZAR",
+          allowNegative: false,
+        },
+      });
+
+      await prisma.ledgerAccount.upsert({
+        where: { walletId_purpose_currency: { walletId: platformWallet.id, purpose: "CASH_CLEARING", currency: "ZAR" } },
+        update: {},
+        create: {
+          walletId: platformWallet.id,
+          code: "PLATFORM-CASH-CLEARING-ZAR",
+          purpose: "CASH_CLEARING",
+          category: "ASSET",
+          currency: "ZAR",
+          allowNegative: false,
+        },
+      });
+
+      const drvAWallet = await prisma.wallet.upsert({
+        where: { ownerType_ownerId_currency: { ownerType: "DRIVER", ownerId: driverAProfileId, currency: "ZAR" } },
+        update: {},
+        create: {
+          ownerType: "DRIVER",
+          ownerId: driverAProfileId,
+          currency: "ZAR",
+          status: "ACTIVE",
+        },
+      });
+
+      await prisma.ledgerAccount.upsert({
+        where: { walletId_purpose_currency: { walletId: drvAWallet.id, purpose: "CASH_CLEARING", currency: "ZAR" } },
+        update: {},
+        create: {
+          walletId: drvAWallet.id,
+          code: `DRIVER-COD-CASH-${driverAProfileId.replaceAll("-", "").toUpperCase()}`,
+          purpose: "CASH_CLEARING",
+          category: "ASSET",
+          currency: "ZAR",
+          allowNegative: false,
+        },
+      });
+
+      // 10. Create Promoter Programs, Plans, Accounts and Earnings
       const promA = await (prisma as any).promoterAccount.create({
         data: {
           publicReference: `PMA-A-${nonce}`,
@@ -363,7 +546,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
         },
       });
 
-      // 9. Finance Permissions Setup
+      // 11. Finance Permissions Setup
       const finPerm = await prisma.permission.upsert({
         where: { key: PERMISSIONS.MARKETPLACE_SETTLEMENT_RECONCILE },
         update: {},
@@ -381,7 +564,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
         data: { userId: restrictedAdminId, permissionId: finPerm.id, effect: PermissionEffect.DENY },
       });
 
-      // 10. Upload Private Evidence / Media for Driver B
+      // 12. Upload Private Evidence / Media for Driver B
       const uploadRes = await privateMediaService.upload({
         actor: { userId: driverBUserId, role: UserRole.DRIVER },
         ownerType: PrivateMediaOwnerType.DRIVER,
@@ -442,8 +625,35 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       await (prisma as any).promoterAccount.deleteMany({
         where: { id: { in: [promoterAAccountId, promoterBAccountId] } },
       });
+      await prisma.claimActivity.deleteMany({
+        where: { claimId: storeBClaimId },
+      });
       await prisma.claim.deleteMany({
         where: { id: storeBClaimId },
+      });
+      await prisma.cashOnDeliveryEvent.deleteMany({
+        where: { operationId: { startsOn: `op_malicious_cod_drv_a_` } as any },
+      }).catch(() => {});
+      await prisma.cashOnDelivery.deleteMany({
+        where: { orderId: customerBOrderId },
+      });
+      await prisma.marketplaceStoreOrder.deleteMany({
+        where: { id: storeOrderBId },
+      });
+      await prisma.marketplaceCheckoutStoreGroup.deleteMany({
+        where: { id: storeOrderBGroupId },
+      });
+      await prisma.marketplaceOrder.deleteMany({
+        where: { id: marketplaceOrderBId },
+      });
+      await prisma.marketplaceCheckout.deleteMany({
+        where: { id: checkoutBId },
+      });
+      await prisma.marketplaceCart.deleteMany({
+        where: { id: cartBId },
+      });
+      await prisma.payment.deleteMany({
+        where: { id: paymentBId },
       });
       await prisma.orderAssignment.deleteMany({
         where: { id: driverBAssignmentId },
@@ -526,7 +736,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       return;
     }
 
-    // Store A attempting to act on Store B's store/order using production requireStoreOrderActor authority
+    // 1. Store A attempting to act on Store B's store order using production requireStoreOrderActor authority
     await expect(
       requireStoreOrderActor({
         actorUserId: storeAOwnerId,
@@ -545,6 +755,28 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
     } catch (err: any) {
       expect(err.code).toBe("STORE_ORDER_ACCESS_DENIED");
     }
+
+    // 2. Assert Store B order in PostgreSQL remains completely unmutated
+    const storeOrderInDb = await prisma.marketplaceStoreOrder.findUnique({
+      where: { id: storeOrderBId },
+      select: {
+        status: true,
+        acceptedByUserId: true,
+        acceptedAt: true,
+      },
+    });
+    expect(storeOrderInDb?.status).toBe("PENDING_STORE_REVIEW");
+    expect(storeOrderInDb?.acceptedByUserId).toBeNull();
+    expect(storeOrderInDb?.acceptedAt).toBeNull();
+
+    // 3. Assert Store B owner CAN legitimately execute store order authority
+    await expect(
+      requireStoreOrderActor({
+        actorUserId: storeBOwnerId,
+        storeId: storeBId,
+        permission: "store_orders.accept",
+      })
+    ).resolves.not.toThrow();
   });
 
   it("D: Store A cannot access Store B claim evidence/resolution", async () => {
@@ -553,7 +785,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       return;
     }
 
-    // Store A attempting to view Store B's claim using production getClaimForActor authority
+    // 1. Store A attempting to view/participate in Store B's marketplace claim
     await expect(
       getClaimForActor({
         publicReference: storeBClaimRef,
@@ -562,16 +794,56 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       })
     ).rejects.toThrowError(ClaimDomainError);
 
-    try {
-      await getClaimForActor({
+    await expect(
+      addClaimResponse({
         publicReference: storeBClaimRef,
         actorUserId: storeAOwnerId,
         role: UserRole.STORE,
+        detail: "Unauthorized Store A response to Store B claim",
+      })
+    ).rejects.toThrowError(ClaimDomainError);
+
+    try {
+      await addClaimResponse({
+        publicReference: storeBClaimRef,
+        actorUserId: storeAOwnerId,
+        role: UserRole.STORE,
+        detail: "Unauthorized Store A response to Store B claim",
       });
       expect.unreachable("Should have thrown ClaimDomainError");
     } catch (err: any) {
       expect(err.code).toBe("CLAIM_FORBIDDEN");
     }
+
+    // 2. Assert Claim in PostgreSQL has no activities from Store A and remains OPEN
+    const claimActivitiesFromA = await prisma.claimActivity.findMany({
+      where: { claimId: storeBClaimId, actorUserId: storeAOwnerId },
+    });
+    expect(claimActivitiesFromA.length).toBe(0);
+
+    const claimInDb = await prisma.claim.findUnique({
+      where: { id: storeBClaimId },
+      select: { status: true },
+    });
+    expect(claimInDb?.status).toBe(ClaimStatus.OPEN);
+
+    // 3. Assert Store B owner CAN legitimately access and respond to their store claim
+    const storeBClaimRecord = await getClaimForActor({
+      publicReference: storeBClaimRef,
+      actorUserId: storeBOwnerId,
+      role: UserRole.STORE,
+    });
+    expect(storeBClaimRecord).not.toBeNull();
+    expect(storeBClaimRecord.publicReference).toBe(storeBClaimRef);
+
+    const validResponse = await addClaimResponse({
+      publicReference: storeBClaimRef,
+      actorUserId: storeBOwnerId,
+      role: UserRole.STORE,
+      detail: "Store B legitimate response confirming item was packaged securely.",
+    });
+    expect(validResponse.id).toBeDefined();
+    expect(validResponse.actorUserId).toBe(storeBOwnerId);
   });
 
   it("E: Driver A cannot execute delivery transition assigned to Driver B", async () => {
@@ -599,17 +871,54 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       return;
     }
 
-    // Driver A asserting driver authority for Driver B's assignment to collect COD
+    const maliciousCollectOp = `op_malicious_cod_drv_a_${nonce}`;
+
+    // 1. Driver A invoking production recordCashCollection authority on Driver B's COD order
     await expect(
-      assertAcceptedCurrentDriver(driverBAssignmentId, driverAProfileId)
-    ).rejects.toThrowError(DriverOperationError);
+      recordCashCollection({
+        orderId: customerBOrderId,
+        collectorDriverId: driverAProfileId,
+        actorUserId: driverAUserId,
+        amount: "100.00",
+        operationId: maliciousCollectOp,
+      })
+    ).rejects.toThrowError(CashOnDeliveryError);
 
     try {
-      await assertAcceptedCurrentDriver(driverBAssignmentId, driverAProfileId);
-      expect.unreachable("Should have thrown DriverOperationError");
+      await recordCashCollection({
+        orderId: customerBOrderId,
+        collectorDriverId: driverAProfileId,
+        actorUserId: driverAUserId,
+        amount: "100.00",
+        operationId: maliciousCollectOp,
+      });
+      expect.unreachable("Should have thrown CashOnDeliveryError");
     } catch (err: any) {
-      expect(err.code).toBe("DRIVER_OPERATION_FORBIDDEN");
+      expect(err.code).toBe("COD_COLLECTOR_NOT_AUTHORIZED");
     }
+
+    // 2. Assert PostgreSQL COD state remains unchanged (no collection, no collector assigned, unchanged obligation)
+    const codInDb = await prisma.cashOnDelivery.findUnique({
+      where: { orderId: customerBOrderId },
+    });
+    expect(codInDb).not.toBeNull();
+    expect(codInDb?.status).toBe("READY_FOR_COLLECTION");
+    expect(Number(codInDb?.cashCollected)).toBe(0.0);
+    expect(codInDb?.collectorDriverId).toBeNull();
+    expect(codInDb?.collectionOperationId).toBeNull();
+
+    // 3. Assert no COD event recorded for Driver A's attempt
+    const codEvents = await prisma.cashOnDeliveryEvent.findMany({
+      where: { operationId: `collection:${maliciousCollectOp}` },
+    });
+    expect(codEvents.length).toBe(0);
+
+    // 4. Assert Driver B remains the legitimate assigned authority on the order
+    const orderInDb = await prisma.order.findUnique({
+      where: { id: customerBOrderId },
+      select: { currentDriverProfileId: true },
+    });
+    expect(orderInDb?.currentDriverProfileId).toBe(driverBProfileId);
   });
 
   it("G: Driver A cannot modify/attach Driver B vehicle or documents", async () => {
@@ -660,7 +969,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       return;
     }
 
-    // Restricted admin lacking finance.reconcile -> false
+    // 1. Permission evaluation checks
     const restrictedAllowed = await hasPermission({
       userId: restrictedAdminId,
       role: UserRole.ADMIN,
@@ -668,13 +977,51 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
     });
     expect(restrictedAllowed).toBe(false);
 
-    // Finance admin with explicit permission -> true
     const financeAllowed = await hasPermission({
       userId: financeAdminId,
       role: UserRole.ADMIN,
       permissionKey: PERMISSIONS.MARKETPLACE_SETTLEMENT_RECONCILE,
     });
     expect(financeAllowed).toBe(true);
+
+    // 2. Restricted admin attempting finance admin recovery / reconciliation command
+    const req = new NextRequest("http://localhost:3000/api/admin/marketplace-store-orders/mso_test/retry-settlement", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost:3000",
+      },
+      body: JSON.stringify({ operationId: `op_reconcile_unauth_${nonce}` }),
+    });
+
+    const recoveryAttempt = await prepareMarketplaceAdminRecovery(req, {
+      actorUserId: restrictedAdminId,
+      permission: PERMISSIONS.MARKETPLACE_SETTLEMENT_RECONCILE,
+      path: "/api/admin/marketplace-store-orders/mso_test/retry-settlement",
+    });
+
+    expect("response" in recoveryAttempt).toBe(true);
+    if ("response" in recoveryAttempt) {
+      expect(recoveryAttempt.response.status).toBe(403);
+    }
+
+    // 3. Assert PostgreSQL financial ledger has NO mutations or entries from restricted admin
+    const restrictedJournals = await prisma.ledgerJournal.findMany({
+      where: {
+        createdByUserId: restrictedAdminId,
+      },
+    });
+    expect(restrictedJournals.length).toBe(0);
+
+    const allJournalsForActor = await prisma.ledgerJournal.findMany({
+      where: {
+        metadata: {
+          path: ["actorUserId"],
+          equals: restrictedAdminId,
+        },
+      },
+    });
+    expect(allJournalsForActor.length).toBe(0);
   });
 
   it("J: Foreign actor cannot access private evidence", async () => {

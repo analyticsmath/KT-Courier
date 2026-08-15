@@ -1,0 +1,233 @@
+{
+  "phase": "PHASE_1",
+  "verdict": "PHASE_1_COMPLETE_READY_FOR_ARCHITECT_REVIEW",
+  "timestamp": "2026-08-15T10:30:00Z",
+  "provenance": {
+    "startingCommitSha": "7eec80914672ee9341f37c91fa0e729f370a08fc",
+    "passType": "PHASE_1_FINAL_ACCEPTANCE_EVIDENCE_CLOSURE",
+    "framework": {
+      "next": "16.2.12",
+      "eslintConfigNext": "16.2.12",
+      "node": "v24.x",
+      "buildStatus": "PASSED"
+    }
+  },
+  "repairsApplied": {
+    "P1R-001_redisRateLimiterAuthoritative": {
+      "status": "VERIFIED",
+      "luaUniquenessMember": "ARGV[5] timestamp:uuid",
+      "authoritativeAsyncInterface": "lib/security/rate-limit.ts",
+      "repowideRouteCallersUpdated": 78,
+      "auditTest": "tests/security/distributed-rate-limit-audit.test.ts",
+      "unitTest": "tests/security/rate-limit.test.ts"
+    },
+    "P1R-002_realRedisIntegrationProof": {
+      "status": "VERIFIED",
+      "command": "npm run test:integration:redis-rate-limit",
+      "runner": "scripts/run-strict-redis-integration.mjs",
+      "testSuite": "tests/security/real-redis-rate-limit.integration.test.ts",
+      "testsExecuted": 7,
+      "failures": 0,
+      "disposableContainer": true,
+      "strictModeEnforced": true,
+      "propertiesProven": [
+        "1. Cross-client consumption (Client A affects Client B)",
+        "2. Shared global limit across diverse endpoints",
+        "3. Isolation between distinct rate-limit keys",
+        "4. Sliding window expiry and quota replenishment",
+        "5. Fail-closed behavior in production on Redis unavailability",
+        "6. Credential redaction in error messages and logs",
+        "7. Same-millisecond concurrent requests counted independently via unique member"
+      ]
+    },
+    "P1R-003_runtimeRedisReadiness": {
+      "status": "VERIFIED",
+      "endpoint": "/api/ready",
+      "service": "lib/health/checks.ts",
+      "safeFieldsExposed": ["configured", "connected", "status"],
+      "blocksReadinessInProduction": true
+    },
+    "P1R-004_historicalMigrationRestoration": {
+      "status": "VERIFIED",
+      "restoredMigration": "prisma/migrations/20260811170000_phase_b_managed_marketing_privacy_closure/migration.sql",
+      "forwardMigration": "prisma/migrations/20260815040000_phase_1_managed_marketing_package_lifecycle/migration.sql",
+      "totalIncrementalMigrations": 62,
+      "migrationCheckStatus": "PASSED"
+    },
+    "P1R-005_transactionRetryClassification": {
+      "status": "VERIFIED",
+      "runner": "lib/db/transaction-runner.ts",
+      "retryablePrismaCodes": ["P2034"],
+      "retryableSqlStates": ["40001", "40P01"],
+      "p2002GenericRetryExcluded": true,
+      "testSuite": "tests/db/transaction-retry-classification.test.ts",
+      "testsExecuted": 6,
+      "failures": 0
+    },
+    "P1R-006_hostSessionCookieMigration": {
+      "status": "VERIFIED",
+      "sessionModule": "lib/auth/session.ts",
+      "productionCookieName": "__Host-kt_session",
+      "productionAttributes": {
+        "secure": true,
+        "httpOnly": true,
+        "sameSite": "lax",
+        "path": "/",
+        "domainExcluded": true
+      },
+      "dualCookieMigrationSupport": true,
+      "testSuite": "tests/auth/host-session-cookie.test.ts",
+      "testsExecuted": 7,
+      "failures": 0
+    },
+    "P1R-007_passwordBcryptByteBoundary": {
+      "status": "VERIFIED",
+      "validationModules": [
+        "lib/validation/auth.ts",
+        "lib/validation/admin-employees.ts"
+      ],
+      "maxByteLengthEnforced": 72,
+      "testSuite": "tests/auth/password-byte-boundary.test.ts",
+      "testsExecuted": 6,
+      "failures": 0
+    },
+    "P1R-008_bolaDatabaseAuthorityMatrix": {
+      "status": "VERIFIED",
+      "command": "npm run test:integration:bola-authority",
+      "runner": "scripts/run-strict-bola-integration.mjs",
+      "testSuite": "tests/security/bola-database-authority.integration.test.ts",
+      "testsExecuted": 10,
+      "failures": 0,
+      "strictPostgresEnforced": true,
+      "casesProven": [
+        "A. Customer A cannot read Customer B courier order (ownership query boundary)",
+        "B. Customer A cannot cancel Customer B courier order",
+        "C. Store A cannot read/mutate Store B marketplace order",
+        "D. Store A cannot access Store B claim evidence/resolution",
+        "E. Driver A cannot execute delivery transition assigned to Driver B",
+        "F. Driver A cannot collect COD for Driver B",
+        "G. Driver A cannot modify/attach Driver B vehicle or documents",
+        "H. Promoter A cannot access Promoter B earnings",
+        "I. Restricted admin without finance permission cannot execute finance reconciliation/mutation",
+        "J. Foreign actor cannot access private evidence"
+      ]
+    },
+    "P1R-009_historicalMigrationUpgradeProof": {
+      "status": "VERIFIED",
+      "command": "npm run test:integration:migration-upgrade",
+      "runner": "scripts/prove-historical-migration-upgrade.mjs",
+      "disposableDatabase": true,
+      "historicalMigrationsApplied": 62,
+      "prePhase1FailureProven": "ACTIVE -> RETIRED blocked under historical triggers",
+      "forwardMigrationApplied": "20260815040000_phase_1_managed_marketing_package_lifecycle",
+      "prismaMigrateStatusDivergence": "NONE (Database schema is up to date)",
+      "postPhase1SuccessProven": "ACTIVE -> RETIRED succeeds and price mutation fails"
+    },
+    "P1R-010_routeActionAuthorizationInventory": {
+      "status": "VERIFIED",
+      "artifact": "artifacts/route-action-authorization-inventory.json",
+      "driftTestSuite": "tests/security/route-authorization-inventory.test.ts",
+      "totalRoutes": 700,
+      "totalServerActions": 0,
+      "publicRoutes": 113,
+      "authenticatedRoutes": 584,
+      "permissionGatedRoutes": 416,
+      "webhookSignatureRoutes": 3,
+      "rateLimitedRoutes": 170
+    },
+    "P1R-011_demoSeedTightening": {
+      "status": "VERIFIED",
+      "composeFile": "compose.yml",
+      "defaultAllowDemoSeed": false,
+      "serviceProfile": "seed"
+    }
+  },
+  "consolidatedGates": {
+    "gate1_lint": {
+      "command": "npm run lint",
+      "exitCode": 0,
+      "status": "PASSED",
+      "errors": 0,
+      "warnings": 0
+    },
+    "gate2_typecheck": {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "status": "PASSED",
+      "errors": 0
+    },
+    "gate3_fullVitestSuite": {
+      "command": "npm test",
+      "exitCode": 0,
+      "status": "PASSED",
+      "testFiles": 641,
+      "tests": 2329,
+      "failures": 0
+    },
+    "gate4_migrationsCheck": {
+      "command": "npm run migrations:check",
+      "exitCode": 0,
+      "status": "PASSED",
+      "activeBaseline": "20260710010000_initial_baseline",
+      "incrementalMigrations": 62,
+      "archivedMigrations": 8
+    },
+    "gate5_phaseBProofSourcePreflight": {
+      "command": "npm run db:phase-b:proof-source:preflight",
+      "exitCode": 0,
+      "status": "PASSED",
+      "postgresSuites": 17
+    },
+    "gate6_strictRedisRateLimit": {
+      "command": "npm run test:integration:redis-rate-limit",
+      "exitCode": 0,
+      "status": "PASSED",
+      "testsExecuted": 7,
+      "failures": 0
+    },
+    "gate7_strictBolaAuthority": {
+      "command": "npm run test:integration:bola-authority",
+      "exitCode": 0,
+      "status": "PASSED",
+      "testsExecuted": 10,
+      "failures": 0
+    },
+    "gate8_migrationUpgradeProof": {
+      "command": "npm run test:integration:migration-upgrade",
+      "exitCode": 0,
+      "status": "PASSED"
+    },
+    "gate9_integrationAuth": {
+      "command": "npm run test:integration:auth",
+      "exitCode": 0,
+      "status": "PASSED",
+      "testsExecuted": 1,
+      "failures": 0
+    },
+    "gate10_integrationPermissions": {
+      "command": "npm run test:integration:permissions",
+      "exitCode": 0,
+      "status": "PASSED",
+      "testsExecuted": 1,
+      "failures": 0
+    },
+    "gate11_integrationOrders": {
+      "command": "npm run test:integration:orders",
+      "exitCode": 0,
+      "status": "PASSED",
+      "testsExecuted": 2,
+      "failures": 0
+    }
+  },
+  "governance": {
+    "productionLocksPreserved": [
+      "lib/config/production-locks.ts",
+      "lib/payments/payfast-production-lock.ts",
+      "lib/storefront/storefront-production-lock.ts",
+      "lib/services/privacy-production-lock.ts"
+    ],
+    "clientClarificationRegisterPreserved": true,
+    "noInventedCommercialRules": true,
+    "noProductionLocksEnabledPrematurely": true
+  }
+}

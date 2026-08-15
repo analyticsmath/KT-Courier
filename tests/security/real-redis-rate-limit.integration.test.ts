@@ -86,15 +86,15 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
     }
   }, 10000);
 
-  it("1 & 2: Client A consumption affects Client B across two independent Redis instances enforcing shared global limit", async () => {
+  it("1: Client A consumption affects Client B under same partition key", async () => {
     if (!redisAvailable) {
       if (isStrict) throw new Error("Redis required in strict mode.");
       return;
     }
 
-    const testKey = `test-global-cross-instance-${randomUUID()}`;
+    const testKey = `test-shared-client-key-${randomUUID()}`;
     const policy: RateLimitPolicyWithDistributed = {
-      max: 6,
+      max: 3,
       windowMs: 60_000,
       distributedRequired: true,
     };
@@ -104,7 +104,7 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
     const max = policy.max;
     const ttlSeconds = 120;
 
-    // Instance A consumes request 1
+    // Instance A consumes requests 1 and 2
     const res1 = (await clientA.eval(
       SLIDING_WINDOW_LUA,
       1,
@@ -115,10 +115,9 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
       String(ttlSeconds),
       `${Date.now()}:${randomUUID()}`
     )) as [number, number, number];
-    expect(res1[0]).toBe(1); // allowed
+    expect(res1[0]).toBe(1);
 
-    // Instance B consumes request 2
-    const res2 = (await clientB.eval(
+    const res2 = (await clientA.eval(
       SLIDING_WINDOW_LUA,
       1,
       redisKey,
@@ -128,10 +127,10 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
       String(ttlSeconds),
       `${Date.now()}:${randomUUID()}`
     )) as [number, number, number];
-    expect(res2[0]).toBe(1); // allowed
+    expect(res2[0]).toBe(1);
 
-    // Instance A consumes request 3
-    const res3 = (await clientA.eval(
+    // Instance B consumes request 3 (last allowed)
+    const res3 = (await clientB.eval(
       SLIDING_WINDOW_LUA,
       1,
       redisKey,
@@ -143,7 +142,7 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
     )) as [number, number, number];
     expect(res3[0]).toBe(1);
 
-    // Instance B consumes request 4
+    // Instance B tries request 4 -> rejected because Instance A consumed quota
     const res4 = (await clientB.eval(
       SLIDING_WINDOW_LUA,
       1,
@@ -154,10 +153,46 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
       String(ttlSeconds),
       `${Date.now()}:${randomUUID()}`
     )) as [number, number, number];
-    expect(res4[0]).toBe(1);
+    expect(res4[0]).toBe(0);
+    expect(res4[2]).toBeGreaterThan(0);
+  });
 
-    // Instance A consumes request 5
-    const res5 = (await clientA.eval(
+  it("2: Cross-endpoint shared global rate limiting enforces global ceiling", async () => {
+    if (!redisAvailable) {
+      if (isStrict) throw new Error("Redis required in strict mode.");
+      return;
+    }
+
+    const testKey = `test-global-cross-endpoint-${randomUUID()}`;
+    const policy: RateLimitPolicyWithDistributed = {
+      max: 4,
+      windowMs: 60_000,
+      distributedRequired: true,
+    };
+
+    const redisKey = `ratelimit:${testKey}`;
+    const windowMs = policy.windowMs;
+    const max = policy.max;
+    const ttlSeconds = 120;
+
+    // Alternating calls between Instance A and Instance B
+    for (let i = 0; i < 4; i++) {
+      const client = i % 2 === 0 ? clientA : clientB;
+      const res = (await client.eval(
+        SLIDING_WINDOW_LUA,
+        1,
+        redisKey,
+        String(Date.now()),
+        String(windowMs),
+        String(max),
+        String(ttlSeconds),
+        `${Date.now()}:${randomUUID()}`
+      )) as [number, number, number];
+      expect(res[0]).toBe(1);
+    }
+
+    // 5th request on Instance A fails
+    const resA = (await clientA.eval(
       SLIDING_WINDOW_LUA,
       1,
       redisKey,
@@ -167,10 +202,10 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
       String(ttlSeconds),
       `${Date.now()}:${randomUUID()}`
     )) as [number, number, number];
-    expect(res5[0]).toBe(1);
+    expect(resA[0]).toBe(0);
 
-    // Instance B consumes request 6 (last allowed)
-    const res6 = (await clientB.eval(
+    // 6th request on Instance B also fails
+    const resB = (await clientB.eval(
       SLIDING_WINDOW_LUA,
       1,
       redisKey,
@@ -180,34 +215,7 @@ describe("P1R-001 & P1R-002: Real Redis Distributed Rate Limiting & Same-Millise
       String(ttlSeconds),
       `${Date.now()}:${randomUUID()}`
     )) as [number, number, number];
-    expect(res6[0]).toBe(1);
-
-    // Instance A tries request 7 -> MUST BE REJECTED GLOBALLY
-    const res7 = (await clientA.eval(
-      SLIDING_WINDOW_LUA,
-      1,
-      redisKey,
-      String(Date.now()),
-      String(windowMs),
-      String(max),
-      String(ttlSeconds),
-      `${Date.now()}:${randomUUID()}`
-    )) as [number, number, number];
-    expect(res7[0]).toBe(0); // rejected
-    expect(res7[2]).toBeGreaterThan(0); // retryAfterSeconds
-
-    // Instance B tries request 8 -> MUST ALSO BE REJECTED GLOBALLY
-    const res8 = (await clientB.eval(
-      SLIDING_WINDOW_LUA,
-      1,
-      redisKey,
-      String(Date.now()),
-      String(windowMs),
-      String(max),
-      String(ttlSeconds),
-      `${Date.now()}:${randomUUID()}`
-    )) as [number, number, number];
-    expect(res8[0]).toBe(0); // rejected
+    expect(resB[0]).toBe(0);
   });
 
   it("3: Different rate limit keys remain strictly isolated across instances", async () => {

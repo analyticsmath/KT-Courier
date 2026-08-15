@@ -25,7 +25,7 @@ async function custodyAccounts(driverId: string) {
   const [held, driverCash, platformCash] = await Promise.all([
     ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }),
     ensureLedgerAccount({ walletId: driverWallet.id, code: reference("DRIVER-COD-CASH", driverId), purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-COD-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
   ]);
   return { held, driverCash, platformCash };
 }
