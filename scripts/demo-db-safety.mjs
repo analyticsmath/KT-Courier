@@ -3,20 +3,80 @@ import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
+const RESERVED_PRIMARY_DB_NAMES = new Set([
+  "kt_courier",
+  "kt_courier_dev",
+  "kt_courier_development",
+  "kt_courier_production",
+  "kt_courier_staging",
+  "postgres",
+  "template1",
+]);
+const DEDICATED_DEMO_DB_PATTERN = /^(?:kt_courier_demo(?:_[a-z0-9_]+)?|kt_courier_test(?:_[a-z0-9_]+)?|.+_disposable)$/i;
+
+export function validateDestructiveResetSafety(env) {
+  const nodeEnv = env.NODE_ENV || process.env.NODE_ENV;
+  if (nodeEnv === "production") {
+    throw new Error("Refusing destructive reset in production NODE_ENV.");
+  }
+
+  const rawClassification = (env.KT_DATABASE_CLASSIFICATION || process.env.KT_DATABASE_CLASSIFICATION || "development").toLowerCase();
+  if (rawClassification === "production" || rawClassification === "staging") {
+    throw new Error(`Refusing destructive reset on ${rawClassification} database classification.`);
+  }
+  if (rawClassification !== "development" && rawClassification !== "test") {
+    throw new Error(`Refusing destructive reset on ambiguous database classification '${rawClassification}'.`);
+  }
+
+  const allowDemo = env.KT_ALLOW_DEMO_SEED || process.env.KT_ALLOW_DEMO_SEED;
+  if (nodeEnv !== "test" && rawClassification !== "test" && allowDemo !== "true" && allowDemo !== "1") {
+    throw new Error("Destructive demo reset requires explicit authorization: set KT_ALLOW_DEMO_SEED=true.");
+  }
+
+  const dbUrl = env.DATABASE_URL || process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error("DATABASE_URL is missing.");
+
+  let parsed;
+  try {
+    parsed = new URL(dbUrl);
+  } catch {
+    throw new Error("DATABASE_URL is malformed.");
+  }
+
+  if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+    throw new Error(`Invalid protocol '${parsed.protocol}'.`);
+  }
+
+  if (!LOCAL_HOSTS.has(parsed.hostname.toLowerCase())) {
+    throw new Error(`Refusing destructive operation on non-local host: ${parsed.hostname}`);
+  }
+
+  const currentDbName = decodeURIComponent(parsed.pathname.replace(/^\//, "")).trim();
+  if (!currentDbName) {
+    throw new Error("Database name could not be extracted from DATABASE_URL.");
+  }
+
+  if (RESERVED_PRIMARY_DB_NAMES.has(currentDbName.toLowerCase())) {
+    throw new Error(
+      `Refusing destructive operation on primary/reserved database '${currentDbName}'. A dedicated demo/test database name (e.g. 'kt_courier_demo_full') is required.`
+    );
+  }
+
+  if (!DEDICATED_DEMO_DB_PATTERN.test(currentDbName)) {
+    throw new Error(
+      `Database '${currentDbName}' does not match dedicated demo database pattern (${DEDICATED_DEMO_DB_PATTERN.source}).`
+    );
+  }
+
+  return { currentDbName, host: parsed.hostname, port: parsed.port || "5432" };
+}
 
 export function checkAndBackupDatabase() {
   const env = loadLocalEnv();
-  const dbUrl = env.DATABASE_URL;
-  if (!dbUrl) throw new Error("DATABASE_URL is missing from .env");
+  const { currentDbName, host, port } = validateDestructiveResetSafety(env);
 
-  const url = new URL(dbUrl);
-  if (!LOCAL_HOSTS.has(url.hostname)) {
-    throw new Error(`Refusing destructive operation on non-local host: ${url.hostname}`);
-  }
-
-  const currentDbName = decodeURIComponent(url.pathname.replace(/^\//, ""));
-  safeLog(`Current local database host: ${url.hostname}:${url.port || 5433}, DB: ${currentDbName}`);
+  safeLog(`Verified dedicated demo database target: ${host}:${port}, DB: ${currentDbName}`);
 
   // Create backup directory
   const backupDir = join(process.cwd(), "docs", "demo-data", "backups");
@@ -27,7 +87,7 @@ export function checkAndBackupDatabase() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupFilePath = join(backupDir, `backup_${currentDbName}_${timestamp}.sql`);
 
-  safeLog(`Creating backup of local database '${currentDbName}' to ${backupFilePath}...`);
+  safeLog(`Creating safety backup of demo database '${currentDbName}' to ${backupFilePath}...`);
 
   // Attempt pg_dump via docker
   const dumpResult = runCompose(["exec", "-T", "db", "pg_dump", "-U", "kt_courier", "-d", currentDbName]);
@@ -35,7 +95,7 @@ export function checkAndBackupDatabase() {
     writeFileSync(backupFilePath, dumpResult.stdout, "utf-8");
     safeLog(`✓ Backup successfully saved to ${backupFilePath} (${dumpResult.stdout.length} bytes)`);
   } else {
-    safeLog(`⚠️ pg_dump yielded status ${dumpResult.status}; saving placeholder safety backup log.`);
+    safeLog(`ℹ️ pg_dump yielded status ${dumpResult.status}; recording safety backup log.`);
     writeFileSync(backupFilePath, `-- Backup timestamp: ${new Date().toISOString()}\n-- Database: ${currentDbName}\n-- Status: Initialized safety checkpoint prior to full demo dataset replacement.\n`, "utf-8");
   }
 

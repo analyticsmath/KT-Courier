@@ -37,6 +37,21 @@ import {
   LedgerCurrency,
   VacancyStatus,
   RecruitmentApplicationStatus,
+  VehicleComplianceStatus,
+  VehicleDocumentType,
+  DocumentType,
+  DocumentStatus,
+  PrivateMediaOwnerType,
+  PrivateMediaPurpose,
+  PrivateMediaStatus,
+  OrderAssignmentStatus,
+  CashOnDeliveryStatus,
+  PaymentMethodPolicyMode,
+  ClaimReason,
+  ClaimStatus,
+  ClaimPaymentSource,
+  ClaimResponsibility,
+  ClaimRemedyType,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
@@ -44,6 +59,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 
+import { assertSeedExecutionAllowed } from "../lib/security/seed-safety";
 import { syncSystemPermissions } from "../lib/auth/permissions";
 import {
   DEFAULT_ADMIN_PERMISSION_KEYS,
@@ -245,16 +261,7 @@ async function seedPaymentWithEvidence(params: {
 }
 
 async function main() {
-  const dbUrl = process.env.DATABASE_URL || "";
-  const isLocalDb =
-    dbUrl.includes("localhost") ||
-    dbUrl.includes("127.0.0.1") ||
-    dbUrl.includes("db:5432") ||
-    dbUrl.includes("db:5433");
-
-  if (process.env.NODE_ENV === "production" || !isLocalDb) {
-    throw new Error("❌ ERROR: Refusing to seed non-local or production database!");
-  }
+  assertSeedExecutionAllowed({ dbUrl: process.env.DATABASE_URL });
 
   const startTime = Date.now();
   console.log(`🌱 Starting KT Couriers Full Demonstration Dataset Seed [Run ID: ${SEED_RUN_ID}]...`);
@@ -654,6 +661,105 @@ async function main() {
 
     driverIds.push(profile.id);
 
+    // Create First-Class Vehicle for Driver
+    const vRef = `VEH-GP-${String(i).padStart(4, "0")}`;
+    const vReg = `GP ${randomInt(100, 999)}-${randomInt(100, 999)}`;
+    const vStatus = status === DriverStatus.ACTIVE ? VehicleComplianceStatus.APPROVED : VehicleComplianceStatus.PENDING_REVIEW;
+    const vType = profile.vehicleType || VehicleType.CAR;
+
+    const vehicle = await prisma.vehicle.upsert({
+      where: { publicReference: vRef },
+      update: { status: vStatus },
+      create: {
+        publicReference: vRef,
+        driverProfileId: profile.id,
+        make: "Toyota",
+        model: vType === VehicleType.MOTORBIKE ? "Delivery 150" : vType === VehicleType.BICYCLE ? "Cargo Urban" : "Hilux 2.4",
+        year: 2022,
+        colour: "White",
+        registrationNumber: vReg,
+        vehicleType: vType,
+        capacityKg: vType === VehicleType.VAN ? 800 : vType === VehicleType.CAR ? 350 : 50,
+        status: vStatus,
+        approvedAt: vStatus === VehicleComplianceStatus.APPROVED ? HISTORICAL_START : null,
+        approvedByUserId: vStatus === VehicleComplianceStatus.APPROVED ? superAdmin.id : null,
+      },
+    });
+
+    // Seed Driver Licence Private Media Object & Driver Document
+    const licMediaRef = `PMO-LIC-${String(i).padStart(4, "0")}`;
+    const licMedia = await prisma.privateMediaObject.upsert({
+      where: { publicReference: licMediaRef },
+      update: {},
+      create: {
+        publicReference: licMediaRef,
+        ownerType: PrivateMediaOwnerType.DRIVER,
+        ownerId: profile.id,
+        purpose: PrivateMediaPurpose.DRIVER_LICENCE,
+        status: PrivateMediaStatus.READY,
+        storageProvider: "local",
+        storageKey: `private-media/drivers/${profile.id}/licence-${i}.pdf`,
+        originalFileName: `driver_licence_${profile.driverCode}.pdf`,
+        declaredMimeType: "application/pdf",
+        byteSize: 245000,
+        checksum: createHash("sha256").update(licMediaRef).digest("hex"),
+        createdByUserId: user.id,
+        reviewedByUserId: superAdmin.id,
+        reviewedAt: HISTORICAL_START,
+      },
+    });
+
+    await prisma.driverDocument.upsert({
+      where: { privateMediaObjectId: licMedia.id },
+      update: {},
+      create: {
+        driverProfileId: profile.id,
+        documentType: DocumentType.LICENSE,
+        status: vStatus === VehicleComplianceStatus.APPROVED ? DocumentStatus.APPROVED : DocumentStatus.PENDING,
+        privateMediaObjectId: licMedia.id,
+        reviewedByAdminId: superAdmin.id,
+        reviewedAt: HISTORICAL_START,
+        expiresAt: new Date(HISTORICAL_END.getTime() + 365 * 86400000),
+      },
+    });
+
+    // Seed Vehicle Registration Document & Private Media Object
+    const vehDocMediaRef = `PMO-VEH-${String(i).padStart(4, "0")}`;
+    const vehDocMedia = await prisma.privateMediaObject.upsert({
+      where: { publicReference: vehDocMediaRef },
+      update: {},
+      create: {
+        publicReference: vehDocMediaRef,
+        ownerType: PrivateMediaOwnerType.DRIVER,
+        ownerId: profile.id,
+        purpose: PrivateMediaPurpose.VEHICLE_REGISTRATION,
+        status: PrivateMediaStatus.READY,
+        storageProvider: "local",
+        storageKey: `private-media/vehicles/${vehicle.id}/registration-${i}.pdf`,
+        originalFileName: `vehicle_reg_${vehicle.registrationNumber.replace(/\s+/g, "_")}.pdf`,
+        declaredMimeType: "application/pdf",
+        byteSize: 185000,
+        checksum: createHash("sha256").update(vehDocMediaRef).digest("hex"),
+        createdByUserId: user.id,
+        reviewedByUserId: superAdmin.id,
+        reviewedAt: HISTORICAL_START,
+      },
+    });
+
+    await prisma.vehicleDocument.upsert({
+      where: { privateMediaObjectId: vehDocMedia.id },
+      update: {},
+      create: {
+        vehicleId: vehicle.id,
+        documentType: VehicleDocumentType.REGISTRATION,
+        status: vStatus === VehicleComplianceStatus.APPROVED ? DocumentStatus.APPROVED : DocumentStatus.PENDING,
+        privateMediaObjectId: vehDocMedia.id,
+        reviewedByUserId: superAdmin.id,
+        reviewedAt: HISTORICAL_START,
+        expiresAt: new Date(HISTORICAL_END.getTime() + 365 * 86400000),
+      },
+    });
+
     // Assign primary region
     const regId = Array.from(regionMap.values())[i % regionMap.size]!;
     await prisma.driverServiceRegion.upsert({
@@ -663,7 +769,7 @@ async function main() {
     });
   }
 
-  console.log(`   ✓ ${driverIds.length} driver accounts seeded with regional service assignments.`);
+  console.log(`   ✓ ${driverIds.length} driver accounts with approved vehicles & compliance documents seeded.`);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 7. PROMOTERS (~50 Promoter Accounts)
@@ -1213,7 +1319,127 @@ async function main() {
       data: { orderId: order.id, status, note: `Status updated to ${status} during historical workflow simulation.`, createdAt },
     });
 
+    // Seed Driver Assignment for In-Transit and Delivered Orders
+    const driverId = driverIds[i % driverIds.length]!;
+    if (status === OrderStatus.DELIVERED || status === OrderStatus.IN_TRANSIT) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { currentDriverProfileId: driverId },
+      });
 
+      await prisma.orderAssignment.create({
+        data: {
+          orderId: order.id,
+          driverProfileId: driverId,
+          assignedByAdminId: superAdmin.id,
+          status: status === OrderStatus.DELIVERED ? OrderAssignmentStatus.COMPLETED : OrderAssignmentStatus.ACCEPTED,
+          assignedAt: createdAt,
+          acceptedAt: createdAt,
+          completedAt: status === OrderStatus.DELIVERED ? createdAt : null,
+          offeredAt: createdAt,
+        },
+      });
+    }
+
+    // Seed Cash on Delivery (COD) for a realistic subset (~15%)
+    const isCodOrder = i % 7 === 0;
+    if (isCodOrder) {
+      const isCollected = status === OrderStatus.DELIVERED;
+      const codRecord = await prisma.cashOnDelivery.upsert({
+        where: { orderId: order.id },
+        update: {},
+        create: {
+          publicReference: `COD-ORD-${20250000 + i}`,
+          orderId: order.id,
+          policyMode: PaymentMethodPolicyMode.FULL_COD,
+          currency: LedgerCurrency.ZAR,
+          authoritativePayable: new Prisma.Decimal(price),
+          digitalRequired: new Prisma.Decimal(0),
+          digitalPaid: new Prisma.Decimal(0),
+          cashObligation: new Prisma.Decimal(price),
+          cashCollected: isCollected ? new Prisma.Decimal(price) : new Prisma.Decimal(0),
+          cashReconciled: isCollected ? new Prisma.Decimal(price) : new Prisma.Decimal(0),
+          status: isCollected ? CashOnDeliveryStatus.RECONCILED : CashOnDeliveryStatus.PENDING,
+          collectorDriverId: isCollected ? driverId : null,
+          collectedAt: isCollected ? createdAt : null,
+          reconciliationStatus: isCollected ? "RECONCILED" : "PENDING",
+          reconciledAt: isCollected ? createdAt : null,
+          reconciliationActorId: isCollected ? superAdmin.id : null,
+          createdAt,
+        },
+      });
+
+      await prisma.cashOnDeliveryEvent.create({
+        data: {
+          cashOnDeliveryId: codRecord.id,
+          operationId: `COD-EVT-OP-${i}`,
+          requestHash: createHash("sha256").update(`COD-EVT-${i}`).digest("hex"),
+          eventType: isCollected ? "COD_COLLECTED_AND_RECONCILED" : "COD_OBLIGATION_ESTABLISHED",
+          actorUserId: isCollected ? driverId : customerId,
+          safeReasonCode: isCollected ? "DELIVERY_COLLECTION_COMPLETE" : "ORDER_CREATED",
+          createdAt,
+        },
+      });
+    }
+
+    // Seed Claims for realistic incident history (~40 claims)
+    if (i <= 40) {
+      const claimReason = i % 2 === 0 ? ClaimReason.DAMAGED : ClaimReason.MISSING_ITEM;
+      const claimRef = `CLM-DEMO-${String(i).padStart(4, "0")}`;
+      const claimStatus = i <= 30 ? ClaimStatus.DECIDED : ClaimStatus.UNDER_INVESTIGATION;
+
+      const claim = await prisma.claim.upsert({
+        where: { publicReference: claimRef },
+        update: {},
+        create: {
+          publicReference: claimRef,
+          claimantUserId: customerId,
+          orderId: order.id,
+          reason: claimReason,
+          description: `Customer reported incident for order ${orderNumber}. Investigation initiated and reviewed.`,
+          status: claimStatus,
+          paymentSource: isCodOrder ? ClaimPaymentSource.CASH : ClaimPaymentSource.DIGITAL,
+          duplicateFingerprint: createHash("sha256").update(`CLAIM-${order.id}-${claimReason}`).digest("hex"),
+          finding: claimStatus === ClaimStatus.DECIDED ? ClaimResponsibility.PLATFORM : ClaimResponsibility.UNDETERMINED,
+          findingReason: claimStatus === ClaimStatus.DECIDED ? "Carrier parcel inspection verified transit damage." : null,
+          findingActorUserId: claimStatus === ClaimStatus.DECIDED ? superAdmin.id : null,
+          findingAt: claimStatus === ClaimStatus.DECIDED ? createdAt : null,
+          decidedByUserId: claimStatus === ClaimStatus.DECIDED ? superAdmin.id : null,
+          decidedAt: claimStatus === ClaimStatus.DECIDED ? createdAt : null,
+          decisionReason: claimStatus === ClaimStatus.DECIDED ? "Partial refund remedy approved under warranty policy." : null,
+          createdAt,
+        },
+      });
+
+      await prisma.claimActivity.create({
+        data: {
+          claimId: claim.id,
+          eventType: "CLAIM_CREATED",
+          actorUserId: customerId,
+          participantRole: "CUSTOMER",
+          safeDetail: "Claim filed by customer.",
+          createdAt,
+        },
+      });
+
+      if (claimStatus === ClaimStatus.DECIDED) {
+        const remedyAmount = new Prisma.Decimal(price * 0.5);
+        await prisma.claimRemedy.upsert({
+          where: { claimId: claim.id },
+          update: {},
+          create: {
+            claimId: claim.id,
+            type: ClaimRemedyType.PARTIAL_REFUND,
+            operationId: `CLM-REM-OP-${i}`,
+            requestHash: createHash("sha256").update(`REMEDY-${i}`).digest("hex"),
+            amount: remedyAmount,
+            currency: LedgerCurrency.ZAR,
+            decidedByUserId: superAdmin.id,
+            createdAt,
+          },
+        });
+      }
+    }
 
     // Create Payment record for completed/historical order
     const pRef = `PAY-ORD-${20250000 + i}`;
@@ -1235,7 +1461,7 @@ async function main() {
     totalCourierOrders++;
   }
 
-  console.log(`   ✓ ${totalCourierOrders} courier delivery orders & payment journals seeded.`);
+  console.log(`   ✓ ${totalCourierOrders} courier delivery orders, driver assignments, COD obligations & claims seeded.`);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 11. MARKETPLACE ORDERS (~1,600 Marketplace Orders)
