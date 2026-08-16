@@ -135,25 +135,32 @@ describe("P1R-005: Transaction Retry Classification & P2002 Uniqueness Exclusion
     };
 
     let txExecutionCount = 0;
+    const mockClient = {
+      $transaction: async (fn: (tx: any) => Promise<any>) => fn({}),
+    } as any;
 
     // Domain service function demonstrating canonical local P2002 reconciliation
     async function executeIdempotentCreationWithReconciliation(operationId: string) {
-      return runTransaction(async (tx) => {
-        txExecutionCount += 1;
-        try {
-          // Attempt to create
-          throw Object.assign(new Error("Unique constraint failed on operationId"), { code: "P2002" });
-        } catch (error: any) {
-          if (error.code === "P2002") {
-            // Locally catch P2002, read canonical winner, return deterministic result
-            return {
-              reconciled: true,
-              record: existingWinnerRecord,
-            };
+      return runTransaction(
+        async (tx) => {
+          txExecutionCount += 1;
+          try {
+            // Attempt to create
+            throw Object.assign(new Error("Unique constraint failed on operationId"), { code: "P2002" });
+          } catch (error: any) {
+            if (error.code === "P2002") {
+              // Locally catch P2002, read canonical winner, return deterministic result
+              return {
+                reconciled: true,
+                record: existingWinnerRecord,
+              };
+            }
+            throw error;
           }
-          throw error;
-        }
-      }, { maxRetries: 3 });
+        },
+        { maxRetries: 3 },
+        mockClient
+      );
     }
 
     const result = await executeIdempotentCreationWithReconciliation("op_charge_456");

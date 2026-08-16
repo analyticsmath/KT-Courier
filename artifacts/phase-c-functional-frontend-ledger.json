@@ -260,7 +260,7 @@
         "permissions": true,
         "errorState": true
       },
-      "basis": "Store advertising portal in app/(store)/store/advertising/page.tsx and StoreCommercialUnavailablePage.tsx showing governed status and campaign separation.",
+      "basis": "Store advertising workbench in app/(store)/store/advertising/page.tsx and StoreAdvertisingWorkbench.tsx with package selection, draft campaign creation, creative management, review submission, lifecycle status tracking, and performance reporting against ManagedMarketingService.",
       "score": 100.0,
       "accepted": true
     },

@@ -1364,6 +1364,49 @@ async function main() {
     if (isFullCod) {
       // FULL_COD: zero digital payment; full cash obligation
       const isCollected = (status === OrderStatus.DELIVERED);
+      let colJournalId: string | null = null;
+      let recJournalId: string | null = null;
+
+      if (isCollected) {
+        const colJournal = await prisma.ledgerJournal.upsert({
+          where: { idempotencyKey: `idem_jnl_col_cod_${i}` },
+          update: {},
+          create: {
+            reference: `jnl_col_cod_${i}`,
+            type: LedgerJournalType.EXTERNAL_PAYMENT_RECEIPT,
+            currency: LedgerCurrency.ZAR,
+            idempotencyKey: `idem_jnl_col_cod_${i}`,
+            correlationId: `ORD-${20250000 + i}`,
+            requestHash: createHash("sha256").update(`COL-${i}`).digest("hex"),
+            policyVersion: "v1",
+            totalDebits: new Prisma.Decimal(price),
+            totalCredits: new Prisma.Decimal(price),
+            postedAt: createdAt,
+            createdAt,
+          },
+        });
+        colJournalId = colJournal.id;
+
+        const recJournal = await prisma.ledgerJournal.upsert({
+          where: { idempotencyKey: `idem_jnl_rec_cod_${i}` },
+          update: {},
+          create: {
+            reference: `jnl_rec_cod_${i}`,
+            type: LedgerJournalType.ACCOUNT_TRANSFER,
+            currency: LedgerCurrency.ZAR,
+            idempotencyKey: `idem_jnl_rec_cod_${i}`,
+            correlationId: `ORD-${20250000 + i}`,
+            requestHash: createHash("sha256").update(`REC-${i}`).digest("hex"),
+            policyVersion: "v1",
+            totalDebits: new Prisma.Decimal(price),
+            totalCredits: new Prisma.Decimal(price),
+            postedAt: createdAt,
+            createdAt,
+          },
+        });
+        recJournalId = recJournal.id;
+      }
+
       const codRecord = await prisma.cashOnDelivery.upsert({
         where: { orderId: order.id },
         update: {},
@@ -1381,24 +1424,74 @@ async function main() {
           status: isCollected ? CashOnDeliveryStatus.RECONCILED : CashOnDeliveryStatus.PENDING,
           collectorDriverId: isCollected ? assignedDriver.profileId : null,
           collectedAt: isCollected ? createdAt : null,
+          collectionOperationId: isCollected ? `COD-COL-OP-${i}` : null,
+          collectionRequestHash: isCollected ? createHash("sha256").update(`COD-COL-${i}`).digest("hex") : null,
+          collectionJournalId: colJournalId,
           reconciliationStatus: isCollected ? "RECONCILED" : "PENDING",
           reconciledAt: isCollected ? createdAt : null,
           reconciliationActorId: isCollected ? superAdmin.id : null,
+          reconciliationJournalId: recJournalId,
           createdAt,
         },
       });
 
+      if (isCollected && recJournalId) {
+        await prisma.cashOnDeliveryReconciliation.upsert({
+          where: { cashOnDeliveryId: codRecord.id },
+          update: {},
+          create: {
+            cashOnDeliveryId: codRecord.id,
+            operationId: `COD-REC-OP-${i}`,
+            requestHash: createHash("sha256").update(`COD-REC-${i}`).digest("hex"),
+            expectedAmount: new Prisma.Decimal(price),
+            receivedAmount: new Prisma.Decimal(price),
+            discrepancyAmount: new Prisma.Decimal(0),
+            collectorDriverId: assignedDriver.profileId,
+            reconciledByUserId: superAdmin.id,
+            evidenceReference: `EVID-COD-${i}`,
+            journalId: recJournalId,
+            createdAt,
+          },
+        });
+      }
+
       await prisma.cashOnDeliveryEvent.create({
         data: {
           cashOnDeliveryId: codRecord.id,
-          operationId: `COD-EVT-OP-${i}`,
-          requestHash: createHash("sha256").update(`COD-EVT-${i}`).digest("hex"),
-          eventType: isCollected ? "COD_COLLECTED_AND_RECONCILED" : "COD_OBLIGATION_ESTABLISHED",
-          actorUserId: isCollected ? assignedDriver.userId : customerId,
-          safeReasonCode: isCollected ? "DELIVERY_COLLECTION_COMPLETE" : "ORDER_CREATED",
+          operationId: `COD-EVT-OP-EST-${i}`,
+          requestHash: createHash("sha256").update(`COD-EVT-EST-${i}`).digest("hex"),
+          eventType: "COD_OBLIGATION_ESTABLISHED",
+          actorUserId: customerId,
+          safeReasonCode: "ORDER_CREATED",
           createdAt,
         },
       });
+
+      if (isCollected) {
+        await prisma.cashOnDeliveryEvent.create({
+          data: {
+            cashOnDeliveryId: codRecord.id,
+            operationId: `COD-EVT-OP-COL-${i}`,
+            requestHash: createHash("sha256").update(`COD-EVT-COL-${i}`).digest("hex"),
+            eventType: "COD_COLLECTED_AT_DELIVERY",
+            actorUserId: assignedDriver.userId,
+            safeReasonCode: "DELIVERY_COLLECTION_COMPLETE",
+            createdAt,
+          },
+        });
+
+        await prisma.cashOnDeliveryEvent.create({
+          data: {
+            cashOnDeliveryId: codRecord.id,
+            operationId: `COD-EVT-OP-REC-${i}`,
+            requestHash: createHash("sha256").update(`COD-EVT-REC-${i}`).digest("hex"),
+            eventType: "COD_RECONCILED_WITH_FINANCE",
+            actorUserId: superAdmin.id,
+            safeReasonCode: "SETTLEMENT_VERIFIED",
+            createdAt,
+          },
+        });
+      }
 
       // No successful digital payment for full COD
     } else if (isDepositPlusCod) {
@@ -1407,6 +1500,49 @@ async function main() {
       const cashObligation = Math.round((price - deposit) * 100) / 100;
       const isCollected = (status === OrderStatus.DELIVERED);
       const isPaymentSucceeded = (status !== OrderStatus.CANCELLED && status !== OrderStatus.FAILED);
+
+      let colJournalId: string | null = null;
+      let recJournalId: string | null = null;
+
+      if (isCollected) {
+        const colJournal = await prisma.ledgerJournal.upsert({
+          where: { idempotencyKey: `idem_jnl_col_dep_cod_${i}` },
+          update: {},
+          create: {
+            reference: `jnl_col_dep_cod_${i}`,
+            type: LedgerJournalType.EXTERNAL_PAYMENT_RECEIPT,
+            currency: LedgerCurrency.ZAR,
+            idempotencyKey: `idem_jnl_col_dep_cod_${i}`,
+            correlationId: `ORD-${20250000 + i}`,
+            requestHash: createHash("sha256").update(`COL-DEP-${i}`).digest("hex"),
+            policyVersion: "v1",
+            totalDebits: new Prisma.Decimal(cashObligation),
+            totalCredits: new Prisma.Decimal(cashObligation),
+            postedAt: createdAt,
+            createdAt,
+          },
+        });
+        colJournalId = colJournal.id;
+
+        const recJournal = await prisma.ledgerJournal.upsert({
+          where: { idempotencyKey: `idem_jnl_rec_dep_cod_${i}` },
+          update: {},
+          create: {
+            reference: `jnl_rec_dep_cod_${i}`,
+            type: LedgerJournalType.ACCOUNT_TRANSFER,
+            currency: LedgerCurrency.ZAR,
+            idempotencyKey: `idem_jnl_rec_dep_cod_${i}`,
+            correlationId: `ORD-${20250000 + i}`,
+            requestHash: createHash("sha256").update(`REC-DEP-${i}`).digest("hex"),
+            policyVersion: "v1",
+            totalDebits: new Prisma.Decimal(cashObligation),
+            totalCredits: new Prisma.Decimal(cashObligation),
+            postedAt: createdAt,
+            createdAt,
+          },
+        });
+        recJournalId = recJournal.id;
+      }
 
       const codRecord = await prisma.cashOnDelivery.upsert({
         where: { orderId: order.id },
@@ -1425,24 +1561,74 @@ async function main() {
           status: isCollected ? CashOnDeliveryStatus.RECONCILED : CashOnDeliveryStatus.PENDING,
           collectorDriverId: isCollected ? assignedDriver.profileId : null,
           collectedAt: isCollected ? createdAt : null,
+          collectionOperationId: isCollected ? `COD-COL-OP-DEP-${i}` : null,
+          collectionRequestHash: isCollected ? createHash("sha256").update(`COD-COL-DEP-${i}`).digest("hex") : null,
+          collectionJournalId: colJournalId,
           reconciliationStatus: isCollected ? "RECONCILED" : "PENDING",
           reconciledAt: isCollected ? createdAt : null,
           reconciliationActorId: isCollected ? superAdmin.id : null,
+          reconciliationJournalId: recJournalId,
           createdAt,
         },
       });
 
+      if (isCollected && recJournalId) {
+        await prisma.cashOnDeliveryReconciliation.upsert({
+          where: { cashOnDeliveryId: codRecord.id },
+          update: {},
+          create: {
+            cashOnDeliveryId: codRecord.id,
+            operationId: `COD-REC-OP-DEP-${i}`,
+            requestHash: createHash("sha256").update(`COD-REC-DEP-${i}`).digest("hex"),
+            expectedAmount: new Prisma.Decimal(cashObligation),
+            receivedAmount: new Prisma.Decimal(cashObligation),
+            discrepancyAmount: new Prisma.Decimal(0),
+            collectorDriverId: assignedDriver.profileId,
+            reconciledByUserId: superAdmin.id,
+            evidenceReference: `EVID-DEP-COD-${i}`,
+            journalId: recJournalId,
+            createdAt,
+          },
+        });
+      }
+
       await prisma.cashOnDeliveryEvent.create({
         data: {
           cashOnDeliveryId: codRecord.id,
-          operationId: `COD-EVT-OP-${i}`,
-          requestHash: createHash("sha256").update(`COD-EVT-${i}`).digest("hex"),
-          eventType: isCollected ? "COD_COLLECTED_AND_RECONCILED" : "COD_OBLIGATION_ESTABLISHED",
-          actorUserId: isCollected ? assignedDriver.userId : customerId,
-          safeReasonCode: isCollected ? "DELIVERY_COLLECTION_COMPLETE" : "ORDER_CREATED",
+          operationId: `COD-EVT-OP-DEP-EST-${i}`,
+          requestHash: createHash("sha256").update(`COD-EVT-DEP-EST-${i}`).digest("hex"),
+          eventType: "COD_OBLIGATION_ESTABLISHED",
+          actorUserId: customerId,
+          safeReasonCode: "ORDER_CREATED",
           createdAt,
         },
       });
+
+      if (isCollected) {
+        await prisma.cashOnDeliveryEvent.create({
+          data: {
+            cashOnDeliveryId: codRecord.id,
+            operationId: `COD-EVT-OP-DEP-COL-${i}`,
+            requestHash: createHash("sha256").update(`COD-EVT-DEP-COL-${i}`).digest("hex"),
+            eventType: "COD_COLLECTED_AT_DELIVERY",
+            actorUserId: assignedDriver.userId,
+            safeReasonCode: "DELIVERY_COLLECTION_COMPLETE",
+            createdAt,
+          },
+        });
+
+        await prisma.cashOnDeliveryEvent.create({
+          data: {
+            cashOnDeliveryId: codRecord.id,
+            operationId: `COD-EVT-OP-DEP-REC-${i}`,
+            requestHash: createHash("sha256").update(`COD-EVT-DEP-REC-${i}`).digest("hex"),
+            eventType: "COD_RECONCILED_WITH_FINANCE",
+            actorUserId: superAdmin.id,
+            safeReasonCode: "SETTLEMENT_VERIFIED",
+            createdAt,
+          },
+        });
+      }
 
       // Digital payment for deposit amount only
       const pRef = `PAY-ORD-${20250000 + i}`;
@@ -1481,6 +1667,11 @@ async function main() {
       const claimReason = i % 2 === 0 ? ClaimReason.DAMAGED : ClaimReason.MISSING_ITEM;
       const claimRef = `CLM-DEMO-${String(i).padStart(4, "0")}`;
       const claimStatus = (i <= 30 ? ClaimStatus.DECIDED : ClaimStatus.UNDER_INVESTIGATION);
+      const claimPaymentSource = isDepositPlusCod
+        ? ClaimPaymentSource.MIXED
+        : isFullCod
+          ? ClaimPaymentSource.CASH
+          : ClaimPaymentSource.DIGITAL;
 
       const claim = await prisma.claim.upsert({
         where: { publicReference: claimRef },
@@ -1492,7 +1683,7 @@ async function main() {
           reason: claimReason,
           description: `Customer reported incident for order ${orderNumber}. Investigation initiated and reviewed.`,
           status: claimStatus,
-          paymentSource: isDigital ? ClaimPaymentSource.DIGITAL : ClaimPaymentSource.CASH,
+          paymentSource: claimPaymentSource,
           duplicateFingerprint: createHash("sha256").update(`CLAIM-${order.id}-${claimReason}`).digest("hex"),
           finding: claimStatus === ClaimStatus.DECIDED ? ClaimResponsibility.PLATFORM : ClaimResponsibility.UNDETERMINED,
           findingReason: claimStatus === ClaimStatus.DECIDED ? "Carrier parcel inspection verified transit damage." : null,
@@ -1580,8 +1771,74 @@ async function main() {
               createdAt,
             },
           });
+        } else if (isDepositPlusCod && paymentRecord && paymentRecord.status === PaymentStatus.SUCCEEDED) {
+          // MIXED claim: partial refund against digital deposit
+          const deposit = Math.round(price * 0.2 * 100) / 100;
+          const remedyAmount = Math.round(deposit * 0.5 * 100) / 100;
+          const refIdem = `idem_ref_dep_${claim.id}`;
+          const refHash = createHash("sha256").update(`REF-DEP-${claim.id}`).digest("hex");
+
+          const resJournal = await prisma.ledgerJournal.upsert({
+            where: { idempotencyKey: `idem_jnl_ref_dep_${claim.id}` },
+            update: {},
+            create: {
+              reference: `jnl_ref_dep_${claim.id}`,
+              type: LedgerJournalType.REFUND_RESERVE,
+              currency: LedgerCurrency.ZAR,
+              idempotencyKey: `idem_jnl_ref_dep_${claim.id}`,
+              correlationId: claim.publicReference,
+              requestHash: refHash,
+              policyVersion: "v1",
+              totalDebits: new Prisma.Decimal(remedyAmount),
+              totalCredits: new Prisma.Decimal(remedyAmount),
+              postedAt: createdAt,
+              createdAt,
+            },
+          });
+
+          const refund = await prisma.paymentRefund.upsert({
+            where: { publicReference: `PRF-${claim.publicReference}` },
+            update: {},
+            create: {
+              publicReference: `PRF-${claim.publicReference}`,
+              paymentId: paymentRecord.id,
+              customerUserId: customerId,
+              method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
+              amount: new Prisma.Decimal(remedyAmount),
+              currency: LedgerCurrency.ZAR,
+              status: RefundStatus.SUCCEEDED,
+              reasonCode: RefundReasonCode.CUSTOMER_SERVICE_RESOLUTION,
+              customerNote: "Deposit portion refund on damaged mixed-payment order.",
+              financeNote: "Claim approved with digital deposit refund remedy.",
+              creationIdempotencyKey: refIdem,
+              creationRequestHash: refHash,
+              reserveLedgerJournalId: resJournal.id,
+              approvedByUserId: superAdmin.id,
+              approvedAt: createdAt,
+              completedByUserId: superAdmin.id,
+              completedAt: createdAt,
+              createdAt,
+            },
+          });
+
+          await prisma.claimRemedy.upsert({
+            where: { claimId: claim.id },
+            update: {},
+            create: {
+              claimId: claim.id,
+              type: ClaimRemedyType.PARTIAL_REFUND,
+              mixedPaymentStrategy: "DIGITAL_PORTION_REFUND",
+              paymentRefundId: refund.id,
+              operationId: `CLM-REM-OP-${i}`,
+              requestHash: createHash("sha256").update(`REMEDY-${i}`).digest("hex"),
+              amount: new Prisma.Decimal(remedyAmount),
+              currency: LedgerCurrency.ZAR,
+              decidedByUserId: superAdmin.id,
+              createdAt,
+            },
+          });
         } else {
-          // Non-financial remedy for cash / pending orders (e.g. replacement)
+          // Non-financial remedy for cash orders (e.g. replacement)
           await prisma.claimRemedy.upsert({
             where: { claimId: claim.id },
             update: {},

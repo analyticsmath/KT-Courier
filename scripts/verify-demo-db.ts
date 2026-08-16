@@ -1,6 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, UserRole, OrderStatus } from "@prisma/client";
 import { loadLocalEnv, safeLog, safeError } from "./docker-common.mjs";
-import { validateDestructiveResetSafety } from "./demo-db-safety.mjs";
+import { validateDestructiveResetSafety } from "./demo-db-safety";
 import process from "node:process";
 
 const prisma = new PrismaClient();
@@ -9,7 +9,7 @@ async function verify() {
   safeLog("🔍 Starting KT Couriers Comprehensive Database Invariant & Safety Verification...");
 
   // 1. Safety verification
-  const env = loadLocalEnv();
+  const env = loadLocalEnv() as Record<string, string | undefined>;
   const { currentDbName, host, port } = validateDestructiveResetSafety(env);
   safeLog(`✓ Target database verified safe for demo operations: ${host}:${port} (${currentDbName})`);
 
@@ -88,7 +88,7 @@ async function verify() {
 
   // Check 3: State Diversity Coverage
   const distinctRoles = new Set(userCounts.map((u) => u.role));
-  for (const requiredRole of ["CUSTOMER", "STORE", "DRIVER", "ADMIN", "SUPER_ADMIN"]) {
+  for (const requiredRole of [UserRole.CUSTOMER, UserRole.STORE, UserRole.DRIVER, UserRole.ADMIN, UserRole.SUPER_ADMIN]) {
     if (!distinctRoles.has(requiredRole)) {
       safeError(`❌ Missing user role in dataset: ${requiredRole}`);
       invariantsPassed = false;
@@ -96,7 +96,7 @@ async function verify() {
   }
 
   const distinctCourierStatuses = new Set(courierOrderCounts.map((c) => c.status));
-  for (const requiredStatus of ["DELIVERED", "IN_TRANSIT", "PENDING", "CANCELLED", "FAILED"]) {
+  for (const requiredStatus of [OrderStatus.DELIVERED, OrderStatus.IN_TRANSIT, OrderStatus.PENDING, OrderStatus.CANCELLED, OrderStatus.FAILED]) {
     if (!distinctCourierStatuses.has(requiredStatus)) {
       safeError(`❌ Missing courier order status in dataset: ${requiredStatus}`);
       invariantsPassed = false;
@@ -139,9 +139,12 @@ async function verify() {
   }
 
   // Check 5: Economic Reconciliation (Ledger Balance)
-  const unbalancedJournals = await prisma.ledgerJournal.count({
-    where: { isBalanced: false },
+  const allJournals = await prisma.ledgerJournal.findMany({
+    select: { id: true, totalDebits: true, totalCredits: true },
   });
+  const unbalancedJournals = allJournals.filter(
+    (j) => !j.totalDebits.equals(j.totalCredits)
+  ).length;
   if (unbalancedJournals > 0) {
     safeError(`❌ Found ${unbalancedJournals} unbalanced ledger journals`);
     invariantsPassed = false;
