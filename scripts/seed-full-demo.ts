@@ -1340,24 +1340,46 @@ async function main() {
 
     // 1. Driver Assignment: only assign eligible, active, compliant drivers
     const assignedDriver = eligibleDrivers[i % eligibleDrivers.length]!;
-    if (status === OrderStatus.DELIVERED || status === OrderStatus.IN_TRANSIT) {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { currentDriverProfileId: assignedDriver.profileId },
-      });
-
-      await prisma.orderAssignment.create({
-        data: {
-          orderId: order.id,
-          driverProfileId: assignedDriver.profileId,
-          assignedByAdminId: superAdmin.id,
-          status: status === OrderStatus.DELIVERED ? OrderAssignmentStatus.COMPLETED : OrderAssignmentStatus.ACCEPTED,
-          assignedAt: createdAt,
-          acceptedAt: createdAt,
-          completedAt: status === OrderStatus.DELIVERED ? createdAt : null,
-          offeredAt: createdAt,
-        },
-      });
+    if (status === OrderStatus.IN_TRANSIT) {
+      await prisma.$transaction([
+        prisma.orderAssignment.create({
+          data: {
+            orderId: order.id,
+            driverProfileId: assignedDriver.profileId,
+            assignedByAdminId: superAdmin.id,
+            status: OrderAssignmentStatus.ACCEPTED,
+            activeOrderGuard: order.id,
+            assignedAt: createdAt,
+            acceptedAt: createdAt,
+            offeredAt: createdAt,
+            completedAt: null,
+          },
+        }),
+        prisma.order.update({
+          where: { id: order.id },
+          data: { currentDriverProfileId: assignedDriver.profileId },
+        }),
+      ]);
+    } else if (status === OrderStatus.DELIVERED) {
+      await prisma.$transaction([
+        prisma.orderAssignment.create({
+          data: {
+            orderId: order.id,
+            driverProfileId: assignedDriver.profileId,
+            assignedByAdminId: superAdmin.id,
+            status: OrderAssignmentStatus.COMPLETED,
+            activeOrderGuard: null,
+            assignedAt: createdAt,
+            acceptedAt: createdAt,
+            completedAt: createdAt,
+            offeredAt: createdAt,
+          },
+        }),
+        prisma.order.update({
+          where: { id: order.id },
+          data: { currentDriverProfileId: null },
+        }),
+      ]);
     }
 
     // 2. Payment & COD Economics Split

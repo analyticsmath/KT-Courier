@@ -5,11 +5,13 @@ import {
   validateClaimRemedyConsistency,
   validateChronologicalSequence,
   validatePrivateMediaCompliance,
+  validateOrderAssignmentPointerConsistency,
   CodValidationInput,
   DriverValidationInput,
   ClaimValidationInput,
   ChronologicalValidationInput,
   PrivateMediaValidationInput,
+  OrderAssignmentValidationInput,
 } from "@/lib/invariants/demo-invariants";
 
 describe("Extracted Invariant Engine & Operational Policies", () => {
@@ -303,6 +305,140 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("requires ownerType === 'VEHICLE'"))).toBe(true);
       expect(result.errors.some((e) => e.includes("requires ownerId === 'veh-002'"))).toBe(true);
+    });
+  });
+
+  describe("validateOrderAssignmentPointerConsistency", () => {
+    it("passes for ACCEPTED assignment with matching pointer and activeOrderGuard=orderId", () => {
+      const input: OrderAssignmentValidationInput = {
+        orderId: "ord-001",
+        orderNumber: "ORD-20250001",
+        orderStatus: "IN_TRANSIT",
+        currentDriverProfileId: "drv-001",
+        assignments: [
+          {
+            driverProfileId: "drv-001",
+            status: "ACCEPTED",
+            activeOrderGuard: "ord-001",
+            assignedAt: "2025-08-01T10:00:00Z",
+            acceptedAt: "2025-08-01T10:05:00Z",
+          },
+        ],
+      };
+      const result = validateOrderAssignmentPointerConsistency(input);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("passes for COMPLETED assignment with null pointer and activeOrderGuard=null", () => {
+      const input: OrderAssignmentValidationInput = {
+        orderId: "ord-002",
+        orderNumber: "ORD-20250002",
+        orderStatus: "DELIVERED",
+        currentDriverProfileId: null,
+        assignments: [
+          {
+            driverProfileId: "drv-002",
+            status: "COMPLETED",
+            activeOrderGuard: null,
+            assignedAt: "2025-08-01T10:00:00Z",
+            acceptedAt: "2025-08-01T10:05:00Z",
+            completedAt: "2025-08-01T11:00:00Z",
+          },
+        ],
+      };
+      const result = validateOrderAssignmentPointerConsistency(input);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("fails when pointer exists without ACCEPTED assignment", () => {
+      const input: OrderAssignmentValidationInput = {
+        orderId: "ord-003",
+        orderNumber: "ORD-20250003",
+        orderStatus: "PENDING",
+        currentDriverProfileId: "drv-003",
+        assignments: [],
+      };
+      const result = validateOrderAssignmentPointerConsistency(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("has currentDriverProfileId (drv-003) but no ACCEPTED assignment"))).toBe(true);
+    });
+
+    it("fails when ACCEPTED driver differs from pointer", () => {
+      const input: OrderAssignmentValidationInput = {
+        orderId: "ord-004",
+        orderNumber: "ORD-20250004",
+        orderStatus: "IN_TRANSIT",
+        currentDriverProfileId: "drv-004-A",
+        assignments: [
+          {
+            driverProfileId: "drv-004-B",
+            status: "ACCEPTED",
+            activeOrderGuard: "ord-004",
+          },
+        ],
+      };
+      const result = validateOrderAssignmentPointerConsistency(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("does not match ACCEPTED assignment driver"))).toBe(true);
+    });
+
+    it("fails when ACCEPTED assignment has null or wrong activeOrderGuard", () => {
+      const input: OrderAssignmentValidationInput = {
+        orderId: "ord-005",
+        orderNumber: "ORD-20250005",
+        orderStatus: "IN_TRANSIT",
+        currentDriverProfileId: "drv-005",
+        assignments: [
+          {
+            driverProfileId: "drv-005",
+            status: "ACCEPTED",
+            activeOrderGuard: null, // Invalid: must be ord-005
+          },
+        ],
+      };
+      const result = validateOrderAssignmentPointerConsistency(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("requires activeOrderGuard === 'ord-005'"))).toBe(true);
+    });
+
+    it("fails when terminal assignment has non-null activeOrderGuard", () => {
+      const input: OrderAssignmentValidationInput = {
+        orderId: "ord-006",
+        orderNumber: "ORD-20250006",
+        orderStatus: "DELIVERED",
+        currentDriverProfileId: null,
+        assignments: [
+          {
+            driverProfileId: "drv-006",
+            status: "COMPLETED",
+            activeOrderGuard: "ord-006", // Invalid: must be null for terminal status
+          },
+        ],
+      };
+      const result = validateOrderAssignmentPointerConsistency(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("requires activeOrderGuard === null"))).toBe(true);
+    });
+
+    it("fails when terminal-only assignment has non-null current-driver pointer", () => {
+      const input: OrderAssignmentValidationInput = {
+        orderId: "ord-007",
+        orderNumber: "ORD-20250007",
+        orderStatus: "DELIVERED",
+        currentDriverProfileId: "drv-007", // Invalid: terminal orders must not leave a current driver pointer
+        assignments: [
+          {
+            driverProfileId: "drv-007",
+            status: "COMPLETED",
+            activeOrderGuard: null,
+          },
+        ],
+      };
+      const result = validateOrderAssignmentPointerConsistency(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("has currentDriverProfileId (drv-007) but no ACCEPTED assignment"))).toBe(true);
     });
   });
 });

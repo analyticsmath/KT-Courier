@@ -68,6 +68,22 @@ export interface PrivateMediaValidationInput {
   linkedVehicleId?: string | null;
 }
 
+export interface OrderAssignmentValidationInput {
+  orderId: string;
+  orderNumber: string;
+  orderStatus: string;
+  currentDriverProfileId?: string | null;
+  assignments: Array<{
+    id?: string;
+    driverProfileId: string;
+    status: string;
+    activeOrderGuard?: string | null;
+    assignedAt?: Date | string | null;
+    acceptedAt?: Date | string | null;
+    completedAt?: Date | string | null;
+  }>;
+}
+
 export interface InvariantResult {
   valid: boolean;
   errors: string[];
@@ -273,6 +289,51 @@ export function validatePrivateMediaCompliance(input: PrivateMediaValidationInpu
     }
     if (input.ownerId !== input.linkedVehicleId) {
       errors.push(`Vehicle-linked PrivateMediaObject (${input.publicReference}) requires ownerId === '${input.linkedVehicleId}', got '${input.ownerId}'`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates Order.currentDriverProfileId pointer consistency and OrderAssignment activeOrderGuard invariants.
+ */
+export function validateOrderAssignmentPointerConsistency(input: OrderAssignmentValidationInput): InvariantResult {
+  const errors: string[] = [];
+
+  const acceptedAssignments = input.assignments.filter((a) => a.status === "ACCEPTED");
+
+  // 1. At most one ACCEPTED assignment per order
+  if (acceptedAssignments.length > 1) {
+    errors.push(`Order ${input.orderNumber} has multiple (${acceptedAssignments.length}) ACCEPTED assignments`);
+  }
+
+  const accepted = acceptedAssignments[0];
+
+  // 2. Pointer matching rule
+  if (accepted) {
+    if (!input.currentDriverProfileId) {
+      errors.push(`Order ${input.orderNumber} has ACCEPTED assignment for driver ${accepted.driverProfileId} but currentDriverProfileId is null`);
+    } else if (input.currentDriverProfileId !== accepted.driverProfileId) {
+      errors.push(`Order ${input.orderNumber} currentDriverProfileId (${input.currentDriverProfileId}) does not match ACCEPTED assignment driver (${accepted.driverProfileId})`);
+    }
+  } else {
+    if (input.currentDriverProfileId) {
+      errors.push(`Order ${input.orderNumber} has currentDriverProfileId (${input.currentDriverProfileId}) but no ACCEPTED assignment`);
+    }
+  }
+
+  // 3. activeOrderGuard rules for all assignments
+  for (const a of input.assignments) {
+    if (a.status === "ASSIGNED" || a.status === "ACCEPTED") {
+      if (a.activeOrderGuard !== input.orderId) {
+        errors.push(`Order ${input.orderNumber} assignment with status ${a.status} requires activeOrderGuard === '${input.orderId}', got '${a.activeOrderGuard}'`);
+      }
+    } else {
+      // Terminal statuses
+      if (a.activeOrderGuard != null) {
+        errors.push(`Order ${input.orderNumber} assignment with terminal status ${a.status} requires activeOrderGuard === null, got '${a.activeOrderGuard}'`);
+      }
     }
   }
 

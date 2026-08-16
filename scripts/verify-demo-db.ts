@@ -7,6 +7,7 @@ import {
   validateClaimRemedyConsistency,
   validateChronologicalSequence,
   validatePrivateMediaCompliance,
+  validateOrderAssignmentPointerConsistency,
 } from "../lib/invariants/demo-invariants";
 import process from "node:process";
 
@@ -433,6 +434,49 @@ async function verify() {
     invariantsPassed = false;
   } else {
     safeLog(`✓ PrivateMediaObject evidence & vehicle ownership triggers verified across ${allPrivateMedia.length} media rows`);
+  }
+
+  // Check 11: Order.currentDriverProfileId Pointer & OrderAssignment.activeOrderGuard Consistency
+  const allOrdersWithAssignments = await prisma.order.findMany({
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      currentDriverProfileId: true,
+      assignments: {
+        select: {
+          id: true,
+          driverProfileId: true,
+          status: true,
+          activeOrderGuard: true,
+          assignedAt: true,
+          acceptedAt: true,
+          completedAt: true,
+        },
+      },
+    },
+  });
+
+  let orderAssignmentPointerErrors = 0;
+  for (const ord of allOrdersWithAssignments) {
+    const res = validateOrderAssignmentPointerConsistency({
+      orderId: ord.id,
+      orderNumber: ord.orderNumber,
+      orderStatus: ord.status,
+      currentDriverProfileId: ord.currentDriverProfileId,
+      assignments: ord.assignments,
+    });
+
+    if (!res.valid) {
+      orderAssignmentPointerErrors++;
+    }
+  }
+
+  if (orderAssignmentPointerErrors > 0) {
+    safeError(`❌ Found ${orderAssignmentPointerErrors} orders violating current driver pointer or activeOrderGuard consistency`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ Order current-driver pointer & activeOrderGuard consistency verified across ${allOrdersWithAssignments.length} orders`);
   }
 
   if (invariantsPassed) {
