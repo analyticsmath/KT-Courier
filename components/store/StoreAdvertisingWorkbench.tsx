@@ -229,6 +229,11 @@ export function StoreAdvertisingWorkbench({
       }
 
       const created = data.request;
+      const baseAmount = created.commercial?.baseAmount || String(created.priceSnapshot || selectedPackage.priceAmount);
+      const taxAmount = created.commercial?.taxAmount || String(created.taxSnapshot || "0.00");
+      const grossAmount = created.commercial?.grossAmount || baseAmount;
+      const currency = created.commercial?.currency || created.currency || "ZAR";
+
       const newRequestItem: MarketingRequestItem = {
         id: created.id,
         publicReference: created.publicReference,
@@ -237,10 +242,10 @@ export function StoreAdvertisingWorkbench({
         instructions: created.instructions,
         status: created.status,
         executionMode: created.executionMode,
-        priceAmount: String(created.priceSnapshot || selectedPackage.priceAmount),
-        taxAmount: String(created.taxSnapshot || "0.00"),
-        totalAmount: String(created.priceSnapshot || selectedPackage.priceAmount),
-        currency: created.currency || "ZAR",
+        priceAmount: baseAmount,
+        taxAmount: taxAmount,
+        totalAmount: grossAmount,
+        currency,
         startAt: created.startsAt,
         endAt: created.endsAt,
         createdAt: created.createdAt || new Date().toISOString(),
