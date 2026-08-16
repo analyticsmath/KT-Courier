@@ -4,6 +4,7 @@ import {
   validateDriverAssignmentEligibility,
   validateClaimRemedyConsistency,
   validateChronologicalSequence,
+  validateMarketplaceChronologicalSequence,
   validatePrivateMediaCompliance,
   validateOrderAssignmentPointerConsistency,
   validateRefundExecutionEvidence,
@@ -12,11 +13,14 @@ import {
   DriverValidationInput,
   ClaimValidationInput,
   ChronologicalValidationInput,
+  MarketplaceChronologicalValidationInput,
   PrivateMediaValidationInput,
   OrderAssignmentValidationInput,
   RefundExecutionValidationInput,
   PaymentSuccessValidationInput,
   STAGE_10_PLUS_INVARIANT_MATRIX,
+  randomTransactionDateForCustomer,
+  HISTORICAL_END,
 } from "@/lib/invariants/demo-invariants";
 
 describe("Extracted Invariant Engine & Operational Policies", () => {
@@ -217,7 +221,7 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
   });
 
   describe("validateChronologicalSequence", () => {
-    it("validates ordered lifecycle timestamps", () => {
+    it("validates ordered lifecycle timestamps across customer, order, assignment, completion, claim, and remedy", () => {
       const input: ChronologicalValidationInput = {
         userCreatedAt: "2025-07-01T00:00:00Z",
         orderCreatedAt: "2025-08-01T10:00:00Z",
@@ -229,19 +233,124 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
 
       const result = validateChronologicalSequence(input);
       expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
-    it("rejects non-monotonic sequence where order precedes user or remedy precedes claim", () => {
+    it("rejects non-monotonic sequence where order precedes customer", () => {
       const input: ChronologicalValidationInput = {
         userCreatedAt: "2025-08-05T00:00:00Z",
-        orderCreatedAt: "2025-08-01T10:00:00Z", // Precedes user
-        claimCreatedAt: "2025-08-03T10:00:00Z",
-        remedyCreatedAt: "2025-08-02T10:00:00Z", // Precedes claim
+        orderCreatedAt: "2025-08-01T10:00:00Z", // Precedes customer
       };
 
       const result = validateChronologicalSequence(input);
       expect(result.valid).toBe(false);
-      expect(result.errors).toHaveLength(2);
+      expect(result.errors.some((e) => e.includes("CUSTOMER_AFTER_COURIER_ORDER"))).toBe(true);
+    });
+
+    it("rejects assignment completion occurring after claim creation", () => {
+      const input: ChronologicalValidationInput = {
+        userCreatedAt: "2025-07-01T00:00:00Z",
+        orderCreatedAt: "2025-08-01T10:00:00Z",
+        assignmentAssignedAt: "2025-08-01T10:15:00Z",
+        assignmentCompletedAt: "2025-08-01T15:00:00Z",
+        claimCreatedAt: "2025-08-01T12:00:00Z", // Precedes assignment completion
+      };
+
+      const result = validateChronologicalSequence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("ASSIGNMENT_COMPLETION_AFTER_CLAIM"))).toBe(true);
+    });
+
+    it("rejects order creation following assignment or claim preceding remedy", () => {
+      const input: ChronologicalValidationInput = {
+        userCreatedAt: "2025-07-01T00:00:00Z",
+        orderCreatedAt: "2025-08-01T10:00:00Z",
+        assignmentAssignedAt: "2025-08-01T09:00:00Z", // Assignment precedes order
+        claimCreatedAt: "2025-08-03T10:00:00Z",
+        remedyCreatedAt: "2025-08-02T10:00:00Z", // Remedy precedes claim
+      };
+
+      const result = validateChronologicalSequence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("ORDER_AFTER_ASSIGNMENT"))).toBe(true);
+      expect(result.errors.some((e) => e.includes("CLAIM_AFTER_REMEDY"))).toBe(true);
+    });
+  });
+
+  describe("validateMarketplaceChronologicalSequence", () => {
+    it("validates compliant marketplace order lifecycle chain", () => {
+      const input: MarketplaceChronologicalValidationInput = {
+        customerCreatedAt: "2025-07-01T00:00:00Z",
+        cartCreatedAt: "2025-08-01T10:00:00Z",
+        checkoutCreatedAt: "2025-08-01T10:05:00Z",
+        paymentCreatedAt: "2025-08-01T10:06:00Z",
+        orderCreatedAt: "2025-08-01T10:07:00Z",
+      };
+
+      const result = validateMarketplaceChronologicalSequence(input);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("rejects marketplace cart preceding customer creation", () => {
+      const input: MarketplaceChronologicalValidationInput = {
+        customerCreatedAt: "2025-08-10T00:00:00Z",
+        cartCreatedAt: "2025-08-01T10:00:00Z", // Cart precedes customer
+        checkoutCreatedAt: "2025-08-01T10:05:00Z",
+        paymentCreatedAt: "2025-08-01T10:06:00Z",
+        orderCreatedAt: "2025-08-01T10:07:00Z",
+      };
+
+      const result = validateMarketplaceChronologicalSequence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("CUSTOMER_AFTER_MARKETPLACE_CART"))).toBe(true);
+    });
+
+    it("rejects marketplace checkout preceding cart or payment preceding checkout", () => {
+      const input: MarketplaceChronologicalValidationInput = {
+        customerCreatedAt: "2025-07-01T00:00:00Z",
+        cartCreatedAt: "2025-08-01T10:10:00Z",
+        checkoutCreatedAt: "2025-08-01T10:05:00Z", // Checkout precedes cart
+        paymentCreatedAt: "2025-08-01T10:02:00Z", // Payment precedes checkout
+        orderCreatedAt: "2025-08-01T10:07:00Z",
+      };
+
+      const result = validateMarketplaceChronologicalSequence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("CART_AFTER_CHECKOUT"))).toBe(true);
+      expect(result.errors.some((e) => e.includes("CHECKOUT_AFTER_PAYMENT"))).toBe(true);
+    });
+
+    it("rejects marketplace order preceding payment creation", () => {
+      const input: MarketplaceChronologicalValidationInput = {
+        customerCreatedAt: "2025-07-01T00:00:00Z",
+        cartCreatedAt: "2025-08-01T10:00:00Z",
+        checkoutCreatedAt: "2025-08-01T10:05:00Z",
+        paymentCreatedAt: "2025-08-01T10:10:00Z",
+        orderCreatedAt: "2025-08-01T10:08:00Z", // Order precedes payment
+      };
+
+      const result = validateMarketplaceChronologicalSequence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("PAYMENT_AFTER_MARKETPLACE_ORDER"))).toBe(true);
+    });
+  });
+
+  describe("randomTransactionDateForCustomer", () => {
+    it("never generates a transaction timestamp preceding customer creation", () => {
+      for (let i = 0; i < 100; i++) {
+        const customerCreatedAt = new Date("2025-10-15T08:30:00Z");
+        const txDate = randomTransactionDateForCustomer(customerCreatedAt, HISTORICAL_END);
+        expect(txDate.getTime()).toBeGreaterThanOrEqual(customerCreatedAt.getTime());
+        expect(txDate.getTime()).toBeLessThanOrEqual(HISTORICAL_END.getTime());
+      }
+    });
+
+    it("handles customer created at or near HISTORICAL_END safely", () => {
+      const customerCreatedAt = new Date("2026-07-30T23:59:50Z");
+      const txDate = randomTransactionDateForCustomer(customerCreatedAt, HISTORICAL_END);
+      expect(txDate.getTime()).toBeGreaterThanOrEqual(customerCreatedAt.getTime());
+      expect(txDate.getTime()).toBeLessThanOrEqual(HISTORICAL_END.getTime());
     });
   });
 

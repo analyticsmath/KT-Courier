@@ -6,6 +6,7 @@ import {
   validateDriverAssignmentEligibility,
   validateClaimRemedyConsistency,
   validateChronologicalSequence,
+  validateMarketplaceChronologicalSequence,
   validatePrivateMediaCompliance,
   validateOrderAssignmentPointerConsistency,
   validateRefundExecutionEvidence,
@@ -358,9 +359,8 @@ async function verify() {
     safeLog(`✓ Universal accounting conservation proved: Total Debits (R ${totalAllDebits.toFixed(2)}) === Total Credits (R ${totalAllCredits.toFixed(2)})`);
   }
 
-  // Check 9: Full Chronological Invariant Chain Across Actual Database Records
-  const ordersWithTimelines = await prisma.order.findMany({
-    where: { status: "DELIVERED" },
+  // Check 9: Full Chronological Invariant Chain Across All Courier & Marketplace Flows
+  const allOrdersWithTimelines = await prisma.order.findMany({
     include: {
       customer: { select: { createdAt: true } },
       assignments: { select: { assignedAt: true, completedAt: true } },
@@ -374,8 +374,20 @@ async function verify() {
     },
   });
 
-  let chronologicalChainErrors = 0;
-  for (const ord of ordersWithTimelines) {
+  const categoryFailures: Record<string, { count: number; samples: Array<{ ref: string; message: string; timestamps: Record<string, string> }> }> = {};
+
+  function recordChronologyError(category: string, ref: string, message: string, timestamps: Record<string, string>) {
+    if (!categoryFailures[category]) {
+      categoryFailures[category] = { count: 0, samples: [] };
+    }
+    categoryFailures[category]!.count++;
+    if (categoryFailures[category]!.samples.length < 10) {
+      categoryFailures[category]!.samples.push({ ref, message, timestamps });
+    }
+  }
+
+  let courierChronologyErrors = 0;
+  for (const ord of allOrdersWithTimelines) {
     if (!ord.customer) continue;
     const userCreated = ord.customer.createdAt;
     const orderCreated = ord.createdAt;
@@ -392,16 +404,81 @@ async function verify() {
       claimCreatedAt: claim?.createdAt,
       remedyCreatedAt: claim?.remedy?.createdAt,
     });
+
     if (!res.valid) {
-      chronologicalChainErrors++;
+      courierChronologyErrors++;
+      for (const err of res.errors) {
+        const category = err.split(":")[0]?.trim() || "COURIER_CHRONOLOGY_ERROR";
+        recordChronologyError(category, ord.orderNumber, err, {
+          customerCreatedAt: userCreated.toISOString(),
+          orderCreatedAt: orderCreated.toISOString(),
+          assignedAt: assignedAt ? new Date(assignedAt).toISOString() : "N/A",
+          completedAt: completedAt ? new Date(completedAt).toISOString() : "N/A",
+          claimCreatedAt: claim?.createdAt ? new Date(claim.createdAt).toISOString() : "N/A",
+          remedyCreatedAt: claim?.remedy?.createdAt ? new Date(claim.remedy.createdAt).toISOString() : "N/A",
+        });
+      }
     }
   }
 
-  if (chronologicalChainErrors > 0) {
-    safeError(`❌ Found ${chronologicalChainErrors} orders violating end-to-end chronological timeline`);
+  // Marketplace flows chronology check
+  const allMarketplaceOrdersWithTimelines = await prisma.marketplaceOrder.findMany({
+    include: {
+      customer: { select: { createdAt: true } },
+      checkout: {
+        select: {
+          createdAt: true,
+          cart: { select: { createdAt: true } },
+        },
+      },
+      payment: { select: { createdAt: true } },
+    },
+  });
+
+  let marketplaceChronologyErrors = 0;
+  for (const mktOrd of allMarketplaceOrdersWithTimelines) {
+    if (!mktOrd.customer || !mktOrd.checkout) continue;
+    const customerCreatedAt = mktOrd.customer.createdAt;
+    const cartCreatedAt = mktOrd.checkout.cart?.createdAt || mktOrd.checkout.createdAt;
+    const checkoutCreatedAt = mktOrd.checkout.createdAt;
+    const paymentCreatedAt = mktOrd.payment?.createdAt;
+    const orderCreatedAt = mktOrd.createdAt;
+
+    const res = validateMarketplaceChronologicalSequence({
+      customerCreatedAt,
+      cartCreatedAt,
+      checkoutCreatedAt,
+      paymentCreatedAt,
+      orderCreatedAt,
+    });
+
+    if (!res.valid) {
+      marketplaceChronologyErrors++;
+      for (const err of res.errors) {
+        const category = err.split(":")[0]?.trim() || "MARKETPLACE_CHRONOLOGY_ERROR";
+        recordChronologyError(category, mktOrd.publicReference, err, {
+          customerCreatedAt: customerCreatedAt.toISOString(),
+          cartCreatedAt: cartCreatedAt.toISOString(),
+          checkoutCreatedAt: checkoutCreatedAt.toISOString(),
+          paymentCreatedAt: paymentCreatedAt ? new Date(paymentCreatedAt).toISOString() : "N/A",
+          orderCreatedAt: orderCreatedAt.toISOString(),
+        });
+      }
+    }
+  }
+
+  const totalChronologyErrors = courierChronologyErrors + marketplaceChronologyErrors;
+  if (totalChronologyErrors > 0) {
+    safeError(`❌ Found ${totalChronologyErrors} chronological sequence violations (Courier: ${courierChronologyErrors}, Marketplace: ${marketplaceChronologyErrors})`);
+    for (const [cat, data] of Object.entries(categoryFailures)) {
+      safeError(`   [${cat}] Total Failures: ${data.count}`);
+      for (const sample of data.samples) {
+        safeError(`      - Ref: ${sample.ref} | Error: ${sample.message} | Timestamps: ${JSON.stringify(sample.timestamps)}`);
+      }
+    }
     invariantsPassed = false;
   } else {
-    safeLog(`✓ Full end-to-end chronological chain verified across delivered orders, assignments, and claims`);
+    safeLog(`✓ Full end-to-end chronological chain verified across all ${allOrdersWithTimelines.length} courier orders and ${allMarketplaceOrdersWithTimelines.length} marketplace orders`);
   }
 
   // Check 10: PrivateMediaObject Ready Evidence & Vehicle Ownership Triggers

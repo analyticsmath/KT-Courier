@@ -89,6 +89,15 @@ import { ensureWalletForOwner, ensureLedgerAccount } from "../lib/services/walle
 import { ensureCustomerRefundWallet } from "../lib/services/customer-wallet.service";
 import { postLedgerJournal, postLedgerJournalWithinTransaction } from "../lib/services/ledger-posting.service";
 
+import {
+  HISTORICAL_START,
+  HISTORICAL_END,
+  DEMO_FOUNDATION_AT,
+  CUSTOMER_REGISTRATION_END,
+  DemoCustomerSeed,
+  randomTransactionDateForCustomer,
+} from "../lib/invariants/demo-invariants";
+
 const prisma = new PrismaClient();
 const projectionService = new StorefrontProjectionService();
 
@@ -133,9 +142,9 @@ function computeFileSHA256(filePath: string): { checksum: string; byteSize: numb
   return { checksum: hash, byteSize: 85000 };
 }
 
-// Historical Period: 1 July 2025 – 30 July 2026
-const HISTORICAL_START = new Date("2025-07-01T00:00:00Z");
-const HISTORICAL_END = new Date("2026-07-30T23:59:59Z");
+function seedCustomerTransactionDate(customerCreatedAt: Date, end: Date = HISTORICAL_END): Date {
+  return randomTransactionDateForCustomer(customerCreatedAt, end, rand());
+}
 
 async function seedPaymentWithEvidence(params: {
   publicReference: string;
@@ -749,7 +758,7 @@ async function main() {
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@demo.ktcouriers.test" },
     update: { passwordHash, status: UserStatus.ACTIVE },
-    create: { email: "superadmin@demo.ktcouriers.test", passwordHash, name: "KT Super Admin", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, adminProfile: { create: { displayName: "KT Super Admin", jobTitle: "Chief Executive Administrator", department: "Executive" } } },
+    create: { email: "superadmin@demo.ktcouriers.test", passwordHash, name: "KT Super Admin", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, adminProfile: { create: { displayName: "KT Super Admin", jobTitle: "Chief Executive Administrator", department: "Executive", createdAt: DEMO_FOUNDATION_AT } } },
   });
 
   await syncSystemPermissions({ actorUserId: superAdmin.id });
@@ -764,7 +773,7 @@ async function main() {
     await prisma.user.upsert({
       where: { email: a.email },
       update: { passwordHash, status: UserStatus.ACTIVE },
-      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Operations" } } },
+      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Operations", createdAt: DEMO_FOUNDATION_AT } } },
     });
   }
 
@@ -779,7 +788,7 @@ async function main() {
     const u = await prisma.user.upsert({
       where: { email: a.email },
       update: { passwordHash, status: UserStatus.ACTIVE },
-      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Finance" } } },
+      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Finance", createdAt: DEMO_FOUNDATION_AT } } },
     });
     finAdminUsers.push(u);
   }
@@ -794,7 +803,7 @@ async function main() {
     await prisma.user.upsert({
       where: { email: a.email },
       update: { passwordHash, status: UserStatus.ACTIVE },
-      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Support" } } },
+      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Support", createdAt: DEMO_FOUNDATION_AT } } },
     });
   }
 
@@ -808,7 +817,7 @@ async function main() {
     await prisma.user.upsert({
       where: { email: a.email },
       update: { passwordHash, status: UserStatus.ACTIVE },
-      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Human Resources" } } },
+      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Human Resources", createdAt: DEMO_FOUNDATION_AT } } },
     });
   }
 
@@ -823,7 +832,7 @@ async function main() {
     await prisma.user.upsert({
       where: { email: a.email },
       update: { passwordHash, status: UserStatus.ACTIVE },
-      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: a.dept } } },
+      create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: a.dept, createdAt: DEMO_FOUNDATION_AT } } },
     });
   }
 
@@ -835,15 +844,19 @@ async function main() {
   const customer1 = await prisma.user.upsert({
     where: { email: "customer.01@demo.ktcouriers.test" },
     update: { passwordHash, status: UserStatus.ACTIVE },
-    create: { email: "customer.01@demo.ktcouriers.test", passwordHash, name: "Lerato Mokoena", phone: "+27 82 555 0101", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, customerProfile: { create: { displayName: "Lerato Mokoena", defaultPhone: "+27 82 555 0101" } } },
+    create: { email: "customer.01@demo.ktcouriers.test", passwordHash, name: "Lerato Mokoena", phone: "+27 82 555 0101", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, customerProfile: { create: { displayName: "Lerato Mokoena", defaultPhone: "+27 82 555 0101", createdAt: DEMO_FOUNDATION_AT } } },
   });
 
   const customer2 = await prisma.user.upsert({
     where: { email: "customer.02@demo.ktcouriers.test" },
     update: { passwordHash, status: UserStatus.ACTIVE },
-    create: { email: "customer.02@demo.ktcouriers.test", passwordHash, name: "Johan Pretorius", phone: "+27 83 555 0102", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, customerProfile: { create: { displayName: "Johan Pretorius", defaultPhone: "+27 83 555 0102" } } },
+    create: { email: "customer.02@demo.ktcouriers.test", passwordHash, name: "Johan Pretorius", phone: "+27 83 555 0102", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT, customerProfile: { create: { displayName: "Johan Pretorius", defaultPhone: "+27 83 555 0102", createdAt: DEMO_FOUNDATION_AT } } },
   });
 
+  const demoCustomers: DemoCustomerSeed[] = [
+    { id: customer1.id, createdAt: DEMO_FOUNDATION_AT },
+    { id: customer2.id, createdAt: DEMO_FOUNDATION_AT },
+  ];
   const customerIds: string[] = [customer1.id, customer2.id];
   const saFirstNames = ["Aphiwe", "Sibusiso", "Buhle", "Willem", "Janine", "Kabelo", "Lethabo", "Nthabiseng", "Mpho", "Tshepo", "Ruan", "Anika", "Zolani", "Xolani", "Yandisa", "Vuyo"];
   const saLastNames = ["Naidoo", "Govender", "Smith", "Marais", "Nkosi", "Zulu", "Mthembu", "Baloyi", "Chauke", "Venter", "Fourie", "Mahlangu", "Kekana", "Modise"];
@@ -853,7 +866,7 @@ async function main() {
     const ln = randomElement(saLastNames);
     const email = `customer.${String(i).padStart(3, "0")}@demo.ktcouriers.test`;
     const status = i > 490 ? UserStatus.SUSPENDED : (i > 485 ? UserStatus.DISABLED : UserStatus.ACTIVE);
-    const createdAt = randomDate(HISTORICAL_START, HISTORICAL_END);
+    const createdAt = randomDate(HISTORICAL_START, CUSTOMER_REGISTRATION_END);
 
     const user = await prisma.user.upsert({
       where: { email },
@@ -867,11 +880,12 @@ async function main() {
         status,
         emailVerifiedAt: status === UserStatus.ACTIVE ? createdAt : null,
         createdAt,
-        customerProfile: { create: { displayName: `${fn} ${ln}` } },
+        customerProfile: { create: { displayName: `${fn} ${ln}`, createdAt } },
       },
     });
 
     customerIds.push(user.id);
+    demoCustomers.push({ id: user.id, createdAt });
   }
 
   console.log(`   ✓ ${customerIds.length} customer accounts initialized.`);
@@ -935,13 +949,13 @@ async function main() {
     const owner = await prisma.user.upsert({
       where: { email: ownerEmail },
       update: { passwordHash, status: UserStatus.ACTIVE },
-      create: { email: ownerEmail, passwordHash, name: `${sc.name} Owner`, role: UserRole.STORE, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START },
+      create: { email: ownerEmail, passwordHash, name: `${sc.name} Owner`, role: UserRole.STORE, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT },
     });
 
     await prisma.storeProfile.upsert({
       where: { userId: owner.id },
       update: { status: storeStatus },
-      create: { userId: owner.id, storeName: sc.name, contactPerson: `${sc.name} Manager`, businessPhone: `+27 11 555 ${String(idx + 100).padStart(4, "0")}`, businessEmail: ownerEmail, status: storeStatus },
+      create: { userId: owner.id, storeName: sc.name, contactPerson: `${sc.name} Manager`, businessPhone: `+27 11 555 ${String(idx + 100).padStart(4, "0")}`, businessEmail: ownerEmail, status: storeStatus, createdAt: DEMO_FOUNDATION_AT },
     });
 
     const store = await prisma.store.upsert({
@@ -958,6 +972,7 @@ async function main() {
         city: sc.city,
         province: sc.province,
         featured: idx < 8,
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -987,7 +1002,7 @@ async function main() {
     const user = await prisma.user.upsert({
       where: { email },
       update: { status: UserStatus.ACTIVE },
-      create: { email, passwordHash, name: `${fn} ${ln}`, phone: `+27 82 777 ${String(i).padStart(4, "0")}`, role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START },
+      create: { email, passwordHash, name: `${fn} ${ln}`, phone: `+27 82 777 ${String(i).padStart(4, "0")}`, role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT },
     });
 
     const profile = await prisma.driverProfile.upsert({
@@ -1005,6 +1020,7 @@ async function main() {
         vehicleType: randomElement(vehicleTypes),
         vehicleRegistration: `GP ${randomInt(100, 999)}-${randomInt(100, 999)}`,
         maxConcurrentAssignments: i <= 10 ? 2 : 1,
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -1030,8 +1046,9 @@ async function main() {
         vehicleType: vType,
         capacityKg: vType === VehicleType.VAN ? 800 : vType === VehicleType.CAR ? 350 : 50,
         status: vStatus,
-        approvedAt: vStatus === VehicleComplianceStatus.APPROVED ? HISTORICAL_START : null,
+        approvedAt: vStatus === VehicleComplianceStatus.APPROVED ? DEMO_FOUNDATION_AT : null,
         approvedByUserId: vStatus === VehicleComplianceStatus.APPROVED ? superAdmin.id : null,
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -1055,7 +1072,8 @@ async function main() {
         checksum: createHash("sha256").update(licMediaRef).digest("hex"),
         createdByUserId: user.id,
         reviewedByUserId: superAdmin.id,
-        reviewedAt: HISTORICAL_START,
+        reviewedAt: DEMO_FOUNDATION_AT,
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -1068,8 +1086,9 @@ async function main() {
         status: vStatus === VehicleComplianceStatus.APPROVED ? DocumentStatus.APPROVED : DocumentStatus.PENDING,
         privateMediaObjectId: licMedia.id,
         reviewedByAdminId: superAdmin.id,
-        reviewedAt: HISTORICAL_START,
+        reviewedAt: DEMO_FOUNDATION_AT,
         expiresAt: new Date(HISTORICAL_END.getTime() + 365 * 86400000),
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -1093,7 +1112,8 @@ async function main() {
         checksum: createHash("sha256").update(vehDocMediaRef).digest("hex"),
         createdByUserId: user.id,
         reviewedByUserId: superAdmin.id,
-        reviewedAt: HISTORICAL_START,
+        reviewedAt: DEMO_FOUNDATION_AT,
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -1106,8 +1126,9 @@ async function main() {
         status: vStatus === VehicleComplianceStatus.APPROVED ? DocumentStatus.APPROVED : DocumentStatus.PENDING,
         privateMediaObjectId: vehDocMedia.id,
         reviewedByUserId: superAdmin.id,
-        reviewedAt: HISTORICAL_START,
+        reviewedAt: DEMO_FOUNDATION_AT,
         expiresAt: new Date(HISTORICAL_END.getTime() + 365 * 86400000),
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -1116,7 +1137,7 @@ async function main() {
     await prisma.driverServiceRegion.upsert({
       where: { driverProfileId_deliveryRegionId: { driverProfileId: profile.id, deliveryRegionId: regId } },
       update: {},
-      create: { driverProfileId: profile.id, deliveryRegionId: regId, isPrimary: true },
+      create: { driverProfileId: profile.id, deliveryRegionId: regId, isPrimary: true, createdAt: DEMO_FOUNDATION_AT },
     });
 
     if (status === DriverStatus.ACTIVE && onboardingStatus === DriverOnboardingStatus.APPROVED && vStatus === VehicleComplianceStatus.APPROVED) {
@@ -1148,13 +1169,13 @@ async function main() {
     const user = await prisma.user.upsert({
       where: { email },
       update: { status: UserStatus.ACTIVE },
-      create: { email, passwordHash, name: `${fn} ${ln}`, role: UserRole.PROMOTER, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START },
+      create: { email, passwordHash, name: `${fn} ${ln}`, role: UserRole.PROMOTER, status: UserStatus.ACTIVE, emailVerifiedAt: DEMO_FOUNDATION_AT, createdAt: DEMO_FOUNDATION_AT },
     });
 
     await prisma.promoterProfile.upsert({
       where: { userId: user.id },
       update: { status: recStatus },
-      create: { userId: user.id, promoterCode: code, displayName: `${fn} ${ln}`, phone: `+27 83 888 ${String(i).padStart(4, "0")}`, status: recStatus },
+      create: { userId: user.id, promoterCode: code, displayName: `${fn} ${ln}`, phone: `+27 83 888 ${String(i).padStart(4, "0")}`, status: recStatus, createdAt: DEMO_FOUNDATION_AT },
     });
 
     await prisma.promoterAccount.upsert({
@@ -1170,8 +1191,9 @@ async function main() {
         taxProfileStatus: "READY",
         payoutReadinessStatus: "READY",
         agreementStatus: "ACCEPTED",
-        activatedAt: HISTORICAL_START,
-        approvedAt: HISTORICAL_START,
+        activatedAt: DEMO_FOUNDATION_AT,
+        approvedAt: DEMO_FOUNDATION_AT,
+        createdAt: DEMO_FOUNDATION_AT,
       },
     });
 
@@ -1637,10 +1659,11 @@ async function main() {
   let totalCourierOrders = 0;
   for (let i = 1; i <= 2500; i++) {
     const orderNumber = `ORD-KT-${20250000 + i}`;
-    const customerId = customerIds[i % customerIds.length]!;
+    const customer = demoCustomers[i % demoCustomers.length]!;
+    const customerId = customer.id;
     const storeObj = activeStores[i % activeStores.length]!;
     const regId = (i % 3 === 0) ? cptRegId : ((i % 3 === 1) ? jhbRegId : dbnRegId);
-    const createdAt = randomDate(HISTORICAL_START, HISTORICAL_END);
+    const createdAt = seedCustomerTransactionDate(customer.createdAt, HISTORICAL_END);
 
     // Status distribution
     let status: OrderStatus = OrderStatus.DELIVERED;
@@ -1652,11 +1675,11 @@ async function main() {
     const price = randomInt(65, 350);
 
     const pickup = await prisma.address.create({
-      data: { type: AddressType.PICKUP, line1: `${randomInt(1, 150)} Main Road`, city: storeObj.name.includes("Cape") ? "Cape Town" : "Johannesburg", country: "South Africa", latitude: -26.2041, longitude: 28.0473 },
+      data: { type: AddressType.PICKUP, line1: `${randomInt(1, 150)} Main Road`, city: storeObj.name.includes("Cape") ? "Cape Town" : "Johannesburg", country: "South Africa", latitude: -26.2041, longitude: 28.0473, createdAt, updatedAt: createdAt },
     });
 
     const dropoff = await prisma.address.create({
-      data: { type: AddressType.DROPOFF, line1: `${randomInt(1, 200)} Residential Drive`, city: storeObj.name.includes("Cape") ? "Cape Town" : "Johannesburg", country: "South Africa", latitude: -26.2500, longitude: 28.0800 },
+      data: { type: AddressType.DROPOFF, line1: `${randomInt(1, 200)} Residential Drive`, city: storeObj.name.includes("Cape") ? "Cape Town" : "Johannesburg", country: "South Africa", latitude: -26.2500, longitude: 28.0800, createdAt, updatedAt: createdAt },
     });
 
     const order = await prisma.order.upsert({
@@ -2178,9 +2201,10 @@ async function main() {
   let totalMarketplaceOrders = 0;
   for (let i = 1; i <= 1600; i++) {
     const orderNumber = `MKT-ORD-${20250000 + i}`;
-    const customerId = customerIds[i % customerIds.length]!;
+    const customer = demoCustomers[i % demoCustomers.length]!;
+    const customerId = customer.id;
     const storeObj = activeStores[i % activeStores.length]!;
-    const createdAt = randomDate(HISTORICAL_START, HISTORICAL_END);
+    const createdAt = seedCustomerTransactionDate(customer.createdAt, HISTORICAL_END);
 
     const totalAmount = randomInt(120, 850);
     const deliveryFee = 45;
@@ -2263,6 +2287,7 @@ async function main() {
         modifierSubtotal: 0,
         deliveryFee,
         groupTotal: totalAmount,
+        createdAt,
       },
     });
 
@@ -2653,17 +2678,18 @@ async function main() {
 
   // Seed 100 In-App & Outbox Notifications
   for (let i = 1; i <= 100; i++) {
-    const recipientUserId = customerIds[i % customerIds.length]!;
+    const customer = demoCustomers[i % demoCustomers.length]!;
+    const notifDate = seedCustomerTransactionDate(customer.createdAt, HISTORICAL_END);
     await prisma.notification.create({
       data: {
-        userId: recipientUserId,
+        userId: customer.id,
         channel: "IN_APP",
         status: "DELIVERED",
         eventType: "order.status.updated",
         title: `Order Update #${i}`,
         body: `Your KT Couriers delivery #${i} status has been updated.`,
-        sentAt: randomDate(HISTORICAL_START, HISTORICAL_END),
-        createdAt: randomDate(HISTORICAL_START, HISTORICAL_END),
+        sentAt: notifDate,
+        createdAt: notifDate,
       },
     });
   }

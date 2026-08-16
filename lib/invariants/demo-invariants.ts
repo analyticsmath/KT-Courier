@@ -254,7 +254,7 @@ export function validateClaimRemedyConsistency(input: ClaimValidationInput): Inv
 }
 
 /**
- * Validates monotonic chronological ordering across lifecycle events.
+ * Validates monotonic chronological ordering across courier lifecycle events.
  */
 export function validateChronologicalSequence(input: ChronologicalValidationInput): InvariantResult {
   const errors: string[] = [];
@@ -262,19 +262,25 @@ export function validateChronologicalSequence(input: ChronologicalValidationInpu
   const oTime = new Date(input.orderCreatedAt).getTime();
 
   if (uTime > oTime) {
-    errors.push(`User creation (${input.userCreatedAt}) cannot follow order creation (${input.orderCreatedAt})`);
+    errors.push(`CUSTOMER_AFTER_COURIER_ORDER: User creation (${input.userCreatedAt}) cannot follow order creation (${input.orderCreatedAt})`);
   }
 
   if (input.assignmentAssignedAt) {
     const aTime = new Date(input.assignmentAssignedAt).getTime();
     if (oTime > aTime) {
-      errors.push(`Order creation (${input.orderCreatedAt}) cannot follow assignment (${input.assignmentAssignedAt})`);
+      errors.push(`ORDER_AFTER_ASSIGNMENT: Order creation (${input.orderCreatedAt}) cannot follow assignment (${input.assignmentAssignedAt})`);
     }
 
     if (input.assignmentCompletedAt) {
       const cTime = new Date(input.assignmentCompletedAt).getTime();
       if (aTime > cTime) {
-        errors.push(`Assignment (${input.assignmentAssignedAt}) cannot follow completion (${input.assignmentCompletedAt})`);
+        errors.push(`ASSIGNMENT_AFTER_COMPLETION: Assignment (${input.assignmentAssignedAt}) cannot follow completion (${input.assignmentCompletedAt})`);
+      }
+      if (input.claimCreatedAt) {
+        const clTime = new Date(input.claimCreatedAt).getTime();
+        if (cTime > clTime) {
+          errors.push(`ASSIGNMENT_COMPLETION_AFTER_CLAIM: Assignment completion (${input.assignmentCompletedAt}) cannot follow claim (${input.claimCreatedAt})`);
+        }
       }
     }
   }
@@ -282,15 +288,90 @@ export function validateChronologicalSequence(input: ChronologicalValidationInpu
   if (input.claimCreatedAt) {
     const clTime = new Date(input.claimCreatedAt).getTime();
     if (oTime > clTime) {
-      errors.push(`Order creation (${input.orderCreatedAt}) cannot follow claim (${input.claimCreatedAt})`);
+      errors.push(`ORDER_AFTER_CLAIM: Order creation (${input.orderCreatedAt}) cannot follow claim (${input.claimCreatedAt})`);
     }
 
     if (input.remedyCreatedAt) {
       const remTime = new Date(input.remedyCreatedAt).getTime();
       if (clTime > remTime) {
-        errors.push(`Claim creation (${input.claimCreatedAt}) cannot follow remedy (${input.remedyCreatedAt})`);
+        errors.push(`CLAIM_AFTER_REMEDY: Claim creation (${input.claimCreatedAt}) cannot follow remedy (${input.remedyCreatedAt})`);
       }
     }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// DEMO TEMPORAL MODEL & CONSTANTS
+// ───────────────────────────────────────────────────────────────────────────
+
+export const HISTORICAL_START = new Date("2025-07-01T00:00:00Z");
+export const HISTORICAL_END = new Date("2026-07-30T23:59:59Z");
+export const DEMO_FOUNDATION_AT = HISTORICAL_START;
+
+// Customer registration window: July 2025 through May 2026 (ensuring >= 2 months transactional runway before July 2026)
+export const CUSTOMER_REGISTRATION_END = new Date("2026-05-31T23:59:59Z");
+
+export type DemoCustomerSeed = {
+  id: string;
+  createdAt: Date;
+};
+
+/**
+ * Customer-aware transaction timestamp generator.
+ * Guarantees transaction.createdAt >= customer.createdAt + minOffset.
+ */
+export function randomTransactionDateForCustomer(
+  customerCreatedAt: Date,
+  end: Date = HISTORICAL_END,
+  randomFraction: number = Math.random()
+): Date {
+  const custMs = customerCreatedAt.getTime();
+  const endMs = end.getTime();
+  // Deterministic minimum positive offset (5 minutes) after customer signup
+  const earliestMs = Math.min(custMs + 5 * 60 * 1000, endMs);
+  if (earliestMs >= endMs) {
+    return new Date(endMs);
+  }
+  const frac = Math.max(0, Math.min(1, randomFraction));
+  return new Date(earliestMs + frac * (endMs - earliestMs));
+}
+
+export interface MarketplaceChronologicalValidationInput {
+  customerCreatedAt: Date | string | number;
+  cartCreatedAt: Date | string | number;
+  checkoutCreatedAt: Date | string | number;
+  paymentCreatedAt?: Date | string | number | null;
+  orderCreatedAt: Date | string | number;
+}
+
+/**
+ * Validates monotonic chronological ordering across marketplace customer flows.
+ */
+export function validateMarketplaceChronologicalSequence(input: MarketplaceChronologicalValidationInput): InvariantResult {
+  const errors: string[] = [];
+  const custTime = new Date(input.customerCreatedAt).getTime();
+  const cartTime = new Date(input.cartCreatedAt).getTime();
+  const chkTime = new Date(input.checkoutCreatedAt).getTime();
+  const ordTime = new Date(input.orderCreatedAt).getTime();
+
+  if (custTime > cartTime) {
+    errors.push(`CUSTOMER_AFTER_MARKETPLACE_CART: Customer creation (${input.customerCreatedAt}) cannot follow cart creation (${input.cartCreatedAt})`);
+  }
+  if (cartTime > chkTime) {
+    errors.push(`CART_AFTER_CHECKOUT: Cart creation (${input.cartCreatedAt}) cannot follow checkout creation (${input.checkoutCreatedAt})`);
+  }
+  if (input.paymentCreatedAt) {
+    const payTime = new Date(input.paymentCreatedAt).getTime();
+    if (chkTime > payTime) {
+      errors.push(`CHECKOUT_AFTER_PAYMENT: Checkout creation (${input.checkoutCreatedAt}) cannot follow payment creation (${input.paymentCreatedAt})`);
+    }
+    if (payTime > ordTime) {
+      errors.push(`PAYMENT_AFTER_MARKETPLACE_ORDER: Payment creation (${input.paymentCreatedAt}) cannot follow marketplace order creation (${input.orderCreatedAt})`);
+    }
+  } else if (chkTime > ordTime) {
+    errors.push(`CHECKOUT_AFTER_MARKETPLACE_ORDER: Checkout creation (${input.checkoutCreatedAt}) cannot follow marketplace order creation (${input.orderCreatedAt})`);
   }
 
   return { valid: errors.length === 0, errors };
