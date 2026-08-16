@@ -38,6 +38,23 @@ export interface MarketingPackageItem {
   channels?: MarketingPackageChannelItem[];
 }
 
+export interface EntitledStoreMediaItem {
+  id: string;
+  publicReference: string;
+  fileName: string;
+  mimeType: string;
+  purpose: string;
+}
+
+export interface MarketingRequestCreativeItem {
+  id: string;
+  publicReference: string;
+  source: string;
+  role: string;
+  mediaReference: string;
+  createdAt: string;
+}
+
 export interface MarketingRequestItem {
   id: string;
   publicReference: string;
@@ -57,10 +74,10 @@ export interface MarketingRequestItem {
     name: string;
     code: string;
   } | null;
+  creatives?: MarketingRequestCreativeItem[];
   performanceRecord?: {
     impressions: number;
     clicks: number;
-    reach: number;
     spendAmount: string;
   } | null;
 }
@@ -103,6 +120,7 @@ export interface CampaignReportData {
 interface StoreAdvertisingWorkbenchProps {
   initialPackages: MarketingPackageItem[];
   initialRequests: MarketingRequestItem[];
+  entitledMedia?: EntitledStoreMediaItem[];
   storeName: string;
   backendError?: string | null;
 }
@@ -114,6 +132,7 @@ function makeOperationId(prefix: string): string {
 export function StoreAdvertisingWorkbench({
   initialPackages,
   initialRequests,
+  entitledMedia = [],
   storeName,
   backendError,
 }: StoreAdvertisingWorkbenchProps) {
@@ -133,6 +152,10 @@ export function StoreAdvertisingWorkbench({
   const [endsAt, setEndsAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Creative Management State per draft
+  const [selectedMediaForDraft, setSelectedMediaForDraft] = useState<Record<string, string>>({});
+  const [attachingMedia, setAttachingMedia] = useState<Record<string, boolean>>({});
 
   // Active Report View State
   const [selectedReportReq, setSelectedReportReq] = useState<MarketingRequestItem | null>(null);
@@ -160,19 +183,27 @@ export function StoreAdvertisingWorkbench({
       return;
     }
 
+    const channel = selectedPackage.channels?.find((c) => c.placements && c.placements.length > 0) || selectedPackage.channels?.[0];
+    const placement = channel?.placements?.[0];
+
+    if (!channel || !placement) {
+      setFeedback({
+        type: "error",
+        text: "The selected marketing package does not have active channel placements configured. Please select a package with active placements.",
+      });
+      return;
+    }
+
     setSubmitting(true);
     setFeedback(null);
 
     try {
-      const channelRef = selectedPackage.channels?.[0]?.publicReference || "MMC_DEMO_01";
-      const placementRef = selectedPackage.channels?.[0]?.placements?.[0]?.publicReference || "MMP_DEMO_01";
-
       const payload = {
         packageReference: selectedPackage.publicReference,
         selections: [
           {
-            channelReference: channelRef,
-            placementReferences: [placementRef],
+            channelReference: channel.publicReference,
+            placementReferences: [placement.publicReference],
           },
         ],
         executionMode: "MANUAL",
@@ -214,6 +245,7 @@ export function StoreAdvertisingWorkbench({
         endAt: created.endsAt,
         createdAt: created.createdAt || new Date().toISOString(),
         packageVersion: { name: selectedPackage.name, code: selectedPackage.code },
+        creatives: [],
         performanceRecord: null,
       };
 
@@ -224,7 +256,7 @@ export function StoreAdvertisingWorkbench({
       setInstructions("");
       setStartsAt("");
       setEndsAt("");
-      setFeedback({ type: "success", text: `Campaign draft ${created.publicReference} created and saved to database.` });
+      setFeedback({ type: "success", text: `Campaign draft ${created.publicReference} created. Next, attach a creative asset to enable submission.` });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create advertising request.";
       setFeedback({ type: "error", text: msg });
@@ -233,8 +265,97 @@ export function StoreAdvertisingWorkbench({
     }
   };
 
+  const handleAttachCreative = async (requestReference: string) => {
+    const defaultMediaRef = entitledMedia[0]?.publicReference || "";
+    const mediaRef = selectedMediaForDraft[requestReference] || defaultMediaRef;
+    if (!mediaRef.trim()) {
+      setFeedback({ type: "error", text: "Please select an entitled media asset to attach." });
+      return;
+    }
+    setAttachingMedia((prev) => ({ ...prev, [requestReference]: true }));
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/store/managed-marketing/requests/${requestReference}/creatives`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "PRIVATE_MEDIA",
+          mediaReference: mediaRef.trim(),
+          role: "PRIMARY_HERO",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to attach creative to draft campaign");
+      }
+      const createdCreative = data.creative;
+      setRequests((prev) =>
+        prev.map((r) => {
+          if (r.publicReference === requestReference) {
+            const updated = [
+              ...(r.creatives || []),
+              {
+                id: createdCreative.id,
+                publicReference: createdCreative.publicReference,
+                source: createdCreative.source,
+                role: createdCreative.role || "PRIMARY_HERO",
+                mediaReference: mediaRef.trim(),
+                createdAt: createdCreative.createdAt || new Date().toISOString(),
+              },
+            ];
+            return { ...r, creatives: updated };
+          }
+          return r;
+        })
+      );
+      setFeedback({ type: "success", text: `Creative ${mediaRef} attached to campaign ${requestReference}.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to attach creative.";
+      setFeedback({ type: "error", text: msg });
+    } finally {
+      setAttachingMedia((prev) => ({ ...prev, [requestReference]: false }));
+    }
+  };
+
+  const handleRemoveCreative = async (requestReference: string, creativeReference: string) => {
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/store/managed-marketing/requests/${requestReference}/creatives/${creativeReference}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to remove creative");
+      }
+      setRequests((prev) =>
+        prev.map((r) => {
+          if (r.publicReference === requestReference) {
+            return {
+              ...r,
+              creatives: (r.creatives || []).filter((c) => c.publicReference !== creativeReference),
+            };
+          }
+          return r;
+        })
+      );
+      setFeedback({ type: "success", text: `Creative removed from campaign ${requestReference}.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to remove creative.";
+      setFeedback({ type: "error", text: msg });
+    }
+  };
+
   const handleSubmitForReview = async (reference: string) => {
     setFeedback(null);
+    const targetReq = requests.find((r) => r.publicReference === reference);
+    if (!targetReq?.creatives || targetReq.creatives.length === 0) {
+      setFeedback({
+        type: "error",
+        text: "At least one entitled creative asset must be attached before submitting campaign for administrator review.",
+      });
+      return;
+    }
+
     try {
       const operationId = makeOperationId("op_sub");
       const res = await fetch(`/api/store/managed-marketing/requests/${reference}/submit`, {
@@ -340,7 +461,7 @@ export function StoreAdvertisingWorkbench({
             R {totalSpend.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </OperationalPanel>
-        <OperationalPanel title="Recorded Reach" description="Audience impressions recorded" padding="compact">
+        <OperationalPanel title="Recorded Impressions" description="Audience impressions recorded" padding="compact">
           <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1a73e8" }}>{totalImpressions.toLocaleString()}</div>
         </OperationalPanel>
       </div>
@@ -555,7 +676,7 @@ export function StoreAdvertisingWorkbench({
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--eo-line, #ddd)", textAlign: "left" }}>
                   <th style={{ padding: "10px 12px" }}>Reference</th>
-                  <th style={{ padding: "10px 12px" }}>Objective</th>
+                  <th style={{ padding: "10px 12px" }}>Objective & Media</th>
                   <th style={{ padding: "10px 12px" }}>Package</th>
                   <th style={{ padding: "10px 12px" }}>Amount (ZAR)</th>
                   <th style={{ padding: "10px 12px" }}>Status</th>
@@ -577,23 +698,137 @@ export function StoreAdvertisingWorkbench({
                     REJECTED: { bg: "#fce8e6", text: "#c5221f" },
                   };
                   const color = statusColors[req.status] || { bg: "#f1f3f4", text: "#333" };
+                  const hasCreatives = (req.creatives?.length ?? 0) > 0;
 
                   return (
                     <tr key={req.id} style={{ borderBottom: "1px solid var(--eo-line-soft, #eee)" }}>
-                      <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: 700 }}>
+                      <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: 700, verticalAlign: "top" }}>
                         {req.publicReference}
                       </td>
-                      <td style={{ padding: "12px", maxWidth: "260px" }}>
+                      <td style={{ padding: "12px", maxWidth: "300px", verticalAlign: "top" }}>
                         <div style={{ fontWeight: 600 }}>{req.objective}</div>
                         <div style={{ fontSize: "0.75rem", color: "#666", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                           {req.message}
                         </div>
+
+                        {/* Creative Assets Management */}
+                        <div style={{ marginTop: "6px" }}>
+                          {hasCreatives ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
+                              {req.creatives!.map((c) => (
+                                <span
+                                  key={c.id || c.publicReference}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    background: "#e8f0fe",
+                                    color: "#1a73e8",
+                                    fontSize: "0.7rem",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  🖼️ {c.mediaReference}
+                                  {req.status === "DRAFT" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveCreative(req.publicReference, c.publicReference)}
+                                      title="Remove creative"
+                                      style={{
+                                        border: "none",
+                                        background: "none",
+                                        color: "#c5221f",
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                        padding: "0 2px",
+                                      }}
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: "0.7rem", color: "#c5221f", fontWeight: 600 }}>
+                              ⚠️ No creative attached (required before submit)
+                            </div>
+                          )}
+
+                          {/* DRAFT Attach Creative Selector */}
+                          {req.status === "DRAFT" && (
+                            <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}>
+                              {entitledMedia.length > 0 ? (
+                                <select
+                                  value={selectedMediaForDraft[req.publicReference] || entitledMedia[0]?.publicReference || ""}
+                                  onChange={(e) =>
+                                    setSelectedMediaForDraft((prev) => ({
+                                      ...prev,
+                                      [req.publicReference]: e.target.value,
+                                    }))
+                                  }
+                                  style={{
+                                    padding: "2px 6px",
+                                    fontSize: "0.7rem",
+                                    borderRadius: "4px",
+                                    border: "1px solid #ccc",
+                                    maxWidth: "160px",
+                                  }}
+                                >
+                                  {entitledMedia.map((m) => (
+                                    <option key={m.id} value={m.publicReference}>
+                                      {m.fileName} ({m.publicReference.slice(0, 10)})
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  placeholder="Media reference"
+                                  value={selectedMediaForDraft[req.publicReference] || ""}
+                                  onChange={(e) =>
+                                    setSelectedMediaForDraft((prev) => ({
+                                      ...prev,
+                                      [req.publicReference]: e.target.value,
+                                    }))
+                                  }
+                                  style={{
+                                    padding: "2px 6px",
+                                    fontSize: "0.7rem",
+                                    borderRadius: "4px",
+                                    border: "1px solid #ccc",
+                                    width: "120px",
+                                  }}
+                                />
+                              )}
+                              <button
+                                type="button"
+                                disabled={attachingMedia[req.publicReference]}
+                                onClick={() => handleAttachCreative(req.publicReference)}
+                                style={{
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  border: "1px solid #1a73e8",
+                                  background: "#f0f6ff",
+                                  color: "#1a73e8",
+                                  fontSize: "0.7rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {attachingMedia[req.publicReference] ? "..." : "+ Attach"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
-                      <td style={{ padding: "12px" }}>{req.packageVersion?.name || "Standard Package"}</td>
-                      <td style={{ padding: "12px", fontWeight: 700 }}>
+                      <td style={{ padding: "12px", verticalAlign: "top" }}>{req.packageVersion?.name || "Standard Package"}</td>
+                      <td style={{ padding: "12px", fontWeight: 700, verticalAlign: "top" }}>
                         R {Number(req.totalAmount).toFixed(2)}
                       </td>
-                      <td style={{ padding: "12px" }}>
+                      <td style={{ padding: "12px", verticalAlign: "top" }}>
                         <span
                           style={{
                             padding: "3px 8px",
@@ -607,24 +842,26 @@ export function StoreAdvertisingWorkbench({
                           {req.status}
                         </span>
                       </td>
-                      <td style={{ padding: "12px", color: "#666" }}>
+                      <td style={{ padding: "12px", color: "#666", verticalAlign: "top" }}>
                         {new Date(req.createdAt).toLocaleDateString("en-ZA")}
                       </td>
-                      <td style={{ padding: "12px", textAlign: "right" }}>
+                      <td style={{ padding: "12px", textAlign: "right", verticalAlign: "top" }}>
                         <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                           {req.status === "DRAFT" && (
                             <button
                               type="button"
+                              disabled={!hasCreatives}
+                              title={hasCreatives ? "Submit for admin review" : "Attach a creative asset first"}
                               onClick={() => handleSubmitForReview(req.publicReference)}
                               style={{
                                 padding: "4px 10px",
                                 borderRadius: "4px",
-                                border: "1px solid #1a73e8",
-                                background: "#fff",
-                                color: "#1a73e8",
+                                border: hasCreatives ? "1px solid #1a73e8" : "1px solid #ccc",
+                                background: hasCreatives ? "#1a73e8" : "#f5f5f5",
+                                color: hasCreatives ? "#fff" : "#999",
                                 fontSize: "0.75rem",
                                 fontWeight: 700,
-                                cursor: "pointer",
+                                cursor: hasCreatives ? "pointer" : "not-allowed",
                               }}
                             >
                               Submit
@@ -733,7 +970,7 @@ export function StoreAdvertisingWorkbench({
                     </div>
                   </div>
                   <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
-                    <div style={{ fontSize: "0.75rem", color: "#666" }}>Conversions</div>
+                    <div style={{ fontSize: "0.75rem", color: "#666" }}>Recorded Conversions</div>
                     <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#9334e6", marginTop: "4px" }}>
                       {reportData.performance.totalConversions.toLocaleString()}
                     </div>

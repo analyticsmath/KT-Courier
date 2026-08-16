@@ -203,22 +203,23 @@ async function seedPaymentWithEvidence(params: {
       },
     });
 
-    const journal = await prisma.ledgerJournal.upsert({
-      where: { idempotencyKey: `idem_jnl_${payment.id}` },
-      update: {},
-      create: {
-        reference: `jnl_pay_${payment.id}`,
-        type: "EXTERNAL_PAYMENT_RECEIPT",
-        currency: LedgerCurrency.ZAR,
-        idempotencyKey: `idem_jnl_${payment.id}`,
-        correlationId: payment.publicReference,
-        requestHash: pHash,
-        policyVersion: "v1",
-        totalDebits: amountDec,
-        totalCredits: amountDec,
-        postedAt: params.createdAt,
-        createdAt: params.createdAt,
-      },
+    const platformWallet = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
+    const heldAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" });
+    const platformCashAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
+
+    const journal = await postLedgerJournal({
+      idempotencyKey: `idem_jnl_${payment.id}`,
+      type: "EXTERNAL_PAYMENT_RECEIPT",
+      currency: "ZAR",
+      sourceReference: `payment:${payment.publicReference}:receipt`,
+      correlationId: payment.publicReference,
+      memo: `Payment receipt for ${payment.publicReference}`,
+      actor: params.userId ? { kind: "USER", userId: params.userId } : { kind: "SYSTEM" },
+      metadata: { orderNumber: params.orderNumber },
+      entries: [
+        { accountId: platformCashAccount.id, direction: "DEBIT", amount: amountDec.toFixed(2), lineCode: "GATEWAY_CASH_RECEIPT" },
+        { accountId: heldAccount.id, direction: "CREDIT", amount: amountDec.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" },
+      ],
     });
 
     const fingerprint = createHash("sha256").update(`fp_${payment.id}`).digest("hex");
@@ -2111,7 +2112,7 @@ async function main() {
   });
 
   // Channel Placements
-  await prisma.managedMarketingChannelPlacement.upsert({
+  const fbFeedPlacement = await prisma.managedMarketingChannelPlacement.upsert({
     where: { code: "MMP_FB_ON_PLATFORM" },
     update: {},
     create: {
@@ -2127,7 +2128,7 @@ async function main() {
     },
   });
 
-  await prisma.managedMarketingChannelPlacement.upsert({
+  const ttFeedPlacement = await prisma.managedMarketingChannelPlacement.upsert({
     where: { code: "MMP_TIKTOK_EXT" },
     update: {},
     create: {
@@ -2253,6 +2254,63 @@ async function main() {
         currency: LedgerCurrency.ZAR,
         operationId: `seed_mreq_${sIdx}`,
         requestHash: createHash("sha256").update(`MREQ-${sIdx}`).digest("hex"),
+      },
+    });
+
+    const targetChannel = sIdx % 2 === 0 ? facebookChannel : tiktokChannel;
+    const targetPlacement = sIdx % 2 === 0 ? fbFeedPlacement : ttFeedPlacement;
+
+    const reqChannel = await prisma.managedMarketingRequestChannel.upsert({
+      where: { managedMarketingRequestId_channelDefinitionId: { managedMarketingRequestId: mReq.id, channelDefinitionId: targetChannel.id } },
+      update: {},
+      create: {
+        managedMarketingRequestId: mReq.id,
+        channelDefinitionId: targetChannel.id,
+      },
+    });
+
+    await prisma.managedMarketingRequestPlacement.upsert({
+      where: { managedMarketingRequestChannelId_placementId: { managedMarketingRequestChannelId: reqChannel.id, placementId: targetPlacement.id } },
+      update: {},
+      create: {
+        managedMarketingRequestChannelId: reqChannel.id,
+        placementId: targetPlacement.id,
+      },
+    });
+
+    // Ensure store has private media and attach creative to request
+    const storeMediaRef = `PMO-STORE-MKT-${String(sIdx + 1).padStart(4, "0")}`;
+    const storeMedia = await prisma.privateMediaObject.upsert({
+      where: { publicReference: storeMediaRef },
+      update: {},
+      create: {
+        publicReference: storeMediaRef,
+        ownerType: PrivateMediaOwnerType.STORE,
+        ownerId: s.id,
+        purpose: PrivateMediaPurpose.OTHER,
+        status: PrivateMediaStatus.READY,
+        storageProvider: "LOCAL",
+        storageKey: `media/store/${s.id}/marketing_promo_${sIdx + 1}.jpg`,
+        originalFileName: `promo_banner_${sIdx + 1}.jpg`,
+        declaredMimeType: "image/jpeg",
+        detectedMimeType: "image/jpeg",
+        byteSize: 145200,
+        checksum: createHash("sha256").update(`store_media_${s.id}_${sIdx}`).digest("hex"),
+        createdByUserId: s.ownerUserId,
+      },
+    });
+
+    const creativeRef = `MMRC-DEMO-${String(sIdx + 1).padStart(4, "0")}`;
+    await prisma.managedMarketingRequestCreative.upsert({
+      where: { publicReference: creativeRef },
+      update: {},
+      create: {
+        publicReference: creativeRef,
+        managedMarketingRequestId: mReq.id,
+        source: "PRIVATE_MEDIA",
+        privateMediaObjectId: storeMedia.id,
+        role: "PRIMARY_HERO",
+        createdByUserId: s.ownerUserId,
       },
     });
 

@@ -164,12 +164,14 @@ async function verify() {
 
   let driverEligibilityErrors = 0;
   for (const assignment of assignments) {
+    const approvedVehicle = assignment.driverProfile.vehicles.find((v) => v.status === "APPROVED");
+    const vehicleStatus = approvedVehicle ? "APPROVED" : (assignment.driverProfile.vehicles[0]?.status || "NO_VEHICLE");
     const res = validateDriverAssignmentEligibility({
       driverProfileId: assignment.driverProfile.id,
       driverCode: assignment.driverProfile.driverCode,
       status: assignment.driverProfile.status,
       onboardingStatus: assignment.driverProfile.onboardingStatus,
-      vehicleStatus: assignment.driverProfile.vehicles[0]?.status || "APPROVED",
+      vehicleStatus,
       assignedAt: assignment.assignedAt,
       completedAt: assignment.completedAt,
     });
@@ -253,6 +255,11 @@ async function verify() {
   let claimInvariantErrors = 0;
   for (const claim of claimsWithRemedies) {
     const codPolicy = claim.order?.cashOnDelivery?.policyMode || "DIGITAL";
+    const succeededPayment = claim.order?.payments?.find((p) => p.status === "SUCCEEDED");
+    const digitalPaidAmount = claim.order?.cashOnDelivery
+      ? Number(claim.order.cashOnDelivery.digitalPaid)
+      : (succeededPayment ? Number(succeededPayment.amount) : 0);
+
     const res = validateClaimRemedyConsistency({
       claimReference: claim.publicReference,
       orderPolicyMode: codPolicy as "FULL_COD" | "DEPOSIT_PLUS_COD" | "DIGITAL",
@@ -263,7 +270,7 @@ async function verify() {
       paymentRefundId: claim.remedy?.paymentRefundId,
       refundAmount: claim.remedy?.paymentRefund ? Number(claim.remedy.paymentRefund.amount) : 0,
       refundStatus: claim.remedy?.paymentRefund?.status,
-      digitalPaidAmount: claim.order?.cashOnDelivery ? Number(claim.order.cashOnDelivery.digitalPaid) : 500,
+      digitalPaidAmount,
     });
 
     if (!res.valid) {
@@ -350,7 +357,6 @@ async function verify() {
   // Check 9: Full Chronological Invariant Chain Across Actual Database Records
   const ordersWithTimelines = await prisma.order.findMany({
     where: { status: "DELIVERED" },
-    take: 500,
     include: {
       customer: { select: { createdAt: true } },
       assignments: { select: { assignedAt: true, completedAt: true } },

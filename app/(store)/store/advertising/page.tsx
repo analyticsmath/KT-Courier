@@ -2,10 +2,16 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStoreForUser } from "@/lib/auth/store-context";
+import { prisma } from "@/lib/db/prisma";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
-import { StoreAdvertisingWorkbench, MarketingPackageItem, MarketingRequestItem } from "@/components/store/StoreAdvertisingWorkbench";
+import {
+  StoreAdvertisingWorkbench,
+  MarketingPackageItem,
+  MarketingRequestItem,
+  EntitledStoreMediaItem,
+} from "@/components/store/StoreAdvertisingWorkbench";
 
 export const metadata: Metadata = {
   title: "Store advertising & campaigns",
@@ -23,6 +29,7 @@ export default async function StoreAdvertisingPage() {
 
   let initialPackages: MarketingPackageItem[] = [];
   let initialRequests: MarketingRequestItem[] = [];
+  let entitledMedia: EntitledStoreMediaItem[] = [];
   let backendError: string | null = null;
 
   try {
@@ -95,6 +102,32 @@ export default async function StoreAdvertisingPage() {
 
   try {
     if (store) {
+      // Query entitled store private media
+      const rawMedia = await prisma.privateMediaObject.findMany({
+        where: {
+          ownerType: "STORE",
+          ownerId: store.id,
+          status: { in: ["READY", "RETAINED"] },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          publicReference: true,
+          originalFileName: true,
+          detectedMimeType: true,
+          purpose: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      entitledMedia = rawMedia.map((m) => ({
+        id: m.id,
+        publicReference: m.publicReference,
+        fileName: m.originalFileName,
+        mimeType: m.detectedMimeType || "image/jpeg",
+        purpose: m.purpose,
+      }));
+
       const rawRequests = (await service.listOwnRequests({
         actorUserId: user.id,
         actorRole: user.role,
@@ -114,6 +147,15 @@ export default async function StoreAdvertisingPage() {
         endsAt: Date | string;
         createdAt: Date | string;
         packageVersion?: { name: string; code: string } | null;
+        creatives?: Array<{
+          id: string;
+          publicReference: string;
+          source: string;
+          role: string;
+          createdAt: Date | string;
+          privateMediaObject?: { publicReference: string } | null;
+          catalogMediaAsset?: { publicReference: string } | null;
+        }>;
         performanceRecords?: Array<{
           impressions: number;
           clicks: number;
@@ -140,10 +182,17 @@ export default async function StoreAdvertisingPage() {
           endAt: r.endsAt ? (typeof r.endsAt === "string" ? r.endsAt : r.endsAt.toISOString()) : null,
           createdAt: typeof r.createdAt === "string" ? r.createdAt : r.createdAt.toISOString(),
           packageVersion: r.packageVersion ? { name: r.packageVersion.name, code: r.packageVersion.code } : null,
+          creatives: (r.creatives || []).map((c) => ({
+            id: c.id,
+            publicReference: c.publicReference,
+            source: c.source,
+            role: c.role || "CREATIVE",
+            mediaReference: c.privateMediaObject?.publicReference || c.catalogMediaAsset?.publicReference || c.publicReference,
+            createdAt: typeof c.createdAt === "string" ? c.createdAt : (c.createdAt?.toISOString?.() || new Date().toISOString()),
+          })),
           performanceRecord: perf ? {
             impressions: perf.impressions,
             clicks: perf.clicks,
-            reach: Math.round(perf.impressions * 0.8),
             spendAmount: String(perf.spendAmount || "0"),
           } : null,
         };
@@ -166,6 +215,7 @@ export default async function StoreAdvertisingPage() {
       <StoreAdvertisingWorkbench
         initialPackages={initialPackages}
         initialRequests={initialRequests}
+        entitledMedia={entitledMedia}
         storeName={storeName}
         backendError={backendError}
       />

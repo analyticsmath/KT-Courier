@@ -53,6 +53,15 @@ export class ManagedMarketingService {
       automatedProviderAvailable: automatedProviderConfigured && AUTOMATED_PROVIDER_RUNTIME_AVAILABLE,
       automatedProviderStatus: automatedProviderConfigured && AUTOMATED_PROVIDER_RUNTIME_AVAILABLE ? "AVAILABLE" : automatedProviderConfigured ? "IMPLEMENTATION_UNAVAILABLE" : "NOT_CONFIGURED",
       supportedExecutionModes: channel.active && channel.manualExecutionSupported ? ["MANUAL"] : [],
+      placements: channel.placements?.map((p: any) => ({
+        id: p.id,
+        publicReference: p.publicReference,
+        code: p.code,
+        displayName: p.displayName,
+        kind: p.kind,
+        active: p.active,
+        sortOrder: p.sortOrder,
+      })),
     };
   }
 
@@ -179,8 +188,47 @@ export class ManagedMarketingService {
     return { advertisingPlacementDefinitionId: null, externalPlacementReference: input.externalPlacementReference.trim() };
   }
 
-  async listPackages(channelReference?: string) { return (await (prisma as any).managedMarketingPackageVersion.findMany({ where: channelReference ? { channels: { some: { channelDefinition: { publicReference: channelReference } } } } : {}, include: { channels: { include: { channelDefinition: true } } }, orderBy: [{ code: "asc" }, { versionNumber: "desc" }] })).map((pack: any) => this.safePackage(pack)); }
-  async getPackageVersion(reference: string) { const pack = await (prisma as any).managedMarketingPackageVersion.findUnique({ where: { publicReference: reference }, include: { channels: { include: { channelDefinition: true } } } }); return pack ? this.safePackage(pack) : null; }
+  async listPackages(channelReference?: string) {
+    return (await (prisma as any).managedMarketingPackageVersion.findMany({
+      where: channelReference ? { channels: { some: { channelDefinition: { publicReference: channelReference } } } } : {},
+      include: {
+        channels: {
+          include: {
+            channelDefinition: {
+              include: {
+                placements: {
+                  where: { active: true },
+                  orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ code: "asc" }, { versionNumber: "desc" }],
+    })).map((pack: any) => this.safePackage(pack));
+  }
+
+  async getPackageVersion(reference: string) {
+    const pack = await (prisma as any).managedMarketingPackageVersion.findUnique({
+      where: { publicReference: reference },
+      include: {
+        channels: {
+          include: {
+            channelDefinition: {
+              include: {
+                placements: {
+                  where: { active: true },
+                  orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    return pack ? this.safePackage(pack) : null;
+  }
 
   async createPackage(input: any) {
     await this.requireConfigurationPermission(input, PERMISSIONS.MANAGED_MARKETING_PACKAGES_CREATE);
