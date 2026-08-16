@@ -219,7 +219,7 @@ async function seedPaymentWithEvidence(params: {
       sourceReference: `payment:${payment.publicReference}:receipt`,
       correlationId: payment.publicReference,
       memo: `Payment receipt for ${payment.publicReference}`,
-      actor: params.userId ? { kind: "USER", userId: params.userId } : { kind: "SYSTEM" },
+      actor: { kind: "SYSTEM" },
       metadata: { orderNumber: params.orderNumber },
       entries: [
         { accountId: platformCashAccount.id, direction: "DEBIT", amount: amountDec.toFixed(2), lineCode: "GATEWAY_CASH_RECEIPT" },
@@ -539,6 +539,71 @@ async function seedExternalRefundWithEvidence(params: {
 
     return finalizedRefund;
   });
+}
+
+async function assertDemoStage10PlusRuntimePreconditions(params: {
+  superAdmin: { id: string; status: string };
+  finAdminUsers: Array<{ id: string; status: string }>;
+  eligibleDrivers: Array<{ profileId: string; userId: string }>;
+  activeStores: Array<{ id: string; ownerUserId: string }>;
+  customerIds: string[];
+}) {
+  console.log("   🔍 Running Stage 10+ Preflight Authority & Invariant Validation...");
+
+  // 1. Super admin actor
+  if (!params.superAdmin || params.superAdmin.status !== "ACTIVE") {
+    throw new Error("Preflight Failed: SuperAdmin user must exist and have ACTIVE status.");
+  }
+
+  // 2. Finance dual-control actors
+  if (params.finAdminUsers.length < 2) {
+    throw new Error(`Preflight Failed: Expected at least 2 finance admins for dual control, found ${params.finAdminUsers.length}.`);
+  }
+  const [approver, completer] = params.finAdminUsers;
+  if (!approver || approver.status !== "ACTIVE" || !completer || completer.status !== "ACTIVE") {
+    throw new Error("Preflight Failed: Finance approver and completer must both be ACTIVE.");
+  }
+  if (approver.id === completer.id) {
+    throw new Error("Preflight Failed: Finance approver and completer must be distinct users for dual control.");
+  }
+
+  // 3. Eligible drivers pool
+  if (params.eligibleDrivers.length < 10) {
+    throw new Error(`Preflight Failed: Expected at least 10 eligible compliant drivers, found ${params.eligibleDrivers.length}.`);
+  }
+
+  // 4. Platform wallet & Essential ledger accounts
+  const platformWallet = await prisma.wallet.findUnique({
+    where: { ownerType_ownerId_currency: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" } },
+  });
+  if (!platformWallet || platformWallet.status !== "ACTIVE") {
+    throw new Error("Preflight Failed: Platform ZAR ledger wallet must exist and be ACTIVE.");
+  }
+
+  const requiredAccounts = [
+    { code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET" },
+    { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY" },
+  ];
+
+  for (const req of requiredAccounts) {
+    const acc = await prisma.ledgerAccount.findUnique({ where: { code: req.code } });
+    if (!acc) {
+      throw new Error(`Preflight Failed: Required platform ledger account ${req.code} not found.`);
+    }
+    if (acc.purpose !== req.purpose || acc.category !== req.category || acc.currency !== "ZAR") {
+      throw new Error(`Preflight Failed: Ledger account ${req.code} configuration mismatch (purpose: ${acc.purpose}, category: ${acc.category}, currency: ${acc.currency}).`);
+    }
+  }
+
+  // 5. Active stores & Customers
+  if (params.activeStores.length < 20) {
+    throw new Error(`Preflight Failed: Expected at least 20 active stores, found ${params.activeStores.length}.`);
+  }
+  if (params.customerIds.length < 100) {
+    throw new Error(`Preflight Failed: Expected at least 100 customer IDs, found ${params.customerIds.length}.`);
+  }
+
+  console.log("   ✓ Preflight authority & ledger readiness checks PASSED.");
 }
 
 async function main() {
@@ -1548,6 +1613,17 @@ async function main() {
   for (const c of categoryMap.values()) {
     await rebuildStorefrontCategoryDocument(c.id);
   }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // STAGE 10+ PREFLIGHT RUNTIME PRECONDITIONS
+  // ───────────────────────────────────────────────────────────────────────────
+  await assertDemoStage10PlusRuntimePreconditions({
+    superAdmin,
+    finAdminUsers,
+    eligibleDrivers,
+    activeStores,
+    customerIds,
+  });
 
   // ───────────────────────────────────────────────────────────────────────────
   // 10. COURIER ORDERS (~2,500 Delivery Orders across 13 Months)

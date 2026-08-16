@@ -9,6 +9,7 @@ import {
   validatePrivateMediaCompliance,
   validateOrderAssignmentPointerConsistency,
   validateRefundExecutionEvidence,
+  validatePaymentSuccessEvidence,
 } from "../lib/invariants/demo-invariants";
 import process from "node:process";
 
@@ -577,6 +578,56 @@ async function verify() {
     invariantsPassed = false;
   } else {
     safeLog(`✓ PaymentRefund execution evidence & payment projections verified across ${totalRefundsChecked} refunds on ${allPaymentsWithRefunds.length} payments`);
+  }
+
+  // Check 13: Phase 12 Payment Success Evidence & Journal Linkages
+  const allSucceededPayments = await prisma.payment.findMany({
+    where: { status: "SUCCEEDED" },
+    include: {
+      successfulAttempt: { select: { id: true, status: true, providerReference: true } },
+      successWebhookEvent: {
+        select: {
+          id: true,
+          processingStatus: true,
+          signatureVerified: true,
+          merchantVerified: true,
+          amountVerified: true,
+          providerDataVerified: true,
+        },
+      },
+      successLedgerJournal: { select: { id: true, type: true, currency: true } },
+    },
+  });
+
+  let paymentSuccessErrors = 0;
+  for (const pay of allSucceededPayments) {
+    const res = validatePaymentSuccessEvidence({
+      paymentId: pay.id,
+      paymentPublicReference: pay.publicReference,
+      status: pay.status,
+      currency: pay.currency,
+      successfulAttemptId: pay.successfulAttemptId,
+      successWebhookEventId: pay.successWebhookEventId,
+      successLedgerJournalId: pay.successLedgerJournalId,
+      providerConfirmedAt: pay.providerConfirmedAt,
+      successfulAttempt: pay.successfulAttempt,
+      successWebhookEvent: pay.successWebhookEvent,
+      successLedgerJournal: pay.successLedgerJournal,
+    });
+
+    if (!res.valid) {
+      paymentSuccessErrors++;
+      for (const err of res.errors) {
+        safeError(`  [Payment Success Invariant Error] ${err}`);
+      }
+    }
+  }
+
+  if (paymentSuccessErrors > 0) {
+    safeError(`❌ Found ${paymentSuccessErrors} Payments violating success evidence or ledger journal linkages`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ Payment success evidence verified across ${allSucceededPayments.length} succeeded payments`);
   }
 
   if (invariantsPassed) {

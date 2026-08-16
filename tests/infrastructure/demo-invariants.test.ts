@@ -7,6 +7,7 @@ import {
   validatePrivateMediaCompliance,
   validateOrderAssignmentPointerConsistency,
   validateRefundExecutionEvidence,
+  validatePaymentSuccessEvidence,
   CodValidationInput,
   DriverValidationInput,
   ClaimValidationInput,
@@ -14,6 +15,8 @@ import {
   PrivateMediaValidationInput,
   OrderAssignmentValidationInput,
   RefundExecutionValidationInput,
+  PaymentSuccessValidationInput,
+  STAGE_10_PLUS_INVARIANT_MATRIX,
 } from "@/lib/invariants/demo-invariants";
 
 describe("Extracted Invariant Engine & Operational Policies", () => {
@@ -831,6 +834,109 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
       const result = validateRefundExecutionEvidence(input);
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("funding allocations sum (100) does not match refund amount (200)"))).toBe(true);
+    });
+  });
+
+  describe("validatePaymentSuccessEvidence", () => {
+    it("validates a compliant SUCCEEDED payment with attempt, webhook, and receipt journal", () => {
+      const input: PaymentSuccessValidationInput = {
+        paymentId: "pay-100",
+        paymentPublicReference: "PAY-KT-20250001",
+        status: "SUCCEEDED",
+        currency: "ZAR",
+        successfulAttemptId: "pat-100",
+        successWebhookEventId: "pwe-100",
+        successLedgerJournalId: "jnl-100",
+        providerConfirmedAt: new Date("2025-08-01T12:00:00Z"),
+        successfulAttempt: {
+          id: "pat-100",
+          status: "SUCCEEDED",
+          providerReference: "pf_seed_pay-100",
+        },
+        successWebhookEvent: {
+          id: "pwe-100",
+          processingStatus: "APPLIED",
+          signatureVerified: true,
+          merchantVerified: true,
+          amountVerified: true,
+          providerDataVerified: true,
+        },
+        successLedgerJournal: {
+          id: "jnl-100",
+          type: "EXTERNAL_PAYMENT_RECEIPT",
+          currency: "ZAR",
+        },
+      };
+      const result = validatePaymentSuccessEvidence(input);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("fails when SUCCEEDED payment lacks providerConfirmedAt", () => {
+      const input: PaymentSuccessValidationInput = {
+        paymentId: "pay-101",
+        paymentPublicReference: "PAY-KT-20250002",
+        status: "SUCCEEDED",
+        currency: "ZAR",
+        successfulAttemptId: "pat-101",
+        successWebhookEventId: "pwe-101",
+        successLedgerJournalId: "jnl-101",
+        providerConfirmedAt: null, // Invalid
+        successfulAttempt: { id: "pat-101", status: "SUCCEEDED", providerReference: "pf_101" },
+        successWebhookEvent: { id: "pwe-101", processingStatus: "APPLIED", signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true },
+        successLedgerJournal: { id: "jnl-101", type: "EXTERNAL_PAYMENT_RECEIPT", currency: "ZAR" },
+      };
+      const result = validatePaymentSuccessEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("lacks providerConfirmedAt"))).toBe(true);
+    });
+
+    it("fails when SUCCEEDED payment has invalid receipt journal type", () => {
+      const input: PaymentSuccessValidationInput = {
+        paymentId: "pay-102",
+        paymentPublicReference: "PAY-KT-20250003",
+        status: "SUCCEEDED",
+        currency: "ZAR",
+        successfulAttemptId: "pat-102",
+        successWebhookEventId: "pwe-102",
+        successLedgerJournalId: "jnl-102",
+        providerConfirmedAt: new Date("2025-08-01T12:00:00Z"),
+        successfulAttempt: { id: "pat-102", status: "SUCCEEDED", providerReference: "pf_102" },
+        successWebhookEvent: { id: "pwe-102", processingStatus: "APPLIED", signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true },
+        successLedgerJournal: { id: "jnl-102", type: "GENERAL", currency: "ZAR" }, // Invalid type
+      };
+      const result = validatePaymentSuccessEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("expected EXTERNAL_PAYMENT_RECEIPT"))).toBe(true);
+    });
+  });
+
+  describe("STAGE_10_PLUS_INVARIANT_MATRIX", () => {
+    it("contains all 13 required operational scenario mappings", () => {
+      const requiredScenarios = [
+        "PAYMENT_SUCCESS",
+        "EXTERNAL_REFUND",
+        "COD_COLLECTION",
+        "COD_DEPOSIT",
+        "COD_RECONCILIATION",
+        "CLAIM_REMEDY",
+        "STORE_EARNING",
+        "DRIVER_EARNING",
+        "MARKETPLACE_PAYMENT",
+        "PROMOTER_ACCRUAL",
+        "PROMOTER_DEPOSIT",
+        "MANAGED_MARKETING_COMMERCIAL",
+        "MANAGED_MARKETING_REVENUE",
+      ];
+
+      expect(STAGE_10_PLUS_INVARIANT_MATRIX.length).toBeGreaterThanOrEqual(13);
+      for (const scenario of requiredScenarios) {
+        const found = STAGE_10_PLUS_INVARIANT_MATRIX.find((s) => s.scenario === scenario);
+        expect(found, `Scenario ${scenario} should exist in matrix`).toBeDefined();
+        expect(found?.actor.length).toBeGreaterThan(0);
+        expect(found?.requiredEvidence.length).toBeGreaterThan(0);
+        expect(found?.transactionBoundary.length).toBeGreaterThan(0);
+      }
     });
   });
 });

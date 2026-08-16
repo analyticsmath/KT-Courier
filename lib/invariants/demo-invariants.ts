@@ -466,3 +466,227 @@ export function validateRefundExecutionEvidence(input: RefundExecutionValidation
 
   return { valid: errors.length === 0, errors };
 }
+
+export interface PaymentSuccessValidationInput {
+  paymentId: string;
+  paymentPublicReference: string;
+  status: string;
+  currency: string;
+  successfulAttemptId?: string | null;
+  successWebhookEventId?: string | null;
+  successLedgerJournalId?: string | null;
+  providerConfirmedAt?: Date | string | null;
+  successfulAttempt?: {
+    id: string;
+    status: string;
+    providerReference?: string | null;
+  } | null;
+  successWebhookEvent?: {
+    id: string;
+    processingStatus: string;
+    signatureVerified: boolean;
+    merchantVerified: boolean;
+    amountVerified: boolean;
+    providerDataVerified: boolean;
+  } | null;
+  successLedgerJournal?: {
+    id: string;
+    type: string;
+    currency: string;
+  } | null;
+}
+
+/**
+ * Validates Phase 12 PayFast payment confirmation evidence, attempt completeness, webhook auditability, and ledger journal receipt.
+ */
+export function validatePaymentSuccessEvidence(input: PaymentSuccessValidationInput): InvariantResult {
+  const errors: string[] = [];
+
+  if (input.status === "SUCCEEDED") {
+    if (input.currency !== "ZAR") {
+      errors.push(`Payment ${input.paymentPublicReference} currency must be ZAR, got ${input.currency}`);
+    }
+    if (!input.providerConfirmedAt) {
+      errors.push(`SUCCEEDED payment ${input.paymentPublicReference} lacks providerConfirmedAt`);
+    }
+    if (!input.successfulAttemptId) {
+      errors.push(`SUCCEEDED payment ${input.paymentPublicReference} lacks successfulAttemptId`);
+    } else if (input.successfulAttempt) {
+      if (input.successfulAttempt.id !== input.successfulAttemptId) {
+        errors.push(`Payment ${input.paymentPublicReference} successfulAttemptId mismatch`);
+      }
+      if (input.successfulAttempt.status !== "SUCCEEDED") {
+        errors.push(`Payment ${input.paymentPublicReference} attempt status is ${input.successfulAttempt.status}, expected SUCCEEDED`);
+      }
+      if (!input.successfulAttempt.providerReference) {
+        errors.push(`Payment ${input.paymentPublicReference} attempt lacks providerReference`);
+      }
+    }
+    if (!input.successWebhookEventId) {
+      errors.push(`SUCCEEDED payment ${input.paymentPublicReference} lacks successWebhookEventId`);
+    } else if (input.successWebhookEvent) {
+      if (input.successWebhookEvent.processingStatus !== "APPLIED") {
+        errors.push(`Payment ${input.paymentPublicReference} webhook event status is ${input.successWebhookEvent.processingStatus}, expected APPLIED`);
+      }
+      if (!input.successWebhookEvent.signatureVerified || !input.successWebhookEvent.merchantVerified || !input.successWebhookEvent.amountVerified || !input.successWebhookEvent.providerDataVerified) {
+        errors.push(`Payment ${input.paymentPublicReference} webhook event lacks verified flags`);
+      }
+    }
+    if (!input.successLedgerJournalId) {
+      errors.push(`SUCCEEDED payment ${input.paymentPublicReference} lacks successLedgerJournalId`);
+    } else if (input.successLedgerJournal) {
+      if (input.successLedgerJournal.type !== "EXTERNAL_PAYMENT_RECEIPT") {
+        errors.push(`Payment ${input.paymentPublicReference} receipt journal type is ${input.successLedgerJournal.type}, expected EXTERNAL_PAYMENT_RECEIPT`);
+      }
+      if (input.successLedgerJournal.currency !== "ZAR") {
+        errors.push(`Payment ${input.paymentPublicReference} receipt journal currency must be ZAR`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export interface Stage10PlusScenarioMapping {
+  scenario: string;
+  canonicalMigrationOrService: string;
+  actor: string;
+  requiredEvidence: string[];
+  requiredParentChildRelationship: string;
+  transactionBoundary: string;
+  seedConstruction: string;
+  verifierOrTest: string;
+}
+
+export const STAGE_10_PLUS_INVARIANT_MATRIX: Stage10PlusScenarioMapping[] = [
+  {
+    scenario: "PAYMENT_SUCCESS",
+    canonicalMigrationOrService: "20260717040000_phase12_payfast_itn_reconciliation / payfast-ledger-posting-policy.ts",
+    actor: "SYSTEM",
+    requiredEvidence: ["PaymentAttempt (SUCCEEDED)", "PaymentWebhookEvent (APPLIED)", "EXTERNAL_PAYMENT_RECEIPT LedgerJournal"],
+    requiredParentChildRelationship: "Payment -> successfulAttemptId, successWebhookEventId, successLedgerJournalId",
+    transactionBoundary: "Interactive transaction or staged idempotency with atomic completion projection",
+    seedConstruction: "seedPaymentWithEvidence() with actor: { kind: 'SYSTEM' }",
+    verifierOrTest: "validatePaymentSuccessEvidence / Check 13 in verify-demo-db.ts",
+  },
+  {
+    scenario: "EXTERNAL_REFUND",
+    canonicalMigrationOrService: "20260717070000_phase15_customer_wallet_refunds / refund-request.service.ts / refund-dual-control.ts",
+    actor: "Dual Control: financeApproverUserId (Finance Admin) != financeCompleterUserId (Finance Admin) != customerUserId",
+    requiredEvidence: ["REFUND_RESERVE journal", "RefundFundingAllocation (sum == amount)", "RefundExecutionAttempt (SUCCEEDED)", "REFUND_EXTERNAL_PAYOUT journal", "RefundStatusHistory (4 transitions)"],
+    requiredParentChildRelationship: "Claim -> ClaimRemedy -> PaymentRefund -> Payment (totalRefundedAmount projected)",
+    transactionBoundary: "Single atomic interactive transaction (prisma.$transaction)",
+    seedConstruction: "seedExternalRefundWithEvidence() using postLedgerJournalWithinTransaction",
+    verifierOrTest: "validateRefundExecutionEvidence / Check 12 in verify-demo-db.ts",
+  },
+  {
+    scenario: "COD_COLLECTION",
+    canonicalMigrationOrService: "20260717040000_phase12_payfast_itn_reconciliation / phase_b_cod_cash_custody",
+    actor: "assignedDriver.userId (ACTIVE eligible driver)",
+    requiredEvidence: ["COD_COLLECTED_AT_DELIVERY event", "Driver custody debit entry", "Customer funds held credit entry"],
+    requiredParentChildRelationship: "Order (DELIVERED) -> CashOnDelivery -> CashOnDeliveryEvent",
+    transactionBoundary: "Committed at order delivery completion",
+    seedConstruction: "postLedgerJournal with assignedDriver.userId",
+    verifierOrTest: "validateCodEconomics / Check 7 in verify-demo-db.ts",
+  },
+  {
+    scenario: "COD_DEPOSIT",
+    canonicalMigrationOrService: "phase_b_cod_cash_custody / ledger-posting.service.ts",
+    actor: "assignedDriver.userId / financeAdmin.id",
+    requiredEvidence: ["COD custody transfer journal", "Driver custody credit", "Clearing/deposit debit"],
+    requiredParentChildRelationship: "CashOnDelivery -> DriverWallet -> LedgerAccount",
+    transactionBoundary: "Atomic ledger transfer",
+    seedConstruction: "Balanced double-entry journal",
+    verifierOrTest: "Universal double-entry balance / Check 8 in verify-demo-db.ts",
+  },
+  {
+    scenario: "COD_RECONCILIATION",
+    canonicalMigrationOrService: "phase_b_cod_cash_custody / cash-on-delivery.service.ts",
+    actor: "superAdmin.id / financeAdmin.id (ACTIVE Admin)",
+    requiredEvidence: ["COD_RECONCILED_WITH_FINANCE event", "Platform cash received debit", "Driver custody released credit"],
+    requiredParentChildRelationship: "CashOnDelivery -> CashOnDeliveryEvent",
+    transactionBoundary: "Atomic reconciliation posting",
+    seedConstruction: "postLedgerJournal with superAdmin.id",
+    verifierOrTest: "validateCodEconomics / Check 7 in verify-demo-db.ts",
+  },
+  {
+    scenario: "CLAIM_REMEDY",
+    canonicalMigrationOrService: "phase_b_claims_remedies / phase_b_claim_fulfilment_remedy_bridge",
+    actor: "superAdmin.id (Decider) / customerId (Participant)",
+    requiredEvidence: ["OrderClaim (DECIDED)", "ClaimRemedy (PARTIAL_REFUND)", "ClaimEvent (FILED, DECIDED)"],
+    requiredParentChildRelationship: "Order -> OrderClaim -> ClaimRemedy -> PaymentRefund",
+    transactionBoundary: "Remedy creation references atomic PaymentRefund",
+    seedConstruction: "OrderClaim -> ClaimRemedy with amount consistency",
+    verifierOrTest: "validateClaimEconomics / Check 4 in verify-demo-db.ts",
+  },
+  {
+    scenario: "STORE_EARNING",
+    canonicalMigrationOrService: "phase16_store_earnings / store-earning-accrual.service.ts",
+    actor: "SYSTEM",
+    requiredEvidence: ["StoreSettlementSnapshot", "StoreEarningAccrual", "Verified payment evidence (signature, merchant, amount, providerData verified)"],
+    requiredParentChildRelationship: "Store -> StoreWallet -> StoreEarning",
+    transactionBoundary: "Accrual calculation with snapshot verification",
+    seedConstruction: "Verified payment record with APPLIED webhook",
+    verifierOrTest: "Store settlement and earning integrity verification",
+  },
+  {
+    scenario: "DRIVER_EARNING",
+    canonicalMigrationOrService: "phase17_driver_earnings / driver-earning-accrual.service.ts",
+    actor: "SYSTEM",
+    requiredEvidence: ["DriverSettlementSnapshot", "DriverEarningAccrual", "DELIVERED order with accepted assignment"],
+    requiredParentChildRelationship: "DriverProfile -> DriverWallet -> DriverEarning",
+    transactionBoundary: "Accrual calculation on DELIVERED order",
+    seedConstruction: "Delivered order with valid driver assignment pointer",
+    verifierOrTest: "Driver settlement and earning integrity verification",
+  },
+  {
+    scenario: "MARKETPLACE_PAYMENT",
+    canonicalMigrationOrService: "phase21_marketplace_store_orders / marketplace-checkout.service.ts",
+    actor: "SYSTEM (Receipt) / customerId (Cart & Checkout owner)",
+    requiredEvidence: ["MarketplaceCart (CONVERTED)", "MarketplaceCheckout (COMPLETED)", "Payment (SUCCEEDED)", "MarketplaceOrder (CONFIRMED)", "MarketplaceStoreOrder (SETTLED)"],
+    requiredParentChildRelationship: "Cart -> Checkout -> Payment -> MarketplaceOrder -> CheckoutStoreGroup -> MarketplaceStoreOrder",
+    transactionBoundary: "Multi-store order creation and payment linking",
+    seedConstruction: "seedPaymentWithEvidence for MARKETPLACE_CHECKOUT subject",
+    verifierOrTest: "Marketplace order and payment integrity verification",
+  },
+  {
+    scenario: "PROMOTER_ACCRUAL",
+    canonicalMigrationOrService: "phase25_promoter_programme / promoter-accrual.service.ts",
+    actor: "SYSTEM",
+    requiredEvidence: ["PromoterProfile", "PromoterAccount", "Referral qualification snapshot"],
+    requiredParentChildRelationship: "User -> PromoterProfile -> PromoterAccount",
+    transactionBoundary: "Accrual posting",
+    seedConstruction: "Promoter accounts with valid status and profiles",
+    verifierOrTest: "Promoter profile and account verification",
+  },
+  {
+    scenario: "PROMOTER_DEPOSIT",
+    canonicalMigrationOrService: "phase25_promoter_programme / promoter-deposit.service.ts",
+    actor: "Finance Admin",
+    requiredEvidence: ["PromoterDepositJournal", "PromoterWallet balance update"],
+    requiredParentChildRelationship: "PromoterAccount -> PromoterWallet -> LedgerJournal",
+    transactionBoundary: "Atomic ledger transfer",
+    seedConstruction: "Promoter balance ledger account",
+    verifierOrTest: "Universal double-entry balance verification",
+  },
+  {
+    scenario: "MANAGED_MARKETING_COMMERCIAL",
+    canonicalMigrationOrService: "phase24_managed_marketing / managed-marketing.service.ts",
+    actor: "s.ownerUserId (Store Owner Requester) / superAdmin.id (Package Creator)",
+    requiredEvidence: ["ManagedMarketingPackageVersion (ACTIVE)", "ManagedMarketingPackageChannel", "ManagedMarketingRequest (DRAFT/SUBMITTED/RUNNING/COMPLETED)", "Price & tax snapshot"],
+    requiredParentChildRelationship: "Store -> ManagedMarketingRequest -> ManagedMarketingPackageVersion -> ManagedMarketingChannelDefinition",
+    transactionBoundary: "Request creation with package and channel relations",
+    seedConstruction: "ManagedMarketingRequest with accurate price/tax snapshots",
+    verifierOrTest: "Managed marketing package & request verification",
+  },
+  {
+    scenario: "MANAGED_MARKETING_REVENUE",
+    canonicalMigrationOrService: "phase_b_managed_marketing_revenue_reporting / revenue-reporting.service.ts",
+    actor: "superAdmin.id (Recorded By)",
+    requiredEvidence: ["ManagedMarketingPerformanceRecord (impressions, clicks, conversions)", "ManagedMarketingRequestCreative (PrivateMedia attached)"],
+    requiredParentChildRelationship: "ManagedMarketingRequest -> ManagedMarketingPerformanceRecord / ManagedMarketingRequestCreative",
+    transactionBoundary: "Performance recording and creative linking",
+    seedConstruction: "Performance records with actual telemetry and creative media",
+    verifierOrTest: "Performance and creative media linkage verification",
+  },
+];
