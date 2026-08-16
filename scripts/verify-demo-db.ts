@@ -6,6 +6,7 @@ import {
   validateDriverAssignmentEligibility,
   validateClaimRemedyConsistency,
   validateChronologicalSequence,
+  validatePrivateMediaCompliance,
 } from "../lib/invariants/demo-invariants";
 import process from "node:process";
 
@@ -398,6 +399,40 @@ async function verify() {
     invariantsPassed = false;
   } else {
     safeLog(`✓ Full end-to-end chronological chain verified across delivered orders, assignments, and claims`);
+  }
+
+  // Check 10: PrivateMediaObject Ready Evidence & Vehicle Ownership Triggers
+  const allPrivateMedia = await prisma.privateMediaObject.findMany({
+    include: {
+      vehicleDocument: { select: { vehicleId: true } },
+    },
+  });
+
+  let mediaComplianceErrors = 0;
+  for (const pmo of allPrivateMedia) {
+    const res = validatePrivateMediaCompliance({
+      publicReference: pmo.publicReference,
+      ownerType: pmo.ownerType,
+      ownerId: pmo.ownerId,
+      purpose: pmo.purpose,
+      status: pmo.status,
+      declaredMimeType: pmo.declaredMimeType,
+      detectedMimeType: pmo.detectedMimeType,
+      byteSize: pmo.byteSize,
+      checksum: pmo.checksum,
+      linkedVehicleId: pmo.vehicleDocument?.vehicleId,
+    });
+
+    if (!res.valid) {
+      mediaComplianceErrors++;
+    }
+  }
+
+  if (mediaComplianceErrors > 0) {
+    safeError(`❌ Found ${mediaComplianceErrors} PrivateMediaObjects violating ready evidence or vehicle ownership invariants`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ PrivateMediaObject evidence & vehicle ownership triggers verified across ${allPrivateMedia.length} media rows`);
   }
 
   if (invariantsPassed) {

@@ -55,6 +55,19 @@ export interface ChronologicalValidationInput {
   remedyCreatedAt?: Date | string | number | null;
 }
 
+export interface PrivateMediaValidationInput {
+  publicReference: string;
+  ownerType: string;
+  ownerId: string;
+  purpose: string;
+  status: string;
+  declaredMimeType?: string | null;
+  detectedMimeType?: string | null;
+  byteSize?: number | null;
+  checksum?: string | null;
+  linkedVehicleId?: string | null;
+}
+
 export interface InvariantResult {
   valid: boolean;
   errors: string[];
@@ -228,6 +241,38 @@ export function validateChronologicalSequence(input: ChronologicalValidationInpu
       if (clTime > remTime) {
         errors.push(`Claim creation (${input.claimCreatedAt}) cannot follow remedy (${input.remedyCreatedAt})`);
       }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates PrivateMediaObject ready evidence and vehicle ownership trigger constraints.
+ */
+export function validatePrivateMediaCompliance(input: PrivateMediaValidationInput): InvariantResult {
+  const errors: string[] = [];
+
+  // 1. Ready evidence check constraint: status == 'READY' => detectedMimeType, byteSize, checksum all non-null
+  if (input.status === "READY") {
+    if (!input.detectedMimeType || !input.detectedMimeType.trim()) {
+      errors.push(`READY PrivateMediaObject (${input.publicReference}) requires non-null detectedMimeType`);
+    }
+    if (input.byteSize == null || input.byteSize <= 0) {
+      errors.push(`READY PrivateMediaObject (${input.publicReference}) requires non-null positive byteSize`);
+    }
+    if (!input.checksum || !input.checksum.trim()) {
+      errors.push(`READY PrivateMediaObject (${input.publicReference}) requires non-null checksum`);
+    }
+  }
+
+  // 2. Vehicle document trigger constraint: linked to VehicleDocument/Media => ownerType === 'VEHICLE' && ownerId === linkedVehicleId
+  if (input.linkedVehicleId) {
+    if (input.ownerType !== "VEHICLE") {
+      errors.push(`Vehicle-linked PrivateMediaObject (${input.publicReference}) requires ownerType === 'VEHICLE', got '${input.ownerType}'`);
+    }
+    if (input.ownerId !== input.linkedVehicleId) {
+      errors.push(`Vehicle-linked PrivateMediaObject (${input.publicReference}) requires ownerId === '${input.linkedVehicleId}', got '${input.ownerId}'`);
     }
   }
 

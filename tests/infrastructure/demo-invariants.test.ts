@@ -4,10 +4,12 @@ import {
   validateDriverAssignmentEligibility,
   validateClaimRemedyConsistency,
   validateChronologicalSequence,
+  validatePrivateMediaCompliance,
   CodValidationInput,
   DriverValidationInput,
   ClaimValidationInput,
   ChronologicalValidationInput,
+  PrivateMediaValidationInput,
 } from "@/lib/invariants/demo-invariants";
 
 describe("Extracted Invariant Engine & Operational Policies", () => {
@@ -233,6 +235,74 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
       const result = validateChronologicalSequence(input);
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(2);
+    });
+  });
+
+  describe("validatePrivateMediaCompliance", () => {
+    it("validates compliant driver and vehicle private media objects", () => {
+      const driverLicence: PrivateMediaValidationInput = {
+        publicReference: "PMO-LIC-0001",
+        ownerType: "DRIVER",
+        ownerId: "drv-profile-01",
+        purpose: "DRIVER_LICENCE",
+        status: "READY",
+        declaredMimeType: "application/pdf",
+        detectedMimeType: "application/pdf",
+        byteSize: 245000,
+        checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      };
+      expect(validatePrivateMediaCompliance(driverLicence).valid).toBe(true);
+
+      const vehicleRegistration: PrivateMediaValidationInput = {
+        publicReference: "PMO-VEH-0001",
+        ownerType: "VEHICLE",
+        ownerId: "veh-001",
+        purpose: "VEHICLE_REGISTRATION",
+        status: "READY",
+        declaredMimeType: "application/pdf",
+        detectedMimeType: "application/pdf",
+        byteSize: 185000,
+        checksum: "ca978112ca1bbdcafac231b39a23dc4da78608141966ccd9ee4c32b50937a3f3",
+        linkedVehicleId: "veh-001",
+      };
+      expect(validatePrivateMediaCompliance(vehicleRegistration).valid).toBe(true);
+    });
+
+    it("rejects READY private media missing detectedMimeType or byteSize or checksum", () => {
+      const missingEvidence: PrivateMediaValidationInput = {
+        publicReference: "PMO-LIC-0002",
+        ownerType: "DRIVER",
+        ownerId: "drv-profile-02",
+        purpose: "DRIVER_LICENCE",
+        status: "READY",
+        declaredMimeType: "application/pdf",
+        detectedMimeType: null, // Missing detectedMimeType
+        byteSize: 245000,
+        checksum: null, // Missing checksum
+      };
+      const result = validatePrivateMediaCompliance(missingEvidence);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("requires non-null detectedMimeType"))).toBe(true);
+      expect(result.errors.some((e) => e.includes("requires non-null checksum"))).toBe(true);
+    });
+
+    it("rejects vehicle-linked private media where ownerType is not VEHICLE or ownerId does not match vehicleId", () => {
+      const wrongOwner: PrivateMediaValidationInput = {
+        publicReference: "PMO-VEH-0002",
+        ownerType: "DRIVER", // Must be VEHICLE per trigger
+        ownerId: "drv-profile-03", // Must be veh-002
+        purpose: "VEHICLE_REGISTRATION",
+        status: "READY",
+        declaredMimeType: "application/pdf",
+        detectedMimeType: "application/pdf",
+        byteSize: 185000,
+        checksum: "ca978112ca1bbdcafac231b39a23dc4da78608141966ccd9ee4c32b50937a3f3",
+        linkedVehicleId: "veh-002",
+      };
+      const result = validatePrivateMediaCompliance(wrongOwner);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("requires ownerType === 'VEHICLE'"))).toBe(true);
+      expect(result.errors.some((e) => e.includes("requires ownerId === 'veh-002'"))).toBe(true);
     });
   });
 });
