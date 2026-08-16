@@ -492,6 +492,9 @@ async function verify() {
         select: {
           id: true,
           publicReference: true,
+          customerUserId: true,
+          approvedByUserId: true,
+          completedByUserId: true,
           method: true,
           status: true,
           amount: true,
@@ -504,6 +507,12 @@ async function verify() {
               refundId: true,
               status: true,
               providerRefundId: true,
+            },
+          },
+          fundingAllocations: {
+            select: {
+              amount: true,
+              sourceType: true,
             },
           },
         },
@@ -533,6 +542,9 @@ async function verify() {
         method: ref.method as "ORIGINAL_PAYMENT_METHOD" | "CUSTOMER_WALLET",
         status: ref.status,
         amount: ref.amount.toString(),
+        customerUserId: ref.customerUserId,
+        approvedByUserId: ref.approvedByUserId,
+        completedByUserId: ref.completedByUserId,
         reserveLedgerJournalId: ref.reserveLedgerJournalId,
         completionLedgerJournalId: ref.completionLedgerJournalId,
         currentAttemptId: ref.currentAttemptId,
@@ -544,6 +556,10 @@ async function verify() {
               providerRefundId: ref.currentAttempt.providerRefundId,
             }
           : null,
+        fundingAllocations: ref.fundingAllocations.map((fa) => ({
+          amount: fa.amount.toString(),
+          sourceType: fa.sourceType,
+        })),
         allPaymentRefunds,
       });
 

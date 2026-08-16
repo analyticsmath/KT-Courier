@@ -87,7 +87,7 @@ import { rebuildStorefrontCategoryDocument } from "../lib/services/storefront-ca
 import { toInputJsonObject } from "../lib/json/input-json";
 import { ensureWalletForOwner, ensureLedgerAccount } from "../lib/services/wallet-account.service";
 import { ensureCustomerRefundWallet } from "../lib/services/customer-wallet.service";
-import { postLedgerJournal } from "../lib/services/ledger-posting.service";
+import { postLedgerJournal, postLedgerJournalWithinTransaction } from "../lib/services/ledger-posting.service";
 
 const prisma = new PrismaClient();
 const projectionService = new StorefrontProjectionService();
@@ -280,7 +280,8 @@ async function seedExternalRefundWithEvidence(params: {
   customerId: string;
   remedyAmount: number;
   createdAt: Date;
-  superAdminId: string;
+  financeApproverUserId: string;
+  financeCompleterUserId: string;
   isMixed?: boolean;
 }) {
   const remedyAmountDec = new Prisma.Decimal(params.remedyAmount);
@@ -291,141 +292,241 @@ async function seedExternalRefundWithEvidence(params: {
   const providerRefundId = `pf_ref_${params.claim.id}`;
   const providerPaymentId = `pf_seed_${params.paymentId}`;
 
-  // 1. Wallets & Accounts
+  // Check idempotency for existing succeeded refund
+  const existing = await prisma.paymentRefund.findUnique({
+    where: { publicReference: refPubRef },
+  });
+  if (existing && existing.status === RefundStatus.SUCCEEDED) {
+    return existing;
+  }
+
+  // 1. Wallets & Accounts provisioned before transaction
   const platformWallet = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
   const platformHeldAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" });
   const platformCashAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
   const customerWallet = await ensureCustomerRefundWallet(params.customerId);
   const customerRefundHeldAccount = customerWallet.refundHeld;
 
-  // 2. Reservation Journal (REFUND_RESERVE)
-  const resJournal = await postLedgerJournal({
-    idempotencyKey: `idem_jnl_ref_res_${params.claim.id}`,
-    type: LedgerJournalType.REFUND_RESERVE,
-    currency: LedgerCurrency.ZAR,
-    sourceReference: `refund:${refPubRef}:reserve`,
-    correlationId: refPubRef,
-    memo: `Claim refund reserve for ${params.claim.publicReference}`,
-    actor: { kind: "USER", userId: params.superAdminId },
-    metadata: { refundReference: refPubRef, paymentReference: params.paymentPublicReference },
-    entries: [
-      { accountId: platformHeldAccount.id, direction: "DEBIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_SOURCE_HELD" },
-      { accountId: customerRefundHeldAccount.id, direction: "CREDIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_HELD_RESERVE" },
-    ],
-  });
+  // 2. Perform COMPLETE canonical refund lifecycle in ONE atomic interactive transaction
+  return await prisma.$transaction(async (tx) => {
+    // A. Post canonical reservation journal (REFUND_RESERVE)
+    const resJournal = await postLedgerJournalWithinTransaction(tx, {
+      idempotencyKey: `idem_jnl_ref_res_${params.claim.id}`,
+      type: "REFUND_RESERVE",
+      currency: "ZAR",
+      sourceReference: `refund:${refPubRef}:reserve`,
+      correlationId: refPubRef,
+      memo: `Claim refund reserve for ${params.claim.publicReference}`,
+      actor: { kind: "USER", userId: params.financeApproverUserId },
+      metadata: { refundReference: refPubRef, paymentReference: params.paymentPublicReference },
+      entries: [
+        { accountId: platformHeldAccount.id, direction: "DEBIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_SOURCE_HELD" },
+        { accountId: customerRefundHeldAccount.id, direction: "CREDIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_HELD_RESERVE" },
+      ],
+    });
 
-  // 3. Create PaymentRefund in APPROVED state
-  const refund = await prisma.paymentRefund.upsert({
-    where: { publicReference: refPubRef },
-    update: {},
-    create: {
-      publicReference: refPubRef,
-      paymentId: params.paymentId,
-      customerUserId: params.customerId,
-      method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
-      amount: remedyAmountDec,
-      currency: LedgerCurrency.ZAR,
-      status: RefundStatus.APPROVED,
-      reasonCode: RefundReasonCode.CUSTOMER_SERVICE_RESOLUTION,
-      customerNote: params.isMixed ? "Deposit portion refund on damaged mixed-payment order." : "Damaged transit resolution refund.",
-      financeNote: params.isMixed ? "Claim approved with digital deposit refund remedy." : "Claim approved with partial refund remedy.",
-      creationIdempotencyKey: refIdem,
-      creationRequestHash: refHash,
-      reserveLedgerJournalId: resJournal.id,
-      approvedByUserId: params.superAdminId,
-      approvedAt: params.createdAt,
-      createdAt: params.createdAt,
-    },
-  });
+    // B. Create PaymentRefund in REQUESTED state
+    const refund = await tx.paymentRefund.create({
+      data: {
+        publicReference: refPubRef,
+        paymentId: params.paymentId,
+        customerUserId: params.customerId,
+        method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
+        amount: remedyAmountDec,
+        currency: LedgerCurrency.ZAR,
+        status: RefundStatus.REQUESTED,
+        reasonCode: RefundReasonCode.CUSTOMER_SERVICE_RESOLUTION,
+        customerNote: params.isMixed ? "Deposit portion refund on damaged mixed-payment order." : "Damaged transit resolution refund.",
+        financeNote: params.isMixed ? "Claim approved with digital deposit refund remedy." : "Claim approved with partial refund remedy.",
+        creationIdempotencyKey: refIdem,
+        creationRequestHash: refHash,
+        reserveLedgerJournalId: resJournal.id,
+        createdAt: params.createdAt,
+      },
+    });
 
-  // 4. Funding Allocation
-  await prisma.refundFundingAllocation.upsert({
-    where: { publicReference: `RFA-${params.claim.publicReference}` },
-    update: {},
-    create: {
-      publicReference: `RFA-${params.claim.publicReference}`,
-      refundId: refund.id,
-      sourceType: RefundFundingSourceType.CUSTOMER_FUNDS_HELD,
-      ledgerAccountId: platformHeldAccount.id,
-      amount: remedyAmountDec,
-      currency: LedgerCurrency.ZAR,
-      createdAt: params.createdAt,
-    },
-  });
+    // C. Create RefundFundingAllocation
+    await tx.refundFundingAllocation.create({
+      data: {
+        publicReference: `RFA-${params.claim.publicReference}`,
+        refundId: refund.id,
+        sourceType: RefundFundingSourceType.CUSTOMER_FUNDS_HELD,
+        ledgerAccountId: platformHeldAccount.id,
+        amount: remedyAmountDec,
+        currency: LedgerCurrency.ZAR,
+        createdAt: params.createdAt,
+      },
+    });
 
-  // 5. Provider Execution Attempt (SUCCEEDED)
-  const attempt = await prisma.refundExecutionAttempt.upsert({
-    where: { publicReference: attemptRef },
-    update: {},
-    create: {
-      publicReference: attemptRef,
-      refundId: refund.id,
-      attemptNumber: 1,
-      provider: PaymentProvider.PAYFAST,
-      method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
-      status: RefundAttemptStatus.SUCCEEDED,
-      idempotencyKey: `idem_att_ref_${params.claim.id}`,
-      requestHash: createHash("sha256").update(`ATT-${params.claim.id}`).digest("hex"),
-      providerRefundId,
-      providerPaymentId,
-      initiatedByUserId: params.superAdminId,
-      completedByUserId: params.superAdminId,
-      startedAt: params.createdAt,
-      completedAt: params.createdAt,
-      createdAt: params.createdAt,
-    },
-  });
+    // D. Initial RefundStatusHistory: null -> REQUESTED
+    await tx.refundStatusHistory.create({
+      data: {
+        refundId: refund.id,
+        fromStatus: null,
+        toStatus: RefundStatus.REQUESTED,
+        actorType: RefundHistoryActorType.CUSTOMER,
+        actorUserId: params.customerId,
+        operationId: `CLM-REQ-${params.claim.id}`,
+        reasonCode: "REFUND_REQUESTED_FROM_CLAIM",
+        createdAt: params.createdAt,
+      },
+    });
 
-  // 6. External Payout Completion Journal (REFUND_EXTERNAL_PAYOUT)
-  const payoutJournal = await postLedgerJournal({
-    idempotencyKey: `idem_jnl_ref_payout_${params.claim.id}`,
-    type: LedgerJournalType.REFUND_EXTERNAL_PAYOUT,
-    currency: LedgerCurrency.ZAR,
-    sourceReference: `refund:${refPubRef}:external-payout`,
-    correlationId: refPubRef,
-    memo: `External refund payout for ${refPubRef}`,
-    actor: { kind: "USER", userId: params.superAdminId },
-    metadata: {
-      refundReference: refPubRef,
-      paymentReference: params.paymentPublicReference,
-      method: "ORIGINAL_PAYMENT_METHOD",
-      attemptReference: attempt.publicReference,
-      providerRefundId,
-    },
-    entries: [
-      { accountId: customerRefundHeldAccount.id, direction: "DEBIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_HELD_DEBIT" },
-      { accountId: platformCashAccount.id, direction: "CREDIT", amount: params.remedyAmount.toFixed(2), lineCode: "CASH_CLEARING_CREDIT" },
-    ],
-  });
+    // E. Transition REQUESTED -> APPROVED
+    await tx.paymentRefund.update({
+      where: { id: refund.id },
+      data: {
+        status: RefundStatus.APPROVED,
+        approvedByUserId: params.financeApproverUserId,
+        approvedAt: params.createdAt,
+        version: { increment: 1 },
+      },
+    });
 
-  // 7. Atomic Finalization of PaymentRefund + Payment Projection + Status History
-  await prisma.$transaction([
-    prisma.paymentRefund.update({
+    await tx.refundStatusHistory.create({
+      data: {
+        refundId: refund.id,
+        fromStatus: RefundStatus.REQUESTED,
+        toStatus: RefundStatus.APPROVED,
+        actorType: RefundHistoryActorType.FINANCE_ADMIN,
+        actorUserId: params.financeApproverUserId,
+        operationId: `CLM-APP-${params.claim.id}`,
+        reasonCode: "REFUND_APPROVED_BY_FINANCE",
+        createdAt: params.createdAt,
+      },
+    });
+
+    // F. Provider Attempt Staging: RESERVED -> PROCESSING
+    const attempt = await tx.refundExecutionAttempt.create({
+      data: {
+        publicReference: attemptRef,
+        refundId: refund.id,
+        attemptNumber: 1,
+        provider: PaymentProvider.PAYFAST,
+        method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
+        status: RefundAttemptStatus.RESERVED,
+        idempotencyKey: `idem_att_ref_${params.claim.id}`,
+        requestHash: createHash("sha256").update(`ATT-${params.claim.id}`).digest("hex"),
+        providerPaymentId,
+        initiatedByUserId: params.financeApproverUserId,
+        createdAt: params.createdAt,
+      },
+    });
+
+    await tx.refundExecutionAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: RefundAttemptStatus.PROCESSING,
+        startedAt: params.createdAt,
+        safeRequestSnapshot: {
+          refundReference: refPubRef,
+          paymentReference: params.paymentPublicReference,
+          amount: params.remedyAmount.toFixed(2),
+          currency: "ZAR",
+          provider: "PAYFAST",
+        },
+        version: { increment: 1 },
+      },
+    });
+
+    await tx.paymentRefund.update({
+      where: { id: refund.id },
+      data: {
+        status: RefundStatus.PROCESSING,
+        currentAttemptId: attempt.id,
+        latestAttemptNumber: 1,
+        version: { increment: 1 },
+      },
+    });
+
+    await tx.refundStatusHistory.create({
+      data: {
+        refundId: refund.id,
+        attemptId: attempt.id,
+        fromStatus: RefundStatus.APPROVED,
+        toStatus: RefundStatus.PROCESSING,
+        actorType: RefundHistoryActorType.FINANCE_ADMIN,
+        actorUserId: params.financeApproverUserId,
+        operationId: `CLM-PROC-${params.claim.id}`,
+        reasonCode: "PROVIDER_ATTEMPT_STARTED",
+        safeMetadata: { attemptReference: attempt.publicReference, provider: "PAYFAST" },
+        createdAt: params.createdAt,
+      },
+    });
+
+    // G. Post canonical external payout completion journal (REFUND_EXTERNAL_PAYOUT)
+    const payoutJournal = await postLedgerJournalWithinTransaction(tx, {
+      idempotencyKey: `idem_jnl_ref_payout_${params.claim.id}`,
+      type: "REFUND_EXTERNAL_PAYOUT",
+      currency: "ZAR",
+      sourceReference: `refund:${refPubRef}:external-payout`,
+      correlationId: refPubRef,
+      memo: `External refund payout for ${refPubRef}`,
+      actor: { kind: "USER", userId: params.financeCompleterUserId },
+      metadata: {
+        refundReference: refPubRef,
+        paymentReference: params.paymentPublicReference,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        attemptReference: attempt.publicReference,
+        providerRefundId,
+      },
+      entries: [
+        { accountId: customerRefundHeldAccount.id, direction: "DEBIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_HELD_DEBIT" },
+        { accountId: platformCashAccount.id, direction: "CREDIT", amount: params.remedyAmount.toFixed(2), lineCode: "CASH_CLEARING_CREDIT" },
+      ],
+    });
+
+    // H. Finalize attempt PROCESSING -> SUCCEEDED
+    await tx.refundExecutionAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: RefundAttemptStatus.SUCCEEDED,
+        providerRefundId,
+        safeResultSnapshot: {
+          status: "SUCCEEDED",
+          providerRefundId,
+          providerPaymentId,
+          definitive: true,
+        },
+        completedByUserId: params.financeCompleterUserId,
+        completedAt: params.createdAt,
+        version: { increment: 1 },
+      },
+    });
+
+    // I. Update Payment projection atomically (increment totalRefundedAmount)
+    await tx.payment.update({
+      where: { id: params.paymentId },
+      data: {
+        totalRefundedAmount: { increment: remedyAmountDec },
+        version: { increment: 1 },
+      },
+    });
+
+    // J. Update PaymentRefund to SUCCEEDED
+    const finalizedRefund = await tx.paymentRefund.update({
       where: { id: refund.id },
       data: {
         status: RefundStatus.SUCCEEDED,
         currentAttemptId: attempt.id,
         latestAttemptNumber: 1,
         completionLedgerJournalId: payoutJournal.id,
-        completedByUserId: params.superAdminId,
+        completedByUserId: params.financeCompleterUserId,
         completedAt: params.createdAt,
+        version: { increment: 1 },
       },
-    }),
-    prisma.payment.update({
-      where: { id: params.paymentId },
-      data: {
-        totalRefundedAmount: { increment: remedyAmountDec },
-      },
-    }),
-    prisma.refundStatusHistory.create({
+    });
+
+    // K. Terminal RefundStatusHistory: PROCESSING -> SUCCEEDED
+    await tx.refundStatusHistory.create({
       data: {
         refundId: refund.id,
         attemptId: attempt.id,
-        fromStatus: RefundStatus.APPROVED,
+        fromStatus: RefundStatus.PROCESSING,
         toStatus: RefundStatus.SUCCEEDED,
         actorType: RefundHistoryActorType.PROVIDER,
-        actorUserId: params.superAdminId,
-        operationId: `CLM-REM-OP-${params.claim.id}`,
+        actorUserId: params.financeCompleterUserId,
+        operationId: `CLM-FIN-${params.claim.id}`,
         reasonCode: "PROVIDER_REFUND_SUCCEEDED",
         safeMetadata: {
           attemptReference: attempt.publicReference,
@@ -434,10 +535,10 @@ async function seedExternalRefundWithEvidence(params: {
         },
         createdAt: params.createdAt,
       },
-    }),
-  ]);
+    });
 
-  return refund;
+    return finalizedRefund;
+  });
 }
 
 async function main() {
@@ -608,12 +709,14 @@ async function main() {
     { email: "finance.admin.02@demo.ktcouriers.test", name: "Annelize Botha", title: "Senior Finance Controller" },
     { email: "finance.admin.03@demo.ktcouriers.test", name: "Lindiwe Ndlovu", title: "Settlement & Payout Lead" },
   ];
+  const finAdminUsers: Array<Awaited<ReturnType<typeof prisma.user.upsert>>> = [];
   for (const a of finAdmins) {
-    await prisma.user.upsert({
+    const u = await prisma.user.upsert({
       where: { email: a.email },
       update: { passwordHash, status: UserStatus.ACTIVE },
       create: { email: a.email, passwordHash, name: a.name, role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: HISTORICAL_START, adminProfile: { create: { displayName: a.name, jobTitle: a.title, department: "Finance" } } },
     });
+    finAdminUsers.push(u);
   }
 
   // 3 Support Staff
@@ -1913,7 +2016,8 @@ async function main() {
             customerId,
             remedyAmount,
             createdAt,
-            superAdminId: superAdmin.id,
+            financeApproverUserId: finAdminUsers[0]!.id,
+            financeCompleterUserId: finAdminUsers[1]!.id,
             isMixed: false,
           });
 
@@ -1944,7 +2048,8 @@ async function main() {
             customerId,
             remedyAmount,
             createdAt,
-            superAdminId: superAdmin.id,
+            financeApproverUserId: finAdminUsers[0]!.id,
+            financeCompleterUserId: finAdminUsers[1]!.id,
             isMixed: true,
           });
 

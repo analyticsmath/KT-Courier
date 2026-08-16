@@ -94,6 +94,9 @@ export interface RefundExecutionValidationInput {
   method: "ORIGINAL_PAYMENT_METHOD" | "CUSTOMER_WALLET";
   status: string;
   amount: number | string;
+  customerUserId?: string | null;
+  approvedByUserId?: string | null;
+  completedByUserId?: string | null;
   reserveLedgerJournalId: string;
   completionLedgerJournalId?: string | null;
   currentAttemptId?: string | null;
@@ -103,6 +106,10 @@ export interface RefundExecutionValidationInput {
     status: string;
     providerRefundId?: string | null;
   } | null;
+  fundingAllocations?: Array<{
+    amount: number | string;
+    sourceType?: string;
+  }>;
   allPaymentRefunds?: Array<{
     id: string;
     amount: number | string;
@@ -428,6 +435,32 @@ export function validateRefundExecutionEvidence(input: RefundExecutionValidation
       if (input.currentAttemptId || input.currentAttempt) {
         errors.push(`CUSTOMER_WALLET refund ${input.refundPublicReference} must not have external provider attempt evidence`);
       }
+    }
+
+    // Dual-control validation for SUCCEEDED refunds
+    if (!input.approvedByUserId) {
+      errors.push(`SUCCEEDED refund ${input.refundPublicReference} lacks approvedByUserId`);
+    }
+    if (!input.completedByUserId) {
+      errors.push(`SUCCEEDED refund ${input.refundPublicReference} lacks completedByUserId`);
+    }
+    if (input.approvedByUserId && input.completedByUserId && input.approvedByUserId === input.completedByUserId) {
+      errors.push(`Refund ${input.refundPublicReference} violates dual-control: approver (${input.approvedByUserId}) cannot equal completer (${input.completedByUserId})`);
+    }
+    if (input.customerUserId && input.approvedByUserId && input.customerUserId === input.approvedByUserId) {
+      errors.push(`Refund ${input.refundPublicReference} violates dual-control: customer (${input.customerUserId}) cannot approve refund`);
+    }
+    if (input.customerUserId && input.completedByUserId && input.customerUserId === input.completedByUserId) {
+      errors.push(`Refund ${input.refundPublicReference} violates dual-control: customer (${input.customerUserId}) cannot complete refund`);
+    }
+  }
+
+  // 4. Funding Allocation Sum Check (PaymentRefund_funding_sum invariant)
+  if (input.fundingAllocations && input.fundingAllocations.length > 0) {
+    const allocTotal = input.fundingAllocations.reduce((sum, a) => sum + Number(a.amount), 0);
+    const refundAmt = Number(input.amount);
+    if (Math.abs(allocTotal - refundAmt) > 0.01) {
+      errors.push(`Refund ${input.refundPublicReference} funding allocations sum (${allocTotal}) does not match refund amount (${refundAmt})`);
     }
   }
 

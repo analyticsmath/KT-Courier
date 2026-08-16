@@ -445,7 +445,7 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
   });
 
   describe("validateRefundExecutionEvidence", () => {
-    it("validates a compliant ORIGINAL_PAYMENT_METHOD SUCCEEDED refund with valid attempt and projection", () => {
+    it("validates a compliant ORIGINAL_PAYMENT_METHOD SUCCEEDED refund with valid attempt, dual control, funding, and projection", () => {
       const input: RefundExecutionValidationInput = {
         refundId: "ref-001",
         refundPublicReference: "PRF-CLM-001",
@@ -456,6 +456,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 200.0,
+        customerUserId: "cust-001",
+        approvedByUserId: "fin-approver-001",
+        completedByUserId: "fin-completer-002",
         reserveLedgerJournalId: "jnl-res-001",
         completionLedgerJournalId: "jnl-comp-001",
         currentAttemptId: "att-001",
@@ -465,6 +468,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
           status: "SUCCEEDED",
           providerRefundId: "pf_ref_12345",
         },
+        fundingAllocations: [
+          { amount: 200.0, sourceType: "CUSTOMER_FUNDS_HELD" },
+        ],
         allPaymentRefunds: [
           { id: "ref-001", amount: 200.0, status: "SUCCEEDED" },
         ],
@@ -485,10 +491,16 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "CUSTOMER_WALLET",
         status: "SUCCEEDED",
         amount: 150.0,
+        customerUserId: "cust-002",
+        approvedByUserId: "fin-approver-001",
+        completedByUserId: "fin-completer-002",
         reserveLedgerJournalId: "jnl-res-002",
         completionLedgerJournalId: "jnl-comp-002",
         currentAttemptId: null,
         currentAttempt: null,
+        fundingAllocations: [
+          { amount: 150.0, sourceType: "CUSTOMER_FUNDS_HELD" },
+        ],
         allPaymentRefunds: [
           { id: "ref-002", amount: 150.0, status: "SUCCEEDED" },
         ],
@@ -509,6 +521,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 100.0,
+        customerUserId: "cust-003",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-003",
         completionLedgerJournalId: "jnl-comp-003",
         currentAttemptId: null, // Invalid: missing attempt
@@ -530,6 +545,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 100.0,
+        customerUserId: "cust-004",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-004",
         completionLedgerJournalId: "jnl-comp-004",
         currentAttemptId: "att-foreign",
@@ -556,6 +574,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 100.0,
+        customerUserId: "cust-005",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-005",
         completionLedgerJournalId: "jnl-comp-005",
         currentAttemptId: "att-005",
@@ -582,6 +603,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 100.0,
+        customerUserId: "cust-006",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-006",
         completionLedgerJournalId: "jnl-comp-006",
         currentAttemptId: "att-006",
@@ -608,6 +632,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 100.0,
+        customerUserId: "cust-007",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-007",
         completionLedgerJournalId: null, // Invalid: missing completion journal
         currentAttemptId: "att-007",
@@ -634,6 +661,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 200.0,
+        customerUserId: "cust-008",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-008",
         completionLedgerJournalId: "jnl-comp-008",
         currentAttemptId: "att-008",
@@ -663,6 +693,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 200.0,
+        customerUserId: "cust-009",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-009",
         completionLedgerJournalId: "jnl-comp-009",
         currentAttemptId: "att-009",
@@ -692,6 +725,9 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
         method: "ORIGINAL_PAYMENT_METHOD",
         status: "SUCCEEDED",
         amount: 250.0,
+        customerUserId: "cust-010",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
         reserveLedgerJournalId: "jnl-res-010",
         completionLedgerJournalId: "jnl-comp-010",
         currentAttemptId: "att-010",
@@ -705,6 +741,96 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
       const result = validateRefundExecutionEvidence(input);
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("exceeds captured amount"))).toBe(true);
+    });
+
+    it("fails when financial dual-control is violated by identical approver and completer", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-011",
+        refundPublicReference: "PRF-CLM-011",
+        paymentId: "pay-011",
+        paymentAmount: 500.0,
+        paymentTotalRefundedAmount: 200.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 200.0,
+        customerUserId: "cust-011",
+        approvedByUserId: "fin-admin-same",
+        completedByUserId: "fin-admin-same", // Invalid: same actor cannot approve and complete
+        reserveLedgerJournalId: "jnl-res-011",
+        completionLedgerJournalId: "jnl-comp-011",
+        currentAttemptId: "att-011",
+        currentAttempt: {
+          id: "att-011",
+          refundId: "ref-011",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_011",
+        },
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("violates dual-control: approver (fin-admin-same) cannot equal completer (fin-admin-same)"))).toBe(true);
+    });
+
+    it("fails when financial dual-control is violated by customer approving refund", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-012",
+        refundPublicReference: "PRF-CLM-012",
+        paymentId: "pay-012",
+        paymentAmount: 500.0,
+        paymentTotalRefundedAmount: 200.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 200.0,
+        customerUserId: "user-cust-12",
+        approvedByUserId: "user-cust-12", // Invalid: customer cannot approve
+        completedByUserId: "fin-002",
+        reserveLedgerJournalId: "jnl-res-012",
+        completionLedgerJournalId: "jnl-comp-012",
+        currentAttemptId: "att-012",
+        currentAttempt: {
+          id: "att-012",
+          refundId: "ref-012",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_012",
+        },
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("violates dual-control: customer (user-cust-12) cannot approve refund"))).toBe(true);
+    });
+
+    it("fails when funding allocations sum does not match refund amount", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-013",
+        refundPublicReference: "PRF-CLM-013",
+        paymentId: "pay-013",
+        paymentAmount: 500.0,
+        paymentTotalRefundedAmount: 200.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 200.0,
+        customerUserId: "cust-013",
+        approvedByUserId: "fin-001",
+        completedByUserId: "fin-002",
+        reserveLedgerJournalId: "jnl-res-013",
+        completionLedgerJournalId: "jnl-comp-013",
+        currentAttemptId: "att-013",
+        currentAttempt: {
+          id: "att-013",
+          refundId: "ref-013",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_013",
+        },
+        fundingAllocations: [
+          { amount: 100.0, sourceType: "CUSTOMER_FUNDS_HELD" }, // Invalid: 100 !== 200
+        ],
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("funding allocations sum (100) does not match refund amount (200)"))).toBe(true);
     });
   });
 });
