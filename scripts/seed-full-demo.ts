@@ -55,6 +55,9 @@ import {
   RefundStatus,
   RefundReasonCode,
   RefundMethod,
+  RefundAttemptStatus,
+  RefundFundingSourceType,
+  RefundHistoryActorType,
   LedgerJournalType,
   ManagedMarketingRequestStatus,
 } from "@prisma/client";
@@ -83,6 +86,7 @@ import { rebuildStorefrontStoreDocument } from "../lib/services/storefront-store
 import { rebuildStorefrontCategoryDocument } from "../lib/services/storefront-category.service";
 import { toInputJsonObject } from "../lib/json/input-json";
 import { ensureWalletForOwner, ensureLedgerAccount } from "../lib/services/wallet-account.service";
+import { ensureCustomerRefundWallet } from "../lib/services/customer-wallet.service";
 import { postLedgerJournal } from "../lib/services/ledger-posting.service";
 
 const prisma = new PrismaClient();
@@ -185,11 +189,12 @@ async function seedPaymentWithEvidence(params: {
 
     const attempt = await prisma.paymentAttempt.upsert({
       where: { publicReference: patRef },
-      update: { status: "SUCCEEDED", completedAt: params.createdAt },
+      update: { status: "SUCCEEDED", completedAt: params.createdAt, providerReference: `pf_seed_${payment.id}` },
       create: {
         publicReference: patRef,
         paymentId: payment.id,
         merchantReference: mRef,
+        providerReference: `pf_seed_${payment.id}`,
         provider: PaymentProvider.PAYFAST,
         providerEnvironment: "SANDBOX",
         amount: amountDec,
@@ -266,6 +271,173 @@ async function seedPaymentWithEvidence(params: {
   }
 
   return payment;
+}
+
+async function seedExternalRefundWithEvidence(params: {
+  claim: { id: string; publicReference: string };
+  paymentId: string;
+  paymentPublicReference: string;
+  customerId: string;
+  remedyAmount: number;
+  createdAt: Date;
+  superAdminId: string;
+  isMixed?: boolean;
+}) {
+  const remedyAmountDec = new Prisma.Decimal(params.remedyAmount);
+  const refPubRef = `PRF-${params.claim.publicReference}`;
+  const refIdem = `idem_ref_${params.claim.id}`;
+  const refHash = createHash("sha256").update(`REF-${params.claim.id}`).digest("hex");
+  const attemptRef = `RPA-${params.claim.publicReference}`;
+  const providerRefundId = `pf_ref_${params.claim.id}`;
+  const providerPaymentId = `pf_seed_${params.paymentId}`;
+
+  // 1. Wallets & Accounts
+  const platformWallet = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
+  const platformHeldAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" });
+  const platformCashAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
+  const customerWallet = await ensureCustomerRefundWallet(params.customerId);
+  const customerRefundHeldAccount = customerWallet.refundHeld;
+
+  // 2. Reservation Journal (REFUND_RESERVE)
+  const resJournal = await postLedgerJournal({
+    idempotencyKey: `idem_jnl_ref_res_${params.claim.id}`,
+    type: LedgerJournalType.REFUND_RESERVE,
+    currency: LedgerCurrency.ZAR,
+    sourceReference: `refund:${refPubRef}:reserve`,
+    correlationId: refPubRef,
+    memo: `Claim refund reserve for ${params.claim.publicReference}`,
+    actor: { kind: "USER", userId: params.superAdminId },
+    metadata: { refundReference: refPubRef, paymentReference: params.paymentPublicReference },
+    entries: [
+      { accountId: platformHeldAccount.id, direction: "DEBIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_SOURCE_HELD" },
+      { accountId: customerRefundHeldAccount.id, direction: "CREDIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_HELD_RESERVE" },
+    ],
+  });
+
+  // 3. Create PaymentRefund in APPROVED state
+  const refund = await prisma.paymentRefund.upsert({
+    where: { publicReference: refPubRef },
+    update: {},
+    create: {
+      publicReference: refPubRef,
+      paymentId: params.paymentId,
+      customerUserId: params.customerId,
+      method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
+      amount: remedyAmountDec,
+      currency: LedgerCurrency.ZAR,
+      status: RefundStatus.APPROVED,
+      reasonCode: RefundReasonCode.CUSTOMER_SERVICE_RESOLUTION,
+      customerNote: params.isMixed ? "Deposit portion refund on damaged mixed-payment order." : "Damaged transit resolution refund.",
+      financeNote: params.isMixed ? "Claim approved with digital deposit refund remedy." : "Claim approved with partial refund remedy.",
+      creationIdempotencyKey: refIdem,
+      creationRequestHash: refHash,
+      reserveLedgerJournalId: resJournal.id,
+      approvedByUserId: params.superAdminId,
+      approvedAt: params.createdAt,
+      createdAt: params.createdAt,
+    },
+  });
+
+  // 4. Funding Allocation
+  await prisma.refundFundingAllocation.upsert({
+    where: { publicReference: `RFA-${params.claim.publicReference}` },
+    update: {},
+    create: {
+      publicReference: `RFA-${params.claim.publicReference}`,
+      refundId: refund.id,
+      sourceType: RefundFundingSourceType.CUSTOMER_FUNDS_HELD,
+      ledgerAccountId: platformHeldAccount.id,
+      amount: remedyAmountDec,
+      currency: LedgerCurrency.ZAR,
+      createdAt: params.createdAt,
+    },
+  });
+
+  // 5. Provider Execution Attempt (SUCCEEDED)
+  const attempt = await prisma.refundExecutionAttempt.upsert({
+    where: { publicReference: attemptRef },
+    update: {},
+    create: {
+      publicReference: attemptRef,
+      refundId: refund.id,
+      attemptNumber: 1,
+      provider: PaymentProvider.PAYFAST,
+      method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
+      status: RefundAttemptStatus.SUCCEEDED,
+      idempotencyKey: `idem_att_ref_${params.claim.id}`,
+      requestHash: createHash("sha256").update(`ATT-${params.claim.id}`).digest("hex"),
+      providerRefundId,
+      providerPaymentId,
+      initiatedByUserId: params.superAdminId,
+      completedByUserId: params.superAdminId,
+      startedAt: params.createdAt,
+      completedAt: params.createdAt,
+      createdAt: params.createdAt,
+    },
+  });
+
+  // 6. External Payout Completion Journal (REFUND_EXTERNAL_PAYOUT)
+  const payoutJournal = await postLedgerJournal({
+    idempotencyKey: `idem_jnl_ref_payout_${params.claim.id}`,
+    type: LedgerJournalType.REFUND_EXTERNAL_PAYOUT,
+    currency: LedgerCurrency.ZAR,
+    sourceReference: `refund:${refPubRef}:external-payout`,
+    correlationId: refPubRef,
+    memo: `External refund payout for ${refPubRef}`,
+    actor: { kind: "USER", userId: params.superAdminId },
+    metadata: {
+      refundReference: refPubRef,
+      paymentReference: params.paymentPublicReference,
+      method: "ORIGINAL_PAYMENT_METHOD",
+      attemptReference: attempt.publicReference,
+      providerRefundId,
+    },
+    entries: [
+      { accountId: customerRefundHeldAccount.id, direction: "DEBIT", amount: params.remedyAmount.toFixed(2), lineCode: "REFUND_HELD_DEBIT" },
+      { accountId: platformCashAccount.id, direction: "CREDIT", amount: params.remedyAmount.toFixed(2), lineCode: "CASH_CLEARING_CREDIT" },
+    ],
+  });
+
+  // 7. Atomic Finalization of PaymentRefund + Payment Projection + Status History
+  await prisma.$transaction([
+    prisma.paymentRefund.update({
+      where: { id: refund.id },
+      data: {
+        status: RefundStatus.SUCCEEDED,
+        currentAttemptId: attempt.id,
+        latestAttemptNumber: 1,
+        completionLedgerJournalId: payoutJournal.id,
+        completedByUserId: params.superAdminId,
+        completedAt: params.createdAt,
+      },
+    }),
+    prisma.payment.update({
+      where: { id: params.paymentId },
+      data: {
+        totalRefundedAmount: { increment: remedyAmountDec },
+      },
+    }),
+    prisma.refundStatusHistory.create({
+      data: {
+        refundId: refund.id,
+        attemptId: attempt.id,
+        fromStatus: RefundStatus.APPROVED,
+        toStatus: RefundStatus.SUCCEEDED,
+        actorType: RefundHistoryActorType.PROVIDER,
+        actorUserId: params.superAdminId,
+        operationId: `CLM-REM-OP-${params.claim.id}`,
+        reasonCode: "PROVIDER_REFUND_SUCCEEDED",
+        safeMetadata: {
+          attemptReference: attempt.publicReference,
+          providerRefundId,
+          completionJournalId: payoutJournal.id,
+        },
+        createdAt: params.createdAt,
+      },
+    }),
+  ]);
+
+  return refund;
 }
 
 async function main() {
@@ -1733,46 +1905,16 @@ async function main() {
       if (claimStatus === ClaimStatus.DECIDED) {
         if (isDigital && paymentRecord && paymentRecord.status === PaymentStatus.SUCCEEDED) {
           const remedyAmount = Math.round(price * 0.5 * 100) / 100;
-          const refIdem = `idem_ref_${claim.id}`;
-          const refHash = createHash("sha256").update(`REF-${claim.id}`).digest("hex");
 
-          const resJournal = await postLedgerJournal({
-            idempotencyKey: `idem_jnl_ref_${claim.id}`,
-            type: LedgerJournalType.REFUND_RESERVE,
-            currency: LedgerCurrency.ZAR,
-            sourceReference: `refund:claim:${claim.publicReference}`,
-            correlationId: claim.publicReference,
-            memo: `Claim refund reserve for ${claim.publicReference}`,
-            actor: { kind: "USER", userId: superAdmin.id },
-            entries: [
-              { accountId: heldAccount.id, direction: "DEBIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_HELD_DEBIT" },
-              { accountId: platformCashAccount.id, direction: "CREDIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_CREDIT" },
-            ],
-          });
-
-          const refund = await prisma.paymentRefund.upsert({
-            where: { publicReference: `PRF-${claim.publicReference}` },
-            update: {},
-            create: {
-              publicReference: `PRF-${claim.publicReference}`,
-              paymentId: paymentRecord.id,
-              customerUserId: customerId,
-              method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
-              amount: new Prisma.Decimal(remedyAmount),
-              currency: LedgerCurrency.ZAR,
-              status: RefundStatus.SUCCEEDED,
-              reasonCode: RefundReasonCode.CUSTOMER_SERVICE_RESOLUTION,
-              customerNote: "Damaged transit resolution refund.",
-              financeNote: "Claim approved with partial refund remedy.",
-              creationIdempotencyKey: refIdem,
-              creationRequestHash: refHash,
-              reserveLedgerJournalId: resJournal.id,
-              approvedByUserId: superAdmin.id,
-              approvedAt: createdAt,
-              completedByUserId: superAdmin.id,
-              completedAt: createdAt,
-              createdAt,
-            },
+          const refund = await seedExternalRefundWithEvidence({
+            claim,
+            paymentId: paymentRecord.id,
+            paymentPublicReference: paymentRecord.publicReference,
+            customerId,
+            remedyAmount,
+            createdAt,
+            superAdminId: superAdmin.id,
+            isMixed: false,
           });
 
           await prisma.claimRemedy.upsert({
@@ -1794,46 +1936,16 @@ async function main() {
           // MIXED claim: partial refund against digital deposit
           const deposit = Math.round(price * 0.2 * 100) / 100;
           const remedyAmount = Math.round(deposit * 0.5 * 100) / 100;
-          const refIdem = `idem_ref_dep_${claim.id}`;
-          const refHash = createHash("sha256").update(`REF-DEP-${claim.id}`).digest("hex");
 
-          const resJournal = await postLedgerJournal({
-            idempotencyKey: `idem_jnl_ref_dep_${claim.id}`,
-            type: LedgerJournalType.REFUND_RESERVE,
-            currency: LedgerCurrency.ZAR,
-            sourceReference: `refund:mixed_claim:${claim.publicReference}`,
-            correlationId: claim.publicReference,
-            memo: `Mixed claim deposit refund reserve for ${claim.publicReference}`,
-            actor: { kind: "USER", userId: superAdmin.id },
-            entries: [
-              { accountId: heldAccount.id, direction: "DEBIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_HELD_DEBIT" },
-              { accountId: platformCashAccount.id, direction: "CREDIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_CREDIT" },
-            ],
-          });
-
-          const refund = await prisma.paymentRefund.upsert({
-            where: { publicReference: `PRF-${claim.publicReference}` },
-            update: {},
-            create: {
-              publicReference: `PRF-${claim.publicReference}`,
-              paymentId: paymentRecord.id,
-              customerUserId: customerId,
-              method: RefundMethod.ORIGINAL_PAYMENT_METHOD,
-              amount: new Prisma.Decimal(remedyAmount),
-              currency: LedgerCurrency.ZAR,
-              status: RefundStatus.SUCCEEDED,
-              reasonCode: RefundReasonCode.CUSTOMER_SERVICE_RESOLUTION,
-              customerNote: "Deposit portion refund on damaged mixed-payment order.",
-              financeNote: "Claim approved with digital deposit refund remedy.",
-              creationIdempotencyKey: refIdem,
-              creationRequestHash: refHash,
-              reserveLedgerJournalId: resJournal.id,
-              approvedByUserId: superAdmin.id,
-              approvedAt: createdAt,
-              completedByUserId: superAdmin.id,
-              completedAt: createdAt,
-              createdAt,
-            },
+          const refund = await seedExternalRefundWithEvidence({
+            claim,
+            paymentId: paymentRecord.id,
+            paymentPublicReference: paymentRecord.publicReference,
+            customerId,
+            remedyAmount,
+            createdAt,
+            superAdminId: superAdmin.id,
+            isMixed: true,
           });
 
           await prisma.claimRemedy.upsert({

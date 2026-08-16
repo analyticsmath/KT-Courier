@@ -8,6 +8,7 @@ import {
   validateChronologicalSequence,
   validatePrivateMediaCompliance,
   validateOrderAssignmentPointerConsistency,
+  validateRefundExecutionEvidence,
 } from "../lib/invariants/demo-invariants";
 import process from "node:process";
 
@@ -477,6 +478,89 @@ async function verify() {
     invariantsPassed = false;
   } else {
     safeLog(`✓ Order current-driver pointer & activeOrderGuard consistency verified across ${allOrdersWithAssignments.length} orders`);
+  }
+
+  // Check 12: Phase 15 PaymentRefund Execution Evidence & Accounting Projections
+  const allPaymentsWithRefunds = await prisma.payment.findMany({
+    select: {
+      id: true,
+      publicReference: true,
+      amount: true,
+      totalRefundedAmount: true,
+      totalRefundReservedAmount: true,
+      refunds: {
+        select: {
+          id: true,
+          publicReference: true,
+          method: true,
+          status: true,
+          amount: true,
+          reserveLedgerJournalId: true,
+          completionLedgerJournalId: true,
+          currentAttemptId: true,
+          currentAttempt: {
+            select: {
+              id: true,
+              refundId: true,
+              status: true,
+              providerRefundId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  let refundExecutionErrors = 0;
+  let totalRefundsChecked = 0;
+
+  for (const p of allPaymentsWithRefunds) {
+    const allPaymentRefunds = p.refunds.map((r) => ({
+      id: r.id,
+      amount: r.amount.toString(),
+      status: r.status,
+    }));
+
+    for (const ref of p.refunds) {
+      totalRefundsChecked++;
+      const res = validateRefundExecutionEvidence({
+        refundId: ref.id,
+        refundPublicReference: ref.publicReference,
+        paymentId: p.id,
+        paymentAmount: p.amount.toString(),
+        paymentTotalRefundedAmount: p.totalRefundedAmount.toString(),
+        paymentTotalRefundReservedAmount: p.totalRefundReservedAmount.toString(),
+        method: ref.method as "ORIGINAL_PAYMENT_METHOD" | "CUSTOMER_WALLET",
+        status: ref.status,
+        amount: ref.amount.toString(),
+        reserveLedgerJournalId: ref.reserveLedgerJournalId,
+        completionLedgerJournalId: ref.completionLedgerJournalId,
+        currentAttemptId: ref.currentAttemptId,
+        currentAttempt: ref.currentAttempt
+          ? {
+              id: ref.currentAttempt.id,
+              refundId: ref.currentAttempt.refundId,
+              status: ref.currentAttempt.status,
+              providerRefundId: ref.currentAttempt.providerRefundId,
+            }
+          : null,
+        allPaymentRefunds,
+      });
+
+      if (!res.valid) {
+        refundExecutionErrors++;
+        for (const err of res.errors) {
+          safeError(`  [Refund Invariant Error] ${err}`);
+        }
+      }
+    }
+  }
+
+  if (refundExecutionErrors > 0) {
+    safeError(`❌ Found ${refundExecutionErrors} PaymentRefunds violating execution evidence or payment projection invariants`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ PaymentRefund execution evidence & payment projections verified across ${totalRefundsChecked} refunds on ${allPaymentsWithRefunds.length} payments`);
   }
 
   if (invariantsPassed) {

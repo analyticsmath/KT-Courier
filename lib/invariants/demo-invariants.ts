@@ -84,6 +84,32 @@ export interface OrderAssignmentValidationInput {
   }>;
 }
 
+export interface RefundExecutionValidationInput {
+  refundId: string;
+  refundPublicReference: string;
+  paymentId: string;
+  paymentAmount: number | string;
+  paymentTotalRefundedAmount: number | string;
+  paymentTotalRefundReservedAmount: number | string;
+  method: "ORIGINAL_PAYMENT_METHOD" | "CUSTOMER_WALLET";
+  status: string;
+  amount: number | string;
+  reserveLedgerJournalId: string;
+  completionLedgerJournalId?: string | null;
+  currentAttemptId?: string | null;
+  currentAttempt?: {
+    id: string;
+    refundId: string;
+    status: string;
+    providerRefundId?: string | null;
+  } | null;
+  allPaymentRefunds?: Array<{
+    id: string;
+    amount: number | string;
+    status: string;
+  }>;
+}
+
 export interface InvariantResult {
   valid: boolean;
   errors: string[];
@@ -333,6 +359,74 @@ export function validateOrderAssignmentPointerConsistency(input: OrderAssignment
       // Terminal statuses
       if (a.activeOrderGuard != null) {
         errors.push(`Order ${input.orderNumber} assignment with terminal status ${a.status} requires activeOrderGuard === null, got '${a.activeOrderGuard}'`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates Phase 15 refund execution evidence, provider attempt linkage, and payment projection accounting.
+ */
+export function validateRefundExecutionEvidence(input: RefundExecutionValidationInput): InvariantResult {
+  const errors: string[] = [];
+
+  const payAmt = Number(input.paymentAmount);
+  const payRefunded = Number(input.paymentTotalRefundedAmount);
+  const payReserved = Number(input.paymentTotalRefundReservedAmount);
+
+  // 1. Universal payment ceiling check
+  if (payRefunded + payReserved > payAmt + 0.01) {
+    errors.push(`Payment ${input.paymentId} refund projection (refunded ${payRefunded} + reserved ${payReserved}) exceeds captured amount (${payAmt})`);
+  }
+
+  // 2. Aggregate reconciliation if allPaymentRefunds provided
+  if (input.allPaymentRefunds) {
+    const expectedSucceeded = input.allPaymentRefunds
+      .filter((r) => r.status === "SUCCEEDED")
+      .reduce((sum, r) => sum + Number(r.amount), 0);
+    const expectedReserved = input.allPaymentRefunds
+      .filter((r) => ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "RECONCILIATION_REQUIRED"].includes(r.status))
+      .reduce((sum, r) => sum + Number(r.amount), 0);
+
+    if (Math.abs(expectedSucceeded - payRefunded) > 0.01) {
+      errors.push(`Payment ${input.paymentId} totalRefundedAmount (${payRefunded}) disagrees with SUCCEEDED refunds sum (${expectedSucceeded})`);
+    }
+    if (Math.abs(expectedReserved - payReserved) > 0.01) {
+      errors.push(`Payment ${input.paymentId} totalRefundReservedAmount (${payReserved}) disagrees with reserved refunds sum (${expectedReserved})`);
+    }
+  }
+
+  // 3. SUCCEEDED refund requirements
+  if (input.status === "SUCCEEDED") {
+    if (!input.completionLedgerJournalId) {
+      errors.push(`SUCCEEDED refund ${input.refundPublicReference} lacks completionLedgerJournalId`);
+    }
+
+    if (input.method === "ORIGINAL_PAYMENT_METHOD") {
+      if (!input.currentAttemptId) {
+        errors.push(`ORIGINAL_PAYMENT_METHOD SUCCEEDED refund ${input.refundPublicReference} lacks currentAttemptId`);
+      } else if (!input.currentAttempt) {
+        errors.push(`ORIGINAL_PAYMENT_METHOD SUCCEEDED refund ${input.refundPublicReference} has currentAttemptId (${input.currentAttemptId}) but attempt was not found`);
+      } else {
+        if (input.currentAttempt.id !== input.currentAttemptId) {
+          errors.push(`Refund ${input.refundPublicReference} currentAttemptId mismatch (${input.currentAttemptId} vs ${input.currentAttempt.id})`);
+        }
+        if (input.currentAttempt.refundId !== input.refundId) {
+          errors.push(`Refund ${input.refundPublicReference} current attempt belongs to another refund (${input.currentAttempt.refundId})`);
+        }
+        if (input.currentAttempt.status !== "SUCCEEDED") {
+          errors.push(`Refund ${input.refundPublicReference} current attempt status is ${input.currentAttempt.status}, expected SUCCEEDED`);
+        }
+        if (!input.currentAttempt.providerRefundId || !input.currentAttempt.providerRefundId.trim()) {
+          errors.push(`Refund ${input.refundPublicReference} successful provider attempt lacks providerRefundId`);
+        }
+      }
+    } else if (input.method === "CUSTOMER_WALLET") {
+      // Wallet refund: completion must NOT fabricate an external provider attempt
+      if (input.currentAttemptId || input.currentAttempt) {
+        errors.push(`CUSTOMER_WALLET refund ${input.refundPublicReference} must not have external provider attempt evidence`);
       }
     }
   }

@@ -6,12 +6,14 @@ import {
   validateChronologicalSequence,
   validatePrivateMediaCompliance,
   validateOrderAssignmentPointerConsistency,
+  validateRefundExecutionEvidence,
   CodValidationInput,
   DriverValidationInput,
   ClaimValidationInput,
   ChronologicalValidationInput,
   PrivateMediaValidationInput,
   OrderAssignmentValidationInput,
+  RefundExecutionValidationInput,
 } from "@/lib/invariants/demo-invariants";
 
 describe("Extracted Invariant Engine & Operational Policies", () => {
@@ -439,6 +441,270 @@ describe("Extracted Invariant Engine & Operational Policies", () => {
       const result = validateOrderAssignmentPointerConsistency(input);
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("has currentDriverProfileId (drv-007) but no ACCEPTED assignment"))).toBe(true);
+    });
+  });
+
+  describe("validateRefundExecutionEvidence", () => {
+    it("validates a compliant ORIGINAL_PAYMENT_METHOD SUCCEEDED refund with valid attempt and projection", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-001",
+        refundPublicReference: "PRF-CLM-001",
+        paymentId: "pay-001",
+        paymentAmount: 500.0,
+        paymentTotalRefundedAmount: 200.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 200.0,
+        reserveLedgerJournalId: "jnl-res-001",
+        completionLedgerJournalId: "jnl-comp-001",
+        currentAttemptId: "att-001",
+        currentAttempt: {
+          id: "att-001",
+          refundId: "ref-001",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_12345",
+        },
+        allPaymentRefunds: [
+          { id: "ref-001", amount: 200.0, status: "SUCCEEDED" },
+        ],
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("validates a compliant CUSTOMER_WALLET SUCCEEDED refund with no external attempt", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-002",
+        refundPublicReference: "PRF-CLM-002",
+        paymentId: "pay-002",
+        paymentAmount: 300.0,
+        paymentTotalRefundedAmount: 150.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "CUSTOMER_WALLET",
+        status: "SUCCEEDED",
+        amount: 150.0,
+        reserveLedgerJournalId: "jnl-res-002",
+        completionLedgerJournalId: "jnl-comp-002",
+        currentAttemptId: null,
+        currentAttempt: null,
+        allPaymentRefunds: [
+          { id: "ref-002", amount: 150.0, status: "SUCCEEDED" },
+        ],
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("fails when ORIGINAL_PAYMENT_METHOD SUCCEEDED refund lacks currentAttemptId", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-003",
+        refundPublicReference: "PRF-CLM-003",
+        paymentId: "pay-003",
+        paymentAmount: 400.0,
+        paymentTotalRefundedAmount: 100.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 100.0,
+        reserveLedgerJournalId: "jnl-res-003",
+        completionLedgerJournalId: "jnl-comp-003",
+        currentAttemptId: null, // Invalid: missing attempt
+        currentAttempt: null,
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("lacks currentAttemptId"))).toBe(true);
+    });
+
+    it("fails when current attempt belongs to another refund", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-004",
+        refundPublicReference: "PRF-CLM-004",
+        paymentId: "pay-004",
+        paymentAmount: 400.0,
+        paymentTotalRefundedAmount: 100.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 100.0,
+        reserveLedgerJournalId: "jnl-res-004",
+        completionLedgerJournalId: "jnl-comp-004",
+        currentAttemptId: "att-foreign",
+        currentAttempt: {
+          id: "att-foreign",
+          refundId: "ref-other-999", // Invalid: foreign refund
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_999",
+        },
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("belongs to another refund"))).toBe(true);
+    });
+
+    it("fails when current attempt status is not SUCCEEDED", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-005",
+        refundPublicReference: "PRF-CLM-005",
+        paymentId: "pay-005",
+        paymentAmount: 400.0,
+        paymentTotalRefundedAmount: 100.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 100.0,
+        reserveLedgerJournalId: "jnl-res-005",
+        completionLedgerJournalId: "jnl-comp-005",
+        currentAttemptId: "att-005",
+        currentAttempt: {
+          id: "att-005",
+          refundId: "ref-005",
+          status: "PROCESSING", // Invalid: attempt not succeeded
+          providerRefundId: "pf_ref_005",
+        },
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("expected SUCCEEDED"))).toBe(true);
+    });
+
+    it("fails when successful external attempt lacks providerRefundId", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-006",
+        refundPublicReference: "PRF-CLM-006",
+        paymentId: "pay-006",
+        paymentAmount: 400.0,
+        paymentTotalRefundedAmount: 100.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 100.0,
+        reserveLedgerJournalId: "jnl-res-006",
+        completionLedgerJournalId: "jnl-comp-006",
+        currentAttemptId: "att-006",
+        currentAttempt: {
+          id: "att-006",
+          refundId: "ref-006",
+          status: "SUCCEEDED",
+          providerRefundId: null, // Invalid: null provider refund id
+        },
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("lacks providerRefundId"))).toBe(true);
+    });
+
+    it("fails when successful refund lacks completionLedgerJournalId", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-007",
+        refundPublicReference: "PRF-CLM-007",
+        paymentId: "pay-007",
+        paymentAmount: 400.0,
+        paymentTotalRefundedAmount: 100.0,
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 100.0,
+        reserveLedgerJournalId: "jnl-res-007",
+        completionLedgerJournalId: null, // Invalid: missing completion journal
+        currentAttemptId: "att-007",
+        currentAttempt: {
+          id: "att-007",
+          refundId: "ref-007",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_007",
+        },
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("lacks completionLedgerJournalId"))).toBe(true);
+    });
+
+    it("fails when successful refund remains counted in totalRefundReservedAmount", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-008",
+        refundPublicReference: "PRF-CLM-008",
+        paymentId: "pay-008",
+        paymentAmount: 500.0,
+        paymentTotalRefundedAmount: 200.0,
+        paymentTotalRefundReservedAmount: 200.0, // Invalid: still counted in reserved projection
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 200.0,
+        reserveLedgerJournalId: "jnl-res-008",
+        completionLedgerJournalId: "jnl-comp-008",
+        currentAttemptId: "att-008",
+        currentAttempt: {
+          id: "att-008",
+          refundId: "ref-008",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_008",
+        },
+        allPaymentRefunds: [
+          { id: "ref-008", amount: 200.0, status: "SUCCEEDED" },
+        ],
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("totalRefundReservedAmount (200) disagrees with reserved refunds sum (0)"))).toBe(true);
+    });
+
+    it("fails when Payment.totalRefundedAmount disagrees with successful refund totals", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-009",
+        refundPublicReference: "PRF-CLM-009",
+        paymentId: "pay-009",
+        paymentAmount: 500.0,
+        paymentTotalRefundedAmount: 100.0, // Invalid: disagrees with 200 sum
+        paymentTotalRefundReservedAmount: 0.0,
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 200.0,
+        reserveLedgerJournalId: "jnl-res-009",
+        completionLedgerJournalId: "jnl-comp-009",
+        currentAttemptId: "att-009",
+        currentAttempt: {
+          id: "att-009",
+          refundId: "ref-009",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_009",
+        },
+        allPaymentRefunds: [
+          { id: "ref-009", amount: 200.0, status: "SUCCEEDED" },
+        ],
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("totalRefundedAmount (100) disagrees with SUCCEEDED refunds sum (200)"))).toBe(true);
+    });
+
+    it("fails when reserved + refunded exceeds captured payment amount", () => {
+      const input: RefundExecutionValidationInput = {
+        refundId: "ref-010",
+        refundPublicReference: "PRF-CLM-010",
+        paymentId: "pay-010",
+        paymentAmount: 300.0, // Payment amount is only 300
+        paymentTotalRefundedAmount: 250.0,
+        paymentTotalRefundReservedAmount: 100.0, // 250 + 100 = 350 > 300
+        method: "ORIGINAL_PAYMENT_METHOD",
+        status: "SUCCEEDED",
+        amount: 250.0,
+        reserveLedgerJournalId: "jnl-res-010",
+        completionLedgerJournalId: "jnl-comp-010",
+        currentAttemptId: "att-010",
+        currentAttempt: {
+          id: "att-010",
+          refundId: "ref-010",
+          status: "SUCCEEDED",
+          providerRefundId: "pf_ref_010",
+        },
+      };
+      const result = validateRefundExecutionEvidence(input);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("exceeds captured amount"))).toBe(true);
     });
   });
 });
