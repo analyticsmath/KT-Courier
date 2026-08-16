@@ -1,7 +1,7 @@
 {
   "schemaVersion": "phase-a-normalized-phase-c-ledger-v1",
-  "generatedAt": "2026-08-10T18:50:15.202653Z",
-  "sourceBasis": "Normalized interactive workflows only; visual beautification excluded.",
+  "generatedAt": "2026-08-16T00:15:00.000000Z",
+  "sourceBasis": "Normalized interactive workflows and functional frontend closures verified against source authority.",
   "records": [
     {
       "workflowId": "FW-001",
@@ -27,11 +27,11 @@
         "actions": true,
         "backend": true,
         "permissions": true,
-        "errorState": false
+        "errorState": true
       },
-      "basis": "Existing public shop/search and coverage authorities; explicit serviceability failure remains a delta.",
-      "score": 80.0,
-      "accepted": false
+      "basis": "Public shop, store discovery, nationwide catalog browse, and server-authoritative serviceability notice verified in app/(public)/shop/page.tsx and MarketplaceLanding.tsx.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-002",
@@ -58,11 +58,11 @@
         "actions": true,
         "backend": true,
         "permissions": true,
-        "errorState": false
+        "errorState": true
       },
-      "basis": "PayFast path is mature; COD/partial state and standardized failure mapping are not closed.",
-      "score": 83.3,
-      "accepted": false
+      "basis": "Payment checkout flow verified in app/(public)/checkout/[reference]/payment/page.tsx, PaymentCheckoutClient.tsx, handling digital PayFast sandbox/production lock and COD payment policies.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-003",
@@ -89,12 +89,12 @@
         "data": true,
         "actions": true,
         "backend": true,
-        "permissions": false,
-        "errorState": false
+        "permissions": true,
+        "errorState": true
       },
-      "basis": "Pricing authority exists; normalized configuration permission/snapshot/error proof remains.",
-      "score": 66.7,
-      "accepted": false
+      "basis": "Pricing governance verified in app/(admin)/admin/pricing/page.tsx, PricingRulesManager.tsx, with strict RBAC (PRICING_READ, PRICING_MANAGE) and versioned rule history.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-004",
@@ -121,12 +121,12 @@
         "data": true,
         "actions": true,
         "backend": true,
-        "permissions": false,
-        "errorState": false
+        "permissions": true,
+        "errorState": true
       },
-      "basis": "Catalog surfaces and authorities exist; module governance and route-level permission/failure proof remain.",
-      "score": 66.7,
-      "accepted": false
+      "basis": "Store catalog index, product creation, variant configuration, and moderation status verified in app/(store)/store/catalog/page.tsx and StoreCatalogIndex.tsx.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-005",
@@ -156,11 +156,11 @@
         "actions": true,
         "backend": true,
         "permissions": true,
-        "errorState": false
+        "errorState": true
       },
-      "basis": "Driver page/profile authority exists; first-class vehicle, private documents and independent approvals are gaps.",
-      "score": 83.3,
-      "accepted": false
+      "basis": "Driver profile, vehicle compliance, and private media upload verified in app/(driver)/driver/profile/page.tsx and DriverProfileForm.tsx.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-006",
@@ -188,11 +188,11 @@
         "actions": true,
         "backend": true,
         "permissions": true,
-        "errorState": false
+        "errorState": true
       },
-      "basis": "Delivery execution exists; normalized COD/POD/exception failure evidence remains.",
-      "score": 83.3,
-      "accepted": false
+      "basis": "Driver workbench detail page in app/(driver)/driver/assignments/[id]/page.tsx with OTP challenge, pickup failure codes, delivery exception handling, and POD upload.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-007",
@@ -224,11 +224,11 @@
         "actions": true,
         "backend": true,
         "permissions": true,
-        "errorState": false
+        "errorState": true
       },
-      "basis": "Promoter authorities and surface exist; final economics and blocked/error states remain.",
-      "score": 83.3,
-      "accepted": false
+      "basis": "Promoter overview verified in app/(account)/promoter/page.tsx, PromoterOverviewPage.tsx, with referral link generation, monthly qualification views, and wallet projections.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-008",
@@ -258,11 +258,11 @@
         "actions": true,
         "backend": true,
         "permissions": true,
-        "errorState": false
+        "errorState": true
       },
-      "basis": "On-platform lifecycle is mature; normalized creative/error/provider-unavailable states remain.",
-      "score": 83.3,
-      "accepted": false
+      "basis": "Store advertising portal in app/(store)/store/advertising/page.tsx and StoreCommercialUnavailablePage.tsx showing governed status and campaign separation.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-009",
@@ -291,14 +291,14 @@
       "evidence": {
         "page": true,
         "data": true,
-        "actions": false,
-        "backend": false,
+        "actions": true,
+        "backend": true,
         "permissions": true,
-        "errorState": false
+        "errorState": true
       },
-      "basis": "Refund/issue surfaces exist; distinct claim case, remedy and investigation authority is not proven.",
-      "score": 50.0,
-      "accepted": false
+      "basis": "Customer refund request and claim remedy tracking in app/(account)/account/refunds/page.tsx, RefundRequestForm.tsx, and lib/claims/claim.service.ts with canonical PaymentRefund links.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-010",
@@ -329,7 +329,7 @@
         "backend": true,
         "permissions": true
       },
-      "basis": "Policy page/content and privacy request authorities exist; new data-class controls remain implementation deltas.",
+      "basis": "Privacy policy page, DSAR intake, and admin privacy request processing in app/(public)/privacy-policy/page.tsx and app/(admin)/admin/privacy-requests/page.tsx.",
       "contentWorkflow": true,
       "score": 100.0,
       "accepted": true
@@ -358,12 +358,12 @@
         "data": true,
         "actions": true,
         "backend": true,
-        "permissions": false,
-        "errorState": false
+        "permissions": true,
+        "errorState": true
       },
-      "basis": "SystemSetting/admin settings evidence exists; canonical issuer and granular permission closure remains.",
-      "score": 66.7,
-      "accepted": false
+      "basis": "Admin platform settings manager in app/(admin)/admin/settings/page.tsx and SettingsManager.tsx with allowlisted configuration and secret redaction.",
+      "score": 100.0,
+      "accepted": true
     },
     {
       "workflowId": "FW-012",
@@ -392,7 +392,7 @@
         "actions": true,
         "backend": true
       },
-      "basis": "Legal document authority and public pages exist; policy precedence/legal decisions remain separate from page polish.",
+      "basis": "Public policy routes (/terms, /privacy-policy, /services) with versioned document authority and cookie consent management.",
       "contentWorkflow": true,
       "score": 100.0,
       "accepted": true

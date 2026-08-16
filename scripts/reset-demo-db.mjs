@@ -10,16 +10,23 @@ async function main() {
   const env = loadLocalEnv();
   const { currentDbName } = validateDestructiveResetSafety(env);
 
-  safeLog(`Resetting schema for dedicated demo database '${currentDbName}'...`);
+  // Immediate pre-drop re-verification
+  const preDropEnv = loadLocalEnv();
+  const verifiedTarget = validateDestructiveResetSafety(preDropEnv);
+  if (verifiedTarget.currentDbName !== currentDbName) {
+    throw new Error(`Target database changed unexpectedly from '${currentDbName}' to '${verifiedTarget.currentDbName}'. Aborting reset.`);
+  }
+
+  safeLog(`Resetting schema for verified dedicated demo database '${verifiedTarget.currentDbName}' on ${verifiedTarget.host}:${verifiedTarget.port}...`);
   const resetSql = "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO kt_courier; GRANT ALL ON SCHEMA public TO public;";
   
   const res = runCompose(
-    ["exec", "-T", "db", "psql", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", currentDbName],
+    ["exec", "-T", "db", "psql", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", verifiedTarget.currentDbName],
     { input: resetSql }
   );
 
   if (res.status !== 0) {
-    safeError(`Failed to reset schema in '${currentDbName}': ${res.stderr}`);
+    safeError(`Failed to reset schema in '${verifiedTarget.currentDbName}': ${res.stderr}`);
     process.exit(1);
   }
 

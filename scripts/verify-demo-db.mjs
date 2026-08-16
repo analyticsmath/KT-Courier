@@ -163,6 +163,140 @@ async function verify() {
     safeLog("✓ Marketplace economic totals verified non-negative and consistent");
   }
 
+  // Check 7: Driver Eligibility & Vehicle Compliance
+  const invalidAssignments = await prisma.orderAssignment.findMany({
+    where: {
+      driverProfile: {
+        OR: [
+          { status: { not: "ACTIVE" } },
+          { onboardingStatus: { not: "APPROVED" } },
+          { vehicles: { none: { status: "APPROVED" } } },
+        ],
+      },
+    },
+    take: 5,
+    include: { driverProfile: { select: { id: true, driverCode: true, status: true, onboardingStatus: true } } },
+  });
+  if (invalidAssignments.length > 0) {
+    safeError(`❌ Found ${invalidAssignments.length} assignments given to ineligible/non-compliant drivers.`);
+    invariantsPassed = false;
+  } else {
+    safeLog("✓ Driver eligibility & vehicle compliance verified for all assignments");
+  }
+
+  // Check 8: COD & Digital Payment Split Conservation
+  const codRecords = await prisma.cashOnDelivery.findMany({
+    select: {
+      id: true,
+      publicReference: true,
+      policyMode: true,
+      authoritativePayable: true,
+      digitalRequired: true,
+      digitalPaid: true,
+      cashObligation: true,
+      cashCollected: true,
+      cashReconciled: true,
+      status: true,
+      order: {
+        select: {
+          id: true,
+          status: true,
+          currentDriverProfileId: true,
+          payments: {
+            select: { id: true, status: true, amount: true },
+          },
+        },
+      },
+    },
+  });
+
+  let codSplitErrors = 0;
+  let codDoublePaymentErrors = 0;
+
+  for (const cod of codRecords) {
+    const auth = Number(cod.authoritativePayable);
+    const digReq = Number(cod.digitalRequired);
+    const cashObl = Number(cod.cashObligation);
+
+    // Split conservation: digitalRequired + cashObligation === authoritativePayable
+    if (Math.abs((digReq + cashObl) - auth) > 0.01) {
+      codSplitErrors++;
+    }
+
+    // No full-COD + full-digital double payment
+    if (cod.policyMode === "FULL_COD") {
+      const succeededDigital = cod.order?.payments?.find(
+        (p) => p.status === "SUCCEEDED" && Number(p.amount) > 0
+      );
+      if (succeededDigital) {
+        codDoublePaymentErrors++;
+      }
+    }
+  }
+
+  if (codSplitErrors > 0) {
+    safeError(`❌ Found ${codSplitErrors} COD records violating split conservation (digitalRequired + cashObligation !== total)`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ COD split conservation verified across all ${codRecords.length} records`);
+  }
+
+  if (codDoublePaymentErrors > 0) {
+    safeError(`❌ Found ${codDoublePaymentErrors} FULL_COD orders with full digital double payment`);
+    invariantsPassed = false;
+  } else {
+    safeLog("✓ Double-payment protection verified (0 FULL_COD orders have succeeded digital payment)");
+  }
+
+  // Check 9: Claims & Remedy Refund Consistency
+  const claimsWithRemedies = await prisma.claim.findMany({
+    where: { status: "DECIDED" },
+    include: {
+      remedy: {
+        include: { paymentRefund: true },
+      },
+      order: {
+        include: { payments: true },
+      },
+    },
+  });
+
+  let claimRemedyErrors = 0;
+  for (const claim of claimsWithRemedies) {
+    if (!claim.remedy) {
+      claimRemedyErrors++;
+      continue;
+    }
+    if (claim.paymentSource === "DIGITAL" && claim.remedy.type === "PARTIAL_REFUND") {
+      if (!claim.remedy.paymentRefund || Number(claim.remedy.amount) <= 0) {
+        claimRemedyErrors++;
+      }
+    }
+  }
+
+  if (claimRemedyErrors > 0) {
+    safeError(`❌ Found ${claimRemedyErrors} claims with inconsistent remedy or refund linkages`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ Claim remedy & refund consistency verified across ${claimsWithRemedies.length} decided claims`);
+  }
+
+  // Check 10: Strict Chronological Invariants
+  const chronologicalViolations = await prisma.orderAssignment.count({
+    where: {
+      completedAt: {
+        lt: prisma.orderAssignment.fields.assignedAt,
+      },
+    },
+  });
+
+  if (chronologicalViolations > 0) {
+    safeError(`❌ Found ${chronologicalViolations} assignments where completedAt < assignedAt`);
+    invariantsPassed = false;
+  } else {
+    safeLog("✓ Assignment chronological ordering verified (assignedAt <= completedAt)");
+  }
+
   if (invariantsPassed) {
     safeLog("✅ All Database Invariants, Safety Checks & Entity Count Thresholds PASSED!");
   } else {

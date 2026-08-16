@@ -21,16 +21,23 @@ export function validateDestructiveResetSafety(env) {
     throw new Error("Refusing destructive reset in production NODE_ENV.");
   }
 
-  const rawClassification = (env.KT_DATABASE_CLASSIFICATION || process.env.KT_DATABASE_CLASSIFICATION || "development").toLowerCase();
-  if (rawClassification === "production" || rawClassification === "staging") {
-    throw new Error(`Refusing destructive reset on ${rawClassification} database classification.`);
+  const rawClassification = env.KT_DATABASE_CLASSIFICATION || process.env.KT_DATABASE_CLASSIFICATION;
+  if (!rawClassification) {
+    if (nodeEnv !== "test") {
+      throw new Error("KT_DATABASE_CLASSIFICATION must be explicitly set to 'development' or 'test' for destructive resets.");
+    }
   }
-  if (rawClassification !== "development" && rawClassification !== "test") {
+
+  const classification = (rawClassification || (nodeEnv === "test" ? "test" : "")).toLowerCase();
+  if (classification === "production" || classification === "staging") {
+    throw new Error(`Refusing destructive reset on ${classification} database classification.`);
+  }
+  if (classification !== "development" && classification !== "test") {
     throw new Error(`Refusing destructive reset on ambiguous database classification '${rawClassification}'.`);
   }
 
   const allowDemo = env.KT_ALLOW_DEMO_SEED || process.env.KT_ALLOW_DEMO_SEED;
-  if (nodeEnv !== "test" && rawClassification !== "test" && allowDemo !== "true" && allowDemo !== "1") {
+  if (nodeEnv !== "test" && classification !== "test" && allowDemo !== "true" && allowDemo !== "1") {
     throw new Error("Destructive demo reset requires explicit authorization: set KT_ALLOW_DEMO_SEED=true.");
   }
 
