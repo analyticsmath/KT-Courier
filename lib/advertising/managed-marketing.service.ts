@@ -65,13 +65,70 @@ export class ManagedMarketingService {
     };
   }
 
+  private deriveCommercialDto(request: any) {
+    if (request.priceSnapshot == null || request.taxSnapshot == null) return null;
+    try {
+      const { revenue, tax, gross } = this.committedCommercialAmounts(request);
+      return {
+        baseAmount: revenue.toFixed(2),
+        taxRate: new Prisma.Decimal(request.taxSnapshot).toFixed(2),
+        taxAmount: tax.toFixed(2),
+        grossAmount: gross.toFixed(2),
+        currency: request.currency || "ZAR",
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private safeRequest(request: any) {
     const safeChannel = (channel: any) => channel ? this.safeChannelCapability(channel) : channel;
     const safePlacement = (placement: any) => placement ? { ...placement, channelDefinition: safeChannel(placement.channelDefinition) } : placement;
+    const commercial = this.deriveCommercialDto(request);
+
     return {
       ...request,
-      packageVersion: request.packageVersion ? { ...request.packageVersion, channels: request.packageVersion.channels?.map((item: any) => ({ ...item, channelDefinition: safeChannel(item.channelDefinition) })) } : request.packageVersion,
-      channels: request.channels?.map((item: any) => ({ ...item, channelDefinition: safeChannel(item.channelDefinition), placements: item.placements?.map((placement: any) => ({ ...placement, placement: safePlacement(placement.placement) })) })),
+      commercial,
+      priceSnapshot: request.priceSnapshot ? new Prisma.Decimal(request.priceSnapshot).toFixed(2) : null,
+      taxSnapshot: request.taxSnapshot ? new Prisma.Decimal(request.taxSnapshot).toFixed(2) : null,
+      packageVersion: request.packageVersion ? {
+        ...request.packageVersion,
+        priceAmount: request.packageVersion.priceAmount ? new Prisma.Decimal(request.packageVersion.priceAmount).toFixed(2) : null,
+        taxRate: request.packageVersion.taxRate ? new Prisma.Decimal(request.packageVersion.taxRate).toFixed(2) : null,
+        channels: request.packageVersion.channels?.map((item: any) => ({ ...item, channelDefinition: safeChannel(item.channelDefinition) })),
+      } : request.packageVersion,
+      channels: request.channels?.map((item: any) => ({
+        ...item,
+        channelDefinition: safeChannel(item.channelDefinition),
+        placements: item.placements?.map((placement: any) => ({ ...placement, placement: safePlacement(placement.placement) })),
+      })),
+      creatives: request.creatives?.map((c: any) => ({
+        id: c.id,
+        publicReference: c.publicReference,
+        source: c.source,
+        role: c.role,
+        mediaReference: c.privateMediaObject?.publicReference || c.catalogMediaAsset?.publicReference || c.mediaReference || c.publicReference,
+        privateMediaObject: c.privateMediaObject ? {
+          publicReference: c.privateMediaObject.publicReference,
+          originalFileName: c.privateMediaObject.originalFileName,
+          detectedMimeType: c.privateMediaObject.detectedMimeType,
+        } : null,
+        catalogMediaAsset: c.catalogMediaAsset ? {
+          publicReference: c.catalogMediaAsset.publicReference,
+          mimeType: c.catalogMediaAsset.mimeType,
+        } : null,
+        createdAt: typeof c.createdAt === "string" ? c.createdAt : (c.createdAt?.toISOString?.() || new Date().toISOString()),
+      })),
+      performanceRecords: request.performanceRecords?.map((p: any) => ({
+        id: p.id,
+        publicReference: p.publicReference,
+        impressions: p.impressions,
+        clicks: p.clicks,
+        conversions: p.conversions,
+        spendAmount: p.spendAmount ? new Prisma.Decimal(p.spendAmount).toFixed(2) : null,
+        periodStartsAt: typeof p.periodStartsAt === "string" ? p.periodStartsAt : p.periodStartsAt.toISOString(),
+        periodEndsAt: typeof p.periodEndsAt === "string" ? p.periodEndsAt : p.periodEndsAt.toISOString(),
+      })),
     };
   }
 
@@ -259,10 +316,26 @@ export class ManagedMarketingService {
     const request = await (prisma as any).managedMarketingRequest.findFirst({
       where: { publicReference: reference, storeId: store.id },
       include: {
-        packageVersion: { include: { channels: { include: { channelDefinition: true } } } },
+        packageVersion: {
+          include: {
+            channels: {
+              include: {
+                channelDefinition: {
+                  include: {
+                    placements: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }] },
+                  },
+                },
+              },
+            },
+          },
+        },
         channels: {
           include: {
-            channelDefinition: true,
+            channelDefinition: {
+              include: {
+                placements: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }] },
+              },
+            },
             placements: {
               include: {
                 placement: {
@@ -275,13 +348,16 @@ export class ManagedMarketingService {
         creatives: {
           include: {
             privateMediaObject: {
-              select: { publicReference: true, ownerType: true, purpose: true, status: true, detectedMimeType: true, byteSize: true, createdAt: true },
+              select: { publicReference: true, originalFileName: true, ownerType: true, purpose: true, status: true, detectedMimeType: true, byteSize: true, createdAt: true },
             },
             catalogMediaAsset: {
               select: { publicReference: true, purpose: true, status: true, mimeType: true, byteSize: true, createdAt: true },
             },
           },
           orderBy: { createdAt: "asc" },
+        },
+        performanceRecords: {
+          orderBy: { createdAt: "desc" },
         },
         events: { orderBy: { createdAt: "asc" } },
       },
@@ -341,7 +417,55 @@ export class ManagedMarketingService {
 
   async listOwnRequests(actor: ManagedMarketingRequestActor) {
     const store = await this.requireStoreRequestPermission(actor, PERMISSIONS.MANAGED_MARKETING_REQUESTS_READ_OWN);
-    return (await (prisma as any).managedMarketingRequest.findMany({ where: { storeId: store.id }, include: { packageVersion: true, channels: { include: { channelDefinition: true, placements: { include: { placement: true } } } }, creatives: { orderBy: { createdAt: "asc" } }, }, orderBy: { createdAt: "desc" } })).map((request: any) => this.safeRequest(request));
+    return (await (prisma as any).managedMarketingRequest.findMany({
+      where: { storeId: store.id },
+      include: {
+        packageVersion: {
+          include: {
+            channels: {
+              include: {
+                channelDefinition: {
+                  include: {
+                    placements: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }] },
+                  },
+                },
+              },
+            },
+          },
+        },
+        channels: {
+          include: {
+            channelDefinition: {
+              include: {
+                placements: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }] },
+              },
+            },
+            placements: {
+              include: {
+                placement: {
+                  include: { channelDefinition: true, advertisingPlacementDefinition: true },
+                },
+              },
+            },
+          },
+        },
+        creatives: {
+          include: {
+            privateMediaObject: {
+              select: { publicReference: true, originalFileName: true, ownerType: true, purpose: true, status: true, detectedMimeType: true, byteSize: true, createdAt: true },
+            },
+            catalogMediaAsset: {
+              select: { publicReference: true, purpose: true, status: true, mimeType: true, byteSize: true, createdAt: true },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        },
+        performanceRecords: {
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    })).map((request: any) => this.safeRequest(request));
   }
 
   async getOwnRequest(actor: ManagedMarketingRequestActor, reference: string) { return this.safeRequest((await this.getOwnedRequest(actor, reference)).request); }

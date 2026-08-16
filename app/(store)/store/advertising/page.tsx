@@ -102,11 +102,12 @@ export default async function StoreAdvertisingPage() {
 
   try {
     if (store) {
-      // Query entitled store private media
+      // Query entitled store private media (must belong to store, active, and uploaded by requesting actor)
       const rawMedia = await prisma.privateMediaObject.findMany({
         where: {
           ownerType: "STORE",
           ownerId: store.id,
+          createdByUserId: user.id,
           status: { in: ["READY", "RETAINED"] },
           deletedAt: null,
         },
@@ -139,9 +140,15 @@ export default async function StoreAdvertisingPage() {
         instructions?: string | null;
         status: string;
         executionMode: string;
-        priceAmount?: unknown;
-        taxAmount?: unknown;
-        totalAmount?: unknown;
+        commercial?: {
+          baseAmount: string;
+          taxRate: string;
+          taxAmount: string;
+          grossAmount: string;
+          currency: string;
+        } | null;
+        priceSnapshot?: unknown;
+        taxSnapshot?: unknown;
         currency?: string;
         startsAt: Date | string;
         endsAt: Date | string;
@@ -166,6 +173,11 @@ export default async function StoreAdvertisingPage() {
 
       initialRequests = (rawRequests || []).map((r) => {
         const perf = r.performanceRecords?.[0];
+        const baseAmount = r.commercial?.baseAmount || (r.priceSnapshot != null ? String(r.priceSnapshot) : "0.00");
+        const taxAmount = r.commercial?.taxAmount || "0.00";
+        const grossAmount = r.commercial?.grossAmount || baseAmount;
+        const currency = r.commercial?.currency || r.currency || "ZAR";
+
         return {
           id: r.id,
           publicReference: r.publicReference,
@@ -174,10 +186,10 @@ export default async function StoreAdvertisingPage() {
           instructions: r.instructions ?? null,
           status: r.status,
           executionMode: r.executionMode,
-          priceAmount: String(r.priceAmount || "0"),
-          taxAmount: String(r.taxAmount || "0"),
-          totalAmount: String(r.totalAmount || "0"),
-          currency: r.currency || "ZAR",
+          priceAmount: baseAmount,
+          taxAmount: taxAmount,
+          totalAmount: grossAmount,
+          currency,
           startAt: r.startsAt ? (typeof r.startsAt === "string" ? r.startsAt : r.startsAt.toISOString()) : null,
           endAt: r.endsAt ? (typeof r.endsAt === "string" ? r.endsAt : r.endsAt.toISOString()) : null,
           createdAt: typeof r.createdAt === "string" ? r.createdAt : r.createdAt.toISOString(),
@@ -193,7 +205,7 @@ export default async function StoreAdvertisingPage() {
           performanceRecord: perf ? {
             impressions: perf.impressions,
             clicks: perf.clicks,
-            spendAmount: String(perf.spendAmount || "0"),
+            spendAmount: perf.spendAmount != null ? String(perf.spendAmount) : "0.00",
           } : null,
         };
       });

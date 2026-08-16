@@ -407,10 +407,10 @@ export function StoreAdvertisingWorkbench({
   const totalSpend = requests
     .filter((r) => r.status === "COMPLETED" || r.status === "ACTIVE" || r.status === "RUNNING")
     .reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
-  const totalImpressions = requests.reduce(
-    (sum, r) => sum + (r.performanceRecord?.impressions || 0),
-    0
-  );
+  const hasAnyPerformance = requests.some((r) => r.performanceRecord != null);
+  const totalImpressions = hasAnyPerformance
+    ? requests.reduce((sum, r) => sum + (r.performanceRecord?.impressions || 0), 0)
+    : null;
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
@@ -462,7 +462,9 @@ export function StoreAdvertisingWorkbench({
           </div>
         </OperationalPanel>
         <OperationalPanel title="Recorded Impressions" description="Audience impressions recorded" padding="compact">
-          <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1a73e8" }}>{totalImpressions.toLocaleString()}</div>
+          <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1a73e8" }}>
+            {totalImpressions != null ? totalImpressions.toLocaleString() : "Unrecorded"}
+          </div>
         </OperationalPanel>
       </div>
 
@@ -761,70 +763,57 @@ export function StoreAdvertisingWorkbench({
                           {req.status === "DRAFT" && (
                             <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}>
                               {entitledMedia.length > 0 ? (
-                                <select
-                                  value={selectedMediaForDraft[req.publicReference] || entitledMedia[0]?.publicReference || ""}
-                                  onChange={(e) =>
-                                    setSelectedMediaForDraft((prev) => ({
-                                      ...prev,
-                                      [req.publicReference]: e.target.value,
-                                    }))
-                                  }
-                                  style={{
-                                    padding: "2px 6px",
-                                    fontSize: "0.7rem",
-                                    borderRadius: "4px",
-                                    border: "1px solid #ccc",
-                                    maxWidth: "160px",
-                                  }}
-                                >
-                                  {entitledMedia.map((m) => (
-                                    <option key={m.id} value={m.publicReference}>
-                                      {m.fileName} ({m.publicReference.slice(0, 10)})
-                                    </option>
-                                  ))}
-                                </select>
+                                <>
+                                  <select
+                                    value={selectedMediaForDraft[req.publicReference] || entitledMedia[0]?.publicReference || ""}
+                                    onChange={(e) =>
+                                      setSelectedMediaForDraft((prev) => ({
+                                        ...prev,
+                                        [req.publicReference]: e.target.value,
+                                      }))
+                                    }
+                                    style={{
+                                      padding: "2px 6px",
+                                      fontSize: "0.7rem",
+                                      borderRadius: "4px",
+                                      border: "1px solid #ccc",
+                                      maxWidth: "160px",
+                                    }}
+                                  >
+                                    {entitledMedia.map((m) => (
+                                      <option key={m.id} value={m.publicReference}>
+                                        {m.fileName} ({m.publicReference.slice(0, 10)})
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    disabled={attachingMedia[req.publicReference]}
+                                    onClick={() => handleAttachCreative(req.publicReference)}
+                                    style={{
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      border: "1px solid #1a73e8",
+                                      background: "#f0f6ff",
+                                      color: "#1a73e8",
+                                      fontSize: "0.7rem",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    {attachingMedia[req.publicReference] ? "..." : "+ Attach"}
+                                  </button>
+                                </>
                               ) : (
-                                <input
-                                  type="text"
-                                  placeholder="Media reference"
-                                  value={selectedMediaForDraft[req.publicReference] || ""}
-                                  onChange={(e) =>
-                                    setSelectedMediaForDraft((prev) => ({
-                                      ...prev,
-                                      [req.publicReference]: e.target.value,
-                                    }))
-                                  }
-                                  style={{
-                                    padding: "2px 6px",
-                                    fontSize: "0.7rem",
-                                    borderRadius: "4px",
-                                    border: "1px solid #ccc",
-                                    width: "120px",
-                                  }}
-                                />
+                                <span style={{ fontSize: "0.7rem", color: "#c5221f", fontStyle: "italic" }}>
+                                  No entitled media assets available. Upload media in store profile first.
+                                </span>
                               )}
-                              <button
-                                type="button"
-                                disabled={attachingMedia[req.publicReference]}
-                                onClick={() => handleAttachCreative(req.publicReference)}
-                                style={{
-                                  padding: "2px 6px",
-                                  borderRadius: "4px",
-                                  border: "1px solid #1a73e8",
-                                  background: "#f0f6ff",
-                                  color: "#1a73e8",
-                                  fontSize: "0.7rem",
-                                  fontWeight: 700,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                {attachingMedia[req.publicReference] ? "..." : "+ Attach"}
-                              </button>
                             </div>
                           )}
                         </div>
                       </td>
-                      <td style={{ padding: "12px", verticalAlign: "top" }}>{req.packageVersion?.name || "Standard Package"}</td>
+                      <td style={{ padding: "12px", verticalAlign: "top" }}>{req.packageVersion?.name || "Unavailable Package"}</td>
                       <td style={{ padding: "12px", fontWeight: 700, verticalAlign: "top" }}>
                         R {Number(req.totalAmount).toFixed(2)}
                       </td>
