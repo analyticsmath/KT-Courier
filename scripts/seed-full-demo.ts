@@ -56,6 +56,7 @@ import {
   RefundReasonCode,
   RefundMethod,
   LedgerJournalType,
+  ManagedMarketingRequestStatus,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
@@ -81,6 +82,8 @@ import { StorefrontProjectionService } from "../lib/services/storefront-projecti
 import { rebuildStorefrontStoreDocument } from "../lib/services/storefront-store.service";
 import { rebuildStorefrontCategoryDocument } from "../lib/services/storefront-category.service";
 import { toInputJsonObject } from "../lib/json/input-json";
+import { ensureWalletForOwner, ensureLedgerAccount } from "../lib/services/wallet-account.service";
+import { postLedgerJournal } from "../lib/services/ledger-posting.service";
 
 const prisma = new PrismaClient();
 const projectionService = new StorefrontProjectionService();
@@ -1361,6 +1364,13 @@ async function main() {
 
     let paymentRecord: Awaited<ReturnType<typeof seedPaymentWithEvidence>> | null = null;
 
+    // Wallets & Ledger Accounts for Financial Operations
+    const platformWallet = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
+    const driverWallet = await ensureWalletForOwner({ ownerType: "DRIVER", ownerId: assignedDriver.profileId, currency: "ZAR" });
+    const driverCashAccount = await ensureLedgerAccount({ walletId: driverWallet.id, code: `DRIVER-COD-CASH-${assignedDriver.profileId}`, purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
+    const heldAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" });
+    const platformCashAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
+
     if (isFullCod) {
       // FULL_COD: zero digital payment; full cash obligation
       const isCollected = (status === OrderStatus.DELIVERED);
@@ -1368,41 +1378,35 @@ async function main() {
       let recJournalId: string | null = null;
 
       if (isCollected) {
-        const colJournal = await prisma.ledgerJournal.upsert({
-          where: { idempotencyKey: `idem_jnl_col_cod_${i}` },
-          update: {},
-          create: {
-            reference: `jnl_col_cod_${i}`,
-            type: LedgerJournalType.EXTERNAL_PAYMENT_RECEIPT,
-            currency: LedgerCurrency.ZAR,
-            idempotencyKey: `idem_jnl_col_cod_${i}`,
-            correlationId: `ORD-${20250000 + i}`,
-            requestHash: createHash("sha256").update(`COL-${i}`).digest("hex"),
-            policyVersion: "v1",
-            totalDebits: new Prisma.Decimal(price),
-            totalCredits: new Prisma.Decimal(price),
-            postedAt: createdAt,
-            createdAt,
-          },
+        const colJournal = await postLedgerJournal({
+          idempotencyKey: `idem_jnl_col_cod_${i}`,
+          type: LedgerJournalType.GENERAL,
+          currency: LedgerCurrency.ZAR,
+          sourceReference: `cod:ORD-${20250000 + i}:collection`,
+          correlationId: `ORD-${20250000 + i}`,
+          memo: "COD cash collection into driver custody",
+          actor: { kind: "USER", userId: assignedDriver.userId },
+          metadata: { codReference: `COD-ORD-${20250000 + i}`, collectorDriverId: assignedDriver.profileId },
+          entries: [
+            { accountId: driverCashAccount.id, direction: "DEBIT", amount: price.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" },
+            { accountId: heldAccount.id, direction: "CREDIT", amount: price.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" },
+          ],
         });
         colJournalId = colJournal.id;
 
-        const recJournal = await prisma.ledgerJournal.upsert({
-          where: { idempotencyKey: `idem_jnl_rec_cod_${i}` },
-          update: {},
-          create: {
-            reference: `jnl_rec_cod_${i}`,
-            type: LedgerJournalType.ACCOUNT_TRANSFER,
-            currency: LedgerCurrency.ZAR,
-            idempotencyKey: `idem_jnl_rec_cod_${i}`,
-            correlationId: `ORD-${20250000 + i}`,
-            requestHash: createHash("sha256").update(`REC-${i}`).digest("hex"),
-            policyVersion: "v1",
-            totalDebits: new Prisma.Decimal(price),
-            totalCredits: new Prisma.Decimal(price),
-            postedAt: createdAt,
-            createdAt,
-          },
+        const recJournal = await postLedgerJournal({
+          idempotencyKey: `idem_jnl_rec_cod_${i}`,
+          type: LedgerJournalType.GENERAL,
+          currency: LedgerCurrency.ZAR,
+          sourceReference: `cod:ORD-${20250000 + i}:reconciliation`,
+          correlationId: `ORD-${20250000 + i}`,
+          memo: "COD driver custody handover",
+          actor: { kind: "USER", userId: superAdmin.id },
+          metadata: { codReference: `COD-ORD-${20250000 + i}`, collectorDriverId: assignedDriver.profileId },
+          entries: [
+            { accountId: platformCashAccount.id, direction: "DEBIT", amount: price.toFixed(2), lineCode: "PLATFORM_CASH_RECEIVED" },
+            { accountId: driverCashAccount.id, direction: "CREDIT", amount: price.toFixed(2), lineCode: "DRIVER_CUSTODY_RELEASED" },
+          ],
         });
         recJournalId = recJournal.id;
       }
@@ -1505,41 +1509,35 @@ async function main() {
       let recJournalId: string | null = null;
 
       if (isCollected) {
-        const colJournal = await prisma.ledgerJournal.upsert({
-          where: { idempotencyKey: `idem_jnl_col_dep_cod_${i}` },
-          update: {},
-          create: {
-            reference: `jnl_col_dep_cod_${i}`,
-            type: LedgerJournalType.EXTERNAL_PAYMENT_RECEIPT,
-            currency: LedgerCurrency.ZAR,
-            idempotencyKey: `idem_jnl_col_dep_cod_${i}`,
-            correlationId: `ORD-${20250000 + i}`,
-            requestHash: createHash("sha256").update(`COL-DEP-${i}`).digest("hex"),
-            policyVersion: "v1",
-            totalDebits: new Prisma.Decimal(cashObligation),
-            totalCredits: new Prisma.Decimal(cashObligation),
-            postedAt: createdAt,
-            createdAt,
-          },
+        const colJournal = await postLedgerJournal({
+          idempotencyKey: `idem_jnl_col_dep_cod_${i}`,
+          type: LedgerJournalType.GENERAL,
+          currency: LedgerCurrency.ZAR,
+          sourceReference: `cod:ORD-${20250000 + i}:collection`,
+          correlationId: `ORD-${20250000 + i}`,
+          memo: "Deposit+COD cash collection into driver custody",
+          actor: { kind: "USER", userId: assignedDriver.userId },
+          metadata: { codReference: `COD-ORD-${20250000 + i}`, collectorDriverId: assignedDriver.profileId },
+          entries: [
+            { accountId: driverCashAccount.id, direction: "DEBIT", amount: cashObligation.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" },
+            { accountId: heldAccount.id, direction: "CREDIT", amount: cashObligation.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" },
+          ],
         });
         colJournalId = colJournal.id;
 
-        const recJournal = await prisma.ledgerJournal.upsert({
-          where: { idempotencyKey: `idem_jnl_rec_dep_cod_${i}` },
-          update: {},
-          create: {
-            reference: `jnl_rec_dep_cod_${i}`,
-            type: LedgerJournalType.ACCOUNT_TRANSFER,
-            currency: LedgerCurrency.ZAR,
-            idempotencyKey: `idem_jnl_rec_dep_cod_${i}`,
-            correlationId: `ORD-${20250000 + i}`,
-            requestHash: createHash("sha256").update(`REC-DEP-${i}`).digest("hex"),
-            policyVersion: "v1",
-            totalDebits: new Prisma.Decimal(cashObligation),
-            totalCredits: new Prisma.Decimal(cashObligation),
-            postedAt: createdAt,
-            createdAt,
-          },
+        const recJournal = await postLedgerJournal({
+          idempotencyKey: `idem_jnl_rec_dep_cod_${i}`,
+          type: LedgerJournalType.GENERAL,
+          currency: LedgerCurrency.ZAR,
+          sourceReference: `cod:ORD-${20250000 + i}:reconciliation`,
+          correlationId: `ORD-${20250000 + i}`,
+          memo: "Deposit+COD driver custody handover",
+          actor: { kind: "USER", userId: superAdmin.id },
+          metadata: { codReference: `COD-ORD-${20250000 + i}`, collectorDriverId: assignedDriver.profileId },
+          entries: [
+            { accountId: platformCashAccount.id, direction: "DEBIT", amount: cashObligation.toFixed(2), lineCode: "PLATFORM_CASH_RECEIVED" },
+            { accountId: driverCashAccount.id, direction: "CREDIT", amount: cashObligation.toFixed(2), lineCode: "DRIVER_CUSTODY_RELEASED" },
+          ],
         });
         recJournalId = recJournal.id;
       }
@@ -1713,22 +1711,18 @@ async function main() {
           const refIdem = `idem_ref_${claim.id}`;
           const refHash = createHash("sha256").update(`REF-${claim.id}`).digest("hex");
 
-          const resJournal = await prisma.ledgerJournal.upsert({
-            where: { idempotencyKey: `idem_jnl_ref_${claim.id}` },
-            update: {},
-            create: {
-              reference: `jnl_ref_${claim.id}`,
-              type: LedgerJournalType.REFUND_RESERVE,
-              currency: LedgerCurrency.ZAR,
-              idempotencyKey: `idem_jnl_ref_${claim.id}`,
-              correlationId: claim.publicReference,
-              requestHash: refHash,
-              policyVersion: "v1",
-              totalDebits: new Prisma.Decimal(remedyAmount),
-              totalCredits: new Prisma.Decimal(remedyAmount),
-              postedAt: createdAt,
-              createdAt,
-            },
+          const resJournal = await postLedgerJournal({
+            idempotencyKey: `idem_jnl_ref_${claim.id}`,
+            type: LedgerJournalType.REFUND_RESERVE,
+            currency: LedgerCurrency.ZAR,
+            sourceReference: `refund:claim:${claim.publicReference}`,
+            correlationId: claim.publicReference,
+            memo: `Claim refund reserve for ${claim.publicReference}`,
+            actor: { kind: "USER", userId: superAdmin.id },
+            entries: [
+              { accountId: heldAccount.id, direction: "DEBIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_HELD_DEBIT" },
+              { accountId: platformCashAccount.id, direction: "CREDIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_CREDIT" },
+            ],
           });
 
           const refund = await prisma.paymentRefund.upsert({
@@ -1778,22 +1772,18 @@ async function main() {
           const refIdem = `idem_ref_dep_${claim.id}`;
           const refHash = createHash("sha256").update(`REF-DEP-${claim.id}`).digest("hex");
 
-          const resJournal = await prisma.ledgerJournal.upsert({
-            where: { idempotencyKey: `idem_jnl_ref_dep_${claim.id}` },
-            update: {},
-            create: {
-              reference: `jnl_ref_dep_${claim.id}`,
-              type: LedgerJournalType.REFUND_RESERVE,
-              currency: LedgerCurrency.ZAR,
-              idempotencyKey: `idem_jnl_ref_dep_${claim.id}`,
-              correlationId: claim.publicReference,
-              requestHash: refHash,
-              policyVersion: "v1",
-              totalDebits: new Prisma.Decimal(remedyAmount),
-              totalCredits: new Prisma.Decimal(remedyAmount),
-              postedAt: createdAt,
-              createdAt,
-            },
+          const resJournal = await postLedgerJournal({
+            idempotencyKey: `idem_jnl_ref_dep_${claim.id}`,
+            type: LedgerJournalType.REFUND_RESERVE,
+            currency: LedgerCurrency.ZAR,
+            sourceReference: `refund:mixed_claim:${claim.publicReference}`,
+            correlationId: claim.publicReference,
+            memo: `Mixed claim deposit refund reserve for ${claim.publicReference}`,
+            actor: { kind: "USER", userId: superAdmin.id },
+            entries: [
+              { accountId: heldAccount.id, direction: "DEBIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_HELD_DEBIT" },
+              { accountId: platformCashAccount.id, direction: "CREDIT", amount: remedyAmount.toFixed(2), lineCode: "REFUND_RESERVE_CREDIT" },
+            ],
           });
 
           const refund = await prisma.paymentRefund.upsert({
@@ -2062,6 +2052,229 @@ async function main() {
       },
     });
   }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 12. MANAGED MARKETING (Packages, Channels, Placements, Campaigns & Telemetry)
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log("\n1️⃣2️⃣ Seeding Managed Marketing Packages, Channels, Placements & Demo Campaigns...");
+
+  // Advertising Placement Definition
+  const heroAdPlacement = await prisma.advertisingPlacementDefinition.upsert({
+    where: { code: "STOREFRONT_HERO_CAROUSEL" },
+    update: {},
+    create: {
+      publicReference: "APD_STOREFRONT_HERO",
+      code: "STOREFRONT_HERO_CAROUSEL",
+      sponsoredObjectType: "STORE",
+      surface: "STOREFRONT_HOME",
+      status: "ACTIVE",
+      maximumSponsoredItems: 5,
+      minimumOrganicGap: 2,
+      allowedCardType: "SPONSORED_BANNER",
+      measurementPolicyVersion: "v1",
+      selectionPolicyVersion: "v1",
+      disclosurePolicyVersion: "v1",
+    },
+  });
+
+  // Channel Definitions
+  const facebookChannel = await prisma.managedMarketingChannelDefinition.upsert({
+    where: { code: "FACEBOOK_MANAGED" },
+    update: {},
+    create: {
+      publicReference: "MMC_FACEBOOK_01",
+      code: "FACEBOOK_MANAGED",
+      displayName: "Facebook & Meta Network",
+      active: true,
+      sortOrder: 1,
+      manualExecutionSupported: true,
+      automatedProviderCapability: "MANUAL_AVAILABLE",
+      providerConfigurationState: "MANUAL_ONLY",
+      createdByUserId: superAdmin.id,
+    },
+  });
+
+  const tiktokChannel = await prisma.managedMarketingChannelDefinition.upsert({
+    where: { code: "TIKTOK_MANAGED" },
+    update: {},
+    create: {
+      publicReference: "MMC_TIKTOK_01",
+      code: "TIKTOK_MANAGED",
+      displayName: "TikTok Commercial Network",
+      active: true,
+      sortOrder: 2,
+      manualExecutionSupported: true,
+      automatedProviderCapability: "MANUAL_AVAILABLE",
+      providerConfigurationState: "MANUAL_ONLY",
+      createdByUserId: superAdmin.id,
+    },
+  });
+
+  // Channel Placements
+  await prisma.managedMarketingChannelPlacement.upsert({
+    where: { code: "MMP_FB_ON_PLATFORM" },
+    update: {},
+    create: {
+      publicReference: "MMP_FB_01",
+      code: "MMP_FB_ON_PLATFORM",
+      displayName: "Storefront Hero & Facebook Feed",
+      channelDefinitionId: facebookChannel.id,
+      kind: "ON_PLATFORM",
+      advertisingPlacementDefinitionId: heroAdPlacement.id,
+      active: true,
+      sortOrder: 1,
+      createdByUserId: superAdmin.id,
+    },
+  });
+
+  await prisma.managedMarketingChannelPlacement.upsert({
+    where: { code: "MMP_TIKTOK_EXT" },
+    update: {},
+    create: {
+      publicReference: "MMP_TT_01",
+      code: "MMP_TIKTOK_EXT",
+      displayName: "TikTok Regional Short Video Placement",
+      channelDefinitionId: tiktokChannel.id,
+      kind: "MANUAL_EXTERNAL",
+      externalPlacementReference: "TT-REGIONAL-ZA-FEED",
+      active: true,
+      sortOrder: 2,
+      createdByUserId: superAdmin.id,
+    },
+  });
+
+  // Package Versions
+  const standardGrowthPkg = await prisma.managedMarketingPackageVersion.upsert({
+    where: { code_versionNumber: { code: "STANDARD_GROWTH", versionNumber: 1 } },
+    update: {},
+    create: {
+      publicReference: "MMP_PKG_STANDARD_01",
+      code: "STANDARD_GROWTH",
+      versionNumber: 1,
+      name: "Standard Growth Package",
+      description: "Targeted multi-channel campaign across Meta and storefront feeds.",
+      sortOrder: 1,
+      status: "ACTIVE",
+      channel: "FACEBOOK",
+      packageTerms: { termsVersion: "1.0", maxPlacements: 2 },
+      durationDays: 14,
+      postCount: 4,
+      videoCount: 2,
+      storyCount: 6,
+      priceAmount: new Prisma.Decimal("1500.00"),
+      taxRate: new Prisma.Decimal("0.15"),
+      currency: LedgerCurrency.ZAR,
+      effectiveAt: new Date(2025, 0, 1),
+      createdByUserId: superAdmin.id,
+      activatedByUserId: superAdmin.id,
+    },
+  });
+
+  await prisma.managedMarketingPackageChannel.upsert({
+    where: { packageVersionId_channelDefinitionId: { packageVersionId: standardGrowthPkg.id, channelDefinitionId: facebookChannel.id } },
+    update: {},
+    create: {
+      packageVersionId: standardGrowthPkg.id,
+      channelDefinitionId: facebookChannel.id,
+    },
+  });
+
+  const premiumReachPkg = await prisma.managedMarketingPackageVersion.upsert({
+    where: { code_versionNumber: { code: "PREMIUM_REACH", versionNumber: 1 } },
+    update: {},
+    create: {
+      publicReference: "MMP_PKG_PREMIUM_01",
+      code: "PREMIUM_REACH",
+      versionNumber: 1,
+      name: "Premium Nationwide Reach",
+      description: "High-visibility video campaigns across TikTok and priority storefront placements.",
+      sortOrder: 2,
+      status: "ACTIVE",
+      channel: "TIKTOK",
+      packageTerms: { termsVersion: "1.0", maxPlacements: 4 },
+      durationDays: 30,
+      postCount: 8,
+      videoCount: 4,
+      storyCount: 12,
+      priceAmount: new Prisma.Decimal("3500.00"),
+      taxRate: new Prisma.Decimal("0.15"),
+      currency: LedgerCurrency.ZAR,
+      effectiveAt: new Date(2025, 0, 1),
+      createdByUserId: superAdmin.id,
+      activatedByUserId: superAdmin.id,
+    },
+  });
+
+  await prisma.managedMarketingPackageChannel.upsert({
+    where: { packageVersionId_channelDefinitionId: { packageVersionId: premiumReachPkg.id, channelDefinitionId: tiktokChannel.id } },
+    update: {},
+    create: {
+      packageVersionId: premiumReachPkg.id,
+      channelDefinitionId: tiktokChannel.id,
+    },
+  });
+
+  // Seed Demo Marketing Requests for Stores
+  const storeList = Array.from(storeMap.values());
+  for (let sIdx = 0; sIdx < Math.min(10, storeList.length); sIdx++) {
+    const s = storeList[sIdx]!;
+    const isCompleted = sIdx < 3;
+    const isActive = sIdx >= 3 && sIdx < 6;
+    const isSubmitted = sIdx >= 6 && sIdx < 8;
+    const status = isCompleted
+      ? ManagedMarketingRequestStatus.COMPLETED
+      : isActive
+        ? ManagedMarketingRequestStatus.RUNNING
+        : isSubmitted
+          ? ManagedMarketingRequestStatus.SUBMITTED
+          : ManagedMarketingRequestStatus.DRAFT;
+
+    const reqRef = `MMR-DEMO-${String(sIdx + 1).padStart(4, "0")}`;
+    const mReq = await prisma.managedMarketingRequest.upsert({
+      where: { publicReference: reqRef },
+      update: {},
+      create: {
+        publicReference: reqRef,
+        storeId: s.id,
+        requesterUserId: s.ownerUserId,
+        packageVersionId: sIdx % 2 === 0 ? standardGrowthPkg.id : premiumReachPkg.id,
+        channel: sIdx % 2 === 0 ? "FACEBOOK" : "TIKTOK",
+        executionMode: "MANUAL",
+        status,
+        objective: `Seasonal Growth Promotion #${sIdx + 1}`,
+        audience: { region: "Gauteng", target: "Local food & retail shoppers" },
+        message: `Special promotion for ${s.name}: 20% off selected products with fast delivery across South Africa!`,
+        destinationLink: `https://ktcourier.co.za/shop/stores/${s.slug}`,
+        instructions: "Target high-traffic shopping periods and local community groups.",
+        startsAt: new Date(2025, 5, 1 + sIdx),
+        endsAt: new Date(2025, 5, 15 + sIdx),
+        priceSnapshot: sIdx % 2 === 0 ? new Prisma.Decimal("1500.00") : new Prisma.Decimal("3500.00"),
+        taxSnapshot: new Prisma.Decimal("0.15"),
+        currency: LedgerCurrency.ZAR,
+        operationId: `seed_mreq_${sIdx}`,
+        requestHash: createHash("sha256").update(`MREQ-${sIdx}`).digest("hex"),
+      },
+    });
+
+    if (isCompleted || isActive) {
+      await prisma.managedMarketingPerformanceRecord.create({
+        data: {
+          publicReference: `MMPR-${reqRef}`,
+          managedMarketingRequestId: mReq.id,
+          periodStartsAt: new Date(2025, 5, 1 + sIdx),
+          periodEndsAt: new Date(2025, 5, 15 + sIdx),
+          impressions: 12500 + sIdx * 1200,
+          clicks: 450 + sIdx * 65,
+          conversions: 35 + sIdx * 8,
+          externalReference: `EXT-REP-${sIdx}`,
+          recordedByUserId: superAdmin.id,
+          operationId: `seed_perf_${sIdx}`,
+        },
+      });
+    }
+  }
+
+  console.log("   ✓ Managed marketing packages, channels, placements & demo store campaigns seeded.");
 
   // Seed 100 In-App & Outbox Notifications
   for (let i = 1; i <= 100; i++) {

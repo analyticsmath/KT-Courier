@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStoreForUser } from "@/lib/auth/store-context";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
-import { UserRole } from "@prisma/client";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { StoreAdvertisingWorkbench, MarketingPackageItem, MarketingRequestItem } from "@/components/store/StoreAdvertisingWorkbench";
@@ -24,6 +23,7 @@ export default async function StoreAdvertisingPage() {
 
   let initialPackages: MarketingPackageItem[] = [];
   let initialRequests: MarketingRequestItem[] = [];
+  let backendError: string | null = null;
 
   try {
     const rawPackages = (await service.listPackages()) as Array<{
@@ -31,68 +31,66 @@ export default async function StoreAdvertisingPage() {
       publicReference: string;
       code: string;
       name: string;
-      description: string;
+      description: string | null;
       channel: string;
-      durationDays: number;
+      durationDays: number | null;
       postCount?: number;
       videoCount?: number;
       storyCount?: number;
-      priceAmount?: unknown;
-      taxRate?: unknown;
+      priceAmount: unknown;
+      taxRate: unknown;
       currency?: string;
       status: string;
+      channels?: Array<{
+        channelDefinition: {
+          id: string;
+          publicReference: string;
+          code: string;
+          displayName: string;
+          placements?: Array<{
+            id: string;
+            publicReference: string;
+            code: string;
+            displayName: string;
+            kind: string;
+          }>;
+        };
+      }>;
     }>;
+
     initialPackages = (rawPackages || []).map((p) => ({
       id: p.id,
       publicReference: p.publicReference,
       code: p.code,
       name: p.name,
-      description: p.description,
+      description: p.description ?? null,
       channel: p.channel,
-      durationDays: p.durationDays,
+      durationDays: p.durationDays ?? null,
       postCount: p.postCount || 0,
       videoCount: p.videoCount || 0,
       storyCount: p.storyCount || 0,
-      priceAmount: String(p.priceAmount || "1500.00"),
-      taxRate: String(p.taxRate || "0.15"),
+      priceAmount: String(p.priceAmount || "0.00"),
+      taxRate: String(p.taxRate || "0.00"),
       currency: p.currency || "ZAR",
       status: p.status,
+      channels: p.channels?.map((c) => ({
+        id: c.channelDefinition.id,
+        publicReference: c.channelDefinition.publicReference,
+        code: c.channelDefinition.code,
+        displayName: c.channelDefinition.displayName,
+        channel: p.channel,
+        placements: c.channelDefinition.placements?.map((pl) => ({
+          id: pl.id,
+          publicReference: pl.publicReference,
+          code: pl.code,
+          displayName: pl.displayName,
+          kind: pl.kind,
+        })),
+      })),
     }));
-  } catch {
-    initialPackages = [
-      {
-        id: "pkg-std",
-        publicReference: "MMP-STD-01",
-        code: "STANDARD_GROWTH",
-        name: "Standard Growth Package",
-        description: "Multi-channel advertising distribution across top South African digital networks.",
-        channel: "FACEBOOK",
-        durationDays: 14,
-        postCount: 4,
-        videoCount: 2,
-        storyCount: 6,
-        priceAmount: "1500.00",
-        taxRate: "0.15",
-        currency: "ZAR",
-        status: "ACTIVE",
-      },
-      {
-        id: "pkg-prm",
-        publicReference: "MMP-PRM-01",
-        code: "PREMIUM_REACH",
-        name: "Premium Nationwide Reach",
-        description: "Priority featured carousel placement and targeted social video promotion.",
-        channel: "TIKTOK",
-        durationDays: 30,
-        postCount: 8,
-        videoCount: 4,
-        storyCount: 12,
-        priceAmount: "3500.00",
-        taxRate: "0.15",
-        currency: "ZAR",
-        status: "ACTIVE",
-      },
-    ];
+  } catch (err: unknown) {
+    backendError = err instanceof Error ? err.message : "Failed to load marketing packages";
+    initialPackages = [];
   }
 
   try {
@@ -115,25 +113,46 @@ export default async function StoreAdvertisingPage() {
         startsAt: Date | string;
         endsAt: Date | string;
         createdAt: Date | string;
+        packageVersion?: { name: string; code: string } | null;
+        performanceRecords?: Array<{
+          impressions: number;
+          clicks: number;
+          conversions: number;
+          spendAmount: unknown;
+        }>;
       }>;
-      initialRequests = (rawRequests || []).map((r) => ({
-        id: r.id,
-        publicReference: r.publicReference,
-        objective: r.objective,
-        message: r.message,
-        instructions: r.instructions ?? null,
-        status: r.status,
-        executionMode: r.executionMode,
-        priceAmount: String(r.priceAmount || "0"),
-        taxAmount: String(r.taxAmount || "0"),
-        totalAmount: String(r.totalAmount || "0"),
-        currency: r.currency || "ZAR",
-        startAt: r.startsAt ? (typeof r.startsAt === "string" ? r.startsAt : r.startsAt.toISOString()) : null,
-        endAt: r.endsAt ? (typeof r.endsAt === "string" ? r.endsAt : r.endsAt.toISOString()) : null,
-        createdAt: typeof r.createdAt === "string" ? r.createdAt : r.createdAt.toISOString(),
-      }));
+
+      initialRequests = (rawRequests || []).map((r) => {
+        const perf = r.performanceRecords?.[0];
+        return {
+          id: r.id,
+          publicReference: r.publicReference,
+          objective: r.objective,
+          message: r.message,
+          instructions: r.instructions ?? null,
+          status: r.status,
+          executionMode: r.executionMode,
+          priceAmount: String(r.priceAmount || "0"),
+          taxAmount: String(r.taxAmount || "0"),
+          totalAmount: String(r.totalAmount || "0"),
+          currency: r.currency || "ZAR",
+          startAt: r.startsAt ? (typeof r.startsAt === "string" ? r.startsAt : r.startsAt.toISOString()) : null,
+          endAt: r.endsAt ? (typeof r.endsAt === "string" ? r.endsAt : r.endsAt.toISOString()) : null,
+          createdAt: typeof r.createdAt === "string" ? r.createdAt : r.createdAt.toISOString(),
+          packageVersion: r.packageVersion ? { name: r.packageVersion.name, code: r.packageVersion.code } : null,
+          performanceRecord: perf ? {
+            impressions: perf.impressions,
+            clicks: perf.clicks,
+            reach: Math.round(perf.impressions * 0.8),
+            spendAmount: String(perf.spendAmount || "0"),
+          } : null,
+        };
+      });
     }
-  } catch {
+  } catch (err: unknown) {
+    if (!backendError) {
+      backendError = err instanceof Error ? err.message : "Failed to load store requests";
+    }
     initialRequests = [];
   }
 
@@ -148,6 +167,7 @@ export default async function StoreAdvertisingPage() {
         initialPackages={initialPackages}
         initialRequests={initialRequests}
         storeName={storeName}
+        backendError={backendError}
       />
     </ProtectedPageFrame>
   );

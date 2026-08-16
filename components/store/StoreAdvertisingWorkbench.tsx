@@ -3,6 +3,23 @@
 import React, { useState } from "react";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 
+export interface MarketingPackagePlacement {
+  id: string;
+  publicReference: string;
+  code: string;
+  displayName: string;
+  kind: string;
+}
+
+export interface MarketingPackageChannelItem {
+  id: string;
+  publicReference: string;
+  code: string;
+  displayName: string;
+  channel: string;
+  placements?: MarketingPackagePlacement[];
+}
+
 export interface MarketingPackageItem {
   id: string;
   publicReference: string;
@@ -18,6 +35,7 @@ export interface MarketingPackageItem {
   taxRate: string;
   currency: string;
   status: string;
+  channels?: MarketingPackageChannelItem[];
 }
 
 export interface MarketingRequestItem {
@@ -47,16 +65,57 @@ export interface MarketingRequestItem {
   } | null;
 }
 
+export interface CampaignReportData {
+  advertiser: { storeId: string; requesterUserId: string };
+  campaign: { reference: string; status: string; startsAt: string; endsAt: string };
+  package: { reference: string; code: string; versionNumber: number };
+  commercial: {
+    committedBaseAmount: string;
+    committedTaxAmount: string;
+    committedGrossAmount: string;
+    currency: string;
+    paymentReference: string | null;
+    receiptLedgerJournalReference: string | null;
+    revenueLedgerJournalReference: string | null;
+    recognizedRevenueAmount: string;
+    recognizedTaxAmount: string;
+    reconciliationStatus: string;
+  };
+  performance: {
+    totalImpressions: number;
+    totalClicks: number;
+    totalConversions: number;
+    totalSpendAmount: string;
+    currency: string;
+    records: Array<{
+      periodStartsAt: string;
+      periodEndsAt: string;
+      impressions: number;
+      clicks: number;
+      conversions: number;
+      spendAmount: string;
+      reportedByUserId: string;
+      recordedAt: string;
+    }>;
+  };
+}
+
 interface StoreAdvertisingWorkbenchProps {
   initialPackages: MarketingPackageItem[];
   initialRequests: MarketingRequestItem[];
   storeName: string;
+  backendError?: string | null;
+}
+
+function makeOperationId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 export function StoreAdvertisingWorkbench({
   initialPackages,
   initialRequests,
   storeName,
+  backendError,
 }: StoreAdvertisingWorkbenchProps) {
   const [packages] = useState<MarketingPackageItem[]>(initialPackages);
   const [requests, setRequests] = useState<MarketingRequestItem[]>(initialRequests);
@@ -69,17 +128,35 @@ export function StoreAdvertisingWorkbench({
   const [objective, setObjective] = useState("");
   const [message, setMessage] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [startAt, setStartAt] = useState("");
+  const [destinationLink, setDestinationLink] = useState("https://ktcourier.co.za");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Active Report View State
-  const [selectedReport, setSelectedReport] = useState<MarketingRequestItem | null>(null);
+  const [selectedReportReq, setSelectedReportReq] = useState<MarketingRequestItem | null>(null);
+  const [reportData, setReportData] = useState<CampaignReportData | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const handleCreateDraft = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedPackage) {
+      setFeedback({ type: "error", text: "Please select an advertising package." });
+      return;
+    }
     if (!objective.trim() || !message.trim()) {
       setFeedback({ type: "error", text: "Objective and campaign message are required." });
+      return;
+    }
+
+    const startDate = startsAt ? new Date(startsAt) : new Date(Date.now() + 86400000);
+    const durationDays = selectedPackage.durationDays || 14;
+    const endDate = endsAt ? new Date(endsAt) : new Date(startDate.getTime() + durationDays * 86400000);
+
+    if (startDate >= endDate) {
+      setFeedback({ type: "error", text: "Campaign start date must be before end date." });
       return;
     }
 
@@ -87,62 +164,152 @@ export function StoreAdvertisingWorkbench({
     setFeedback(null);
 
     try {
-      // Create local simulated/real draft
-      const newDraft: MarketingRequestItem = {
-        id: `MKT-REQ-${Date.now()}`,
-        publicReference: `MMR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      const channelRef = selectedPackage.channels?.[0]?.publicReference || "MMC_DEMO_01";
+      const placementRef = selectedPackage.channels?.[0]?.placements?.[0]?.publicReference || "MMP_DEMO_01";
+
+      const payload = {
+        packageReference: selectedPackage.publicReference,
+        selections: [
+          {
+            channelReference: channelRef,
+            placementReferences: [placementRef],
+          },
+        ],
+        executionMode: "MANUAL",
         objective: objective.trim(),
         message: message.trim(),
+        destinationLink: destinationLink.trim() || "https://ktcourier.co.za",
         instructions: instructions.trim() || null,
-        status: "DRAFT",
-        executionMode: "MANUAL",
-        priceAmount: selectedPackage?.priceAmount || "1500.00",
-        taxAmount: (Number(selectedPackage?.priceAmount || 1500) * 0.15).toFixed(2),
-        totalAmount: (Number(selectedPackage?.priceAmount || 1500) * 1.15).toFixed(2),
-        currency: "ZAR",
-        startAt: startAt || new Date().toISOString(),
-        endAt: null,
-        createdAt: new Date().toISOString(),
-        packageVersion: selectedPackage ? { name: selectedPackage.name, code: selectedPackage.code } : null,
+        startsAt: startDate.toISOString(),
+        endsAt: endDate.toISOString(),
+        operationId: makeOperationId("op_draft"),
+      };
+
+      const res = await fetch("/api/store/managed-marketing/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create campaign draft");
+      }
+
+      const created = data.request;
+      const newRequestItem: MarketingRequestItem = {
+        id: created.id,
+        publicReference: created.publicReference,
+        objective: created.objective,
+        message: created.message,
+        instructions: created.instructions,
+        status: created.status,
+        executionMode: created.executionMode,
+        priceAmount: String(created.priceSnapshot || selectedPackage.priceAmount),
+        taxAmount: String(created.taxSnapshot || "0.00"),
+        totalAmount: String(created.priceSnapshot || selectedPackage.priceAmount),
+        currency: created.currency || "ZAR",
+        startAt: created.startsAt,
+        endAt: created.endsAt,
+        createdAt: created.createdAt || new Date().toISOString(),
+        packageVersion: { name: selectedPackage.name, code: selectedPackage.code },
         performanceRecord: null,
       };
 
-      setRequests([newDraft, ...requests]);
+      setRequests((prev) => [newRequestItem, ...prev]);
       setIsCreating(false);
       setObjective("");
       setMessage("");
       setInstructions("");
-      setStartAt("");
-      setFeedback({ type: "success", text: `Draft campaign ${newDraft.publicReference} created successfully.` });
-    } catch {
-      setFeedback({ type: "error", text: "Failed to create advertising request." });
+      setStartsAt("");
+      setEndsAt("");
+      setFeedback({ type: "success", text: `Campaign draft ${created.publicReference} created and saved to database.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create advertising request.";
+      setFeedback({ type: "error", text: msg });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleSubmitForReview = async (reference: string) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.publicReference === reference ? { ...r, status: "SUBMITTED" } : r
-      )
-    );
-    setFeedback({ type: "success", text: `Campaign ${reference} submitted for administrator review.` });
+    setFeedback(null);
+    try {
+      const operationId = makeOperationId("op_sub");
+      const res = await fetch(`/api/store/managed-marketing/requests/${reference}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operationId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to submit campaign for review");
+      }
+
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.publicReference === reference ? { ...r, status: "SUBMITTED" } : r
+        )
+      );
+      setFeedback({ type: "success", text: `Campaign ${reference} submitted for administrator review.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Submission failed.";
+      setFeedback({ type: "error", text: msg });
+    }
   };
 
-  // Metrics summary
+  const handleOpenReport = async (req: MarketingRequestItem) => {
+    setSelectedReportReq(req);
+    setReportData(null);
+    setReportError(null);
+    setLoadingReport(true);
+
+    try {
+      const res = await fetch(`/api/store/managed-marketing/requests/${req.publicReference}/report`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load report data from server");
+      }
+      setReportData(data.report);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unable to retrieve performance report.";
+      setReportError(msg);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  // Metrics summary calculated only from real state
   const totalCampaigns = requests.length;
   const activeCampaigns = requests.filter((r) => r.status === "ACTIVE" || r.status === "SCHEDULED" || r.status === "RUNNING").length;
   const totalSpend = requests
     .filter((r) => r.status === "COMPLETED" || r.status === "ACTIVE" || r.status === "RUNNING")
     .reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
   const totalImpressions = requests.reduce(
-    (sum, r) => sum + (r.performanceRecord?.impressions || (r.status === "COMPLETED" ? 14500 : 0)),
+    (sum, r) => sum + (r.performanceRecord?.impressions || 0),
     0
   );
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
+      {/* Backend / Error Banner */}
+      {backendError && (
+        <div
+          style={{
+            padding: "16px",
+            borderRadius: "8px",
+            background: "#fce8e6",
+            color: "#c5221f",
+            border: "1px solid #fad2cf",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+          }}
+        >
+          ⚠️ Marketing Service Unavailable: {backendError}
+        </div>
+      )}
+
       {/* Top Notification Feedback */}
       {feedback && (
         <div
@@ -162,18 +329,18 @@ export function StoreAdvertisingWorkbench({
 
       {/* Metrics Banner */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-        <OperationalPanel title="Total Campaigns" description="All submitted and active requests" padding="compact">
+        <OperationalPanel title="Total Campaigns" description="Persisted merchant requests" padding="compact">
           <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--eo-text, #111)" }}>{totalCampaigns}</div>
         </OperationalPanel>
-        <OperationalPanel title="Active Running" description="Campaigns actively in distribution" padding="compact">
+        <OperationalPanel title="Active Running" description="Campaigns in active distribution" padding="compact">
           <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#137333" }}>{activeCampaigns}</div>
         </OperationalPanel>
-        <OperationalPanel title="Total Spend" description="Recognized campaign investment" padding="compact">
+        <OperationalPanel title="Total Spend" description="Committed campaign investment" padding="compact">
           <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--eo-text, #111)" }}>
             R {totalSpend.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </OperationalPanel>
-        <OperationalPanel title="Total Reach" description="Audience impressions delivered" padding="compact">
+        <OperationalPanel title="Recorded Reach" description="Audience impressions recorded" padding="compact">
           <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1a73e8" }}>{totalImpressions.toLocaleString()}</div>
         </OperationalPanel>
       </div>
@@ -181,70 +348,78 @@ export function StoreAdvertisingWorkbench({
       {/* Available Packages Selection */}
       <OperationalPanel
         title="Managed Marketing Packages"
-        description="Choose a high-reach promotional package managed by the KT Courier growth network."
+        description="Choose an active, platform-approved marketing package for your store."
         padding="compact"
       >
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginTop: "12px" }}>
-          {packages.map((pkg) => {
-            const isSelected = selectedPackage?.id === pkg.id;
-            return (
-              <div
-                key={pkg.id}
-                onClick={() => setSelectedPackage(pkg)}
+        {packages.length === 0 ? (
+          <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--eo-text-muted, #777)", fontSize: "0.875rem" }}>
+            No marketing packages are currently configured or active on the platform. Please check back later or contact platform administration.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginTop: "12px" }}>
+              {packages.map((pkg) => {
+                const isSelected = selectedPackage?.id === pkg.id;
+                return (
+                  <div
+                    key={pkg.id}
+                    onClick={() => setSelectedPackage(pkg)}
+                    style={{
+                      border: isSelected ? "2px solid #1a73e8" : "1px solid var(--eo-line-soft, #e0e0e0)",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      background: isSelected ? "rgba(26, 115, 232, 0.04)" : "var(--eo-surface, #fff)",
+                      cursor: "pointer",
+                      display: "grid",
+                      gap: "8px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 800, fontSize: "1rem" }}>{pkg.name}</span>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "2px 8px", borderRadius: "12px", background: "#e8f0fe", color: "#1a73e8" }}>
+                        {pkg.channel}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: "0.8125rem", color: "var(--eo-text-secondary, #666)", margin: 0 }}>
+                      {pkg.description || "Platform managed marketing distribution."}
+                    </p>
+                    <div style={{ display: "flex", gap: "12px", fontSize: "0.75rem", color: "var(--eo-text-muted, #777)", marginTop: "4px" }}>
+                      <span>⏱️ {pkg.durationDays ? `${pkg.durationDays} Days` : "Standard"}</span>
+                      <span>📱 {pkg.postCount} Posts</span>
+                      <span>🎥 {pkg.videoCount} Videos</span>
+                    </div>
+                    <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <span style={{ fontSize: "1.25rem", fontWeight: 800 }}>R {Number(pkg.priceAmount).toFixed(2)}</span>
+                      <span style={{ fontSize: "0.75rem", color: "#666" }}>+ {Number(pkg.taxRate) * 100}% Tax</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: "16px", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="eo-button eo-button--primary"
+                onClick={() => setIsCreating(true)}
                 style={{
-                  border: isSelected ? "2px solid #1a73e8" : "1px solid var(--eo-line-soft, #e0e0e0)",
-                  borderRadius: "8px",
-                  padding: "16px",
-                  background: isSelected ? "rgba(26, 115, 232, 0.04)" : "var(--eo-surface, #fff)",
+                  padding: "8px 18px",
+                  fontWeight: 700,
                   cursor: "pointer",
-                  display: "grid",
-                  gap: "8px",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 800, fontSize: "1rem" }}>{pkg.name}</span>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "2px 8px", borderRadius: "12px", background: "#e8f0fe", color: "#1a73e8" }}>
-                    {pkg.channel}
-                  </span>
-                </div>
-                <p style={{ fontSize: "0.8125rem", color: "var(--eo-text-secondary, #666)", margin: 0 }}>
-                  {pkg.description || "Multi-channel advertising distribution across top South African digital networks."}
-                </p>
-                <div style={{ display: "flex", gap: "12px", fontSize: "0.75rem", color: "var(--eo-text-muted, #777)", marginTop: "4px" }}>
-                  <span>⏱️ {pkg.durationDays || 14} Days</span>
-                  <span>📱 {pkg.postCount || 4} Posts</span>
-                  <span>🎥 {pkg.videoCount || 2} Videos</span>
-                </div>
-                <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span style={{ fontSize: "1.25rem", fontWeight: 800 }}>R {Number(pkg.priceAmount).toFixed(2)}</span>
-                  <span style={{ fontSize: "0.75rem", color: "#666" }}>+ {Number(pkg.taxRate) * 100}% VAT</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={{ marginTop: "16px", display: "flex", justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            className="eo-button eo-button--primary"
-            onClick={() => setIsCreating(true)}
-            style={{
-              padding: "8px 18px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            + Create Campaign Request
-          </button>
-        </div>
+                + Create Campaign Request
+              </button>
+            </div>
+          </>
+        )}
       </OperationalPanel>
 
       {/* Campaign Creation Drawer / Form */}
-      {isCreating && (
+      {isCreating && selectedPackage && (
         <OperationalPanel
           title="New Campaign Request"
-          description={`Submit a growth marketing campaign for ${storeName} using package: ${selectedPackage?.name || "Standard"}.`}
+          description={`Submit a growth marketing campaign for ${storeName} using package: ${selectedPackage.name}.`}
           padding="compact"
         >
           <form onSubmit={handleCreateDraft} style={{ display: "grid", gap: "16px", marginTop: "12px" }}>
@@ -256,7 +431,7 @@ export function StoreAdvertisingWorkbench({
                 type="text"
                 value={objective}
                 onChange={(e) => setObjective(e.target.value)}
-                placeholder="e.g. Spring Clearance Sale - 25% Off Footwear"
+                placeholder="e.g. Seasonal Promotion - 20% Off"
                 required
                 style={{
                   width: "100%",
@@ -274,8 +449,27 @@ export function StoreAdvertisingWorkbench({
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Describe your special offer, featured products, discount codes, or promotional highlights..."
+                placeholder="Describe your special offer, products, or promotional highlights..."
                 rows={4}
+                required
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--eo-line-strong, #ccc)",
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 700, marginBottom: "6px" }}>
+                Destination Landing URL *
+              </label>
+              <input
+                type="url"
+                value={destinationLink}
+                onChange={(e) => setDestinationLink(e.target.value)}
+                placeholder="https://ktcourier.co.za/shop/stores/your-store"
                 required
                 style={{
                   width: "100%",
@@ -293,8 +487,8 @@ export function StoreAdvertisingWorkbench({
                 </label>
                 <input
                   type="date"
-                  value={startAt}
-                  onChange={(e) => setStartAt(e.target.value)}
+                  value={startsAt}
+                  onChange={(e) => setStartsAt(e.target.value)}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -312,7 +506,7 @@ export function StoreAdvertisingWorkbench({
                   type="text"
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="e.g. Gauteng metro, food lovers, age 21-45"
+                  placeholder="e.g. Local township customer focus"
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -338,7 +532,7 @@ export function StoreAdvertisingWorkbench({
                 className="eo-button eo-button--primary"
                 style={{ padding: "8px 20px", fontWeight: 700, cursor: "pointer" }}
               >
-                {submitting ? "Saving..." : "Save Draft Campaign"}
+                {submitting ? "Persisting to Database..." : "Save Draft Campaign"}
               </button>
             </div>
           </form>
@@ -353,7 +547,7 @@ export function StoreAdvertisingWorkbench({
       >
         {requests.length === 0 ? (
           <p style={{ color: "var(--eo-text-muted, #777)", fontSize: "0.875rem", margin: "16px 0" }}>
-            No advertising campaigns created yet. Click above to launch your first marketing campaign.
+            No advertising campaigns created yet. Select a package above to create your first campaign.
           </p>
         ) : (
           <div style={{ overflowX: "auto", marginTop: "12px" }}>
@@ -363,7 +557,7 @@ export function StoreAdvertisingWorkbench({
                   <th style={{ padding: "10px 12px" }}>Reference</th>
                   <th style={{ padding: "10px 12px" }}>Objective</th>
                   <th style={{ padding: "10px 12px" }}>Package</th>
-                  <th style={{ padding: "10px 12px" }}>Budget (ZAR)</th>
+                  <th style={{ padding: "10px 12px" }}>Amount (ZAR)</th>
                   <th style={{ padding: "10px 12px" }}>Status</th>
                   <th style={{ padding: "10px 12px" }}>Date</th>
                   <th style={{ padding: "10px 12px", textAlign: "right" }}>Actions</th>
@@ -438,7 +632,7 @@ export function StoreAdvertisingWorkbench({
                           )}
                           <button
                             type="button"
-                            onClick={() => setSelectedReport(req)}
+                            onClick={() => handleOpenReport(req)}
                             style={{
                               padding: "4px 10px",
                               borderRadius: "4px",
@@ -464,7 +658,7 @@ export function StoreAdvertisingWorkbench({
       </OperationalPanel>
 
       {/* Performance Report Modal */}
-      {selectedReport && (
+      {selectedReportReq && (
         <div
           style={{
             position: "fixed",
@@ -479,7 +673,10 @@ export function StoreAdvertisingWorkbench({
             zIndex: 1000,
             padding: "20px",
           }}
-          onClick={() => setSelectedReport(null)}
+          onClick={() => {
+            setSelectedReportReq(null);
+            setReportData(null);
+          }}
         >
           <div
             style={{
@@ -494,11 +691,14 @@ export function StoreAdvertisingWorkbench({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 800 }}>
-                Campaign Performance Report: {selectedReport.publicReference}
+                Campaign Performance Report: {selectedReportReq.publicReference}
               </h3>
               <button
                 type="button"
-                onClick={() => setSelectedReport(null)}
+                onClick={() => {
+                  setSelectedReportReq(null);
+                  setReportData(null);
+                }}
                 style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer" }}
               >
                 ✕
@@ -506,48 +706,69 @@ export function StoreAdvertisingWorkbench({
             </div>
 
             <p style={{ color: "#666", fontSize: "0.875rem", marginTop: "4px" }}>
-              {selectedReport.objective} ({selectedReport.status})
+              {selectedReportReq.objective} ({selectedReportReq.status})
             </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "16px" }}>
-              <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
-                <div style={{ fontSize: "0.75rem", color: "#666" }}>Impressions Delivered</div>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1a73e8", marginTop: "4px" }}>
-                  {(selectedReport.performanceRecord?.impressions || 18450).toLocaleString()}
-                </div>
+            {loadingReport ? (
+              <div style={{ padding: "32px", textAlign: "center", color: "#666" }}>
+                Loading verified campaign telemetry from ledger & marketing authority...
               </div>
-              <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
-                <div style={{ fontSize: "0.75rem", color: "#666" }}>Unique Clicks / Engagements</div>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#137333", marginTop: "4px" }}>
-                  {(selectedReport.performanceRecord?.clicks || 642).toLocaleString()}
-                </div>
+            ) : reportError ? (
+              <div style={{ padding: "16px", background: "#fce8e6", color: "#c5221f", borderRadius: "6px", marginTop: "16px" }}>
+                {reportError}
               </div>
-              <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
-                <div style={{ fontSize: "0.75rem", color: "#666" }}>Audience Reach</div>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#9334e6", marginTop: "4px" }}>
-                  {(selectedReport.performanceRecord?.reach || 12200).toLocaleString()}
+            ) : reportData ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "16px" }}>
+                  <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
+                    <div style={{ fontSize: "0.75rem", color: "#666" }}>Recorded Impressions</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1a73e8", marginTop: "4px" }}>
+                      {reportData.performance.totalImpressions.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
+                    <div style={{ fontSize: "0.75rem", color: "#666" }}>Recorded Clicks</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#137333", marginTop: "4px" }}>
+                      {reportData.performance.totalClicks.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
+                    <div style={{ fontSize: "0.75rem", color: "#666" }}>Conversions</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#9334e6", marginTop: "4px" }}>
+                      {reportData.performance.totalConversions.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
+                    <div style={{ fontSize: "0.75rem", color: "#666" }}>Recognized Spend</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111", marginTop: "4px" }}>
+                      R {Number(reportData.commercial.committedGrossAmount).toFixed(2)}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
-                <div style={{ fontSize: "0.75rem", color: "#666" }}>Campaign Spend</div>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111", marginTop: "4px" }}>
-                  R {Number(selectedReport.totalAmount).toFixed(2)}
-                </div>
-              </div>
-            </div>
 
-            <div style={{ marginTop: "16px", padding: "12px", border: "1px solid #eee", borderRadius: "6px", fontSize: "0.8125rem" }}>
-              <div style={{ fontWeight: 700, marginBottom: "4px" }}>Distribution Channels:</div>
-              <div style={{ color: "#555" }}>
-                KT Courier Public Storefront, Merchant Discovery Carousel, Regional Promotional Feeds
+                <div style={{ marginTop: "16px", padding: "12px", border: "1px solid #eee", borderRadius: "6px", fontSize: "0.8125rem" }}>
+                  <div style={{ fontWeight: 700, marginBottom: "4px" }}>Commercial & Reconciliation Audit:</div>
+                  <div style={{ color: "#555", display: "grid", gap: "4px" }}>
+                    <div><strong>Status:</strong> {reportData.commercial.reconciliationStatus}</div>
+                    <div><strong>Revenue Journal:</strong> {reportData.commercial.revenueLedgerJournalReference || "Pending recognition"}</div>
+                    <div><strong>Receipt Journal:</strong> {reportData.commercial.receiptLedgerJournalReference || "Pending receipt"}</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: "16px", color: "#777", fontSize: "0.875rem" }}>
+                No telemetry recorded for this campaign yet.
               </div>
-            </div>
+            )}
 
             <div style={{ marginTop: "20px", display: "flex", justifyContent: "flex-end" }}>
               <button
                 type="button"
                 className="eo-button eo-button--primary"
-                onClick={() => setSelectedReport(null)}
+                onClick={() => {
+                  setSelectedReportReq(null);
+                  setReportData(null);
+                }}
                 style={{ padding: "8px 18px", cursor: "pointer" }}
               >
                 Close Report

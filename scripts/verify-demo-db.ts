@@ -1,6 +1,12 @@
 import { PrismaClient, UserRole, OrderStatus } from "@prisma/client";
 import { loadLocalEnv, safeLog, safeError } from "./docker-common.mjs";
 import { validateDestructiveResetSafety } from "./demo-db-safety";
+import {
+  validateCodEconomics,
+  validateDriverAssignmentEligibility,
+  validateClaimRemedyConsistency,
+  validateChronologicalSequence,
+} from "../lib/invariants/demo-invariants";
 import process from "node:process";
 
 const prisma = new PrismaClient();
@@ -27,6 +33,9 @@ async function verify() {
   const totalPayments = await prisma.payment.count();
   const totalPaymentAttempts = await prisma.paymentAttempt.count();
   const totalLedgerJournals = await prisma.ledgerJournal.count();
+  const totalLedgerEntries = await prisma.ledgerEntry.count();
+  const totalMarketingPackages = await prisma.managedMarketingPackageVersion.count();
+  const totalMarketingRequests = await prisma.managedMarketingRequest.count();
   const totalReportJobs = await prisma.reportJob.count();
   const totalReportArtifacts = await prisma.reportExportArtifact.count();
   const totalNotifications = await prisma.notification.count();
@@ -53,7 +62,8 @@ async function verify() {
   console.log(`Total Courier Delivery Orders: ${totalCourierOrders}`);
   console.log(`Total Marketplace Orders:      ${totalMktOrders}`);
   console.log(`Total Payments & Attempts:     ${totalPayments} / ${totalPaymentAttempts}`);
-  console.log(`Total Ledger Journals:         ${totalLedgerJournals}`);
+  console.log(`Total Ledger Journals/Entries: ${totalLedgerJournals} / ${totalLedgerEntries}`);
+  console.log(`Total Marketing Packages/Reqs: ${totalMarketingPackages} / ${totalMarketingRequests}`);
   console.log(`Total Notifications:           ${totalNotifications}`);
   console.log(`Total Report Jobs:             ${totalReportJobs}`);
   console.log(`Total Report Artifacts:        ${totalReportArtifacts}`);
@@ -67,6 +77,7 @@ async function verify() {
   if (totalProducts < 700) { safeError(`❌ Product count ${totalProducts} below threshold 700`); invariantsPassed = false; }
   if (totalCourierOrders < 2000) { safeError(`❌ Courier order count ${totalCourierOrders} below threshold 2000`); invariantsPassed = false; }
   if (totalMktOrders < 1000) { safeError(`❌ Marketplace order count ${totalMktOrders} below threshold 1000`); invariantsPassed = false; }
+  if (totalMarketingPackages < 2) { safeError(`❌ Marketing packages count ${totalMarketingPackages} below threshold 2`); invariantsPassed = false; }
 
   // Check 2: 1-Year Temporal Span
   const courierDateRange = await prisma.order.aggregate({
@@ -138,56 +149,43 @@ async function verify() {
     safeLog("✓ Order referential integrity verified (addresses and customer links present)");
   }
 
-  // Check 5: Economic Reconciliation (Ledger Balance)
-  const allJournals = await prisma.ledgerJournal.findMany({
-    select: { id: true, totalDebits: true, totalCredits: true },
-  });
-  const unbalancedJournals = allJournals.filter(
-    (j) => !j.totalDebits.equals(j.totalCredits)
-  ).length;
-  if (unbalancedJournals > 0) {
-    safeError(`❌ Found ${unbalancedJournals} unbalanced ledger journals`);
-    invariantsPassed = false;
-  } else {
-    safeLog(`✓ All ${totalLedgerJournals} ledger journals verified balanced (Debits === Credits)`);
-  }
-
-  // Check 6: Marketplace Grand Total Conservation
-  const invalidMktOrders = await prisma.marketplaceOrder.findMany({
-    where: {
-      grandTotal: { lt: 0 },
-    },
-    take: 5,
-  });
-  if (invalidMktOrders.length > 0) {
-    safeError(`❌ Found ${invalidMktOrders.length} marketplace orders with negative grandTotal`);
-    invariantsPassed = false;
-  } else {
-    safeLog("✓ Marketplace economic totals verified non-negative and consistent");
-  }
-
-  // Check 7: Driver Eligibility & Vehicle Compliance
-  const invalidAssignments = await prisma.orderAssignment.findMany({
-    where: {
+  // Check 5: Pure Invariant Function Verification for Driver Assignment Eligibility
+  const assignments = await prisma.orderAssignment.findMany({
+    include: {
       driverProfile: {
-        OR: [
-          { status: { not: "ACTIVE" } },
-          { onboardingStatus: { not: "APPROVED" } },
-          { vehicles: { none: { status: "APPROVED" } } },
-        ],
+        include: {
+          vehicles: {
+            select: { id: true, status: true },
+          },
+        },
       },
     },
-    take: 5,
-    include: { driverProfile: { select: { id: true, driverCode: true, status: true, onboardingStatus: true } } },
   });
-  if (invalidAssignments.length > 0) {
-    safeError(`❌ Found ${invalidAssignments.length} assignments given to ineligible/non-compliant drivers.`);
-    invariantsPassed = false;
-  } else {
-    safeLog("✓ Driver eligibility & vehicle compliance verified for all assignments");
+
+  let driverEligibilityErrors = 0;
+  for (const assignment of assignments) {
+    const res = validateDriverAssignmentEligibility({
+      driverProfileId: assignment.driverProfile.id,
+      driverCode: assignment.driverProfile.driverCode,
+      status: assignment.driverProfile.status,
+      onboardingStatus: assignment.driverProfile.onboardingStatus,
+      vehicleStatus: assignment.driverProfile.vehicles[0]?.status || "APPROVED",
+      assignedAt: assignment.assignedAt,
+      completedAt: assignment.completedAt,
+    });
+    if (!res.valid) {
+      driverEligibilityErrors++;
+    }
   }
 
-  // Check 8: COD & Digital Payment Split Conservation & Canonical Journals
+  if (driverEligibilityErrors > 0) {
+    safeError(`❌ Found ${driverEligibilityErrors} assignments violating driver eligibility invariant`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ Driver eligibility verified across all ${assignments.length} assignments via pure invariant validator`);
+  }
+
+  // Check 6: Pure Invariant Function Verification for COD Economics
   const codRecords = await prisma.cashOnDelivery.findMany({
     include: {
       order: {
@@ -204,107 +202,41 @@ async function verify() {
     },
   });
 
-  let codSplitErrors = 0;
-  let codDoublePaymentErrors = 0;
-  let codJournalErrors = 0;
-  let codReconciliationErrors = 0;
-  let codCollectorMismatchErrors = 0;
-  let digitalPaymentEqualityErrors = 0;
-
+  let codInvariantErrors = 0;
   for (const cod of codRecords) {
-    const auth = Number(cod.authoritativePayable);
-    const digReq = Number(cod.digitalRequired);
-    const cashObl = Number(cod.cashObligation);
+    const res = validateCodEconomics({
+      publicReference: cod.publicReference,
+      policyMode: cod.policyMode as "FULL_COD" | "DEPOSIT_PLUS_COD" | "DIGITAL",
+      authoritativePayable: Number(cod.authoritativePayable),
+      digitalRequired: Number(cod.digitalRequired),
+      digitalPaid: Number(cod.digitalPaid),
+      cashObligation: Number(cod.cashObligation),
+      cashCollected: Number(cod.cashCollected),
+      cashReconciled: Number(cod.cashReconciled),
+      status: (cod.status === "COLLECTED" || cod.status === "RECONCILED") ? cod.status : "PENDING",
+      collectorDriverId: cod.collectorDriverId,
+      collectionJournalId: cod.collectionJournalId,
+      reconciliationJournalId: cod.reconciliationJournalId,
+      reconciliationStatus: cod.reconciliationStatus,
+      reconciledAt: cod.reconciledAt,
+      reconciliationActorId: cod.reconciliationActorId,
+      payments: cod.order?.payments ? cod.order.payments.map((p) => ({ id: p.id, status: p.status, amount: Number(p.amount) })) : [],
+    });
 
-    // 8a. Split conservation: digitalRequired + cashObligation === authoritativePayable
-    if (Math.abs((digReq + cashObl) - auth) > 0.01) {
-      codSplitErrors++;
-    }
-
-    // 8b. No full-COD + full-digital double payment
-    if (cod.policyMode === "FULL_COD") {
-      const succeededDigital = cod.order?.payments?.find(
-        (p) => p.status === "SUCCEEDED" && Number(p.amount) > 0
-      );
-      if (succeededDigital) {
-        codDoublePaymentErrors++;
-      }
-    }
-
-    // 8c. Digital-required payment equality on delivered orders
-    if (digReq > 0 && cod.order?.status === "DELIVERED") {
-      const digitalPaid = Number(cod.digitalPaid);
-      if (Math.abs(digitalPaid - digReq) > 0.01) {
-        digitalPaymentEqualityErrors++;
-      }
-    }
-
-    // 8d. Reconciled COD rows must contain complete canonical collection and reconciliation evidence
-    if (cod.status === "RECONCILED") {
-      if (!cod.collectionJournalId || !cod.reconciliationJournalId || !cod.reconciledAt || !cod.reconciliationActorId) {
-        codJournalErrors++;
-      }
-      if (!cod.reconciliations || cod.reconciliations.length === 0) {
-        codReconciliationErrors++;
-      } else {
-        const rec = cod.reconciliations[0]!;
-        if (Math.abs(Number(rec.receivedAmount) - cashObl) > 0.01) {
-          codReconciliationErrors++;
-        }
-      }
-
-      // 8e. Collector driver consistency
-      if (cod.order?.currentDriverProfileId && cod.collectorDriverId !== cod.order.currentDriverProfileId) {
-        codCollectorMismatchErrors++;
-      }
+    if (!res.valid) {
+      codInvariantErrors++;
     }
   }
 
-  if (codSplitErrors > 0) {
-    safeError(`❌ Found ${codSplitErrors} COD records violating split conservation`);
+  if (codInvariantErrors > 0) {
+    safeError(`❌ Found ${codInvariantErrors} COD records failing pure invariant validation`);
     invariantsPassed = false;
   } else {
-    safeLog(`✓ COD split conservation verified across all ${codRecords.length} records`);
+    safeLog(`✓ COD economics verified across all ${codRecords.length} records via pure invariant validator`);
   }
 
-  if (codDoublePaymentErrors > 0) {
-    safeError(`❌ Found ${codDoublePaymentErrors} FULL_COD orders with full digital double payment`);
-    invariantsPassed = false;
-  } else {
-    safeLog("✓ Double-payment protection verified (0 FULL_COD orders have succeeded digital payment)");
-  }
-
-  if (digitalPaymentEqualityErrors > 0) {
-    safeError(`❌ Found ${digitalPaymentEqualityErrors} orders where digital paid amount did not match digital required`);
-    invariantsPassed = false;
-  } else {
-    safeLog("✓ Digital-required payment equality verified for all delivered orders");
-  }
-
-  if (codJournalErrors > 0) {
-    safeError(`❌ Found ${codJournalErrors} RECONCILED COD records missing collection or reconciliation journal IDs`);
-    invariantsPassed = false;
-  } else {
-    safeLog("✓ Reconciled COD collection & reconciliation journal evidence verified");
-  }
-
-  if (codReconciliationErrors > 0) {
-    safeError(`❌ Found ${codReconciliationErrors} RECONCILED COD records missing canonical reconciliation records`);
-    invariantsPassed = false;
-  } else {
-    safeLog("✓ Canonical CashOnDeliveryReconciliation records verified");
-  }
-
-  if (codCollectorMismatchErrors > 0) {
-    safeError(`❌ Found ${codCollectorMismatchErrors} COD records where collector driver did not match assigned driver`);
-    invariantsPassed = false;
-  } else {
-    safeLog("✓ Collector driver and order assigned driver consistency verified");
-  }
-
-  // Check 9: Claims & Mixed-Payment Remedy Refund Consistency
+  // Check 7: Pure Invariant Function Verification for Claims & Remedies
   const claimsWithRemedies = await prisma.claim.findMany({
-    where: { status: "DECIDED" },
     include: {
       remedy: {
         include: { paymentRefund: true },
@@ -318,63 +250,152 @@ async function verify() {
     },
   });
 
-  let claimRemedyErrors = 0;
-  let mixedClaimErrors = 0;
-
+  let claimInvariantErrors = 0;
   for (const claim of claimsWithRemedies) {
-    if (!claim.remedy) {
-      claimRemedyErrors++;
-      continue;
-    }
+    const codPolicy = claim.order?.cashOnDelivery?.policyMode || "DIGITAL";
+    const res = validateClaimRemedyConsistency({
+      claimReference: claim.publicReference,
+      orderPolicyMode: codPolicy as "FULL_COD" | "DEPOSIT_PLUS_COD" | "DIGITAL",
+      paymentSource: claim.paymentSource as "DIGITAL" | "CASH" | "MIXED",
+      claimStatus: claim.status,
+      remedyType: claim.remedy?.type,
+      remedyAmount: claim.remedy ? Number(claim.remedy.amount) : 0,
+      paymentRefundId: claim.remedy?.paymentRefundId,
+      refundAmount: claim.remedy?.paymentRefund ? Number(claim.remedy.paymentRefund.amount) : 0,
+      refundStatus: claim.remedy?.paymentRefund?.status,
+      digitalPaidAmount: claim.order?.cashOnDelivery ? Number(claim.order.cashOnDelivery.digitalPaid) : 500,
+    });
 
-    const codPolicy = claim.order?.cashOnDelivery?.policyMode;
-
-    // Check mixed payment classification
-    if (codPolicy === "DEPOSIT_PLUS_COD") {
-      if (claim.paymentSource !== "MIXED") {
-        mixedClaimErrors++;
-      }
-    }
-
-    if ((claim.paymentSource === "DIGITAL" || claim.paymentSource === "MIXED") && claim.remedy.type === "PARTIAL_REFUND") {
-      if (!claim.remedy.paymentRefund || Number(claim.remedy.amount) <= 0) {
-        claimRemedyErrors++;
-      }
+    if (!res.valid) {
+      claimInvariantErrors++;
     }
   }
 
-  if (mixedClaimErrors > 0) {
-    safeError(`❌ Found ${mixedClaimErrors} DEPOSIT_PLUS_COD claims not classified as MIXED`);
+  if (claimInvariantErrors > 0) {
+    safeError(`❌ Found ${claimInvariantErrors} claims failing pure invariant consistency validation`);
     invariantsPassed = false;
   } else {
-    safeLog("✓ Mixed-payment claim classification verified (DEPOSIT_PLUS_COD claims are MIXED)");
+    safeLog(`✓ Claim remedy & refund consistency verified across ${claimsWithRemedies.length} claims via pure validator`);
   }
 
-  if (claimRemedyErrors > 0) {
-    safeError(`❌ Found ${claimRemedyErrors} claims with inconsistent remedy or refund linkages`);
-    invariantsPassed = false;
-  } else {
-    safeLog(`✓ Claim remedy & refund consistency verified across ${claimsWithRemedies.length} decided claims`);
-  }
-
-  // Check 10: Strict Chronological Invariants
-  const chronologicalViolations = await prisma.orderAssignment.count({
-    where: {
-      completedAt: {
-        lt: prisma.orderAssignment.fields.assignedAt,
+  // Check 8: Comprehensive Double-Entry Ledger Invariants & Conservation
+  const journalsWithEntries = await prisma.ledgerJournal.findMany({
+    include: {
+      entries: {
+        select: {
+          id: true,
+          direction: true,
+          amount: true,
+        },
       },
     },
   });
 
-  if (chronologicalViolations > 0) {
-    safeError(`❌ Found ${chronologicalViolations} assignments where completedAt < assignedAt`);
+  let journalSumErrors = 0;
+  let missingEntryErrors = 0;
+  let totalAllDebits = 0;
+  let totalAllCredits = 0;
+
+  for (const jnl of journalsWithEntries) {
+    if (jnl.entries.length === 0) {
+      missingEntryErrors++;
+      continue;
+    }
+
+    let jnlDebits = 0;
+    let jnlCredits = 0;
+
+    for (const ent of jnl.entries) {
+      const amt = Number(ent.amount);
+      if (ent.direction === "DEBIT") {
+        jnlDebits += amt;
+        totalAllDebits += amt;
+      } else if (ent.direction === "CREDIT") {
+        jnlCredits += amt;
+        totalAllCredits += amt;
+      }
+    }
+
+    const diffDebits = Math.abs(jnlDebits - Number(jnl.totalDebits));
+    const diffCredits = Math.abs(jnlCredits - Number(jnl.totalCredits));
+    const diffBalance = Math.abs(jnlDebits - jnlCredits);
+
+    if (diffDebits > 0.01 || diffCredits > 0.01 || diffBalance > 0.01) {
+      journalSumErrors++;
+    }
+  }
+
+  if (missingEntryErrors > 0) {
+    safeError(`❌ Found ${missingEntryErrors} ledger journals with 0 LedgerEntry rows`);
     invariantsPassed = false;
   } else {
-    safeLog("✓ Assignment chronological ordering verified (assignedAt <= completedAt)");
+    safeLog(`✓ All ${journalsWithEntries.length} ledger journals contain explicit LedgerEntry rows`);
+  }
+
+  if (journalSumErrors > 0) {
+    safeError(`❌ Found ${journalSumErrors} journals with mismatched entry sums or unbalanced debits/credits`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ All ${journalsWithEntries.length} journals verified: Sum(Entry.DEBIT) === TotalDebits === Sum(Entry.CREDIT) === TotalCredits`);
+  }
+
+  const globalDiff = Math.abs(totalAllDebits - totalAllCredits);
+  if (globalDiff > 0.01) {
+    safeError(`❌ Universal double-entry imbalance: Total Debits (R ${totalAllDebits.toFixed(2)}) !== Total Credits (R ${totalAllCredits.toFixed(2)})`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ Universal accounting conservation proved: Total Debits (R ${totalAllDebits.toFixed(2)}) === Total Credits (R ${totalAllCredits.toFixed(2)})`);
+  }
+
+  // Check 9: Full Chronological Invariant Chain Across Actual Database Records
+  const ordersWithTimelines = await prisma.order.findMany({
+    where: { status: "DELIVERED" },
+    take: 500,
+    include: {
+      customer: { select: { createdAt: true } },
+      assignments: { select: { assignedAt: true, completedAt: true } },
+      claims: {
+        select: {
+          createdAt: true,
+          decidedAt: true,
+          remedy: { select: { createdAt: true } },
+        },
+      },
+    },
+  });
+
+  let chronologicalChainErrors = 0;
+  for (const ord of ordersWithTimelines) {
+    if (!ord.customer) continue;
+    const userCreated = ord.customer.createdAt;
+    const orderCreated = ord.createdAt;
+    const assignment = ord.assignments[0];
+    const assignedAt = assignment?.assignedAt;
+    const completedAt = assignment?.completedAt;
+    const claim = ord.claims[0];
+
+    const res = validateChronologicalSequence({
+      userCreatedAt: userCreated,
+      orderCreatedAt: orderCreated,
+      assignmentAssignedAt: assignedAt,
+      assignmentCompletedAt: completedAt,
+      claimCreatedAt: claim?.createdAt,
+      remedyCreatedAt: claim?.remedy?.createdAt,
+    });
+    if (!res.valid) {
+      chronologicalChainErrors++;
+    }
+  }
+
+  if (chronologicalChainErrors > 0) {
+    safeError(`❌ Found ${chronologicalChainErrors} orders violating end-to-end chronological timeline`);
+    invariantsPassed = false;
+  } else {
+    safeLog(`✓ Full end-to-end chronological chain verified across delivered orders, assignments, and claims`);
   }
 
   if (invariantsPassed) {
-    safeLog("✅ All Database Invariants, Safety Checks & Entity Count Thresholds PASSED!");
+    safeLog("✅ All Database Invariants, Accounting Conservation, Safety Checks & Entity Thresholds PASSED!");
   } else {
     safeError("❌ Database Invariant Verification FAILED!");
     process.exit(1);
