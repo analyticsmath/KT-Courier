@@ -229,10 +229,9 @@ export function StoreAdvertisingWorkbench({
       }
 
       const created = data.request;
-      const baseAmount = created.commercial?.baseAmount || String(created.priceSnapshot || selectedPackage.priceAmount);
-      const taxAmount = created.commercial?.taxAmount || String(created.taxSnapshot || "0.00");
-      const grossAmount = created.commercial?.grossAmount || baseAmount;
-      const currency = created.commercial?.currency || created.currency || "ZAR";
+      if (!created.commercial) {
+        throw new Error("Created campaign is missing authoritative commercial snapshot data.");
+      }
 
       const newRequestItem: MarketingRequestItem = {
         id: created.id,
@@ -242,10 +241,10 @@ export function StoreAdvertisingWorkbench({
         instructions: created.instructions,
         status: created.status,
         executionMode: created.executionMode,
-        priceAmount: baseAmount,
-        taxAmount: taxAmount,
-        totalAmount: grossAmount,
-        currency,
+        priceAmount: created.commercial.baseAmount,
+        taxAmount: created.commercial.taxAmount,
+        totalAmount: created.commercial.grossAmount,
+        currency: created.commercial.currency,
         startAt: created.startsAt,
         endAt: created.endsAt,
         createdAt: created.createdAt || new Date().toISOString(),

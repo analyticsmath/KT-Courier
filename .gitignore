@@ -57,6 +57,7 @@ yarn-error.log*
 !/artifacts/phase-a-legal-document-conflict-register.json
 !/artifacts/route-action-authorization-inventory.json
 !/artifacts/phase-1-core-integrity-closure.json
+!/artifacts/phase-2-master-closure-report.json
 
 # local audit scratch files
 route_report.json
