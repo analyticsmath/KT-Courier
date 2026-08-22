@@ -78,7 +78,6 @@ export interface MarketingRequestItem {
   performanceRecord?: {
     impressions: number;
     clicks: number;
-    spendAmount: string;
   } | null;
 }
 
@@ -99,21 +98,9 @@ export interface CampaignReportData {
     reconciliationStatus: string;
   };
   performance: {
-    totalImpressions: number;
-    totalClicks: number;
-    totalConversions: number;
-    totalSpendAmount: string;
-    currency: string;
-    records: Array<{
-      periodStartsAt: string;
-      periodEndsAt: string;
-      impressions: number;
-      clicks: number;
-      conversions: number;
-      spendAmount: string;
-      reportedByUserId: string;
-      recordedAt: string;
-    }>;
+    impressions: number;
+    clicks: number;
+    conversions: number;
   };
 }
 
@@ -953,19 +940,19 @@ export function StoreAdvertisingWorkbench({
                   <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
                     <div style={{ fontSize: "0.75rem", color: "#666" }}>Recorded Impressions</div>
                     <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1a73e8", marginTop: "4px" }}>
-                      {reportData.performance.totalImpressions.toLocaleString()}
+                      {reportData.performance.impressions.toLocaleString()}
                     </div>
                   </div>
                   <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
                     <div style={{ fontSize: "0.75rem", color: "#666" }}>Recorded Clicks</div>
                     <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#137333", marginTop: "4px" }}>
-                      {reportData.performance.totalClicks.toLocaleString()}
+                      {reportData.performance.clicks.toLocaleString()}
                     </div>
                   </div>
                   <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>
                     <div style={{ fontSize: "0.75rem", color: "#666" }}>Recorded Conversions</div>
                     <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#9334e6", marginTop: "4px" }}>
-                      {reportData.performance.totalConversions.toLocaleString()}
+                      {reportData.performance.conversions.toLocaleString()}
                     </div>
                   </div>
                   <div style={{ padding: "12px", background: "#f8f9fa", borderRadius: "6px" }}>

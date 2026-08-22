@@ -46,4 +46,12 @@ describe("managed marketing revenue and reporting authority", () => {
     expect(performance).toMatch(/MANAGED_MARKETING_REQUESTS_RECORD_PERFORMANCE/);
     expect(revenue).toMatch(/MANAGED_MARKETING_REPORTS_READ/);
   });
+
+  it("enforces canonical recordedAt DESC ordering for performance records without phantom createdAt or spendAmount", () => {
+    const service = read("lib/advertising/managed-marketing.service.ts");
+    expect(service).toMatch(/LATEST_MANAGED_MARKETING_PERFORMANCE_ORDER/);
+    expect(service).toMatch(/recordedAt:\s*"desc"/);
+    expect(service).not.toMatch(/performanceRecords:\s*\{\s*orderBy:\s*\{\s*createdAt:/);
+    expect(service).not.toMatch(/spendAmount:\s*p\.spendAmount/);
+  });
 });

@@ -167,7 +167,6 @@ export default async function StoreAdvertisingPage() {
           impressions: number;
           clicks: number;
           conversions: number;
-          spendAmount: unknown;
         }>;
       }>;
 
@@ -205,7 +204,6 @@ export default async function StoreAdvertisingPage() {
           performanceRecord: perf ? {
             impressions: perf.impressions,
             clicks: perf.clicks,
-            spendAmount: perf.spendAmount != null ? String(perf.spendAmount) : "0.00",
           } : null,
         };
       });

@@ -63,4 +63,17 @@ describe("Phase B managed-marketing revenue/reporting PostgreSQL production-serv
     const report = await service.getOwnReport(storeActor(), request.publicReference);
     expect(report.commercial.reconciliationStatus).toBe("RECONCILED"); expect(report.performance).toEqual({ impressions: 1000, clicks: 50, conversions: 4 });
   });
+
+  it("orders performance records by recordedAt DESC in request queries", async () => {
+    const request = await approvedCampaign(`${marker}-ORDERING`);
+    await service.scheduleRequest(admin(), request.publicReference, `${marker}-ORDERING-SCHEDULE`);
+    await service.runManually(admin(), request.publicReference, { operationId: `${marker}-ORDERING-RUN`, externalReference: "manual-ordering-proof", actualStartedAt: new Date("2032-02-02T00:00:00.000Z") });
+    await service.recordPerformance(admin(), request.publicReference, { operationId: `${marker}-PERF-A`, periodStartsAt: new Date("2032-02-02T00:00:00.000Z"), periodEndsAt: new Date("2032-02-05T00:00:00.000Z"), impressions: 400, clicks: 20, conversions: 2, externalReference: "perf-a" });
+    await service.recordPerformance(admin(), request.publicReference, { operationId: `${marker}-PERF-B`, periodStartsAt: new Date("2032-02-06T00:00:00.000Z"), periodEndsAt: new Date("2032-02-10T00:00:00.000Z"), impressions: 900, clicks: 45, conversions: 5, externalReference: "perf-b" });
+    const owned = await service.getOwnRequest(storeActor(), request.publicReference);
+    expect(owned.performanceRecords).toBeDefined();
+    expect(owned.performanceRecords.length).toBe(2);
+    expect(owned.performanceRecords[0].impressions).toBe(900);
+    expect(owned.performanceRecords[1].impressions).toBe(400);
+  });
 });

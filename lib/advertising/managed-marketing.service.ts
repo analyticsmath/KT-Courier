@@ -25,6 +25,12 @@ type ManagedMarketingExecutionMode = "MANUAL" | "AUTOMATED_PROVIDER";
 // Meta/TikTok/Google publishing succeeded or is executable.
 const AUTOMATED_PROVIDER_RUNTIME_AVAILABLE = false;
 
+export const LATEST_MANAGED_MARKETING_PERFORMANCE_ORDER = [
+  { recordedAt: "desc" },
+  { periodEndsAt: "desc" },
+  { id: "desc" },
+] satisfies Prisma.ManagedMarketingPerformanceRecordOrderByWithRelationInput[];
+
 export class ManagedMarketingRequestError extends Error {
   constructor(readonly code: string, message: string) { super(message); this.name = "ManagedMarketingRequestError"; }
 }
@@ -125,9 +131,9 @@ export class ManagedMarketingService {
         impressions: p.impressions,
         clicks: p.clicks,
         conversions: p.conversions,
-        spendAmount: p.spendAmount ? new Prisma.Decimal(p.spendAmount).toFixed(2) : null,
-        periodStartsAt: typeof p.periodStartsAt === "string" ? p.periodStartsAt : p.periodStartsAt.toISOString(),
-        periodEndsAt: typeof p.periodEndsAt === "string" ? p.periodEndsAt : p.periodEndsAt.toISOString(),
+        periodStartsAt: typeof p.periodStartsAt === "string" ? p.periodStartsAt : (p.periodStartsAt?.toISOString?.() || p.periodStartsAt),
+        periodEndsAt: typeof p.periodEndsAt === "string" ? p.periodEndsAt : (p.periodEndsAt?.toISOString?.() || p.periodEndsAt),
+        recordedAt: typeof p.recordedAt === "string" ? p.recordedAt : (p.recordedAt?.toISOString?.() || p.recordedAt),
       })),
     };
   }
@@ -357,7 +363,7 @@ export class ManagedMarketingService {
           orderBy: { createdAt: "asc" },
         },
         performanceRecords: {
-          orderBy: { createdAt: "desc" },
+          orderBy: LATEST_MANAGED_MARKETING_PERFORMANCE_ORDER,
         },
         events: { orderBy: { createdAt: "asc" } },
       },
@@ -461,7 +467,7 @@ export class ManagedMarketingService {
           orderBy: { createdAt: "asc" },
         },
         performanceRecords: {
-          orderBy: { createdAt: "desc" },
+          orderBy: LATEST_MANAGED_MARKETING_PERFORMANCE_ORDER,
         },
       },
       orderBy: { createdAt: "desc" },
