@@ -15,6 +15,7 @@ const env = {
   SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
   PAYFAST_MODE: "sandbox", PAYFAST_MERCHANT_ID: "integration-merchant-id", PAYFAST_MERCHANT_KEY: "integration-merchant-key",
   PAYFAST_PASSPHRASE: "integration-private-passphrase", PAYMENT_APP_ORIGIN: "https://payfast-integration.example.test", EMAIL_PROVIDER: "console",
+  KT_ALLOW_DEMO_SEED: "true",
 };
 function assertDisposable() { if (projectName === normalComposeProject || !/^kt-couriers-phase11-payfast-disposable-/.test(projectName)) throw new Error("Refusing to operate a non-disposable Compose project."); }
 const compose = (args) => runCompose(args, { projectName, env });
