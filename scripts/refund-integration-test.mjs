@@ -29,6 +29,7 @@ const env = {
   SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
   EMAIL_PROVIDER: "console",
   KT_REFUND_PROVIDER_MODE: "deterministic-injected",
+  KT_ALLOW_DEMO_SEED: "true",
 };
 
 function assertDisposableProject() {

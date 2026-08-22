@@ -8,7 +8,7 @@ const projectName = `kt-couriers-phase10-payment-disposable-${nonce}`;
 const database = `kt_phase10_payment_${process.pid}`;
 const port = String(58700 + (process.pid % 600));
 const password = "phase10_payment_disposable_only";
-const env = { ...process.env, POSTGRES_DB: database, POSTGRES_USER: database, POSTGRES_PASSWORD: password, POSTGRES_PORT: port, DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`, SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`, EMAIL_PROVIDER: "console" };
+const env = { ...process.env, POSTGRES_DB: database, POSTGRES_USER: database, POSTGRES_PASSWORD: password, POSTGRES_PORT: port, DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`, SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`, EMAIL_PROVIDER: "console", KT_ALLOW_DEMO_SEED: "true" };
 function assertDisposable() { if (projectName === normalComposeProject || !/^kt-couriers-phase10-payment-disposable-/.test(projectName)) throw new Error("Refusing to operate a non-disposable Compose project."); }
 const compose = (args) => runCompose(args, { projectName, env });
 const localNode = (args) => spawnSync(process.execPath, args, { cwd: process.cwd(), env, stdio: "inherit", shell: false });

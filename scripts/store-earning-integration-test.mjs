@@ -31,6 +31,7 @@ const env = {
   KT_NETWORK_DISABLED: "true",
   NO_PROXY: "*",
   no_proxy: "*",
+  KT_ALLOW_DEMO_SEED: "true",
 };
 
 function assertDisposableProject() {

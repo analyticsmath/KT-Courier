@@ -141,4 +141,40 @@ describe("Disposable smoke seed authorization & identity", () => {
       expect(dockerSmokeScript).not.toMatch(/docker (?:system|volume) prune/);
     });
   });
+
+  describe("Disposable integration runners seed authorization & approval gate contract", () => {
+    const affectedRunners = [
+      "scripts/ledger-integration-test.mjs",
+      "scripts/payment-foundation-integration-test.mjs",
+      "scripts/refund-integration-test.mjs",
+      "scripts/store-earning-integration-test.mjs",
+      "scripts/driver-earning-integration-test.mjs",
+    ];
+
+    it.each(affectedRunners)("%s explicitly provides runner-owned KT_ALLOW_DEMO_SEED: 'true'", (runnerPath) => {
+      const source = readFileSync(path.join(root, runnerPath), "utf8");
+      expect(source).toMatch(/KT_ALLOW_DEMO_SEED:\s*["']true["']/);
+      expect(source).toMatch(/\.\.\.process\.env[\s\S]*?KT_ALLOW_DEMO_SEED:\s*["']true["']/);
+    });
+
+    it("verifies compose.yml retains fail-closed default for seed service", () => {
+      const composeContent = readFileSync(path.join(root, "compose.yml"), "utf8");
+      expect(composeContent).toMatch(/KT_ALLOW_DEMO_SEED:\s*\$\{KT_ALLOW_DEMO_SEED:-false\}/);
+    });
+
+    it("verifies Phase 15, 16, and 17 retain their consolidated-validation approval gates", () => {
+      const refundRunner = readFileSync(path.join(root, "scripts/refund-integration-test.mjs"), "utf8");
+      const storeEarningRunner = readFileSync(path.join(root, "scripts/store-earning-integration-test.mjs"), "utf8");
+      const driverEarningRunner = readFileSync(path.join(root, "scripts/driver-earning-integration-test.mjs"), "utf8");
+
+      expect(refundRunner).toMatch(/process\.env\.KT_REFUND_INTEGRATION_APPROVED\s*!==\s*["']true["']/);
+      expect(refundRunner).not.toMatch(/KT_REFUND_INTEGRATION_APPROVED:\s*["']true["']/);
+
+      expect(storeEarningRunner).toMatch(/process\.env\.KT_STORE_EARNING_INTEGRATION_APPROVED\s*!==\s*["']true["']/);
+      expect(storeEarningRunner).not.toMatch(/KT_STORE_EARNING_INTEGRATION_APPROVED:\s*["']true["']/);
+
+      expect(driverEarningRunner).toMatch(/process\.env\.KT_DRIVER_EARNING_INTEGRATION_APPROVED\s*!==\s*["']true["']/);
+      expect(driverEarningRunner).not.toMatch(/KT_DRIVER_EARNING_INTEGRATION_APPROVED:\s*["']true["']/);
+    });
+  });
 });

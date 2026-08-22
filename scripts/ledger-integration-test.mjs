@@ -24,6 +24,7 @@ const env = {
   DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
   SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
   EMAIL_PROVIDER: "console",
+  KT_ALLOW_DEMO_SEED: "true",
 };
 
 function assertDisposable() {
