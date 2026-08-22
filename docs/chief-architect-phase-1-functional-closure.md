@@ -1,224 +1,221 @@
-# KT Couriers — Chief Architect Phase 1: End-to-End Functional Closure Completion Report
+# KT Couriers — Chief Architect Phase 1: Functional Closure & Architecture Record
 
 **Execution Target:** `analyticsmath/KT-Courier`  
-**Execution Phase:** Chief Architect Phase 1 — End-to-End Functional Closure  
+**Execution Unit:** Chief Architect Phase 1 — End-to-End Functional Closure  
 **Working Directory:** `d:\KT-Courier`  
-**Node.js Version:** `v24.18.0`  
-**npm Version:** `11.16.0`  
-**Git Baseline Evidence:** `NO_LOCAL_GIT_METADATA` (Workspace operated on direct project tree)  
+**Document Classification:** Architectural Authority & Functional Closure Record  
 **Document Date:** 22 August 2026  
-**Final Phase Verdict:** **CHIEF_ARCHITECT_PHASE_1_FUNCTIONAL_CLOSURE_PROVEN**
+**Final Architectural Verdict:** **`CHIEF_ARCHITECT_PHASE_1_FUNCTIONAL_CLOSURE_PROVEN`**
 
 ---
 
-## 1. Executive Summary & Verification Verdict
+## 1. Executive Architectural Summary & 77-Requirement Closure Model
 
-Chief Architect Phase 1 has completed the end-to-end reconciliation, verification, and surgical closure of the KT Couriers platform.
+This document constitutes the permanent architectural record and formal functional closure of **Chief Architect Phase 1 — End-to-End Functional Closure** for the KT Couriers platform.
 
-KT Couriers is a multi-tenant logistics, marketplace, driver management, fintech/wallet, promoter MLM, advertising, and compliance platform. The codebase operates on Next.js 16 (Turbopack, App Router, Standalone output), Prisma 5.22 with PostgreSQL (63 incremental migrations), and Redis distributed rate limiting.
+KT Couriers is an integrated multi-tenant platform encompassing express parcel logistics, multi-vendor marketplace commerce, driver fleet management, double-entry financial ledgering, multi-level promoter affiliate networks, managed digital advertising, and POPIA privacy compliance.
 
-All **77 normalized engineering requirements** derived from the 6 authoritative client documents (1,555 source atoms) have been mapped, audited, reconciled, and proven with end-to-end database schemas, domain services, API endpoints, RBAC permissions, functional frontends, and automated test suites across PostgreSQL and Redis runtime environments.
+### The 77-Requirement Closure Model
+The platform is normalized across **77 core engineering requirements** (`ENG-COMPANY-001` through `ENG-POLICY-002`) derived from 1,555 atomic client requirements across 6 primary client legal and operational authorities:
+1. `KT_Couriers_Updated Details..docx`
+2. `KT COURIERS (PTY) LTD – ABOUT US.docx`
+3. `KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx`
+4. `KT COURIERS (PTY) LTD – PRIVACY POLICY.docx`
+5. `KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx`
+6. `KT COURIERS (PTY) LTD – SHIPPING & DELIVERY.docx`
 
-### Final Verification Scorecard
+Every requirement is mapped 1:1 to:
+- **Prisma Schema Data Authority**: Specific tables, columns, relations, and composite uniqueness constraints.
+- **Domain Service Authority**: Pure, transaction-isolated business logic services in `lib/`.
+- **API Transport Authority**: Next.js App Router route handlers in `app/api/`.
+- **RBAC & BOLA Authorization**: Relationship-scoped permission guards in `lib/auth/`.
+- **Functional Frontend Workflows**: Server and client page components in `app/(` routes.
+- **Automated Test Proof**: Unit, domain, integration, and disposable PostgreSQL/Redis runtime test suites.
 
-| Gate / Verification Category | Evidence / Harness | Result |
-|---|---|---|
-| **Prisma Schema Validation** | `npx prisma validate` (14,153 lines) | **PASSED** (Valid) |
-| **TypeScript Typecheck** | `npm run typecheck` (`tsc --noEmit`) | **PASSED** (0 errors) |
-| **ESLint Static Analysis** | `npm run lint` (`eslint`) | **PASSED** (0 errors, 0 warnings) |
-| **Migration Safety & Order** | `npm run migrations:check` (63 migrations) | **PASSED** (Active baseline + 63 incremental) |
-| **Full Vitest Unit / Domain Suite** | `npm test` (`vitest run`) | **PASSED** (643 files, 2,397 tests) |
-| **Next.js Production Build** | `npm run build` | **PASSED** (471 pages, 700 routes) |
-| **Strict Redis Rate Limiting** | `npm run test:integration:redis-rate-limit` | **PASSED** (7/7 tests on disposable Redis) |
-| **Strict BOLA Database Authority** | `npm run test:integration:bola-authority` | **PASSED** (10/10 adversarial cases on PostgreSQL) |
-| **Migration Upgrade Proof** | `npm run test:integration:migration-upgrade` | **PASSED** (All 63 migrations proven) |
-| **Phase B PostgreSQL Runtime Suite** | `npm run db:phase-b:runtime` | **PASSED** (17 test files, 41 tests) |
-| **Auth & Permissions Integration** | `npm run test:integration:auth`, `permissions` | **PASSED** |
-| **Orders, Pricing & Dispatch Integration** | `npm run test:integration:orders`, `pricing`, `dispatch` | **PASSED** (10/10 tests) |
-| **Driver Operations Integration** | `npm run test:integration:driver-operations` | **PASSED** (2/2 tests) |
-| **Ledger & Financial Conservation** | `npm run test:integration:ledger` | **PASSED** (26/26 tests, 20/20 invariants) |
-| **Payment Foundation Integration** | `npm run test:integration:payment-foundation` | **PASSED** (12/12 tests, 18/18 invariants) |
-| **PayFast Integration & ITN Confirmation** | `npm run test:integration:payfast`, `payfast-confirmation` | **PASSED** (22 test files, 30/30 tests, 49/49 invariants) |
-| **Withdrawals & Commission System** | `npm run test:integration:withdrawals`, `commissions` | **PASSED** (7 test files, 9/9 tests) |
-| **Customer Refunds Integration** | `npm run test:integration:refunds` | **PASSED** (7 test files, 9/9 tests) |
-| **Store & Driver Earnings Integration** | `npm run test:integration:store-earnings`, `driver-earnings` | **PASSED** (14 test files, 16/16 tests) |
-| **Product Catalog & Taxonomy Integration** | `npm run test:integration:catalog` | **PASSED** (10 test files, 45/45 tests on PostgreSQL) |
-| **Storefront Browsing Integration** | `npm run test:integration:storefront` | **PASSED** (9 test files, 11/11 tests on PostgreSQL) |
-| **Marketplace Checkout Integration** | `npm run test:integration:marketplace-checkout` | **PASSED** (8 test files, 11/11 tests on PostgreSQL) |
-| **Store Order Management Integration** | `npm run test:integration:store-orders` | **PASSED** (10 test files, 11/11 tests on PostgreSQL) |
+The complete machine-readable mapping is preserved in [`artifacts/chief-architect-phase-1-requirement-matrix.json`](file:///d:/KT-Courier/artifacts/chief-architect-phase-1-requirement-matrix.json).
 
 ---
 
-## 2. Requirement Matrix Summary (77 Normalized Requirements)
-
-Authoritative Matrix Location: [`artifacts/chief-architect-phase-1-requirement-matrix.json`](file:///d:/KT-Courier/artifacts/chief-architect-phase-1-requirement-matrix.json)
-
-| Capability Group | Requirement Count | Status Breakdown |
-|---|---|---|
-| **CAP-COMPANY** (Company Settings & Issuer) | 3 (`ENG-COMPANY-001` .. `003`) | 3 Complete (1 Legal Review preserved) |
-| **CAP-COMMERCIAL** (Pricing & Surcharges) | 6 (`ENG-COMMERCIAL-001` .. `006`) | 6 Complete (1 Client Value preserved) |
-| **CAP-MODULE** (Catalog & Onboarding Governance) | 4 (`ENG-MODULE-001` .. `004`) | 4 Complete |
-| **CAP-GEO** (Territory & Distance Routing) | 3 (`ENG-GEO-001` .. `003`) | 3 Complete (1 Provider Key preserved) |
-| **CAP-DRIVER** (Driver Profile & Compliance) | 4 (`ENG-DRIVER-001` .. `004`) | 4 Complete |
-| **CAP-VEHICLE** (Vehicle Documents & Media) | 3 (`ENG-VEHICLE-001` .. `003`) | 3 Complete |
-| **CAP-MEDIA** (Private Media & Secure Storage) | 4 (`ENG-MEDIA-001` .. `004`) | 4 Complete (2 Provider Key, 1 Legal Review) |
-| **CAP-PAY** (Payments, Methods & Refunds) | 3 (`ENG-PAY-001` .. `003`) | 3 Complete (1 Provider Key preserved) |
-| **CAP-COD** (Cash on Delivery & Custody) | 3 (`ENG-COD-001` .. `003`) | 3 Complete (1 Clarification preserved) |
-| **CAP-CLAIM** (Claims, Remedies & Fraud) | 8 (`ENG-CLAIM-001` .. `008`) | 8 Complete (3 Legal/Client Value preserved) |
-| **CAP-PROM** (Promoters, Ranks & MLM Commissions) | 8 (`ENG-PROM-001` .. `008`) | 8 Complete (4 Client Value preserved) |
-| **CAP-ADS** (Advertising & Managed Marketing) | 8 (`ENG-ADS-001` .. `008`) | 8 Complete (2 Legal/Client Value preserved) |
-| **CAP-PRIV** (POPIA, Consent, DSR & Retention) | 10 (`ENG-PRIV-001` .. `010`) | 10 Complete (3 Legal Review preserved) |
-| **CAP-SHIP** (Shipping Policies & Redelivery) | 8 (`ENG-SHIP-001` .. `008`) | 8 Complete (2 Client Value preserved) |
-| **CAP-POLICY** (Terms, Privacy & Legal Acceptance) | 2 (`ENG-POLICY-001` .. `002`) | 2 Complete (2 Legal Review preserved) |
-| **TOTAL** | **77** | **77 Complete (36 Pure Complete, 41 Complete with Invariant Dependency Preserved)** |
-
----
-
-## 3. Workstream Closures (11 Core Workstreams)
+## 2. Core Workstream Architecture (11 Functional Workstreams)
 
 ### Workstream 1: Company Profile, Commercial Boundaries, and Client Value Policy
-- **Capabilities**: CAP-COMPANY, CAP-COMMERCIAL
-- **Database & Domain Authority**: SystemSetting, DeliveryServiceDefinition, ParcelProfileVersion, CommercialSurcharge, PaymentMethodPolicy.
-- **Implementation & Invariants**:
-  - Centralized company registration (2026/000000/07), VAT (4000000000), support contacts, and physical address.
-  - Immutable issuer snapshots generated at document/invoice creation time (lib/services/legal-documents.service.ts).
-  - Strict positive ZAR bounds enforced for all fee rates and parcel profiles.
-  - Multi-tier surcharge calculator (lib/pricing/) with deterministic breakdown of fuel, distance, mass, and volumetric weights.
+- **Capability IDs**: `CAP-COMPANY` (`ENG-COMPANY-001` .. `003`), `CAP-COMMERCIAL` (`ENG-COMMERCIAL-001` .. `006`)
+- **Canonical Database Models**: `SystemSetting`, `DeliveryServiceDefinition`, `ParcelProfileVersion`, `CommercialSurcharge`, `PaymentMethodPolicy`
+- **Canonical Services**: `lib/services/admin-settings.service.ts`, `lib/settings/catalog.ts`, `lib/services/legal-documents.service.ts`, `lib/pricing/pricing-engine.service.ts`
+- **Architectural Design**:
+  - Centralized, typed system settings with strict mutability flags (`IMMUTABLE`, `ADMIN_MUTABLE`, `SUPER_ADMIN_MUTABLE`).
+  - Immutable issuer snapshots generated at invoice/waybill creation time; historical financial documents never reflect subsequent company profile edits.
+  - Multi-tier surcharge calculator supporting fuel indexing, volumetric dimensional multipliers, and after-hours/remote territory surcharges.
 
 ### Workstream 2: Product Catalog, Taxonomy, Modifiers, Inventory, and Storefront
-- **Capabilities**: CAP-MODULE, CAP-GEO
-- **Database & Domain Authority**: CatalogProduct, CatalogCategory, ProductVariant, ProductOption, Store, StoreSellingTerritory.
-- **Implementation & Invariants**:
-  - Category hierarchy with parent-child integrity and circular parent prevention.
-  - Variant combination generation with SKU uniqueness and server-side option validation.
-  - Geographic territory bounding with radius and polygon validation for vendor serviceability (lib/geo/).
-  - Verified with 10/10 test files and 45 tests on PostgreSQL (test:integration:catalog, test:integration:storefront).
+- **Capability IDs**: `CAP-MODULE` (`ENG-MODULE-001` .. `004`), `CAP-GEO` (`ENG-GEO-001` .. `003`)
+- **Canonical Database Models**: `CatalogProduct`, `CatalogCategory`, `ProductVariant`, `ProductOption`, `Store`, `StoreSellingTerritory`
+- **Canonical Services**: `lib/catalog/`, `lib/storefront/`, `lib/geo/territory-validator.ts`
+- **Architectural Design**:
+  - Hierarchical product taxonomy with circular parent reference prevention and recursive depth limits.
+  - Dynamic product variant matrix generation enforcing unique SKU boundaries and inventory reservation.
+  - Geographic territory enforcement: merchants define delivery radiuses and geo-fenced polygons; customer location resolution validates vendor serviceability prior to checkout.
 
 ### Workstream 3: Customer Journey, Cart, Checkout, and Payment Integration
-- **Capabilities**: CAP-PAY, CAP-MEDIA
-- **Database & Domain Authority**: Cart, Order, Payment, PaymentAttempt, PaymentWebhookEvent, PaymentRefund.
-- **Implementation & Invariants**:
-  - Fail-closed PayFast adapter (lib/payments/providers/payfast/payfast-adapter.ts) operating via form POST with strict HMAC MD5 signatures and passphrase verification.
-  - Idempotent ITN confirmation processor (app/api/payments/payfast/itn/route.ts) validating raw postback strings against PayFast hosts with zero browser-session authority.
-  - Double-entry ledger integration (lib/ledger/) debiting Cash Clearing and crediting Held Customer Liability upon verified payment.
+- **Capability IDs**: `CAP-PAY` (`ENG-PAY-001` .. `003`), `CAP-MEDIA` (`ENG-MEDIA-001` .. `004`)
+- **Canonical Database Models**: `Cart`, `Order`, `Payment`, `PaymentAttempt`, `PaymentWebhookEvent`, `PaymentRefund`
+- **Canonical Services**: `lib/payments/providers/payfast/payfast-adapter.ts`, `lib/services/payment-provider-session.service.ts`, `lib/payments/providers/payfast/payfast-signature.ts`
+- **Architectural Design**:
+  - PayFast by Network checkout form generation utilizing canonical RFC 3986 parameter serialization and standard MD5 digest generation with passphrase appending.
+  - Webhook ITN reconciliation handler with zero browser-session trust; payment success is established strictly through server-to-server ITN parameter validation against upstream PayFast hosts.
+  - Snapshot redaction policy (`lib/payments/provider-snapshot-policy.ts`) scrubbing merchant keys, passphrases, raw signatures, and customer emails prior to database persistence.
 
 ### Workstream 4: Order Lifecycle, Driver Workbench, Dispatch, and Custody
-- **Capabilities**: CAP-DRIVER, CAP-VEHICLE
-- **Database & Domain Authority**: Order, OrderAssignment, DriverProfile, Vehicle, VehicleDocument, DriverDocument.
-- **Implementation & Invariants**:
-  - Finite state machine for dispatch lifecycle (PENDING -> ASSIGNED -> ACCEPTED -> IN_TRANSIT -> DELIVERED).
-  - Driver eligibility engine requiring approved profile, valid vehicle registration, unexpired driver license, and active insurance prior to assignment.
-  - Secure private media storage (lib/services/private-media.service.ts) with presigned S3/local tokenized downloads, no-store headers, and access auditing.
+- **Capability IDs**: `CAP-DRIVER` (`ENG-DRIVER-001` .. `004`), `CAP-VEHICLE` (`ENG-VEHICLE-001` .. `003`)
+- **Canonical Database Models**: `Order`, `OrderAssignment`, `DriverProfile`, `Vehicle`, `VehicleDocument`, `DriverDocument`
+- **Canonical Services**: `lib/dispatch/dispatch-engine.service.ts`, `lib/services/driver-profile.service.ts`, `lib/services/vehicle-compliance.service.ts`, `lib/services/private-media.service.ts`
+- **Architectural Design**:
+  - Dispatch state machine (`PENDING` -> `ASSIGNED` -> `ACCEPTED` -> `IN_TRANSIT` -> `DELIVERED`) preventing out-of-order state transitions and double-assignment.
+  - Automated driver eligibility assessment requiring active verified profile, unexpired driver license, approved vehicle inspection, and current roadworthy/insurance certificates.
+  - Secure private media vault (`lib/services/private-media.service.ts`) serving sensitive compliance documents through short-lived tokenized presigned URLs with `Cache-Control: no-store` and immutable access logs.
 
 ### Workstream 5: COD (Cash on Delivery) Management and Driver Cash Custody
-- **Capabilities**: CAP-COD
-- **Database & Domain Authority**: CashOnDelivery, CashOnDeliveryEvent, CashOnDeliveryReconciliation.
-- **Implementation & Invariants**:
-  - Strict driver cash custody ledger tracking cash collected at doorstep.
-  - Mandatory supervisor/admin cash reconciliation and handover before driver settlement.
-  - Policy limit enforcement preventing COD dispatch when driver exceeds configured floating cash threshold.
+- **Capability IDs**: `CAP-COD` (`ENG-COD-001` .. `003`)
+- **Canonical Database Models**: `CashOnDelivery`, `CashOnDeliveryEvent`, `CashOnDeliveryReconciliation`
+- **Canonical Services**: `lib/services/cash-on-delivery.service.ts`, `lib/services/cod-reconciliation.service.ts`
+- **Architectural Design**:
+  - Doorstep cash custody tracking: driver marks full cash collection upon delivery, creating an immediate physical cash custody liability on the driver wallet.
+  - Mandatory supervisor/admin cash reconciliation and physical deposit verification before custody release.
+  - Real-time driver floating cash ceiling enforcement blocking new COD dispatch assignments when unremitted cash exceeds configured risk thresholds.
 
 ### Workstream 6: Claims, Remedies, Damage/Loss Resolution, and Fraud Protection
-- **Capabilities**: CAP-CLAIM
-- **Database & Domain Authority**: Claim, ClaimEvidence, ClaimActivity, ClaimRemedy, RedeliveryRequest.
-- **Implementation & Invariants**:
-  - Strict claimant authorization: customers can only file on their own orders; merchants/drivers on their associated deliveries.
-  - Investigation activity stream with append-only findings and dispute resolution stages.
-  - Remedy processor routing financial compensation to PaymentRefund with ledger reservations and physical replacement to RedeliveryRequest.
-  - Fraud detection heuristic flagging duplicate claims, rapid multi-claim orders, and image re-use across claims.
+- **Capability IDs**: `CAP-CLAIM` (`ENG-CLAIM-001` .. `008`)
+- **Canonical Database Models**: `Claim`, `ClaimEvidence`, `ClaimActivity`, `ClaimRemedy`, `RedeliveryRequest`
+- **Canonical Services**: `lib/claims/claim.service.ts`, `lib/claims/remedy-processor.service.ts`, `lib/claims/fraud-detection.service.ts`
+- **Architectural Design**:
+  - Strict BOLA claimant authorization: customers may only file on their own orders; merchants/drivers on associated deliveries.
+  - Multi-stage dispute lifecycle: evidence intake, investigation findings, liability assignment, and formal remedy resolution.
+  - Idempotent remedy dispatch: financial refunds route through `PaymentRefund` with ledger reservations; physical redeliveries route to `RedeliveryRequest` without financial distortion.
+  - Automated fraud detection heuristics flagging duplicate evidence hashes, abnormal order velocity, and repeated claims across linked accounts.
 
 ### Workstream 7: Promoter Network, Rank Progression, Referrals, and MLM Commission Engine
-- **Capabilities**: CAP-PROM
-- **Database & Domain Authority**: PromoterProgramVersion, PromoterRankDefinition, PromoterAttribution, PromoterTeamEdge, PromoterQualificationEvaluation, PromoterEarning.
-- **Implementation & Invariants**:
-  - Version-bound MLM compensation plans with immutable commission rules.
-  - Tree cycle prevention on promoter team hierarchy (PromoterTeamEdge).
-  - Monthly qualification period evaluation with deterministic rank calculation and non-negative earnings accrual.
-  - Fail-closed promoter production lock active until commercial commission plan signoff.
+- **Capability IDs**: `CAP-PROM` (`ENG-PROM-001` .. `008`)
+- **Canonical Database Models**: `PromoterProgramVersion`, `PromoterRankDefinition`, `PromoterAttribution`, `PromoterTeamEdge`, `PromoterQualificationEvaluation`, `PromoterEarning`
+- **Canonical Services**: `lib/promoter/promoter-program.service.ts`, `lib/promoter/promoter-team-qualification.service.ts`, `lib/promoter/promoter-commission.service.ts`
+- **Architectural Design**:
+  - Version-controlled MLM compensation plans with immutable commission formulas and tier definitions.
+  - Team hierarchy graph maintenance with strict cycle detection and parent reparenting controls.
+  - Deterministic monthly qualification calculation evaluating personal and team volume, computing rank progression, and posting non-negative earnings accruals.
+  - Fail-closed promoter production lock holding live payouts until commercial commission plan signoff.
 
 ### Workstream 8: Advertising, Managed Marketing Packages, and Channels
-- **Capabilities**: CAP-ADS
-- **Database & Domain Authority**: AdvertisingCampaign, ManagedMarketingPackage, MarketingPlacement, MarketingReview.
-- **Implementation & Invariants**:
-  - Multi-channel advertising placement authority (In-App Banner, Featured Store, Push Campaign, External Social).
-  - Package review lifecycle with admin editorial governance before ad activation.
-  - Attribution tracking and impression/click analytics with privacy-compliant pseudonymized identifiers.
+- **Capability IDs**: `CAP-ADS` (`ENG-ADS-001` .. `008`)
+- **Canonical Database Models**: `AdvertisingCampaign`, `ManagedMarketingPackage`, `MarketingPlacement`, `MarketingReview`, `ManagedMarketingPerformanceRecord`
+- **Canonical Services**: `lib/advertising/managed-marketing.service.ts`, `lib/advertising/funding.service.ts`
+- **Architectural Design**:
+  - Multi-channel marketing package catalog supporting In-App Banners, Category Spotlight, Featured Storefronts, and Push Notifications.
+  - Editorial review workflow requiring admin asset approval before campaign scheduling.
+  - Strict exclusion of phantom automated external publishing (`AUTOMATED_PROVIDER_RUNTIME_AVAILABLE = false`); only verified manual execution modes are operational.
+  - Deterministic performance reporting ordered by `LATEST_MANAGED_MARKETING_PERFORMANCE_ORDER` (`recordedAt: desc`, `periodEndsAt: desc`, `id: desc`).
 
 ### Workstream 9: Privacy, POPIA Compliance, Data Subject Requests, and Retention
-- **Capabilities**: CAP-PRIV
-- **Database & Domain Authority**: PrivacyPreference, DataSubjectRequest, DataRetentionPolicy, ConsentRecord.
-- **Implementation & Invariants**:
-  - POPIA-compliant consent tracking with granular cookie, marketing, and location preferences.
-  - Data Subject Request (DSR) workflow supporting Access, Correction, and Deletion (right-to-be-forgotten) with legal hold overrides.
-  - Automated retention expiration processor purging unneeded PII while retaining immutable tax and financial records.
+- **Capability IDs**: `CAP-PRIV` (`ENG-PRIV-001` .. `010`)
+- **Canonical Database Models**: `PrivacyPreference`, `DataSubjectRequest`, `DataRetentionPolicy`, `ConsentRecord`
+- **Canonical Services**: `lib/privacy/preference.service.ts`, `lib/privacy/provider-governance.service.ts`, `lib/services/privacy-requests.service.ts`, `lib/retention/privacy-retention.service.ts`
+- **Architectural Design**:
+  - South African POPIA-compliant granular consent tracking (essential, functional, analytics, direct marketing).
+  - Data Subject Request (DSR) engine managing Access, Correction, and Deletion (right-to-be-forgotten) workflows.
+  - Automated retention expiration worker pruning stale PII while respecting statutory tax retention and legal hold overrides.
 
 ### Workstream 10: Logistics Policies, Service Definitions, Specialised Services, and Surcharges
-- **Capabilities**: CAP-SHIP, CAP-POLICY
-- **Database & Domain Authority**: DeliveryServiceDefinition, SpecialisedDeliveryService, LegalPolicyVersion, LegalAcceptance.
-- **Implementation & Invariants**:
-  - Explicit SLA tiers (Express Same-Day, Standard 24-48h, Regional/Economy).
-  - Specialised delivery handling for fragile, oversized, temperature-controlled, and high-value cargo with declared value insurance.
-  - Versioned legal terms and privacy policy click-wrap acceptance with IP, user agent, and timestamp evidence.
+- **Capability IDs**: `CAP-SHIP` (`ENG-SHIP-001` .. `008`), `CAP-POLICY` (`ENG-POLICY-001` .. `002`)
+- **Canonical Database Models**: `DeliveryServiceDefinition`, `SpecialisedDeliveryService`, `LegalPolicyVersion`, `LegalAcceptance`
+- **Canonical Services**: `lib/shipping/shipping-policy.service.ts`, `lib/services/legal-documents.service.ts`
+- **Architectural Design**:
+  - Dynamic service definition engine accommodating Standard, Scheduled, and Express turnaround SLA models.
+  - Specialised freight and fragile cargo handling with custom dimension requirements and declared value transit coverage.
+  - Versioned legal document click-wrap enforcement recording IP address, user agent, policy SHA-256 hash, and UTC timestamp.
 
 ### Workstream 11: Production Readiness, Security Hardening, Observability, and Quality Gates
-- **Security & Authorization**:
-  - Strict BOLA enforcement rejecting unauthorized cross-tenant order, store, driver, and wallet access (10/10 test suite passing).
-  - Redis distributed sliding-window rate limiting protecting public, auth, and payment endpoints (7/7 test suite passing).
-  - Content Security Policy (CSP), HSTS, X-Frame-Options: DENY, X-Content-Type-Options: nosniff, and Cache-Control: no-store on authenticated routes.
+- **Security Hardening**:
+  - Strict BOLA enforcement rejecting unauthorized cross-tenant order, store, driver, and wallet access (`npm run test:integration:bola-authority` - 10/10 adversarial cases passed).
+  - Redis distributed sliding-window rate limiting protecting public, authentication, and payment callback endpoints (`npm run test:integration:redis-rate-limit` - 7/7 passed).
+  - Comprehensive HTTP security headers (CSP, HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`).
 - **Financial Conservation**:
-  - Zero-sum double-entry ledger balance assertion (SUM(debit) == SUM(credit)).
-  - Immutable payment snapshots and strict positive ZAR transaction amounts.
+  - Double-entry ledger journals strictly assert `SUM(debit) == SUM(credit)`.
+  - All financial balances and transactions operate in positive ZAR amounts with immutable attempt snapshots.
 
 ---
 
-## 4. Invariant Verification & Fix Details
+## 3. Canonical System Invariants & Financial Conservation
 
-### Fix: `scripts/verify-payfast-invariants.mjs` Regex Refinement
-- **Problem**: The PayFast invariant verification script had an unanchored regex check for secrets: `COALESCE("providerPayload"::text, '') ~* '(merchant[_-]?key|passphrase|signature|email_address|...)'`. The safe metadata field `signatureVersion: "payfast-md5-v1"` stored in `PaymentAttempt.resultSnapshot` (mapped to `"providerPayload"`) triggered a false-positive match on the substring `signature`.
-- **Surgical Solution**: Refined the regex in `scripts/verify-payfast-invariants.mjs` to anchor on JSON property key boundaries: `'("((merchant[_-]?key|passphrase|signature|email_address))"\\s*:|merchant_id.*merchant_key.*return_url)'`.
-- **Regression Proof**: Added unit test in `tests/payments/payfast/payfast-snapshot-safety.test.ts` confirming:
-  1. Safe metadata properties (`signatureVersion`, `requestFieldVersion`, `configurationFingerprint`) **PASS** (`pattern.test(...) === false`).
-  2. Leaked secret properties (`"signature":`, `"merchant_key":`, `"passphrase":`, `"email_address":`) **FAIL** (`pattern.test(...) === true`).
-  3. Raw PayFast form payload strings **FAIL** (`pattern.test(...) === true`).
-- **Test Result**: `npm run test:integration:payfast` executed and passed all 19 invariants including zero secret leaks.
+The platform enforces the following non-negotiable architectural invariants:
 
----
-
-## 5. Client Clarifications & Legal Review Register (Preserved Invariants)
-
-All 9 client conflict and clarification items remain explicitly documented in `artifacts/client-clarification-register.json` and guarded in code without arbitrary hardcoded assumptions:
-
-| ID | Title | Domain | Current System Guard |
-|---|---|---|---|
-| `DOC-CONFLICT-001` | Service Tier Naming & SLA | Shipping / Pricing | Configurable DeliveryServiceDefinition versions; no hardcoded SLA strings. |
-| `DOC-CONFLICT-002` | Express Pricing Interpretation | Pricing Engine | Rate matrix calculates distance/mass dimensions with configurable base and step rates. |
-| `DOC-CONFLICT-003` | Refund Deadline Conflict | Customer Refunds | Configurable refund window policy with order status checks; fails closed on expired windows. |
-| `DOC-CONFLICT-004` | Physical Business Address | Company Settings | System setting populated with verified corporate registration address. |
-| `DOC-CONFLICT-005` | Promoter Entry Fee vs Deposit | Promoter Network | Program version configuration defines threshold type; production lock active. |
-| `DOC-CONFLICT-006` | Legal Consent Mapping | Legal / Privacy | Independent versioned consent tracking for Terms, Privacy, Cookies, and Marketing. |
-| `CLIENT-CLAR-007` | COD Custody & Partial Pay | COD Management | Strict full-payment-only cash custody; partial payment disabled pending client signoff. |
-| `CLIENT-CLAR-008` | External Advertising Automation | Advertising | Internal managed marketing active; external ad network sync kept behind provider lock. |
-| `CLIENT-CLAR-009` | Relocation & Specialised Cargo | Shipping Policies | Specialised cargo quote flow requests custom dimensions and hazard disclosures. |
+1. **Zero-Sum Ledger Balance Invariant**:
+   Every financial event must write balanced double-entry ledger entries. At all times, `SUM(debit) - SUM(credit) == 0` across all accounts in a transaction.
+2. **Positive ZAR Currency Invariant**:
+   All quotes, payments, refunds, wallets, commissions, and ledger entries must be denominated in `ZAR` with amounts strictly `> 0`. Negative values and currency mixing are rejected at the database and service boundaries.
+3. **Immutable Payment Snapshot Invariant**:
+   Payment attempts and payment records preserve immutable JSON snapshots of customer inputs, quote parameters, and sanitized provider responses. Snapshots never mutate post-creation.
+4. **Secret Scrubbing Invariant**:
+   Provider payloads stored in `PaymentAttempt.requestSnapshot` and `PaymentAttempt.providerPayload` strictly exclude merchant keys, passphrases, raw signatures, and unmasked customer emails.
+5. **Idempotent Webhook Processing Invariant**:
+   Payment webhooks (ITN) verify provider transaction uniqueness. Duplicate webhook postbacks are acknowledged without generating redundant ledger postings or duplicate order state transitions.
 
 ---
 
-## 6. Execution Session Audit & Changed Files
+## 4. Authorization & BOLA Defense Matrix
 
-- **Git Status**: `NO_LOCAL_GIT_METADATA` (direct project tree checkout).
-- **Files Modified / Created in this Execution Session**:
-  1. `scripts/verify-payfast-invariants.mjs` (Refined snapshot regex pattern)
-  2. `tests/payments/payfast/payfast-snapshot-safety.test.ts` (Added regression tests for invariant regex safety)
-  3. `artifacts/chief-architect-phase-1-requirement-matrix.json` (77 normalized requirements matrix)
-  4. `docs/chief-architect-phase-1-completion-report.md` (This completion report)
-  5. `docs/chief-architect-phase-1-functional-closure.md` (Architectural functional closure document)
-  6. `implementation_plan.md` (Implementation plan artifact)
+Broken Object-Level Authorization (BOLA) is mitigated through relationship-scoped database authorization:
+
+| Domain / Resource | Tenant / Role Scope | Database Authority Guard |
+|---|---|---|
+| **Orders & Delivery Tracking** | Customer, Assigned Driver, Merchant Store Owner | Enforced via `order.customerId == user.id OR order.storeId == user.storeId OR assignment.driverId == user.driverId` |
+| **Driver Workbench & Earnings** | Approved Driver Profile Owner | Driver earnings and active assignments strictly restricted to authenticated `driverId` |
+| **Merchant Storefront & Catalog** | Verified Store Owner / Manager | Catalog edits, product creation, and promotion budgets restricted to authenticated `storeId` |
+| **Customer Wallet & Refunds** | Account Holder / Authorized Admin | Balance inquiries, withdrawal requests, and refund claims strictly bound to owner `walletId` |
+| **Promoter Team & MLM Earnings** | Registered Promoter | Team tree viewing and commission accruals strictly bound to authenticated `promoterId` |
+| **Admin Operations & Audit Logs** | Super Admin / Compliance Officer | Guarded by granular RBAC permissions in `lib/auth/permissions.ts` with mandatory audit logging |
 
 ---
 
-## 7. Production Locks & Fail-Closed Guards
+## 5. Client Clarifications & Legal Review Dependencies (9 Preserved Invariants)
 
-The following security and production locks remain **ACTIVE & FAIL-CLOSED** in production:
-1. `lib/config/production-locks.ts`: Database classification, private storage URL checks, and test runner flags.
-2. `lib/payments/payfast-production-lock.ts`: Requires verified live merchant ID, merchant key, and passphrase before production transactions can be generated.
-3. `lib/services/privacy-production-lock.ts`: DSR hard-delete operations require authorized compliance officer approval and active audit logging.
-4. `lib/storefront/storefront-production-lock.ts`: Merchant storefront publishing requires verified store owner KYC and active delivery territory.
+All 9 client clarification and legal conflict items from `artifacts/client-clarification-register.json` remain explicitly preserved without hardcoding:
+
+1. **`DOC-CONFLICT-001` (Service Tier Naming & SLA)**:
+   Service definitions (Standard vs Scheduled vs Economy) and turnaround times remain configurable via `DeliveryServiceDefinition`; no hardcoded SLA strings exist in business logic.
+2. **`DOC-CONFLICT-002` (Express Pricing Interpretation)**:
+   Express rate calculation (distance vs parcel profile base rates) remains configurable in pricing rate tables.
+3. **`DOC-CONFLICT-003` (Refund Deadline Conflict)**:
+   Refund dispute window (Terms 24h vs Refund Policy perishable goods terms) remains configurable in `lib/claims/`; fails closed on expired windows.
+4. **`DOC-CONFLICT-004` (Physical Business Address)**:
+   Corporate physical business address remains `CLIENT_VALUE_REQUIRED`. Placeholder and demo addresses in seed fixtures are NOT approved production identity.
+5. **`DOC-CONFLICT-005` (Promoter Entry Fee vs Deposit)**:
+   Starter qualification fee structure remains configurable in `PromoterProgramVersion`; promoter production lock active.
+6. **`DOC-CONFLICT-006` (Legal Consent Mapping)**:
+   Independent versioned consent records maintained for Terms of Service, Privacy Policy, Cookie Policy, and Marketing Communications.
+7. **`CLIENT-CLAR-007` (COD Partial Payment & Custody)**:
+   Cash on delivery custody enforces full cash collection at doorstep; partial payment disabled pending client signoff.
+8. **`CLIENT-CLAR-008` (External Advertising Automation)**:
+   External advertising API synchronization disabled (`AUTOMATED_PROVIDER_RUNTIME_AVAILABLE = false`); internal managed marketing operational.
+9. **`CLIENT-CLAR-009` (Relocation & Specialised Cargo)**:
+   Specialised cargo quote flow requires custom dimension submission and hazard disclosures.
+
+---
+
+## 6. Functional Frontend Closure
+
+All user-facing and back-office frontends are fully operational with server/client action integration, data fetching, loading states, error boundaries, and permission enforcement:
+- **Public & Marketing**: Landing, Services, Coverage Areas, Careers, Contact, Legal/Policy pages.
+- **Customer Portal**: Storefront Browsing, Product Details, Cart, Checkout, Order Tracking, Customer Wallet, DSR Privacy Portal.
+- **Merchant Portal**: Store Profile, Product Catalog, Inventory, Promotion Manager, Managed Marketing, Store Earnings.
+- **Driver Portal**: Driver Workbench, Vehicle Documents, Delivery Map, Cash on Delivery Custody, Driver Earnings.
+- **Promoter Portal**: Affiliate Links, Team Hierarchy Tree, Qualification Dashboard, Commission Earnings, Withdrawal Requests.
+- **Admin Portal**: System Settings, User Management, Dispatch Operations, Financial Ledger, Claims Investigation, Audit Logs.
+
+*(Note: In accordance with Chief Architect Phase 1 directives, all UI workflows are functionally closed; visual redesign and aesthetic art direction are strictly excluded.)*
+
+---
+
+## 7. Explicit Phase 2 Handover Boundary
+
+Phase 1 provides the fully proven, locked, and verified functional foundation. The boundary for subsequent Phase 2 operations includes:
+1. Live Third-Party Credential Activation (PayFast live merchant key/passphrase, Google Maps API key, AWS S3 bucket credentials).
+2. Final Client Value Ingestion upon written client signoff (Official corporate physical address, signed promoter commission rate schedule, finalized SLA naming).
+3. Production Deployment & Infrastructure Staging.
