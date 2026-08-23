@@ -18,7 +18,7 @@ const CUSTODY: OrderStatus[] = [OrderStatus.PICKED_UP, OrderStatus.IN_TRANSIT, O
 
 async function lockOrderAndDrivers(tx: Tx, orderId: string, driverIds: string[]) {
   await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
-  for (const driverId of [...new Set(driverIds)].sort()) await tx.$queryRaw`SELECT id FROM "DriverProfile" WHERE id = ${driverId} FOR UPDATE`;
+  for (const driverId of [...new Set(driverIds)].sort()) await tx.$queryRaw`SELECT id FROM "DriverProfile" WHERE id = ${driverId} FOR NO KEY UPDATE`;
 }
 
 async function settings(tx: Tx) {

@@ -70,4 +70,58 @@ describe("Phase 7.5 live dispatch races", () => {
     expect(orderAfter.currentDriverProfileId).toBeNull();
     expect(await integrationPrisma.orderAssignmentEvent.count({ where: { assignmentId: offer.id, eventType: OrderAssignmentEventType.ASSIGNMENT_EXPIRED } })).toBe(1);
   });
+
+  it("concurrently offers two independent orders to two independent drivers in the same region without deadlock", async () => {
+    const tag = uniqueTag("dispatch-disjoint");
+    const adminA = await createUser(`${tag}-admin-a`, UserRole.ADMIN);
+    const adminB = await createUser(`${tag}-admin-b`, UserRole.ADMIN);
+    const customer = await createUser(`${tag}-customer`, UserRole.CUSTOMER);
+    const region = await createRegion(tag);
+    const driverA = await createDriver(`${tag}-driver-a`, region.id, 1);
+    const driverB = await createDriver(`${tag}-driver-b`, region.id, 1);
+    const orderA = await createDispatchOrder(`${tag}-order-a`, customer.id, region.id);
+    const orderB = await createDispatchOrder(`${tag}-order-b`, customer.id, region.id);
+
+    const [offerA, offerB] = await Promise.all([
+      offerAssignment(adminA.id, orderA.id, { driverProfileId: driverA.profile.id, reasonCode: "INITIAL" }),
+      offerAssignment(adminB.id, orderB.id, { driverProfileId: driverB.profile.id, reasonCode: "INITIAL" }),
+    ]);
+
+    expect(offerA.status).toBe(OrderAssignmentStatus.ASSIGNED);
+    expect(offerB.status).toBe(OrderAssignmentStatus.ASSIGNED);
+
+    const currentAssignmentsA = await integrationPrisma.orderAssignment.findMany({
+      where: { orderId: orderA.id, status: { in: [OrderAssignmentStatus.ASSIGNED, OrderAssignmentStatus.ACCEPTED] } },
+    });
+    const currentAssignmentsB = await integrationPrisma.orderAssignment.findMany({
+      where: { orderId: orderB.id, status: { in: [OrderAssignmentStatus.ASSIGNED, OrderAssignmentStatus.ACCEPTED] } },
+    });
+
+    // Exactly one current assignment per order
+    expect(currentAssignmentsA).toHaveLength(1);
+    expect(currentAssignmentsB).toHaveLength(1);
+    expect(currentAssignmentsA[0]?.driverProfileId).toBe(driverA.profile.id);
+    expect(currentAssignmentsB[0]?.driverProfileId).toBe(driverB.profile.id);
+    expect(currentAssignmentsA[0]?.activeOrderGuard).toBe(orderA.id);
+    expect(currentAssignmentsB[0]?.activeOrderGuard).toBe(orderB.id);
+
+    // Candidate evaluation and evidence remain present for both offers
+    expect(currentAssignmentsA[0]?.dispatchCandidateEvaluationId).toBeTruthy();
+    expect(currentAssignmentsB[0]?.dispatchCandidateEvaluationId).toBeTruthy();
+
+    const candidateEvidenceCountA = await integrationPrisma.dispatchCandidateEvidence.count({
+      where: { evaluationId: currentAssignmentsA[0]!.dispatchCandidateEvaluationId! },
+    });
+    const candidateEvidenceCountB = await integrationPrisma.dispatchCandidateEvidence.count({
+      where: { evaluationId: currentAssignmentsB[0]!.dispatchCandidateEvaluationId! },
+    });
+    expect(candidateEvidenceCountA).toBeGreaterThan(0);
+    expect(candidateEvidenceCountB).toBeGreaterThan(0);
+
+    // No loss of assignment or event evidence
+    expect(await integrationPrisma.orderAssignmentEvent.count({ where: { orderId: orderA.id, eventType: OrderAssignmentEventType.ASSIGNMENT_CREATED } })).toBe(1);
+    expect(await integrationPrisma.orderAssignmentEvent.count({ where: { orderId: orderB.id, eventType: OrderAssignmentEventType.ASSIGNMENT_CREATED } })).toBe(1);
+    expect(await integrationPrisma.orderOperationalEvent.count({ where: { orderId: orderA.id, eventType: OrderOperationalEventType.ASSIGNMENT_OFFERED } })).toBe(1);
+    expect(await integrationPrisma.orderOperationalEvent.count({ where: { orderId: orderB.id, eventType: OrderOperationalEventType.ASSIGNMENT_OFFERED } })).toBe(1);
+  });
 });
