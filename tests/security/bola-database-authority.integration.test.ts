@@ -548,7 +548,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
         },
       });
 
-      // 11. Finance Permissions Setup
+      // 11. Finance & Store Permissions Setup
       const finPerm = await prisma.permission.upsert({
         where: { key: PERMISSIONS.MARKETPLACE_SETTLEMENT_RECONCILE },
         update: {},
@@ -564,6 +564,23 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       });
       await prisma.userPermission.create({
         data: { userId: restrictedAdminId, permissionId: finPerm.id, effect: PermissionEffect.DENY },
+      });
+
+      const storeReviewPerm = await prisma.permission.upsert({
+        where: { key: PERMISSIONS.STORE_ORDERS_REVIEW },
+        update: {},
+        create: {
+          key: PERMISSIONS.STORE_ORDERS_REVIEW,
+          name: "Review store orders",
+          category: "Store Orders",
+        },
+      });
+
+      await prisma.userPermission.create({
+        data: { userId: storeAOwnerId, permissionId: storeReviewPerm.id, effect: PermissionEffect.ALLOW },
+      });
+      await prisma.userPermission.create({
+        data: { userId: storeBOwnerId, permissionId: storeReviewPerm.id, effect: PermissionEffect.ALLOW },
       });
 
       // 12. Upload Private Evidence / Media for Driver B
@@ -595,7 +612,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
         where: { createdByUserId: { in: [customerAUserId, customerBUserId, driverAUserId, driverBUserId, foreignActorUserId] } },
       });
       await prisma.userPermission.deleteMany({
-        where: { userId: { in: [financeAdminId, restrictedAdminId] } },
+        where: { userId: { in: [financeAdminId, restrictedAdminId, storeAOwnerId, storeBOwnerId] } },
       });
       await (prisma as any).promoterEarning.deleteMany({
         where: { promoterAccountId: { in: [promoterAAccountId, promoterBAccountId] } },
@@ -738,6 +755,23 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       return;
     }
 
+    // 0. Verify BOTH Store A and Store B owners possess the store_orders.review permission capability
+    expect(
+      await hasPermission({
+        userId: storeAOwnerId,
+        role: UserRole.STORE,
+        permissionKey: PERMISSIONS.STORE_ORDERS_REVIEW,
+      })
+    ).toBe(true);
+
+    expect(
+      await hasPermission({
+        userId: storeBOwnerId,
+        role: UserRole.STORE,
+        permissionKey: PERMISSIONS.STORE_ORDERS_REVIEW,
+      })
+    ).toBe(true);
+
     // 1. Store A attempting to review Store B's order using actual production beginStoreOrderReview service
     await expect(
       beginStoreOrderReview({
@@ -780,7 +814,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       requireStoreOrderActor({
         actorUserId: storeBOwnerId,
         storeId: storeBId,
-        permission: "store_orders.review",
+        permission: PERMISSIONS.STORE_ORDERS_REVIEW,
       })
     ).resolves.not.toThrow();
   });
