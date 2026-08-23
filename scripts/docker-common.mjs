@@ -1,9 +1,116 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { createServer } from "node:net";
 import process from "node:process";
 
 export const composeFileArgs = ["-f", "compose.yml", "-f", "compose.dev.yml"];
 export const normalComposeProject = "kt-couriers";
+
+/**
+ * Finds and returns an available loopback TCP port assigned by the OS.
+ * @returns {Promise<number>}
+ */
+export async function findAvailableLoopbackPort() {
+  return await new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(
+      {
+        host: "127.0.0.1",
+        port: 0,
+        exclusive: true,
+      },
+      () => {
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          server.close(() => reject(new Error("Unable to allocate loopback port.")));
+          return;
+        }
+        const port = address.port;
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve(port);
+        });
+      }
+    );
+  });
+}
+
+/**
+ * Checks whether an error or output message indicates a host port binding conflict.
+ * @param {unknown} errorOrOutput
+ * @returns {boolean}
+ */
+export function isHostPortBindingConflict(errorOrOutput) {
+  const text = String(
+    errorOrOutput instanceof Error
+      ? errorOrOutput.message
+      : typeof errorOrOutput === "object" && errorOrOutput !== null
+        ? (errorOrOutput.stderr || "") + "\n" + (errorOrOutput.stdout || "")
+        : errorOrOutput || ""
+  );
+  return /ports are not available|port is already allocated|bind: An attempt was made to access a socket|address already in use/i.test(
+    text
+  );
+}
+
+/**
+ * Starts disposable compose services with bounded retry against host-port collisions.
+ *
+ * @param {Object} options
+ * @param {string[]} [options.services] Services to start (e.g. ["db"])
+ * @param {string} options.projectName Disposable Compose project name
+ * @param {(port: number) => Record<string, string | undefined>} options.buildEnv Builder for project env given port
+ * @param {number} [options.maxAttempts] Max startup attempts (default: 3)
+ * @param {Object} [options.composeOptions] Additional options passed to compose
+ * @returns {Promise<{ port: number, env: Record<string, string | undefined> }>}
+ */
+export async function startDisposableComposeWithPortRetry({
+  services = ["db"],
+  projectName,
+  buildEnv,
+  maxAttempts = 3,
+  composeOptions = {},
+}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const port = await findAvailableLoopbackPort();
+    const env = buildEnv(port);
+    assertSuccess(
+      runCompose(["config", "--quiet"], { projectName, env, ...composeOptions }),
+      "disposable compose config"
+    );
+    const upResult = runCompose(["up", "-d", ...services], {
+      projectName,
+      env,
+      ...composeOptions,
+    });
+    if (upResult.status === 0) {
+      return { port, env };
+    }
+
+    const output = (upResult.stderr || "") + "\n" + (upResult.stdout || "");
+    const isConflict = isHostPortBindingConflict(output);
+
+    runCompose(["down", "-v", "--remove-orphans"], {
+      projectName,
+      env,
+      ...composeOptions,
+    });
+
+    if (isConflict && attempt < maxAttempts) {
+      safeLog(
+        `Port ${port} binding conflict on attempt ${attempt}/${maxAttempts}. Retrying with fresh loopback port...`
+      );
+      continue;
+    }
+
+    throw new Error(
+      `Disposable Compose startup failed on attempt ${attempt}: ${output.trim()}`
+    );
+  }
+  throw new Error(`Failed to start disposable Compose services after ${maxAttempts} attempts.`);
+}
 
 export function composeArgs(args = [], options = {}) {
   const result = ["compose"];

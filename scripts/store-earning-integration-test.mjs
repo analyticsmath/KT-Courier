@@ -4,7 +4,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
-import { assertSuccess, normalComposeProject, runCompose, runDocker, safeError, safeLog, waitForServiceHealth } from "./docker-common.mjs";
+import { assertSuccess, normalComposeProject, runCompose, runDocker, safeError, safeLog, startDisposableComposeWithPortRetry, waitForServiceHealth } from "./docker-common.mjs";
 
 if (process.env.KT_STORE_EARNING_INTEGRATION_APPROVED !== "true") {
   safeError("Store earning integration tests are deferred until consolidated validation approves an isolated PostgreSQL run.");
@@ -15,24 +15,28 @@ const nonce = `${Date.now()}-${process.pid}`;
 const projectPrefix = (process.env.KT_SMOKE_PROJECT_NAME ?? "kt-couriers-store-earning").toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 42);
 const projectName = `${projectPrefix}-${nonce}`;
 const database = `kt_store_earning_${process.pid}_${Date.now()}`;
-const port = String(57400 + (process.pid % 500));
 const password = "phase16_store_earning_disposable_only";
-const env = {
-  ...process.env,
-  KT_SMOKE_PROJECT_NAME: projectName,
-  POSTGRES_DB: database,
-  POSTGRES_USER: database,
-  POSTGRES_PASSWORD: password,
-  SHADOW_POSTGRES_DB: `${database}_shadow`,
-  POSTGRES_PORT: port,
-  DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
-  SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
-  EMAIL_PROVIDER: "console",
-  KT_NETWORK_DISABLED: "true",
-  NO_PROXY: "*",
-  no_proxy: "*",
-  KT_ALLOW_DEMO_SEED: "true",
-};
+
+function buildEnv(port) {
+  return {
+    ...process.env,
+    KT_SMOKE_PROJECT_NAME: projectName,
+    POSTGRES_DB: database,
+    POSTGRES_USER: database,
+    POSTGRES_PASSWORD: password,
+    SHADOW_POSTGRES_DB: `${database}_shadow`,
+    POSTGRES_PORT: String(port),
+    DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
+    SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
+    EMAIL_PROVIDER: "console",
+    KT_NETWORK_DISABLED: "true",
+    NO_PROXY: "*",
+    no_proxy: "*",
+    KT_ALLOW_DEMO_SEED: "true",
+  };
+}
+
+let env = buildEnv(5432);
 
 function assertDisposableProject() {
   if (projectName === normalComposeProject || !/^kt-couriers-store-earning-[a-z0-9-]+/.test(projectName)) throw new Error("Refusing to operate a non-disposable store earning integration project.");
@@ -48,8 +52,8 @@ let failed = false;
 try {
   assertDisposableProject();
   assertSuccess(runDocker(["info"]), "docker info");
-  assertSuccess(runCompose(["config", "--quiet"], { projectName, env }), "store earning integration compose config");
-  assertSuccess(runCompose(["up", "-d", "db"], { projectName, env }), "store earning integration database startup");
+  const started = await startDisposableComposeWithPortRetry({ projectName, buildEnv });
+  env = started.env;
   if (await waitForServiceHealth("db", { projectName, env, timeoutMs: 150_000 }) !== "healthy") throw new Error("Store earning integration database did not become healthy.");
   assertSuccess(runCompose(["run", "--build", "--rm", "migrate"], { projectName, env }), "store earning integration migration deploy");
   assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env }), "store earning integration permission seed");

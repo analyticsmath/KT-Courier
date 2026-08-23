@@ -7,25 +7,30 @@ import {
   runDocker,
   safeError,
   safeLog,
+  startDisposableComposeWithPortRetry,
   waitForServiceHealth,
 } from "./docker-common.mjs";
 
 const nonce = `${Date.now()}-${process.pid}`;
 const projectName = `kt-couriers-phase9-disposable-${nonce}`;
 const database = `kt_phase9_${process.pid}`;
-const port = String(58000 + (process.pid % 700));
 const password = "phase9_disposable_only";
-const env = {
-  ...process.env,
-  POSTGRES_DB: database,
-  POSTGRES_USER: database,
-  POSTGRES_PASSWORD: password,
-  POSTGRES_PORT: port,
-  DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
-  SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
-  EMAIL_PROVIDER: "console",
-  KT_ALLOW_DEMO_SEED: "true",
-};
+
+function buildEnv(port) {
+  return {
+    ...process.env,
+    POSTGRES_DB: database,
+    POSTGRES_USER: database,
+    POSTGRES_PASSWORD: password,
+    POSTGRES_PORT: String(port),
+    DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
+    SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
+    EMAIL_PROVIDER: "console",
+    KT_ALLOW_DEMO_SEED: "true",
+  };
+}
+
+let env = buildEnv(5432);
 
 function assertDisposable() {
   if (projectName === normalComposeProject || !/^kt-couriers-phase9-disposable-/.test(projectName)) {
@@ -41,7 +46,8 @@ let failed = false;
 try {
   assertDisposable();
   if (runDocker(["info"]).status !== 0) throw new Error("Docker is unavailable.");
-  if (compose(["up", "-d", "db"]).status !== 0) throw new Error("Disposable database startup failed.");
+  const started = await startDisposableComposeWithPortRetry({ projectName, buildEnv });
+  env = started.env;
   if (await waitForServiceHealth("db", { projectName, env, timeoutMs: 150_000 }) !== "healthy") {
     throw new Error("Disposable database did not become healthy.");
   }

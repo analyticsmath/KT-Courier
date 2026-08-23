@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { createServer } from "node:net";
 import path from "node:path";
 import process from "node:process";
 import {
@@ -9,6 +8,7 @@ import {
   runDocker,
   safeError,
   safeLog,
+  startDisposableComposeWithPortRetry,
   waitForServiceHealth,
 } from "./docker-common.mjs";
 
@@ -31,33 +31,6 @@ const nonce = `${Date.now()}-${process.pid}`;
 const projectName = `kt-couriers-ci-phase75-${suite}-${nonce}`;
 const database = `kt_phase75_${suite.replace(/[^a-z0-9]/g, "_")}`;
 const password = "phase75_disposable_only";
-
-export async function findAvailableLoopbackPort() {
-  return await new Promise((resolve, reject) => {
-    const server = createServer();
-    server.unref();
-    server.once("error", reject);
-    server.listen(
-      {
-        host: "127.0.0.1",
-        port: 0,
-        exclusive: true,
-      },
-      () => {
-        const address = server.address();
-        if (!address || typeof address === "string") {
-          server.close(() => reject(new Error("Unable to allocate loopback port.")));
-          return;
-        }
-        const port = address.port;
-        server.close((error) => {
-          if (error) reject(error);
-          else resolve(port);
-        });
-      }
-    );
-  });
-}
 
 function buildEnv(port) {
   return {
@@ -100,36 +73,13 @@ async function cleanup() {
   if (result.status !== 0) safeError(result.stderr || result.stdout || "Disposable integration cleanup failed.");
 }
 
-async function startDatabaseWithPortRetry(maxAttempts = 3) {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const selectedPort = await findAvailableLoopbackPort();
-    env = buildEnv(selectedPort);
-    assertSuccess(runCompose(["config", "--quiet"], { projectName, env }), "integration compose config");
-    const upResult = runCompose(["up", "-d", "db"], { projectName, env });
-    if (upResult.status === 0) {
-      return;
-    }
-
-    const output = (upResult.stderr || "") + "\n" + (upResult.stdout || "");
-    const isPortCollision = /ports are not available|bind: An attempt was made to access a socket|port is already allocated/i.test(output);
-
-    runCompose(["down", "-v", "--remove-orphans"], { projectName, env });
-
-    if (isPortCollision && attempt < maxAttempts) {
-      safeLog(`Port ${selectedPort} binding conflict on attempt ${attempt}/${maxAttempts}. Retrying with fresh loopback port...`);
-      continue;
-    }
-
-    throw new Error(`integration database startup failed on attempt ${attempt}: ${output.trim()}`);
-  }
-}
-
 let failed = false;
 try {
   assertDisposableProject();
   safeLog(`Live integration suite: ${suite}.`);
   assertSuccess(runDocker(["info"]), "docker info");
-  await startDatabaseWithPortRetry(3);
+  const started = await startDisposableComposeWithPortRetry({ projectName, buildEnv });
+  env = started.env;
   const health = await waitForServiceHealth("db", { projectName, env, timeoutMs: 150_000 });
   if (health !== "healthy") throw new Error(`integration database did not become healthy (${health}).`);
   assertSuccess(runCompose(["run", "--build", "--rm", "migrate"], { projectName, env }), "integration migration deploy");

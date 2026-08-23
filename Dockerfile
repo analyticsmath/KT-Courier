@@ -27,7 +27,8 @@ FROM base AS builder
 
 ARG NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES
 ENV NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES=${NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES}
-ENV NEXT_PRIVATE_WORKERS=2
+ENV NEXT_PRIVATE_WORKERS=1
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/package.json ./package.json
@@ -35,7 +36,7 @@ COPY --from=dependencies /app/package-lock.json ./package-lock.json
 COPY --from=dependencies /app/prisma ./prisma
 COPY . .
 
-RUN npm run build
+RUN node --max-old-space-size=2048 ./node_modules/next/dist/bin/next build
 
 FROM base AS runner
 

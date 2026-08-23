@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import process from "node:process";
-import { getSchemaVerifierComposeArgs, sanitize } from "./docker-common.mjs";
+import { findAvailableLoopbackPort, getSchemaVerifierComposeArgs, isHostPortBindingConflict, sanitize } from "./docker-common.mjs";
 
 const projectName = process.env.KT_PHASEB_RUNTIME_PROJECT_NAME || "kt-couriers-phaseb-runtime";
 const composeFile = "compose.phase-b-runtime.yml";
-const port = process.env.KT_PHASEB_POSTGRES_PORT || "55935";
+let port = process.env.KT_PHASEB_POSTGRES_PORT ? String(process.env.KT_PHASEB_POSTGRES_PORT) : "0";
 const dbName = "kt_courier_phase_b_runtime_disposable";
 const dbUser = "kt_courier_phase_b_runtime";
 const dbPassword = "phase_b_runtime_local_only";
@@ -14,10 +14,10 @@ function fail(message) { throw new Error(message); }
 function docker(args, env = process.env, stdio = "pipe") { return spawnSync("docker", args, { cwd: process.cwd(), env, encoding: "utf8", stdio, shell: false }); }
 function assertSuccess(result, label) { if (result.status !== 0) fail(`${label} failed: ${sanitize(`${result.stdout || ""}\n${result.stderr || ""}`) || "command failed"}`); }
 function compose(args, env) { return docker(["compose", "-p", projectName, "-f", composeFile, ...args], env); }
-function assertDisposableIdentity() {
+function assertDisposableIdentity(currentPort) {
   if (!/^kt-couriers-(?:phaseb-runtime|ci-phaseb-runtime)(?:-[a-z0-9-]+)?$/.test(projectName)) fail(`Refusing non-disposable Phase B project '${projectName}'.`);
   if (projectName === "kt-couriers" || !/^kt_courier_phase_b_runtime_disposable$/.test(dbName)) fail("Refusing normal/shared project or database identity.");
-  if (port === "5432" || port === "5433" || port === "55834") fail(`Refusing reserved/shared PostgreSQL port '${port}'.`);
+  if (currentPort === "5432" || currentPort === "5433" || currentPort === "55834") fail(`Refusing reserved/shared PostgreSQL port '${currentPort}'.`);
   if (!existsSync(composeFile)) fail(`${composeFile} is missing.`);
 }
 function cleanup(env) {
@@ -26,20 +26,41 @@ function cleanup(env) {
 }
 function runNode(args, env) { return spawnSync(process.execPath, args, { cwd: process.cwd(), env, stdio: "inherit", shell: false }); }
 
+async function startPhaseBDatabaseWithRetry(maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const selectedPort = process.env.KT_PHASEB_POSTGRES_PORT
+      ? String(process.env.KT_PHASEB_POSTGRES_PORT)
+      : String(await findAvailableLoopbackPort());
+    port = selectedPort;
+    assertDisposableIdentity(selectedPort);
+    const env = { ...process.env, POSTGRES_DB: dbName, POSTGRES_USER: dbUser, POSTGRES_PASSWORD: dbPassword, POSTGRES_PORT: selectedPort };
+    assertSuccess(compose(["config", "--quiet"], env), "Phase B runtime compose config");
+    assertSuccess(compose(["build", "migrate"], env), "Phase B runtime migrator build");
+    const upRes = compose(["up", "-d", "db"], env);
+    if (upRes.status === 0) {
+      return { port: selectedPort, env };
+    }
+    const output = (upRes.stderr || "") + "\n" + (upRes.stdout || "");
+    const isConflict = isHostPortBindingConflict(output);
+    cleanup(env);
+    if (isConflict && !process.env.KT_PHASEB_POSTGRES_PORT && attempt < maxAttempts) {
+      process.stdout.write(`Phase B port ${selectedPort} conflict on attempt ${attempt}/${maxAttempts}. Retrying...\n`);
+      continue;
+    }
+    fail(`Phase B runtime database startup failed on attempt ${attempt}: ${output.trim()}`);
+  }
+  fail(`Failed to start Phase B database after ${maxAttempts} attempts.`);
+}
+
 async function main() {
-  assertDisposableIdentity();
   if (runNode(["scripts/source-schema-preflight.mjs", "--suite", "phase-b"], process.env).status !== 0) fail("Local source/schema preflight failed.");
-  const env = { ...process.env, POSTGRES_DB: dbName, POSTGRES_USER: dbUser, POSTGRES_PASSWORD: dbPassword, POSTGRES_PORT: port };
-  const databaseUrl = `postgresql://${dbUser}:${dbPassword}@127.0.0.1:${port}/${dbName}?schema=public`;
   assertSuccess(docker(["info"]), "docker info");
-  assertSuccess(compose(["config", "--quiet"], env), "Phase B runtime compose config");
-  assertSuccess(compose(["build", "migrate"], env), "Phase B runtime migrator build");
-  assertSuccess(compose(["up", "-d", "db"], env), "Phase B runtime database startup");
+  const { port: selectedPort, env } = await startPhaseBDatabaseWithRetry(3);
+  const databaseUrl = `postgresql://${dbUser}:${dbPassword}@127.0.0.1:${selectedPort}/${dbName}?schema=public`;
   assertSuccess(compose(["run", "--rm", "migrate"], env), "Phase B forward migration deploy");
   assertSuccess(compose(["run", "--rm", "migrate", "npx", "prisma", "migrate", "status"], env), "Phase B migration status");
   assertSuccess(compose(getSchemaVerifierComposeArgs(env), env), "Phase B schema drift verification");
   const testEnv = { ...env, DATABASE_URL: databaseUrl, KT_ALLOW_DATABASE_INTEGRATION_TESTS: "true", KT_ALLOW_ISOLATED_POSTGRES_TESTS: "1", KT_PHASEB_RUNTIME_APPROVED: "1" };
-  // Suites use production authorities and isolated fixtures where their release gate permits execution; no shared demo seed is permitted.
   if (runNode(["node_modules/vitest/vitest.mjs", "run", "--config", "vitest.phase-b-runtime.config.ts"], testEnv).status !== 0) fail("Phase B PostgreSQL/concurrency proof suite failed.");
   console.log("PHASE_B_RUNTIME_CLOSURE_HARNESS=PASSED");
 }

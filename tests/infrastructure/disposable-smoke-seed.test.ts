@@ -178,18 +178,67 @@ describe("Disposable smoke seed authorization & identity", () => {
     });
   });
 
-  describe("Live integration runner port allocation & runner safety", () => {
+  describe("Live & disposable integration runner port allocation & runner safety", () => {
+    const dockerCommonScript = readFileSync(path.join(root, "scripts", "docker-common.mjs"), "utf8");
     const liveRunnerScript = readFileSync(path.join(root, "scripts", "run-live-integration.mjs"), "utf8");
+    const e2eScript = readFileSync(path.join(root, "scripts", "e2e-test.mjs"), "utf8");
+    const bolaScript = readFileSync(path.join(root, "scripts", "run-strict-bola-integration.mjs"), "utf8");
+    const redisScript = readFileSync(path.join(root, "scripts", "run-strict-redis-integration.mjs"), "utf8");
+    const phaseBScript = readFileSync(path.join(root, "scripts", "docker-phase-b-runtime-closure.mjs"), "utf8");
 
-    it("no longer contains fixed PID-derived port allocator 56000 + (process.pid % 700)", () => {
-      expect(liveRunnerScript).not.toMatch(/56000\s*\+\s*\(process\.pid\s*%\s*700\)/);
-      expect(liveRunnerScript).not.toMatch(/56000\s*\+/);
+    const allDisposableRunners = [
+      "scripts/run-live-integration.mjs",
+      "scripts/driver-operations-integration-test.mjs",
+      "scripts/ledger-integration-test.mjs",
+      "scripts/payment-foundation-integration-test.mjs",
+      "scripts/refund-integration-test.mjs",
+      "scripts/store-earning-integration-test.mjs",
+      "scripts/driver-earning-integration-test.mjs",
+      "scripts/payfast-integration-test.mjs",
+      "scripts/payfast-confirmation-integration-test.mjs",
+      "scripts/e2e-test.mjs",
+      "scripts/run-strict-bola-integration.mjs",
+      "scripts/run-strict-redis-integration.mjs",
+      "scripts/docker-phase-b-runtime-closure.mjs",
+    ];
+
+    it.each(allDisposableRunners)("%s contains no guessed PID modulo port arithmetic", (runnerPath) => {
+      const script = readFileSync(path.join(root, runnerPath), "utf8");
+      expect(script).not.toMatch(/\(process\.pid\s*%\s*\d+\)/);
     });
 
-    it("uses OS-assigned dynamic loopback port allocation via createServer and port: 0", () => {
-      expect(liveRunnerScript).toContain("createServer");
-      expect(liveRunnerScript).toMatch(/host:\s*["']127\.0\.0\.1["']/);
-      expect(liveRunnerScript).toMatch(/port:\s*0/);
+    it("docker-common.mjs provides findAvailableLoopbackPort using OS-assigned dynamic port (port: 0)", () => {
+      expect(dockerCommonScript).toContain("createServer");
+      expect(dockerCommonScript).toMatch(/host:\s*["']127\.0\.0\.1["']/);
+      expect(dockerCommonScript).toMatch(/port:\s*0/);
+      expect(dockerCommonScript).toContain("findAvailableLoopbackPort");
+      expect(dockerCommonScript).toContain("isHostPortBindingConflict");
+      expect(dockerCommonScript).toContain("startDisposableComposeWithPortRetry");
+    });
+
+    it("scripts/e2e-test.mjs treats app container build as a fatal assertSuccess gate", () => {
+      expect(e2eScript).toMatch(/assertSuccess\(runCompose\(\["build",\s*"app"\]/);
+      expect(e2eScript).not.toMatch(/Build note:[\s\S]*?proceeding with image startup/);
+    });
+
+    it("scripts/run-strict-bola-integration.mjs creates and manages its own disposable database", () => {
+      expect(bolaScript).toMatch(/kt-couriers-ci-bola-/);
+      expect(bolaScript).toMatch(/startDisposableComposeWithPortRetry/);
+      expect(bolaScript).toMatch(/runCompose\(\["run",\s*"--build",\s*"--rm",\s*"migrate"\]/);
+      expect(bolaScript).not.toMatch(/runCompose\(\["run",\s*"--rm",\s*"seed"\]/);
+      expect(bolaScript).toContain('runCompose(["down", "-v", "--remove-orphans"], { projectName, env })');
+    });
+
+    it("scripts/run-strict-redis-integration.mjs uses dynamic port allocation and collision retry", () => {
+      expect(redisScript).toContain("findAvailableLoopbackPort");
+      expect(redisScript).toContain("startRedisWithPortRetry");
+      expect(redisScript).toMatch(/KT_STRICT_REDIS_PORT/);
+    });
+
+    it("scripts/docker-phase-b-runtime-closure.mjs uses dynamic port allocation and collision retry", () => {
+      expect(phaseBScript).toContain("findAvailableLoopbackPort");
+      expect(phaseBScript).toContain("startPhaseBDatabaseWithRetry");
+      expect(phaseBScript).toMatch(/KT_PHASEB_POSTGRES_PORT/);
     });
 
     it("preserves disposable runner safety contracts and seed authorization", () => {
