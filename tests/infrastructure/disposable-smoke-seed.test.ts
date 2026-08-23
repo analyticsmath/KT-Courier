@@ -177,4 +177,26 @@ describe("Disposable smoke seed authorization & identity", () => {
       expect(driverEarningRunner).not.toMatch(/KT_DRIVER_EARNING_INTEGRATION_APPROVED:\s*["']true["']/);
     });
   });
+
+  describe("Live integration runner port allocation & runner safety", () => {
+    const liveRunnerScript = readFileSync(path.join(root, "scripts", "run-live-integration.mjs"), "utf8");
+
+    it("no longer contains fixed PID-derived port allocator 56000 + (process.pid % 700)", () => {
+      expect(liveRunnerScript).not.toMatch(/56000\s*\+\s*\(process\.pid\s*%\s*700\)/);
+      expect(liveRunnerScript).not.toMatch(/56000\s*\+/);
+    });
+
+    it("uses OS-assigned dynamic loopback port allocation via createServer and port: 0", () => {
+      expect(liveRunnerScript).toContain("createServer");
+      expect(liveRunnerScript).toMatch(/host:\s*["']127\.0\.0\.1["']/);
+      expect(liveRunnerScript).toMatch(/port:\s*0/);
+    });
+
+    it("preserves disposable runner safety contracts and seed authorization", () => {
+      expect(liveRunnerScript).toMatch(/const projectName = `kt-couriers-ci-phase75-\${suite}-\${nonce}`;/);
+      expect(liveRunnerScript).toMatch(/KT_ALLOW_DEMO_SEED:\s*["']true["']/);
+      expect(liveRunnerScript).toContain('runCompose(["down", "-v", "--remove-orphans"], { projectName, env })');
+      expect(liveRunnerScript).toContain("normalComposeProject");
+    });
+  });
 });
