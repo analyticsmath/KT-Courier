@@ -66,7 +66,7 @@ describe("P1R-001: Static Source Audit — Distributed Rate Limiting Coverage & 
       { filePattern: "app/api/privacy/cookie-preferences/route.ts", expectedPolicy: "RATE_LIMITS.COOKIE_PREFERENCE_MUTATION" },
       { filePattern: "app/api/claims/route.ts", expectedPolicy: "RATE_LIMITS.CLAIM_CREATE" },
       { filePattern: "app/api/driver/orders/[orderId]/cod/collection/route.ts", expectedPolicy: "RATE_LIMITS.COD_COLLECTION" },
-      { filePattern: "app/api/admin/orders/[orderId]/cod/reconcile/route.ts", expectedPolicy: "RATE_LIMITS.COD_RECONCILIATION" },
+      { filePattern: "app/api/admin/orders/[id]/cod/reconcile/route.ts", expectedPolicy: "RATE_LIMITS.COD_RECONCILIATION" },
     ];
 
     for (const item of criticalEndpoints) {

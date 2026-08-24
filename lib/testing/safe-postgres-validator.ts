@@ -31,13 +31,23 @@ export function isSafeLocalTestDatabaseUrl(dbUrl: string | undefined): boolean {
 }
 
 export function isLocalStorefrontValidationAllowed(env = process.env): boolean {
-  if ((env.NODE_ENV as string) === "production" || (env.NODE_ENV as string) === "staging") return false;
+  if (
+    ((env.NODE_ENV as string) === "production" || (env.NODE_ENV as string) === "staging") &&
+    env.KT_RUNTIME_ENV !== "e2e"
+  ) {
+    return false;
+  }
   if (env.KT_LOCAL_STOREFRONT_VALIDATION !== "true" && env.KT_LOCAL_STOREFRONT_VALIDATION !== "1") return false;
   return isSafeLocalTestDatabaseUrl(env.DATABASE_URL);
 }
 
 export function isLocalCheckoutValidationAllowed(env = process.env): boolean {
-  if ((env.NODE_ENV as string) === "production" || (env.NODE_ENV as string) === "staging") return false;
+  if (
+    ((env.NODE_ENV as string) === "production" || (env.NODE_ENV as string) === "staging") &&
+    env.KT_RUNTIME_ENV !== "e2e"
+  ) {
+    return false;
+  }
   if (env.KT_LOCAL_CHECKOUT_VALIDATION !== "true" && env.KT_LOCAL_CHECKOUT_VALIDATION !== "1") return false;
   return isSafeLocalTestDatabaseUrl(env.DATABASE_URL);
 }

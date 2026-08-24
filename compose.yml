@@ -27,6 +27,7 @@ services:
       - kt_couriers_internal
 
   migrate:
+    image: ${MIGRATE_IMAGE:-kt-couriers-migrate:latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -43,6 +44,7 @@ services:
       - kt_couriers_internal
 
   seed:
+    image: ${MIGRATE_IMAGE:-kt-couriers-migrate:latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -64,18 +66,20 @@ services:
       - kt_couriers_internal
 
   app:
+    image: ${APP_IMAGE:-kt-couriers-app:latest}
     build:
       context: .
       dockerfile: Dockerfile
       target: runner
       args:
         NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: ${NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES:-}
+        KT_NEXT_BUILD_CPUS: ${KT_NEXT_BUILD_CPUS:-1}
     init: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
+      NODE_ENV: ${NODE_ENV:-development}
       NEXT_TELEMETRY_DISABLED: "1"
       HOSTNAME: 0.0.0.0
       PORT: "3000"
@@ -87,6 +91,8 @@ services:
       NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: ${NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES:-}
       KT_LOCAL_STOREFRONT_VALIDATION: ${KT_LOCAL_STOREFRONT_VALIDATION:-true}
       KT_LOCAL_CHECKOUT_VALIDATION: ${KT_LOCAL_CHECKOUT_VALIDATION:-true}
+      KT_RUNTIME_ENV: ${KT_RUNTIME_ENV:-}
+      KT_E2E_RATE_LIMIT_MODE: ${KT_E2E_RATE_LIMIT_MODE:-}
     ports:
       - "${APP_PORT:-3000}:3000"
     healthcheck:

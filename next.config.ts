@@ -33,12 +33,36 @@ const securityHeaders = [
     : []),
 ];
 
+export function parseBuildCpuOverride(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw.trim() === "") {
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 64) {
+    return undefined;
+  }
+  return parsed;
+}
+
+const buildCpuOverride = parseBuildCpuOverride(process.env.KT_NEXT_BUILD_CPUS);
+
 const nextConfig: NextConfig = {
   output: "standalone",
   deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
   images: {
     formats: ["image/avif", "image/webp"],
   },
+  ...(buildCpuOverride !== undefined
+    ? {
+        experimental: {
+          cpus: buildCpuOverride,
+        },
+      }
+    : {}),
   async headers() {
     return [
       {

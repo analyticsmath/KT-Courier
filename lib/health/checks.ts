@@ -50,7 +50,7 @@ export async function checkReadiness(
     }, timeoutMs);
   });
 
-  const isProd = process.env.NODE_ENV === "production";
+  const isProd = process.env.NODE_ENV === "production" && process.env.KT_RUNTIME_ENV !== "e2e";
   let databaseReachable = false;
 
   try {

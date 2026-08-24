@@ -42,7 +42,8 @@ export function resolveRateLimitPolicy(
 ): RateLimitPolicyWithDistributed {
   const isIsolatedE2E =
     process.env.KT_RUNTIME_ENV === "e2e" &&
-    process.env.KT_E2E_RATE_LIMIT_MODE === "relaxed";
+    (process.env.KT_E2E_RATE_LIMIT_MODE === "relaxed" ||
+      process.env.KT_E2E_RATE_LIMIT_MODE === "mock");
 
   if (!isIsolatedE2E) {
     return normalPolicy;

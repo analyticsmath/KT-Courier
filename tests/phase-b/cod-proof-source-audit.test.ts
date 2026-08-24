@@ -19,7 +19,7 @@ describe("Phase B COD runtime-proof source contract", () => {
 
   it("keeps collection and reconciliation API routes thin and permission-protected", () => {
     const collect = read("app/api/driver/orders/[orderId]/cod/collection/route.ts");
-    const reconcile = read("app/api/admin/orders/[orderId]/cod/reconcile/route.ts");
+    const reconcile = read("app/api/admin/orders/[id]/cod/reconcile/route.ts");
     expect(collect).toMatch(/recordCashCollection/);
     expect(collect).toMatch(/RATE_LIMITS\.COD_COLLECTION/);
     expect(reconcile).toMatch(/reconcileCashCollection/);

@@ -69,6 +69,11 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
     env = buildEnv(port, appPort);
 
     assertSuccess(runCompose(["config", "--quiet"], { projectName, env }), "E2E compose config");
+
+    // STRICT FATAL GATE: images build must succeed sequentially to avoid concurrent BuildKit memory exhaustion
+    assertSuccess(runCompose(["build", "migrate"], { projectName, env }), "E2E migrate build");
+    assertSuccess(runCompose(["build", "app"], { projectName, env }), "E2E application build");
+
     const dbUp = runCompose(["up", "-d", "db"], { projectName, env });
     if (dbUp.status !== 0) {
       const output = (dbUp.stderr || "") + "\n" + (dbUp.stdout || "");
@@ -85,12 +90,9 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
       throw new Error("E2E database did not become healthy.");
     }
 
-    assertSuccess(runCompose(["run", "--build", "--rm", "migrate"], { projectName, env }), "E2E migration deploy");
+    assertSuccess(runCompose(["run", "--rm", "migrate"], { projectName, env }), "E2E migration deploy");
     assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env }), "E2E seed");
     assertSuccess(runCompose(["run", "--rm", "migrate", "npx", "tsx", "scripts/create-e2e-fixtures.ts"], { projectName, env }), "E2E fixture creation");
-
-    // STRICT FATAL GATE: application image build must succeed
-    assertSuccess(runCompose(["build", "app"], { projectName, env }), "E2E application build");
 
     const appUp = runCompose(["up", "-d", "app"], { projectName, env });
     if (appUp.status !== 0) {
@@ -104,6 +106,9 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
     }
 
     if (await waitForServiceHealth("app", { projectName, env, timeoutMs: 180_000 }) !== "healthy") {
+      const appLogs = runCompose(["logs", "--tail=50", "app"], { projectName, env });
+      if (appLogs.stdout) safeError(appLogs.stdout);
+      if (appLogs.stderr) safeError(appLogs.stderr);
       runCompose(["down", "-v", "--remove-orphans"], { projectName, env });
       throw new Error("E2E application did not become healthy.");
     }

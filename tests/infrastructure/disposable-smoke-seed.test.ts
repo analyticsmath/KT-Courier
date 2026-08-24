@@ -248,4 +248,45 @@ describe("Disposable smoke seed authorization & identity", () => {
       expect(liveRunnerScript).toContain("normalComposeProject");
     });
   });
+
+  describe("Build resource & worker concurrency constraints", () => {
+    const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+    const nextConfigContent = readFileSync(path.join(root, "next.config.ts"), "utf8");
+
+    it("next.config.ts contains parseBuildCpuOverride and strictly parses valid CPU values", async () => {
+      const { parseBuildCpuOverride } = await import("../../next.config");
+      expect(parseBuildCpuOverride).toBeDefined();
+      expect(parseBuildCpuOverride("2")).toBe(2);
+      expect(parseBuildCpuOverride("1")).toBe(1);
+      expect(parseBuildCpuOverride("4")).toBe(4);
+      expect(parseBuildCpuOverride(" 2 ")).toBe(2);
+
+      expect(parseBuildCpuOverride(undefined)).toBeUndefined();
+      expect(parseBuildCpuOverride("")).toBeUndefined();
+      expect(parseBuildCpuOverride("   ")).toBeUndefined();
+      expect(parseBuildCpuOverride("0")).toBeUndefined();
+      expect(parseBuildCpuOverride("-1")).toBeUndefined();
+      expect(parseBuildCpuOverride("abc")).toBeUndefined();
+      expect(parseBuildCpuOverride("2.5")).toBeUndefined();
+      expect(parseBuildCpuOverride("1000")).toBeUndefined();
+    });
+
+    it("next.config.ts applies experimental.cpus when KT_NEXT_BUILD_CPUS is defined and valid", () => {
+      expect(nextConfigContent).toMatch(/parseBuildCpuOverride\(process\.env\.KT_NEXT_BUILD_CPUS\)/);
+      expect(nextConfigContent).toMatch(/experimental:\s*\{\s*cpus:\s*buildCpuOverride,?\s*\}/);
+    });
+
+    it("Dockerfile sets KT_NEXT_BUILD_CPUS in builder stage and eliminates NEXT_PRIVATE_WORKERS", () => {
+      expect(dockerfile).toMatch(/ARG KT_NEXT_BUILD_CPUS=[12]/);
+      expect(dockerfile).toMatch(/ENV KT_NEXT_BUILD_CPUS=\$\{KT_NEXT_BUILD_CPUS\}/);
+      expect(dockerfile).not.toMatch(/NEXT_PRIVATE_WORKERS/);
+    });
+
+    it("Dockerfile retains Turbopack, standalone output, and bounded heap size", () => {
+      expect(dockerfile).not.toMatch(/--webpack/);
+      expect(dockerfile).toMatch(/ENV NODE_OPTIONS="--max-old-space-size=2048"/);
+      expect(dockerfile).toMatch(/node --max-old-space-size=2048/);
+      expect(dockerfile).toMatch(/app\/\.next\/standalone/);
+    });
+  });
 });

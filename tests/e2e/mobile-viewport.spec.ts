@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test as baseTest } from "@playwright/test";
 import { attachConsoleMonitor } from "./fixtures/console-monitor";
 
 const isLocalValidationServerAvailable = Boolean(
@@ -6,6 +6,12 @@ const isLocalValidationServerAvailable = Boolean(
 );
 
 const SAFE_HASH = "request-hash-1234567890123456";
+
+const test = baseTest.extend({
+  request: async ({ page }, provide) => {
+    await provide(page.request);
+  },
+});
 
 test.describe("Mobile Viewport Execution", () => {
   test.use({ viewport: { width: 375, height: 667 }, isMobile: true, hasTouch: true });

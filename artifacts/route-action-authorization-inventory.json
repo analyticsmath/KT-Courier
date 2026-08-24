@@ -2805,7 +2805,7 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/admin/orders/[orderId]/cod/reconcile/route.ts",
+      "routePath": "app/api/admin/orders/[id]/cod/reconcile/route.ts",
       "httpMethods": [
         "POST"
       ],
@@ -2821,7 +2821,7 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/admin/orders/[orderId]/location/route.ts",
+      "routePath": "app/api/admin/orders/[id]/location/route.ts",
       "httpMethods": [
         "GET"
       ],
@@ -8492,7 +8492,7 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/orders/[orderId]/package-policy/route.ts",
+      "routePath": "app/api/orders/[id]/package-policy/route.ts",
       "httpMethods": [
         "POST"
       ],
@@ -8510,7 +8510,7 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/orders/[orderId]/preparation/route.ts",
+      "routePath": "app/api/orders/[id]/preparation/route.ts",
       "httpMethods": [
         "POST"
       ],
@@ -8528,7 +8528,7 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/orders/[orderId]/redelivery/route.ts",
+      "routePath": "app/api/orders/[id]/redelivery/route.ts",
       "httpMethods": [
         "POST"
       ],
@@ -9953,7 +9953,7 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/store/orders/[orderId]/location/route.ts",
+      "routePath": "app/api/store/orders/[reference]/location/route.ts",
       "httpMethods": [
         "GET"
       ],
