@@ -26,6 +26,20 @@ services:
     networks:
       - kt_couriers_internal
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - kt_couriers_redis_data:/data
+    networks:
+      - kt_couriers_internal
+
   migrate:
     image: ${MIGRATE_IMAGE:-kt-couriers-migrate:latest}
     build:
@@ -85,6 +99,7 @@ services:
       PORT: "3000"
       DATABASE_URL: *container_database_url
       SHADOW_DATABASE_URL: *container_shadow_database_url
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
       E2E_ROUTE_PROVIDER: ${E2E_ROUTE_PROVIDER:-}
@@ -108,11 +123,63 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - kt_couriers_internal
+
+  worker:
+    image: ${WORKER_IMAGE:-kt-couriers-worker:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: *container_database_url
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      PRIVATE_MEDIA_STORAGE: ${PRIVATE_MEDIA_STORAGE:-local}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - kt_couriers_internal
+
+  scheduler:
+    image: ${SCHEDULER_IMAGE:-kt-couriers-scheduler:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: scheduler
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: *container_database_url
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     networks:
       - kt_couriers_internal
 
 volumes:
   kt_couriers_postgres_baselined_clean:
+  kt_couriers_redis_data:
 
 networks:
   kt_couriers_internal:

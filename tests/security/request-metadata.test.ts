@@ -10,24 +10,28 @@ function request(headers: HeadersInit = {}) {
 }
 
 describe("request metadata", () => {
-  it("uses the first IP-like x-forwarded-for value", () => {
+  it("resolves the client IP in single_trusted_proxy mode", () => {
     const req = request({
-      "x-forwarded-for": "unknown, 203.0.113.7, 10.0.0.5",
+      "x-forwarded-for": "unknown, 10.0.0.5, 203.0.113.7",
     });
 
-    expect(getRequestIp(req)).toBe("203.0.113.7");
+    expect(getRequestIp(req, { mode: "single_trusted_proxy" })).toBe("203.0.113.7");
   });
 
-  it("uses x-real-ip when forwarded-for is absent", () => {
-    expect(getRequestIp(request({ "x-real-ip": "198.51.100.22" }))).toBe(
-      "198.51.100.22"
-    );
+  it("uses x-real-ip when forwarded-for is absent in single_trusted_proxy mode", () => {
+    expect(
+      getRequestIp(request({ "x-real-ip": "198.51.100.22" }), {
+        mode: "single_trusted_proxy",
+      })
+    ).toBe("198.51.100.22");
   });
 
-  it("uses cf-connecting-ip when earlier IP headers are absent", () => {
-    expect(getRequestIp(request({ "cf-connecting-ip": "2001:db8::1" }))).toBe(
-      "2001:db8::1"
-    );
+  it("uses cf-connecting-ip in cloudflare mode", () => {
+    expect(
+      getRequestIp(request({ "cf-connecting-ip": "2001:db8::1" }), {
+        mode: "cloudflare",
+      })
+    ).toBe("2001:db8::1");
   });
 
   it("extracts user-agent", () => {
@@ -50,6 +54,6 @@ describe("request metadata", () => {
       "cf-connecting-ip": "bad-value",
     });
 
-    expect(getRequestIp(req)).toBeNull();
+    expect(getRequestIp(req, { mode: "single_trusted_proxy" })).toBeNull();
   });
 });

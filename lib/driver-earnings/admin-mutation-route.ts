@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
+import { resolveCanonicalClientIp } from "@/lib/security/client-ip";
 import { driverEarningNoStoreJson, validateDriverEarningJsonRequest } from "./api-policy";
 
 export async function prepareDriverEarningReversalMutation(request: NextRequest, actorUserId: string) {
@@ -14,5 +15,5 @@ export async function prepareDriverEarningReversalMutation(request: NextRequest,
 }
 
 export async function recordDriverEarningAdminMutation(request: NextRequest, input: Readonly<{ actorUserId: string; entityId: string; message: string; operationId: string; reasonCode: string; evidenceReference: string }>): Promise<void> {
-  await prisma.adminActivityLog.create({ data: { actorUserId: input.actorUserId, action: "UPDATE", entityType: "DriverEarning", entityId: input.entityId, message: input.message, metadata: { operationId: input.operationId, reasonCode: input.reasonCode, evidenceReference: input.evidenceReference, sourceAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null } } });
+  await prisma.adminActivityLog.create({ data: { actorUserId: input.actorUserId, action: "UPDATE", entityType: "DriverEarning", entityId: input.entityId, message: input.message, metadata: { operationId: input.operationId, reasonCode: input.reasonCode, evidenceReference: input.evidenceReference, sourceAddress: resolveCanonicalClientIp(request) } } });
 }

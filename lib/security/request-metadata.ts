@@ -1,29 +1,10 @@
-import { isIP } from "node:net";
+import { resolveCanonicalClientIp, type TrustedProxyMode } from "./client-ip";
 
-function normalizeIpCandidate(value: string | null): string | null {
-  const candidate = value?.trim();
-  if (!candidate) return null;
-  return isIP(candidate) ? candidate : null;
-}
-
-export function getRequestIp(request: Request): string | null {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const firstIp = forwarded
-      .split(",")
-      .map((part) => part.trim())
-      .map(normalizeIpCandidate)
-      .find((part): part is string => Boolean(part));
-    if (firstIp) return firstIp;
-  }
-
-  const realIp = normalizeIpCandidate(request.headers.get("x-real-ip"));
-  if (realIp) return realIp;
-
-  const cfConnectingIp = normalizeIpCandidate(request.headers.get("cf-connecting-ip"));
-  if (cfConnectingIp) return cfConnectingIp;
-
-  return null;
+export function getRequestIp(
+  request: Request | { headers: Headers | { get(name: string): string | null } },
+  options?: { mode?: TrustedProxyMode },
+): string | null {
+  return resolveCanonicalClientIp(request, options);
 }
 
 export function getRequestUserAgent(request: Request): string | null {

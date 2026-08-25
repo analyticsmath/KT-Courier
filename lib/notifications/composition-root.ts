@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/db/prisma";
-import { NotConfiguredEmailProvider, NotConfiguredPushProvider, NotConfiguredSmsProvider } from "./providers";
+import { NotConfiguredEmailProvider, NotConfiguredPushProvider, NotConfiguredSmsProvider, ResendEmailProvider } from "./providers";
 import { createPrismaNotificationRepositories } from "./repositories";
 import { NOTIFICATION_PRODUCTION_BLOCK_REASON, assertNotificationProductionReady } from "./production-readiness";
 import { createNotificationAuthority } from "./authority";
@@ -30,7 +30,18 @@ export const NOTIFICATION_PRODUCTION_COMPOSITION_ORDER = [
 export function resolveNotificationProductionComposition() {
   const database: any = prisma;
   const repositories = createPrismaNotificationRepositories(database);
-  const providers = new Map<any, any>([["EMAIL", new NotConfiguredEmailProvider()], ["SMS", new NotConfiguredSmsProvider()], ["WEB_PUSH", new NotConfiguredPushProvider("WEB_PUSH")], ["ANDROID_PUSH", new NotConfiguredPushProvider("ANDROID_PUSH")]]);
+
+  const emailProvider =
+    process.env.EMAIL_PROVIDER === "resend" && process.env.RESEND_API_KEY
+      ? new ResendEmailProvider(process.env.RESEND_API_KEY)
+      : new NotConfiguredEmailProvider();
+
+  const providers = new Map<any, any>([
+    ["EMAIL", emailProvider],
+    ["SMS", new NotConfiguredSmsProvider()],
+    ["WEB_PUSH", new NotConfiguredPushProvider("WEB_PUSH")],
+    ["ANDROID_PUSH", new NotConfiguredPushProvider("ANDROID_PUSH")],
+  ]);
   const authority = createNotificationAuthority(database, providers);
   const services = Object.freeze({ ...authority, processors: new NotificationProcessorService(database, authority) });
   try { assertNotificationProductionReady(); return Object.freeze({ status: "READY" as const, database, repositories, providers, services }); }

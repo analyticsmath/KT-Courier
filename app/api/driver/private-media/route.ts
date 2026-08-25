@@ -5,6 +5,7 @@ import { badRequest, created, forbidden, unauthorized, unprocessable, serviceUna
 import { PrivateMediaPurpose, UserRole } from "@/types/db";
 import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-media/private-media.service";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
+import { parseBoundedMultipartRequest } from "@/lib/security/bounded-upload";
 
 const driverPurposes = new Set<PrivateMediaPurpose>(["DRIVER_IDENTITY_DOCUMENT", "DRIVER_LICENCE", "DRIVER_PROFILE_PHOTO"]);
 const vehiclePurposes = new Set<PrivateMediaPurpose>(["VEHICLE_REGISTRATION", "VEHICLE_LICENCE_DISC", "VEHICLE_INSURANCE", "VEHICLE_COMPLIANCE_IMAGE"]);
@@ -26,15 +27,29 @@ export async function POST(request: NextRequest) {
   if (user.role !== UserRole.DRIVER) return forbidden();
   const rateLimit = await checkIpRateLimit(request, `private-media-upload:${user.id}`, RATE_LIMITS.PRIVATE_MEDIA_UPLOAD);
   if (!rateLimit.ok) return tooManyRequests(rateLimit.retryAfterSeconds);
-  const form = await request.formData().catch(() => null);
-  if (!form) return unprocessable("A multipart form is required.");
-  const purposeRaw = form.get("purpose");
-  const file = form.get("file");
-  const vehicleId = form.get("vehicleId");
-  if (typeof purposeRaw !== "string" || !(file instanceof File) || (vehicleId !== null && typeof vehicleId !== "string")) return unprocessable("Upload fields are invalid.");
+
+  const upload = await parseBoundedMultipartRequest(request, {
+    maxSizeBytes: 10 * 1024 * 1024, // 10MB
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+    maxFiles: 1,
+  });
+  if (upload.errorResponse) return upload.errorResponse;
+
+  const purposeRaw = upload.result.fields["purpose"];
+  const file = upload.result.files["file"];
+  const vehicleId = upload.result.fields["vehicleId"];
+
+  if (!purposeRaw || !file) return unprocessable("Upload fields are invalid.");
   const purpose = purposeRaw as PrivateMediaPurpose;
   if ((!vehicleId && !driverPurposes.has(purpose)) || (vehicleId && !vehiclePurposes.has(purpose))) return unprocessable("The requested private-media purpose is not allowed for this owner.");
   try {
-    return created(await new PrivateMediaService().uploadForDriver({ actor: { userId: user.id, role: user.role }, purpose, vehicleId: vehicleId || undefined, fileName: file.name, mimeType: file.type, bytes: new Uint8Array(await file.arrayBuffer()) }));
+    return created(await new PrivateMediaService().uploadForDriver({
+      actor: { userId: user.id, role: user.role },
+      purpose,
+      vehicleId: vehicleId || undefined,
+      fileName: file.sanitizedName,
+      mimeType: file.type,
+      bytes: file.bytes,
+    }));
   } catch (error) { return failure(error); }
 }

@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { normalizePromoterCode } from "@/lib/promoters/code-security";
 import { resolvePromoterProductionComposition } from "@/lib/promoters/composition-root";
+import { resolveCanonicalClientIp } from "@/lib/security/client-ip";
 
 /** Public referral landing intentionally accepts only an opaque code and always stays on an internal registration route. */
 export default async function ReferralLanding({ params }: { params: Promise<{ opaqueCode: string }> }) {
@@ -14,6 +15,7 @@ export default async function ReferralLanding({ params }: { params: Promise<{ op
     if (root.status !== "LOCKED") {
       const requestHeaders = await headers();
       const resolved = await root.services.lifecycle.resolvePromoterReferralCode({ code: normalized });
+      const clientIp = resolveCanonicalClientIp({ headers: requestHeaders }) ?? "";
       const touch = await root.services.lifecycle.recordPromoterTouch({
         operationId: `touch:${randomUUID()}`,
         programVersionId: resolved.programVersionId,
@@ -21,7 +23,7 @@ export default async function ReferralLanding({ params }: { params: Promise<{ op
         touchType: "LINK_VISIT",
         destinationType: "CUSTOMER_REGISTRATION",
         sessionFingerprint: createHash("sha256").update(requestHeaders.get("user-agent") ?? "").digest("hex"),
-        networkRiskFingerprint: createHash("sha256").update(requestHeaders.get("x-forwarded-for") ?? "").digest("hex"),
+        networkRiskFingerprint: createHash("sha256").update(clientIp).digest("hex"),
       });
       const token = await root.services.lifecycle.createSignedReferralToken({ touchReference: touch.publicReference, programVersionReference: resolved.programVersionReference, enrollmentReference: resolved.enrollmentReference, destinationType: "CUSTOMER_REGISTRATION", ttlSeconds: 900 });
       destination = `/signup?promoter_token=${encodeURIComponent(token)}`;

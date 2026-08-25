@@ -6,15 +6,34 @@ import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { addClaimEvidence, ClaimDomainError, getClaimForActor } from "@/lib/claims/claim.service";
 import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-media/private-media.service";
 
+import { parseBoundedMultipartRequest } from "@/lib/security/bounded-upload";
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ reference: string }> }) {
   const origin = await enforceSameOriginRequest(request); if (origin) return origin;
   const user = await getCurrentUser(); if (!user) return unauthorized();
   const limit = await checkIpRateLimit(request, `claim-evidence:${user.id}`, RATE_LIMITS.CLAIM_MUTATION); if (!limit.ok) return badRequest("CLAIM_RATE_LIMITED");
-  const form = await request.formData().catch(() => null); if (!form) return unprocessable("A multipart form is required.");
-  const file = form.get("file"); if (!(file instanceof File)) return unprocessable("A file is required.");
+
+  const upload = await parseBoundedMultipartRequest(request, {
+    maxSizeBytes: 10 * 1024 * 1024, // 10MB
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+    maxFiles: 1,
+  });
+  if (upload.errorResponse) return upload.errorResponse;
+
+  const file = upload.result.files["file"];
+  if (!file) return unprocessable("A file is required.");
+
   try {
     const claim = await getClaimForActor({ publicReference: (await params).reference, actorUserId: user.id, role: user.role });
-    const media = await new PrivateMediaService().upload({ actor: { userId: user.id, role: user.role }, ownerType: "CLAIM", ownerId: claim.id, purpose: "CLAIM_EVIDENCE", fileName: file.name, mimeType: file.type, bytes: new Uint8Array(await file.arrayBuffer()) });
+    const media = await new PrivateMediaService().upload({
+      actor: { userId: user.id, role: user.role },
+      ownerType: "CLAIM",
+      ownerId: claim.id,
+      purpose: "CLAIM_EVIDENCE",
+      fileName: file.sanitizedName,
+      mimeType: file.type,
+      bytes: file.bytes,
+    });
     const evidence = await addClaimEvidence({ publicReference: claim.publicReference, actorUserId: user.id, role: user.role, privateMediaReference: media.publicReference });
     return created({ data: { evidence, media } });
   } catch (error) {

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { prisma } from "@/lib/db/prisma";
 import { acquireProcessorLease, completeProcessorRun, listProcessorRuns } from "./lease-authority";
 import { PROCESSOR_REGISTRY, type RegisteredProcessor } from "./processor-registry";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
@@ -79,14 +81,65 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
   let itemsClaimed = 0;
   let itemsCompleted = 0;
   let itemsSkipped = 0;
-  const itemsRetried = 0;
+  let itemsRetried = 0;
   let itemsReconciled = 0;
   let failureCount = 0;
   let safeSummary = "";
 
   try {
-    // Specialized execution routing for specific processor names where appropriate
-    if (processor.name === "process-data-retention") {
+    if (processor.name === "consume-verified-payment-events" || processor.name === "finalize-paid-marketplace-checkouts") {
+      const { consumeVerifiedPaymentEvents } = await import("@/lib/payments/verified-payment-event-processor.service");
+      const subjectTypes = processor.name === "finalize-paid-marketplace-checkouts" ? (["MARKETPLACE_CHECKOUT"] as const) : undefined;
+      const outcomes = await consumeVerifiedPaymentEvents({ limit: batchSize, subjectTypes });
+      itemsExamined = Object.values(outcomes).reduce((sum, n) => sum + n, 0);
+      itemsCompleted = outcomes.MARKETPLACE_FINALIZED + outcomes.SUBSCRIPTION_ACTIVATED + outcomes.MANAGED_MARKETING_RECOGNIZED + outcomes.NO_DOWNSTREAM_EFFECT;
+      itemsSkipped = outcomes.SKIPPED;
+      itemsReconciled = outcomes.RECONCILIATION_REQUIRED;
+      itemsClaimed = itemsCompleted + itemsReconciled;
+      safeSummary = `Payment events processed: ${itemsCompleted} finalized, ${itemsReconciled} reconciliation needed, ${itemsSkipped} skipped.`;
+    } else if (processor.name === "release-mature-store-earnings") {
+      const mature = await prisma.storeEarning.findMany({
+        where: { status: "ACCRUED", releaseEligibleAt: { lte: new Date() }, refundReservedAmount: 0 },
+        select: { id: true },
+        orderBy: [{ releaseEligibleAt: "asc" }, { id: "asc" }],
+        take: batchSize,
+      });
+      itemsExamined = mature.length;
+      if (mode === "APPLY") {
+        const { releaseStoreEarning } = await import("@/lib/services/store-earning-release.service");
+        for (const earning of mature) {
+          try {
+            await releaseStoreEarning({ earningId: earning.id, operationId: `mature-store-release:${randomUUID()}` });
+            itemsCompleted += 1;
+          } catch {
+            itemsRetried += 1;
+          }
+        }
+      }
+      itemsClaimed = itemsCompleted;
+      safeSummary = `Evaluated ${itemsExamined} mature store earnings; released ${itemsCompleted}.`;
+    } else if (processor.name === "release-mature-driver-earnings") {
+      const mature = await prisma.driverEarning.findMany({
+        where: { status: "ACCRUED", releaseEligibleAt: { lte: new Date() } },
+        select: { id: true },
+        orderBy: [{ releaseEligibleAt: "asc" }, { id: "asc" }],
+        take: batchSize,
+      });
+      itemsExamined = mature.length;
+      if (mode === "APPLY") {
+        const { releaseDriverEarning } = await import("@/lib/services/driver-earning-release.service");
+        for (const earning of mature) {
+          try {
+            await releaseDriverEarning({ earningId: earning.id, operationId: `mature-driver-release:${randomUUID()}` });
+            itemsCompleted += 1;
+          } catch {
+            itemsRetried += 1;
+          }
+        }
+      }
+      itemsClaimed = itemsCompleted;
+      safeSummary = `Evaluated ${itemsExamined} mature driver earnings; released ${itemsCompleted}.`;
+    } else if (processor.name === "process-data-retention") {
       const { runRetentionProcessor } = await import("@/lib/retention/retention-processor");
       const retentionResult = await runRetentionProcessor({
         mode,
@@ -109,7 +162,7 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
       itemsReconciled = lifecycleResult.itemsReconciled;
       safeSummary = lifecycleResult.safeSummary;
     } else {
-      // General inspection/dry run logic for registered processors
+      // General inspection / fallback logic for registered processor
       itemsExamined = batchSize;
       itemsClaimed = mode === "APPLY" ? Math.min(batchSize, 10) : 0;
       itemsCompleted = mode === "APPLY" ? itemsClaimed : 0;

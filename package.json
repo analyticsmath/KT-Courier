@@ -127,7 +127,9 @@
     "test:integration:marketplace-checkout": "node scripts/marketplace-checkout-integration-test.mjs",
     "test:integration:store-orders": "node scripts/store-order-integration-test.mjs",
     "typecheck": "tsc --noEmit",
-    "promoters:periods:evaluate": "tsx scripts/process-promoter-period-evaluations.ts"
+    "promoters:periods:evaluate": "tsx scripts/process-promoter-period-evaluations.ts",
+    "worker:start": "tsx scripts/background-worker.ts",
+    "scheduler:start": "tsx scripts/scheduler-runner.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

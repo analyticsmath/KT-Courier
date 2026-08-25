@@ -75,3 +75,33 @@ COPY --chown=node:node scripts ./scripts
 USER node
 
 CMD ["npx", "prisma", "migrate", "deploy"]
+
+FROM base AS worker
+
+ENV NODE_ENV=production
+
+COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json package-lock.json tsconfig.json ./
+COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node lib ./lib
+COPY --chown=node:node types ./types
+COPY --chown=node:node scripts ./scripts
+
+USER node
+
+CMD ["node", "node_modules/tsx/dist/cli.mjs", "scripts/background-worker.ts"]
+
+FROM base AS scheduler
+
+ENV NODE_ENV=production
+
+COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json package-lock.json tsconfig.json ./
+COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node lib ./lib
+COPY --chown=node:node types ./types
+COPY --chown=node:node scripts ./scripts
+
+USER node
+
+CMD ["node", "node_modules/tsx/dist/cli.mjs", "scripts/scheduler-runner.ts"]
