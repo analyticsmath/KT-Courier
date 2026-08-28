@@ -1,11 +1,12 @@
-/* KT COURIER — Movement Atlas & Service Detail Styles */
+/* KT COURIER — Movement Atlas & Service Detail Styles (4 Distinct Composition Families) */
 
-.atlasPage {
+.atlasPage,
+.detailPage {
   position: relative;
   width: 100%;
   background-color: var(--kt-cool-050, #fafbfa);
   color: var(--kt-carbon, #101210);
-  padding: clamp(40px, 6vw, 80px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
+  padding: clamp(36px, 5vw, 64px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
 }
 
 .pageInner {
@@ -61,7 +62,7 @@
 .atlasIndexList {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   list-style: none;
   padding: 0;
   margin: 0;
@@ -171,58 +172,14 @@
 }
 
 /* =========================================================================
-   SERVICE DETAIL ROUTE STYLES (ROUTE-SPECIFIC WORLDS)
+   COMMON SHARED PRIMITIVES
    ========================================================================= */
-.detailPage {
-  position: relative;
-  width: 100%;
-  background-color: var(--kt-cool-050, #fafbfa);
-  color: var(--kt-carbon, #101210);
-  padding: clamp(40px, 6vw, 80px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
-}
-
-.detailHeroGrid {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: clamp(40px, 6vw, 80px);
-  align-items: center;
-  margin-bottom: clamp(60px, 8vw, 100px);
-}
-
-@media (max-width: 1023px) {
-  .detailHeroGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.detailHeroCopy {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.detailHeroTitle {
-  font-size: clamp(2.4rem, 5.2vw, 4.6rem);
-  font-weight: 560;
-  line-height: 0.96;
-  letter-spacing: -0.04em;
-  color: var(--kt-carbon, #101210);
-  margin: 0;
-}
-
-.detailHeroSummary {
-  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
-  color: var(--kt-muted, #5f6763);
-  line-height: 1.45;
-  margin: 0;
-}
-
 .detailHeroActions {
   display: flex;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
-  padding-top: 8px;
+  padding-top: 12px;
 }
 
 .detailPrimaryAction {
@@ -231,7 +188,7 @@
   gap: 8px;
   background-color: var(--kt-carbon, #101210);
   color: var(--kt-white, #ffffff);
-  padding: 12px 24px;
+  padding: 13px 26px;
   font-size: 0.95rem;
   font-weight: 560;
   text-decoration: none;
@@ -254,136 +211,423 @@
   border-bottom: 1px solid var(--kt-cool-300, #dde1e0);
 }
 
-.detailHeroMediaFrame {
-  position: relative;
-  width: 100%;
-  height: clamp(340px, 50vh, 560px);
-  background-color: var(--kt-cool-150, #eceeee);
-  overflow: hidden;
-}
-
-/* Specific world sections */
-.worldSection {
-  margin-bottom: clamp(60px, 8vw, 100px);
-}
-
-.worldHeading {
-  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+.worldSectionTitle {
+  font-size: clamp(1.8rem, 3.4vw, 2.6rem);
   font-weight: 560;
   letter-spacing: -0.03em;
   color: var(--kt-carbon, #101210);
   margin: 0 0 24px;
 }
 
-.worldLayoutTwoCol {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(32px, 5vw, 64px);
-  align-items: start;
+.cardHeader {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  margin: 0 0 12px;
 }
 
-@media (max-width: 899px) {
-  .worldLayoutTwoCol {
+.bulletList {
+  list-style: square;
+  padding-left: 20px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bulletList li {
+  font-size: 0.95rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.45;
+}
+
+/* =========================================================================
+   FAMILY 1: TACTILE EVERYDAY (parcel, food, grocery, pharmacy)
+   ========================================================================= */
+.tactileWorld {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(48px, 7vw, 84px);
+}
+
+.tactileHero {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: clamp(36px, 5vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 1023px) {
+  .tactileHero {
     grid-template-columns: 1fr;
   }
 }
 
-.worldFactList {
+.tactileCopyPlane {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  list-style: none;
-  padding: 0;
+  gap: 20px;
+}
+
+.tactileTitle {
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
+  font-weight: 560;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon, #101210);
   margin: 0;
 }
 
-.worldFactItem {
-  padding: 20px 24px;
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.worldFactTitle {
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--kt-carbon, #101210);
-}
-
-.worldFactDesc {
-  font-size: 0.9rem;
+.tactileLead {
+  font-size: clamp(1.05rem, 1.5vw, 1.25rem);
   color: var(--kt-muted, #5f6763);
   line-height: 1.45;
   margin: 0;
 }
 
-.worldDetailMediaGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-@media (max-width: 599px) {
-  .worldDetailMediaGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.worldDetailMediaCard {
+.tactileMediaShowcase {
   position: relative;
   width: 100%;
-  height: 240px;
+  height: clamp(360px, 55vh, 600px);
   background-color: var(--kt-cool-150, #eceeee);
   overflow: hidden;
 }
 
-.relatedServicesRow {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+.tactileDetailsSection {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
-  margin-top: 32px;
 }
 
-@media (max-width: 899px) {
-  .relatedServicesRow {
+.tactileGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 767px) {
+  .tactileGrid {
     grid-template-columns: 1fr;
   }
 }
 
-.relatedServiceCard {
+.tactileCard {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: 28px;
+}
+
+.tactilePhotoStrip {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding-top: 12px;
+}
+
+.photoStripCard {
+  position: relative;
+  flex: 0 0 320px;
+  height: 220px;
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+}
+
+/* =========================================================================
+   FAMILY 2: COMMERCE & BUSINESS FLOW (ecommerce, business, driver-network)
+   ========================================================================= */
+.businessWorld {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: clamp(48px, 7vw, 84px);
+}
+
+.businessHero {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: clamp(36px, 5vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 1023px) {
+  .businessHero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.businessMediaLarge {
+  position: relative;
+  width: 100%;
+  height: clamp(360px, 55vh, 580px);
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+}
+
+.businessTextPlane {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.businessTitle {
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
+  font-weight: 560;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.businessSummary {
+  font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.businessWorkflowSection {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.businessWorkflowList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.workflowRow {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
   padding: 24px;
   background-color: var(--kt-white, #ffffff);
   border: 1px solid var(--kt-cool-200, #eceeee);
-  text-decoration: none;
+}
+
+.workflowIndex {
+  font-size: 1.4rem;
+  font-weight: 600;
   color: var(--kt-carbon, #101210);
-  transition: background-color 160ms ease;
+  font-family: var(--kt-font-mono, monospace);
 }
 
-.relatedServiceCard:hover {
-  background-color: var(--kt-cool-150, #eceeee);
-}
-
-.relatedServiceTitle {
+.workflowHeading {
   font-size: 1.15rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  color: var(--kt-carbon, #101210);
+  margin: 0 0 4px;
 }
 
-.relatedServiceSummary {
-  font-size: 0.875rem;
+.workflowDesc {
+  font-size: 0.9rem;
   color: var(--kt-muted, #5f6763);
-  line-height: 1.4;
+  margin: 0;
+}
+
+.businessMediaFrame {
+  position: relative;
+  width: 100%;
+  height: clamp(280px, 45vh, 440px);
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+/* =========================================================================
+   FAMILY 3: PLANNED MOVEMENT (freight, moving, shuttle)
+   ========================================================================= */
+.plannedWorld {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(48px, 7vw, 84px);
+}
+
+.plannedHero {
+  position: relative;
+  width: 100%;
+  min-height: clamp(460px, 65vh, 700px);
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(24px, 4vw, 48px);
+}
+
+.plannedLandscapeFrame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.plannedOverlayBox {
+  position: relative;
+  z-index: 5;
+  background-color: var(--kt-white, #ffffff);
+  padding: clamp(28px, 4vw, 48px);
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 1px solid var(--kt-cool-200, #eceeee);
+}
+
+.plannedTitle {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 560;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.plannedLead {
+  font-size: 1.05rem;
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.plannedSpatialSection {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.spatialMatrix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 767px) {
+  .spatialMatrix {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spatialCard {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: 28px;
+}
+
+/* =========================================================================
+   FAMILY 4: PRICING INTELLIGENCE (pricing)
+   ========================================================================= */
+.pricingWorld {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(48px, 6vw, 72px);
+}
+
+.pricingHero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+}
+
+.pricingTitle {
+  font-size: clamp(2.4rem, 5.5vw, 4.6rem);
+  font-weight: 560;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.pricingLead {
+  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.pricingPipelineSection {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pricingPipelineList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pricingStepCard {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stepTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.stepDesc {
+  font-size: 0.95rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.pricingActionBlock {
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  padding: clamp(36px, 5vw, 56px);
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.serviceFaqSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.serviceFaqDetails {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: 20px 24px;
+}
+
+.serviceFaqSummary {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  cursor: pointer;
+  outline-offset: 4px;
+}
+
+.serviceFaqAnswer {
+  font-size: 0.95rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.5;
+  margin: 12px 0 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .atlasIndexRow,
   .detailPrimaryAction,
-  .relatedServiceCard {
+  .workflowRow,
+  .pricingStepCard {
     transition: none !important;
   }
 }
@@ -391,8 +635,11 @@
 @media (forced-colors: active) {
   .atlasIndexRow,
   .atlasPinnedStage,
-  .worldFactItem,
-  .relatedServiceCard {
+  .tactileCard,
+  .workflowRow,
+  .spatialCard,
+  .pricingStepCard,
+  .serviceFaqDetails {
     border: 1px solid ButtonText;
   }
 }

@@ -1,73 +1,122 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { marketplaceHref, marketplaceCategoryHref } from "@/lib/public-marketplace/routes";
+import { usePublicMotionPreference } from "@/components/public-v2/motion/usePublicMotionPreference";
 import { homeMedia } from "./home-media";
 import styles from "./home-journey.module.css";
 
-interface CommerceItem {
-  id: string;
+interface StorefrontCategoryItem {
+  path: string;
   name: string;
-  categoryPath: string;
-  media: (typeof homeMedia)[keyof typeof homeMedia];
-  geometry: "active" | "strip" | "wide";
 }
 
-const crawlerItems: CommerceItem[] = [
+interface CrawlerItemConfig {
+  id: string;
+  name: string;
+  defaultCategoryPath: string;
+  media: (typeof homeMedia)[keyof typeof homeMedia];
+}
+
+const baseCrawlerItems: CrawlerItemConfig[] = [
   {
     id: "fashion",
     name: "Fashion & Lifestyle",
-    categoryPath: "/fashion",
+    defaultCategoryPath: "/fashion",
     media: homeMedia.fashion,
-    geometry: "active",
   },
   {
     id: "food",
     name: "Local Kitchens & Food",
-    categoryPath: "/food",
+    defaultCategoryPath: "/food",
     media: homeMedia.foodLocal,
-    geometry: "wide",
   },
   {
     id: "grocery",
     name: "Fresh Market Grocery",
-    categoryPath: "/grocery",
+    defaultCategoryPath: "/grocery",
     media: homeMedia.grocery,
-    geometry: "strip",
   },
   {
     id: "retail",
     name: "Local Retail & Goods",
-    categoryPath: "/retail",
+    defaultCategoryPath: "/retail",
     media: homeMedia.retailLocal,
-    geometry: "active",
   },
   {
     id: "wellness",
     name: "Wellness & Self-Care",
-    categoryPath: "/wellness",
+    defaultCategoryPath: "/wellness",
     media: homeMedia.wellness,
-    geometry: "wide",
   },
   {
     id: "homeware",
     name: "Homeware & Living",
-    categoryPath: "/homeware",
+    defaultCategoryPath: "/homeware",
     media: homeMedia.homeware,
-    geometry: "active",
   },
 ];
 
-export function CommerceJourneyCrawler() {
+interface CommerceJourneyCrawlerProps {
+  categories?: readonly StorefrontCategoryItem[];
+}
+
+export function CommerceJourneyCrawler({ categories = [] }: CommerceJourneyCrawlerProps) {
   const [activeIdx, setActiveIdx] = useState(0);
+  const containerRef = useRef<HTMLElement>(null);
+  const { prefersReducedMotion } = usePublicMotionPreference();
+
+  // Map each item to a verified category path if present in storefront, otherwise canonical /shop
+  const validCategoryMap = new Map(categories.map((c) => [c.path.toLowerCase(), c.path]));
+
+  const items = baseCrawlerItems.map((item) => {
+    const matchedPath =
+      validCategoryMap.get(item.defaultCategoryPath.toLowerCase()) ??
+      validCategoryMap.get(`/${item.id}`) ??
+      null;
+
+    const href = matchedPath ? marketplaceCategoryHref(matchedPath) || marketplaceHref() : marketplaceHref();
+
+    return {
+      ...item,
+      href,
+    };
+  });
+
+  // Desktop Scroll-Driven Progress Calculation
+  useEffect(() => {
+    if (prefersReducedMotion || typeof window === "undefined") return;
+
+    const isFinePointer = window.matchMedia("(pointer: fine)").matches;
+    if (!isFinePointer) return;
+
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const totalHeight = containerRef.current.offsetHeight - window.innerHeight;
+      if (totalHeight <= 0) return;
+
+      const progress = Math.max(0, Math.min(1, -rect.top / totalHeight));
+      const nextIdx = Math.min(items.length - 1, Math.floor(progress * items.length));
+      setActiveIdx(nextIdx);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [items.length, prefersReducedMotion]);
 
   return (
     <section
       aria-labelledby="crawler-heading"
       className={styles.crawlerScene}
       data-scene="crawler"
+      ref={containerRef}
     >
       <div className={styles.crawlerStickyViewport}>
         <div className={styles.crawlerHeader}>
@@ -86,7 +135,7 @@ export function CommerceJourneyCrawler() {
         </div>
 
         <div className={styles.crawlerStageTrack} data-actor="crawler-track">
-          {crawlerItems.map((item, idx) => {
+          {items.map((item, idx) => {
             const isActive = idx === activeIdx;
             const isPrev = idx < activeIdx;
             const itemClass = `${styles.crawlerItem} ${
@@ -97,16 +146,20 @@ export function CommerceJourneyCrawler() {
                 : styles.crawlerItemWide
             }`;
 
-            const href = marketplaceCategoryHref(item.categoryPath) || marketplaceHref();
-
             return (
               <Link
                 className={itemClass}
                 data-crawler-item={item.id}
                 data-index={idx}
-                href={href}
+                href={item.href}
                 key={item.id}
-                onMouseEnter={() => setActiveIdx(idx)}
+                onFocus={() => setActiveIdx(idx)}
+                onMouseEnter={() => {
+                  // Secondary mouse hover preview on desktop
+                  if (window.matchMedia("(pointer: fine)").matches) {
+                    setActiveIdx(idx);
+                  }
+                }}
               >
                 <div className={styles.crawlerImageFrame}>
                   <Image

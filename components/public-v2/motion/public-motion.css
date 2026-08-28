@@ -18,3 +18,34 @@ html.lenis, html.lenis body {
 .lenis.lenis-scrolling iframe {
   pointer-events: none;
 }
+
+/* Spatial & Quick Page Transition Keyframes */
+@keyframes ktSpatialPageWipe {
+  0% {
+    clip-path: inset(0% 0% 100% 0%);
+    transform: translateY(16px);
+  }
+  100% {
+    clip-path: inset(0% 0% 0% 0%);
+    transform: translateY(0);
+  }
+}
+
+@keyframes ktQuickPageReveal {
+  0% {
+    opacity: 0.85;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kt-page-transition-boundary {
+    animation: none !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+}

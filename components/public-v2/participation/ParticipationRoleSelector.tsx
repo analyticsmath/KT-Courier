@@ -11,11 +11,11 @@ const pathways = [
   {
     id: "store",
     title: "Store Partners & Merchants",
-    tagline: "Publish your catalog and fulfill local customer orders with authenticated courier dispatch.",
+    tagline: "Publish your store catalog and coordinate courier delivery for customer orders.",
     requirements: [
-      "Verified South African business or registered trade entity",
-      "Configured merchant address within active collection corridors",
-      "Catalog items suitable for standard courier transit",
+      "Merchant business details confirmed during account registration",
+      "Collection address configured within active delivery regions",
+      "Catalog items suitable for standard courier dispatch",
     ],
     action: { label: "Create store account", href: "/signup?role=store" },
     media: homeMedia.merchantPrepare,
@@ -23,23 +23,23 @@ const pathways = [
   {
     id: "driver",
     title: "Driver & Courier Network",
-    tagline: "Provide professional delivery handling across designated urban hubs and arterial routes.",
+    tagline: "Provide courier delivery across designated hubs and regional transit routes.",
     requirements: [
-      "Valid South African driver's licence and roadworthy vehicle",
-      "Background verification and regional route familiarity",
-      "Commitment to verified physical custody handoffs",
+      "Licensing and documentation confirmed during onboarding",
+      "Route familiarity in active delivery corridors",
+      "Dedicated courier dispatch coordination",
     ],
-    action: { label: "Learn about driver network", href: "/services/driver-network" },
+    action: { label: "Driver network information", href: "/services/driver-network" },
     media: homeMedia.handoff,
   },
   {
     id: "promoter",
     title: "Promoters & Ambassadors",
-    tagline: "Introduce local merchants and customers to the KT marketplace and delivery network.",
+    tagline: "Connect local merchants and customers with the KT marketplace and delivery network.",
     requirements: [
-      "Active local business or community presence in active corridors",
-      "Demonstrated alignment with verified commerce standards",
+      "Active local network in configured regions",
       "Account-based partner coordination with the KT team",
+      "Program guidelines confirmed during setup",
     ],
     action: { label: "Inquire about promoter partnership", href: "/contact" },
     media: homeMedia.worldMarket,
@@ -76,7 +76,7 @@ export function ParticipationRoleSelector() {
           <p className={styles.roleTagline}>{activePathway.tagline}</p>
 
           <div className={styles.roleRequirementsBlock}>
-            <h3 className={styles.requirementsTitle}>Participation Requirements</h3>
+            <h3 className={styles.requirementsTitle}>Onboarding Requirements</h3>
             <ul className={styles.requirementsList}>
               {activePathway.requirements.map((req) => (
                 <li key={req}>{req}</li>

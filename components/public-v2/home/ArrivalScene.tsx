@@ -14,7 +14,7 @@ export function ArrivalScene() {
           <Image
             alt={homeMedia.arrival.alt}
             fill
-            sizes="(max-width: 899px) 100vw, 50vw"
+            sizes="(max-width: 899px) 100vw, 55vw"
             src={homeMedia.arrival.src}
             style={{
               objectFit: "cover",

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePublicMotionPreference } from "./usePublicMotionPreference";
 
@@ -21,6 +22,35 @@ export function KtAnimatedSvg({
   decorative = true,
 }: KtAnimatedSvgProps) {
   const { prefersReducedMotion } = usePublicMotionPreference();
+  const [svgContent, setSvgContent] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!prefersReducedMotion) return;
+
+    let active = true;
+    fetch(src)
+      .then((res) => (res.ok ? res.text() : null))
+      .then((text) => {
+        if (!active || !text) return;
+        // Strip animation tags and pause CSS animations for deterministic still frame
+        const staticSvg = text
+          .replace(/<animate[\s\S]*?\/>/gi, "")
+          .replace(/<animateTransform[\s\S]*?\/>/gi, "")
+          .replace(/<animateMotion[\s\S]*?\/>/gi, "")
+          .replace(
+            /<svg([^>]*)>/i,
+            '<svg$1><style>*, *::before, *::after { animation: none !important; animation-play-state: paused !important; transition: none !important; }</style>'
+          );
+        setSvgContent(staticSvg);
+      })
+      .catch(() => {
+        // graceful fallback to standard image
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [src, prefersReducedMotion]);
 
   return (
     <div
@@ -37,19 +67,25 @@ export function KtAnimatedSvg({
         height,
       }}
     >
-      <Image
-        alt={decorative ? "" : alt}
-        height={height}
-        src={src}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          filter: prefersReducedMotion ? "grayscale(0.2)" : undefined,
-        }}
-        unoptimized
-        width={width}
-      />
+      {prefersReducedMotion && svgContent ? (
+        <div
+          dangerouslySetInnerHTML={{ __html: svgContent }}
+          style={{ width: "100%", height: "100%", display: "contents" }}
+        />
+      ) : (
+        <Image
+          alt={decorative ? "" : alt}
+          height={height}
+          src={src}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+          }}
+          unoptimized
+          width={width}
+        />
+      )}
     </div>
   );
 }

@@ -35,12 +35,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(16, 18, 16, 0.25) 0%,
-    rgba(16, 18, 16, 0.1) 40%,
-    rgba(16, 18, 16, 0.6) 100%
-  );
+  background: rgba(16, 18, 16, 0.2);
   pointer-events: none;
 }
 
@@ -497,7 +492,7 @@
 
 .networkGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 24px;
 }
 

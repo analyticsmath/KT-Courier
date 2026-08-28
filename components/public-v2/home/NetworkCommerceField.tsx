@@ -20,8 +20,8 @@ export function NetworkCommerceField() {
       <div className={styles.networkInner}>
         <div className={styles.networkHeader}>
           <div>
-            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--kt-red)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Stage 04 &middot; Network Breadth
+            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--kt-red)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Network Breadth
             </span>
             <h2 style={{ fontSize: "var(--kt-type-major)", fontWeight: 520, letterSpacing: "-0.03em", color: "var(--kt-carbon)", marginTop: 6 }} id="network-title">
               One network. More ways to move.

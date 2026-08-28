@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { publicFaqJsonLd, publicFaqSections } from "@/lib/public-faq/faqs";
+import { FaqInteractiveView } from "./FaqInteractiveView";
 import styles from "./faq-page.module.css";
 
 export function FaqPage() {
@@ -37,8 +37,8 @@ export function FaqPage() {
           </p>
         </section>
 
-        {/* FAQ Answer Stream */}
-        <div className={styles.faqContentStream}>
+        {/* Server-side native semantic disclosure structure */}
+        <div className={styles.faqSectionWrap}>
           {publicFaqSections.map((section) => (
             <section className={styles.faqSection} id={section.id} key={section.id}>
               <h2 className={styles.faqSectionHeading}>{section.title}</h2>
@@ -56,18 +56,7 @@ export function FaqPage() {
           ))}
         </div>
 
-        {/* Support Help Block */}
-        <section aria-labelledby="help-title" className={styles.helpBlock}>
-          <h2 className={styles.helpTitle} id="help-title">
-            Still have a question?
-          </h2>
-          <p className={styles.helpText}>
-            Our team is available to assist with custom logistics requests, merchant integrations, or active order enquiries.
-          </p>
-          <Link className={styles.helpAction} href="/contact">
-            Contact Support &rarr;
-          </Link>
-        </section>
+        <FaqInteractiveView />
       </div>
     </article>
   );

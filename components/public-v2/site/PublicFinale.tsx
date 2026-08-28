@@ -10,12 +10,11 @@ export function PublicFinale() {
     <section aria-labelledby="finale-heading" className={styles.finaleSection}>
       <div className={styles.finaleInner}>
         <div className={styles.finaleTypographyBlock}>
-          <span className={styles.finaleOverline}>Continuous movement</span>
           <h2 className={styles.finaleStatement} id="finale-heading">
             FROM CART<br />TO DOORSTEP.
           </h2>
           <p className={styles.finaleSub}>
-            Marketplace goods and courier deliveries connected through one reliable regional network.
+            Marketplace goods and courier deliveries connected through one regional network.
           </p>
         </div>
 

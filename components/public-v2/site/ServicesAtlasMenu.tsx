@@ -12,10 +12,10 @@ export const allServices = [
     id: "parcel",
     family: "Everyday Movement",
     title: "Parcels & Documents",
-    desc: "Single or multi-stop delivery for packages, legal files, and parcels.",
+    desc: "Single or multi-stop delivery for packages, documents, and parcels.",
     href: "/services/parcel",
     image: "/media/public/home/kt-home-09-package-detail.webp",
-    detail: "Point-to-point courier handoff with verified custody transfer.",
+    detail: "Point-to-point courier handoff for everyday items.",
   },
   {
     id: "food",
@@ -33,16 +33,16 @@ export const allServices = [
     desc: "Daily market produce, essential staples, and neighborhood groceries.",
     href: "/services/grocery",
     image: "/media/public/home/kt-home-04-grocery.webp",
-    detail: "Careful produce transit from local markets to doorsteps.",
+    detail: "Produce transit from local markets to doorsteps.",
   },
   {
     id: "pharmacy",
     family: "Everyday Movement",
     title: "Pharmacy & Essentials",
-    desc: "Discreet and timely delivery for wellness and pharmacy retail.",
+    desc: "Delivery for wellness and pharmacy retail.",
     href: "/services/pharmacy",
     image: "/media/public/home/kt-home-06-wellness.webp",
-    detail: "Verified recipient handoffs for essential wellness supplies.",
+    detail: "Handoffs for essential wellness supplies.",
   },
   // Business Flow
   {
@@ -67,7 +67,7 @@ export const allServices = [
     id: "driver-network",
     family: "Business Flow",
     title: "Driver Network",
-    desc: "Professional courier operations across designated regional hubs.",
+    desc: "Courier operations across designated regional hubs.",
     href: "/services/driver-network",
     image: "/media/public/home/kt-home-10-handoff.webp",
     detail: "Structured handoffs and coordination across active routes.",
@@ -76,11 +76,11 @@ export const allServices = [
   {
     id: "freight",
     family: "Planned Movement",
-    title: "Freight & Heavy Cargo",
-    desc: "Bulk shipments, palletized goods, and oversized cargo movement.",
+    title: "Freight & Large Cargo",
+    desc: "Large shipments and freight movement.",
     href: "/services/freight",
     image: "/media/public/home/kt-home-12-route-road.webp",
-    detail: "Arterial road dispatch across verified logistics corridors.",
+    detail: "Arterial road dispatch across active delivery corridors.",
   },
   {
     id: "moving",
@@ -95,20 +95,20 @@ export const allServices = [
     id: "shuttle",
     family: "Planned Movement",
     title: "Shuttle & Group Transit",
-    desc: "Scheduled passenger movement and fixed-point shuttle coordination.",
+    desc: "Scheduled passenger movement and shuttle coordination.",
     href: "/services/shuttle",
     image: "/media/public/home/kt-home-02-retail-local.webp",
-    detail: "Planned group mobility across designated city points.",
+    detail: "Planned group mobility across designated points.",
   },
   // Quote Intelligence
   {
     id: "pricing",
     family: "Quote Intelligence",
     title: "Pricing & Variables",
-    desc: "Understanding the pickup, dropoff, weight, and timing variables.",
+    desc: "Understanding pickup, dropoff, weight, and timing variables.",
     href: "/services/pricing",
     image: "/media/public/home/kt-home-01-world-market.webp",
-    detail: "Dynamic calculation factors explained without hidden surprises.",
+    detail: "Calculation factors explained clearly.",
   },
 ] as const;
 
@@ -120,18 +120,29 @@ interface ServicesAtlasMenuProps {
 }
 
 export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
-  const [activeItem, setActiveItem] = useState<ServiceItem>(allServices[0]);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const activeService = allServices[activeIdx] || allServices[0];
   const menuRef = useRef<HTMLDivElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
 
+  // Focus management and Escape key handling
   useEffect(() => {
     if (!open) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.preventDefault();
         onClose();
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    // Focus first link on open
+    firstLinkRef.current?.focus();
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -139,78 +150,78 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
   return (
     <div
       aria-label="Movement Atlas"
-      aria-modal="true"
-      className={styles.atlasOverlay}
-      onClick={onClose}
-      role="dialog"
+      className={styles.atlasMenuBackdrop}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div
-        className={styles.atlasDrawer}
-        onClick={(e) => e.stopPropagation()}
-        ref={menuRef}
-      >
-        <div className={styles.atlasIndexColumn}>
-          <div className={styles.atlasHeaderRow}>
-            <div className={styles.atlasHeaderTitles}>
-              <span className={styles.atlasTitle}>Movement Atlas</span>
-              <span className={styles.atlasSub}>11 specialized delivery routes</span>
-            </div>
-            <button
-              aria-label="Close services atlas"
-              className={styles.atlasCloseButton}
-              onClick={onClose}
-              type="button"
-            >
-              <KtIconClose size={20} />
-            </button>
+      <div className={styles.atlasMenuContainer} ref={menuRef}>
+        <div className={styles.atlasMenuHeader}>
+          <div>
+            <h2 className={styles.atlasMenuTitle}>Movement Atlas</h2>
+            <p className={styles.atlasMenuSub}>
+              11 service routes organized across everyday and planned logistics.
+            </p>
           </div>
-
-          <div className={styles.atlasListLayout}>
-            {allServices.map((item) => {
-              const isSelected = activeItem.id === item.id;
-              return (
-                <Link
-                  className={`${styles.atlasItemLink} ${isSelected ? styles.atlasItemLinkActive : ""}`}
-                  href={item.href}
-                  key={item.id}
-                  onClick={onClose}
-                  onFocus={() => setActiveItem(item)}
-                  onMouseEnter={() => setActiveItem(item)}
-                >
-                  <div className={styles.atlasItemInfo}>
-                    <span className={styles.atlasItemTitle}>{item.title}</span>
-                    <span className={styles.atlasItemDesc}>{item.desc}</span>
-                  </div>
-                  <span className={styles.atlasItemArrow}>
-                    <KtIconArrowRight size={16} />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+          <button
+            aria-label="Close Movement Atlas"
+            className={styles.atlasCloseButton}
+            onClick={onClose}
+            type="button"
+          >
+            <KtIconClose size={20} />
+          </button>
         </div>
 
-        <div className={styles.atlasPreviewColumn}>
-          <div className={styles.atlasPreviewCard}>
+        <div className={styles.atlasMenuContent}>
+          {/* Service Link Stream */}
+          <nav aria-label="Atlas Services" className={styles.atlasNavStream}>
+            <ul className={styles.atlasServiceList}>
+              {allServices.map((service, idx) => {
+                const isActive = idx === activeIdx;
+                return (
+                  <li key={service.id}>
+                    <Link
+                      className={`${styles.atlasServiceLink} ${
+                        isActive ? styles.atlasServiceLinkActive : ""
+                      }`}
+                      href={service.href}
+                      onClick={onClose}
+                      onFocus={() => setActiveIdx(idx)}
+                      onMouseEnter={() => setActiveIdx(idx)}
+                      ref={idx === 0 ? firstLinkRef : undefined}
+                    >
+                      <span className={styles.atlasServiceTitle}>{service.title}</span>
+                      <span className={styles.atlasServiceDesc}>{service.desc}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          {/* Large Photographic Preview Stage */}
+          <div aria-live="polite" className={styles.atlasPreviewStage}>
             <div className={styles.atlasPreviewMediaWrap}>
               <Image
-                alt={activeItem.title}
+                alt={activeService.title}
                 fill
-                sizes="380px"
-                src={activeItem.image}
+                priority
+                sizes="500px"
+                src={activeService.image}
                 style={{ objectFit: "cover" }}
               />
             </div>
             <div className={styles.atlasPreviewBody}>
-              <span className={styles.atlasPreviewFamily}>{activeItem.family}</span>
-              <h3 className={styles.atlasPreviewHeading}>{activeItem.title}</h3>
-              <p className={styles.atlasPreviewDetail}>{activeItem.detail}</p>
+              <h3 className={styles.atlasPreviewHeading}>{activeService.title}</h3>
+              <p className={styles.atlasPreviewDetail}>{activeService.detail}</p>
               <Link
                 className={styles.atlasPreviewAction}
-                href={activeItem.href}
+                href={activeService.href}
                 onClick={onClose}
               >
-                View route details <KtIconArrowRight size={16} />
+                <span>View Route</span>
+                <KtIconArrowRight size={16} />
               </Link>
             </div>
           </div>

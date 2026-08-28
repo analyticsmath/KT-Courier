@@ -408,7 +408,7 @@
 .finaleSection {
   background-color: var(--kt-carbon, #101210);
   color: var(--kt-white, #ffffff);
-  padding: clamp(90px, 14vw, 160px) var(--kt-grid-inset, 32px) clamp(60px, 10vw, 110px);
+  padding: clamp(90px, 14vw, 160px) var(--kt-grid-inset, 32px) clamp(40px, 6vw, 60px);
 }
 
 .finaleInner {
@@ -416,21 +416,13 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 48px;
+  gap: 40px;
 }
 
 .finaleTypographyBlock {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.finaleOverline {
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--kt-red, #d83a2e);
 }
 
 .finaleStatement {
@@ -455,7 +447,7 @@
   align-items: center;
   gap: 28px;
   flex-wrap: wrap;
-  padding-top: 16px;
+  padding-top: 12px;
 }
 
 .finalePrimaryLink {
@@ -494,12 +486,11 @@
   border-color: var(--kt-white, #ffffff);
 }
 
-/* Public Utility Footer */
+/* Public Utility Footer — Asymmetric Spatial Architecture */
 .footerRoot {
   background-color: var(--kt-carbon, #101210);
   color: var(--kt-white, #ffffff);
-  border-top: 1px solid var(--kt-graphite, #303532);
-  padding: 72px var(--kt-grid-inset, 32px) calc(48px + var(--kt-mobile-nav-h, 60px));
+  padding: 40px var(--kt-grid-inset, 32px) calc(48px + var(--kt-mobile-nav-h, 60px));
 }
 
 @media (min-width: 768px) {
@@ -513,25 +504,67 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 60px;
+  gap: 48px;
 }
 
-.footerHeroRow {
+.footerSpatialGrid {
   display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: clamp(40px, 6vw, 90px);
+  grid-template-columns: 1.3fr 1fr 1.2fr;
+  gap: clamp(36px, 5vw, 72px);
+  align-items: start;
 }
 
-@media (max-width: 1199px) {
-  .footerHeroRow {
+@media (max-width: 1023px) {
+  .footerSpatialGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 639px) {
+  .footerSpatialGrid {
     grid-template-columns: 1fr;
   }
 }
 
-.footerBrandBlock {
+.footerIntentCluster {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+}
+
+.footerClusterHeading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kt-cool-400, #9ba4a0);
+}
+
+.footerIntentList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footerLargeLink {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--kt-white, #ffffff);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.footerLargeLink:hover {
+  color: var(--kt-red, #d83a2e);
+}
+
+.footerBrandPlane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .footerLogoLink {
@@ -541,38 +574,33 @@
 }
 
 .footerManifesto {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--kt-cool-400, #9ba4a0);
-  line-height: 1.55;
+  line-height: 1.5;
   margin: 0;
+  max-width: 320px;
 }
 
-.footerNavColumns {
+.footerSecondaryGroup {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(24px, 3.5vw, 48px);
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
 }
 
-@media (max-width: 899px) {
-  .footerNavColumns {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 479px) {
-  .footerNavColumns {
+@media (max-width: 639px) {
+  .footerSecondaryGroup {
     grid-template-columns: 1fr;
   }
 }
 
-.footerNavGroup {
+.footerSubGroup {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .footerGroupHeader {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -585,11 +613,11 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .footerNavLink {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--kt-cool-400, #9ba4a0);
   text-decoration: none;
   transition: color 140ms ease;
@@ -597,6 +625,37 @@
 
 .footerNavLink:hover {
   color: var(--kt-white, #ffffff);
+}
+
+.footerLowerUtility {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 24px;
+}
+
+.footerLegalLinks {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.footerLegalLink {
+  font-size: 0.8rem;
+  color: var(--kt-cool-400, #9ba4a0);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.footerLegalLink:hover {
+  color: var(--kt-white, #ffffff);
+}
+
+.footerCopyright {
+  font-size: 0.8rem;
+  color: var(--kt-cool-400, #9ba4a0);
 }
 
 .footerBottomBar {

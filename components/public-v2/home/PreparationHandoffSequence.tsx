@@ -8,7 +8,7 @@ export function PreparationHandoffSequence() {
     <section aria-labelledby="prep-title" className={styles.prepScene} data-scene="preparation">
       <div className={styles.prepHandoffGrid}>
         <div className={styles.prepTextSide} data-actor="prep-text">
-          <span className={styles.prepStepBadge}>Stage 02 &middot; Fulfillment</span>
+          <span className={styles.prepStepBadge}>Fulfillment</span>
           <h2 className={styles.prepHeading} id="prep-title">
             Someone gets it ready.
           </h2>

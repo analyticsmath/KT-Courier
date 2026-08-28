@@ -3,56 +3,41 @@ import { KtCouriersWordmark } from "@/components/public-v2/brand";
 import { marketplaceHref } from "@/lib/public-marketplace/routes";
 import styles from "./public-shell.module.css";
 
-const footerSections = [
-  {
-    title: "Marketplace & Delivery",
-    links: [
-      { label: "Marketplace", href: marketplaceHref() },
-      { label: "Send a parcel", href: "/account/request-delivery" },
-      { label: "Parcels & documents", href: "/services/parcel" },
-      { label: "Business logistics", href: "/services/business" },
-      { label: "Food & kitchens", href: "/services/food" },
-      { label: "Fresh grocery", href: "/services/grocery" },
-      { label: "Coverage areas", href: "/coverage-areas" },
-    ],
-  },
-  {
-    title: "Network Participation",
-    links: [
-      { label: "Join the network", href: "/join" },
-      { label: "For store partners", href: "/signup?role=store" },
-      { label: "Driver network", href: "/services/driver-network" },
-      { label: "Movement atlas", href: "/services" },
-      { label: "Membership", href: "/membership" },
-    ],
-  },
-  {
-    title: "Company & Information",
-    links: [
-      { label: "About KT Couriers", href: "/about" },
-      { label: "Careers", href: "/careers" },
-      { label: "FAQ", href: "/faq" },
-      { label: "Contact support", href: "/contact" },
-      { label: "Safety standards", href: "/safety" },
-    ],
-  },
-  {
-    title: "Legal & Access",
-    links: [
-      { label: "Privacy policy", href: "/privacy-policy" },
-      { label: "Terms of service", href: "/terms" },
-      { label: "Cookie policy", href: "/cookie-policy" },
-      { label: "Accessibility", href: "/accessibility" },
-    ],
-  },
-] as const;
-
 export function PublicUtilityFooter() {
   return (
     <footer className={styles.footerRoot}>
       <div className={styles.footerInner}>
-        <div className={styles.footerHeroRow}>
-          <div className={styles.footerBrandBlock}>
+        {/* Asymmetric Spatial Layout */}
+        <div className={styles.footerSpatialGrid}>
+          {/* 1. Large Intent Cluster */}
+          <div className={styles.footerIntentCluster}>
+            <span className={styles.footerClusterHeading}>Movement Pathways</span>
+            <ul className={styles.footerIntentList}>
+              <li>
+                <Link className={styles.footerLargeLink} href={marketplaceHref()}>
+                  Marketplace Catalog &rarr;
+                </Link>
+              </li>
+              <li>
+                <Link className={styles.footerLargeLink} href="/account/request-delivery">
+                  Request Delivery Quote &rarr;
+                </Link>
+              </li>
+              <li>
+                <Link className={styles.footerLargeLink} href="/services">
+                  Movement Atlas (11 Routes) &rarr;
+                </Link>
+              </li>
+              <li>
+                <Link className={styles.footerLargeLink} href="/coverage-areas">
+                  Coverage Corridors &rarr;
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* 2. Brand & Operating Manifesto Plane */}
+          <div className={styles.footerBrandPlane}>
             <Link aria-label="KT Couriers" className={styles.footerLogoLink} href="/">
               <KtCouriersWordmark compactMark />
             </Link>
@@ -61,31 +46,86 @@ export function PublicUtilityFooter() {
             </p>
           </div>
 
-          <div className={styles.footerNavColumns}>
-            {footerSections.map((sec) => (
-              <div className={styles.footerNavGroup} key={sec.title}>
-                <span className={styles.footerGroupHeader}>{sec.title}</span>
-                <ul className={styles.footerLinkList}>
-                  {sec.links.map((link) => (
-                    <li key={link.href}>
-                      <Link className={styles.footerNavLink} href={link.href}>
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          {/* 3. Offset Partner & Information Column */}
+          <div className={styles.footerSecondaryGroup}>
+            <div className={styles.footerSubGroup}>
+              <span className={styles.footerGroupHeader}>Participation</span>
+              <ul className={styles.footerLinkList}>
+                <li>
+                  <Link className={styles.footerNavLink} href="/join">
+                    Join the Network
+                  </Link>
+                </li>
+                <li>
+                  <Link className={styles.footerNavLink} href="/signup?role=store">
+                    Store Partner Account
+                  </Link>
+                </li>
+                <li>
+                  <Link className={styles.footerNavLink} href="/services/driver-network">
+                    Driver Network Information
+                  </Link>
+                </li>
+                <li>
+                  <Link className={styles.footerNavLink} href="/membership">
+                    Membership Information
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div className={styles.footerSubGroup}>
+              <span className={styles.footerGroupHeader}>Company</span>
+              <ul className={styles.footerLinkList}>
+                <li>
+                  <Link className={styles.footerNavLink} href="/about">
+                    About KT Couriers
+                  </Link>
+                </li>
+                <li>
+                  <Link className={styles.footerNavLink} href="/careers">
+                    Careers
+                  </Link>
+                </li>
+                <li>
+                  <Link className={styles.footerNavLink} href="/faq">
+                    FAQ
+                  </Link>
+                </li>
+                <li>
+                  <Link className={styles.footerNavLink} href="/contact">
+                    Contact Support
+                  </Link>
+                </li>
+                <li>
+                  <Link className={styles.footerNavLink} href="/safety">
+                    Safety Standards
+                  </Link>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        <div className={styles.footerBottomBar}>
+        {/* 4. Lower Utility & Legal Bar */}
+        <div className={styles.footerLowerUtility}>
+          <div className={styles.footerLegalLinks}>
+            <Link className={styles.footerLegalLink} href="/privacy-policy">
+              Privacy Policy
+            </Link>
+            <Link className={styles.footerLegalLink} href="/terms">
+              Terms of Service
+            </Link>
+            <Link className={styles.footerLegalLink} href="/cookie-policy">
+              Cookie Policy
+            </Link>
+            <Link className={styles.footerLegalLink} href="/accessibility">
+              Accessibility
+            </Link>
+          </div>
+
           <div className={styles.footerCopyright}>
             &copy; {new Date().getFullYear()} KT Couriers (Pty) Ltd. South Africa.
-          </div>
-          <div className={styles.footerBottomMeta}>
-            <span>Marketplace & logistics network</span>
-            <span>Gauteng & regional corridors</span>
           </div>
         </div>
       </div>

@@ -24,7 +24,7 @@ export function RouteGeographySequence({ regions }: RouteGeographySequenceProps)
       <div className={styles.routeGrid}>
         <div className={styles.routeInfoSide} data-actor="route-text">
           <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--kt-red)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            Stage 03 &middot; Movement
+            Movement
           </span>
           <h2 className={styles.routeHeading} id="route-title">
             Now it moves.

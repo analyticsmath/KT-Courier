@@ -25,22 +25,23 @@ async function readHomepageData() {
 
   return {
     regions: (regions || []).slice(0, 8),
-    storefront,
+    categories: storefront?.categories || [],
+    stores: storefront?.stores || [],
   };
 }
 
 export async function HomepageExperience() {
-  const { regions } = await readHomepageData();
+  const { regions, categories } = await readHomepageData();
 
   return (
     <div className={styles.journeyRoot} data-kt-experience="master-rebuild">
       <HomepageMotionController />
       <HomeHeroWorld />
-      <CommerceJourneyCrawler />
+      <CommerceJourneyCrawler categories={categories} />
       <PreparationScene />
       <HandoffScene />
       <RouteGeographyScene regions={regions} />
-      <NetworkFieldScene />
+      <NetworkFieldScene categories={categories} />
       <ArrivalScene />
       <HomepageFinale />
     </div>

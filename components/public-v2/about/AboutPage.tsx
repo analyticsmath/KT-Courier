@@ -6,26 +6,41 @@ import { homeMedia } from "@/components/public-v2/home/home-media";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import styles from "./about-page.module.css";
 
-const ecosystemParticipants = [
+const ecosystemStages = [
   {
-    title: "Customers & Senders",
-    desc: "Browsing neighborhood store catalogs, purchasing local goods, and scheduling point-to-point parcel deliveries.",
+    step: "01",
+    role: "The Customer",
+    title: "A choice is made.",
+    desc: "A customer discovers handcrafted goods from a local maker or needs an essential document moved across the city.",
     media: homeMedia.worldMarket,
   },
   {
-    title: "Independent Merchants & Stores",
-    desc: "Publishing verified store catalogs, preparing items for shipment, and coordinating batch dispatches.",
+    step: "02",
+    role: "The Merchant",
+    title: "The item is prepared.",
+    desc: "The local store prepares, packages, and stages the order for courier collection.",
     media: homeMedia.merchantPrepare,
   },
   {
-    title: "Authenticated Courier Network",
-    desc: "Handling physical custody transfer, navigating verified regional road corridors, and ensuring arrival at doorsteps.",
-    media: homeMedia.handoff,
+    step: "03",
+    role: "The Marketplace",
+    title: "Coordination occurs.",
+    desc: "Order records, delivery requests, and merchant catalogs connect through the central system.",
+    media: homeMedia.retailLocal,
   },
   {
-    title: "Regional Communities & Hubs",
-    desc: "Connecting urban corridors across Gauteng with clear tracking, transparent pricing variables, and local accountability.",
-    media: homeMedia.routeCity,
+    step: "04",
+    role: "Movement",
+    title: "The route is navigated.",
+    desc: "Couriers navigate regional corridors between verified collection and delivery coordinates.",
+    media: homeMedia.routeRoad,
+  },
+  {
+    step: "05",
+    role: "The Recipient",
+    title: "The handoff resolves.",
+    desc: "Responsibility changes hands cleanly at the recipient's doorstep.",
+    media: homeMedia.arrival,
   },
 ] as const;
 
@@ -49,86 +64,53 @@ export function AboutPage() {
           />
         </div>
 
-        {/* Hero Ecosystem Narrative */}
+        {/* Narrative Intro */}
         <section aria-labelledby="about-heading" className={styles.aboutHero}>
           <h1 className={styles.aboutTitle} id="about-heading">
-            Marketplace commerce and delivery, connected in one network.
+            How commerce and delivery connect.
           </h1>
           <p className={styles.aboutLead}>
-            KT Couriers connects local merchants, independent makers, and everyday senders with an authenticated regional delivery network across South Africa.
+            KT Couriers provides a platform connecting local merchants, independent senders, and courier transit.
           </p>
         </section>
 
-        {/* Operating Thesis */}
-        <section aria-labelledby="thesis-heading" className={styles.narrativeSection}>
-          <div className={styles.thesisGrid}>
-            <div>
-              <h2 className={styles.sectionHeading} id="thesis-heading">
-                Where responsibility changes hands cleanly.
-              </h2>
-            </div>
-            <div className={styles.thesisText}>
-              <p>
-                A delivery begins with a practical decision: someone buys a handcrafted good, an essential document needs to move, or a local kitchen prepares a fresh order.
-              </p>
-              <p>
-                Rather than scattering coordination across disconnected messages and phone calls, KT Couriers provides a cohesive platform where catalog discovery, authenticated requests, and delivery coordination work together.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Ecosystem Participants Sequence */}
-        <section aria-labelledby="ecosystem-heading" className={styles.ecosystemSection}>
-          <h2 className={styles.sectionHeading} id="ecosystem-heading">
-            The participants connected through our network.
-          </h2>
-
-          <div className={styles.participantList}>
-            {ecosystemParticipants.map((participant) => (
-              <div className={styles.participantRow} key={participant.title}>
-                <div className={styles.participantMediaFrame}>
-                  <Image
-                    alt={participant.media.alt}
-                    fill
-                    sizes="(max-width: 767px) 100vw, 400px"
-                    src={participant.media.src}
-                    style={{
-                      objectFit: "cover",
-                      objectPosition: participant.media.objectPosition ?? "center",
-                    }}
-                  />
-                </div>
-                <div className={styles.participantBody}>
-                  <h3 className={styles.participantTitle}>{participant.title}</h3>
-                  <p className={styles.participantDesc}>{participant.desc}</p>
-                </div>
+        {/* Continuous Ecosystem Sequence */}
+        <section aria-label="Ecosystem Sequence" className={styles.ecosystemSequence}>
+          {ecosystemStages.map((stage) => (
+            <div className={styles.ecosystemNode} key={stage.step}>
+              <div className={styles.nodeMediaFrame}>
+                <Image
+                  alt={stage.media.alt}
+                  fill
+                  sizes="(max-width: 899px) 100vw, 50vw"
+                  src={stage.media.src}
+                  style={{
+                    objectFit: "cover",
+                    objectPosition: stage.media.objectPosition ?? "center",
+                  }}
+                />
               </div>
-            ))}
-          </div>
+
+              <div className={styles.nodeCopyPlane}>
+                <span className={styles.nodeStepIndex}>{stage.step} · {stage.role}</span>
+                <h2 className={styles.nodeTitle}>{stage.title}</h2>
+                <p className={styles.nodeDesc}>{stage.desc}</p>
+              </div>
+            </div>
+          ))}
         </section>
 
-        {/* Action Pathways */}
-        <section aria-labelledby="actions-heading" className={styles.actionsSection}>
-          <div className={styles.actionsBox}>
-            <h2 className={styles.actionsTitle} id="actions-heading">
-              Ready to explore?
-            </h2>
-            <p className={styles.actionsSub}>
-              Discover published products in the marketplace or request a dedicated courier delivery quote.
-            </p>
-            <div className={styles.actionButtonGroup}>
-              <Link className={styles.primaryActionButton} href="/shop">
-                <span>Shop marketplace</span>
-                <KtIconArrowRight size={16} />
-              </Link>
-              <Link className={styles.secondaryActionButton} href="/account/request-delivery">
-                <span>Request delivery</span>
-                <KtIconArrowRight size={16} />
-              </Link>
-            </div>
-          </div>
-        </section>
+        {/* Direct Pathway Links */}
+        <div className={styles.pathwayRow}>
+          <Link className={styles.pathwayLink} href="/shop">
+            <span>Explore Marketplace Catalog</span>
+            <KtIconArrowRight size={18} />
+          </Link>
+          <Link className={styles.pathwayLink} href="/services">
+            <span>Explore Movement Atlas</span>
+            <KtIconArrowRight size={18} />
+          </Link>
+        </div>
       </div>
     </article>
   );

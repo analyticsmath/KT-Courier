@@ -207,7 +207,7 @@ export function PublicCoverageMap({
     }
   }, [mapReady, selectedIndex, validRegions, interactive, onSelectIndex]);
 
-  if (loadFailed || !process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY) {
+  if (loadFailed || !process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || validRegions.length === 0) {
     const activeRegion = regions[selectedIndex] ?? regions[0];
     return (
       <div className={`${styles.mapContainer} ${className}`} role="region" aria-label="Coverage Area Overview">

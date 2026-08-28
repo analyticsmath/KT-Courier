@@ -61,7 +61,6 @@ export function MarketplaceSearchDiscovery({ categories, stores }: { categories:
   if (!categories.length && !stores.length) return null;
   return (
     <section aria-label="Matching marketplace records" className={styles.searchDiscovery}>
-      <p className={styles.eyebrow}>Matching marketplace records</p>
       {categories.length ? <div><h2 className={styles.contextHeading}>Categories</h2><MarketplaceCategoryRail categories={categories} label="Matching categories" /></div> : null}
       {stores.length ? <div><h2 className={styles.contextHeading}>Stores</h2><MarketplaceStoreGrid label="Matching stores" stores={stores} /></div> : null}
     </section>
@@ -88,7 +87,6 @@ export function MarketplaceResults({ title, description, result, filters, route,
       <div className={styles.inner}>
         {breadcrumbs.length ? <nav aria-label="Breadcrumb" className={styles.breadcrumb}>{breadcrumbs.map((item, index) => <span key={`${item.label}:${index}`}>{index ? " / " : ""}{item.href ? <Link href={item.href}>{item.label}</Link> : <span aria-current="page">{item.label}</span>}</span>)}</nav> : null}
         <div className={styles.listingHeading}>
-          <p className={styles.eyebrow}>Marketplace discovery</p>
           <h1>{title}</h1>
           {description ? <p className={styles.listingDescription}>{description}</p> : null}
           <MarketplaceSearchForm action={marketplaceListingHref(route)} query={filters.q ?? ""} />

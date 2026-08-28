@@ -27,12 +27,12 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
               Now it moves.
             </h2>
             <p className={styles.routeSub}>
-              Navigating urban corridors, arterial transit routes, and local neighborhoods with systematic dispatch.
+              Navigating urban corridors, arterial transit routes, and local neighborhoods. Availability and route details depend on the submitted request.
             </p>
           </div>
 
           <div className={styles.routeRegionSection}>
-            <span className={styles.routeRegionHeading}>Active Delivery Hubs</span>
+            <span className={styles.routeRegionHeading}>Configured Delivery Hubs</span>
             <ul className={styles.routeRegionList}>
               {regions.slice(0, 5).map((region, idx) => {
                 const isSelected = idx === selectedIdx;
@@ -47,9 +47,7 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
                     >
                       <span>{region.name}</span>
                       <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>
-                        {typeof region.centerLat === "number" && typeof region.centerLng === "number"
-                          ? `${region.centerLat.toFixed(2)}°S`
-                          : "Active"}
+                        {region.city || "Active"}
                       </span>
                     </button>
                   </li>
@@ -62,7 +60,7 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
               href="/coverage-areas"
               style={{ marginTop: 12 }}
             >
-              View all coverage areas &rarr;
+              View coverage areas &rarr;
             </Link>
           </div>
         </div>

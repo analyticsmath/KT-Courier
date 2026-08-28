@@ -3,8 +3,8 @@ import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 
 export const metadata = publicPageMetadata({
-  title: "Safety standards",
-  description: "Safety, verification, and handling standards for KT Couriers.",
+  title: "Safety Information",
+  description: "Safety and operational policy information for KT Couriers.",
   route: "/safety",
   noindex: true,
 });
@@ -20,10 +20,10 @@ export default function SafetyPage() {
 
       <div style={{ borderLeft: "3px solid var(--kt-carbon, #101210)", paddingLeft: 24, marginTop: 32 }}>
         <h1 style={{ fontSize: "clamp(2.2rem, 4.5vw, 3.6rem)", fontWeight: 560, letterSpacing: "-0.03em", color: "var(--kt-carbon, #101210)", margin: "0 0 16px" }}>
-          Safety & Verification Standards.
+          Safety Information.
         </h1>
         <p style={{ fontSize: "1.1rem", color: "var(--kt-muted, #5f6763)", lineHeight: 1.5, margin: "0 0 24px", maxWidth: 700 }}>
-          Operating, vehicle, insurance, and physical custody handoff criteria are verified through authorized merchant and driver onboarding protocols.
+          Detailed safety, insurance, and operating commitments are published only from approved policy documentation.
         </p>
 
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", paddingTop: 8 }}>

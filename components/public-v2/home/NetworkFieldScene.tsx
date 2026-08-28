@@ -4,7 +4,18 @@ import { marketplaceHref, marketplaceCategoryHref } from "@/lib/public-marketpla
 import { homeMedia } from "./home-media";
 import styles from "./home-journey.module.css";
 
-export function NetworkFieldScene() {
+interface NetworkFieldSceneProps {
+  categories?: readonly { path: string; name: string }[];
+}
+
+export function NetworkFieldScene({ categories = [] }: NetworkFieldSceneProps) {
+  const catMap = new Map(categories.map((c) => [c.path.toLowerCase(), c.path]));
+
+  const getHref = (defaultPath: string) => {
+    const matched = catMap.get(defaultPath.toLowerCase());
+    return matched ? marketplaceCategoryHref(matched) || marketplaceHref() : marketplaceHref();
+  };
+
   return (
     <section
       aria-labelledby="network-heading"
@@ -31,7 +42,7 @@ export function NetworkFieldScene() {
           {/* Large active category tile */}
           <Link
             className={styles.networkTileLarge}
-            href={marketplaceCategoryHref("/retail") || marketplaceHref()}
+            href={getHref("/retail")}
           >
             <Image
               alt={homeMedia.retailLocal.alt}
@@ -49,7 +60,7 @@ export function NetworkFieldScene() {
           {/* Narrow portrait strip */}
           <Link
             className={styles.networkTileStrip}
-            href={marketplaceCategoryHref("/food") || marketplaceHref()}
+            href={getHref("/food")}
           >
             <Image
               alt={homeMedia.foodLocal.alt}
@@ -67,7 +78,7 @@ export function NetworkFieldScene() {
           {/* Tactile aperture */}
           <Link
             className={styles.networkTileAperture}
-            href={marketplaceCategoryHref("/wellness") || marketplaceHref()}
+            href={getHref("/wellness")}
           >
             <Image
               alt={homeMedia.wellness.alt}
@@ -85,7 +96,7 @@ export function NetworkFieldScene() {
           {/* Landscape support frame */}
           <Link
             className={styles.networkTileSupport}
-            href={marketplaceCategoryHref("/grocery") || marketplaceHref()}
+            href={getHref("/grocery")}
           >
             <Image
               alt={homeMedia.grocery.alt}

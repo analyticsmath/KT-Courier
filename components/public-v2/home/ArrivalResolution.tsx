@@ -28,7 +28,7 @@ export function ArrivalResolution() {
               />
             </div>
             <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--kt-red)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Stage 05 &middot; Arrival
+              Arrival
             </span>
           </div>
 

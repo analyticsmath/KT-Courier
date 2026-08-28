@@ -36,8 +36,7 @@
 .sceneCard.h0b .sceneImage { object-position: 50% 52%; }
 .sceneCardMobile.h0a .sceneImage { object-position: 55% 56%; }
 .sceneCardMobile.h0b .sceneImage { object-position: 54% 52%; }
-.sceneCard::after, .backgroundImage::after { content: ""; }
-.sceneCard::before { position: absolute; z-index: 1; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .27), transparent 32%, rgba(0, 0, 0, .3)); content: ""; pointer-events: none; }
+.sceneCard::before { position: absolute; z-index: 1; inset: 0; background: rgba(0, 0, 0, 0.2); content: ""; pointer-events: none; }
 .sceneHeader { position: absolute; z-index: 2; top: 0; left: 0; display: flex; width: 100%; min-height: 49px; align-items: center; gap: 18px; padding: 10px clamp(12px, 3vw, 32px); color: var(--white); }
 .logo { width: auto; height: 24px; filter: brightness(0) invert(1); }
 .sceneNav { display: flex; gap: 15px; margin-left: auto; font-size: 9px; font-weight: 520; }
