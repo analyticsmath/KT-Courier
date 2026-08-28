@@ -1,0 +1,105 @@
+.mapContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+}
+
+.mapCanvas {
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+}
+
+.mapFallback {
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 32px 28px;
+  background-color: var(--kt-cool-100, #f5f6f6);
+  color: var(--kt-carbon, #101210);
+  border: 1px solid var(--kt-cool-250, #dde1e0);
+}
+
+.mapFallbackHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mapFallbackTitle {
+  font-size: 1.15rem;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+  color: var(--kt-carbon, #101210);
+}
+
+.mapFallbackSub {
+  font-size: 0.875rem;
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.45;
+}
+
+.regionCoordsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 24px 0;
+  list-style: none;
+  padding: 0;
+}
+
+.regionCoordItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--kt-cool-200, #e6e9e8);
+}
+
+.regionName {
+  font-size: 0.925rem;
+  font-weight: 520;
+  color: var(--kt-carbon, #101210);
+}
+
+.regionActiveName {
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: var(--kt-red, #d83a2e);
+}
+
+.regionCoordValues {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 0.8rem;
+  color: var(--kt-graphite, #303532);
+}
+
+.mapFallbackFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.775rem;
+  color: var(--kt-muted, #5f6763);
+  padding-top: 12px;
+}
+
+.mapOverlayBadge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 6px 12px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  font-size: 0.75rem;
+  font-weight: 540;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  z-index: 10;
+  pointer-events: none;
+}

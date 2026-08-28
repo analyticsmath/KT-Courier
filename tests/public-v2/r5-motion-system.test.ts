@@ -132,6 +132,6 @@ describe("R5 homepage motion system", () => {
     expect(serverSources).not.toMatch(/from "gsap|from 'gsap/);
     expect(packageJson.dependencies?.gsap).toBe("^3.15.0");
     expect(packageJson.dependencies?.["@gsap/react"]).toBe("^2.1.2");
-    expect(motionDependencies).toEqual(["@gsap/react", "gsap"]);
+    expect(motionDependencies).toEqual(["@gsap/react", "gsap", "lenis"]);
   });
 });

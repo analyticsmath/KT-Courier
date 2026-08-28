@@ -1,80 +1,78 @@
 import Image from "next/image";
 import Link from "next/link";
-import { EditorialFactList, PublicBreadcrumbScript, SupportingClosingCta, SupportingPageHero } from "@/components/public-v2/support";
+import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
+import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { getSupportingPageMedia } from "@/lib/public-assets/supporting-page-media";
-import styles from "@/components/public-v2/support/support-pages.module.css";
+import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import styles from "./membership-page.module.css";
 
 export function MembershipPage() {
   const media = getSupportingPageMedia("membership-planning");
 
   return (
-    <article className={styles.page}>
-      <PublicBreadcrumbScript items={[{ label: "Home", href: "/" }, { label: "Membership", href: "/membership" }]} />
-      <SupportingPageHero
-        breadcrumb={[{ label: "Home", href: "/" }, { label: "Membership" }]}
-        eyebrow="Membership"
-        title="Membership information, without a checkout promise."
-        summary="KT Couriers has account and subscription foundations, but online membership activation and checkout are not currently available to the public."
-        primaryAction={{ label: "Contact KT Couriers", href: "/contact" }}
-        secondaryAction={{ label: "Explore services", href: "/services" }}
-        media={media}
-        variant="membership"
+    <article className={styles.membershipRoot}>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: publicBreadcrumbJsonLd([
+            { label: "Home", href: "/" },
+            { label: "Membership", href: "/membership" },
+          ]),
+        }}
+        type="application/ld+json"
       />
 
-      <section className={styles.section} aria-labelledby="membership-state-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>Current public state</p>
-          <div className={styles.mediaSplit}>
-            <div>
-              <h2 className={styles.sectionHeading} id="membership-state-heading">Information only. No public activation is presented.</h2>
-              <p className={styles.sectionIntro}>The public page does not show a plan, a price, a benefit catalogue, a billing schedule, or a subscription control because those details are not verified as a current public offering.</p>
-              <p className={styles.inlineNote}>A delivery request remains separate from membership. Use the normal account-based request route for current delivery availability and quotes.</p>
+      <div className={styles.membershipInner}>
+        <div className={styles.breadcrumbs}>
+          <PublicBreadcrumbs
+            items={[{ label: "Home", href: "/" }, { label: "Membership" }]}
+          />
+        </div>
+
+        <section aria-labelledby="membership-title" className={styles.membershipHero}>
+          <h1 className={styles.membershipTitle} id="membership-title">
+            Account & Membership Information.
+          </h1>
+          <p className={styles.membershipLead}>
+            Information only. KT Couriers provides dedicated account access for frequent senders and merchant storefronts. No public plan activation or purchase route is offered.
+          </p>
+        </section>
+
+        <section aria-labelledby="status-heading" className={styles.statusSection}>
+          <div className={styles.statusLayout}>
+            <div className={styles.statusCopy}>
+              <h2 className={styles.statusHeading} id="status-heading">
+                Current Operational Availability
+              </h2>
+              <p className={styles.statusText}>
+                Delivery requests operate through standard authenticated customer and business accounts without requiring a recurring membership subscription.
+              </p>
+              <p className={styles.statusText}>
+                Information only: when membership tiers or commercial volume programs are formally published, their terms, billing cycles, and feature sets will appear directly in this section. No public plan activation or purchase route is offered on this surface.
+              </p>
+
+              <div className={styles.actionRow}>
+                <Link className={styles.primaryAction} href="/account/request-delivery">
+                  <span>Request a Delivery Quote</span>
+                  <KtIconArrowRight size={16} />
+                </Link>
+                <Link className={styles.secondaryAction} href="/contact">
+                  <span>Contact Team</span>
+                </Link>
+              </div>
             </div>
-            <figure className={styles.mediaFrame}>
-              <Image alt={media.alt} fill sizes="(max-width: 767px) calc(100vw - 40px), 38vw" src={media.src} style={{ objectPosition: media.focalPoint }} />
-              <figcaption className={styles.mediaCaption}>Provisional planning context · not a plan benefit</figcaption>
-            </figure>
-          </div>
-        </div>
-      </section>
 
-      <section className={styles.section} aria-labelledby="membership-authority-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>What is verified</p>
-          <div className={styles.split}>
-            <h2 className={styles.sectionHeading} id="membership-authority-heading">The public route follows the current authority, not a sales template.</h2>
-            <EditorialFactList facts={[
-              { label: "Availability", value: "Informational only", detail: "No public plan activation or purchase route is offered." },
-              { label: "Price and billing", value: "Not published", detail: "This page does not present a price, renewal cycle, or payment control." },
-              { label: "Benefits", value: "Not published", detail: "No delivery discount, priority, coverage, or other benefit is claimed here." },
-              { label: "Next step", value: "Confirm with KT Couriers", detail: "Use the contact form when you need current membership or business-arrangement information." },
-            ]} />
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="membership-questions-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>Useful distinction</p>
-          <div className={styles.split}>
-            <h2 className={styles.sectionHeading} id="membership-questions-heading">Need to send something now?</h2>
-            <div>
-              <p className={styles.bodyCopy}>Requesting a delivery does not require a public membership checkout. The delivery request flow is the canonical way to provide the information used for a current quote.</p>
-              <p className={styles.bodyCopy}>If the question is about repeat operations, the business courier route explains the account-based pathway for stores and local businesses.</p>
-              <Link className={styles.textAction} href="/services/business">Read about business courier <span aria-hidden="true">→</span></Link>
+            <div className={styles.statusMediaFrame}>
+              <Image
+                alt={media.alt}
+                fill
+                priority
+                sizes="(max-width: 1023px) 100vw, 45vw"
+                src={media.src}
+                style={{ objectFit: "cover" }}
+              />
             </div>
           </div>
-        </div>
-      </section>
-
-      <div className={styles.pageInner}>
-        <SupportingClosingCta
-          eyebrow="Current route"
-          title="Ask for current information, or start a delivery request."
-          summary="KT Couriers can confirm the appropriate next step without presenting a subscription action that is not currently available."
-          primaryAction={{ label: "Contact KT Couriers", href: "/contact" }}
-          secondaryAction={{ label: "Get a quote", href: "/account/request-delivery" }}
-        />
+        </section>
       </div>
     </article>
   );

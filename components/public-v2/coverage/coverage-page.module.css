@@ -1,0 +1,225 @@
+.coverageRoot {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-cool-050, #fafbfa);
+  color: var(--kt-carbon, #101210);
+  padding: clamp(32px, 5vw, 64px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
+}
+
+.coverageHeaderInner {
+  max-width: 1680px;
+  margin: 0 auto 36px;
+}
+
+.breadcrumbs {
+  margin-bottom: 20px;
+}
+
+.heroCopyBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 900px;
+}
+
+.heroTitle {
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
+  font-weight: 560;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.heroLead {
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.coverageSpatialLayout {
+  max-width: 1680px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: clamp(36px, 5vw, 72px);
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .coverageSpatialLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mapCanvasHolder {
+  position: sticky;
+  top: calc(var(--kt-header-h, 72px) + 20px);
+  width: 100%;
+  height: clamp(440px, 72vh, 760px);
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+  border: 1px solid var(--kt-cool-250, #dde1e0);
+}
+
+@media (max-width: 1023px) {
+  .mapCanvasHolder {
+    position: relative;
+    top: 0;
+    height: 420px;
+  }
+}
+
+.mapElement {
+  width: 100%;
+  height: 100%;
+}
+
+.regionStreamHolder {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.productTruthNotice {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  border-left: 3px solid var(--kt-carbon, #101210);
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.noticeTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--kt-carbon, #101210);
+}
+
+.noticeText {
+  font-size: 0.9rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.activeRegionsListSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionHeading {
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.regionsScrollList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.regionCardButton {
+  width: 100%;
+  text-align: left;
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: 20px 24px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.regionCardButton:hover,
+.regionCardButtonActive {
+  border-color: var(--kt-red, #d83a2e);
+  background-color: var(--kt-cool-050, #fafbfa);
+}
+
+.regionCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.regionCardName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+}
+
+.regionCardButtonActive .regionCardName {
+  color: var(--kt-red, #d83a2e);
+}
+
+.regionCardCoords {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 0.8rem;
+  color: var(--kt-muted, #5f6763);
+}
+
+.regionCardDesc {
+  font-size: 0.875rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.regionRadiusBadge {
+  font-size: 0.775rem;
+  font-weight: 540;
+  color: var(--kt-muted, #5f6763);
+  padding-top: 4px;
+}
+
+.coverageActionGroup {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+}
+
+.primaryActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  padding: 13px 26px;
+  font-size: 0.95rem;
+  font-weight: 560;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.primaryActionButton:hover {
+  background-color: var(--kt-graphite, #303532);
+}
+
+.secondaryActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 540;
+  color: var(--kt-carbon, #101210);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--kt-cool-300, #dde1e0);
+}

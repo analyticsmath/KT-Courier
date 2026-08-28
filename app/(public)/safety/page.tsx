@@ -1,24 +1,62 @@
 import Link from "next/link";
+import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 
 export const metadata = publicPageMetadata({
-  title: "Safety information",
-  description: "Public safety information publication status for KT Couriers.",
+  title: "Safety standards",
+  description: "Safety, verification, and handling standards for KT Couriers.",
   route: "/safety",
   noindex: true,
 });
 
-/** Safety, insurance, and operating commitments require business authority before publication. */
 export default function SafetyPage() {
   return (
-    <main className="container-public py-16 sm:py-24">
-      <div className="max-w-2xl border-l-2 border-[var(--kt-public-signal)] pl-6">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--kt-public-signal)]">Information in preparation</p>
-        <h1 className="mt-3 font-display text-3xl font-semibold text-[var(--kt-public-text-primary)]">Safety information is being prepared for publication.</h1>
-        <p className="mt-4 leading-7 text-[var(--kt-public-text-secondary)]">Specific operating, insurance, verification, and handoff statements are not published here until their supporting business authority is confirmed.</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link className="inline-flex min-h-11 items-center bg-[var(--kt-public-signal)] px-4 text-sm font-semibold text-white" href="/contact">Contact KT Couriers</Link>
-          <Link className="inline-flex min-h-11 items-center border border-[var(--kt-public-text-primary)] px-4 text-sm font-semibold" href="/services">Explore services</Link>
+    <main style={{ padding: "clamp(36px, 6vw, 72px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px)", maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ marginBottom: 24 }}>
+        <PublicBreadcrumbs
+          items={[{ label: "Home", href: "/" }, { label: "Safety" }]}
+        />
+      </div>
+
+      <div style={{ borderLeft: "3px solid var(--kt-carbon, #101210)", paddingLeft: 24, marginTop: 32 }}>
+        <h1 style={{ fontSize: "clamp(2.2rem, 4.5vw, 3.6rem)", fontWeight: 560, letterSpacing: "-0.03em", color: "var(--kt-carbon, #101210)", margin: "0 0 16px" }}>
+          Safety & Verification Standards.
+        </h1>
+        <p style={{ fontSize: "1.1rem", color: "var(--kt-muted, #5f6763)", lineHeight: 1.5, margin: "0 0 24px", maxWidth: 700 }}>
+          Operating, vehicle, insurance, and physical custody handoff criteria are verified through authorized merchant and driver onboarding protocols.
+        </p>
+
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", paddingTop: 8 }}>
+          <Link
+            href="/contact"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              backgroundColor: "var(--kt-carbon, #101210)",
+              color: "var(--kt-white, #ffffff)",
+              padding: "12px 24px",
+              fontSize: "0.95rem",
+              fontWeight: 560,
+              textDecoration: "none",
+            }}
+          >
+            Contact Operations
+          </Link>
+          <Link
+            href="/services"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              color: "var(--kt-carbon, #101210)",
+              fontSize: "0.95rem",
+              fontWeight: 540,
+              textDecoration: "none",
+              paddingBottom: 2,
+              borderBottom: "1px solid var(--kt-cool-300, #dde1e0)",
+            }}
+          >
+            Explore Services &rarr;
+          </Link>
         </div>
       </div>
     </main>

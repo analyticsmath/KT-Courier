@@ -1,0 +1,219 @@
+.faqRoot {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-cool-050, #fafbfa);
+  color: var(--kt-carbon, #101210);
+  padding: clamp(36px, 6vw, 72px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
+}
+
+.faqInner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.breadcrumbs {
+  margin-bottom: 24px;
+}
+
+.faqHero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 860px;
+  margin-bottom: 40px;
+}
+
+.faqTitle {
+  font-size: clamp(2.4rem, 5.5vw, 4.8rem);
+  font-weight: 560;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.faqLead {
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.searchBarWrap {
+  margin-top: 16px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 1rem;
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-250, #dde1e0);
+  color: var(--kt-carbon, #101210);
+  outline: none;
+  transition: border-color 140ms ease;
+  font-family: inherit;
+}
+
+.searchInput:focus {
+  border-color: var(--kt-carbon, #101210);
+}
+
+.topicsRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 48px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--kt-cool-200, #eceeee);
+}
+
+.topicButton {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-250, #dde1e0);
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 520;
+  color: var(--kt-carbon, #101210);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.topicButton:hover,
+.topicButtonActive {
+  background-color: var(--kt-carbon, #101210);
+  border-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+}
+
+.faqContentStream {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  margin-bottom: 64px;
+}
+
+.faqSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faqSectionHeading {
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.faqItemList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faqItemDetails {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  transition: border-color 140ms ease;
+}
+
+.faqItemDetails[open] {
+  border-color: var(--kt-cool-300, #dde1e0);
+}
+
+.faqQuestion {
+  padding: 18px 24px;
+  font-size: 1.05rem;
+  font-weight: 560;
+  color: var(--kt-carbon, #101210);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.faqQuestion::-webkit-details-marker {
+  display: none;
+}
+
+.faqQuestion::after {
+  content: "+";
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--kt-muted, #5f6763);
+}
+
+.faqItemDetails[open] .faqQuestion::after {
+  content: "−";
+}
+
+.faqAnswer {
+  padding: 0 24px 20px;
+  font-size: 0.95rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.55;
+}
+
+.faqAnswer p {
+  margin: 0;
+}
+
+.noResultsCard {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clearSearchButton {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  cursor: pointer;
+  text-decoration: underline;
+  align-self: flex-start;
+}
+
+.helpBlock {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: clamp(32px, 5vw, 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.helpTitle {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.helpText {
+  font-size: 0.95rem;
+  color: var(--kt-muted, #5f6763);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.helpAction {
+  display: inline-flex;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  text-decoration: none;
+  margin-top: 8px;
+}

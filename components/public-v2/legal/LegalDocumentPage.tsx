@@ -14,8 +14,7 @@ type LegalDocumentPageProps = {
 };
 
 /**
- * A server-rendered legal surface. Draft documents expose only their publication
- * state; sections render only after an approved source is supplied explicitly.
+ * A server-rendered legal surface with clean typographic measure.
  */
 export function LegalDocumentPage({ documentId, sections = [] }: LegalDocumentPageProps) {
   const document = getLegalDocument(documentId);
@@ -25,7 +24,6 @@ export function LegalDocumentPage({ documentId, sections = [] }: LegalDocumentPa
     <article className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <p className={styles.eyebrow}>Legal and policy information</p>
           <h1 className={styles.title}>{document.title}</h1>
           <p className={styles.summary}>
             {showSections

@@ -3,43 +3,45 @@ import { KtCouriersWordmark } from "@/components/public-v2/brand";
 import { marketplaceHref } from "@/lib/public-marketplace/routes";
 import styles from "./public-shell.module.css";
 
-const footerNavigationGroups = [
+const footerSections = [
   {
-    title: "Commerce & Delivery",
+    title: "Marketplace & Delivery",
     links: [
       { label: "Marketplace", href: marketplaceHref() },
-      { label: "Request Delivery", href: "/account/request-delivery" },
-      { label: "Parcels & Documents", href: "/services/parcel" },
-      { label: "Business Logistics", href: "/services/business" },
-      { label: "Food & Grocery", href: "/services/food" },
-      { label: "Coverage Areas", href: "/coverage-areas" },
+      { label: "Send a parcel", href: "/account/request-delivery" },
+      { label: "Parcels & documents", href: "/services/parcel" },
+      { label: "Business logistics", href: "/services/business" },
+      { label: "Food & kitchens", href: "/services/food" },
+      { label: "Fresh grocery", href: "/services/grocery" },
+      { label: "Coverage areas", href: "/coverage-areas" },
     ],
   },
   {
-    title: "Network",
+    title: "Network Participation",
     links: [
       { label: "Join the network", href: "/join" },
-      { label: "For Stores", href: "/signup?role=store" },
-      { label: "For Drivers", href: "/services/driver-network" },
-      { label: "For Promoters", href: "/contact" },
+      { label: "For store partners", href: "/signup?role=store" },
+      { label: "Driver network", href: "/services/driver-network" },
+      { label: "Movement atlas", href: "/services" },
       { label: "Membership", href: "/membership" },
     ],
   },
   {
-    title: "Company",
+    title: "Company & Information",
     links: [
       { label: "About KT Couriers", href: "/about" },
       { label: "Careers", href: "/careers" },
-      { label: "Frequently Asked Questions", href: "/faq" },
-      { label: "Contact Support", href: "/contact" },
+      { label: "FAQ", href: "/faq" },
+      { label: "Contact support", href: "/contact" },
+      { label: "Safety standards", href: "/safety" },
     ],
   },
   {
-    title: "Legal & Standards",
+    title: "Legal & Access",
     links: [
-      { label: "Privacy Policy", href: "/privacy-policy" },
-      { label: "Website Terms", href: "/terms" },
-      { label: "Cookie Notice", href: "/cookie-policy" },
+      { label: "Privacy policy", href: "/privacy-policy" },
+      { label: "Terms of service", href: "/terms" },
+      { label: "Cookie policy", href: "/cookie-policy" },
       { label: "Accessibility", href: "/accessibility" },
     ],
   },
@@ -48,44 +50,43 @@ const footerNavigationGroups = [
 export function PublicUtilityFooter() {
   return (
     <footer className={styles.footerRoot}>
-      <div className={styles.footerGrid}>
-        <div className={styles.footerBrandCol}>
-          <Link aria-label="KT Couriers" href="/">
-            <KtCouriersWordmark compactMark />
-          </Link>
-          <p className={styles.footerDesc}>
-            South African marketplace commerce and courier delivery services connected through an authenticated regional network.
-          </p>
+      <div className={styles.footerInner}>
+        <div className={styles.footerHeroRow}>
+          <div className={styles.footerBrandBlock}>
+            <Link aria-label="KT Couriers" className={styles.footerLogoLink} href="/">
+              <KtCouriersWordmark compactMark />
+            </Link>
+            <p className={styles.footerManifesto}>
+              South African marketplace ecosystem connecting local retailers, merchant kitchens, and independent senders with reliable courier delivery.
+            </p>
+          </div>
+
+          <div className={styles.footerNavColumns}>
+            {footerSections.map((sec) => (
+              <div className={styles.footerNavGroup} key={sec.title}>
+                <span className={styles.footerGroupHeader}>{sec.title}</span>
+                <ul className={styles.footerLinkList}>
+                  {sec.links.map((link) => (
+                    <li key={link.href}>
+                      <Link className={styles.footerNavLink} href={link.href}>
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {footerNavigationGroups.map((group) => (
-          <div key={group.title}>
-            <h3 className={styles.footerGroupTitle}>{group.title}</h3>
-            <ul className={styles.footerLinkList}>
-              {group.links.map((link) => (
-                <li key={link.href}>
-                  <Link className={styles.footerLink} href={link.href}>
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+        <div className={styles.footerBottomBar}>
+          <div className={styles.footerCopyright}>
+            &copy; {new Date().getFullYear()} KT Couriers (Pty) Ltd. South Africa.
           </div>
-        ))}
-      </div>
-
-      <div className={styles.footerBottom}>
-        <p>&copy; {new Date().getFullYear()} KT Couriers (Pty) Ltd. All rights reserved.</p>
-        <div className={styles.footerBottomLinks}>
-          <Link className={styles.footerLink} href="/privacy-policy">
-            Privacy
-          </Link>
-          <Link className={styles.footerLink} href="/terms">
-            Terms
-          </Link>
-          <Link className={styles.footerLink} href="/accessibility">
-            Accessibility
-          </Link>
+          <div className={styles.footerBottomMeta}>
+            <span>Marketplace & logistics network</span>
+            <span>Gauteng & regional corridors</span>
+          </div>
         </div>
       </div>
     </footer>

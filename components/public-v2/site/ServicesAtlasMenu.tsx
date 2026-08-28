@@ -6,50 +6,113 @@ import Image from "next/image";
 import { KtIconArrowRight, KtIconClose } from "@/components/public-v2/graphics/KtIcons";
 import styles from "./public-shell.module.css";
 
-export const serviceItems = [
+export const allServices = [
+  // Everyday Movement
   {
     id: "parcel",
+    family: "Everyday Movement",
     title: "Parcels & Documents",
-    desc: "Single or multi-stop delivery for packages, legal documents and parcels.",
+    desc: "Single or multi-stop delivery for packages, legal files, and parcels.",
     href: "/services/parcel",
     image: "/media/public/home/kt-home-09-package-detail.webp",
-    detail: "Same-day and scheduled delivery with verified physical custody transfer.",
-  },
-  {
-    id: "business",
-    title: "Business & Store Logistics",
-    desc: "Integrated merchant dispatch, scheduled batch orders and store fulfillment.",
-    href: "/services/business",
-    image: "/media/public/home/kt-home-08-merchant-prepare.webp",
-    detail: "Dedicated accounts, scheduled recurring dispatches and merchant management.",
+    detail: "Point-to-point courier handoff with verified custody transfer.",
   },
   {
     id: "food",
-    title: "Food & Grocery",
-    desc: "Careful local delivery for restaurant menus, market produce and perishable goods.",
+    family: "Everyday Movement",
+    title: "Food & Kitchens",
+    desc: "Dedicated local delivery for restaurant menus and prepared meals.",
     href: "/services/food",
     image: "/media/public/home/kt-home-03-food-local.webp",
-    detail: "Rapid regional point-to-point courier service connecting kitchens and customers.",
+    detail: "Direct connection between kitchen prep and customer arrival.",
   },
   {
-    id: "freight",
-    title: "Freight & Heavy Moving",
-    desc: "Larger bulk freight, oversized items and regional cargo movement.",
-    href: "/services/freight",
-    image: "/media/public/home/kt-home-12-route-road.webp",
-    detail: "Vehicular route dispatch across South African transit routes and highways.",
+    id: "grocery",
+    family: "Everyday Movement",
+    title: "Fresh Grocery",
+    desc: "Daily market produce, essential staples, and neighborhood groceries.",
+    href: "/services/grocery",
+    image: "/media/public/home/kt-home-04-grocery.webp",
+    detail: "Careful produce transit from local markets to doorsteps.",
   },
   {
-    id: "drivers",
+    id: "pharmacy",
+    family: "Everyday Movement",
+    title: "Pharmacy & Essentials",
+    desc: "Discreet and timely delivery for wellness and pharmacy retail.",
+    href: "/services/pharmacy",
+    image: "/media/public/home/kt-home-06-wellness.webp",
+    detail: "Verified recipient handoffs for essential wellness supplies.",
+  },
+  // Business Flow
+  {
+    id: "business",
+    family: "Business Flow",
+    title: "Business Logistics",
+    desc: "Recurring merchant dispatches, scheduled routing, and store accounts.",
+    href: "/services/business",
+    image: "/media/public/home/kt-home-08-merchant-prepare.webp",
+    detail: "Account-based delivery management for commercial senders.",
+  },
+  {
+    id: "ecommerce",
+    family: "Business Flow",
+    title: "E-commerce Fulfilment",
+    desc: "Marketplace seller order fulfilment and customer delivery.",
+    href: "/services/ecommerce",
+    image: "/media/public/home/kt-home-05-fashion.webp",
+    detail: "Direct connection from online catalog to final destination.",
+  },
+  {
+    id: "driver-network",
+    family: "Business Flow",
     title: "Driver Network",
-    desc: "Join our network of verified professional couriers and drivers.",
+    desc: "Professional courier operations across designated regional hubs.",
     href: "/services/driver-network",
     image: "/media/public/home/kt-home-10-handoff.webp",
-    detail: "Operate across designated city hubs with structured handoffs.",
+    detail: "Structured handoffs and coordination across active routes.",
+  },
+  // Planned Movement
+  {
+    id: "freight",
+    family: "Planned Movement",
+    title: "Freight & Heavy Cargo",
+    desc: "Bulk shipments, palletized goods, and oversized cargo movement.",
+    href: "/services/freight",
+    image: "/media/public/home/kt-home-12-route-road.webp",
+    detail: "Arterial road dispatch across verified logistics corridors.",
+  },
+  {
+    id: "moving",
+    family: "Planned Movement",
+    title: "Moving & Relocation",
+    desc: "Planned residential and commercial item relocation.",
+    href: "/services/moving",
+    image: "/media/public/home/kt-home-11-route-city.webp",
+    detail: "Scheduled space planning and coordinated transport.",
+  },
+  {
+    id: "shuttle",
+    family: "Planned Movement",
+    title: "Shuttle & Group Transit",
+    desc: "Scheduled passenger movement and fixed-point shuttle coordination.",
+    href: "/services/shuttle",
+    image: "/media/public/home/kt-home-02-retail-local.webp",
+    detail: "Planned group mobility across designated city points.",
+  },
+  // Quote Intelligence
+  {
+    id: "pricing",
+    family: "Quote Intelligence",
+    title: "Pricing & Variables",
+    desc: "Understanding the pickup, dropoff, weight, and timing variables.",
+    href: "/services/pricing",
+    image: "/media/public/home/kt-home-01-world-market.webp",
+    detail: "Dynamic calculation factors explained without hidden surprises.",
   },
 ] as const;
 
-type ServiceItem = (typeof serviceItems)[number];
+export type ServiceItem = (typeof allServices)[number];
 
 interface ServicesAtlasMenuProps {
   open: boolean;
@@ -57,7 +120,7 @@ interface ServicesAtlasMenuProps {
 }
 
 export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
-  const [activeItem, setActiveItem] = useState<ServiceItem>(serviceItems[0]);
+  const [activeItem, setActiveItem] = useState<ServiceItem>(allServices[0]);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,66 +137,83 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
   if (!open) return null;
 
   return (
-    <div aria-label="Services Atlas" aria-modal="true" className={styles.atlasOverlay} onClick={onClose} role="dialog">
-      <div className={styles.atlasDrawer} onClick={(e) => e.stopPropagation()} ref={menuRef}>
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 600, letterSpacing: "-0.02em" }}>Services Atlas</h2>
+    <div
+      aria-label="Movement Atlas"
+      aria-modal="true"
+      className={styles.atlasOverlay}
+      onClick={onClose}
+      role="dialog"
+    >
+      <div
+        className={styles.atlasDrawer}
+        onClick={(e) => e.stopPropagation()}
+        ref={menuRef}
+      >
+        <div className={styles.atlasIndexColumn}>
+          <div className={styles.atlasHeaderRow}>
+            <div className={styles.atlasHeaderTitles}>
+              <span className={styles.atlasTitle}>Movement Atlas</span>
+              <span className={styles.atlasSub}>11 specialized delivery routes</span>
+            </div>
             <button
-              aria-label="Close services menu"
+              aria-label="Close services atlas"
+              className={styles.atlasCloseButton}
               onClick={onClose}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--kt-carbon)", padding: 4 }}
               type="button"
             >
               <KtIconClose size={20} />
             </button>
           </div>
-          <ul className={styles.atlasList} role="list">
-            {serviceItems.map((item) => {
+
+          <div className={styles.atlasListLayout}>
+            {allServices.map((item) => {
               const isSelected = activeItem.id === item.id;
               return (
-                <li key={item.id}>
-                  <Link
-                    className={`${styles.atlasCard} ${isSelected ? styles.atlasCardActive : ""}`}
-                    href={item.href}
-                    onClick={onClose}
-                    onFocus={() => setActiveItem(item)}
-                    onMouseEnter={() => setActiveItem(item)}
-                  >
-                    <span className={styles.atlasCardTitle}>
-                      {item.title}
-                      <KtIconArrowRight size={16} />
-                    </span>
-                    <span className={styles.atlasCardDesc}>{item.desc}</span>
-                  </Link>
-                </li>
+                <Link
+                  className={`${styles.atlasItemLink} ${isSelected ? styles.atlasItemLinkActive : ""}`}
+                  href={item.href}
+                  key={item.id}
+                  onClick={onClose}
+                  onFocus={() => setActiveItem(item)}
+                  onMouseEnter={() => setActiveItem(item)}
+                >
+                  <div className={styles.atlasItemInfo}>
+                    <span className={styles.atlasItemTitle}>{item.title}</span>
+                    <span className={styles.atlasItemDesc}>{item.desc}</span>
+                  </div>
+                  <span className={styles.atlasItemArrow}>
+                    <KtIconArrowRight size={16} />
+                  </span>
+                </Link>
               );
             })}
-          </ul>
+          </div>
         </div>
 
-        <div className={styles.atlasPreview}>
-          <div>
-            <div className={styles.atlasPreviewImage}>
+        <div className={styles.atlasPreviewColumn}>
+          <div className={styles.atlasPreviewCard}>
+            <div className={styles.atlasPreviewMediaWrap}>
               <Image
                 alt={activeItem.title}
                 fill
-                sizes="340px"
+                sizes="380px"
                 src={activeItem.image}
                 style={{ objectFit: "cover" }}
               />
             </div>
-            <h3 className={styles.atlasPreviewTitle}>{activeItem.title}</h3>
-            <p className={styles.atlasPreviewText}>{activeItem.detail}</p>
+            <div className={styles.atlasPreviewBody}>
+              <span className={styles.atlasPreviewFamily}>{activeItem.family}</span>
+              <h3 className={styles.atlasPreviewHeading}>{activeItem.title}</h3>
+              <p className={styles.atlasPreviewDetail}>{activeItem.detail}</p>
+              <Link
+                className={styles.atlasPreviewAction}
+                href={activeItem.href}
+                onClick={onClose}
+              >
+                View route details <KtIconArrowRight size={16} />
+              </Link>
+            </div>
           </div>
-          <Link
-            className={styles.quoteButton}
-            href={activeItem.href}
-            onClick={onClose}
-            style={{ marginTop: 16, width: "100%", justifyContent: "center" }}
-          >
-            Explore service
-          </Link>
         </div>
       </div>
     </div>

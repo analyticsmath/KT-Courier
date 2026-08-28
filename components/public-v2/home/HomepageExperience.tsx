@@ -1,25 +1,26 @@
 import { listDeliveryRegions } from "@/lib/services/admin-regions.service";
 import { getStorefrontHome } from "@/lib/services/storefront-catalog.service";
 import { HomeHeroWorld } from "./HomeHeroWorld";
-import { CommerceSelectionField } from "./CommerceSelectionField";
-import { PreparationHandoffSequence } from "./PreparationHandoffSequence";
-import { RouteGeographySequence } from "./RouteGeographySequence";
-import { NetworkCommerceField } from "./NetworkCommerceField";
-import { ArrivalResolution } from "./ArrivalResolution";
+import { CommerceJourneyCrawler } from "./CommerceJourneyCrawler";
+import { PreparationScene } from "./PreparationScene";
+import { HandoffScene } from "./HandoffScene";
+import { RouteGeographyScene } from "./RouteGeographyScene";
+import { NetworkFieldScene } from "./NetworkFieldScene";
+import { ArrivalScene } from "./ArrivalScene";
 import { HomepageFinale } from "./HomepageFinale";
 import { HomepageMotionController } from "./HomepageMotionController";
-import styles from "./home-experience.module.css";
+import styles from "./home-journey.module.css";
 
 async function readHomepageData() {
-  const withinHomepageBudget = <T,>(promise: Promise<T>, fallback: T) =>
+  const withinBudget = <T,>(promise: Promise<T>, fallback: T) =>
     Promise.race([
       promise,
-      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 900)),
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 1200)),
     ]);
 
   const [regions, storefront] = await Promise.all([
-    withinHomepageBudget(listDeliveryRegions(true).catch(() => []), []),
-    withinHomepageBudget(getStorefrontHome().catch(() => null), null),
+    withinBudget(listDeliveryRegions(true).catch(() => []), []),
+    withinBudget(getStorefrontHome().catch(() => null), null),
   ]);
 
   return {
@@ -32,14 +33,15 @@ export async function HomepageExperience() {
   const { regions } = await readHomepageData();
 
   return (
-    <div className={styles.experienceRoot} data-kt-homepage="package-a">
+    <div className={styles.journeyRoot} data-kt-experience="master-rebuild">
       <HomepageMotionController />
       <HomeHeroWorld />
-      <CommerceSelectionField />
-      <PreparationHandoffSequence />
-      <RouteGeographySequence regions={regions} />
-      <NetworkCommerceField />
-      <ArrivalResolution />
+      <CommerceJourneyCrawler />
+      <PreparationScene />
+      <HandoffScene />
+      <RouteGeographyScene regions={regions} />
+      <NetworkFieldScene />
+      <ArrivalScene />
       <HomepageFinale />
     </div>
   );

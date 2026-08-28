@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { marketplaceHref } from "@/lib/public-marketplace/routes";
 import { KtIconArrowRight, KtIconArrowUpRight } from "@/components/public-v2/graphics/KtIcons";
@@ -6,19 +8,27 @@ import styles from "./public-shell.module.css";
 export function PublicFinale() {
   return (
     <section aria-labelledby="finale-heading" className={styles.finaleSection}>
-      <h2 className={styles.finaleStatement} id="finale-heading">
-        FROM CART TO DOORSTEP.
-      </h2>
-      <p className={styles.finaleSub}>
-        Marketplace discovery and authenticated courier delivery connected through one reliable network.
-      </p>
-      <div className={styles.finaleActions}>
-        <Link className={styles.finalePrimaryAction} href={marketplaceHref()}>
-          Explore marketplace <KtIconArrowRight size={18} />
-        </Link>
-        <Link className={styles.finaleSecondaryAction} href="/account/request-delivery">
-          Request delivery <KtIconArrowUpRight size={18} />
-        </Link>
+      <div className={styles.finaleInner}>
+        <div className={styles.finaleTypographyBlock}>
+          <span className={styles.finaleOverline}>Continuous movement</span>
+          <h2 className={styles.finaleStatement} id="finale-heading">
+            FROM CART<br />TO DOORSTEP.
+          </h2>
+          <p className={styles.finaleSub}>
+            Marketplace goods and courier deliveries connected through one reliable regional network.
+          </p>
+        </div>
+
+        <div className={styles.finaleCommands}>
+          <Link className={styles.finalePrimaryLink} href={marketplaceHref()}>
+            <span>Shop the marketplace</span>
+            <KtIconArrowRight size={20} />
+          </Link>
+          <Link className={styles.finaleSecondaryLink} href="/account/request-delivery">
+            <span>Send a delivery</span>
+            <KtIconArrowUpRight size={20} />
+          </Link>
+        </div>
       </div>
     </section>
   );

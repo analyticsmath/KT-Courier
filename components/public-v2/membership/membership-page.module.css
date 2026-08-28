@@ -1,0 +1,125 @@
+.membershipRoot {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-cool-050, #fafbfa);
+  color: var(--kt-carbon, #101210);
+  padding: clamp(36px, 6vw, 72px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
+}
+
+.membershipInner {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.breadcrumbs {
+  margin-bottom: 24px;
+}
+
+.membershipHero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+  margin-bottom: clamp(48px, 6vw, 64px);
+}
+
+.membershipTitle {
+  font-size: clamp(2.4rem, 5.5vw, 4.8rem);
+  font-weight: 560;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.membershipLead {
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.statusSection {
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #eceeee);
+  padding: clamp(32px, 5vw, 60px);
+}
+
+.statusLayout {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: clamp(36px, 5vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 1023px) {
+  .statusLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statusCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.statusHeading {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.statusText {
+  font-size: 1rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+}
+
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  font-weight: 560;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.primaryAction:hover {
+  background-color: var(--kt-graphite, #303532);
+}
+
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 540;
+  color: var(--kt-carbon, #101210);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--kt-cool-300, #dde1e0);
+}
+
+.statusMediaFrame {
+  position: relative;
+  width: 100%;
+  height: clamp(320px, 45vh, 480px);
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+}

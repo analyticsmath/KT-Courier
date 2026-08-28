@@ -49,11 +49,18 @@ export function NetworkCommerceField() {
               <div
                 style={{
                   position: "absolute",
+                  inset: 0,
+                  backgroundColor: "rgba(16, 18, 16, 0.4)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
                   bottom: 0,
                   left: 0,
                   width: "100%",
                   padding: "16px 20px",
-                  background: "linear-gradient(to top, rgba(16, 18, 16, 0.75) 0%, transparent 100%)",
                   color: "var(--kt-white)",
                   fontSize: "1rem",
                   fontWeight: 560,

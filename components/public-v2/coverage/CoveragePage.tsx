@@ -1,90 +1,111 @@
-import Image from "next/image";
 import Link from "next/link";
-import { PublicBreadcrumbScript, PublicDataState, SupportingClosingCta, SupportingPageHero } from "@/components/public-v2/support";
-import { getSupportingPageMedia } from "@/lib/public-assets/supporting-page-media";
+import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
+import { PublicCoverageMap } from "@/components/public-v2/maps";
 import type { PublicCoverageSnapshot } from "@/lib/public-coverage/coverage";
-import styles from "@/components/public-v2/support/support-pages.module.css";
+import { KtIconArrowRight, KtIconArrowUpRight } from "@/components/public-v2/graphics/KtIcons";
+import styles from "./coverage-page.module.css";
 
-export function CoveragePage({ snapshot }: { snapshot: PublicCoverageSnapshot }) {
-  const media = getSupportingPageMedia("coverage-context");
-  const regionSummary = snapshot.state === "ACTIVE_REGIONS"
-    ? `${snapshot.regions.length} configured public ${snapshot.regions.length === 1 ? "region" : "regions"}`
-    : "Availability confirmed from the request";
+interface CoveragePageProps {
+  snapshot: PublicCoverageSnapshot;
+}
+
+export function CoveragePage({ snapshot }: CoveragePageProps) {
+  const regions = snapshot.regions;
 
   return (
-    <article className={styles.page}>
-      <PublicBreadcrumbScript items={[{ label: "Home", href: "/" }, { label: "Coverage areas", href: "/coverage-areas" }]} />
-      <SupportingPageHero
-        breadcrumb={[{ label: "Home", href: "/" }, { label: "Coverage areas" }]}
-        eyebrow="Coverage areas"
-        title="Know where the journey can begin."
-        summary={snapshot.state === "ACTIVE_REGIONS"
-          ? `The current public configuration lists ${snapshot.regions.length} active ${snapshot.regions.length === 1 ? "region" : "regions"}. Pickup and dropoff suitability is still confirmed from the individual request.`
-          : "Public availability is confirmed through the delivery request or a conversation with KT Couriers."}
-        primaryAction={{ label: "Get a quote", href: "/account/request-delivery" }}
-        secondaryAction={{ label: "Contact KT Couriers", href: "/contact" }}
-        media={media}
-        variant="geographic"
-      />
-
-      <section className={styles.section} aria-labelledby="coverage-state-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>Current public configuration</p>
-          {snapshot.state === "ACTIVE_REGIONS" ? (
-            <div className={styles.coverageLayout}>
-              <div>
-                <h2 className={styles.sectionHeading} id="coverage-state-heading">{regionSummary}</h2>
-                <p className={styles.sectionIntro}>Only regions currently marked active in the delivery-region source are listed here. The list is ordered by the operational display order in that source.</p>
-                <ul className={styles.regionList} aria-label="Active delivery regions">
-                  {snapshot.regions.map((region) => (
-                    <li key={region.id}>
-                      <strong>{region.name}</strong>
-                      {region.city || region.province ? <span>{[region.city, region.province].filter(Boolean).join(", ")}</span> : null}
-                      {region.description ? <span>{region.description}</span> : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <figure className={styles.mediaFrame}>
-                <Image alt={media.alt} fill sizes="(max-width: 767px) calc(100vw - 40px), 38vw" src={media.src} style={{ objectPosition: media.focalPoint }} />
-                <figcaption className={styles.mediaCaption}>Provisional local-road context · not a coverage map</figcaption>
-              </figure>
-            </div>
-          ) : snapshot.state === "EMPTY_CONFIGURATION" ? (
-            <PublicDataState eyebrow="Online list unavailable" title="No public regions are currently configured." action={{ label: "Get a quote", href: "/account/request-delivery" }}>
-              <p>Online region information has not yet been published. This does not mean service is unavailable everywhere; KT Couriers can confirm a pickup and dropoff through the request or contact path.</p>
-            </PublicDataState>
-          ) : (
-            <PublicDataState eyebrow="Availability confirmation" title="Current region information could not be loaded for this page." action={{ label: "Contact KT Couriers", href: "/contact" }}>
-              <p>Availability can still be confirmed when you submit a delivery request or contact the team. This page does not treat an unavailable source as an empty coverage list.</p>
-            </PublicDataState>
-          )}
+    <article className={styles.coverageRoot}>
+      <div className={styles.coverageHeaderInner}>
+        <div className={styles.breadcrumbs}>
+          <PublicBreadcrumbs
+            items={[{ label: "Home", href: "/" }, { label: "Coverage Areas" }]}
+          />
         </div>
-      </section>
 
-      <section className={styles.section} aria-labelledby="confirmation-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>How availability is confirmed</p>
-          <div className={styles.split}>
-            <h2 className={styles.sectionHeading} id="confirmation-heading">A configured region is the starting point, not the final confirmation.</h2>
-            <div>
-              <p className={styles.bodyCopy}>The delivery request records the actual pickup, dropoff, parcel, delivery type, and practical notes. KT Couriers reviews that information to confirm current suitability and the next step.</p>
-              <p className={styles.bodyCopy}>Specialised or planned services can need additional confirmation because their handling, timing, or practical requirements vary by request.</p>
-              <p className={styles.inlineNote}>There is no postcode checker, map-based eligibility result, estimated route time, or live driver location on this page.</p>
-              <Link className={styles.textAction} href="/faq#coverage">Read the coverage FAQ <span aria-hidden="true">→</span></Link>
-            </div>
+        <div className={styles.heroCopyBlock}>
+          <h1 className={styles.heroTitle}>Coverage Areas & Delivery Corridors.</h1>
+          <p className={styles.heroLead}>
+            Explore active courier hubs across South Africa. Store products may be available for browsing, while actual courier collection and delivery depend on configured operational corridors.
+          </p>
+        </div>
+      </div>
+
+      <div className={styles.coverageSpatialLayout}>
+        {/* Map Canvas */}
+        <div className={styles.mapCanvasHolder}>
+          <PublicCoverageMap
+            className={styles.mapElement}
+            interactive={true}
+            regions={regions}
+            showBadge={true}
+          />
+        </div>
+
+        {/* Region Content & Serviceability Stream */}
+        <div className={styles.regionStreamHolder}>
+          <div className={styles.productTruthNotice}>
+            <span className={styles.noticeTitle}>Operational Notice</span>
+            <p className={styles.noticeText}>
+              There is no postcode checker or anonymous live driver location tool on this page. Delivery availability is confirmed through the actual pickup and dropoff coordinates submitted with your request. The system does not treat an unavailable source as an empty coverage list.
+            </p>
+          </div>
+
+          <div className={styles.activeRegionsListSection}>
+            <h2 className={styles.sectionHeading}>
+              Active Configured Regions ({regions.length})
+            </h2>
+
+            {snapshot.state === "SOURCE_UNAVAILABLE" ? (
+              <div className={styles.emptyStateCard}>
+                <p>Regional directory temporarily unavailable. Active delivery operations continue as normal.</p>
+                <Link className={styles.primaryActionButton} href="/contact">
+                  Contact operations team &rarr;
+                </Link>
+              </div>
+            ) : snapshot.state === "EMPTY_CONFIGURATION" || regions.length === 0 ? (
+              <div className={styles.emptyStateCard}>
+                <p>No public delivery regions are currently configured.</p>
+                <Link className={styles.primaryActionButton} href="/contact">
+                  Contact the team for custom dispatch &rarr;
+                </Link>
+              </div>
+            ) : (
+              <ul className={styles.regionsScrollList}>
+                {regions.map((region) => (
+                  <li className={styles.regionCardButton} key={region.name}>
+                    <div className={styles.regionCardHeader}>
+                      <span className={styles.regionCardName}>{region.name}</span>
+                      <span className={styles.regionCardCoords}>
+                        {[region.city, region.province].filter(Boolean).join(", ") || "Active Region"}
+                      </span>
+                    </div>
+
+                    {region.description && (
+                      <p className={styles.regionCardDesc}>{region.description}</p>
+                    )}
+
+                    {region.coverageRadiusKm && (
+                      <div className={styles.regionRadiusBadge}>
+                        Coverage Radius: ~{region.coverageRadiusKm} km
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Action Links */}
+          <div className={styles.coverageActionGroup}>
+            <Link className={styles.primaryActionButton} href="/account/request-delivery">
+              <span>Request delivery quote</span>
+              <KtIconArrowRight size={18} />
+            </Link>
+            <Link className={styles.secondaryActionButton} href="/contact">
+              <span>Delivery question?</span>
+              <KtIconArrowUpRight size={18} />
+            </Link>
           </div>
         </div>
-      </section>
-
-      <div className={styles.pageInner}>
-        <SupportingClosingCta
-          eyebrow="Confirm a handoff"
-          title="Start with the pickup and dropoff details."
-          summary="A quote request is the canonical route for current availability. Contact KT Couriers if you need help before starting."
-          primaryAction={{ label: "Get a quote", href: "/account/request-delivery" }}
-          secondaryAction={{ label: "Contact KT Couriers", href: "/contact" }}
-        />
       </div>
     </article>
   );

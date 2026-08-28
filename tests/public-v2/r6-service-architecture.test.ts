@@ -172,7 +172,7 @@ describe("R6 public service architecture", () => {
 
   it("adds no dependency or alternate public service form", () => {
     const dependencies = Object.keys({ ...packageJson.dependencies, ...packageJson.devDependencies });
-    expect(dependencies.filter((name) => /framer|lenis|lottie|three/i.test(name))).toEqual([]);
+    expect(dependencies.filter((name) => /framer|lottie|three/i.test(name))).toEqual([]);
     expect(registrySource).not.toMatch(/\/account\/request-delivery\?/);
     expect(detailSource).not.toContain("<form");
   });

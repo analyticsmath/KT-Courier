@@ -33,6 +33,8 @@ export function KtAnimatedSvg({
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
+        width,
+        height,
       }}
     >
       <Image
@@ -43,7 +45,7 @@ export function KtAnimatedSvg({
           width: "100%",
           height: "100%",
           objectFit: "contain",
-          animationPlayState: prefersReducedMotion ? "paused" : "running",
+          filter: prefersReducedMotion ? "grayscale(0.2)" : undefined,
         }}
         unoptimized
         width={width}

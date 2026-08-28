@@ -1,143 +1,134 @@
 import Image from "next/image";
 import Link from "next/link";
-import { EditorialFactList, PublicBreadcrumbScript, SupportingClosingCta, SupportingPageHero } from "@/components/public-v2/support";
-import { getSupportingPageMedia } from "@/lib/public-assets/supporting-page-media";
-import styles from "@/components/public-v2/support/support-pages.module.css";
+import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
+import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
+import { homeMedia } from "@/components/public-v2/home/home-media";
+import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import styles from "./about-page.module.css";
 
-const ecosystem = [
+const ecosystemParticipants = [
   {
-    title: "Customers",
-    description: "Customers use an account-based request flow to provide pickup, dropoff, parcel, and delivery details.",
+    title: "Customers & Senders",
+    desc: "Browsing neighborhood store catalogs, purchasing local goods, and scheduling point-to-point parcel deliveries.",
+    media: homeMedia.worldMarket,
   },
   {
-    title: "Stores and businesses",
-    description: "Business and store accounts support repeat delivery requests, active order visibility, and delivery history.",
+    title: "Independent Merchants & Stores",
+    desc: "Publishing verified store catalogs, preparing items for shipment, and coordinating batch dispatches.",
+    media: homeMedia.merchantPrepare,
   },
   {
-    title: "Delivery operations",
-    description: "Requests are reviewed with the practical information supplied before current availability and the next step are confirmed.",
+    title: "Authenticated Courier Network",
+    desc: "Handling physical custody transfer, navigating verified regional road corridors, and ensuring arrival at doorsteps.",
+    media: homeMedia.handoff,
   },
   {
-    title: "Driver network",
-    description: "Driver-network participation information is confirmed directly by the team; it is not presented as an open public enrolment flow.",
-  },
-] as const;
-
-const principles = [
-  {
-    title: "Clear handoffs",
-    description: "The request flow captures both locations, recipient information, and practical notes in one place.",
-  },
-  {
-    title: "Account-based progress",
-    description: "Customers and stores return to their account area to view order-status updates rather than relying on a live driver location.",
-  },
-  {
-    title: "Availability confirmed from the request",
-    description: "Coverage and service suitability are confirmed from the specific delivery information supplied.",
-  },
-  {
-    title: "Practical business coordination",
-    description: "Store and business pathways are designed around repeat delivery requests and order visibility.",
+    title: "Regional Communities & Hubs",
+    desc: "Connecting urban corridors across Gauteng with clear tracking, transparent pricing variables, and local accountability.",
+    media: homeMedia.routeCity,
   },
 ] as const;
 
 export function AboutPage() {
-  const operationsMedia = getSupportingPageMedia("about-operations");
-  const detailMedia = getSupportingPageMedia("about-detail");
-
   return (
-    <article className={styles.page}>
-      <PublicBreadcrumbScript items={[{ label: "Home", href: "/" }, { label: "About", href: "/about" }]} />
-      <SupportingPageHero
-        breadcrumb={[{ label: "Home", href: "/" }, { label: "About" }]}
-        eyebrow="About KT Couriers"
-        title="Delivery is the visible part. Coordination is the system behind it."
-        summary="KT Couriers provides an account-based way for customers, stores, and businesses to request, manage, and coordinate local deliveries."
-        primaryAction={{ label: "Get a quote", href: "/account/request-delivery" }}
-        secondaryAction={{ label: "Contact KT Couriers", href: "/contact" }}
-        media={operationsMedia}
-        variant="institutional"
+    <article className={styles.aboutRoot}>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: publicBreadcrumbJsonLd([
+            { label: "Home", href: "/" },
+            { label: "About", href: "/about" },
+          ]),
+        }}
+        type="application/ld+json"
       />
 
-      <section className={styles.section} aria-labelledby="about-thesis-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>The operating thesis</p>
-          <div className={styles.split}>
+      <div className={styles.aboutInner}>
+        <div className={styles.breadcrumbs}>
+          <PublicBreadcrumbs
+            items={[{ label: "Home", href: "/" }, { label: "About" }]}
+          />
+        </div>
+
+        {/* Hero Ecosystem Narrative */}
+        <section aria-labelledby="about-heading" className={styles.aboutHero}>
+          <h1 className={styles.aboutTitle} id="about-heading">
+            Marketplace commerce and delivery, connected in one network.
+          </h1>
+          <p className={styles.aboutLead}>
+            KT Couriers connects local merchants, independent makers, and everyday senders with an authenticated regional delivery network across South Africa.
+          </p>
+        </section>
+
+        {/* Operating Thesis */}
+        <section aria-labelledby="thesis-heading" className={styles.narrativeSection}>
+          <div className={styles.thesisGrid}>
             <div>
-              <h2 className={styles.sectionHeading} id="about-thesis-heading">One request creates a clearer handoff.</h2>
+              <h2 className={styles.sectionHeading} id="thesis-heading">
+                Where responsibility changes hands cleanly.
+              </h2>
             </div>
-            <div>
-              <p className={styles.bodyCopy}>A delivery starts with practical information: where collection happens, where the handoff ends, what is moving, and who needs to receive it. KT Couriers keeps that information in an account-based request path instead of scattering it across calls and messages.</p>
-              <p className={styles.bodyCopy}>After a request is reviewed, customers and businesses can return to their account to view order-status updates and delivery history.</p>
-              <Link className={styles.textAction} href="/account/orders">View account order updates <span aria-hidden="true">→</span></Link>
+            <div className={styles.thesisText}>
+              <p>
+                A delivery begins with a practical decision: someone buys a handcrafted good, an essential document needs to move, or a local kitchen prepares a fresh order.
+              </p>
+              <p>
+                Rather than scattering coordination across disconnected messages and phone calls, KT Couriers provides a cohesive platform where catalog discovery, authenticated requests, and delivery coordination work together.
+              </p>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className={styles.section} aria-labelledby="ecosystem-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>What KT Couriers connects</p>
-          <div className={styles.mediaSplit}>
-            <div>
-              <h2 className={styles.sectionHeading} id="ecosystem-heading">The people, details, and account spaces around a delivery.</h2>
-              <ol className={styles.ecosystemList}>
-                {ecosystem.map((item, index) => (
-                  <li key={item.title}>
-                    <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                    <div><h3>{item.title}</h3><p>{item.description}</p></div>
-                  </li>
-                ))}
-              </ol>
+        {/* Ecosystem Participants Sequence */}
+        <section aria-labelledby="ecosystem-heading" className={styles.ecosystemSection}>
+          <h2 className={styles.sectionHeading} id="ecosystem-heading">
+            The participants connected through our network.
+          </h2>
+
+          <div className={styles.participantList}>
+            {ecosystemParticipants.map((participant) => (
+              <div className={styles.participantRow} key={participant.title}>
+                <div className={styles.participantMediaFrame}>
+                  <Image
+                    alt={participant.media.alt}
+                    fill
+                    sizes="(max-width: 767px) 100vw, 400px"
+                    src={participant.media.src}
+                    style={{
+                      objectFit: "cover",
+                      objectPosition: participant.media.objectPosition ?? "center",
+                    }}
+                  />
+                </div>
+                <div className={styles.participantBody}>
+                  <h3 className={styles.participantTitle}>{participant.title}</h3>
+                  <p className={styles.participantDesc}>{participant.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Action Pathways */}
+        <section aria-labelledby="actions-heading" className={styles.actionsSection}>
+          <div className={styles.actionsBox}>
+            <h2 className={styles.actionsTitle} id="actions-heading">
+              Ready to explore?
+            </h2>
+            <p className={styles.actionsSub}>
+              Discover published products in the marketplace or request a dedicated courier delivery quote.
+            </p>
+            <div className={styles.actionButtonGroup}>
+              <Link className={styles.primaryActionButton} href="/shop">
+                <span>Shop marketplace</span>
+                <KtIconArrowRight size={16} />
+              </Link>
+              <Link className={styles.secondaryActionButton} href="/account/request-delivery">
+                <span>Request delivery</span>
+                <KtIconArrowRight size={16} />
+              </Link>
             </div>
-            <figure className={styles.mediaFrame}>
-              <Image alt={detailMedia.alt} fill sizes="(max-width: 767px) calc(100vw - 40px), 38vw" src={detailMedia.src} style={{ objectPosition: detailMedia.focalPoint }} />
-              <figcaption className={styles.mediaCaption}>Provisional parcel-detail media · replacement pending</figcaption>
-            </figure>
           </div>
-        </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="principles-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>Operating principles</p>
-          <div className={styles.split}>
-            <h2 className={styles.sectionHeading} id="principles-heading">Designed around the information a handoff needs.</h2>
-            <ol className={styles.principleList}>
-              {principles.map((item, index) => (
-                <li key={item.title}>
-                  <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                  <div><h3>{item.title}</h3><p>{item.description}</p></div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="pathways-heading">
-        <div className={styles.pageInner}>
-          <p className={styles.sectionEyebrow}>Public pathways</p>
-          <div className={styles.split}>
-            <div><h2 className={styles.sectionHeading} id="pathways-heading">Start with the path that matches the work.</h2></div>
-            <EditorialFactList facts={[
-              { label: "Delivery", value: "Request a quote", detail: "Use the authenticated request path for current pricing and availability." },
-              { label: "Business", value: "Explore repeat delivery", detail: "Business courier information explains the account-based path for stores and local businesses." },
-              { label: "Participation", value: "Ask the team", detail: "Driver-network participation information is confirmed by KT Couriers." },
-            ]} />
-          </div>
-        </div>
-      </section>
-
-      <div className={styles.pageInner}>
-        <SupportingClosingCta
-          eyebrow="Next step"
-          title="Plan the delivery from the details that matter."
-          summary="Use the delivery request flow for a current quote, or contact the team when you need help choosing the right path."
-          primaryAction={{ label: "Get a quote", href: "/account/request-delivery" }}
-          secondaryAction={{ label: "Contact KT Couriers", href: "/contact" }}
-        />
+        </section>
       </div>
     </article>
   );

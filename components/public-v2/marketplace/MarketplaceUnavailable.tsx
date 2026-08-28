@@ -8,24 +8,24 @@ export type MarketplaceRouteContext =
   | "checkout"
   | "confirmation";
 
-const routeCopy: Record<MarketplaceRouteContext, Readonly<{ eyebrow: string; title: string; description: string }>> = {
+const routeCopy: Record<MarketplaceRouteContext, Readonly<{ label: string; title: string; description: string }>> = {
   storefront: {
-    eyebrow: "Marketplace catalogue pending activation",
+    label: "Catalogue pending activation",
     title: "The marketplace catalogue is not available yet.",
     description: "Published catalogue exposure remains disabled until the required consolidated validation is approved. No products, prices, stores, or availability are loaded on this page.",
   },
   cart: {
-    eyebrow: "Marketplace cart unavailable",
+    label: "Cart unavailable",
     title: "A marketplace cart is not available.",
     description: "This page does not load items, totals, delivery charges, discounts, or a checkout action while public marketplace shopping is unavailable.",
   },
   checkout: {
-    eyebrow: "Checkout unavailable",
+    label: "Checkout unavailable",
     title: "Marketplace checkout is not currently available.",
     description: "Address collection, payment, inventory reservation, and order review remain governed by the canonical checkout flow and are not presented here.",
   },
   confirmation: {
-    eyebrow: "Order confirmation boundary",
+    label: "Order confirmation boundary",
     title: "Order confirmation is available only from an authorized order flow.",
     description: "A browser visit to this route does not create, reveal, or confirm an order. Customer and guest access remain governed by the existing order authority.",
   },
@@ -39,9 +39,8 @@ export function MarketplaceUnavailable({ routeContext = "cart" }: { routeContext
   return (
     <main className={styles.unavailablePage} id="storefront-content">
       <div className={styles.inner}>
-        <PublicBreadcrumbs className={styles.breadcrumb} items={[{ label: "Home", href: "/" }, { label: "Marketplace", href: "/shop" }, { label: copy.eyebrow }]} />
+        <PublicBreadcrumbs className={styles.breadcrumb} items={[{ label: "Home", href: "/" }, { label: "Marketplace", href: "/shop" }, { label: copy.label }]} />
         <section aria-labelledby="marketplace-unavailable-title" className={styles.unavailablePanel}>
-          <p className={styles.eyebrow}>{copy.eyebrow}</p>
           <h1 id="marketplace-unavailable-title">{copy.title}</h1>
           <p className={styles.lead}>{copy.description}</p>
           <p className={styles.quietNote}>{isStorefront ? "Catalogue activation is intentionally fail-closed. No static fallback catalogue is displayed while this boundary is locked." : "Store and fulfilment capabilities remain part of the wider KT Couriers platform. Use a verified route for the work that is available today."}</p>

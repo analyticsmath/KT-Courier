@@ -1,162 +1,213 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { gsap, ScrollTrigger } from "@/components/public-v2/motion/gsap-public";
+import { gsap } from "@/components/public-v2/motion/gsap-public";
+import { usePublicMotionPreference } from "@/components/public-v2/motion/usePublicMotionPreference";
 
 export function HomepageMotionController() {
-  const isInitialized = useRef(false);
+  const { prefersReducedMotion } = usePublicMotionPreference();
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || isInitialized.current) return;
-    isInitialized.current = true;
+    if (typeof window === "undefined" || prefersReducedMotion) return;
 
-    const mm = gsap.matchMedia();
+    const isFinePointer = window.matchMedia("(pointer: fine)").matches;
+    if (!isFinePointer) return;
 
-    // 1. Desktop & Wide Viewports (>= 1024px)
-    mm.add("(min-width: 1024px)", () => {
-      // Hero Entrance
-      const heroCard = document.querySelector("[data-actor='hero-card']");
-      const heroCutout = document.querySelector("[data-actor='hero-cutout']");
-      const heroNeighbor = document.querySelector("[data-actor='hero-neighbor']");
+    const ctx = gsap.context(() => {
+      // 1. Hero Parallax & Cutout Actor Carry
+      const heroEnv = document.querySelector('[data-actor="hero-env"]');
+      const heroPlane = document.querySelector('[data-actor="hero-plane"]');
+      const heroCutout = document.querySelector('[data-actor="hero-cutout"]');
+      const heroNeighbor = document.querySelector('[data-actor="hero-neighbor"]');
 
-      if (heroCard) {
-        gsap.fromTo(
-          heroCard,
-          { y: 32, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: "power2.out", delay: 0.1 }
-        );
-      }
-      if (heroCutout) {
-        gsap.fromTo(
-          heroCutout,
-          { y: 48, opacity: 0 },
-          { y: 0, opacity: 1, duration: 1.0, ease: "power2.out", delay: 0.3 }
-        );
-      }
-      if (heroNeighbor) {
-        gsap.fromTo(
-          heroNeighbor,
-          { y: 24, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: "power2.out", delay: 0.4 }
-        );
-      }
-
-      // Preparation & Handoff Scroll Timeline
-      const prepScene = document.querySelector("[data-scene='preparation']");
-      const prepMedia = document.querySelector("[data-actor='prep-media']");
-      const handoffOverlay = document.querySelector("[data-actor='handoff-overlay']");
-      const motionToken = document.querySelector("[data-actor='motion-token']");
-
-      if (prepScene && prepMedia) {
-        const prepTl = gsap.timeline({
+      if (heroEnv && heroPlane) {
+        gsap.to(heroEnv, {
+          yPercent: 15,
+          scale: 1.05,
+          ease: "none",
           scrollTrigger: {
-            trigger: prepScene,
-            start: "top 70%",
-            end: "bottom 30%",
-            scrub: 0.8,
+            trigger: '[data-scene="hero"]',
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
           },
         });
 
-        if (handoffOverlay) {
-          prepTl.fromTo(
-            handoffOverlay,
-            { x: 40, y: 40, opacity: 0.6, scale: 0.95 },
-            { x: 0, y: 0, opacity: 1, scale: 1, ease: "none" },
-            0
-          );
-        }
-        if (motionToken) {
-          prepTl.fromTo(
-            motionToken,
-            { y: 16, opacity: 0 },
-            { y: 0, opacity: 1, ease: "none" },
-            0.3
-          );
-        }
-      }
+        gsap.to(heroPlane, {
+          yPercent: -10,
+          opacity: 0.85,
+          ease: "none",
+          scrollTrigger: {
+            trigger: '[data-scene="hero"]',
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
+          },
+        });
 
-      // Route Parallax Timeline
-      const routeScene = document.querySelector("[data-scene='route']");
-      const routeRoad = document.querySelector("[data-actor='route-road']");
-
-      if (routeScene && routeRoad) {
-        gsap.fromTo(
-          routeRoad,
-          { y: 24 },
-          {
-            y: -24,
+        if (heroCutout) {
+          gsap.to(heroCutout, {
+            xPercent: 12,
+            yPercent: -18,
             ease: "none",
             scrollTrigger: {
-              trigger: routeScene,
+              trigger: '[data-scene="hero"]',
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+            },
+          });
+        }
+
+        if (heroNeighbor) {
+          gsap.to(heroNeighbor, {
+            yPercent: -25,
+            ease: "none",
+            scrollTrigger: {
+              trigger: '[data-scene="hero"]',
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+            },
+          });
+        }
+      }
+
+      // 2. Crawler Stage Transitions
+      const crawlerScene = document.querySelector('[data-scene="crawler"]');
+      const crawlerTrack = document.querySelector('[data-actor="crawler-track"]');
+      const crawlerItems = document.querySelectorAll("[data-crawler-item]");
+
+      if (crawlerScene && crawlerTrack && crawlerItems.length > 0) {
+        gsap.to(crawlerTrack, {
+          xPercent: -45,
+          ease: "power1.inOut",
+          scrollTrigger: {
+            trigger: crawlerScene,
+            start: "top top",
+            end: "bottom bottom",
+            scrub: 0.6,
+          },
+        });
+      }
+
+      // 3. Prepare -> Handoff Scene Overlap & Slicing
+      const prepScene = document.querySelector('[data-scene="preparation"]');
+      const merchantWorld = document.querySelector('[data-actor="merchant-world"]');
+      const packageActor = document.querySelector('[data-actor="package-actor"]');
+
+      if (prepScene && merchantWorld) {
+        gsap.to(merchantWorld, {
+          scale: 1.06,
+          yPercent: 8,
+          ease: "none",
+          scrollTrigger: {
+            trigger: prepScene,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: true,
+          },
+        });
+
+        if (packageActor) {
+          gsap.to(packageActor, {
+            yPercent: -20,
+            xPercent: -8,
+            ease: "none",
+            scrollTrigger: {
+              trigger: prepScene,
               start: "top bottom",
               end: "bottom top",
-              scrub: 1,
+              scrub: true,
             },
-          }
-        );
+          });
+        }
       }
 
-      // Arrival Calm Resolution
-      const arrivalScene = document.querySelector("[data-scene='arrival']");
-      const arrivalImage = document.querySelector("[data-actor='arrival-image']");
+      // 4. Handoff Frame Scale & Hold
+      const handoffScene = document.querySelector('[data-scene="handoff"]');
+      const handoffFrame = document.querySelector('[data-actor="handoff-frame"]');
 
-      if (arrivalScene && arrivalImage) {
+      if (handoffScene && handoffFrame) {
         gsap.fromTo(
-          arrivalImage,
-          { y: 40, opacity: 0.7 },
+          handoffFrame,
+          { scale: 0.94, clipPath: "inset(4% 4% 4% 4%)" },
           {
-            y: 0,
-            opacity: 1,
-            duration: 0.9,
+            scale: 1,
+            clipPath: "inset(0% 0% 0% 0%)",
             ease: "power2.out",
             scrollTrigger: {
-              trigger: arrivalScene,
+              trigger: handoffScene,
               start: "top 75%",
-              toggleActions: "play none none reverse",
+              end: "center center",
+              scrub: 0.5,
             },
           }
         );
       }
-    });
 
-    // 2. Medium Viewports (768px - 1023px)
-    mm.add("(min-width: 768px) and (max-width: 1023px)", () => {
-      const heroCard = document.querySelector("[data-actor='hero-card']");
-      if (heroCard) {
+      // 5. Route Road Movement (One side stops while the other moves)
+      const routeScene = document.querySelector('[data-scene="route"]');
+      const routeRoad = document.querySelector('[data-actor="route-road"]');
+
+      if (routeScene && routeRoad) {
+        gsap.to(routeRoad, {
+          yPercent: -12,
+          ease: "none",
+          scrollTrigger: {
+            trigger: routeScene,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: true,
+          },
+        });
+      }
+
+      // 6. Network Asymmetric Field Drift
+      const networkScene = document.querySelector('[data-scene="network"]');
+      const networkField = document.querySelector('[data-actor="network-field"]');
+
+      if (networkScene && networkField) {
+        gsap.to(networkField, {
+          yPercent: -6,
+          ease: "none",
+          scrollTrigger: {
+            trigger: networkScene,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: true,
+          },
+        });
+      }
+
+      // 7. Arrival Resolution Settle
+      const arrivalScene = document.querySelector('[data-scene="arrival"]');
+      const arrivalMedia = document.querySelector('[data-actor="arrival-media"]');
+
+      if (arrivalScene && arrivalMedia) {
         gsap.fromTo(
-          heroCard,
-          { y: 20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.7, ease: "power2.out" }
+          arrivalMedia,
+          { scale: 0.96, yPercent: 6 },
+          {
+            scale: 1,
+            yPercent: 0,
+            ease: "power1.out",
+            scrollTrigger: {
+              trigger: arrivalScene,
+              start: "top 80%",
+              end: "center center",
+              scrub: 0.4,
+            },
+          }
         );
       }
-    });
-
-    // 3. Compact Viewports (<= 767px) - Native progressive reveals only
-    mm.add("(max-width: 767px)", () => {
-      const heroCard = document.querySelector("[data-actor='hero-card']");
-      if (heroCard) {
-        gsap.fromTo(
-          heroCard,
-          { y: 16, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.6, ease: "power2.out" }
-        );
-      }
-    });
-
-    // 4. Prefers Reduced Motion
-    mm.add("(prefers-reduced-motion: reduce)", () => {
-      gsap.set(
-        "[data-actor='hero-card'], [data-actor='hero-cutout'], [data-actor='hero-neighbor'], [data-actor='handoff-overlay'], [data-actor='motion-token'], [data-actor='route-road'], [data-actor='arrival-image']",
-        { opacity: 1, x: 0, y: 0, scale: 1, clearProps: "all" }
-      );
-    });
+    }, rootRef);
 
     return () => {
-      mm.revert();
-      ScrollTrigger.getAll().forEach((t) => t.kill());
-      isInitialized.current = false;
+      ctx.revert();
     };
-  }, []);
+  }, [prefersReducedMotion]);
 
-  return null;
+  return <div ref={rootRef} style={{ display: "contents" }} />;
 }

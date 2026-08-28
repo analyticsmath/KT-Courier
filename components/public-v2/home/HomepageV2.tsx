@@ -1,6 +1,5 @@
-import type { HomepageFaqItem } from "./HomepageFaq";
 import { HomepageExperience } from "./HomepageExperience";
 
-export async function HomepageV2({ faqItems }: { faqItems?: readonly HomepageFaqItem[] }) {
+export async function HomepageV2() {
   return <HomepageExperience />;
 }
