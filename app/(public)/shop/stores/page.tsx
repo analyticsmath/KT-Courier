@@ -1,32 +1,51 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MarketplaceSearchForm, MarketplaceStoreGrid } from "@/components/public-v2/marketplace/MarketplaceCards";
-import styles from "@/components/public-v2/marketplace/market-hall.module.css";
-import { marketplaceCategoriesHref, marketplaceHref, marketplaceStoresHref } from "@/lib/public-marketplace/routes";
+import { MerchantDirectory } from "@/components/public-v2/commerce";
+import styles from "@/components/public-v2/commerce/commerce.module.css";
+import { marketplaceHref } from "@/lib/public-marketplace/routes";
 import { listStorefrontStores } from "@/lib/services/storefront-catalog.service";
 
 export const metadata: Metadata = {
-  title: "Local Marketplace Stores | KT Couriers",
+  title: "Independent Storefronts | KT Couriers Marketplace",
   description: "Browse published local merchant stores connected to the KT Couriers marketplace.",
 };
 
-export default async function StoresPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
+export default async function StoresPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
   const query = (await searchParams).q;
   const q = typeof query === "string" ? query.slice(0, 80) : "";
   const stores = await listStorefrontStores({ query: q || undefined, limit: 48 });
 
   return (
-    <main className={`${styles.page} ${styles.listing}`} id="storefront-content">
-      <div className={styles.inner}>
-        <nav aria-label="Breadcrumb" className={styles.breadcrumb}><Link href={marketplaceHref()}>Shop</Link> / <span aria-current="page">Stores</span></nav>
-        <div className={styles.listingHeading}>
-          <p className={styles.eyebrow}>Marketplace stores</p>
-          <h1>Find a storefront.</h1>
-          <p className={styles.listingDescription}>Explore published stores. Store schedules and delivery eligibility remain confirmed through their canonical marketplace flow.</p>
-          <MarketplaceSearchForm action={marketplaceStoresHref()} query={q} />
+    <main className={styles.commerceRoot} id="storefront-content">
+      <div className={styles.commerceInner}>
+        <nav
+          aria-label="Breadcrumb"
+          style={{
+            fontSize: "0.85rem",
+            color: "var(--kt-muted, #5f6763)",
+            padding: "1.5rem 0 1rem",
+          }}
+        >
+          <Link href={marketplaceHref()} style={{ color: "inherit", textDecoration: "none" }}>
+            Shop
+          </Link>{" "}
+          / <span aria-current="page" style={{ color: "var(--kt-carbon, #101210)", fontWeight: 600 }}>Stores</span>
+        </nav>
+
+        <div style={{ marginBottom: "2rem" }}>
+          <h1 style={{ fontSize: "clamp(2rem, 4vw, 3.2rem)", fontWeight: 560, letterSpacing: "-0.035em", margin: "0 0 8px" }}>
+            Independent Storefronts
+          </h1>
+          <p style={{ color: "var(--kt-muted, #5f6763)", fontSize: "1.05rem", margin: 0, maxWidth: 600 }}>
+            Discover local merchants, verified suppliers, and direct store catalogs.
+          </p>
         </div>
-        <div className={styles.resultBar}><p>{stores.length} {stores.length === 1 ? "store" : "stores"} shown</p><Link className={styles.textLink} href={marketplaceCategoriesHref()}>Browse categories</Link></div>
-        {stores.length ? <MarketplaceStoreGrid label="Marketplace stores" stores={stores} /> : <section className={styles.empty} aria-labelledby="stores-empty"><h2 id="stores-empty">No matching stores</h2><p>Try a different store search or browse the marketplace categories.</p><Link className={styles.textLink} href={marketplaceStoresHref()}>Clear search</Link></section>}
+
+        <MerchantDirectory query={q} stores={stores} />
       </div>
     </main>
   );

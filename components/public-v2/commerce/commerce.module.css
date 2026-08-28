@@ -1,0 +1,1063 @@
+/* KT COURIER — Commerce Design System (Market in Motion) */
+
+.commerceRoot {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-white, #ffffff);
+  color: var(--kt-carbon, #101210);
+  min-height: 100vh;
+}
+
+.commerceInner {
+  width: min(100%, 88rem);
+  margin-inline: auto;
+  padding-inline: var(--kt-grid-inset, 2rem);
+}
+
+.commerceInnerWide {
+  width: min(100%, 102rem);
+  margin-inline: auto;
+  padding-inline: var(--kt-grid-inset, 2rem);
+}
+
+/* =========================================================================
+   1. MARKET ENTRY FIELD (SHOP FIRST VIEWPORT ~88-100svh)
+   ========================================================================= */
+.marketEntryField {
+  position: relative;
+  width: 100%;
+  min-height: clamp(540px, 86svh, 860px);
+  background-color: var(--kt-cool-050, #f5f6f6);
+  border-bottom: 1px solid var(--kt-cool-200, #dde1e0);
+  display: flex;
+  align-items: center;
+  padding-block: clamp(3rem, 6vh, 5rem);
+  overflow: hidden;
+}
+
+@media (max-width: 899px) {
+  .marketEntryField {
+    min-height: auto;
+    padding-block: 2.5rem 3.5rem;
+  }
+}
+
+.marketEntryLayout {
+  display: grid;
+  grid-template-columns: minmax(360px, 440px) 1fr;
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+  width: 100%;
+}
+
+@media (max-width: 1023px) {
+  .marketEntryLayout {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+}
+
+.entryCopyPlane {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 5;
+}
+
+.entryTitle {
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
+  font-weight: 560;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.entryLead {
+  font-size: clamp(1rem, 1.4vw, 1.2rem);
+  color: var(--kt-muted, #5f6763);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 400px;
+}
+
+.entrySearchWrap {
+  margin-top: 12px;
+}
+
+.entryMediaComposition {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 20px;
+  height: clamp(380px, 60vh, 560px);
+  width: 100%;
+}
+
+@media (max-width: 639px) {
+  .entryMediaComposition {
+    grid-template-columns: 1fr;
+    height: 320px;
+  }
+}
+
+.dominantMediaFrame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--kt-white, #ffffff);
+}
+
+.secondaryMediaFrame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--kt-white, #ffffff);
+}
+
+@media (max-width: 639px) {
+  .secondaryMediaFrame {
+    display: none;
+  }
+}
+
+.entryMediaOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 20px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.mediaCategoryName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.mediaActionLink {
+  font-size: 0.8rem;
+  font-weight: 560;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--kt-cool-300, #c9cecc);
+}
+
+/* =========================================================================
+   2. COMMERCE SEARCH COMMAND
+   ========================================================================= */
+.searchCommandForm {
+  display: flex;
+  align-items: stretch;
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-carbon, #101210);
+  width: 100%;
+  max-width: 480px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.searchCommandForm:focus-within {
+  border-color: var(--kt-red, #d83a2e);
+  box-shadow: 0 0 0 2px rgba(216, 58, 46, 0.2);
+}
+
+.searchCommandInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 16px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--kt-carbon, #101210);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.searchCommandButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  font-weight: 560;
+  font-size: 0.9rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+
+.searchCommandButton:hover {
+  background-color: var(--kt-graphite, #303532);
+}
+
+/* =========================================================================
+   3. CATEGORY DISCOVERY FIELD (SHOP LANDING)
+   ========================================================================= */
+.categoryDiscoverySection {
+  padding-block: clamp(4rem, 8vw, 6.5rem);
+  background-color: var(--kt-white, #ffffff);
+}
+
+.sectionHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.sectionTitleMain {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 560;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+  line-height: 1;
+}
+
+.sectionDirectLink {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  text-decoration: none;
+  border-bottom: 1px solid var(--kt-carbon, #101210);
+  padding-bottom: 2px;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.sectionDirectLink:hover {
+  color: var(--kt-red, #d83a2e);
+  border-color: var(--kt-red, #d83a2e);
+}
+
+.categoryActiveField {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) 1fr;
+  gap: clamp(32px, 5vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 899px) {
+  .categoryActiveField {
+    grid-template-columns: 1fr;
+  }
+}
+
+.categoryListStream {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.categoryStreamItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background-color: transparent;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+  color: var(--kt-carbon, #101210);
+  transition: background-color 140ms ease, border-color 140ms ease;
+  cursor: pointer;
+}
+
+.categoryStreamItemActive,
+.categoryStreamItem:hover {
+  background-color: var(--kt-cool-050, #f5f6f6);
+  border-left-color: var(--kt-red, #d83a2e);
+}
+
+.categoryStreamTitle {
+  font-size: 1.25rem;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}
+
+.categoryStreamCount {
+  font-size: 0.85rem;
+  color: var(--kt-muted, #5f6763);
+  font-family: var(--kt-font-mono, monospace);
+}
+
+.categoryActiveMediaStage {
+  position: relative;
+  width: 100%;
+  height: clamp(360px, 54vh, 520px);
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+}
+
+.categoryActiveMediaStage a {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* =========================================================================
+   4. MERCHANT WINDOW (STORE DISCOVERY ON SHOP LANDING)
+   ========================================================================= */
+.merchantWindowSection {
+  padding-block: clamp(4rem, 8vw, 6.5rem);
+  background-color: var(--kt-cool-050, #f5f6f6);
+  border-block: 1px solid var(--kt-cool-200, #dde1e0);
+}
+
+.merchantWindowLayout {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) 1fr;
+  gap: clamp(32px, 5vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 899px) {
+  .merchantWindowLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.merchantNamesColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.merchantNameRow {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  background-color: transparent;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+  color: var(--kt-carbon, #101210);
+  transition: background-color 140ms ease, border-color 140ms ease;
+  cursor: pointer;
+}
+
+.merchantNameRowActive,
+.merchantNameRow:hover {
+  background-color: var(--kt-white, #ffffff);
+  border-left-color: var(--kt-red, #d83a2e);
+}
+
+.merchantNameTitle {
+  font-size: 1.25rem;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}
+
+.merchantOfferCount {
+  font-size: 0.85rem;
+  color: var(--kt-muted, #5f6763);
+  margin-top: 4px;
+}
+
+.merchantHeroStage {
+  position: relative;
+  width: 100%;
+  height: clamp(380px, 56vh, 540px);
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #dde1e0);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.merchantHeroMediaFrame {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  background-color: var(--kt-cool-150, #eceeee);
+  min-height: 240px;
+}
+
+.merchantIdentityBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background-color: var(--kt-white, #ffffff);
+  border-top: 1px solid var(--kt-cool-200, #dde1e0);
+  gap: 20px;
+}
+
+.merchantIdentityInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.merchantLogoFrame {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--kt-cool-200, #dde1e0);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.merchantDetailsText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.merchantNameLink {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  text-decoration: none;
+}
+
+.merchantNameLink:hover {
+  color: var(--kt-red, #d83a2e);
+}
+
+.merchantDescSnippet {
+  font-size: 0.875rem;
+  color: var(--kt-muted, #5f6763);
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.enterStoreButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  font-size: 0.875rem;
+  font-weight: 560;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 140ms ease;
+}
+
+.enterStoreButton:hover {
+  background-color: var(--kt-graphite, #303532);
+}
+
+/* =========================================================================
+   5. BORDERLESS PRODUCT GRID & PRODUCT TILE (TRANSACTIONAL)
+   ========================================================================= */
+.productGridSection {
+  padding-block: clamp(4rem, 8vw, 6.5rem);
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(20px, 2.5vw, 32px);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+@media (max-width: 1199px) {
+  .productGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .productGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+}
+
+.productTile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--kt-carbon, #101210);
+  cursor: pointer;
+}
+
+.productTileMediaFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.15;
+  background-color: var(--kt-cool-100, #f5f6f6);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.productTileMediaFrame img {
+  object-fit: cover;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.productTile:hover .productTileMediaFrame img {
+  transform: scale(1.02);
+}
+
+.productTileBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.productTileBrand {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--kt-muted, #5f6763);
+}
+
+.productTileTitle {
+  font-size: 1.05rem;
+  font-weight: 560;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--kt-carbon, #101210);
+}
+
+.productTilePrice {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  margin-top: 2px;
+}
+
+.productTileAvailability {
+  font-size: 0.75rem;
+  color: var(--kt-muted, #5f6763);
+}
+
+/* Editorial Interruption Tile (On Shop Landing) */
+.editorialInterruptionTile {
+  grid-column: span 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 32px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  text-decoration: none;
+  overflow: hidden;
+  min-height: 380px;
+}
+
+@media (max-width: 767px) {
+  .editorialInterruptionTile {
+    grid-column: span 2;
+    min-height: 280px;
+    padding: 20px;
+  }
+}
+
+.editorialTileContent {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 480px;
+}
+
+.editorialTileTitle {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 560;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--kt-white, #ffffff);
+  margin: 0;
+}
+
+.editorialTileLink {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kt-white, #ffffff);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid var(--kt-red, #d83a2e);
+  padding-bottom: 2px;
+  width: fit-content;
+}
+
+/* =========================================================================
+   6. CATEGORY ATLAS (/shop/categories)
+   ========================================================================= */
+.categoryAtlasPage {
+  padding-block: clamp(3rem, 5vw, 5rem);
+}
+
+.categoryAtlasLayout {
+  display: grid;
+  grid-template-columns: minmax(340px, 460px) 1fr;
+  gap: clamp(40px, 6vw, 80px);
+  align-items: start;
+}
+
+@media (max-width: 899px) {
+  .categoryAtlasLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.categoryAtlasStickyMedia {
+  position: sticky;
+  top: calc(var(--kt-header-h, 72px) + 24px);
+  width: 100%;
+  height: clamp(380px, 60vh, 560px);
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+}
+
+@media (max-width: 899px) {
+  .categoryAtlasStickyMedia {
+    position: relative;
+    top: 0;
+    margin-bottom: 32px;
+  }
+}
+
+/* =========================================================================
+   7. INTERMEDIARY CATEGORY HEADER (/shop/categories/*)
+   ========================================================================= */
+.categoryOpeningHero {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: clamp(36px, 5vw, 64px);
+  align-items: center;
+  padding-block: clamp(2.5rem, 5vw, 4.5rem);
+  border-bottom: 1px solid var(--kt-cool-200, #dde1e0);
+  margin-bottom: 2.5rem;
+}
+
+@media (max-width: 899px) {
+  .categoryOpeningHero {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.categoryOpeningMediaFrame {
+  position: relative;
+  width: 100%;
+  height: clamp(300px, 46vh, 440px);
+  background-color: var(--kt-cool-150, #eceeee);
+  overflow: hidden;
+}
+
+.subcategoriesRail {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  margin-bottom: 2.5rem;
+}
+
+.subcategoryTile {
+  flex: 0 0 auto;
+  padding: 12px 20px;
+  background-color: var(--kt-cool-050, #f5f6f6);
+  border: 1px solid var(--kt-cool-200, #dde1e0);
+  text-decoration: none;
+  color: var(--kt-carbon, #101210);
+  font-weight: 560;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.subcategoryTile:hover {
+  border-color: var(--kt-carbon, #101210);
+  background-color: var(--kt-white, #ffffff);
+}
+
+/* =========================================================================
+   8. PLP FILTER & RESULTS ARCHITECTURE
+   ========================================================================= */
+.plpMainLayout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: clamp(32px, 4vw, 56px);
+  align-items: start;
+  padding-bottom: 5rem;
+}
+
+@media (max-width: 1023px) {
+  .plpMainLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.plpFilterSidebar {
+  position: sticky;
+  top: calc(var(--kt-header-h, 72px) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+@media (max-width: 1023px) {
+  .plpFilterSidebar {
+    display: none;
+  }
+}
+
+.facetGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.facetHeading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.facetList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.facetRowLink {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--kt-graphite, #303532);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.facetRowLink[data-selected="true"] {
+  font-weight: 600;
+  color: var(--kt-red, #d83a2e);
+}
+
+.facetRowLink:hover {
+  color: var(--kt-carbon, #101210);
+}
+
+.facetCount {
+  font-size: 0.8rem;
+  color: var(--kt-muted, #5f6763);
+  font-family: var(--kt-font-mono, monospace);
+}
+
+.appliedFilterBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.appliedFilterTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: var(--kt-cool-100, #eceeee);
+  font-size: 0.85rem;
+  color: var(--kt-carbon, #101210);
+  text-decoration: none;
+}
+
+.clearAllFiltersLink {
+  font-size: 0.85rem;
+  color: var(--kt-red, #d83a2e);
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 8px;
+}
+
+.mobileFilterTriggerBar {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--kt-cool-200, #dde1e0);
+}
+
+@media (max-width: 1023px) {
+  .mobileFilterTriggerBar {
+    display: flex;
+  }
+}
+
+.mobileFilterOpenButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #ffffff);
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 560;
+  cursor: pointer;
+}
+
+/* =========================================================================
+   9. STOREFRONT HERO & IDENTITY (/shop/stores/*)
+   ========================================================================= */
+.storeHeroWrapper {
+  position: relative;
+  width: 100%;
+  min-height: clamp(380px, 52svh, 540px);
+  background-color: var(--kt-cool-050, #f5f6f6);
+  border-bottom: 1px solid var(--kt-cool-200, #dde1e0);
+  margin-bottom: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.storeHeroBackgroundMedia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.storeHeroContentOverlay {
+  position: relative;
+  z-index: 5;
+  background-color: var(--kt-white, #ffffff);
+  padding: clamp(24px, 4vw, 40px);
+  max-width: 800px;
+  margin-bottom: 24px;
+  border: 1px solid var(--kt-cool-200, #dde1e0);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.storeHeroName {
+  font-size: clamp(2.2rem, 4.5vw, 3.8rem);
+  font-weight: 560;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.storeHeroDesc {
+  font-size: 1.05rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.storeCategoryNav {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-top: 8px;
+}
+
+/* =========================================================================
+   10. PRODUCT DETAIL PAGE (PDP) ARCHITECTURE
+   ========================================================================= */
+.pdpLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 1fr);
+  gap: clamp(36px, 5vw, 72px);
+  align-items: start;
+  padding-block: 2rem 5rem;
+}
+
+@media (max-width: 991px) {
+  .pdpLayout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+.pdpMediaField {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.15;
+  background-color: var(--kt-cool-100, #f5f6f6);
+  overflow: hidden;
+}
+
+.pdpInfoPlane {
+  position: sticky;
+  top: calc(var(--kt-header-h, 72px) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (max-width: 991px) {
+  .pdpInfoPlane {
+    position: relative;
+    top: 0;
+  }
+}
+
+.pdpTitle {
+  font-size: clamp(2.2rem, 4vw, 3.4rem);
+  font-weight: 560;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.pdpPriceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.pdpPrice {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+}
+
+.pdpVatNote {
+  font-size: 0.85rem;
+  color: var(--kt-muted, #5f6763);
+}
+
+.pdpSellerByline {
+  font-size: 0.95rem;
+  color: var(--kt-graphite, #303532);
+}
+
+.pdpSellerByline a {
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  text-decoration: underline;
+}
+
+.variantSelectorBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.variantGroupLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+}
+
+.variantOptionsList {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.variantOptionButton {
+  padding: 10px 18px;
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-300, #c9cecc);
+  color: var(--kt-carbon, #101210);
+  font-size: 0.9rem;
+  font-weight: 540;
+  text-decoration: none;
+  transition: border-color 140ms ease;
+}
+
+.variantOptionButtonActive {
+  border-color: var(--kt-carbon, #101210);
+  background-color: var(--kt-cool-050, #f5f6f6);
+  font-weight: 600;
+}
+
+.pdpPurchaseStatusBox {
+  padding: 18px 22px;
+  background-color: var(--kt-cool-050, #f5f6f6);
+  border: 1px solid var(--kt-cool-200, #dde1e0);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.purchaseStatusHeading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+  margin: 0;
+}
+
+.purchaseStatusText {
+  font-size: 0.875rem;
+  color: var(--kt-graphite, #303532);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.pdpOffersSection,
+.pdpRelatedSection {
+  padding-top: 3.5rem;
+  border-top: 1px solid var(--kt-cool-200, #dde1e0);
+  margin-top: 3.5rem;
+}
+
+.offerComparisonList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.offerComparisonRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  background-color: var(--kt-white, #ffffff);
+  border: 1px solid var(--kt-cool-200, #dde1e0);
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .productTileMediaFrame img,
+  .categoryStreamItem,
+  .merchantNameRow,
+  .searchCommandForm,
+  .variantOptionButton {
+    transition: none !important;
+  }
+}

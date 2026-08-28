@@ -5,5 +5,11 @@ export const dynamic = "force-dynamic";
 
 export default async function ShopPage() {
   const home = await getStorefrontHome();
-  return <MarketplaceLanding categories={home.categories} products={home.newArrivals} stores={home.stores} />;
+  return (
+    <MarketplaceLanding
+      categories={home.categories}
+      products={home.newArrivals}
+      stores={home.stores}
+    />
+  );
 }
