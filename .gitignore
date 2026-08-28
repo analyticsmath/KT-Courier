@@ -82,3 +82,6 @@ next-env.d.ts
 
 # generated Playwright output
 /output/
+
+# Local design-source media. Never commit.
+_asset-source/

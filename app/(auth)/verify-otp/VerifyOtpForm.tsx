@@ -77,17 +77,28 @@ export function VerifyOtpForm({ email, maskedEmail }: { email: string; maskedEma
 
   return (
     <>
-      <AuthRouteIntro eyebrow="Email verification" title="Verify your email">
-        Enter the six-digit code sent to <strong>{maskedEmail}</strong>.
+      <AuthRouteIntro title="Check your email">
+        Enter the verification code sent to <strong>{maskedEmail}</strong>.
       </AuthRouteIntro>
       <form className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
-        <AuthErrorSummary message={rootError} fieldErrors={{ code: codeError }} />
-        {successMessage ? <div className={styles.successSummary} role="status"><p>{successMessage}</p></div> : null}
-        <OtpField id="otp" name="otp" label="Verification code" placeholder="123456" required error={codeError} />
-        <button className={styles.primaryAction} type="submit" disabled={loading}>
+        <AuthErrorSummary fieldErrors={{ code: codeError }} message={rootError} />
+        {successMessage ? (
+          <div className={styles.successSummary} role="status">
+            <p>{successMessage}</p>
+          </div>
+        ) : null}
+        <OtpField
+          error={codeError}
+          id="otp"
+          label="Verification code"
+          name="otp"
+          placeholder="123456"
+          required
+        />
+        <button className={styles.primaryAction} disabled={loading} type="submit">
           {loading ? "Verifying code…" : "Verify code"}
         </button>
-        <button className={styles.secondaryAction} type="button" onClick={handleResend} disabled={resending}>
+        <button className={styles.secondaryAction} disabled={resending} onClick={handleResend} type="button">
           {resending ? "Sending another code…" : "Resend verification code"}
         </button>
         <AuthSecurityNote />

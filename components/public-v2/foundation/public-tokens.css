@@ -1,0 +1,83 @@
+/* KT Courier Package A Public Design Tokens */
+:root {
+  --kt-carbon: #101210;
+  --kt-white: #FFFFFF;
+
+  --kt-cool-025: #FAFBFA;
+  --kt-cool-050: #F5F6F6;
+  --kt-cool-100: #ECEEEE;
+  --kt-cool-200: #DDE1E0;
+  --kt-cool-300: #C9CECC;
+  --kt-cool-400: #AEB5B2;
+  --kt-cool-550: #7D8581;
+  --kt-cool-650: #5F6763;
+  --kt-graphite: #303532;
+
+  --kt-red: #D83A2E;
+
+  --kt-radius-small: 8px;
+  --kt-radius-media: 12px;
+  --kt-radius-sheet: 22px;
+
+  --kt-header-h: 74px;
+  --kt-mobile-nav-h: 64px;
+
+  /* Typography scale */
+  --kt-type-hero: clamp(4.8rem, 7.25vw, 8.05rem);
+  --kt-type-major: clamp(2.85rem, 4.45vw, 5.15rem);
+  --kt-type-section: clamp(2.1rem, 3vw, 3.65rem);
+  --kt-type-lead: clamp(1.12rem, 1.35vw, 1.42rem);
+  --kt-type-body: clamp(1rem, 0.35vw + 0.92rem, 1.12rem);
+
+  /* Mobile scale */
+  --kt-type-hero-mobile: clamp(3.15rem, 14vw, 4.35rem);
+  --kt-type-major-mobile: clamp(2.15rem, 8vw, 3.0rem);
+  --kt-type-section-mobile: clamp(1.65rem, 5.5vw, 2.35rem);
+  --kt-type-lead-mobile: clamp(1.03rem, 3.2vw, 1.18rem);
+  --kt-type-body-mobile: clamp(0.98rem, 2.8vw, 1.08rem);
+
+  /* Grid insets */
+  --kt-grid-inset: clamp(20px, 4.5vw, 80px);
+  --kt-grid-gutter: clamp(14px, 2vw, 24px);
+
+  /* Elevation & Focus */
+  --kt-focus-ring: 0 0 0 2px var(--kt-white), 0 0 0 4px var(--kt-carbon);
+  --kt-focus-ring-dark: 0 0 0 2px var(--kt-carbon), 0 0 0 4px var(--kt-red);
+}
+
+/* Shape System */
+.shape-environment-plane {
+  border-radius: 0;
+}
+
+.shape-editorial-frame {
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+}
+
+.shape-forward-cut {
+  clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 0 100%);
+}
+
+@media (max-width: 767px) {
+  .shape-forward-cut {
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+  }
+}
+
+.shape-portrait-strip {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+}
+
+.shape-tactile-aperture {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--kt-radius-small);
+  overflow: hidden;
+}
+
+.shape-isolated-actor {
+  background: transparent;
+  pointer-events: none;
+}

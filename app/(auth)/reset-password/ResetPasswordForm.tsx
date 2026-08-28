@@ -60,11 +60,13 @@ export function ResetPasswordForm({ hasResetToken }: { hasResetToken: boolean })
   if (!hasResetToken) {
     return (
       <>
-        <AuthRouteIntro eyebrow="Password reset" title="This reset link is invalid">
+        <AuthRouteIntro title="This reset link is invalid">
           Request a new reset link and use it from the email we send you.
         </AuthRouteIntro>
         <section className={styles.statusCard}>
-          <Link className={styles.primaryAction} href="/forgot-password">Request a reset link</Link>
+          <Link className={styles.primaryAction} href="/forgot-password">
+            Request a reset link
+          </Link>
         </section>
       </>
     );
@@ -72,14 +74,31 @@ export function ResetPasswordForm({ hasResetToken }: { hasResetToken: boolean })
 
   return (
     <>
-      <AuthRouteIntro eyebrow="Password reset" title="Set a new password">
-        Choose a new password for your account.
+      <AuthRouteIntro title="Choose a new password">
+        Choose a secure new password for your KT Couriers account.
       </AuthRouteIntro>
-      <form id="reset-password-form" className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
-        <AuthErrorSummary message={rootError} fieldErrors={fieldErrors} />
-        <PasswordField id="password" name="password" label="New password" placeholder="Choose a new password" required autoComplete="new-password" hint="Use at least 8 characters." error={fieldErrors.password} />
-        <PasswordField id="confirm_password" name="confirm_password" label="Confirm new password" placeholder="Repeat your new password" required autoComplete="new-password" error={fieldErrors.confirmPassword} />
-        <button className={styles.primaryAction} type="submit" disabled={loading}>
+      <form className={`${styles.formCard} ${styles.formStack}`} id="reset-password-form" noValidate onSubmit={handleSubmit}>
+        <AuthErrorSummary fieldErrors={fieldErrors} message={rootError} />
+        <PasswordField
+          autoComplete="new-password"
+          error={fieldErrors.password}
+          hint="Use at least 8 characters."
+          id="password"
+          label="New password"
+          name="password"
+          placeholder="Choose a new password"
+          required
+        />
+        <PasswordField
+          autoComplete="new-password"
+          error={fieldErrors.confirmPassword}
+          id="confirm_password"
+          label="Confirm new password"
+          name="confirm_password"
+          placeholder="Repeat your new password"
+          required
+        />
+        <button className={styles.primaryAction} disabled={loading} type="submit">
           {loading ? "Updating password…" : "Update password"}
         </button>
         <AuthSecurityNote />

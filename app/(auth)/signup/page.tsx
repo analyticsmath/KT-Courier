@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 export default function SignupPage() {
   return (
     <>
-      <AuthRouteIntro eyebrow="New account" title="Start a secure handoff">
-        Choose the account that matches how you send or manage deliveries.
+      <AuthRouteIntro title="Create your KT account">
+        Choose how you use KT, then complete your account details.
       </AuthRouteIntro>
       <Suspense fallback={<p>Loading account options…</p>}>
         <SignupForm />

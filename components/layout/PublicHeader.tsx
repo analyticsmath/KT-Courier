@@ -1,1 +1,1 @@
-export { PublicHeaderV2 as PublicHeader } from "@/components/public-v2/site/PublicHeaderV2";
+export { PublicHeaderV3 as PublicHeader } from "@/components/public-v2/site/PublicHeaderV3";

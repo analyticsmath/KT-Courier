@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { VerifyOtpForm } from "./VerifyOtpForm";
 
 export const metadata: Metadata = {
-  title: "Verify your email",
-  description: "Verify your email to complete your KT Couriers account setup.",
+  title: "Check your email",
+  description: "Enter your verification code to access your KT Couriers account.",
   robots: { index: false, follow: false },
 };
 

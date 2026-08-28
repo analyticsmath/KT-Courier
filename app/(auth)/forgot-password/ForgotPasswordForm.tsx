@@ -35,7 +35,6 @@ export function ForgotPasswordForm() {
         return;
       }
 
-      // The API intentionally gives the same outcome whether or not an account exists.
       setSubmitted(true);
     } catch {
       setEmailError("Something went wrong. Please try again.");
@@ -47,13 +46,13 @@ export function ForgotPasswordForm() {
   if (submitted) {
     return (
       <>
-        <AuthRouteIntro eyebrow="Password reset" title="Check your email">
-          If an account exists for that email address, a reset link has been sent.
+        <AuthRouteIntro title="Check your email">
+          If an account exists for that email address, we have sent the next secure reset step.
         </AuthRouteIntro>
         <section className={styles.statusCard}>
           <div className={styles.formStack}>
-            <p className={styles.fieldHint}>Check your spam folder if it has not arrived.</p>
-            <button className={styles.secondaryAction} type="button" onClick={() => setSubmitted(false)}>
+            <p className={styles.fieldHint}>Check your inbox and spam folder for instructions.</p>
+            <button className={styles.secondaryAction} onClick={() => setSubmitted(false)} type="button">
               Use another email address
             </button>
             <AuthSecurityNote />
@@ -66,24 +65,24 @@ export function ForgotPasswordForm() {
 
   return (
     <>
-      <AuthRouteIntro eyebrow="Password reset" title="Reset your password">
-        Enter your email address and we will send a secure reset link if an account is available.
+      <AuthRouteIntro title="Reset your password">
+        Enter your email address and we’ll send the next secure step if the account is eligible.
       </AuthRouteIntro>
       <form className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
         <AuthErrorSummary fieldErrors={{ email: emailError }} />
         <AuthTextField
+          autoCapitalize="none"
+          autoComplete="email"
+          error={emailError}
           id="email"
-          name="email"
-          type="email"
           label="Email address"
+          name="email"
           placeholder="you@example.com"
           required
-          autoComplete="email"
           spellCheck={false}
-          autoCapitalize="none"
-          error={emailError}
+          type="email"
         />
-        <button className={styles.primaryAction} type="submit" disabled={loading}>
+        <button className={styles.primaryAction} disabled={loading} type="submit">
           {loading ? "Sending reset link…" : "Send reset link"}
         </button>
         <AuthSecurityNote />

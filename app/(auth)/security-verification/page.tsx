@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthStatusPage } from "@/components/public-v2/auth";
 
 export const metadata: Metadata = {
-  title: "Security verification",
+  title: "Verification is not available here",
   description: "Security verification is not available from this page.",
   robots: { index: false, follow: false },
 };
@@ -10,14 +10,13 @@ export const metadata: Metadata = {
 export default function SecurityVerificationPage() {
   return (
     <AuthStatusPage
-      eyebrow="Security verification"
-      title="Verification is not available here"
       actions={[
         { href: "/login", label: "Return to sign in" },
         { href: "/contact", label: "Contact support", kind: "secondary" },
       ]}
+      title="Verification is not available here"
     >
-      This account check cannot be completed from this page. Return to sign in or contact support for help.
+      Return to sign in or contact support for help with this account check.
     </AuthStatusPage>
   );
 }

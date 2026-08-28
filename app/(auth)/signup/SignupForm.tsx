@@ -42,25 +42,26 @@ export function SignupForm() {
     setLoading(true);
 
     const form = new FormData(event.currentTarget);
-    const payload = accountType === "customer"
-      ? {
-          accountType: "CUSTOMER",
-          fullName: form.get("full_name") as string,
-          email: form.get("email") as string,
-          phone: form.get("phone") as string,
-          password: form.get("password") as string,
-          confirmPassword: form.get("confirm_password") as string,
-        }
-      : {
-          accountType: "STORE",
-          storeName: form.get("business_name") as string,
-          contactPerson: form.get("contact_person") as string,
-          email: form.get("email") as string,
-          phone: form.get("phone") as string,
-          businessAddress: form.get("business_address") as string,
-          password: form.get("password") as string,
-          confirmPassword: form.get("confirm_password") as string,
-        };
+    const payload =
+      accountType === "customer"
+        ? {
+            accountType: "CUSTOMER",
+            fullName: form.get("full_name") as string,
+            email: form.get("email") as string,
+            phone: form.get("phone") as string,
+            password: form.get("password") as string,
+            confirmPassword: form.get("confirm_password") as string,
+          }
+        : {
+            accountType: "STORE",
+            storeName: form.get("business_name") as string,
+            contactPerson: form.get("contact_person") as string,
+            email: form.get("email") as string,
+            phone: form.get("phone") as string,
+            businessAddress: form.get("business_address") as string,
+            password: form.get("password") as string,
+            confirmPassword: form.get("confirm_password") as string,
+          };
 
     try {
       const res = await fetch("/api/auth/signup", {
@@ -89,55 +90,155 @@ export function SignupForm() {
 
   return (
     <>
-      <div className={styles.accountChoices} aria-label="Account type">
+      <div aria-label="Account type" className={styles.accountChoices}>
         <button
-          className={styles.accountChoice}
-          type="button"
-          onClick={() => setAccountType("customer")}
           aria-pressed={accountType === "customer"}
+          className={`${styles.accountChoice} ${accountType === "customer" ? styles.accountChoiceActive : ""}`}
+          onClick={() => setAccountType("customer")}
+          type="button"
         >
-          <span className={styles.accountChoiceTitle}>Customer account</span>
-          <span className={styles.accountChoiceText}>Request and follow your deliveries.</span>
+          <span className={styles.accountChoiceTitle}>Customer</span>
+          <span className={styles.accountChoiceText}>Send deliveries and manage your account.</span>
         </button>
         <button
-          className={styles.accountChoice}
-          type="button"
-          onClick={() => setAccountType("store")}
           aria-pressed={accountType === "store"}
+          className={`${styles.accountChoice} ${accountType === "store" ? styles.accountChoiceActive : ""}`}
+          onClick={() => setAccountType("store")}
+          type="button"
         >
-          <span className={styles.accountChoiceTitle}>Business account</span>
-          <span className={styles.accountChoiceText}>Coordinate delivery requests for your store.</span>
+          <span className={styles.accountChoiceTitle}>Business</span>
+          <span className={styles.accountChoiceText}>Manage delivery requests for your store or business.</span>
         </button>
       </div>
-      <form className={`${styles.formCard} ${styles.formStack} ${styles.formAfterChoices}`} noValidate onSubmit={handleSubmit}>
-        <AuthErrorSummary message={rootError} fieldErrors={fieldErrors} />
+
+      <form className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
+        <AuthErrorSummary fieldErrors={fieldErrors} message={rootError} />
         {accountType === "customer" ? (
           <>
-            <AuthTextField id="full_name" name="full_name" label="Full name" placeholder="Your full name" required autoComplete="name" error={fieldErrors.fullName} />
-            <AuthTextField id="email" name="email" type="email" label="Email address" placeholder="you@example.com" required autoComplete="email" spellCheck={false} autoCapitalize="none" error={fieldErrors.email} />
-            <AuthTextField id="phone" name="phone" type="tel" label="Phone number" placeholder="Your phone number" autoComplete="tel" error={fieldErrors.phone} />
+            <AuthTextField
+              autoComplete="name"
+              error={fieldErrors.fullName}
+              id="full_name"
+              label="Full name"
+              name="full_name"
+              placeholder="Your full name"
+              required
+            />
+            <AuthTextField
+              autoCapitalize="none"
+              autoComplete="email"
+              error={fieldErrors.email}
+              id="email"
+              label="Email address"
+              name="email"
+              placeholder="you@example.com"
+              required
+              spellCheck={false}
+              type="email"
+            />
+            <AuthTextField
+              autoComplete="tel"
+              error={fieldErrors.phone}
+              id="phone"
+              label="Phone number"
+              name="phone"
+              placeholder="Your phone number"
+              type="tel"
+            />
           </>
         ) : (
           <>
-            <AuthTextField id="business_name" name="business_name" label="Business or store name" placeholder="Your business name" required autoComplete="organization" error={fieldErrors.storeName} />
-            <AuthTextField id="contact_person" name="contact_person" label="Contact person" placeholder="Full name" required autoComplete="name" error={fieldErrors.contactPerson} />
-            <AuthTextField id="email" name="email" type="email" label="Email address" placeholder="business@example.com" required autoComplete="email" spellCheck={false} autoCapitalize="none" error={fieldErrors.email} />
-            <AuthTextField id="phone" name="phone" type="tel" label="Phone number" placeholder="Your phone number" required autoComplete="tel" error={fieldErrors.phone} />
-            <AuthTextField id="business_address" name="business_address" label="Business address" placeholder="Street address, city" autoComplete="street-address" />
+            <AuthTextField
+              autoComplete="organization"
+              error={fieldErrors.storeName}
+              id="business_name"
+              label="Business or store name"
+              name="business_name"
+              placeholder="Your business name"
+              required
+            />
+            <AuthTextField
+              autoComplete="name"
+              error={fieldErrors.contactPerson}
+              id="contact_person"
+              label="Contact person"
+              name="contact_person"
+              placeholder="Full name"
+              required
+            />
+            <AuthTextField
+              autoCapitalize="none"
+              autoComplete="email"
+              error={fieldErrors.email}
+              id="email"
+              label="Email address"
+              name="email"
+              placeholder="business@example.com"
+              required
+              spellCheck={false}
+              type="email"
+            />
+            <AuthTextField
+              autoComplete="tel"
+              error={fieldErrors.phone}
+              id="phone"
+              label="Phone number"
+              name="phone"
+              placeholder="Your phone number"
+              required
+              type="tel"
+            />
+            <AuthTextField
+              autoComplete="street-address"
+              id="business_address"
+              label="Business address"
+              name="business_address"
+              placeholder="Street address, city"
+            />
           </>
         )}
-        <PasswordField id="password" name="password" label="Password" placeholder="Choose a password" required autoComplete="new-password" hint="Use at least 8 characters." error={fieldErrors.password} />
-        <PasswordField id="confirm_password" name="confirm_password" label="Confirm password" placeholder="Repeat your password" required autoComplete="new-password" error={fieldErrors.confirmPassword} />
-        <button className={styles.primaryAction} type="submit" disabled={loading}>
+        <PasswordField
+          autoComplete="new-password"
+          error={fieldErrors.password}
+          hint="Use at least 8 characters."
+          id="password"
+          label="Password"
+          name="password"
+          placeholder="Choose a password"
+          required
+        />
+        <PasswordField
+          autoComplete="new-password"
+          error={fieldErrors.confirmPassword}
+          id="confirm_password"
+          label="Confirm password"
+          name="confirm_password"
+          placeholder="Repeat your password"
+          required
+        />
+        <button className={styles.primaryAction} disabled={loading} type="submit">
           {loading ? "Creating account…" : "Create account"}
         </button>
         <AuthSecurityNote />
       </form>
+
       <p className={styles.legalCopy}>
-        By creating an account, you agree to the <Link className={styles.textLink} href="/terms">Terms</Link> and <Link className={styles.textLink} href="/privacy-policy">Privacy Policy</Link>.
+        By creating an account, you agree to the{" "}
+        <Link className={styles.textLink} href="/terms">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link className={styles.textLink} href="/privacy-policy">
+          Privacy Policy
+        </Link>
+        .
       </p>
       <p className={styles.legalCopy}>
-        Already have an account? <Link className={styles.textLink} href="/login">Sign in</Link>.
+        Already have an account?{" "}
+        <Link className={styles.textLink} href="/login">
+          Sign in
+        </Link>
+        .
       </p>
     </>
   );

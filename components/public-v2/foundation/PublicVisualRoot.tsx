@@ -1,5 +1,6 @@
 import type { ElementType, ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
+import "./public-tokens.css";
 
 export type PublicVisualRootProps = {
   children: ReactNode;

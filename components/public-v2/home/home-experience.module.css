@@ -1,0 +1,578 @@
+/* Homepage Experience Styles */
+
+.experienceRoot {
+  width: 100%;
+  overflow-x: hidden;
+  background-color: var(--kt-white);
+  color: var(--kt-carbon);
+  position: relative;
+}
+
+/* =========================================================================
+   SCENE 00: HERO WORLD
+   ========================================================================= */
+.heroScene {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: clamp(80px, 12vh, 120px) var(--kt-grid-inset) clamp(32px, 5vh, 48px);
+  background-color: var(--kt-carbon);
+  overflow: hidden;
+}
+
+.heroEnvironment {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.heroEnvironment::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(16, 18, 16, 0.25) 0%,
+    rgba(16, 18, 16, 0.1) 40%,
+    rgba(16, 18, 16, 0.6) 100%
+  );
+  pointer-events: none;
+}
+
+/* Lower-left editorial plane */
+.heroEditorialPlane {
+  position: relative;
+  z-index: 10;
+  max-width: 680px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: clamp(28px, 4vw, 44px);
+  border-radius: var(--kt-radius-media);
+  box-shadow: 0 20px 48px rgba(16, 18, 16, 0.16);
+  border: 1px solid var(--kt-cool-200);
+}
+
+.heroHeadline {
+  font-size: clamp(2.4rem, 5.2vw, 4.4rem);
+  font-weight: 540;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--kt-carbon);
+  margin-bottom: 14px;
+}
+
+.heroHeadline span {
+  display: block;
+}
+
+.heroSupporting {
+  font-size: var(--kt-type-lead);
+  color: var(--kt-cool-650);
+  line-height: 1.45;
+  margin-bottom: 24px;
+  max-width: 520px;
+}
+
+/* Command strip for Shop & Send */
+.heroCommandStrip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heroCommandPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--kt-carbon);
+  color: var(--kt-white);
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  font-weight: 560;
+  border-radius: var(--kt-radius-small);
+  text-decoration: none;
+  transition: background-color 160ms ease, transform 120ms ease;
+}
+
+.heroCommandPrimary:hover {
+  background-color: var(--kt-graphite);
+  transform: translateY(-1px);
+}
+
+.heroCommandSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  color: var(--kt-carbon);
+  border: 1px solid var(--kt-cool-300);
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  font-weight: 540;
+  border-radius: var(--kt-radius-small);
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.heroCommandSecondary:hover {
+  border-color: var(--kt-carbon);
+  background-color: var(--kt-cool-050);
+}
+
+/* Hero Foreground Actors */
+.heroForegroundActor {
+  position: absolute;
+  right: clamp(20px, 6vw, 100px);
+  bottom: clamp(30px, 8vh, 80px);
+  width: clamp(220px, 28vw, 420px);
+  height: clamp(300px, 40vh, 560px);
+  z-index: 8;
+  pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .heroForegroundActor {
+    display: none;
+  }
+}
+
+.heroNeighborCard {
+  position: absolute;
+  right: 30px;
+  top: clamp(80px, 12vh, 120px);
+  width: 180px;
+  height: 240px;
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(16, 18, 16, 0.2);
+  z-index: 6;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 1180px) {
+  .heroNeighborCard {
+    display: none;
+  }
+}
+
+/* =========================================================================
+   SCENE 01: COMMERCE SELECTION FIELD
+   ========================================================================= */
+.selectionScene {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-cool-025);
+  padding: clamp(60px, 10vh, 100px) 0;
+}
+
+.selectionStickyContainer {
+  width: 100%;
+  overflow: hidden;
+}
+
+.selectionHeader {
+  padding: 0 var(--kt-grid-inset);
+  max-width: 1680px;
+  margin: 0 auto 36px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.selectionTitle {
+  font-size: var(--kt-type-section);
+  font-weight: 540;
+  letter-spacing: -0.025em;
+  color: var(--kt-carbon);
+}
+
+.selectionSubtitle {
+  font-size: 0.95rem;
+  color: var(--kt-cool-650);
+  max-width: 460px;
+}
+
+/* Horizontal Track for Desktop & Snap Rail for Mobile */
+.selectionTrack {
+  display: flex;
+  gap: 24px;
+  padding: 0 var(--kt-grid-inset);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+}
+
+.selectionTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.categoryCard {
+  flex: 0 0 clamp(280px, 32vw, 440px);
+  scroll-snap-align: start;
+  position: relative;
+  background-color: var(--kt-white);
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+  border: 1px solid var(--kt-cool-200);
+  display: flex;
+  flex-direction: column;
+  transition: transform 220ms ease, box-shadow 220ms ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.categoryCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(16, 18, 16, 0.08);
+}
+
+.categoryImageWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  background-color: var(--kt-cool-100);
+  overflow: hidden;
+}
+
+.categoryMeta {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--kt-cool-100);
+}
+
+.categoryName {
+  font-size: 1.1rem;
+  font-weight: 560;
+  color: var(--kt-carbon);
+}
+
+.categoryTag {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--kt-cool-550);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* =========================================================================
+   SCENE 02: PREPARATION + HANDOFF SEQUENCE
+   ========================================================================= */
+.prepScene {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  background-color: var(--kt-carbon);
+  color: var(--kt-white);
+  padding: clamp(80px, 12vh, 120px) var(--kt-grid-inset);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.prepHandoffGrid {
+  max-width: 1680px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(32px, 6vw, 80px);
+  align-items: center;
+}
+
+@media (max-width: 1023px) {
+  .prepHandoffGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.prepTextSide {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.prepStepBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 560;
+  letter-spacing: 0.06em;
+  color: var(--kt-red);
+  text-transform: uppercase;
+}
+
+.prepHeading {
+  font-size: var(--kt-type-major);
+  font-weight: 520;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  color: var(--kt-white);
+}
+
+.prepSubheading {
+  font-size: var(--kt-type-lead);
+  color: var(--kt-cool-300);
+  line-height: 1.5;
+}
+
+.prepMediaSide {
+  position: relative;
+  width: 100%;
+  height: clamp(360px, 55vh, 620px);
+}
+
+.prepPrimaryImage {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--kt-graphite);
+}
+
+.prepHandoffOverlay {
+  position: absolute;
+  bottom: -20px;
+  right: -20px;
+  width: clamp(200px, 26vw, 360px);
+  height: clamp(160px, 20vw, 260px);
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+  border: 2px solid var(--kt-carbon);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  z-index: 5;
+}
+
+@media (max-width: 600px) {
+  .prepHandoffOverlay {
+    bottom: -10px;
+    right: 0;
+    width: 180px;
+    height: 140px;
+  }
+}
+
+.prepMotionToken {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(16, 18, 16, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--kt-graphite);
+  padding: 10px 16px;
+  border-radius: var(--kt-radius-small);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+}
+
+/* =========================================================================
+   SCENE 03: ROUTE & GEOGRAPHY SEQUENCE
+   ========================================================================= */
+.routeScene {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-cool-050);
+  padding: clamp(80px, 12vh, 120px) var(--kt-grid-inset);
+  overflow: hidden;
+}
+
+.routeGrid {
+  max-width: 1680px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: clamp(32px, 5vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 1023px) {
+  .routeGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.routeInfoSide {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.routeHeading {
+  font-size: var(--kt-type-major);
+  font-weight: 520;
+  letter-spacing: -0.03em;
+  color: var(--kt-carbon);
+}
+
+.routeSubheading {
+  font-size: var(--kt-type-lead);
+  color: var(--kt-cool-650);
+  line-height: 1.5;
+}
+
+.routeRegionsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.routeRegionPill {
+  background: var(--kt-white);
+  border: 1px solid var(--kt-cool-200);
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 520;
+  color: var(--kt-carbon);
+}
+
+.routeTruthNotice {
+  font-size: 0.8rem;
+  color: var(--kt-cool-550);
+  font-style: italic;
+}
+
+.routeVisualSide {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.routeMapCard {
+  background: var(--kt-white);
+  border-radius: var(--kt-radius-media);
+  padding: 24px;
+  border: 1px solid var(--kt-cool-200);
+  box-shadow: 0 12px 32px rgba(16, 18, 16, 0.05);
+}
+
+.routeRoadCard {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+  border: 1px solid var(--kt-cool-200);
+}
+
+/* =========================================================================
+   SCENE 04: NETWORK COMMERCE FIELD
+   ========================================================================= */
+.networkScene {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-white);
+  padding: clamp(80px, 12vh, 120px) var(--kt-grid-inset);
+  overflow: hidden;
+}
+
+.networkInner {
+  max-width: 1680px;
+  margin: 0 auto;
+}
+
+.networkHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 48px;
+}
+
+.networkGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 1023px) {
+  .networkGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .networkGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.networkTile {
+  position: relative;
+  height: clamp(280px, 36vh, 420px);
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+  border: 1px solid var(--kt-cool-200);
+}
+
+/* =========================================================================
+   SCENE 05: ARRIVAL RESOLUTION
+   ========================================================================= */
+.arrivalScene {
+  position: relative;
+  width: 100%;
+  background-color: var(--kt-cool-025);
+  padding: clamp(80px, 12vh, 120px) var(--kt-grid-inset);
+  overflow: hidden;
+}
+
+.arrivalInner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(32px, 6vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 1023px) {
+  .arrivalInner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.arrivalImageWrap {
+  position: relative;
+  width: 100%;
+  height: clamp(360px, 50vh, 540px);
+  border-radius: var(--kt-radius-media);
+  overflow: hidden;
+  border: 1px solid var(--kt-cool-200);
+  box-shadow: 0 16px 40px rgba(16, 18, 16, 0.08);
+}
+
+.arrivalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.arrivalTitle {
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  font-weight: 540;
+  letter-spacing: -0.03em;
+  color: var(--kt-carbon);
+}
+
+.arrivalSubtitle {
+  font-size: var(--kt-type-lead);
+  color: var(--kt-cool-650);
+  line-height: 1.5;
+}

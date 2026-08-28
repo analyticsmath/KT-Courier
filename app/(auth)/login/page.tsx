@@ -11,14 +11,16 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <>
-      <AuthRouteIntro eyebrow="Account access" title="Welcome back">
-        Sign in to continue with your delivery account.
+      <AuthRouteIntro title="Welcome back">
+        Sign in to continue to your KT account.
       </AuthRouteIntro>
       <LoginForm />
-      <AuthFlowLinks links={[
-        { href: "/signup", label: "Create an account" },
-        { href: "/forgot-password", label: "Forgot password?" },
-      ]} />
+      <AuthFlowLinks
+        links={[
+          { href: "/signup", label: "Create an account" },
+          { href: "/forgot-password", label: "Forgot password?" },
+        ]}
+      />
     </>
   );
 }

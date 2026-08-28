@@ -1,4 +1,9 @@
-export { HomepageMotionController } from "./HomepageMotionController";
-export { getDesktopHeroScrollDistance, heroMotionConfig, isDesktopHeroMotionEligible } from "./hero-motion-config";
-export { homepageMotionSelectors } from "./motion-selectors";
-export type { HomepageMotionControllerProps } from "./motion-types";
+export * from "./gsap-public";
+export * from "./usePublicMotionPreference";
+export * from "./PublicSmoothScroll";
+export * from "./KtAnimatedSvg";
+export * from "./hero-motion-config";
+export * from "./motion-selectors";
+export * from "./motion-types";
+export * from "./create-hero-motion";
+export * from "./create-secondary-motion";

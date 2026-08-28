@@ -1,0 +1,519 @@
+/* Public Shell Styles — Header, Navigation, Atlas Drawer, Bottom Bar, Footer */
+
+.skipLink {
+  position: absolute;
+  top: -999px;
+  left: 20px;
+  background: var(--kt-carbon);
+  color: var(--kt-white);
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  font-weight: 540;
+  border-radius: var(--kt-radius-small);
+  z-index: 10000;
+  transition: top 0.2s ease;
+}
+
+.skipLink:focus {
+  top: 16px;
+  outline: 2px solid var(--kt-red);
+}
+
+.headerSentinel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 48px;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--kt-header-h);
+  z-index: 900;
+  transition: background-color 260ms ease, border-color 260ms ease, color 260ms ease;
+  background-color: transparent;
+  color: var(--kt-carbon);
+}
+
+.headerScrolled,
+.headerSolid {
+  background-color: var(--kt-white);
+  border-bottom: 1px solid var(--kt-cool-100);
+  box-shadow: 0 2px 12px rgba(16, 18, 16, 0.04);
+}
+
+/* On homepage transparent top, ensure contrast */
+.headerTransparentOnDark {
+  color: var(--kt-carbon);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 var(--kt-grid-inset);
+  max-width: 1680px;
+  margin: 0 auto;
+}
+
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brandWordmark {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Desktop Primary Nav */
+.desktopNav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+@media (max-width: 1023px) {
+  .desktopNav {
+    display: none;
+  }
+}
+
+.navItem {
+  position: relative;
+  font-size: 0.95rem;
+  font-weight: 480;
+  color: var(--kt-graphite);
+  text-decoration: none;
+  padding: 8px 0;
+  transition: color 180ms ease, font-weight 180ms ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+}
+
+.navItem:hover {
+  color: var(--kt-carbon);
+  font-weight: 540;
+}
+
+.navItemActive {
+  color: var(--kt-carbon);
+  font-weight: 560;
+}
+
+.navItemActive::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--kt-red);
+  border-radius: 1px;
+}
+
+/* Utilities */
+.headerUtilities {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.utilLink {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--kt-graphite);
+  text-decoration: none;
+  padding: 8px 12px;
+  transition: color 180ms ease;
+}
+
+.utilLink:hover {
+  color: var(--kt-carbon);
+}
+
+.quoteButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--kt-carbon);
+  color: var(--kt-white);
+  padding: 9px 18px;
+  font-size: 0.9rem;
+  font-weight: 540;
+  border-radius: var(--kt-radius-small);
+  text-decoration: none;
+  transition: background-color 180ms ease, transform 120ms ease;
+}
+
+.quoteButton:hover {
+  background-color: var(--kt-graphite);
+  transform: translateY(-1px);
+}
+
+/* Services Atlas Drawer */
+.atlasOverlay {
+  position: fixed;
+  top: var(--kt-header-h);
+  left: 0;
+  width: 100%;
+  background: rgba(16, 18, 16, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 850;
+  animation: fadeIn 220ms ease forwards;
+}
+
+.atlasDrawer {
+  background: var(--kt-white);
+  border-bottom: 1px solid var(--kt-cool-200);
+  box-shadow: 0 16px 36px rgba(16, 18, 16, 0.08);
+  padding: 40px var(--kt-grid-inset) 48px;
+  max-width: 1680px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 48px;
+  animation: slideDown 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.atlasList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.atlasCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  border-radius: var(--kt-radius-small);
+  text-decoration: none;
+  color: var(--kt-carbon);
+  transition: background-color 160ms ease;
+  border: 1px solid transparent;
+}
+
+.atlasCard:hover,
+.atlasCardActive {
+  background-color: var(--kt-cool-050);
+  border-color: var(--kt-cool-200);
+}
+
+.atlasCardTitle {
+  font-size: 1.05rem;
+  font-weight: 560;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.atlasCardDesc {
+  font-size: 0.875rem;
+  color: var(--kt-cool-650);
+  line-height: 1.4;
+}
+
+.atlasPreview {
+  background-color: var(--kt-cool-050);
+  border-radius: var(--kt-radius-media);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid var(--kt-cool-200);
+}
+
+.atlasPreviewImage {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  border-radius: var(--kt-radius-small);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.atlasPreviewTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.atlasPreviewText {
+  font-size: 0.875rem;
+  color: var(--kt-cool-650);
+  line-height: 1.45;
+}
+
+/* Compact Top Bar */
+.compactTopBar {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .compactTopBar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+/* Mobile Bottom Navigation (<=767px) */
+.mobileBottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--kt-mobile-nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background-color: var(--kt-white);
+  border-top: 1px solid var(--kt-cool-100);
+  display: none;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 900;
+  box-shadow: 0 -4px 16px rgba(16, 18, 16, 0.05);
+}
+
+@media (max-width: 767px) {
+  .mobileBottomNav {
+    display: flex;
+  }
+}
+
+.mobileNavItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  min-height: 48px;
+  text-decoration: none;
+  color: var(--kt-cool-550);
+  gap: 3px;
+  transition: color 160ms ease;
+  position: relative;
+}
+
+.mobileNavItem:hover {
+  color: var(--kt-carbon);
+}
+
+.mobileNavItemActive {
+  color: var(--kt-carbon);
+  font-weight: 560;
+}
+
+.mobileNavItemActive .mobileNavIcon {
+  color: var(--kt-red);
+}
+
+.mobileNavLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+/* Public Finale */
+.finaleSection {
+  background-color: var(--kt-carbon);
+  color: var(--kt-white);
+  padding: clamp(80px, 12vw, 140px) var(--kt-grid-inset) clamp(60px, 8vw, 100px);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.finaleStatement {
+  font-size: clamp(2.8rem, 6.8vw, 7.2rem);
+  font-weight: 520;
+  line-height: 0.96;
+  letter-spacing: -0.035em;
+  max-width: 1400px;
+  margin: 0 auto 32px;
+  color: var(--kt-white);
+}
+
+.finaleSub {
+  font-size: var(--kt-type-lead);
+  color: var(--kt-cool-300);
+  max-width: 620px;
+  margin: 0 auto 40px;
+  line-height: 1.45;
+}
+
+.finaleActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.finalePrimaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--kt-red);
+  color: var(--kt-white);
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 560;
+  border-radius: var(--kt-radius-small);
+  text-decoration: none;
+  transition: background-color 180ms ease, transform 140ms ease;
+}
+
+.finalePrimaryAction:hover {
+  background-color: #b52a1f;
+  transform: translateY(-1px);
+}
+
+.finaleSecondaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  color: var(--kt-white);
+  border: 1px solid var(--kt-graphite);
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 540;
+  border-radius: var(--kt-radius-small);
+  text-decoration: none;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.finaleSecondaryAction:hover {
+  border-color: var(--kt-cool-400);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Public Utility Footer */
+.footerRoot {
+  background-color: var(--kt-carbon);
+  color: var(--kt-white);
+  border-top: 1px solid var(--kt-graphite);
+  padding: 64px var(--kt-grid-inset) calc(48px + var(--kt-mobile-nav-h));
+}
+
+@media (min-width: 768px) {
+  .footerRoot {
+    padding-bottom: 48px;
+  }
+}
+
+.footerGrid {
+  display: grid;
+  grid-template-columns: 2fr repeat(4, 1fr);
+  gap: clamp(24px, 4vw, 48px);
+  max-width: 1680px;
+  margin: 0 auto 60px;
+}
+
+@media (max-width: 1023px) {
+  .footerGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .footerBrandCol {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .footerGrid {
+    grid-template-columns: 1fr;
+  }
+  .footerBrandCol {
+    grid-column: span 1;
+  }
+}
+
+.footerBrandCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.footerDesc {
+  font-size: 0.9rem;
+  color: var(--kt-cool-400);
+  line-height: 1.5;
+  max-width: 340px;
+}
+
+.footerGroupTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kt-white);
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+
+.footerLinkList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footerLink {
+  font-size: 0.875rem;
+  color: var(--kt-cool-400);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.footerLink:hover {
+  color: var(--kt-white);
+}
+
+.footerBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--kt-graphite);
+  padding-top: 24px;
+  max-width: 1680px;
+  margin: 0 auto;
+  font-size: 0.825rem;
+  color: var(--kt-cool-550);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.footerBottomLinks {
+  display: flex;
+  gap: 20px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
 export const metadata: Metadata = {
-  title: "Set a new password",
+  title: "Choose a new password",
   description: "Set a new password for your KT Couriers account.",
   robots: { index: false, follow: false },
 };

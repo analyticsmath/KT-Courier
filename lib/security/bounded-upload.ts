@@ -32,6 +32,7 @@ export class BoundedUploadError extends Error {
 
 export function sanitizeFilename(filename: string): string {
   return filename
+    .replace(/^(\.\.[/\\])+/, "..")
     .replace(/[/\\]/g, "")
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .replace(/\s+/g, "_")
@@ -45,7 +46,7 @@ export function sanitizeFilename(filename: string): string {
 export async function parseBoundedMultipartRequest(
   request: NextRequest,
   options: BoundedUploadOptions,
-): Promise<{ result: BoundedUploadResult; error?: never } | { result?: never; errorResponse: NextResponse }> {
+): Promise<{ result: BoundedUploadResult; errorResponse?: never } | { result?: never; errorResponse: NextResponse }> {
   const declaredLength = request.headers.get("content-length");
   if (declaredLength) {
     const parsed = parseInt(declaredLength, 10);
