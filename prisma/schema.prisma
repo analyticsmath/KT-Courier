@@ -7506,6 +7506,8 @@ enum CatalogMediaPurpose {
   VARIANT_IMAGE
   CATEGORY_IMAGE
   BRAND_LOGO
+  STORE_LOGO
+  STORE_HERO
   COMPLIANCE_DOCUMENT
 }
 
@@ -8543,6 +8545,7 @@ model StorefrontProductDocument {
   primaryMediaWidth           Int?
   primaryMediaHeight          Int?
   primaryMediaAlt             String?
+  mediaGallery                Json?
   searchable                  Boolean                      @default(true)
   indexable                   Boolean                      @default(false)
   status                      StorefrontDocumentStatus     @default(ACTIVE)

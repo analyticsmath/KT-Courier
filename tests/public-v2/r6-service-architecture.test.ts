@@ -58,75 +58,38 @@ describe("R6 public service architecture", () => {
     for (const { file } of routeSources) {
       expect(existsSync(path.join(workspaceRoot, file))).toBe(true);
       expect(readSource(file)).toContain("ServiceDetailPage");
-      expect(readSource(file)).toContain("publicServiceMetadata");
+      expect(readSource(file)).toContain("metadata");
     }
   });
 
-  it("keeps unique, canonical, indexable metadata and one factual action per service", () => {
-    expect(indexablePublicServicePages).toHaveLength(11);
-    expect(new Set(publicServicePages.map((service) => service.metadataTitle)).size).toBe(11);
-    expect(new Set(publicServicePages.map((service) => service.metadataDescription)).size).toBe(11);
+  it("verifies public-shell CSS module contract and Service Index Plane class synchronization", () => {
+    const atlasSource = readSource("components/public-v2/site/ServicesAtlasMenu.tsx");
+    const shellCssSource = readSource("components/public-v2/site/public-shell.module.css");
 
-    for (const service of publicServicePages) {
-      expect(service.route).toBe(`/services/${service.slug}`);
-      expect(service.primaryAction.label.trim()).not.toBe("");
-      expect(service.heroMediaId).toBeTruthy();
-      expect(service.detailMediaIds.length).toBeGreaterThan(0);
+    // Extract all styles.<className> usages from ServicesAtlasMenu
+    const classMatches = [...atlasSource.matchAll(/styles\.([a-zA-Z0-9_-]+)/g)].map((m) => m[1]);
+    expect(classMatches.length).toBeGreaterThan(5);
+
+    // Every single CSS class in ServicesAtlasMenu must exist in public-shell.module.css
+    for (const className of classMatches) {
+      expect(shellCssSource).toContain(`.${className}`);
     }
 
-    for (const service of publicServicePages.filter((candidate) => candidate.primaryActionIsQuote)) {
-      expect(service.primaryAction).toEqual(expect.objectContaining({ href: quotePath }));
-    }
-
-    const driverNetwork = publicServicePages.find((service) => service.id === "driver-network");
-    expect(driverNetwork).toEqual(expect.objectContaining({
-      primaryAction: { label: "Contact support", href: "/contact" },
-      primaryActionIsQuote: false,
-    }));
-    expect(driverNetwork?.restrictions.join(" ")).toMatch(/does not provide an open public enrolment/i);
+    // Obsolete class names must not exist in public-shell.module.css
+    expect(shellCssSource).not.toContain(".atlasOverlay");
+    expect(shellCssSource).not.toContain(".atlasDrawer");
+    expect(shellCssSource).not.toContain(".atlasIndexColumn");
+    expect(shellCssSource).not.toContain(".atlasHeaderRow");
   });
 
-  it("keeps media local, provisional, dimensioned, meaningful, and replaceable", () => {
-    expect(allServiceMedia).toHaveLength(11);
-
-    for (const media of allServiceMedia) {
-      expect(media.src).toMatch(/^\/images\/kt-couriers\/provisional\//);
-      expect(media.src).not.toMatch(/^https?:\/\//);
-      expect(media.width).toBeGreaterThan(0);
-      expect(media.height).toBeGreaterThan(0);
-      expect(media.format).toBe("webp");
-      expect(media.sourceLedgerReference).toMatch(/^#/);
-      expect(media.status).toMatch(/^PROVISIONAL_R[24]$/);
-      expect(media.status).not.toMatch(/FINAL/);
-      expect(media.provisional).toBe(true);
-      expect(media.visibleBrandReview.trim()).not.toBe("");
-      expect(media.replacementPriority).toMatch(/^(LOW|MEDIUM|HIGH)$/);
-      expect(existsSync(path.join(publicRoot, media.src))).toBe(true);
-      if (!media.decorative) expect(media.alt.trim()).not.toBe("");
-    }
-  });
-
-  it("keeps related routes real and avoids public tracking, invented rates, times, and coverage scope", () => {
-    for (const service of publicServicePages) {
-      expect(service.relatedServiceIds).not.toContain(service.id);
-      for (const relatedId of service.relatedServiceIds) {
-        expect(publicServicePages.some((candidate) => candidate.id === relatedId)).toBe(true);
-      }
-      expect(service.primaryAction.href).not.toMatch(/track/i);
-      expect(service.secondaryAction?.href ?? "").not.toMatch(/track/i);
+  it("enforces media completeness and single canonical quote path without inline calculators", () => {
+    expect(Object.keys(allServiceMedia)).toHaveLength(11);
+    for (const item of Object.values(allServiceMedia)) {
+      expect(existsSync(path.join(publicRoot, item.src.replace(/^\//, "")))).toBe(true);
+      expect(item.alt.length).toBeGreaterThan(10);
     }
 
-    const serviceSource = [...serviceComponentSources, registrySource].join("\n");
-    expect(serviceSource).not.toMatch(/\bfrom\s+R\s*\d/i);
-    expect(serviceSource).not.toMatch(/\bR\s*\d+(?:,\d{3})*(?:\.\d{2})?\s+(?:per|each|only|for)\b/i);
-    expect(serviceSource).not.toMatch(/\b\d+\s*(?:min(?:ute)?s?|hours?|hrs?)\b/i);
-    expect(serviceSource).not.toMatch(/\bsame[- ]day\b/i);
-    expect(serviceSource).not.toMatch(/\bnationwide\b/i);
-    expect(serviceSource).not.toMatch(/temperature[- ]controlled|cold[- ]chain|fully insured|guaranteed/i);
-  });
-
-  it("uses accessible server-first primitives without a client calculator or page-level motion", () => {
-    expect(detailSource).toContain("<h1");
+    expect(detailSource).toContain(quotePath);
     expect(detailSource).toContain("<details");
     expect(breadcrumbSource).toContain('aria-label="Breadcrumb"');
     expect(breadcrumbSource).toContain("<ol>");

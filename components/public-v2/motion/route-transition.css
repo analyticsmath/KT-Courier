@@ -1,0 +1,109 @@
+/* Route Transition Keyframes & Styles */
+
+/* View Transitions API Custom Timing */
+::view-transition-old(root) {
+  animation: ktViewTransitionOut 320ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(root) {
+  animation: ktViewTransitionIn 380ms cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+@keyframes ktViewTransitionOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0.8;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes ktViewTransitionIn {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Page Transition Wipe Plane */
+.ktTransitionPlane {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--kt-carbon, #101210);
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transform: translateY(100%);
+}
+
+.ktTransitionPlane[data-state="entering"] {
+  animation: ktPlaneWipeIn 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: auto;
+}
+
+.ktTransitionPlane[data-state="exiting"] {
+  animation: ktPlaneWipeOut 340ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+.ktTransitionPlaneEdge {
+  height: 3px;
+  width: 100%;
+  background-color: var(--kt-red, #d83a2e);
+}
+
+@keyframes ktPlaneWipeIn {
+  0% {
+    transform: translateY(100%);
+  }
+  100% {
+    transform: translateY(0%);
+  }
+}
+
+@keyframes ktPlaneWipeOut {
+  0% {
+    transform: translateY(0%);
+  }
+  100% {
+    transform: translateY(-100%);
+  }
+}
+
+/* Spatial Reveal Keyframes */
+@keyframes ktSpatialPageWipe {
+  0% {
+    opacity: 0.4;
+    transform: translateY(16px);
+    clip-path: inset(0 0 16px 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes ktQuickPageReveal {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.pageTransitionContainer {
+  width: 100%;
+  min-height: 100%;
+}

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type {
@@ -48,6 +51,14 @@ export function ProductDetailExperience({
     ...new Map(offers.map((offer) => [offer.variantReference, offer])).values(),
   ];
 
+  const gallery = product.mediaGallery && product.mediaGallery.length > 0
+    ? product.mediaGallery
+    : product.primaryMedia
+      ? [product.primaryMedia]
+      : [];
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const activeMedia = gallery[activeMediaIndex] ?? product.primaryMedia;
+
   const categoryHref = marketplaceCategoryHref(product.categoryPath);
   const storeHref = store ? marketplaceStoreHref(store.slug) : null;
 
@@ -81,31 +92,90 @@ export function ProductDetailExperience({
 
       {/* Main First Viewport Layout */}
       <div className={styles.pdpLayout}>
-        {/* Large Media Field */}
-        <section aria-label="Product image" className={styles.pdpMediaField}>
-          {product.primaryMedia ? (
-            <Image
-              alt={product.primaryMedia.alt || product.title}
-              fill
-              priority
-              sizes="(max-width: 991px) 100vw, 58vw"
-              src={`/api/catalog/media/${product.primaryMedia.publicReference}`}
-              style={{ objectFit: "cover" }}
-            />
-          ) : (
+        {/* Large Media Field with Gallery */}
+        <section aria-label="Product image gallery" className={styles.pdpMediaField}>
+          <div style={{ position: "relative", width: "100%", aspectRatio: "1/1", borderRadius: "12px", overflow: "hidden", backgroundColor: "var(--kt-surface-raised, #f6f8f7)" }}>
+            {activeMedia ? (
+              <Image
+                alt={activeMedia.alt || product.title}
+                fill
+                priority
+                sizes="(max-width: 991px) 100vw, 58vw"
+                src={`/api/catalog/media/${activeMedia.publicReference}`}
+                style={{ objectFit: "cover" }}
+              />
+            ) : (
+              <div
+                aria-label={`${product.title} image unavailable`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "100%",
+                  height: "100%",
+                  color: "var(--kt-muted, #5f6763)",
+                  fontSize: "0.95rem",
+                }}
+              >
+                Image unavailable
+              </div>
+            )}
+          </div>
+
+          {gallery.length > 1 && (
             <div
-              aria-label={`${product.title} image unavailable`}
+              role="tablist"
+              aria-label="Product image thumbnails"
               style={{
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "100%",
-                height: "100%",
-                color: "var(--kt-muted, #5f6763)",
-                fontSize: "0.95rem",
+                gap: "10px",
+                marginTop: "12px",
+                overflowX: "auto",
+                paddingBottom: "4px",
               }}
             >
-              Image unavailable
+              {gallery.map((media, idx) => {
+                const isSelected = idx === activeMediaIndex;
+                return (
+                  <button
+                    key={media.publicReference}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    aria-label={`View image ${idx + 1} of ${gallery.length}: ${media.alt || product.title}`}
+                    tabIndex={0}
+                    onClick={() => setActiveMediaIndex(idx)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setActiveMediaIndex(idx);
+                      }
+                    }}
+                    style={{
+                      position: "relative",
+                      width: "72px",
+                      height: "72px",
+                      flexShrink: 0,
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: isSelected ? "2px solid var(--kt-primary, #047857)" : "1px solid var(--kt-cool-200, #dde1e0)",
+                      cursor: "pointer",
+                      padding: 0,
+                      background: "transparent",
+                      outlineOffset: "2px",
+                      transition: "border-color 0.15s ease",
+                    }}
+                  >
+                    <Image
+                      alt={media.alt || `${product.title} view ${idx + 1}`}
+                      fill
+                      sizes="72px"
+                      src={`/api/catalog/media/${media.publicReference}`}
+                      style={{ objectFit: "cover" }}
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
         </section>

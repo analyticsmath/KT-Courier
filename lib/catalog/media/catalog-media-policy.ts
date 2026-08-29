@@ -17,7 +17,7 @@ export const CATALOG_MEDIA_MAX_VARIANT_IMAGES = 6;
 
 export const CATALOG_MEDIA_IMAGE_ROLES = ["PRIMARY", "GALLERY", "VARIANT", "SWATCH", "LABEL"] as const;
 export type CatalogMediaImageRole = (typeof CATALOG_MEDIA_IMAGE_ROLES)[number];
-export type CatalogMediaPurpose = "PRODUCT_IMAGE" | "VARIANT_IMAGE" | "CATEGORY_IMAGE" | "BRAND_LOGO" | "COMPLIANCE_DOCUMENT";
+export type CatalogMediaPurpose = "PRODUCT_IMAGE" | "VARIANT_IMAGE" | "CATEGORY_IMAGE" | "BRAND_LOGO" | "STORE_LOGO" | "STORE_HERO" | "COMPLIANCE_DOCUMENT";
 
 export function isCatalogMediaMimeType(value: string): value is CatalogMediaMimeType {
   return CATALOG_MEDIA_ALLOWED_MIME_TYPES.some((mimeType) => mimeType === value);
@@ -40,8 +40,8 @@ export function assertCatalogMediaDeclaration(input: {
 }
 
 export function assertCatalogMediaPurposeForOwner(ownerType: "PLATFORM" | "STORE", purpose: CatalogMediaPurpose): void {
-  if (ownerType === "STORE" && !["PRODUCT_IMAGE", "VARIANT_IMAGE"].includes(purpose)) {
-    throw new CatalogPolicyError("CATALOG_MEDIA_PURPOSE_FORBIDDEN", "Store media may be created only for store-authored product or variant imagery.", 403);
+  if (ownerType === "STORE" && !["PRODUCT_IMAGE", "VARIANT_IMAGE", "STORE_LOGO", "STORE_HERO"].includes(purpose)) {
+    throw new CatalogPolicyError("CATALOG_MEDIA_PURPOSE_FORBIDDEN", "Store media may be created only for store-authored product or variant imagery, logo, or hero banner.", 403);
   }
   if (purpose === "COMPLIANCE_DOCUMENT") {
     throw new CatalogPolicyError("CATALOG_MEDIA_PURPOSE_UNSUPPORTED", "Compliance-document upload requires a reviewed private document pipeline.");

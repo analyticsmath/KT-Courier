@@ -30,6 +30,7 @@ export type StorefrontDocument = {
   price: { publicReference: string; amount: string; currency: "ZAR"; includesTax: true; unitAmount?: string; unit?: string; quantity?: string };
   availability: StorefrontAvailabilityState;
   primaryMedia?: { publicReference: string; width: number; height: number; alt: string };
+  mediaGallery?: Array<{ publicReference: string; width: number; height: number; alt: string; role?: string }>;
   publishedAt: string;
   sourceUpdatedAt: string;
   searchable: boolean;

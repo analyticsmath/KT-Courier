@@ -1,49 +1,55 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { KtCouriersWordmark } from "@/components/public-v2/brand";
-import { KtIconMenu, KtIconCart } from "@/components/public-v2/graphics/KtIcons";
+import {
+  KtIconMenu,
+  KtIconCart,
+  KtIconSearch,
+  KtIconBack,
+  KtIconArrowRight,
+} from "@/components/public-v2/graphics/KtIcons";
 import { MobileSheet } from "@/components/public-v2/overlays";
-import { HeaderScrollState } from "./HeaderScrollState";
 import { DesktopPrimaryNavigation } from "./DesktopPrimaryNavigation";
-import { ServicesAtlasMenu } from "./ServicesAtlasMenu";
-import { marketplaceHref } from "@/lib/public-marketplace/routes";
+import { ServicesAtlasMenu, allServices } from "./ServicesAtlasMenu";
+import { marketplaceHref, marketplaceSearchHref } from "@/lib/public-marketplace/routes";
 import styles from "./public-shell.module.css";
 
 export function PublicHeaderV3() {
-  const pathname = usePathname();
-  const isHomepage = pathname === "/";
-  const [scrolled, setScrolled] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [mobileServicesView, setMobileServicesView] = useState(false);
 
-  const handleScrolledChange = useCallback((nextScrolled: boolean) => {
-    setScrolled(nextScrolled);
-  }, []);
-
-  const headerClass = `${styles.header} ${
-    !isHomepage || scrolled || servicesOpen ? styles.headerScrolled : ""
-  }`;
+  const handleMobileSheetClose = () => {
+    setMobileSheetOpen(false);
+    setMobileServicesView(false);
+  };
 
   return (
     <>
       <a className={styles.skipLink} href="#main-content">
         Skip to main content
       </a>
-      <HeaderScrollState className={styles.headerSentinel} onScrolledChange={handleScrolledChange} />
-      <header className={headerClass} data-homepage={isHomepage || undefined} data-scrolled={scrolled || undefined}>
+
+      <header className={styles.header}>
         <div className={styles.headerInner}>
-          <Link aria-label="KT Couriers" className={styles.brandLink} href="/" onClick={() => setServicesOpen(false)}>
+          <Link
+            aria-label="KT Couriers"
+            className={styles.brandLink}
+            href="/"
+            onClick={() => setServicesOpen(false)}
+          >
             <KtCouriersWordmark compactMark />
           </Link>
 
+          {/* Desktop Primary Navigation */}
           <DesktopPrimaryNavigation
             onOpenServices={() => setServicesOpen((prev) => !prev)}
             servicesOpen={servicesOpen}
           />
 
+          {/* Desktop Utilities */}
           <div className={styles.headerUtilities}>
             <Link className={styles.utilLink} href="/join">
               Join
@@ -51,7 +57,12 @@ export function PublicHeaderV3() {
             <Link className={styles.utilLink} href="/login">
               Sign in
             </Link>
-            <Link aria-label="Cart" className={styles.utilLink} href="/cart" style={{ display: "inline-flex", alignItems: "center" }}>
+            <Link
+              aria-label="Cart"
+              className={styles.utilLink}
+              href="/cart"
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
               <KtIconCart size={18} />
             </Link>
             <Link className={styles.quoteButton} href="/account/request-delivery">
@@ -59,18 +70,27 @@ export function PublicHeaderV3() {
             </Link>
           </div>
 
+          {/* Compact Top Bar (Mobile / Tablet <= 1023px) */}
           <div className={styles.compactTopBar}>
-            <Link aria-label="Cart" className={styles.utilLink} href="/cart" style={{ padding: "8px 6px" }}>
-              <KtIconCart size={20} />
+            <Link
+              aria-label="Search"
+              className={styles.compactIconButton}
+              href={marketplaceSearchHref()}
+            >
+              <KtIconSearch size={20} />
             </Link>
-            <Link className={styles.quoteButton} href="/account/request-delivery" style={{ padding: "7px 12px", fontSize: "0.825rem" }}>
-              Quote
+            <Link
+              aria-label="Cart"
+              className={styles.compactIconButton}
+              href="/cart"
+            >
+              <KtIconCart size={20} />
             </Link>
             <button
               aria-expanded={mobileSheetOpen}
               aria-label={mobileSheetOpen ? "Close menu" : "Open menu"}
+              className={styles.compactIconButton}
               onClick={() => setMobileSheetOpen(true)}
-              style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: "6px" }}
               type="button"
             >
               <KtIconMenu size={22} />
@@ -78,115 +98,126 @@ export function PublicHeaderV3() {
           </div>
         </div>
 
-        <ServicesAtlasMenu onClose={() => setServicesOpen(false)} open={servicesOpen} />
+        {/* Desktop Service Index Plane */}
+        <ServicesAtlasMenu
+          onClose={() => setServicesOpen(false)}
+          open={servicesOpen}
+        />
       </header>
 
+      {/* Mobile Menu Sheet */}
       <MobileSheet
-        ariaLabel="KT Couriers site menu"
+        ariaLabel="Site navigation menu"
         closeOnBackdropClick
         description="Explore KT Couriers services, coverage and network."
-        onOpenChange={setMobileSheetOpen}
+        onOpenChange={(open) => {
+          if (!open) handleMobileSheetClose();
+          else setMobileSheetOpen(true);
+        }}
         open={mobileSheetOpen}
-        title="Menu"
+        title={mobileServicesView ? "All Services" : "Navigation"}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "20px 0" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Link
-              href={marketplaceHref()}
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1.1rem", fontWeight: 560, textDecoration: "none", color: "var(--kt-carbon)" }}
-            >
-              Marketplace
-            </Link>
-            <Link
-              href="/services"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1.1rem", fontWeight: 560, textDecoration: "none", color: "var(--kt-carbon)" }}
-            >
-              All Services
-            </Link>
-            <Link
-              href="/services/parcel"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "0.95rem", color: "var(--kt-graphite)", paddingLeft: 12, textDecoration: "none" }}
-            >
-              Parcels & Documents
-            </Link>
-            <Link
-              href="/services/business"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "0.95rem", color: "var(--kt-graphite)", paddingLeft: 12, textDecoration: "none" }}
-            >
-              Business & Store Delivery
-            </Link>
-            <Link
-              href="/services/food"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "0.95rem", color: "var(--kt-graphite)", paddingLeft: 12, textDecoration: "none" }}
-            >
-              Food & Grocery
-            </Link>
-            <Link
-              href="/services/freight"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "0.95rem", color: "var(--kt-graphite)", paddingLeft: 12, textDecoration: "none" }}
-            >
-              Freight & Heavy Moving
-            </Link>
-            <Link
-              href="/coverage-areas"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1.1rem", fontWeight: 560, textDecoration: "none", color: "var(--kt-carbon)", marginTop: 8 }}
-            >
-              Coverage Areas
-            </Link>
-            <Link
-              href="/join"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1.1rem", fontWeight: 560, textDecoration: "none", color: "var(--kt-carbon)" }}
-            >
-              Join the Network
-            </Link>
-            <Link
-              href="/about"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1.1rem", fontWeight: 560, textDecoration: "none", color: "var(--kt-carbon)" }}
-            >
-              About KT Couriers
-            </Link>
-            <Link
-              href="/faq"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1.1rem", fontWeight: 560, textDecoration: "none", color: "var(--kt-carbon)" }}
-            >
-              FAQ
-            </Link>
-            <Link
-              href="/contact"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1.1rem", fontWeight: 560, textDecoration: "none", color: "var(--kt-carbon)" }}
-            >
-              Contact Support
-            </Link>
-          </div>
+        <div className={styles.mobileMenuContainer}>
+          {mobileServicesView ? (
+            <div>
+              <button
+                className={styles.mobileBackButton}
+                onClick={() => setMobileServicesView(false)}
+                type="button"
+              >
+                <KtIconBack size={18} />
+                <span>Main menu</span>
+              </button>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 16, borderTop: "1px solid var(--kt-cool-200)" }}>
-            <Link
-              href="/login"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ fontSize: "1rem", fontWeight: 560, color: "var(--kt-carbon)", textDecoration: "none" }}
-            >
-              Sign in to account
-            </Link>
-            <Link
-              className={styles.quoteButton}
-              href="/account/request-delivery"
-              onClick={() => setMobileSheetOpen(false)}
-              style={{ justifyContent: "center", width: "100%" }}
-            >
-              Request delivery quote
-            </Link>
-          </div>
+              <ul className={styles.mobileSubList}>
+                {allServices.map((service) => (
+                  <li key={service.id}>
+                    <Link
+                      className={styles.mobileSubRow}
+                      href={service.href}
+                      onClick={handleMobileSheetClose}
+                    >
+                      <span>{service.title}</span>
+                      <KtIconArrowRight size={16} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <ul className={styles.mobileMenuMainList}>
+              <li>
+                <Link
+                  className={styles.mobileMenuRow}
+                  href={marketplaceHref()}
+                  onClick={handleMobileSheetClose}
+                >
+                  <span>Shop</span>
+                  <KtIconArrowRight size={16} />
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className={styles.mobileMenuRow}
+                  href="/account/request-delivery"
+                  onClick={handleMobileSheetClose}
+                >
+                  <span>Send</span>
+                  <KtIconArrowRight size={16} />
+                </Link>
+              </li>
+              <li>
+                <button
+                  className={styles.mobileMenuRow}
+                  onClick={() => setMobileServicesView(true)}
+                  type="button"
+                >
+                  <span>Services</span>
+                  <KtIconArrowRight size={16} />
+                </button>
+              </li>
+              <li>
+                <Link
+                  className={styles.mobileMenuRow}
+                  href="/coverage-areas"
+                  onClick={handleMobileSheetClose}
+                >
+                  <span>Coverage</span>
+                  <KtIconArrowRight size={16} />
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className={styles.mobileMenuRow}
+                  href="/services/business"
+                  onClick={handleMobileSheetClose}
+                >
+                  <span>Business</span>
+                  <KtIconArrowRight size={16} />
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className={styles.mobileMenuRow}
+                  href="/join"
+                  onClick={handleMobileSheetClose}
+                >
+                  <span>Join</span>
+                  <KtIconArrowRight size={16} />
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className={styles.mobileMenuRow}
+                  href="/login"
+                  onClick={handleMobileSheetClose}
+                >
+                  <span>Sign in</span>
+                  <KtIconArrowRight size={16} />
+                </Link>
+              </li>
+            </ul>
+          )}
         </div>
       </MobileSheet>
     </>

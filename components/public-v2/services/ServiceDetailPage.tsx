@@ -12,6 +12,9 @@ import { getServiceMedia } from "@/lib/public-assets/service-media";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import styles from "./service-pages.module.css";
 
+// Canonical authenticated quote path for delivery requests
+const CANONICAL_QUOTE_PATH = "/account/request-delivery";
+
 interface ServiceWorldProps {
   service: PublicServicePageDefinition;
 }
@@ -54,7 +57,10 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
           <h1 className={styles.tactileTitle}>{service.title}</h1>
           <p className={styles.tactileLead}>{service.summary}</p>
           <div className={styles.detailHeroActions}>
-            <Link className={styles.detailPrimaryAction} href={service.primaryAction.href}>
+            <Link
+              className={styles.detailPrimaryAction}
+              href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
+            >
               {service.primaryAction.label} <KtIconArrowRight size={16} />
             </Link>
           </div>
@@ -86,7 +92,7 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
           </div>
 
           <div className={styles.tactileCard}>
-            <h3 className={styles.cardHeader}>Preparation Notes</h3>
+            <h3 className={styles.cardHeader}>Preparation Guide</h3>
             <ul className={styles.bulletList}>
               {service.preparation.map((item) => (
                 <li key={item}>{item}</li>
@@ -95,16 +101,17 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
           </div>
         </div>
 
+        {/* Secondary Detail Media Mosaic */}
         {detailMediaItems.length > 0 && (
-          <div className={styles.tactilePhotoStrip}>
-            {detailMediaItems.map((m, idx) => (
-              <div className={styles.photoStripCard} key={m.src + idx}>
+          <div className={styles.detailMediaMosaic}>
+            {detailMediaItems.map((item, idx) => (
+              <div className={styles.mosaicFrame} key={idx}>
                 <Image
-                  alt={m.alt}
+                  alt={item.alt}
                   fill
-                  sizes="320px"
-                  src={m.src}
-                  style={{ objectFit: "cover", objectPosition: m.focalPoint }}
+                  sizes="(max-width: 767px) 100vw, 50vw"
+                  src={item.src}
+                  style={{ objectFit: "cover", objectPosition: item.focalPoint }}
                 />
               </div>
             ))}
@@ -118,7 +125,7 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
 }
 
 /* =========================================================================
-   FAMILY 2: COMMERCE & BUSINESS FLOW (ecommerce, business, driver-network)
+   FAMILY 2: COMMERCE & BUSINESS (ecommerce, business, driver-network)
    ========================================================================= */
 function CommerceBusinessWorld({ service }: ServiceWorldProps) {
   const heroMedia = getServiceMedia(service.heroMediaId);
@@ -126,47 +133,43 @@ function CommerceBusinessWorld({ service }: ServiceWorldProps) {
 
   return (
     <div className={styles.businessWorld}>
-      {/* Asymmetric Commercial Header */}
+      {/* High-density Commerce Header */}
       <section className={styles.businessHero}>
-        <div className={styles.businessMediaLarge}>
+        <div className={styles.businessHeaderLeft}>
+          <h1 className={styles.businessTitle}>{service.title}</h1>
+          <p className={styles.businessLead}>{service.summary}</p>
+          <div className={styles.detailHeroActions}>
+            <Link
+              className={styles.detailPrimaryAction}
+              href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
+            >
+              {service.primaryAction.label} <KtIconArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+
+        <div className={styles.businessHeroMediaStage}>
           <Image
             alt={heroMedia.alt}
             fill
             priority
-            sizes="(max-width: 1023px) 100vw, 55vw"
+            sizes="(max-width: 1023px) 100vw, 50vw"
             src={heroMedia.src}
             style={{ objectFit: "cover", objectPosition: heroMedia.focalPoint }}
           />
         </div>
-
-        <div className={styles.businessTextPlane}>
-          <h1 className={styles.businessTitle}>{service.title}</h1>
-          <p className={styles.businessSummary}>{service.summary}</p>
-          <div className={styles.detailHeroActions}>
-            <Link className={styles.detailPrimaryAction} href={service.primaryAction.href}>
-              {service.primaryAction.label} <KtIconArrowRight size={16} />
-            </Link>
-            {service.secondaryAction && (
-              <Link className={styles.detailSecondaryAction} href={service.secondaryAction.href}>
-                {service.secondaryAction.label}
-              </Link>
-            )}
-          </div>
-        </div>
       </section>
 
-      {/* Operational Workflow Architecture */}
-      <section className={styles.businessWorkflowSection}>
-        <h2 className={styles.worldSectionTitle}>Merchant Operations & Integration</h2>
-        <div className={styles.businessWorkflowList}>
-          {service.idealFor.map((item, idx) => (
-            <div className={styles.workflowRow} key={item}>
-              <span className={styles.workflowIndex}>0{idx + 1}</span>
+      {/* Structured Account Operations */}
+      <section className={styles.businessOpsSection}>
+        <h2 className={styles.worldSectionTitle}>Account Operations & Dispatch</h2>
+        <div className={styles.workflowGrid}>
+          {service.process.map((step, idx) => (
+            <div className={styles.workflowStepCard} key={idx}>
+              <span className={styles.stepNumber}>0{idx + 1}</span>
               <div>
-                <h3 className={styles.workflowHeading}>{item}</h3>
-                <p className={styles.workflowDesc}>
-                  Configured through authenticated account management and coordinate-based dispatch review.
-                </p>
+                <h3 className={styles.workflowHeading}>{step.title}</h3>
+                <p className={styles.workflowDesc}>{step.description}</p>
               </div>
             </div>
           ))}
@@ -215,7 +218,10 @@ function PlannedMovementWorld({ service }: ServiceWorldProps) {
           <h1 className={styles.plannedTitle}>{service.title}</h1>
           <p className={styles.plannedLead}>{service.summary}</p>
           <div className={styles.detailHeroActions}>
-            <Link className={styles.detailPrimaryAction} href={service.primaryAction.href}>
+            <Link
+              className={styles.detailPrimaryAction}
+              href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
+            >
               {service.primaryAction.label} <KtIconArrowRight size={16} />
             </Link>
           </div>
@@ -304,7 +310,10 @@ function PricingIntelligenceWorld({ service }: ServiceWorldProps) {
           <p style={{ color: "var(--kt-cool-350, #adb5b2)", margin: "0 0 24px", maxWidth: 600 }}>
             Enter your pickup and drop-off coordinates in the delivery request form to receive an exact quote.
           </p>
-          <Link className={styles.detailPrimaryAction} href={service.primaryAction.href}>
+          <Link
+            className={styles.detailPrimaryAction}
+            href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
+          >
             <span>Request a Delivery Quote</span>
             <KtIconArrowRight size={16} />
           </Link>

@@ -149,13 +149,13 @@ export function CommerceJourneyCrawler({ categories = [] }: CommerceJourneyCrawl
             return (
               <Link
                 className={itemClass}
+                data-actor={idx === 0 ? "crawler-first-item" : isActive ? "crawler-active-item" : undefined}
                 data-crawler-item={item.id}
                 data-index={idx}
                 href={item.href}
                 key={item.id}
                 onFocus={() => setActiveIdx(idx)}
                 onMouseEnter={() => {
-                  // Secondary mouse hover preview on desktop
                   if (window.matchMedia("(pointer: fine)").matches) {
                     setActiveIdx(idx);
                   }
