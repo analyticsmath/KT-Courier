@@ -9,6 +9,7 @@ export type OpenReconciliationInput = Readonly<{
   attemptId?: string | null;
   webhookEventId?: string | null;
   reason: PaymentReconciliationReasonCode;
+  provider?: "PAYFAST" | "PAYSTACK";
   safeEvidence?: Readonly<Record<string, string | number | boolean | null>>;
 }>;
 
@@ -17,14 +18,15 @@ function publicReference(): string {
 }
 
 function caseKey(input: OpenReconciliationInput): string {
-  return `payfast:${input.paymentId}:${input.attemptId ?? "payment"}:${input.reason}`;
+  const provider = (input.provider ?? "PAYFAST").toLowerCase();
+  return `${provider}:${input.paymentId}:${input.attemptId ?? "payment"}:${input.reason}`;
 }
 
 async function writeReconciliationHistory(
   tx: Prisma.TransactionClient,
   input: OpenReconciliationInput,
   reconciliationCase: { publicReference: string },
-  reasonCode: "PAYFAST_RECONCILIATION_OPENED" | "PAYFAST_RECONCILIATION_REOPENED",
+  reasonCode: string,
 ): Promise<void> {
   const payment = await tx.payment.findUnique({ where: { id: input.paymentId }, select: { status: true } });
   if (!payment) return;
@@ -51,6 +53,7 @@ export async function openPaymentReconciliationCaseWithinTransaction(
 ) {
   const now = new Date();
   const key = caseKey(input);
+  const provider = input.provider ?? "PAYFAST";
   const existing = await tx.paymentReconciliationCase.findUnique({ where: { caseKey: key } });
   if (existing) {
     const wasResolved = existing.status === "CLOSED" || existing.status === "RESOLVED";
@@ -65,7 +68,7 @@ export async function openPaymentReconciliationCaseWithinTransaction(
         resolutionCode: null,
       },
     });
-    if (wasResolved) await writeReconciliationHistory(tx, input, updated, "PAYFAST_RECONCILIATION_REOPENED");
+    if (wasResolved) await writeReconciliationHistory(tx, input, updated, `${provider}_RECONCILIATION_REOPENED`);
     return updated;
   }
   const created = await tx.paymentReconciliationCase.create({
@@ -75,7 +78,7 @@ export async function openPaymentReconciliationCaseWithinTransaction(
       paymentId: input.paymentId,
       attemptId: input.attemptId ?? null,
       webhookEventId: input.webhookEventId ?? null,
-      provider: "PAYFAST",
+      provider,
       reason: input.reason,
       status: "OPEN",
       priority: reconciliationPriority(input.reason),
@@ -85,7 +88,7 @@ export async function openPaymentReconciliationCaseWithinTransaction(
       lastObservedAt: now,
     },
   });
-  await writeReconciliationHistory(tx, input, created, "PAYFAST_RECONCILIATION_OPENED");
+  await writeReconciliationHistory(tx, input, created, `${provider}_RECONCILIATION_OPENED`);
   return created;
 }
 

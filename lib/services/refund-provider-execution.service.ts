@@ -14,7 +14,7 @@ import { assertRefundProductionActivation } from "@/lib/refunds/refund-productio
 import { assertRefundTransition } from "@/lib/refunds/refund-state-machine";
 import type { ProviderRefundInput, ProviderRefundResult, RefundProviderAdapter } from "@/lib/refunds/providers/refund-provider-adapter";
 import { validateRefundProviderResult, unknownRefundProviderResult } from "@/lib/refunds/providers/refund-provider-result";
-import { RefundProviderRegistry } from "@/lib/refunds/providers/refund-provider-registry";
+import { RefundProviderRegistry, createProductionRefundProviderRegistry } from "@/lib/refunds/providers/refund-provider-registry";
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { completeStoreEarningRefundProjectionsWithinTransaction } from "./store-earning-refund.service";
 import { completeDriverEarningRefundProjectionsWithinTransaction } from "./driver-earning-refund.service";
@@ -219,9 +219,11 @@ export async function startProviderRefund(input: Readonly<{ actorUserId: string;
   (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
   const operationId = assertRefundOperationId(input.operationId);
   const preflight = await prisma.paymentRefund.findUnique({ where: { publicReference: input.publicReference }, include: { payment: true } });
-  if (!preflight || preflight.payment.provider !== "PAYFAST") throw new RefundError("REFUND_PROVIDER_UNSUPPORTED", "Refund provider is unavailable.");
-  const registry = dependencies.registry ?? new RefundProviderRegistry();
-  const adapter = registry.getAdapter("PAYFAST");
+  if (!preflight || !preflight.payment.provider || !["PAYSTACK", "PAYFAST"].includes(preflight.payment.provider)) {
+    throw new RefundError("REFUND_PROVIDER_UNSUPPORTED", "Refund provider is unavailable.");
+  }
+  const registry = dependencies.registry ?? createProductionRefundProviderRegistry();
+  const adapter = registry.getAdapter(preflight.payment.provider as "PAYSTACK" | "PAYFAST");
   const reservation = await reserveProviderAttempt({ ...input, operationId }, adapter);
   if (reservation.blocked) throw new RefundError("REFUND_PROVIDER_UNSUPPORTED", "Provider cannot safely execute this refund method; reconciliation was opened.");
   if (reservation.replayed) return reservation.refund;

@@ -33,19 +33,30 @@ export async function POST(
     const payment = await getOwnedPaymentIdentity(user.id, parsedParams.data.publicReference);
     if (!payment) return noStoreJson({ error: "Payment not found." }, 404);
     const registry = createProductionPaymentProviderRegistry();
-    registry.getAdapter("PAYFAST");
-    if (payment.status === "REQUIRES_ACTION" && payment.currentAttemptReference && payment.currentActionType === "FORM_POST") {
-      return noStoreJson({ checkoutUrl: `/payments/payfast/checkout/${encodeURIComponent(payment.currentAttemptReference)}` });
+    registry.getAdapter("PAYSTACK");
+    if (payment.status === "REQUIRES_ACTION" && payment.currentAttemptReference) {
+      if (payment.currentActionType === "REDIRECT_GET" && payment.currentRedirectUrl) {
+        return noStoreJson({ checkoutUrl: payment.currentRedirectUrl });
+      }
+      if (payment.currentActionType === "FORM_POST") {
+        return noStoreJson({ checkoutUrl: `/payments/payfast/checkout/${encodeURIComponent(payment.currentAttemptReference)}` });
+      }
     }
     const session = await createProviderCheckoutSession(
       { id: user.id },
-      { paymentId: payment.id, provider: "PAYFAST", idempotencyKey: parsed.data.operationId },
+      { paymentId: payment.id, provider: "PAYSTACK", idempotencyKey: parsed.data.operationId },
       { registry },
     );
-    if (!session.attempt.publicReference || session.attempt.checkoutActionType !== "FORM_POST") {
-      return noStoreJson({ error: "Payfast checkout is not ready." }, 503);
+    if (!session.attempt.publicReference) {
+      return noStoreJson({ error: "Paystack checkout is not ready." }, 503);
     }
-    return noStoreJson({ checkoutUrl: `/payments/payfast/checkout/${encodeURIComponent(session.attempt.publicReference)}` });
+    if (session.attempt.checkoutActionType === "REDIRECT_GET" && session.attempt.redirectUrl) {
+      return noStoreJson({ checkoutUrl: session.attempt.redirectUrl });
+    }
+    if (session.attempt.checkoutActionType === "FORM_POST") {
+      return noStoreJson({ checkoutUrl: `/payments/payfast/checkout/${encodeURIComponent(session.attempt.publicReference)}` });
+    }
+    return noStoreJson({ error: "Checkout action is not supported." }, 503);
   } catch (error) {
     return paymentApiError(error);
   }

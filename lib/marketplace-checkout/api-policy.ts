@@ -57,8 +57,12 @@ export function integerField(body: Record<string, unknown>, key: string): number
 }
 
 export function marketplaceError(error: unknown): NextResponse {
-  if ((error as { code?: unknown })?.code === MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON) {
-    return marketplaceJson({ error: "Marketplace checkout is awaiting consolidated validation.", code: MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON }, 503);
+  const code = (error as { code?: unknown })?.code;
+  if (code === "CHECKOUT_PUBLIC_DISABLED" || code === MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON) {
+    return marketplaceJson({
+      error: "Online checkout is temporarily paused for scheduled maintenance.",
+      code: "CHECKOUT_PUBLIC_DISABLED",
+    }, 503);
   }
   if (error instanceof MarketplaceCheckoutError) {
     const status = error.code.includes("ACCESS") ? 404 : error.code.includes("CONFLICT") ? 409 : error.code.includes("LOCKED") || error.code.includes("BLOCKED") ? 503 : 422;

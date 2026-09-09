@@ -24,7 +24,7 @@ const routeCopy: Record<
       "Online purchasing and cart management are not enabled on this public preview. Product and merchant browsing remain open.",
   },
   checkout: {
-    title: "Checkout is currently inactive",
+    title: "Online checkout is temporarily paused for scheduled maintenance.",
     description:
       "Online order placement is not active on this public preview. You can continue browsing local merchants and catalog items.",
   },

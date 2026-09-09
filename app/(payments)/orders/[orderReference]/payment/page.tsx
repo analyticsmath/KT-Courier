@@ -23,8 +23,9 @@ export default async function OrderPaymentPage({
   if (!parsed.success) notFound();
   const page = await getCustomerPaymentPage(user, parsed.data.orderReference);
   if (!page) notFound();
-  const payfast = listPaymentProviders().data.find((entry) => entry.code === "PAYFAST");
-  if (!payfast) notFound();
+  const providerConfig = listPaymentProviders().data.find((entry) => entry.code === "PAYSTACK")
+    ?? listPaymentProviders().data.find((entry) => entry.code === "PAYFAST");
+  if (!providerConfig) notFound();
 
   return (
     <ProtectedPageFrame className="max-w-2xl">
@@ -38,13 +39,13 @@ export default async function OrderPaymentPage({
           <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Order reference</dt><dd className="mt-1 font-bold">{page.orderReference}</dd></div>
           <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Amount</dt><dd className="mt-1 font-mono text-xl font-black">ZAR {page.amount}</dd></div>
           <div><dt className="text-xs font-bold uppercase text-[var(--eo-text-muted)]">Payment status</dt><dd className="mt-1"><ProtectedStatus {...getCustomerPaymentStatusPresentation(page.payment?.status)} /></dd></div>
-          <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Provider</dt><dd className="mt-1">Payfast</dd></div>
+          <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Provider</dt><dd className="mt-1">{providerConfig.code === "PAYSTACK" ? "Paystack" : "Payfast"}</dd></div>
         </dl>
         <PaymentCheckoutClient
           orderId={page.orderId}
           orderReference={page.orderReference}
           initialPayment={page.payment}
-          provider={{ active: payfast.active, environment: payfast.environment, blockReason: payfast.blockReason }}
+          provider={{ active: providerConfig.active, environment: providerConfig.environment, blockReason: providerConfig.blockReason }}
         />
       </OperationalPanel>
     </ProtectedPageFrame>

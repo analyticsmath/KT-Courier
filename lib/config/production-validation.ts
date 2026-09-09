@@ -1,4 +1,4 @@
-import { resolvePayfastConfiguration } from "@/lib/payments/providers/payfast/payfast-config";
+import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 
 export type ConfigurationBlock = "STARTUP" | "READINESS" | "NONE";
 
@@ -78,13 +78,13 @@ export function evaluateProductionConfiguration(
   }
 
   const checkoutEnabled = source.CHECKOUT_PUBLIC_ENABLED === "true";
-  const payfast = resolvePayfastConfiguration(source);
-  if (checkoutEnabled && (!payfast.runtime || payfast.state.environment !== "production")) {
+  const paystack = resolvePaystackConfiguration(source);
+  if (checkoutEnabled && (!paystack.state.active || !paystack.runtime || paystack.state.environment !== "production")) {
     issues.push(issue("checkout", "PAYMENT_AUTHORITY_UNAVAILABLE", "APPROVED_LIVE_PAYMENT_CONFIGURATION", "READINESS"));
   }
 
-  if (checkoutEnabled && !hasUsableValue(source.PAYFAST_PASSPHRASE)) {
-    issues.push(issue("checkout", "PAYMENT_CREDENTIAL_UNSAFE", "PAYMENT_CREDENTIAL_ROTATION", "READINESS"));
+  if (checkoutEnabled && (!hasUsableValue(source.PAYSTACK_SECRET_KEY) || !source.PAYSTACK_SECRET_KEY!.startsWith("sk_live_"))) {
+    issues.push(issue("checkout", "PAYMENT_CREDENTIAL_UNSAFE", "PAYMENT_CREDENTIAL_LIVE_SECRET", "READINESS"));
   }
 
   if (source.EMAIL_PROVIDER === "console") {

@@ -24,7 +24,7 @@ import {
 import { validateProviderResult, type ValidatedProviderResult } from "@/lib/payments/providers/provider-result-validation";
 import { buildServerPaymentCallbackUrls, type PaymentCallbackUrls } from "@/lib/payments/return-url-policy";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
-import { PAYMENT_SESSION_POLICY_VERSION, type PaymentAttemptState, type PaymentState } from "@/lib/payments/types";
+import { PAYMENT_SESSION_POLICY_VERSION, type PaymentAttemptState, type PaymentProviderCode, type PaymentState } from "@/lib/payments/types";
 import { CreateProviderSessionSchema, type CreateProviderSessionInput } from "@/lib/validation/payments";
 import { assertPaymentSubjectIntegrity } from "@/lib/payments/payment-subject-policy";
 
@@ -93,7 +93,7 @@ function providerRequestInput(reservation: ReservedSession): ProviderCheckoutSes
 
 function attemptHash(args: {
   paymentId: string;
-  provider: "PAYFAST";
+  provider: PaymentProviderCode;
   amount: string;
   currency: "ZAR";
   callbackUrls: PaymentCallbackUrls;
@@ -287,11 +287,11 @@ async function reserveMarketplaceAttempt(
     const payment = await tx.payment.findUnique({ where: { id: input.paymentId }, include: { marketplaceCheckout: true } });
     if (!payment || !payment.marketplaceCheckout) throw new PaymentError("PAYMENT_NOT_FOUND", "Marketplace payment was not found.");
     assertPaymentSubjectIntegrity({ subjectType: payment.subjectType, userId: payment.userId, orderId: payment.orderId, marketplaceCheckoutId: payment.marketplaceCheckoutId, marketplaceOrderId: payment.marketplaceOrderId, checkoutCustomerUserId: payment.marketplaceCheckout.customerUserId, checkoutGuestAccessTokenHash: payment.marketplaceCheckout.guestAccessTokenHash });
-    if (payment.subjectType !== "MARKETPLACE_CHECKOUT" || payment.currency !== "ZAR" || !validPayerEmail(input.payerEmail)) throw new PaymentError("PAYFAST_PAYER_EMAIL_REQUIRED", "A valid marketplace payer email is required.");
+    if (payment.subjectType !== "MARKETPLACE_CHECKOUT" || payment.currency !== "ZAR" || !validPayerEmail(input.payerEmail)) throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid marketplace payer email is required.");
     if (!payment.marketplaceCheckout.customerUserId && !input.guestCheckoutEvidence) throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Guest checkout ownership evidence is required.");
     const callbackUrls = callbackUrlFactory(payment.publicReference);
     const description = `KT Couriers marketplace checkout ${payment.marketplaceCheckout.publicReference}`.slice(0, 160);
-    const requestHash = attemptHash({ paymentId: payment.id, provider: "PAYFAST", amount: payment.amount.toFixed(2), currency: "ZAR", callbackUrls, description, configurationFingerprint: adapter.checkoutAudit.configurationFingerprint });
+    const requestHash = attemptHash({ paymentId: payment.id, provider: adapter.code, amount: payment.amount.toFixed(2), currency: "ZAR", callbackUrls, description, configurationFingerprint: adapter.checkoutAudit.configurationFingerprint });
     const existing = await tx.paymentAttempt.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
     const payerUserId = payment.userId ?? `guest:${payment.marketplaceCheckout.id}`;
     if (existing) {
@@ -304,10 +304,10 @@ async function reserveMarketplaceAttempt(
     const nextAttemptNumber = payment.latestAttemptNumber + 1;
     const merchantReference = createMerchantReference(payment.publicReference, nextAttemptNumber);
     assertPaymentTransition(payment.status as PaymentState, "PROVIDER_PENDING");
-    const updated = await tx.payment.updateMany({ where: { id: payment.id, version: payment.version, status: payment.status }, data: { provider: "PAYFAST", status: "PROVIDER_PENDING", latestAttemptNumber: nextAttemptNumber, version: { increment: 1 }, failedAt: null, expiresAt: null } });
+    const updated = await tx.payment.updateMany({ where: { id: payment.id, version: payment.version, status: payment.status }, data: { provider: adapter.code, status: "PROVIDER_PENDING", latestAttemptNumber: nextAttemptNumber, version: { increment: 1 }, failedAt: null, expiresAt: null } });
     if (updated.count !== 1) throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Marketplace payment reservation lost a concurrent update.", true);
-    const attempt = await tx.paymentAttempt.create({ data: { paymentId: payment.id, publicReference: newPublicAttemptReference(), attemptNumber: nextAttemptNumber, provider: "PAYFAST", idempotencyKey: input.idempotencyKey, requestHash, merchantReference, status: "RESERVED", amount: payment.amount, currency: "ZAR", providerEnvironment: adapter.checkoutAudit.environment, providerProtocolVersion: adapter.checkoutAudit.protocolVersion, configurationFingerprint: adapter.checkoutAudit.configurationFingerprint, providerCredentialVersion: adapter.checkoutAudit.credentialVersion, version: 0 } });
-    await tx.paymentStatusHistory.create({ data: { paymentId: payment.id, attemptId: attempt.id, fromStatus: payment.status, toStatus: "PROVIDER_PENDING", reasonCode: "MARKETPLACE_PROVIDER_ATTEMPT_RESERVED", actorType: payment.userId ? "PAYER" : "SYSTEM", actorId: payment.userId, metadata: { provider: "PAYFAST", attemptNumber: nextAttemptNumber, checkoutReference: payment.marketplaceCheckout.publicReference } } });
+    const attempt = await tx.paymentAttempt.create({ data: { paymentId: payment.id, publicReference: newPublicAttemptReference(), attemptNumber: nextAttemptNumber, provider: adapter.code, idempotencyKey: input.idempotencyKey, requestHash, merchantReference, status: "RESERVED", amount: payment.amount, currency: "ZAR", providerEnvironment: adapter.checkoutAudit.environment, providerProtocolVersion: adapter.checkoutAudit.protocolVersion, configurationFingerprint: adapter.checkoutAudit.configurationFingerprint, providerCredentialVersion: adapter.checkoutAudit.credentialVersion, version: 0 } });
+    await tx.paymentStatusHistory.create({ data: { paymentId: payment.id, attemptId: attempt.id, fromStatus: payment.status, toStatus: "PROVIDER_PENDING", reasonCode: "MARKETPLACE_PROVIDER_ATTEMPT_RESERVED", actorType: payment.userId ? "PAYER" : "SYSTEM", actorId: payment.userId, metadata: { provider: adapter.code, attemptNumber: nextAttemptNumber, checkoutReference: payment.marketplaceCheckout.publicReference } } });
     return { paymentId: payment.id, paymentStatus: "PROVIDER_PENDING", paymentPublicReference: payment.publicReference, payerUserId, payerEmail: input.payerEmail.trim().toLowerCase(), payerName: null, orderReference: payment.marketplaceCheckout.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR", description, attempt, requestHash, callbackUrls, replayed: false } as ReservedSession;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }
@@ -447,7 +447,7 @@ async function finalizeAttempt(
       toStatus: PaymentState;
       reasonCode: string;
       actorType: "PROVIDER";
-      metadata: { provider: "PAYFAST" };
+      metadata: { provider: string };
     }> = [];
     let versionIncrement = 1;
     if (targetPaymentStatus === "SUCCEEDED") {
@@ -455,12 +455,12 @@ async function finalizeAttempt(
       assertPaymentTransition("PROCESSING", "SUCCEEDED");
       versionIncrement = 2;
       historyRows.push(
-        { paymentId: payment.id, attemptId: attempt.id, fromStatus: fromPaymentStatus, toStatus: "PROCESSING", reasonCode: "PROVIDER_ACCEPTED", actorType: "PROVIDER", metadata: { provider: "PAYFAST" } },
-        { paymentId: payment.id, attemptId: attempt.id, fromStatus: "PROCESSING", toStatus: "SUCCEEDED", reasonCode: "PROVIDER_CONFIRMED_SUCCESS", actorType: "PROVIDER", metadata: { provider: "PAYFAST" } },
+        { paymentId: payment.id, attemptId: attempt.id, fromStatus: fromPaymentStatus, toStatus: "PROCESSING", reasonCode: "PROVIDER_ACCEPTED", actorType: "PROVIDER", metadata: { provider: attempt.provider } },
+        { paymentId: payment.id, attemptId: attempt.id, fromStatus: "PROCESSING", toStatus: "SUCCEEDED", reasonCode: "PROVIDER_CONFIRMED_SUCCESS", actorType: "PROVIDER", metadata: { provider: attempt.provider } },
       );
     } else {
       assertPaymentTransition(fromPaymentStatus, targetPaymentStatus);
-      historyRows.push({ paymentId: payment.id, attemptId: attempt.id, fromStatus: fromPaymentStatus, toStatus: targetPaymentStatus, reasonCode: `PROVIDER_${targetAttemptStatus}`, actorType: "PROVIDER", metadata: { provider: "PAYFAST" } });
+      historyRows.push({ paymentId: payment.id, attemptId: attempt.id, fromStatus: fromPaymentStatus, toStatus: targetPaymentStatus, reasonCode: `PROVIDER_${targetAttemptStatus}`, actorType: "PROVIDER", metadata: { provider: attempt.provider } });
     }
 
     const paymentUpdate = await tx.payment.updateMany({
@@ -580,7 +580,7 @@ export async function createMarketplaceProviderCheckoutSession(
 ): Promise<ProviderSessionDto> {
   const callbackUrlFactory = dependencies.callbackUrls ?? buildServerPaymentCallbackUrls;
   const registry = dependencies.registry ?? createProductionPaymentProviderRegistry();
-  const adapter = registry.getAdapter("PAYFAST");
+  const adapter = registry.getAdapter("PAYSTACK");
   const reservation = await reserveMarketplaceAttempt(input, callbackUrlFactory, adapter);
   if (reservation.replayed) return sessionDto({ paymentId: reservation.paymentId, paymentStatus: reservation.paymentStatus, attempt: reservation.attempt, replayed: true });
   const request = providerRequestInput(reservation);

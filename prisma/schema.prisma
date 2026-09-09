@@ -2117,6 +2117,7 @@ enum PaymentProvider {
   PEACH
   STRIPE
   MANUAL
+  PAYSTACK
 }
 
 enum PaymentPurpose {

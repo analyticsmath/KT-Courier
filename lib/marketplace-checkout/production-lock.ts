@@ -1,24 +1,49 @@
+import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
+
 export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false as const;
-export const MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
+export const MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON = "CHECKOUT_PUBLIC_DISABLED" as const;
+export const MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON = "CHECKOUT_PUBLIC_DISABLED" as const;
 
 export class MarketplaceCheckoutProductionLockedError extends Error {
-  readonly code = MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON;
+  readonly code: string;
 
-  constructor(readonly operation: "DELIVERY_QUOTE" | "CHECKOUT_REVIEW" | "ACKNOWLEDGEMENT" | "RESERVATION" | "PAYMENT" | "ORDER_FINALIZATION" | "SETTLEMENT" | "CANCELLATION") {
-    super(`${operation} is inactive until consolidated validation is approved.`);
+  constructor(
+    readonly operation: "DELIVERY_QUOTE" | "CHECKOUT_REVIEW" | "ACKNOWLEDGEMENT" | "RESERVATION" | "PAYMENT" | "ORDER_FINALIZATION" | "SETTLEMENT" | "CANCELLATION",
+    code: string = MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON,
+  ) {
+    super(`${operation} is inactive: ${code}.`);
+    this.code = code;
     this.name = "MarketplaceCheckoutProductionLockedError";
   }
 }
 
-/** There is intentionally no environment-variable bypass. */
+export function evaluateMarketplaceCheckoutPublicGate(
+  source: Record<string, string | undefined> = process.env,
+): Readonly<{ enabled: boolean; blockReason: string | null }> {
+  if (source.CHECKOUT_PUBLIC_ENABLED !== "true") {
+    return Object.freeze({ enabled: false, blockReason: "CHECKOUT_PUBLIC_DISABLED" });
+  }
+  const paystack = resolvePaystackConfiguration(source);
+  if (!paystack.runtime || !paystack.state.active) {
+    return Object.freeze({ enabled: false, blockReason: paystack.state.blockReason ?? "PAYSTACK_DISABLED" });
+  }
+  return Object.freeze({ enabled: true, blockReason: null });
+}
+
 export function assertMarketplaceCheckoutProductionReady(
   operation: MarketplaceCheckoutProductionLockedError["operation"],
   testApproval?: { approved: true },
+  source: Record<string, string | undefined> = process.env,
 ): void {
-  if (MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED || testApproval?.approved === true) return;
-  throw new MarketplaceCheckoutProductionLockedError(operation);
+  if (testApproval?.approved === true) return;
+  const gate = evaluateMarketplaceCheckoutPublicGate(source);
+  if (!gate.enabled) {
+    throw new MarketplaceCheckoutProductionLockedError(operation, gate.blockReason ?? MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON);
+  }
 }
 
-export function marketplaceCheckoutProductionReady(): boolean {
-  return MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED;
+export function marketplaceCheckoutProductionReady(
+  source: Record<string, string | undefined> = process.env,
+): boolean {
+  return evaluateMarketplaceCheckoutPublicGate(source).enabled;
 }

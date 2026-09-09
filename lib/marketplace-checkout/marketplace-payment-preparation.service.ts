@@ -1,9 +1,19 @@
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-checkout/production-lock";
 import { prepareMarketplacePayment as preparePhase10MarketplacePayment, type MarketplacePaymentPreparationCommand } from "@/lib/services/payment-preparation.service";
-import { prepareMarketplacePayfastCustomerAction } from "@/lib/marketplace-checkout/marketplace-payfast-checkout.service";
+import { prepareMarketplacePaystackCustomerAction } from "@/lib/marketplace-checkout/marketplace-paystack-checkout.service";
 
-export type MarketplacePaymentPreparationResult = Readonly<{ paymentReference: string; paymentId: string; amount: string; currency: "ZAR"; providerAction: Readonly<{ type: "FORM_POST"; endpoint: string; fields: Readonly<Record<string, string>> }> | null; replayed: boolean }>;
+export type MarketplacePaymentPreparationResult = Readonly<{
+  paymentReference: string;
+  paymentId: string;
+  amount: string;
+  currency: "ZAR";
+  providerAction:
+    | Readonly<{ type: "FORM_POST"; endpoint: string; fields: Readonly<Record<string, string>> }>
+    | Readonly<{ type: "REDIRECT_GET"; endpoint: string }>
+    | null;
+  replayed: boolean;
+}>;
 export interface MarketplacePaymentOrchestrator {
   prepareMarketplacePayment(input: Readonly<{ checkoutId: string; checkoutReference: string; customerUserId: string | null; guestAccessTokenHash: string | null; payerEmail: string; amount: string; currency: "ZAR"; commercialFingerprint: string; operationId: string }>): Promise<MarketplacePaymentPreparationResult>;
 }
@@ -13,7 +23,13 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
   return Object.freeze({
     async prepareMarketplacePayment(input: MarketplacePaymentPreparationCommand) {
       const payment = await preparePhase10MarketplacePayment({ ...input });
-      const providerAction = await prepareMarketplacePayfastCustomerAction({ paymentId: payment.id, paymentReference: payment.publicReference, payerEmail: input.payerEmail, operationId: `${input.operationId}:payfast`, guestCheckoutEvidence: !input.customerUserId });
+      const providerAction = await prepareMarketplacePaystackCustomerAction({
+        paymentId: payment.id,
+        paymentReference: payment.publicReference,
+        payerEmail: input.payerEmail,
+        operationId: `${input.operationId}:paystack`,
+        guestCheckoutEvidence: !input.customerUserId,
+      });
       return Object.freeze({ paymentReference: payment.publicReference, paymentId: payment.id, amount: payment.amount, currency: "ZAR", providerAction, replayed: payment.replayed });
     },
   });

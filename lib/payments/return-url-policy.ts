@@ -1,16 +1,21 @@
 import { PaymentError } from "./errors";
+import type { PaymentProviderCode } from "./types";
 import { buildPayfastCallbackUrls } from "./providers/payfast/payfast-callback-urls";
+import { buildPaystackCallbackUrls } from "./providers/paystack/paystack-callback-urls";
 
 export type PaymentCallbackUrls = Readonly<{
   returnUrl: string;
   cancelUrl: string;
   notificationUrl: string;
-  returnRouteId: "payfast-return";
-  cancelRouteId: "payfast-cancel";
-  notificationRouteId: "payfast-itn-reserved";
+  returnRouteId: "payfast-return" | "paystack-return";
+  cancelRouteId: "payfast-cancel" | "paystack-cancel";
+  notificationRouteId: "payfast-itn-reserved" | "paystack-webhook";
 }>;
 
-export function buildServerPaymentCallbackUrls(publicReference: string): PaymentCallbackUrls {
+export function buildServerPaymentCallbackUrls(
+  publicReference: string,
+  provider: PaymentProviderCode = "PAYSTACK",
+): PaymentCallbackUrls {
   const configuredOrigin = process.env.PAYMENT_APP_ORIGIN;
   if (!configuredOrigin) {
     throw new PaymentError("PAYMENT_PROVIDER_CONFIGURATION_INVALID", "Server payment callback origin is not configured.");
@@ -25,5 +30,8 @@ export function buildServerPaymentCallbackUrls(publicReference: string): Payment
   if ((origin.protocol !== "https:" && !isHttpAllowed) || origin.username || origin.password || origin.pathname !== "/") {
     throw new PaymentError("PAYMENT_PROVIDER_CONFIGURATION_INVALID", "Server payment callback origin failed the safety policy.");
   }
-  return buildPayfastCallbackUrls(origin.origin, publicReference);
+  if (provider === "PAYFAST") {
+    return buildPayfastCallbackUrls(origin.origin, publicReference);
+  }
+  return buildPaystackCallbackUrls(origin.origin, publicReference);
 }

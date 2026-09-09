@@ -25,7 +25,7 @@ export const PrepareOrderPaymentSchema = z.object({
 
 export const CreateProviderSessionSchema = z.object({
   paymentId: boundedId,
-  provider: z.literal("PAYFAST"),
+  provider: z.enum(["PAYFAST", "PAYSTACK"]),
   idempotencyKey: boundedKey,
 }).strict();
 
@@ -42,7 +42,7 @@ export const PaymentListQuerySchema = z.object({
   orderReference: optionalText(160),
   payer: optionalText(160),
   status: z.enum(PAYMENT_STATES).optional(),
-  provider: z.literal("PAYFAST").optional(),
+  provider: z.enum(["PAYFAST", "PAYSTACK"]).optional(),
   from: isoDateTime.optional(),
   to: isoDateTime.optional(),
   minimumAmount: moneyString.optional(),

@@ -24,7 +24,9 @@ export const PAYMENT_ATTEMPT_STATES = [
 ] as const;
 
 export type PaymentAttemptState = (typeof PAYMENT_ATTEMPT_STATES)[number];
-export type PaymentProviderCode = "PAYFAST";
+
+export type PaymentProviderCode = "PAYFAST" | "PAYSTACK";
+export type DigitalCheckoutProviderCode = "PAYSTACK";
 export type PaymentCurrency = "ZAR";
 export type PaymentProviderEnvironment = "SANDBOX" | "PRODUCTION";
 export type PaymentCustomerActionType = "FORM_POST" | "REDIRECT_GET";

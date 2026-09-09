@@ -12,6 +12,8 @@ export type SafeProviderConfigurationState = Readonly<{
   errorCategory: "NOT_CONFIGURED" | "CONFIGURATION" | "NONE";
   blockReason:
     | "PAYFAST_DISABLED"
+    | "PAYSTACK_DISABLED"
+    | "PROVIDER_DISABLED"
     | "CONFIGURATION_INVALID"
     | "PAYFAST_SOURCE_ADDRESS_TRUST_NOT_CONFIGURED"
     | "CONSOLIDATED_VALIDATION_NOT_APPROVED"
@@ -29,7 +31,7 @@ export function unconfiguredProviderState(code: PaymentProviderCode): SafeProvid
     productionValidationApproved: false,
     environment: "not-configured",
     errorCategory: "NOT_CONFIGURED",
-    blockReason: "PAYFAST_DISABLED",
+    blockReason: code === "PAYSTACK" ? "PAYSTACK_DISABLED" : "PAYFAST_DISABLED",
   });
 }
 

@@ -19,7 +19,7 @@ function toCustomerStatus(payment: {
     orderReference: payment.order.orderNumber,
     amount: payment.amount.toFixed(2),
     currency: "ZAR",
-    provider: payment.provider === "PAYFAST" ? "PAYFAST" : null,
+    provider: (payment.provider === "PAYSTACK" || payment.provider === "PAYFAST") ? payment.provider : null,
     status: payment.status as CustomerPaymentStatusDto["status"],
     updatedAt: payment.updatedAt.toISOString(),
   });
@@ -45,6 +45,7 @@ export async function getOwnedPaymentIdentity(
   status: string;
   currentAttemptReference: string | null;
   currentActionType: string | null;
+  currentRedirectUrl: string | null;
 }> | null> {
   const payment = await prisma.payment.findFirst({
     where: { publicReference, userId: payerId },
@@ -55,7 +56,7 @@ export async function getOwnedPaymentIdentity(
       attempts: {
         orderBy: { attemptNumber: "desc" },
         take: 1,
-        select: { publicReference: true, checkoutActionType: true },
+        select: { publicReference: true, checkoutActionType: true, redirectUrl: true },
       },
     },
   });
@@ -65,6 +66,7 @@ export async function getOwnedPaymentIdentity(
     status: payment.status,
     currentAttemptReference: payment.attempts[0]?.publicReference ?? null,
     currentActionType: payment.attempts[0]?.checkoutActionType ?? null,
+    currentRedirectUrl: payment.attempts[0]?.redirectUrl ?? null,
   }) : null;
 }
 

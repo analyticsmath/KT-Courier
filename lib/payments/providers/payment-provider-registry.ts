@@ -1,6 +1,8 @@
 import { PaymentError } from "../errors";
 import type { PaymentProviderCode } from "../types";
 import type { PaymentProviderAdapter, PaymentProviderCapabilities } from "./payment-provider-adapter";
+import { PaystackAdapter, PAYSTACK_CAPABILITIES } from "./paystack/paystack-adapter";
+import { resolvePaystackConfiguration } from "./paystack/paystack-config";
 import { PayfastAdapter, PAYFAST_CAPABILITIES } from "./payfast/payfast-adapter";
 import { resolvePayfastConfiguration } from "./payfast/payfast-config";
 import {
@@ -9,9 +11,7 @@ import {
   unconfiguredProviderState,
 } from "./provider-config";
 
-export const KNOWN_PAYMENT_PROVIDER_CODES = Object.freeze(["PAYFAST"] as const);
-
-const PAYFAST_FOUNDATION_CAPABILITIES: PaymentProviderCapabilities = PAYFAST_CAPABILITIES;
+export const KNOWN_PAYMENT_PROVIDER_CODES = Object.freeze(["PAYSTACK", "PAYFAST"] as const);
 
 export type PaymentProviderReadinessDto = Readonly<{
   code: PaymentProviderCode;
@@ -52,13 +52,16 @@ export class PaymentProviderRegistry {
     const adapter = this.#adapters.get(code);
     const state = this.#configuration.get(code);
     if (state?.blockReason === "CONSOLIDATED_VALIDATION_NOT_APPROVED") {
-      throw new PaymentError("PAYFAST_PRODUCTION_NOT_READY", "Payfast production checkout is unavailable until consolidated validation is approved.");
+      const errCode = code === "PAYSTACK" ? "PAYMENT_PROVIDER_PRODUCTION_NOT_READY" : "PAYFAST_PRODUCTION_NOT_READY";
+      throw new PaymentError(errCode, `${code} production checkout is unavailable until validation is approved.`);
     }
     if (state?.errorCategory === "CONFIGURATION") {
-      throw new PaymentError("PAYFAST_CONFIGURATION_INVALID", "Payfast provider configuration is invalid.");
+      const errCode = code === "PAYSTACK" ? "PAYMENT_PROVIDER_CONFIGURATION_INVALID" : "PAYFAST_CONFIGURATION_INVALID";
+      throw new PaymentError(errCode, `${code} provider configuration is invalid.`);
     }
     if (!adapter || !state?.configured || !state.active) {
-      throw new PaymentError("PAYFAST_NOT_CONFIGURED", "Payfast provider is not configured.");
+      const errCode = code === "PAYSTACK" ? "PAYMENT_PROVIDER_NOT_CONFIGURED" : "PAYFAST_NOT_CONFIGURED";
+      throw new PaymentError(errCode, `${code} provider is not configured.`);
     }
     return adapter;
   }
@@ -67,6 +70,7 @@ export class PaymentProviderRegistry {
     return KNOWN_PAYMENT_PROVIDER_CODES.map((code) => {
       const adapter = this.#adapters.get(code);
       const configuration = this.#configuration.get(code) ?? unconfiguredProviderState(code);
+      const defaultCapabilities = code === "PAYSTACK" ? PAYSTACK_CAPABILITIES : PAYFAST_CAPABILITIES;
       return Object.freeze({
         code,
         configured: configuration.configured,
@@ -78,19 +82,26 @@ export class PaymentProviderRegistry {
         sourceAddressTrustConfigured: configuration.sourceAddressTrustConfigured,
         itnVerificationImplemented: configuration.itnVerificationImplemented,
         productionValidationApproved: configuration.productionValidationApproved,
-        capabilities: adapter?.capabilities ?? PAYFAST_FOUNDATION_CAPABILITIES,
+        capabilities: adapter?.capabilities ?? defaultCapabilities,
       });
     });
   }
 }
 
 export function createProductionPaymentProviderRegistry(): PaymentProviderRegistry {
-  const resolution = resolvePayfastConfiguration();
-  const adapter = resolution.runtime && resolution.state.active
-    ? new PayfastAdapter(resolution.runtime)
-    : undefined;
+  const paystackResolution = resolvePaystackConfiguration();
+  const payfastResolution = resolvePayfastConfiguration();
+
+  const adapters: PaymentProviderAdapter[] = [];
+  if (paystackResolution.runtime && paystackResolution.state.active) {
+    adapters.push(new PaystackAdapter(paystackResolution.runtime));
+  }
+  if (payfastResolution.runtime && payfastResolution.state.active) {
+    adapters.push(new PayfastAdapter(payfastResolution.runtime));
+  }
+
   return new PaymentProviderRegistry({
-    adapters: adapter ? [adapter] : [],
-    configuration: [resolution.state],
+    adapters,
+    configuration: [paystackResolution.state, payfastResolution.state],
   });
 }

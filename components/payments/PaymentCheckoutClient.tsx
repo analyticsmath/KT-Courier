@@ -66,14 +66,22 @@ export function PaymentCheckoutClient({
         body: JSON.stringify({ operationId }),
       });
       const payload = await readJson(response);
-      if (!response.ok) throw new Error(safeCheckoutError(response.status, "Payfast checkout is unavailable."));
-      if (typeof payload.checkoutUrl !== "string" || !payload.checkoutUrl.startsWith("/payments/payfast/checkout/")) {
-        throw new Error("Payfast checkout returned an invalid handoff.");
+      if (!response.ok) throw new Error(safeCheckoutError(response.status, "Payment checkout is unavailable."));
+      if (typeof payload.checkoutUrl !== "string" || !payload.checkoutUrl.trim()) {
+        throw new Error("Payment checkout returned an invalid handoff.");
+      }
+      try {
+        const parsedUrl = new URL(payload.checkoutUrl, window.location.origin);
+        if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+          throw new Error("Invalid checkout URL protocol.");
+        }
+      } catch {
+        throw new Error("Payment checkout returned an invalid handoff URL.");
       }
       operations.current.clear("checkout");
       window.location.assign(payload.checkoutUrl);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Payfast checkout is unavailable.");
+      setError(cause instanceof Error ? cause.message : "Payment checkout is unavailable.");
       setBusy(false);
     }
   }
@@ -82,12 +90,12 @@ export function PaymentCheckoutClient({
     <div className="space-y-4">
       {provider.environment === "sandbox" && (
         <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
-          Payfast Sandbox — no real money will be transferred
+          Paystack Sandbox — no real money will be transferred
         </p>
       )}
       {provider.environment === "production" && !provider.active && (
         <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-          Payfast production checkout is unavailable until secure provider confirmation is enabled.
+          Payment checkout is unavailable until secure provider confirmation is enabled.
         </p>
       )}
       {error && <p role="alert" className="text-sm font-semibold text-[var(--kt-red)]">{error}</p>}
@@ -98,7 +106,7 @@ export function PaymentCheckoutClient({
         aria-busy={busy}
         className="inline-flex h-11 items-center justify-center rounded-xl bg-[var(--kt-brand-blue)] px-5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? "Preparing Payfast…" : terminal ? "Payment unavailable" : "Pay with Payfast"}
+        {busy ? "Preparing payment…" : terminal ? "Payment unavailable" : "Pay with Paystack"}
       </button>
       {payment ? <p className="text-sm text-[var(--kt-text-muted)]" role="status">Current payment state: {getCustomerPaymentStatusPresentation(payment.status).label}.</p> : null}
     </div>

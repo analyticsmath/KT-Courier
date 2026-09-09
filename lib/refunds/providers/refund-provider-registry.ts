@@ -2,7 +2,9 @@ import type { PaymentProviderCode } from "@/lib/payments/types";
 import { RefundError } from "../errors";
 import type { RefundProviderAdapter } from "./refund-provider-adapter";
 
-export const KNOWN_REFUND_PROVIDER_CODES = Object.freeze(["PAYFAST"] as const);
+import { PaystackRefundAdapter } from "./paystack/paystack-refund-adapter";
+
+export const KNOWN_REFUND_PROVIDER_CODES = Object.freeze(["PAYFAST", "PAYSTACK"] as const);
 
 export class RefundProviderRegistry {
   readonly #adapters = new Map<PaymentProviderCode, RefundProviderAdapter>();
@@ -21,5 +23,11 @@ export class RefundProviderRegistry {
     if (!adapter) throw new RefundError("REFUND_PROVIDER_NOT_READY", "Refund provider is unavailable.");
     return adapter;
   }
+}
+
+export function createProductionRefundProviderRegistry(): RefundProviderRegistry {
+  return new RefundProviderRegistry([
+    new PaystackRefundAdapter(),
+  ]);
 }
 
