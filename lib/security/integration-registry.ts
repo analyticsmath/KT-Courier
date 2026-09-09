@@ -75,20 +75,30 @@ export function getReadinessLockRegistry(): ReadinessLockRecord[] {
 export function getIntegrationRegistry(): IntegrationRecord[] {
   const isProd = process.env.NODE_ENV === "production";
 
-  // 1. PayFast
-  const payfastModeRaw = (process.env.PAYFAST_MODE || "disabled").toLowerCase() as IntegrationMode;
-  const payfastHasKeys = Boolean(process.env.PAYFAST_MERCHANT_ID && process.env.PAYFAST_MERCHANT_KEY);
-  const payfastMode: IntegrationMode = isProd && payfastModeRaw === "mock" ? "disabled" : payfastModeRaw;
-  const payfastMissing = [
-    ...(!process.env.PAYFAST_MERCHANT_ID ? ["PAYFAST_MERCHANT_ID"] : []),
-    ...(!process.env.PAYFAST_MERCHANT_KEY ? ["PAYFAST_MERCHANT_KEY"] : []),
+  // 1. Paystack (Active Payment Gateway)
+  const paystackModeRaw = (process.env.PAYSTACK_MODE || "disabled").toLowerCase();
+  const paystackHasKey = Boolean(process.env.PAYSTACK_SECRET_KEY && !process.env.PAYSTACK_SECRET_KEY.includes("replace-with"));
+  const paystackMode: IntegrationMode =
+    paystackModeRaw === "test" ? "sandbox" :
+    (paystackModeRaw === "live" || paystackModeRaw === "mock" || paystackModeRaw === "sandbox" || paystackModeRaw === "disabled"
+      ? (isProd && paystackModeRaw === "mock" ? "disabled" : paystackModeRaw as IntegrationMode)
+      : "disabled");
+  const paystackMissing = [
+    ...(!paystackHasKey && paystackMode !== "disabled" ? ["PAYSTACK_API_KEY"] : []),
   ];
 
-  let payfastReadiness: IntegrationReadiness = "DISABLED";
-  if (payfastMode === "disabled") payfastReadiness = "DISABLED";
-  else if (payfastMode === "mock") payfastReadiness = isProd ? "DISABLED" : "MOCK_READY";
-  else if (payfastMode === "sandbox") payfastReadiness = payfastHasKeys ? "SANDBOX_READY" : "CREDENTIAL_PENDING";
-  else if (payfastMode === "live") payfastReadiness = payfastHasKeys ? "LIVE_READY" : "CREDENTIAL_PENDING";
+
+  let paystackReadiness: IntegrationReadiness = "DISABLED";
+  if (paystackMode === "disabled") paystackReadiness = "DISABLED";
+  else if (paystackMode === "mock") paystackReadiness = isProd ? "DISABLED" : "MOCK_READY";
+  else if (paystackMode === "sandbox") paystackReadiness = paystackHasKey ? "SANDBOX_READY" : "CREDENTIAL_PENDING";
+  else if (paystackMode === "live") paystackReadiness = paystackHasKey ? "LIVE_READY" : "CREDENTIAL_PENDING";
+
+  // 1b. PayFast (Retired & Tombstoned)
+  const payfastMode: IntegrationMode = "disabled";
+  const payfastReadiness: IntegrationReadiness = "DISABLED";
+  const payfastMissing: string[] = [];
+
 
   // 2. Google Maps Browser
   const mapsBrowserKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
@@ -160,17 +170,30 @@ export function getIntegrationRegistry(): IntegrationRecord[] {
 
   return [
     {
-      id: "payfast",
-      name: "PayFast Custom Checkout",
+      id: "paystack",
+      name: "Paystack Payment Gateway",
       category: "PAYMENT_GATEWAY",
-      configuredMode: payfastMode,
-      enabled: payfastMode !== "disabled",
-      readiness: payfastReadiness,
-      missingEnvVars: payfastMissing,
+      configuredMode: paystackMode,
+      enabled: paystackMode !== "disabled",
+      readiness: paystackReadiness,
+      missingEnvVars: paystackMissing,
       adapterStatus: "IMPLEMENTED",
       webhookStatus: "VERIFIED_ROUTE_READY",
-      safeStatusText: `Mode: ${payfastMode}, Readiness: ${payfastReadiness}`,
-      productionEligible: payfastReadiness === "LIVE_READY" || payfastReadiness === "SANDBOX_READY",
+      safeStatusText: `Mode: ${paystackMode}, Readiness: ${paystackReadiness}`,
+      productionEligible: paystackReadiness === "LIVE_READY" || paystackReadiness === "SANDBOX_READY",
+    },
+    {
+      id: "payfast",
+      name: "PayFast Custom Checkout (Retired)",
+      category: "PAYMENT_GATEWAY",
+      configuredMode: payfastMode,
+      enabled: false,
+      readiness: payfastReadiness,
+      missingEnvVars: payfastMissing,
+      adapterStatus: "NOT_IMPLEMENTED",
+      webhookStatus: "TOMBSTONED_ROUTE_GONE",
+      safeStatusText: "Retired and tombstoned (HTTP 410 Gone); Paystack is active",
+      productionEligible: false,
     },
     {
       id: "google-maps-browser",
@@ -244,7 +267,8 @@ export function getIntegrationRegistry(): IntegrationRecord[] {
       configuredMode: captchaHasKeys ? "live" : "disabled",
       enabled: captchaHasKeys,
       readiness: captchaHasKeys ? "LIVE_READY" : "CREDENTIAL_PENDING",
-      missingEnvVars: captchaHasKeys ? [] : ["NEXT_PUBLIC_TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"],
+      missingEnvVars: captchaHasKeys ? [] : ["NEXT_PUBLIC_TURNSTILE_SITE_KEY", "TURNSTILE_API_KEY"],
+
       adapterStatus: "IMPLEMENTED",
       webhookStatus: "NOT_APPLICABLE",
       safeStatusText: captchaHasKeys ? "Turnstile verified & configured" : "Source complete; pending Turnstile keys",

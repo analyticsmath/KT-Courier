@@ -27,13 +27,5 @@ export async function prepareMarketplacePaystackCustomerAction(input: Readonly<{
     });
   }
 
-  if (session.attempt.checkoutActionType === "FORM_POST") {
-    return Object.freeze({
-      type: "FORM_POST" as const,
-      endpoint: `/payments/payfast/checkout/${encodeURIComponent(session.attempt.publicReference)}`,
-      fields: Object.freeze({}),
-    });
-  }
-
   throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Paystack did not return a safe customer checkout action.");
 }

@@ -23,8 +23,7 @@ export default async function OrderPaymentPage({
   if (!parsed.success) notFound();
   const page = await getCustomerPaymentPage(user, parsed.data.orderReference);
   if (!page) notFound();
-  const providerConfig = listPaymentProviders().data.find((entry) => entry.code === "PAYSTACK")
-    ?? listPaymentProviders().data.find((entry) => entry.code === "PAYFAST");
+  const providerConfig = listPaymentProviders().data.find((entry) => entry.code === "PAYSTACK");
   if (!providerConfig) notFound();
 
   return (
@@ -39,7 +38,7 @@ export default async function OrderPaymentPage({
           <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Order reference</dt><dd className="mt-1 font-bold">{page.orderReference}</dd></div>
           <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Amount</dt><dd className="mt-1 font-mono text-xl font-black">ZAR {page.amount}</dd></div>
           <div><dt className="text-xs font-bold uppercase text-[var(--eo-text-muted)]">Payment status</dt><dd className="mt-1"><ProtectedStatus {...getCustomerPaymentStatusPresentation(page.payment?.status)} /></dd></div>
-          <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Provider</dt><dd className="mt-1">{providerConfig.code === "PAYSTACK" ? "Paystack" : "Payfast"}</dd></div>
+          <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Provider</dt><dd className="mt-1">Paystack</dd></div>
         </dl>
         <PaymentCheckoutClient
           orderId={page.orderId}

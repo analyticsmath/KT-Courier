@@ -73,15 +73,15 @@ describe("Phase 1B-C — Architectural Verification & Governance", () => {
   });
 
   describe("Workstream 6 — Integration Readiness Classifications", () => {
-    it("should classify incomplete launch-scope capabilities as CREDENTIAL_PENDING or PARTIAL", () => {
+    it("should classify incomplete launch-scope capabilities as CREDENTIAL_PENDING or DISABLED", () => {
       const registry = getIntegrationRegistry();
       const sms = registry.find((r) => r.id === "sms-notifications");
       const wa = registry.find((r) => r.id === "whatsapp-notifications");
       const push = registry.find((r) => r.id === "push-notifications");
 
-      expect(sms?.readiness).toBe("PARTIAL");
-      expect(wa?.readiness).toBe("PARTIAL");
-      expect(push?.readiness).toBe("PARTIAL");
+      expect(sms?.readiness).toBe("DISABLED");
+      expect(wa?.readiness).toBe("DISABLED");
+      expect(push?.readiness).toBe("DISABLED");
       expect(sms?.productionEligible).toBe(false);
     });
   });

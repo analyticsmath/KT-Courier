@@ -109,10 +109,11 @@ describe("Phase 1B — Security & Governance Foundations", () => {
   });
 
   describe("Workstream 11 — Integration Registry", () => {
-    it("should expose all 15 platform integrations with safe status metadata", () => {
+    it("should expose all platform integrations with safe status metadata", () => {
       const registry = getIntegrationRegistry();
-      expect(registry.length).toBe(15);
+      expect(registry.length).toBe(16);
       const ids = registry.map((r) => r.id);
+      expect(ids).toContain("paystack");
       expect(ids).toContain("payfast");
       expect(ids).toContain("google-maps-browser");
       expect(ids).toContain("google-maps-server");

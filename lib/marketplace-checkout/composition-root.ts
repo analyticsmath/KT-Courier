@@ -39,7 +39,7 @@ export function resolveMarketplaceCheckoutProductionComposition() {
     deliveryQuotes: new Phase6MarketplaceDeliveryQuoteAdapter(createPhase6MarketplaceQuoteAuthority()),
     phase6Authority: "pricing-quote.service.createPricingQuoteForTrustedOwner" as const,
     phase10Authority: "payment-preparation.service.prepareMarketplacePayment" as const,
-    phase11Authority: "marketplace-payfast-checkout.service.prepareMarketplacePayfastCustomerAction" as const,
+    paymentCheckoutAuthority: "marketplace-paystack-checkout.service.prepareMarketplacePaystackCustomerAction" as const,
     phase12Authority: "marketplace-payment-success-hook.service.onVerifiedMarketplacePaymentSucceeded" as const,
     finalizationAuthority: "prisma-marketplace-finalization.repository.createPrismaMarketplaceFinalizationRepository" as const,
     settlementAuthority: "settlement.service.settleMarketplaceStoreOrder" as const,

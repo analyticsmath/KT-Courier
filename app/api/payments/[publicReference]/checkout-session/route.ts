@@ -38,9 +38,6 @@ export async function POST(
       if (payment.currentActionType === "REDIRECT_GET" && payment.currentRedirectUrl) {
         return noStoreJson({ checkoutUrl: payment.currentRedirectUrl });
       }
-      if (payment.currentActionType === "FORM_POST") {
-        return noStoreJson({ checkoutUrl: `/payments/payfast/checkout/${encodeURIComponent(payment.currentAttemptReference)}` });
-      }
     }
     const session = await createProviderCheckoutSession(
       { id: user.id },
@@ -52,9 +49,6 @@ export async function POST(
     }
     if (session.attempt.checkoutActionType === "REDIRECT_GET" && session.attempt.redirectUrl) {
       return noStoreJson({ checkoutUrl: session.attempt.redirectUrl });
-    }
-    if (session.attempt.checkoutActionType === "FORM_POST") {
-      return noStoreJson({ checkoutUrl: `/payments/payfast/checkout/${encodeURIComponent(session.attempt.publicReference)}` });
     }
     return noStoreJson({ error: "Checkout action is not supported." }, 503);
   } catch (error) {

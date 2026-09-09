@@ -8,6 +8,6 @@ beforeEach(() => { vi.clearAllMocks(); mocks.prisma.$transaction.mockImplementat
 describe("payment query service", () => {
   it("returns stable pagination, sorting, safe payer summary, and money strings", async () => { mocks.prisma.payment.count.mockResolvedValue(1); mocks.prisma.payment.findMany.mockResolvedValue([payment]); const result = await listPayments({ page: 1, pageSize: 20 }); expect(result.data[0]).toMatchObject({ amount: "10.00", payer: { label: "Payer u" } }); expect(mocks.prisma.payment.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy: [{ createdAt: "desc" }, { id: "desc" }] })); });
   it("omits hashes, keys, snapshots, and credentials from detail DTO", async () => { mocks.prisma.payment.findUnique.mockResolvedValue({ ...payment, creationRequestHash: "hidden", attempts: [], statusHistory: [] }); const result = await getPaymentDetail("p"); expect(JSON.stringify(result)).not.toMatch(/creationRequestHash|requestHash|Snapshot|secret|credential/); });
-  it("returns known-but-unconfigured provider readiness", () => expect(listPaymentProviders().data[0]).toMatchObject({ code: "PAYFAST", configured: false }));
+  it("returns known-but-unconfigured provider readiness", () => expect(listPaymentProviders().data[0]).toMatchObject({ code: "PAYSTACK", configured: false }));
 });
 

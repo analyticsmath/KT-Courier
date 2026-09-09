@@ -18,6 +18,7 @@ describe("Phase 1B-F — Executable Proof Closure Suite", () => {
   describe("Workstream 1 — Rate Limit Backend Selection & Fail-Closed", () => {
     it("should return FAIL_CLOSED in production without a concrete shared adapter", async () => {
       vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("REDIS_URL", "");
 
       const store = new InMemoryRateLimitStore(); // No concrete shared adapter passed
       const decision = await store.consume({

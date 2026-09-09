@@ -8,7 +8,7 @@ import type {
 export type FakeProviderOutcome = "requires-action" | "processing" | "succeeded" | "failure" | "timeout" | "malformed" | "expired";
 
 export class FakePaymentProvider implements PaymentProviderAdapter {
-  readonly code = "PAYFAST" as const;
+  readonly code: "PAYSTACK" | "PAYFAST";
   readonly capabilities = Object.freeze({
     supportsRedirectCheckout: true,
     supportsFormPostCheckout: false,
@@ -23,7 +23,10 @@ export class FakePaymentProvider implements PaymentProviderAdapter {
   readonly checkoutAudit = Object.freeze({ environment: "SANDBOX" as const, protocolVersion: "fake-v1", configurationFingerprint: "fake-v1:sandbox", credentialVersion: "fake-credentials-v1" });
   calls = 0;
 
-  constructor(private readonly outcome: FakeProviderOutcome) {}
+  constructor(private readonly outcome: FakeProviderOutcome, code: "PAYSTACK" | "PAYFAST" = "PAYSTACK") {
+    this.code = code;
+  }
+
 
   async createCheckoutSession(input: ProviderCheckoutSessionInput, context: ProviderCallContext): Promise<ProviderCheckoutSessionResult> {
     this.calls += 1;

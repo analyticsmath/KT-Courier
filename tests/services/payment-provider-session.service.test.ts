@@ -76,45 +76,59 @@ beforeEach(() => {
 const callbackUrls = () => ({ returnUrl: "https://app.test/payments/payfast/return?payment=pay_abcdefghijklmnop", cancelUrl: "https://app.test/payments/payfast/cancel?payment=pay_abcdefghijklmnop", notificationUrl: "https://app.test/api/payments/payfast/itn", returnRouteId: "payfast-return" as const, cancelRouteId: "payfast-cancel" as const, notificationRouteId: "payfast-itn-reserved" as const });
 
 describe("payment provider session service", () => {
-  it("checks provider readiness before reserving an attempt", async () => {
-    const registry = new PaymentProviderRegistry({ configuration: [{ code: "PAYFAST", configured: true, active: false, credentialVersionConfigured: true, sourceAddressTrustConfigured: true, itnVerificationImplemented: true, productionValidationApproved: false, environment: "production", errorCategory: "NONE", blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }] });
-    await expect(createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:production" }, { registry, callbackUrls })).rejects.toMatchObject({ code: "PAYFAST_PRODUCTION_NOT_READY" });
+  it("fails closed when requesting PAYFAST provider", async () => {
+    await expect(
+      createProviderCheckoutSession(
+        { id: "payer-1" },
+        { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:payfast" },
+        { callbackUrls },
+      ),
+    ).rejects.toMatchObject({ code: "PAYMENT_PROVIDER_NOT_SUPPORTED" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it("checks provider readiness before reserving an attempt", async () => {
+    const registry = new PaymentProviderRegistry({ configuration: [{ code: "PAYSTACK", configured: true, active: false, credentialVersionConfigured: true, sourceAddressTrustConfigured: true, itnVerificationImplemented: true, productionValidationApproved: false, environment: "production", errorCategory: "NONE", blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }] });
+    await expect(createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:production" }, { registry, callbackUrls })).rejects.toMatchObject({ code: "PAYMENT_PROVIDER_PRODUCTION_NOT_READY" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+
   it("reserves with a locked counter, calls the adapter outside transactions, and finalizes requires-action safely", async () => {
-    const fake = new FakePaymentProvider("requires-action");
+    const fake = new FakePaymentProvider("requires-action", "PAYSTACK");
     const original = fake.createCheckoutSession.bind(fake);
     vi.spyOn(fake, "createCheckoutSession").mockImplementation(async (...args) => { expect(inTransaction).toBe(false); return original(...args); });
-    const result = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:1" }, { registry: new PaymentProviderRegistry({ adapters: [fake] }), callbackUrls });
+    const result = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" }, { registry: new PaymentProviderRegistry({ adapters: [fake] }), callbackUrls });
     expect(result).toMatchObject({ paymentStatus: "REQUIRES_ACTION", attempt: { attemptNumber: 1, status: "REQUIRES_ACTION", merchantReference: "kt:payment:pay_abcdefghijklmnop:attempt:1" } });
     expect(result.attempt).not.toHaveProperty("providerCredentialVersion");
     expect(fake.calls).toBe(1); expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(3); expect(historyCreate).toHaveBeenCalledOnce(); expect(historyCreateMany).toHaveBeenCalledOnce();
   });
 
   it("returns same-key final replay without a second provider call and rejects changed payment meaning", async () => {
-    const fake = new FakePaymentProvider("processing"); const registry = new PaymentProviderRegistry({ adapters: [fake] });
-    await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:1" }, { registry, callbackUrls });
-    const replay = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:1" }, { registry, callbackUrls });
+    const fake = new FakePaymentProvider("processing", "PAYSTACK"); const registry = new PaymentProviderRegistry({ adapters: [fake] });
+    await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" }, { registry, callbackUrls });
+    const replay = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" }, { registry, callbackUrls });
     expect(replay.replayed).toBe(true); expect(fake.calls).toBe(1);
   });
 
   it("classifies a timeout as UNKNOWN/PROCESSING and never auto-creates a second attempt", async () => {
-    const fake = new FakePaymentProvider("timeout");
-    const result = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:2" }, { registry: new PaymentProviderRegistry({ adapters: [fake] }), callbackUrls });
+    const fake = new FakePaymentProvider("timeout", "PAYSTACK");
+    const result = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:2" }, { registry: new PaymentProviderRegistry({ adapters: [fake] }), callbackUrls });
     expect(result).toMatchObject({ paymentStatus: "PROCESSING", attempt: { status: "UNKNOWN", failureCategory: "TIMEOUT" } });
     expect(payment.latestAttemptNumber).toBe(1);
   });
 
   it("rolls back/propagates reservation and finalization failures through complete transaction mocks", async () => {
     (mocks.tx.paymentAttempt as { create: ReturnType<typeof vi.fn> }).create.mockRejectedValueOnce(new Error("reservation rollback"));
-    await expect(createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:3" }, { registry: new PaymentProviderRegistry({ adapters: [new FakePaymentProvider("processing")] }), callbackUrls })).rejects.toThrow("reservation rollback");
+    await expect(createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:3" }, { registry: new PaymentProviderRegistry({ adapters: [new FakePaymentProvider("processing", "PAYSTACK")] }), callbackUrls })).rejects.toThrow("reservation rollback");
     expect(attempt).toBeNull(); expect(payment).toMatchObject({ status: "CREATED", latestAttemptNumber: 0 });
   });
 
   it("leaves durable unresolved evidence when finalization rolls back", async () => {
     historyCreateMany.mockRejectedValueOnce(new Error("finalization rollback"));
-    await expect(createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:4" }, { registry: new PaymentProviderRegistry({ adapters: [new FakePaymentProvider("processing")] }), callbackUrls })).rejects.toThrow("finalization rollback");
+    await expect(createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:4" }, { registry: new PaymentProviderRegistry({ adapters: [new FakePaymentProvider("processing", "PAYSTACK")] }), callbackUrls })).rejects.toThrow("finalization rollback");
     expect(payment).toMatchObject({ status: "PROVIDER_PENDING", latestAttemptNumber: 1 });
     expect(attempt).toMatchObject({ status: "REQUESTING", merchantReference: "kt:payment:pay_abcdefghijklmnop:attempt:1" });
   });
 });
+

@@ -3,15 +3,13 @@ import type { PaymentProviderCode } from "../types";
 import type { PaymentProviderAdapter, PaymentProviderCapabilities } from "./payment-provider-adapter";
 import { PaystackAdapter, PAYSTACK_CAPABILITIES } from "./paystack/paystack-adapter";
 import { resolvePaystackConfiguration } from "./paystack/paystack-config";
-import { PayfastAdapter, PAYFAST_CAPABILITIES } from "./payfast/payfast-adapter";
-import { resolvePayfastConfiguration } from "./payfast/payfast-config";
 import {
   injectedTestProviderState,
   type SafeProviderConfigurationState,
   unconfiguredProviderState,
 } from "./provider-config";
 
-export const KNOWN_PAYMENT_PROVIDER_CODES = Object.freeze(["PAYSTACK", "PAYFAST"] as const);
+export const KNOWN_PAYMENT_PROVIDER_CODES = Object.freeze(["PAYSTACK"] as const);
 
 export type PaymentProviderReadinessDto = Readonly<{
   code: PaymentProviderCode;
@@ -37,8 +35,8 @@ export class PaymentProviderRegistry {
   }) {
     for (const state of options?.configuration ?? []) this.#configuration.set(state.code, state);
     for (const adapter of options?.adapters ?? []) {
-      if (!KNOWN_PAYMENT_PROVIDER_CODES.includes(adapter.code)) {
-        throw new PaymentError("PAYMENT_PROVIDER_NOT_SUPPORTED", "Payment provider is not allowlisted.");
+      if (!KNOWN_PAYMENT_PROVIDER_CODES.includes(adapter.code as "PAYSTACK")) {
+        throw new PaymentError("PAYMENT_PROVIDER_NOT_SUPPORTED", `Payment provider ${adapter.code} is not supported.`);
       }
       if (this.#adapters.has(adapter.code)) {
         throw new PaymentError("PAYMENT_PROVIDER_CONFIGURATION_INVALID", "Payment provider is registered more than once.");
@@ -49,19 +47,19 @@ export class PaymentProviderRegistry {
   }
 
   getAdapter(code: PaymentProviderCode): PaymentProviderAdapter {
+    if ((code as string) === "PAYFAST") {
+      throw new PaymentError("PAYMENT_PROVIDER_NOT_SUPPORTED", "Payfast is no longer supported for new transactions.");
+    }
     const adapter = this.#adapters.get(code);
     const state = this.#configuration.get(code);
     if (state?.blockReason === "CONSOLIDATED_VALIDATION_NOT_APPROVED") {
-      const errCode = code === "PAYSTACK" ? "PAYMENT_PROVIDER_PRODUCTION_NOT_READY" : "PAYFAST_PRODUCTION_NOT_READY";
-      throw new PaymentError(errCode, `${code} production checkout is unavailable until validation is approved.`);
+      throw new PaymentError("PAYMENT_PROVIDER_PRODUCTION_NOT_READY", `${code} production checkout is unavailable until validation is approved.`);
     }
     if (state?.errorCategory === "CONFIGURATION") {
-      const errCode = code === "PAYSTACK" ? "PAYMENT_PROVIDER_CONFIGURATION_INVALID" : "PAYFAST_CONFIGURATION_INVALID";
-      throw new PaymentError(errCode, `${code} provider configuration is invalid.`);
+      throw new PaymentError("PAYMENT_PROVIDER_CONFIGURATION_INVALID", `${code} provider configuration is invalid.`);
     }
     if (!adapter || !state?.configured || !state.active) {
-      const errCode = code === "PAYSTACK" ? "PAYMENT_PROVIDER_NOT_CONFIGURED" : "PAYFAST_NOT_CONFIGURED";
-      throw new PaymentError(errCode, `${code} provider is not configured.`);
+      throw new PaymentError("PAYMENT_PROVIDER_NOT_CONFIGURED", `${code} provider is not configured.`);
     }
     return adapter;
   }
@@ -70,7 +68,6 @@ export class PaymentProviderRegistry {
     return KNOWN_PAYMENT_PROVIDER_CODES.map((code) => {
       const adapter = this.#adapters.get(code);
       const configuration = this.#configuration.get(code) ?? unconfiguredProviderState(code);
-      const defaultCapabilities = code === "PAYSTACK" ? PAYSTACK_CAPABILITIES : PAYFAST_CAPABILITIES;
       return Object.freeze({
         code,
         configured: configuration.configured,
@@ -82,7 +79,7 @@ export class PaymentProviderRegistry {
         sourceAddressTrustConfigured: configuration.sourceAddressTrustConfigured,
         itnVerificationImplemented: configuration.itnVerificationImplemented,
         productionValidationApproved: configuration.productionValidationApproved,
-        capabilities: adapter?.capabilities ?? defaultCapabilities,
+        capabilities: adapter?.capabilities ?? PAYSTACK_CAPABILITIES,
       });
     });
   }
@@ -90,18 +87,14 @@ export class PaymentProviderRegistry {
 
 export function createProductionPaymentProviderRegistry(): PaymentProviderRegistry {
   const paystackResolution = resolvePaystackConfiguration();
-  const payfastResolution = resolvePayfastConfiguration();
 
   const adapters: PaymentProviderAdapter[] = [];
   if (paystackResolution.runtime && paystackResolution.state.active) {
     adapters.push(new PaystackAdapter(paystackResolution.runtime));
   }
-  if (payfastResolution.runtime && payfastResolution.state.active) {
-    adapters.push(new PayfastAdapter(payfastResolution.runtime));
-  }
 
   return new PaymentProviderRegistry({
     adapters,
-    configuration: [paystackResolution.state, payfastResolution.state],
+    configuration: [paystackResolution.state],
   });
 }

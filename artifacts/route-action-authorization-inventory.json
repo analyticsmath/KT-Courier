@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 700,
+    "totalRoutes": 701,
     "totalServerActions": 0,
-    "publicRoutes": 113,
+    "publicRoutes": 114,
     "authenticatedRoutes": 584,
     "permissionGatedRoutes": 416,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 170,
-    "generatedAt": "2026-08-15T11:43:13.398Z"
+    "rateLimitedRoutes": 169,
+    "generatedAt": "2026-09-09T20:03:13.211Z"
   },
   "serverActions": [],
   "routes": [
@@ -2675,6 +2675,22 @@
       "remediationStatus": "COMPLIANT"
     },
     {
+      "routePath": "app/api/admin/orders/[id]/cod/reconcile/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
       "routePath": "app/api/admin/orders/[id]/dispatch-candidates/route.ts",
       "httpMethods": [
         "GET",
@@ -2688,6 +2704,22 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/admin/orders/[id]/location/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT"
     },
@@ -2800,38 +2832,6 @@
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
-      "idempotencyEnforced": false,
-      "bolaOwnershipValidated": true,
-      "remediationStatus": "COMPLIANT"
-    },
-    {
-      "routePath": "app/api/admin/orders/[id]/cod/reconcile/route.ts",
-      "httpMethods": [
-        "POST"
-      ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
-      "requiredRoles": [
-        "ADMIN",
-        "SUPER_ADMIN"
-      ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": true,
-      "idempotencyEnforced": true,
-      "bolaOwnershipValidated": true,
-      "remediationStatus": "COMPLIANT"
-    },
-    {
-      "routePath": "app/api/admin/orders/[id]/location/route.ts",
-      "httpMethods": [
-        "GET"
-      ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
-      "requiredRoles": [
-        "ADMIN",
-        "SUPER_ADMIN"
-      ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT"
@@ -8456,42 +8456,6 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/orders/[id]/payment/route.ts",
-      "httpMethods": [
-        "POST"
-      ],
-      "authorizationMechanism": "AUTHENTICATED_SESSION",
-      "requiredRoles": [
-        "CUSTOMER",
-        "STORE",
-        "DRIVER",
-        "ADMIN"
-      ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": true,
-      "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
-      "remediationStatus": "COMPLIANT"
-    },
-    {
-      "routePath": "app/api/orders/[id]/route.ts",
-      "httpMethods": [
-        "GET"
-      ],
-      "authorizationMechanism": "AUTHENTICATED_SESSION",
-      "requiredRoles": [
-        "CUSTOMER",
-        "STORE",
-        "DRIVER",
-        "ADMIN"
-      ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
-      "remediationStatus": "COMPLIANT"
-    },
-    {
       "routePath": "app/api/orders/[id]/package-policy/route.ts",
       "httpMethods": [
         "POST"
@@ -8505,6 +8469,24 @@
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/orders/[id]/payment/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "AUTHENTICATED_SESSION",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE",
+        "DRIVER",
+        "ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
       "idempotencyEnforced": true,
       "bolaOwnershipValidated": false,
       "remediationStatus": "COMPLIANT"
@@ -8546,14 +8528,46 @@
       "remediationStatus": "COMPLIANT"
     },
     {
+      "routePath": "app/api/orders/[id]/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "AUTHENTICATED_SESSION",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE",
+        "DRIVER",
+        "ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
       "routePath": "app/api/payments/payfast/itn/route.ts",
       "httpMethods": [
+        "GET",
         "POST"
       ],
       "authorizationMechanism": "WEBHOOK_SIGNATURE",
       "requiredRoles": [],
       "requiredPermissions": [],
-      "rateLimitingApplied": true,
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/payments/paystack/webhook/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "PUBLIC_BY_DESIGN",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": false,
       "remediationStatus": "COMPLIANT"
@@ -9953,21 +9967,6 @@
       "remediationStatus": "COMPLIANT"
     },
     {
-      "routePath": "app/api/store/orders/[reference]/location/route.ts",
-      "httpMethods": [
-        "GET"
-      ],
-      "authorizationMechanism": "STORE_SESSION",
-      "requiredRoles": [
-        "STORE"
-      ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
-      "remediationStatus": "COMPLIANT"
-    },
-    {
       "routePath": "app/api/store/orders/[reference]/actions/route.ts",
       "httpMethods": [
         "POST"
@@ -9979,6 +9978,21 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/store/orders/[reference]/location/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "STORE_SESSION",
+      "requiredRoles": [
+        "STORE"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": false,
       "remediationStatus": "COMPLIANT"
     },

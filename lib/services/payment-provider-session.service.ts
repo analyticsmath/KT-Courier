@@ -148,7 +148,7 @@ async function reserveAttempt(
       throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Payment is not available for this payer.");
     }
     if (!paymentBeforeLock.user?.email || !validPayerEmail(paymentBeforeLock.user.email)) {
-      throw new PaymentError("PAYFAST_PAYER_EMAIL_REQUIRED", "A valid payer email is required for Payfast checkout.");
+      throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid payer email is required for checkout.");
     }
 
     const callbackUrls = callbackUrlFactory(paymentBeforeLock.publicReference);
@@ -196,7 +196,7 @@ async function reserveAttempt(
     });
     if (!payment) throw new PaymentError("PAYMENT_NOT_FOUND", "Payment was not found.");
     if (payment.userId !== payerId) throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Payment is not available for this payer.");
-    if (!payment.user?.email || !validPayerEmail(payment.user.email)) throw new PaymentError("PAYFAST_PAYER_EMAIL_REQUIRED", "A valid payer email is required for Payfast checkout.");
+    if (!payment.user?.email || !validPayerEmail(payment.user.email)) throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid payer email is required for checkout.");
     if (payment.amount.toFixed(2) !== paymentBeforeLock.amount.toFixed(2) || payment.currency !== "ZAR") {
       throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment financial identity changed during reservation.");
     }
@@ -523,11 +523,16 @@ export async function createProviderCheckoutSession(
   const parsed = CreateProviderSessionSchema.safeParse(rawInput);
   if (!parsed.success) throw new PaymentError("PAYMENT_METADATA_INVALID", "Provider-session request is invalid.");
 
+  if (parsed.data.provider === "PAYFAST") {
+    throw new PaymentError("PAYMENT_PROVIDER_NOT_SUPPORTED", "Payfast is no longer supported for new transactions. Please use Paystack.");
+  }
+
   const callbackUrlFactory = dependencies.callbackUrls ?? buildServerPaymentCallbackUrls;
   const registry = dependencies.registry ?? createProductionPaymentProviderRegistry();
   // Configuration and the Phase 11 production lock are resolved before a
   // reservation so an unavailable provider never consumes an attempt number.
   const adapter = registry.getAdapter(parsed.data.provider);
+
   let reservation: Awaited<ReturnType<typeof reserveAttempt>>;
   try {
     reservation = await reserveAttempt(payer.id, parsed.data, callbackUrlFactory, adapter);
