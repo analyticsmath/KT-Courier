@@ -324,7 +324,7 @@ export function DriverDetailsConsole({
                   <div className="w-14 h-14 rounded-xl overflow-hidden border border-[var(--kt-soft-border)] bg-[var(--kt-cool-gray)] flex items-center justify-center flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`/api/driver/private-media/${driver.profilePhoto.publicReference}`}
+                      src={`/api/private-media/${encodeURIComponent(driver.profilePhoto.publicReference)}`}
                       alt="Driver photo"
                       className="w-full h-full object-cover"
                     />
@@ -821,7 +821,7 @@ export function DriverDetailsConsole({
                                 <div className="w-full h-12 rounded overflow-hidden bg-[var(--kt-cool-gray)] flex items-center justify-center">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    src={`/api/driver/private-media/${photo.publicReference}`}
+                                    src={`/api/private-media/${encodeURIComponent(photo.publicReference)}`}
                                     alt={`${purpose} view`}
                                     className="w-full h-full object-cover"
                                   />
