@@ -1,3 +1,13 @@
+/**
+ * QUARANTINED / HISTORICAL ONLY
+ * -------------------------------------------------------------------------
+ * This script is preserved strictly for historical verification and audit of
+ * legacy PayFast transactions. It is permanently quarantined and must not be
+ * used or mistaken for supported production operations.
+ * Digital payments in KT Courier are Paystack-only.
+ * -------------------------------------------------------------------------
+ */
+
 import { readFile } from "node:fs/promises";
 import { PrismaClient } from "@prisma/client";
 

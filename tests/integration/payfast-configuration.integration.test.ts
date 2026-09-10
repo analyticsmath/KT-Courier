@@ -1,3 +1,14 @@
+/**
+ * ============================================================================
+ * QUARANTINED LEGACY PAYFAST VERIFICATION TOOLING
+ * ============================================================================
+ * WARNING: PayFast runtime checkout and webhook integration have been decommissioned.
+ * All new transactions use PAYSTACK. This file is preserved solely as historical
+ * reference / verification tooling for pre-existing database records.
+ * DO NOT USE FOR NEW TRANSACTION PROCESSING.
+ * ============================================================================
+ */
+
 import { afterAll, describe, expect, it } from "vitest";
 import { PaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
 import { resolvePayfastConfiguration } from "@/lib/payments/providers/payfast/payfast-config";
@@ -40,7 +51,7 @@ describe("Phase 11 Payfast configuration integration", () => {
     const registry = new PaymentProviderRegistry({ configuration: [invalid.state] });
     await expect(createProviderCheckoutSession(
       { id: fixture.user.id },
-      { paymentId: payment.id, provider: "PAYFAST", idempotencyKey: `${fixture.tag}:payfast:checkout` },
+      { paymentId: payment.id, provider: "PAYFAST" as unknown as "PAYSTACK", idempotencyKey: `${fixture.tag}:payfast:checkout` },
       { registry, callbackUrls: payfastIntegrationCallbacks },
     )).rejects.toMatchObject({ code: "PAYFAST_CONFIGURATION_INVALID" });
     expect(await paymentPrisma.paymentAttempt.count({ where: { paymentId: payment.id } })).toBe(0);
@@ -74,7 +85,7 @@ describe("Phase 11 Payfast configuration integration", () => {
     });
     await expect(createProviderCheckoutSession(
       { id: fixture.user.id },
-      { paymentId: payment.id, provider: "PAYFAST", idempotencyKey: `${fixture.tag}:payfast:checkout` },
+      { paymentId: payment.id, provider: "PAYFAST" as unknown as "PAYSTACK", idempotencyKey: `${fixture.tag}:payfast:checkout` },
       { registry, callbackUrls: payfastIntegrationCallbacks },
     )).rejects.toMatchObject({ code: "PAYFAST_PRODUCTION_NOT_READY" });
     expect(await paymentPrisma.paymentAttempt.count({ where: { paymentId: payment.id } })).toBe(0);

@@ -52,7 +52,8 @@ export async function computeDriverEligibility(
 
   if (!driver.phone) warnings.push("No phone number on file");
 
-  const compliance = driver.vehicleComplianceRequiredAt ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+  const now = new Date();
+  const compliance = driver.vehicleComplianceRequiredAt && driver.vehicleComplianceRequiredAt <= now ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
   if (!compliance.eligible) warnings.push(...compliance.reasons);
   const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER, compliance.eligible);
 
@@ -118,6 +119,7 @@ export async function listEligibleDrivers(
     notEligible: [],
   };
 
+  const now = new Date();
   for (const driver of drivers) {
     const activeCount = countMap.get(driver.id) ?? 0;
     const base = toDispatchDriverDto(driver);
@@ -134,7 +136,7 @@ export async function listEligibleDrivers(
     if (!driver.phone) warnings.push("No phone number on file");
     if (activeCount > 0) warnings.push(`${activeCount} active assignment(s)`);
 
-    const compliance = driver.vehicleComplianceRequiredAt ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+    const compliance = driver.vehicleComplianceRequiredAt && driver.vehicleComplianceRequiredAt <= now ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
     if (!compliance.eligible) warnings.push(...compliance.reasons);
     const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER, compliance.eligible);
 

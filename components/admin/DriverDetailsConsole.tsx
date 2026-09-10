@@ -319,14 +319,30 @@ export function DriverDetailsConsole({
         <Card>
           <div className="space-y-4">
             <div className="flex justify-between items-start">
-              <div>
-                <span className="font-mono text-xs font-bold px-2 py-0.5 bg-[var(--kt-cool-gray)] text-[var(--kt-ink-navy)] rounded-lg">
-                  {driver.driverCode}
-                </span>
-                <h2 className="text-xl font-bold text-[var(--kt-ink-navy)] mt-2">
-                  {driver.displayName || "No Display Name"}
-                </h2>
-                <p className="text-sm text-[var(--kt-text-muted)]">{driver.user.email}</p>
+              <div className="flex items-start gap-3">
+                {driver.profilePhoto ? (
+                  <div className="w-14 h-14 rounded-xl overflow-hidden border border-[var(--kt-soft-border)] bg-[var(--kt-cool-gray)] flex items-center justify-center flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/driver/private-media/${driver.profilePhoto.publicReference}`}
+                      alt="Driver photo"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 rounded-xl border border-dashed border-[var(--kt-soft-border)] bg-[var(--kt-cool-gray)] flex items-center justify-center text-[10px] text-[var(--kt-text-muted)] flex-shrink-0 text-center px-1 font-medium">
+                    No Photo
+                  </div>
+                )}
+                <div>
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 bg-[var(--kt-cool-gray)] text-[var(--kt-ink-navy)] rounded-lg">
+                    {driver.driverCode}
+                  </span>
+                  <h2 className="text-xl font-bold text-[var(--kt-ink-navy)] mt-1">
+                    {driver.displayName || "No Display Name"}
+                  </h2>
+                  <p className="text-sm text-[var(--kt-text-muted)]">{driver.user.email}</p>
+                </div>
               </div>
               <div className="flex flex-col gap-1.5 items-end">
                 <Badge variant={getStatusBadgeVariant(driver.status)}>
@@ -702,6 +718,129 @@ export function DriverDetailsConsole({
               </Button>
             </div>
           </form>
+        </Card>
+
+        {/* Compliance & Vehicle Photographs Panel */}
+        <Card>
+          <div className="space-y-4">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
+              Compliance & Fleet Evidence
+            </h3>
+
+            {/* Compliance Policy & Cutover Status */}
+            <div className="p-3 bg-[var(--kt-cool-gray)] rounded-xl border border-[var(--kt-soft-border)] text-xs space-y-1.5">
+              <span className="font-bold text-[var(--kt-ink-navy)] block">Compliance Cutover Policy</span>
+              {!driver.vehicleComplianceRequiredAt ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="amber">LEGACY_COMPLIANCE_CUTOVER_PENDING</Badge>
+                  <span className="text-[var(--kt-text-muted)]">Driver grandfathered from mandatory vehicle compliance cutover.</span>
+                </div>
+              ) : new Date(driver.vehicleComplianceRequiredAt) > new Date() ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="amber">CUTOVER_PENDING</Badge>
+                  <span className="text-[var(--kt-text-muted)]">Grandfathered until {new Date(driver.vehicleComplianceRequiredAt).toLocaleDateString("en-ZA")}.</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Badge variant="green">STRICT_COMPLIANCE_ENFORCED</Badge>
+                  <span className="text-[var(--kt-text-muted)]">Full driver and vehicle compliance required for dispatch.</span>
+                </div>
+              )}
+            </div>
+
+            {/* Driver Documents */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-[var(--kt-ink-navy)] block">Driver Documents (ID & Driver Licence)</span>
+              {driver.documents.length === 0 ? (
+                <p className="text-xs text-[var(--kt-text-muted)] italic">No driver documents uploaded yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {driver.documents.map((doc) => (
+                    <div key={doc.id} className="p-2.5 bg-[var(--kt-studio-white)] rounded-xl border border-[var(--kt-soft-border)] flex justify-between items-center text-xs">
+                      <div>
+                        <span className="font-semibold text-[var(--kt-ink-navy)] block">{doc.documentType.replace(/_/g, " ")}</span>
+                        <span className="text-[10px] text-[var(--kt-text-muted)]">
+                          {doc.expiresAt ? `Expires: ${new Date(doc.expiresAt).toLocaleDateString("en-ZA")}` : "No expiry recorded"}
+                        </span>
+                      </div>
+                      <Badge variant={doc.status === "APPROVED" ? "green" : doc.status === "REJECTED" ? "red" : "amber"}>
+                        {doc.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Registered Vehicles & Photographs */}
+            <div className="space-y-3 pt-2 border-t border-[var(--kt-soft-border)]">
+              <span className="text-xs font-bold text-[var(--kt-ink-navy)] block">Registered Fleet Vehicles & Photographs</span>
+              {(!driver.vehicles || driver.vehicles.length === 0) ? (
+                <p className="text-xs text-[var(--kt-text-muted)] italic">No vehicles registered in fleet compliance system.</p>
+              ) : (
+                driver.vehicles.map((v) => (
+                  <div key={v.id} className="p-3 bg-[var(--kt-cool-gray)] rounded-xl border border-[var(--kt-soft-border)] space-y-2.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-[var(--kt-ink-navy)]">{v.make} {v.model} ({v.registrationNumber})</span>
+                        <span className="text-[10px] text-[var(--kt-text-muted)] block">{v.vehicleType} • {v.colour || "Color not set"}</span>
+                      </div>
+                      <Badge variant={v.status === "APPROVED" ? "green" : v.status === "REJECTED" ? "red" : "amber"}>
+                        {v.status}
+                      </Badge>
+                    </div>
+
+                    {/* Vehicle Documents */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-[var(--kt-text-muted)] uppercase tracking-wider block">Vehicle Documents</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                        {["REGISTRATION", "LICENCE_DISC", "INSURANCE"].map((docType) => {
+                          const doc = v.documents.find((d) => d.documentType === docType);
+                          return (
+                            <div key={docType} className="p-1.5 bg-white rounded-lg border border-[var(--kt-soft-border)] text-[11px] flex justify-between items-center">
+                              <span className="font-medium text-[var(--kt-ink-navy)]">{docType.replace(/_/g, " ")}</span>
+                              <span className={`text-[10px] font-bold ${doc?.status === "APPROVED" ? "text-[var(--kt-teal-emerald)]" : doc?.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}>
+                                {doc ? doc.status : "MISSING"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Vehicle Photographs */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-[var(--kt-text-muted)] uppercase tracking-wider block">Vehicle Photographs</span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {["FRONT", "REAR", "SIDE", "INTERIOR"].map((purpose) => {
+                          const photo = v.media.find((m) => m.purpose === purpose);
+                          return (
+                            <div key={purpose} className="p-2 bg-white rounded-lg border border-[var(--kt-soft-border)] text-center space-y-1">
+                              <span className="text-[10px] font-semibold text-[var(--kt-text-muted)] block">{purpose}</span>
+                              {photo ? (
+                                <div className="w-full h-12 rounded overflow-hidden bg-[var(--kt-cool-gray)] flex items-center justify-center">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={`/api/driver/private-media/${photo.publicReference}`}
+                                    alt={`${purpose} view`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-full h-12 rounded border border-dashed border-[var(--kt-soft-border)] bg-[var(--kt-cool-gray)] flex items-center justify-center text-[10px] text-[var(--kt-text-muted)]">
+                                  Missing
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </Card>
 
         {/* Future Assignments Placeholder */}

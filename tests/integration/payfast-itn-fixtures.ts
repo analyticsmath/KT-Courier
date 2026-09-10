@@ -1,18 +1,30 @@
 import { createHash, randomUUID } from "node:crypto";
 import { prepareOrderPayment } from "@/lib/services/payment-preparation.service";
-import { createProviderCheckoutSession } from "@/lib/services/payment-provider-session.service";
 import type { PaymentWebhookNormalizedStatusCode } from "@/lib/payments/types";
 import type { VerifiedPayfastItn } from "@/lib/services/payfast-itn-verification.service";
 import type { ResolvedPayfastItnAttempt } from "@/lib/services/payfast-itn-resolution.service";
 import { createPayableOrder, paymentPrisma } from "./payment-fixtures";
-import { payfastIntegrationCallbacks, payfastIntegrationRegistry } from "./payfast-fixtures";
 
 export async function createPhase12Attempt() {
   const fixture = await createPayableOrder();
   const payment = await prepareOrderPayment({ id: fixture.user.id, email: fixture.user.email }, { orderId: fixture.order.id, idempotencyKey: `${fixture.tag}:phase12:prepare` });
-  const session = await createProviderCheckoutSession({ id: fixture.user.id }, { paymentId: payment.id, provider: "PAYFAST", idempotencyKey: `${fixture.tag}:phase12:checkout` }, { registry: payfastIntegrationRegistry(), callbackUrls: payfastIntegrationCallbacks });
-  const attempt = await paymentPrisma.paymentAttempt.findUniqueOrThrow({ where: { id: session.attempt.id }, include: { payment: true } });
-  return { fixture, payment, session, attempt: attempt as unknown as ResolvedPayfastItnAttempt };
+  const attempt = await paymentPrisma.paymentAttempt.create({
+    data: {
+      paymentId: payment.id,
+      attemptNumber: 1,
+      provider: "PAYFAST",
+      providerEnvironment: "SANDBOX",
+      idempotencyKey: `${fixture.tag}:phase12:checkout`,
+      requestHash: "0".repeat(64),
+      merchantReference: `kt:payment:${payment.publicReference}:attempt:1`,
+      status: "REQUIRES_ACTION",
+      checkoutActionType: "FORM_POST",
+      amount: payment.amount,
+      currency: "ZAR",
+    },
+    include: { payment: true },
+  });
+  return { fixture, payment, session: { attempt }, attempt: attempt as unknown as ResolvedPayfastItnAttempt };
 }
 
 export function verifiedEvent(attempt: ResolvedPayfastItnAttempt, status: PaymentWebhookNormalizedStatusCode = "COMPLETE", options: { providerPaymentId?: string; fingerprintSeed?: string } = {}): VerifiedPayfastItn {

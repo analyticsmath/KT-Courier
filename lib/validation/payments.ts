@@ -25,7 +25,7 @@ export const PrepareOrderPaymentSchema = z.object({
 
 export const CreateProviderSessionSchema = z.object({
   paymentId: boundedId,
-  provider: z.enum(["PAYSTACK", "PAYFAST"]),
+  provider: z.literal("PAYSTACK"),
   idempotencyKey: boundedKey,
 }).strict();
 

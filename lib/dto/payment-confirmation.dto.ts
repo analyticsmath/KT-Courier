@@ -10,7 +10,7 @@ export type PaymentWebhookVerificationDto = Readonly<{
 
 export type PaymentWebhookListItemDto = Readonly<{
   publicReference: string;
-  provider: "PAYFAST";
+  provider: "PAYFAST" | "PAYSTACK";
   environment: "SANDBOX" | "PRODUCTION";
   providerStatus: string;
   normalizedStatus: "COMPLETE" | "PENDING" | "FAILED" | "UNKNOWN";

@@ -25,7 +25,7 @@ async function loadPaymentWebhooks(input: Parameters<typeof listPaymentWebhooks>
 export default async function PaymentWebhooksPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireAdminPagePermission(PERMISSIONS.PAYMENT_WEBHOOKS_READ);
   const params = await searchParams;
-  const input = { page: value(params, "page") ?? "1", pageSize: "20", provider: "PAYFAST", environment: value(params, "environment"), processingStatus: value(params, "processingStatus"), normalizedStatus: value(params, "normalizedStatus"), paymentReference: value(params, "paymentReference"), attemptReference: value(params, "attemptReference"), reconciliationRequired: value(params, "reconciliationRequired"), from: value(params, "from"), to: value(params, "to") };
+  const input = { page: value(params, "page") ?? "1", pageSize: "20", provider: value(params, "provider") as ("PAYFAST" | "PAYSTACK" | undefined), environment: value(params, "environment"), processingStatus: value(params, "processingStatus"), normalizedStatus: value(params, "normalizedStatus"), paymentReference: value(params, "paymentReference"), attemptReference: value(params, "attemptReference"), reconciliationRequired: value(params, "reconciliationRequired"), from: value(params, "from"), to: value(params, "to") };
   const parsed = PaymentWebhookListQuerySchema.safeParse(input);
   let content: React.ReactNode;
   if (!parsed.success) content = <ErrorPanel title="Invalid webhook filters" message="Review the filters, then try again." />;

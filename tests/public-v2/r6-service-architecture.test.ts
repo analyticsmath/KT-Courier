@@ -3,10 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { allServiceMedia } from "@/lib/public-assets/service-media";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
-import {
-  indexablePublicServicePages,
-  publicServicePages,
-} from "@/lib/public-services/service-page-registry";
+import { publicServicePages } from "@/lib/public-services/service-page-registry";
 import sitemap from "@/app/sitemap";
 
 const workspaceRoot = process.cwd();

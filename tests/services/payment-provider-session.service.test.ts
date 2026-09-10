@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
 import { FakePaymentProvider } from "../payments/fake-payment-provider";
+import { CreateProviderSessionSchema } from "@/lib/validation/payments";
 
 const mocks = vi.hoisted(() => ({ prisma: { $transaction: vi.fn() }, tx: {} as Record<string, unknown> }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: mocks.prisma }));
@@ -76,14 +77,22 @@ beforeEach(() => {
 const callbackUrls = () => ({ returnUrl: "https://app.test/payments/payfast/return?payment=pay_abcdefghijklmnop", cancelUrl: "https://app.test/payments/payfast/cancel?payment=pay_abcdefghijklmnop", notificationUrl: "https://app.test/api/payments/payfast/itn", returnRouteId: "payfast-return" as const, cancelRouteId: "payfast-cancel" as const, notificationRouteId: "payfast-itn-reserved" as const });
 
 describe("payment provider session service", () => {
-  it("fails closed when requesting PAYFAST provider", async () => {
+  it("strictly accepts PAYSTACK and rejects PAYFAST in CreateProviderSessionSchema", () => {
+    const valid = CreateProviderSessionSchema.safeParse({ paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" });
+    expect(valid.success).toBe(true);
+
+    const invalid = CreateProviderSessionSchema.safeParse({ paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:2" });
+    expect(invalid.success).toBe(false);
+  });
+
+  it("fails closed at schema boundary when requesting non-PAYSTACK provider like PAYFAST", async () => {
     await expect(
       createProviderCheckoutSession(
         { id: "payer-1" },
-        { paymentId: "payment-1", provider: "PAYFAST", idempotencyKey: "attempt:key:payfast" },
+        { paymentId: "payment-1", provider: "PAYFAST" as unknown as "PAYSTACK", idempotencyKey: "attempt:key:payfast" },
         { callbackUrls },
       ),
-    ).rejects.toMatchObject({ code: "PAYMENT_PROVIDER_NOT_SUPPORTED" });
+    ).rejects.toMatchObject({ code: "PAYMENT_METADATA_INVALID" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -101,6 +110,7 @@ describe("payment provider session service", () => {
     const result = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" }, { registry: new PaymentProviderRegistry({ adapters: [fake] }), callbackUrls });
     expect(result).toMatchObject({ paymentStatus: "REQUIRES_ACTION", attempt: { attemptNumber: 1, status: "REQUIRES_ACTION", merchantReference: "kt:payment:pay_abcdefghijklmnop:attempt:1" } });
     expect(result.attempt).not.toHaveProperty("providerCredentialVersion");
+    expect(attempt?.requestSnapshot).toMatchObject({ provider: "PAYSTACK" });
     expect(fake.calls).toBe(1); expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(3); expect(historyCreate).toHaveBeenCalledOnce(); expect(historyCreateMany).toHaveBeenCalledOnce();
   });
 

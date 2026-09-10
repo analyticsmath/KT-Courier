@@ -25,7 +25,7 @@ function webhookListItem(row: {
 }): PaymentWebhookListItemDto {
   return Object.freeze({
     publicReference: row.publicReference,
-    provider: "PAYFAST",
+    provider: (row.provider === "PAYSTACK" ? "PAYSTACK" : "PAYFAST"),
     environment: row.environment as "SANDBOX" | "PRODUCTION",
     providerStatus: row.providerStatus,
     normalizedStatus: row.normalizedStatus as PaymentWebhookListItemDto["normalizedStatus"],
@@ -49,7 +49,7 @@ const webhookInclude = {
 
 export async function listPaymentWebhooks(query: PaymentWebhookListQuery): Promise<PaymentWebhookListDto> {
   const where: Prisma.PaymentWebhookEventWhereInput = {
-    provider: "PAYFAST",
+    ...(query.provider ? { provider: query.provider } : {}),
     ...(query.environment && { environment: query.environment }),
     ...(query.processingStatus && { processingStatus: query.processingStatus }),
     ...(query.normalizedStatus && { normalizedStatus: query.normalizedStatus }),
@@ -101,7 +101,7 @@ const reconciliationInclude = {
 
 export async function listPaymentReconciliation(query: PaymentReconciliationListQuery): Promise<PaymentReconciliationListDto> {
   const where: Prisma.PaymentReconciliationCaseWhereInput = {
-    provider: "PAYFAST",
+    ...(query.provider ? { provider: query.provider } : {}),
     ...(query.status && { status: query.status }), ...(query.priority && { priority: query.priority }), ...(query.reason && { reason: query.reason }),
     ...(query.paymentReference && { payment: { publicReference: { contains: query.paymentReference, mode: "insensitive" } } }),
     ...(query.attemptReference && { attempt: { publicReference: { contains: query.attemptReference, mode: "insensitive" } } }),

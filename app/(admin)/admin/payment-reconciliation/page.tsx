@@ -25,7 +25,7 @@ async function loadPaymentReconciliation(input: Parameters<typeof listPaymentRec
 export default async function PaymentReconciliationPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireAdminPagePermission(PERMISSIONS.PAYMENT_RECONCILIATION_READ);
   const params = await searchParams;
-  const input = { page: value(params, "page") ?? "1", pageSize: "20", provider: "PAYFAST", status: value(params, "status"), priority: value(params, "priority"), reason: value(params, "reason"), paymentReference: value(params, "paymentReference"), attemptReference: value(params, "attemptReference"), eventReference: value(params, "eventReference"), from: value(params, "from"), to: value(params, "to") };
+  const input = { page: value(params, "page") ?? "1", pageSize: "20", provider: value(params, "provider") as ("PAYFAST" | "PAYSTACK" | undefined), status: value(params, "status"), priority: value(params, "priority"), reason: value(params, "reason"), paymentReference: value(params, "paymentReference"), attemptReference: value(params, "attemptReference"), eventReference: value(params, "eventReference"), from: value(params, "from"), to: value(params, "to") };
   const parsed = PaymentReconciliationListQuerySchema.safeParse(input);
   let content: React.ReactNode;
   if (!parsed.success) content = <ErrorPanel title="Invalid reconciliation filters" message="Review the filters, then try again." />;

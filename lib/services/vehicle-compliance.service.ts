@@ -130,6 +130,6 @@ export function evaluateDispatchComplianceEvidence(input: Readonly<{ driverDocum
 export async function evaluateDriverDispatchCompliance(driverProfileId: string): Promise<DispatchComplianceResult> {
   const driver = await prisma.driverProfile.findUnique({ where: { id: driverProfileId }, include: { documents: true, vehicles: { where: { status: VehicleComplianceStatus.APPROVED, archivedAt: null }, include: { documents: true } } } });
   if (!driver) return { eligible: false, reasons: ["DRIVER_NOT_FOUND"], approvedVehicleId: null };
-  if (!driver.vehicleComplianceRequiredAt) return { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+  if (!driver.vehicleComplianceRequiredAt || driver.vehicleComplianceRequiredAt > new Date()) return { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
   return evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles });
 }

@@ -85,21 +85,83 @@ export async function listDrivers(opts: ListDriversOptions): Promise<ListDrivers
 
 // ─── Get Driver Details ───────────────────────────────────────────────────────
 export async function getDriverDetail(id: string): Promise<DriverDetailDto | null> {
-  const driver = await prisma.driverProfile.findUnique({
-    where: { id },
-    include: {
-      user: true,
-      serviceRegions: {
-        include: {
-          deliveryRegion: true,
+  const [driver, profilePhoto] = await Promise.all([
+    prisma.driverProfile.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        serviceRegions: {
+          include: {
+            deliveryRegion: true,
+          },
+        },
+        documents: true,
+        vehicles: {
+          where: { archivedAt: null },
+          include: {
+            documents: true,
+            media: {
+              include: {
+                privateMediaObject: true,
+              },
+            },
+          },
         },
       },
-      documents: true,
-    },
-  });
+    }),
+    prisma.privateMediaObject.findFirst({
+      where: {
+        ownerType: "DRIVER",
+        ownerId: id,
+        purpose: "DRIVER_PROFILE_PHOTO",
+        status: "READY",
+        deletedAt: null,
+      },
+      select: {
+        publicReference: true,
+        originalFileName: true,
+        detectedMimeType: true,
+      },
+    }),
+  ]);
 
   if (!driver) return null;
-  return toDriverDetailDto(driver);
+  const dto = toDriverDetailDto(driver);
+  return {
+    ...dto,
+    vehicleComplianceRequiredAt: driver.vehicleComplianceRequiredAt,
+    profilePhoto: profilePhoto ? {
+      publicReference: profilePhoto.publicReference,
+      fileName: profilePhoto.originalFileName,
+      mimeType: profilePhoto.detectedMimeType,
+    } : null,
+    vehicles: driver.vehicles.map((v) => ({
+      id: v.id,
+      publicReference: v.publicReference,
+      make: v.make,
+      model: v.model,
+      year: v.year,
+      colour: v.colour,
+      registrationNumber: v.registrationNumber,
+      vehicleType: v.vehicleType,
+      status: v.status,
+      documents: v.documents.map((d) => ({
+        id: d.id,
+        documentType: d.documentType,
+        status: d.status,
+        expiresAt: d.expiresAt,
+        rejectionReason: d.rejectionReason,
+      })),
+      media: v.media.map((m) => ({
+        id: m.id,
+        purpose: m.purpose,
+        publicReference: m.privateMediaObject.publicReference,
+        fileName: m.privateMediaObject.originalFileName,
+        mimeType: m.privateMediaObject.detectedMimeType,
+        status: m.privateMediaObject.status,
+      })),
+    })),
+  };
 }
 
 // ─── Create Driver Profile (Link to DRIVER User) ──────────────────────────────

@@ -1,3 +1,14 @@
+/**
+ * ============================================================================
+ * QUARANTINED LEGACY PAYFAST VERIFICATION TOOLING
+ * ============================================================================
+ * WARNING: PayFast runtime checkout and webhook integration have been decommissioned.
+ * All new transactions use PAYSTACK. This file is preserved solely as historical
+ * reference / verification tooling for pre-existing database records.
+ * DO NOT USE FOR NEW TRANSACTION PROCESSING.
+ * ============================================================================
+ */
+
 import { afterAll, describe, expect, it } from "vitest";
 import { generatePayfastSignature } from "@/lib/payments/providers/payfast/payfast-signature";
 import type { PayfastUnsignedFields } from "@/lib/payments/providers/payfast/payfast-fields";
@@ -23,7 +34,7 @@ describe("Phase 11 Payfast checkout session", () => {
     const registry = payfastIntegrationRegistry();
     const session = await createProviderCheckoutSession(
       { id: fixture.user.id },
-      { paymentId: payment.id, provider: "PAYFAST", idempotencyKey: `${fixture.tag}:payfast:checkout` },
+      { paymentId: payment.id, provider: "PAYFAST" as unknown as "PAYSTACK", idempotencyKey: `${fixture.tag}:payfast:checkout` },
       { registry, callbackUrls: payfastIntegrationCallbacks },
     );
     expect(session).toMatchObject({
@@ -84,7 +95,7 @@ describe("Phase 11 Payfast checkout session", () => {
     );
     const input = {
       paymentId: payment.id,
-      provider: "PAYFAST" as const,
+      provider: "PAYFAST" as unknown as "PAYSTACK",
       idempotencyKey: `${fixture.tag}:payfast:checkout`,
     };
     const registry = payfastIntegrationRegistry();

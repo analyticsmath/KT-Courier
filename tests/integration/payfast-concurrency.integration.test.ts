@@ -1,3 +1,14 @@
+/**
+ * ============================================================================
+ * QUARANTINED LEGACY PAYFAST VERIFICATION TOOLING
+ * ============================================================================
+ * WARNING: PayFast runtime checkout and webhook integration have been decommissioned.
+ * All new transactions use PAYSTACK. This file is preserved solely as historical
+ * reference / verification tooling for pre-existing database records.
+ * DO NOT USE FOR NEW TRANSACTION PROCESSING.
+ * ============================================================================
+ */
+
 import { afterAll, describe, expect, it } from "vitest";
 import { prepareOrderPayment } from "@/lib/services/payment-preparation.service";
 import { createProviderCheckoutSession } from "@/lib/services/payment-provider-session.service";
@@ -15,7 +26,7 @@ describe("Phase 11 Payfast attempt concurrency", () => {
     );
     const input = {
       paymentId: payment.id,
-      provider: "PAYFAST" as const,
+      provider: "PAYFAST" as unknown as "PAYSTACK",
       idempotencyKey: `${fixture.tag}:payfast:race`,
     };
     const settled = await Promise.all([
@@ -41,12 +52,12 @@ describe("Phase 11 Payfast attempt concurrency", () => {
     const settled = await Promise.allSettled([
       createProviderCheckoutSession(
         { id: fixture.user.id },
-        { paymentId: payment.id, provider: "PAYFAST", idempotencyKey: `${fixture.tag}:payfast:race:a` },
+        { paymentId: payment.id, provider: "PAYFAST" as unknown as "PAYSTACK", idempotencyKey: `${fixture.tag}:payfast:race:a` },
         { registry: payfastIntegrationRegistry(), callbackUrls: payfastIntegrationCallbacks },
       ),
       createProviderCheckoutSession(
         { id: fixture.user.id },
-        { paymentId: payment.id, provider: "PAYFAST", idempotencyKey: `${fixture.tag}:payfast:race:b` },
+        { paymentId: payment.id, provider: "PAYFAST" as unknown as "PAYSTACK", idempotencyKey: `${fixture.tag}:payfast:race:b` },
         { registry: payfastIntegrationRegistry(), callbackUrls: payfastIntegrationCallbacks },
       ),
     ]);
@@ -57,3 +68,4 @@ describe("Phase 11 Payfast attempt concurrency", () => {
     expect(new Set(attempts.map((entry) => entry.merchantReference)).size).toBe(attempts.length);
   });
 });
+

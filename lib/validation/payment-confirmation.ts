@@ -12,7 +12,7 @@ const caseReference = z.string().regex(/^prc_[A-Za-z0-9_-]{16,96}$/);
 export const PaymentWebhookListQuerySchema = z.object({
   page: positiveInteger(1_000_000).default(1),
   pageSize: positiveInteger(100).default(20),
-  provider: z.literal("PAYFAST").optional(),
+  provider: z.enum(["PAYFAST", "PAYSTACK"]).optional(),
   environment: z.enum(["SANDBOX", "PRODUCTION"]).optional(),
   processingStatus: z.enum(["RECEIVED", "REJECTED", "VERIFIED", "APPLIED", "DUPLICATE", "IGNORED_STALE", "RECONCILIATION_REQUIRED", "TEMPORARY_FAILURE"]).optional(),
   normalizedStatus: z.enum(["COMPLETE", "PENDING", "FAILED", "UNKNOWN"]).optional(),
@@ -28,7 +28,7 @@ export const PaymentWebhookListQuerySchema = z.object({
 export const PaymentReconciliationListQuerySchema = z.object({
   page: positiveInteger(1_000_000).default(1),
   pageSize: positiveInteger(100).default(20),
-  provider: z.literal("PAYFAST").optional(),
+  provider: z.enum(["PAYFAST", "PAYSTACK"]).optional(),
   status: z.enum(["OPEN", "MONITORING", "RESOLVED", "CLOSED"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
   reason: z.enum([

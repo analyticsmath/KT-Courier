@@ -6,7 +6,8 @@ import { assertRefundOperationId } from "@/lib/refunds/refund-note-policy";
 import { assertRefundProductionActivation } from "@/lib/refunds/refund-production-readiness";
 import type { ProviderRefundQueryResult, RefundProviderAdapter } from "@/lib/refunds/providers/refund-provider-adapter";
 import { validateRefundProviderResult, unknownRefundProviderResult } from "@/lib/refunds/providers/refund-provider-result";
-import { RefundProviderRegistry } from "@/lib/refunds/providers/refund-provider-registry";
+import { createProductionRefundProviderRegistry, RefundProviderRegistry } from "@/lib/refunds/providers/refund-provider-registry";
+import type { PaymentProviderCode } from "@/lib/payments/types";
 import * as refundExecution from "./refund-provider-execution.service";
 
 async function callProviderQuery(adapter: RefundProviderAdapter, providerRefundId: string, refundReference: string, timeoutMs: number): Promise<ProviderRefundQueryResult> {
@@ -35,13 +36,13 @@ export async function queryRefundProviderStatus(input: Readonly<{
   assertRefundOperationId(input.operationId);
   const refund = await prisma.paymentRefund.findUnique({ where: { id: input.refundId }, include: { currentAttempt: true } });
   if (!refund || !refund.currentAttempt || refund.status !== "RECONCILIATION_REQUIRED" || refund.currentAttempt.status !== "UNKNOWN") throw new RefundError("REFUND_INVALID_STATE", "Refund does not have an unknown provider outcome to query.");
-  if (refund.customerUserId === input.actorUserId || refund.approvedByUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Requester or approver cannot reconcile and complete this refund.");
-  if (refund.currentAttempt.provider !== "PAYFAST" || !refund.currentAttempt.providerRefundId) {
+  const provider = refund.currentAttempt.provider;
+  if (!provider || !["PAYFAST", "PAYSTACK"].includes(provider) || !refund.currentAttempt.providerRefundId) {
     await prisma.$transaction((tx) => refundExecution.openRefundReconciliationCase(tx, { refundId: refund.id, refundReference: refund.publicReference, attemptId: refund.currentAttempt!.id, attemptReference: refund.currentAttempt!.publicReference, reason: "PROVIDER_QUERY_UNAVAILABLE", safeSummary: "Provider query cannot run without a reviewed provider refund reference." }));
     return refund;
   }
-  const registry = dependencies.registry ?? new RefundProviderRegistry();
-  const adapter = registry.getAdapter("PAYFAST");
+  const registry = dependencies.registry ?? createProductionRefundProviderRegistry();
+  const adapter = registry.getAdapter(provider as PaymentProviderCode);
   if (!adapter.queryRefund || !adapter.capabilities.supportsStatusQuery) {
     await prisma.$transaction((tx) => refundExecution.openRefundReconciliationCase(tx, { refundId: refund.id, refundReference: refund.publicReference, attemptId: refund.currentAttempt!.id, attemptReference: refund.currentAttempt!.publicReference, reason: "PROVIDER_QUERY_UNAVAILABLE", safeSummary: "Provider refund query semantics are unavailable or not reviewed." }));
     return refund;

@@ -71,6 +71,46 @@ export interface DriverDetailDto extends DriverSummaryDto {
   suspensionReason: string | null;
   serviceRegions: DriverRegionDto[];
   documents: DriverDocumentDto[];
+  vehicleComplianceRequiredAt?: Date | null;
+  profilePhoto?: DriverProfilePhotoDto | null;
+  vehicles?: DriverVehicleSummaryDto[];
+}
+
+export interface DriverProfilePhotoDto {
+  publicReference: string;
+  fileName: string;
+  mimeType: string | null;
+}
+
+export interface VehicleMediaSummaryDto {
+  id: string;
+  purpose: string;
+  publicReference: string;
+  fileName: string;
+  mimeType: string | null;
+  status: string;
+}
+
+export interface VehicleDocumentSummaryDto {
+  id: string;
+  documentType: string;
+  status: string;
+  expiresAt: Date | null;
+  rejectionReason: string | null;
+}
+
+export interface DriverVehicleSummaryDto {
+  id: string;
+  publicReference: string;
+  make: string;
+  model: string;
+  year: number | null;
+  colour: string | null;
+  registrationNumber: string;
+  vehicleType: string;
+  status: string;
+  documents: VehicleDocumentSummaryDto[];
+  media: VehicleMediaSummaryDto[];
 }
 
 // ─── DTO for Driver Self Portal (no internalNotes, no admin review info unless relevant) ─

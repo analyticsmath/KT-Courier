@@ -18,7 +18,7 @@ function publicReference(): string {
 }
 
 function caseKey(input: OpenReconciliationInput): string {
-  const provider = (input.provider ?? "PAYFAST").toLowerCase();
+  const provider = (input.provider ?? "PAYSTACK").toLowerCase();
   return `${provider}:${input.paymentId}:${input.attemptId ?? "payment"}:${input.reason}`;
 }
 
@@ -53,7 +53,7 @@ export async function openPaymentReconciliationCaseWithinTransaction(
 ) {
   const now = new Date();
   const key = caseKey(input);
-  const provider = input.provider ?? "PAYFAST";
+  const provider = input.provider ?? "PAYSTACK";
   const existing = await tx.paymentReconciliationCase.findUnique({ where: { caseKey: key } });
   if (existing) {
     const wasResolved = existing.status === "CLOSED" || existing.status === "RESOLVED";
@@ -110,7 +110,7 @@ export async function resolvePaymentReconciliationCasesWithinTransaction(
       where: { paymentId, attemptId, status: { in: ["OPEN", "MONITORING"] } },
       select: { publicReference: true, reason: true },
     }),
-    tx.payment.findUnique({ where: { id: paymentId }, select: { status: true } }),
+    tx.payment.findUnique({ where: { id: paymentId }, select: { status: true, provider: true } }),
   ]);
   await tx.paymentReconciliationCase.updateMany({
     where: { paymentId, attemptId, status: { in: ["OPEN", "MONITORING"] } },
@@ -123,7 +123,7 @@ export async function resolvePaymentReconciliationCasesWithinTransaction(
         attemptId,
         fromStatus: payment.status,
         toStatus: payment.status,
-        reasonCode: "PAYFAST_RECONCILIATION_RESOLVED",
+        reasonCode: (payment.provider === "PAYFAST" ? "PAYFAST_RECONCILIATION_RESOLVED" : "PAYSTACK_RECONCILIATION_RESOLVED"),
         actorType: "SYSTEM" as const,
         metadata: {
           reconciliationCaseReference: entry.publicReference,

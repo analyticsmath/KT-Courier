@@ -9,9 +9,9 @@ describe("payment reconciliation service", () => {
       paymentReconciliationCase: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn().mockImplementation(({ data }) => data) },
     };
     const created = await openPaymentReconciliationCaseWithinTransaction(tx as never, { paymentId: "payment", attemptId: "attempt", webhookEventId: "event", reason: "UNKNOWN_OUTCOME", safeEvidence: { eventReference: "pwe_safe" } });
-    expect(created).toMatchObject({ caseKey: "payfast:payment:attempt:UNKNOWN_OUTCOME", status: "OPEN", safeEvidence: { eventReference: "pwe_safe" } });
+    expect(created).toMatchObject({ caseKey: "paystack:payment:attempt:UNKNOWN_OUTCOME", status: "OPEN", safeEvidence: { eventReference: "pwe_safe" } });
     expect(JSON.stringify(created)).not.toMatch(/signature|passphrase|rawBody/i);
-    expect(tx.paymentStatusHistory.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reasonCode: "PAYFAST_RECONCILIATION_OPENED" }) }));
+    expect(tx.paymentStatusHistory.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reasonCode: "PAYSTACK_RECONCILIATION_OPENED" }) }));
   });
   it("updates observation count instead of creating duplicate open cases", async () => {
     const update = vi.fn().mockResolvedValue({ id: "case" });

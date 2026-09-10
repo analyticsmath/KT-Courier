@@ -83,11 +83,10 @@ export function createPrismaSubscriptionContractRepository(database: any = db): 
         // Phase 12 resolves recurring ITNs through the normal immutable
         // PaymentAttempt boundary. The recurring merchant reference remains
         // the exact subscription invoice, never a browser session.
-        const payfastMode = process.env.PAYFAST_MODE?.trim().toLowerCase();
-        const providerEnvironment = payfastMode === "production" ? "PRODUCTION" : "SANDBOX";
-        const credentialVersion = process.env.PAYFAST_CREDENTIAL_VERSION?.trim() || "subscription-config-unresolved";
-        const attempt = await tx.paymentAttempt.create({ data: { paymentId: payment.id, publicReference: `pat_${payment.id.slice(-24)}`, attemptNumber: 1, provider: "PAYFAST", idempotencyKey: `subscription-attempt:${invoice.id}`, requestHash: `subscription-invoice:${invoice.id}`, merchantReference: invoice.publicReference, status: "REQUESTING", amount: invoice.total, currency: "ZAR", providerEnvironment, providerProtocolVersion: "payfast-recurring-v1", configurationFingerprint: providerEnvironment === "PRODUCTION" ? "payfast-v1:production" : "payfast-v1:sandbox", providerCredentialVersion: credentialVersion, startedAt: new Date(), version: 0 } });
-        await tx.payment.update({ where: { id: payment.id }, data: { provider: "PAYFAST", status: "PROVIDER_PENDING", latestAttemptNumber: 1, version: { increment: 1 } } });
+        const providerEnvironment = process.env.PAYSTACK_ENVIRONMENT?.trim().toUpperCase() === "LIVE" ? "PRODUCTION" : "SANDBOX";
+        const credentialVersion = "paystack-v1";
+        const attempt = await tx.paymentAttempt.create({ data: { paymentId: payment.id, publicReference: `pat_${payment.id.slice(-24)}`, attemptNumber: 1, provider: "PAYSTACK", idempotencyKey: `subscription-attempt:${invoice.id}`, requestHash: `subscription-invoice:${invoice.id}`, merchantReference: invoice.publicReference, status: "REQUESTING", amount: invoice.total, currency: "ZAR", providerEnvironment, providerProtocolVersion: "paystack-recurring-v1", configurationFingerprint: `paystack-v1:${providerEnvironment.toLowerCase()}`, providerCredentialVersion: credentialVersion, startedAt: new Date(), version: 0 } });
+        await tx.payment.update({ where: { id: payment.id }, data: { provider: "PAYSTACK", status: "PROVIDER_PENDING", latestAttemptNumber: 1, version: { increment: 1 } } });
         await tx.paymentStatusHistory.createMany({ data: [
           { paymentId: payment.id, fromStatus: null, toStatus: "CREATED", reasonCode: "SUBSCRIPTION_INITIAL_PAYMENT_PREPARED", actorType: "PAYER", actorId: contract.payerUserId, metadata: { invoiceReference: invoice.publicReference } },
           { paymentId: payment.id, attemptId: attempt.id, fromStatus: "CREATED", toStatus: "PROVIDER_PENDING", reasonCode: "SUBSCRIPTION_RECURRING_ATTEMPT_PREPARED", actorType: "SYSTEM", metadata: { invoiceReference: invoice.publicReference, attemptReference: attempt.publicReference } },

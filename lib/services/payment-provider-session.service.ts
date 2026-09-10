@@ -385,7 +385,7 @@ async function finalizeAttempt(
         ? definitiveProviderError("DECLINED", result?.providerStatusCode ?? "PROVIDER_REJECTED")
         : null;
     const requestSnapshot = sanitizeProviderSnapshot({
-      provider: "PAYFAST",
+      provider: attempt.provider,
       environment: attempt.providerEnvironment,
       merchantReference: request.merchantReference,
       paymentPublicReference: request.paymentPublicReference,
@@ -522,10 +522,6 @@ export async function createProviderCheckoutSession(
 ): Promise<ProviderSessionDto> {
   const parsed = CreateProviderSessionSchema.safeParse(rawInput);
   if (!parsed.success) throw new PaymentError("PAYMENT_METADATA_INVALID", "Provider-session request is invalid.");
-
-  if (parsed.data.provider === "PAYFAST") {
-    throw new PaymentError("PAYMENT_PROVIDER_NOT_SUPPORTED", "Payfast is no longer supported for new transactions. Please use Paystack.");
-  }
 
   const callbackUrlFactory = dependencies.callbackUrls ?? buildServerPaymentCallbackUrls;
   const registry = dependencies.registry ?? createProductionPaymentProviderRegistry();

@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DocumentStatus, VehicleDocumentType } from "@/types/db";
-import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
+
+const mockPrisma = vi.hoisted(() => ({
+  driverProfile: {
+    findUnique: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/db/prisma", () => ({ prisma: mockPrisma }));
+
+import { evaluateDispatchComplianceEvidence, evaluateDriverDispatchCompliance } from "@/lib/services/vehicle-compliance.service";
 
 const validDriverDocuments = [
   { documentType: "ID_DOCUMENT", status: DocumentStatus.APPROVED, expiresAt: null },
@@ -28,4 +37,34 @@ describe("dispatch compliance", () => {
     expect(result.reasons).toContain("DRIVER_DOCUMENT_LICENSE_INVALID");
     expect(result.reasons).toContain("NO_COMPLIANT_APPROVED_VEHICLE");
   });
+
+  it("grandfathers driver when vehicleComplianceRequiredAt is unset or in future", async () => {
+    mockPrisma.driverProfile.findUnique.mockResolvedValueOnce({
+      id: "driver-1",
+      vehicleComplianceRequiredAt: new Date(Date.now() + 86400000), // 1 day in future
+      documents: [],
+      vehicles: [],
+    });
+
+    const result = await evaluateDriverDispatchCompliance("driver-1");
+    expect(result).toEqual({
+      eligible: true,
+      reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"],
+      approvedVehicleId: null,
+    });
+  });
+
+  it("enforces strict vehicle compliance when vehicleComplianceRequiredAt is in the past", async () => {
+    mockPrisma.driverProfile.findUnique.mockResolvedValueOnce({
+      id: "driver-1",
+      vehicleComplianceRequiredAt: new Date(Date.now() - 86400000), // 1 day in past
+      documents: validDriverDocuments,
+      vehicles: [], // no approved vehicles
+    });
+
+    const result = await evaluateDriverDispatchCompliance("driver-1");
+    expect(result.eligible).toBe(false);
+    expect(result.reasons).toContain("NO_COMPLIANT_APPROVED_VEHICLE");
+  });
 });
+

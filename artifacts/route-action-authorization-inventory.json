@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 701,
+    "totalRoutes": 702,
     "totalServerActions": 0,
     "publicRoutes": 114,
-    "authenticatedRoutes": 584,
+    "authenticatedRoutes": 585,
     "permissionGatedRoutes": 416,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 169,
-    "generatedAt": "2026-09-09T20:03:13.211Z"
+    "generatedAt": "2026-09-09T22:48:59.828Z"
   },
   "serverActions": [],
   "routes": [
@@ -8051,6 +8051,21 @@
     },
     {
       "routePath": "app/api/driver/vehicles/[vehicleId]/documents/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "DRIVER_SESSION",
+      "requiredRoles": [
+        "DRIVER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/driver/vehicles/[vehicleId]/media/route.ts",
       "httpMethods": [
         "POST"
       ],
