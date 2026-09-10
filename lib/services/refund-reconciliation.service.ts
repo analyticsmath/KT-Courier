@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { RefundError } from "@/lib/refunds/errors";
 import { assertRefundOperationId } from "@/lib/refunds/refund-note-policy";
 import { assertRefundProductionActivation } from "@/lib/refunds/refund-production-readiness";
-import type { ProviderRefundQueryResult, RefundProviderAdapter } from "@/lib/refunds/providers/refund-provider-adapter";
+import type { ProviderRefundQueryResult, RefundProviderAdapter, RefundProviderResultStatus } from "@/lib/refunds/providers/refund-provider-adapter";
 import { validateRefundProviderResult, unknownRefundProviderResult } from "@/lib/refunds/providers/refund-provider-result";
 import { createProductionRefundProviderRegistry, RefundProviderRegistry } from "@/lib/refunds/providers/refund-provider-registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
@@ -56,13 +56,107 @@ export async function queryRefundProviderStatus(input: Readonly<{
   return refundExecution.finalizeProviderRefundAttempt({ actorUserId: input.actorUserId, refundPublicReference: refund.publicReference, attemptPublicReference: refund.currentAttempt.publicReference, result });
 }
 
+export async function pollAndApplyRefundProviderStatus(
+  input: Readonly<{
+    attemptId: string;
+    refundId?: string;
+    actorUserId?: string;
+    timeoutMs?: number;
+  }>,
+  dependencies: Readonly<{
+    registry?: RefundProviderRegistry;
+    timeoutMs?: number;
+  }> = {},
+): Promise<{
+  polled: boolean;
+  status: RefundProviderResultStatus | null;
+  applied: boolean;
+  message?: string;
+}> {
+  const attempt = await prisma.refundExecutionAttempt.findUnique({
+    where: { id: input.attemptId },
+    include: { refund: true },
+  });
+
+  if (!attempt || !attempt.refund) {
+    return { polled: false, status: null, applied: false, message: "Attempt not found" };
+  }
+
+  const refund = attempt.refund;
+  const provider = attempt.provider;
+  if (!provider || !["PAYFAST", "PAYSTACK"].includes(provider) || !attempt.providerRefundId) {
+    return { polled: false, status: null, applied: false, message: "Provider or providerRefundId not eligible for polling" };
+  }
+
+  const registry = dependencies.registry ?? createProductionRefundProviderRegistry();
+  const adapter = registry.getAdapter(provider as PaymentProviderCode);
+  if (!adapter.queryRefund || !adapter.capabilities.supportsStatusQuery) {
+    return { polled: false, status: null, applied: false, message: "Adapter does not support status query" };
+  }
+
+  let result: ProviderRefundQueryResult;
+  try {
+    result = validateRefundProviderResult(
+      await callProviderQuery(
+        adapter,
+        attempt.providerRefundId,
+        refund.publicReference,
+        Math.min(Math.max(dependencies.timeoutMs ?? input.timeoutMs ?? 10_000, 100), 30_000),
+      ),
+    );
+  } catch (error) {
+    result = unknownRefundProviderResult(error);
+  }
+
+  if (result.definitive || result.status === "NEEDS_ATTENTION") {
+    try {
+      await refundExecution.finalizeProviderRefundAttempt({
+        actorUserId: input.actorUserId ?? "SYSTEM_POLLER",
+        refundPublicReference: refund.publicReference,
+        attemptPublicReference: attempt.publicReference,
+        result,
+      });
+      return { polled: true, status: result.status, applied: true };
+    } catch (finalizeErr) {
+      return { polled: true, status: result.status, applied: false, message: (finalizeErr as Error).message };
+    }
+  }
+
+  return { polled: true, status: result.status, applied: false };
+}
+
 export async function scanRefundReconciliation(input: Readonly<{ now?: Date; staleAfterMs?: number }> = {}) {
   const now = input.now ?? new Date();
   const staleBefore = new Date(now.getTime() - (input.staleAfterMs ?? 15 * 60_000));
-  const stale = await prisma.refundExecutionAttempt.findMany({ where: { status: "PROCESSING", updatedAt: { lte: staleBefore } }, include: { refund: { select: { id: true, publicReference: true } } } });
+  const stale = await prisma.refundExecutionAttempt.findMany({
+    where: {
+      status: { in: ["PROCESSING", "RESERVED"] },
+      updatedAt: { lte: staleBefore },
+    },
+    include: { refund: { select: { id: true, publicReference: true, status: true } } },
+  });
+
   for (const attempt of stale) {
+    if (attempt.providerRefundId) {
+      const pollResult = await pollAndApplyRefundProviderStatus({
+        attemptId: attempt.id,
+        refundId: attempt.refund.id,
+      }).catch(() => null);
+
+      if (pollResult?.applied) {
+        continue;
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
-      await openGenericRefundCase(tx, { refundId: attempt.refund.id, refundReference: attempt.refund.publicReference, attemptId: attempt.id, attemptReference: attempt.publicReference, reason: "STALE_PROCESSING_ATTEMPT", summary: "Refund provider attempt remains processing beyond the reviewed threshold." });
+      await openGenericRefundCase(tx, {
+        refundId: attempt.refund.id,
+        refundReference: attempt.refund.publicReference,
+        attemptId: attempt.id,
+        attemptReference: attempt.publicReference,
+        reason: "STALE_PROCESSING_ATTEMPT",
+        summary: "Refund provider attempt remains processing beyond the reviewed threshold.",
+      });
     });
   }
   const payments = await prisma.payment.findMany({

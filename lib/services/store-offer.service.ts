@@ -84,9 +84,12 @@ export async function updateStoreCatalogOffer(storeId: string, publicReference: 
   primaryInventoryLocationId?: string | null;
   operationId: string;
 }) {
-  const current = await prisma.storeCatalogOffer.findUnique({ where: { publicReference } });
-  if (!current) throw new CatalogNotFoundError("Store catalog offer was not found.");
-  if (current.storeId !== storeId) throw new CatalogOwnershipError();
+  const current = await prisma.storeCatalogOffer.findFirst({ where: { publicReference, storeId } });
+  if (!current) {
+    const exists = await prisma.storeCatalogOffer.findUnique({ where: { publicReference }, select: { storeId: true } });
+    if (exists && exists.storeId !== storeId) throw new CatalogOwnershipError();
+    throw new CatalogNotFoundError("Store catalog offer was not found.");
+  }
   if (!["DRAFT", "NEEDS_CHANGES", "PAUSED"].includes(current.status)) throw new CatalogConflictError("OFFER_NOT_EDITABLE", "Offer is not editable in its current state.");
   if (input.primaryInventoryLocationId) {
     const location = await prisma.inventoryLocation.findFirst({ where: { id: input.primaryInventoryLocationId, storeId, status: "ACTIVE" } });
@@ -102,9 +105,12 @@ export async function updateStoreCatalogOffer(storeId: string, publicReference: 
 }
 
 export async function transitionStoreCatalogOffer(storeId: string, publicReference: string, actorUserId: string, toStatus: "SUBMITTED" | "PAUSED" | "ARCHIVED", input: { version: number; operationId: string }) {
-  const current = await prisma.storeCatalogOffer.findUnique({ where: { publicReference }, include: { product: true, priceVersions: true, inventoryItem: { include: { levels: true } } } });
-  if (!current) throw new CatalogNotFoundError("Store catalog offer was not found.");
-  if (current.storeId !== storeId) throw new CatalogOwnershipError();
+  const current = await prisma.storeCatalogOffer.findFirst({ where: { publicReference, storeId }, include: { product: true, priceVersions: true, inventoryItem: { include: { levels: true } } } });
+  if (!current) {
+    const exists = await prisma.storeCatalogOffer.findUnique({ where: { publicReference }, select: { storeId: true } });
+    if (exists && exists.storeId !== storeId) throw new CatalogOwnershipError();
+    throw new CatalogNotFoundError("Store catalog offer was not found.");
+  }
   assertOfferTransition(current.status, toStatus);
   if (toStatus === "SUBMITTED" && !current.priceVersions.some((price) => ["DRAFT", "SCHEDULED", "ACTIVE"].includes(price.status))) {
     throw new CatalogPolicyError("OFFER_PRICE_REQUIRED", "Offer submission requires a valid price version.");

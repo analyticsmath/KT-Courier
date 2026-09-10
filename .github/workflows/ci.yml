@@ -160,6 +160,31 @@ jobs:
       - name: Read-only ledger E2E
         run: npm run test:e2e -- --grep "read-only admin ledger"
 
+  release-critical-verification:
+    name: Phase 1 Release-Critical Verification (Paystack, Invariants, Security, Processors, Refunds)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Paystack contract tests
+        run: npm run test:paystack:contract
+      - name: Paystack financial invariants tests
+        run: npm run test:paystack:invariants
+      - name: All payment suites
+        run: npm run test:payments
+      - name: Processor consistency and DRY_RUN invariant tests
+        run: npm run test:processors
+      - name: BOLA / BOPLA / BFLA negative authorization tests
+        run: npm run test:security:bola
+      - name: Refund lifecycle & reconciliation tests
+        run: npm run test:refunds
+
   payment-foundation-integration:
     if: ${{ vars.ENABLE_DEFERRED_PAYMENT_VALIDATION == 'true' }}
     runs-on: ubuntu-latest
@@ -191,7 +216,8 @@ jobs:
       - name: Read-only payment foundation E2E
         run: npm run test:e2e -- --grep "read-only payment foundation admin"
 
-  payfast-integration:
+  legacy-payfast-integration:
+    name: Legacy PayFast Compatibility Integration
     if: ${{ vars.ENABLE_DEFERRED_PAYFAST_VALIDATION == 'true' }}
     runs-on: ubuntu-latest
     env:
@@ -206,7 +232,8 @@ jobs:
       - name: Disposable PostgreSQL Payfast integration tests
         run: npm run test:integration:payfast
 
-  payfast-checkout-e2e:
+  legacy-payfast-checkout-e2e:
+    name: Legacy PayFast Checkout E2E (Compatibility)
     if: ${{ vars.ENABLE_DEFERRED_PAYFAST_VALIDATION == 'true' }}
     runs-on: ubuntu-latest
     env:
@@ -227,7 +254,8 @@ jobs:
       - name: Isolated Payfast form handoff E2E
         run: npm run test:e2e -- --grep "Payfast sandbox checkout"
 
-  payfast-confirmation-integration:
+  legacy-payfast-confirmation-integration:
+    name: Legacy PayFast Confirmation Integration (Compatibility)
     if: ${{ vars.ENABLE_DEFERRED_PAYFAST_CONFIRMATION_VALIDATION == 'true' }}
     runs-on: ubuntu-latest
     env:
@@ -240,9 +268,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Disposable deterministic Payfast confirmation tests
-        run: npm run test:integration:payfast-confirmation
+        run: npm run test:integration:legacy:payfast-confirmation
 
-  payfast-confirmation-e2e:
+  legacy-payfast-confirmation-e2e:
+    name: Legacy PayFast Confirmation E2E (Compatibility)
     if: ${{ vars.ENABLE_DEFERRED_PAYFAST_CONFIRMATION_VALIDATION == 'true' }}
     runs-on: ubuntu-latest
     env:

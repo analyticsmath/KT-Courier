@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { runTransaction, runSerializableTransaction, isRetryableTransactionError } from "./transaction-runner";
+import { withSerializableRetry, isSerializableConcurrencyError } from "./serializable-retry";
 import { registerFaultInjectionHook, triggerFaultInjectionCheckpoint, clearAllFaultInjectionHooks } from "./fault-injection";
 
 export {
@@ -8,6 +9,8 @@ export {
   runTransaction,
   runSerializableTransaction,
   isRetryableTransactionError,
+  withSerializableRetry,
+  isSerializableConcurrencyError,
   registerFaultInjectionHook,
   triggerFaultInjectionCheckpoint,
   clearAllFaultInjectionHooks,

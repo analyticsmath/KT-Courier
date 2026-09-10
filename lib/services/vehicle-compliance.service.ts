@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
-import { DocumentStatus, PrivateMediaOwnerType, PrivateMediaPurpose, VehicleComplianceStatus, VehicleDocumentType, VehicleMediaPurpose, VehicleType } from "@/types/db";
+import { DocumentStatus, OrderStatus, PrivateMediaOwnerType, PrivateMediaPurpose, VehicleComplianceStatus, VehicleDocumentType, VehicleMediaPurpose, VehicleType } from "@/types/db";
 
 export class VehicleComplianceError extends Error {
   constructor(public readonly code: string, public readonly status: 400 | 403 | 404 | 409 | 422, message: string) {
@@ -127,9 +127,47 @@ export function evaluateDispatchComplianceEvidence(input: Readonly<{ driverDocum
   return { eligible: reasons.length === 0, reasons, approvedVehicleId: approved?.id ?? null };
 }
 
-export async function evaluateDriverDispatchCompliance(driverProfileId: string): Promise<DispatchComplianceResult> {
-  const driver = await prisma.driverProfile.findUnique({ where: { id: driverProfileId }, include: { documents: true, vehicles: { where: { status: VehicleComplianceStatus.APPROVED, archivedAt: null }, include: { documents: true } } } });
+export async function evaluateDriverDispatchCompliance(
+  driverProfileId: string,
+  options: { allowActiveTrip?: boolean; now?: Date } = {},
+): Promise<DispatchComplianceResult> {
+  const now = options.now ?? new Date();
+  const driver = await prisma.driverProfile.findUnique({
+    where: { id: driverProfileId },
+    include: {
+      documents: true,
+      vehicles: {
+        where: { status: VehicleComplianceStatus.APPROVED, archivedAt: null },
+        include: { documents: true },
+      },
+    },
+  });
   if (!driver) return { eligible: false, reasons: ["DRIVER_NOT_FOUND"], approvedVehicleId: null };
-  if (!driver.vehicleComplianceRequiredAt || driver.vehicleComplianceRequiredAt > new Date()) return { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
-  return evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles });
+
+  const compliance = evaluateDispatchComplianceEvidence({
+    driverDocuments: driver.documents,
+    vehicles: driver.vehicles,
+    now,
+  });
+
+  // If driver has an active delivery in transit and allowActiveTrip is set,
+  // do not strand the active delivery midway.
+  if (!compliance.eligible && options.allowActiveTrip) {
+    const activeInTransitCount = await prisma.order.count({
+      where: {
+        currentDriverProfileId: driverProfileId,
+        status: { in: [OrderStatus.PICKED_UP, OrderStatus.IN_TRANSIT] },
+      },
+    }).catch(() => 0);
+
+    if (activeInTransitCount > 0) {
+      return {
+        eligible: true,
+        reasons: ["ACTIVE_TRIP_COMPLETION_PERMITTED"],
+        approvedVehicleId: compliance.approvedVehicleId,
+      };
+    }
+  }
+
+  return compliance;
 }

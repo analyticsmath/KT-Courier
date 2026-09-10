@@ -3,7 +3,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { badRequest, ok, unauthorized, unprocessable } from "@/lib/api/response";
 import { executeRegisteredProcessor } from "@/lib/processors/processor-service";
-import { PROCESSOR_REGISTRY } from "@/lib/processors/processor-registry";
+import { isProcessorName } from "@/lib/processors/processor-registry";
 
 const triggerSchema = z
   .object({
@@ -34,7 +34,7 @@ export async function POST(
   }
 
   const { processor: processorName } = await params;
-  if (!PROCESSOR_REGISTRY[processorName]) {
+  if (!isProcessorName(processorName)) {
     return badRequest(`Unregistered processor '${processorName}' cannot be triggered.`);
   }
 

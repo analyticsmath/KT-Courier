@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { acquireProcessorLease, completeProcessorRun, listProcessorRuns } from "./lease-authority";
-import { PROCESSOR_REGISTRY, type RegisteredProcessor } from "./processor-registry";
+import {
+  PROCESSOR_REGISTRY,
+  getRegisteredProcessor,
+  type RegisteredProcessor,
+  type ProcessorName,
+  type ImplementedProcessorName,
+} from "./processor-registry";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
 import { safeOperationalText } from "@/lib/operations/phase5-repository";
 
 export interface ExecuteProcessorOptions {
-  name: string;
+  name: ProcessorName | string;
   partition?: string;
   mode?: "DRY_RUN" | "APPLY";
   batchSize?: number;
@@ -32,8 +38,386 @@ export interface ProcessorExecutionResult {
   executedAt: string;
 }
 
-export async function getProcessorInventory(): Promise<Array<RegisteredProcessor & { lastRun?: Record<string, unknown> | null }>> {
-  const processors = Object.values(PROCESSOR_REGISTRY);
+export interface ProcessorHandlerContext {
+  mode: "DRY_RUN" | "APPLY";
+  batchSize: number;
+  operationId: string;
+  actorUserId?: string;
+  partition?: string;
+}
+
+export interface ProcessorHandlerOutcome {
+  itemsExamined: number;
+  itemsClaimed: number;
+  itemsCompleted: number;
+  itemsSkipped: number;
+  itemsRetried: number;
+  itemsReconciled: number;
+  safeSummary: string;
+}
+
+export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
+
+export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "consume-verified-payment-events": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const { createPrismaVerifiedPaymentEventRepository } = await import(
+        "@/lib/payments/verified-payment-event-processor.service"
+      );
+      const candidates = await createPrismaVerifiedPaymentEventRepository(prisma).listCandidates(batchSize);
+      return {
+        itemsExamined: candidates.length,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: candidates.length,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Evaluated ${candidates.length} verified payment event intents; 0 mutated.`,
+      };
+    }
+    const { consumeVerifiedPaymentEvents } = await import("@/lib/payments/verified-payment-event-processor.service");
+    const outcomes = await consumeVerifiedPaymentEvents({ limit: batchSize });
+    const itemsExamined = Object.values(outcomes).reduce((sum, n) => sum + n, 0);
+    const itemsCompleted =
+      outcomes.MARKETPLACE_FINALIZED +
+      outcomes.SUBSCRIPTION_ACTIVATED +
+      outcomes.MANAGED_MARKETING_RECOGNIZED +
+      outcomes.NO_DOWNSTREAM_EFFECT;
+    const itemsSkipped = outcomes.SKIPPED;
+    const itemsReconciled = outcomes.RECONCILIATION_REQUIRED;
+    const itemsClaimed = itemsCompleted + itemsReconciled;
+    return {
+      itemsExamined,
+      itemsClaimed,
+      itemsCompleted,
+      itemsSkipped,
+      itemsRetried: 0,
+      itemsReconciled,
+      safeSummary: `Payment events processed: ${itemsCompleted} finalized, ${itemsReconciled} reconciliation needed, ${itemsSkipped} skipped.`,
+    };
+  },
+
+  "finalize-paid-marketplace-checkouts": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const { createPrismaVerifiedPaymentEventRepository } = await import(
+        "@/lib/payments/verified-payment-event-processor.service"
+      );
+      const candidates = await createPrismaVerifiedPaymentEventRepository(prisma).listCandidates(batchSize, [
+        "MARKETPLACE_CHECKOUT",
+      ]);
+      return {
+        itemsExamined: candidates.length,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: candidates.length,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Evaluated ${candidates.length} paid checkout intents; 0 mutated.`,
+      };
+    }
+    const { consumeVerifiedPaymentEvents } = await import("@/lib/payments/verified-payment-event-processor.service");
+    const outcomes = await consumeVerifiedPaymentEvents({ limit: batchSize, subjectTypes: ["MARKETPLACE_CHECKOUT"] });
+    const itemsExamined = Object.values(outcomes).reduce((sum, n) => sum + n, 0);
+    const itemsCompleted = outcomes.MARKETPLACE_FINALIZED;
+    const itemsSkipped = outcomes.SKIPPED;
+    const itemsReconciled = outcomes.RECONCILIATION_REQUIRED;
+    const itemsClaimed = itemsCompleted + itemsReconciled;
+    return {
+      itemsExamined,
+      itemsClaimed,
+      itemsCompleted,
+      itemsSkipped,
+      itemsRetried: 0,
+      itemsReconciled,
+      safeSummary: `Marketplace checkout finalization: ${itemsCompleted} finalized, ${itemsReconciled} reconciliation needed, ${itemsSkipped} skipped.`,
+    };
+  },
+
+  "release-mature-store-earnings": async ({ mode, batchSize }) => {
+    const mature = await prisma.storeEarning.findMany({
+      where: { status: "ACCRUED", releaseEligibleAt: { lte: new Date() }, refundReservedAmount: 0 },
+      select: { id: true },
+      orderBy: [{ releaseEligibleAt: "asc" }, { id: "asc" }],
+      take: batchSize,
+    });
+    const itemsExamined = mature.length;
+    let itemsCompleted = 0;
+    let itemsRetried = 0;
+    if (mode === "APPLY") {
+      const { releaseStoreEarning } = await import("@/lib/services/store-earning-release.service");
+      for (const earning of mature) {
+        try {
+          await releaseStoreEarning({ earningId: earning.id, operationId: `mature-store-release:${randomUUID()}` });
+          itemsCompleted += 1;
+        } catch {
+          itemsRetried += 1;
+        }
+      }
+    }
+    return {
+      itemsExamined,
+      itemsClaimed: itemsCompleted,
+      itemsCompleted,
+      itemsSkipped: mode === "DRY_RUN" ? itemsExamined : itemsExamined - itemsCompleted - itemsRetried,
+      itemsRetried,
+      itemsReconciled: 0,
+      safeSummary:
+        mode === "DRY_RUN"
+          ? `[DRY_RUN] Evaluated ${itemsExamined} mature store earnings; 0 released.`
+          : `Evaluated ${itemsExamined} mature store earnings; released ${itemsCompleted}.`,
+    };
+  },
+
+  "release-mature-driver-earnings": async ({ mode, batchSize }) => {
+    const mature = await prisma.driverEarning.findMany({
+      where: { status: "ACCRUED", releaseEligibleAt: { lte: new Date() } },
+      select: { id: true },
+      orderBy: [{ releaseEligibleAt: "asc" }, { id: "asc" }],
+      take: batchSize,
+    });
+    const itemsExamined = mature.length;
+    let itemsCompleted = 0;
+    let itemsRetried = 0;
+    if (mode === "APPLY") {
+      const { releaseDriverEarning } = await import("@/lib/services/driver-earning-release.service");
+      for (const earning of mature) {
+        try {
+          await releaseDriverEarning({ earningId: earning.id, operationId: `mature-driver-release:${randomUUID()}` });
+          itemsCompleted += 1;
+        } catch {
+          itemsRetried += 1;
+        }
+      }
+    }
+    return {
+      itemsExamined,
+      itemsClaimed: itemsCompleted,
+      itemsCompleted,
+      itemsSkipped: mode === "DRY_RUN" ? itemsExamined : itemsExamined - itemsCompleted - itemsRetried,
+      itemsRetried,
+      itemsReconciled: 0,
+      safeSummary:
+        mode === "DRY_RUN"
+          ? `[DRY_RUN] Evaluated ${itemsExamined} mature driver earnings; 0 released.`
+          : `Evaluated ${itemsExamined} mature driver earnings; released ${itemsCompleted}.`,
+    };
+  },
+
+  "process-managed-marketing-lifecycle": async ({ mode, batchSize, operationId }) => {
+    const { ManagedMarketingService } = await import("@/lib/advertising/managed-marketing.service");
+    const lifecycleResult = await new ManagedMarketingService().runLifecycleProcessor({
+      mode,
+      batchSize,
+      processorOperationId: operationId,
+    });
+    return {
+      itemsExamined: lifecycleResult.itemsExamined,
+      itemsClaimed: lifecycleResult.itemsClaimed,
+      itemsCompleted: lifecycleResult.itemsCompleted,
+      itemsSkipped: lifecycleResult.itemsSkipped,
+      itemsRetried: 0,
+      itemsReconciled: lifecycleResult.itemsReconciled,
+      safeSummary: lifecycleResult.safeSummary,
+    };
+  },
+
+  "process-data-retention": async ({ mode, batchSize, actorUserId }) => {
+    const { runRetentionProcessor } = await import("@/lib/retention/retention-processor");
+    const retentionResult = await runRetentionProcessor({
+      mode,
+      batchSize,
+      actorUserId,
+    });
+    return {
+      itemsExamined: retentionResult.itemsExamined,
+      itemsClaimed: retentionResult.itemsClaimed,
+      itemsCompleted: retentionResult.itemsCompleted,
+      itemsSkipped: retentionResult.itemsSkipped,
+      itemsRetried: 0,
+      itemsReconciled: retentionResult.itemsReconciled,
+      safeSummary: retentionResult.safeSummary,
+    };
+  },
+
+  "scan-refund-reconciliation": async ({ mode }) => {
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - 15 * 60_000);
+    const staleProcessing = await prisma.refundExecutionAttempt.findMany({
+      where: { status: "PROCESSING", updatedAt: { lte: staleBefore } },
+      select: { id: true, publicReference: true, refund: { select: { id: true, publicReference: true } } },
+    });
+    const payments = await prisma.payment.findMany({
+      where: { OR: [{ totalRefundedAmount: { gt: 0 } }, { totalRefundReservedAmount: { gt: 0 } }] },
+      select: { id: true },
+    });
+    const itemsExamined = staleProcessing.length + payments.length;
+    if (mode === "DRY_RUN") {
+      return {
+        itemsExamined,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: itemsExamined,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Scanned ${itemsExamined} refund reconciliation candidates; 0 cases opened.`,
+      };
+    }
+    const { scanRefundReconciliation } = await import("@/lib/services/refund-reconciliation.service");
+    await scanRefundReconciliation({ now, staleAfterMs: 15 * 60_000 });
+    return {
+      itemsExamined,
+      itemsClaimed: staleProcessing.length,
+      itemsCompleted: staleProcessing.length,
+      itemsSkipped: 0,
+      itemsRetried: 0,
+      itemsReconciled: staleProcessing.length,
+      safeSummary: `Refund reconciliation scan executed across ${itemsExamined} records; processed ${staleProcessing.length} stale attempts.`,
+    };
+  },
+
+  "scan-withdrawal-reconciliation": async ({ mode }) => {
+    const threshold = new Date(Date.now() - 30 * 60_000);
+    const stale = await prisma.withdrawalPayoutAttempt.findMany({
+      where: { status: { in: ["PROCESSING", "UNKNOWN"] }, updatedAt: { lt: threshold } },
+      include: { withdrawal: { select: { id: true, publicReference: true, status: true } } },
+    });
+    const itemsExamined = stale.length;
+    if (mode === "DRY_RUN") {
+      return {
+        itemsExamined,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: itemsExamined,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Scanned ${itemsExamined} stale withdrawal payout attempts; 0 cases opened.`,
+      };
+    }
+    let casesOpened = 0;
+    await prisma.$transaction(
+      async (tx) => {
+        for (const attempt of stale) {
+          const reason = attempt.status === "UNKNOWN" ? "UNKNOWN_PAYOUT_OUTCOME" : "STALE_PROCESSING_ATTEMPT";
+          const summary = `Withdrawal payout attempt remains ${attempt.status.toLowerCase()} beyond the reconciliation threshold.`;
+          const caseKey = `withdrawal:${attempt.withdrawal.publicReference}:${reason}:${attempt.publicReference}`;
+          await tx.withdrawalReconciliationCase.upsert({
+            where: { caseKey },
+            create: {
+              publicReference: `WRC-${randomUUID().replaceAll("-", "").toUpperCase()}`,
+              caseKey,
+              withdrawalId: attempt.withdrawal.id,
+              payoutAttemptId: attempt.id,
+              reason,
+              priority: "HIGH",
+              safeSummary: summary,
+            },
+            update: {
+              lastObservedAt: new Date(),
+              observationCount: { increment: 1 },
+            },
+          });
+          casesOpened += 1;
+        }
+      },
+      { isolationLevel: "Serializable" },
+    );
+    return {
+      itemsExamined,
+      itemsClaimed: casesOpened,
+      itemsCompleted: casesOpened,
+      itemsSkipped: 0,
+      itemsRetried: 0,
+      itemsReconciled: casesOpened,
+      safeSummary: `Withdrawal reconciliation scan observed ${casesOpened} stale payout attempt candidates.`,
+    };
+  },
+
+  "scan-payment-reconciliation": async ({ mode }) => {
+    const threshold = new Date(Date.now() - 30 * 60_000);
+    const staleAttempts = await prisma.paymentAttempt.findMany({
+      where: {
+        updatedAt: { lt: threshold },
+        OR: [
+          { status: "UNKNOWN" },
+          { status: "PROCESSING", webhookEvents: { none: { providerDataVerified: true } } },
+          { status: "REQUIRES_ACTION", expiresAt: { lt: new Date() } },
+        ],
+      },
+      select: { id: true, paymentId: true, status: true, publicReference: true, provider: true },
+    });
+    const itemsExamined = staleAttempts.length;
+    if (mode === "DRY_RUN") {
+      return {
+        itemsExamined,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: itemsExamined,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Scanned ${itemsExamined} payment reconciliation candidates; 0 cases opened.`,
+      };
+    }
+    const { openPaymentReconciliationCaseWithinTransaction } = await import(
+      "@/lib/services/payment-reconciliation.service"
+    );
+    let casesOpened = 0;
+    await prisma.$transaction(
+      async (tx) => {
+        for (const attempt of staleAttempts) {
+          await openPaymentReconciliationCaseWithinTransaction(tx, {
+            paymentId: attempt.paymentId,
+            attemptId: attempt.id,
+            reason: "STALE_PROCESSING_ATTEMPT",
+            provider: (attempt.provider ?? "PAYSTACK") as "PAYFAST" | "PAYSTACK",
+            safeEvidence: { attemptReference: attempt.publicReference, observedStatus: attempt.status },
+          });
+          casesOpened += 1;
+        }
+      },
+      { isolationLevel: "Serializable" },
+    );
+    return {
+      itemsExamined,
+      itemsClaimed: casesOpened,
+      itemsCompleted: casesOpened,
+      itemsSkipped: 0,
+      itemsRetried: 0,
+      itemsReconciled: casesOpened,
+      safeSummary: `Payment reconciliation scan recorded ${casesOpened} anomalies.`,
+    };
+  },
+
+  "deliver-notifications": async ({ mode }) => {
+    const queuedCount = await prisma.notificationDelivery.count({ where: { status: "QUEUED" } });
+    if (mode === "DRY_RUN") {
+      return {
+        itemsExamined: queuedCount,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: queuedCount,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Evaluated ${queuedCount} queued notification deliveries; 0 dispatched.`,
+      };
+    }
+    const { assertNotificationProductionReady } = await import("@/lib/notifications/production-readiness");
+    assertNotificationProductionReady();
+    return {
+      itemsExamined: queuedCount,
+      itemsClaimed: 0,
+      itemsCompleted: 0,
+      itemsSkipped: queuedCount,
+      itemsRetried: 0,
+      itemsReconciled: 0,
+      safeSummary: `Delivered 0 notifications.`,
+    };
+  },
+};
+
+export async function getProcessorInventory(): Promise<
+  Array<RegisteredProcessor & { lastRun?: Record<string, unknown> | null }>
+> {
+  const processors = Object.values(PROCESSOR_REGISTRY) as RegisteredProcessor[];
   const runs = await listProcessorRuns(undefined, 100).catch(() => []);
 
   return processors.map((p) => {
@@ -45,8 +429,10 @@ export async function getProcessorInventory(): Promise<Array<RegisteredProcessor
   });
 }
 
-export async function executeRegisteredProcessor(options: ExecuteProcessorOptions): Promise<ProcessorExecutionResult> {
-  const processor = PROCESSOR_REGISTRY[options.name];
+export async function executeRegisteredProcessor(
+  options: ExecuteProcessorOptions,
+): Promise<ProcessorExecutionResult> {
+  const processor = getRegisteredProcessor(options.name);
   if (!processor) {
     throw new Error(`Unregistered processor '${options.name}' cannot be invoked.`);
   }
@@ -54,6 +440,19 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
   const mode = options.mode ?? "DRY_RUN";
   if (mode === "DRY_RUN" && !processor.dryRunSupported) {
     throw new Error(`Processor '${options.name}' does not support dry-run mode.`);
+  }
+
+  if (processor.status === "DISABLED") {
+    throw new Error(
+      `PROCESSOR_HANDLER_NOT_IMPLEMENTED: Processor '${processor.name}' is currently disabled and has no active executable handler.`,
+    );
+  }
+
+  const handler = PROCESSOR_HANDLERS[processor.name as ImplementedProcessorName];
+  if (!handler) {
+    throw new Error(
+      `PROCESSOR_HANDLER_NOT_IMPLEMENTED: Processor '${processor.name}' does not have a registered domain handler.`,
+    );
   }
 
   const leaseOwner = options.actorUserId ? `admin:${options.actorUserId}` : `cron:${processor.name}`;
@@ -77,100 +476,16 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
   const operationId = leaseResult?.operationId ?? options.operationId ?? `OP-${Date.now()}`;
   const executedAt = new Date().toISOString();
 
-  let itemsExamined = 0;
-  let itemsClaimed = 0;
-  let itemsCompleted = 0;
-  let itemsSkipped = 0;
-  let itemsRetried = 0;
-  let itemsReconciled = 0;
   let failureCount = 0;
-  let safeSummary = "";
 
   try {
-    if (processor.name === "consume-verified-payment-events" || processor.name === "finalize-paid-marketplace-checkouts") {
-      const { consumeVerifiedPaymentEvents } = await import("@/lib/payments/verified-payment-event-processor.service");
-      const subjectTypes = processor.name === "finalize-paid-marketplace-checkouts" ? (["MARKETPLACE_CHECKOUT"] as const) : undefined;
-      const outcomes = await consumeVerifiedPaymentEvents({ limit: batchSize, subjectTypes });
-      itemsExamined = Object.values(outcomes).reduce((sum, n) => sum + n, 0);
-      itemsCompleted = outcomes.MARKETPLACE_FINALIZED + outcomes.SUBSCRIPTION_ACTIVATED + outcomes.MANAGED_MARKETING_RECOGNIZED + outcomes.NO_DOWNSTREAM_EFFECT;
-      itemsSkipped = outcomes.SKIPPED;
-      itemsReconciled = outcomes.RECONCILIATION_REQUIRED;
-      itemsClaimed = itemsCompleted + itemsReconciled;
-      safeSummary = `Payment events processed: ${itemsCompleted} finalized, ${itemsReconciled} reconciliation needed, ${itemsSkipped} skipped.`;
-    } else if (processor.name === "release-mature-store-earnings") {
-      const mature = await prisma.storeEarning.findMany({
-        where: { status: "ACCRUED", releaseEligibleAt: { lte: new Date() }, refundReservedAmount: 0 },
-        select: { id: true },
-        orderBy: [{ releaseEligibleAt: "asc" }, { id: "asc" }],
-        take: batchSize,
-      });
-      itemsExamined = mature.length;
-      if (mode === "APPLY") {
-        const { releaseStoreEarning } = await import("@/lib/services/store-earning-release.service");
-        for (const earning of mature) {
-          try {
-            await releaseStoreEarning({ earningId: earning.id, operationId: `mature-store-release:${randomUUID()}` });
-            itemsCompleted += 1;
-          } catch {
-            itemsRetried += 1;
-          }
-        }
-      }
-      itemsClaimed = itemsCompleted;
-      safeSummary = `Evaluated ${itemsExamined} mature store earnings; released ${itemsCompleted}.`;
-    } else if (processor.name === "release-mature-driver-earnings") {
-      const mature = await prisma.driverEarning.findMany({
-        where: { status: "ACCRUED", releaseEligibleAt: { lte: new Date() } },
-        select: { id: true },
-        orderBy: [{ releaseEligibleAt: "asc" }, { id: "asc" }],
-        take: batchSize,
-      });
-      itemsExamined = mature.length;
-      if (mode === "APPLY") {
-        const { releaseDriverEarning } = await import("@/lib/services/driver-earning-release.service");
-        for (const earning of mature) {
-          try {
-            await releaseDriverEarning({ earningId: earning.id, operationId: `mature-driver-release:${randomUUID()}` });
-            itemsCompleted += 1;
-          } catch {
-            itemsRetried += 1;
-          }
-        }
-      }
-      itemsClaimed = itemsCompleted;
-      safeSummary = `Evaluated ${itemsExamined} mature driver earnings; released ${itemsCompleted}.`;
-    } else if (processor.name === "process-data-retention") {
-      const { runRetentionProcessor } = await import("@/lib/retention/retention-processor");
-      const retentionResult = await runRetentionProcessor({
-        mode,
-        batchSize,
-        actorUserId: options.actorUserId,
-      });
-      itemsExamined = retentionResult.itemsExamined;
-      itemsClaimed = retentionResult.itemsClaimed;
-      itemsCompleted = retentionResult.itemsCompleted;
-      itemsSkipped = retentionResult.itemsSkipped;
-      itemsReconciled = retentionResult.itemsReconciled;
-      safeSummary = retentionResult.safeSummary;
-    } else if (processor.name === "process-managed-marketing-lifecycle") {
-      const { ManagedMarketingService } = await import("@/lib/advertising/managed-marketing.service");
-      const lifecycleResult = await new ManagedMarketingService().runLifecycleProcessor({ mode, batchSize, processorOperationId: operationId });
-      itemsExamined = lifecycleResult.itemsExamined;
-      itemsClaimed = lifecycleResult.itemsClaimed;
-      itemsCompleted = lifecycleResult.itemsCompleted;
-      itemsSkipped = lifecycleResult.itemsSkipped;
-      itemsReconciled = lifecycleResult.itemsReconciled;
-      safeSummary = lifecycleResult.safeSummary;
-    } else {
-      // General inspection / fallback logic for registered processor
-      itemsExamined = batchSize;
-      itemsClaimed = mode === "APPLY" ? Math.min(batchSize, 10) : 0;
-      itemsCompleted = mode === "APPLY" ? itemsClaimed : 0;
-      itemsSkipped = itemsExamined - itemsClaimed;
-      safeSummary = safeOperationalText(
-        `${mode} completed for ${processor.name}: ${itemsCompleted} items completed, ${itemsSkipped} skipped.`,
-      );
-    }
+    const outcome = await handler({
+      mode,
+      batchSize,
+      operationId,
+      actorUserId: options.actorUserId,
+      partition: options.partition,
+    });
 
     const terminalStatus = mode === "DRY_RUN" ? "DRY_RUN_COMPLETED" : "APPLY_COMPLETED";
 
@@ -179,11 +494,11 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
         operationId,
         leaseOwner,
         status: terminalStatus,
-        itemsClaimed,
-        itemsCompleted,
-        itemsRetried,
-        itemsReconciled,
-        safeSummary,
+        itemsClaimed: outcome.itemsClaimed,
+        itemsCompleted: outcome.itemsCompleted,
+        itemsRetried: outcome.itemsRetried,
+        itemsReconciled: outcome.itemsReconciled,
+        safeSummary: outcome.safeSummary,
       });
     }
 
@@ -198,7 +513,7 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
           operationId,
           mode,
           batchSize,
-          itemsCompleted,
+          itemsCompleted: outcome.itemsCompleted,
         },
       });
     }
@@ -210,14 +525,14 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
       mode,
       operationId,
       status: terminalStatus,
-      itemsExamined,
-      itemsClaimed,
-      itemsCompleted,
-      itemsSkipped,
-      itemsRetried,
-      itemsReconciled,
+      itemsExamined: outcome.itemsExamined,
+      itemsClaimed: outcome.itemsClaimed,
+      itemsCompleted: outcome.itemsCompleted,
+      itemsSkipped: outcome.itemsSkipped,
+      itemsRetried: outcome.itemsRetried,
+      itemsReconciled: outcome.itemsReconciled,
       failureCount,
-      safeSummary,
+      safeSummary: outcome.safeSummary,
       executedAt,
     };
   } catch (err) {
@@ -238,3 +553,4 @@ export async function executeRegisteredProcessor(options: ExecuteProcessorOption
     throw err;
   }
 }
+

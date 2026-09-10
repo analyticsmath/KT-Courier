@@ -16,8 +16,12 @@ export class NotificationProcessorService {
     const candidates = await this.select(input.operation, input.limit);
     if (!input.apply) return { operation: input.operation, apply: false, candidates: candidates.map((candidate: any) => ({ reference: candidate.publicReference ?? candidate.id, operationId: operationId(input.operation, candidate.publicReference ?? candidate.id) })) };
     // This code path is deliberately unreachable until the Phase 30 lock is approved.
-    for (const candidate of candidates) await this.apply(input.operation, candidate);
-    return { operation: input.operation, apply: true, processed: candidates.length };
+    let itemsCompleted = 0;
+    for (const candidate of candidates) {
+      const completed = await this.apply(input.operation, candidate);
+      if (completed) itemsCompleted++;
+    }
+    return { operation: input.operation, apply: true, processed: candidates.length, itemsCompleted };
   }
   private async select(operation: NotificationProcessorOperation, limit: number) {
     switch (operation) {
@@ -33,15 +37,49 @@ export class NotificationProcessorService {
       case "preflight": case "invariants": case "integration": return this.db.notificationCategory.findMany({ orderBy: { key: "asc" }, take: limit });
     }
   }
-  private async apply(operation: NotificationProcessorOperation, candidate: any) {
+  private async resolveDestination(candidate: any): Promise<string | null> {
+    if (candidate.destination) return candidate.destination;
+    if (candidate.recipientAddress) return candidate.recipientAddress;
+    if (candidate.endpoint?.address) return candidate.endpoint.address;
+    if (candidate.endpointId) {
+      try {
+        const ep = await this.db.notificationEndpoint.findUnique({ where: { id: candidate.endpointId }, select: { address: true } });
+        if (ep?.address) return ep.address;
+      } catch {
+        // ignore
+      }
+    }
+    if (candidate.recipientUserId) {
+      try {
+        const user = await this.db.user.findUnique({ where: { id: candidate.recipientUserId }, select: { email: true, phone: true } });
+        if (candidate.channel === "EMAIL" && user?.email) return user.email;
+        if (candidate.channel === "SMS" && user?.phone) return user.phone;
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  }
+  private async apply(operation: NotificationProcessorOperation, candidate: any): Promise<boolean> {
     if (operation === "consume") {
       const payload = candidate.safePayload && typeof candidate.safePayload === "object" ? candidate.safePayload : {};
       const received = await this.services.intake.intake({ sourceAuthority: candidate.sourceAuthority, sourceEventId: candidate.operationId, sourceEventType: candidate.eventType, aggregateReference: candidate.aggregateReference, payload });
       if (!received.replay) await this.services.intake.fanout({ receiptId: received.receipt.id, payload });
-      return;
+      return true;
     }
-    if (operation === "expire") { await this.services.delivery.expire(candidate.id); return; }
-    if (operation === "stale-endpoints") { await this.services.endpoints.markStale(candidate.id); return; }
-    if (operation === "reconciliation") { await this.services.reconciliation.act(candidate.publicReference, "rescan"); return; }
+    if (operation === "deliver" || operation === "retry") {
+      const destination = await this.resolveDestination(candidate);
+      if (!destination) return false;
+      const res = await this.services.delivery.deliver({
+        deliveryId: candidate.id,
+        destination,
+        operationId: operationId(operation, candidate.publicReference ?? candidate.id),
+      });
+      return Boolean(res && (res.status === "PROVIDER_ACCEPTED" || res.status === "DELIVERED"));
+    }
+    if (operation === "expire") { await this.services.delivery.expire(candidate.id); return true; }
+    if (operation === "stale-endpoints") { await this.services.endpoints.markStale(candidate.id); return true; }
+    if (operation === "reconciliation") { await this.services.reconciliation.act(candidate.publicReference, "rescan"); return true; }
+    return false;
   }
 }

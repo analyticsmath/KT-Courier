@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { PaymentError } from "@/lib/payments/errors";
-import { processPaystackWebhook } from "@/lib/services/paystack-webhook-application.service";
+import {
+  ingestPaystackWebhook,
+  applyPaystackWebhookEvent,
+} from "@/lib/services/paystack-webhook-application.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,13 +41,22 @@ export async function POST(request: NextRequest): Promise<Response> {
     ?? "webhook";
 
   try {
-    const result = await processPaystackWebhook({
+    const ingestResult = await ingestPaystackWebhook({
       rawBody,
       signature,
       sourceAddress,
     });
 
-    return new Response(JSON.stringify({ received: true, outcome: result.outcome }), {
+    if (ingestResult.event === "charge.success" && !ingestResult.duplicate) {
+      applyPaystackWebhookEvent({
+        webhookEventId: ingestResult.webhookEventId,
+        sourceAddress,
+      }).catch((err) => {
+        console.error("Background Paystack webhook application error:", err);
+      });
+    }
+
+    return new Response(JSON.stringify({ received: true, eventPublicReference: ingestResult.eventPublicReference }), {
       status: 200,
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });

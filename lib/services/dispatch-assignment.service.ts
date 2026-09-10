@@ -43,7 +43,7 @@ async function validateDriver(tx: Tx, driverProfileId: string, order: { id: stri
   ]);
   if (!driver) throw dispatchError.driverIneligible("Driver profile not found.");
   const now = new Date();
-  const compliance = driver.vehicleComplianceRequiredAt && driver.vehicleComplianceRequiredAt <= now ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+  const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now });
   const result = evaluateDriverEligibility({ userActive: driver.user.role === UserRole.DRIVER && driver.user.status === UserStatus.ACTIVE, profileActive: driver.status === DriverStatus.ACTIVE, available: driver.availability === DriverAvailability.AVAILABLE, regionMatch: !!order.deliveryRegionId && driver.serviceRegions.some((region) => region.deliveryRegionId === order.deliveryRegionId), activeLoad: currentCount, capacity: driver.maxConcurrentAssignments || config.defaultCapacity, complianceEligible: compliance.eligible });
   if (!result.eligible) {
     if (result.reasons.includes("DRIVER_CAPACITY_REACHED")) throw dispatchError.capacity();

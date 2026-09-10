@@ -17,9 +17,12 @@ export async function createStoreOfferPriceVersion(storeId: string, actorUserId:
   operationId: string;
 }) {
   assertExactZarPrice(input);
-  const offer = await prisma.storeCatalogOffer.findUnique({ where: { publicReference: input.offerPublicReference }, include: { priceVersions: true } });
-  if (!offer) throw new CatalogNotFoundError("Store catalog offer was not found.");
-  if (offer.storeId !== storeId) throw new CatalogOwnershipError();
+  const offer = await prisma.storeCatalogOffer.findFirst({ where: { publicReference: input.offerPublicReference, storeId }, include: { priceVersions: true } });
+  if (!offer) {
+    const exists = await prisma.storeCatalogOffer.findUnique({ where: { publicReference: input.offerPublicReference }, select: { storeId: true } });
+    if (exists && exists.storeId !== storeId) throw new CatalogOwnershipError();
+    throw new CatalogNotFoundError("Store catalog offer was not found.");
+  }
   const effectiveFrom = new Date(input.effectiveFrom);
   const effectiveUntil = input.effectiveUntil ? new Date(input.effectiveUntil) : null;
   assertPricePeriod({ effectiveFrom, effectiveUntil }, offer.priceVersions.filter((price) => ["SCHEDULED", "ACTIVE"].includes(price.status)));

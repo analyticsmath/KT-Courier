@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { PROCESSOR_REGISTRY } from "@/lib/processors/processor-registry";
+import { getRegisteredProcessor } from "@/lib/processors/processor-registry";
 import { acquireProcessorLease, completeProcessorRun } from "@/lib/processors/lease-authority";
 import { executeRegisteredProcessor, getProcessorInventory } from "@/lib/processors/processor-service";
 
@@ -39,12 +39,12 @@ describe("Phase 5: Processor Inventory & Lease Governance", () => {
     ];
 
     for (const name of requiredProcessors) {
-      const proc = PROCESSOR_REGISTRY[name];
+      const proc = getRegisteredProcessor(name);
       expect(proc).toBeDefined();
-      expect(proc.name).toBe(name);
-      expect(proc.classification).toBeDefined();
-      expect(proc.requiredPermission).toBeDefined();
-      expect(proc.operationalOwnerCategory).toBeDefined();
+      expect(proc?.name).toBe(name);
+      expect(proc?.classification).toBeDefined();
+      expect(proc?.requiredPermission).toBeDefined();
+      expect(proc?.operationalOwnerCategory).toBeDefined();
     }
   });
 

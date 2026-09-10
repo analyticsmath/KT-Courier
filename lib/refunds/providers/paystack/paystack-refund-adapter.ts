@@ -17,7 +17,7 @@ export const PAYSTACK_REFUND_CAPABILITIES = Object.freeze({
   supportsMultiplePartialRefunds: true,
   supportsSandboxRefunds: true,
   supportsStatusQuery: true,
-  supportsIdempotentCreate: true,
+  supportsIdempotentCreate: false,
   requiresCustomerBankData: false,
 });
 
@@ -39,6 +39,23 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
     return new PaystackClient({ secretKey });
   }
 
+  mapRawStatus(rawStatus: string): { status: RefundProviderResultStatus; definitive: boolean } {
+    const s = (rawStatus || "").toLowerCase();
+    if (s === "processed" || s === "success") {
+      return { status: "SUCCEEDED", definitive: true };
+    }
+    if (s === "failed") {
+      return { status: "FAILED", definitive: true };
+    }
+    if (s === "needs-attention" || s === "needs_attention") {
+      return { status: "NEEDS_ATTENTION", definitive: true };
+    }
+    if (s === "pending" || s === "processing") {
+      return { status: "PROCESSING", definitive: false };
+    }
+    return { status: "UNKNOWN", definitive: false };
+  }
+
   async createRefund(input: ProviderRefundInput, context: ProviderRefundContext): Promise<ProviderRefundResult> {
     if (context.signal.aborted) throw new DOMException("Paystack refund call aborted.", "AbortError");
     const client = this.getClient();
@@ -52,19 +69,7 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
     }, context.signal);
 
     const rawStatus = (data.status || "").toLowerCase();
-    let status: RefundProviderResultStatus = "PROCESSING";
-    let definitive = false;
-
-    if (rawStatus === "processed" || rawStatus === "success") {
-      status = "SUCCEEDED";
-      definitive = true;
-    } else if (rawStatus === "failed") {
-      status = "FAILED";
-      definitive = true;
-    } else if (rawStatus === "pending" || rawStatus === "processing") {
-      status = "PROCESSING";
-      definitive = false;
-    }
+    const { status, definitive } = this.mapRawStatus(rawStatus);
 
     return Object.freeze({
       status,
@@ -86,16 +91,7 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
 
     const data = await client.getRefund(input.providerRefundId, context.signal);
     const rawStatus = (data.status || "").toLowerCase();
-    let status: RefundProviderResultStatus = "PROCESSING";
-    let definitive = false;
-
-    if (rawStatus === "processed" || rawStatus === "success") {
-      status = "SUCCEEDED";
-      definitive = true;
-    } else if (rawStatus === "failed") {
-      status = "FAILED";
-      definitive = true;
-    }
+    const { status, definitive } = this.mapRawStatus(rawStatus);
 
     return Object.freeze({
       status,

@@ -257,21 +257,23 @@ export class InMemoryRateLimitStore implements RateLimitStore {
       return this.sharedAdapter.consume(input);
     }
 
-    if (isRedisConfigured()) {
-      return this.redisStore.consume(input);
-    }
+    if (isProd) {
+      if (isRedisConfigured()) {
+        return this.redisStore.consume(input);
+      }
 
-    if (isProd && input.policy.distributedRequired) {
-      return {
-        accepted: false,
-        backendUsed: "FAIL_CLOSED",
-        warning:
-          "Production distributed rate limiter unconfigured for distributed-required policy. Operation failed closed.",
-        errorResponse: {
-          code: "SERVICE_TEMPORARILY_UNAVAILABLE",
-          message: "This operation is temporarily unavailable.",
-        },
-      };
+      if (input.policy.distributedRequired) {
+        return {
+          accepted: false,
+          backendUsed: "FAIL_CLOSED",
+          warning:
+            "Production distributed rate limiter unconfigured for distributed-required policy. Operation failed closed.",
+          errorResponse: {
+            code: "SERVICE_TEMPORARILY_UNAVAILABLE",
+            message: "This operation is temporarily unavailable.",
+          },
+        };
+      }
     }
 
     const memRes = consumeInMemory(input.key, input.policy, input.customNow);

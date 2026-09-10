@@ -3,7 +3,7 @@ import type { ProviderRefundResult, RefundProviderResultStatus } from "./refund-
 
 const SAFE_REFERENCE = /^[A-Za-z0-9_.:-]{1,160}$/;
 const SAFE_CODE = /^[A-Za-z0-9_.:-]{1,80}$/;
-const STATUSES = new Set<RefundProviderResultStatus>(["SUCCEEDED", "PROCESSING", "FAILED", "UNKNOWN"]);
+const STATUSES = new Set<RefundProviderResultStatus>(["SUCCEEDED", "PROCESSING", "FAILED", "UNKNOWN", "NEEDS_ATTENTION"]);
 
 export function validateRefundProviderResult(result: ProviderRefundResult): ProviderRefundResult {
   if (!result || typeof result !== "object" || !STATUSES.has(result.status) || typeof result.definitive !== "boolean") {

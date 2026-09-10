@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { phase5Reference, safeOperationalText } from "@/lib/operations/phase5-repository";
-import { PROCESSOR_REGISTRY } from "./processor-registry";
+import { getRegisteredProcessor } from "./processor-registry";
 
 export type ProcessorRunStatus =
   | "REQUESTED"
@@ -18,8 +18,8 @@ export interface AcquireLeaseParams {
   jobName: string;
   partition?: string;
   leaseOwner: string;
-  operationId?: string;
   leaseDurationSeconds?: number;
+  operationId?: string;
   mode?: "DRY_RUN" | "APPLY";
 }
 
@@ -52,7 +52,7 @@ export interface CompleteRunParams {
  * workers or schedulers cannot race to acquire the same singleton workload.
  */
 export async function acquireProcessorLease(params: AcquireLeaseParams): Promise<AcquireLeaseResult> {
-  const processor = PROCESSOR_REGISTRY[params.jobName];
+  const processor = getRegisteredProcessor(params.jobName);
   const partition = params.partition ?? processor?.defaultPartition ?? "default";
   const leaseOwner = safeOperationalText(params.leaseOwner, 80);
   const now = new Date();

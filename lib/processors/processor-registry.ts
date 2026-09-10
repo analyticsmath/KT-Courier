@@ -10,6 +10,8 @@ export type ProcessorClassification =
   | "EXTERNAL_DELIVERY_PROCESSOR"
   | "MAINTENANCE_PROCESSOR";
 
+export type ProcessorStatus = "IMPLEMENTED" | "DISABLED";
+
 export interface RegisteredProcessor {
   readonly name: string;
   readonly version: string;
@@ -27,9 +29,10 @@ export interface RegisteredProcessor {
   readonly manualExecutionAllowed: boolean;
   readonly requiredPermission: PermissionKey;
   readonly operationalOwnerCategory: string;
+  readonly status: ProcessorStatus;
 }
 
-export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
+export const PROCESSOR_REGISTRY = {
   "consume-verified-payment-events": {
     name: "consume-verified-payment-events",
     version: "1.0.0",
@@ -47,6 +50,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.PAYMENTS_READ,
     operationalOwnerCategory: "Payments & Ledger",
+    status: "IMPLEMENTED",
   },
   "finalize-paid-marketplace-checkouts": {
     name: "finalize-paid-marketplace-checkouts",
@@ -65,6 +69,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.MARKETPLACE_CHECKOUT_RECONCILE,
     operationalOwnerCategory: "Marketplace Commerce",
+    status: "IMPLEMENTED",
   },
   "process-subscription-renewals": {
     name: "process-subscription-renewals",
@@ -79,15 +84,16 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 300,
     retryPolicy: "DUNNING_RETRY_SCHEDULE",
     idempotencyStrategy: "INVOICE_BILLING_PERIOD_UNIQUE",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.SUBSCRIPTION_BILLING_RECONCILE,
     operationalOwnerCategory: "Subscriptions",
+    status: "DISABLED",
   },
   "scan-refund-reconciliation": {
     name: "scan-refund-reconciliation",
     version: "1.0.0",
-    purpose: "Identifies stalled or mismatched refund execution attempts",
+    purpose: "Identifies stalled or mismatched refund execution attempts and polls provider",
     triggerType: "CRON",
     classification: "READ_ONLY",
     leaseRequired: false,
@@ -101,6 +107,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.REFUNDS_RECONCILE,
     operationalOwnerCategory: "Refunds & Finance",
+    status: "IMPLEMENTED",
   },
   "scan-withdrawal-reconciliation": {
     name: "scan-withdrawal-reconciliation",
@@ -119,6 +126,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.WITHDRAWALS_RECONCILE,
     operationalOwnerCategory: "Withdrawals & Finance",
+    status: "IMPLEMENTED",
   },
   "release-mature-store-earnings": {
     name: "release-mature-store-earnings",
@@ -137,6 +145,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.STORE_EARNINGS_RECONCILE,
     operationalOwnerCategory: "Store Settlement",
+    status: "IMPLEMENTED",
   },
   "release-mature-driver-earnings": {
     name: "release-mature-driver-earnings",
@@ -155,6 +164,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.DRIVER_EARNINGS_RECONCILE,
     operationalOwnerCategory: "Driver Operations",
+    status: "IMPLEMENTED",
   },
   "process-promoter-qualifications": {
     name: "process-promoter-qualifications",
@@ -169,10 +179,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 180,
     retryPolicy: "RETRY_UP_TO_MAX",
     idempotencyStrategy: "ATTRIBUTION_QUALIFICATION_UNIQUE",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.PROMOTER_RECONCILIATION_MANAGE,
     operationalOwnerCategory: "Promoters & Growth",
+    status: "DISABLED",
   },
   "end-expired-promotions": {
     name: "end-expired-promotions",
@@ -187,10 +198,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 120,
     retryPolicy: "IMMEDIATE_RETRY",
     idempotencyStrategy: "PROMOTION_STATUS_EXPIRED",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.PROMOTIONS_RECONCILIATION_MANAGE,
     operationalOwnerCategory: "Promotions",
+    status: "DISABLED",
   },
   "process-managed-marketing-lifecycle": {
     name: "process-managed-marketing-lifecycle",
@@ -209,6 +221,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.MANAGED_MARKETING_REQUESTS_PROCESS_LIFECYCLE,
     operationalOwnerCategory: "Marketing Operations",
+    status: "IMPLEMENTED",
   },
   "process-valid-click-charges": {
     name: "process-valid-click-charges",
@@ -223,10 +236,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 300,
     retryPolicy: "RETRY_UP_TO_MAX",
     idempotencyStrategy: "CLICK_BATCH_LOG_HASH",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.ADVERTISING_RECONCILIATION_MANAGE,
     operationalOwnerCategory: "Advertising",
+    status: "DISABLED",
   },
   "deliver-notifications": {
     name: "deliver-notifications",
@@ -245,6 +259,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.NOTIFICATION_RECONCILIATION_RETRY,
     operationalOwnerCategory: "Notifications",
+    status: "IMPLEMENTED",
   },
   "deliver-developer-webhooks": {
     name: "deliver-developer-webhooks",
@@ -259,10 +274,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 180,
     retryPolicy: "EXPONENTIAL_BACKOFF",
     idempotencyStrategy: "WEBHOOK_DELIVERY_ATTEMPT_UNIQUE",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.DEVELOPER_RECONCILIATION_RETRY,
     operationalOwnerCategory: "Developer Platform",
+    status: "DISABLED",
   },
   "generate-report-jobs": {
     name: "generate-report-jobs",
@@ -277,10 +293,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 600,
     retryPolicy: "SINGLE_RETRY",
     idempotencyStrategy: "REPORT_JOB_STATUS_CLAIM",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.REPORT_RECONCILIATION_RETRY,
     operationalOwnerCategory: "Reporting",
+    status: "DISABLED",
   },
   "expire-report-artifacts": {
     name: "expire-report-artifacts",
@@ -295,10 +312,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 180,
     retryPolicy: "RETRY_NEXT_CYCLE",
     idempotencyStrategy: "STORAGE_OBJECT_DELETION_IDEMPOTENT",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.REPORT_RECONCILIATION_RETRY,
     operationalOwnerCategory: "Reporting",
+    status: "DISABLED",
   },
   "process-privacy-requests": {
     name: "process-privacy-requests",
@@ -313,10 +331,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 300,
     retryPolicy: "RETRY_UP_TO_MAX",
     idempotencyStrategy: "PRIVACY_FULFILMENT_EVIDENCE_UNIQUE",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.PRIVACY_REQUESTS_MANAGE,
     operationalOwnerCategory: "Governance & Privacy",
+    status: "DISABLED",
   },
   "process-data-retention": {
     name: "process-data-retention",
@@ -335,6 +354,7 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.SETTINGS_UPDATE,
     operationalOwnerCategory: "Governance & Privacy",
+    status: "IMPLEMENTED",
   },
   "expire-developer-api-credentials": {
     name: "expire-developer-api-credentials",
@@ -349,10 +369,11 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     maxExecutionDurationSeconds: 120,
     retryPolicy: "IMMEDIATE_RETRY",
     idempotencyStrategy: "CREDENTIAL_STATUS_EXPIRED",
-    dryRunSupported: true,
-    manualExecutionAllowed: true,
+    dryRunSupported: false,
+    manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.DEVELOPER_APPLICATION_READ,
     operationalOwnerCategory: "Developer Platform",
+    status: "DISABLED",
   },
   "scan-payment-reconciliation": {
     name: "scan-payment-reconciliation",
@@ -371,5 +392,25 @@ export const PROCESSOR_REGISTRY: Record<string, RegisteredProcessor> = {
     manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.PAYMENT_RECONCILIATION_READ,
     operationalOwnerCategory: "Payments & Ledger",
+    status: "IMPLEMENTED",
   },
-};
+} as const satisfies Record<string, RegisteredProcessor>;
+
+export type ProcessorName = keyof typeof PROCESSOR_REGISTRY;
+
+export type ImplementedProcessorName = {
+  [K in ProcessorName]: (typeof PROCESSOR_REGISTRY)[K]["status"] extends "IMPLEMENTED" ? K : never;
+}[ProcessorName];
+
+export type DisabledProcessorName = Exclude<ProcessorName, ImplementedProcessorName>;
+
+export function isProcessorName(name: string): name is ProcessorName {
+  return Object.prototype.hasOwnProperty.call(PROCESSOR_REGISTRY, name);
+}
+
+export function getRegisteredProcessor(name: string): RegisteredProcessor | undefined {
+  return isProcessorName(name) ? PROCESSOR_REGISTRY[name] : undefined;
+}
+
+
+

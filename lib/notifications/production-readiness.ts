@@ -1,16 +1,16 @@
-export const NOTIFICATION_PRODUCTION_VALIDATION_APPROVED = true;
-export const NOTIFICATION_PRODUCTION_BLOCK_REASON = "NOTIFICATION_DELIVERY_DISABLED";
+/** Phase 27 stays fail-closed until Phase 30 validates the full runtime. */
+export const NOTIFICATION_PRODUCTION_VALIDATION_APPROVED = false;
+export const NOTIFICATION_PRODUCTION_BLOCK_REASON = "NOTIFICATION_CONSOLIDATED_VALIDATION_NOT_APPROVED";
 
 export class NotificationProductionLockError extends Error {
   readonly code = NOTIFICATION_PRODUCTION_BLOCK_REASON;
   constructor() {
-    super("Notification delivery is currently disabled by policy.");
+    super("Notification delivery is locked pending Phase 30 production validation.");
     this.name = "NotificationProductionLockError";
   }
 }
 
 export function assertNotificationProductionReady(): void {
-  if (process.env.NOTIFICATION_DELIVERY_ENABLED === "false") {
-    throw new NotificationProductionLockError();
-  }
+  if (!NOTIFICATION_PRODUCTION_VALIDATION_APPROVED) throw new NotificationProductionLockError();
 }
+

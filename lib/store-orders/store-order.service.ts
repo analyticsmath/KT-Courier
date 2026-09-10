@@ -33,9 +33,11 @@ async function transaction<T>(work: (tx: Phase21Database) => Promise<T>): Promis
   return prisma.$transaction((tx) => work(tx as unknown as Phase21Database), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-async function lockOrder(tx: Phase21Database, publicReference: string) {
-  const order = await model(tx, "marketplaceStoreOrder").findUnique({
-    where: { publicReference },
+async function lockOrder(tx: Phase21Database, publicReference: string, storeId?: string) {
+  const where: Record<string, unknown> = { publicReference };
+  if (storeId) where.storeId = storeId;
+  const order = await model(tx, "marketplaceStoreOrder").findFirst({
+    where,
     include: {
       store: { select: { id: true, status: true } },
       marketplaceOrder: { select: { customerUserId: true, paymentId: true, guestConfirmationHash: true } },
@@ -47,7 +49,15 @@ async function lockOrder(tx: Phase21Database, publicReference: string) {
       pickupHandoff: true,
     },
   });
-  if (!order) throw new StoreOrderError("STORE_ORDER_NOT_FOUND", "Store order was not found.");
+  if (!order) {
+    if (storeId) {
+      const exists = await model(tx, "marketplaceStoreOrder").findUnique({ where: { publicReference }, select: { id: true, storeId: true } });
+      if (exists && exists.storeId !== storeId) {
+        throw new StoreOrderError("STORE_ORDER_ACCESS_DENIED", "Store order permission is required.");
+      }
+    }
+    throw new StoreOrderError("STORE_ORDER_NOT_FOUND", "Store order was not found.");
+  }
   return order;
 }
 
@@ -94,7 +104,11 @@ async function updateOrder(tx: Phase21Database, order: any, patch: Record<string
 }
 
 async function authorize(tx: Phase21Database, publicReference: string, actorUserId: string, permission: StoreOrderPermission) {
-  const order = await lockOrder(tx, publicReference);
+  const actor = await prisma.user.findUnique({ where: { id: actorUserId }, select: { id: true, role: true, status: true } });
+  if (!actor || actor.role !== "STORE" || actor.status !== "ACTIVE") throw new StoreOrderError("STORE_ORDER_ACCESS_DENIED", "An active store actor is required.");
+  const store = await prisma.store.findFirst({ where: { ownerUserId: actor.id, status: "ACTIVE" }, select: { id: true } });
+  if (!store) throw new StoreOrderError("STORE_ORDER_ACCESS_DENIED", "Store order permission is required.");
+  const order = await lockOrder(tx, publicReference, store.id);
   await requireStoreOrderActor({ actorUserId, storeId: order.storeId, permission });
   return order;
 }

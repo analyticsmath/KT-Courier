@@ -1,6 +1,17 @@
 import { PaymentError } from "../../errors";
 
-export function zarToSubunitCents(amount: string | number): number {
+export const MAX_PAYSTACK_TRANSACTION_CENTS = 1_000_000_000; // R10,000,000.00 cap
+
+export function assertValidPaystackTransactionAmount(cents: number): void {
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > MAX_PAYSTACK_TRANSACTION_CENTS) {
+    throw new PaymentError(
+      "PAYMENT_AMOUNT_INVALID",
+      `Paystack transaction amount must be a safe positive integer up to ${MAX_PAYSTACK_TRANSACTION_CENTS} cents (R10,000,000.00).`,
+    );
+  }
+}
+
+export function zarToSubunitCents(amount: string | number, maxCents?: number): number {
   const str = typeof amount === "string" ? amount.trim() : amount.toString();
   if (!/^\d+(\.\d{1,2})?$/.test(str)) {
     throw new PaymentError("PAYMENT_AMOUNT_INVALID", `Invalid ZAR amount: ${str}`);
@@ -10,11 +21,21 @@ export function zarToSubunitCents(amount: string | number): number {
   if (cents <= 0n) {
     throw new PaymentError("PAYMENT_AMOUNT_INVALID", "Payment amount must be greater than zero.");
   }
-  return Number(cents);
+  const centsNum = Number(cents);
+  if (!Number.isSafeInteger(centsNum)) {
+    throw new PaymentError("PAYMENT_AMOUNT_INVALID", "Payment amount exceeds safe integer precision.");
+  }
+  if (maxCents !== undefined && centsNum > maxCents) {
+    throw new PaymentError("PAYMENT_AMOUNT_INVALID", `Payment amount exceeds maximum transaction limit (${maxCents} cents).`);
+  }
+  return centsNum;
 }
 
 export function subunitCentsToZar(cents: number | bigint): string {
   const c = BigInt(cents);
+  if (c < 0n) {
+    throw new PaymentError("PAYMENT_AMOUNT_INVALID", `Invalid subunit cents: ${cents}`);
+  }
   const whole = c / 100n;
   const fraction = (c % 100n).toString().padStart(2, "0");
   return `${whole}.${fraction}`;
@@ -35,9 +56,11 @@ export function validatePaystackAuthorizationUrl(rawUrl: string): string {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack authorization URL must use HTTPS.");
     }
     const host = parsed.hostname.toLowerCase();
-    const isApprovedHost = ALLOWED_PAYSTACK_CHECKOUT_HOSTS.has(host) || host.endsWith(".paystack.com") || host.endsWith(".paystack.co");
-    if (!isApprovedHost) {
+    if (!ALLOWED_PAYSTACK_CHECKOUT_HOSTS.has(host)) {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", `Paystack authorization URL domain '${host}' is not permitted.`);
+    }
+    if (parsed.port !== "" && parsed.port !== "443") {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", `Paystack authorization URL custom port '${parsed.port}' is not permitted.`);
     }
     return parsed.toString();
   } catch (error) {
@@ -171,6 +194,7 @@ export class PaystackClient {
     input: PaystackInitializeInput,
     signal?: AbortSignal,
   ): Promise<PaystackInitializeData> {
+    assertValidPaystackTransactionAmount(input.amountCents);
     const body: Record<string, unknown> = {
       email: input.email,
       amount: input.amountCents,
@@ -220,6 +244,7 @@ export class PaystackClient {
     input: PaystackRefundInput,
     signal?: AbortSignal,
   ): Promise<PaystackRefundData> {
+    assertValidPaystackTransactionAmount(input.amountCents);
     const body: Record<string, unknown> = {
       transaction: input.transaction,
       amount: input.amountCents,

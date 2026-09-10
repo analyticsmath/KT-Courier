@@ -205,7 +205,7 @@ export async function createDispatchCandidateEvaluationInTx(
   const evaluated = drivers.map((driver) => {
     const activeLoad = counts.get(driver.id) ?? 0;
     const regionMatch = Boolean(order.deliveryRegionId) && driver.serviceRegions.some((region) => region.deliveryRegionId === order.deliveryRegionId);
-    const compliance = driver.vehicleComplianceRequiredAt && driver.vehicleComplianceRequiredAt <= evaluatedAt ? evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now: evaluatedAt }) : { eligible: true, reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"], approvedVehicleId: null };
+    const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now: evaluatedAt });
     const eligibility = evaluateDriverEligibility({
       userActive: driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER,
       profileActive: driver.status === DriverStatus.ACTIVE,

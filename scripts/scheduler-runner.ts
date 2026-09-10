@@ -1,12 +1,13 @@
 import os from "node:os";
 import { prisma } from "@/lib/db/prisma";
 import { executeRegisteredProcessor } from "@/lib/processors/processor-service";
+import type { ImplementedProcessorName } from "@/lib/processors/processor-registry";
 import { logApplicationEvent } from "@/lib/observability/logger";
 
 const SCHEDULER_ID = `scheduler:${os.hostname()}:${process.pid}`;
 
 interface ScheduledTask {
-  name: string;
+  name: ImplementedProcessorName;
   intervalMs: number;
   lastRunAt: number;
 }
@@ -15,15 +16,10 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   // High-frequency jobs (every 1 minute)
   { name: "finalize-paid-marketplace-checkouts", intervalMs: 60_000, lastRunAt: 0 },
 
-  // Medium-frequency jobs (every 2 to 5 minutes)
-  { name: "end-expired-promotions", intervalMs: 120_000, lastRunAt: 0 },
-  { name: "expire-developer-api-credentials", intervalMs: 120_000, lastRunAt: 0 },
+  // Medium-frequency jobs (every 5 minutes)
   { name: "process-managed-marketing-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
-  { name: "process-subscription-renewals", intervalMs: 300_000, lastRunAt: 0 },
-  { name: "process-promoter-qualifications", intervalMs: 300_000, lastRunAt: 0 },
 
   // Periodic reconciliation & accounting (every 15 to 30 minutes)
-  { name: "process-valid-click-charges", intervalMs: 900_000, lastRunAt: 0 },
   { name: "scan-payment-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
   { name: "scan-withdrawal-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
   { name: "scan-refund-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
@@ -31,7 +27,6 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   // Settlement & cleanup (hourly)
   { name: "release-mature-store-earnings", intervalMs: 3_600_000, lastRunAt: 0 },
   { name: "release-mature-driver-earnings", intervalMs: 3_600_000, lastRunAt: 0 },
-  { name: "expire-report-artifacts", intervalMs: 3_600_000, lastRunAt: 0 },
 
   // Governance & Retention (daily / 24 hours)
   { name: "process-data-retention", intervalMs: 86_400_000, lastRunAt: 0 },

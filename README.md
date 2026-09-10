@@ -111,3 +111,36 @@ npm run db:verify:ledger
 ```
 
 See [Phase 9 wallet ledger system](docs/phase-9-wallet-ledger-system.md), the [accounting model](docs/finance/ledger-accounting-model.md), and the [ledger integration guide](docs/testing/ledger-integration.md).
+
+## Phase 1 Production Release Closure
+
+Phase 1 establishes the production correctness closure for KT Couriers (Pty) Ltd across the marketplace, ordering, payments, dispatch, courier logistics, and double-entry ledger ecosystem.
+
+### Core Architecture & Configuration
+
+- **Primary Currency**: South African Rand (ZAR) exclusively. Exact integer subunit math (`cents`) with strict boundary checks (R10,000,000 cap).
+- **Active Digital Payment Provider**: Paystack (`PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY`). Fast idempotent webhook ingestion separated from asynchronous background processing. Exact authorization redirect allowlists (`https://checkout.paystack.com/*`, `https://standard.paystack.co/*`).
+- **Legacy Payment Rail**: PayFast is isolated for historical evidence, reconciliation, and refund compatibility only.
+- **Financial Ledger Authority**: Atomic double-entry journals for all captured, refunded, accrued, and settled funds. Double-credit and race-condition prevention under serializable concurrency retry.
+- **Refund Lifecycle**: First-class `NEEDS_ATTENTION` refund state, decoupled stale-refund polling, and local at-most-once initiation.
+- **Tenant Isolation & Security**: Deep database query predicates carrying `storeId` directly into repository lookups, BOLA/BOPLA/BFLA protection, SHA-256 hashed delivery OTPs (`codeHash`), and immutable Proof of Delivery records.
+- **Driver & Vehicle Compliance**: Strict compliance enforcement at offer, acceptance, and pickup without stranding in-flight deliveries.
+- **Commercial Authority**: Frozen checkout/order configuration snapshots referencing active company profile, parcel profiles, delivery service definitions, business modules, and commercial surcharges.
+- **POPIA Compliance**: Full Section 22 security compromise response runbook detailing Information Regulator eServices portal submission, zero low-risk threshold, and 72-hour notification procedures in [`docs/security-incident-response-runbook.md`](docs/security-incident-response-runbook.md).
+
+### Verification Entry Points
+
+```bash
+# Release-critical validation suite
+npm run test:paystack:contract
+npm run test:paystack:invariants
+npm run test:security:bola
+npm run test:processors
+npm run test:refunds
+npm run test:payments
+
+# Typecheck and linting
+npm run typecheck
+npm run lint
+```
+

@@ -32,7 +32,7 @@ export type ProviderRefundQueryInput = Readonly<{
   providerRefundId: string;
 }>;
 
-export type RefundProviderResultStatus = "SUCCEEDED" | "PROCESSING" | "FAILED" | "UNKNOWN";
+export type RefundProviderResultStatus = "SUCCEEDED" | "PROCESSING" | "FAILED" | "UNKNOWN" | "NEEDS_ATTENTION";
 
 export type ProviderRefundResult = Readonly<{
   status: RefundProviderResultStatus;

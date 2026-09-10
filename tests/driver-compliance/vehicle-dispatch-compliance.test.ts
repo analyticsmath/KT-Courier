@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, vi } from "vitest";
 import { DocumentStatus, VehicleDocumentType } from "@/types/db";
 
@@ -38,7 +39,7 @@ describe("dispatch compliance", () => {
     expect(result.reasons).toContain("NO_COMPLIANT_APPROVED_VEHICLE");
   });
 
-  it("grandfathers driver when vehicleComplianceRequiredAt is unset or in future", async () => {
+  it("enforces strict compliance without legacy cutover bypass", async () => {
     mockPrisma.driverProfile.findUnique.mockResolvedValueOnce({
       id: "driver-1",
       vehicleComplianceRequiredAt: new Date(Date.now() + 86400000), // 1 day in future
@@ -47,14 +48,25 @@ describe("dispatch compliance", () => {
     });
 
     const result = await evaluateDriverDispatchCompliance("driver-1");
-    expect(result).toEqual({
-      eligible: true,
-      reasons: ["LEGACY_COMPLIANCE_CUTOVER_PENDING"],
-      approvedVehicleId: null,
-    });
+    expect(result.eligible).toBe(false);
+    expect(result.reasons).toContain("DRIVER_DOCUMENT_ID_DOCUMENT_INVALID");
+    expect(result.reasons).toContain("NO_COMPLIANT_APPROVED_VEHICLE");
   });
 
-  it("enforces strict vehicle compliance when vehicleComplianceRequiredAt is in the past", async () => {
+  it("permits in-flight trip completion without stranding active delivery when allowActiveTrip is requested", async () => {
+    mockPrisma.driverProfile.findUnique.mockResolvedValueOnce({
+      id: "driver-active",
+      documents: [],
+      vehicles: [],
+    });
+    (mockPrisma as any).order = { count: vi.fn(async () => 1) };
+
+    const result = await evaluateDriverDispatchCompliance("driver-active", { allowActiveTrip: true });
+    expect(result.eligible).toBe(true);
+    expect(result.reasons).toContain("ACTIVE_TRIP_COMPLETION_PERMITTED");
+  });
+
+  it("enforces strict vehicle compliance when driver has no approved vehicles", async () => {
     mockPrisma.driverProfile.findUnique.mockResolvedValueOnce({
       id: "driver-1",
       vehicleComplianceRequiredAt: new Date(Date.now() - 86400000), // 1 day in past

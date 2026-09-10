@@ -9,6 +9,7 @@ import { createPrismaMarketplacePaymentPreparationRepository } from "@/lib/marke
 import { createPhase10And11MarketplacePaymentOrchestrator, prepareMarketplaceCheckoutPayment } from "@/lib/marketplace-checkout/marketplace-payment-preparation.service";
 import { createPrismaMarketplaceReservationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-reservation.repository";
 import { releaseMarketplaceCheckoutReservation, reserveMarketplaceCheckoutInventory } from "@/lib/marketplace-checkout/inventory-reservation.service";
+import { withSerializableRetry } from "@/lib/db/serializable-retry";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import { ownerWhere, resolveMarketplaceCartLine } from "@/lib/marketplace-checkout/cart.service";
 
@@ -39,32 +40,34 @@ function lineTotal(unit: string, quantity: number): string {
 }
 
 export async function createMarketplaceCheckout(input: { cartReference: string; owner: CheckoutOwner }, db = database): Promise<any> {
-  const carts = table("marketplaceCart", db); const checkouts = table("marketplaceCheckout", db);
-  const cart = await carts.findFirst({ where: { publicReference: input.cartReference, ...ownerWhere(input.owner) }, include: { storeGroups: { include: { lines: { include: { modifiers: true } } } } } });
-  if (!cart) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
-  if (cart.status !== "ACTIVE") throw new MarketplaceCheckoutError("CART_MUTATION_NOT_ALLOWED", "Cart cannot start checkout.");
-  if (!cart.storeGroups.length) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart is empty.");
-  const existing = await checkouts.findFirst({ where: { cartId: cart.id, status: { in: [...CHECKOUT_LIVE_STATUSES] } } });
-  if (existing) return existing;
-  const groups: any[] = []; let merchandise = "0"; let modifiers = "0";
-  for (const cartGroup of cart.storeGroups) {
-    const snapshots: any[] = [];
-    for (const cartLine of cartGroup.lines) {
-      const source = await resolveMarketplaceCartLine({ offerReference: cartLine.offerPublicReference, variantReference: cartLine.variantPublicReference, quantity: cartLine.quantity, modifiers: cartLine.modifiers.map((modifier: any) => ({ groupReference: modifier.modifierGroupPublicReference, optionReference: modifier.modifierOptionPublicReference, quantity: modifier.quantity })) });
-      const modifierUnit = source.modifiers.reduce((sum, modifier) => addCents(sum, parseZarToCents(modifier.priceDelta)), "0");
-      const modifierUnitZar = centsToZar(modifierUnit); const effective = centsToZar(addCents(parseZarToCents(source.unitPrice), modifierUnit));
-      const baseLine = lineTotal(source.unitPrice, source.quantity); const modifierLine = lineTotal(modifierUnitZar, source.quantity); const total = lineTotal(effective, source.quantity);
-      merchandise = addCents(merchandise, parseZarToCents(baseLine)); modifiers = addCents(modifiers, parseZarToCents(modifierLine));
-      snapshots.push({ productReference: source.productReference, variantReference: source.variantReference, offerReference: source.offerReference, storeReference: cartGroup.storeId, productTitle: source.productReference, variantTitle: source.variantReference, quantity: source.quantity, sellingUnit: "EACH", publicationVersion: source.publicationVersion, priceVersion: source.priceVersion, baseUnitPrice: source.unitPrice, modifierUnitTotal: modifierUnitZar, effectiveUnitPrice: effective, lineTotal: total, currency: "ZAR", taxTreatment: "SOURCE_PRICE_INCLUDES_TAX", modifiers: { create: source.modifiers.map((modifier) => ({ groupReference: modifier.groupReference, groupName: modifier.groupReference, optionReference: modifier.optionReference, optionName: modifier.optionReference, quantity: modifier.quantity, priceDelta: modifier.priceDelta, totalContribution: lineTotal(modifier.priceDelta, modifier.quantity), sourceVersion: "phase18" })) } });
+  return withSerializableRetry(async () => {
+    const carts = table("marketplaceCart", db); const checkouts = table("marketplaceCheckout", db);
+    const cart = await carts.findFirst({ where: { publicReference: input.cartReference, ...ownerWhere(input.owner) }, include: { storeGroups: { include: { lines: { include: { modifiers: true } } } } } });
+    if (!cart) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
+    const existing = await checkouts.findFirst({ where: { cartId: cart.id, status: { in: [...CHECKOUT_LIVE_STATUSES] } } });
+    if (existing) return existing;
+    if (cart.status !== "ACTIVE") throw new MarketplaceCheckoutError("CART_MUTATION_NOT_ALLOWED", "Cart cannot start checkout.");
+    if (!cart.storeGroups.length) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart is empty.");
+    const groups: any[] = []; let merchandise = "0"; let modifiers = "0";
+    for (const cartGroup of cart.storeGroups) {
+      const snapshots: any[] = [];
+      for (const cartLine of cartGroup.lines) {
+        const source = await resolveMarketplaceCartLine({ offerReference: cartLine.offerPublicReference, variantReference: cartLine.variantPublicReference, quantity: cartLine.quantity, modifiers: cartLine.modifiers.map((modifier: any) => ({ groupReference: modifier.modifierGroupPublicReference, optionReference: modifier.modifierOptionPublicReference, quantity: modifier.quantity })) });
+        const modifierUnit = source.modifiers.reduce((sum, modifier) => addCents(sum, parseZarToCents(modifier.priceDelta)), "0");
+        const modifierUnitZar = centsToZar(modifierUnit); const effective = centsToZar(addCents(parseZarToCents(source.unitPrice), modifierUnit));
+        const baseLine = lineTotal(source.unitPrice, source.quantity); const modifierLine = lineTotal(modifierUnitZar, source.quantity); const total = lineTotal(effective, source.quantity);
+        merchandise = addCents(merchandise, parseZarToCents(baseLine)); modifiers = addCents(modifiers, parseZarToCents(modifierLine));
+        snapshots.push({ productReference: source.productReference, variantReference: source.variantReference, offerReference: source.offerReference, storeReference: cartGroup.storeId, productTitle: source.productReference, variantTitle: source.variantReference, quantity: source.quantity, sellingUnit: "EACH", publicationVersion: source.publicationVersion, priceVersion: source.priceVersion, baseUnitPrice: source.unitPrice, modifierUnitTotal: modifierUnitZar, effectiveUnitPrice: effective, lineTotal: total, currency: "ZAR", taxTreatment: "SOURCE_PRICE_INCLUDES_TAX", modifiers: { create: source.modifiers.map((modifier) => ({ groupReference: modifier.groupReference, groupName: modifier.groupReference, optionReference: modifier.optionReference, optionName: modifier.optionReference, quantity: modifier.quantity, priceDelta: modifier.priceDelta, totalContribution: lineTotal(modifier.priceDelta, modifier.quantity), sourceVersion: "phase18" })) } });
+      }
+      groups.push({ storeId: cartGroup.storeId, fulfilmentMode: cartGroup.fulfilmentMode, merchandiseSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.baseUnitPrice, item.quantity))), "0")), modifierSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.modifierUnitTotal, item.quantity))), "0")), deliveryFee: "0.00", groupTotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(item.lineTotal)), "0")), status: "QUOTE_EXPIRED", lines: { create: snapshots } });
     }
-    groups.push({ storeId: cartGroup.storeId, fulfilmentMode: cartGroup.fulfilmentMode, merchandiseSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.baseUnitPrice, item.quantity))), "0")), modifierSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.modifierUnitTotal, item.quantity))), "0")), deliveryFee: "0.00", groupTotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(item.lineTotal)), "0")), status: "QUOTE_EXPIRED", lines: { create: snapshots } });
-  }
-  const merchandiseSubtotal = centsToZar(merchandise); const modifierSubtotal = centsToZar(modifiers); const grandTotal = centsToZar(addCents(merchandise, modifiers));
-  assertCheckoutTotals({ merchandiseSubtotal, modifierSubtotal, deliveryFeeTotal: "0.00", grandTotal });
-  const commercialFingerprint = canonicalMarketplaceFingerprint({ cartReference: cart.publicReference, ownerType: input.owner.type, groups: groups.map((group) => ({ storeId: group.storeId, lines: group.lines.create.map((line: any) => ({ offerReference: line.offerReference, variantReference: line.variantReference, quantity: line.quantity, priceVersion: line.priceVersion, modifierUnitTotal: line.modifierUnitTotal })) })), reservationPolicyVersion: "phase20-v1", currency: "ZAR" });
-  const checkout = await checkouts.create({ data: { publicReference: ref("checkout"), cartId: cart.id, customerUserId: input.owner.type === "CUSTOMER" ? input.owner.userId : null, guestAccessTokenHash: input.owner.type === "GUEST" ? input.owner.guestTokenHash : null, status: "CHANGES_REQUIRED", currency: "ZAR", merchandiseSubtotal, modifierSubtotal, deliveryFeeTotal: "0.00", grandTotal, commercialFingerprint, storeGroups: { create: groups } }, include: { storeGroups: { include: { lines: { include: { modifiers: true } } } } } });
-  await carts.update({ where: { id: cart.id }, data: { status: "CHECKOUT_LOCKED", version: { increment: 1 } } });
-  return checkout;
+    const merchandiseSubtotal = centsToZar(merchandise); const modifierSubtotal = centsToZar(modifiers); const grandTotal = centsToZar(addCents(merchandise, modifiers));
+    assertCheckoutTotals({ merchandiseSubtotal, modifierSubtotal, deliveryFeeTotal: "0.00", grandTotal });
+    const commercialFingerprint = canonicalMarketplaceFingerprint({ cartReference: cart.publicReference, ownerType: input.owner.type, groups: groups.map((group) => ({ storeId: group.storeId, lines: group.lines.create.map((line: any) => ({ offerReference: line.offerReference, variantReference: line.variantReference, quantity: line.quantity, priceVersion: line.priceVersion, modifierUnitTotal: line.modifierUnitTotal })) })), reservationPolicyVersion: "phase20-v1", currency: "ZAR" });
+    const checkout = await checkouts.create({ data: { publicReference: ref("checkout"), cartId: cart.id, customerUserId: input.owner.type === "CUSTOMER" ? input.owner.userId : null, guestAccessTokenHash: input.owner.type === "GUEST" ? input.owner.guestTokenHash : null, status: "CHANGES_REQUIRED", currency: "ZAR", merchandiseSubtotal, modifierSubtotal, deliveryFeeTotal: "0.00", grandTotal, commercialFingerprint, storeGroups: { create: groups } }, include: { storeGroups: { include: { lines: { include: { modifiers: true } } } } } });
+    await carts.update({ where: { id: cart.id }, data: { status: "CHECKOUT_LOCKED", version: { increment: 1 } } });
+    return checkout;
+  });
 }
 
 export async function updateMarketplaceCheckoutContact(input: { reference: string; owner: CheckoutOwner; operation: CheckoutOperation; contact: { recipientName: string; email: string; phone: string; preferredContactMethod?: string } }, db = database): Promise<any> {

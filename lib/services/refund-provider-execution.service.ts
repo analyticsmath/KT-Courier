@@ -163,6 +163,67 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
         ] });
         return updated;
       }
+      if (validated.status === "NEEDS_ATTENTION") {
+        if (!reconciliationPath) {
+          assertRefundAttemptTransition(attempt.status, "UNKNOWN");
+          assertRefundTransition(refund.status, "RECONCILIATION_REQUIRED");
+        }
+        await tx.refundExecutionAttempt.update({
+          where: { id: attempt.id },
+          data: {
+            status: "UNKNOWN",
+            safeResultSnapshot,
+            providerRefundId: validated.providerRefundId,
+            failureCategory: "UNKNOWN_OUTCOME",
+            failureCode: "NEEDS_ATTENTION",
+            failureMessage: "Provider reports refund needs attention and requires reconciliation.",
+            unknownAt: now,
+            version: { increment: 1 },
+          },
+        });
+        const updated = await tx.paymentRefund.update({
+          where: { id: refund.id },
+          data: {
+            status: "RECONCILIATION_REQUIRED",
+            reconciliationRequiredAt: now,
+            version: { increment: 1 },
+          },
+        });
+        await openRefundReconciliationCase(tx, {
+          refundId: refund.id,
+          refundReference: refund.publicReference,
+          attemptId: attempt.id,
+          attemptReference: attempt.publicReference,
+          reason: "UNKNOWN_PROVIDER_OUTCOME",
+          safeSummary: "Provider refund requires operator attention (needs-attention).",
+          safeEvidence: {
+            providerStatusCode: validated.providerStatusCode ?? "needs-attention",
+            providerRefundId: validated.providerRefundId ?? null,
+            needsAttention: true,
+          },
+        });
+        await tx.refundStatusHistory.createMany({
+          data: [
+            {
+              refundId: refund.id,
+              attemptId: attempt.id,
+              fromStatus: refund.status,
+              toStatus: "RECONCILIATION_REQUIRED",
+              actorType: "PROVIDER",
+              reasonCode: "PROVIDER_NEEDS_ATTENTION",
+              safeMetadata: { providerStatusCode: validated.providerStatusCode ?? "needs-attention" },
+            },
+            {
+              refundId: refund.id,
+              attemptId: attempt.id,
+              toStatus: "RECONCILIATION_REQUIRED",
+              actorType: "SYSTEM",
+              reasonCode: "RECONCILIATION_OPENED",
+            },
+          ],
+        });
+        return updated;
+      }
 
       assertRefundAttemptTransition(attempt.status, "SUCCEEDED");
       assertRefundTransition(refund.status, "SUCCEEDED");

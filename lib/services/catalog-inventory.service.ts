@@ -24,9 +24,12 @@ export async function postCatalogInventoryMovement(storeId: string, actorUserId:
 }) {
   const requestHash = catalogRequestHash({ inventoryPublicReference, ...input });
   return prisma.$transaction(async (tx) => {
-    const item = await tx.catalogInventoryItem.findUnique({ where: { publicReference: inventoryPublicReference }, include: { offer: true } });
-    if (!item) throw new CatalogNotFoundError("Catalog inventory item was not found.");
-    if (item.offer.storeId !== storeId) throw new CatalogOwnershipError();
+    const item = await tx.catalogInventoryItem.findFirst({ where: { publicReference: inventoryPublicReference, offer: { storeId } }, include: { offer: true } });
+    if (!item) {
+      const exists = await tx.catalogInventoryItem.findUnique({ where: { publicReference: inventoryPublicReference }, include: { offer: { select: { storeId: true } } } });
+      if (exists && exists.offer.storeId !== storeId) throw new CatalogOwnershipError();
+      throw new CatalogNotFoundError("Catalog inventory item was not found.");
+    }
     if (item.trackingMode !== "TRACKED") throw new CatalogPolicyError("INVENTORY_NOT_TRACKED", "Numeric movements apply only to tracked inventory.");
     const replay = await tx.catalogInventoryMovement.findUnique({ where: { inventoryItemId_operationId: { inventoryItemId: item.id, operationId: input.operationId } } });
     if (replay) {

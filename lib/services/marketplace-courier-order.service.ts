@@ -42,12 +42,39 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
       tx.address.create({ data: { type: "PICKUP", line1: pickup.line1, line2: pickup.line2, city: pickup.city, province: pickup.province, postalCode: pickup.postalCode, country: pickup.country, accessNotes: pickup.accessNotes, formattedAddress: pickup.formattedAddress, placeId: pickup.placeId, latitude: pickup.latitude, longitude: pickup.longitude } }),
       tx.address.create({ data: { type: "DROPOFF", contactName: destination.recipientName, line1: destination.line1, line2: destination.line2, city: destination.city, province: destination.province, postalCode: destination.postalCode, country: destination.country, accessNotes: destination.deliveryInstructions, latitude: (destination.protectedCoordinates as any)?.latitude ?? null, longitude: (destination.protectedCoordinates as any)?.longitude ?? null } }),
     ]);
+    const serviceDefinition = quote.deliveryType
+      ? await (tx as any).deliveryServiceDefinition.findFirst({
+          where: {
+            stableKey: quote.deliveryType,
+            status: "ACTIVE",
+            effectiveFrom: { lte: quote.createdAt ?? new Date() },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: quote.createdAt ?? new Date() } }],
+          },
+          orderBy: { versionNumber: "desc" },
+        })
+      : null;
+    const resolvedDeliveryType = serviceDefinition?.stableKey ?? quote.deliveryType ?? "SAME_DAY";
+
     const courierOrder = await tx.order.create({ data: {
-      orderNumber, source: OrderSource.STORE, status: OrderStatus.CONFIRMED, deliveryType: "SAME_DAY", currency: "ZAR",
+      orderNumber, source: OrderSource.STORE, status: OrderStatus.CONFIRMED, deliveryType: resolvedDeliveryType as any, currency: "ZAR",
       customerId: storeOrder.marketplaceOrder.customerUserId, storeId: storeOrder.storeId, pickupAddressId: pickupAddress.id, dropoffAddressId: dropoffAddress.id,
       recipientName: destination.recipientName, recipientPhone: checkout.contactSnapshot?.phone ?? null, parcelDescription: `Marketplace store order ${storeOrder.publicReference}`, parcelCount: 1,
       scheduledFor: storeOrder.scheduledFulfilmentAt ?? null, priceEstimate: group.deliveryFee, pricingQuoteId: quote.id,
-      pricingSubtotal: quote.subtotal, pricingTaxAmount: quote.taxAmount, pricingTaxRate: quote.taxRate, pricingSnapshot: { source: "PHASE21_FROZEN_MARKETPLACE_QUOTE", deliveryQuoteReference: input.deliveryQuoteReference, deliveryQuoteVersion: input.deliveryQuoteVersion, marketplaceStoreOrderReference: storeOrder.publicReference, prepaidMarketplacePayment: true },
+      pricingSubtotal: quote.subtotal, pricingTaxAmount: quote.taxAmount, pricingTaxRate: quote.taxRate,
+      pricingSnapshot: {
+        source: "PHASE21_FROZEN_MARKETPLACE_QUOTE",
+        deliveryQuoteReference: input.deliveryQuoteReference,
+        deliveryQuoteVersion: input.deliveryQuoteVersion,
+        marketplaceStoreOrderReference: storeOrder.publicReference,
+        prepaidMarketplacePayment: true,
+        deliveryServiceDefinition: serviceDefinition ? {
+          id: serviceDefinition.id,
+          stableKey: serviceDefinition.stableKey,
+          versionNumber: serviceDefinition.versionNumber,
+          displayName: serviceDefinition.displayName,
+          operationalMode: serviceDefinition.operationalMode,
+        } : null,
+      },
       deliveryRegionId: quote.destinationRegionId, distanceMeters: quote.distanceMeters, durationSeconds: quote.durationSeconds, routeCalculatedAt: quote.createdAt, routeProvider: quote.routeProvider,
       statusHistory: { create: { status: OrderStatus.CONFIRMED, note: "Prepaid marketplace courier order created from frozen Phase 20/6 evidence." } },
     } });

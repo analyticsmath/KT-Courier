@@ -16,10 +16,11 @@ All kill switches fail safely without corrupting in-flight orders or dropping co
 
 ## 2. Fast Incident Playbooks
 
-### 2.1 PayFast Payment Gateway Outage
+### 2.1 Paystack Payment Gateway Outage (Active) / PayFast (Legacy)
 1. Set `CHECKOUT_PUBLIC_ENABLED="false"`.
-2. Keep `worker` running: incoming ITN webhooks already received will continue to verify and settle.
-3. Monitor `/admin/reconciliation` for payments requiring manual confirmation after PayFast recovery.
+2. Keep `worker` and `scheduler` running: incoming Paystack webhooks already received into `PaystackWebhookRawEvent` will continue to verify and settle via background processors.
+3. Monitor `/admin/reconciliation` for payments requiring manual confirmation or investigation after Paystack recovery.
+4. For legacy PayFast payments requiring investigation, review `/admin/payments` historical ITN records.
 
 ### 2.2 Redis Degradation / Outage
 1. Distributed rate limiting fails closed in production for sensitive auth endpoints (`LOGIN`, `SIGNUP`, `DRIVER_LOCATION`).
