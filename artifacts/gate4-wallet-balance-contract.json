@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T11:45:00.000Z",
+  "scope": "Phase 9 Wallet & Ledger Balance Authority Contract",
+  "questions": {
+    "isWalletBalanceStoredDirectly": false,
+    "isWalletBalanceDerivedFromLedger": true,
+    "areLegacyWalletBalancesZeroEnforced": true,
+    "areNegativeBalancesProhibited": true,
+    "doesActiveWalletRequireOwner": true
+  },
+  "rules": [
+    "Wallet table columns availableBalance, pendingBalance, lockedBalance MUST equal 0.00 at all times.",
+    "Database CHECK constraint Wallet_legacy_balances_zero_check rejects any non-zero value on Wallet.",
+    "Canonical balance projections live on LedgerAccount records linked to the Wallet.",
+    "A funded wallet fixture MUST create a LedgerAccount with purpose = AVAILABLE, category = LIABILITY (or MERCHANT_PAYABLE), currentBalance = targetAmount.",
+    "Wallet status MUST be ACTIVE."
+  ]
+}

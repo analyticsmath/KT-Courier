@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T11:45:00.000Z",
+  "scope": "CatalogProduct Lifecycle & State Contract",
+  "allowedCombinations": [
+    {
+      "status": "DRAFT",
+      "moderationStatus": "NOT_SUBMITTED",
+      "publicationStatus": "DRAFT",
+      "valid": true,
+      "reason": "Canonical initial draft product lifecycle state. Complies with CatalogProduct_quality_check, scope_check, and values_shape_check.",
+      "requiredPrerequisites": ["Valid storeId for STORE_PRIVATE scope", "Active ProductTypeDefinition", "Active CatalogCategory"]
+    },
+    {
+      "status": "SUBMITTED",
+      "moderationStatus": "PENDING",
+      "publicationStatus": "PENDING_VALIDATION",
+      "valid": true,
+      "reason": "Submitted for admin review state.",
+      "requiredPrerequisites": ["Draft product exists"]
+    },
+    {
+      "status": "APPROVED",
+      "moderationStatus": "APPROVED",
+      "publicationStatus": "DRAFT",
+      "valid": true,
+      "reason": "Moderation approved product awaiting activation/publication.",
+      "requiredPrerequisites": ["Admin approval action"]
+    },
+    {
+      "status": "ACTIVE",
+      "moderationStatus": "APPROVED",
+      "publicationStatus": "PUBLISHED",
+      "valid": true,
+      "reason": "Canonical active product state. Complies with catalog_active_product_readiness trigger.",
+      "requiredPrerequisites": [
+        "moderationStatus = APPROVED",
+        "publicationStatus = PUBLISHED",
+        "At least one non-archived CatalogProductVariant exists",
+        "Primary CatalogCategory status = ACTIVE",
+        "ProductTypeDefinition status = ACTIVE"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T11:45:00.000Z",
+  "scope": "OrderAssignment Lifecycle & State Contract",
+  "allowedCombinations": [
+    {
+      "status": "ASSIGNED",
+      "requiredTimestampFields": ["assignedAt"],
+      "forbiddenTimestampFields": ["acceptedAt", "rejectedAt", "cancelledAt", "completedAt"],
+      "requiredRelations": ["orderId", "driverProfileId", "assignedByAdminId"],
+      "activeOrderGuardValue": "orderId",
+      "fixtureConstructionMethod": "Direct Prisma creation with activeOrderGuard = orderId"
+    },
+    {
+      "status": "ACCEPTED",
+      "requiredTimestampFields": ["assignedAt", "acceptedAt"],
+      "forbiddenTimestampFields": ["rejectedAt", "cancelledAt", "completedAt"],
+      "requiredRelations": ["orderId", "driverProfileId"],
+      "activeOrderGuardValue": "orderId",
+      "fixtureConstructionMethod": "Direct Prisma creation with activeOrderGuard = orderId AND Order.currentDriverProfileId = driverProfileId"
+    },
+    {
+      "status": "REJECTED",
+      "requiredTimestampFields": ["assignedAt", "rejectedAt"],
+      "forbiddenTimestampFields": ["acceptedAt", "completedAt"],
+      "requiredRelations": ["orderId", "driverProfileId"],
+      "activeOrderGuardValue": null,
+      "fixtureConstructionMethod": "Direct Prisma creation with activeOrderGuard = null"
+    },
+    {
+      "status": "COMPLETED",
+      "requiredTimestampFields": ["assignedAt", "acceptedAt", "completedAt"],
+      "forbiddenTimestampFields": ["rejectedAt", "cancelledAt"],
+      "requiredRelations": ["orderId", "driverProfileId"],
+      "activeOrderGuardValue": null,
+      "fixtureConstructionMethod": "State machine transition from ACCEPTED to COMPLETED with ProofOfDelivery or OTP evidence"
+    }
+  ]
+}

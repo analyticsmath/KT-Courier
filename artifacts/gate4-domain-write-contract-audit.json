@@ -1,0 +1,107 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T13:25:00Z",
+  "scope": "Gate 4 Domain ACT Database Write Audit",
+  "totalSuitesAudited": 11,
+  "audits": [
+    {
+      "domainSuite": "tests/integration/gate4/identity-and-tenant.integration.test.ts",
+      "domainName": "Identity & Tenancy",
+      "actEntryPoints": ["UserRoleMutationService.changeRole", "UserStatusService.suspendUser"],
+      "databaseWrites": [
+        { "model": "User", "operation": "update", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "User.id" },
+        { "model": "AdminAuditLog", "operation": "create", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "AuditLog.id" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/checkout-and-inventory-concurrency.integration.test.ts",
+      "domainName": "Checkout & Inventory Concurrency",
+      "actEntryPoints": ["MarketplaceCheckoutService.processCheckout", "CatalogInventoryService.reserveStock"],
+      "databaseWrites": [
+        { "model": "CatalogInventoryMovement", "operation": "create", "checkConstraints": [], "uniqueConstraints": ["publicReference"], "triggers": [], "idempotencyAuthority": "operationId" },
+        { "model": "CatalogInventoryLevel", "operation": "update", "checkConstraints": ["CatalogInventoryLevel_available_nonnegative"], "uniqueConstraints": [], "triggers": ["CatalogInventoryLevel_balance_check"], "idempotencyAuthority": "inventoryItemId" },
+        { "model": "MarketplaceCheckout", "operation": "update", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "checkoutId" },
+        { "model": "MarketplaceOrder", "operation": "create", "checkConstraints": [], "uniqueConstraints": ["publicReference", "checkoutId", "paymentId"], "triggers": [], "idempotencyAuthority": "checkoutId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/fulfilment-concurrency.integration.test.ts",
+      "domainName": "Fulfilment Concurrency",
+      "actEntryPoints": ["DispatchService.acceptAssignment", "DispatchService.completeDelivery"],
+      "databaseWrites": [
+        { "model": "OrderAssignment", "operation": "update", "checkConstraints": ["OrderAssignment_current_guard_consistency"], "uniqueConstraints": ["activeOrderGuard"], "triggers": ["OrderAssignment_accepted_readiness"], "idempotencyAuthority": "activeOrderGuard" },
+        { "model": "Order", "operation": "update", "checkConstraints": [], "uniqueConstraints": [], "triggers": ["Order_driver_assignment_guard"], "idempotencyAuthority": "orderId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/payment-webhook-idempotency.integration.test.ts",
+      "domainName": "Payment Webhook Idempotency",
+      "actEntryPoints": ["PayFastITNService.handleWebhook"],
+      "databaseWrites": [
+        { "model": "PaymentWebhookEvent", "operation": "create", "checkConstraints": ["PaymentWebhookEvent_public_reference_check", "PaymentWebhookEvent_fingerprint_check", "PaymentWebhookEvent_verified_coherence_check"], "uniqueConstraints": ["publicReference", "eventFingerprint"], "triggers": ["PaymentWebhookEvent_relations_coherent"], "idempotencyAuthority": "eventFingerprint" },
+        { "model": "PaymentWebhookEvent", "operation": "update", "checkConstraints": ["PaymentWebhookEvent_applied_coherence_check"], "uniqueConstraints": ["ledgerJournalId"], "triggers": ["PaymentWebhookEvent_relations_coherent"], "idempotencyAuthority": "eventFingerprint" },
+        { "model": "LedgerJournal", "operation": "create", "checkConstraints": ["LedgerJournal_balanced_check"], "uniqueConstraints": ["reference", "idempotencyKey"], "triggers": ["LedgerJournal_immutability_protection"], "idempotencyAuthority": "idempotencyKey" },
+        { "model": "Payment", "operation": "update", "checkConstraints": ["Payment_succeeded_requires_provider_evidence_check"], "uniqueConstraints": [], "triggers": ["Payment_state_transition_guard"], "idempotencyAuthority": "paymentId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/refund-concurrency.integration.test.ts",
+      "domainName": "Refund Concurrency",
+      "actEntryPoints": ["RefundService.processRefund"],
+      "databaseWrites": [
+        { "model": "PaymentRefund", "operation": "create", "checkConstraints": ["PaymentRefund_public_reference_check"], "uniqueConstraints": ["publicReference", "idempotencyKey"], "triggers": [], "idempotencyAuthority": "idempotencyKey" },
+        { "model": "Payment", "operation": "update", "checkConstraints": [], "uniqueConstraints": [], "triggers": ["Payment_state_transition_guard"], "idempotencyAuthority": "paymentId" },
+        { "model": "LedgerJournal", "operation": "create", "checkConstraints": ["LedgerJournal_balanced_check"], "uniqueConstraints": ["reference", "idempotencyKey"], "triggers": [], "idempotencyAuthority": "idempotencyKey" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/ledger-conservation.integration.test.ts",
+      "domainName": "Ledger Conservation",
+      "actEntryPoints": ["LedgerService.postTransaction"],
+      "databaseWrites": [
+        { "model": "LedgerJournal", "operation": "create", "checkConstraints": ["LedgerJournal_balanced_check"], "uniqueConstraints": ["reference", "idempotencyKey"], "triggers": ["LedgerJournal_immutability_protection"], "idempotencyAuthority": "idempotencyKey" },
+        { "model": "LedgerEntry", "operation": "createMany", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "journalId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/earnings-settlement-withdrawal.integration.test.ts",
+      "domainName": "Earnings, Settlement & Withdrawal",
+      "actEntryPoints": ["EarningsService.recordStoreEarning", "WithdrawalService.approveWithdrawal"],
+      "databaseWrites": [
+        { "model": "StoreEarning", "operation": "create", "checkConstraints": [], "uniqueConstraints": ["publicReference", "marketplaceStoreOrderId"], "triggers": [], "idempotencyAuthority": "marketplaceStoreOrderId" },
+        { "model": "WithdrawalRequest", "operation": "update", "checkConstraints": ["WithdrawalRequest_approved_reviewer_check"], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "requestId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/outbox-concurrency.integration.test.ts",
+      "domainName": "Outbox Concurrency",
+      "actEntryPoints": ["OutboxService.dispatchEvents"],
+      "databaseWrites": [
+        { "model": "OutboxEvent", "operation": "create", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "eventId" },
+        { "model": "OutboxEvent", "operation": "update", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "eventId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/admin-audit-atomicity.integration.test.ts",
+      "domainName": "Admin Audit Atomicity",
+      "actEntryPoints": ["AdminActionService.executeAdminAction"],
+      "databaseWrites": [
+        { "model": "AdminAuditLog", "operation": "create", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "actionId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/transaction-retry.integration.test.ts",
+      "domainName": "Transaction Retry",
+      "actEntryPoints": ["TransactionRunner.executeWithRetry"],
+      "databaseWrites": [
+        { "model": "User", "operation": "update", "checkConstraints": [], "uniqueConstraints": [], "triggers": [], "idempotencyAuthority": "userId" }
+      ]
+    },
+    {
+      "domainSuite": "tests/integration/gate4/final-invariant-scan.integration.test.ts",
+      "domainName": "Final Invariant Scan",
+      "actEntryPoints": ["InvariantScanner.scanAll"],
+      "databaseWrites": []
+    }
+  ]
+}

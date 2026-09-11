@@ -1,0 +1,267 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T13:25:00Z",
+  "scope": "Gate 4 Complete Fixture Operation Graph",
+  "totalScenarios": 13,
+  "scenarios": [
+    {
+      "id": "identity",
+      "scenario": "Identity & Profiles Fixture",
+      "builder": "createGate4User",
+      "operations": [
+        {
+          "sequence": 1,
+          "builder": "createGate4User",
+          "model": "User",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["User.email#customer"],
+          "initialStatus": "ACTIVE",
+          "finalStatus": "ACTIVE",
+          "dependsOnOperations": [],
+          "createsEntity": "User"
+        },
+        {
+          "sequence": 2,
+          "builder": "createGate4User",
+          "model": "CustomerProfile",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["CustomerProfile.userId#customer"],
+          "initialStatus": "ACTIVE",
+          "finalStatus": "ACTIVE",
+          "dependsOnOperations": ["User.create"],
+          "createsEntity": "CustomerProfile"
+        },
+        {
+          "sequence": 3,
+          "builder": "createGate4User",
+          "model": "User",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["User.email#driver"],
+          "initialStatus": "ACTIVE",
+          "finalStatus": "ACTIVE",
+          "dependsOnOperations": [],
+          "createsEntity": "User"
+        },
+        {
+          "sequence": 4,
+          "builder": "createGate4User",
+          "model": "DriverProfile",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["DriverProfile.userId#driver", "DriverProfile.driverCode#driver"],
+          "initialStatus": "ACTIVE",
+          "finalStatus": "ACTIVE",
+          "dependsOnOperations": ["User.create"],
+          "createsEntity": "DriverProfile"
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "scenario": "Store & Owner Fixture",
+      "builder": "createGate4Store",
+      "operations": [
+        {
+          "sequence": 1,
+          "builder": "createGate4User",
+          "model": "User",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["User.email"],
+          "initialStatus": "ACTIVE",
+          "finalStatus": "ACTIVE",
+          "createsEntity": "User"
+        },
+        {
+          "sequence": 2,
+          "builder": "createGate4User",
+          "model": "StoreProfile",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["StoreProfile.userId"],
+          "initialStatus": "ACTIVE",
+          "finalStatus": "ACTIVE",
+          "dependsOnOperations": ["User.create"],
+          "createsEntity": "StoreProfile"
+        },
+        {
+          "sequence": 3,
+          "builder": "createGate4Store",
+          "model": "Store",
+          "operation": "create",
+          "payloadBuilder": "createGate4Store",
+          "uniqueKeysClaimed": ["Store.slug", "Store.ownerUserId"],
+          "initialStatus": "ACTIVE",
+          "finalStatus": "ACTIVE",
+          "dependsOnOperations": ["User.create"],
+          "createsEntity": "Store"
+        }
+      ]
+    },
+    {
+      "id": "draft-product",
+      "scenario": "Catalog Draft Product Fixture",
+      "builder": "createGate4CatalogueProduct",
+      "operations": [
+        {
+          "sequence": 1,
+          "builder": "createGate4User",
+          "model": "User",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["User.email"],
+          "createsEntity": "User"
+        },
+        {
+          "sequence": 2,
+          "builder": "createGate4User",
+          "model": "AdminProfile",
+          "operation": "create",
+          "payloadBuilder": "createGate4User",
+          "uniqueKeysClaimed": ["AdminProfile.userId"],
+          "createsEntity": "AdminProfile"
+        },
+        {
+          "sequence": 3,
+          "builder": "createGate4CatalogueProduct",
+          "model": "CatalogCategory",
+          "operation": "create",
+          "payloadBuilder": "createGate4CatalogueProduct",
+          "uniqueKeysClaimed": ["CatalogCategory.publicReference", "CatalogCategory.slug", "CatalogCategory.path"],
+          "createsEntity": "CatalogCategory"
+        },
+        {
+          "sequence": 4,
+          "builder": "createGate4CatalogueProduct",
+          "model": "ProductTypeDefinition",
+          "operation": "create",
+          "payloadBuilder": "createGate4CatalogueProduct",
+          "uniqueKeysClaimed": ["ProductTypeDefinition.publicReference", "ProductTypeDefinition.code"],
+          "createsEntity": "ProductTypeDefinition"
+        },
+        {
+          "sequence": 5,
+          "builder": "createGate4CatalogueProduct",
+          "model": "CatalogProduct",
+          "operation": "create",
+          "payloadBuilder": "createGate4CatalogueProduct",
+          "uniqueKeysClaimed": ["CatalogProduct.publicReference", "CatalogProduct.slug"],
+          "initialStatus": "DRAFT",
+          "finalStatus": "DRAFT",
+          "createsEntity": "CatalogProduct"
+        }
+      ]
+    },
+    {
+      "id": "active-product-scenario",
+      "scenario": "Catalog Active Product Staged Activation Fixture",
+      "builder": "createGate4ActiveProductScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4CatalogueProduct", "model": "CatalogCategory", "operation": "create", "uniqueKeysClaimed": ["CatalogCategory.publicReference", "CatalogCategory.slug", "CatalogCategory.path"], "createsEntity": "CatalogCategory" },
+        { "sequence": 2, "builder": "createGate4CatalogueProduct", "model": "ProductTypeDefinition", "operation": "create", "uniqueKeysClaimed": ["ProductTypeDefinition.publicReference", "ProductTypeDefinition.code"], "createsEntity": "ProductTypeDefinition" },
+        { "sequence": 3, "builder": "createGate4CatalogueProduct", "model": "CatalogProduct", "operation": "create", "uniqueKeysClaimed": ["CatalogProduct.publicReference", "CatalogProduct.slug"], "initialStatus": "DRAFT", "createsEntity": "CatalogProduct" },
+        { "sequence": 4, "builder": "createGate4ActiveProductScenario", "model": "CatalogProductVariant", "operation": "create", "uniqueKeysClaimed": ["CatalogProductVariant.publicReference", "CatalogProductVariant.productId+optionFingerprint"], "initialStatus": "ACTIVE", "createsEntity": "CatalogProductVariant" },
+        { "sequence": 5, "builder": "createGate4ActiveProductScenario", "model": "InventoryLocation", "operation": "create", "uniqueKeysClaimed": ["InventoryLocation.publicReference"], "initialStatus": "ACTIVE", "createsEntity": "InventoryLocation" },
+        { "sequence": 6, "builder": "createGate4ActiveProductScenario", "model": "StoreCatalogOffer", "operation": "create", "uniqueKeysClaimed": ["StoreCatalogOffer.publicReference", "StoreCatalogOffer.storeId+variantId"], "initialStatus": "DRAFT", "createsEntity": "StoreCatalogOffer" },
+        { "sequence": 7, "builder": "createGate4ActiveProductScenario", "model": "StoreOfferPriceVersion", "operation": "create", "uniqueKeysClaimed": ["StoreOfferPriceVersion.publicReference"], "initialStatus": "ACTIVE", "createsEntity": "StoreOfferPriceVersion" },
+        { "sequence": 8, "builder": "createGate4ActiveProductScenario", "model": "StoreCatalogOffer", "operation": "update", "uniqueKeysClaimed": [], "initialStatus": "DRAFT", "finalStatus": "ACTIVE", "dependsOnOperations": ["StoreOfferPriceVersion.create"] },
+        { "sequence": 9, "builder": "createGate4ActiveProductScenario", "model": "CatalogInventoryItem", "operation": "create", "uniqueKeysClaimed": ["CatalogInventoryItem.publicReference", "CatalogInventoryItem.offerId+variantId"], "createsEntity": "CatalogInventoryItem" },
+        { "sequence": 10, "builder": "createGate4ActiveProductScenario", "model": "CatalogInventoryMovement", "operation": "create", "uniqueKeysClaimed": ["CatalogInventoryMovement.publicReference"], "createsEntity": "CatalogInventoryMovement" },
+        { "sequence": 11, "builder": "createGate4ActiveProductScenario", "model": "CatalogInventoryLevel", "operation": "create", "uniqueKeysClaimed": [], "createsEntity": "CatalogInventoryLevel" },
+        { "sequence": 12, "builder": "createGate4ActiveProductScenario", "model": "CatalogProduct", "operation": "update", "uniqueKeysClaimed": [], "initialStatus": "DRAFT", "finalStatus": "ACTIVE" }
+      ]
+    },
+    {
+      "id": "inventory-level",
+      "scenario": "Evidence-Backed Inventory Level Fixture",
+      "builder": "createGate4InventoryLevel",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4ActiveProductScenario", "model": "CatalogProduct", "operation": "create", "uniqueKeysClaimed": ["CatalogProduct.publicReference"], "createsEntity": "CatalogProduct" },
+        { "sequence": 2, "builder": "createGate4ActiveProductScenario", "model": "StoreCatalogOffer", "operation": "create", "uniqueKeysClaimed": ["StoreCatalogOffer.storeId+variantId"], "createsEntity": "StoreCatalogOffer" },
+        { "sequence": 3, "builder": "createGate4InventoryLevel", "model": "CatalogInventoryLevel", "operation": "create", "uniqueKeysClaimed": [], "reusesEntityFrom": "StoreCatalogOffer", "createsEntity": "CatalogInventoryLevel" }
+      ]
+    },
+    {
+      "id": "checkout-scenario",
+      "scenario": "Marketplace Checkout Concurrency Fixture",
+      "builder": "createGate4CheckoutScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4CheckoutScenario", "model": "MarketplaceCart", "operation": "create", "uniqueKeysClaimed": ["MarketplaceCart.publicReference"], "createsEntity": "MarketplaceCart" }
+      ]
+    },
+    {
+      "id": "pending-delivery",
+      "scenario": "Fulfilment Pending Delivery Fixture",
+      "builder": "createGate4PendingDeliveryScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4PendingDeliveryScenario", "model": "DeliveryRegion", "operation": "create", "uniqueKeysClaimed": ["DeliveryRegion.slug"], "createsEntity": "DeliveryRegion" },
+        { "sequence": 2, "builder": "createGate4PendingDeliveryScenario", "model": "Order", "operation": "create", "uniqueKeysClaimed": ["Order.orderNumber"], "initialStatus": "PENDING", "createsEntity": "Order" }
+      ]
+    },
+    {
+      "id": "accepted-assignment",
+      "scenario": "Fulfilment Accepted Assignment Fixture",
+      "builder": "createGate4AcceptedAssignmentScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4AcceptedAssignmentScenario", "model": "OrderAssignment", "operation": "create", "uniqueKeysClaimed": ["OrderAssignment.activeOrderGuard"], "initialStatus": "ACCEPTED", "createsEntity": "OrderAssignment" },
+        { "sequence": 2, "builder": "createGate4AcceptedAssignmentScenario", "model": "Order", "operation": "update", "uniqueKeysClaimed": [], "initialStatus": "PENDING", "finalStatus": "IN_PROGRESS" }
+      ]
+    },
+    {
+      "id": "captured-payment",
+      "scenario": "Captured Payment ITN Fixture",
+      "builder": "createGate4CapturedPaymentScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4CapturedPaymentScenario", "model": "PricingQuote", "operation": "create", "uniqueKeysClaimed": [], "createsEntity": "PricingQuote" },
+        { "sequence": 2, "builder": "createGate4CapturedPaymentScenario", "model": "Order", "operation": "create", "uniqueKeysClaimed": ["Order.orderNumber"], "initialStatus": "CONFIRMED", "createsEntity": "Order" },
+        { "sequence": 3, "builder": "createGate4CapturedPaymentScenario", "model": "Payment", "operation": "create", "uniqueKeysClaimed": ["Payment.publicReference", "Payment.creationIdempotencyKey"], "initialStatus": "PROCESSING", "createsEntity": "Payment" },
+        { "sequence": 4, "builder": "createGate4CapturedPaymentScenario", "model": "PaymentAttempt", "operation": "create", "uniqueKeysClaimed": ["PaymentAttempt.publicReference", "PaymentAttempt.paymentId+attemptNumber", "PaymentAttempt.idempotencyKey"], "initialStatus": "SUCCEEDED", "createsEntity": "PaymentAttempt" },
+        { "sequence": 5, "builder": "createGate4CapturedPaymentScenario", "model": "LedgerJournal", "operation": "create", "uniqueKeysClaimed": ["LedgerJournal.reference", "LedgerJournal.idempotencyKey"], "createsEntity": "LedgerJournal" },
+        { "sequence": 6, "builder": "createGate4CapturedPaymentScenario", "model": "PaymentWebhookEvent", "operation": "create", "uniqueKeysClaimed": ["PaymentWebhookEvent.publicReference", "PaymentWebhookEvent.eventFingerprint", "PaymentWebhookEvent.ledgerJournalId"], "initialStatus": "APPLIED", "createsEntity": "PaymentWebhookEvent" },
+        { "sequence": 7, "builder": "createGate4CapturedPaymentScenario", "model": "Payment", "operation": "update", "uniqueKeysClaimed": [], "initialStatus": "PROCESSING", "finalStatus": "SUCCEEDED" }
+      ]
+    },
+    {
+      "id": "ledger-scenario",
+      "scenario": "Ledger Conservation Account Fixture",
+      "builder": "createGate4LedgerScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4LedgerScenario", "model": "Wallet", "operation": "create", "uniqueKeysClaimed": ["Wallet.ownerType+ownerId+currency"], "createsEntity": "Wallet" },
+        { "sequence": 2, "builder": "createGate4LedgerScenario", "model": "LedgerAccount", "operation": "create", "uniqueKeysClaimed": ["LedgerAccount.code", "LedgerAccount.walletId+purpose"], "createsEntity": "LedgerAccount" }
+      ]
+    },
+    {
+      "id": "funded-wallet",
+      "scenario": "Funded Merchant Wallet Fixture",
+      "builder": "createGate4FundedStoreWalletScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4FundedStoreWalletScenario", "model": "Wallet", "operation": "create", "uniqueKeysClaimed": ["Wallet.ownerType+ownerId+currency"], "createsEntity": "Wallet" },
+        { "sequence": 2, "builder": "createGate4FundedStoreWalletScenario", "model": "LedgerAccount", "operation": "create", "uniqueKeysClaimed": ["LedgerAccount.code", "LedgerAccount.walletId+purpose"], "createsEntity": "LedgerAccount" }
+      ]
+    },
+    {
+      "id": "marketplace-store-order",
+      "scenario": "Marketplace Store Order Hierarchy Fixture",
+      "builder": "createGate4MarketplaceStoreOrderScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4MarketplaceStoreOrderScenario", "model": "MarketplaceCart", "operation": "create", "uniqueKeysClaimed": ["MarketplaceCart.publicReference"], "createsEntity": "MarketplaceCart" },
+        { "sequence": 2, "builder": "createGate4MarketplaceStoreOrderScenario", "model": "MarketplaceCheckout", "operation": "create", "uniqueKeysClaimed": ["MarketplaceCheckout.publicReference"], "createsEntity": "MarketplaceCheckout" },
+        { "sequence": 3, "builder": "createGate4MarketplaceStoreOrderScenario", "model": "MarketplaceOrder", "operation": "create", "uniqueKeysClaimed": ["MarketplaceOrder.publicReference", "MarketplaceOrder.checkoutId", "MarketplaceOrder.paymentId"], "createsEntity": "MarketplaceOrder" },
+        { "sequence": 4, "builder": "createGate4MarketplaceStoreOrderScenario", "model": "MarketplaceCheckoutStoreGroup", "operation": "create", "uniqueKeysClaimed": [], "createsEntity": "MarketplaceCheckoutStoreGroup" },
+        { "sequence": 5, "builder": "createGate4MarketplaceStoreOrderScenario", "model": "MarketplaceStoreOrder", "operation": "create", "uniqueKeysClaimed": ["MarketplaceStoreOrder.publicReference", "MarketplaceStoreOrder.marketplaceOrderId+storeId", "MarketplaceStoreOrder.checkoutStoreGroupId"], "initialStatus": "PENDING_SETTLEMENT", "createsEntity": "MarketplaceStoreOrder" }
+      ]
+    },
+    {
+      "id": "admin-audit",
+      "scenario": "Admin Audit Atomicity Fixture",
+      "builder": "createGate4AdminAuditScenario",
+      "operations": [
+        { "sequence": 1, "builder": "createGate4User", "model": "User", "operation": "create", "uniqueKeysClaimed": ["User.email"], "createsEntity": "User" },
+        { "sequence": 2, "builder": "createGate4User", "model": "AdminProfile", "operation": "create", "uniqueKeysClaimed": ["AdminProfile.userId"], "createsEntity": "AdminProfile" }
+      ]
+    }
+  ]
+}

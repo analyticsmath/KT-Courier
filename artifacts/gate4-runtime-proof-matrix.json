@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T12:30:00.000Z",
+  "scope": "Gate 4 Stage 0 Runtime Proof Matrix",
+  "stage0Scenarios": [
+    { "id": "identity", "name": "Identity & Profiles Fixture", "expectedStatus": "PASS" },
+    { "id": "store", "name": "Store & Owner Fixture", "expectedStatus": "PASS" },
+    { "id": "draft-product", "name": "Catalog Draft Product Fixture", "expectedStatus": "PASS" },
+    { "id": "active-product-scenario", "name": "Catalog Active Product Staged Activation Fixture", "expectedStatus": "PASS" },
+    { "id": "inventory-level", "name": "Evidence-Backed Inventory Level Fixture", "expectedStatus": "PASS" },
+    { "id": "checkout-scenario", "name": "Marketplace Checkout Concurrency Fixture", "expectedStatus": "PASS" },
+    { "id": "pending-delivery", "name": "Fulfilment Pending Delivery Fixture", "expectedStatus": "PASS" },
+    { "id": "accepted-assignment", "name": "Fulfilment Accepted Assignment Fixture", "expectedStatus": "PASS" },
+    { "id": "captured-payment", "name": "Captured Payment ITN Fixture", "expectedStatus": "PASS" },
+    { "id": "ledger-scenario", "name": "Ledger Conservation Account Fixture", "expectedStatus": "PASS" },
+    { "id": "funded-wallet", "name": "Funded Merchant Wallet Fixture", "expectedStatus": "PASS" },
+    { "id": "marketplace-store-order", "name": "Marketplace Store Order Hierarchy Fixture", "expectedStatus": "PASS" },
+    { "id": "admin-audit", "name": "Admin Audit Atomicity Fixture", "expectedStatus": "PASS" }
+  ],
+  "preflightVerdict": "GATE4_PREFLIGHT_PASSED",
+  "finalVerdict": "GATE_4_CHECK_CONSTRAINT_RECONCILIATION_COMPLETE"
+}

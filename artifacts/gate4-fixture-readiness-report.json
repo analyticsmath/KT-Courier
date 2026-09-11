@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T12:30:00.000Z",
+  "scope": "Gate 4 Stage 0 Fixture Readiness & Constraint Reconciliation Report",
+  "scenariosAttempted": 13,
+  "expectedStage0PassCount": 13,
+  "expectedStage0FailureCount": 0,
+  "unmappedCheckConstraints": 0,
+  "unauditedFrontierModels": 0,
+  "reconciledRootClusters": [
+    {
+      "rootModel": "CatalogProduct",
+      "exactFailingConstraint": "CatalogProduct_quality_check",
+      "exactCheckDefinition": "CHECK (\"qualityScore\" BETWEEN 0 AND 100 AND jsonb_typeof(\"qualityIssues\") = 'array')",
+      "status": "REPAIRED"
+    },
+    {
+      "rootModel": "OrderAssignment",
+      "exactFailingConstraint": "OrderAssignment_current_guard_consistency",
+      "exactCheckDefinition": "CHECK ((\"status\" IN ('ASSIGNED', 'ACCEPTED') AND \"activeOrderGuard\" IS NOT DISTINCT FROM \"orderId\") OR (\"status\" NOT IN ('ASSIGNED', 'ACCEPTED') AND \"activeOrderGuard\" IS NULL))",
+      "status": "REPAIRED"
+    },
+    {
+      "rootModel": "Payment",
+      "exactFailingConstraint": "Payment_succeeded_requires_provider_evidence_check",
+      "exactCheckDefinition": "CHECK (\"status\"::text <> 'SUCCEEDED' OR (\"successfulAttemptId\" IS NOT NULL AND \"successWebhookEventId\" IS NOT NULL AND \"successLedgerJournalId\" IS NOT NULL AND \"providerConfirmedAt\" IS NOT NULL))",
+      "status": "REPAIRED"
+    },
+    {
+      "rootModel": "Wallet",
+      "exactFailingConstraint": "Wallet_legacy_balances_zero_check",
+      "exactCheckDefinition": "CHECK (\"availableBalance\" = 0 AND \"pendingBalance\" = 0 AND \"lockedBalance\" = 0)",
+      "status": "REPAIRED"
+    }
+  ],
+  "safetyVerifications": {
+    "schemaChanges": 0,
+    "migrationChanges": 0,
+    "triggerChanges": 0,
+    "checkConstraintChanges": 0,
+    "triggerBypasses": 0,
+    "constraintBypasses": 0,
+    "retryPolicyChanges": 0,
+    "productionBusinessLogicChanges": 0,
+    "providerCalls": 0
+  },
+  "verdict": "GATE_4_CHECK_CONSTRAINT_RECONCILIATION_COMPLETE"
+}

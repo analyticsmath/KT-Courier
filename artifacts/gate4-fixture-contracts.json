@@ -1,0 +1,163 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T11:22:00Z",
+  "scope": "Gate 4 Fixture Builder Contracts",
+  "contracts": [
+    {
+      "builder": "createGate4User",
+      "scenario": "Identity / Actor creation",
+      "requiredModels": ["User", "CustomerProfile / DriverProfile / StoreProfile / AdminProfile"],
+      "initialState": "ACTIVE",
+      "terminalState": "ACTIVE",
+      "customTriggers": [],
+      "constraints": ["User_email_key"],
+      "productionQueryPredicates": ["status = ACTIVE"],
+      "knownWorkingImplementationReference": "scripts/seed-marketplace-dev.ts:main",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4Store",
+      "scenario": "Store creation",
+      "requiredModels": ["User", "StoreProfile", "Store"],
+      "initialState": "ACTIVE",
+      "terminalState": "ACTIVE",
+      "customTriggers": [],
+      "constraints": ["Store_slug_key", "Store_ownerUserId_key"],
+      "productionQueryPredicates": ["status = ACTIVE"],
+      "knownWorkingImplementationReference": "scripts/seed-marketplace-dev.ts:main",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4CatalogueProduct",
+      "scenario": "Catalog product creation (DRAFT or ACTIVE)",
+      "requiredModels": ["CatalogCategory", "ProductTypeDefinition", "CatalogProduct"],
+      "initialState": "DRAFT",
+      "terminalState": "DRAFT (default) or ACTIVE (via staged activation)",
+      "customTriggers": ["CatalogProduct_active_readiness", "CatalogProduct_guard", "CatalogCategory_guard"],
+      "constraints": ["CatalogProduct_slug_key", "CatalogProduct_publicReference_key"],
+      "productionQueryPredicates": ["scope = STORE_PRIVATE / GLOBAL_CANONICAL"],
+      "knownWorkingImplementationReference": "scripts/seed-marketplace-dev.ts:360-440",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4ActiveProductScenario",
+      "scenario": "Fully active published product scenario with variants, offers, prices, and inventory",
+      "requiredModels": ["CatalogCategory", "ProductTypeDefinition", "CatalogProduct", "CatalogProductVariant", "StoreCatalogOffer", "StoreOfferPriceVersion", "InventoryLocation", "CatalogInventoryItem", "CatalogInventoryMovement", "CatalogInventoryLevel"],
+      "initialState": "DRAFT (Product & Offer)",
+      "terminalState": "ACTIVE (Product & Offer)",
+      "customTriggers": ["CatalogProduct_active_readiness", "StoreCatalogOffer_active_readiness"],
+      "constraints": ["StoreCatalogOffer_storeId_productId_variantId_key"],
+      "productionQueryPredicates": ["status = ACTIVE", "publicationStatus = PUBLISHED", "moderationStatus = APPROVED"],
+      "knownWorkingImplementationReference": "scripts/seed-marketplace-dev.ts:360-460",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4InventoryLevel",
+      "scenario": "Movement-backed inventory level creation",
+      "requiredModels": ["CatalogProductVariant", "StoreCatalogOffer", "StoreOfferPriceVersion", "CatalogInventoryItem", "InventoryLocation", "CatalogInventoryMovement", "CatalogInventoryLevel"],
+      "initialState": "DRAFT (Offer)",
+      "terminalState": "ACTIVE (Offer & Level)",
+      "customTriggers": ["StoreCatalogOffer_active_readiness"],
+      "constraints": ["CatalogInventoryLevel_inventoryItemId_locationId_key"],
+      "productionQueryPredicates": ["available >= 0"],
+      "knownWorkingImplementationReference": "lib/services/catalog-inventory.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4CheckoutScenario",
+      "scenario": "Checkout concurrency scenario",
+      "requiredModels": ["User", "Store", "CatalogCategory", "ProductTypeDefinition", "CatalogProduct", "CatalogProductVariant", "StoreCatalogOffer", "StoreOfferPriceVersion", "CatalogInventoryLevel", "MarketplaceCart"],
+      "initialState": "ACTIVE (Cart & Offer)",
+      "terminalState": "ACTIVE",
+      "customTriggers": ["CatalogProduct_active_readiness", "StoreCatalogOffer_active_readiness"],
+      "constraints": ["MarketplaceCart_publicReference_key"],
+      "productionQueryPredicates": ["status = ACTIVE"],
+      "knownWorkingImplementationReference": "lib/services/marketplace-checkout.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4PendingDeliveryScenario",
+      "scenario": "Fulfilment / Pending delivery order scenario",
+      "requiredModels": ["User (Customer)", "DeliveryRegion", "Order", "User (Drivers)", "DriverProfile"],
+      "initialState": "PENDING",
+      "terminalState": "PENDING",
+      "customTriggers": [],
+      "constraints": ["Order_orderNumber_key"],
+      "productionQueryPredicates": ["status = PENDING"],
+      "knownWorkingImplementationReference": "lib/services/dispatch-assignment.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4AcceptedAssignmentScenario",
+      "scenario": "Accepted order assignment scenario",
+      "requiredModels": ["OrderAssignment"],
+      "initialState": "PENDING (Order)",
+      "terminalState": "ACCEPTED (Assignment)",
+      "customTriggers": [],
+      "constraints": ["OrderAssignment_orderId_driverProfileId_key"],
+      "productionQueryPredicates": ["status = ACCEPTED"],
+      "knownWorkingImplementationReference": "lib/services/dispatch-assignment.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4CapturedPaymentScenario",
+      "scenario": "Payment ITN reconciliation scenario",
+      "requiredModels": ["PricingQuote", "Order", "Payment", "PaymentAttempt"],
+      "initialState": "PROCESSING",
+      "terminalState": "SUCCEEDED",
+      "customTriggers": ["Payment_identity_and_success_immutable", "Payment_success_evidence_coherent"],
+      "constraints": ["Payment_publicReference_key", "PaymentAttempt_publicReference_key"],
+      "productionQueryPredicates": ["status = SUCCEEDED / PROCESSING"],
+      "knownWorkingImplementationReference": "lib/services/payment-provider-payfast.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4LedgerScenario",
+      "scenario": "Ledger account balance conservation scenario",
+      "requiredModels": ["Wallet", "LedgerAccount"],
+      "initialState": "ACTIVE",
+      "terminalState": "ACTIVE",
+      "customTriggers": ["LedgerAccount_posted_identity_immutable"],
+      "constraints": ["LedgerAccount_code_key"],
+      "productionQueryPredicates": ["purpose = AVAILABLE"],
+      "knownWorkingImplementationReference": "lib/services/ledger.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4FundedStoreWalletScenario",
+      "scenario": "Merchant wallet funding scenario",
+      "requiredModels": ["Store", "Wallet"],
+      "initialState": "ACTIVE",
+      "terminalState": "ACTIVE",
+      "customTriggers": [],
+      "constraints": ["Wallet_ownerType_ownerId_currency_key"],
+      "productionQueryPredicates": ["status = ACTIVE", "availableBalance >= 0"],
+      "knownWorkingImplementationReference": "lib/services/wallet.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4MarketplaceStoreOrderScenario",
+      "scenario": "Store earnings & order settlement scenario",
+      "requiredModels": ["MarketplaceCart", "MarketplaceCheckout", "MarketplaceOrder", "MarketplaceCheckoutStoreGroup", "MarketplaceStoreOrder"],
+      "initialState": "CONFIRMED",
+      "terminalState": "CONFIRMED",
+      "customTriggers": ["StoreEarning_account_and_journal_evidence"],
+      "constraints": ["MarketplaceOrder_publicReference_key", "MarketplaceStoreOrder_publicReference_key"],
+      "productionQueryPredicates": ["status = CONFIRMED"],
+      "knownWorkingImplementationReference": "lib/services/store-earning.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    },
+    {
+      "builder": "createGate4AdminAuditScenario",
+      "scenario": "Admin audit log atomicity scenario",
+      "requiredModels": ["User (ADMIN)", "User (CUSTOMER)"],
+      "initialState": "ACTIVE",
+      "terminalState": "ACTIVE",
+      "customTriggers": [],
+      "constraints": [],
+      "productionQueryPredicates": ["role = SUPER_ADMIN / ADMIN"],
+      "knownWorkingImplementationReference": "lib/services/admin-audit.service.ts",
+      "staticAuditStatus": "VERIFIED"
+    }
+  ]
+}

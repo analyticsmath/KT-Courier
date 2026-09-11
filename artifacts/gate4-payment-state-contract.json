@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T11:45:00.000Z",
+  "scope": "Payment Aggregate Lifecycle & Evidence State Contract",
+  "allowedCombinations": [
+    {
+      "status": "PROCESSING",
+      "amount": "Positive Decimal",
+      "currency": "ZAR",
+      "evidenceFields": {
+        "successfulAttemptId": null,
+        "successWebhookEventId": null,
+        "successLedgerJournalId": null,
+        "providerConfirmedAt": null
+      },
+      "coherenceValid": true,
+      "succeededEvidenceValid": true,
+      "fixturePurpose": "Initial payment creation before provider callback/webhook processing"
+    },
+    {
+      "status": "SUCCEEDED",
+      "amount": "Positive Decimal",
+      "currency": "ZAR",
+      "evidenceFields": {
+        "successfulAttemptId": "<PaymentAttempt.id>",
+        "successWebhookEventId": "<PaymentWebhookEvent.id>",
+        "successLedgerJournalId": "<LedgerJournal.id>",
+        "providerConfirmedAt": "<Date>"
+      },
+      "coherenceValid": true,
+      "succeededEvidenceValid": true,
+      "fixturePurpose": "Captured payment ready for ITN processing or refund operations"
+    }
+  ]
+}

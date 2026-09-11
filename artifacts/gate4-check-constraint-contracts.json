@@ -1,0 +1,202 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T11:45:00.000Z",
+  "scope": "Gate 4 Complete CHECK-Constraint Reconciliation",
+  "constraints": [
+    {
+      "table": "CatalogProduct",
+      "constraintName": "CatalogProduct_quality_check",
+      "migration": "20260717100000_phase18_product_catalog",
+      "expression": "\"qualityScore\" BETWEEN 0 AND 100 AND jsonb_typeof(\"qualityIssues\") = 'array'",
+      "columns": ["qualityScore", "qualityIssues"],
+      "fixtureBuilders": ["createGate4CatalogueProduct", "createGate4ActiveProductScenario", "createGate4InventoryLevel", "createGate4CheckoutScenario"],
+      "requiredCombination": {
+        "qualityScore": 100,
+        "qualityIssues": []
+      },
+      "invalidCombinationExamples": [
+        { "qualityIssues": {} }
+      ],
+      "knownWorkingReference": "lib/services/catalog.service.ts",
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "table": "CatalogProduct",
+      "constraintName": "CatalogProduct_scope_check",
+      "migration": "20260717100000_phase18_product_catalog",
+      "expression": "(\"scope\" = 'GLOBAL_CANONICAL' AND \"sourceStoreId\" IS NULL) OR (\"scope\" = 'STORE_PRIVATE' AND \"sourceStoreId\" IS NOT NULL)",
+      "columns": ["scope", "sourceStoreId"],
+      "fixtureBuilders": ["createGate4CatalogueProduct"],
+      "requiredCombination": {
+        "scope": "STORE_PRIVATE",
+        "sourceStoreId": "<storeId>"
+      },
+      "invalidCombinationExamples": [
+        { "scope": "STORE_PRIVATE", "sourceStoreId": null }
+      ],
+      "knownWorkingReference": "lib/services/catalog.service.ts",
+      "repairStatus": "VERIFIED"
+    },
+    {
+      "table": "CatalogProduct",
+      "constraintName": "CatalogProduct_values_shape_check",
+      "migration": "20260717100000_phase18_product_catalog",
+      "expression": "jsonb_typeof(\"attributeValues\") = 'object' AND jsonb_typeof(\"complianceValues\") = 'object'",
+      "columns": ["attributeValues", "complianceValues"],
+      "fixtureBuilders": ["createGate4CatalogueProduct"],
+      "requiredCombination": {
+        "attributeValues": {},
+        "complianceValues": {}
+      },
+      "invalidCombinationExamples": [
+        { "attributeValues": [] }
+      ],
+      "knownWorkingReference": "lib/services/catalog.service.ts",
+      "repairStatus": "VERIFIED"
+    },
+    {
+      "table": "OrderAssignment",
+      "constraintName": "OrderAssignment_current_guard_consistency",
+      "migration": "20260716010000_phase7_5_phase6_phase7_closure",
+      "expression": "((\"status\" IN ('ASSIGNED', 'ACCEPTED') AND \"activeOrderGuard\" IS NOT DISTINCT FROM \"orderId\") OR (\"status\" NOT IN ('ASSIGNED', 'ACCEPTED') AND \"activeOrderGuard\" IS NULL))",
+      "columns": ["status", "activeOrderGuard", "orderId"],
+      "fixtureBuilders": ["createGate4AcceptedAssignmentScenario"],
+      "requiredCombination": {
+        "status": "ACCEPTED",
+        "activeOrderGuard": "<orderId>"
+      },
+      "invalidCombinationExamples": [
+        { "status": "ACCEPTED", "activeOrderGuard": null }
+      ],
+      "knownWorkingReference": "lib/services/dispatch.service.ts",
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "table": "Payment",
+      "constraintName": "Payment_succeeded_requires_provider_evidence_check",
+      "migration": "20260717040000_phase12_payfast_itn_reconciliation",
+      "expression": "\"status\"::text <> 'SUCCEEDED' OR (\"successfulAttemptId\" IS NOT NULL AND \"successWebhookEventId\" IS NOT NULL AND \"successLedgerJournalId\" IS NOT NULL AND \"providerConfirmedAt\" IS NOT NULL)",
+      "columns": ["status", "successfulAttemptId", "successWebhookEventId", "successLedgerJournalId", "providerConfirmedAt"],
+      "fixtureBuilders": ["createGate4CapturedPaymentScenario"],
+      "requiredCombination": {
+        "status": "PROCESSING",
+        "successfulAttemptId": null,
+        "successWebhookEventId": null,
+        "successLedgerJournalId": null,
+        "providerConfirmedAt": null
+      },
+      "invalidCombinationExamples": [
+        { "status": "SUCCEEDED", "successfulAttemptId": null }
+      ],
+      "knownWorkingReference": "tests/integration/payfast-itn-fixtures.ts",
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "table": "Payment",
+      "constraintName": "Payment_success_evidence_coherence_check",
+      "migration": "20260717040000_phase12_payfast_itn_reconciliation",
+      "expression": "((\"successfulAttemptId\" IS NULL AND \"successWebhookEventId\" IS NULL AND \"successLedgerJournalId\" IS NULL AND \"providerConfirmedAt\" IS NULL) OR (\"successfulAttemptId\" IS NOT NULL AND \"successWebhookEventId\" IS NOT NULL AND \"successLedgerJournalId\" IS NOT NULL AND \"providerConfirmedAt\" IS NOT NULL))",
+      "columns": ["successfulAttemptId", "successWebhookEventId", "successLedgerJournalId", "providerConfirmedAt"],
+      "fixtureBuilders": ["createGate4CapturedPaymentScenario"],
+      "requiredCombination": {
+        "successfulAttemptId": null,
+        "successWebhookEventId": null,
+        "successLedgerJournalId": null,
+        "providerConfirmedAt": null
+      },
+      "invalidCombinationExamples": [
+        { "successfulAttemptId": "att_1", "successWebhookEventId": null }
+      ],
+      "knownWorkingReference": "tests/integration/payfast-itn-fixtures.ts",
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "table": "Payment",
+      "constraintName": "Payment_idempotency_key_nonempty_check",
+      "migration": "20260717020000_phase10_payment_provider_foundation",
+      "expression": "length(btrim(\"idempotencyKey\")) BETWEEN 8 AND 128",
+      "columns": ["idempotencyKey"],
+      "fixtureBuilders": ["createGate4CapturedPaymentScenario"],
+      "requiredCombination": {
+        "creationIdempotencyKey": "idem_pay_<tag>"
+      },
+      "invalidCombinationExamples": [
+        { "creationIdempotencyKey": "short" }
+      ],
+      "knownWorkingReference": "lib/services/payment-preparation.service.ts",
+      "repairStatus": "VERIFIED"
+    },
+    {
+      "table": "Wallet",
+      "constraintName": "Wallet_legacy_balances_zero_check",
+      "migration": "20260717010000_phase9_wallet_ledger_system",
+      "expression": "\"availableBalance\" = 0 AND \"pendingBalance\" = 0 AND \"lockedBalance\" = 0",
+      "columns": ["availableBalance", "pendingBalance", "lockedBalance"],
+      "fixtureBuilders": ["createGate4FundedStoreWalletScenario"],
+      "requiredCombination": {
+        "availableBalance": "0.00",
+        "pendingBalance": "0.00",
+        "lockedBalance": "0.00"
+      },
+      "invalidCombinationExamples": [
+        { "availableBalance": "100.00" }
+      ],
+      "knownWorkingReference": "lib/services/wallet-account.service.ts",
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "table": "CatalogInventoryLevel",
+      "constraintName": "CatalogInventoryLevel_projection_check",
+      "migration": "20260717100000_phase18_product_catalog",
+      "expression": "\"onHand\" >= 0 AND \"reserved\" >= 0 AND \"reserved\" <= \"onHand\" AND \"available\" = \"onHand\" - \"reserved\"",
+      "columns": ["onHand", "reserved", "available"],
+      "fixtureBuilders": ["createGate4InventoryLevel", "createGate4ActiveProductScenario"],
+      "requiredCombination": {
+        "onHand": 10,
+        "reserved": 0,
+        "available": 10
+      },
+      "invalidCombinationExamples": [
+        { "onHand": 10, "reserved": 2, "available": 10 }
+      ],
+      "knownWorkingReference": "lib/services/inventory.service.ts",
+      "repairStatus": "VERIFIED"
+    },
+    {
+      "table": "MarketplaceStoreOrder",
+      "constraintName": "MarketplaceStoreOrder_total_check",
+      "migration": "20260717120000_phase20_marketplace_checkout",
+      "expression": "\"currency\" = 'ZAR' AND \"merchandiseSubtotal\" >= 0 AND \"modifierSubtotal\" >= 0 AND \"deliveryFee\" >= 0 AND \"groupTotal\" = \"merchandiseSubtotal\" + \"modifierSubtotal\" + \"deliveryFee\"",
+      "columns": ["merchandiseSubtotal", "modifierSubtotal", "deliveryFee", "groupTotal"],
+      "fixtureBuilders": ["createGate4MarketplaceStoreOrderScenario"],
+      "requiredCombination": {
+        "merchandiseSubtotal": "100.00",
+        "modifierSubtotal": "0.00",
+        "deliveryFee": "15.00",
+        "groupTotal": "115.00",
+        "status": "PENDING_SETTLEMENT"
+      },
+      "invalidCombinationExamples": [
+        { "status": "CONFIRMED" }
+      ],
+      "knownWorkingReference": "lib/services/marketplace-order.service.ts",
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "table": "PaymentAttempt",
+      "constraintName": "PaymentAttempt_public_reference_check",
+      "migration": "20260717030000_phase11_payfast_integration_v1",
+      "expression": "\"publicReference\" IS NULL OR (length(\"publicReference\") BETWEEN 20 AND 100 AND \"publicReference\" ~ '^pat_[A-Za-z0-9_-]+$')",
+      "columns": ["publicReference"],
+      "fixtureBuilders": ["createGate4CapturedPaymentScenario", "createGate4MarketplaceStoreOrderScenario"],
+      "requiredCombination": {
+        "publicReference": "pat_g4_<tag>_<uuid>"
+      },
+      "invalidCombinationExamples": [
+        { "publicReference": "att_g4_gate4-bootstrap-payment-73885a70" }
+      ],
+      "knownWorkingReference": "lib/services/payment-provider-session.service.ts",
+      "repairStatus": "REPAIRED"
+    }
+  ]
+}

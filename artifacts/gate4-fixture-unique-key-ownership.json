@@ -1,0 +1,288 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T13:25:00Z",
+  "scope": "Gate 4 Unique Key Ownership Matrix",
+  "totalUniqueKeysMapped": 28,
+  "uniqueKeys": [
+    {
+      "table": "User",
+      "constraintOrIndex": "User_email_key",
+      "columns": ["email"],
+      "ownerBuilder": "createGate4User",
+      "ownerScenario": "Identity & Profiles Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4User"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "DriverProfile",
+      "constraintOrIndex": "DriverProfile_userId_key",
+      "columns": ["userId"],
+      "ownerBuilder": "createGate4User",
+      "ownerScenario": "Identity & Profiles Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4User"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "DriverProfile",
+      "constraintOrIndex": "DriverProfile_driverCode_key",
+      "columns": ["driverCode"],
+      "ownerBuilder": "createGate4User",
+      "ownerScenario": "Identity & Profiles Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4User"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "StoreProfile",
+      "constraintOrIndex": "StoreProfile_userId_key",
+      "columns": ["userId"],
+      "ownerBuilder": "createGate4User",
+      "ownerScenario": "Store & Owner Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4User"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "AdminProfile",
+      "constraintOrIndex": "AdminProfile_userId_key",
+      "columns": ["userId"],
+      "ownerBuilder": "createGate4User",
+      "ownerScenario": "Admin Audit Atomicity Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4User"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "Store",
+      "constraintOrIndex": "Store_slug_key",
+      "columns": ["slug"],
+      "ownerBuilder": "createGate4Store",
+      "ownerScenario": "Store & Owner Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4Store"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "Store",
+      "constraintOrIndex": "Store_ownerUserId_key",
+      "columns": ["ownerUserId"],
+      "ownerBuilder": "createGate4Store",
+      "ownerScenario": "Store & Owner Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4Store"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "CatalogCategory",
+      "constraintOrIndex": "CatalogCategory_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4CatalogueProduct",
+      "ownerScenario": "Catalog Draft Product Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CatalogueProduct"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "CatalogCategory",
+      "constraintOrIndex": "CatalogCategory_slug_key",
+      "columns": ["slug"],
+      "ownerBuilder": "createGate4CatalogueProduct",
+      "ownerScenario": "Catalog Draft Product Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CatalogueProduct"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "ProductTypeDefinition",
+      "constraintOrIndex": "ProductTypeDefinition_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4CatalogueProduct",
+      "ownerScenario": "Catalog Draft Product Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CatalogueProduct"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "ProductTypeDefinition",
+      "constraintOrIndex": "ProductTypeDefinition_code_key",
+      "columns": ["code"],
+      "ownerBuilder": "createGate4CatalogueProduct",
+      "ownerScenario": "Catalog Draft Product Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CatalogueProduct"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "CatalogProduct",
+      "constraintOrIndex": "CatalogProduct_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4CatalogueProduct",
+      "ownerScenario": "Catalog Draft Product Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CatalogueProduct"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "CatalogProductVariant",
+      "constraintOrIndex": "CatalogProductVariant_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4ActiveProductScenario",
+      "ownerScenario": "Catalog Active Product Staged Activation Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4ActiveProductScenario"],
+      "childBuildersRequiredToReuse": ["createGate4InventoryLevel"]
+    },
+    {
+      "table": "StoreCatalogOffer",
+      "constraintOrIndex": "StoreCatalogOffer_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4ActiveProductScenario",
+      "ownerScenario": "Catalog Active Product Staged Activation Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4ActiveProductScenario"],
+      "childBuildersRequiredToReuse": ["createGate4InventoryLevel"]
+    },
+    {
+      "table": "StoreCatalogOffer",
+      "constraintOrIndex": "StoreCatalogOffer_storeId_variantId_key",
+      "columns": ["storeId", "variantId"],
+      "ownerBuilder": "createGate4ActiveProductScenario",
+      "ownerScenario": "Catalog Active Product Staged Activation Fixture",
+      "reusePolicy": "REUSE_EXISTING_BY_STORE_AND_VARIANT",
+      "childBuildersAllowedToCreate": ["createGate4ActiveProductScenario"],
+      "childBuildersRequiredToReuse": ["createGate4InventoryLevel", "createGate4CheckoutScenario"]
+    },
+    {
+      "table": "InventoryLocation",
+      "constraintOrIndex": "InventoryLocation_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4ActiveProductScenario",
+      "ownerScenario": "Catalog Active Product Staged Activation Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4ActiveProductScenario"],
+      "childBuildersRequiredToReuse": ["createGate4InventoryLevel"]
+    },
+    {
+      "table": "CatalogInventoryItem",
+      "constraintOrIndex": "CatalogInventoryItem_offerId_variantId_key",
+      "columns": ["offerId", "variantId"],
+      "ownerBuilder": "createGate4ActiveProductScenario",
+      "ownerScenario": "Catalog Active Product Staged Activation Fixture",
+      "reusePolicy": "REUSE_EXISTING_BY_OFFER_AND_VARIANT",
+      "childBuildersAllowedToCreate": ["createGate4ActiveProductScenario"],
+      "childBuildersRequiredToReuse": ["createGate4InventoryLevel"]
+    },
+    {
+      "table": "OrderAssignment",
+      "constraintOrIndex": "OrderAssignment_activeOrderGuard_key",
+      "columns": ["activeOrderGuard"],
+      "ownerBuilder": "createGate4AcceptedAssignmentScenario",
+      "ownerScenario": "Fulfilment Accepted Assignment Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4AcceptedAssignmentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "Payment",
+      "constraintOrIndex": "Payment_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4CapturedPaymentScenario",
+      "ownerScenario": "Captured Payment ITN Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CapturedPaymentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "PaymentAttempt",
+      "constraintOrIndex": "PaymentAttempt_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4CapturedPaymentScenario",
+      "ownerScenario": "Captured Payment ITN Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CapturedPaymentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "PaymentAttempt",
+      "constraintOrIndex": "PaymentAttempt_paymentId_attemptNumber_key",
+      "columns": ["paymentId", "attemptNumber"],
+      "ownerBuilder": "createGate4CapturedPaymentScenario",
+      "ownerScenario": "Captured Payment ITN Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CapturedPaymentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "PaymentWebhookEvent",
+      "constraintOrIndex": "PaymentWebhookEvent_publicReference_key",
+      "columns": ["publicReference"],
+      "ownerBuilder": "createGate4CapturedPaymentScenario",
+      "ownerScenario": "Captured Payment ITN Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CapturedPaymentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "PaymentWebhookEvent",
+      "constraintOrIndex": "PaymentWebhookEvent_eventFingerprint_key",
+      "columns": ["eventFingerprint"],
+      "ownerBuilder": "createGate4CapturedPaymentScenario",
+      "ownerScenario": "Captured Payment ITN Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CapturedPaymentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "PaymentWebhookEvent",
+      "constraintOrIndex": "PaymentWebhookEvent_ledgerJournalId_key",
+      "columns": ["ledgerJournalId"],
+      "ownerBuilder": "createGate4CapturedPaymentScenario",
+      "ownerScenario": "Captured Payment ITN Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CapturedPaymentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "LedgerJournal",
+      "constraintOrIndex": "LedgerJournal_reference_key",
+      "columns": ["reference"],
+      "ownerBuilder": "createGate4CapturedPaymentScenario",
+      "ownerScenario": "Captured Payment ITN Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4CapturedPaymentScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "Wallet",
+      "constraintOrIndex": "Wallet_ownerType_ownerId_currency_key",
+      "columns": ["ownerType", "ownerId", "currency"],
+      "ownerBuilder": "createGate4LedgerScenario",
+      "ownerScenario": "Ledger Conservation Account Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4LedgerScenario", "createGate4FundedStoreWalletScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "MarketplaceOrder",
+      "constraintOrIndex": "MarketplaceOrder_checkoutId_key",
+      "columns": ["checkoutId"],
+      "ownerBuilder": "createGate4MarketplaceStoreOrderScenario",
+      "ownerScenario": "Marketplace Store Order Hierarchy Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4MarketplaceStoreOrderScenario"],
+      "childBuildersRequiredToReuse": []
+    },
+    {
+      "table": "MarketplaceStoreOrder",
+      "constraintOrIndex": "MarketplaceStoreOrder_marketplaceOrderId_storeId_key",
+      "columns": ["marketplaceOrderId", "storeId"],
+      "ownerBuilder": "createGate4MarketplaceStoreOrderScenario",
+      "ownerScenario": "Marketplace Store Order Hierarchy Fixture",
+      "reusePolicy": "NEVER_DUPLICATE",
+      "childBuildersAllowedToCreate": ["createGate4MarketplaceStoreOrderScenario"],
+      "childBuildersRequiredToReuse": []
+    }
+  ]
+}

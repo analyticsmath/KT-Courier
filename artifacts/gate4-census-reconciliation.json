@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T14:40:00.000Z",
+  "scope": "Gate 4 Complete CHECK Constraint Reconciliation Report",
+  "reconciliation": {
+    "staticConstraintCount": 42,
+    "runtimeConstraintCount": 11,
+    "scopeDifference": 31,
+    "reconciliationExplanation": "Static analysis audited 42 CHECK constraints across all application models, whereas Stage -1 runtime contract census specifically tracks and maps 11 high-risk/complex multi-column domain contracts required by Stage 0 fixture builders on the 28 touched tables. Simple single-column column-level scalar bounds (such as positive amounts or non-negative counters on untouched or auxiliary tables) and historical duplicate migration definitions were excluded from the high-risk Stage 0 contract census.",
+    "historicalDuplicatesExcluded": 0,
+    "tablesIncluded": 28,
+    "tablesExcluded": 14,
+    "queryCorrectnessVerified": true,
+    "actualExpectedRuntimeCount": 11
+  }
+}

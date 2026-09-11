@@ -1,0 +1,68 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T13:25:00Z",
+  "table": "PaymentWebhookEvent",
+  "scope": "PayFast ITN Webhook State Contract",
+  "allCheckConstraints": [
+    {
+      "constraintName": "PaymentWebhookEvent_public_reference_check",
+      "expression": "length(\"publicReference\") BETWEEN 20 AND 100 AND \"publicReference\" ~ '^pwe_[A-Za-z0-9_-]+$'",
+      "columns": ["publicReference"],
+      "requirements": {
+        "prefix": "pwe_",
+        "minLen": 20,
+        "maxLen": 100,
+        "regex": "^pwe_[A-Za-z0-9_-]+$"
+      }
+    },
+    {
+      "constraintName": "PaymentWebhookEvent_fingerprint_check",
+      "expression": "\"eventFingerprint\" ~ '^[a-f0-9]{64}$'",
+      "columns": ["eventFingerprint"],
+      "requirements": {
+        "len": 64,
+        "format": "lowercase 64-char hex SHA-256 hash"
+      }
+    },
+    {
+      "constraintName": "PaymentWebhookEvent_identity_length_check",
+      "expression": "length(btrim(\"merchantReference\")) BETWEEN 12 AND 100 AND length(btrim(\"providerStatus\")) BETWEEN 1 AND 64",
+      "columns": ["merchantReference", "providerStatus", "providerPaymentId", "credentialVersion", "sourceAddress", "rejectionCode"],
+      "requirements": {
+        "merchantReferenceMinLen": 12,
+        "merchantReferenceMaxLen": 100,
+        "providerStatusMinLen": 1
+      }
+    },
+    {
+      "constraintName": "PaymentWebhookEvent_verified_coherence_check",
+      "expression": "\"itnProcessingStatus\" NOT IN ('VERIFIED', 'APPLIED', 'DUPLICATE', 'IGNORED_STALE') OR (\"sourceAddressVerified\" AND \"signatureVerified\" AND \"merchantVerified\" AND \"amountVerified\" AND \"providerDataVerified\" AND \"verifiedAt\" IS NOT NULL AND \"paymentId\" IS NOT NULL AND \"attemptId\" IS NOT NULL)",
+      "columns": ["processingStatus", "sourceAddressVerified", "signatureVerified", "merchantVerified", "amountVerified", "providerDataVerified", "verifiedAt", "paymentId", "attemptId"],
+      "requirements": {
+        "whenProcessingStatusIn": ["VERIFIED", "APPLIED", "DUPLICATE", "IGNORED_STALE"],
+        "requiredBooleans": {
+          "sourceAddressVerified": true,
+          "signatureVerified": true,
+          "merchantVerified": true,
+          "amountVerified": true,
+          "providerDataVerified": true
+        },
+        "requiredFields": ["verifiedAt", "paymentId", "attemptId"]
+      }
+    },
+    {
+      "constraintName": "PaymentWebhookEvent_applied_coherence_check",
+      "expression": "\"itnProcessingStatus\" <> 'APPLIED' OR (\"appliedAt\" IS NOT NULL AND (\"normalizedStatus\" <> 'COMPLETE' OR \"ledgerJournalId\" IS NOT NULL))",
+      "columns": ["processingStatus", "appliedAt", "normalizedStatus", "ledgerJournalId"],
+      "requirements": {
+        "whenProcessingStatus": "APPLIED",
+        "requiredFields": ["appliedAt"],
+        "whenNormalizedStatusIsComplete": {
+          "requiredFields": ["ledgerJournalId"]
+        }
+      }
+    }
+  ],
+  "verified": true,
+  "unmappedCount": 0
+}

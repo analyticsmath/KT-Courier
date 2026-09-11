@@ -1,0 +1,60 @@
+[
+  {
+    "entry": 1,
+    "differenceType": "FOREIGN_KEY_EXTRA",
+    "table": "PaymentWebhookEvent",
+    "columns": [
+      "paymentId"
+    ],
+    "rootCause": "PostgreSQL database contained two foreign keys on PaymentWebhookEvent(paymentId): legacy baseline FK PaymentWebhookEvent_paymentId_fkey (ON DELETE SET NULL) and canonical Phase 12 FK PaymentWebhookEvent_paymentId_phase12_restrict_fkey (ON DELETE RESTRICT ON UPDATE CASCADE). Baseline FK was never dropped by Phase 12 migration, creating a physical duplicate constraint.",
+    "schemaResolution": "Added fail-closed preflight in migration 20260805070000 to drop legacy constraint PaymentWebhookEvent_paymentId_fkey by exact name while preserving canonical PaymentWebhookEvent_paymentId_phase12_restrict_fkey.",
+    "physicalObjectPreserved": true,
+    "generatedSqlEvidence": "ALTER TABLE \"PaymentWebhookEvent\" ADD CONSTRAINT \"PaymentWebhookEvent_paymentId_phase12_restrict_fkey\" FOREIGN KEY (\"paymentId\") REFERENCES \"Payment\"(\"id\") ON DELETE RESTRICT ON UPDATE CASCADE;",
+    "physicalForeignKeysBefore": 2,
+    "canonicalForeignKey": "PaymentWebhookEvent_paymentId_phase12_restrict_fkey",
+    "duplicateForeignKeysRemoved": [
+      "PaymentWebhookEvent_paymentId_fkey"
+    ],
+    "physicalForeignKeysAfter": 1,
+    "resolved": true
+  },
+  {
+    "entry": 2,
+    "differenceType": "COLUMN_DEFAULT_MISMATCH",
+    "table": "StoreSellerLegalIdentity",
+    "columns": [
+      "updatedAt"
+    ],
+    "rootCause": "Prisma field StoreSellerLegalIdentity.updatedAt had @default(now()), whereas physical database column updatedAt has no default value (None).",
+    "schemaResolution": "Removed @default(now()) from StoreSellerLegalIdentity.updatedAt while retaining @updatedAt.",
+    "physicalObjectPreserved": true,
+    "generatedSqlEvidence": "\"updatedAt\" TIMESTAMP(3) NOT NULL",
+    "resolved": true
+  },
+  {
+    "entry": 3,
+    "differenceType": "INDEX_EXTRA",
+    "table": "StorefrontProductDocument",
+    "columns": [
+      "searchText"
+    ],
+    "rootCause": "Plain B-tree @@index([searchText]) declaration in schema.prisma caused Prisma schema diffing to propose creating an unwanted extra B-tree index on searchText.",
+    "schemaResolution": "Updated index declaration to @@index([searchText(ops: raw(\"gin_trgm_ops\"))], type: Gin, map: \"StorefrontProductDocument_search_trgm_idx\").",
+    "physicalObjectPreserved": true,
+    "generatedSqlEvidence": "CREATE INDEX \"StorefrontProductDocument_search_trgm_idx\" ON \"StorefrontProductDocument\" USING GIN (\"searchText\" gin_trgm_ops);",
+    "resolved": true
+  },
+  {
+    "entry": 4,
+    "differenceType": "INDEX_MISSING",
+    "table": "StorefrontProductDocument",
+    "columns": [
+      "searchText"
+    ],
+    "rootCause": "Plain B-tree @@index([searchText]) declaration failed to represent the physical GIN trigram index StorefrontProductDocument_search_trgm_idx, causing Prisma to report the GIN index as missing from Prisma schema.",
+    "schemaResolution": "Updated index declaration to @@index([searchText(ops: raw(\"gin_trgm_ops\"))], type: Gin, map: \"StorefrontProductDocument_search_trgm_idx\").",
+    "physicalObjectPreserved": true,
+    "generatedSqlEvidence": "CREATE INDEX \"StorefrontProductDocument_search_trgm_idx\" ON \"StorefrontProductDocument\" USING GIN (\"searchText\" gin_trgm_ops);",
+    "resolved": true
+  }
+]

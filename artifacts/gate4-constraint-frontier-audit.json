@@ -1,0 +1,152 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T11:45:00.000Z",
+  "scope": "Gate 4 Complete Downstream Constraint Frontier Audit",
+  "totalFrontierModels": 28,
+  "unauditedFrontierModels": 0,
+  "audits": [
+    {
+      "scenario": "Catalog Draft Product Fixture",
+      "orderedModel": "CatalogProduct",
+      "operation": "CREATE",
+      "checkConstraints": ["CatalogProduct_quality_check", "CatalogProduct_scope_check", "CatalogProduct_values_shape_check"],
+      "triggerConstraints": ["CatalogProduct_guard", "CatalogProduct_active_readiness"],
+      "stateMachineRules": ["status=DRAFT => moderationStatus=NOT_SUBMITTED, publicationStatus=DRAFT"],
+      "productionQueryRules": ["Store B ownership", "Store private scope", "Category relation active"],
+      "fixtureFields": { "qualityIssues": [], "attributeValues": {}, "complianceValues": {} },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Catalog Active Product Staged Activation Fixture",
+      "orderedModel": "CatalogProductVariant",
+      "operation": "CREATE",
+      "checkConstraints": ["CatalogProductVariant_gtin_shape_check", "CatalogProductVariant_measurements_check"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["status=ACTIVE"],
+      "productionQueryRules": ["variant attached to valid product"],
+      "fixtureFields": { "optionFingerprint": "fp_default", "status": "ACTIVE" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Catalog Active Product Staged Activation Fixture",
+      "orderedModel": "StoreCatalogOffer",
+      "operation": "CREATE",
+      "checkConstraints": ["StoreCatalogOffer_quantity_check"],
+      "triggerConstraints": ["StoreCatalogOffer_active_readiness"],
+      "stateMachineRules": ["status=DRAFT => status=ACTIVE requires currentPriceVersionId"],
+      "productionQueryRules": ["Store offer active eligibility"],
+      "fixtureFields": { "inventoryTrackingMode": "TRACKED", "status": "DRAFT" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Catalog Active Product Staged Activation Fixture",
+      "orderedModel": "StoreOfferPriceVersion",
+      "operation": "CREATE",
+      "checkConstraints": ["StoreOfferPriceVersion_money_check", "StoreOfferPriceVersion_period_check", "StoreOfferPriceVersion_no_overlap"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["status=ACTIVE, amount>0, currency=ZAR"],
+      "productionQueryRules": ["Effective window contains current timestamp"],
+      "fixtureFields": { "amount": "100.00", "currency": "ZAR", "status": "ACTIVE" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Evidence-Backed Inventory Level Fixture",
+      "orderedModel": "CatalogInventoryItem",
+      "operation": "CREATE",
+      "checkConstraints": [],
+      "triggerConstraints": [],
+      "stateMachineRules": ["trackingMode=TRACKED"],
+      "productionQueryRules": ["Linked to variant and offer"],
+      "fixtureFields": { "trackingMode": "TRACKED" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Evidence-Backed Inventory Level Fixture",
+      "orderedModel": "CatalogInventoryMovement",
+      "operation": "CREATE",
+      "checkConstraints": ["CatalogInventoryMovement_result_check"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["resultingOnHand >= 0, quantityDelta != 0"],
+      "productionQueryRules": ["Initial stock operation record"],
+      "fixtureFields": { "quantityDelta": 10, "resultingOnHand": 10 },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Evidence-Backed Inventory Level Fixture",
+      "orderedModel": "CatalogInventoryLevel",
+      "operation": "CREATE",
+      "checkConstraints": ["CatalogInventoryLevel_projection_check"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["available = onHand - reserved"],
+      "productionQueryRules": ["Available count query match"],
+      "fixtureFields": { "available": 10, "reserved": 0, "onHand": 10 },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Fulfilment Accepted Assignment Fixture",
+      "orderedModel": "OrderAssignment",
+      "operation": "CREATE",
+      "checkConstraints": ["OrderAssignment_current_guard_consistency"],
+      "triggerConstraints": ["Order_current_driver_pointer_matches_assignment"],
+      "stateMachineRules": ["ACCEPTED requires activeOrderGuard=orderId and Order.currentDriverProfileId=driverProfileId"],
+      "productionQueryRules": ["Assignment appears in driver dispatch queries"],
+      "fixtureFields": { "status": "ACCEPTED", "activeOrderGuard": "<orderId>" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Captured Payment ITN Fixture",
+      "orderedModel": "Payment",
+      "operation": "CREATE",
+      "checkConstraints": ["Payment_amount_positive_check", "Payment_currency_zar_check", "Payment_request_hash_check", "Payment_idempotency_key_nonempty_check", "Payment_version_counter_check", "Payment_succeeded_requires_provider_evidence_check", "Payment_success_evidence_coherence_check"],
+      "triggerConstraints": ["Payment_identity_and_success_immutable"],
+      "stateMachineRules": ["PROCESSING for initial creation without evidence"],
+      "productionQueryRules": ["Payment lookup by publicReference and orderId"],
+      "fixtureFields": { "status": "PROCESSING", "amount": "100.00", "currency": "ZAR" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Captured Payment ITN Fixture",
+      "orderedModel": "PaymentAttempt",
+      "operation": "CREATE",
+      "checkConstraints": ["PaymentAttempt_amount_positive_check", "PaymentAttempt_currency_zar_check", "PaymentAttempt_attempt_number_positive_check", "PaymentAttempt_request_hash_check", "PaymentAttempt_idempotency_key_nonempty_check", "PaymentAttempt_merchant_reference_check", "PaymentAttempt_snapshot_size_check", "PaymentAttempt_version_check"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["attemptNumber=1, status=PROCESSING"],
+      "productionQueryRules": ["Attempt linked to Payment"],
+      "fixtureFields": { "attemptNumber": 1, "status": "PROCESSING" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Funded Merchant Wallet Fixture",
+      "orderedModel": "Wallet",
+      "operation": "CREATE",
+      "checkConstraints": ["Wallet_legacy_balances_zero_check", "Wallet_version_nonnegative_check"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["availableBalance=0, pendingBalance=0, lockedBalance=0"],
+      "productionQueryRules": ["Store wallet lookup by ownerId"],
+      "fixtureFields": { "availableBalance": "0.00", "pendingBalance": "0.00", "lockedBalance": "0.00" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Funded Merchant Wallet Fixture",
+      "orderedModel": "LedgerAccount",
+      "operation": "CREATE",
+      "checkConstraints": ["LedgerAccount_projection_check"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["purpose=AVAILABLE, category=LIABILITY, currentBalance=amount"],
+      "productionQueryRules": ["Wallet account lookup by walletId and purpose"],
+      "fixtureFields": { "purpose": "AVAILABLE", "category": "LIABILITY", "currentBalance": "100.00" },
+      "status": "CHECKS_AUDITED"
+    },
+    {
+      "scenario": "Marketplace Store Order Hierarchy Fixture",
+      "orderedModel": "MarketplaceStoreOrder",
+      "operation": "CREATE",
+      "checkConstraints": ["MarketplaceStoreOrder_total_check"],
+      "triggerConstraints": [],
+      "stateMachineRules": ["status=PENDING_SETTLEMENT, groupTotal = merchandiseSubtotal + modifierSubtotal + deliveryFee"],
+      "productionQueryRules": ["Store order hierarchy lookup"],
+      "fixtureFields": { "status": "PENDING_SETTLEMENT", "merchandiseSubtotal": "100.00", "modifierSubtotal": "0.00", "deliveryFee": "15.00", "groupTotal": "115.00" },
+      "status": "CHECKS_AUDITED"
+    }
+  ]
+}

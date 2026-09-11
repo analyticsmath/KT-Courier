@@ -1,0 +1,106 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T11:22:00Z",
+  "scope": "Gate 4 PostgreSQL Database Error Catalog",
+  "errors": [
+    {
+      "message": "ACTIVE_PRODUCT_NOT_READY",
+      "sqlState": "P0001",
+      "migration": "20260717100000_phase18_product_catalog",
+      "function": "catalog_active_product_readiness",
+      "trigger": "CatalogProduct_active_readiness",
+      "table": "CatalogProduct",
+      "operation": "INSERT / UPDATE",
+      "condition": "status = ACTIVE but moderationStatus != APPROVED, publicationStatus != PUBLISHED, no active variants, category not ACTIVE, or PTD not ACTIVE.",
+      "correctFixturePrecondition": "Do not create product directly with status=ACTIVE in fixture unless Category is ACTIVE, PTD is ACTIVE, product is created as DRAFT, variant is attached, and status is transitioned to ACTIVE afterward."
+    },
+    {
+      "message": "ACTIVE_OFFER_NOT_READY",
+      "sqlState": "P0001",
+      "migration": "20260717100000_phase18_product_catalog",
+      "function": "catalog_active_offer_readiness",
+      "trigger": "StoreCatalogOffer_active_readiness",
+      "table": "StoreCatalogOffer",
+      "operation": "INSERT / UPDATE",
+      "condition": "status = ACTIVE but publicationStatus != PUBLISHED, associated product is not ACTIVE/APPROVED, currentPriceVersionId is NULL or price version is not ACTIVE.",
+      "correctFixturePrecondition": "Create offer in DRAFT, create active price version, ensure parent product is ACTIVE, then transition offer status to ACTIVE."
+    },
+    {
+      "message": "OFFER_PRODUCT_VARIANT_MISMATCH",
+      "sqlState": "P0001",
+      "migration": "20260717100000_phase18_product_catalog",
+      "function": "catalog_active_offer_readiness",
+      "trigger": "StoreCatalogOffer_active_readiness",
+      "table": "StoreCatalogOffer",
+      "operation": "INSERT / UPDATE",
+      "condition": "variantId does not belong to productId or variant is ARCHIVED.",
+      "correctFixturePrecondition": "Ensure variant is created with productId matching offer.productId before offer creation."
+    },
+    {
+      "message": "ARCHIVED_CATEGORY_REJECTS_PRODUCTS",
+      "sqlState": "P0001",
+      "migration": "20260717100000_phase18_product_catalog",
+      "function": "catalog_product_guard",
+      "trigger": "CatalogProduct_guard",
+      "table": "CatalogProduct",
+      "operation": "INSERT / UPDATE",
+      "condition": "primaryCategoryId points to a Category with status = ARCHIVED.",
+      "correctFixturePrecondition": "Ensure Category status is ACTIVE or DRAFT."
+    },
+    {
+      "message": "PRODUCT_TYPE_VERSION_MISMATCH",
+      "sqlState": "P0001",
+      "migration": "20260717100000_phase18_product_catalog",
+      "function": "catalog_product_guard",
+      "trigger": "CatalogProduct_guard",
+      "table": "CatalogProduct",
+      "operation": "INSERT / UPDATE",
+      "condition": "productTypeVersionNumber != ProductTypeDefinition.versionNumber.",
+      "correctFixturePrecondition": "Copy exact versionNumber from ProductTypeDefinition into CatalogProduct creation."
+    },
+    {
+      "message": "Succeeded payments are immutable.",
+      "sqlState": "23514",
+      "migration": "20260717020000_phase10_payment_provider_foundation",
+      "function": "phase10_payment_immutability_guard",
+      "trigger": "Payment_identity_and_success_immutable",
+      "table": "Payment",
+      "operation": "UPDATE / DELETE",
+      "condition": "Attempting to update or delete a Payment with status = SUCCEEDED.",
+      "correctFixturePrecondition": "Construct payment with final intended parameters during setup; do not attempt post-hoc field updates on SUCCEEDED payments."
+    },
+    {
+      "message": "Payment success evidence is incoherent.",
+      "sqlState": "23514",
+      "migration": "20260717040000_phase12_payfast_itn_reconciliation",
+      "function": "phase12_payment_success_evidence_guard",
+      "trigger": "Payment_success_evidence_coherent",
+      "table": "Payment",
+      "operation": "INSERT / UPDATE",
+      "condition": "Payment status = SUCCEEDED but missing corresponding SUCCEEDED PaymentAttempt or verified PaymentWebhookEvent.",
+      "correctFixturePrecondition": "Create PaymentAttempt with status=SUCCEEDED before setting Payment status to SUCCEEDED."
+    },
+    {
+      "message": "LedgerJournal rows are immutable after creation.",
+      "sqlState": "23514",
+      "migration": "20260717010000_phase9_wallet_ledger_system",
+      "function": "phase9_ledger_journal_immutability_guard",
+      "trigger": "LedgerJournal_immutability_protection",
+      "table": "LedgerJournal",
+      "operation": "UPDATE / DELETE",
+      "condition": "Attempting to update or delete any LedgerJournal row.",
+      "correctFixturePrecondition": "Treat LedgerJournal as append-only. To alter balances, post a new journal entry."
+    },
+    {
+      "message": "Terminal withdrawal state cannot be reopened",
+      "sqlState": "P0001",
+      "migration": "20260717050000_phase13_withdrawals_finance_admin",
+      "function": "phase13_withdrawal_request_guard",
+      "trigger": "WithdrawalRequest_guard",
+      "table": "WithdrawalRequest",
+      "operation": "UPDATE",
+      "condition": "Attempting to update status or financial fields of a PAID or REJECTED WithdrawalRequest.",
+      "correctFixturePrecondition": "Set terminal withdrawal states via state machine actions, never directly update old terminal rows."
+    }
+  ]
+}

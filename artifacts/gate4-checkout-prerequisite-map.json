@@ -1,0 +1,62 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T11:22:00Z",
+  "scope": "Gate 4 Checkout & Operational Read Predicate Map",
+  "checkoutPredicates": {
+    "CustomerUser": {
+      "status": "ACTIVE",
+      "emailVerifiedAt": "NOT NULL"
+    },
+    "Store": {
+      "status": "ACTIVE"
+    },
+    "CatalogCategory": {
+      "status": "ACTIVE"
+    },
+    "ProductTypeDefinition": {
+      "status": "ACTIVE"
+    },
+    "CatalogProduct": {
+      "status": "ACTIVE",
+      "moderationStatus": "APPROVED",
+      "publicationStatus": "PUBLISHED"
+    },
+    "CatalogProductVariant": {
+      "status": "ACTIVE (not ARCHIVED)"
+    },
+    "StoreCatalogOffer": {
+      "status": "ACTIVE",
+      "publicationStatus": "PUBLISHED",
+      "currentPriceVersionId": "NOT NULL",
+      "inventoryTrackingMode": "TRACKED"
+    },
+    "StoreOfferPriceVersion": {
+      "status": "ACTIVE",
+      "effectiveFrom": "<= now()",
+      "effectiveTo": "IS NULL OR > now()"
+    },
+    "CatalogInventoryLevel": {
+      "available": ">= requested_quantity"
+    }
+  },
+  "driverEligibilityPredicates": {
+    "User": {
+      "status": "ACTIVE"
+    },
+    "DriverProfile": {
+      "active": true,
+      "status": "ACTIVE",
+      "availability": "AVAILABLE"
+    }
+  },
+  "paymentItnPredicates": {
+    "Payment": {
+      "status": "PROCESSING / RESERVED",
+      "provider": "PAYFAST"
+    },
+    "PaymentAttempt": {
+      "status": "PROCESSING",
+      "provider": "PAYFAST"
+    }
+  }
+}

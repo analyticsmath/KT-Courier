@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T14:40:00.000Z",
+  "scope": "Gate 4 Versioned Model State Contract Census",
+  "models": [
+    {
+      "model": "Payment",
+      "versionField": "version",
+      "stateFields": ["status", "successfulAttemptId", "successWebhookEventId", "successLedgerJournalId", "providerConfirmedAt", "succeededAt"],
+      "databaseGuard": "protect_payment_identity_and_success (Payment version must increase with every state change.)",
+      "expectedIncrement": 1,
+      "productionTransitionAuthority": "lib/services/payfast-itn-application.service.ts",
+      "fixtureTransitionMethod": "createGate4CapturedPaymentScenario in tests/integration/gate4/fixtures.ts",
+      "ACTTransitionMethod": "processVerifiedPayfastItnEvent in lib/services/payfast-itn-application.service.ts"
+    },
+    {
+      "model": "PaymentAttempt",
+      "versionField": "version",
+      "stateFields": ["status", "providerReference", "providerStatusCode", "providerConfirmedAt", "completedAt"],
+      "databaseGuard": "protect_payment_attempt_identity_and_status (Payment attempt version must increase with every state change.)",
+      "expectedIncrement": 1,
+      "productionTransitionAuthority": "lib/services/payfast-itn-application.service.ts & lib/services/payment-provider-session.service.ts",
+      "fixtureTransitionMethod": "createGate4CapturedPaymentScenario in tests/integration/gate4/fixtures.ts",
+      "ACTTransitionMethod": "preparePaymentProviderSession in lib/services/payment-provider-session.service.ts"
+    },
+    {
+      "model": "Wallet",
+      "versionField": "version",
+      "stateFields": ["status", "updatedAt"],
+      "databaseGuard": "Wallet_version_nonnegative_check (version >= 0)",
+      "expectedIncrement": 1,
+      "productionTransitionAuthority": "lib/services/wallet-account.service.ts",
+      "fixtureTransitionMethod": "createGate4FundedStoreWalletScenario in tests/integration/gate4/fixtures.ts",
+      "ACTTransitionMethod": "creditStoreWallet in lib/services/wallet-account.service.ts"
+    },
+    {
+      "model": "LedgerAccount",
+      "versionField": "version",
+      "stateFields": ["currentBalance", "updatedAt"],
+      "databaseGuard": "LedgerAccount_version_check (version >= 0)",
+      "expectedIncrement": 1,
+      "productionTransitionAuthority": "lib/services/ledger-posting.service.ts",
+      "fixtureTransitionMethod": "createGate4LedgerScenario in tests/integration/gate4/fixtures.ts",
+      "ACTTransitionMethod": "postLedgerJournal in lib/services/ledger-posting.service.ts"
+    },
+    {
+      "model": "StoreOfferPriceVersion",
+      "versionField": "versionNumber",
+      "stateFields": ["status", "effectiveFrom", "effectiveTo"],
+      "databaseGuard": "StoreOfferPriceVersion_versionNumber_positive_check (versionNumber > 0)",
+      "expectedIncrement": 1,
+      "productionTransitionAuthority": "lib/services/catalog.service.ts",
+      "fixtureTransitionMethod": "createGate4CatalogueProduct in tests/integration/gate4/fixtures.ts",
+      "ACTTransitionMethod": "createStoreOfferPriceVersion in lib/services/catalog.service.ts"
+    }
+  ],
+  "unmapped": 0
+}

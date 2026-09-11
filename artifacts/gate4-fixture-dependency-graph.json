@@ -1,0 +1,125 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T11:22:00Z",
+  "scope": "Gate 4 Fixture Dependency Graph (DAG)",
+  "nodes": [
+    {
+      "builder": "createGate4User",
+      "modelsCreated": ["User", "CustomerProfile", "DriverProfile", "StoreProfile", "AdminProfile"],
+      "dependencies": [],
+      "initialStatus": "ACTIVE",
+      "terminalStatus": "ACTIVE",
+      "directPrismaAllowed": true,
+      "reason": "Base actor identity model"
+    },
+    {
+      "builder": "createGate4Store",
+      "modelsCreated": ["Store", "StoreProfile"],
+      "dependencies": ["createGate4User (STORE)"],
+      "initialStatus": "ACTIVE",
+      "terminalStatus": "ACTIVE",
+      "directPrismaAllowed": true,
+      "reason": "Merchant entity requiring store owner User"
+    },
+    {
+      "builder": "createGate4CatalogueProduct (DRAFT)",
+      "modelsCreated": ["CatalogCategory", "ProductTypeDefinition", "CatalogProduct"],
+      "dependencies": ["createGate4User (ADMIN)", "createGate4Store"],
+      "initialStatus": "DRAFT",
+      "terminalStatus": "DRAFT",
+      "directPrismaAllowed": true,
+      "reason": "Draft product setup does not trigger active readiness rules"
+    },
+    {
+      "builder": "createGate4ActiveProductScenario",
+      "modelsCreated": ["CatalogCategory", "ProductTypeDefinition", "CatalogProduct", "CatalogProductVariant", "StoreCatalogOffer", "StoreOfferPriceVersion", "InventoryLocation", "CatalogInventoryItem", "CatalogInventoryMovement", "CatalogInventoryLevel"],
+      "dependencies": ["createGate4User (ADMIN)", "createGate4Store"],
+      "initialStatus": "DRAFT",
+      "intermediateStatuses": ["DRAFT (Product)", "DRAFT (Offer)", "ACTIVE (Price)", "MOVEMENT_RECORDED"],
+      "terminalStatus": "ACTIVE (Product & Offer)",
+      "directPrismaAllowed": true,
+      "reason": "Uses proven staged activation sequence from scripts/seed-marketplace-dev.ts"
+    },
+    {
+      "builder": "createGate4InventoryLevel",
+      "modelsCreated": ["CatalogProductVariant", "StoreCatalogOffer", "CatalogInventoryItem", "InventoryLocation", "CatalogInventoryMovement", "CatalogInventoryLevel"],
+      "dependencies": ["createGate4CatalogueProduct", "createGate4Store"],
+      "initialStatus": "DRAFT (Offer)",
+      "terminalStatus": "ACTIVE (Offer & Level)",
+      "directPrismaAllowed": true,
+      "reason": "Evidence-backed movement creation before inventory level projection"
+    },
+    {
+      "builder": "createGate4CheckoutScenario",
+      "modelsCreated": ["User", "Store", "CatalogProduct", "CatalogProductVariant", "StoreCatalogOffer", "StoreOfferPriceVersion", "CatalogInventoryLevel", "MarketplaceCart"],
+      "dependencies": ["createGate4ActiveProductScenario", "createGate4User (CUSTOMER)"],
+      "initialStatus": "ACTIVE",
+      "terminalStatus": "ACTIVE",
+      "directPrismaAllowed": true,
+      "reason": "Complete cart & offer arrangement for checkout concurrency test"
+    },
+    {
+      "builder": "createGate4PendingDeliveryScenario",
+      "modelsCreated": ["User (Customer)", "DeliveryRegion", "Order", "User (Drivers)", "DriverProfile"],
+      "dependencies": ["createGate4User"],
+      "initialStatus": "PENDING",
+      "terminalStatus": "PENDING",
+      "directPrismaAllowed": true,
+      "reason": "Pending order and available drivers for assignment race"
+    },
+    {
+      "builder": "createGate4AcceptedAssignmentScenario",
+      "modelsCreated": ["OrderAssignment"],
+      "dependencies": ["createGate4PendingDeliveryScenario"],
+      "initialStatus": "PENDING (Order)",
+      "terminalStatus": "ACCEPTED (Assignment)",
+      "directPrismaAllowed": true,
+      "reason": "Staged assignment transition for fulfilment concurrency"
+    },
+    {
+      "builder": "createGate4CapturedPaymentScenario",
+      "modelsCreated": ["PricingQuote", "Order", "Payment", "PaymentAttempt"],
+      "dependencies": ["createGate4User (CUSTOMER)"],
+      "initialStatus": "PROCESSING",
+      "terminalStatus": "SUCCEEDED",
+      "directPrismaAllowed": true,
+      "reason": "Quote + Order + Payment + PaymentAttempt coherent evidence"
+    },
+    {
+      "builder": "createGate4LedgerScenario",
+      "modelsCreated": ["Wallet", "LedgerAccount"],
+      "dependencies": [],
+      "initialStatus": "ACTIVE",
+      "terminalStatus": "ACTIVE",
+      "directPrismaAllowed": true,
+      "reason": "Paired asset/liability accounts for conservation test"
+    },
+    {
+      "builder": "createGate4FundedStoreWalletScenario",
+      "modelsCreated": ["Store", "Wallet"],
+      "dependencies": ["createGate4Store"],
+      "initialStatus": "ACTIVE",
+      "terminalStatus": "ACTIVE",
+      "directPrismaAllowed": true,
+      "reason": "Funded merchant wallet scenario for withdrawal testing"
+    },
+    {
+      "builder": "createGate4MarketplaceStoreOrderScenario",
+      "modelsCreated": ["MarketplaceCart", "MarketplaceCheckout", "MarketplaceOrder", "MarketplaceCheckoutStoreGroup", "MarketplaceStoreOrder"],
+      "dependencies": ["createGate4User (CUSTOMER)", "createGate4Store", "createGate4CapturedPaymentScenario"],
+      "initialStatus": "CONFIRMED",
+      "terminalStatus": "CONFIRMED",
+      "directPrismaAllowed": true,
+      "reason": "Merchant order hierarchy for store earnings test"
+    },
+    {
+      "builder": "createGate4AdminAuditScenario",
+      "modelsCreated": ["User (ADMIN)", "User (CUSTOMER)"],
+      "dependencies": ["createGate4User"],
+      "initialStatus": "ACTIVE",
+      "terminalStatus": "ACTIVE",
+      "directPrismaAllowed": true,
+      "reason": "Admin and target user for audit log atomicity test"
+    }
+  ]
+}

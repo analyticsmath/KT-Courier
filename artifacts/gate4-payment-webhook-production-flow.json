@@ -1,0 +1,46 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T13:25:00Z",
+  "scope": "PayFast ITN Webhook Production Order & State Transitions",
+  "flow": [
+    {
+      "step": 1,
+      "phase": "RECEIVE_ITN",
+      "action": "Ingest PayFast ITN payload and compute event fingerprint",
+      "model": "PaymentWebhookEvent",
+      "status": "RECEIVED",
+      "writes": ["publicReference", "provider", "environment", "eventFingerprint", "merchantReference", "providerPaymentId", "providerStatus", "normalizedStatus", "processingStatus=RECEIVED"]
+    },
+    {
+      "step": 2,
+      "phase": "VERIFY_ITN",
+      "action": "Verify ITN source IP, PayFast signature, merchant identity, amount match, and attempt linkage",
+      "model": "PaymentWebhookEvent",
+      "status": "VERIFIED",
+      "writes": ["sourceAddressVerified=true", "signatureVerified=true", "merchantVerified=true", "amountVerified=true", "providerDataVerified=true", "verifiedAt=now()", "paymentId", "attemptId", "processingStatus=VERIFIED"]
+    },
+    {
+      "step": 3,
+      "phase": "POST_LEDGER",
+      "action": "Post double-entry journal for external payment receipt",
+      "model": "LedgerJournal",
+      "writes": ["reference", "type=EXTERNAL_PAYMENT_RECEIPT", "currency=ZAR", "totalDebits", "totalCredits", "idempotencyKey", "requestHash", "postedAt=now()"]
+    },
+    {
+      "step": 4,
+      "phase": "APPLY_WEBHOOK",
+      "action": "Link ledger journal to webhook event and mark applied",
+      "model": "PaymentWebhookEvent",
+      "status": "APPLIED",
+      "writes": ["ledgerJournalId", "appliedAt=now()", "processingStatus=APPLIED"]
+    },
+    {
+      "step": 5,
+      "phase": "PROJECT_PAYMENT_SUCCESS",
+      "action": "Update main Payment entity with confirmed provider evidence and status SUCCEEDED",
+      "model": "Payment",
+      "status": "SUCCEEDED",
+      "writes": ["status=SUCCEEDED", "providerConfirmedAt=now()", "successfulAttemptId", "successWebhookEventId", "successLedgerJournalId"]
+    }
+  ]
+}

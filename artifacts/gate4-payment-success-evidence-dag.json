@@ -1,0 +1,67 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-08-07T13:25:00Z",
+  "scope": "Payment Success Evidence Topological DAG",
+  "topologicalOrder": [
+    {
+      "order": 1,
+      "model": "User",
+      "legalCreationState": "ACTIVE",
+      "requiredExistingNodes": [],
+      "uniqueKeys": ["User.email"]
+    },
+    {
+      "order": 2,
+      "model": "Order",
+      "legalCreationState": "CONFIRMED",
+      "requiredExistingNodes": ["User"],
+      "uniqueKeys": ["Order.orderNumber"]
+    },
+    {
+      "order": 3,
+      "model": "Payment",
+      "legalCreationState": "PROCESSING",
+      "requiredExistingNodes": ["Order", "User"],
+      "uniqueKeys": ["Payment.publicReference", "Payment.creationIdempotencyKey"]
+    },
+    {
+      "order": 4,
+      "model": "PaymentAttempt",
+      "legalCreationState": "SUCCEEDED",
+      "requiredExistingNodes": ["Payment"],
+      "uniqueKeys": ["PaymentAttempt.publicReference", "PaymentAttempt.paymentId+attemptNumber", "PaymentAttempt.idempotencyKey"]
+    },
+    {
+      "order": 5,
+      "model": "LedgerJournal",
+      "legalCreationState": "POSTED",
+      "requiredExistingNodes": [],
+      "uniqueKeys": ["LedgerJournal.reference", "LedgerJournal.idempotencyKey"]
+    },
+    {
+      "order": 6,
+      "model": "PaymentWebhookEvent",
+      "legalCreationState": "APPLIED",
+      "requiredExistingNodes": ["Payment", "PaymentAttempt", "LedgerJournal"],
+      "checkConstraints": [
+        "PaymentWebhookEvent_public_reference_check",
+        "PaymentWebhookEvent_fingerprint_check",
+        "PaymentWebhookEvent_identity_length_check",
+        "PaymentWebhookEvent_verified_coherence_check",
+        "PaymentWebhookEvent_applied_coherence_check"
+      ],
+      "uniqueKeys": ["PaymentWebhookEvent.publicReference", "PaymentWebhookEvent.eventFingerprint", "PaymentWebhookEvent.ledgerJournalId"]
+    },
+    {
+      "order": 7,
+      "model": "Payment",
+      "legalCreationState": "SUCCEEDED (UPDATE)",
+      "requiredExistingNodes": ["PaymentAttempt", "PaymentWebhookEvent", "LedgerJournal"],
+      "checkConstraints": [
+        "Payment_succeeded_requires_provider_evidence_check",
+        "Payment_success_evidence_coherence_check"
+      ],
+      "uniqueKeys": []
+    }
+  ]
+}

@@ -1,0 +1,323 @@
+[
+  {
+    "number": 1,
+    "table": "PaymentRefund",
+    "differenceType": "FOREIGN_KEY_EXTRA",
+    "columns": [
+      "legacyCreatedByUserId"
+    ],
+    "physicalDatabaseState": "FK constraint PaymentRefund_createdByUserId_fkey exists referencing User(id)",
+    "currentPrismaState": "Relation legacyCreatedBy was annotated @ignore",
+    "rootCause": "Relation legacyCreatedBy was annotated @ignore, hiding the FK from Prisma schema diffing",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Remove @ignore from legacyCreatedBy relation and map field legacyCreatedByUserId",
+    "migrationChange": "None",
+    "invariantPreserved": "Preserves legacy creator FK without physical DB mutation",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 2,
+    "table": "PaymentRefund",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "createdAt"
+    ],
+    "physicalDatabaseState": "Index PaymentRefund_createdAt_idx exists",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical index PaymentRefund_createdAt_idx was omitted from schema.prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([createdAt], map: \"PaymentRefund_createdAt_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Refund creation time index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 3,
+    "table": "PaymentRefund",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "legacyCreatedByUserId"
+    ],
+    "physicalDatabaseState": "Index PaymentRefund_createdByUserId_idx exists on column legacyCreatedByUserId",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical index PaymentRefund_createdByUserId_idx was omitted from schema.prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([legacyCreatedByUserId], map: \"PaymentRefund_createdByUserId_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Creator lookup index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 4,
+    "table": "PaymentRefund",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "paymentId"
+    ],
+    "physicalDatabaseState": "Index PaymentRefund_paymentId_idx exists",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical index PaymentRefund_paymentId_idx was omitted from schema.prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([paymentId], map: \"PaymentRefund_paymentId_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Payment lookup index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 5,
+    "table": "PaymentRefund",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "legacyPaymentStatus"
+    ],
+    "physicalDatabaseState": "Index PaymentRefund_status_idx exists on column legacyPaymentStatus",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical index PaymentRefund_status_idx was omitted from schema.prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([legacyPaymentStatus], map: \"PaymentRefund_status_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Status lookup index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 6,
+    "table": "PaymentRefund",
+    "differenceType": "COLUMN_EXTRA",
+    "columns": [
+      "legacyCreatedByUserId"
+    ],
+    "physicalDatabaseState": "Column legacyCreatedByUserId exists",
+    "currentPrismaState": "Field legacyCreatedByUserId had @map(\"createdByUserId\")",
+    "rootCause": "Inverted @map(\"createdByUserId\") caused Prisma to expect column createdByUserId",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Correct scalar mapping to legacyCreatedByUserId String? @map(\"legacyCreatedByUserId\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Single canonical scalar field matching physical column",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 7,
+    "table": "PaymentRefund",
+    "differenceType": "COLUMN_MISSING",
+    "columns": [
+      "createdByUserId"
+    ],
+    "physicalDatabaseState": "Column createdByUserId does not exist (column is legacyCreatedByUserId)",
+    "currentPrismaState": "Field had @map(\"createdByUserId\")",
+    "rootCause": "Inverted @map(\"createdByUserId\") caused Prisma to report createdByUserId as missing",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Map scalar to physical column legacyCreatedByUserId",
+    "migrationChange": "None",
+    "invariantPreserved": "Prevents creation of duplicate physical createdByUserId column",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 8,
+    "table": "PaymentRefund",
+    "differenceType": "COLUMN_TYPE_MISMATCH",
+    "columns": [
+      "legacyCurrency"
+    ],
+    "physicalDatabaseState": "Column legacyCurrency is NOT NULL DEFAULT \"ZAR\"",
+    "currentPrismaState": "Prisma modeled field as String? with no default and @ignore",
+    "rootCause": "Prisma schema lacked NOT NULL and @default(\"ZAR\")",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Update to legacyCurrency String @default(\"ZAR\") @map(\"legacyCurrency\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Strengthens currency default invariant",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 9,
+    "table": "PaymentRefund",
+    "differenceType": "COLUMN_TYPE_MISMATCH",
+    "columns": [
+      "legacyPaymentStatus"
+    ],
+    "physicalDatabaseState": "Column legacyPaymentStatus is NOT NULL DEFAULT PENDING",
+    "currentPrismaState": "Prisma modeled field as PaymentStatus? with no default and @ignore",
+    "rootCause": "Prisma schema lacked NOT NULL and @default(PENDING)",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Update to legacyPaymentStatus PaymentStatus @default(PENDING) @map(\"legacyPaymentStatus\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Strengthens status invariant",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 10,
+    "table": "PaymentRefund",
+    "differenceType": "FOREIGN_KEY_MISSING",
+    "columns": [
+      "createdByUserId"
+    ],
+    "physicalDatabaseState": "FK PaymentRefund_createdByUserId_fkey is on column legacyCreatedByUserId",
+    "currentPrismaState": "Prisma expected FK on non-existent column createdByUserId",
+    "rootCause": "Inverted scalar @map caused Prisma to expect FK on createdByUserId",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Bind legacyCreatedBy relation to legacyCreatedByUserId scalar",
+    "migrationChange": "None",
+    "invariantPreserved": "Foreign key integrity preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 11,
+    "table": "PaymentWebhookEvent",
+    "differenceType": "FOREIGN_KEY_EXTRA",
+    "columns": [
+      "paymentId"
+    ],
+    "physicalDatabaseState": "FK PaymentWebhookEvent_paymentId_phase12_restrict_fkey exists",
+    "currentPrismaState": "Relation was annotated @ignore or missing",
+    "rootCause": "Owning relation was not active in Prisma schema diffing",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Declare relation payment Payment? @relation(\"PaymentWebhookEvents\", fields: [paymentId], references: [id], onDelete: Restrict, map: \"PaymentWebhookEvent_paymentId_phase12_restrict_fkey\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Webhook payment FK preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 12,
+    "table": "PaymentWebhookEvent",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "eventType"
+    ],
+    "physicalDatabaseState": "Index PaymentWebhookEvent_eventType_idx exists on column legacyEventType",
+    "currentPrismaState": "Field legacyEventType was @ignore without index declaration",
+    "rootCause": "Physical index PaymentWebhookEvent_eventType_idx missing from Prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Remove @ignore from legacyEventType and add @@index([legacyEventType], map: \"PaymentWebhookEvent_eventType_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Event-type operational search index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 13,
+    "table": "PaymentWebhookEvent",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "processingStatus"
+    ],
+    "physicalDatabaseState": "Index PaymentWebhookEvent_processingStatus_idx exists on column legacyProcessingStatus",
+    "currentPrismaState": "Field legacyProcessingStatus was @ignore without index declaration",
+    "rootCause": "Physical index PaymentWebhookEvent_processingStatus_idx missing from Prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Remove @ignore from legacyProcessingStatus and add @@index([legacyProcessingStatus], map: \"PaymentWebhookEvent_processingStatus_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Processing-status operational search index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 14,
+    "table": "PaymentWebhookEvent",
+    "differenceType": "COLUMN_TYPE_MISMATCH",
+    "columns": [
+      "updatedAt"
+    ],
+    "physicalDatabaseState": "Column updatedAt has DEFAULT now()",
+    "currentPrismaState": "Prisma had @updatedAt without @default(now())",
+    "rootCause": "Missing @default(now()) in Prisma model",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Update to updatedAt DateTime @default(now()) @updatedAt",
+    "migrationChange": "None",
+    "invariantPreserved": "Database default now() aligned with application timestamp",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 15,
+    "table": "RecruitmentApplication",
+    "differenceType": "INDEX_MISSING",
+    "columns": [
+      "status"
+    ],
+    "physicalDatabaseState": "Index RecruitmentApplication_status_phase26_idx missing from database",
+    "currentPrismaState": "Schema declares @@index([status], map: \"RecruitmentApplication_status_phase26_idx\")",
+    "rootCause": "Physical index creation SQL was omitted from migration 20260805070000",
+    "resolutionType": "IN_PLACE_MIGRATION_UPDATE",
+    "schemaChange": "Retain @@index([status], map: \"RecruitmentApplication_status_phase26_idx\")",
+    "migrationChange": "Add CREATE INDEX IF NOT EXISTS \"RecruitmentApplication_status_phase26_idx\" ON \"RecruitmentApplication\"(\"status\"); to migration.sql",
+    "invariantPreserved": "Recruitment status index created in migration",
+    "verification": "Prisma validate & migrations:check"
+  },
+  {
+    "number": 16,
+    "table": "StorefrontProductDocument",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "searchText"
+    ],
+    "physicalDatabaseState": "Index StorefrontProductDocument_search_trgm_idx exists on searchText",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical GIN index StorefrontProductDocument_search_trgm_idx omitted from Prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([searchText], map: \"StorefrontProductDocument_search_trgm_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Storefront search performance preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 17,
+    "table": "SubscriptionPlanVersionStatusHistory",
+    "differenceType": "INDEX_RENAME",
+    "columns": [
+      "planVersionId",
+      "createdAt"
+    ],
+    "physicalDatabaseState": "Index SubscriptionPlanVersionStatusHistory_planVersionId_createdAt_id exists",
+    "currentPrismaState": "Prisma expected SubscriptionPlanVersionStatusHistory_planVersionId_createdAt_idx",
+    "rootCause": "PostgreSQL 63-character identifier truncation",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Declare @@index([planVersionId, createdAt], map: \"SubscriptionPlanVersionStatusHistory_planVersionId_createdAt_id\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Preserves exact physical truncated index name",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 18,
+    "table": "WithdrawalRequest",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "createdAt"
+    ],
+    "physicalDatabaseState": "Index WithdrawalRequest_requestedAt_idx exists on column createdAt (@map(\"requestedAt\"))",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical index WithdrawalRequest_requestedAt_idx missing from Prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([createdAt], map: \"WithdrawalRequest_requestedAt_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Withdrawal time index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 19,
+    "table": "WithdrawalRequest",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "legacyReviewedByUserId"
+    ],
+    "physicalDatabaseState": "Index WithdrawalRequest_reviewedByUserId_idx exists on column legacyReviewedByUserId (@map(\"reviewedByUserId\"))",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical index WithdrawalRequest_reviewedByUserId_idx missing from Prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([legacyReviewedByUserId], map: \"WithdrawalRequest_reviewedByUserId_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Reviewer audit index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  },
+  {
+    "number": 20,
+    "table": "WithdrawalRequest",
+    "differenceType": "INDEX_EXTRA",
+    "columns": [
+      "status"
+    ],
+    "physicalDatabaseState": "Index WithdrawalRequest_status_idx exists on column status",
+    "currentPrismaState": "Missing index declaration in Prisma model",
+    "rootCause": "Physical index WithdrawalRequest_status_idx missing from Prisma",
+    "resolutionType": "PRISMA_SCHEMA_CORRECTION",
+    "schemaChange": "Add @@index([status], map: \"WithdrawalRequest_status_idx\")",
+    "migrationChange": "None",
+    "invariantPreserved": "Withdrawal status index preserved",
+    "verification": "Prisma validate & verify-physical-mappings"
+  }
+]

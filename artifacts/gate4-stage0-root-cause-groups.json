@@ -1,0 +1,63 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-08-07T11:45:00.000Z",
+  "scope": "Gate 4 Stage 0 Failure Root-Cause Groups",
+  "groups": [
+    {
+      "rootModel": "CatalogProduct",
+      "constraintName": "CatalogProduct_quality_check",
+      "constraintDefinition": "CHECK (\"qualityScore\" BETWEEN 0 AND 100 AND jsonb_typeof(\"qualityIssues\") = 'array')",
+      "affectedScenarios": [
+        "Catalog Draft Product Fixture",
+        "Catalog Active Product Staged Activation Fixture",
+        "Evidence-Backed Inventory Level Fixture",
+        "Marketplace Checkout Concurrency Fixture"
+      ],
+      "sharedBuilder": "createGate4CatalogueProduct",
+      "oldInvalidValues": { "qualityIssues": {} },
+      "newValidValues": { "qualityIssues": [] },
+      "downstreamModelsAudited": ["CatalogProductVariant", "StoreCatalogOffer", "StoreOfferPriceVersion", "InventoryLocation", "CatalogInventoryItem", "CatalogInventoryMovement", "CatalogInventoryLevel", "MarketplaceCart", "MarketplaceCheckout"],
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "rootModel": "OrderAssignment",
+      "constraintName": "OrderAssignment_current_guard_consistency",
+      "constraintDefinition": "CHECK ((\"status\" IN ('ASSIGNED', 'ACCEPTED') AND \"activeOrderGuard\" IS NOT DISTINCT FROM \"orderId\") OR (\"status\" NOT IN ('ASSIGNED', 'ACCEPTED') AND \"activeOrderGuard\" IS NULL))",
+      "affectedScenarios": [
+        "Fulfilment Accepted Assignment Fixture"
+      ],
+      "sharedBuilder": "createGate4AcceptedAssignmentScenario",
+      "oldInvalidValues": { "status": "ACCEPTED", "activeOrderGuard": null },
+      "newValidValues": { "status": "ACCEPTED", "activeOrderGuard": "<orderId>", "orderUpdate": { "currentDriverProfileId": "<driverProfileId>" } },
+      "downstreamModelsAudited": ["OrderAssignmentEvent", "ProofOfDelivery", "DeliveryOtp"],
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "rootModel": "Payment",
+      "constraintName": "Payment_succeeded_requires_provider_evidence_check",
+      "constraintDefinition": "CHECK (\"status\"::text <> 'SUCCEEDED' OR (\"successfulAttemptId\" IS NOT NULL AND \"successWebhookEventId\" IS NOT NULL AND \"successLedgerJournalId\" IS NOT NULL AND \"providerConfirmedAt\" IS NOT NULL))",
+      "affectedScenarios": [
+        "Captured Payment ITN Fixture",
+        "Marketplace Store Order Hierarchy Fixture"
+      ],
+      "sharedBuilder": "createGate4CapturedPaymentScenario",
+      "oldInvalidValues": { "status": "SUCCEEDED", "successfulAttemptId": null },
+      "newValidValues": { "status": "PROCESSING", "attemptStatus": "PROCESSING" },
+      "downstreamModelsAudited": ["PaymentAttempt", "PaymentWebhookEvent", "PaymentStatusHistory", "PaymentRefund", "MarketplaceOrder", "MarketplaceStoreOrder"],
+      "repairStatus": "REPAIRED"
+    },
+    {
+      "rootModel": "Wallet",
+      "constraintName": "Wallet_legacy_balances_zero_check",
+      "constraintDefinition": "CHECK (\"availableBalance\" = 0 AND \"pendingBalance\" = 0 AND \"lockedBalance\" = 0)",
+      "affectedScenarios": [
+        "Funded Merchant Wallet Fixture"
+      ],
+      "sharedBuilder": "createGate4FundedStoreWalletScenario",
+      "oldInvalidValues": { "availableBalance": "100.00" },
+      "newValidValues": { "availableBalance": "0.00", "pendingBalance": "0.00", "lockedBalance": "0.00", "ledgerAccountBalance": "100.00" },
+      "downstreamModelsAudited": ["LedgerAccount", "LedgerJournal", "LedgerEntry", "WithdrawalRequest"],
+      "repairStatus": "REPAIRED"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "gate": "Gate 4 — Real PostgreSQL Runtime, Transactional Invariants, Concurrency and Idempotency Closure",
+  "generatedAt": "2026-08-07T03:55:00.000Z",
+  "policies": [
+    {
+      "workflow": "checkout and inventory reservation",
+      "resources": ["MarketplaceCart", "MarketplaceCheckout", "CatalogInventoryLevel", "MarketplaceInventoryReservation"],
+      "lockOrder": ["Store (if applicable)", "MarketplaceCart by ID ASC", "MarketplaceCheckout by ID ASC", "CatalogInventoryLevel by level ID ASC", "MarketplaceInventoryReservation"],
+      "lockMode": "FOR UPDATE",
+      "reason": "Prevents deadlocks when multiple checkouts contain overlapping inventory items in different cart line order.",
+      "implementationLocation": "lib/marketplace-checkout/prisma-marketplace-reservation.repository.ts",
+      "test": "tests/integration/gate4/checkout-and-inventory-concurrency.integration.test.ts"
+    },
+    {
+      "workflow": "driver assignment and fulfilment",
+      "resources": ["DispatchAssignment", "DriverProfile", "CourierOrder"],
+      "lockOrder": ["CourierOrder by ID ASC", "DispatchAssignment by ID ASC", "DriverProfile by ID ASC"],
+      "lockMode": "FOR UPDATE",
+      "reason": "Prevents deadlocks when multiple drivers attempt assignment on overlapping orders or when multiple orders are assigned simultaneously.",
+      "implementationLocation": "lib/driver-operations/repository.ts",
+      "test": "tests/integration/gate4/fulfilment-concurrency.integration.test.ts"
+    },
+    {
+      "workflow": "payment verification and webhook ingestion",
+      "resources": ["PaymentWebhookEvent", "PaymentAttempt", "PaymentRecord", "CourierOrder / MarketplaceCheckout"],
+      "lockOrder": ["PaymentWebhookEvent by providerEventId", "PaymentAttempt by ID ASC", "PaymentRecord by ID ASC", "CourierOrder / MarketplaceCheckout by ID ASC"],
+      "lockMode": "FOR UPDATE",
+      "reason": "Ensures webhook idempotency check occurs before modifying payment attempt or order state.",
+      "implementationLocation": "lib/payments/verified-payment-event-processor.service.ts",
+      "test": "tests/integration/gate4/payment-webhook-idempotency.integration.test.ts"
+    },
+    {
+      "workflow": "refund creation",
+      "resources": ["PaymentRecord", "PaymentRefund", "LedgerJournal"],
+      "lockOrder": ["PaymentRecord by ID ASC", "PaymentRefund by ID ASC"],
+      "lockMode": "FOR UPDATE",
+      "reason": "Prevents concurrent refund operations on the same payment from reading stale refundable balances.",
+      "implementationLocation": "lib/refunds/prisma-refund-repository.ts",
+      "test": "tests/integration/gate4/refund-concurrency.integration.test.ts"
+    },
+    {
+      "workflow": "ledger journal posting",
+      "resources": ["LedgerAccount", "LedgerJournal", "LedgerEntry"],
+      "lockOrder": ["LedgerAccount by accountNumber ASC"],
+      "lockMode": "FOR UPDATE",
+      "reason": "Eliminates deadlocks when posting multi-entry journals involving the same accounts in different debit/credit order.",
+      "implementationLocation": "lib/ledger/repository.ts",
+      "test": "tests/integration/gate4/ledger-conservation.integration.test.ts"
+    },
+    {
+      "workflow": "settlement creation",
+      "resources": ["StoreAccount", "MarketplaceStoreOrder", "MarketplaceSettlementSnapshot"],
+      "lockOrder": ["StoreAccount by ID ASC", "MarketplaceStoreOrder by ID ASC"],
+      "lockMode": "FOR UPDATE",
+      "reason": "Ensures store orders are locked in stable order so concurrent settlement tasks do not claim the same order.",
+      "implementationLocation": "lib/marketplace-checkout/prisma-marketplace-settlement.repository.ts",
+      "test": "tests/integration/gate4/earnings-settlement-withdrawal.integration.test.ts"
+    },
+    {
+      "workflow": "withdrawal request and review",
+      "resources": ["WithdrawalRequest", "StoreAccount", "DriverAccount"],
+      "lockOrder": ["StoreAccount / DriverAccount by ID ASC", "WithdrawalRequest by ID ASC"],
+      "lockMode": "FOR UPDATE",
+      "reason": "Protects available balance calculation and state transitions against concurrent reviews or withdrawals.",
+      "implementationLocation": "lib/withdrawals/repository.ts",
+      "test": "tests/integration/gate4/earnings-settlement-withdrawal.integration.test.ts"
+    },
+    {
+      "workflow": "outbox worker claim",
+      "resources": ["OutboxNotificationMessage"],
+      "lockOrder": ["OutboxNotificationMessage by createdAt ASC, id ASC"],
+      "lockMode": "FOR UPDATE SKIP LOCKED",
+      "reason": "Enables non-blocking high-throughput concurrent worker queues without worker contention or lock wait timeouts.",
+      "implementationLocation": "lib/notifications/repository.ts",
+      "test": "tests/integration/gate4/outbox-concurrency.integration.test.ts"
+    }
+  ]
+}
