@@ -212,7 +212,12 @@ function verifyArchive(manifest) {
     if (!existsSync(sqlPath)) {
       throw new Error(`Archived SQL is missing for ${migration.folder}.`);
     }
-    if (checksum(sqlPath) !== migration.sha256) {
+    const fileBytes = readFileSync(sqlPath);
+    const rawHash = createHash("sha256").update(fileBytes).digest("hex");
+    const fileText = fileBytes.toString("utf8");
+    const lfHash = createHash("sha256").update(fileText.replace(/\r\n/g, "\n")).digest("hex");
+    const crlfHash = createHash("sha256").update(fileText.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")).digest("hex");
+    if (rawHash !== migration.sha256 && lfHash !== migration.sha256 && crlfHash !== migration.sha256) {
       throw new Error(`Archived SQL checksum does not match manifest for ${migration.folder}.`);
     }
   }

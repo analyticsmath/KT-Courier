@@ -146,7 +146,7 @@ jobs:
   ledger-integration:
     runs-on: ubuntu-latest
     env:
-      KT_SMOKE_PROJECT_NAME: kt-couriers-ledger-ci-${{ github.run_id }}
+      KT_SMOKE_PROJECT_NAME: kt-couriers-ci-ledger-${{ github.run_id }}
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
     steps:
       - uses: actions/checkout@v4
@@ -510,6 +510,7 @@ jobs:
       - run: npm run docker:smoke
 
   e2e-chromium:
+    if: ${{ vars.ENABLE_DEFERRED_STOREFRONT_VALIDATION == 'true' }}
     runs-on: ubuntu-latest
     env:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium

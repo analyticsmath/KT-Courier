@@ -59,8 +59,8 @@ yarn-error.log*
 !/artifacts/phase-1-core-integrity-closure.json
 !/artifacts/phase-2-master-closure-report.json
 !/artifacts/chief-architect-phase-1-requirement-matrix.json
-!/artifacts/gate3-*.json
-!/artifacts/gate4-*.json
+!/artifacts/gate3-*
+!/artifacts/gate4-*
 
 # local audit scratch files
 route_report.json

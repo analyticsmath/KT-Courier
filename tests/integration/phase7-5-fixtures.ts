@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import {
   DeliveryType,
+  DocumentStatus,
+  DocumentType,
   DriverAvailability,
   DriverStatus,
   OrderSource,
@@ -9,8 +11,14 @@ import {
   PricingQuoteOwnerType,
   PricingQuoteStatus,
   PricingRuleType,
+  PrivateMediaOwnerType,
+  PrivateMediaPurpose,
+  PrivateMediaStatus,
   UserRole,
   UserStatus,
+  VehicleComplianceStatus,
+  VehicleDocumentType,
+  VehicleType,
 } from "@/types/db";
 import type { AuthenticatedUser } from "@/types/domain";
 import type { CreateOrderInput } from "@/lib/validation/order";
@@ -52,6 +60,89 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
     },
   });
   await integrationPrisma.driverServiceRegion.create({ data: { driverProfileId: profile.id, deliveryRegionId: regionId, isPrimary: true } });
+
+  await integrationPrisma.driverDocument.createMany({
+    data: [
+      { driverProfileId: profile.id, documentType: DocumentType.ID_DOCUMENT, status: DocumentStatus.APPROVED, expiresAt: null },
+      { driverProfileId: profile.id, documentType: DocumentType.LICENSE, status: DocumentStatus.APPROVED, expiresAt: new Date("2035-01-01T00:00:00.000Z") },
+    ],
+  });
+
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const vehicle = await integrationPrisma.vehicle.create({
+    data: {
+      publicReference: `VEH-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      driverProfileId: profile.id,
+      make: "Toyota",
+      model: "Corolla",
+      registrationNumber: `GP-${rand}`,
+      vehicleType: VehicleType.CAR,
+      status: VehicleComplianceStatus.APPROVED,
+      approvedAt: new Date(),
+      approvedByUserId: user.id,
+    },
+  });
+
+  const mediaReg = await integrationPrisma.privateMediaObject.create({
+    data: {
+      publicReference: `MED-REG-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      ownerType: PrivateMediaOwnerType.VEHICLE,
+      ownerId: vehicle.id,
+      purpose: PrivateMediaPurpose.VEHICLE_REGISTRATION,
+      status: PrivateMediaStatus.READY,
+      storageProvider: "local",
+      storageKey: `key-reg-${tag}-${Date.now()}-${rand}`,
+      originalFileName: "reg.pdf",
+      declaredMimeType: "application/pdf",
+      detectedMimeType: "application/pdf",
+      byteSize: 1024,
+      checksum: "0".repeat(64),
+      createdByUserId: user.id,
+    },
+  });
+  const mediaDisc = await integrationPrisma.privateMediaObject.create({
+    data: {
+      publicReference: `MED-DISC-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      ownerType: PrivateMediaOwnerType.VEHICLE,
+      ownerId: vehicle.id,
+      purpose: PrivateMediaPurpose.VEHICLE_LICENCE_DISC,
+      status: PrivateMediaStatus.READY,
+      storageProvider: "local",
+      storageKey: `key-disc-${tag}-${Date.now()}-${rand}`,
+      originalFileName: "disc.pdf",
+      declaredMimeType: "application/pdf",
+      detectedMimeType: "application/pdf",
+      byteSize: 1024,
+      checksum: "0".repeat(64),
+      createdByUserId: user.id,
+    },
+  });
+  const mediaIns = await integrationPrisma.privateMediaObject.create({
+    data: {
+      publicReference: `MED-INS-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      ownerType: PrivateMediaOwnerType.VEHICLE,
+      ownerId: vehicle.id,
+      purpose: PrivateMediaPurpose.VEHICLE_INSURANCE,
+      status: PrivateMediaStatus.READY,
+      storageProvider: "local",
+      storageKey: `key-ins-${tag}-${Date.now()}-${rand}`,
+      originalFileName: "ins.pdf",
+      declaredMimeType: "application/pdf",
+      detectedMimeType: "application/pdf",
+      byteSize: 1024,
+      checksum: "0".repeat(64),
+      createdByUserId: user.id,
+    },
+  });
+
+  await integrationPrisma.vehicleDocument.createMany({
+    data: [
+      { vehicleId: vehicle.id, documentType: VehicleDocumentType.REGISTRATION, status: DocumentStatus.APPROVED, privateMediaObjectId: mediaReg.id, expiresAt: null, reviewedAt: new Date(), reviewedByUserId: user.id },
+      { vehicleId: vehicle.id, documentType: VehicleDocumentType.LICENCE_DISC, status: DocumentStatus.APPROVED, privateMediaObjectId: mediaDisc.id, expiresAt: new Date("2035-01-01T00:00:00.000Z"), reviewedAt: new Date(), reviewedByUserId: user.id },
+      { vehicleId: vehicle.id, documentType: VehicleDocumentType.INSURANCE, status: DocumentStatus.APPROVED, privateMediaObjectId: mediaIns.id, expiresAt: new Date("2035-01-01T00:00:00.000Z"), reviewedAt: new Date(), reviewedByUserId: user.id },
+    ],
+  });
+
   return { user, profile };
 }
 

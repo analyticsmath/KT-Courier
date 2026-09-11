@@ -25,6 +25,7 @@ const smokeEnv = {
   APP_PORT: "3100",
   NEXT_PUBLIC_APP_URL: "http://localhost:3100",
   EMAIL_PROVIDER: "console",
+  KT_RUNTIME_ENV: "smoke",
 };
 
 function assertDisposableProject() {

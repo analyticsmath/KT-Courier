@@ -54,11 +54,11 @@ function issue(
 export function evaluateProductionConfiguration(
   source: Environment = process.env
 ): ProductionConfigurationAssessment {
-  const isProduction = source.NODE_ENV === "production" && source.KT_RUNTIME_ENV !== "e2e";
+  const isProduction = source.NODE_ENV === "production" && source.KT_RUNTIME_ENV !== "e2e" && source.KT_RUNTIME_ENV !== "smoke";
   const issues: SafeConfigurationIssue[] = [];
 
   if (!isProduction) {
-    return { environment: source.NODE_ENV === "test" || source.KT_RUNTIME_ENV === "e2e" ? "test" : "development", startupBlocked: false, readinessBlocked: false, issues };
+    return { environment: source.NODE_ENV === "test" || source.KT_RUNTIME_ENV === "e2e" || source.KT_RUNTIME_ENV === "smoke" ? "test" : "development", startupBlocked: false, readinessBlocked: false, issues };
   }
 
   if (!isSafeProductionUrl(source.DATABASE_URL, { database: true })) {

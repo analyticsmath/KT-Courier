@@ -33,7 +33,7 @@ const expectedMigrations = readdirSync(path.join(process.cwd(), "prisma", "migra
   .sort();
 
 function assertDisposableProject() {
-  if (projectName === normalComposeProject || !/^kt-couriers-(baseline-smoke|ci-)/.test(projectName)) {
+  if (projectName === normalComposeProject || !/^kt-couriers-(baseline-smoke|ci-|.*-ci-)/.test(projectName)) {
     throw new Error(`Refusing to remove volumes for non-disposable Compose project ${projectName}.`);
   }
 }
