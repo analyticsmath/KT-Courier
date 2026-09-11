@@ -15,6 +15,23 @@ env:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kt_courier_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: kt_courier_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kt_courier_test -d kt_courier_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
+      DIRECT_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
 
     steps:
       - name: Checkout
@@ -34,6 +51,9 @@ jobs:
 
       - name: Validate Prisma schema
         run: npx prisma validate
+
+      - name: Deploy Prisma migrations
+        run: npx prisma migrate deploy
 
       - name: Lint
         run: npm run lint
@@ -162,7 +182,7 @@ jobs:
       - name: Install Chromium for read-only ledger E2E
         run: node node_modules/playwright/cli.js install --with-deps chromium
       - name: Read-only ledger E2E
-        run: npm run test:e2e -- --grep "read-only admin ledger"
+        run: npm run test:e2e -- tests/e2e/ledger-admin.spec.ts
 
   release-critical-verification:
     name: Phase 1 Release-Critical Verification (Paystack, Invariants, Security, Processors, Refunds)

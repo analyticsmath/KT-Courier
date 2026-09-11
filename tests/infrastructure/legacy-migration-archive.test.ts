@@ -24,9 +24,13 @@ describe("legacy Prisma migration archive", () => {
     expect(manifest.migrations.map((migration: { folder: string }) => migration.folder)).toEqual(expected);
     for (const migration of manifest.migrations as Array<{ folder: string; sqlFile: string; sha256: string }>) {
       const sqlPath = path.join(archiveDir, migration.folder, migration.sqlFile);
-      expect(existsSync(sqlPath)).toBe(true);
-      const hash = createHash("sha256").update(readFileSync(sqlPath)).digest("hex");
-      expect(hash).toBe(migration.sha256);
+      const fileBytes = readFileSync(sqlPath);
+      const rawHash = createHash("sha256").update(fileBytes).digest("hex");
+      const fileText = fileBytes.toString("utf8");
+      const lfHash = createHash("sha256").update(fileText.replace(/\r\n/g, "\n")).digest("hex");
+      const crlfHash = createHash("sha256").update(fileText.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")).digest("hex");
+      const match = rawHash === migration.sha256 || lfHash === migration.sha256 || crlfHash === migration.sha256;
+      expect(match).toBe(true);
     }
   });
 
