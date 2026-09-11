@@ -20,7 +20,7 @@ import {
 } from "../lib/constants/foundation-models";
 
 const prisma = new PrismaClient();
-export const DEFAULT_PASSWORD_HASH = bcrypt.hashSync("password123", 10);
+export const DEFAULT_PASSWORD_HASH = bcrypt.hashSync("ChangeMe123!", 10);
 
 export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   includeDevAuthAccounts?: boolean;
@@ -59,7 +59,12 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   // 2. Roles and standard administrator accounts
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@ktcouriers.local" },
-    update: { name: "System Super Admin", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE },
+    update: {
+      name: "System Super Admin",
+      role: UserRole.SUPER_ADMIN,
+      status: UserStatus.ACTIVE,
+      passwordHash: DEFAULT_PASSWORD_HASH,
+    },
     create: {
       email: "superadmin@ktcouriers.local",
       name: "System Super Admin",
@@ -71,7 +76,12 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@ktcouriers.local" },
-    update: { name: "Operations Admin", role: UserRole.ADMIN, status: UserStatus.ACTIVE },
+    update: {
+      name: "Operations Admin",
+      role: UserRole.ADMIN,
+      status: UserStatus.ACTIVE,
+      passwordHash: DEFAULT_PASSWORD_HASH,
+    },
     create: {
       email: "admin@ktcouriers.local",
       name: "Operations Admin",
@@ -211,25 +221,45 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     console.log("  [Bootstrap] Ensuring development testing auth logins...");
     await prisma.user.upsert({
       where: { email: "customer@ktcouriers.local" },
-      update: { name: "Thabo Mokoena", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE },
+      update: {
+        name: "Thabo Mokoena",
+        role: UserRole.CUSTOMER,
+        status: UserStatus.ACTIVE,
+        passwordHash: DEFAULT_PASSWORD_HASH,
+      },
       create: { email: "customer@ktcouriers.local", name: "Thabo Mokoena", passwordHash: DEFAULT_PASSWORD_HASH, role: UserRole.CUSTOMER, status: UserStatus.ACTIVE },
     });
 
     await prisma.user.upsert({
       where: { email: "driver@ktcouriers.local" },
-      update: { name: "Sipho Khumalo", role: UserRole.DRIVER, status: UserStatus.ACTIVE },
+      update: {
+        name: "Sipho Khumalo",
+        role: UserRole.DRIVER,
+        status: UserStatus.ACTIVE,
+        passwordHash: DEFAULT_PASSWORD_HASH,
+      },
       create: { email: "driver@ktcouriers.local", name: "Sipho Khumalo", passwordHash: DEFAULT_PASSWORD_HASH, role: UserRole.DRIVER, status: UserStatus.ACTIVE },
     });
 
     await prisma.user.upsert({
       where: { email: "store@ktcouriers.local" },
-      update: { name: "Nandi Khumalo", role: UserRole.STORE, status: UserStatus.ACTIVE },
+      update: {
+        name: "Nandi Khumalo",
+        role: UserRole.STORE,
+        status: UserStatus.ACTIVE,
+        passwordHash: DEFAULT_PASSWORD_HASH,
+      },
       create: { email: "store@ktcouriers.local", name: "Nandi Khumalo", passwordHash: DEFAULT_PASSWORD_HASH, role: UserRole.STORE, status: UserStatus.ACTIVE },
     });
 
     await prisma.user.upsert({
       where: { email: "promoter@ktcouriers.local" },
-      update: { name: "Lerato Sithole", role: UserRole.PROMOTER, status: UserStatus.ACTIVE },
+      update: {
+        name: "Lerato Sithole",
+        role: UserRole.PROMOTER,
+        status: UserStatus.ACTIVE,
+        passwordHash: DEFAULT_PASSWORD_HASH,
+      },
       create: { email: "promoter@ktcouriers.local", name: "Lerato Sithole", passwordHash: DEFAULT_PASSWORD_HASH, role: UserRole.PROMOTER, status: UserStatus.ACTIVE },
     });
   }
