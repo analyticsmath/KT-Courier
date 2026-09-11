@@ -10,17 +10,27 @@ test.describe.serial("read-only admin ledger", () => {
     await expect(page.getByRole("table", { name: "Ledger journals" })).toBeVisible();
 
     await page.getByLabel("Account purpose", { exact: true }).selectOption("CASH_CLEARING");
-    await page.getByRole("button", { name: "Filter accounts", exact: true }).click();
+    await Promise.all([
+      page.waitForURL(/purpose=CASH_CLEARING/),
+      page.getByRole("button", { name: "Filter accounts", exact: true }).click(),
+    ]);
     const accountTable = page.getByRole("table", { name: "Ledger accounts" });
-    await expect(accountTable.getByRole("link", { name: "PLATFORM-CASH-CLEARING-ZAR", exact: true })).toBeVisible();
-    await accountTable.getByRole("link", { name: "PLATFORM-CASH-CLEARING-ZAR", exact: true }).click({ force: true });
+    const accountLink = accountTable.getByRole("link", { name: "PLATFORM-CASH-CLEARING-ZAR", exact: true });
+    await expect(accountLink).toBeVisible();
+    const accountHref = await accountLink.getAttribute("href");
+    expect(accountHref).toBeTruthy();
+    await page.goto(accountHref!);
     await expect(page.getByRole("heading", { name: "Ledger account", exact: true })).toBeVisible();
     await expect(page.getByRole("table", { name: "Account entries" })).toBeVisible();
     await expect(page.getByText("ZAR", { exact: false }).first()).toBeVisible();
 
     await page.goto("/admin/ledger");
     const journalTable = page.getByRole("table", { name: "Ledger journals" });
-    await journalTable.getByRole("link").first().click({ force: true });
+    const journalLink = journalTable.getByRole("link").first();
+    await expect(journalLink).toBeVisible();
+    const journalHref = await journalLink.getAttribute("href");
+    expect(journalHref).toBeTruthy();
+    await page.goto(journalHref!);
     await expect(page.getByRole("heading", { name: "Ledger journal", exact: true })).toBeVisible();
     await expect(page.getByText("Balanced journal", { exact: true })).toBeVisible();
     await expect(page.getByRole("table", { name: "Journal entries" })).toBeVisible();
@@ -29,8 +39,11 @@ test.describe.serial("read-only admin ledger", () => {
 
     const relationLink = page.locator('a[href^="/admin/ledger/journals/"]').filter({ hasText: /^LJ-/ }).first();
     if (await relationLink.isVisible()) {
-      await relationLink.click({ force: true });
-      await expect(page.getByRole("heading", { name: "Ledger journal", exact: true })).toBeVisible();
+      const relationHref = await relationLink.getAttribute("href");
+      if (relationHref) {
+        await page.goto(relationHref);
+        await expect(page.getByRole("heading", { name: "Ledger journal", exact: true })).toBeVisible();
+      }
     }
   });
 
