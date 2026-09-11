@@ -20,6 +20,7 @@ export default defineConfig({
         /storefront-browsing\.spec\.ts/,
         /marketplace-cart\.spec\.ts/,
         /marketplace-checkout-guest\.spec\.ts/,
+        /ledger-admin\.spec\.ts/,
       ],
     },
     {
