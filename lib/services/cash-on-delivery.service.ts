@@ -15,19 +15,21 @@ const money = (value: string) => {
   return parsed;
 };
 const hash = (value: unknown) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const reference = (prefix: string, id: string) => `${prefix}-${id.replaceAll("-", "").toUpperCase()}`;
+const reference = (prefix: string, id: string) => `${prefix}-${id.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 
 async function custodyAccounts(driverId: string) {
   const [platformWallet, driverWallet] = await Promise.all([
     ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }),
     ensureWalletForOwner({ ownerType: "DRIVER", ownerId: driverId, currency: "ZAR" }),
   ]);
-  const [held, driverCash, platformCash] = await Promise.all([
+  const [held, driverCash, platformCash, shortageSuspense, platformAdjustment] = await Promise.all([
     ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }),
     ensureLedgerAccount({ walletId: driverWallet.id, code: reference("DRIVER-COD-CASH", driverId), purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
     ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR", purpose: "SUSPENSE", category: "EXPENSE", currency: "ZAR" }),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY", currency: "ZAR" }),
   ]);
-  return { held, driverCash, platformCash };
+  return { held, driverCash, platformCash, shortageSuspense, platformAdjustment };
 }
 
 export async function createCashOnDeliveryObligation(input: {
@@ -82,18 +84,166 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
 }
 
 export async function reconcileCashCollection(input: { orderId: string; actorUserId: string; receivedAmount: string; operationId: string; evidenceReference?: string }) {
-  const received = money(input.receivedAmount); const requestHash = hash({ orderId: input.orderId, received: received.toFixed(2), evidenceReference: input.evidenceReference ?? null });
+  const received = money(input.receivedAmount);
+  const requestHash = hash({ orderId: input.orderId, received: received.toFixed(2), evidenceReference: input.evidenceReference ?? null });
   const run = () => prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "orderId" = ${input.orderId} FOR UPDATE`);
     if (rows.length !== 1) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
     const cod = await tx.cashOnDelivery.findUnique({ where: { id: rows[0].id } });
     if (!cod?.collectorDriverId) throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD collection has no collector custody evidence.");
-    if (cod.reconciliationJournalId) throw new CashOnDeliveryError("COD_ALREADY_RECONCILED", "COD collection is already reconciled.");
-    if (cod.status !== "COLLECTED" || !received.equals(cod.cashCollected)) throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD cash cannot be reconciled with a discrepancy.");
+    if (cod.reconciliationJournalId || cod.suspenseJournalId) throw new CashOnDeliveryError("COD_ALREADY_RECONCILED", "COD collection is already reconciled.");
+    if (cod.status !== "COLLECTED") throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD cash cannot be reconciled from current state.");
+    if (received.greaterThan(cod.cashCollected)) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Received remittance cannot exceed collected cash.");
+
     const accounts = await custodyAccounts(cod.collectorDriverId);
-    const journal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `cod-reconcile:${input.operationId}`, type: "GENERAL", currency: "ZAR", sourceReference: `cod:${cod.publicReference}:reconciliation`, correlationId: cod.publicReference, memo: "COD driver custody handover", actor: { kind: "USER", userId: input.actorUserId }, metadata: { codReference: cod.publicReference, collectorDriverId: cod.collectorDriverId }, entries: [{ accountId: accounts.platformCash.id, direction: "DEBIT", amount: received.toFixed(2), lineCode: "PLATFORM_CASH_RECEIVED" }, { accountId: accounts.driverCash.id, direction: "CREDIT", amount: received.toFixed(2), lineCode: "DRIVER_CUSTODY_RELEASED" }] });
-    return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { cashReconciled: received, status: "RECONCILED", reconciliationStatus: "RECONCILED", reconciledAt: new Date(), reconciliationActorId: input.actorUserId, reconciliationJournalId: journal.id, version: { increment: 1 }, reconciliations: { create: { operationId: input.operationId, requestHash, expectedAmount: cod.cashCollected, receivedAmount: received, discrepancyAmount: new Prisma.Decimal(0), collectorDriverId: cod.collectorDriverId, reconciledByUserId: input.actorUserId, evidenceReference: input.evidenceReference, journalId: journal.id } }, events: { create: { operationId: `reconciliation:${input.operationId}`, requestHash, eventType: "RECONCILED", actorUserId: input.actorUserId } } } });
+    const hasDiscrepancy = received.lessThan(cod.cashCollected);
+    const discrepancy = hasDiscrepancy ? cod.cashCollected.sub(received) : new Prisma.Decimal(0);
+
+    const journalEntries = [
+      { accountId: accounts.platformCash.id, direction: "DEBIT" as const, amount: received.toFixed(2), lineCode: "PLATFORM_CASH_RECEIVED" },
+      ...(hasDiscrepancy ? [{ accountId: accounts.shortageSuspense.id, direction: "DEBIT" as const, amount: discrepancy.toFixed(2), lineCode: "COD_SHORTAGE_SUSPENSE" }] : []),
+      { accountId: accounts.driverCash.id, direction: "CREDIT" as const, amount: cod.cashCollected.toFixed(2), lineCode: "DRIVER_CUSTODY_RELEASED" },
+    ];
+
+    const journal = await postLedgerJournalWithinTransaction(tx, {
+      idempotencyKey: `cod-reconcile:${input.operationId}`,
+      type: "GENERAL",
+      currency: "ZAR",
+      sourceReference: `cod:${cod.publicReference}:reconciliation`,
+      correlationId: cod.publicReference,
+      memo: hasDiscrepancy
+        ? `COD driver custody handover with discrepancy (received: ${received.toFixed(2)}, shortage: ${discrepancy.toFixed(2)})`
+        : "COD driver custody handover",
+      actor: { kind: "USER", userId: input.actorUserId },
+      metadata: { codReference: cod.publicReference, collectorDriverId: cod.collectorDriverId, shortage: discrepancy.toFixed(2) },
+      entries: journalEntries,
+    });
+
+    const targetStatus = hasDiscrepancy ? "UNDER_RECONCILIATION" : "RECONCILED";
+    const targetReconStatus = hasDiscrepancy ? "UNDER_RECONCILIATION" : "RECONCILED";
+
+    return tx.cashOnDelivery.update({
+      where: { id: cod.id },
+      data: {
+        cashReconciled: received,
+        remittanceDiscrepancy: discrepancy,
+        status: targetStatus,
+        reconciliationStatus: targetReconStatus,
+        reconciledAt: new Date(),
+        reconciliationActorId: input.actorUserId,
+        reconciliationJournalId: hasDiscrepancy ? null : journal.id,
+        suspenseJournalId: hasDiscrepancy ? journal.id : null,
+        version: { increment: 1 },
+        reconciliations: {
+          create: {
+            operationId: input.operationId,
+            requestHash,
+            expectedAmount: cod.cashCollected,
+            receivedAmount: received,
+            discrepancyAmount: discrepancy,
+            collectorDriverId: cod.collectorDriverId,
+            reconciledByUserId: input.actorUserId,
+            evidenceReference: input.evidenceReference,
+            journalId: journal.id,
+          },
+        },
+        events: {
+          create: {
+            operationId: `reconciliation:${input.operationId}`,
+            requestHash,
+            eventType: hasDiscrepancy ? "UNDER_RECONCILIATION" : "RECONCILED",
+            actorUserId: input.actorUserId,
+            safeEvidence: { discrepancy: discrepancy.toFixed(2), journalId: journal.id },
+          },
+        },
+      },
+    });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  return withLedgerRetry(run);
+}
+
+export async function adjustCashOnDelivery(input: {
+  orderId: string;
+  actorUserId: string;
+  adjustmentReason: string;
+  adjustmentNotes?: string;
+  adjustmentType: "FORGIVE_SHORTAGE" | "RECOVER_FROM_DRIVER";
+  operationId: string;
+}) {
+  const requestHash = hash({
+    orderId: input.orderId,
+    reason: input.adjustmentReason,
+    type: input.adjustmentType,
+    notes: input.adjustmentNotes ?? null,
+  });
+
+  const run = () => prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "orderId" = ${input.orderId} FOR UPDATE`);
+    if (rows.length !== 1) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
+    const cod = await tx.cashOnDelivery.findUnique({ where: { id: rows[0].id } });
+    if (!cod) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
+
+    if (cod.adjustmentJournalId) {
+      if (cod.adminAdjustmentReason === input.adjustmentReason) return cod;
+      throw new CashOnDeliveryError("COD_ALREADY_ADJUSTED", "COD remittance discrepancy has already been adjusted.");
+    }
+
+    if (cod.status !== "UNDER_RECONCILIATION" || cod.remittanceDiscrepancy.lessThanOrEqualTo(0) || !cod.collectorDriverId) {
+      throw new CashOnDeliveryError("COD_NOT_ADJUSTABLE", "COD order has no outstanding remittance discrepancy to adjust.");
+    }
+
+    const accounts = await custodyAccounts(cod.collectorDriverId);
+    const amount = cod.remittanceDiscrepancy;
+
+    const debitAccount = input.adjustmentType === "FORGIVE_SHORTAGE"
+      ? accounts.platformAdjustment
+      : accounts.platformCash;
+
+    const journal = await postLedgerJournalWithinTransaction(tx, {
+      idempotencyKey: `cod-adjust:${input.operationId}`,
+      type: "GENERAL",
+      currency: "ZAR",
+      sourceReference: `cod:${cod.publicReference}:adjustment`,
+      correlationId: cod.publicReference,
+      memo: `Admin adjustment for COD discrepancy (${input.adjustmentType}): ${input.adjustmentReason}`,
+      actor: { kind: "USER", userId: input.actorUserId },
+      metadata: { codReference: cod.publicReference, adjustmentType: input.adjustmentType, reason: input.adjustmentReason },
+      entries: [
+        { accountId: debitAccount.id, direction: "DEBIT", amount: amount.toFixed(2), lineCode: input.adjustmentType === "FORGIVE_SHORTAGE" ? "PLATFORM_SHORTAGE_WRITEOFF" : "RECOVERED_CASH_RECEIVED" },
+        { accountId: accounts.shortageSuspense.id, direction: "CREDIT", amount: amount.toFixed(2), lineCode: "COD_SHORTAGE_SUSPENSE_CLEARED" },
+      ],
+    });
+
+    const now = new Date();
+    return tx.cashOnDelivery.update({
+      where: { id: cod.id },
+      data: {
+        status: "RECONCILED",
+        reconciliationStatus: "RECONCILED",
+        adjustmentJournalId: journal.id,
+        adminAdjustmentReason: input.adjustmentReason,
+        adminAdjustmentNotes: input.adjustmentNotes ?? null,
+        adminAdjustedByUserId: input.actorUserId,
+        adminAdjustedAt: now,
+        version: { increment: 1 },
+        events: {
+          create: {
+            operationId: `adjust:${input.operationId}`,
+            requestHash,
+            eventType: "ADMIN_ADJUSTED",
+            actorUserId: input.actorUserId,
+            safeEvidence: {
+              adjustmentType: input.adjustmentType,
+              adjustmentReason: input.adjustmentReason,
+              amount: amount.toFixed(2),
+              journalId: journal.id,
+            },
+          },
+        },
+      },
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
   return withLedgerRetry(run);
 }
 

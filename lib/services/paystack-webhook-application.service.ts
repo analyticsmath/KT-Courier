@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { PaymentSubjectType, PaymentWebhookEvent, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -14,6 +14,18 @@ import {
   openPaymentReconciliationCaseWithinTransaction,
   resolvePaymentReconciliationCasesWithinTransaction,
 } from "@/lib/services/payment-reconciliation.service";
+import {
+  sanitizeEvidenceSnapshot,
+  openPaymentDispute,
+  updatePaymentDisputeEvidence,
+  resolvePaymentDispute,
+} from "@/lib/services/payment-dispute.service";
+import {
+  handlePaystackTransferSuccess,
+  handlePaystackTransferFailed,
+  handlePaystackTransferReversed,
+} from "@/lib/services/paystack-transfer-execution.service";
+import { finalizeProviderRefundAttempt } from "@/lib/services/refund-provider-execution.service";
 import type {
   PaymentProviderEnvironment,
   PaymentReconciliationReasonCode,
@@ -256,9 +268,22 @@ export async function ingestPaystackWebhook(
   }
   const payload = parsed.data;
 
-  const eventFingerprint = payload.data && "id" in payload.data && payload.data.id
-    ? `paystack:${payload.event}:${payload.data.id}`
-    : `paystack:${createHash("sha256").update(input.rawBody).digest("hex")}`;
+  const dataRecord = (payload.data && typeof payload.data === "object") ? (payload.data as Record<string, unknown>) : undefined;
+  const merchantRef = (dataRecord && typeof dataRecord.reference === "string")
+    ? dataRecord.reference
+    : (dataRecord && typeof dataRecord.transaction_reference === "string"
+      ? dataRecord.transaction_reference
+      : "unknown");
+
+  const providerPaymentId = (dataRecord && "id" in dataRecord && dataRecord.id !== undefined && dataRecord.id !== null) ? String(dataRecord.id) : "unknown";
+  const providerStatus = (dataRecord && typeof dataRecord.status === "string")
+    ? dataRecord.status
+    : payload.event;
+
+  const entityId = providerPaymentId !== "unknown"
+    ? providerPaymentId
+    : (merchantRef !== "unknown" ? merchantRef : createHash("sha256").update(input.rawBody).digest("hex").slice(0, 16));
+  const eventFingerprint = `paystack:${payload.event}:${entityId}:${providerStatus}`;
 
   const existing = await prisma.paymentWebhookEvent.findUnique({ where: { eventFingerprint } });
   if (existing) {
@@ -273,20 +298,8 @@ export async function ingestPaystackWebhook(
     });
   }
 
-  const dataRecord = (payload.data && typeof payload.data === "object") ? (payload.data as Record<string, unknown>) : undefined;
-  const merchantRef = (dataRecord && typeof dataRecord.reference === "string")
-    ? dataRecord.reference
-    : (dataRecord && typeof dataRecord.transaction_reference === "string"
-      ? dataRecord.transaction_reference
-      : "unknown");
-
-  const providerPaymentId = (dataRecord && "id" in dataRecord && dataRecord.id !== undefined && dataRecord.id !== null) ? String(dataRecord.id) : "unknown";
-  const providerStatus = (dataRecord && typeof dataRecord.status === "string")
-    ? dataRecord.status
-    : payload.event;
-
   const isCharge = payload.event === "charge.success";
-  const isRefund = payload.event.startsWith("refund.");
+  const sanitizedSnapshot = sanitizeEvidenceSnapshot(payload as unknown as Record<string, unknown>);
 
   // Fast HTTP ingestion upsert: stores raw event with sourceAddressVerified: false, signatureVerified: true
   const eventRecord = await prisma.paymentWebhookEvent.upsert({
@@ -301,15 +314,16 @@ export async function ingestPaystackWebhook(
       providerPaymentId,
       providerStatus,
       normalizedStatus: isCharge ? "COMPLETE" : "UNKNOWN",
-      processingStatus: isCharge ? "RECEIVED" : (isRefund ? "RECEIVED" : "IGNORED_STALE"),
+      processingStatus: "RECEIVED",
+      attemptCount: 0,
       credentialVersion,
       sourceAddress: input.sourceAddress ?? "webhook",
       sourceAddressVerified: false,
       signatureVerified: true,
       merchantVerified: false,
       amountVerified: false,
-      providerDataVerified: isRefund ? true : false,
-      safePayloadSnapshot: payload as unknown as Prisma.InputJsonValue,
+      providerDataVerified: false,
+      safePayloadSnapshot: (sanitizedSnapshot ?? payload) as unknown as Prisma.InputJsonValue,
       unknownFieldCount: 0,
     },
   });
@@ -789,4 +803,304 @@ export async function processPaystackWebhook(
     sourceAddress: input.sourceAddress,
     secretKey: input.secretKey,
   });
+}
+
+export interface ClaimedWebhookEvent {
+  id: string;
+  publicReference: string;
+  provider: string;
+  processingStatus: string;
+  eventFingerprint: string;
+  safePayloadSnapshot: Prisma.JsonValue;
+  attemptCount: number;
+  leaseToken: string;
+}
+
+export async function claimPaystackWebhookEventsBatch(options?: {
+  batchSize?: number;
+  leaseDurationMs?: number;
+}): Promise<ClaimedWebhookEvent[]> {
+  const batchSize = Math.max(1, Math.min(options?.batchSize ?? 50, 100));
+  const leaseDurationMs = options?.leaseDurationMs ?? 60_000;
+  const leaseToken = randomUUID();
+  const now = new Date();
+  const leaseExpiresAt = new Date(now.getTime() + leaseDurationMs);
+
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id" FROM "PaymentWebhookEvent"
+      WHERE "provider" = 'PAYSTACK'
+        AND (
+          "processingStatus" = 'RECEIVED'
+          OR ("processingStatus" = 'PROCESSING' AND "leaseExpiresAt" IS NOT NULL AND "leaseExpiresAt" < ${now})
+        )
+        AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
+      ORDER BY "receivedAt" ASC
+      LIMIT ${batchSize}
+      FOR UPDATE SKIP LOCKED
+    `);
+
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    await tx.paymentWebhookEvent.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        processingStatus: "PROCESSING",
+        leaseToken,
+        leaseExpiresAt,
+        lastAttemptAt: now,
+        attemptCount: { increment: 1 },
+      },
+    });
+
+    const claimed = await tx.paymentWebhookEvent.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        publicReference: true,
+        provider: true,
+        processingStatus: true,
+        eventFingerprint: true,
+        safePayloadSnapshot: true,
+        attemptCount: true,
+      },
+    });
+
+    return claimed.map((c) => ({ ...c, leaseToken }));
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function processClaimedPaystackWebhookEvent(
+  event: ClaimedWebhookEvent,
+  options?: { clientOverride?: PaystackClient; secretKey?: string },
+): Promise<{ outcome: string; eventPublicReference: string }> {
+  const payload = event.safePayloadSnapshot as Record<string, unknown> | null;
+  const eventName = (payload && typeof payload.event === "string") ? payload.event : "unknown";
+  const data = (payload && typeof payload.data === "object" && payload.data !== null)
+    ? (payload.data as Record<string, unknown>)
+    : {};
+
+  const now = new Date();
+  let finalStatus: "APPLIED" | "IGNORED_UNSUPPORTED" | "RECONCILIATION_REQUIRED" = "APPLIED";
+  let outcome = "APPLIED";
+
+  try {
+    if (eventName === "charge.success") {
+      const chargeResult = await applyPaystackWebhookEvent({
+        webhookEventId: event.id,
+        webhookEventReference: event.publicReference,
+        eventRecord: event as unknown as Partial<PaymentWebhookEvent>,
+        rawPayload: payload as unknown as PaystackWebhookPayload,
+        clientOverride: options?.clientOverride,
+        secretKey: options?.secretKey,
+      });
+      if (chargeResult.outcome === "RECONCILIATION_REQUIRED") {
+        finalStatus = "RECONCILIATION_REQUIRED";
+      }
+      outcome = chargeResult.outcome;
+    } else if (eventName.startsWith("transfer.")) {
+      const merchantReference = typeof data.reference === "string" ? data.reference : "";
+      const transferCode = typeof data.transfer_code === "string" ? data.transfer_code : undefined;
+
+      if (eventName === "transfer.success") {
+        const amountCents = typeof data.amount === "number" ? data.amount : 0;
+        const currency = typeof data.currency === "string" ? data.currency : "ZAR";
+        const recipientCode = typeof data.recipient === "object" && data.recipient !== null
+          ? (data.recipient as { recipient_code?: string }).recipient_code
+          : undefined;
+
+        const res = await handlePaystackTransferSuccess({
+          merchantReference,
+          transferCode,
+          amountCents,
+          currency,
+          recipientCode,
+        });
+        outcome = res.outcome;
+        if (res.outcome === "RECONCILIATION_REQUIRED") {
+          finalStatus = "RECONCILIATION_REQUIRED";
+        }
+      } else if (eventName === "transfer.failed") {
+        const failureMessage = typeof data.reason === "string" ? data.reason : (typeof data.gateway_response === "string" ? data.gateway_response : undefined);
+        const res = await handlePaystackTransferFailed({
+          merchantReference,
+          transferCode,
+          failureMessage,
+        });
+        outcome = res.outcome;
+        if (res.outcome === "RECONCILIATION_REQUIRED") {
+          finalStatus = "RECONCILIATION_REQUIRED";
+        }
+      } else if (eventName === "transfer.reversed") {
+        const reason = typeof data.reason === "string" ? data.reason : undefined;
+        const res = await handlePaystackTransferReversed({
+          merchantReference,
+          transferCode,
+          reason,
+        });
+        outcome = res.outcome;
+      } else {
+        outcome = "IGNORED_TRANSFER_EVENT";
+      }
+    } else if (eventName.startsWith("refund.")) {
+      const providerRefundId = data.id !== undefined && data.id !== null ? String(data.id) : undefined;
+      const ref = typeof data.reference === "string" ? data.reference : (typeof data.transaction_reference === "string" ? data.transaction_reference : undefined);
+
+      const attempt = await prisma.refundExecutionAttempt.findFirst({
+        where: {
+          OR: [
+            ...(providerRefundId ? [{ providerRefundId }] : []),
+            ...(ref ? [{ requestHash: { contains: ref } }] : []),
+            ...(providerRefundId ? [{ safeResultSnapshot: { path: ["providerRefundId"], equals: providerRefundId } }] : []),
+          ],
+        },
+        include: { refund: true },
+      });
+
+      if (attempt) {
+        const status = typeof data.status === "string" ? data.status.toLowerCase() : "";
+        let providerStatusResult: "SUCCEEDED" | "FAILED" | "UNKNOWN" | "NEEDS_ATTENTION" | "PROCESSING" = "UNKNOWN";
+        if (status === "processed") providerStatusResult = "SUCCEEDED";
+        else if (status === "failed") providerStatusResult = "FAILED";
+        else if (status === "needs-attention" || status === "needs_attention") providerStatusResult = "NEEDS_ATTENTION";
+        else if (status === "pending" || status === "processing") providerStatusResult = "PROCESSING";
+
+        await finalizeProviderRefundAttempt({
+          actorUserId: attempt.initiatedByUserId,
+          refundPublicReference: attempt.refund.publicReference,
+          attemptPublicReference: attempt.publicReference,
+          result: {
+            status: providerStatusResult,
+            providerRefundId,
+            providerStatusCode: typeof data.status === "string" ? data.status : undefined,
+            definitive: providerStatusResult === "SUCCEEDED" || providerStatusResult === "FAILED",
+          },
+        });
+        outcome = "REFUND_FINALIZED";
+      } else {
+        outcome = "REFUND_ATTEMPT_NOT_FOUND";
+      }
+    } else if (eventName.startsWith("charge.dispute.")) {
+      const disputeId = data.id !== undefined && data.id !== null ? String(data.id) : undefined;
+      const paymentRef = typeof data.reference === "string" ? data.reference : undefined;
+      const amount = typeof data.amount === "number" ? (data.amount / 100).toFixed(2) : "0.00";
+
+      if (eventName === "charge.dispute.create") {
+        await openPaymentDispute({
+          paymentPublicReference: paymentRef,
+          providerDisputeId: disputeId,
+          amount,
+          currency: "ZAR",
+          providerStatus: typeof data.status === "string" ? data.status : "open",
+          safeEvidence: sanitizeEvidenceSnapshot(data),
+          actorType: "PROVIDER",
+        });
+        outcome = "DISPUTE_OPENED";
+      } else if (eventName === "charge.dispute.remind") {
+        await updatePaymentDisputeEvidence({
+          providerDisputeId: disputeId,
+          providerStatus: typeof data.status === "string" ? data.status : "remind",
+          safeEvidence: sanitizeEvidenceSnapshot(data),
+          actorType: "PROVIDER",
+        });
+        outcome = "DISPUTE_REMIND_RECORDED";
+      } else if (eventName === "charge.dispute.resolve") {
+        const resolution = typeof data.resolution === "string" && data.resolution.toLowerCase().includes("merchant") ? "WON" : "LOST";
+        await resolvePaymentDispute({
+          providerDisputeId: disputeId,
+          resolution,
+          providerStatus: typeof data.status === "string" ? data.status : resolution.toLowerCase(),
+          actorType: "PROVIDER",
+        });
+        outcome = "DISPUTE_RESOLVED";
+      }
+    } else {
+      // Unsupported signed event (e.g. customeridentification, etc.)
+      finalStatus = "IGNORED_UNSUPPORTED";
+      outcome = "IGNORED_UNSUPPORTED";
+    }
+
+    // Finalize lease atomically with matching leaseToken
+    await prisma.paymentWebhookEvent.updateMany({
+      where: { id: event.id, leaseToken: event.leaseToken },
+      data: {
+        processingStatus: finalStatus,
+        appliedAt: now,
+        leaseToken: null,
+        leaseExpiresAt: null,
+      },
+    });
+
+    return { outcome, eventPublicReference: event.publicReference };
+  } catch (error) {
+    const delayMs = Math.min(1000 * Math.pow(2, event.attemptCount), 3600 * 1000);
+    const nextAttemptAt = new Date(Date.now() + delayMs);
+    const newStatus = event.attemptCount >= 10 ? "RECONCILIATION_REQUIRED" : "RECEIVED";
+
+    await prisma.paymentWebhookEvent.updateMany({
+      where: { id: event.id, leaseToken: event.leaseToken },
+      data: {
+        processingStatus: newStatus,
+        nextAttemptAt,
+        leaseToken: null,
+        leaseExpiresAt: null,
+      },
+    });
+
+    throw error;
+  }
+}
+
+export async function applyPaystackWebhookEventsBatch(options?: {
+  batchSize?: number;
+  leaseDurationMs?: number;
+  clientOverride?: PaystackClient;
+  secretKey?: string;
+}) {
+  const claimed = await claimPaystackWebhookEventsBatch(options);
+  if (claimed.length === 0) {
+    return {
+      itemsExamined: 0,
+      itemsClaimed: 0,
+      itemsCompleted: 0,
+      itemsSkipped: 0,
+      itemsRetried: 0,
+      itemsReconciled: 0,
+      safeSummary: "No pending Paystack webhook events in inbox.",
+    };
+  }
+
+  let itemsCompleted = 0;
+  let itemsSkipped = 0;
+  let itemsRetried = 0;
+  let itemsReconciled = 0;
+
+  for (const event of claimed) {
+    try {
+      const result = await processClaimedPaystackWebhookEvent(event, {
+        clientOverride: options?.clientOverride,
+        secretKey: options?.secretKey,
+      });
+      if (result.outcome === "RECONCILIATION_REQUIRED") {
+        itemsReconciled += 1;
+      } else if (result.outcome === "IGNORED_UNSUPPORTED") {
+        itemsSkipped += 1;
+      } else {
+        itemsCompleted += 1;
+      }
+    } catch {
+      itemsRetried += 1;
+    }
+  }
+
+  return {
+    itemsExamined: claimed.length,
+    itemsClaimed: claimed.length,
+    itemsCompleted,
+    itemsSkipped,
+    itemsRetried,
+    itemsReconciled,
+    safeSummary: `Processed ${claimed.length} claimed webhook events: ${itemsCompleted} completed, ${itemsReconciled} reconciliation needed, ${itemsSkipped} unsupported skipped, ${itemsRetried} retrying.`,
+  };
 }

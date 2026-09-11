@@ -769,6 +769,13 @@ model CashOnDelivery {
   reconciledAt            DateTime?
   reconciliationActorId   String?
   reconciliationJournalId String?                        @unique
+  remittanceDiscrepancy   Decimal                        @default(0) @db.Decimal(18, 2)
+  suspenseJournalId       String?                        @unique
+  adjustmentJournalId     String?                        @unique
+  adminAdjustmentReason   String?
+  adminAdjustmentNotes    String?
+  adminAdjustedByUserId   String?
+  adminAdjustedAt         DateTime?
   version                 Int                            @default(0)
   createdAt               DateTime                       @default(now())
   updatedAt               DateTime                       @updatedAt
@@ -2211,11 +2218,13 @@ enum PaymentWebhookNormalizedStatus {
 
 enum PaymentWebhookProcessingStatus {
   RECEIVED
+  PROCESSING
   REJECTED
   VERIFIED
   APPLIED
   DUPLICATE
   IGNORED_STALE
+  IGNORED_UNSUPPORTED
   RECONCILIATION_REQUIRED
   TEMPORARY_FAILURE
 }
@@ -2331,6 +2340,7 @@ model Payment {
 
   LegacySubscriptionInvoice      LegacySubscriptionInvoice[]
   SubscriptionRenewalApplication SubscriptionRenewalApplication?
+  disputes                       PaymentDispute[]
 
   @@index([userId])
   @@index([orderId])
@@ -2344,6 +2354,70 @@ model Payment {
   @@index([userId, createdAt])
   @@index([provider, status])
   @@index([reconciliationStatus, updatedAt])
+}
+
+enum PaymentDisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  WON
+  LOST
+  RESOLVED
+  CANCELLED
+}
+
+enum PaymentDisputeReason {
+  FRAUDULENT
+  UNRECOGNIZED
+  PRODUCT_NOT_RECEIVED
+  PRODUCT_UNACCEPTABLE
+  DUPLICATE
+  SUBSCRIPTION_CANCELLED
+  OTHER
+}
+
+model PaymentDispute {
+  id                     String                @id @default(cuid())
+  publicReference        String                @unique
+  providerDisputeId      String?               @unique
+  paymentId              String
+  provider               PaymentProvider       @default(PAYSTACK)
+  amount                 Decimal               @db.Decimal(18, 2)
+  currency               LedgerCurrency        @default(ZAR)
+  status                 PaymentDisputeStatus  @default(OPEN)
+  reason                 PaymentDisputeReason  @default(OTHER)
+  providerStatus         String?
+  evidenceDueBy          DateTime?
+  resolvedAt             DateTime?
+  lastSynchronizedAt     DateTime?
+  reconciliationRequired Boolean               @default(false)
+  safeEvidenceSnapshot   Json?
+  holdLedgerJournalId    String?               @unique
+  lossLedgerJournalId    String?               @unique
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  payment                Payment               @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  history                PaymentDisputeHistory[]
+
+  @@index([paymentId, status])
+  @@index([status, evidenceDueBy])
+  @@index([provider, providerDisputeId])
+}
+
+model PaymentDisputeHistory {
+  id           String                @id @default(cuid())
+  disputeId    String
+  fromStatus   PaymentDisputeStatus?
+  toStatus     PaymentDisputeStatus
+  actorType    String                @default("SYSTEM")
+  actorUserId  String?
+  reasonCode   String?
+  safeMetadata Json?
+  createdAt    DateTime              @default(now())
+
+  dispute      PaymentDispute        @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId, createdAt])
 }
 
 model PaymentAttempt {
@@ -2442,6 +2516,12 @@ model PaymentWebhookEvent {
   unknownFieldCount     Int                            @default(0)
   rejectionCode         String?
   reconciliationReason  PaymentReconciliationReason?
+  attemptCount          Int                            @default(0)
+  lastAttemptAt         DateTime?
+  nextAttemptAt         DateTime?
+  leaseToken            String?
+  leaseExpiresAt        DateTime?
+  reconciledAt          DateTime?
   receivedAt            DateTime                       @default(now())
   verifiedAt            DateTime?
   appliedAt             DateTime?
@@ -2487,6 +2567,7 @@ model PaymentWebhookEvent {
   @@index([paymentId, attemptId, receivedAt])
   @@index([legacyEventType], map: "PaymentWebhookEvent_eventType_idx")
   @@index([legacyProcessingStatus], map: "PaymentWebhookEvent_processingStatus_idx")
+  @@index([provider, processingStatus, nextAttemptAt, leaseExpiresAt, receivedAt], map: "PaymentWebhookEvent_lease_claim_idx")
 }
 
 model PaymentVerifiedEventIntent {
@@ -2611,6 +2692,7 @@ enum RefundAttemptStatus {
   SUCCEEDED
   FAILED
   UNKNOWN
+  NEEDS_ATTENTION
 }
 
 enum RefundFailureCategory {
@@ -2648,6 +2730,7 @@ enum RefundReconciliationReason {
   UNSUPPORTED_PROVIDER_REFUND_METHOD
   APPLICATION_FAILURE_AFTER_PROVIDER_SUCCESS
   STALE_PROCESSING_ATTEMPT
+  NEEDS_ATTENTION
 }
 
 enum RefundReconciliationCaseStatus {
@@ -3241,6 +3324,7 @@ model WithdrawalRequest {
 
 enum PayoutMethod {
   MANUAL_EXTERNAL
+  PAYSTACK_TRANSFER
 }
 
 enum PayoutDestinationStatus {
@@ -3251,27 +3335,30 @@ enum PayoutDestinationStatus {
 }
 
 model PayoutDestination {
-  id                String                  @id @default(cuid())
-  publicReference   String                  @unique
-  walletId          String
-  ownerType         WalletOwnerType
-  ownerId           String
-  method            PayoutMethod            @default(MANUAL_EXTERNAL)
-  providerCode      String
-  externalReference String
-  maskedLabel       String
-  institutionName   String?
-  accountLast4      String?
-  currency          LedgerCurrency          @default(ZAR)
-  countryCode       String                  @default("ZA")
-  status            PayoutDestinationStatus @default(PENDING_REVIEW)
-  verifiedAt        DateTime?
-  verifiedByUserId  String?
-  disabledAt        DateTime?
-  disabledByUserId  String?
-  version           Int                     @default(0)
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  id                       String                  @id @default(cuid())
+  publicReference          String                  @unique
+  walletId                 String
+  ownerType                WalletOwnerType
+  ownerId                  String
+  method                   PayoutMethod            @default(MANUAL_EXTERNAL)
+  providerCode             String
+  externalReference        String
+  maskedLabel              String
+  institutionName          String?
+  accountLast4             String?
+  accountFingerprint       String?
+  payoutValidationStatus   String?
+  payoutValidationEvidence Json?
+  currency                 LedgerCurrency          @default(ZAR)
+  countryCode              String                  @default("ZA")
+  status                   PayoutDestinationStatus @default(PENDING_REVIEW)
+  verifiedAt               DateTime?
+  verifiedByUserId         String?
+  disabledAt               DateTime?
+  disabledByUserId         String?
+  version                  Int                     @default(0)
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
 
   wallet      Wallet              @relation(fields: [walletId], references: [id], onDelete: Restrict)
   verifiedBy  User?               @relation("PayoutDestinationVerifiedBy", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
@@ -3331,6 +3418,8 @@ model WithdrawalPayoutAttempt {
   completionIdempotencyKey String?                @unique
   completionRequestHash    String?
   externalReference        String?                @unique
+  transferCode             String?                @unique
+  providerReference        String?                @unique
   safeEvidenceReference    String?
   failureCategory          PayoutFailureCategory?
   failureCode              String?
@@ -3341,6 +3430,7 @@ model WithdrawalPayoutAttempt {
   completedAt              DateTime?
   failedAt                 DateTime?
   unknownAt                DateTime?
+  lastPolledAt             DateTime?
   version                  Int                    @default(0)
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt

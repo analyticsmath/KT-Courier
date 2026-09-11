@@ -97,6 +97,87 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     };
   },
 
+  "apply-paystack-webhook-events": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const candidates = await prisma.paymentWebhookEvent.findMany({
+        where: {
+          provider: "PAYSTACK",
+          OR: [
+            { processingStatus: "RECEIVED" },
+            {
+              processingStatus: "PROCESSING",
+              leaseExpiresAt: { not: null, lt: new Date() },
+            },
+          ],
+        },
+        take: batchSize,
+        select: { id: true },
+      });
+      return {
+        itemsExamined: candidates.length,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: candidates.length,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Evaluated ${candidates.length} pending Paystack webhook inbox events; 0 claimed or mutated.`,
+      };
+    }
+    const { applyPaystackWebhookEventsBatch } = await import(
+      "@/lib/services/paystack-webhook-application.service"
+    );
+    const result = await applyPaystackWebhookEventsBatch({ batchSize });
+    return {
+      itemsExamined: result.itemsExamined,
+      itemsClaimed: result.itemsClaimed,
+      itemsCompleted: result.itemsCompleted,
+      itemsSkipped: result.itemsSkipped,
+      itemsRetried: result.itemsRetried,
+      itemsReconciled: result.itemsReconciled,
+      safeSummary: result.safeSummary,
+    };
+  },
+
+  "scan-paystack-transfer-reconciliation": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const staleCutoff = new Date(Date.now() - 15 * 60 * 1000);
+      const candidates = await prisma.withdrawalPayoutAttempt.findMany({
+        where: {
+          status: { in: ["PROCESSING", "UNKNOWN"] },
+          externalReference: { not: null, startsWith: "kt_wpa_" },
+          OR: [
+            { lastPolledAt: null, createdAt: { lte: staleCutoff } },
+            { lastPolledAt: { lte: staleCutoff } },
+          ],
+        },
+        take: batchSize,
+        select: { id: true },
+      });
+      return {
+        itemsExamined: candidates.length,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: candidates.length,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Evaluated ${candidates.length} stale Paystack payout attempts; 0 queried or mutated.`,
+      };
+    }
+    const { scanPaystackTransferReconciliation } = await import(
+      "@/lib/services/paystack-transfer-reconciliation.service"
+    );
+    const result = await scanPaystackTransferReconciliation({ limit: batchSize });
+    return {
+      itemsExamined: result.itemsExamined,
+      itemsClaimed: result.itemsExamined,
+      itemsCompleted: result.itemsSucceeded + result.itemsFailed + result.itemsReversed,
+      itemsSkipped: result.itemsPending,
+      itemsRetried: result.itemsErrored,
+      itemsReconciled: result.itemsReversed,
+      safeSummary: result.safeSummary,
+    };
+  },
+
   "finalize-paid-marketplace-checkouts": async ({ mode, batchSize }) => {
     if (mode === "DRY_RUN") {
       const { createPrismaVerifiedPaymentEventRepository } = await import(

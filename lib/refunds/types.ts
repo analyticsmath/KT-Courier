@@ -24,7 +24,7 @@ export const REFUND_REASON_CODES = [
 ] as const;
 export type RefundReasonCodeValue = (typeof REFUND_REASON_CODES)[number];
 
-export const REFUND_ATTEMPT_STATUSES = ["RESERVED", "PROCESSING", "SUCCEEDED", "FAILED", "UNKNOWN"] as const;
+export const REFUND_ATTEMPT_STATUSES = ["RESERVED", "PROCESSING", "SUCCEEDED", "FAILED", "UNKNOWN", "NEEDS_ATTENTION"] as const;
 export type RefundAttemptStatusCode = (typeof REFUND_ATTEMPT_STATUSES)[number];
 
 export type RefundFundingSourceCode =

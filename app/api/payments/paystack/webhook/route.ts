@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { PaymentError } from "@/lib/payments/errors";
 import {
   ingestPaystackWebhook,
-  applyPaystackWebhookEvent,
 } from "@/lib/services/paystack-webhook-application.service";
 
 export const runtime = "nodejs";
@@ -47,15 +46,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       sourceAddress,
     });
 
-    if (ingestResult.event === "charge.success" && !ingestResult.duplicate) {
-      applyPaystackWebhookEvent({
-        webhookEventId: ingestResult.webhookEventId,
-        sourceAddress,
-      }).catch((err) => {
-        console.error("Background Paystack webhook application error:", err);
-      });
-    }
-
     return new Response(JSON.stringify({ received: true, eventPublicReference: ingestResult.eventPublicReference }), {
       status: 200,
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
@@ -74,10 +64,16 @@ export async function POST(request: NextRequest): Promise<Response> {
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
         });
       }
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
     }
 
-    return new Response(JSON.stringify({ error: "Webhook processing error." }), {
-      status: 400,
+    // Unhandled / database persistence failures must return retryable 503 so Paystack retries
+    console.error("Paystack webhook persistence failure:", error);
+    return new Response(JSON.stringify({ error: "Service temporarily unavailable. Please retry." }), {
+      status: 503,
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }

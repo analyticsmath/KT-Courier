@@ -165,13 +165,13 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
       }
       if (validated.status === "NEEDS_ATTENTION") {
         if (!reconciliationPath) {
-          assertRefundAttemptTransition(attempt.status, "UNKNOWN");
+          assertRefundAttemptTransition(attempt.status, "NEEDS_ATTENTION");
           assertRefundTransition(refund.status, "RECONCILIATION_REQUIRED");
         }
         await tx.refundExecutionAttempt.update({
           where: { id: attempt.id },
           data: {
-            status: "UNKNOWN",
+            status: "NEEDS_ATTENTION",
             safeResultSnapshot,
             providerRefundId: validated.providerRefundId,
             failureCategory: "UNKNOWN_OUTCOME",

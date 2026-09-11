@@ -15,6 +15,7 @@ interface ScheduledTask {
 const SCHEDULED_TASKS: ScheduledTask[] = [
   // High-frequency jobs (every 1 minute)
   { name: "finalize-paid-marketplace-checkouts", intervalMs: 60_000, lastRunAt: 0 },
+  { name: "apply-paystack-webhook-events", intervalMs: 60_000, lastRunAt: 0 },
 
   // Medium-frequency jobs (every 5 minutes)
   { name: "process-managed-marketing-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
@@ -22,6 +23,7 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   // Periodic reconciliation & accounting (every 15 to 30 minutes)
   { name: "scan-payment-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
   { name: "scan-withdrawal-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
+  { name: "scan-paystack-transfer-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
   { name: "scan-refund-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
 
   // Settlement & cleanup (hourly)

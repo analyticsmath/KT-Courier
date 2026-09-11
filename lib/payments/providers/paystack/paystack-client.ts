@@ -127,6 +127,134 @@ export type PaystackRefundData = Readonly<{
   updatedAt?: string;
 }>;
 
+export function assertValidPaystackTransferReference(reference: string): string {
+  const ref = reference.trim();
+  if (ref.length < 16 || ref.length > 50) {
+    throw new PaymentError(
+      "PAYMENT_PROVIDER_REQUEST_INVALID",
+      `Paystack transfer reference must be between 16 and 50 characters: ${ref}`,
+    );
+  }
+  if (!/^[a-z0-9_-]+$/.test(ref)) {
+    throw new PaymentError(
+      "PAYMENT_PROVIDER_REQUEST_INVALID",
+      `Paystack transfer reference must contain only lowercase letters, digits, hyphen, or underscore: ${ref}`,
+    );
+  }
+  return ref;
+}
+
+export type PaystackTransferRecipientInput = Readonly<{
+  type: "basa";
+  name: string;
+  account_number: string;
+  bank_code: string;
+  currency?: "ZAR";
+  description?: string;
+  metadata?: Record<string, unknown>;
+}>;
+
+export type PaystackTransferRecipientData = Readonly<{
+  active: boolean;
+  createdAt: string;
+  currency: string;
+  domain: string;
+  id: number;
+  integration: number;
+  name: string;
+  recipient_code: string;
+  type: string;
+  is_deleted: boolean;
+  details: {
+    account_number: string;
+    account_name: string | null;
+    bank_code: string;
+    bank_name: string;
+  };
+}>;
+
+export type PaystackBankData = Readonly<{
+  name: string;
+  slug: string;
+  code: string;
+  longcode: string;
+  gateway: string | null;
+  pay_with_bank: boolean;
+  active: boolean;
+  is_deleted: boolean;
+  country: string;
+  currency: string;
+  type: string;
+  id: number;
+}>;
+
+export type PaystackValidateAccountInput = Readonly<{
+  account_name: string;
+  account_number: string;
+  account_type: "personal" | "business";
+  bank_code: string;
+  country_code?: "ZA";
+  document_type?: string;
+  document_number?: string;
+}>;
+
+export type PaystackValidateAccountData = Readonly<{
+  verified: boolean;
+  verification_status: string;
+  account_name?: string;
+  account_number?: string;
+  bank_code?: string;
+}>;
+
+export type PaystackInitiateTransferInput = Readonly<{
+  source?: "balance";
+  amountCents: number;
+  recipient: string;
+  reason?: string;
+  reference: string;
+}>;
+
+export type PaystackTransferData = Readonly<{
+  id: number;
+  integration: number;
+  domain: string;
+  amount: number;
+  currency: string;
+  source: string;
+  reason: string;
+  recipient: number | PaystackTransferRecipientData;
+  status: "success" | "failed" | "pending" | "otp" | "reversed" | "abandoned" | "blocked" | "rejected" | string;
+  transfer_code: string;
+  reference: string;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type PaystackFinalizeTransferInput = Readonly<{
+  transfer_code: string;
+  otp: string;
+}>;
+
+export type PaystackDisputeData = Readonly<{
+  id: number;
+  refund_amount: number | null;
+  currency: string;
+  status: "awaiting-merchant-feedback" | "awaiting-bank-feedback" | "pending" | "resolved" | "archived" | string;
+  resolution: "merchant-accepted" | "declined" | string | null;
+  domain: string;
+  transaction: {
+    id: number;
+    reference: string;
+    amount: number;
+    currency: string;
+  };
+  transaction_reference?: string;
+  category?: string;
+  dueAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
 export class PaystackClient {
   private readonly baseUrl: string;
   private readonly secretKey: string;
@@ -280,6 +408,209 @@ export class PaystackClient {
       throw new PaymentError("REFUND_PROVIDER_RESPONSE_INVALID", "Paystack refund query returned no data.");
     }
 
+    return response.data;
+  }
+
+  async createTransferRecipient(
+    input: PaystackTransferRecipientInput,
+    signal?: AbortSignal,
+  ): Promise<PaystackTransferRecipientData> {
+    const body: Record<string, unknown> = {
+      type: input.type,
+      name: input.name,
+      account_number: input.account_number,
+      bank_code: input.bank_code,
+      currency: input.currency || "ZAR",
+    };
+    if (input.description) body.description = input.description;
+    if (input.metadata) body.metadata = input.metadata;
+
+    const response = await this.request<PaystackTransferRecipientData>("/transferrecipient", {
+      method: "POST",
+      body,
+      signal,
+    });
+
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack transfer recipient creation returned no data.");
+    }
+    return response.data;
+  }
+
+  async listBanks(
+    country: string = "south africa",
+    signal?: AbortSignal,
+  ): Promise<PaystackBankData[]> {
+    const response = await this.request<PaystackBankData[]>(
+      `/bank?country=${encodeURIComponent(country)}`,
+      { method: "GET", signal },
+    );
+    if (!response.status || !Array.isArray(response.data)) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack list banks returned invalid data.");
+    }
+    return response.data;
+  }
+
+  async validateAccount(
+    input: PaystackValidateAccountInput,
+    signal?: AbortSignal,
+  ): Promise<PaystackValidateAccountData> {
+    const body: Record<string, unknown> = {
+      account_name: input.account_name,
+      account_number: input.account_number,
+      account_type: input.account_type,
+      bank_code: input.bank_code,
+      country_code: input.country_code || "ZA",
+    };
+    if (input.document_type) body.document_type = input.document_type;
+    if (input.document_number) body.document_number = input.document_number;
+
+    const response = await this.request<PaystackValidateAccountData>("/bank/validate", {
+      method: "POST",
+      body,
+      signal,
+    });
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack account validation returned no data.");
+    }
+    return response.data;
+  }
+
+  async resolveAccount(
+    accountNumber: string,
+    bankCode: string,
+    signal?: AbortSignal,
+  ): Promise<{ account_number: string; account_name: string; bank_id: number }> {
+    const response = await this.request<{ account_number: string; account_name: string; bank_id: number }>(
+      `/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+      { method: "GET", signal },
+    );
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack bank account resolution returned no data.");
+    }
+    return response.data;
+  }
+
+  async initiateTransfer(
+    input: PaystackInitiateTransferInput,
+    signal?: AbortSignal,
+  ): Promise<PaystackTransferData> {
+    assertValidPaystackTransactionAmount(input.amountCents);
+    assertValidPaystackTransferReference(input.reference);
+
+    const body: Record<string, unknown> = {
+      source: input.source || "balance",
+      amount: input.amountCents,
+      recipient: input.recipient,
+      reference: input.reference,
+    };
+    if (input.reason) body.reason = input.reason;
+
+    const response = await this.request<PaystackTransferData>("/transfer", {
+      method: "POST",
+      body,
+      signal,
+    });
+
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack transfer initiation returned no data.");
+    }
+    return response.data;
+  }
+
+  async finalizeTransfer(
+    input: PaystackFinalizeTransferInput,
+    signal?: AbortSignal,
+  ): Promise<PaystackTransferData> {
+    const response = await this.request<PaystackTransferData>("/transfer/finalize_transfer", {
+      method: "POST",
+      body: {
+        transfer_code: input.transfer_code,
+        otp: input.otp,
+      },
+      signal,
+    });
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack transfer finalization returned no data.");
+    }
+    return response.data;
+  }
+
+  async fetchTransfer(
+    transferCodeOrId: string | number,
+    signal?: AbortSignal,
+  ): Promise<PaystackTransferData> {
+    const response = await this.request<PaystackTransferData>(
+      `/transfer/${encodeURIComponent(transferCodeOrId.toString())}`,
+      { method: "GET", signal },
+    );
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack transfer fetch returned no data.");
+    }
+    return response.data;
+  }
+
+  async verifyTransfer(
+    reference: string,
+    signal?: AbortSignal,
+  ): Promise<PaystackTransferData> {
+    const response = await this.request<PaystackTransferData>(
+      `/transfer/verify/${encodeURIComponent(reference)}`,
+      { method: "GET", signal },
+    );
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack transfer verify returned no data.");
+    }
+    return response.data;
+  }
+
+  async getDispute(
+    disputeId: string | number,
+    signal?: AbortSignal,
+  ): Promise<PaystackDisputeData> {
+    const response = await this.request<PaystackDisputeData>(
+      `/dispute/${encodeURIComponent(disputeId.toString())}`,
+      { method: "GET", signal },
+    );
+    if (!response.status || !response.data) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack dispute query returned no data.");
+    }
+    return response.data;
+  }
+
+  async listDisputes(
+    params?: { status?: string; transaction?: string },
+    signal?: AbortSignal,
+  ): Promise<PaystackDisputeData[]> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.transaction) query.set("transaction", params.transaction);
+    const qs = query.toString();
+    const path = qs ? `/dispute?${qs}` : "/dispute";
+
+    const response = await this.request<PaystackDisputeData[]>(path, { method: "GET", signal });
+    if (!response.status || !Array.isArray(response.data)) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack list disputes returned invalid data.");
+    }
+    return response.data;
+  }
+
+  async retryRefundWithCustomerDetails(
+    refundId: string | number,
+    input: { account_name: string; account_number: string; bank_code: string },
+    signal?: AbortSignal,
+  ): Promise<PaystackRefundData> {
+    const response = await this.request<PaystackRefundData>(
+      `/refund/${encodeURIComponent(refundId.toString())}`,
+      {
+        method: "POST",
+        body: input,
+        signal,
+      },
+    );
+    if (!response.status || !response.data) {
+      throw new PaymentError("REFUND_PROVIDER_RESPONSE_INVALID", "Paystack refund retry returned no data.");
+    }
     return response.data;
   }
 }
