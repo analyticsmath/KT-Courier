@@ -10,6 +10,7 @@ export default defineConfig({
     // Phase 26.5. They must never inflate the DB-free focused verification count.
     exclude: [
       "tests/integration/**",
+      "tests/**/*.integration.test.ts",
       "tests/e2e/**",
       "tests/phase26/integration/**",
       "tests/phase26/e2e/**",

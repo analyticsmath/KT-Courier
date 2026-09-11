@@ -5,6 +5,7 @@ import {
   handlePaystackTransferSuccess,
   handlePaystackTransferFailed,
   handlePaystackTransferReversed,
+  handlePaystackTransferBlockedOrAbandoned,
 } from "./paystack-transfer-execution.service";
 
 export interface ScanPaystackTransferReconciliationOptions {
@@ -18,6 +19,7 @@ export interface ScanPaystackTransferReconciliationResult {
   itemsSucceeded: number;
   itemsFailed: number;
   itemsReversed: number;
+  itemsReconciliationRequired: number;
   itemsPending: number;
   itemsErrored: number;
   safeSummary: string;
@@ -39,6 +41,7 @@ export async function scanPaystackTransferReconciliation(
       itemsSucceeded: 0,
       itemsFailed: 0,
       itemsReversed: 0,
+      itemsReconciliationRequired: 0,
       itemsPending: 0,
       itemsErrored: 0,
       safeSummary: "Paystack client not configured; reconciliation skipped.",
@@ -66,6 +69,7 @@ export async function scanPaystackTransferReconciliation(
   let itemsSucceeded = 0;
   let itemsFailed = 0;
   let itemsReversed = 0;
+  let itemsReconciliationRequired = 0;
   let itemsPending = 0;
   let itemsErrored = 0;
 
@@ -103,13 +107,33 @@ export async function scanPaystackTransferReconciliation(
           reason: transferData.reason || "Paystack reported transfer reversed during reconciliation scan.",
         });
         itemsReversed += 1;
-      } else {
-        // Still pending or processing at provider
-        await prisma.withdrawalPayoutAttempt.update({
-          where: { id: attempt.id },
-          data: { lastPolledAt: new Date() },
+      } else if (providerStatus === "blocked" || providerStatus === "abandoned") {
+        await handlePaystackTransferBlockedOrAbandoned({
+          merchantReference: attempt.externalReference,
+          transferCode: transferData.transfer_code,
+          status: providerStatus,
+          reason: transferData.reason || `Paystack reported transfer ${providerStatus} during reconciliation scan.`,
         });
-        itemsPending += 1;
+        itemsReconciliationRequired += 1;
+      } else {
+        // Still pending, processing, or otp at provider
+        // Bounded grace period check: after 60 minutes, pending/otp escalates to reconciliation required
+        const ageMinutes = (Date.now() - attempt.createdAt.getTime()) / (60 * 1000);
+        if (ageMinutes > 60 && (providerStatus === "otp" || providerStatus === "pending")) {
+          await handlePaystackTransferBlockedOrAbandoned({
+            merchantReference: attempt.externalReference,
+            transferCode: transferData.transfer_code,
+            status: providerStatus,
+            reason: `Paystack transfer in ${providerStatus} exceeded 60-minute grace period without completion.`,
+          });
+          itemsReconciliationRequired += 1;
+        } else {
+          await prisma.withdrawalPayoutAttempt.update({
+            where: { id: attempt.id },
+            data: { lastPolledAt: new Date() },
+          });
+          itemsPending += 1;
+        }
       }
     } catch {
       itemsErrored += 1;
@@ -125,8 +149,9 @@ export async function scanPaystackTransferReconciliation(
     itemsSucceeded,
     itemsFailed,
     itemsReversed,
+    itemsReconciliationRequired,
     itemsPending,
     itemsErrored,
-    safeSummary: `Examined ${candidates.length} stale payout attempts: ${itemsSucceeded} succeeded, ${itemsFailed} failed, ${itemsReversed} reversed, ${itemsPending} pending, ${itemsErrored} errored.`,
+    safeSummary: `Examined ${candidates.length} stale payout attempts: ${itemsSucceeded} succeeded, ${itemsFailed} failed, ${itemsReversed} reversed, ${itemsReconciliationRequired} reconciliation required, ${itemsPending} pending, ${itemsErrored} errored.`,
   };
 }

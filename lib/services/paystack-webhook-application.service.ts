@@ -283,7 +283,8 @@ export async function ingestPaystackWebhook(
   const entityId = providerPaymentId !== "unknown"
     ? providerPaymentId
     : (merchantRef !== "unknown" ? merchantRef : createHash("sha256").update(input.rawBody).digest("hex").slice(0, 16));
-  const eventFingerprint = `paystack:${payload.event}:${entityId}:${providerStatus}`;
+  const rawFingerprint = `paystack:${payload.event}:${entityId}:${providerStatus}`;
+  const eventFingerprint = createHash("sha256").update(rawFingerprint).digest("hex");
 
   const existing = await prisma.paymentWebhookEvent.findUnique({ where: { eventFingerprint } });
   if (existing) {
@@ -831,8 +832,8 @@ export async function claimPaystackWebhookEventsBatch(options?: {
       SELECT "id" FROM "PaymentWebhookEvent"
       WHERE "provider" = 'PAYSTACK'
         AND (
-          "processingStatus" = 'RECEIVED'
-          OR ("processingStatus" = 'PROCESSING' AND "leaseExpiresAt" IS NOT NULL AND "leaseExpiresAt" < ${now})
+          "itnProcessingStatus" = 'RECEIVED'
+          OR ("itnProcessingStatus" = 'PROCESSING' AND "leaseExpiresAt" IS NOT NULL AND "leaseExpiresAt" < ${now})
         )
         AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
       ORDER BY "receivedAt" ASC
@@ -868,7 +869,7 @@ export async function claimPaystackWebhookEventsBatch(options?: {
     });
 
     return claimed.map((c) => ({ ...c, leaseToken }));
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 }
 
 export async function processClaimedPaystackWebhookEvent(

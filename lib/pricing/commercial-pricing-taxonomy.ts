@@ -6,7 +6,8 @@ export type CommercialServiceTier =
   | "EXPRESS_SAME_DAY"
   | "SCHEDULED_DELIVERY"
   | "HEAVY_PARCEL"
-  | "DOCUMENTS_ONLY";
+  | "DOCUMENTS_ONLY"
+  | "ECONOMY_COURIER";
 
 export type CommercialRuleReviewStatus =
   | "DRAFT"
@@ -15,61 +16,52 @@ export type CommercialRuleReviewStatus =
   | "SUSPENDED"
   | "RETIRED";
 
-export interface CommercialServiceDescriptor {
+/**
+ * Neutral service descriptor primitive.
+ * Contains only identification primitives — NO hardcoded distances, weights,
+ * service availability, or default-approved business rules.
+ */
+export interface CommercialServicePrimitive {
   readonly tier: CommercialServiceTier;
   readonly code: string;
   readonly displayName: string;
-  readonly requiresApproval: boolean;
-  readonly defaultReviewStatus: CommercialRuleReviewStatus;
-  readonly maxAllowedDistanceKm: number;
-  readonly maxAllowedWeightKg: number;
 }
 
-export const COMMERCIAL_SERVICE_TAXONOMY: Record<CommercialServiceTier, CommercialServiceDescriptor> = {
+/**
+ * Standard neutral taxonomy primitives.
+ * These are purely structural labels. Service availability and rating semantics
+ * are NEVER approved by default and must be backed by an approved, active database PricingRule.
+ */
+export const COMMERCIAL_SERVICE_PRIMITIVES: Record<CommercialServiceTier, CommercialServicePrimitive> = {
   STANDARD_COURIER: {
     tier: "STANDARD_COURIER",
     code: "SVC-STD-01",
     displayName: "Standard Courier Delivery",
-    requiresApproval: true,
-    defaultReviewStatus: "APPROVED",
-    maxAllowedDistanceKm: 500,
-    maxAllowedWeightKg: 50,
   },
   EXPRESS_SAME_DAY: {
     tier: "EXPRESS_SAME_DAY",
     code: "SVC-EXP-01",
     displayName: "Express Same-Day Delivery",
-    requiresApproval: true,
-    defaultReviewStatus: "APPROVED",
-    maxAllowedDistanceKm: 150,
-    maxAllowedWeightKg: 25,
   },
   SCHEDULED_DELIVERY: {
     tier: "SCHEDULED_DELIVERY",
     code: "SVC-SCH-01",
     displayName: "Scheduled Window Delivery",
-    requiresApproval: true,
-    defaultReviewStatus: "APPROVED",
-    maxAllowedDistanceKm: 300,
-    maxAllowedWeightKg: 50,
   },
   HEAVY_PARCEL: {
     tier: "HEAVY_PARCEL",
     code: "SVC-HVY-01",
-    displayName: "Heavy Parcel & Bulk Cargo",
-    requiresApproval: true,
-    defaultReviewStatus: "PENDING_REVIEW", // Inactive pending commercial sign-off
-    maxAllowedDistanceKm: 1000,
-    maxAllowedWeightKg: 500,
+    displayName: "Heavy Parcel Delivery",
   },
   DOCUMENTS_ONLY: {
     tier: "DOCUMENTS_ONLY",
     code: "SVC-DOC-01",
     displayName: "Secure Documents & Letters",
-    requiresApproval: true,
-    defaultReviewStatus: "APPROVED",
-    maxAllowedDistanceKm: 200,
-    maxAllowedWeightKg: 2,
+  },
+  ECONOMY_COURIER: {
+    tier: "ECONOMY_COURIER",
+    code: "SVC-ECO-01",
+    displayName: "Economy Courier Delivery",
   },
 };
 
@@ -125,7 +117,8 @@ export function assertCommercialPricingRuleApproved(rule: PricingRule, now: Date
  * Prevents configuration corruption from causing negative prices or invalid divisions.
  */
 export function validateCommercialPricingRuleIntegrity(rule: {
-  basePrice: Prisma.Decimal | number;
+  basePrice?: Prisma.Decimal | number | null;
+  amount?: Prisma.Decimal | number | null;
   perKmRate?: Prisma.Decimal | number | null;
   perKgRate?: Prisma.Decimal | number | null;
   minimumCharge?: Prisma.Decimal | number | null;
@@ -134,7 +127,7 @@ export function validateCommercialPricingRuleIntegrity(rule: {
   minDistanceKm?: Prisma.Decimal | number | null;
   maxDistanceKm?: Prisma.Decimal | number | null;
 }): void {
-  const basePrice = Number(rule.basePrice);
+  const basePrice = Number(rule.basePrice ?? rule.amount ?? 0);
   if (isNaN(basePrice) || basePrice < 0) {
     throw new PricingError("INVALID_PRICING_RULE", "Base price must be a non-negative number.");
   }
@@ -178,11 +171,17 @@ export function validateCommercialPricingRuleIntegrity(rule: {
 }
 
 /**
- * Asserts that a service tier has approved commercial backing and does not fallback silently.
+ * Asserts that a service tier is available and approved.
+ * Must resolve from approved persisted database configuration, NOT defaults or a parallel TypeScript catalogue.
+ * Fails closed if no approved persisted rule is supplied or if rule is unapproved/inactive/expired.
  */
-export function assertCommercialServiceAvailable(tier: CommercialServiceTier): CommercialServiceDescriptor {
-  const descriptor = COMMERCIAL_SERVICE_TAXONOMY[tier];
-  if (!descriptor) {
+export function assertCommercialServiceAvailable(
+  tier: CommercialServiceTier,
+  persistedRule?: PricingRule | null,
+  now: Date = new Date(),
+): CommercialServicePrimitive {
+  const primitive = COMMERCIAL_SERVICE_PRIMITIVES[tier];
+  if (!primitive) {
     throw new PricingError(
       "UNKNOWN_SERVICE_TIER",
       `Commercial service tier ${tier} is not recognized by platform taxonomy.`,
@@ -190,13 +189,16 @@ export function assertCommercialServiceAvailable(tier: CommercialServiceTier): C
     );
   }
 
-  if (descriptor.defaultReviewStatus !== "APPROVED") {
+  if (!persistedRule) {
     throw new PricingError(
-      "SERVICE_TIER_LOCKED",
-      `Commercial service tier ${tier} is pending approval (${descriptor.defaultReviewStatus}) and cannot be rated.`,
+      "SERVICE_TIER_UNAVAILABLE",
+      `Commercial service tier ${tier} has no approved active persisted configuration. Defaults are forbidden.`,
       422,
     );
   }
 
-  return descriptor;
+  assertCommercialPricingRuleApproved(persistedRule, now);
+  validateCommercialPricingRuleIntegrity(persistedRule);
+
+  return primitive;
 }

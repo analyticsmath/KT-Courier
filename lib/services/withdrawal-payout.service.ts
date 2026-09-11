@@ -129,6 +129,9 @@ export async function completeManualWithdrawalPayout(input: Readonly<{ actorUser
       if (attempt.status === "SUCCEEDED" && attempt.externalReference === externalReference) return { kind: "PAID" as const, withdrawal };
       throw new WithdrawalError("WITHDRAWAL_PAYOUT_REFERENCE_CONFLICT", "This withdrawal has already been completed with different payout evidence.");
     }
+    if (attempt.method !== "MANUAL_EXTERNAL") {
+      throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Only manual external payout attempts can be completed manually. Automated transfer attempts cannot use manual fallback.");
+    }
     const reconciliationRoute = withdrawal.status === "RECONCILIATION_REQUIRED" && (attempt.status === "UNKNOWN" || attempt.status === "PROCESSING");
     if (!(withdrawal.status === "PROCESSING" && attempt.status === "PROCESSING") && !reconciliationRoute) throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "The payout attempt cannot be completed from its current state.");
     assertWithdrawalDualControl({ requestedByUserId: withdrawal.requestedByUserId, approvedByUserId: withdrawal.approvedByUserId, processingUserId: input.actorUserId, requiresDualControl: true });

@@ -79,6 +79,7 @@ gen_report.js
 next-env.d.ts
 
 /.claude
+/.gemini
 
 # generated Playwright output
 /output/

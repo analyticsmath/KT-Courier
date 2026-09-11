@@ -1,8 +1,12 @@
 name: CI
 
 on:
-  pull_request:
   push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kt_courier_ci?schema=public
@@ -184,6 +188,41 @@ jobs:
         run: npm run test:security:bola
       - name: Refund lifecycle & reconciliation tests
         run: npm run test:refunds
+
+  phase-1-financial-concurrency-integration:
+    name: Phase 1 PostgreSQL Webhook Concurrency Integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kt_courier_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: kt_courier_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-cmd-args "-U kt_courier_test -d kt_courier_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
+      DIRECT_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Deploy Prisma migrations
+        run: npx prisma migrate deploy
+      - name: Real PostgreSQL webhook concurrency integration test
+        run: npm run test:integration:webhook-concurrency
 
   payment-foundation-integration:
     if: ${{ vars.ENABLE_DEFERRED_PAYMENT_VALIDATION == 'true' }}

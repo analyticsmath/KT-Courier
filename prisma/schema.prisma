@@ -2398,6 +2398,7 @@ model PaymentDispute {
 
   payment                Payment               @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   history                PaymentDisputeHistory[]
+  allocations            PaymentDisputeAllocation[]
 
   @@index([paymentId, status])
   @@index([status, evidenceDueBy])
@@ -2418,6 +2419,34 @@ model PaymentDisputeHistory {
   dispute      PaymentDispute        @relation(fields: [disputeId], references: [id], onDelete: Cascade)
 
   @@index([disputeId, createdAt])
+}
+
+model PaymentDisputeAllocation {
+  id                       String         @id @default(cuid())
+  publicReference          String         @unique
+  disputeId                String
+  participantType          String         // "STORE" | "DRIVER" | "PLATFORM"
+  participantId            String?        // storeId, driverId, or "platform"
+  storeEarningId           String?
+  driverEarningId          String?
+  allocatedAmount          Decimal        @db.Decimal(18, 2)
+  heldAmount               Decimal        @default(0) @db.Decimal(18, 2)
+  recoveryReceivableAmount Decimal        @default(0) @db.Decimal(18, 2)
+  currency                 LedgerCurrency @default(ZAR)
+  holdingState             String         // "UNRELEASED_HELD" | "RELEASED_HOLD" | "RECOVERY_RECEIVABLE" | "PLATFORM_HELD"
+  ledgerAccountId          String?
+  holdJournalId            String?
+  settledAt                DateTime?
+  settlementJournalId      String?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  dispute                  PaymentDispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  storeEarning             StoreEarning?  @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
+  driverEarning            DriverEarning? @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
+
+  @@index([disputeId])
+  @@index([participantType, participantId])
 }
 
 model PaymentAttempt {
@@ -4001,6 +4030,7 @@ model StoreEarning {
   fundingAllocations    RefundFundingAllocation[]
   statusHistory         StoreEarningStatusHistory[]
   reconciliationCases   StoreEarningReconciliationCase[]
+  disputeAllocations    PaymentDisputeAllocation[]
 
   @@unique([subjectType, subjectId, storeId, settlementVersion], map: "StoreEarning_subject_store_settlement_key")
   @@index([storeId, status, createdAt], map: "StoreEarning_store_status_createdAt_idx")
@@ -4190,6 +4220,7 @@ model DriverEarning {
   fundingAllocations    RefundFundingAllocation[]
   statusHistory         DriverEarningStatusHistory[]
   reconciliationCases   DriverEarningReconciliationCase[]
+  disputeAllocations    PaymentDisputeAllocation[]
 
   @@unique([subjectType, subjectId, assignmentId, driverId, settlementVersion], map: "DriverEarning_subject_assignment_driver_settlement_key")
   @@index([driverId, status, createdAt], map: "DriverEarning_driver_status_createdAt_idx")

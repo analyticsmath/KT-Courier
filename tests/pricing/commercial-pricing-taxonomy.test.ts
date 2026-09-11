@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from "vitest";
 import {
-  COMMERCIAL_SERVICE_TAXONOMY,
+  COMMERCIAL_SERVICE_PRIMITIVES,
   assertCommercialPricingRuleApproved,
   assertCommercialServiceAvailable,
   validateCommercialPricingRuleIntegrity,
@@ -10,9 +10,9 @@ import { PricingError } from "@/lib/pricing/errors";
 import { Prisma } from "@prisma/client";
 
 describe("Phase 1: Commercial Pricing Taxonomy & Fail-Closed Validation", () => {
-  describe("Taxonomy Definitions", () => {
-    it("defines the 5 authoritative commercial service tiers", () => {
-      const tiers = Object.keys(COMMERCIAL_SERVICE_TAXONOMY);
+  describe("Taxonomy Definitions (Neutral Primitives)", () => {
+    it("defines neutral commercial service tiers with no hardcoded limits or default-approved rules", () => {
+      const tiers = Object.keys(COMMERCIAL_SERVICE_PRIMITIVES);
       expect(tiers).toEqual(
         expect.arrayContaining([
           "STANDARD_COURIER",
@@ -20,37 +20,59 @@ describe("Phase 1: Commercial Pricing Taxonomy & Fail-Closed Validation", () => 
           "SCHEDULED_DELIVERY",
           "HEAVY_PARCEL",
           "DOCUMENTS_ONLY",
+          "ECONOMY_COURIER",
         ]),
       );
-    });
 
-    it("locks HEAVY_PARCEL under PENDING_REVIEW pending commercial sign-off", () => {
-      expect(COMMERCIAL_SERVICE_TAXONOMY.HEAVY_PARCEL.defaultReviewStatus).toBe("PENDING_REVIEW");
+      // Verify that no guessed distances or weights exist in primitives
+      for (const primitive of Object.values(COMMERCIAL_SERVICE_PRIMITIVES)) {
+        expect((primitive as any).maxAllowedDistanceKm).toBeUndefined();
+        expect((primitive as any).maxAllowedWeightKg).toBeUndefined();
+        expect((primitive as any).defaultReviewStatus).toBeUndefined();
+      }
     });
   });
 
-  describe("assertCommercialServiceAvailable", () => {
-    it("returns descriptor for approved commercial service tiers", () => {
-      const standard = assertCommercialServiceAvailable("STANDARD_COURIER");
+  describe("assertCommercialServiceAvailable (Fail-Closed)", () => {
+    const validRule: any = {
+      id: "rule_001",
+      active: true,
+      currency: "ZAR",
+      archivedAt: null,
+      effectiveFrom: new Date("2026-01-01T00:00:00Z"),
+      effectiveTo: new Date("2027-01-01T00:00:00Z"),
+      basePrice: new Prisma.Decimal("50.00"),
+    };
+
+    it("fails closed when service tier has no approved persisted rule (cannot become quotable via defaults)", () => {
+      expect(() => assertCommercialServiceAvailable("STANDARD_COURIER")).toThrowError(
+        PricingError,
+      );
+      expect(() => assertCommercialServiceAvailable("STANDARD_COURIER")).toThrowError(
+        /has no approved active persisted configuration. Defaults are forbidden./,
+      );
+    });
+
+    it("fails closed for unconfigured ECONOMY_COURIER or EXPRESS_SAME_DAY", () => {
+      expect(() => assertCommercialServiceAvailable("ECONOMY_COURIER", null)).toThrowError(
+        /has no approved active persisted configuration/,
+      );
+      expect(() => assertCommercialServiceAvailable("EXPRESS_SAME_DAY", undefined)).toThrowError(
+        /has no approved active persisted configuration/,
+      );
+    });
+
+    it("succeeds when backed by an approved, active, persisted database rule", () => {
+      const standard = assertCommercialServiceAvailable("STANDARD_COURIER", validRule, new Date("2026-06-01T00:00:00Z"));
       expect(standard.tier).toBe("STANDARD_COURIER");
-      expect(standard.defaultReviewStatus).toBe("APPROVED");
       expect(standard.code).toBe("SVC-STD-01");
     });
 
-    it("fails closed with SERVICE_TIER_LOCKED for unapproved tier (HEAVY_PARCEL)", () => {
-      expect(() => assertCommercialServiceAvailable("HEAVY_PARCEL")).toThrowError(
-        PricingError,
-      );
-      expect(() => assertCommercialServiceAvailable("HEAVY_PARCEL")).toThrowError(
-        /is pending approval \(PENDING_REVIEW\)/,
-      );
-    });
-
     it("fails closed with UNKNOWN_SERVICE_TIER for invalid service tier", () => {
-      expect(() => assertCommercialServiceAvailable("HYPER_SPEED_ROCKET" as any)).toThrowError(
+      expect(() => assertCommercialServiceAvailable("HYPER_SPEED_ROCKET" as any, validRule)).toThrowError(
         PricingError,
       );
-      expect(() => assertCommercialServiceAvailable("HYPER_SPEED_ROCKET" as any)).toThrowError(
+      expect(() => assertCommercialServiceAvailable("HYPER_SPEED_ROCKET" as any, validRule)).toThrowError(
         /is not recognized by platform taxonomy/,
       );
     });

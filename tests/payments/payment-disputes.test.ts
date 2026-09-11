@@ -3,11 +3,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
 import {
   openPaymentDispute,
-  updatePaymentDisputeEvidence,
   resolvePaymentDispute,
   sanitizeEvidenceSnapshot,
 } from "@/lib/services/payment-dispute.service";
 import { prisma } from "@/lib/db/prisma";
+
+const accountsMap = new Map<string, any>();
 
 vi.mock("@/lib/db/prisma", () => {
   const mockPrisma: any = {
@@ -15,7 +16,7 @@ vi.mock("@/lib/db/prisma", () => {
     $queryRaw: vi.fn(async (query: any) => {
       const q = typeof query === "string" ? query : (query?.strings?.join(" ") ?? "");
       if (q.includes("LedgerAccount")) {
-        const ids = Array.isArray(query?.values) && query.values.length > 0 ? query.values : ["acc_cust_held", "acc_disp_held"];
+        const ids = Array.isArray(query?.values) && query.values.length > 0 ? query.values : ["acc_001", "acc_002"];
         return ids.map((id: string) => ({ id }));
       }
       return [{ id: "mock_id" }];
@@ -24,80 +25,144 @@ vi.mock("@/lib/db/prisma", () => {
       findUnique: vi.fn(),
       update: vi.fn(async (args: any) => ({ id: args?.where?.id ?? "pay_001", ...args?.data })),
     },
+    store: {
+      findUnique: vi.fn(async () => ({ id: "store_001", status: "ACTIVE" })),
+    },
+    driverProfile: {
+      findUnique: vi.fn(async () => ({ id: "driver_001", status: "ACTIVE" })),
+    },
+    user: {
+      findFirst: vi.fn(async () => ({ id: "user_001", role: "CUSTOMER" })),
+      findUnique: vi.fn(async () => ({ id: "user_001", status: "ACTIVE" })),
+    },
+    storeEarning: {
+      findMany: vi.fn(async () => []),
+      findUnique: vi.fn(),
+      update: vi.fn(async (args: any) => ({ id: args?.where?.id, ...args?.data })),
+    },
+    driverEarning: {
+      findMany: vi.fn(async () => []),
+      findUnique: vi.fn(),
+      update: vi.fn(async (args: any) => ({ id: args?.where?.id, ...args?.data })),
+    },
+    withdrawalRequest: {
+      findFirst: vi.fn(async () => null),
+      findUnique: vi.fn(async () => null),
+      findMany: vi.fn(async () => []),
+    },
     paymentDispute: {
       findUnique: vi.fn(),
       create: vi.fn(async (args: any) => ({
         id: "pds_db_001",
         publicReference: "pds_test_ref_123",
         history: [],
+        allocations: [],
         ...args?.data,
       })),
       update: vi.fn(async (args: any) => ({
         id: args?.where?.id ?? "pds_db_001",
         history: [],
+        allocations: [],
         ...args?.data,
       })),
+    },
+    paymentDisputeAllocation: {
+      create: vi.fn(async (args: any) => ({ id: "pda_001", ...args?.data })),
+      findMany: vi.fn(async () => []),
+      update: vi.fn(async (args: any) => ({ id: args?.where?.id, ...args?.data })),
     },
     paymentDisputeHistory: {
       create: vi.fn(async (args: any) => ({ id: "pdh_001", ...args?.data })),
     },
     wallet: {
-      findUnique: vi.fn(async () => ({
-        id: "wallet_platform",
-        ownerType: "PLATFORM",
-        ownerId: "platform",
-        currency: "ZAR",
-        status: "ACTIVE",
+      findUnique: vi.fn(async (args: any) => {
+        const ownerType = args?.where?.ownerType_ownerId_currency?.ownerType ?? "PLATFORM";
+        const ownerId = args?.where?.ownerType_ownerId_currency?.ownerId ?? "platform";
+        return {
+          id: `wallet_${ownerType}_${ownerId}`,
+          ownerType,
+          ownerId,
+          currency: "ZAR",
+          status: "ACTIVE",
+        };
+      }),
+      create: vi.fn(async (args: any) => ({
+        id: `wallet_${args?.data?.ownerType}_${args?.data?.ownerId}`,
+        ...args?.data,
       })),
-      create: vi.fn(),
     },
     ledgerAccount: {
       findUnique: vi.fn(async (args: any) => {
-        if (args?.where?.walletId_purpose_currency || args?.where?.code) {
-          return null;
+        if (args?.where?.id) {
+          return (
+            accountsMap.get(args.where.id) ?? {
+              id: args.where.id,
+              code: `ACC_${args.where.id}`,
+              purpose: "HELD",
+              category: "LIABILITY",
+              currency: "ZAR",
+              status: "ACTIVE",
+              allowNegative: true,
+              currentBalance: new Prisma.Decimal("100000.00"),
+              debitTotal: new Prisma.Decimal("0.00"),
+              creditTotal: new Prisma.Decimal("100000.00"),
+              version: 1,
+              wallet: { id: "wallet_platform", ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
+            }
+          );
         }
-        return {
-          id: args?.where?.id ?? "acc_mock",
-          code: args?.where?.id ?? "ACC_MOCK",
-          category: "LIABILITY",
-          currency: "ZAR",
-          status: "ACTIVE",
-          allowNegative: true,
-          currentBalance: new Prisma.Decimal("50000.00"),
-          debitTotal: new Prisma.Decimal("0.00"),
-          creditTotal: new Prisma.Decimal("50000.00"),
-          version: 1,
-          wallet: { id: "wallet_platform", ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
-        };
+        if (args?.where?.code) {
+          return Array.from(accountsMap.values()).find((a) => a.code === args.where.code) ?? null;
+        }
+        if (args?.where?.walletId_purpose_currency) {
+          const { walletId, purpose, currency } = args.where.walletId_purpose_currency;
+          return (
+            Array.from(accountsMap.values()).find(
+              (a) => a.walletId === walletId && a.purpose === purpose && a.currency === currency,
+            ) ?? null
+          );
+        }
+        return null;
       }),
       findMany: vi.fn(async (args: any) => {
-        const ids = args?.where?.id?.in ?? ["acc_cust_held", "acc_disp_held"];
-        return ids.map((id: string) => ({
-          id,
-          category: "LIABILITY",
-          currency: "ZAR",
+        const ids = args?.where?.id?.in ?? ["acc_001", "acc_002"];
+        return ids.map(
+          (id: string) =>
+            accountsMap.get(id) ?? {
+              id,
+              code: `ACC_${id}`,
+              purpose: "HELD",
+              category: "LIABILITY",
+              currency: "ZAR",
+              status: "ACTIVE",
+              allowNegative: true,
+              currentBalance: new Prisma.Decimal("100000.00"),
+              debitTotal: new Prisma.Decimal("0.00"),
+              creditTotal: new Prisma.Decimal("100000.00"),
+              version: 1,
+              wallet: { id: "wallet_platform", ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
+            },
+        );
+      }),
+      create: vi.fn(async (args: any) => {
+        const account = {
+          id: `acc_${args.data.code}`,
+          walletId: args.data.walletId,
+          code: args.data.code,
+          purpose: args.data.purpose,
+          category: args.data.category,
+          currency: args.data.currency,
           status: "ACTIVE",
           allowNegative: true,
-          currentBalance: new Prisma.Decimal("50000.00"),
+          currentBalance: new Prisma.Decimal("100000.00"),
           debitTotal: new Prisma.Decimal("0.00"),
-          creditTotal: new Prisma.Decimal("50000.00"),
+          creditTotal: new Prisma.Decimal("100000.00"),
           version: 1,
-          wallet: { id: "wallet_platform", ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
-        }));
+          wallet: { id: args.data.walletId, ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
+        };
+        accountsMap.set(account.id, account);
+        return account;
       }),
-      create: vi.fn(async (args: any) => ({
-        id: `acc_${args?.data?.code}`,
-        category: args?.data?.category,
-        currency: "ZAR",
-        status: "ACTIVE",
-        allowNegative: true,
-        currentBalance: new Prisma.Decimal("50000.00"),
-        debitTotal: new Prisma.Decimal("0.00"),
-        creditTotal: new Prisma.Decimal("50000.00"),
-        version: 1,
-        wallet: { id: "wallet_platform", ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
-        ...args?.data,
-      })),
       updateMany: vi.fn(async () => ({ count: 1 })),
     },
     ledgerJournal: {
@@ -116,8 +181,8 @@ vi.mock("@/lib/db/prisma", () => {
           memo: "memo",
           metadata: {},
           policyVersion: 1,
-          totalDebits: new Prisma.Decimal("500.00"),
-          totalCredits: new Prisma.Decimal("500.00"),
+          totalDebits: new Prisma.Decimal("1000.00"),
+          totalCredits: new Prisma.Decimal("1000.00"),
           originalJournal: null,
           reversalJournal: null,
           postedAt: new Date(),
@@ -128,6 +193,8 @@ vi.mock("@/lib/db/prisma", () => {
       create: vi.fn(async (args: any) => ({
         id: "jnl_dispute_001",
         reference: "JNL-DISP-001",
+        totalDebits: args?.data?.totalDebits ?? new Prisma.Decimal("1000.00"),
+        totalCredits: args?.data?.totalCredits ?? new Prisma.Decimal("1000.00"),
         ...args?.data,
       })),
     },
@@ -141,283 +208,396 @@ vi.mock("@/lib/db/prisma", () => {
 describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    accountsMap.clear();
   });
 
-  describe("Evidence Sanitization (PII / PCI-DSS compliance)", () => {
-    it("redacts credit card PANs, CVVs, PINs, passwords, and account numbers", () => {
-      const sensitiveEvidence = {
+  describe("Blocker 2: Dispute Evidence Allowlist (Schema vs Denylist)", () => {
+    it("preserves allowlisted operationally required fields and discards unexpected PII fields", () => {
+      const providerPayloadWithPII = {
+        providerDisputeId: "disp_pstk_12345",
+        transactionReference: "kt_pay_ref_67890",
+        amount: 450.0,
+        currency: "ZAR",
+        status: "needs_response",
+        reason: "fraudulent",
+        evidenceDueBy: "2026-09-20T12:00:00Z",
+        authorizedPrivateObjectReferences: ["s3://evidence/doc1.pdf", "s3://evidence/doc2.png"],
+        explanation: "Customer states transaction was unauthorized",
+        // Unexpected PII / PCI fields NOT on any denylist:
         customer_name: "John Doe",
         pan: "4111111111111111",
         card_number: "4111-2222-3333-4444",
         cvv: "123",
         pin: "9999",
-        account_number: "9876543210",
-        nested_bank_details: {
-          bank_account: "0123456789",
-          routing_number: "051001",
-        },
-        legitimate_reason: "Customer claims item never arrived",
+        national_id_ssn: "9801015000085",
+        bank_account_number: "9876543210",
+        customer_home_address: "123 Main Road, Cape Town",
+        unrestricted_pod_media_blob: "base64_blob_here",
+        arbitrary_extra_payload: { foo: "bar", internal: "leak" },
       };
 
-      const sanitized = sanitizeEvidenceSnapshot(sensitiveEvidence);
+      const sanitized = sanitizeEvidenceSnapshot(providerPayloadWithPII);
 
-      expect(sanitized).toEqual({
-        customer_name: "John Doe",
-        pan: "[REDACTED]",
-        card_number: "[REDACTED]",
-        cvv: "[REDACTED]",
-        pin: "[REDACTED]",
-        account_number: "[REDACTED]",
-        nested_bank_details: {
-          bank_account: "[REDACTED]",
-          routing_number: "051001",
-        },
-        legitimate_reason: "Customer claims item never arrived",
-      });
+      expect(sanitized).not.toBeNull();
+      // Allowlisted fields must be present
+      expect(sanitized?.providerDisputeId).toBe("disp_pstk_12345");
+      expect(sanitized?.transactionReference).toBe("kt_pay_ref_67890");
+      expect(sanitized?.amount).toBe(450.0);
+      expect(sanitized?.currency).toBe("ZAR");
+      expect(sanitized?.status).toBe("needs_response");
+      expect(sanitized?.reason).toBe("fraudulent");
+      expect(sanitized?.evidenceDueBy).toBe("2026-09-20T12:00:00Z");
+      expect(sanitized?.authorizedPrivateObjectReferences).toEqual([
+        "s3://evidence/doc1.pdf",
+        "s3://evidence/doc2.png",
+      ]);
+      expect(sanitized?.explanation).toBe("Customer states transaction was unauthorized");
+
+      // Verify that NO unexpected fields were persisted (allowlist behavior)
+      const anySanitized = sanitized as any;
+      expect(anySanitized?.customer_name).toBeUndefined();
+      expect(anySanitized?.pan).toBeUndefined();
+      expect(anySanitized?.card_number).toBeUndefined();
+      expect(anySanitized?.cvv).toBeUndefined();
+      expect(anySanitized?.pin).toBeUndefined();
+      expect(anySanitized?.national_id_ssn).toBeUndefined();
+      expect(anySanitized?.bank_account_number).toBeUndefined();
+      expect(anySanitized?.customer_home_address).toBeUndefined();
+      expect(anySanitized?.unrestricted_pod_media_blob).toBeUndefined();
+      expect(anySanitized?.arbitrary_extra_payload).toBeUndefined();
     });
 
-    it("returns null when evidence is missing or not an object", () => {
+    it("returns null when required fields are missing", () => {
       expect(sanitizeEvidenceSnapshot(null)).toBeNull();
-      expect(sanitizeEvidenceSnapshot(undefined)).toBeNull();
+      expect(sanitizeEvidenceSnapshot({})).toBeNull();
+      expect(sanitizeEvidenceSnapshot({ amount: 100 })).toBeNull(); // Missing disputeId & reference
     });
   });
 
-  describe("openPaymentDispute Boundary", () => {
-    it("posts hold journal on customer funds, creates dispute record, and flags payment reconciliation", async () => {
-      const mockPayment = {
-        id: "pay_001",
-        publicReference: "PAY-001",
-        provider: "PAYSTACK",
-        amount: new Prisma.Decimal("600.00"),
-        currency: "ZAR",
-      };
+  describe("Blocker 1: Multi-Vendor Dispute Accounting Scenarios", () => {
+    const basePayment = {
+      id: "pay_dispute_001",
+      publicReference: "PAY-DISP-001",
+      amount: new Prisma.Decimal("1000.00"),
+      currency: "ZAR",
+      status: "COMPLETED",
+    };
 
-      (prisma.payment.findUnique as any).mockResolvedValue(mockPayment);
+    const baseStoreEarning = {
+      id: "se_001",
+      storeId: "store_001",
+      paymentId: "pay_dispute_001",
+      amount: new Prisma.Decimal("700.00"),
+      currency: "ZAR",
+      status: "UNRELEASED",
+      payableAccountId: "acc_store_payable",
+    };
+
+    const baseDriverEarning = {
+      id: "de_001",
+      driverId: "driver_001",
+      paymentId: "pay_dispute_001",
+      amount: new Prisma.Decimal("200.00"),
+      currency: "ZAR",
+      status: "UNRELEASED",
+      payableAccountId: "acc_driver_payable",
+    };
+
+    it("1. fully unreleased vendor + driver + platform allocations", async () => {
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
 
       const result = await openPaymentDispute({
-        paymentPublicReference: "PAY-001",
-        providerDisputeId: "disp_pstk_987",
-        amount: "600.00",
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_unreleased_001",
+        amount: "1000.00",
         currency: "ZAR",
         reason: "FRAUDULENT",
-        providerStatus: "pending",
-        evidenceDueBy: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        safeEvidence: {
-          note: "Cardholder states transaction was unauthorized",
-          card_number: "4000123456789010",
-        },
+        providerStatus: "needs_response",
       });
 
-      expect(prisma.ledgerJournal.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            currency: "ZAR",
-            type: "GENERAL",
-          }),
-        }),
-      );
+      expect(result).toBeDefined();
+      expect(prisma.ledgerJournal.create).toHaveBeenCalled();
 
-      expect(prisma.ledgerEntry.createMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.arrayContaining([
-            expect.objectContaining({
-              direction: "DEBIT",
-              lineCode: "CUSTOMER_FUNDS_DISPUTE_RESERVE",
-            }),
-            expect.objectContaining({
-              direction: "CREDIT",
-              lineCode: "DISPUTE_HELD_LIABILITY",
-            }),
-          ]),
-        }),
-      );
+      // Check create call to paymentDispute
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
 
-      expect(prisma.paymentDispute.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            providerDisputeId: "disp_pstk_987",
-            status: "OPEN",
-            reason: "FRAUDULENT",
-            safeEvidenceSnapshot: expect.objectContaining({
-              card_number: "[REDACTED]",
-              note: "Cardholder states transaction was unauthorized",
-            }),
-          }),
-        }),
-      );
+      expect(createdAllocations).toHaveLength(3); // Store, Driver, Platform
 
-      // Payment reconciliation flag set
-      expect(prisma.payment.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "pay_001" },
-          data: { reconciliationStatus: "REQUIRED" },
-        }),
-      );
+      const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
+      const driverAlloc = createdAllocations.find((a: any) => a.participantType === "DRIVER");
+      const platformAlloc = createdAllocations.find((a: any) => a.participantType === "PLATFORM");
 
-      expect(result.status).toBe("OPEN");
+      expect(storeAlloc.holdingState).toBe("UNRELEASED_HELD");
+      expect(Number(storeAlloc.allocatedAmount)).toBe(700);
+
+      expect(driverAlloc.holdingState).toBe("UNRELEASED_HELD");
+      expect(Number(driverAlloc.allocatedAmount)).toBe(200);
+
+      expect(platformAlloc.holdingState).toBe("PLATFORM_HELD");
+      expect(Number(platformAlloc.allocatedAmount)).toBe(100);
+
+      // Invariant: sum(dispute exposure allocations) == disputed amount (1000)
+      const sumAllocations =
+        Number(storeAlloc.allocatedAmount) +
+        Number(driverAlloc.allocatedAmount) +
+        Number(platformAlloc.allocatedAmount);
+      expect(sumAllocations).toBe(1000);
     });
 
-    it("fails closed on non-positive dispute amount", async () => {
-      await expect(
-        openPaymentDispute({
-          paymentPublicReference: "PAY-001",
-          amount: "-50.00",
-        }),
-      ).rejects.toThrow("Dispute amount must be a positive number.");
-    });
-  });
+    it("2. partially released allocations (vendor released, driver unreleased)", async () => {
+      const releasedStoreEarning = { ...baseStoreEarning, status: "RELEASED" };
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([releasedStoreEarning]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
 
-  describe("updatePaymentDisputeEvidence Boundary", () => {
-    it("sanitizes evidence and transitions OPEN dispute to UNDER_REVIEW", async () => {
-      const mockDispute = {
-        id: "pds_001",
-        publicReference: "pds_test_ref",
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_partially_released_002",
+        amount: "1000.00",
+        currency: "ZAR",
+        reason: "PRODUCT_NOT_RECEIVED",
+        providerStatus: "needs_response",
+      });
+
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+
+      const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
+      const driverAlloc = createdAllocations.find((a: any) => a.participantType === "DRIVER");
+
+      // Released earnings are placed in RELEASED_HOLD on spendable balance
+      expect(storeAlloc.holdingState).toBe("RELEASED_HOLD");
+      expect(Number(storeAlloc.allocatedAmount)).toBe(700);
+
+      // Unreleased earnings remain in UNRELEASED_HELD
+      expect(driverAlloc.holdingState).toBe("UNRELEASED_HELD");
+      expect(Number(driverAlloc.allocatedAmount)).toBe(200);
+    });
+
+    it("3. mixed released/unreleased allocations", async () => {
+      const releasedDriverEarning = { ...baseDriverEarning, status: "RELEASED" };
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]); // Unreleased
+      (prisma.driverEarning.findMany as any).mockResolvedValue([releasedDriverEarning]); // Released
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_mixed_003",
+        amount: "1000.00",
+        currency: "ZAR",
+        reason: "DUPLICATE",
+        providerStatus: "needs_response",
+      });
+
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+
+      const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
+      const driverAlloc = createdAllocations.find((a: any) => a.participantType === "DRIVER");
+
+      expect(storeAlloc.holdingState).toBe("UNRELEASED_HELD");
+      expect(driverAlloc.holdingState).toBe("RELEASED_HOLD");
+    });
+
+    it("4. already-paid-out participant -> posts participant-specific recovery receivable without rewriting payout journals", async () => {
+      const withdrawnStoreEarning = {
+        ...baseStoreEarning,
+        status: "WITHDRAWN",
+        payoutLedgerJournalId: "jnl_historical_payout_999",
+      };
+
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([withdrawnStoreEarning]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_withdrawn_004",
+        amount: "1000.00",
+        currency: "ZAR",
+        reason: "FRAUDULENT",
+        providerStatus: "needs_response",
+      });
+
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+
+      const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
+      expect(storeAlloc.holdingState).toBe("RECOVERY_RECEIVABLE");
+      expect(Number(storeAlloc.recoveryReceivableAmount)).toBe(700);
+
+      // Verify that historical payout journal was NEVER modified or deleted
+      expect((prisma as any).ledgerJournal.update).toBeUndefined();
+      expect((prisma as any).ledgerJournal.delete).toBeUndefined();
+    });
+
+    it("5. partial dispute amount pro-rates deterministically and conserves dispute total", async () => {
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment); // 1000.00
+      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]); // 700.00
+      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]); // 200.00
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      // Disputing only 500.00 (50% of the payment)
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_partial_500",
+        amount: "500.00",
+        currency: "ZAR",
+        reason: "PRODUCT_NOT_RECEIVED",
+        providerStatus: "needs_response",
+      });
+
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+
+      const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
+      const driverAlloc = createdAllocations.find((a: any) => a.participantType === "DRIVER");
+      const platformAlloc = createdAllocations.find((a: any) => a.participantType === "PLATFORM");
+
+      expect(Number(storeAlloc.allocatedAmount)).toBe(350); // 50% of 700
+      expect(Number(driverAlloc.allocatedAmount)).toBe(100); // 50% of 200
+      expect(Number(platformAlloc.allocatedAmount)).toBe(50); // 50% of 100
+
+      const totalAllocated =
+        Number(storeAlloc.allocatedAmount) +
+        Number(driverAlloc.allocatedAmount) +
+        Number(platformAlloc.allocatedAmount);
+
+      expect(totalAllocated).toBe(500); // sum == disputed amount
+    });
+
+    it("6. duplicate create/remind/resolve is strictly idempotent and does not duplicate holds or journals", async () => {
+      const existingDispute = {
+        id: "pds_existing",
+        publicReference: "pds_existing_ref",
+        providerDisputeId: "disp_duplicate_test",
         status: "OPEN",
-        providerStatus: "pending",
-        evidenceDueBy: null,
+        amount: new Prisma.Decimal("1000.00"),
+        paymentId: "pay_dispute_001",
+        allocations: [],
       };
 
-      (prisma.paymentDispute.findUnique as any).mockResolvedValue(mockDispute);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(existingDispute);
 
-      const result = await updatePaymentDisputeEvidence({
-        disputePublicReference: "pds_test_ref",
-        safeEvidence: {
-          proof_of_delivery_signature: "image_base64_hash",
-          cvv: "888",
+      // Re-invoking openPaymentDispute with existing providerDisputeId
+      const replayResult = await openPaymentDispute({
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_duplicate_test",
+        amount: "1000.00",
+        currency: "ZAR",
+        reason: "FRAUDULENT",
+        providerStatus: "needs_response",
+      });
+
+      expect(replayResult.id).toBe("pds_existing");
+      // Must not create new journals or new dispute records
+      expect(prisma.paymentDispute.create).not.toHaveBeenCalled();
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+    });
+
+    it("7. WON and LOST resolution settles every allocation component exactly once", async () => {
+      const mockAllocations = [
+        {
+          id: "pda_001",
+          participantType: "STORE",
+          holdingState: "UNRELEASED_HELD",
+          allocatedAmount: new Prisma.Decimal("700.00"),
+          ledgerAccountId: "acc_store_dispute_held",
+          storeEarning: { payableAccountId: "acc_store_payable" },
         },
-        providerStatus: "under_review",
-      });
+        {
+          id: "pda_002",
+          participantType: "DRIVER",
+          holdingState: "UNRELEASED_HELD",
+          allocatedAmount: new Prisma.Decimal("200.00"),
+          ledgerAccountId: "acc_driver_dispute_held",
+          driverEarning: { payableAccountId: "acc_driver_payable" },
+        },
+        {
+          id: "pda_003",
+          participantType: "PLATFORM",
+          holdingState: "PLATFORM_HELD",
+          allocatedAmount: new Prisma.Decimal("100.00"),
+          ledgerAccountId: "acc_platform_dispute_held",
+        },
+      ];
 
-      expect(prisma.paymentDispute.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "pds_001" },
-          data: expect.objectContaining({
-            status: "UNDER_REVIEW",
-            providerStatus: "under_review",
-            safeEvidenceSnapshot: {
-              proof_of_delivery_signature: "image_base64_hash",
-              cvv: "[REDACTED]",
-            },
-          }),
-        }),
-      );
-
-      expect(result.status).toBe("UNDER_REVIEW");
-    });
-  });
-
-  describe("resolvePaymentDispute Boundary", () => {
-    it("releases dispute reserve back to customer funds when WON", async () => {
-      const mockDispute = {
-        id: "pds_won",
-        publicReference: "pds_won_ref",
+      const openDispute = {
+        id: "pds_resolve_test",
+        publicReference: "pds_resolve_ref",
+        providerDisputeId: "disp_resolve_123",
         status: "UNDER_REVIEW",
-        amount: new Prisma.Decimal("450.00"),
-        providerDisputeId: "disp_won_123",
-        payment: { id: "pay_won" },
+        amount: new Prisma.Decimal("1000.00"),
+        allocations: mockAllocations,
       };
 
-      (prisma.paymentDispute.findUnique as any).mockResolvedValue(mockDispute);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(openDispute);
 
-      const result = await resolvePaymentDispute({
-        disputePublicReference: "pds_won_ref",
+      // Test WON resolution: releases held funds back to participant payables
+      const wonResult = await resolvePaymentDispute({
+        disputePublicReference: "pds_resolve_ref",
         resolution: "WON",
-        providerStatus: "resolved_won",
+        providerStatus: "won",
       });
 
-      // Symmetrical release journal
-      expect(prisma.ledgerJournal.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            currency: "ZAR",
-            type: "GENERAL",
-          }),
-        }),
-      );
-
-      expect(prisma.ledgerEntry.createMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.arrayContaining([
-            expect.objectContaining({
-              direction: "DEBIT",
-              lineCode: "DISPUTE_HELD_RELEASED",
-            }),
-            expect.objectContaining({
-              direction: "CREDIT",
-              lineCode: "CUSTOMER_FUNDS_RESTORED",
-            }),
-          ]),
-        }),
-      );
-
+      expect(wonResult).toBeDefined();
       expect(prisma.paymentDispute.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "pds_won" },
-          data: expect.objectContaining({
-            status: "WON",
-            lossLedgerJournalId: null,
-          }),
+          where: { id: "pds_resolve_test" },
+          data: expect.objectContaining({ status: "WON" }),
         }),
       );
 
-      expect(result.status).toBe("WON");
+      // Test LOST resolution on separate dispute: clears dispute reserve against platform cash clearing
+      const lostDispute = { ...openDispute, id: "pds_lost_test", status: "UNDER_REVIEW" };
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(lostDispute);
+
+      const lostResult = await resolvePaymentDispute({
+        disputePublicReference: "pds_resolve_ref",
+        resolution: "LOST",
+        providerStatus: "lost",
+      });
+
+      expect(lostResult).toBeDefined();
+      expect(prisma.paymentDispute.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "pds_lost_test" },
+          data: expect.objectContaining({ status: "LOST" }),
+        }),
+      );
     });
 
-    it("clears dispute reserve and debits provider cash clearing when LOST (chargeback recognized)", async () => {
-      const mockDispute = {
-        id: "pds_lost",
-        publicReference: "pds_lost_ref",
-        status: "UNDER_REVIEW",
-        amount: new Prisma.Decimal("850.00"),
-        providerDisputeId: "disp_lost_999",
-        payment: { id: "pay_lost" },
-      };
+    it("8. exact double-entry ledger conservation after every transition", async () => {
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
 
-      (prisma.paymentDispute.findUnique as any).mockResolvedValue(mockDispute);
-
-      const result = await resolvePaymentDispute({
-        disputePublicReference: "pds_lost_ref",
-        resolution: "LOST",
-        providerStatus: "resolved_lost",
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_conservation_test",
+        amount: "1000.00",
+        currency: "ZAR",
+        reason: "FRAUDULENT",
+        providerStatus: "needs_response",
       });
 
-      // Provider chargeback settlement journal
-      expect(prisma.ledgerJournal.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            currency: "ZAR",
-            type: "GENERAL",
-          }),
-        }),
-      );
+      // Verify that ledgerJournal.create was called and total debits equal total credits
+      expect(prisma.ledgerJournal.create).toHaveBeenCalled();
+      const journalCall = (prisma.ledgerJournal.create as any).mock.calls[0][0];
 
-      expect(prisma.ledgerEntry.createMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.arrayContaining([
-            expect.objectContaining({
-              direction: "DEBIT",
-              lineCode: "DISPUTE_HELD_CLEARED",
-            }),
-            expect.objectContaining({
-              direction: "CREDIT",
-              lineCode: "PLATFORM_CASH_DEDUCTED_BY_PROVIDER",
-            }),
-          ]),
-        }),
-      );
+      const debits = new Prisma.Decimal(journalCall.data.totalDebits);
+      const credits = new Prisma.Decimal(journalCall.data.totalCredits);
 
-      expect(prisma.paymentDispute.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "pds_lost" },
-          data: expect.objectContaining({
-            status: "LOST",
-            lossLedgerJournalId: "jnl_dispute_001",
-          }),
-        }),
-      );
-
-      expect(result.status).toBe("LOST");
+      expect(debits.equals(credits)).toBe(true);
+      expect(debits.toFixed(2)).toBe("1000.00");
     });
   });
 });

@@ -167,6 +167,7 @@ describe("withdrawal payout service", () => {
       publicReference: "WPA-1",
       withdrawalId: "wd-1",
       status: "PROCESSING",
+      method: "MANUAL_EXTERNAL",
     };
 
     const tx = {

@@ -112,3 +112,37 @@ ALTER TABLE "PaymentDispute" ADD CONSTRAINT "PaymentDispute_paymentId_fkey" FORE
 
 -- AddForeignKey: PaymentDisputeHistory
 ALTER TABLE "PaymentDisputeHistory" ADD CONSTRAINT "PaymentDisputeHistory_disputeId_fkey" FOREIGN KEY ("disputeId") REFERENCES "PaymentDispute"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreateTable: PaymentDisputeAllocation
+CREATE TABLE "PaymentDisputeAllocation" (
+    "id" TEXT NOT NULL,
+    "publicReference" TEXT NOT NULL,
+    "disputeId" TEXT NOT NULL,
+    "participantType" TEXT NOT NULL,
+    "participantId" TEXT,
+    "storeEarningId" TEXT,
+    "driverEarningId" TEXT,
+    "allocatedAmount" DECIMAL(18,2) NOT NULL,
+    "heldAmount" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "recoveryReceivableAmount" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "currency" "LedgerCurrency" NOT NULL DEFAULT 'ZAR',
+    "holdingState" TEXT NOT NULL,
+    "ledgerAccountId" TEXT,
+    "holdJournalId" TEXT,
+    "settledAt" TIMESTAMP(3),
+    "settlementJournalId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PaymentDisputeAllocation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex: PaymentDisputeAllocation
+CREATE UNIQUE INDEX "PaymentDisputeAllocation_publicReference_key" ON "PaymentDisputeAllocation"("publicReference");
+CREATE INDEX "PaymentDisputeAllocation_disputeId_idx" ON "PaymentDisputeAllocation"("disputeId");
+CREATE INDEX "PaymentDisputeAllocation_participantType_participantId_idx" ON "PaymentDisputeAllocation"("participantType", "participantId");
+
+-- AddForeignKey: PaymentDisputeAllocation
+ALTER TABLE "PaymentDisputeAllocation" ADD CONSTRAINT "PaymentDisputeAllocation_disputeId_fkey" FOREIGN KEY ("disputeId") REFERENCES "PaymentDispute"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PaymentDisputeAllocation" ADD CONSTRAINT "PaymentDisputeAllocation_storeEarningId_fkey" FOREIGN KEY ("storeEarningId") REFERENCES "StoreEarning"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "PaymentDisputeAllocation" ADD CONSTRAINT "PaymentDisputeAllocation_driverEarningId_fkey" FOREIGN KEY ("driverEarningId") REFERENCES "DriverEarning"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

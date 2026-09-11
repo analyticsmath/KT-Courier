@@ -664,3 +664,266 @@ export async function handlePaystackTransferReversed(
     ),
   );
 }
+
+/**
+ * Handles Paystack transfer blocked or abandoned outcome (Blocker 4).
+ * After a bounded grace period or definitive provider response, transitions to finance/reconciliation-required,
+ * preserves held funds, and raises an actionable reconciliation case.
+ */
+export async function handlePaystackTransferBlockedOrAbandoned(
+  input: Readonly<{
+    merchantReference: string;
+    transferCode?: string;
+    status: "blocked" | "abandoned" | string;
+    reason?: string;
+  }>,
+) {
+  return withLedgerRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const attempt = await tx.withdrawalPayoutAttempt.findUnique({
+          where: { externalReference: input.merchantReference },
+          include: { withdrawal: true },
+        });
+        if (!attempt) return { outcome: "IGNORED" as const, reason: "ATTEMPT_NOT_FOUND" };
+
+        const withdrawal = attempt.withdrawal;
+        if (withdrawal.status === "PAID") {
+          return { outcome: "IGNORED" as const, reason: "ALREADY_PAID" };
+        }
+
+        const now = new Date();
+        const normStatus = input.status.toLowerCase();
+        const codeSuffix = normStatus === "blocked" ? "BLOCKED" : "ABANDONED";
+
+        await tx.withdrawalPayoutAttempt.update({
+          where: { id: attempt.id },
+          data: {
+            status: "UNKNOWN",
+            failureCode: `PAYSTACK_TRANSFER_${codeSuffix}`,
+            failureMessage: (input.reason ?? `Paystack reported transfer ${normStatus}`).slice(0, 240),
+            unknownAt: now,
+            version: { increment: 1 },
+          },
+        });
+
+        await tx.withdrawalRequest.update({
+          where: { id: withdrawal.id },
+          data: {
+            status: "RECONCILIATION_REQUIRED",
+            reconciliationRequiredAt: now,
+            version: { increment: 1 },
+          },
+        });
+
+        await openReconciliationCase(tx, {
+          withdrawalId: withdrawal.id,
+          withdrawalReference: withdrawal.publicReference,
+          attemptId: attempt.id,
+          attemptReference: attempt.publicReference,
+          reason: "UNKNOWN_PAYOUT_OUTCOME",
+          summary: `Paystack reported transfer ${normStatus}: ${input.reason ?? "Blocked or abandoned by provider"}. Held funds preserved.`,
+          safeEvidence: { merchantReference: input.merchantReference, transferStatus: normStatus },
+        });
+
+        await tx.withdrawalStatusHistory.create({
+          data: {
+            withdrawalId: withdrawal.id,
+            payoutAttemptId: attempt.id,
+            fromStatus: withdrawal.status,
+            toStatus: "RECONCILIATION_REQUIRED",
+            actorType: "SYSTEM",
+            reasonCode: `PAYSTACK_TRANSFER_${codeSuffix}`,
+            safeMetadata: { actorType: "PROVIDER", merchantReference: input.merchantReference, status: normStatus },
+          },
+        });
+
+        return { outcome: "APPLIED" as const };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
+}
+
+/**
+ * Finalizes a Paystack transfer requiring OTP (Blocker 4).
+ * Authorized finance-only action.
+ * OTP is ephemeral and NEVER stored in the database or logged.
+ * Rate limited to maximum 3 attempts per payout attempt.
+ * Ambiguous / timeout provider response transitions attempt to UNKNOWN / reconciliation.
+ * Webhook/reconciliation remains authoritative for terminal settlement.
+ */
+export async function finalizePaystackTransferOtp(
+  input: Readonly<{
+    actorUserId: string;
+    merchantReference: string;
+    otp: string;
+    clientOverride?: PaystackClient;
+  }>,
+): Promise<{ outcome: "SUCCESS" | "UNKNOWN" | "FAILED"; message: string }> {
+  assertWithdrawalProductionActivation();
+
+  const otp = input.otp.trim();
+  if (!/^\d{4,10}$/.test(otp)) {
+    throw new WithdrawalError("WITHDRAWAL_INVALID_INPUT", "A valid OTP is required.");
+  }
+
+  // Verify actor exists and is active
+  const actor = await prisma.user.findUnique({ where: { id: input.actorUserId } });
+  if (!actor || actor.status !== "ACTIVE") {
+    throw new WithdrawalError("WITHDRAWAL_FORBIDDEN", "Active finance user is required for OTP finalization.");
+  }
+
+  // Resolve Paystack client
+  const secretKey = resolvePaystackConfiguration().runtime?.secretKey ?? process.env.PAYSTACK_SECRET_KEY?.trim();
+  const client = input.clientOverride ?? (secretKey ? new PaystackClient({ secretKey }) : null);
+  if (!client) {
+    throw new WithdrawalError("WITHDRAWAL_CASH_INSUFFICIENT", "Paystack client is not configured.");
+  }
+
+  // Load attempt and verify eligibility
+  const attempt = await prisma.withdrawalPayoutAttempt.findUnique({
+    where: { externalReference: input.merchantReference },
+    include: { withdrawal: true },
+  });
+  if (!attempt) {
+    throw new WithdrawalError("WITHDRAWAL_PAYOUT_NOT_FOUND", "Payout attempt not found for merchant reference.");
+  }
+
+  if (attempt.withdrawal.status === "PAID") {
+    return { outcome: "SUCCESS", message: "Transfer is already paid." };
+  }
+
+  if (attempt.status !== "PROCESSING" && attempt.status !== "UNKNOWN") {
+    throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", `Cannot finalize OTP for attempt in ${attempt.status} status.`);
+  }
+
+  // Rate limiting check: max 3 attempts
+  const priorAttemptsCount = await prisma.withdrawalStatusHistory.count({
+    where: {
+      payoutAttemptId: attempt.id,
+      reasonCode: "OTP_FINALIZATION_ATTEMPTED",
+    },
+  });
+
+  if (priorAttemptsCount >= 3) {
+    // Exceeded rate limit: transition to UNKNOWN / reconciliation
+    await withLedgerRetry(() =>
+      prisma.$transaction(
+        async (tx) => {
+          const now = new Date();
+          await tx.withdrawalPayoutAttempt.update({
+            where: { id: attempt.id },
+            data: {
+              status: "UNKNOWN",
+              failureCode: "OTP_RATE_LIMITED",
+              failureMessage: "Maximum OTP attempts exceeded (3 max).",
+              unknownAt: now,
+              version: { increment: 1 },
+            },
+          });
+          await tx.withdrawalRequest.update({
+            where: { id: attempt.withdrawal.id },
+            data: {
+              status: "RECONCILIATION_REQUIRED",
+              reconciliationRequiredAt: now,
+              version: { increment: 1 },
+            },
+          });
+          await openReconciliationCase(tx, {
+            withdrawalId: attempt.withdrawal.id,
+            withdrawalReference: attempt.withdrawal.publicReference,
+            attemptId: attempt.id,
+            attemptReference: attempt.publicReference,
+            reason: "UNKNOWN_PAYOUT_OUTCOME",
+            summary: "Maximum OTP finalization attempts exceeded (3). Requires finance reconciliation.",
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
+    );
+    throw new WithdrawalError("WITHDRAWAL_POLICY_LIMIT", "Maximum OTP finalization attempts exceeded (3 max).");
+  }
+
+  // Audit that an OTP attempt occurred (NEVER storing or logging the OTP itself)
+  await prisma.withdrawalStatusHistory.create({
+    data: {
+      withdrawalId: attempt.withdrawal.id,
+      payoutAttemptId: attempt.id,
+      fromStatus: attempt.withdrawal.status,
+      toStatus: attempt.withdrawal.status,
+      actorType: "FINANCE_ADMIN",
+      actorUserId: input.actorUserId,
+      reasonCode: "OTP_FINALIZATION_ATTEMPTED",
+      safeMetadata: { actorType: "FINANCE_ADMIN", attemptNumber: priorAttemptsCount + 1 },
+    },
+  });
+
+  const transferCode = attempt.transferCode;
+  if (!transferCode) {
+    throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Payout attempt does not have an external transfer code.");
+  }
+
+  try {
+    const transferData = await client.finalizeTransfer({
+      transfer_code: transferCode,
+      otp,
+    });
+
+    const status = (transferData.status || "").toLowerCase();
+    if (status === "success") {
+      return { outcome: "SUCCESS", message: "Transfer OTP verified successfully by Paystack." };
+    }
+
+    return { outcome: "SUCCESS", message: `Transfer OTP submitted. Current status: ${status}.` };
+  } catch (err: unknown) {
+    const isTimeoutOrNetwork =
+      err instanceof Error &&
+      (err.name === "AbortError" ||
+        err.message.includes("timeout") ||
+        err.message.includes("ECONNRESET") ||
+        err.message.includes("ETIMEDOUT") ||
+        err.message.includes("fetch failed"));
+
+    if (isTimeoutOrNetwork) {
+      await withLedgerRetry(() =>
+        prisma.$transaction(
+          async (tx) => {
+            const now = new Date();
+            await tx.withdrawalPayoutAttempt.update({
+              where: { id: attempt.id },
+              data: {
+                status: "UNKNOWN",
+                failureCode: "OTP_FINALIZATION_TIMEOUT",
+                failureMessage: "Paystack OTP finalization timed out or ambiguous.",
+                unknownAt: now,
+                version: { increment: 1 },
+              },
+            });
+            await tx.withdrawalRequest.update({
+              where: { id: attempt.withdrawal.id },
+              data: {
+                status: "RECONCILIATION_REQUIRED",
+                reconciliationRequiredAt: now,
+                version: { increment: 1 },
+              },
+            });
+            await openReconciliationCase(tx, {
+              withdrawalId: attempt.withdrawal.id,
+              withdrawalReference: attempt.withdrawal.publicReference,
+              attemptId: attempt.id,
+              attemptReference: attempt.publicReference,
+              reason: "UNKNOWN_PAYOUT_OUTCOME",
+              summary: "Paystack OTP finalization timed out or had network failure. Transitioned to UNKNOWN.",
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        ),
+      );
+      return { outcome: "UNKNOWN", message: "Paystack OTP finalization timed out or ambiguous. Reconciled as UNKNOWN." };
+    }
+
+    const failureMsg = err instanceof Error ? err.message : "Paystack OTP finalization failed";
+    return { outcome: "FAILED", message: failureMsg };
+  }
+}
