@@ -410,7 +410,6 @@ jobs:
       KT_STORE_EARNING_INTEGRATION_APPROVED: "true"
       KT_NETWORK_DISABLED: "true"
       NO_PROXY: "*"
-      no_proxy: "*"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -430,7 +429,6 @@ jobs:
       KT_E2E_RATE_LIMIT_MODE: relaxed
       KT_NETWORK_DISABLED: "true"
       NO_PROXY: "*"
-      no_proxy: "*"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -450,7 +448,6 @@ jobs:
       KT_DRIVER_EARNING_INTEGRATION_APPROVED: "true"
       KT_NETWORK_DISABLED: "true"
       NO_PROXY: "*"
-      no_proxy: "*"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -470,7 +467,6 @@ jobs:
       KT_E2E_RATE_LIMIT_MODE: relaxed
       KT_NETWORK_DISABLED: "true"
       NO_PROXY: "*"
-      no_proxy: "*"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -517,7 +513,6 @@ jobs:
       KT_SMOKE_PROJECT_NAME: kt-couriers-storefront-${{ github.run_id }}
       KT_NETWORK_DISABLED: "true"
       NO_PROXY: "*"
-      no_proxy: "*"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -535,7 +530,6 @@ jobs:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
       KT_NETWORK_DISABLED: "true"
       NO_PROXY: "*"
-      no_proxy: "*"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -554,7 +548,6 @@ jobs:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
       KT_NETWORK_DISABLED: "true"
       NO_PROXY: "*"
-      no_proxy: "*"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
