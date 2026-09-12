@@ -11,7 +11,7 @@ import {
 } from "@/components/public-v2/auth";
 import styles from "@/components/public-v2/auth/auth-pages.module.css";
 
-type AccountType = "customer" | "store";
+type AccountType = "customer" | "store" | "driver";
 
 interface FieldErrors {
   fullName?: string;
@@ -29,7 +29,11 @@ export function SignupForm() {
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role")?.toLowerCase();
   const [accountType, setAccountType] = useState<AccountType>(
-    roleParam === "store" || roleParam === "business" ? "store" : "customer"
+    roleParam === "driver"
+      ? "driver"
+      : roleParam === "store" || roleParam === "business"
+      ? "store"
+      : "customer"
   );
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -46,6 +50,15 @@ export function SignupForm() {
       accountType === "customer"
         ? {
             accountType: "CUSTOMER",
+            fullName: form.get("full_name") as string,
+            email: form.get("email") as string,
+            phone: form.get("phone") as string,
+            password: form.get("password") as string,
+            confirmPassword: form.get("confirm_password") as string,
+          }
+        : accountType === "driver"
+        ? {
+            accountType: "DRIVER",
             fullName: form.get("full_name") as string,
             email: form.get("email") as string,
             phone: form.get("phone") as string,
@@ -109,11 +122,20 @@ export function SignupForm() {
           <span className={styles.accountChoiceTitle}>Business</span>
           <span className={styles.accountChoiceText}>Manage delivery requests for your store or business.</span>
         </button>
+        <button
+          aria-pressed={accountType === "driver"}
+          className={`${styles.accountChoice} ${accountType === "driver" ? styles.accountChoiceActive : ""}`}
+          onClick={() => setAccountType("driver")}
+          type="button"
+        >
+          <span className={styles.accountChoiceTitle}>Courier Driver</span>
+          <span className={styles.accountChoiceText}>Drive and deliver with the KT courier fleet.</span>
+        </button>
       </div>
 
       <form className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
         <AuthErrorSummary fieldErrors={fieldErrors} message={rootError} />
-        {accountType === "customer" ? (
+        {accountType === "customer" || accountType === "driver" ? (
           <>
             <AuthTextField
               autoComplete="name"
@@ -143,6 +165,7 @@ export function SignupForm() {
               label="Phone number"
               name="phone"
               placeholder="Your phone number"
+              required={accountType === "driver"}
               type="tel"
             />
           </>

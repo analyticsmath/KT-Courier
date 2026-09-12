@@ -6,6 +6,7 @@ import { generateUniqueSlug } from "@/lib/utils/slug";
 import {
   CustomerSignupSchema,
   StoreSignupSchema,
+  DriverSignupSchema,
   formatZodErrors,
 } from "@/lib/validation/auth";
 import { UserRole, OtpPurpose } from "@/types/db";
@@ -33,14 +34,19 @@ export async function POST(req: NextRequest) {
   const raw = body as Record<string, unknown>;
   const accountType = raw?.accountType;
 
-  if (accountType !== "CUSTOMER" && accountType !== "STORE") {
+  if (accountType !== "CUSTOMER" && accountType !== "STORE" && accountType !== "DRIVER") {
     return NextResponse.json(
-      { error: "Account type must be CUSTOMER or STORE." },
+      { error: "Account type must be CUSTOMER, STORE, or DRIVER." },
       { status: 400 }
     );
   }
 
-  const schema = accountType === "CUSTOMER" ? CustomerSignupSchema : StoreSignupSchema;
+  const schema =
+    accountType === "CUSTOMER"
+      ? CustomerSignupSchema
+      : accountType === "STORE"
+      ? StoreSignupSchema
+      : DriverSignupSchema;
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json(
@@ -60,7 +66,12 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await hashPassword(data.password);
-  const role: UserRole = accountType === "CUSTOMER" ? UserRole.CUSTOMER : UserRole.STORE;
+  const role: UserRole =
+    accountType === "CUSTOMER"
+      ? UserRole.CUSTOMER
+      : accountType === "STORE"
+      ? UserRole.STORE
+      : UserRole.DRIVER;
 
   let storeSlug: string | undefined;
   if (accountType === "STORE") {
@@ -77,7 +88,7 @@ export async function POST(req: NextRequest) {
         passwordHash,
         role,
         name:
-          accountType === "CUSTOMER"
+          accountType === "CUSTOMER" || accountType === "DRIVER"
             ? (data as { fullName: string }).fullName
             : (data as { contactPerson: string }).contactPerson,
         phone: data.phone ?? null,
@@ -93,7 +104,7 @@ export async function POST(req: NextRequest) {
           defaultPhone: data.phone ?? null,
         },
       });
-    } else {
+    } else if (accountType === "STORE") {
       const d = data as {
         storeName: string;
         contactPerson: string;
@@ -122,6 +133,21 @@ export async function POST(req: NextRequest) {
           addressLine1: d.businessAddress?.trim() || null,
           country: "South Africa",
           featured: false,
+        },
+      });
+    } else {
+      const count = await tx.driverProfile.count();
+      const driverCode = `DRV-${1000 + count + 1}`;
+      await tx.driverProfile.create({
+        data: {
+          userId: newUser.id,
+          driverCode,
+          displayName: (data as { fullName: string }).fullName,
+          phone: data.phone ?? null,
+          status: "PENDING_REVIEW",
+          availability: "OFFLINE",
+          onboardingStatus: "PROFILE_INCOMPLETE",
+          vehicleComplianceRequiredAt: new Date(),
         },
       });
     }

@@ -24,6 +24,10 @@ export default function AccountTypeSelectPage() {
           <span className={styles.accountChoiceTitle}>Business account</span>
           <span className={styles.accountChoiceText}>Coordinate delivery requests for your store.</span>
         </Link>
+        <Link className={styles.accountChoice} href="/signup?role=driver">
+          <span className={styles.accountChoiceTitle}>Courier Driver account</span>
+          <span className={styles.accountChoiceText}>Register as a delivery partner in the courier network.</span>
+        </Link>
       </div>
       <AuthFlowLinks links={[{ href: "/login", label: "Already have an account? Sign in" }]} />
     </>

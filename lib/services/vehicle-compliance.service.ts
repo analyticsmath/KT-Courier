@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
-import { DocumentStatus, OrderStatus, PrivateMediaOwnerType, PrivateMediaPurpose, VehicleComplianceStatus, VehicleDocumentType, VehicleMediaPurpose, VehicleType } from "@/types/db";
+import { DocumentStatus, OrderStatus, PrivateMediaOwnerType, PrivateMediaPurpose, VehicleComplianceStatus, VehicleDocumentType, VehicleMediaPurpose, VehicleType, Prisma } from "@/types/db";
 
 export class VehicleComplianceError extends Error {
   constructor(public readonly code: string, public readonly status: 400 | 403 | 404 | 409 | 422, message: string) {
@@ -66,6 +66,103 @@ export async function listOwnVehicles(driverUserId: string) {
     orderBy: { createdAt: "desc" },
     select: { id: true, publicReference: true, make: true, model: true, year: true, colour: true, registrationNumber: true, vehicleType: true, capacityKg: true, status: true, createdAt: true, documents: { select: { documentType: true, status: true, expiresAt: true } }, media: { select: { purpose: true } } },
   });
+}
+
+export async function listAdminVehicles(opts?: { status?: VehicleComplianceStatus; search?: string }) {
+  const where: Prisma.VehicleWhereInput = { archivedAt: null };
+  if (opts?.status) where.status = opts.status;
+  if (opts?.search?.trim()) {
+    const q = opts.search.trim();
+    where.OR = [
+      { registrationNumber: { contains: q, mode: "insensitive" } },
+      { make: { contains: q, mode: "insensitive" } },
+      { model: { contains: q, mode: "insensitive" } },
+      { driverProfile: { driverCode: { contains: q, mode: "insensitive" } } },
+      { driverProfile: { displayName: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+  return prisma.vehicle.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    include: {
+      driverProfile: {
+        select: {
+          id: true,
+          driverCode: true,
+          displayName: true,
+          status: true,
+          phone: true,
+        },
+      },
+      documents: {
+        include: {
+          privateMediaObject: {
+            select: {
+              publicReference: true,
+              originalFileName: true,
+            },
+          },
+        },
+      },
+      media: {
+        include: {
+          privateMediaObject: {
+            select: {
+              publicReference: true,
+              originalFileName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function getAdminVehicleDetail(vehicleId: string) {
+  const vehicle = await prisma.vehicle.findUnique({
+    where: { id: vehicleId },
+    include: {
+      driverProfile: {
+        select: {
+          id: true,
+          driverCode: true,
+          displayName: true,
+          status: true,
+          phone: true,
+          user: {
+            select: {
+              email: true,
+              name: true,
+            },
+          },
+        },
+      },
+      documents: {
+        include: {
+          privateMediaObject: {
+            select: {
+              publicReference: true,
+              originalFileName: true,
+              detectedMimeType: true,
+            },
+          },
+        },
+      },
+      media: {
+        include: {
+          privateMediaObject: {
+            select: {
+              publicReference: true,
+              originalFileName: true,
+              detectedMimeType: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!vehicle) throw new VehicleComplianceError("VEHICLE_NOT_FOUND", 404, "Vehicle was not found.");
+  return vehicle;
 }
 
 export async function attachOwnVehicleDocument(input: Readonly<{ driverUserId: string; vehicleId: string; documentType: VehicleDocumentType; privateMediaReference: string; expiresAt?: Date | null }>) {

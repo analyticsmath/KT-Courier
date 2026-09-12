@@ -60,6 +60,25 @@ export const StoreSignupSchema = z
     }
   });
 
+export const DriverSignupSchema = z
+  .object({
+    fullName: z.string().min(2, "Full name must be at least 2 characters").trim(),
+    email: emailField,
+    phone: z.string().min(1, "Phone number is required").trim(),
+    password: passwordField,
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+    accountType: z.literal("DRIVER"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      });
+    }
+  });
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 
 export const LoginSchema = z.object({
@@ -113,6 +132,7 @@ export const ResetPasswordSchema = z
 
 export type CustomerSignupInput = z.infer<typeof CustomerSignupSchema>;
 export type StoreSignupInput = z.infer<typeof StoreSignupSchema>;
+export type DriverSignupInput = z.infer<typeof DriverSignupSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type VerifyOtpInput = z.infer<typeof VerifyOtpSchema>;
 export type ResendOtpInput = z.infer<typeof ResendOtpSchema>;

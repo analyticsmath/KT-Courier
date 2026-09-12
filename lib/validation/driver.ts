@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VehicleType, DriverAvailability, DriverStatus } from "@/types/db";
+import { VehicleType, DriverAvailability, DriverStatus, DocumentType } from "@/types/db";
 
 // ─── Vehicle and Registration Validations ────────────────────────────────────
 const VehicleTypeSchema = z.nativeEnum(VehicleType);
@@ -86,3 +86,43 @@ export const DriverAvailabilityUpdateSchema = z.object({
 });
 
 export type DriverAvailabilityUpdateInput = z.infer<typeof DriverAvailabilityUpdateSchema>;
+
+// ─── Driver Onboarding Identity Input ────────────────────────────────────────
+export const DriverOnboardingSchema = z.object({
+  displayName: z.string().max(100).trim().optional(),
+  phone: z.string().min(8, "Phone number is required").max(30).trim(),
+  idNumber: z.string().min(5, "ID or passport number is required").max(30).trim(),
+  dateOfBirth: z.coerce.date(),
+  residentialAddress: z.string().min(5, "Residential address is required").max(300).trim(),
+  licenseNumber: z.string().min(5, "Driver licence number is required").max(50).trim(),
+  licenseExpiryDate: z.coerce.date(),
+  emergencyContactName: z.string().min(2, "Emergency contact name is required").max(100).trim(),
+  emergencyContactPhone: z.string().min(8, "Emergency contact phone is required").max(30).trim(),
+});
+
+export type DriverOnboardingInput = z.infer<typeof DriverOnboardingSchema>;
+
+// ─── Driver Document Attachment Input ─────────────────────────────────────────
+export const AttachDriverDocumentSchema = z.object({
+  documentType: z.nativeEnum(DocumentType),
+  privateMediaReference: z.string().regex(/^PMO-[a-f0-9-]{36}$/),
+  expiresAt: z.coerce.date().nullable().optional(),
+});
+
+export type AttachDriverDocumentInput = z.infer<typeof AttachDriverDocumentSchema>;
+
+// ─── Admin Review Driver Document Input ───────────────────────────────────────
+export const AdminReviewDriverDocumentSchema = z.object({
+  status: z.enum(["APPROVED", "REJECTED"]),
+  reason: z.string().trim().optional(),
+}).refine((data) => {
+  if (data.status === "REJECTED" && (!data.reason || data.reason.length < 3)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "A valid reason (at least 3 characters) is required when rejecting a document.",
+  path: ["reason"],
+});
+
+export type AdminReviewDriverDocumentInput = z.infer<typeof AdminReviewDriverDocumentSchema>;

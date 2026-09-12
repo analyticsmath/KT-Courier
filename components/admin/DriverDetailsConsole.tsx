@@ -271,6 +271,83 @@ export function DriverDetailsConsole({
     }
   };
 
+  const [docReviewLoading, setDocReviewLoading] = useState<string | null>(null);
+
+  const handleReviewDriverDoc = async (docId: string, status: "APPROVED" | "REJECTED") => {
+    let reason: string | undefined;
+    if (status === "REJECTED") {
+      const inputReason = window.prompt("Enter rejection reason (min 3 characters):");
+      if (!inputReason || inputReason.trim().length < 3) {
+        alert("A valid rejection reason is required.");
+        return;
+      }
+      reason = inputReason.trim();
+    }
+    setDocReviewLoading(docId);
+    try {
+      const res = await fetch(`/api/admin/drivers/${driver.id}/documents/${docId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Review failed");
+      await refreshDetails();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to review document");
+    } finally {
+      setDocReviewLoading(null);
+    }
+  };
+
+  const handleReviewVehicle = async (vehicleId: string, status: "APPROVED" | "REJECTED") => {
+    let reason: string | undefined;
+    if (status === "REJECTED") {
+      const inputReason = window.prompt("Enter rejection reason (min 3 characters):");
+      if (!inputReason || inputReason.trim().length < 3) {
+        alert("A valid rejection reason is required.");
+        return;
+      }
+      reason = inputReason.trim();
+    }
+    try {
+      const res = await fetch(`/api/admin/vehicles/${vehicleId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Vehicle review failed");
+      await refreshDetails();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to review vehicle");
+    }
+  };
+
+  const handleReviewVehicleDoc = async (vehicleId: string, docId: string, status: "APPROVED" | "REJECTED") => {
+    let reason: string | undefined;
+    if (status === "REJECTED") {
+      const inputReason = window.prompt("Enter rejection reason (min 3 characters):");
+      if (!inputReason || inputReason.trim().length < 3) {
+        alert("A valid rejection reason is required.");
+        return;
+      }
+      reason = inputReason.trim();
+    }
+    try {
+      const res = await fetch(`/api/admin/vehicles/${vehicleId}/documents/${docId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Vehicle document review failed");
+      await refreshDetails();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to review vehicle document");
+    }
+  };
+
   // Region checkbox change handler
   const handleRegionCheckboxChange = (rId: string, checked: boolean) => {
     if (checked) {
@@ -756,16 +833,41 @@ export function DriverDetailsConsole({
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {driver.documents.map((doc) => (
-                    <div key={doc.id} className="p-2.5 bg-[var(--kt-studio-white)] rounded-xl border border-[var(--kt-soft-border)] flex justify-between items-center text-xs">
+                    <div key={doc.id} className="p-3 bg-[var(--kt-studio-white)] rounded-xl border border-[var(--kt-soft-border)] flex justify-between items-center text-xs">
                       <div>
                         <span className="font-semibold text-[var(--kt-ink-navy)] block">{doc.documentType.replace(/_/g, " ")}</span>
-                        <span className="text-[10px] text-[var(--kt-text-muted)]">
+                        <span className="text-[10px] text-[var(--kt-text-muted)] block">
                           {doc.expiresAt ? `Expires: ${new Date(doc.expiresAt).toLocaleDateString("en-ZA")}` : "No expiry recorded"}
                         </span>
+                        {doc.rejectionReason && (
+                          <span className="text-[10px] text-red-600 font-semibold block mt-0.5">
+                            Reason: {doc.rejectionReason}
+                          </span>
+                        )}
                       </div>
-                      <Badge variant={doc.status === "APPROVED" ? "green" : doc.status === "REJECTED" ? "red" : "amber"}>
-                        {doc.status}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <Badge variant={doc.status === "APPROVED" ? "green" : doc.status === "REJECTED" ? "red" : "amber"}>
+                          {doc.status}
+                        </Badge>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            disabled={docReviewLoading === doc.id}
+                            onClick={() => handleReviewDriverDoc(doc.id, "APPROVED")}
+                            className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={docReviewLoading === doc.id}
+                            onClick={() => handleReviewDriverDoc(doc.id, "REJECTED")}
+                            className="px-2 py-0.5 text-[10px] font-bold rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -785,9 +887,27 @@ export function DriverDetailsConsole({
                         <span className="font-bold text-[var(--kt-ink-navy)]">{v.make} {v.model} ({v.registrationNumber})</span>
                         <span className="text-[10px] text-[var(--kt-text-muted)] block">{v.vehicleType} • {v.colour || "Color not set"}</span>
                       </div>
-                      <Badge variant={v.status === "APPROVED" ? "green" : v.status === "REJECTED" ? "red" : "amber"}>
-                        {v.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={v.status === "APPROVED" ? "green" : v.status === "REJECTED" ? "red" : "amber"}>
+                          {v.status}
+                        </Badge>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleReviewVehicle(v.id, "APPROVED")}
+                            className="px-2 py-1 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReviewVehicle(v.id, "REJECTED")}
+                            className="px-2 py-1 text-[10px] font-bold rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Vehicle Documents */}
@@ -797,11 +917,31 @@ export function DriverDetailsConsole({
                         {["REGISTRATION", "LICENCE_DISC", "INSURANCE"].map((docType) => {
                           const doc = v.documents.find((d) => d.documentType === docType);
                           return (
-                            <div key={docType} className="p-1.5 bg-white rounded-lg border border-[var(--kt-soft-border)] text-[11px] flex justify-between items-center">
-                              <span className="font-medium text-[var(--kt-ink-navy)]">{docType.replace(/_/g, " ")}</span>
-                              <span className={`text-[10px] font-bold ${doc?.status === "APPROVED" ? "text-[var(--kt-teal-emerald)]" : doc?.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}>
-                                {doc ? doc.status : "MISSING"}
-                              </span>
+                            <div key={docType} className="p-2 bg-white rounded-lg border border-[var(--kt-soft-border)] text-[11px] flex justify-between items-center">
+                              <div>
+                                <span className="font-medium text-[var(--kt-ink-navy)] block">{docType.replace(/_/g, " ")}</span>
+                                <span className={`text-[10px] font-bold ${doc?.status === "APPROVED" ? "text-[var(--kt-teal-emerald)]" : doc?.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}>
+                                  {doc ? doc.status : "MISSING"}
+                                </span>
+                              </div>
+                              {doc && (
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewVehicleDoc(v.id, doc.id, "APPROVED")}
+                                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewVehicleDoc(v.id, doc.id, "REJECTED")}
+                                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100"
+                                  >
+                                    ✗
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

@@ -62,6 +62,86 @@ export function ProductDetailExperience({
   const categoryHref = marketplaceCategoryHref(product.categoryPath);
   const storeHref = store ? marketplaceStoreHref(store.slug) : null;
 
+  const [quantity, setQuantity] = useState(1);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [cartFeedback, setCartFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [cartVersion, setCartVersion] = useState<number | null>(null);
+
+  const isPurchasable = product.availability === "IN_STOCK" || product.availability === "LOW_STOCK";
+
+  const handleAddToCart = async () => {
+    if (!isPurchasable || addingToCart) return;
+    setAddingToCart(true);
+    setCartFeedback(null);
+
+    try {
+      let activeVersion: number = cartVersion ?? 1;
+      if (cartVersion === null) {
+        const cartRes = await fetch("/api/cart");
+        if (cartRes.ok) {
+          const cartData = await cartRes.json();
+          activeVersion = cartData.cart?.version ?? 1;
+          setCartVersion(activeVersion);
+        }
+      }
+
+      const computeHash = async (val: string) => {
+        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(val));
+        return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      };
+
+      const sendAddLine = async (ver: number) => {
+        const opId = `add-${crypto.randomUUID()}`;
+        const reqHash = await computeHash(`${product.offerReference}:${quantity}:${ver}:${opId}`);
+        return fetch("/api/cart/lines", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            offerReference: product.offerReference,
+            variantReference: product.variantReference,
+            quantity,
+            modifiers: [],
+            operationId: opId,
+            requestHash: reqHash,
+            cartVersion: ver,
+          }),
+        });
+      };
+
+      let res = await sendAddLine(activeVersion);
+
+      if (res.status === 409) {
+        const refreshRes = await fetch("/api/cart");
+        if (refreshRes.ok) {
+          const freshData = await refreshRes.json();
+          const freshVersion = freshData.cart?.version ?? (activeVersion + 1);
+          setCartVersion(freshVersion);
+          res = await sendAddLine(freshVersion);
+        }
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || "Failed to add item to cart.");
+      }
+
+      const data = await res.json();
+      const updatedVersion = data.cart?.version ?? (activeVersion + 1);
+      setCartVersion(updatedVersion);
+      setCartFeedback({
+        type: "success",
+        message: `${quantity} ${quantity === 1 ? "item" : "items"} added to your cart.`,
+      });
+    } catch (err) {
+      setCartFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Could not add item to cart.",
+      });
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
   return (
     <div className={styles.commerceInner}>
       {/* Breadcrumb Navigation */}
@@ -266,16 +346,111 @@ export function ProductDetailExperience({
             </li>
           </ul>
 
-          {/* Honest Purchase Availability Box */}
+          {/* Interactive Purchase Controls */}
           <div className={styles.pdpPurchaseStatusBox}>
-            <h2 className={styles.purchaseStatusHeading}>Purchasing Information</h2>
-            <p className={styles.purchaseStatusText}>
-              Online purchase is not available on this public storefront yet.
-              Availability is confirmed from the selected product, store and delivery details.
-            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
+                Quantity
+              </span>
+              <div style={{ display: "inline-flex", alignItems: "center", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4, overflow: "hidden" }}>
+                <button
+                  type="button"
+                  aria-label="Decrease quantity"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1 || addingToCart}
+                  style={{
+                    padding: "6px 12px",
+                    background: "none",
+                    border: "none",
+                    cursor: quantity <= 1 ? "not-allowed" : "pointer",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  -
+                </button>
+                <span style={{ padding: "6px 14px", fontSize: "0.95rem", fontWeight: 600, minWidth: 24, textAlign: "center" }}>
+                  {quantity}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Increase quantity"
+                  onClick={() => setQuantity((q) => Math.min(10, q + 1))}
+                  disabled={quantity >= 10 || addingToCart}
+                  style={{
+                    padding: "6px 12px",
+                    background: "none",
+                    border: "none",
+                    cursor: quantity >= 10 ? "not-allowed" : "pointer",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!isPurchasable || addingToCart}
+              style={{
+                marginTop: 10,
+                width: "100%",
+                padding: "14px 20px",
+                backgroundColor: isPurchasable ? "var(--kt-carbon, #101210)" : "#8e9591",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 4,
+                fontSize: "1rem",
+                fontWeight: 600,
+                cursor: isPurchasable && !addingToCart ? "pointer" : "not-allowed",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {addingToCart ? "Adding to Cart..." : isPurchasable ? "Add to Cart" : "Currently Unavailable"}
+            </button>
+
+            {cartFeedback && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: "10px 14px",
+                  borderRadius: 4,
+                  fontSize: "0.875rem",
+                  backgroundColor: cartFeedback.type === "success" ? "#eef8f1" : "#fdf2f2",
+                  color: cartFeedback.type === "success" ? "#1e6e38" : "#ba1a1a",
+                  border: `1px solid ${cartFeedback.type === "success" ? "#bce3c6" : "#f8b4b4"}`,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span>{cartFeedback.message}</span>
+                {cartFeedback.type === "success" && (
+                  <Link
+                    href="/cart"
+                    style={{
+                      fontWeight: 600,
+                      color: "#1e6e38",
+                      textDecoration: "underline",
+                      marginLeft: 8,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    View Cart &rarr;
+                  </Link>
+                )}
+              </div>
+            )}
+
             {storeHref && (
-              <Link className={styles.sectionDirectLink} href={storeHref} style={{ marginTop: 6 }}>
-                Explore store products &rarr;
+              <Link className={styles.sectionDirectLink} href={storeHref} style={{ marginTop: 8 }}>
+                Explore more from {store?.name || "this store"} &rarr;
               </Link>
             )}
           </div>

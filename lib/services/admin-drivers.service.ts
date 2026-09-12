@@ -5,7 +5,7 @@ import {
   type DriverSummaryDto,
   type DriverDetailDto,
 } from "@/lib/dto/driver.dto";
-import { DriverStatus, DriverAvailability, DriverOnboardingStatus, UserRole, Prisma } from "@/types/db";
+import { DriverStatus, DriverAvailability, DriverOnboardingStatus, DocumentStatus, UserRole, Prisma } from "@/types/db";
 import { isValidStatusTransition, canDriverBeAvailable } from "../constants/drivers";
 import { recordAdminActivity } from "./admin-activity.service";
 import type { AdminCreateDriverInput, AdminUpdateDriverInput } from "../validation/driver";
@@ -495,3 +495,79 @@ export async function listUnlinkedDriverUsers(): Promise<{ id: string; email: st
     orderBy: { email: "asc" },
   });
 }
+
+// ─── List Driver Documents ────────────────────────────────────────────────────
+export async function listDriverDocuments(driverProfileId: string) {
+  const driver = await prisma.driverProfile.findUnique({
+    where: { id: driverProfileId },
+    select: { id: true },
+  });
+  if (!driver) throw new Error("Driver profile not found.");
+
+  return prisma.driverDocument.findMany({
+    where: { driverProfileId: driver.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      privateMediaObject: {
+        select: {
+          publicReference: true,
+          originalFileName: true,
+          detectedMimeType: true,
+          status: true,
+        },
+      },
+    },
+  });
+}
+
+// ─── Review Driver Document ───────────────────────────────────────────────────
+export async function reviewDriverDocument(input: Readonly<{
+  adminUserId: string;
+  driverDocumentId: string;
+  status: Extract<DocumentStatus, "APPROVED" | "REJECTED">;
+  reason?: string;
+}>) {
+  const document = await prisma.driverDocument.findUnique({
+    where: { id: input.driverDocumentId },
+    include: { driverProfile: true },
+  });
+  if (!document) throw new Error("Driver document was not found.");
+  if (input.status === DocumentStatus.REJECTED && !input.reason?.trim()) {
+    throw new Error("A reason is required when rejecting a driver document.");
+  }
+
+  const updated = await prisma.driverDocument.update({
+    where: { id: document.id },
+    data: {
+      status: input.status,
+      reviewedAt: new Date(),
+      reviewedByAdminId: input.adminUserId,
+      rejectionReason: input.status === DocumentStatus.REJECTED ? input.reason!.trim() : null,
+    },
+    include: {
+      privateMediaObject: {
+        select: {
+          publicReference: true,
+          originalFileName: true,
+          detectedMimeType: true,
+        },
+      },
+    },
+  });
+
+  await recordAdminActivity({
+    actorUserId: input.adminUserId,
+    action: "STATUS_CHANGE",
+    entityType: "DriverDocument",
+    entityId: document.id,
+    message: `Driver document ${document.documentType} reviewed as ${input.status}.`,
+    metadata: {
+      driverCode: document.driverProfile.driverCode,
+      status: input.status,
+      reason: input.reason ?? null,
+    },
+  });
+
+  return updated;
+}
+
