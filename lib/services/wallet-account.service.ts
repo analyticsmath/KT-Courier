@@ -9,19 +9,6 @@ import type {
   LedgerOwnerTypeCode,
 } from "@/lib/ledger/types";
 
-type EnsureWalletInput = Readonly<{
-  ownerType: LedgerOwnerTypeCode;
-  ownerId: string;
-  currency: LedgerCurrencyCode;
-}>;
-
-type EnsureAccountInput = Readonly<{
-  walletId: string;
-  code: string;
-  purpose: LedgerAccountPurposeCode;
-  category: LedgerAccountCategoryCode;
-  currency: LedgerCurrencyCode;
-}>;
 
 function isUniqueConflict(error: unknown): boolean {
   return (error as { code?: string })?.code === "P2002";
@@ -86,15 +73,108 @@ function accountSnapshot(account: {
   });
 }
 
-export async function ensureWalletForOwner(input: EnsureWalletInput) {
+export type EnsureWalletInput = Readonly<{
+  ownerType: LedgerOwnerTypeCode;
+  ownerId: string;
+  currency: LedgerCurrencyCode;
+}>;
+
+export type EnsureAccountInput = Readonly<{
+  walletId: string;
+  code: string;
+  purpose: LedgerAccountPurposeCode;
+  category: LedgerAccountCategoryCode;
+  currency: LedgerCurrencyCode;
+  allowNegative?: boolean;
+}>;
+
+export async function ensureWalletForOwnerInTx(
+  tx: Prisma.TransactionClient,
+  input: EnsureWalletInput,
+) {
+  if (input.currency !== "ZAR" || !input.ownerId.trim()) {
+    throw new LedgerError("LEDGER_OWNER_INVALID", "A valid owner and ZAR currency are required.");
+  }
+
+  await assertOwnerExists(tx, input);
+  const existing = await tx.wallet.findUnique({
+    where: { ownerType_ownerId_currency: input },
+  });
+  if (existing) {
+    if (existing.status !== "ACTIVE") {
+      throw new LedgerError("LEDGER_WALLET_INACTIVE", "Ledger wallet is not active.");
+    }
+    return walletSnapshot(existing);
+  }
+
+  const created = await tx.wallet.create({
+    data: {
+      ownerType: input.ownerType,
+      ownerId: input.ownerId,
+      currency: input.currency,
+      status: "ACTIVE",
+    },
+  });
+  return walletSnapshot(created);
+}
+
+export async function ensureLedgerAccountInTx(
+  tx: Prisma.TransactionClient,
+  input: EnsureAccountInput,
+) {
+  const code = input.code.trim().toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9-]{2,79}$/.test(code) || input.currency !== "ZAR") {
+    throw new LedgerError("LEDGER_OWNER_INVALID", "Ledger account code or currency is invalid.");
+  }
+
+  const wallet = await tx.wallet.findUnique({ where: { id: input.walletId } });
+  if (!wallet) throw new LedgerError("LEDGER_WALLET_NOT_FOUND", "Ledger wallet was not found.");
+  if (wallet.status !== "ACTIVE") throw new LedgerError("LEDGER_WALLET_INACTIVE", "Ledger wallet is not active.");
+  if (wallet.currency !== input.currency) {
+    throw new LedgerError("LEDGER_ACCOUNT_CURRENCY_MISMATCH", "Ledger account currency does not match its wallet.");
+  }
+
+  const existingByPurpose = await tx.ledgerAccount.findUnique({
+    where: { walletId_purpose_currency: { walletId: input.walletId, purpose: input.purpose, currency: input.currency } },
+  });
+  if (existingByPurpose) {
+    if (existingByPurpose.code !== code || existingByPurpose.category !== input.category) {
+      throw new LedgerError("LEDGER_OWNER_INVALID", "Existing wallet account conflicts with the requested canonical definition.");
+    }
+    return accountSnapshot(existingByPurpose);
+  }
+
+  const existingByCode = await tx.ledgerAccount.findUnique({ where: { code } });
+  if (existingByCode) {
+    throw new LedgerError("LEDGER_OWNER_INVALID", "Ledger account code is already assigned to another account.");
+  }
+
+  const created = await tx.ledgerAccount.create({
+    data: {
+      walletId: input.walletId,
+      code,
+      purpose: input.purpose,
+      category: input.category,
+      currency: input.currency,
+      allowNegative: input.allowNegative ?? false,
+    },
+  });
+  return accountSnapshot(created);
+}
+
+export async function ensureWalletForOwner(input: EnsureWalletInput, tx?: Prisma.TransactionClient) {
+  if (tx) {
+    return ensureWalletForOwnerInTx(tx, input);
+  }
+
   if (input.currency !== "ZAR" || !input.ownerId.trim()) {
     throw new LedgerError("LEDGER_OWNER_INVALID", "A valid owner and ZAR currency are required.");
   }
 
   try {
-    const wallet = await withLedgerRetry(() => prisma.$transaction(async (tx) => {
-      await assertOwnerExists(tx, input);
-      const existing = await tx.wallet.findUnique({
+    const wallet = await withLedgerRetry(() => prisma.$transaction(async (innerTx) => {
+      await assertOwnerExists(innerTx, input);
+      const existing = await innerTx.wallet.findUnique({
         where: { ownerType_ownerId_currency: input },
       });
       if (existing) {
@@ -104,7 +184,7 @@ export async function ensureWalletForOwner(input: EnsureWalletInput) {
         return existing;
       }
 
-      return tx.wallet.create({
+      return innerTx.wallet.create({
         data: {
           ownerType: input.ownerType,
           ownerId: input.ownerId,
@@ -123,21 +203,25 @@ export async function ensureWalletForOwner(input: EnsureWalletInput) {
   }
 }
 
-export async function ensureLedgerAccount(input: EnsureAccountInput) {
+export async function ensureLedgerAccount(input: EnsureAccountInput, tx?: Prisma.TransactionClient) {
+  if (tx) {
+    return ensureLedgerAccountInTx(tx, input);
+  }
+
   const code = input.code.trim().toUpperCase();
   if (!/^[A-Z0-9][A-Z0-9-]{2,79}$/.test(code) || input.currency !== "ZAR") {
     throw new LedgerError("LEDGER_OWNER_INVALID", "Ledger account code or currency is invalid.");
   }
 
-  const resolve = async () => withLedgerRetry(() => prisma.$transaction(async (tx) => {
-    const wallet = await tx.wallet.findUnique({ where: { id: input.walletId } });
+  const resolve = async () => withLedgerRetry(() => prisma.$transaction(async (innerTx) => {
+    const wallet = await innerTx.wallet.findUnique({ where: { id: input.walletId } });
     if (!wallet) throw new LedgerError("LEDGER_WALLET_NOT_FOUND", "Ledger wallet was not found.");
     if (wallet.status !== "ACTIVE") throw new LedgerError("LEDGER_WALLET_INACTIVE", "Ledger wallet is not active.");
     if (wallet.currency !== input.currency) {
       throw new LedgerError("LEDGER_ACCOUNT_CURRENCY_MISMATCH", "Ledger account currency does not match its wallet.");
     }
 
-    const existingByPurpose = await tx.ledgerAccount.findUnique({
+    const existingByPurpose = await innerTx.ledgerAccount.findUnique({
       where: { walletId_purpose_currency: { walletId: input.walletId, purpose: input.purpose, currency: input.currency } },
     });
     if (existingByPurpose) {
@@ -147,19 +231,19 @@ export async function ensureLedgerAccount(input: EnsureAccountInput) {
       return existingByPurpose;
     }
 
-    const existingByCode = await tx.ledgerAccount.findUnique({ where: { code } });
+    const existingByCode = await innerTx.ledgerAccount.findUnique({ where: { code } });
     if (existingByCode) {
       throw new LedgerError("LEDGER_OWNER_INVALID", "Ledger account code is already assigned to another account.");
     }
 
-    return tx.ledgerAccount.create({
+    return innerTx.ledgerAccount.create({
       data: {
         walletId: input.walletId,
         code,
         purpose: input.purpose,
         category: input.category,
         currency: input.currency,
-        allowNegative: false,
+        allowNegative: input.allowNegative ?? false,
       },
     });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));

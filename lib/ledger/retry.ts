@@ -26,6 +26,10 @@ export async function withLedgerRetry<T>(
       return await operation(attempt);
     } catch (error) {
       if (!isRetryableLedgerConcurrencyError(error) || attempt >= retries) throw error;
+      const baseDelayMs = 20;
+      const maxDelayMs = 250;
+      const delayMs = Math.min(maxDelayMs, baseDelayMs * Math.pow(2, attempt)) + Math.floor(Math.random() * 25);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 }

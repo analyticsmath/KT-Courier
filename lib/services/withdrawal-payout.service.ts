@@ -5,15 +5,18 @@ import { LedgerMoney } from "@/lib/ledger/money";
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { payoutAttemptHash, payoutCompletionHash } from "@/lib/withdrawals/withdrawal-idempotency";
 import { assertWithdrawalDualControl } from "@/lib/withdrawals/withdrawal-dual-control";
-import { withdrawalPayoutPosting } from "@/lib/withdrawals/withdrawal-ledger-policy";
+import { withdrawalPayoutPosting, withdrawalReleasePosting } from "@/lib/withdrawals/withdrawal-ledger-policy";
 import { assertExternalPayoutReference } from "@/lib/withdrawals/payout-reference-policy";
 import { assertPayoutAttemptTransition } from "@/lib/withdrawals/payout-attempt-state-machine";
 import { assertWithdrawalTransition } from "@/lib/withdrawals/withdrawal-state-machine";
 import { assertWithdrawalProductionActivation } from "@/lib/withdrawals/withdrawal-production-readiness";
 import { WithdrawalError } from "@/lib/withdrawals/errors";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import { lockWithdrawalAccounts } from "./withdrawal-account.service";
 import {
+  cancelWithdrawalEarningAllocations,
   settleWithdrawalEarningAllocations,
+  transitionInFlightDisputesOnPayoutFailure,
   transitionInFlightDisputesOnPayoutSuccess,
 } from "./withdrawal-earning-allocation.service";
 
@@ -80,11 +83,90 @@ export async function recordWithdrawalPayoutFailure(input: Readonly<{ actorUserI
     const attempt = await lockAttempt(tx, withdrawal.id, input.payoutAttemptPublicReference);
     if (withdrawal.status !== "PROCESSING" || withdrawal.currentPayoutAttemptId !== attempt.id) throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Withdrawal is not processing this payout attempt.");
     assertPayoutAttemptTransition(attempt.status, "FAILED");
-    assertWithdrawalTransition(withdrawal.status, "APPROVED");
+
+    const unresolvedInFlightAllocations = tx.paymentDisputeAllocation
+      ? await tx.paymentDisputeAllocation.findMany({
+          where: {
+            holdingState: "IN_FLIGHT_HOLD",
+            settledAt: null,
+            withdrawalEarningAllocation: {
+              withdrawalRequestId: withdrawal.id,
+            },
+            dispute: {
+              status: { in: ["OPEN", "UNDER_REVIEW", "LOST"] },
+            },
+          },
+          include: { dispute: true },
+        })
+      : [];
+
     const now = new Date();
     await tx.withdrawalPayoutAttempt.update({ where: { id: attempt.id }, data: { status: "FAILED", failureCategory: input.failureCategory, failureCode: input.failureCode, failureMessage: input.safeFailureMessage?.trim().slice(0, 240), failedAt: now, version: { increment: 1 } } });
+
+    if (unresolvedInFlightAllocations.length > 0) {
+      assertWithdrawalTransition(withdrawal.status, "APPROVED");
+      await tx.withdrawalRequest.update({ where: { id: withdrawal.id }, data: { status: "APPROVED", version: { increment: 1 } } });
+      await tx.withdrawalStatusHistory.create({ data: { withdrawalId: withdrawal.id, payoutAttemptId: attempt.id, fromStatus: "PROCESSING", toStatus: "APPROVED", actorType: "FINANCE_ADMIN", actorUserId: input.actorUserId, reasonCode: "PAYOUT_DEFINITELY_FAILED", safeMetadata: { failureCode: input.failureCode } } });
+
+      await lockWithdrawalAccounts(tx, withdrawal);
+      const release = await postLedgerJournalWithinTransaction(
+        tx,
+        withdrawalReleasePosting({
+          withdrawalReference: withdrawal.publicReference,
+          amount: withdrawal.amount.toFixed(2),
+          sourceAccountId: withdrawal.sourceAccountId,
+          heldAccountId: withdrawal.heldAccountId,
+          actorUserId: input.actorUserId,
+          payoutDestinationReference: withdrawal.payoutDestination.publicReference,
+          ownerType: withdrawal.ownerType,
+          policyVersion: withdrawal.policyVersion,
+        }),
+      );
+
+      assertWithdrawalTransition("APPROVED", "CANCELLED");
+      const cancelled = await tx.withdrawalRequest.update({
+        where: { id: withdrawal.id },
+        data: {
+          status: "CANCELLED",
+          currentPayoutAttemptId: null,
+          releaseLedgerJournalId: release.id,
+          cancelledAt: now,
+          cancelledByUserId: input.actorUserId,
+          cancellationReasonCode: "PAYOUT_FAILED_WITH_DISPUTE",
+          version: { increment: 1 },
+        },
+      });
+
+      await tx.withdrawalStatusHistory.createMany({
+        data: [
+          {
+            withdrawalId: withdrawal.id,
+            payoutAttemptId: attempt.id,
+            fromStatus: "APPROVED",
+            toStatus: "CANCELLED",
+            actorType: "FINANCE_ADMIN",
+            actorUserId: input.actorUserId,
+            reasonCode: "PAYOUT_FAILED_WITH_DISPUTE",
+          },
+          {
+            withdrawalId: withdrawal.id,
+            toStatus: "CANCELLED",
+            actorType: "SYSTEM",
+            reasonCode: "RESERVATION_RELEASED",
+            safeMetadata: { releaseJournalReference: release.reference },
+          },
+        ],
+      });
+
+      await cancelWithdrawalEarningAllocations(tx, withdrawal.id);
+      await transitionInFlightDisputesOnPayoutFailure(tx, withdrawal.id);
+      return cancelled;
+    }
+
+    assertWithdrawalTransition(withdrawal.status, "APPROVED");
     const updated = await tx.withdrawalRequest.update({ where: { id: withdrawal.id }, data: { status: "APPROVED", currentPayoutAttemptId: null, version: { increment: 1 } } });
     await tx.withdrawalStatusHistory.create({ data: { withdrawalId: withdrawal.id, payoutAttemptId: attempt.id, fromStatus: "PROCESSING", toStatus: "APPROVED", actorType: "FINANCE_ADMIN", actorUserId: input.actorUserId, reasonCode: "PAYOUT_DEFINITELY_FAILED", safeMetadata: { failureCode: input.failureCode } } });
+    await transitionInFlightDisputesOnPayoutFailure(tx, withdrawal.id);
     return updated;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }

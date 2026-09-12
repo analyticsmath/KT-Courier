@@ -8,7 +8,10 @@ import {
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
-import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
+import {
+  ensureLedgerAccountInTx,
+  ensureWalletForOwnerInTx,
+} from "@/lib/services/wallet-account.service";
 import { lockWithdrawalAccounts } from "@/lib/services/withdrawal-account.service";
 import { withdrawalReleasePosting } from "@/lib/withdrawals/withdrawal-ledger-policy";
 import {
@@ -151,7 +154,7 @@ function safeAccountCode(str: string): string {
 
 // ─── Deterministic Ledger Account Resolvers ───────────────────────────────────
 
-async function resolveOwnerWithdrawableAccount(
+export async function resolveOwnerWithdrawableAccount(
   tx: Prisma.TransactionClient,
   walletId: string,
 ) {
@@ -178,7 +181,7 @@ async function resolveOwnerWithdrawableAccount(
   });
 }
 
-async function resolveOwnerDisputeHeldAccount(
+export async function resolveOwnerDisputeHeldAccount(
   tx: Prisma.TransactionClient,
   walletId: string,
   ownerType: "STORE" | "DRIVER",
@@ -207,7 +210,7 @@ async function resolveOwnerDisputeHeldAccount(
   });
 }
 
-async function resolveOwnerReceivableAccount(
+export async function resolveOwnerReceivableAccount(
   tx: Prisma.TransactionClient,
   walletId: string,
   ownerType: "STORE" | "DRIVER",
@@ -573,7 +576,7 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
         const storeEarning = storeEarnings.find((s) => s.id === alloc.storeEarningId);
         const storeWallet = storeEarning?.walletId
           ? await tx.wallet.findUniqueOrThrow({ where: { id: storeEarning.walletId } })
-          : await ensureWalletForOwner({
+          : await ensureWalletForOwnerInTx(tx, {
               ownerType: "STORE",
               ownerId: alloc.participantId,
               currency: "ZAR",
@@ -770,7 +773,7 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
         }
       } else if (alloc.participantType === "DRIVER") {
         const driverEarning = driverEarnings.find((d) => d.id === alloc.driverEarningId);
-        const driverWallet = await ensureWalletForOwner({
+        const driverWallet = await ensureWalletForOwnerInTx(tx, {
           ownerType: "DRIVER",
           ownerId: alloc.participantId,
           currency: "ZAR",
@@ -1162,13 +1165,13 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
       return dispute;
     }
 
-    const platformWallet = await ensureWalletForOwner({
+    const platformWallet = await ensureWalletForOwnerInTx(tx, {
       ownerType: "PLATFORM",
       ownerId: "platform",
       currency: "ZAR",
     });
 
-    const platformCustomerHeld = await ensureLedgerAccount({
+    const platformCustomerHeld = await ensureLedgerAccountInTx(tx, {
       walletId: platformWallet.id,
       code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR",
       purpose: "HELD",
@@ -1176,7 +1179,7 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
       currency: "ZAR",
     });
 
-    const platformCashClearing = await ensureLedgerAccount({
+    const platformCashClearing = await ensureLedgerAccountInTx(tx, {
       walletId: platformWallet.id,
       code: "PLATFORM-CASH-CLEARING-ZAR",
       purpose: "CASH_CLEARING",
@@ -1223,7 +1226,7 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
           }
           settledAllocations.push({ id: alloc.id });
         } else if (alloc.holdingState === PaymentDisputeHoldingState.RELEASED_HOLD) {
-          const participantWallet = await ensureWalletForOwner({
+          const participantWallet = await ensureWalletForOwnerInTx(tx, {
             ownerType: alloc.participantType as "STORE" | "DRIVER",
             ownerId: alloc.participantId ?? "unknown",
             currency: "ZAR",
@@ -1247,7 +1250,7 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
           }
           settledAllocations.push({ id: alloc.id });
         } else if (alloc.holdingState === PaymentDisputeHoldingState.RECOVERY_RECEIVABLE) {
-          const participantWallet = await ensureWalletForOwner({
+          const participantWallet = await ensureWalletForOwnerInTx(tx, {
             ownerType: alloc.participantType as "STORE" | "DRIVER",
             ownerId: alloc.participantId ?? "unknown",
             currency: "ZAR",
@@ -1349,7 +1352,7 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
       data: {
         status: targetStatus,
         resolvedAt: now,
-        lossLedgerJournalId: input.resolution === "LOST" ? (resolutionJournal?.id ?? dispute.lossLedgerJournalId) : dispute.lossLedgerJournalId,
+        lossLedgerJournalId: dispute.lossLedgerJournalId ?? (input.resolution === "LOST" ? resolutionJournal?.id ?? null : null),
         reconciliationRequired: hasPendingInFlight,
         history: {
           create: {

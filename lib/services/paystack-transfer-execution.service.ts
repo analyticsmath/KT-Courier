@@ -4,13 +4,16 @@ import { prisma } from "@/lib/db/prisma";
 import { withLedgerRetry } from "@/lib/ledger/retry";
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { assertWithdrawalDualControl } from "@/lib/withdrawals/withdrawal-dual-control";
-import { withdrawalPayoutPosting } from "@/lib/withdrawals/withdrawal-ledger-policy";
+import { withdrawalPayoutPosting, withdrawalReleasePosting } from "@/lib/withdrawals/withdrawal-ledger-policy";
 import { assertPayoutAttemptTransition } from "@/lib/withdrawals/payout-attempt-state-machine";
 import { assertWithdrawalTransition } from "@/lib/withdrawals/withdrawal-state-machine";
 import { assertWithdrawalProductionActivation } from "@/lib/withdrawals/withdrawal-production-readiness";
 import { WithdrawalError } from "@/lib/withdrawals/errors";
+import { lockWithdrawalAccounts } from "./withdrawal-account.service";
 import {
+  cancelWithdrawalEarningAllocations,
   settleWithdrawalEarningAllocations,
+  transitionInFlightDisputesOnPayoutFailure,
   transitionInFlightDisputesOnPayoutSuccess,
 } from "./withdrawal-earning-allocation.service";
 import {
@@ -504,7 +507,7 @@ export async function handlePaystackTransferFailed(
       async (tx) => {
         const attempt = await tx.withdrawalPayoutAttempt.findUnique({
           where: { externalReference: input.merchantReference },
-          include: { withdrawal: true },
+          include: { withdrawal: { include: { payoutDestination: true } } },
         });
         if (!attempt) return { outcome: "IGNORED" as const, reason: "ATTEMPT_NOT_FOUND" };
 
@@ -527,6 +530,28 @@ export async function handlePaystackTransferFailed(
           return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "PAID_CONFUSED_WITH_FAILED" };
         }
 
+        if (attempt.status === "FAILED") {
+          return { outcome: "DUPLICATE" as const, withdrawalId: withdrawal.id };
+        }
+
+        assertPayoutAttemptTransition(attempt.status, "FAILED");
+
+        const unresolvedInFlightAllocations = tx.paymentDisputeAllocation
+          ? await tx.paymentDisputeAllocation.findMany({
+              where: {
+                holdingState: "IN_FLIGHT_HOLD",
+                settledAt: null,
+                withdrawalEarningAllocation: {
+                  withdrawalRequestId: withdrawal.id,
+                },
+                dispute: {
+                  status: { in: ["OPEN", "UNDER_REVIEW", "LOST"] },
+                },
+              },
+              include: { dispute: true },
+            })
+          : [];
+
         const now = new Date();
         await tx.withdrawalPayoutAttempt.update({
           where: { id: attempt.id },
@@ -540,7 +565,79 @@ export async function handlePaystackTransferFailed(
           },
         });
 
+        if (unresolvedInFlightAllocations.length > 0) {
+          assertWithdrawalTransition(withdrawal.status, "APPROVED");
+          await tx.withdrawalRequest.update({
+            where: { id: withdrawal.id },
+            data: { status: "APPROVED", version: { increment: 1 } },
+          });
+          await tx.withdrawalStatusHistory.create({
+            data: {
+              withdrawalId: withdrawal.id,
+              payoutAttemptId: attempt.id,
+              fromStatus: withdrawal.status,
+              toStatus: "APPROVED",
+              actorType: "SYSTEM",
+              reasonCode: "PAYSTACK_TRANSFER_FAILED",
+              safeMetadata: { actorType: "PROVIDER", merchantReference: input.merchantReference, failureMessage: input.failureMessage },
+            },
+          });
+
+          await lockWithdrawalAccounts(tx, withdrawal);
+          const release = await postLedgerJournalWithinTransaction(
+            tx,
+            withdrawalReleasePosting({
+              withdrawalReference: withdrawal.publicReference,
+              amount: withdrawal.amount.toFixed(2),
+              sourceAccountId: withdrawal.sourceAccountId,
+              heldAccountId: withdrawal.heldAccountId,
+              actorUserId: attempt.initiatedByUserId,
+              payoutDestinationReference: withdrawal.payoutDestination.publicReference,
+              ownerType: withdrawal.ownerType,
+              policyVersion: withdrawal.policyVersion,
+            }),
+          );
+
+          assertWithdrawalTransition("APPROVED", "CANCELLED");
+          await tx.withdrawalRequest.update({
+            where: { id: withdrawal.id },
+            data: {
+              status: "CANCELLED",
+              currentPayoutAttemptId: null,
+              releaseLedgerJournalId: release.id,
+              cancelledAt: now,
+              cancellationReasonCode: "PAYOUT_FAILED_WITH_DISPUTE",
+              version: { increment: 1 },
+            },
+          });
+
+          await tx.withdrawalStatusHistory.createMany({
+            data: [
+              {
+                withdrawalId: withdrawal.id,
+                payoutAttemptId: attempt.id,
+                fromStatus: "APPROVED",
+                toStatus: "CANCELLED",
+                actorType: "SYSTEM",
+                reasonCode: "PAYOUT_FAILED_WITH_DISPUTE",
+              },
+              {
+                withdrawalId: withdrawal.id,
+                toStatus: "CANCELLED",
+                actorType: "SYSTEM",
+                reasonCode: "RESERVATION_RELEASED",
+                safeMetadata: { releaseJournalReference: release.reference },
+              },
+            ],
+          });
+
+          await cancelWithdrawalEarningAllocations(tx, withdrawal.id);
+          await transitionInFlightDisputesOnPayoutFailure(tx, withdrawal.id);
+          return { outcome: "APPLIED" as const };
+        }
+
         // Return withdrawal to retryable APPROVED state, keeping held funds reserved
+        assertWithdrawalTransition(withdrawal.status, "APPROVED");
         await tx.withdrawalRequest.update({
           where: { id: withdrawal.id },
           data: {
@@ -561,6 +658,8 @@ export async function handlePaystackTransferFailed(
             safeMetadata: { actorType: "PROVIDER", merchantReference: input.merchantReference, failureMessage: input.failureMessage },
           },
         });
+
+        await transitionInFlightDisputesOnPayoutFailure(tx, withdrawal.id);
 
         return { outcome: "APPLIED" as const };
       },

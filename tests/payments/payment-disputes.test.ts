@@ -6,6 +6,13 @@ import {
   resolvePaymentDispute,
   sanitizeEvidenceSnapshot,
 } from "@/lib/services/payment-dispute.service";
+import {
+  allocateEarningsForWithdrawal,
+  transitionInFlightDisputesOnPayoutSuccess,
+  transitionInFlightDisputesOnPayoutFailure,
+} from "@/lib/services/withdrawal-earning-allocation.service";
+import { recordWithdrawalPayoutFailure } from "@/lib/services/withdrawal-payout.service";
+import { WithdrawalError } from "@/lib/withdrawals/errors";
 import { prisma } from "@/lib/db/prisma";
 
 const accountsMap = new Map<string, any>();
@@ -1009,6 +1016,426 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
 
       expect(debits.equals(credits)).toBe(true);
       expect(debits.toFixed(2)).toBe("1000.00");
+    });
+  });
+
+  describe("Phase 1 Final Correction: Authoritative Dispute Precedence & IN_FLIGHT_HOLD Lifecycle", () => {
+    it("14. WON in-flight dispute outcome is authoritative: strict financial no-op on later payout success", async () => {
+      const wonDispute = {
+        id: "disp_won_1",
+        publicReference: "DSP-WON-1",
+        status: "WON",
+        amount: new Prisma.Decimal("100.00"),
+        allocations: [],
+      };
+
+      const inFlightAlloc = {
+        id: "pda_won_1",
+        publicReference: "PDA-WON-1",
+        disputeId: "disp_won_1",
+        holdingState: "IN_FLIGHT_HOLD",
+        allocatedAmount: new Prisma.Decimal("100.00"),
+        settledAt: null,
+        settlementJournalId: null,
+        participantType: "STORE",
+        participantId: "store_001",
+        dispute: wonDispute,
+        withdrawalEarningAllocation: { withdrawalRequestId: "wd_won_1" },
+      };
+
+      (prisma.paymentDisputeAllocation.findMany as any).mockResolvedValue([inFlightAlloc]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue({
+        ...wonDispute,
+        allocations: [{ ...inFlightAlloc, settledAt: new Date() }],
+      });
+
+      await transitionInFlightDisputesOnPayoutSuccess(prisma as any, "wd_won_1");
+
+      // Strict financial no-op: no ledger journals created
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      // Settled state updated
+      expect(prisma.paymentDisputeAllocation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "pda_won_1" },
+          data: expect.objectContaining({ settledAt: expect.any(Date) }),
+        }),
+      );
+    });
+
+    it("15. WON in-flight dispute outcome is authoritative: strict financial no-op on later payout failure", async () => {
+      const wonDispute = {
+        id: "disp_won_2",
+        publicReference: "DSP-WON-2",
+        status: "WON",
+        amount: new Prisma.Decimal("100.00"),
+        allocations: [],
+      };
+
+      const inFlightAlloc = {
+        id: "pda_won_2",
+        publicReference: "PDA-WON-2",
+        disputeId: "disp_won_2",
+        holdingState: "IN_FLIGHT_HOLD",
+        allocatedAmount: new Prisma.Decimal("100.00"),
+        settledAt: null,
+        settlementJournalId: null,
+        participantType: "STORE",
+        participantId: "store_001",
+        dispute: wonDispute,
+        withdrawalEarningAllocation: { withdrawalRequestId: "wd_won_2" },
+      };
+
+      (prisma.paymentDisputeAllocation.findMany as any).mockResolvedValue([inFlightAlloc]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue({
+        ...wonDispute,
+        allocations: [{ ...inFlightAlloc, settledAt: new Date() }],
+      });
+
+      await transitionInFlightDisputesOnPayoutFailure(prisma as any, "wd_won_2");
+
+      // Strict financial no-op: no ledger journals created, no debit to owner withdrawable
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      // Settled state updated
+      expect(prisma.paymentDisputeAllocation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "pda_won_2" },
+          data: expect.objectContaining({ settledAt: expect.any(Date) }),
+        }),
+      );
+    });
+
+    it("16. LOST in-flight dispute: later payout success finishes outstanding LOST accounting exactly once", async () => {
+      const lostDispute = {
+        id: "disp_lost_1",
+        publicReference: "DSP-LOST-1",
+        status: "LOST",
+        amount: new Prisma.Decimal("150.00"),
+        lossLedgerJournalId: null,
+        allocations: [],
+      };
+
+      const inFlightAlloc = {
+        id: "pda_lost_1",
+        publicReference: "PDA-LOST-1",
+        disputeId: "disp_lost_1",
+        holdingState: "IN_FLIGHT_HOLD",
+        allocatedAmount: new Prisma.Decimal("150.00"),
+        settledAt: null,
+        settlementJournalId: null,
+        participantType: "STORE",
+        participantId: "store_001",
+        dispute: lostDispute,
+        withdrawalEarningAllocation: { withdrawalRequestId: "wd_lost_1" },
+      };
+
+      (prisma.paymentDisputeAllocation.findMany as any).mockResolvedValue([inFlightAlloc]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue({
+        ...lostDispute,
+        allocations: [{ ...inFlightAlloc, settledAt: new Date(), holdingState: "RECOVERY_RECEIVABLE" }],
+      });
+
+      await transitionInFlightDisputesOnPayoutSuccess(prisma as any, "wd_lost_1");
+
+      // Creates exactly one settlement journal: Debit receivable, Credit platform cash clearing
+      expect(prisma.ledgerJournal.create).toHaveBeenCalledTimes(1);
+      const entryCalls = (prisma.ledgerEntry.createMany as any).mock.calls;
+      const latestEntries = entryCalls[entryCalls.length - 1][0].data;
+      expect(latestEntries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ direction: "DEBIT", lineCode: "STORE_RECOVERY_RECEIVABLE_INFLIGHT_TRANSITION" }),
+          expect.objectContaining({ direction: "CREDIT", lineCode: "DISPUTE_LOST_PROVIDER_CLEARING_DEDUCTION" }),
+        ]),
+      );
+
+      // Updates allocation to RECOVERY_RECEIVABLE with settledAt and settlementJournalId
+      expect(prisma.paymentDisputeAllocation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "pda_lost_1" },
+          data: expect.objectContaining({
+            holdingState: "RECOVERY_RECEIVABLE",
+            settledAt: expect.any(Date),
+            settlementJournalId: expect.any(String),
+          }),
+        }),
+      );
+    });
+
+    it("17. LOST in-flight dispute: later payout failure finishes outstanding LOST accounting from restored withdrawable funds", async () => {
+      const lostDispute = {
+        id: "disp_lost_2",
+        publicReference: "DSP-LOST-2",
+        status: "LOST",
+        amount: new Prisma.Decimal("150.00"),
+        lossLedgerJournalId: null,
+        allocations: [],
+      };
+
+      const inFlightAlloc = {
+        id: "pda_lost_2",
+        publicReference: "PDA-LOST-2",
+        disputeId: "disp_lost_2",
+        holdingState: "IN_FLIGHT_HOLD",
+        allocatedAmount: new Prisma.Decimal("150.00"),
+        settledAt: null,
+        settlementJournalId: null,
+        participantType: "STORE",
+        participantId: "store_001",
+        dispute: lostDispute,
+        withdrawalEarningAllocation: { withdrawalRequestId: "wd_lost_2" },
+      };
+
+      (prisma.paymentDisputeAllocation.findMany as any).mockResolvedValue([inFlightAlloc]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue({
+        ...lostDispute,
+        allocations: [{ ...inFlightAlloc, settledAt: new Date(), holdingState: "RELEASED_HOLD" }],
+      });
+
+      await transitionInFlightDisputesOnPayoutFailure(prisma as any, "wd_lost_2");
+
+      // Creates exactly one settlement journal: Debit owner withdrawable, Credit platform cash clearing
+      expect(prisma.ledgerJournal.create).toHaveBeenCalledTimes(1);
+      const entryCalls = (prisma.ledgerEntry.createMany as any).mock.calls;
+      const latestEntries = entryCalls[entryCalls.length - 1][0].data;
+      expect(latestEntries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ direction: "DEBIT", lineCode: "STORE_AVAILABLE_DISPUTE_HOLD_INFLIGHT_TRANSITION" }),
+          expect.objectContaining({ direction: "CREDIT", lineCode: "DISPUTE_LOST_PROVIDER_CLEARING_DEDUCTION" }),
+        ]),
+      );
+
+      // Updates allocation to RELEASED_HOLD with settledAt and settlementJournalId
+      expect(prisma.paymentDisputeAllocation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "pda_lost_2" },
+          data: expect.objectContaining({
+            holdingState: "RELEASED_HOLD",
+            settledAt: expect.any(Date),
+            settlementJournalId: expect.any(String),
+          }),
+        }),
+      );
+    });
+
+    it("18. duplicate terminal callbacks are strictly idempotent and create zero additional journals", async () => {
+      const alreadySettledAlloc = {
+        id: "pda_settled_1",
+        publicReference: "PDA-SETTLED-1",
+        disputeId: "disp_settled_1",
+        holdingState: "IN_FLIGHT_HOLD",
+        allocatedAmount: new Prisma.Decimal("100.00"),
+        settledAt: new Date(),
+        settlementJournalId: "jnl_already_settled",
+        participantType: "STORE",
+        participantId: "store_001",
+        dispute: { id: "disp_settled_1", status: "LOST", amount: new Prisma.Decimal("100.00"), allocations: [] },
+        withdrawalEarningAllocation: { withdrawalRequestId: "wd_settled_1" },
+      };
+
+      (prisma.paymentDisputeAllocation.findMany as any).mockResolvedValue([alreadySettledAlloc]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(alreadySettledAlloc.dispute);
+
+      await transitionInFlightDisputesOnPayoutSuccess(prisma as any, "wd_settled_1");
+      await transitionInFlightDisputesOnPayoutFailure(prisma as any, "wd_settled_1");
+
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+    });
+
+    it("19. incomplete earning provenance fails closed during withdrawal allocation", async () => {
+      // Store only has 300.00 released, but withdrawal requests 500.00
+      (prisma.$queryRaw as any).mockImplementation(async (query: any) => {
+        const q = typeof query === "string" ? query : (query?.strings?.join(" ") ?? "");
+        if (q.includes("StoreEarning")) return [{ id: "se_partial_1" }];
+        return [{ id: "mock_id" }];
+      });
+      (prisma.storeEarning.findMany as any).mockResolvedValue([
+        {
+          id: "se_partial_1",
+          storeId: "store_001",
+          releasedAmount: new Prisma.Decimal("300.00"),
+          status: "RELEASED",
+          createdAt: new Date(),
+          withdrawalAllocations: [],
+        },
+      ]);
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue([]);
+
+      await expect(
+        allocateEarningsForWithdrawal(prisma as any, {
+          id: "wd_under_funded",
+          walletId: "wallet_store_001",
+          ownerType: "STORE",
+          ownerId: "store_001",
+          amount: new Prisma.Decimal("500.00"),
+        }),
+      ).rejects.toThrowError(WithdrawalError);
+    });
+
+    it("20. recordWithdrawalPayoutFailure cancels withdrawal and releases reservation when unresolved in-flight disputes exist", async () => {
+      accountsMap.set("acc_source", {
+        id: "acc_source",
+        walletId: "wallet_store_001",
+        code: "OWN-WD-wallet_store_001",
+        purpose: "OWNER_WITHDRAWABLE",
+        category: "LIABILITY",
+        status: "ACTIVE",
+        allowNegative: false,
+        currency: "ZAR",
+        currentBalance: new Prisma.Decimal("1000.00"),
+        debitTotal: new Prisma.Decimal("0.00"),
+        creditTotal: new Prisma.Decimal("1000.00"),
+        version: 1,
+        wallet: { id: "wallet_store_001", ownerType: "STORE", ownerId: "store_001", currency: "ZAR", status: "ACTIVE" },
+      });
+      accountsMap.set("acc_held", {
+        id: "acc_held",
+        walletId: "wallet_store_001",
+        code: "WD-HELD-wallet_store_001",
+        purpose: "WITHDRAWAL_HELD",
+        category: "LIABILITY",
+        status: "ACTIVE",
+        allowNegative: false,
+        currency: "ZAR",
+        currentBalance: new Prisma.Decimal("500.00"),
+        debitTotal: new Prisma.Decimal("0.00"),
+        creditTotal: new Prisma.Decimal("500.00"),
+        version: 1,
+        wallet: { id: "wallet_store_001", ownerType: "STORE", ownerId: "store_001", currency: "ZAR", status: "ACTIVE" },
+      });
+
+      const processingWithdrawal = {
+        id: "wd_fail_disp",
+        publicReference: "WD-FAIL-DISP",
+        withdrawalNumber: "WD-FAIL-DISP",
+        walletId: "wallet_store_001",
+        status: "PROCESSING",
+        amount: new Prisma.Decimal("500.00"),
+        currency: "ZAR",
+        requestedByUserId: "user_req",
+        approvedByUserId: "user_app",
+        sourceAccountId: "acc_source",
+        heldAccountId: "acc_held",
+        ownerType: "STORE",
+        policyVersion: 1,
+        latestAttemptNumber: 1,
+        currentPayoutAttemptId: "wpa_fail_disp",
+        payoutDestination: { publicReference: "DEST-001", status: "ACTIVE" },
+      };
+
+      const processingAttempt = {
+        id: "wpa_fail_disp",
+        withdrawalId: "wd_fail_disp",
+        publicReference: "WPA-FAIL-DISP",
+        status: "PROCESSING",
+      };
+
+      const unresolvedAlloc = {
+        id: "pda_unresolved",
+        publicReference: "PDA-UNRESOLVED",
+        disputeId: "disp_open_1",
+        holdingState: "IN_FLIGHT_HOLD",
+        allocatedAmount: new Prisma.Decimal("200.00"),
+        settledAt: null,
+        dispute: { id: "disp_open_1", status: "OPEN", amount: new Prisma.Decimal("200.00"), allocations: [] },
+      };
+
+      (prisma.$queryRaw as any).mockImplementation(async (query: any) => {
+        const q = typeof query === "string" ? query : (query?.strings?.join(" ") ?? "");
+        if (q.includes("WithdrawalRequest")) return [{ id: "wd_fail_disp" }];
+        if (q.includes("WithdrawalPayoutAttempt")) return [{ id: "wpa_fail_disp" }];
+        if (q.includes("LedgerAccount")) return [{ id: "acc_held" }, { id: "acc_source" }];
+        return [{ id: "mock_id" }];
+      });
+
+      (prisma.withdrawalRequest.findUnique as any).mockResolvedValue(processingWithdrawal);
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(processingAttempt);
+      (prisma.paymentDisputeAllocation.findMany as any).mockResolvedValue([unresolvedAlloc]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(unresolvedAlloc.dispute);
+
+      const result = await recordWithdrawalPayoutFailure({
+        actorUserId: "user_finance",
+        withdrawalPublicReference: "WD-FAIL-DISP",
+        payoutAttemptPublicReference: "WPA-FAIL-DISP",
+        operationId: "op_fail_disp_001",
+        failureCategory: "EXTERNAL_SYSTEM_REJECTED",
+        failureCode: "PAYOUT_BANK_REJECTED",
+      });
+
+      expect(result.status).toBe("CANCELLED");
+      expect(prisma.withdrawalRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "wd_fail_disp" },
+          data: expect.objectContaining({
+            status: "CANCELLED",
+            cancellationReasonCode: "PAYOUT_FAILED_WITH_DISPUTE",
+          }),
+        }),
+      );
+      expect(prisma.withdrawalEarningAllocation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { withdrawalRequestId: "wd_fail_disp", status: "RESERVED" },
+          data: { status: "CANCELLED" },
+        }),
+      );
+    });
+
+    it("21. recordWithdrawalPayoutFailure keeps withdrawal retryable APPROVED when only WON dispute exists", async () => {
+      const processingWithdrawal = {
+        id: "wd_fail_won",
+        publicReference: "WD-FAIL-WON",
+        withdrawalNumber: "WD-FAIL-WON",
+        status: "PROCESSING",
+        amount: new Prisma.Decimal("500.00"),
+        currency: "ZAR",
+        requestedByUserId: "user_req",
+        approvedByUserId: "user_app",
+        sourceAccountId: "acc_source",
+        heldAccountId: "acc_held",
+        ownerType: "STORE",
+        policyVersion: 1,
+        latestAttemptNumber: 1,
+        currentPayoutAttemptId: "wpa_fail_won",
+        payoutDestination: { publicReference: "DEST-001", status: "ACTIVE" },
+      };
+
+      const processingAttempt = {
+        id: "wpa_fail_won",
+        withdrawalId: "wd_fail_won",
+        publicReference: "WPA-FAIL-WON",
+        status: "PROCESSING",
+      };
+
+      (prisma.$queryRaw as any).mockImplementation(async (query: any) => {
+        const q = typeof query === "string" ? query : (query?.strings?.join(" ") ?? "");
+        if (q.includes("WithdrawalRequest")) return [{ id: "wd_fail_won" }];
+        if (q.includes("WithdrawalPayoutAttempt")) return [{ id: "wpa_fail_won" }];
+        return [{ id: "mock_id" }];
+      });
+
+      (prisma.withdrawalRequest.findUnique as any).mockResolvedValue(processingWithdrawal);
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(processingAttempt);
+      (prisma.paymentDisputeAllocation.findMany as any).mockResolvedValue([]);
+
+      const result = await recordWithdrawalPayoutFailure({
+        actorUserId: "user_finance",
+        withdrawalPublicReference: "WD-FAIL-WON",
+        payoutAttemptPublicReference: "WPA-FAIL-WON",
+        operationId: "op_fail_won_001",
+        failureCategory: "EXTERNAL_SYSTEM_REJECTED",
+        failureCode: "PAYOUT_TEMPORARY_NETWORK_ERROR",
+      });
+
+      // Stays APPROVED, not cancelled
+      expect(result.status).toBe("APPROVED");
+      expect(prisma.withdrawalRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "wd_fail_won" },
+          data: expect.objectContaining({
+            status: "APPROVED",
+            currentPayoutAttemptId: null,
+          }),
+        }),
+      );
+      expect(prisma.withdrawalEarningAllocation.updateMany).not.toHaveBeenCalled();
     });
   });
 });

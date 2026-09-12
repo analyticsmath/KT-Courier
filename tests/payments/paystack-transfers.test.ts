@@ -60,6 +60,7 @@ vi.mock("@/lib/db/prisma", () => {
     },
     withdrawalStatusHistory: {
       create: vi.fn(async (args: any) => ({ id: "wsh_001", ...args?.data })),
+      createMany: vi.fn(async () => ({ count: 2 })),
       count: vi.fn(async () => 0),
     },
     withdrawalReconciliationCase: {
@@ -769,6 +770,104 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
           data: expect.objectContaining({ status: "APPROVED", currentPayoutAttemptId: null }),
         }),
       );
+    });
+
+    it("cancels withdrawal and releases reservation on transfer.failed webhook when unresolved in-flight disputes exist", async () => {
+      const attemptWithDispute = {
+        ...baseAttempt,
+        withdrawal: {
+          ...baseAttempt.withdrawal,
+          walletId: "wallet_store_001",
+        },
+      };
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(attemptWithDispute);
+      (prisma.ledgerAccount.findMany as any).mockResolvedValue([
+        {
+          id: "acc_source",
+          walletId: "wallet_store_001",
+          purpose: "OWNER_WITHDRAWABLE",
+          category: "LIABILITY",
+          currency: "ZAR",
+          status: "ACTIVE",
+          allowNegative: false,
+          currentBalance: new Prisma.Decimal("10000.00"),
+          debitTotal: new Prisma.Decimal("0.00"),
+          creditTotal: new Prisma.Decimal("10000.00"),
+          version: 1,
+          wallet: { id: "wallet_store_001", ownerType: "STORE", ownerId: "store_001", currency: "ZAR", status: "ACTIVE" },
+        },
+        {
+          id: "acc_held",
+          walletId: "wallet_store_001",
+          purpose: "WITHDRAWAL_HELD",
+          category: "LIABILITY",
+          currency: "ZAR",
+          status: "ACTIVE",
+          allowNegative: false,
+          currentBalance: new Prisma.Decimal("10000.00"),
+          debitTotal: new Prisma.Decimal("0.00"),
+          creditTotal: new Prisma.Decimal("10000.00"),
+          version: 1,
+          wallet: { id: "wallet_store_001", ownerType: "STORE", ownerId: "store_001", currency: "ZAR", status: "ACTIVE" },
+        },
+      ]);
+      (prisma as any).store = {
+        findUnique: vi.fn(async () => ({ id: "store_001", status: "ACTIVE" })),
+      };
+      (prisma as any).paymentDisputeAllocation = {
+        findMany: vi.fn(async () => [
+          {
+            id: "pda_disp_fail",
+            publicReference: "PDA-DISP-FAIL",
+            holdingState: "IN_FLIGHT_HOLD",
+            allocatedAmount: new Prisma.Decimal("200.00"),
+            settledAt: null,
+            dispute: { id: "disp_1", status: "OPEN", amount: new Prisma.Decimal("200.00"), allocations: [] },
+          },
+        ]),
+        update: vi.fn(async () => ({ id: "pda_disp_fail" })),
+      };
+      (prisma as any).withdrawalEarningAllocation = {
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      };
+      (prisma as any).paymentDispute = {
+        findUnique: vi.fn(async () => ({ id: "disp_1", status: "OPEN", amount: new Prisma.Decimal("200.00"), allocations: [] })),
+        update: vi.fn(async () => ({ id: "disp_1" })),
+      };
+
+      const result = await handlePaystackTransferFailed({
+        merchantReference: "kt_wpa_otp_test_ref",
+        transferCode: "TRF_REJECTED",
+        failureMessage: "Bank account resolved invalid by provider",
+      });
+
+      expect(result.outcome).toBe("APPLIED");
+      expect(prisma.withdrawalPayoutAttempt.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "wpa_otp_001" },
+          data: expect.objectContaining({ status: "FAILED" }),
+        }),
+      );
+      expect(prisma.withdrawalRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "wd_otp_001" },
+          data: expect.objectContaining({
+            status: "CANCELLED",
+            cancellationReasonCode: "PAYOUT_FAILED_WITH_DISPUTE",
+          }),
+        }),
+      );
+      expect((prisma as any).withdrawalEarningAllocation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { withdrawalRequestId: "wd_otp_001", status: "RESERVED" },
+          data: { status: "CANCELLED" },
+        }),
+      );
+
+      delete (prisma as any).paymentDisputeAllocation;
+      delete (prisma as any).withdrawalEarningAllocation;
+      delete (prisma as any).paymentDispute;
+      delete (prisma as any).store;
     });
 
     it("strictly rejects manual completion fallback for automated PAYSTACK_TRANSFER attempts while outcome is UNKNOWN or processing", async () => {
