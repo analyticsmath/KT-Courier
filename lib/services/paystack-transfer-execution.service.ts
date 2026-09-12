@@ -10,6 +10,10 @@ import { assertWithdrawalTransition } from "@/lib/withdrawals/withdrawal-state-m
 import { assertWithdrawalProductionActivation } from "@/lib/withdrawals/withdrawal-production-readiness";
 import { WithdrawalError } from "@/lib/withdrawals/errors";
 import {
+  settleWithdrawalEarningAllocations,
+  transitionInFlightDisputesOnPayoutSuccess,
+} from "./withdrawal-earning-allocation.service";
+import {
   PaystackClient,
   zarToSubunitCents,
   assertValidPaystackTransferReference,
@@ -450,6 +454,9 @@ export async function handlePaystackTransferSuccess(
             version: { increment: 1 },
           },
         });
+
+        await settleWithdrawalEarningAllocations(tx, withdrawal.id);
+        await transitionInFlightDisputesOnPayoutSuccess(tx, withdrawal.id);
 
         await tx.withdrawalReconciliationCase.updateMany({
           where: { withdrawalId: withdrawal.id, status: { in: ["OPEN", "MONITORING"] } },

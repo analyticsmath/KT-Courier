@@ -12,6 +12,11 @@ import { assertWithdrawalProductionActivation } from "@/lib/withdrawals/withdraw
 import { parseWithdrawalAmount } from "@/lib/withdrawals/withdrawal-money-policy";
 import { WithdrawalError } from "@/lib/withdrawals/errors";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import {
+  allocateEarningsForWithdrawal,
+  cancelWithdrawalEarningAllocations,
+  transitionInFlightDisputesOnPayoutFailure,
+} from "./withdrawal-earning-allocation.service";
 
 function withdrawalReference(): string {
   return `WD-${randomUUID().replaceAll("-", "").toUpperCase()}`;
@@ -89,6 +94,14 @@ export async function createWithdrawalRequest(input: Readonly<{
     const withdrawal = await tx.withdrawalRequest.create({
       data: { publicReference, walletId: wallet.id, ownerType: owner.ownerType, ownerId: owner.ownerId, sourceAccountId, heldAccountId, payoutDestinationId: destination.id, amount: amount.toDecimal(), currency: "ZAR", status: "REQUESTED", creationIdempotencyKey: operationId, creationRequestHash: requestHash, policyVersion: policy.version, reserveLedgerJournalId: reserve.id, requestedByUserId: input.actorUserId },
     });
+    await allocateEarningsForWithdrawal(tx, {
+      id: withdrawal.id,
+      walletId: wallet.id,
+      ownerType: owner.ownerType,
+      ownerId: owner.ownerId,
+      amount: amount.toDecimal(),
+      currency: "ZAR",
+    });
     await tx.withdrawalStatusHistory.createMany({ data: [
       { withdrawalId: withdrawal.id, toStatus: "REQUESTED", actorType: "OWNER", actorUserId: input.actorUserId, reasonCode: "WITHDRAWAL_REQUESTED" },
       { withdrawalId: withdrawal.id, toStatus: "REQUESTED", actorType: "SYSTEM", reasonCode: "FUNDS_RESERVED", safeMetadata: { reserveJournalReference: reserve.reference } },
@@ -120,6 +133,8 @@ export async function cancelWithdrawalRequest(input: Readonly<{ actorUserId: str
     await lockWithdrawalAccounts(tx, withdrawal);
     const release = await postLedgerJournalWithinTransaction(tx, withdrawalReleasePosting({ withdrawalReference: withdrawal.publicReference, amount: withdrawal.amount.toFixed(2), sourceAccountId: withdrawal.sourceAccountId, heldAccountId: withdrawal.heldAccountId, actorUserId: input.actorUserId, payoutDestinationReference: withdrawal.payoutDestination.publicReference, ownerType: withdrawal.ownerType, policyVersion: withdrawal.policyVersion }));
     const updated = await tx.withdrawalRequest.update({ where: { id: withdrawal.id }, data: { status: "CANCELLED", releaseLedgerJournalId: release.id, cancelledByUserId: input.actorUserId, cancelledAt: new Date(), cancellationReasonCode: "OWNER_CANCELLED", version: { increment: 1 } } });
+    await cancelWithdrawalEarningAllocations(tx, withdrawal.id);
+    await transitionInFlightDisputesOnPayoutFailure(tx, withdrawal.id);
     await tx.withdrawalStatusHistory.createMany({ data: [
       { withdrawalId: withdrawal.id, fromStatus: withdrawal.status, toStatus: "CANCELLED", actorType: "OWNER", actorUserId: input.actorUserId, reasonCode: "OWNER_CANCELLED" },
       { withdrawalId: withdrawal.id, toStatus: "CANCELLED", actorType: "SYSTEM", reasonCode: "RESERVATION_RELEASED", safeMetadata: { releaseJournalReference: release.reference } },

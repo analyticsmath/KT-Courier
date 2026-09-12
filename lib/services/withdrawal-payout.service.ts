@@ -12,6 +12,10 @@ import { assertWithdrawalTransition } from "@/lib/withdrawals/withdrawal-state-m
 import { assertWithdrawalProductionActivation } from "@/lib/withdrawals/withdrawal-production-readiness";
 import { WithdrawalError } from "@/lib/withdrawals/errors";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import {
+  settleWithdrawalEarningAllocations,
+  transitionInFlightDisputesOnPayoutSuccess,
+} from "./withdrawal-earning-allocation.service";
 
 function payoutAttemptReference(): string { return `WPA-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
 function reconciliationReference(): string { return `WRC-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
@@ -167,6 +171,8 @@ export async function completeManualWithdrawalPayout(input: Readonly<{ actorUser
     const now = new Date();
     await tx.withdrawalPayoutAttempt.update({ where: { id: attempt.id }, data: { status: "SUCCEEDED", completionIdempotencyKey, completionRequestHash, externalReference, safeEvidenceReference: input.safeEvidenceReference?.trim().slice(0, 160), completedByUserId: input.actorUserId, completedAt: now, version: { increment: 1 } } });
     const paid = await tx.withdrawalRequest.update({ where: { id: withdrawal.id }, data: { status: "PAID", payoutLedgerJournalId: journal.id, completedByUserId: input.actorUserId, completedAt: now, reconciliationRequiredAt: null, version: { increment: 1 } } });
+    await settleWithdrawalEarningAllocations(tx, withdrawal.id);
+    await transitionInFlightDisputesOnPayoutSuccess(tx, withdrawal.id);
     await tx.withdrawalReconciliationCase.updateMany({ where: { withdrawalId: withdrawal.id, status: { in: ["OPEN", "MONITORING"] } }, data: { status: "RESOLVED", resolvedAt: now, resolutionCode: "CONFIRMED_EXTERNAL_PAYOUT", resolvedByUserId: input.actorUserId } });
     await tx.withdrawalStatusHistory.create({ data: { withdrawalId: withdrawal.id, payoutAttemptId: attempt.id, fromStatus: withdrawal.status, toStatus: "PAID", actorType: "FINANCE_ADMIN", actorUserId: input.actorUserId, reasonCode: "PAYOUT_COMPLETED", safeMetadata: { payoutAttemptReference: attempt.publicReference, externalPayoutReference: externalReference, payoutJournalReference: journal.reference } } });
     return { kind: "PAID" as const, withdrawal: paid };

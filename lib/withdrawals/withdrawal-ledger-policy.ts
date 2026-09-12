@@ -6,7 +6,7 @@ type WithdrawalLedgerInput = Readonly<{
   sourceAccountId: string;
   heldAccountId: string;
   cashClearingAccountId?: string;
-  actorUserId: string;
+  actorUserId?: string | null;
   payoutAttemptReference?: string;
   payoutDestinationReference: string;
   ownerType: string;
@@ -30,7 +30,7 @@ export function withdrawalReservePosting(input: WithdrawalLedgerInput): PostLedg
     correlationId: input.withdrawalReference,
     memo: "Withdrawal funds reserved",
     metadata: metadata(input),
-    actor: { kind: "USER", userId: input.actorUserId },
+    actor: input.actorUserId ? { kind: "USER", userId: input.actorUserId } : { kind: "SYSTEM" },
     entries: [
       { accountId: input.sourceAccountId, direction: "DEBIT", amount: input.amount, lineCode: "OWNER_WITHDRAWABLE_DEBIT", memo: "Withdrawable funds reserved" },
       { accountId: input.heldAccountId, direction: "CREDIT", amount: input.amount, lineCode: "WITHDRAWAL_HELD_CREDIT", memo: "Withdrawal funds held" },
@@ -47,7 +47,7 @@ export function withdrawalReleasePosting(input: WithdrawalLedgerInput): PostLedg
     correlationId: input.withdrawalReference,
     memo: "Withdrawal reservation released",
     metadata: metadata(input),
-    actor: { kind: "USER", userId: input.actorUserId },
+    actor: input.actorUserId ? { kind: "USER", userId: input.actorUserId } : { kind: "SYSTEM" },
     entries: [
       { accountId: input.heldAccountId, direction: "DEBIT", amount: input.amount, lineCode: "WITHDRAWAL_HELD_DEBIT", memo: "Withdrawal hold released" },
       { accountId: input.sourceAccountId, direction: "CREDIT", amount: input.amount, lineCode: "OWNER_WITHDRAWABLE_CREDIT", memo: "Withdrawable funds restored" },
@@ -65,7 +65,7 @@ export function withdrawalPayoutPosting(input: WithdrawalLedgerInput): PostLedge
     correlationId: input.withdrawalReference,
     memo: "Manual external withdrawal payout recorded",
     metadata: metadata(input),
-    actor: { kind: "USER", userId: input.actorUserId },
+    actor: input.actorUserId ? { kind: "USER", userId: input.actorUserId } : { kind: "SYSTEM" },
     entries: [
       { accountId: input.heldAccountId, direction: "DEBIT", amount: input.amount, lineCode: "WITHDRAWAL_HELD_DEBIT", memo: "Withdrawal liability settled" },
       { accountId: input.cashClearingAccountId, direction: "CREDIT", amount: input.amount, lineCode: "CASH_CLEARING_CREDIT", memo: "Manual external payout cash reduction" },

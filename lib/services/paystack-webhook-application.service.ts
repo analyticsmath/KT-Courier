@@ -680,6 +680,22 @@ export async function applyPaystackWebhookEvent(
         },
       });
 
+      // Update webhook event evidence
+      await tx.paymentWebhookEvent.update({
+        where: { id: resolvedEvent.id },
+        data: {
+          paymentId: freshPayment.id,
+          attemptId: freshAttempt.id,
+          ledgerJournalId: journal.id,
+          sourceAddressVerified: true,
+          signatureVerified: true,
+          merchantVerified: true,
+          amountVerified: true,
+          providerDataVerified: true,
+          verifiedAt: now,
+        },
+      });
+
       // Update payment
       await tx.payment.update({
         where: { id: freshPayment.id },
@@ -739,6 +755,8 @@ export async function applyPaystackWebhookEvent(
           normalizedStatus: "COMPLETE",
           appliedAt: now,
           verifiedAt: now,
+          leaseToken: null,
+          leaseExpiresAt: null,
         },
       });
 
@@ -1022,16 +1040,18 @@ export async function processClaimedPaystackWebhookEvent(
       outcome = "IGNORED_UNSUPPORTED";
     }
 
-    // Finalize lease atomically with matching leaseToken
-    await prisma.paymentWebhookEvent.updateMany({
-      where: { id: event.id, leaseToken: event.leaseToken },
-      data: {
-        processingStatus: finalStatus,
-        appliedAt: now,
-        leaseToken: null,
-        leaseExpiresAt: null,
-      },
-    });
+    // Finalize lease atomically with matching leaseToken (for events whose lease wasn't already cleared in-transaction)
+    if (eventName !== "charge.success" || outcome !== "APPLIED") {
+      await prisma.paymentWebhookEvent.updateMany({
+        where: { id: event.id, leaseToken: event.leaseToken },
+        data: {
+          processingStatus: finalStatus,
+          appliedAt: finalStatus === "APPLIED" ? now : undefined,
+          leaseToken: null,
+          leaseExpiresAt: null,
+        },
+      });
+    }
 
     return { outcome, eventPublicReference: event.publicReference };
   } catch (error) {
@@ -1090,7 +1110,8 @@ export async function applyPaystackWebhookEventsBatch(options?: {
       } else {
         itemsCompleted += 1;
       }
-    } catch {
+    } catch (err) {
+      console.error("applyPaystackWebhookEventsBatch error processing event:", err);
       itemsRetried += 1;
     }
   }

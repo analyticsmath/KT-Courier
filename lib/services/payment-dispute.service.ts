@@ -1,12 +1,25 @@
 import { randomBytes } from "node:crypto";
-import { Prisma, PaymentDisputeReason, PaymentDisputeStatus } from "@prisma/client";
+import {
+  Prisma,
+  PaymentDisputeReason,
+  PaymentDisputeStatus,
+  PaymentDisputeHoldingState,
+} from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
+import { lockWithdrawalAccounts } from "@/lib/services/withdrawal-account.service";
+import { withdrawalReleasePosting } from "@/lib/withdrawals/withdrawal-ledger-policy";
+import {
+  getEarningProvenanceSummary,
+  partitionDisputedShareByProvenance,
+  cancelWithdrawalEarningAllocations,
+} from "@/lib/services/withdrawal-earning-allocation.service";
+import { withLedgerRetry } from "@/lib/ledger/retry";
 import { PaymentError } from "@/lib/payments/errors";
 
-export { PaymentDisputeReason, PaymentDisputeStatus };
+export { PaymentDisputeReason, PaymentDisputeStatus, PaymentDisputeHoldingState };
 
 export interface OpenPaymentDisputeInput {
   paymentId?: string;
@@ -136,7 +149,96 @@ function safeAccountCode(str: string): string {
   return str.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 20);
 }
 
-// ─── Dispute Ledger Allocation (Blocker 1) ───────────────────────────────────
+// ─── Deterministic Ledger Account Resolvers ───────────────────────────────────
+
+async function resolveOwnerWithdrawableAccount(
+  tx: Prisma.TransactionClient,
+  walletId: string,
+) {
+  const existing = await tx.ledgerAccount.findFirst({
+    where: {
+      walletId,
+      purpose: "OWNER_WITHDRAWABLE",
+      currency: "ZAR",
+      status: "ACTIVE",
+    },
+  });
+  if (existing) return existing;
+
+  const code = `OWN-WD-${safeAccountCode(walletId)}`.toUpperCase();
+  return tx.ledgerAccount.create({
+    data: {
+      walletId,
+      code,
+      purpose: "OWNER_WITHDRAWABLE",
+      category: "LIABILITY",
+      currency: "ZAR",
+      status: "ACTIVE",
+    },
+  });
+}
+
+async function resolveOwnerDisputeHeldAccount(
+  tx: Prisma.TransactionClient,
+  walletId: string,
+  ownerType: "STORE" | "DRIVER",
+  ownerId: string,
+) {
+  const existing = await tx.ledgerAccount.findFirst({
+    where: {
+      walletId,
+      purpose: "HELD",
+      currency: "ZAR",
+      status: "ACTIVE",
+    },
+  });
+  if (existing) return existing;
+
+  const code = `${ownerType}-DISPUTE-HELD-${safeAccountCode(ownerId)}-ZAR`;
+  return tx.ledgerAccount.create({
+    data: {
+      walletId,
+      code,
+      purpose: "HELD",
+      category: "LIABILITY",
+      currency: "ZAR",
+      status: "ACTIVE",
+    },
+  });
+}
+
+async function resolveOwnerReceivableAccount(
+  tx: Prisma.TransactionClient,
+  walletId: string,
+  ownerType: "STORE" | "DRIVER",
+  ownerId: string,
+) {
+  const existing = await tx.ledgerAccount.findFirst({
+    where: {
+      walletId,
+      purpose: "ADJUSTMENT",
+      category: "ASSET",
+      currency: "ZAR",
+      status: "ACTIVE",
+    },
+  });
+  if (existing) return existing;
+
+  const code = `${ownerType}-RECEIVABLE-${safeAccountCode(ownerId)}-ZAR`;
+  return tx.ledgerAccount.create({
+    data: {
+      walletId,
+      code,
+      purpose: "ADJUSTMENT",
+      category: "ASSET",
+      currency: "ZAR",
+      allowNegative: true,
+      status: "ACTIVE",
+    },
+  });
+}
+
+// ─── Dispute Exposure Calculation ─────────────────────────────────────────────
 
 interface RawParticipantAllocation {
   participantType: "STORE" | "DRIVER" | "PLATFORM";
@@ -232,6 +334,8 @@ function consolidateJournalEntries(
   }));
 }
 
+// ─── Open Payment Dispute ─────────────────────────────────────────────────────
+
 export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
   const amountDecimal = new Prisma.Decimal(input.amount);
   if (amountDecimal.isNegative() || amountDecimal.isZero() || !amountDecimal.isFinite()) {
@@ -241,7 +345,8 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
   const sanitizedEvidence = sanitizeEvidenceSnapshot(input.safeEvidence);
   const evidenceDue = input.evidenceDueBy ? new Date(input.evidenceDueBy) : null;
 
-  return prisma.$transaction(async (tx) => {
+  return withLedgerRetry(() =>
+    prisma.$transaction(async (tx) => {
     // 1. Idempotency check on providerDisputeId
     if (input.providerDisputeId) {
       const existing = await tx.paymentDispute.findUnique({
@@ -266,9 +371,67 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
     }
 
     const [storeEarnings, driverEarnings] = await Promise.all([
-      tx.storeEarning.findMany({ where: { paymentId: payment.id } }),
-      tx.driverEarning.findMany({ where: { paymentId: payment.id } }),
+      tx.storeEarning.findMany({ where: { paymentId: payment.id }, orderBy: { id: "asc" } }),
+      tx.driverEarning.findMany({ where: { paymentId: payment.id }, orderBy: { id: "asc" } }),
     ]);
+
+    // Strict domain check on StoreEarning / DriverEarning status
+    for (const se of storeEarnings) {
+      if (se.status === "FULLY_REFUNDED" || se.status === "REVERSED") {
+        throw new PaymentError("PAYMENT_INVALID_STATE", `Cannot dispute payment with store earning in ${se.status} state.`);
+      }
+      if (se.status === "RECONCILIATION_REQUIRED") {
+        throw new PaymentError("PAYMENT_INVALID_STATE", "Cannot dispute payment with store earning in RECONCILIATION_REQUIRED state.");
+      }
+      if (se.status !== "ACCRUED" && se.status !== "RELEASED") {
+        throw new PaymentError("PAYMENT_INVALID_STATE", `Store earning status ${se.status} is not eligible for dispute.`);
+      }
+    }
+
+    for (const de of driverEarnings) {
+      if (de.status === "FULLY_REFUNDED" || de.status === "REVERSED") {
+        throw new PaymentError("PAYMENT_INVALID_STATE", `Cannot dispute payment with driver earning in ${de.status} state.`);
+      }
+      if (de.status === "RECONCILIATION_REQUIRED") {
+        throw new PaymentError("PAYMENT_INVALID_STATE", "Cannot dispute payment with driver earning in RECONCILIATION_REQUIRED state.");
+      }
+      if (de.status !== "ACCRUED" && de.status !== "RELEASED") {
+        throw new PaymentError("PAYMENT_INVALID_STATE", `Driver earning status ${de.status} is not eligible for dispute.`);
+      }
+    }
+
+    // Lock Ordering: WithdrawalRequest -> StoreEarning / DriverEarning -> PaymentDispute -> LedgerAccount
+    const allStoreEarningIds = storeEarnings.map((s) => s.id);
+    const allDriverEarningIds = driverEarnings.map((d) => d.id);
+
+    if (tx.withdrawalEarningAllocation && (allStoreEarningIds.length > 0 || allDriverEarningIds.length > 0)) {
+      const linkedAllocations = await tx.withdrawalEarningAllocation.findMany({
+        where: {
+          OR: [
+            ...(allStoreEarningIds.length > 0 ? [{ storeEarningId: { in: allStoreEarningIds } }] : []),
+            ...(allDriverEarningIds.length > 0 ? [{ driverEarningId: { in: allDriverEarningIds } }] : []),
+          ],
+        },
+        select: { withdrawalRequestId: true },
+      });
+      const uniqueWdIds = [...new Set(linkedAllocations.map((a) => a.withdrawalRequestId))].sort();
+      if (uniqueWdIds.length > 0) {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "WithdrawalRequest" WHERE "id" IN (${Prisma.join(uniqueWdIds)}) ORDER BY "id" ASC FOR UPDATE`
+        );
+      }
+    }
+
+    if (allStoreEarningIds.length > 0) {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "StoreEarning" WHERE "id" IN (${Prisma.join(allStoreEarningIds.sort())}) ORDER BY "id" ASC FOR UPDATE`
+      );
+    }
+    if (allDriverEarningIds.length > 0) {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "DriverEarning" WHERE "id" IN (${Prisma.join(allDriverEarningIds.sort())}) ORDER BY "id" ASC FOR UPDATE`
+      );
+    }
 
     const paymentAmountCents = Math.round(Number(payment.amount) * 100);
     const disputeAmountCents = Math.round(Number(amountDecimal) * 100);
@@ -317,28 +480,62 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
       throw new PaymentError("PAYMENT_AMOUNT_INVALID", `Allocation sum ${totalAllocatedCents} does not match dispute amount ${disputeAmountCents}`);
     }
 
-    // 3. Prepare ledger entries across participant wallets and platform
-    const platformWallet = await ensureWalletForOwner({
-      ownerType: "PLATFORM",
-      ownerId: "platform",
-      currency: "ZAR",
+    // Prepare platform accounts directly within transaction
+    let platformWallet = await tx.wallet.findUnique({
+      where: { ownerType_ownerId_currency: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" } },
     });
+    if (!platformWallet) {
+      platformWallet = await tx.wallet.create({
+        data: {
+          ownerType: "PLATFORM",
+          ownerId: "platform",
+          currency: "ZAR",
+          status: "ACTIVE",
+        },
+      });
+    }
 
-    const platformCustomerHeld = await ensureLedgerAccount({
-      walletId: platformWallet.id,
-      code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR",
-      purpose: "HELD",
-      category: "LIABILITY",
-      currency: "ZAR",
+    let platformCustomerHeld = await tx.ledgerAccount.findFirst({
+      where: {
+        walletId: platformWallet.id,
+        purpose: "HELD",
+        currency: "ZAR",
+        status: "ACTIVE",
+      },
     });
+    if (!platformCustomerHeld) {
+      platformCustomerHeld = await tx.ledgerAccount.create({
+        data: {
+          walletId: platformWallet.id,
+          code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR",
+          purpose: "HELD",
+          category: "LIABILITY",
+          currency: "ZAR",
+          status: "ACTIVE",
+        },
+      });
+    }
 
-    const platformDisputeHeld = await ensureLedgerAccount({
-      walletId: platformWallet.id,
-      code: "PLATFORM-DISPUTE-HELD-ZAR",
-      purpose: "SETTLEMENT_CLEARING",
-      category: "LIABILITY",
-      currency: "ZAR",
+    let platformDisputeHeld = await tx.ledgerAccount.findFirst({
+      where: {
+        walletId: platformWallet.id,
+        purpose: "SETTLEMENT_CLEARING",
+        currency: "ZAR",
+        status: "ACTIVE",
+      },
     });
+    if (!platformDisputeHeld) {
+      platformDisputeHeld = await tx.ledgerAccount.create({
+        data: {
+          walletId: platformWallet.id,
+          code: "PLATFORM-DISPUTE-HELD-ZAR",
+          purpose: "SETTLEMENT_CLEARING",
+          category: "LIABILITY",
+          currency: "ZAR",
+          status: "ACTIVE",
+        },
+      });
+    }
 
     const publicReference = generateDisputePublicReference();
     const journalEntries: Array<{
@@ -354,14 +551,17 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
       participantId: string;
       storeEarningId?: string;
       driverEarningId?: string;
+      withdrawalEarningAllocationId?: string | null;
       allocatedAmount: Prisma.Decimal;
       heldAmount: Prisma.Decimal;
       recoveryReceivableAmount: Prisma.Decimal;
-      holdingState: string;
-      ledgerAccountId?: string;
+      holdingState: PaymentDisputeHoldingState;
+      ledgerAccountId?: string | null;
     }
 
     const preparedAllocations: PreparedAllocationRecord[] = [];
+    const cancelledWithdrawalIds = new Set<string>();
+    let requiresReconciliation = false;
 
     for (let i = 0; i < allocations.length; i++) {
       const alloc = allocations[i];
@@ -371,61 +571,16 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
 
       if (alloc.participantType === "STORE") {
         const storeEarning = storeEarnings.find((s) => s.id === alloc.storeEarningId);
-        const storeWallet = await ensureWalletForOwner({
-          ownerType: "STORE",
-          ownerId: alloc.participantId,
-          currency: "ZAR",
-        });
+        const storeWallet = storeEarning?.walletId
+          ? await tx.wallet.findUniqueOrThrow({ where: { id: storeEarning.walletId } })
+          : await ensureWalletForOwner({
+              ownerType: "STORE",
+              ownerId: alloc.participantId,
+              currency: "ZAR",
+            });
+        const storeDisputeHeld = await resolveOwnerDisputeHeldAccount(tx, storeWallet.id, "STORE", alloc.participantId);
 
-        const storeDisputeHeld = await ensureLedgerAccount({
-          walletId: storeWallet.id,
-          code: `STORE-DISPUTE-HELD-${safeAccountCode(alloc.participantId)}-ZAR`,
-          purpose: "HELD",
-          category: "LIABILITY",
-          currency: "ZAR",
-        });
-
-        const isWithdrawn = (storeEarning as { status?: string } | undefined)?.status === "WITHDRAWN";
-        const isReleased = storeEarning?.status === "RELEASED";
-        const isUnreleased = Boolean(storeEarning && !isReleased && !isWithdrawn);
-
-        if (isWithdrawn) {
-          // Already paid out externally: create recovery receivable
-          const storeReceivable = await ensureLedgerAccount({
-            walletId: storeWallet.id,
-            code: `STORE-RECEIVABLE-${safeAccountCode(alloc.participantId)}-ZAR`,
-            purpose: "ADJUSTMENT",
-            category: "ASSET",
-            currency: "ZAR",
-          });
-
-          journalEntries.push(
-            {
-              accountId: storeReceivable.id,
-              direction: "DEBIT",
-              amount: allocDecimal.toFixed(2),
-              lineCode: `STORE_RECOVERY_RECEIVABLE${lineSuffix}`,
-            },
-            {
-              accountId: storeDisputeHeld.id,
-              direction: "CREDIT",
-              amount: allocDecimal.toFixed(2),
-              lineCode: `STORE_DISPUTE_HELD_LIABILITY${lineSuffix}`,
-            },
-          );
-
-          preparedAllocations.push({
-            publicReference: allocRef,
-            participantType: "STORE",
-            participantId: alloc.participantId,
-            storeEarningId: storeEarning?.id,
-            allocatedAmount: allocDecimal,
-            heldAmount: new Prisma.Decimal(0),
-            recoveryReceivableAmount: allocDecimal,
-            holdingState: "RECOVERY_RECEIVABLE",
-            ledgerAccountId: storeDisputeHeld.id,
-          });
-        } else if (isUnreleased && storeEarning) {
+        if (storeEarning?.status === "ACCRUED") {
           // Unreleased: Move liability from store payable to store dispute-held
           journalEntries.push(
             {
@@ -449,88 +604,166 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
             allocatedAmount: allocDecimal,
             heldAmount: allocDecimal,
             recoveryReceivableAmount: new Prisma.Decimal(0),
-            holdingState: "UNRELEASED_HELD",
+            holdingState: PaymentDisputeHoldingState.UNRELEASED_HELD,
             ledgerAccountId: storeDisputeHeld.id,
           });
-        } else {
-          // Released: Check if store wallet has available balance
-          const storeAvailable = await ensureLedgerAccount({
-            walletId: storeWallet.id,
-            code: `STORE-AVAILABLE-${safeAccountCode(alloc.participantId)}-ZAR`,
-            purpose: "AVAILABLE",
-            category: "LIABILITY",
-            currency: "ZAR",
-          });
+        } else if (storeEarning?.status === "RELEASED") {
+          // Released: Apply strict 4-tier provenance precedence
+          // 1. externally settled first -> RECOVERY_RECEIVABLE
+          // 2. in-flight/reserved second -> IN_FLIGHT_HOLD (or pre-provider cancelled -> RELEASED_HOLD)
+          // 3. still available third -> RELEASED_HOLD
+          const summary = await getEarningProvenanceSummary(tx, "STORE", storeEarning.id);
+          const partitioned = partitionDisputedShareByProvenance(summary, alloc.allocatedAmountCents);
 
-          // Check if already paid out externally
-          const storeWithdrawals = tx.withdrawalRequest
-            ? await tx.withdrawalRequest.findFirst({
-                where: { walletId: storeWallet.id, status: { in: ["PAID", "PROCESSING", "APPROVED"] } },
-              })
-            : null;
+          // Tier 1: Externally settled
+          for (let sIdx = 0; sIdx < partitioned.settled.length; sIdx++) {
+            const sItem = partitioned.settled[sIdx];
+            const sItemDecimal = new Prisma.Decimal(sItem.amountCents).div(100);
+            const subRef = generateAllocationPublicReference();
+            const subSuffix = `${lineSuffix}_SETTLED_${sIdx + 1}`;
 
-          if (storeWithdrawals) {
-            // Already paid out externally: create recovery receivable
-            const storeReceivable = await ensureLedgerAccount({
-              walletId: storeWallet.id,
-              code: `STORE-RECEIVABLE-${safeAccountCode(alloc.participantId)}-ZAR`,
-              purpose: "ADJUSTMENT",
-              category: "ASSET",
-              currency: "ZAR",
-            });
-
+            const storeReceivable = await resolveOwnerReceivableAccount(tx, storeWallet.id, "STORE", alloc.participantId);
             journalEntries.push(
               {
                 accountId: storeReceivable.id,
                 direction: "DEBIT",
-                amount: allocDecimal.toFixed(2),
-                lineCode: `STORE_RECOVERY_RECEIVABLE${lineSuffix}`,
+                amount: sItemDecimal.toFixed(2),
+                lineCode: `STORE_RECOVERY_RECEIVABLE${subSuffix}`,
               },
               {
                 accountId: storeDisputeHeld.id,
                 direction: "CREDIT",
-                amount: allocDecimal.toFixed(2),
-                lineCode: `STORE_DISPUTE_HELD_LIABILITY${lineSuffix}`,
+                amount: sItemDecimal.toFixed(2),
+                lineCode: `STORE_DISPUTE_HELD_LIABILITY${subSuffix}`,
               },
             );
 
             preparedAllocations.push({
-              publicReference: allocRef,
+              publicReference: subRef,
               participantType: "STORE",
               participantId: alloc.participantId,
-              storeEarningId: storeEarning?.id,
-              allocatedAmount: allocDecimal,
+              storeEarningId: storeEarning.id,
+              withdrawalEarningAllocationId: sItem.allocationId,
+              allocatedAmount: sItemDecimal,
               heldAmount: new Prisma.Decimal(0),
-              recoveryReceivableAmount: allocDecimal,
-              holdingState: "RECOVERY_RECEIVABLE",
+              recoveryReceivableAmount: sItemDecimal,
+              holdingState: PaymentDisputeHoldingState.RECOVERY_RECEIVABLE,
               ledgerAccountId: storeDisputeHeld.id,
             });
-          } else {
-            // Released but available: apply reversible hold
+          }
+
+          // Tier 2A: Pre-provider cancellable withdrawals
+          let preProviderHeldCents = 0;
+          for (const pp of partitioned.preProviderReserved) {
+            if (!cancelledWithdrawalIds.has(pp.withdrawalId)) {
+              cancelledWithdrawalIds.add(pp.withdrawalId);
+              const withdrawal = await tx.withdrawalRequest.findUnique({
+                where: { id: pp.withdrawalId },
+                include: { payoutDestination: true },
+              });
+              if (withdrawal && !withdrawal.releaseLedgerJournalId && !withdrawal.payoutLedgerJournalId) {
+                await lockWithdrawalAccounts(tx, withdrawal);
+                const releaseJournal = await postLedgerJournalWithinTransaction(
+                  tx,
+                  withdrawalReleasePosting({
+                    withdrawalReference: withdrawal.publicReference,
+                    amount: withdrawal.amount.toFixed(2),
+                    sourceAccountId: withdrawal.sourceAccountId,
+                    heldAccountId: withdrawal.heldAccountId,
+                    actorUserId: input.actorUserId,
+                    payoutDestinationReference: withdrawal.payoutDestination.publicReference,
+                    ownerType: withdrawal.ownerType,
+                    policyVersion: withdrawal.policyVersion,
+                  }),
+                );
+                await tx.withdrawalRequest.update({
+                  where: { id: withdrawal.id },
+                  data: {
+                    status: "CANCELLED",
+                    releaseLedgerJournalId: releaseJournal.id,
+                    cancelledByUserId: input.actorUserId ?? null,
+                    cancelledAt: new Date(),
+                    cancellationReasonCode: "DISPUTE_INTERCEPTED",
+                    version: { increment: 1 },
+                  },
+                });
+                await cancelWithdrawalEarningAllocations(tx, withdrawal.id);
+                await tx.withdrawalStatusHistory.createMany({
+                  data: [
+                    {
+                      withdrawalId: withdrawal.id,
+                      fromStatus: withdrawal.status,
+                      toStatus: "CANCELLED",
+                      actorType: "SYSTEM",
+                      actorUserId: input.actorUserId ?? null,
+                      reasonCode: "DISPUTE_INTERCEPTED",
+                    },
+                    {
+                      withdrawalId: withdrawal.id,
+                      toStatus: "CANCELLED",
+                      actorType: "SYSTEM",
+                      reasonCode: "RESERVATION_RELEASED",
+                      safeMetadata: { releaseJournalReference: releaseJournal.reference },
+                    },
+                  ],
+                });
+              }
+            }
+            preProviderHeldCents += pp.amountCents;
+          }
+
+          // Tier 2B: In-flight processing (preserve WITHDRAWAL_HELD intact, no hold journal, flag reconciliation)
+          for (let ifIdx = 0; ifIdx < partitioned.inFlightProcessing.length; ifIdx++) {
+            const ifItem = partitioned.inFlightProcessing[ifIdx];
+            const ifItemDecimal = new Prisma.Decimal(ifItem.amountCents).div(100);
+            const subRef = generateAllocationPublicReference();
+            requiresReconciliation = true;
+
+            preparedAllocations.push({
+              publicReference: subRef,
+              participantType: "STORE",
+              participantId: alloc.participantId,
+              storeEarningId: storeEarning.id,
+              withdrawalEarningAllocationId: ifItem.allocationId,
+              allocatedAmount: ifItemDecimal,
+              heldAmount: new Prisma.Decimal(0),
+              recoveryReceivableAmount: new Prisma.Decimal(0),
+              holdingState: PaymentDisputeHoldingState.IN_FLIGHT_HOLD,
+              ledgerAccountId: null,
+            });
+          }
+
+          // Tier 3: Still available + pre-provider restored funds -> RELEASED_HOLD
+          const totalAvailableHoldCents = partitioned.availableCents + preProviderHeldCents;
+          if (totalAvailableHoldCents > 0) {
+            const availDecimal = new Prisma.Decimal(totalAvailableHoldCents).div(100);
+            const subRef = generateAllocationPublicReference();
+            const storeWithdrawable = await resolveOwnerWithdrawableAccount(tx, storeWallet.id);
+
             journalEntries.push(
               {
-                accountId: storeAvailable.id,
+                accountId: storeWithdrawable.id,
                 direction: "DEBIT",
-                amount: allocDecimal.toFixed(2),
+                amount: availDecimal.toFixed(2),
                 lineCode: `STORE_AVAILABLE_DISPUTE_HOLD${lineSuffix}`,
               },
               {
                 accountId: storeDisputeHeld.id,
                 direction: "CREDIT",
-                amount: allocDecimal.toFixed(2),
+                amount: availDecimal.toFixed(2),
                 lineCode: `STORE_DISPUTE_HELD_LIABILITY${lineSuffix}`,
               },
             );
 
             preparedAllocations.push({
-              publicReference: allocRef,
+              publicReference: subRef,
               participantType: "STORE",
               participantId: alloc.participantId,
-              storeEarningId: storeEarning?.id,
-              allocatedAmount: allocDecimal,
-              heldAmount: allocDecimal,
+              storeEarningId: storeEarning.id,
+              allocatedAmount: availDecimal,
+              heldAmount: availDecimal,
               recoveryReceivableAmount: new Prisma.Decimal(0),
-              holdingState: "RELEASED_HOLD",
+              holdingState: PaymentDisputeHoldingState.RELEASED_HOLD,
               ledgerAccountId: storeDisputeHeld.id,
             });
           }
@@ -542,55 +775,9 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
           ownerId: alloc.participantId,
           currency: "ZAR",
         });
+        const driverDisputeHeld = await resolveOwnerDisputeHeldAccount(tx, driverWallet.id, "DRIVER", alloc.participantId);
 
-        const driverDisputeHeld = await ensureLedgerAccount({
-          walletId: driverWallet.id,
-          code: `DRIVER-DISPUTE-HELD-${safeAccountCode(alloc.participantId)}-ZAR`,
-          purpose: "HELD",
-          category: "LIABILITY",
-          currency: "ZAR",
-        });
-
-        const isWithdrawn = (driverEarning as { status?: string } | undefined)?.status === "WITHDRAWN";
-        const isReleased = driverEarning?.status === "RELEASED";
-        const isUnreleased = Boolean(driverEarning && !isReleased && !isWithdrawn);
-
-        if (isWithdrawn) {
-          const driverReceivable = await ensureLedgerAccount({
-            walletId: driverWallet.id,
-            code: `DRIVER-RECEIVABLE-${safeAccountCode(alloc.participantId)}-ZAR`,
-            purpose: "ADJUSTMENT",
-            category: "ASSET",
-            currency: "ZAR",
-          });
-
-          journalEntries.push(
-            {
-              accountId: driverReceivable.id,
-              direction: "DEBIT",
-              amount: allocDecimal.toFixed(2),
-              lineCode: `DRIVER_RECOVERY_RECEIVABLE${lineSuffix}`,
-            },
-            {
-              accountId: driverDisputeHeld.id,
-              direction: "CREDIT",
-              amount: allocDecimal.toFixed(2),
-              lineCode: `DRIVER_DISPUTE_HELD_LIABILITY${lineSuffix}`,
-            },
-          );
-
-          preparedAllocations.push({
-            publicReference: allocRef,
-            participantType: "DRIVER",
-            participantId: alloc.participantId,
-            driverEarningId: driverEarning?.id,
-            allocatedAmount: allocDecimal,
-            heldAmount: new Prisma.Decimal(0),
-            recoveryReceivableAmount: allocDecimal,
-            holdingState: "RECOVERY_RECEIVABLE",
-            ledgerAccountId: driverDisputeHeld.id,
-          });
-        } else if (isUnreleased && driverEarning) {
+        if (driverEarning?.status === "ACCRUED") {
           journalEntries.push(
             {
               accountId: driverEarning.payableAccountId,
@@ -605,7 +792,6 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
               lineCode: `DRIVER_DISPUTE_HELD_LIABILITY${lineSuffix}`,
             },
           );
-
           preparedAllocations.push({
             publicReference: allocRef,
             participantType: "DRIVER",
@@ -614,84 +800,162 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
             allocatedAmount: allocDecimal,
             heldAmount: allocDecimal,
             recoveryReceivableAmount: new Prisma.Decimal(0),
-            holdingState: "UNRELEASED_HELD",
+            holdingState: PaymentDisputeHoldingState.UNRELEASED_HELD,
             ledgerAccountId: driverDisputeHeld.id,
           });
-        } else {
-          const driverWithdrawals = tx.withdrawalRequest
-            ? await tx.withdrawalRequest.findFirst({
-                where: { walletId: driverWallet.id, status: { in: ["PAID", "PROCESSING", "APPROVED"] } },
-              })
-            : null;
+        } else if (driverEarning?.status === "RELEASED") {
+          const summary = await getEarningProvenanceSummary(tx, "DRIVER", driverEarning.id);
+          const partitioned = partitionDisputedShareByProvenance(summary, alloc.allocatedAmountCents);
 
-          if (driverWithdrawals) {
-            const driverReceivable = await ensureLedgerAccount({
-              walletId: driverWallet.id,
-              code: `DRIVER-RECEIVABLE-${safeAccountCode(alloc.participantId)}-ZAR`,
-              purpose: "ADJUSTMENT",
-              category: "ASSET",
-              currency: "ZAR",
-            });
+          // Tier 1: Externally settled
+          for (let sIdx = 0; sIdx < partitioned.settled.length; sIdx++) {
+            const sItem = partitioned.settled[sIdx];
+            const sItemDecimal = new Prisma.Decimal(sItem.amountCents).div(100);
+            const subRef = generateAllocationPublicReference();
+            const subSuffix = `${lineSuffix}_SETTLED_${sIdx + 1}`;
 
+            const driverReceivable = await resolveOwnerReceivableAccount(tx, driverWallet.id, "DRIVER", alloc.participantId);
             journalEntries.push(
               {
                 accountId: driverReceivable.id,
                 direction: "DEBIT",
-                amount: allocDecimal.toFixed(2),
-                lineCode: `DRIVER_RECOVERY_RECEIVABLE${lineSuffix}`,
+                amount: sItemDecimal.toFixed(2),
+                lineCode: `DRIVER_RECOVERY_RECEIVABLE${subSuffix}`,
               },
               {
                 accountId: driverDisputeHeld.id,
                 direction: "CREDIT",
-                amount: allocDecimal.toFixed(2),
-                lineCode: `DRIVER_DISPUTE_HELD_LIABILITY${lineSuffix}`,
+                amount: sItemDecimal.toFixed(2),
+                lineCode: `DRIVER_DISPUTE_HELD_LIABILITY${subSuffix}`,
               },
             );
 
             preparedAllocations.push({
-              publicReference: allocRef,
+              publicReference: subRef,
               participantType: "DRIVER",
               participantId: alloc.participantId,
-              driverEarningId: driverEarning?.id,
-              allocatedAmount: allocDecimal,
+              driverEarningId: driverEarning.id,
+              withdrawalEarningAllocationId: sItem.allocationId,
+              allocatedAmount: sItemDecimal,
               heldAmount: new Prisma.Decimal(0),
-              recoveryReceivableAmount: allocDecimal,
-              holdingState: "RECOVERY_RECEIVABLE",
+              recoveryReceivableAmount: sItemDecimal,
+              holdingState: PaymentDisputeHoldingState.RECOVERY_RECEIVABLE,
               ledgerAccountId: driverDisputeHeld.id,
             });
-          } else {
-            const driverAvailable = await ensureLedgerAccount({
-              walletId: driverWallet.id,
-              code: `DRIVER-AVAILABLE-${safeAccountCode(alloc.participantId)}-ZAR`,
-              purpose: "AVAILABLE",
-              category: "LIABILITY",
-              currency: "ZAR",
+          }
+
+          // Tier 2A: Pre-provider cancellable withdrawals
+          let preProviderHeldCents = 0;
+          for (const pp of partitioned.preProviderReserved) {
+            if (!cancelledWithdrawalIds.has(pp.withdrawalId)) {
+              cancelledWithdrawalIds.add(pp.withdrawalId);
+              const withdrawal = await tx.withdrawalRequest.findUnique({
+                where: { id: pp.withdrawalId },
+                include: { payoutDestination: true },
+              });
+              if (withdrawal && !withdrawal.releaseLedgerJournalId && !withdrawal.payoutLedgerJournalId) {
+                await lockWithdrawalAccounts(tx, withdrawal);
+                const releaseJournal = await postLedgerJournalWithinTransaction(
+                  tx,
+                  withdrawalReleasePosting({
+                    withdrawalReference: withdrawal.publicReference,
+                    amount: withdrawal.amount.toFixed(2),
+                    sourceAccountId: withdrawal.sourceAccountId,
+                    heldAccountId: withdrawal.heldAccountId,
+                    actorUserId: input.actorUserId,
+                    payoutDestinationReference: withdrawal.payoutDestination.publicReference,
+                    ownerType: withdrawal.ownerType,
+                    policyVersion: withdrawal.policyVersion,
+                  }),
+                );
+                await tx.withdrawalRequest.update({
+                  where: { id: withdrawal.id },
+                  data: {
+                    status: "CANCELLED",
+                    releaseLedgerJournalId: releaseJournal.id,
+                    cancelledByUserId: input.actorUserId ?? null,
+                    cancelledAt: new Date(),
+                    cancellationReasonCode: "DISPUTE_INTERCEPTED",
+                    version: { increment: 1 },
+                  },
+                });
+                await cancelWithdrawalEarningAllocations(tx, withdrawal.id);
+                await tx.withdrawalStatusHistory.createMany({
+                  data: [
+                    {
+                      withdrawalId: withdrawal.id,
+                      fromStatus: withdrawal.status,
+                      toStatus: "CANCELLED",
+                      actorType: "SYSTEM",
+                      actorUserId: input.actorUserId ?? null,
+                      reasonCode: "DISPUTE_INTERCEPTED",
+                    },
+                    {
+                      withdrawalId: withdrawal.id,
+                      toStatus: "CANCELLED",
+                      actorType: "SYSTEM",
+                      reasonCode: "RESERVATION_RELEASED",
+                      safeMetadata: { releaseJournalReference: releaseJournal.reference },
+                    },
+                  ],
+                });
+              }
+            }
+            preProviderHeldCents += pp.amountCents;
+          }
+
+          // Tier 2B: In-flight processing
+          for (let ifIdx = 0; ifIdx < partitioned.inFlightProcessing.length; ifIdx++) {
+            const ifItem = partitioned.inFlightProcessing[ifIdx];
+            const ifItemDecimal = new Prisma.Decimal(ifItem.amountCents).div(100);
+            const subRef = generateAllocationPublicReference();
+            requiresReconciliation = true;
+
+            preparedAllocations.push({
+              publicReference: subRef,
+              participantType: "DRIVER",
+              participantId: alloc.participantId,
+              driverEarningId: driverEarning.id,
+              withdrawalEarningAllocationId: ifItem.allocationId,
+              allocatedAmount: ifItemDecimal,
+              heldAmount: new Prisma.Decimal(0),
+              recoveryReceivableAmount: new Prisma.Decimal(0),
+              holdingState: PaymentDisputeHoldingState.IN_FLIGHT_HOLD,
+              ledgerAccountId: null,
             });
+          }
+
+          // Tier 3: Still available + pre-provider restored funds -> RELEASED_HOLD
+          const totalAvailableHoldCents = partitioned.availableCents + preProviderHeldCents;
+          if (totalAvailableHoldCents > 0) {
+            const availDecimal = new Prisma.Decimal(totalAvailableHoldCents).div(100);
+            const subRef = generateAllocationPublicReference();
+            const driverWithdrawable = await resolveOwnerWithdrawableAccount(tx, driverWallet.id);
 
             journalEntries.push(
               {
-                accountId: driverAvailable.id,
+                accountId: driverWithdrawable.id,
                 direction: "DEBIT",
-                amount: allocDecimal.toFixed(2),
+                amount: availDecimal.toFixed(2),
                 lineCode: `DRIVER_AVAILABLE_DISPUTE_HOLD${lineSuffix}`,
               },
               {
                 accountId: driverDisputeHeld.id,
                 direction: "CREDIT",
-                amount: allocDecimal.toFixed(2),
+                amount: availDecimal.toFixed(2),
                 lineCode: `DRIVER_DISPUTE_HELD_LIABILITY${lineSuffix}`,
               },
             );
 
             preparedAllocations.push({
-              publicReference: allocRef,
+              publicReference: subRef,
               participantType: "DRIVER",
               participantId: alloc.participantId,
-              driverEarningId: driverEarning?.id,
-              allocatedAmount: allocDecimal,
-              heldAmount: allocDecimal,
+              driverEarningId: driverEarning.id,
+              allocatedAmount: availDecimal,
+              heldAmount: availDecimal,
               recoveryReceivableAmount: new Prisma.Decimal(0),
-              holdingState: "RELEASED_HOLD",
+              holdingState: PaymentDisputeHoldingState.RELEASED_HOLD,
               ledgerAccountId: driverDisputeHeld.id,
             });
           }
@@ -720,30 +984,43 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
           allocatedAmount: allocDecimal,
           heldAmount: allocDecimal,
           recoveryReceivableAmount: new Prisma.Decimal(0),
-          holdingState: "PLATFORM_HELD",
+          holdingState: PaymentDisputeHoldingState.PLATFORM_HELD,
           ledgerAccountId: platformDisputeHeld.id,
         });
       }
     }
 
-    // 4. Post hold journal enforcing exact balance
-    const holdJournal = await postLedgerJournalWithinTransaction(tx, {
-      idempotencyKey: `dispute-hold:${publicReference}`,
-      type: "GENERAL",
-      currency: "ZAR",
-      sourceReference: `payment:${payment.publicReference}:dispute:${publicReference}`,
-      correlationId: publicReference,
-      memo: `Dispute hold for payment ${payment.publicReference} (${input.reason ?? "OTHER"})`,
-      actor: input.actorUserId ? { kind: "USER", userId: input.actorUserId } : { kind: "SYSTEM" },
-      metadata: {
-        paymentPublicReference: payment.publicReference,
-        disputePublicReference: publicReference,
-        providerDisputeId: input.providerDisputeId ?? null,
-      },
-      entries: consolidateJournalEntries(journalEntries),
-    });
+    // 4. Post hold journal enforcing exact balance (if entries exist)
+    const consolidatedEntries = consolidateJournalEntries(journalEntries);
+    let holdJournal: { id: string; reference: string } | null = null;
+
+    if (consolidatedEntries.length > 0) {
+      holdJournal = await postLedgerJournalWithinTransaction(tx, {
+        idempotencyKey: `dispute-hold:${publicReference}`,
+        type: "GENERAL",
+        currency: "ZAR",
+        sourceReference: `payment:${payment.publicReference}:dispute:${publicReference}`,
+        correlationId: publicReference,
+        memo: `Dispute hold for payment ${payment.publicReference} (${input.reason ?? "OTHER"})`,
+        actor: input.actorUserId ? { kind: "USER", userId: input.actorUserId } : { kind: "SYSTEM" },
+        metadata: {
+          paymentPublicReference: payment.publicReference,
+          disputePublicReference: publicReference,
+          providerDisputeId: input.providerDisputeId ?? null,
+        },
+        entries: consolidatedEntries,
+      });
+    }
 
     // 5. Create PaymentDispute and PaymentDisputeAllocation records
+    let disputeReason: PaymentDisputeReason = PaymentDisputeReason.OTHER;
+    if (input.reason) {
+      const upper = String(input.reason).toUpperCase();
+      if (Object.values(PaymentDisputeReason).includes(upper as PaymentDisputeReason)) {
+        disputeReason = upper as PaymentDisputeReason;
+      }
+    }
+
     const dispute = await tx.paymentDispute.create({
       data: {
         publicReference,
@@ -753,11 +1030,12 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
         amount: amountDecimal,
         currency: "ZAR",
         status: "OPEN",
-        reason: input.reason ?? "OTHER",
+        reason: disputeReason,
         providerStatus: input.providerStatus ?? "open",
         evidenceDueBy: evidenceDue,
         safeEvidenceSnapshot: sanitizedEvidence as unknown as Prisma.InputJsonValue | undefined,
-        holdLedgerJournalId: holdJournal.id,
+        holdLedgerJournalId: holdJournal?.id ?? null,
+        reconciliationRequired: requiresReconciliation,
         history: {
           create: {
             fromStatus: null,
@@ -766,9 +1044,10 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
             actorUserId: input.actorUserId ?? null,
             reasonCode: input.reason ?? "OTHER",
             safeMetadata: {
-              holdLedgerJournalReference: holdJournal.reference,
+              holdLedgerJournalReference: holdJournal?.reference ?? null,
               amount: amountDecimal.toFixed(2),
               allocationCount: String(preparedAllocations.length),
+              reconciliationRequired: String(requiresReconciliation),
             },
           },
         },
@@ -779,13 +1058,14 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
             participantId: p.participantId,
             storeEarningId: p.storeEarningId,
             driverEarningId: p.driverEarningId,
+            withdrawalEarningAllocationId: p.withdrawalEarningAllocationId ?? null,
             allocatedAmount: p.allocatedAmount,
             heldAmount: p.heldAmount,
             recoveryReceivableAmount: p.recoveryReceivableAmount,
             currency: "ZAR",
             holdingState: p.holdingState,
             ledgerAccountId: p.ledgerAccountId,
-            holdJournalId: holdJournal.id,
+            holdJournalId: holdJournal?.id ?? null,
           })),
         },
       },
@@ -799,8 +1079,10 @@ export async function openPaymentDispute(input: OpenPaymentDisputeInput) {
     });
 
     return dispute;
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }
+
+// ─── Update Evidence ──────────────────────────────────────────────────────────
 
 export async function updatePaymentDisputeEvidence(input: UpdatePaymentDisputeEvidenceInput) {
   const sanitizedEvidence = sanitizeEvidenceSnapshot(input.safeEvidence);
@@ -848,6 +1130,8 @@ export async function updatePaymentDisputeEvidence(input: UpdatePaymentDisputeEv
     return updated;
   });
 }
+
+// ─── Resolve Payment Dispute ──────────────────────────────────────────────────
 
 export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
   return prisma.$transaction(async (tx) => {
@@ -909,6 +1193,9 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
       lineCode: string;
     }> = [];
 
+    const settledAllocations: Array<{ id: string }> = [];
+    let hasPendingInFlight = false;
+
     for (let i = 0; i < dispute.allocations.length; i++) {
       const alloc = dispute.allocations[i];
       const amountStr = alloc.allocatedAmount.toFixed(2);
@@ -916,7 +1203,7 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
 
       if (input.resolution === "WON") {
         // WON: Release hold back to original participant account
-        if (alloc.holdingState === "UNRELEASED_HELD") {
+        if (alloc.holdingState === PaymentDisputeHoldingState.UNRELEASED_HELD) {
           const payableAccountId = alloc.storeEarning?.payableAccountId ?? alloc.driverEarning?.payableAccountId;
           if (payableAccountId && alloc.ledgerAccountId) {
             journalEntries.push(
@@ -934,19 +1221,14 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
               },
             );
           }
-        } else if (alloc.holdingState === "RELEASED_HOLD") {
+          settledAllocations.push({ id: alloc.id });
+        } else if (alloc.holdingState === PaymentDisputeHoldingState.RELEASED_HOLD) {
           const participantWallet = await ensureWalletForOwner({
             ownerType: alloc.participantType as "STORE" | "DRIVER",
             ownerId: alloc.participantId ?? "unknown",
             currency: "ZAR",
           });
-          const availableAccount = await ensureLedgerAccount({
-            walletId: participantWallet.id,
-            code: `${alloc.participantType}-AVAILABLE-${safeAccountCode(alloc.participantId ?? "UNKNOWN")}-ZAR`,
-            purpose: "AVAILABLE",
-            category: "LIABILITY",
-            currency: "ZAR",
-          });
+          const withdrawableAccount = await resolveOwnerWithdrawableAccount(tx, participantWallet.id);
           if (alloc.ledgerAccountId) {
             journalEntries.push(
               {
@@ -956,26 +1238,21 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
                 lineCode: `DISPUTE_WON_RELEASE_HELD${lineSuffix}`,
               },
               {
-                accountId: availableAccount.id,
+                accountId: withdrawableAccount.id,
                 direction: "CREDIT",
                 amount: amountStr,
                 lineCode: `DISPUTE_WON_RESTORE_AVAILABLE${lineSuffix}`,
               },
             );
           }
-        } else if (alloc.holdingState === "RECOVERY_RECEIVABLE") {
+          settledAllocations.push({ id: alloc.id });
+        } else if (alloc.holdingState === PaymentDisputeHoldingState.RECOVERY_RECEIVABLE) {
           const participantWallet = await ensureWalletForOwner({
             ownerType: alloc.participantType as "STORE" | "DRIVER",
             ownerId: alloc.participantId ?? "unknown",
             currency: "ZAR",
           });
-          const receivableAccount = await ensureLedgerAccount({
-            walletId: participantWallet.id,
-            code: `${alloc.participantType}-RECEIVABLE-${safeAccountCode(alloc.participantId ?? "UNKNOWN")}-ZAR`,
-            purpose: "ADJUSTMENT",
-            category: "ASSET",
-            currency: "ZAR",
-          });
+          const receivableAccount = await resolveOwnerReceivableAccount(tx, participantWallet.id, alloc.participantType as "STORE" | "DRIVER", alloc.participantId ?? "unknown");
           if (alloc.ledgerAccountId) {
             journalEntries.push(
               {
@@ -992,8 +1269,8 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
               },
             );
           }
-        } else {
-          // PLATFORM_HELD
+          settledAllocations.push({ id: alloc.id });
+        } else if (alloc.holdingState === PaymentDisputeHoldingState.PLATFORM_HELD) {
           if (alloc.ledgerAccountId) {
             journalEntries.push(
               {
@@ -1010,59 +1287,70 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
               },
             );
           }
+          settledAllocations.push({ id: alloc.id });
+        } else if (alloc.holdingState === PaymentDisputeHoldingState.IN_FLIGHT_HOLD) {
+          // When dispute is WON, clear IN_FLIGHT_HOLD dispute claim with settledAt = now
+          // (no ledger release journal since none was posted to DISPUTE_HELD)
+          settledAllocations.push({ id: alloc.id });
         }
       } else {
-        // LOST: Provider deducted chargeback from platform cash clearing
-        if (alloc.ledgerAccountId) {
-          journalEntries.push({
-            accountId: alloc.ledgerAccountId,
-            direction: "DEBIT",
-            amount: amountStr,
-            lineCode: `DISPUTE_LOST_CLEAR_HELD${lineSuffix}`,
-          });
+        // LOST
+        if (alloc.holdingState === PaymentDisputeHoldingState.IN_FLIGHT_HOLD) {
+          // In-flight processing remains pending / reconciliation-required until withdrawal settles/fails
+          hasPendingInFlight = true;
+        } else {
+          // Provider deducted chargeback from platform cash clearing; clear held liability
+          if (alloc.ledgerAccountId) {
+            journalEntries.push(
+              {
+                accountId: alloc.ledgerAccountId,
+                direction: "DEBIT",
+                amount: amountStr,
+                lineCode: `DISPUTE_LOST_CLEAR_HELD${lineSuffix}`,
+              },
+              {
+                accountId: platformCashClearing.id,
+                direction: "CREDIT",
+                amount: amountStr,
+                lineCode: `DISPUTE_LOST_PROVIDER_CLEARING_DEDUCTION${lineSuffix}`,
+              },
+            );
+          }
+          settledAllocations.push({ id: alloc.id });
         }
       }
     }
 
-    if (input.resolution === "LOST") {
-      const totalLost = dispute.allocations.reduce(
-        (sum, a) => sum.add(a.allocatedAmount),
-        new Prisma.Decimal(0)
-      );
-      journalEntries.push({
-        accountId: platformCashClearing.id,
-        direction: "CREDIT",
-        amount: totalLost.toFixed(2),
-        lineCode: "DISPUTE_LOST_PROVIDER_CLEARING_DEDUCTION",
+    const consolidatedEntries = consolidateJournalEntries(journalEntries);
+    let resolutionJournal: { id: string; reference: string } | null = null;
+
+    if (consolidatedEntries.length > 0) {
+      resolutionJournal = await postLedgerJournalWithinTransaction(tx, {
+        idempotencyKey: `dispute-resolve-${input.resolution.toLowerCase()}:${dispute.publicReference}`,
+        type: "GENERAL",
+        currency: "ZAR",
+        sourceReference: `dispute:${dispute.publicReference}:${input.resolution.toLowerCase()}`,
+        correlationId: dispute.publicReference,
+        memo: `Dispute ${input.resolution.toLowerCase()}; settled allocations for ${dispute.publicReference}`,
+        actor: input.actorUserId ? { kind: "USER", userId: input.actorUserId } : { kind: "SYSTEM" },
+        metadata: {
+          disputePublicReference: dispute.publicReference,
+          providerDisputeId: dispute.providerDisputeId,
+          resolution: input.resolution,
+          allocationCount: String(dispute.allocations.length),
+        },
+        entries: consolidatedEntries,
       });
     }
 
-    // Post settlement journal
-    const resolutionJournal = await postLedgerJournalWithinTransaction(tx, {
-      idempotencyKey: `dispute-resolve-${input.resolution.toLowerCase()}:${dispute.publicReference}`,
-      type: "GENERAL",
-      currency: "ZAR",
-      sourceReference: `dispute:${dispute.publicReference}:${input.resolution.toLowerCase()}`,
-      correlationId: dispute.publicReference,
-      memo: `Dispute ${input.resolution.toLowerCase()}; settled allocations for ${dispute.publicReference}`,
-      actor: input.actorUserId ? { kind: "USER", userId: input.actorUserId } : { kind: "SYSTEM" },
-      metadata: {
-        disputePublicReference: dispute.publicReference,
-        providerDisputeId: dispute.providerDisputeId,
-        resolution: input.resolution,
-        allocationCount: String(dispute.allocations.length),
-      },
-      entries: consolidateJournalEntries(journalEntries),
-    });
-
-    // Update dispute status and mark allocations settled
+    // Update dispute status and mark settled allocations
     const updated = await tx.paymentDispute.update({
       where: { id: dispute.id },
       data: {
         status: targetStatus,
         resolvedAt: now,
-        lossLedgerJournalId: input.resolution === "LOST" ? resolutionJournal.id : dispute.lossLedgerJournalId,
-        reconciliationRequired: false,
+        lossLedgerJournalId: input.resolution === "LOST" ? (resolutionJournal?.id ?? dispute.lossLedgerJournalId) : dispute.lossLedgerJournalId,
+        reconciliationRequired: hasPendingInFlight,
         history: {
           create: {
             fromStatus: dispute.status,
@@ -1071,9 +1359,10 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
             actorUserId: input.actorUserId ?? null,
             reasonCode: `DISPUTE_${input.resolution}`,
             safeMetadata: {
-              resolutionJournalReference: resolutionJournal.reference,
+              resolutionJournalReference: resolutionJournal?.reference ?? null,
               resolution: input.resolution,
               amount: dispute.amount.toFixed(2),
+              hasPendingInFlight: String(hasPendingInFlight),
             },
           },
         },
@@ -1081,12 +1370,12 @@ export async function resolvePaymentDispute(input: ResolvePaymentDisputeInput) {
       include: { history: true, allocations: true },
     });
 
-    for (const alloc of dispute.allocations) {
+    for (const alloc of settledAllocations) {
       await tx.paymentDisputeAllocation.update({
         where: { id: alloc.id },
         data: {
           settledAt: now,
-          settlementJournalId: resolutionJournal.id,
+          settlementJournalId: resolutionJournal?.id ?? null,
         },
       });
     }

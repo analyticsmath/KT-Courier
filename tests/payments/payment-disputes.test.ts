@@ -37,18 +37,55 @@ vi.mock("@/lib/db/prisma", () => {
     },
     storeEarning: {
       findMany: vi.fn(async () => []),
-      findUnique: vi.fn(),
+      findUnique: vi.fn(async (args: any) => ({
+        id: args?.where?.id ?? "se_001",
+        releasedAmount: new Prisma.Decimal("700.00"),
+        status: "RELEASED",
+      })),
       update: vi.fn(async (args: any) => ({ id: args?.where?.id, ...args?.data })),
     },
     driverEarning: {
       findMany: vi.fn(async () => []),
-      findUnique: vi.fn(),
+      findUnique: vi.fn(async (args: any) => ({
+        id: args?.where?.id ?? "de_001",
+        releasedAmount: new Prisma.Decimal("200.00"),
+        status: "RELEASED",
+      })),
       update: vi.fn(async (args: any) => ({ id: args?.where?.id, ...args?.data })),
     },
     withdrawalRequest: {
       findFirst: vi.fn(async () => null),
+      findUnique: vi.fn(async (args: any) => ({
+        id: args?.where?.id ?? "wd_001",
+        publicReference: "WD-TEST-001",
+        walletId: "wallet_STORE_store_001",
+        ownerType: "STORE",
+        ownerId: "store_001",
+        amount: new Prisma.Decimal("500.00"),
+        currency: "ZAR",
+        status: "REQUESTED",
+        sourceAccountId: "acc_store_withdrawable",
+        heldAccountId: "acc_store_withdrawal_held",
+        payoutDestination: { publicReference: "DEST-001", status: "ACTIVE" },
+        payoutAttempts: [],
+        policyVersion: 1,
+      })),
+      findMany: vi.fn(async () => []),
+      update: vi.fn(async (args: any) => ({ id: args?.where?.id ?? "wd_001", ...args?.data })),
+    },
+    withdrawalPayoutAttempt: {
       findUnique: vi.fn(async () => null),
       findMany: vi.fn(async () => []),
+      update: vi.fn(async (args: any) => ({ id: args?.where?.id, ...args?.data })),
+    },
+    withdrawalEarningAllocation: {
+      findMany: vi.fn(async () => []),
+      create: vi.fn(async (args: any) => ({ id: "wea_001", ...args?.data })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
+    withdrawalStatusHistory: {
+      create: vi.fn(async (args: any) => ({ id: "wsh_001", ...args?.data })),
+      createMany: vi.fn(async () => ({ count: 2 })),
     },
     paymentDispute: {
       findUnique: vi.fn(),
@@ -69,6 +106,7 @@ vi.mock("@/lib/db/prisma", () => {
     paymentDisputeAllocation: {
       create: vi.fn(async (args: any) => ({ id: "pda_001", ...args?.data })),
       findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
       update: vi.fn(async (args: any) => ({ id: args?.where?.id, ...args?.data })),
     },
     paymentDisputeHistory: {
@@ -92,6 +130,10 @@ vi.mock("@/lib/db/prisma", () => {
       })),
     },
     ledgerAccount: {
+      findFirst: vi.fn(async (args: any) => {
+        const { walletId, purpose } = args.where;
+        return Array.from(accountsMap.values()).find((a) => a.walletId === walletId && a.purpose === purpose) ?? null;
+      }),
       findUnique: vi.fn(async (args: any) => {
         if (args?.where?.id) {
           return (
@@ -223,7 +265,6 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
         evidenceDueBy: "2026-09-20T12:00:00Z",
         authorizedPrivateObjectReferences: ["s3://evidence/doc1.pdf", "s3://evidence/doc2.png"],
         explanation: "Customer states transaction was unauthorized",
-        // Unexpected PII / PCI fields NOT on any denylist:
         customer_name: "John Doe",
         pan: "4111111111111111",
         card_number: "4111-2222-3333-4444",
@@ -239,7 +280,6 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       const sanitized = sanitizeEvidenceSnapshot(providerPayloadWithPII);
 
       expect(sanitized).not.toBeNull();
-      // Allowlisted fields must be present
       expect(sanitized?.providerDisputeId).toBe("disp_pstk_12345");
       expect(sanitized?.transactionReference).toBe("kt_pay_ref_67890");
       expect(sanitized?.amount).toBe(450.0);
@@ -253,7 +293,6 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       ]);
       expect(sanitized?.explanation).toBe("Customer states transaction was unauthorized");
 
-      // Verify that NO unexpected fields were persisted (allowlist behavior)
       const anySanitized = sanitized as any;
       expect(anySanitized?.customer_name).toBeUndefined();
       expect(anySanitized?.pan).toBeUndefined();
@@ -270,7 +309,7 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
     it("returns null when required fields are missing", () => {
       expect(sanitizeEvidenceSnapshot(null)).toBeNull();
       expect(sanitizeEvidenceSnapshot({})).toBeNull();
-      expect(sanitizeEvidenceSnapshot({ amount: 100 })).toBeNull(); // Missing disputeId & reference
+      expect(sanitizeEvidenceSnapshot({ amount: 100 })).toBeNull();
     });
   });
 
@@ -288,8 +327,9 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       storeId: "store_001",
       paymentId: "pay_dispute_001",
       amount: new Prisma.Decimal("700.00"),
+      releasedAmount: new Prisma.Decimal("700.00"),
       currency: "ZAR",
-      status: "UNRELEASED",
+      status: "ACCRUED",
       payableAccountId: "acc_store_payable",
     };
 
@@ -298,12 +338,13 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       driverId: "driver_001",
       paymentId: "pay_dispute_001",
       amount: new Prisma.Decimal("200.00"),
+      releasedAmount: new Prisma.Decimal("200.00"),
       currency: "ZAR",
-      status: "UNRELEASED",
+      status: "ACCRUED",
       payableAccountId: "acc_driver_payable",
     };
 
-    it("1. fully unreleased vendor + driver + platform allocations", async () => {
+    it("1. fully unreleased vendor + driver + platform allocations (ACCRUED)", async () => {
       (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
       (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]);
       (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
@@ -321,7 +362,6 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       expect(result).toBeDefined();
       expect(prisma.ledgerJournal.create).toHaveBeenCalled();
 
-      // Check create call to paymentDispute
       const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
       const createdAllocations = createCall.data.allocations.create;
 
@@ -340,7 +380,6 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       expect(platformAlloc.holdingState).toBe("PLATFORM_HELD");
       expect(Number(platformAlloc.allocatedAmount)).toBe(100);
 
-      // Invariant: sum(dispute exposure allocations) == disputed amount (1000)
       const sumAllocations =
         Number(storeAlloc.allocatedAmount) +
         Number(driverAlloc.allocatedAmount) +
@@ -348,12 +387,13 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       expect(sumAllocations).toBe(1000);
     });
 
-    it("2. partially released allocations (vendor released, driver unreleased)", async () => {
+    it("2. released unwithdrawn allocations (vendor released, driver ACCRUED)", async () => {
       const releasedStoreEarning = { ...baseStoreEarning, status: "RELEASED" };
       (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
       (prisma.storeEarning.findMany as any).mockResolvedValue([releasedStoreEarning]);
       (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue([]);
 
       await openPaymentDispute({
         paymentPublicReference: "PAY-DISP-001",
@@ -370,11 +410,10 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
       const driverAlloc = createdAllocations.find((a: any) => a.participantType === "DRIVER");
 
-      // Released earnings are placed in RELEASED_HOLD on spendable balance
       expect(storeAlloc.holdingState).toBe("RELEASED_HOLD");
       expect(Number(storeAlloc.allocatedAmount)).toBe(700);
+      expect(Number(storeAlloc.heldAmount)).toBe(700);
 
-      // Unreleased earnings remain in UNRELEASED_HELD
       expect(driverAlloc.holdingState).toBe("UNRELEASED_HELD");
       expect(Number(driverAlloc.allocatedAmount)).toBe(200);
     });
@@ -382,9 +421,10 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
     it("3. mixed released/unreleased allocations", async () => {
       const releasedDriverEarning = { ...baseDriverEarning, status: "RELEASED" };
       (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
-      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]); // Unreleased
-      (prisma.driverEarning.findMany as any).mockResolvedValue([releasedDriverEarning]); // Released
+      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([releasedDriverEarning]);
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue([]);
 
       await openPaymentDispute({
         paymentPublicReference: "PAY-DISP-001",
@@ -405,17 +445,27 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       expect(driverAlloc.holdingState).toBe("RELEASED_HOLD");
     });
 
-    it("4. already-paid-out participant -> posts participant-specific recovery receivable without rewriting payout journals", async () => {
-      const withdrawnStoreEarning = {
-        ...baseStoreEarning,
-        status: "WITHDRAWN",
-        payoutLedgerJournalId: "jnl_historical_payout_999",
-      };
-
+    it("4. fully paid out earning -> SETTLED allocation produces RECOVERY_RECEIVABLE without rewriting payout journals", async () => {
+      const releasedStoreEarning = { ...baseStoreEarning, status: "RELEASED" };
       (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
-      (prisma.storeEarning.findMany as any).mockResolvedValue([withdrawnStoreEarning]);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([releasedStoreEarning]);
       (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      // Store earning has an allocation to a terminal PAID withdrawal
+      const mockSettledAllocation = {
+        id: "wea_settled_001",
+        storeEarningId: "se_001",
+        allocatedAmount: new Prisma.Decimal("700.00"),
+        status: "SETTLED",
+        withdrawal: {
+          id: "wd_paid_001",
+          status: "PAID",
+          payoutLedgerJournalId: "jnl_historical_payout_999",
+          payoutAttempts: [{ method: "MANUAL_EXTERNAL", status: "SUCCEEDED" }],
+        },
+      };
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue([mockSettledAllocation]);
 
       await openPaymentDispute({
         paymentPublicReference: "PAY-DISP-001",
@@ -432,16 +482,335 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
       expect(storeAlloc.holdingState).toBe("RECOVERY_RECEIVABLE");
       expect(Number(storeAlloc.recoveryReceivableAmount)).toBe(700);
+      expect(Number(storeAlloc.heldAmount)).toBe(0);
+      expect(storeAlloc.withdrawalEarningAllocationId).toBe("wea_settled_001");
 
       // Verify that historical payout journal was NEVER modified or deleted
       expect((prisma as any).ledgerJournal.update).toBeUndefined();
       expect((prisma as any).ledgerJournal.delete).toBeUndefined();
     });
 
-    it("5. partial dispute amount pro-rates deterministically and conserves dispute total", async () => {
+    it("5. partial payout split: R1,000 earning with R400 paid + R600 available, R700 dispute -> R400 RECOVERY_RECEIVABLE + R300 RELEASED_HOLD", async () => {
+      const singlePayment = {
+        id: "pay_split_001",
+        publicReference: "PAY-SPLIT-001",
+        amount: new Prisma.Decimal("1000.00"),
+        currency: "ZAR",
+        status: "COMPLETED",
+      };
+      const storeEarning1000 = {
+        id: "se_1000",
+        storeId: "store_001",
+        paymentId: "pay_split_001",
+        amount: new Prisma.Decimal("1000.00"),
+        releasedAmount: new Prisma.Decimal("1000.00"),
+        currency: "ZAR",
+        status: "RELEASED",
+        payableAccountId: "acc_store_payable",
+      };
+
+      (prisma.payment.findUnique as any).mockResolvedValue(singlePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([storeEarning1000]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      // R400 settled allocation, R600 available
+      const mockAllocations = [
+        {
+          id: "wea_split_settled",
+          storeEarningId: "se_1000",
+          allocatedAmount: new Prisma.Decimal("400.00"),
+          status: "SETTLED",
+          withdrawal: {
+            id: "wd_settled_001",
+            status: "PAID",
+            payoutLedgerJournalId: "jnl_payout_400",
+            payoutAttempts: [{ method: "MANUAL_EXTERNAL", status: "SUCCEEDED" }],
+          },
+        },
+      ];
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue(mockAllocations);
+
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-SPLIT-001",
+        providerDisputeId: "disp_split_700",
+        amount: "700.00",
+        currency: "ZAR",
+        reason: "PRODUCT_NOT_RECEIVED",
+        providerStatus: "needs_response",
+      });
+
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+
+      expect(createdAllocations).toHaveLength(2);
+
+      const receivableAlloc = createdAllocations.find((a: any) => a.holdingState === "RECOVERY_RECEIVABLE");
+      const releasedAlloc = createdAllocations.find((a: any) => a.holdingState === "RELEASED_HOLD");
+
+      expect(receivableAlloc).toBeDefined();
+      expect(Number(receivableAlloc.allocatedAmount)).toBe(400);
+      expect(Number(receivableAlloc.recoveryReceivableAmount)).toBe(400);
+      expect(receivableAlloc.withdrawalEarningAllocationId).toBe("wea_split_settled");
+
+      expect(releasedAlloc).toBeDefined();
+      expect(Number(releasedAlloc.allocatedAmount)).toBe(300);
+      expect(Number(releasedAlloc.heldAmount)).toBe(300);
+
+      // Total exposure matches R700 dispute exactly
+      expect(Number(receivableAlloc.allocatedAmount) + Number(releasedAlloc.allocatedAmount)).toBe(700);
+    });
+
+    it("6. 3-way split: R300 settled + R200 in-flight (PROCESSING) + R500 available, R700 dispute -> R300 RECOVERY_RECEIVABLE + R200 IN_FLIGHT_HOLD + R200 RELEASED_HOLD", async () => {
+      const singlePayment = {
+        id: "pay_3way_001",
+        publicReference: "PAY-3WAY-001",
+        amount: new Prisma.Decimal("1000.00"),
+        currency: "ZAR",
+        status: "COMPLETED",
+      };
+      const storeEarning1000 = {
+        id: "se_3way",
+        storeId: "store_001",
+        paymentId: "pay_3way_001",
+        amount: new Prisma.Decimal("1000.00"),
+        releasedAmount: new Prisma.Decimal("1000.00"),
+        currency: "ZAR",
+        status: "RELEASED",
+        payableAccountId: "acc_store_payable",
+      };
+
+      (prisma.payment.findUnique as any).mockResolvedValue(singlePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([storeEarning1000]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      const mockAllocations = [
+        {
+          id: "wea_settled_300",
+          storeEarningId: "se_3way",
+          allocatedAmount: new Prisma.Decimal("300.00"),
+          status: "SETTLED",
+          withdrawal: {
+            id: "wd_paid_300",
+            publicReference: "WD-PAID-300",
+            status: "PAID",
+            payoutLedgerJournalId: "jnl_payout_300",
+            payoutAttempts: [{ method: "MANUAL_EXTERNAL", status: "SUCCEEDED" }],
+          },
+        },
+        {
+          id: "wea_inflight_200",
+          storeEarningId: "se_3way",
+          allocatedAmount: new Prisma.Decimal("200.00"),
+          status: "RESERVED",
+          withdrawal: {
+            id: "wd_proc_200",
+            publicReference: "WD-PROC-200",
+            status: "PROCESSING",
+            payoutLedgerJournalId: null,
+            payoutAttempts: [{ method: "PAYSTACK_TRANSFER", status: "PROCESSING" }],
+          },
+        },
+      ];
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue(mockAllocations);
+
+      const result = await openPaymentDispute({
+        paymentPublicReference: "PAY-3WAY-001",
+        providerDisputeId: "disp_3way_700",
+        amount: "700.00",
+        currency: "ZAR",
+        reason: "FRAUDULENT",
+        providerStatus: "needs_response",
+      });
+
+      expect(result).toBeDefined();
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+
+      expect(createdAllocations).toHaveLength(3);
+
+      const receivableAlloc = createdAllocations.find((a: any) => a.holdingState === "RECOVERY_RECEIVABLE");
+      const inFlightAlloc = createdAllocations.find((a: any) => a.holdingState === "IN_FLIGHT_HOLD");
+      const releasedAlloc = createdAllocations.find((a: any) => a.holdingState === "RELEASED_HOLD");
+
+      expect(receivableAlloc).toBeDefined();
+      expect(Number(receivableAlloc.allocatedAmount)).toBe(300);
+      expect(receivableAlloc.withdrawalEarningAllocationId).toBe("wea_settled_300");
+
+      expect(inFlightAlloc).toBeDefined();
+      expect(Number(inFlightAlloc.allocatedAmount)).toBe(200);
+      expect(inFlightAlloc.withdrawalEarningAllocationId).toBe("wea_inflight_200");
+      expect(inFlightAlloc.ledgerAccountId).toBeNull(); // No hold journal posted for in-flight
+
+      expect(releasedAlloc).toBeDefined();
+      expect(Number(releasedAlloc.allocatedAmount)).toBe(200);
+
+      // Total equals R700
+      expect(
+        Number(receivableAlloc.allocatedAmount) +
+        Number(inFlightAlloc.allocatedAmount) +
+        Number(releasedAlloc.allocatedAmount)
+      ).toBe(700);
+
+      // Dispute flagged reconciliationRequired because of IN_FLIGHT_HOLD
+      expect(createCall.data.reconciliationRequired).toBe(true);
+    });
+
+    it("7. in-flight pre-provider interception: cancels pre-provider withdrawal, releases reservation, holds disputed amount as RELEASED_HOLD", async () => {
+      const singlePayment = {
+        id: "pay_preprov_001",
+        publicReference: "PAY-PREPROV-001",
+        amount: new Prisma.Decimal("1000.00"),
+        currency: "ZAR",
+        status: "COMPLETED",
+      };
+      const storeEarning1000 = {
+        id: "se_preprov",
+        storeId: "store_001",
+        paymentId: "pay_preprov_001",
+        amount: new Prisma.Decimal("1000.00"),
+        releasedAmount: new Prisma.Decimal("1000.00"),
+        currency: "ZAR",
+        status: "RELEASED",
+        payableAccountId: "acc_store_payable",
+      };
+
+      (prisma.payment.findUnique as any).mockResolvedValue(singlePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([storeEarning1000]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      // R500 in pre-provider REQUESTED withdrawal, R500 available
+      const mockAllocations = [
+        {
+          id: "wea_preprov_500",
+          storeEarningId: "se_preprov",
+          allocatedAmount: new Prisma.Decimal("500.00"),
+          status: "RESERVED",
+          withdrawal: {
+            id: "wd_req_500",
+            publicReference: "WD-REQ-500",
+            walletId: "wallet_STORE_store_001",
+            ownerType: "STORE",
+            ownerId: "store_001",
+            amount: new Prisma.Decimal("500.00"),
+            currency: "ZAR",
+            status: "REQUESTED",
+            sourceAccountId: "acc_store_withdrawable",
+            heldAccountId: "acc_store_withdrawal_held",
+            payoutDestination: { publicReference: "DEST-001", status: "ACTIVE" },
+            payoutAttempts: [],
+            releaseLedgerJournalId: null,
+            payoutLedgerJournalId: null,
+            policyVersion: 1,
+          },
+        },
+      ];
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue(mockAllocations);
+      (prisma.withdrawalRequest.findUnique as any).mockResolvedValue(mockAllocations[0].withdrawal);
+
+      accountsMap.set("acc_store_withdrawable", {
+        id: "acc_store_withdrawable",
+        walletId: "wallet_STORE_store_001",
+        code: "OWN-WD-WALLETSTORESTORE001",
+        purpose: "OWNER_WITHDRAWABLE",
+        category: "LIABILITY",
+        currency: "ZAR",
+        status: "ACTIVE",
+        allowNegative: false,
+        currentBalance: new Prisma.Decimal("10000.00"),
+        debitTotal: new Prisma.Decimal("0.00"),
+        creditTotal: new Prisma.Decimal("10000.00"),
+        version: 1,
+        wallet: { id: "wallet_STORE_store_001", ownerType: "STORE", ownerId: "store_001", currency: "ZAR", status: "ACTIVE" },
+      });
+      accountsMap.set("acc_store_withdrawal_held", {
+        id: "acc_store_withdrawal_held",
+        walletId: "wallet_STORE_store_001",
+        code: "WD-HELD-WALLETSTORESTORE001",
+        purpose: "WITHDRAWAL_HELD",
+        category: "LIABILITY",
+        currency: "ZAR",
+        status: "ACTIVE",
+        allowNegative: false,
+        currentBalance: new Prisma.Decimal("500.00"),
+        debitTotal: new Prisma.Decimal("0.00"),
+        creditTotal: new Prisma.Decimal("500.00"),
+        version: 1,
+        wallet: { id: "wallet_STORE_store_001", ownerType: "STORE", ownerId: "store_001", currency: "ZAR", status: "ACTIVE" },
+      });
+
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-PREPROV-001",
+        providerDisputeId: "disp_preprov_700",
+        amount: "700.00",
+        currency: "ZAR",
+        reason: "FRAUDULENT",
+        providerStatus: "needs_response",
+      });
+
+      // Withdrawal must be atomically cancelled with full reservation released
+      expect(prisma.withdrawalRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "wd_req_500" },
+          data: expect.objectContaining({
+            status: "CANCELLED",
+            cancellationReasonCode: "DISPUTE_INTERCEPTED",
+          }),
+        }),
+      );
+
+      // Allocations on withdrawal must be cancelled
+      expect(prisma.withdrawalEarningAllocation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ withdrawalRequestId: "wd_req_500" }),
+          data: { status: "CANCELLED" },
+        }),
+      );
+
+      // Held amount is held as RELEASED_HOLD from restored withdrawable funds
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+      expect(createdAllocations).toHaveLength(1);
+      expect(createdAllocations[0].holdingState).toBe("RELEASED_HOLD");
+      expect(Number(createdAllocations[0].allocatedAmount)).toBe(700);
+      expect(Number(createdAllocations[0].heldAmount)).toBe(700);
+    });
+
+    it("8. unrelated historical withdrawal negative case: past withdrawals from other earnings do not treat current earning as paid out", async () => {
+      const releasedStoreEarning = { ...baseStoreEarning, status: "RELEASED" };
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
+      (prisma.storeEarning.findMany as any).mockResolvedValue([releasedStoreEarning]);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
+      (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
+
+      // Current earning has NO allocations to withdrawals (unrelated past withdrawals on the wallet)
+      (prisma.withdrawalEarningAllocation.findMany as any).mockResolvedValue([]);
+
+      await openPaymentDispute({
+        paymentPublicReference: "PAY-DISP-001",
+        providerDisputeId: "disp_unrelated_hist_008",
+        amount: "1000.00",
+        currency: "ZAR",
+        reason: "FRAUDULENT",
+        providerStatus: "needs_response",
+      });
+
+      const createCall = (prisma.paymentDispute.create as any).mock.calls[0][0];
+      const createdAllocations = createCall.data.allocations.create;
+
+      const storeAlloc = createdAllocations.find((a: any) => a.participantType === "STORE");
+      // Must be RELEASED_HOLD, NOT RECOVERY_RECEIVABLE!
+      expect(storeAlloc.holdingState).toBe("RELEASED_HOLD");
+      expect(Number(storeAlloc.heldAmount)).toBe(700);
+      expect(Number(storeAlloc.recoveryReceivableAmount)).toBe(0);
+    });
+
+    it("9. partial dispute amount pro-rates deterministically and conserves dispute total", async () => {
       (prisma.payment.findUnique as any).mockResolvedValue(basePayment); // 1000.00
-      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]); // 700.00
-      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]); // 200.00
+      (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]); // 700.00 (ACCRUED)
+      (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]); // 200.00 (ACCRUED)
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(null);
 
       // Disputing only 500.00 (50% of the payment)
@@ -473,7 +842,42 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       expect(totalAllocated).toBe(500); // sum == disputed amount
     });
 
-    it("6. duplicate create/remind/resolve is strictly idempotent and does not duplicate holds or journals", async () => {
+    it("10. strict domain checks: earnings in FULLY_REFUNDED, REVERSED, RECONCILIATION_REQUIRED fail closed", async () => {
+      (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
+      (prisma.driverEarning.findMany as any).mockResolvedValue([]);
+
+      // FULLY_REFUNDED
+      (prisma.storeEarning.findMany as any).mockResolvedValue([{ ...baseStoreEarning, status: "FULLY_REFUNDED" }]);
+      await expect(
+        openPaymentDispute({
+          paymentPublicReference: "PAY-DISP-001",
+          providerDisputeId: "disp_fail_refunded",
+          amount: "500.00",
+        }),
+      ).rejects.toThrow("Cannot dispute payment with store earning in FULLY_REFUNDED state.");
+
+      // REVERSED
+      (prisma.storeEarning.findMany as any).mockResolvedValue([{ ...baseStoreEarning, status: "REVERSED" }]);
+      await expect(
+        openPaymentDispute({
+          paymentPublicReference: "PAY-DISP-001",
+          providerDisputeId: "disp_fail_reversed",
+          amount: "500.00",
+        }),
+      ).rejects.toThrow("Cannot dispute payment with store earning in REVERSED state.");
+
+      // RECONCILIATION_REQUIRED
+      (prisma.storeEarning.findMany as any).mockResolvedValue([{ ...baseStoreEarning, status: "RECONCILIATION_REQUIRED" }]);
+      await expect(
+        openPaymentDispute({
+          paymentPublicReference: "PAY-DISP-001",
+          providerDisputeId: "disp_fail_reconcile",
+          amount: "500.00",
+        }),
+      ).rejects.toThrow("Cannot dispute payment with store earning in RECONCILIATION_REQUIRED state.");
+    });
+
+    it("11. duplicate create/remind/resolve is strictly idempotent and does not duplicate holds or journals", async () => {
       const existingDispute = {
         id: "pds_existing",
         publicReference: "pds_existing_ref",
@@ -486,7 +890,6 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
 
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(existingDispute);
 
-      // Re-invoking openPaymentDispute with existing providerDisputeId
       const replayResult = await openPaymentDispute({
         paymentPublicReference: "PAY-DISP-001",
         providerDisputeId: "disp_duplicate_test",
@@ -497,12 +900,11 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       });
 
       expect(replayResult.id).toBe("pds_existing");
-      // Must not create new journals or new dispute records
       expect(prisma.paymentDispute.create).not.toHaveBeenCalled();
       expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
     });
 
-    it("7. WON and LOST resolution settles every allocation component exactly once", async () => {
+    it("12. WON and LOST resolution settles every allocation component exactly once", async () => {
       const mockAllocations = [
         {
           id: "pda_001",
@@ -527,6 +929,13 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
           allocatedAmount: new Prisma.Decimal("100.00"),
           ledgerAccountId: "acc_platform_dispute_held",
         },
+        {
+          id: "pda_004",
+          participantType: "STORE",
+          holdingState: "IN_FLIGHT_HOLD",
+          allocatedAmount: new Prisma.Decimal("50.00"),
+          ledgerAccountId: null,
+        },
       ];
 
       const openDispute = {
@@ -534,13 +943,13 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
         publicReference: "pds_resolve_ref",
         providerDisputeId: "disp_resolve_123",
         status: "UNDER_REVIEW",
-        amount: new Prisma.Decimal("1000.00"),
+        amount: new Prisma.Decimal("1050.00"),
         allocations: mockAllocations,
       };
 
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(openDispute);
 
-      // Test WON resolution: releases held funds back to participant payables
+      // WON resolution: releases held funds back to participant payables, IN_FLIGHT_HOLD clears claim
       const wonResult = await resolvePaymentDispute({
         disputePublicReference: "pds_resolve_ref",
         resolution: "WON",
@@ -555,7 +964,7 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
         }),
       );
 
-      // Test LOST resolution on separate dispute: clears dispute reserve against platform cash clearing
+      // LOST resolution: held funds cleared to platform cash clearing; IN_FLIGHT_HOLD remains pending
       const lostDispute = { ...openDispute, id: "pds_lost_test", status: "UNDER_REVIEW" };
       (prisma.paymentDispute.findUnique as any).mockResolvedValue(lostDispute);
 
@@ -569,12 +978,15 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
       expect(prisma.paymentDispute.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "pds_lost_test" },
-          data: expect.objectContaining({ status: "LOST" }),
+          data: expect.objectContaining({
+            status: "LOST",
+            reconciliationRequired: true, // IN_FLIGHT_HOLD requires reconciliation
+          }),
         }),
       );
     });
 
-    it("8. exact double-entry ledger conservation after every transition", async () => {
+    it("13. exact double-entry ledger conservation after every transition", async () => {
       (prisma.payment.findUnique as any).mockResolvedValue(basePayment);
       (prisma.storeEarning.findMany as any).mockResolvedValue([baseStoreEarning]);
       (prisma.driverEarning.findMany as any).mockResolvedValue([baseDriverEarning]);
@@ -589,7 +1001,6 @@ describe("Phase 1: Payment Disputes & Chargeback Accounting", () => {
         providerStatus: "needs_response",
       });
 
-      // Verify that ledgerJournal.create was called and total debits equal total credits
       expect(prisma.ledgerJournal.create).toHaveBeenCalled();
       const journalCall = (prisma.ledgerJournal.create as any).mock.calls[0][0];
 

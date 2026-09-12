@@ -2375,6 +2375,14 @@ enum PaymentDisputeReason {
   OTHER
 }
 
+enum PaymentDisputeHoldingState {
+  UNRELEASED_HELD
+  RELEASED_HOLD
+  IN_FLIGHT_HOLD
+  RECOVERY_RECEIVABLE
+  PLATFORM_HELD
+}
+
 model PaymentDispute {
   id                     String                @id @default(cuid())
   publicReference        String                @unique
@@ -2422,31 +2430,34 @@ model PaymentDisputeHistory {
 }
 
 model PaymentDisputeAllocation {
-  id                       String         @id @default(cuid())
-  publicReference          String         @unique
-  disputeId                String
-  participantType          String         // "STORE" | "DRIVER" | "PLATFORM"
-  participantId            String?        // storeId, driverId, or "platform"
-  storeEarningId           String?
-  driverEarningId          String?
-  allocatedAmount          Decimal        @db.Decimal(18, 2)
-  heldAmount               Decimal        @default(0) @db.Decimal(18, 2)
-  recoveryReceivableAmount Decimal        @default(0) @db.Decimal(18, 2)
-  currency                 LedgerCurrency @default(ZAR)
-  holdingState             String         // "UNRELEASED_HELD" | "RELEASED_HOLD" | "RECOVERY_RECEIVABLE" | "PLATFORM_HELD"
-  ledgerAccountId          String?
-  holdJournalId            String?
-  settledAt                DateTime?
-  settlementJournalId      String?
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
+  id                            String                      @id @default(cuid())
+  publicReference               String                      @unique
+  disputeId                     String
+  participantType               String                      // "STORE" | "DRIVER" | "PLATFORM"
+  participantId                 String?                     // storeId, driverId, or "platform"
+  storeEarningId                String?
+  driverEarningId               String?
+  withdrawalEarningAllocationId String?
+  allocatedAmount               Decimal                     @db.Decimal(18, 2)
+  heldAmount                    Decimal                     @default(0) @db.Decimal(18, 2)
+  recoveryReceivableAmount      Decimal                     @default(0) @db.Decimal(18, 2)
+  currency                      LedgerCurrency              @default(ZAR)
+  holdingState                  PaymentDisputeHoldingState
+  ledgerAccountId               String?
+  holdJournalId                 String?
+  settledAt                     DateTime?
+  settlementJournalId           String?
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
 
-  dispute                  PaymentDispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
-  storeEarning             StoreEarning?  @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
-  driverEarning            DriverEarning? @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
+  dispute                       PaymentDispute              @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  storeEarning                  StoreEarning?               @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
+  driverEarning                 DriverEarning?              @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
+  withdrawalEarningAllocation   WithdrawalEarningAllocation? @relation(fields: [withdrawalEarningAllocationId], references: [id], onDelete: SetNull)
 
   @@index([disputeId])
   @@index([participantType, participantId])
+  @@index([withdrawalEarningAllocationId])
 }
 
 model PaymentAttempt {
@@ -3259,6 +3270,17 @@ enum WithdrawalStatus {
   RECONCILIATION_REQUIRED
 }
 
+enum WithdrawalEarningType {
+  STORE
+  DRIVER
+}
+
+enum WithdrawalEarningAllocationStatus {
+  RESERVED
+  SETTLED
+  CANCELLED
+}
+
 model WithdrawalRequest {
   id                       String           @id @default(cuid())
   publicReference          String           @unique @map("withdrawalNumber")
@@ -3338,6 +3360,7 @@ model WithdrawalRequest {
   payoutAttempts       WithdrawalPayoutAttempt[]      @relation("WithdrawalPayoutAttempts")
   statusHistory        WithdrawalStatusHistory[]
   reconciliationCases  WithdrawalReconciliationCase[]
+  earningAllocations   WithdrawalEarningAllocation[]
 
   @@index([walletId])
   @@index([ownerType, ownerId])
@@ -3500,6 +3523,33 @@ model WithdrawalStatusHistory {
 
   @@index([withdrawalId, createdAt])
   @@index([payoutAttemptId, createdAt])
+}
+
+model WithdrawalEarningAllocation {
+  id                  String                            @id @default(cuid())
+  publicReference     String                            @unique
+  withdrawalRequestId String
+  earningType         WithdrawalEarningType
+  storeEarningId      String?
+  driverEarningId     String?
+  allocatedAmount     Decimal                           @db.Decimal(18, 2)
+  currency            LedgerCurrency                    @default(ZAR)
+  status              WithdrawalEarningAllocationStatus @default(RESERVED)
+  settledAt           DateTime?
+  createdAt           DateTime                          @default(now())
+  updatedAt           DateTime                          @updatedAt
+
+  withdrawal          WithdrawalRequest                 @relation(fields: [withdrawalRequestId], references: [id], onDelete: Restrict)
+  storeEarning        StoreEarning?                     @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
+  driverEarning       DriverEarning?                    @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
+  disputeAllocations  PaymentDisputeAllocation[]
+
+  @@unique([withdrawalRequestId, storeEarningId], map: "WithdrawalEarningAllocation_withdrawal_store_earning_key")
+  @@unique([withdrawalRequestId, driverEarningId], map: "WithdrawalEarningAllocation_withdrawal_driver_earning_key")
+  @@index([withdrawalRequestId, status])
+  @@index([storeEarningId, status])
+  @@index([driverEarningId, status])
+  @@index([earningType, status])
 }
 
 enum WithdrawalReconciliationReason {
@@ -4031,6 +4081,7 @@ model StoreEarning {
   statusHistory         StoreEarningStatusHistory[]
   reconciliationCases   StoreEarningReconciliationCase[]
   disputeAllocations    PaymentDisputeAllocation[]
+  withdrawalAllocations WithdrawalEarningAllocation[]
 
   @@unique([subjectType, subjectId, storeId, settlementVersion], map: "StoreEarning_subject_store_settlement_key")
   @@index([storeId, status, createdAt], map: "StoreEarning_store_status_createdAt_idx")
@@ -4221,6 +4272,7 @@ model DriverEarning {
   statusHistory         DriverEarningStatusHistory[]
   reconciliationCases   DriverEarningReconciliationCase[]
   disputeAllocations    PaymentDisputeAllocation[]
+  withdrawalAllocations WithdrawalEarningAllocation[]
 
   @@unique([subjectType, subjectId, assignmentId, driverId, settlementVersion], map: "DriverEarning_subject_assignment_driver_settlement_key")
   @@index([driverId, status, createdAt], map: "DriverEarning_driver_status_createdAt_idx")
