@@ -26,6 +26,7 @@
     "demo:reset": "tsx scripts/reset-demo-db.ts",
     "demo:seed": "tsx scripts/seed-full-demo.ts",
     "demo:verify": "tsx scripts/verify-demo-db.ts",
+    "demo:verify:connectivity": "tsx scripts/verify-connectivity.ts",
     "demo:accounts": "node scripts/print-demo-accounts.mjs",
     "docker:doctor": "node scripts/docker-doctor.mjs",
     "docker:config": "node scripts/docker-compose-config.mjs",

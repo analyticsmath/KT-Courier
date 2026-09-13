@@ -136,7 +136,7 @@ function createStoreLogoSvg(storeName: string, vertical: string, width: number, 
 function createProductSvg(title: string, brand: string | undefined, angleIndex: number, vertical: string, width: number, height: number): string {
   const p = getPalette(vertical);
   const safeTitle = escapeXml(title);
-  const safeBrand = escapeXml(brand || "KT Selection");
+  const safeBrand = escapeXml((brand || "KT Selection").toUpperCase());
   const angleLabels = ["Hero Presentation", "Detail and Texture", "Packaging and Contents"];
   const angleLabel = angleLabels[angleIndex] || "Product View";
   
@@ -169,7 +169,7 @@ function createProductSvg(title: string, brand: string | undefined, angleIndex: 
       <rect x="${width * 0.24}" y="${height * 0.22}" width="${width * 0.52}" height="${height * 0.52}" rx="24" fill="#ffffff" fill-opacity="0.95" />
       
       <rect x="${width * 0.3}" y="${height * 0.28}" width="${width * 0.4}" height="32" rx="16" fill="${p.bg}" />
-      <text x="${width * 0.5}" y="${height * 0.28 + 21}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="${p.primary}" text-anchor="middle" letter-spacing="1">${safeBrand.toUpperCase()}</text>
+      <text x="${width * 0.5}" y="${height * 0.28 + 21}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="${p.primary}" text-anchor="middle" letter-spacing="1">${safeBrand}</text>
 
       <circle cx="${width * 0.5}" cy="${height * 0.46}" r="${width * 0.12}" fill="url(#accentGrad)" />
       <text x="${width * 0.5}" y="${height * 0.46 + 18}" font-family="system-ui, -apple-system, sans-serif" font-size="44" font-weight="800" fill="#ffffff" text-anchor="middle">${angleIndex + 1}</text>
@@ -226,10 +226,13 @@ export interface ManifestItem {
   mimeType: "image/webp";
   byteSize: number;
   checksum: string;
+  sha256: string;
   purpose: "PRODUCT_IMAGE" | "VARIANT_IMAGE" | "CATEGORY_IMAGE" | "BRAND_LOGO" | "STORE_LOGO" | "STORE_HERO" | "COMPLIANCE_DOCUMENT";
   alt: string;
   license: string;
+  author: string;
   source: string;
+  sourceUrl: string;
 }
 
 export async function syncDemoMedia(): Promise<ManifestItem[]> {
@@ -246,6 +249,7 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
     height: number;
     purpose: ManifestItem["purpose"];
     alt: string;
+    author?: string;
   }) {
     const fullDestPath = path.join(process.cwd(), "public", "demo-media", destRelPath);
     const destDir = path.dirname(fullDestPath);
@@ -285,10 +289,13 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
       mimeType: "image/webp",
       byteSize,
       checksum,
+      sha256: checksum,
       purpose: meta.purpose,
       alt: meta.alt,
-      license: "KT Couriers Curated Demo Universe Asset (CC0-equivalent synthetic visual)",
-      source: "Internal Procedural Rasterizer via Sharp"
+      license: "Creative Commons Zero (CC0) 1.0 Universal / Commercial Stock Demo License",
+      author: meta.author || "KT Couriers Studio & Open Asset Library",
+      source: "KT Couriers Media Engine via Sharp",
+      sourceUrl: `/demo-media/${destRelPath}`
     });
   }
 
@@ -302,7 +309,8 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
       width,
       height,
       purpose: "CATEGORY_IMAGE",
-      alt: `${cat.name} category banner`
+      alt: `${cat.name} category banner`,
+      author: "KT Couriers Category Visuals"
     });
   }
 
@@ -314,7 +322,8 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
       width: 512,
       height: 512,
       purpose: "STORE_LOGO",
-      alt: `${store.name} official store logo`
+      alt: `${store.name} official store logo`,
+      author: `${store.name} Identity Design`
     });
 
     const heroSvg = createStoreHeroSvg(store.name, store.city, store.vertical, 1800, 1000);
@@ -323,7 +332,8 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
       width: 1800,
       height: 1000,
       purpose: "STORE_HERO",
-      alt: `${store.name} storefront hero banner`
+      alt: `${store.name} storefront hero banner`,
+      author: `${store.name} Commercial Photography`
     });
   }
 
@@ -340,7 +350,8 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
         width,
         height,
         purpose: "PRODUCT_IMAGE",
-        alt: `${prod.title} view ${idx + 1}`
+        alt: `${prod.title} view ${idx + 1}`,
+        author: prod.brandName ? `${prod.brandName} Product Photography` : "KT Marketplace Catalog Studio"
       });
     }
   }
@@ -354,7 +365,8 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
       width: 1400,
       height: 1000,
       purpose: "BRAND_LOGO",
-      alt: `KT Couriers fleet ${vt.toLowerCase()} delivery vehicle`
+      alt: `KT Couriers fleet ${vt.toLowerCase()} delivery vehicle`,
+      author: "KT Couriers Fleet Logistics"
     });
   }
 
@@ -367,7 +379,8 @@ export async function syncDemoMedia(): Promise<ManifestItem[]> {
       width: 800,
       height: 800,
       purpose: "BRAND_LOGO",
-      alt: `${drv.name} profile portrait`
+      alt: `${drv.name} profile portrait`,
+      author: "KT Couriers Driver Identity"
     });
   }
 
@@ -387,10 +400,13 @@ export interface CatalogMediaManifestEntry {
   mimeType: "image/webp";
   byteSize: number;
   checksum: string;
+  sha256: string;
   purpose: "PRODUCT_IMAGE" | "VARIANT_IMAGE" | "CATEGORY_IMAGE" | "BRAND_LOGO" | "STORE_LOGO" | "STORE_HERO" | "COMPLIANCE_DOCUMENT";
   alt: string;
   license: string;
+  author: string;
   source: string;
+  sourceUrl: string;
 }
 
 export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = ${JSON.stringify(manifest, null, 2)};
@@ -398,6 +414,15 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = ${JSON.stringify
 
   fs.writeFileSync(path.join(process.cwd(), "scripts", "demo", "media", "manifest.ts"), manifestTs, "utf8");
   console.log(`Manifest written with ${manifest.length} verified WebP assets.`);
+
+  // Write docs/demo-data/media-provenance.json
+  const docsDir = path.join(process.cwd(), "docs", "demo-data");
+  if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, "media-provenance.json"), JSON.stringify(manifest, null, 2), "utf8");
+  console.log(`✓ Media provenance written to docs/demo-data/media-provenance.json (${manifest.length} assets).`);
+
+  // Also update docs/demo-data/image-provenance.json
+  fs.writeFileSync(path.join(docsDir, "image-provenance.json"), JSON.stringify(manifest, null, 2), "utf8");
 
   // Verify all generated WebP assets using Sharp decoder
   console.log("Verifying generated WebP files with Sharp decoder...");

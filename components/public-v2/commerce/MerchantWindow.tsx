@@ -48,25 +48,40 @@ export function MerchantWindow({ stores }: MerchantWindowProps) {
           <ul className={styles.merchantNamesColumn} role="tablist">
             {stores.slice(0, 6).map((store, idx) => {
               const isActive = idx === activeIdx;
-              const href = marketplaceStoreHref(store.slug) ?? marketplaceStoresHref();
+              const href = marketplaceStoreHref(store.slug);
 
               return (
                 <li key={store.reference}>
-                  <Link
-                    aria-selected={isActive}
-                    className={`${styles.merchantNameRow} ${
-                      isActive ? styles.merchantNameRowActive : ""
-                    }`}
-                    href={href}
-                    onFocus={() => setActiveIdx(idx)}
-                    onMouseEnter={() => setActiveIdx(idx)}
-                    role="tab"
-                  >
-                    <span className={styles.merchantNameTitle}>{store.name}</span>
-                    <span className={styles.merchantOfferCount}>
-                      {store.publishedOfferCount} {store.publishedOfferCount === 1 ? "product" : "products"} listed
-                    </span>
-                  </Link>
+                  {href ? (
+                    <Link
+                      aria-selected={isActive}
+                      className={`${styles.merchantNameRow} ${
+                        isActive ? styles.merchantNameRowActive : ""
+                      }`}
+                      href={href}
+                      onFocus={() => setActiveIdx(idx)}
+                      onMouseEnter={() => setActiveIdx(idx)}
+                      role="tab"
+                    >
+                      <span className={styles.merchantNameTitle}>{store.name}</span>
+                      <span className={styles.merchantOfferCount}>
+                        {store.publishedOfferCount} {store.publishedOfferCount === 1 ? "product" : "products"} listed
+                      </span>
+                    </Link>
+                  ) : (
+                    <div
+                      aria-selected={isActive}
+                      aria-disabled="true"
+                      className={`${styles.merchantNameRow} ${
+                        isActive ? styles.merchantNameRowActive : ""
+                      }`}
+                      style={{ opacity: 0.8, cursor: "not-allowed" }}
+                      role="tab"
+                    >
+                      <span className={styles.merchantNameTitle}>{store.name}</span>
+                      <span className={styles.merchantOfferCount}>Unavailable</span>
+                    </div>
+                  )}
                 </li>
               );
             })}

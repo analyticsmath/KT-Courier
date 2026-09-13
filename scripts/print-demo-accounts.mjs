@@ -1,23 +1,78 @@
 import process from "node:process";
 
-const password = process.env.KT_DEMO_ACCOUNT_PASSWORD || "KT-Demo-2026!";
+const password = process.env.KT_DEMO_ACCOUNT_PASSWORD || "password123";
 
 const featuredAccounts = [
-  { role: "SUPER_ADMIN", email: "superadmin@demo.ktcouriers.test", name: "KT Super Admin", dashboard: "/admin/dashboard", scenario: "Super Administrator with global platform permissions." },
-  { role: "ADMIN (Ops)", email: "ops.admin.01@demo.ktcouriers.test", name: "Kagiso Molefe", dashboard: "/admin/operations", scenario: "Operations Admin managing real-time dispatch and driver tracking." },
-  { role: "ADMIN (Finance)", email: "finance.admin.01@demo.ktcouriers.test", name: "Sipho Dlamini", dashboard: "/admin/finance", scenario: "Finance Admin with ledger, withdrawal approval, and settlement rights." },
-  { role: "ADMIN (Recruitment)", email: "recruiter.01@demo.ktcouriers.test", name: "Nomvula Bhengu", dashboard: "/admin/recruitment", scenario: "Talent acquisition lead managing driver & staff application pipeline." },
-  { role: "ADMIN (Support)", email: "support.agent.01@demo.ktcouriers.test", name: "Tebogo Mabena", dashboard: "/admin/support", scenario: "Support agent handling ticket escalations and customer inquiries." },
-  { role: "CUSTOMER", email: "customer.01@demo.ktcouriers.test", name: "Lerato Mokoena", dashboard: "/customer/dashboard", scenario: "Active customer with delivered courier & marketplace order history." },
-  { role: "CUSTOMER", email: "customer.02@demo.ktcouriers.test", name: "Johan Pretorius", dashboard: "/customer/dashboard", scenario: "High-frequency business customer with wallet credits and active subscriptions." },
-  { role: "STORE OWNER", email: "store.owner.01@demo.ktcouriers.test", name: "Fresh Basket Grocers Owner", dashboard: "/store/dashboard", scenario: "Store owner with high marketplace order volume, catalog, and earnings." },
-  { role: "STORE OWNER", email: "store.owner.04@demo.ktcouriers.test", name: "TechHub South Africa Owner", dashboard: "/store/dashboard", scenario: "Electronics store merchant with pending withdrawal requests." },
-  { role: "DRIVER", email: "driver.001@demo.ktcouriers.test", name: "Driver Sipho (DRV-1001)", dashboard: "/driver/dashboard", scenario: "Showcase active driver with active delivery in transit and earnings." },
-  { role: "DRIVER", email: "driver.002@demo.ktcouriers.test", name: "Driver Jabu (DRV-1002)", dashboard: "/driver/dashboard", scenario: "Available driver with complete earnings history and verified documents." },
-  { role: "PROMOTER", email: "promoter.001@demo.ktcouriers.test", name: "Promoter 001", dashboard: "/promoter/dashboard", scenario: "Active promoter with attributed customer referrals and released earnings." },
-  { role: "PROMOTER", email: "promoter.002@demo.ktcouriers.test", name: "Promoter 002", dashboard: "/promoter/dashboard", scenario: "Promoter with held earnings and withdrawal history." },
-  { role: "APPLICANT", email: "applicant.001@demo.ktcouriers.test", name: "Applicant 001", dashboard: "/careers/dashboard", scenario: "Applicant with scheduled interview for Courier Driver vacancy." },
-  { role: "APPLICANT", email: "applicant.005@demo.ktcouriers.test", name: "Applicant 005", dashboard: "/careers/dashboard", scenario: "Applicant with active issued employment offer." },
+  {
+    role: "SUPER_ADMIN",
+    email: "superadmin@ktcouriers.local",
+    name: "System Super Admin",
+    dashboard: "/admin/dashboard",
+    scenario: "Super Administrator with global platform access, moderation, settings, and ledger visibility.",
+  },
+  {
+    role: "ADMIN (Ops & Dispatch)",
+    email: "admin@ktcouriers.local",
+    name: "Operations Admin",
+    dashboard: "/admin/operations",
+    scenario: "Operations Administrator managing live fleet dispatches, assignment monitors, and hub tracking.",
+  },
+  {
+    role: "STORE OWNER (Groceries)",
+    email: "store.ubuntu-fresh-market@ktcouriers.local",
+    name: "Sipho Ndlovu",
+    dashboard: "/store/dashboard",
+    scenario: "Active merchant in Johannesburg with published groceries, floral, and pet assortments.",
+  },
+  {
+    role: "STORE OWNER (Electronics)",
+    email: "store.circuit-house-electronics@ktcouriers.local",
+    name: "Vikram Naidoo",
+    dashboard: "/store/dashboard",
+    scenario: "Pretoria electronics merchant with audio gear, chargers, and automotive tech catalog.",
+  },
+  {
+    role: "STORE OWNER (Bakery)",
+    email: "store.kloof-street-bakery@ktcouriers.local",
+    name: "Pieter Van Wyk",
+    dashboard: "/store/dashboard",
+    scenario: "Cape Town artisanal bakery merchant with sourdough breads, croissants, and celebration cakes.",
+  },
+  {
+    role: "DRIVER (Active Fleet - Car)",
+    email: "driver.lerato.adams1@ktcouriers.local",
+    name: "Lerato Adams (DRV-001)",
+    dashboard: "/driver/dashboard",
+    scenario: "Active verified driver in Johannesburg operating a Toyota Corolla Quest with active dispatch history.",
+  },
+  {
+    role: "DRIVER (Active Fleet - Motorcycle)",
+    email: "driver.kagiso.khumalo2@ktcouriers.local",
+    name: "Kagiso Khumalo (DRV-002)",
+    dashboard: "/driver/dashboard",
+    scenario: "Active motorcycle driver operating a Honda Ace 125 for rapid urban express dispatches.",
+  },
+  {
+    role: "CUSTOMER (Primary Showcase)",
+    email: "sizwe.zulu1@example.co.za",
+    name: "Sizwe Zulu",
+    dashboard: "/customer/dashboard",
+    scenario: "High-activity residential customer in Parkhurst with multi-store marketplace orders and courier tracking.",
+  },
+  {
+    role: "CUSTOMER (Secondary Showcase)",
+    email: "tanya.chetty2@example.co.za",
+    name: "Tanya Chetty",
+    dashboard: "/customer/dashboard",
+    scenario: "Customer in Menlyn, Pretoria with pharmacy and grocery orders across Gauteng.",
+  },
+  {
+    role: "PROMOTER (Community & Social)",
+    email: "promoter.themba.du.plessis1@ktcouriers.local",
+    name: "Themba Du Plessis",
+    dashboard: "/promoter/dashboard",
+    scenario: "Active affiliate promoter with referral code JHBVIBES and attributed orders.",
+  },
 ];
 
 console.log("\n==========================================================================");

@@ -8,7 +8,10 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-export const DEFAULT_PASSWORD_HASH = bcrypt.hashSync("password123", 10);
+export const DEFAULT_PASSWORD_HASH = bcrypt.hashSync(
+  process.env.KT_DEMO_ACCOUNT_PASSWORD || "password123",
+  10
+);
 
 export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   includeDevAuthAccounts?: boolean;

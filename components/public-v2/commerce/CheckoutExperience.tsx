@@ -907,7 +907,7 @@ export function CheckoutExperience() {
                       style={{ marginTop: 3 }}
                     />
                     <span>
-                      I agree to the <Link href="/legal/terms" target="_blank" style={{ textDecoration: "underline" }}>Terms of Service</Link>, <Link href="/legal/privacy" target="_blank" style={{ textDecoration: "underline" }}>Privacy Policy</Link>, and the standard KT Couriers Returns & Refund Guarantee.
+                      I agree to the <Link href="/terms" target="_blank" style={{ textDecoration: "underline" }}>Terms of Service</Link>, <Link href="/privacy-policy" target="_blank" style={{ textDecoration: "underline" }}>Privacy Policy</Link>, and the standard KT Couriers Returns & Refund Guarantee.
                     </span>
                   </label>
 

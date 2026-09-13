@@ -4,10 +4,10 @@
 
 import { SeededRNG } from "./rng";
 
-// 365-day historical simulation window ending in August 2026
-export const SIMULATION_END = new Date("2026-08-28T12:00:00.000Z");
-export const SIMULATION_START = new Date("2025-08-25T00:00:00.000Z");
-export const FOUNDATION_DATE = new Date("2025-08-15T00:00:00.000Z");
+// 6.5-month historical simulation window ending in September 2026
+export const SIMULATION_END = new Date("2026-09-12T23:59:59.000Z");
+export const SIMULATION_START = new Date("2026-03-01T00:00:00.000Z");
+export const FOUNDATION_DATE = new Date("2026-02-15T00:00:00.000Z");
 
 export function randomDateBetween(start: Date, end: Date, rng: SeededRNG): Date {
   const startMs = start.getTime();

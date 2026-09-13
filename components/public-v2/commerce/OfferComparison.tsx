@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
 import { availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
-import { marketplaceStoreHref, marketplaceStoresHref } from "@/lib/public-marketplace/routes";
+import { marketplaceStoreHref } from "@/lib/public-marketplace/routes";
 import styles from "./commerce.module.css";
 
 function formatPrice(amount: string, currency: "ZAR") {
@@ -20,22 +20,34 @@ export function OfferComparison({ offers }: OfferComparisonProps) {
   return (
     <ul aria-label="Available offers from stores" className={styles.offerComparisonList}>
       {offers.map((offer) => {
-        const storeHref = marketplaceStoreHref(offer.storeSlug) ?? marketplaceStoresHref();
+        const storeHref = marketplaceStoreHref(offer.storeSlug);
 
         return (
           <li className={styles.offerComparisonRow} key={offer.offerReference}>
             <div>
-              <Link
-                href={storeHref}
-                style={{
-                  fontSize: "1.1rem",
-                  fontWeight: 600,
-                  color: "var(--kt-carbon, #101210)",
-                  textDecoration: "none",
-                }}
-              >
-                {offer.storeSlug}
-              </Link>
+              {storeHref ? (
+                <Link
+                  href={storeHref}
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 600,
+                    color: "var(--kt-carbon, #101210)",
+                    textDecoration: "none",
+                  }}
+                >
+                  {offer.storeSlug}
+                </Link>
+              ) : (
+                <span
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 600,
+                    color: "var(--kt-carbon, #101210)",
+                  }}
+                >
+                  {offer.storeSlug}
+                </span>
+              )}
               <div
                 style={{
                   display: "flex",
@@ -55,12 +67,21 @@ export function OfferComparison({ offers }: OfferComparisonProps) {
               <span style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
                 {formatPrice(offer.price.amount, offer.price.currency)}
               </span>
-              <Link
-                className={styles.sectionDirectLink}
-                href={storeHref}
-              >
-                View store &rarr;
-              </Link>
+              {storeHref ? (
+                <Link
+                  className={styles.sectionDirectLink}
+                  href={storeHref}
+                >
+                  View store &rarr;
+                </Link>
+              ) : (
+                <span
+                  className={styles.sectionDirectLink}
+                  style={{ opacity: 0.5, cursor: "not-allowed" }}
+                >
+                  Store unavailable
+                </span>
+              )}
             </div>
           </li>
         );

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { marketplaceCategoryHref, marketplaceCategoriesHref, marketplaceHref } from "@/lib/public-marketplace/routes";
+import { marketplaceCategoryHref, marketplaceCategoriesHref } from "@/lib/public-marketplace/routes";
 import { homeMedia } from "@/components/public-v2/home/home-media";
 import styles from "./commerce.module.css";
 
@@ -26,7 +26,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
   if (!categories.length) return null;
 
   const activeCat = categories[activeIdx] || categories[0];
-  const activeHref = (activeCat ? marketplaceCategoryHref(activeCat.path) : null) ?? marketplaceHref();
+  const activeHref = (activeCat ? marketplaceCategoryHref(activeCat.path) : null) ?? marketplaceCategoriesHref();
 
   // Fallback editorial media matching
   const getCategoryMedia = (cat: CategoryDiscoveryItem) => {
@@ -61,7 +61,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
           <ul className={styles.categoryListStream} role="tablist">
             {categories.slice(0, 7).map((category, idx) => {
               const isActive = idx === activeIdx;
-              const href = marketplaceCategoryHref(category.path) ?? marketplaceHref();
+              const href = marketplaceCategoryHref(category.path) ?? marketplaceCategoriesHref();
 
               return (
                 <li key={category.reference}>

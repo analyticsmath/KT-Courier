@@ -285,6 +285,15 @@
   border-color: var(--market-ink);
 }
 
+.productCardDisabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.productCardDisabled:hover {
+  border-color: var(--market-line);
+}
+
 .productMedia {
   position: relative;
   width: 100%;

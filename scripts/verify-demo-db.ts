@@ -78,13 +78,14 @@ async function verify() {
 
   let invariantsPassed = true;
 
-  // Check 1: Quantitative thresholds
-  if (totalUsers < 500) { safeError(`❌ User count ${totalUsers} below threshold 500`); invariantsPassed = false; }
-  if (totalStores < 30) { safeError(`❌ Store count ${totalStores} below threshold 30`); invariantsPassed = false; }
-  if (totalProducts < 100) { safeError(`❌ Product count ${totalProducts} below threshold 100`); invariantsPassed = false; }
-  if (totalCourierOrders < 1000) { safeError(`❌ Courier order count ${totalCourierOrders} below threshold 1000`); invariantsPassed = false; }
+  // Check 1: Quantitative thresholds for 6.5-month realistic simulation universe
+  if (totalUsers < 50) { safeError(`❌ User count ${totalUsers} below threshold 50`); invariantsPassed = false; }
+  if (totalStores < 20) { safeError(`❌ Store count ${totalStores} below threshold 20`); invariantsPassed = false; }
+  if (totalProducts < 150) { safeError(`❌ Product count ${totalProducts} below threshold 150`); invariantsPassed = false; }
+  if (totalCourierOrders < 150) { safeError(`❌ Courier order count ${totalCourierOrders} below threshold 150`); invariantsPassed = false; }
+  if (totalMktOrders < 350) { safeError(`❌ Marketplace order count ${totalMktOrders} below threshold 350`); invariantsPassed = false; }
 
-  // Check 2: 1-Year Temporal Span
+  // Check 2: 6.5-Month Realistic Simulation Temporal Span (March 2026 -> September 2026)
   const courierDateRange = await prisma.order.aggregate({
     _min: { createdAt: true },
     _max: { createdAt: true },
@@ -94,8 +95,8 @@ async function verify() {
     const startMs = courierDateRange._min.createdAt.getTime();
     const endMs = courierDateRange._max.createdAt.getTime();
     const spanDays = (endMs - startMs) / (1000 * 60 * 60 * 24);
-    if (spanDays < 300) {
-      safeError(`❌ Temporal span ${spanDays.toFixed(1)} days is less than required ~1 year (300+ days)`);
+    if (spanDays < 180 || spanDays > 215) {
+      safeError(`❌ Temporal span ${spanDays.toFixed(1)} days is outside required 6.5-month range (180-215 days)`);
       invariantsPassed = false;
     } else {
       safeLog(`✓ Temporal range verified: ${courierDateRange._min.createdAt.toISOString().slice(0, 10)} to ${courierDateRange._max.createdAt.toISOString().slice(0, 10)} (${spanDays.toFixed(0)} days)`);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { marketplaceCategoryHref, marketplaceHref } from "@/lib/public-marketplace/routes";
+import { marketplaceCategoryHref, marketplaceCategoriesHref, marketplaceHref } from "@/lib/public-marketplace/routes";
 import { homeMedia } from "@/components/public-v2/home/home-media";
 import styles from "./commerce.module.css";
 
@@ -39,7 +39,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
   }
 
   const activeCat = categories[activeIdx] || categories[0];
-  const activeHref = (activeCat ? marketplaceCategoryHref(activeCat.path) : null) ?? marketplaceHref();
+  const activeHref = (activeCat ? marketplaceCategoryHref(activeCat.path) : null) ?? marketplaceCategoriesHref();
 
   const getMediaSrc = (cat: CategoryAtlasItem) => {
     if (cat.imageReference) return `/api/catalog/media/${cat.imageReference}`;
@@ -59,7 +59,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
         <ul className={styles.categoryListStream} role="tablist">
           {categories.map((cat, idx) => {
             const isActive = idx === activeIdx;
-            const href = marketplaceCategoryHref(cat.path) ?? marketplaceHref();
+            const href = marketplaceCategoryHref(cat.path) ?? marketplaceCategoriesHref();
 
             return (
               <li key={cat.reference}>

@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { CatalogPolicyError } from "@/lib/catalog/errors";
 
 export type CatalogMediaUploadTarget = Readonly<{
@@ -43,7 +45,152 @@ export class LockedCatalogMediaStorageAdapter implements CatalogMediaStorageAdap
   async createReadTarget(): Promise<CatalogMediaReadTarget> { return this.unavailable(); }
 }
 
+export class LocalCatalogMediaStorageAdapter implements CatalogMediaStorageAdapter {
+  readonly code = "LOCAL_FILESYSTEM";
+  readonly productionReady = false;
+  readonly rootDir: string;
+
+  constructor(rootDir?: string) {
+    const env = process["env"];
+    const rawRoot = rootDir ?? env.CATALOG_MEDIA_LOCAL_DIR ?? path.join(process.cwd(), "var", "catalog-media");
+    this.rootDir = path.resolve(rawRoot);
+
+    const publicDir = path.resolve(process.cwd(), "public");
+    const relToPublic = path.relative(publicDir, this.rootDir);
+    if (this.rootDir === publicDir || (!relToPublic.startsWith("..") && !path.isAbsolute(relToPublic))) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog media directory must not be located inside the public directory.", 500);
+    }
+  }
+
+  private sanitizeKey(rawKey: string): string {
+    if (!rawKey || typeof rawKey !== "string") {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Invalid storage key.", 400);
+    }
+    if (rawKey.includes("\0") || rawKey.includes("..")) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Directory traversal is forbidden.", 400);
+    }
+    if (path.isAbsolute(rawKey) || /^[a-zA-Z]:/.test(rawKey)) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Absolute storage keys are forbidden.", 400);
+    }
+    return rawKey.replace(/\\/g, "/").replace(/^\/+/, "");
+  }
+
+  private resolveSafeCandidate(subPath: string): string {
+    const resolved = path.resolve(this.rootDir, subPath);
+    const rel = path.relative(this.rootDir, resolved);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Directory traversal detected.", 400);
+    }
+    return resolved;
+  }
+
+  private resolveExistingPath(storageKey: string): string | null {
+    const clean = this.sanitizeKey(storageKey);
+    const candidates: string[] = [];
+
+    if (clean.startsWith("catalog-media/")) {
+      const stripped = clean.slice("catalog-media/".length);
+      candidates.push(this.resolveSafeCandidate(stripped));
+      candidates.push(this.resolveSafeCandidate(stripped + ".webp"));
+    }
+
+    candidates.push(this.resolveSafeCandidate(clean));
+    candidates.push(this.resolveSafeCandidate(clean + ".webp"));
+
+    if (!clean.startsWith("catalog-media/")) {
+      candidates.push(this.resolveSafeCandidate(`catalog-media/${clean}`));
+      candidates.push(this.resolveSafeCandidate(`catalog-media/${clean}.webp`));
+    }
+
+    for (const cand of candidates) {
+      try {
+        if (fs.existsSync(cand)) {
+          const stat = fs.statSync(cand);
+          if (stat.isFile()) return cand;
+        }
+      } catch {
+        // Ignore filesystem check errors
+      }
+    }
+    return null;
+  }
+
+  private resolveSafePathForWrite(storageKey: string): string {
+    const clean = this.sanitizeKey(storageKey);
+    const effective = clean.startsWith("catalog-media/") ? clean.slice("catalog-media/".length) : clean;
+    return this.resolveSafeCandidate(effective);
+  }
+
+  async createUploadTarget(input: Readonly<{ intentReference: string; storageKey: string; maximumBytes: number; expiresAt: Date }>): Promise<CatalogMediaUploadTarget> {
+    return Object.freeze({
+      mode: "APPLICATION",
+      uploadPath: `/api/store/catalog/media/uploads/${encodeURIComponent(input.intentReference)}/content`,
+      expiresAt: input.expiresAt.toISOString(),
+      requiredHeaders: Object.freeze({ "content-type": "application/octet-stream" }),
+    });
+  }
+
+  async confirmUpload(input: Readonly<{ storageKey: string; bytes: Uint8Array; maximumBytes: number }>): Promise<{ byteSize: number }> {
+    if (input.bytes.byteLength < 1 || input.bytes.byteLength > input.maximumBytes) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Injected media object exceeds its upload target.", 413);
+    }
+    const filePath = this.resolveSafePathForWrite(input.storageKey);
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.writeFile(filePath, Buffer.from(input.bytes));
+    return { byteSize: input.bytes.byteLength };
+  }
+
+  async openForValidation(input: Readonly<{ storageKey: string; maximumBytes: number }>): Promise<Uint8Array> {
+    const filePath = this.resolveExistingPath(input.storageKey);
+    if (!filePath) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_MISSING", "Uploaded catalog media bytes are missing.", 409);
+    }
+    const stats = await fs.promises.stat(filePath);
+    if (stats.size > input.maximumBytes) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Stored catalog media exceeds its validation limit.", 413);
+    }
+    const buffer = await fs.promises.readFile(filePath);
+    return new Uint8Array(buffer);
+  }
+
+  async deleteUncommittedObject(input: Readonly<{ storageKey: string }>): Promise<{ deleted: boolean }> {
+    const filePath = this.resolveExistingPath(input.storageKey);
+    if (!filePath) return { deleted: false };
+    try {
+      await fs.promises.unlink(filePath);
+      return { deleted: true };
+    } catch {
+      return { deleted: false };
+    }
+  }
+
+  async createReadTarget(input: Readonly<{ storageKey: string; maximumBytes: number }>): Promise<CatalogMediaReadTarget> {
+    const body = await this.openForValidation(input);
+    return { body, byteSize: body.byteLength };
+  }
+}
+
+export function isLocalCatalogMediaStorageEnabled(): boolean {
+  const env = process["env"];
+  if (env.CATALOG_MEDIA_STORAGE === "filesystem") return true;
+  if (env.KT_STAGING_DEMO_ENABLED === "true") return true;
+  if (env.KT_DEMO_DATA_ENABLED === "true") return true;
+  return false;
+}
+
 export function createProductionCatalogMediaStorageAdapter(): CatalogMediaStorageAdapter {
+  const env = process["env"];
+  if (env.NODE_ENV === "production" && env.KT_STAGING_DEMO_ENABLED !== "true" && env.NEXT_PUBLIC_E2E !== "true") {
+    return new LockedCatalogMediaStorageAdapter();
+  }
+  if (isLocalCatalogMediaStorageEnabled()) {
+    return new LocalCatalogMediaStorageAdapter();
+  }
   return new LockedCatalogMediaStorageAdapter();
 }
+
+export function createCatalogMediaStorageAdapter(): CatalogMediaStorageAdapter {
+  return createProductionCatalogMediaStorageAdapter();
+}
+
 

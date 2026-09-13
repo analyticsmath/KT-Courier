@@ -96,19 +96,23 @@ export function MarketplaceProductGrid({ products, label = "Products" }: { produ
   if (!products.length) return null;
   return (
     <ul aria-label={label} className={styles.productGrid}>
-      {products.flatMap((product) => {
+      {products.map((product) => {
         const href = marketplaceProductHref(product.productSlug, product.productReference);
-        if (!href) return [];
-        return <li className={styles.productCard} key={product.productReference}>
-          <Link aria-label={`View ${product.title}`} href={href}>
+        return <li className={`${styles.productCard} ${!href ? styles.productCardDisabled : ""}`} key={product.productReference} aria-disabled={!href ? "true" : undefined}>
+          {href ? (
+            <Link aria-label={`View ${product.title}`} href={href}>
+              <div className={styles.productMedia}><ProductMedia product={product} /></div>
+            </Link>
+          ) : (
             <div className={styles.productMedia}><ProductMedia product={product} /></div>
-          </Link>
+          )}
           <div className={styles.productBody}>
             {product.brandName ? <p className={styles.productMeta}>{product.brandName}</p> : null}
-            <h3><Link href={href}>{product.title}</Link></h3>
+            <h3>{href ? <Link href={href}>{product.title}</Link> : <span>{product.title}</span>}</h3>
             <p className={styles.price}>{product.price.from ? "From " : ""}{formatPrice(product.price.amount, product.price.currency)}<small>VAT included</small></p>
             <p className={styles.availability}>{availabilityLabel(product.availability)}</p>
             <p className={styles.storeCount}>Available from {product.storeCount} {product.storeCount === 1 ? "store" : "stores"}</p>
+            {!href ? <p style={{ fontSize: "0.75rem", color: "var(--kt-red, #d83a2e)", marginTop: 4 }}>Temporarily unavailable</p> : null}
           </div>
         </li>;
       })}

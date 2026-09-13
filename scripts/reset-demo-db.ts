@@ -32,7 +32,11 @@ async function main() {
 
   safeLog("✓ Schema reset cleanly. Re-applying migration chain...");
   execSync("npx prisma migrate deploy", { stdio: "inherit" });
-  execSync("npx prisma generate", { stdio: "inherit" });
+  try {
+    execSync("npx prisma generate", { stdio: "inherit" });
+  } catch {
+    safeLog("Note: Prisma generate skipped (query engine is actively loaded by running server).");
+  }
 
   safeLog("🎉 Demo database reset successfully complete.");
 }

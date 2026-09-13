@@ -72,6 +72,7 @@ gen_report.js
 .env*
 !.env.example
 !.env.docker.example
+!.env.staging.example
 
 # vercel
 .vercel
