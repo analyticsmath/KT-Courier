@@ -64,17 +64,79 @@ export async function getStorefrontStore(slug: string) {
   return { reference: row.storePublicReference, slug: row.slug, name: row.name, ...(row.shortDescription ? { description: row.shortDescription } : {}), ...(row.logoMediaReference ? { logoMediaReference: row.logoMediaReference } : {}), ...(row.heroMediaReference ? { heroMediaReference: row.heroMediaReference } : {}), categories: storeCategories.map((c) => c.reference), storeCategories, fulfilmentModes: publicArray(row.fulfilmentModes), serviceAreaReferences: publicArray(row.serviceAreaReferences), publishedOfferCount: row.publishedOfferCount, scheduleStatus: publicStoreScheduleStatus(), products };
 }
 
-export async function getStorefrontProduct(productReference: string): Promise<{ product: StorefrontDocument; offers: StorefrontDocument[] } | null> {
+export type StorefrontModifierOptionDTO = {
+  optionReference: string;
+  name: string;
+  priceDelta: string;
+  currency: string;
+};
+
+export type StorefrontModifierGroupDTO = {
+  groupReference: string;
+  name: string;
+  description?: string | null;
+  minimumSelections: number;
+  maximumSelections: number;
+  isRequired: boolean;
+  options: StorefrontModifierOptionDTO[];
+};
+
+export async function getStorefrontModifierGroupsForOffers(offerReferences: readonly string[]): Promise<Record<string, StorefrontModifierGroupDTO[]>> {
+  if (!offerReferences.length) return {};
+  const links = await prisma.storeOfferModifierGroup.findMany({
+    where: {
+      offer: { publicReference: { in: [...offerReferences] } },
+      group: { status: "ACTIVE" },
+    },
+    include: {
+      offer: { select: { publicReference: true } },
+      group: {
+        include: {
+          options: {
+            where: { status: "ACTIVE" },
+            orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+          },
+        },
+      },
+    },
+    orderBy: { displayOrder: "asc" },
+  });
+
+  const byOffer: Record<string, StorefrontModifierGroupDTO[]> = {};
+  for (const link of links) {
+    const ref = link.offer.publicReference;
+    if (!byOffer[ref]) byOffer[ref] = [];
+    byOffer[ref].push({
+      groupReference: link.group.publicReference,
+      name: link.group.name,
+      description: link.group.description,
+      minimumSelections: link.group.minimumSelections,
+      maximumSelections: link.group.maximumSelections,
+      isRequired: link.group.isRequired,
+      options: link.group.options.map((opt) => ({
+        optionReference: opt.publicReference,
+        name: opt.name,
+        priceDelta: opt.priceDelta.toFixed(2),
+        currency: opt.currency,
+      })),
+    });
+  }
+  return byOffer;
+}
+
+export async function getStorefrontProduct(productReference: string): Promise<{ product: StorefrontDocument; offers: StorefrontDocument[]; modifierGroupsByOffer: Record<string, StorefrontModifierGroupDTO[]> } | null> {
   const offers = await loadStorefrontDocuments({ productReference, limit: 200 });
   if (!offers.length) return null;
   const product = [...offers].sort((left, right) => Number(left.price.amount) - Number(right.price.amount) || left.publicReference.localeCompare(right.publicReference))[0]!;
-  return { product, offers };
+  const modifierGroupsByOffer = await getStorefrontModifierGroupsForOffers(offers.map((o) => o.offerReference));
+  return { product, offers, modifierGroupsByOffer };
 }
 
 export async function getStorefrontVariant(productReference: string, variantReference: string) {
   const offers = (await loadStorefrontDocuments({ productReference, variantReference, limit: 100 })).filter((document) => document.productReference === productReference);
   if (!offers.length) return null;
-  return { variant: offers[0]!, offers };
+  const modifierGroupsByOffer = await getStorefrontModifierGroupsForOffers(offers.map((o) => o.offerReference));
+  return { variant: offers[0]!, offers, modifierGroupsByOffer };
 }
 
 export async function getStorefrontHome() {

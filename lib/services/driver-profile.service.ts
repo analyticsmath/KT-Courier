@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { toDriverSelfDto, type DriverSelfDto } from "@/lib/dto/driver.dto";
-import { DriverAvailability, DriverOnboardingStatus, DocumentStatus, DocumentType, PrivateMediaOwnerType } from "@/types/db";
+import { DriverAvailability, DriverOnboardingStatus, DocumentStatus, DocumentType, PrivateMediaOwnerType, PrivateMediaPurpose } from "@/types/db";
 import type { DriverSelfUpdateInput, DriverOnboardingInput } from "../validation/driver";
 import { canSelectAvailability } from "@/lib/driver-operations/availability-policy";
 
@@ -116,8 +116,25 @@ export async function completeDriverOnboarding(
   const driver = await prisma.driverProfile.findUnique({ where: { userId } });
   if (!driver) throw new Error("Driver profile not found.");
 
+  let profilePhotoMediaId: string | undefined = undefined;
+  if (input.profilePhotoMediaReference) {
+    const media = await prisma.privateMediaObject.findUnique({
+      where: { publicReference: input.profilePhotoMediaReference },
+    });
+    if (
+      media &&
+      media.ownerType === PrivateMediaOwnerType.DRIVER &&
+      media.ownerId === driver.id &&
+      media.status === "READY" &&
+      media.purpose === PrivateMediaPurpose.DRIVER_PROFILE_PHOTO
+    ) {
+      profilePhotoMediaId = media.id;
+    }
+  }
+
   const identitySnapshot = {
     idNumber: input.idNumber,
+    idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
     dateOfBirth: input.dateOfBirth.toISOString(),
     residentialAddress: input.residentialAddress,
     completedAt: new Date().toISOString(),
@@ -132,6 +149,11 @@ export async function completeDriverOnboarding(
       licenseExpiryDate: input.licenseExpiryDate,
       emergencyContactName: input.emergencyContactName,
       emergencyContactPhone: input.emergencyContactPhone,
+      idNumber: input.idNumber,
+      idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
+      dateOfBirth: input.dateOfBirth,
+      residentialAddress: input.residentialAddress,
+      ...(profilePhotoMediaId ? { profilePhotoMediaId } : {}),
       internalNotes: JSON.stringify(identitySnapshot),
       onboardingStatus: DriverOnboardingStatus.PENDING_REVIEW,
       vehicleComplianceRequiredAt: driver.vehicleComplianceRequiredAt ?? new Date(),
@@ -246,3 +268,40 @@ export async function listOwnDriverDocuments(driverUserId: string) {
     },
   });
 }
+
+// ─── Attach Own Driver Profile Photo ──────────────────────────────────────────
+export async function attachOwnProfilePhoto(input: {
+  driverUserId: string;
+  privateMediaReference: string;
+}): Promise<DriverSelfDto> {
+  const driver = await prisma.driverProfile.findUnique({
+    where: { userId: input.driverUserId },
+    select: { id: true },
+  });
+  if (!driver) throw new Error("Driver profile not found.");
+
+  const media = await prisma.privateMediaObject.findUnique({
+    where: { publicReference: input.privateMediaReference },
+  });
+  if (
+    !media ||
+    media.ownerType !== PrivateMediaOwnerType.DRIVER ||
+    media.ownerId !== driver.id ||
+    media.status !== "READY" ||
+    media.purpose !== PrivateMediaPurpose.DRIVER_PROFILE_PHOTO
+  ) {
+    throw new Error("The uploaded private media cannot be used as a driver profile photo.");
+  }
+
+  const updated = await prisma.driverProfile.update({
+    where: { id: driver.id },
+    data: { profilePhotoMediaId: media.id },
+    include: {
+      user: true,
+      serviceRegions: { include: { deliveryRegion: true } },
+    },
+  });
+
+  return toDriverSelfDto(updated);
+}
+

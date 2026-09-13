@@ -86,7 +86,54 @@ async function updateCheckoutSnapshot(input: any, kind: "contact" | "address", d
   if (["PAYMENT_PENDING", "PAYMENT_CONFIRMED", "COMPLETING", "COMPLETED"].includes(checkout.status)) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout contact and address are immutable at this stage.");
   const snapshot = await snapshots.create({ data: kind === "contact" ? input.contact : { ...input.address, country: "South Africa", protectedCoordinates: null } });
   const updated = await checkouts.update({ where: { id: checkout.id }, data: { [kind === "contact" ? "contactSnapshotId" : "addressSnapshotId"]: snapshot.id, status: "VALIDATING", reviewAcceptedAt: null, changesAcknowledgedAt: null, version: { increment: 1 } } });
-  return { publicReference: updated.publicReference, version: updated.version, status: updated.status };
+  const freshCheckout = await getMarketplaceCheckoutForOwner(input.reference, input.owner, db);
+  return {
+    publicReference: updated.publicReference,
+    reference: updated.publicReference,
+    version: updated.version,
+    status: updated.status,
+    checkout: projectPublicCheckout(freshCheckout),
+  };
+}
+
+export function projectPublicCheckout(checkout: any) {
+  if (!checkout) return null;
+  return {
+    reference: checkout.publicReference,
+    publicReference: checkout.publicReference,
+    status: checkout.status,
+    currency: checkout.currency,
+    version: checkout.version,
+    totals: {
+      merchandiseSubtotal: checkout.merchandiseSubtotal?.toString?.() ?? checkout.merchandiseSubtotal ?? "0.00",
+      modifierSubtotal: checkout.modifierSubtotal?.toString?.() ?? checkout.modifierSubtotal ?? "0.00",
+      deliveryFeeTotal: checkout.deliveryFeeTotal?.toString?.() ?? checkout.deliveryFeeTotal ?? "0.00",
+      grandTotal: checkout.grandTotal?.toString?.() ?? checkout.grandTotal ?? "0.00",
+    },
+    changes: (checkout.changes ?? []).map((item: any) => ({
+      type: item.type,
+      lineReference: item.lineReference,
+      acknowledgedAt: item.acknowledgedAt,
+    })),
+    storeGroups: (checkout.storeGroups ?? []).map((group: any) => ({
+      storeReference: group.storeId ?? group.storeReference,
+      status: group.status,
+      fulfilmentMode: group.fulfilmentMode,
+      deliveryFee: group.deliveryFee?.toString?.() ?? group.deliveryFee ?? "0.00",
+      quoteReference: group.deliveryQuoteReference,
+      quoteExpiresAt: group.deliveryQuoteExpiresAt,
+      lines: (group.lines ?? []).map((line: any) => ({
+        productReference: line.productReference,
+        variantReference: line.variantReference,
+        offerReference: line.offerReference,
+        quantity: line.quantity,
+        baseUnitPrice: line.baseUnitPrice?.toString?.() ?? line.baseUnitPrice,
+        modifierUnitTotal: line.modifierUnitTotal?.toString?.() ?? line.modifierUnitTotal ?? "0.00",
+        lineTotal: line.lineTotal?.toString?.() ?? line.lineTotal,
+        modifiers: line.modifiers ?? [],
+      })),
+    })),
+  };
 }
 
 export async function beginMarketplaceReservation(input: { reference: string; owner: CheckoutOwner; expectedVersion: number; operationId: string; testApproval?: { approved: true } }) {

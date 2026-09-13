@@ -448,6 +448,24 @@ export function DriverDetailsConsole({
                   {driver.onboardingStatus.replace(/_/g, " ").toLowerCase()}
                 </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--kt-text-muted)] font-medium">ID Type:</span>
+                <span className="font-semibold text-[var(--kt-ink-navy)]">{driver.idType || "RSA_ID"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--kt-text-muted)] font-medium">ID / Passport:</span>
+                <span className="font-semibold text-[var(--kt-ink-navy)] tabular-nums">{driver.idNumber || "Not recorded"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--kt-text-muted)] font-medium">Date of Birth:</span>
+                <span className="font-semibold text-[var(--kt-ink-navy)]">
+                  {driver.dateOfBirth ? new Date(driver.dateOfBirth).toLocaleDateString("en-ZA") : "Not recorded"}
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[var(--kt-text-muted)] font-medium">Address:</span>
+                <span className="font-semibold text-[var(--kt-ink-navy)] text-xs">{driver.residentialAddress || "Not recorded"}</span>
+              </div>
             </div>
           </div>
         </Card>
@@ -531,6 +549,25 @@ export function DriverDetailsConsole({
                 {statusError}
               </div>
             )}
+
+            {/* Model B Dispatch Readiness Callout */}
+            <div className="p-3 bg-[var(--kt-cool-gray)] rounded-xl border border-[var(--kt-soft-border)] text-xs space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-[var(--kt-ink-navy)]">Model B Authority Model:</span>
+                <Badge variant={driver.status === "ACTIVE" && (driver.vehicles?.some((v) => v.status === "APPROVED") ?? false) ? "green" : "gray"}>
+                  {driver.status === "ACTIVE" && (driver.vehicles?.some((v) => v.status === "APPROVED") ?? false)
+                    ? "DISPATCH ELIGIBLE"
+                    : "NOT DISPATCH READY"}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-[var(--kt-text-muted)]">
+                Driver Profile Approval operates independently from Vehicle Compliance. Approving the driver activates the courier profile. However, dispatch assignments require an active driver profile AND at least one approved vehicle with valid documents.
+              </p>
+              <div className="flex gap-4 text-[11px]">
+                <span>Profile Status: <strong>{driver.status}</strong></span>
+                <span>Compliant Vehicles: <strong>{driver.vehicles?.filter((v) => v.status === "APPROVED").length || 0} approved</strong></span>
+              </div>
+            </div>
 
             {/* Actions list */}
             <div className="space-y-4">
@@ -885,7 +922,9 @@ export function DriverDetailsConsole({
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="font-bold text-[var(--kt-ink-navy)]">{v.make} {v.model} ({v.registrationNumber})</span>
-                        <span className="text-[10px] text-[var(--kt-text-muted)] block">{v.vehicleType} • {v.colour || "Color not set"}</span>
+                        <span className="text-[10px] text-[var(--kt-text-muted)] block">
+                          {v.vehicleType} • {v.colour || "Color not set"} • Capacity: {v.capacityKg ? `${v.capacityKg} kg` : "Not recorded"}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={v.status === "APPROVED" ? "green" : v.status === "REJECTED" ? "red" : "amber"}>

@@ -44,7 +44,7 @@ describe("marketplace checkout review and acknowledgement persistence", () => {
   it("persists an exact acknowledgement after matching commercial evidence", async () => {
     const createAcknowledgement = vi.fn();
     const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue({ ...checkout, status: "READY_FOR_REVIEW", reviewVersion: 2, grandTotal: "15.00", commercialFingerprint: "fingerprint", changes: [{ type: "DELIVERY_FEE_CHANGED" }] }), findOperation: vi.fn().mockResolvedValue(null), createAcknowledgement };
-    await expect(acknowledgeMarketplaceCheckoutReviewPersisted(repository as never, { reference: "checkout-1", owner, operationId: "ack-0001", requestHash: "ack", expectedVersion: 2, reviewVersion: 2, commercialFingerprint: "fingerprint", acknowledgedTotalReference: "15.00", termsVersion: "terms-1", privacyVersion: "privacy-1", refundPolicyReferences: ["refund-1"] })).resolves.toEqual({ acknowledged: true, reviewVersion: 2 });
+    await expect(acknowledgeMarketplaceCheckoutReviewPersisted(repository as never, { reference: "checkout-1", owner, operationId: "ack-0001", requestHash: "ack", expectedVersion: 2, reviewVersion: 2, commercialFingerprint: "fingerprint", acknowledgedTotalReference: "15.00", termsVersion: "terms-1", privacyVersion: "privacy-1", refundPolicyReferences: ["refund-1"] })).resolves.toEqual({ acknowledged: true, reviewVersion: 2, checkoutVersion: 3 });
     expect(createAcknowledgement).toHaveBeenCalledOnce();
     expect(createAcknowledgement).toHaveBeenCalledWith(expect.objectContaining({ settlementEvidenceVersions: ["settlement-evidence:v1:frozen"] }));
   });

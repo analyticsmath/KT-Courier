@@ -25,7 +25,13 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ref
         preferredContactMethod: typeof body.preferredContactMethod === "string" ? body.preferredContactMethod.slice(0, 32) : undefined,
       },
     });
-    return marketplaceJson({ checkout });
+    return marketplaceJson({
+      reference: checkout.reference,
+      publicReference: checkout.publicReference,
+      version: checkout.version,
+      status: checkout.status,
+      checkout: checkout.checkout,
+    });
   } catch (error) {
     return marketplaceError(error);
   }

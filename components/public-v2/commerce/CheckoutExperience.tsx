@@ -125,10 +125,12 @@ export function CheckoutExperience() {
     setSubmitting(true);
     setErrorMessage(null);
 
+    const activeRef = checkoutRef || checkout.reference;
+
     try {
       const opId = `cnt-${crypto.randomUUID()}`;
-      const hash = await computeHash(`${checkout.reference}:${contactEmail}:${contactPhone}:${opId}`);
-      const res = await fetch(`/api/checkout/${checkout.reference}/contact`, {
+      const hash = await computeHash(`${activeRef}:${contactEmail}:${contactPhone}:${opId}`);
+      const res = await fetch(`/api/checkout/${activeRef}/contact`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -148,7 +150,15 @@ export function CheckoutExperience() {
       }
 
       const data = await res.json();
-      setCheckout(data.checkout);
+      if (data.checkout && data.checkout.storeGroups) {
+        setCheckout(data.checkout);
+      } else {
+        const freshRes = await fetch(`/api/checkout/${activeRef}`);
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          setCheckout(freshData.checkout);
+        }
+      }
       setCurrentStep(2);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to save contact.");
@@ -164,10 +174,12 @@ export function CheckoutExperience() {
     setSubmitting(true);
     setErrorMessage(null);
 
+    const activeRef = checkoutRef || checkout.reference;
+
     try {
       const opId = `adr-${crypto.randomUUID()}`;
-      const hash = await computeHash(`${checkout.reference}:${addrLine1}:${addrCity}:${opId}`);
-      const res = await fetch(`/api/checkout/${checkout.reference}/delivery-address`, {
+      const hash = await computeHash(`${activeRef}:${addrLine1}:${addrCity}:${opId}`);
+      const res = await fetch(`/api/checkout/${activeRef}/delivery-address`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -192,10 +204,21 @@ export function CheckoutExperience() {
       }
 
       const data = await res.json();
-      setCheckout(data.checkout);
+      let nextVersion = checkout.version + 1;
+      if (data.checkout && data.checkout.storeGroups) {
+        setCheckout(data.checkout);
+        nextVersion = data.checkout.version;
+      } else {
+        const freshRes = await fetch(`/api/checkout/${activeRef}`);
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          setCheckout(freshData.checkout);
+          nextVersion = freshData.checkout.version;
+        }
+      }
 
       // Auto-trigger delivery quotes
-      await calculateQuotes(data.checkout.version);
+      await calculateQuotes(nextVersion);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to save address.");
     } finally {
@@ -207,10 +230,11 @@ export function CheckoutExperience() {
   const calculateQuotes = async (version: number) => {
     if (!checkout) return;
     setSubmitting(true);
+    const activeRef = checkoutRef || checkout.reference;
     try {
       const opId = `qte-${crypto.randomUUID()}`;
-      const hash = await computeHash(`quotes:${checkout.reference}:${version}:${opId}`);
-      const res = await fetch(`/api/checkout/${checkout.reference}/delivery-quotes`, {
+      const hash = await computeHash(`quotes:${activeRef}:${version}:${opId}`);
+      const res = await fetch(`/api/checkout/${activeRef}/delivery-quotes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -225,7 +249,7 @@ export function CheckoutExperience() {
         throw new Error(err.error || err.message || "Failed to calculate delivery quotes.");
       }
 
-      const freshRes = await fetch(`/api/checkout/${checkout.reference}`);
+      const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
         const freshData = await freshRes.json();
         setCheckout(freshData.checkout);
@@ -244,11 +268,13 @@ export function CheckoutExperience() {
     setSubmitting(true);
     setErrorMessage(null);
 
+    const activeRef = checkoutRef || checkout.reference;
+
     try {
-      // 1. Confirm options
+      // 1. Confirm options & persist selection
       const optOpId = `opt-${crypto.randomUUID()}`;
-      const optHash = await computeHash(`options:${checkout.reference}:${optOpId}`);
-      await fetch(`/api/checkout/${checkout.reference}/delivery-options`, {
+      const optHash = await computeHash(`options:${activeRef}:${optOpId}`);
+      const optRes = await fetch(`/api/checkout/${activeRef}/delivery-options`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -258,16 +284,24 @@ export function CheckoutExperience() {
         }),
       });
 
+      if (!optRes.ok) {
+        const err = await optRes.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to confirm delivery options.");
+      }
+
+      const optData = await optRes.json();
+      const currentVersionBeforeReview = optData.checkout?.version ?? (checkout.version + 1);
+
       // 2. Perform authoritative Review
       const revOpId = `rev-${crypto.randomUUID()}`;
-      const revHash = await computeHash(`review:${checkout.reference}:${checkout.version}:${revOpId}`);
-      const revRes = await fetch(`/api/checkout/${checkout.reference}/review`, {
+      const revHash = await computeHash(`review:${activeRef}:${currentVersionBeforeReview}:${revOpId}`);
+      const revRes = await fetch(`/api/checkout/${activeRef}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           operationId: revOpId,
           requestHash: revHash,
-          checkoutVersion: checkout.version,
+          checkoutVersion: currentVersionBeforeReview,
         }),
       });
 
@@ -281,7 +315,7 @@ export function CheckoutExperience() {
       setCommercialFingerprint(revData.commercialFingerprint ?? "fingerprint-confirmed");
 
       // Refresh checkout
-      const freshRes = await fetch(`/api/checkout/${checkout.reference}`);
+      const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
         const freshData = await freshRes.json();
         setCheckout(freshData.checkout);
@@ -300,11 +334,13 @@ export function CheckoutExperience() {
     setSubmitting(true);
     setErrorMessage(null);
 
+    const activeRef = checkoutRef || checkout.reference;
+
     try {
       // 1. Acknowledge
       const ackOpId = `ack-${crypto.randomUUID()}`;
-      const ackHash = await computeHash(`ack:${checkout.reference}:${reviewVersion}:${ackOpId}`);
-      const ackRes = await fetch(`/api/checkout/${checkout.reference}/acknowledge`, {
+      const ackHash = await computeHash(`ack:${activeRef}:${reviewVersion}:${ackOpId}`);
+      const ackRes = await fetch(`/api/checkout/${activeRef}/acknowledge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -325,14 +361,17 @@ export function CheckoutExperience() {
         throw new Error(err.error || err.message || "Acknowledgement failed.");
       }
 
-      // 2. Reserve
+      const ackData = await ackRes.json();
+      const currentVersionAfterAck = ackData.checkoutVersion ?? (checkout.version + 1);
+
+      // 2. Reserve with currentVersionAfterAck
       const resOpId = `res-${crypto.randomUUID()}`;
-      const resHash = await computeHash(`reserve:${checkout.reference}:${resOpId}`);
-      const resRes = await fetch(`/api/checkout/${checkout.reference}/reserve`, {
+      const resHash = await computeHash(`reserve:${activeRef}:${resOpId}`);
+      const resRes = await fetch(`/api/checkout/${activeRef}/reserve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          checkoutVersion: checkout.version,
+          checkoutVersion: currentVersionAfterAck,
           operationId: resOpId,
           requestHash: resHash,
         }),
@@ -343,7 +382,7 @@ export function CheckoutExperience() {
         throw new Error(err.error || err.message || "Inventory reservation failed.");
       }
 
-      const freshRes = await fetch(`/api/checkout/${checkout.reference}`);
+      const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
         const freshData = await freshRes.json();
         setCheckout(freshData.checkout);
@@ -362,10 +401,12 @@ export function CheckoutExperience() {
     setSubmitting(true);
     setErrorMessage(null);
 
+    const activeRef = checkoutRef || checkout.reference;
+
     try {
       const payOpId = `pay-${crypto.randomUUID()}`;
-      const payHash = await computeHash(`pay:${checkout.reference}:${payOpId}`);
-      const res = await fetch(`/api/checkout/${checkout.reference}/prepare-payment`, {
+      const payHash = await computeHash(`pay:${activeRef}:${payOpId}`);
+      const res = await fetch(`/api/checkout/${activeRef}/prepare-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

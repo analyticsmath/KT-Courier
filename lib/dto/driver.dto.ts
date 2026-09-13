@@ -71,6 +71,10 @@ export interface DriverDetailDto extends DriverSummaryDto {
   suspensionReason: string | null;
   serviceRegions: DriverRegionDto[];
   documents: DriverDocumentDto[];
+  idNumber?: string | null;
+  idType?: string | null;
+  dateOfBirth?: Date | null;
+  residentialAddress?: string | null;
   vehicleComplianceRequiredAt?: Date | null;
   profilePhoto?: DriverProfilePhotoDto | null;
   vehicles?: DriverVehicleSummaryDto[];
@@ -108,6 +112,7 @@ export interface DriverVehicleSummaryDto {
   colour: string | null;
   registrationNumber: string;
   vehicleType: string;
+  capacityKg?: number | null;
   status: string;
   documents: VehicleDocumentSummaryDto[];
   media: VehicleMediaSummaryDto[];
@@ -134,6 +139,11 @@ export interface DriverSelfDto {
   licenseExpiryDate: Date | null;
   serviceNotes: string | null;
   serviceRegions: DriverRegionDto[];
+  idNumber?: string | null;
+  idType?: string | null;
+  dateOfBirth?: Date | null;
+  residentialAddress?: string | null;
+  profilePhotoMediaId?: string | null;
   user: UserPublicDto;
 }
 
@@ -218,6 +228,10 @@ export function toDriverDetailDto(
     suspensionReason: driver.suspensionReason,
     serviceRegions: driver.serviceRegions.map(toDriverRegionDto),
     documents: driver.documents.map(toDriverDocumentDto),
+    idNumber: (driver as DriverProfile & { idNumber?: string | null }).idNumber ?? null,
+    idType: (driver as DriverProfile & { idType?: string | null }).idType ?? null,
+    dateOfBirth: (driver as DriverProfile & { dateOfBirth?: Date | null }).dateOfBirth ?? null,
+    residentialAddress: (driver as DriverProfile & { residentialAddress?: string | null }).residentialAddress ?? null,
   };
 }
 
@@ -247,6 +261,11 @@ export function toDriverSelfDto(
     licenseExpiryDate: driver.licenseExpiryDate,
     serviceNotes: driver.serviceNotes,
     serviceRegions: driver.serviceRegions.map(toDriverRegionDto),
+    idNumber: (driver as DriverProfile & { idNumber?: string | null }).idNumber ?? null,
+    idType: (driver as DriverProfile & { idType?: string | null }).idType ?? null,
+    dateOfBirth: (driver as DriverProfile & { dateOfBirth?: Date | null }).dateOfBirth ?? null,
+    residentialAddress: (driver as DriverProfile & { residentialAddress?: string | null }).residentialAddress ?? null,
+    profilePhotoMediaId: (driver as DriverProfile & { profilePhotoMediaId?: string | null }).profilePhotoMediaId ?? null,
     user: toUserPublicDto(driver.user),
   };
 }

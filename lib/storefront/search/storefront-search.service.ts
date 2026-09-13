@@ -106,7 +106,12 @@ export class StorefrontSearchService {
       storeSlug: filters.store,
       categoryPath: filters.category,
       brand: filters.brand,
-      limit: 10000,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      availability: filters.availability,
+      condition: filters.condition,
+      fulfilment: filters.fulfilment,
+      limit: 100000,
     })));
     const documents = [...new Map(candidates.flat().map((document) => [document.publicReference, document])).values()];
     const filtered = documents.filter((document) => matchesFilters(document, filters));

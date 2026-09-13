@@ -7,6 +7,7 @@ import type {
   StorefrontDocument,
   StorefrontProductCard,
 } from "@/lib/storefront/storefront-types";
+import type { StorefrontModifierGroupDTO } from "@/lib/services/storefront-catalog.service";
 import {
   marketplaceCategoryHref,
   marketplaceHref,
@@ -37,6 +38,7 @@ interface ProductDetailExperienceProps {
   sameStoreProducts?: readonly StorefrontProductCard[];
   relatedProducts?: readonly StorefrontProductCard[];
   selectedVariantReference?: string;
+  modifierGroupsByOffer?: Record<string, StorefrontModifierGroupDTO[]>;
 }
 
 export function ProductDetailExperience({
@@ -46,6 +48,7 @@ export function ProductDetailExperience({
   sameStoreProducts = [],
   relatedProducts = [],
   selectedVariantReference,
+  modifierGroupsByOffer,
 }: ProductDetailExperienceProps) {
   const variants = [
     ...new Map(offers.map((offer) => [offer.variantReference, offer])).values(),
@@ -67,10 +70,47 @@ export function ProductDetailExperience({
   const [cartFeedback, setCartFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [cartVersion, setCartVersion] = useState<number | null>(null);
 
+  // Modifiers state
+  const activeOfferRef = product.offerReference;
+  const modifierGroups = modifierGroupsByOffer?.[activeOfferRef] ?? [];
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string[]>>({});
+
+  const toggleModifierOption = (groupReference: string, optionReference: string, maxSelections: number) => {
+    setSelectedModifiers((prev) => {
+      const current = prev[groupReference] ?? [];
+      if (maxSelections === 1) {
+        return { ...prev, [groupReference]: [optionReference] };
+      }
+      if (current.includes(optionReference)) {
+        return { ...prev, [groupReference]: current.filter((id) => id !== optionReference) };
+      }
+      if (current.length >= maxSelections) {
+        return prev;
+      }
+      return { ...prev, [groupReference]: [...current, optionReference] };
+    });
+  };
+
+  const missingRequiredGroup = modifierGroups.find((g) => {
+    const selected = selectedModifiers[g.groupReference] ?? [];
+    if (g.isRequired && selected.length === 0) return true;
+    if (selected.length < g.minimumSelections) return true;
+    return false;
+  });
+
   const isPurchasable = product.availability === "IN_STOCK" || product.availability === "LOW_STOCK";
 
   const handleAddToCart = async () => {
     if (!isPurchasable || addingToCart) return;
+
+    if (missingRequiredGroup) {
+      setCartFeedback({
+        type: "error",
+        message: `Please make a required selection for "${missingRequiredGroup.name}".`,
+      });
+      return;
+    }
+
     setAddingToCart(true);
     setCartFeedback(null);
 
@@ -90,6 +130,14 @@ export function ProductDetailExperience({
         return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
       };
 
+      const payloadModifiers = Object.entries(selectedModifiers).flatMap(([groupReference, optionRefs]) =>
+        optionRefs.map((optionReference) => ({
+          groupReference,
+          optionReference,
+          quantity: 1,
+        }))
+      );
+
       const sendAddLine = async (ver: number) => {
         const opId = `add-${crypto.randomUUID()}`;
         const reqHash = await computeHash(`${product.offerReference}:${quantity}:${ver}:${opId}`);
@@ -100,7 +148,7 @@ export function ProductDetailExperience({
             offerReference: product.offerReference,
             variantReference: product.variantReference,
             quantity,
-            modifiers: [],
+            modifiers: payloadModifiers,
             operationId: opId,
             requestHash: reqHash,
             cartVersion: ver,
@@ -348,6 +396,76 @@ export function ProductDetailExperience({
 
           {/* Interactive Purchase Controls */}
           <div className={styles.pdpPurchaseStatusBox}>
+            {modifierGroups.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--kt-cool-200, #dde1e0)" }}>
+                <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>Customise Options</span>
+                {modifierGroups.map((group) => {
+                  const selected = selectedModifiers[group.groupReference] ?? [];
+                  return (
+                    <div key={group.groupReference} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
+                          {group.name}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            backgroundColor: group.isRequired && selected.length === 0 ? "#fdf2f2" : "#eef8f1",
+                            color: group.isRequired && selected.length === 0 ? "#ba1a1a" : "#1e6e38",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {group.isRequired ? (selected.length === 0 ? "Required" : "Selected") : "Optional"}
+                        </span>
+                      </div>
+                      {group.description && (
+                        <p style={{ fontSize: "0.8rem", color: "var(--kt-muted, #5f6763)", margin: 0 }}>
+                          {group.description}
+                        </p>
+                      )}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {group.options.map((option) => {
+                          const isChecked = selected.includes(option.optionReference);
+                          const isRadio = group.maximumSelections === 1;
+                          return (
+                            <label
+                              key={option.optionReference}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "8px 12px",
+                                borderRadius: 4,
+                                border: isChecked ? "1px solid var(--kt-carbon, #101210)" : "1px solid #e0e4e2",
+                                backgroundColor: isChecked ? "#f9faf9" : "transparent",
+                                cursor: "pointer",
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <input
+                                  type={isRadio ? "radio" : "checkbox"}
+                                  name={group.groupReference}
+                                  checked={isChecked}
+                                  onChange={() => toggleModifierOption(group.groupReference, option.optionReference, group.maximumSelections)}
+                                />
+                                <span>{option.name}</span>
+                              </div>
+                              <span style={{ color: Number(option.priceDelta) > 0 ? "var(--kt-carbon, #101210)" : "var(--kt-muted, #5f6763)", fontWeight: 540 }}>
+                                {Number(option.priceDelta) > 0 ? `+${formatPrice(option.priceDelta, "ZAR")}` : "Included"}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
                 Quantity

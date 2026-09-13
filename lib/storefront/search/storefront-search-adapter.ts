@@ -8,7 +8,19 @@ export const STOREFRONT_SEARCH_INDEX_VERSION = "postgres-organic-v1";
 export type StorefrontSearchAdapter = {
   indexDocument(document: StorefrontDocument): Promise<void>;
   removeDocument(publicReference: string): Promise<void>;
-  search(input: { query?: string; storeSlug?: string; categoryPath?: string; brand?: string; limit: number }): Promise<StorefrontDocument[]>;
+  search(input: {
+    query?: string;
+    storeSlug?: string;
+    categoryPath?: string;
+    brand?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    availability?: readonly string[];
+    condition?: readonly string[];
+    fulfilment?: readonly string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<StorefrontDocument[]>;
   suggest(input: { query: string; limit: number }): Promise<StorefrontDocument[]>;
   facet(input: { documents: StorefrontDocument[]; code: string }): Promise<Array<{ value: string; count: number }>>;
   health(): Promise<{ ok: boolean; indexVersion: string }>;
@@ -21,15 +33,38 @@ export class InMemoryStorefrontSearchAdapter implements StorefrontSearchAdapter 
   constructor(initial: readonly StorefrontDocument[] = []) { initial.forEach((document) => this.documents.set(document.publicReference, document)); }
   async indexDocument(document: StorefrontDocument) { this.documents.set(document.publicReference, document); }
   async removeDocument(publicReference: string) { this.documents.delete(publicReference); }
-  async search(input: { query?: string; storeSlug?: string; categoryPath?: string; brand?: string; limit: number }) {
+  async search(input: {
+    query?: string;
+    storeSlug?: string;
+    categoryPath?: string;
+    brand?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    availability?: readonly string[];
+    condition?: readonly string[];
+    fulfilment?: readonly string[];
+    limit?: number;
+    offset?: number;
+  }) {
     const query = input.query ? normalizeStorefrontQuery(input.query).value : "";
     const normCategoryPath = input.categoryPath ? (input.categoryPath.startsWith("/") ? input.categoryPath : `/${input.categoryPath}`) : "";
-    return [...this.documents.values()]
+    const minPrice = input.minPrice ? Number(input.minPrice) : null;
+    const maxPrice = input.maxPrice ? Number(input.maxPrice) : null;
+    const offset = input.offset ?? 0;
+    const limit = input.limit ?? Number.POSITIVE_INFINITY;
+
+    const filtered = [...this.documents.values()]
       .filter((document) => !query || document.searchText.toLocaleLowerCase("en-ZA").includes(query) || document.normalizedTitle.includes(query))
       .filter((document) => !input.storeSlug || document.storeSlug === input.storeSlug)
       .filter((document) => !normCategoryPath || document.categoryPath === normCategoryPath || document.categoryPath.startsWith(`${normCategoryPath}/`))
       .filter((document) => !input.brand || document.brandReference === input.brand || document.brandName?.toLocaleLowerCase("en-ZA").replace(/\s+/g, "-") === input.brand)
-      .slice(0, input.limit);
+      .filter((document) => minPrice === null || Number(document.price.amount) >= minPrice)
+      .filter((document) => maxPrice === null || Number(document.price.amount) <= maxPrice)
+      .filter((document) => !input.availability?.length || input.availability.includes(document.availability))
+      .filter((document) => !input.condition?.length || input.condition.includes(document.condition))
+      .filter((document) => !input.fulfilment?.length || input.fulfilment.includes(document.fulfilmentMode));
+
+    return filtered.slice(offset, offset + limit);
   }
   async suggest(input: { query: string; limit: number }) { return this.search({ query: input.query, limit: input.limit }); }
   async facet(input: { documents: StorefrontDocument[]; code: string }) {
@@ -93,8 +128,20 @@ const SELECT_DOCUMENT = Prisma.sql`SELECT "publicReference", "publicationVersion
 export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter {
   async indexDocument(document: StorefrontDocument) { void document; /* The projection table is the index; writing is owned by the projection service. */ }
   async removeDocument(publicReference: string) { void publicReference; /* Withdrawal is owned by the projection service to retain evidence. */ }
-  async search(input: { query?: string; storeSlug?: string; categoryPath?: string; brand?: string; limit: number }): Promise<StorefrontDocument[]> {
-    const limit = Math.max(1, Math.min(input.limit, 10000));
+  async search(input: {
+    query?: string;
+    storeSlug?: string;
+    categoryPath?: string;
+    brand?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    availability?: readonly string[];
+    condition?: readonly string[];
+    fulfilment?: readonly string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<StorefrontDocument[]> {
+    const limit = input.limit !== undefined ? Math.max(1, input.limit) : 100000;
     const normalized = input.query ? normalizeStorefrontQuery(input.query).value : "";
     const clauses = [Prisma.sql`"status" = 'ACTIVE'`, Prisma.sql`"searchable" = true`];
     if (input.storeSlug) clauses.push(Prisma.sql`"storeSlug" = ${input.storeSlug}`);
@@ -105,6 +152,23 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
     if (input.brand) {
       clauses.push(Prisma.sql`("brandPublicReference" = ${input.brand} OR "brandName" ILIKE ${input.brand.replace(/-/g, " ")})`);
     }
+    if (input.minPrice) {
+      const min = Number(input.minPrice);
+      if (Number.isFinite(min)) clauses.push(Prisma.sql`"priceAmount" >= ${min}`);
+    }
+    if (input.maxPrice) {
+      const max = Number(input.maxPrice);
+      if (Number.isFinite(max)) clauses.push(Prisma.sql`"priceAmount" <= ${max}`);
+    }
+    if (input.availability?.length) {
+      clauses.push(Prisma.sql`"availabilityState" IN (${Prisma.join(input.availability.map((v) => Prisma.sql`${v}`))})`);
+    }
+    if (input.condition?.length) {
+      clauses.push(Prisma.sql`"condition" IN (${Prisma.join(input.condition.map((v) => Prisma.sql`${v}`))})`);
+    }
+    if (input.fulfilment?.length) {
+      clauses.push(Prisma.sql`"fulfilmentMode" IN (${Prisma.join(input.fulfilment.map((v) => Prisma.sql`${v}`))})`);
+    }
     if (normalized) {
       clauses.push(Prisma.sql`("normalizedTitle" LIKE ${`${normalized}%`} OR "searchText" ILIKE ${`%${normalized}%`} OR similarity("searchText", ${normalized}) >= 0.28)`);
     }
@@ -112,8 +176,11 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
       ? Prisma.sql`ORDER BY CASE WHEN "normalizedTitle" = ${normalized} THEN 0 WHEN "normalizedTitle" LIKE ${`${normalized}%`} THEN 1 ELSE 2 END, "publicReference" ASC`
       : Prisma.sql`ORDER BY "publishedAt" DESC, "publicReference" ASC`;
 
+    const limitClause = Number.isFinite(limit) ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
+    const offsetClause = input.offset !== undefined && input.offset > 0 ? Prisma.sql`OFFSET ${input.offset}` : Prisma.empty;
+
     const rows = await prisma.$queryRaw<StorefrontDocumentRow[]>(
-      Prisma.sql`${SELECT_DOCUMENT} WHERE ${Prisma.join(clauses, " AND ")} ${orderBy} LIMIT ${limit}`
+      Prisma.sql`${SELECT_DOCUMENT} WHERE ${Prisma.join(clauses, " AND ")} ${orderBy} ${limitClause} ${offsetClause}`
     );
     return rows.map(storefrontRowToDocument);
   }
@@ -134,6 +201,7 @@ export async function loadStorefrontDocuments(input: { productReference?: string
     const normPath = input.categoryPath.startsWith("/") ? input.categoryPath : `/${input.categoryPath}`;
     clauses.push(Prisma.sql`("categoryPath" = ${normPath} OR "categoryPath" LIKE ${`${normPath}/%`})`);
   }
-  const rows = await prisma.$queryRaw<StorefrontDocumentRow[]>(Prisma.sql`${SELECT_DOCUMENT} WHERE ${Prisma.join(clauses, " AND ")} ORDER BY "priceAmount" ASC, "publicReference" ASC LIMIT ${Math.max(1, Math.min(input.limit ?? 10000, 10000))}`);
+  const limit = input.limit ?? 100000;
+  const rows = await prisma.$queryRaw<StorefrontDocumentRow[]>(Prisma.sql`${SELECT_DOCUMENT} WHERE ${Prisma.join(clauses, " AND ")} ORDER BY "priceAmount" ASC, "publicReference" ASC LIMIT ${Math.max(1, limit)}`);
   return rows.map(storefrontRowToDocument);
 }

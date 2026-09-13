@@ -92,12 +92,14 @@ export const DriverOnboardingSchema = z.object({
   displayName: z.string().max(100).trim().optional(),
   phone: z.string().min(8, "Phone number is required").max(30).trim(),
   idNumber: z.string().min(5, "ID or passport number is required").max(30).trim(),
+  idType: z.string().max(30).trim().optional(),
   dateOfBirth: z.coerce.date(),
   residentialAddress: z.string().min(5, "Residential address is required").max(300).trim(),
   licenseNumber: z.string().min(5, "Driver licence number is required").max(50).trim(),
   licenseExpiryDate: z.coerce.date(),
   emergencyContactName: z.string().min(2, "Emergency contact name is required").max(100).trim(),
   emergencyContactPhone: z.string().min(8, "Emergency contact phone is required").max(30).trim(),
+  profilePhotoMediaReference: z.string().regex(/^PMO-[a-f0-9-]{36}$/).optional(),
 });
 
 export type DriverOnboardingInput = z.infer<typeof DriverOnboardingSchema>;

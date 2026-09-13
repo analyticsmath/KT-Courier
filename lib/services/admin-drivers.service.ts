@@ -144,6 +144,7 @@ export async function getDriverDetail(id: string): Promise<DriverDetailDto | nul
       colour: v.colour,
       registrationNumber: v.registrationNumber,
       vehicleType: v.vehicleType,
+      capacityKg: v.capacityKg ? Number(v.capacityKg) : null,
       status: v.status,
       documents: v.documents.map((d) => ({
         id: d.id,

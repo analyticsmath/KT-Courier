@@ -29,8 +29,10 @@ interface VehicleRow {
   colour: string | null;
   registrationNumber: string;
   vehicleType: string;
+  capacityKg?: string | number | null;
   status: string;
   documents: Array<{ documentType: string; status: string; expiresAt: string | null }>;
+  media?: Array<{ id: string; purpose: string; publicReference: string }>;
 }
 
 export function DriverOnboardingExperience({
@@ -49,15 +51,25 @@ export function DriverOnboardingExperience({
   // Identity form state
   const [displayName, setDisplayName] = useState(driver.displayName ?? "");
   const [phone, setPhone] = useState(driver.phone ?? "");
-  const [idNumber, setIdNumber] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [residentialAddress, setResidentialAddress] = useState("");
+  const [idNumber, setIdNumber] = useState(driver.idNumber ?? "");
+  const [idType, setIdType] = useState(driver.idType ?? "RSA_ID");
+  const [dateOfBirth, setDateOfBirth] = useState(
+    driver.dateOfBirth ? new Date(driver.dateOfBirth).toISOString().split("T")[0] : ""
+  );
+  const [residentialAddress, setResidentialAddress] = useState(driver.residentialAddress ?? "");
   const [licenseNumber, setLicenseNumber] = useState(driver.licenseNumber ?? "");
   const [licenseExpiryDate, setLicenseExpiryDate] = useState(
     driver.licenseExpiryDate ? new Date(driver.licenseExpiryDate).toISOString().split("T")[0] : ""
   );
   const [emergencyContactName, setEmergencyContactName] = useState(driver.emergencyContactName ?? "");
   const [emergencyContactPhone, setEmergencyContactPhone] = useState(driver.emergencyContactPhone ?? "");
+
+  // Profile photo state
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
+  const [uploadingProfilePhoto, setUploadingProfilePhoto] = useState(false);
+  const [profilePhotoRef, setProfilePhotoRef] = useState<string | null>(
+    driver.profilePhotoMediaId ? `PMO-${driver.profilePhotoMediaId}` : null
+  );
 
   // Vehicle form state
   const [vMake, setVMake] = useState("");
@@ -66,6 +78,7 @@ export function DriverOnboardingExperience({
   const [vColour, setVColour] = useState("");
   const [vReg, setVReg] = useState("");
   const [vType, setVType] = useState("MOTORBIKE");
+  const [vCapacityKg, setVCapacityKg] = useState("");
 
   // Status feedback
   const [loading, setLoading] = useState(false);
@@ -85,6 +98,12 @@ export function DriverOnboardingExperience({
   const [vehDocFile, setVehDocFile] = useState<File | null>(null);
   const [vehDocExpiresAt, setVehDocExpiresAt] = useState("");
   const [uploadingVehDoc, setUploadingVehDoc] = useState(false);
+
+  // Vehicle media photo upload state
+  const [selectedVehicleMediaId, setSelectedVehicleMediaId] = useState("");
+  const [vehMediaPurpose, setVehMediaPurpose] = useState<"FRONT" | "SIDE">("FRONT");
+  const [vehMediaFile, setVehMediaFile] = useState<File | null>(null);
+  const [uploadingVehMedia, setUploadingVehMedia] = useState(false);
 
   // Refresh documents
   async function refreshDocuments() {
@@ -127,12 +146,14 @@ export function DriverOnboardingExperience({
           displayName: displayName.trim() || undefined,
           phone: phone.trim(),
           idNumber: idNumber.trim(),
+          idType: idType.trim() || undefined,
           dateOfBirth,
           residentialAddress: residentialAddress.trim(),
           licenseNumber: licenseNumber.trim(),
           licenseExpiryDate,
           emergencyContactName: emergencyContactName.trim(),
           emergencyContactPhone: emergencyContactPhone.trim(),
+          profilePhotoMediaReference: profilePhotoRef || undefined,
         }),
       });
 
@@ -149,6 +170,147 @@ export function DriverOnboardingExperience({
       setError("Network failure while submitting identity profile.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Upload driver profile photo
+  async function handleProfilePhotoUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!profilePhotoFile) {
+      setError("Please select a profile photo image.");
+      return;
+    }
+    setUploadingProfilePhoto(true);
+    setMessage("");
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", profilePhotoFile);
+      formData.append("purpose", "DRIVER_PROFILE_PHOTO");
+
+      const mediaRes = await fetch("/api/driver/private-media", {
+        method: "POST",
+        body: formData,
+      });
+      const mediaData = await mediaRes.json();
+      if (!mediaRes.ok) {
+        setError(mediaData.error || "Profile photo upload failed.");
+        return;
+      }
+
+      const attachRes = await fetch("/api/driver/profile-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ privateMediaReference: mediaData.publicReference }),
+      });
+      const attachData = await attachRes.json();
+      if (!attachRes.ok) {
+        setError(attachData.error || "Failed to link profile photo.");
+        return;
+      }
+
+      setDriver(attachData);
+      setProfilePhotoRef(mediaData.publicReference);
+      setProfilePhotoFile(null);
+      setMessage("Driver profile photo uploaded and linked successfully.");
+    } catch {
+      setError("Network error while uploading profile photo.");
+    } finally {
+      setUploadingProfilePhoto(false);
+    }
+  }
+
+  // Handle vehicle registration
+  async function handleVehicleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const res = await fetch("/api/driver/vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          make: vMake.trim(),
+          model: vModel.trim(),
+          year: vYear ? parseInt(vYear, 10) : null,
+          colour: vColour.trim() || null,
+          registrationNumber: vReg.trim(),
+          vehicleType: vType,
+          capacityKg: vCapacityKg.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to register vehicle.");
+        return;
+      }
+
+      setMessage("Vehicle successfully registered in compliance roster.");
+      setVMake("");
+      setVModel("");
+      setVYear("");
+      setVColour("");
+      setVReg("");
+      setVCapacityKg("");
+      await refreshVehicles();
+    } catch {
+      setError("Network error registering vehicle.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Handle vehicle photo media upload (Front, Side)
+  async function handleVehicleMediaUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedVehicleMediaId || !vehMediaFile) {
+      setError("Please select a vehicle and photo file.");
+      return;
+    }
+
+    setUploadingVehMedia(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", vehMediaFile);
+      formData.append("purpose", "VEHICLE_COMPLIANCE_IMAGE");
+      formData.append("vehicleId", selectedVehicleMediaId);
+
+      const mediaRes = await fetch("/api/driver/private-media", {
+        method: "POST",
+        body: formData,
+      });
+      const mediaData = await mediaRes.json();
+      if (!mediaRes.ok) {
+        setError(mediaData.error || "Vehicle photo upload failed.");
+        return;
+      }
+
+      const attachRes = await fetch(`/api/driver/vehicles/${selectedVehicleMediaId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          purpose: vehMediaPurpose,
+          privateMediaReference: mediaData.publicReference,
+        }),
+      });
+      const attachData = await attachRes.json();
+      if (!attachRes.ok) {
+        setError(attachData.error || "Vehicle photo attachment failed.");
+        return;
+      }
+
+      setMessage(`Vehicle ${vehMediaPurpose.toLowerCase()} photo attached successfully.`);
+      setVehMediaFile(null);
+      await refreshVehicles();
+    } catch {
+      setError("Failed to upload vehicle photo.");
+    } finally {
+      setUploadingVehMedia(false);
     }
   }
 
@@ -206,45 +368,6 @@ export function DriverOnboardingExperience({
     }
   }
 
-  // Handle vehicle registration
-  async function handleVehicleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
-    setError("");
-
-    try {
-      const res = await fetch("/api/driver/vehicles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          make: vMake.trim(),
-          model: vModel.trim(),
-          year: vYear ? parseInt(vYear, 10) : null,
-          colour: vColour.trim() || null,
-          registrationNumber: vReg.trim(),
-          vehicleType: vType,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Failed to register vehicle.");
-        return;
-      }
-
-      setMessage("Vehicle successfully registered in compliance roster.");
-      setVMake("");
-      setVModel("");
-      setVYear("");
-      setVColour("");
-      setVReg("");
-      await refreshVehicles();
-    } catch {
-      setError("Network error registering vehicle.");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   // Handle vehicle document upload
   async function handleVehicleDocUpload(e: React.FormEvent) {
@@ -307,7 +430,13 @@ export function DriverOnboardingExperience({
     }
   }
 
-  const statusTone =
+  const isProfileApproved = driver.onboardingStatus === "APPROVED";
+  const approvedVehicles = vehicles.filter((v) => v.status === "APPROVED");
+  const hasApprovedVehicle = approvedVehicles.length > 0;
+  const hasPendingVehicle = vehicles.some((v) => v.status === "PENDING_REVIEW");
+  const isDispatchEligible = isProfileApproved && hasApprovedVehicle;
+
+  const profileStatusTone =
     driver.onboardingStatus === "APPROVED"
       ? "success"
       : driver.onboardingStatus === "PENDING_REVIEW"
@@ -316,25 +445,64 @@ export function DriverOnboardingExperience({
       ? "danger"
       : "neutral";
 
+  const vehicleStatusTone = hasApprovedVehicle
+    ? "success"
+    : hasPendingVehicle
+    ? "warning"
+    : vehicles.length > 0
+    ? "danger"
+    : "neutral";
+
+  const dispatchStatusTone = isDispatchEligible ? "success" : "neutral";
+
   return (
     <div className={styles.scope}>
       <div className="space-y-6">
         {/* Status banner */}
         <OperationalPanel title="Compliance and Onboarding Status">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
+            <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold text-[var(--kt-ink-navy)]">
                   {driver.displayName || "Courier Driver"} ({driver.driverCode})
                 </span>
-                <ProtectedStatus
-                  label={driver.onboardingStatus.replace(/_/g, " ")}
-                  tone={statusTone}
-                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-[var(--kt-text-muted)]">Profile:</span>
+                  <ProtectedStatus
+                    label={driver.onboardingStatus.replace(/_/g, " ")}
+                    tone={profileStatusTone}
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-[var(--kt-text-muted)]">Vehicle:</span>
+                  <ProtectedStatus
+                    label={
+                      hasApprovedVehicle
+                        ? "APPROVED"
+                        : hasPendingVehicle
+                        ? "PENDING REVIEW"
+                        : vehicles.length > 0
+                        ? "ACTION REQUIRED"
+                        : "NO VEHICLE"
+                    }
+                    tone={vehicleStatusTone}
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-[var(--kt-text-muted)]">Dispatch:</span>
+                  <ProtectedStatus
+                    label={isDispatchEligible ? "ELIGIBLE" : "NOT ELIGIBLE"}
+                    tone={dispatchStatusTone}
+                  />
+                </div>
               </div>
               <p className="text-xs text-[var(--kt-text-muted)] mt-1">
-                {driver.onboardingStatus === "APPROVED"
-                  ? "Your driver profile and credentials have been verified by fleet compliance. You are eligible for dispatch."
+                {isDispatchEligible
+                  ? "Your driver profile and vehicle compliance have both been verified and approved. You are eligible for dispatch assignments."
+                  : isProfileApproved && !hasApprovedVehicle
+                  ? "Your personal profile and identity credentials are approved. However, you do not have an approved, compliant vehicle. Vehicle registration and document approval (registration, licence disc, insurance) are mandatory before dispatch activation."
                   : driver.onboardingStatus === "PENDING_REVIEW"
                   ? "Your profile and documents have been submitted. An administrator will verify your credentials shortly."
                   : driver.onboardingStatus === "REJECTED"
@@ -342,7 +510,7 @@ export function DriverOnboardingExperience({
                   : "Complete all required steps to activate your courier delivery profile."}
               </p>
             </div>
-            {driver.onboardingStatus === "APPROVED" && (
+            {isDispatchEligible && (
               <Link className="eo-driver-button eo-driver-button--primary" href="/driver">
                 Go to Driver Dashboard →
               </Link>
@@ -436,7 +604,22 @@ export function DriverOnboardingExperience({
 
                 <div>
                   <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
-                    SA National ID or Passport Number *
+                    Identity Document Type *
+                  </label>
+                  <select
+                    value={idType}
+                    onChange={(e) => setIdType(e.target.value)}
+                    className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
+                  >
+                    <option value="RSA_ID">South African National ID</option>
+                    <option value="PASSPORT">Passport</option>
+                    <option value="FOREIGN_ID">Foreign ID / Asylum Permit</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    ID or Passport Number *
                   </label>
                   <input
                     type="text"
@@ -528,6 +711,36 @@ export function DriverOnboardingExperience({
                     className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
                     placeholder="Contact phone"
                   />
+                </div>
+
+                <div className="md:col-span-2 pt-3 border-t border-[var(--kt-soft-border)]">
+                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    Driver Profile Photo (Headshot for Customer & Fleet Verification)
+                  </label>
+                  <p className="text-[11px] text-[var(--kt-text-muted)] mb-2">
+                    Clear portrait photo of your face, matching your official identity document.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => setProfilePhotoFile(e.target.files?.[0] ?? null)}
+                      className="text-xs rounded-xl border border-[var(--kt-soft-border)] px-3 py-1.5 bg-white text-[var(--kt-text)]"
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingProfilePhoto || !profilePhotoFile}
+                      onClick={handleProfilePhotoUpload}
+                      className="eo-driver-button eo-driver-button--secondary text-xs"
+                    >
+                      {uploadingProfilePhoto ? "Uploading photo..." : profilePhotoRef ? "✓ Photo Attached (Update)" : "Upload Photo"}
+                    </button>
+                    {profilePhotoRef && (
+                      <span className="text-xs text-emerald-600 font-bold">
+                        ✓ Profile photo attached
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -765,6 +978,21 @@ export function DriverOnboardingExperience({
                       placeholder="e.g. CA 123-456"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      Cargo Capacity (kg)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={vCapacityKg}
+                      onChange={(e) => setVCapacityKg(e.target.value)}
+                      className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
+                      placeholder="e.g. 30.0 for bike, 800.0 for bakkie"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex justify-end">
@@ -780,7 +1008,8 @@ export function DriverOnboardingExperience({
             </OperationalPanel>
 
             {vehicles.length > 0 && (
-              <OperationalPanel
+              <>
+                <OperationalPanel
                 title="Upload Vehicle Compliance Documents"
                 description="Upload registration, licence disc, and insurance certificates for your registered vehicles."
               >
@@ -857,6 +1086,71 @@ export function DriverOnboardingExperience({
                   </div>
                 </form>
               </OperationalPanel>
+              <OperationalPanel
+                title="Upload Vehicle Photos (Front & Side Views)"
+                description="Upload clear photographs showing the front (including number plate) and side of your vehicle."
+              >
+                <form onSubmit={handleVehicleMediaUpload} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                        Select Vehicle *
+                      </label>
+                      <select
+                        required
+                        value={selectedVehicleMediaId}
+                        onChange={(e) => setSelectedVehicleMediaId(e.target.value)}
+                        className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
+                      >
+                        <option value="">-- Choose Vehicle --</option>
+                        {vehicles.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.make} {v.model} ({v.registrationNumber})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                        Photo Angle *
+                      </label>
+                      <select
+                        value={vehMediaPurpose}
+                        onChange={(e) => setVehMediaPurpose(e.target.value as "FRONT" | "SIDE")}
+                        className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
+                      >
+                        <option value="FRONT">Front View (With Number Plate)</option>
+                        <option value="SIDE">Side View</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                        Photo File (JPEG, PNG, WEBP) *
+                      </label>
+                      <input
+                        type="file"
+                        required
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(e) => setVehMediaFile(e.target.files?.[0] ?? null)}
+                        className="w-full text-xs rounded-xl border border-[var(--kt-soft-border)] px-2 py-1.5 bg-white text-[var(--kt-text)]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={uploadingVehMedia || !vehMediaFile || !selectedVehicleMediaId}
+                      className="eo-driver-button eo-driver-button--primary"
+                    >
+                      {uploadingVehMedia ? "Uploading photo..." : "Upload Vehicle Photo"}
+                    </button>
+                  </div>
+                </form>
+              </OperationalPanel>
+              </>
             )}
 
             <OperationalPanel title="Registered Fleet Vehicles">
@@ -877,7 +1171,7 @@ export function DriverOnboardingExperience({
                             {v.make} {v.model} ({v.registrationNumber})
                           </span>
                           <span className="text-[11px] text-[var(--kt-text-muted)] block">
-                            Type: {v.vehicleType} · {v.colour || "Color unspecified"} · Year: {v.year || "N/A"}
+                            Type: {v.vehicleType} · {v.colour || "Color unspecified"} · Year: {v.year || "N/A"} · Capacity: {v.capacityKg ? `${v.capacityKg} kg` : "Not specified"}
                           </span>
                         </div>
                         <ProtectedStatus
@@ -894,7 +1188,7 @@ export function DriverOnboardingExperience({
 
                       <div className="pt-2 border-t border-[var(--kt-soft-border)]">
                         <span className="text-[10px] font-bold text-[var(--kt-text-muted)] uppercase tracking-wider block mb-1">
-                          Vehicle Documents:
+                          Vehicle Documents & Compliance Media:
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {["REGISTRATION", "LICENCE_DISC", "INSURANCE"].map((type) => {
@@ -919,6 +1213,26 @@ export function DriverOnboardingExperience({
                                   }`}
                                 >
                                   {d ? d.status : "MISSING"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {["FRONT", "SIDE"].map((purpose) => {
+                            const m = v.media?.find((med) => med.purpose === purpose);
+                            return (
+                              <div
+                                key={purpose}
+                                className="px-2 py-1 rounded bg-[var(--kt-cool-gray)] text-[10px] flex items-center gap-1.5"
+                              >
+                                <span className="font-medium text-[var(--kt-ink-navy)]">
+                                  Photo {purpose.toLowerCase()}:
+                                </span>
+                                <span
+                                  className={`font-bold ${
+                                    m ? "text-emerald-600" : "text-gray-400"
+                                  }`}
+                                >
+                                  {m ? "ATTACHED" : "MISSING"}
                                 </span>
                               </div>
                             );

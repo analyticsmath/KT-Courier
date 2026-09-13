@@ -394,6 +394,12 @@ model DriverProfile {
   driverCode                  String                      @unique
   emergencyContactName        String?
   emergencyContactPhone       String?
+  idNumber                    String?
+  idType                      String?
+  dateOfBirth                 DateTime?
+  residentialAddress          String?
+  profilePhotoMediaId         String?                     @unique
+  profilePhoto                PrivateMediaObject?         @relation("DriverProfilePhotoPrivateMedia", fields: [profilePhotoMediaId], references: [id], onDelete: SetNull)
   internalNotes               String?
   licenseExpiryDate           DateTime?
   licenseNumber               String?
@@ -1268,6 +1274,7 @@ model PrivateMediaObject {
   driverDocument                   DriverDocument?                   @relation("DriverDocumentPrivateMedia")
   vehicleDocument                  VehicleDocument?                  @relation("VehicleDocumentPrivateMedia")
   vehicleMedia                     VehicleMedia?                     @relation("VehicleMediaPrivateMedia")
+  driverProfilePhoto               DriverProfile?                    @relation("DriverProfilePhotoPrivateMedia")
   claimEvidence                    ClaimEvidence[]
   managedMarketingRequestCreatives ManagedMarketingRequestCreative[]
   accessLogs                       PrivateMediaAccessLog[]

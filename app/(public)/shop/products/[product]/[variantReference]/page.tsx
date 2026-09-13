@@ -90,6 +90,7 @@ export default async function VariantPage({
         type="application/ld+json"
       />
       <ProductDetailExperience
+        modifierGroupsByOffer={productData.modifierGroupsByOffer}
         offers={offers}
         product={variantAsProduct}
         relatedProducts={relatedProducts}

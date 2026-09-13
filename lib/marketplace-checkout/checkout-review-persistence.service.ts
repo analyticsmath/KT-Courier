@@ -124,14 +124,14 @@ export async function acknowledgeMarketplaceCheckoutReviewPersisted(
     privacyVersion: string;
     refundPolicyReferences: readonly string[];
   }>,
-): Promise<{ acknowledged: true; reviewVersion: number }> {
+): Promise<{ acknowledged: true; reviewVersion: number; checkoutVersion: number }> {
   return repository.transaction(async () => {
     const checkout = await repository.lockCheckout(input.reference, input.owner);
     if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
     const replay = await repository.findOperation(checkout.id, input.operationId);
     if (replay) {
       if (replay.requestHash !== input.requestHash) throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "The operation ID was reused with different acknowledgement evidence.");
-      return replay.response;
+      return { ...replay.response, checkoutVersion: (replay.response as { checkoutVersion?: number }).checkoutVersion ?? (checkout.version + 1) };
     }
     if (checkout.version !== input.expectedVersion || checkout.status !== "READY_FOR_REVIEW" || checkout.acceptedFingerprint) {
       throw new MarketplaceCheckoutError("CHECKOUT_CHANGES_UNACKNOWLEDGED", "Checkout review is stale or no longer acknowledgement-eligible.");
@@ -161,6 +161,6 @@ export async function acknowledgeMarketplaceCheckoutReviewPersisted(
       operationId: input.operationId,
       requestHash: input.requestHash,
     });
-    return Object.freeze({ acknowledged: true as const, reviewVersion: input.reviewVersion });
+    return Object.freeze({ acknowledged: true as const, reviewVersion: input.reviewVersion, checkoutVersion: checkout.version + 1 });
   });
 }
