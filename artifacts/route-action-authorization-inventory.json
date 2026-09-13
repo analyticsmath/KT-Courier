@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 702,
+    "totalRoutes": 711,
     "totalServerActions": 0,
     "publicRoutes": 114,
-    "authenticatedRoutes": 585,
-    "permissionGatedRoutes": 416,
+    "authenticatedRoutes": 594,
+    "permissionGatedRoutes": 422,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 169,
-    "generatedAt": "2026-09-09T22:48:59.828Z"
+    "generatedAt": "2026-09-13T13:13:45.037Z"
   },
   "serverActions": [],
   "routes": [
@@ -1266,6 +1266,38 @@
     },
     {
       "routePath": "app/api/admin/drivers/[id]/availability/route.ts",
+      "httpMethods": [
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/admin/drivers/[id]/documents/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/admin/drivers/[id]/documents/[docId]/route.ts",
       "httpMethods": [
         "PATCH"
       ],
@@ -6566,6 +6598,70 @@
       "remediationStatus": "COMPLIANT"
     },
     {
+      "routePath": "app/api/admin/vehicles/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/admin/vehicles/[id]/documents/[docId]/route.ts",
+      "httpMethods": [
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/admin/vehicles/[id]/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/admin/vehicles/[id]/status/route.ts",
+      "httpMethods": [
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
       "routePath": "app/api/admin/withdrawal-reconciliation/route.ts",
       "httpMethods": [
         "GET"
@@ -7206,7 +7302,8 @@
     {
       "routePath": "app/api/cart/lines/[lineReference]/route.ts",
       "httpMethods": [
-        "PATCH"
+        "PATCH",
+        "DELETE"
       ],
       "authorizationMechanism": "PUBLIC_BY_DESIGN",
       "requiredRoles": [],
@@ -7252,7 +7349,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": true,
+      "bolaOwnershipValidated": false,
       "remediationStatus": "COMPLIANT"
     },
     {
@@ -7434,7 +7531,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": true,
+      "bolaOwnershipValidated": false,
       "remediationStatus": "COMPLIANT"
     },
     {
@@ -7913,6 +8010,22 @@
       "remediationStatus": "COMPLIANT"
     },
     {
+      "routePath": "app/api/driver/documents/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "DRIVER_SESSION",
+      "requiredRoles": [
+        "DRIVER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
       "routePath": "app/api/driver/earnings/route.ts",
       "httpMethods": [
         "GET"
@@ -7946,6 +8059,21 @@
       "routePath": "app/api/driver/earnings/[publicReference]/route.ts",
       "httpMethods": [
         "GET"
+      ],
+      "authorizationMechanism": "DRIVER_SESSION",
+      "requiredRoles": [
+        "DRIVER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/driver/onboarding/route.ts",
+      "httpMethods": [
+        "POST"
       ],
       "authorizationMechanism": "DRIVER_SESSION",
       "requiredRoles": [
@@ -8007,6 +8135,21 @@
       "httpMethods": [
         "GET",
         "PATCH"
+      ],
+      "authorizationMechanism": "DRIVER_SESSION",
+      "requiredRoles": [
+        "DRIVER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT"
+    },
+    {
+      "routePath": "app/api/driver/profile-photo/route.ts",
+      "httpMethods": [
+        "POST"
       ],
       "authorizationMechanism": "DRIVER_SESSION",
       "requiredRoles": [

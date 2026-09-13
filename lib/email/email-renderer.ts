@@ -2,17 +2,51 @@
 // All transactional emails share this layout. Clean, white, mobile-readable.
 // No external images. No dark/neon style. No unverifiable guarantees.
 
-interface LayoutOptions {
+export interface CompanyBrandSnapshot {
+  legalName?: string | null;
+  tradingName?: string | null;
+  registrationNumber?: string | null;
+  vatNumber?: string | null;
+  physicalAddress?: {
+    line1?: string;
+    line2?: string | null;
+    city?: string;
+    province?: string;
+    postalCode?: string;
+    country?: string;
+  } | null;
+  supportEmail?: string | null;
+  telephoneNumbers?: readonly string[] | null;
+  website?: string | null;
+}
+
+export interface LayoutOptions {
   title: string;
   body: string;       // pre-rendered inner HTML
   actionUrl?: string;
   actionLabel?: string;
+  brand?: CompanyBrandSnapshot | null;
 }
 
 const BRAND_NAVY = "#0F2B52";
 const BRAND_BLUE = "#1D6ADB";
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function renderEmailHtml(opts: LayoutOptions): string {
+  const brand = opts.brand;
+  const brandName = brand?.tradingName || brand?.legalName || "KT Couriers";
+  const locationText = brand?.physicalAddress?.city
+    ? `${brand.physicalAddress.city}, ${brand.physicalAddress.country || "South Africa"}`
+    : "South Africa";
+
   const actionBlock = opts.actionUrl
     ? `
     <div style="text-align:center;margin:32px 0;">
@@ -30,7 +64,7 @@ export function renderEmailHtml(opts: LayoutOptions): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>${opts.title}</title>
+  <title>${escapeHtml(opts.title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f9;font-family:sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 0;">
@@ -44,7 +78,7 @@ export function renderEmailHtml(opts: LayoutOptions): string {
           <tr>
             <td style="background:${BRAND_NAVY};padding:24px 32px;">
               <span style="font-size:20px;font-weight:700;color:#ffffff;
-                           letter-spacing:-0.3px;">KT Couriers</span>
+                           letter-spacing:-0.3px;">${escapeHtml(brandName)}</span>
             </td>
           </tr>
 
@@ -52,7 +86,7 @@ export function renderEmailHtml(opts: LayoutOptions): string {
           <tr>
             <td style="padding:32px 32px 8px;">
               <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;
-                         color:#0a1628;line-height:1.3;">${opts.title}</h1>
+                         color:#0a1628;line-height:1.3;">${escapeHtml(opts.title)}</h1>
               <div style="font-size:15px;color:#374151;line-height:1.7;">
                 ${opts.body}
               </div>
@@ -64,11 +98,14 @@ export function renderEmailHtml(opts: LayoutOptions): string {
           <tr>
             <td style="padding:24px 32px 32px;border-top:1px solid #e5e7eb;margin-top:24px;">
               <p style="margin:0 0 6px;font-size:12px;color:#9ca3af;line-height:1.6;">
-                You received this email because of activity on your KT Couriers account
+                You received this email because of activity on your ${escapeHtml(brandName)} account
                 or delivery request.
               </p>
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                &copy; KT Couriers &middot; Cape Town, South Africa
+                &copy; ${escapeHtml(brandName)} &middot; ${escapeHtml(locationText)}
+                ${brand?.registrationNumber ? `<br />Reg: ${escapeHtml(brand.registrationNumber)}` : ""}
+                ${brand?.vatNumber ? ` &middot; VAT: ${escapeHtml(brand.vatNumber)}` : ""}
+                ${brand?.supportEmail ? `<br />Support: <a href="mailto:${escapeHtml(brand.supportEmail)}" style="color:#9ca3af;text-decoration:underline;">${escapeHtml(brand.supportEmail)}</a>` : ""}
               </p>
             </td>
           </tr>
@@ -81,9 +118,14 @@ export function renderEmailHtml(opts: LayoutOptions): string {
 </html>`;
 }
 
-export function renderEmailText(title: string, body: string, actionUrl?: string): string {
+export function renderEmailText(title: string, body: string, actionUrl?: string, brand?: CompanyBrandSnapshot | null): string {
+  const brandName = brand?.tradingName || brand?.legalName || "KT Couriers";
+  const locationText = brand?.physicalAddress?.city
+    ? `${brand.physicalAddress.city}, ${brand.physicalAddress.country || "South Africa"}`
+    : "South Africa";
+
   const lines = [
-    "KT Couriers",
+    brandName,
     "====================",
     "",
     title,
@@ -102,9 +144,16 @@ export function renderEmailText(title: string, body: string, actionUrl?: string)
 
   lines.push(
     "--------------------",
-    "You received this email because of activity on your KT Couriers account or delivery request.",
-    "© KT Couriers · Cape Town, South Africa"
+    `You received this email because of activity on your ${brandName} account or delivery request.`,
+    `© ${brandName} · ${locationText}`
   );
+
+  if (brand?.registrationNumber) {
+    lines.push(`Reg: ${brand.registrationNumber}`);
+  }
+  if (brand?.supportEmail) {
+    lines.push(`Support: ${brand.supportEmail}`);
+  }
 
   return lines.join("\n");
 }

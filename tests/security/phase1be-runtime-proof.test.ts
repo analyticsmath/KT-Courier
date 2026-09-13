@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { UserRole, UserStatus } from "@prisma/client";
-import { checkAuthRateLimit, checkIpRateLimit, RATE_LIMITS } from "../../lib/security/rate-limit";
+import { checkAuthRateLimit, checkIpRateLimit, clearRateLimitStoreForTesting, RATE_LIMITS } from "../../lib/security/rate-limit";
 import { calculateRoute } from "../../lib/maps/routes.service";
 import { getStoreForUser, resolveStoreContext } from "../../lib/auth/store-context";
 import { isUserStatusAllowedForSession } from "../../lib/auth/session";
@@ -91,9 +91,13 @@ describe("Phase 1B-E — Runtime Wiring & Behavioural Proof", () => {
 
   describe("Workstream 6 — Registration Privilege Coercion", () => {
     it("should reject invalid account types during signup validation", async () => {
+      clearRateLimitStoreForTesting();
       const req = new NextRequest("http://localhost:3000/api/auth/signup", {
         method: "POST",
-        headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
         body: JSON.stringify({
           accountType: "SUPER_ADMIN",
           email: "admin@example.com",
@@ -105,7 +109,32 @@ describe("Phase 1B-E — Runtime Wiring & Behavioural Proof", () => {
       expect(res.status).toBe(400);
 
       const json = await res.json();
-      expect(json.error).toBe("Account type must be CUSTOMER or STORE.");
+      expect(json.error).toBe("Account type must be CUSTOMER, STORE, or DRIVER.");
+    });
+
+    it("should reject privileged ADMIN and arbitrary internal roles to enforce public signup isolation", async () => {
+      const forbiddenRoles = ["ADMIN", "INTERNAL_OPERATOR", "SUPPORT", "SYSTEM", "HACKER"];
+      for (const accountType of forbiddenRoles) {
+        clearRateLimitStoreForTesting();
+        const req = new NextRequest("http://localhost:3000/api/auth/signup", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "sec-fetch-site": "same-origin",
+          },
+          body: JSON.stringify({
+            accountType,
+            email: `escalation-${accountType.toLowerCase()}@example.com`,
+            password: "Password123!",
+          }),
+        });
+
+        const res = await signupHandler(req);
+        expect(res.status).toBe(400);
+
+        const json = await res.json();
+        expect(json.error).toBe("Account type must be CUSTOMER, STORE, or DRIVER.");
+      }
     });
   });
 
