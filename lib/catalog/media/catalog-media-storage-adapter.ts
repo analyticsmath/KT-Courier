@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CatalogPolicyError } from "@/lib/catalog/errors";
+import { isDemoMediaDeliveryAllowed } from "@/lib/runtime/deployment-classification";
 
 export type CatalogMediaUploadTarget = Readonly<{
   mode: "APPLICATION";
@@ -170,20 +171,12 @@ export class LocalCatalogMediaStorageAdapter implements CatalogMediaStorageAdapt
   }
 }
 
-export function isLocalCatalogMediaStorageEnabled(): boolean {
-  const env = process["env"];
-  if (env.CATALOG_MEDIA_STORAGE === "filesystem") return true;
-  if (env.KT_STAGING_DEMO_ENABLED === "true") return true;
-  if (env.KT_DEMO_DATA_ENABLED === "true") return true;
-  return false;
+export function isLocalCatalogMediaStorageEnabled(env: Record<string, string | undefined> = process["env"]): boolean {
+  return isDemoMediaDeliveryAllowed(env);
 }
 
-export function createProductionCatalogMediaStorageAdapter(): CatalogMediaStorageAdapter {
-  const env = process["env"];
-  if (env.NODE_ENV === "production" && env.KT_STAGING_DEMO_ENABLED !== "true" && env.NEXT_PUBLIC_E2E !== "true") {
-    return new LockedCatalogMediaStorageAdapter();
-  }
-  if (isLocalCatalogMediaStorageEnabled()) {
+export function createProductionCatalogMediaStorageAdapter(env: Record<string, string | undefined> = process["env"]): CatalogMediaStorageAdapter {
+  if (isLocalCatalogMediaStorageEnabled(env)) {
     return new LocalCatalogMediaStorageAdapter();
   }
   return new LockedCatalogMediaStorageAdapter();

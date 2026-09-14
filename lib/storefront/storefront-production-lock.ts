@@ -1,4 +1,5 @@
 import { isLocalStorefrontValidationAllowed } from "@/lib/testing/safe-postgres-validator";
+import { isStorefrontExposureAllowed } from "@/lib/runtime/deployment-classification";
 
 export const STOREFRONT_PRODUCTION_VALIDATION_APPROVED = false as const;
 export const STOREFRONT_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
@@ -17,6 +18,7 @@ export function assertStorefrontPublicExposureAllowed(): void {
   if (!storefrontPublicExposureAllowed()) throw new StorefrontProductionLockedError();
 }
 
-export function storefrontPublicExposureAllowed(): boolean {
-  return STOREFRONT_PRODUCTION_VALIDATION_APPROVED || isLocalStorefrontValidationAllowed();
+export function storefrontPublicExposureAllowed(env: Record<string, string | undefined> = process["env"]): boolean {
+  if (STOREFRONT_PRODUCTION_VALIDATION_APPROVED) return true;
+  return isStorefrontExposureAllowed(env, STOREFRONT_PRODUCTION_VALIDATION_APPROVED) || isLocalStorefrontValidationAllowed(env as NodeJS.ProcessEnv);
 }

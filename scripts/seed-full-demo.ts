@@ -37,7 +37,7 @@ import {
 } from "@prisma/client";
 import { createHash } from "crypto";
 import { assertSeedExecutionAllowed } from "../lib/security/seed-safety";
-import { seedFoundationBootstrap, DEFAULT_PASSWORD_HASH } from "./demo/fixtures/bootstrap";
+import { seedFoundationBootstrap, getDefaultPasswordHash } from "./demo/fixtures/bootstrap";
 import { DEMO_CATEGORIES } from "./demo/fixtures/categories";
 import { DEMO_STORES, type StoreDefinition } from "./demo/fixtures/stores";
 import { DEMO_PRODUCT_TEMPLATES, type ProductTemplate } from "./demo/fixtures/products";
@@ -57,13 +57,15 @@ const prisma = new PrismaClient();
 const rng = new SeededRNG(20260912);
 const projectionService = new StorefrontProjectionService();
 
-async function main() {
+export async function seedFullDemo() {
   console.log("================================================================================");
-  console.log("🚀  STARTING KT COURIERS REALISTIC DEMO OPERATING UNIVERSE SEED");
+  console.log("🌱 STARTING KT COURIERS COMPREHENSIVE PRODUCTION-GRADE DEMO SEEDER");
   console.log("================================================================================");
 
   // Safety Assertion
   assertSeedExecutionAllowed();
+
+  const passwordHash = getDefaultPasswordHash();
 
   // ── Stage 1: Foundation Authority ──────────────────────────────────────────
   console.log("\n[Stage 1/7] Initializing Canonical Foundation Bootstrap...");
@@ -336,7 +338,7 @@ async function main() {
       create: {
         email: ownerEmail,
         name: storeDef.contactName,
-        passwordHash: DEFAULT_PASSWORD_HASH,
+        passwordHash,
         role: UserRole.STORE,
         status: storeDef.status === "DISABLED" ? "SUSPENDED" : "ACTIVE",
         createdAt,
@@ -574,7 +576,7 @@ async function main() {
         email: c.email,
         name: `${c.firstName} ${c.lastName}`,
         phone: c.phone,
-        passwordHash: DEFAULT_PASSWORD_HASH,
+        passwordHash,
         role: UserRole.CUSTOMER,
         status: UserStatus.ACTIVE,
         createdAt,
@@ -614,7 +616,7 @@ async function main() {
         email: d.email,
         name: d.name,
         phone: d.phone,
-        passwordHash: DEFAULT_PASSWORD_HASH,
+        passwordHash,
         role: UserRole.DRIVER,
         status: d.status === "ACTIVE" ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION,
         createdAt,
@@ -688,7 +690,7 @@ async function main() {
         email: p.email,
         name: p.name,
         phone: p.phone,
-        passwordHash: DEFAULT_PASSWORD_HASH,
+        passwordHash,
         role: UserRole.PROMOTER,
         status: p.status === "ACTIVE" ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION,
         createdAt,
@@ -1338,11 +1340,13 @@ function pIdxFor(assortment: StoreAssortmentOffer[], target: StoreAssortmentOffe
   return idx >= 0 ? idx + 1 : 1;
 }
 
-main()
-  .catch((e) => {
-    console.error("❌ Fatal Seeder Error:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module || process.argv[1]?.endsWith("seed-full-demo.ts")) {
+  seedFullDemo()
+    .catch((e) => {
+      console.error("❌ Fatal Seeder Error:", e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

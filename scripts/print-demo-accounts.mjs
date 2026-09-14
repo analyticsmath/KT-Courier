@@ -1,6 +1,9 @@
 import process from "node:process";
 
-const password = process.env.KT_DEMO_ACCOUNT_PASSWORD || "password123";
+const hasExplicitPassword = Boolean(process.env.KT_DEMO_ACCOUNT_PASSWORD && process.env.KT_DEMO_ACCOUNT_PASSWORD.trim().length > 0);
+const passwordNotice = hasExplicitPassword
+  ? "[CONFIGURED VIA KT_DEMO_ACCOUNT_PASSWORD]"
+  : "[NOT CONFIGURED — set KT_DEMO_ACCOUNT_PASSWORD secret]";
 
 const featuredAccounts = [
   {
@@ -78,13 +81,15 @@ const featuredAccounts = [
 console.log("\n==========================================================================");
 console.log("            KT COURIERS FEATURED DEMO ACCOUNTS CATALOG                   ");
 console.log("==========================================================================");
-console.log(`Shared Local Account Password:  ${password}`);
+console.log(`Demo Account Password Authority: KT_DEMO_ACCOUNT_PASSWORD`);
+console.log(`Current Password Status:         ${passwordNotice}`);
+console.log("Note: Passwords are redacted for secret hygiene. Set KT_DEMO_ACCOUNT_PASSWORD.");
 console.log("--------------------------------------------------------------------------\n");
 
 for (const acc of featuredAccounts) {
   console.log(`👤 Role:      ${acc.role}`);
   console.log(`   Email:     ${acc.email}`);
-  console.log(`   Password:  ${password}`);
+  console.log(`   Password:  [Controlled by KT_DEMO_ACCOUNT_PASSWORD]`);
   console.log(`   Name:      ${acc.name}`);
   console.log(`   Dashboard: ${acc.dashboard}`);
   console.log(`   Scenario:  ${acc.scenario}\n`);

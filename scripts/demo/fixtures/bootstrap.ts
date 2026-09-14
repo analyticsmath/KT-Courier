@@ -8,10 +8,29 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-export const DEFAULT_PASSWORD_HASH = bcrypt.hashSync(
-  process.env.KT_DEMO_ACCOUNT_PASSWORD || "password123",
-  10
-);
+export function resolveDemoAccountPassword(env: Record<string, string | undefined> = process.env): string {
+  const isTest = env.NODE_ENV === "test" || env.KT_RUNTIME_ENV === "test" || env.KT_RUNTIME_ENV === "e2e";
+  if (isTest) {
+    return env.KT_DEMO_ACCOUNT_PASSWORD?.trim() || "TestPassword123!";
+  }
+  const password = env.KT_DEMO_ACCOUNT_PASSWORD?.trim();
+  if (!password) {
+    throw new Error(
+      "KT_DEMO_ACCOUNT_PASSWORD environment variable is required and must be supplied from deployment secret configuration. No fallback password is committed or permitted."
+    );
+  }
+  return password;
+}
+
+export function getDefaultPasswordHash(env: Record<string, string | undefined> = process.env): string {
+  return bcrypt.hashSync(resolveDemoAccountPassword(env), 10);
+}
+
+export const DEFAULT_PASSWORD_HASH = (() => {
+  const isTest = process.env.NODE_ENV === "test" || process.env.KT_RUNTIME_ENV === "test" || process.env.KT_RUNTIME_ENV === "e2e";
+  const pwd = process.env.KT_DEMO_ACCOUNT_PASSWORD?.trim() || (isTest ? "TestPassword123!" : "");
+  return pwd ? bcrypt.hashSync(pwd, 10) : "";
+})();
 
 export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   includeDevAuthAccounts?: boolean;
@@ -21,6 +40,7 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   regions: Array<{ id: string; code: string; name: string }>;
 }> {
   console.log("  [Bootstrap] Ensuring system permissions & roles...");
+  const passwordHash = getDefaultPasswordHash();
 
   // 1. Roles and standard user accounts
   const superAdmin = await prisma.user.upsert({
@@ -29,7 +49,7 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     create: {
       email: "superadmin@ktcouriers.local",
       name: "System Super Admin",
-      passwordHash: DEFAULT_PASSWORD_HASH,
+      passwordHash,
       role: "SUPER_ADMIN",
       status: "ACTIVE",
     },
@@ -41,7 +61,7 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     create: {
       email: "admin@ktcouriers.local",
       name: "Operations Admin",
-      passwordHash: DEFAULT_PASSWORD_HASH,
+      passwordHash,
       role: "ADMIN",
       status: "ACTIVE",
     },
@@ -187,25 +207,25 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     await prisma.user.upsert({
       where: { email: "customer@ktcouriers.local" },
       update: { name: "Thabo Mokoena", role: "CUSTOMER", status: "ACTIVE" },
-      create: { email: "customer@ktcouriers.local", name: "Thabo Mokoena", passwordHash: DEFAULT_PASSWORD_HASH, role: "CUSTOMER", status: "ACTIVE" },
+      create: { email: "customer@ktcouriers.local", name: "Thabo Mokoena", passwordHash, role: "CUSTOMER", status: "ACTIVE" },
     });
 
     await prisma.user.upsert({
       where: { email: "driver@ktcouriers.local" },
       update: { name: "Sipho Khumalo", role: "DRIVER", status: "ACTIVE" },
-      create: { email: "driver@ktcouriers.local", name: "Sipho Khumalo", passwordHash: DEFAULT_PASSWORD_HASH, role: "DRIVER", status: "ACTIVE" },
+      create: { email: "driver@ktcouriers.local", name: "Sipho Khumalo", passwordHash, role: "DRIVER", status: "ACTIVE" },
     });
 
     await prisma.user.upsert({
       where: { email: "store@ktcouriers.local" },
       update: { name: "Nandi Khumalo", role: "STORE", status: "ACTIVE" },
-      create: { email: "store@ktcouriers.local", name: "Nandi Khumalo", passwordHash: DEFAULT_PASSWORD_HASH, role: "STORE", status: "ACTIVE" },
+      create: { email: "store@ktcouriers.local", name: "Nandi Khumalo", passwordHash, role: "STORE", status: "ACTIVE" },
     });
 
     await prisma.user.upsert({
       where: { email: "promoter@ktcouriers.local" },
       update: { name: "Lerato Sithole", role: "PROMOTER", status: "ACTIVE" },
-      create: { email: "promoter@ktcouriers.local", name: "Lerato Sithole", passwordHash: DEFAULT_PASSWORD_HASH, role: "PROMOTER", status: "ACTIVE" },
+      create: { email: "promoter@ktcouriers.local", name: "Lerato Sithole", passwordHash, role: "PROMOTER", status: "ACTIVE" },
     });
   }
 

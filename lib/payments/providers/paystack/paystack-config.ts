@@ -1,5 +1,6 @@
 import { PaymentError } from "../../errors";
 import type { SafeProviderConfigurationState } from "../provider-config";
+import { classifyRuntimeEnvironment } from "@/lib/runtime/deployment-classification";
 
 export const PAYSTACK_PROVIDER_IDENTITY = "South African Paystack Gateway" as const;
 export const PAYSTACK_API_BASE_URL = "https://api.paystack.co" as const;
@@ -98,11 +99,27 @@ export function resolvePaystackConfiguration(
     return Object.freeze({ state: invalidState("not-configured", "CONFIGURATION_INVALID"), runtime: null });
   }
 
-  const isProduction = source.NODE_ENV === "production" && source.KT_RUNTIME_ENV !== "e2e";
+  const classification = classifyRuntimeEnvironment(source);
+  if (!classification.isValid) {
+    return Object.freeze({ state: invalidState("not-configured", "CONFIGURATION_INVALID"), runtime: null });
+  }
+
+  const isProductionRuntime = classification.runtime === "production";
+  const isStagingDemo = classification.runtime === "staging-demo";
   const environment: PaystackEnvironment = rawMode === "live" ? "production" : "sandbox";
 
-  // In production, live mode is strictly required
-  if (isProduction && rawMode !== "live") {
+  // In production, live mode is strictly required (test mode rejected)
+  if (isProductionRuntime && rawMode !== "live") {
+    return Object.freeze({ state: invalidState("production", "CONFIGURATION_INVALID"), runtime: null });
+  }
+
+  // In staging-demo, test mode is strictly required (live mode rejected to protect against live money)
+  if (isStagingDemo && rawMode !== "test") {
+    return Object.freeze({ state: invalidState("sandbox", "CONFIGURATION_INVALID"), runtime: null });
+  }
+
+  // In local-demo or test, live mode is strictly rejected
+  if ((classification.runtime === "local-demo" || classification.runtime === "test") && rawMode === "live") {
     return Object.freeze({ state: invalidState("production", "CONFIGURATION_INVALID"), runtime: null });
   }
 
@@ -111,9 +128,14 @@ export function resolvePaystackConfiguration(
     return Object.freeze({ state: invalidState(environment, "CONFIGURATION_INVALID"), runtime: null });
   }
 
-  // Live keys must begin with sk_live_ in production; test keys with sk_test_ in sandbox
-  if (isProduction && !secretKey.startsWith("sk_live_")) {
+  // Strict key prefix enforcement everywhere:
+  // rawMode === "live" => sk_live_* only
+  // rawMode === "test" => sk_test_* only
+  if (rawMode === "live" && !secretKey.startsWith("sk_live_")) {
     return Object.freeze({ state: invalidState("production", "CONFIGURATION_INVALID"), runtime: null });
+  }
+  if (rawMode === "test" && !secretKey.startsWith("sk_test_")) {
+    return Object.freeze({ state: invalidState("sandbox", "CONFIGURATION_INVALID"), runtime: null });
   }
 
   const credentialVersion = source.PAYSTACK_CREDENTIAL_VERSION?.trim() || "v1";
@@ -121,17 +143,17 @@ export function resolvePaystackConfiguration(
     return Object.freeze({ state: invalidState(environment, "CONFIGURATION_INVALID"), runtime: null });
   }
 
-  const appOrigin = resolveSafeAppOrigin(source.PAYMENT_APP_ORIGIN, isProduction);
+  const appOrigin = resolveSafeAppOrigin(source.PAYMENT_APP_ORIGIN, isProductionRuntime);
   if (!appOrigin) {
     return Object.freeze({ state: invalidState(environment, "CONFIGURATION_INVALID"), runtime: null });
   }
 
   const checkoutPublicEnabled = source.CHECKOUT_PUBLIC_ENABLED === "true";
-  const productionValidationApproved = isProduction ? checkoutPublicEnabled : true;
+  const productionValidationApproved = isProductionRuntime ? checkoutPublicEnabled : true;
   const active = rawMode === "test" || (rawMode === "live" && checkoutPublicEnabled);
 
   const blockReason = !active
-    ? (isProduction && !checkoutPublicEnabled ? "CONSOLIDATED_VALIDATION_NOT_APPROVED" : "PAYSTACK_DISABLED")
+    ? (isProductionRuntime && !checkoutPublicEnabled ? "CONSOLIDATED_VALIDATION_NOT_APPROVED" : "PAYSTACK_DISABLED")
     : null;
 
   const runtime: PaystackRuntimeConfiguration = Object.freeze({

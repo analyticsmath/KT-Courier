@@ -1,5 +1,6 @@
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 import { isLocalCheckoutValidationAllowed } from "@/lib/testing/safe-postgres-validator";
+import { isCheckoutExposureAllowed } from "@/lib/runtime/deployment-classification";
 
 export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false as const;
 export const MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON = "CHECKOUT_PUBLIC_DISABLED" as const;
@@ -21,11 +22,14 @@ export class MarketplaceCheckoutProductionLockedError extends Error {
 export function evaluateMarketplaceCheckoutPublicGate(
   source: Record<string, string | undefined> = process.env,
 ): Readonly<{ enabled: boolean; blockReason: string | null }> {
-  const isPublicEnabled = source.CHECKOUT_PUBLIC_ENABLED === "true";
-  const isLocalAllowed = isLocalCheckoutValidationAllowed(source as NodeJS.ProcessEnv);
-  if (!isPublicEnabled && !isLocalAllowed) {
-    return Object.freeze({ enabled: false, blockReason: "CHECKOUT_PUBLIC_DISABLED" });
+  const isAllowedInPrinciple =
+    isCheckoutExposureAllowed(source, MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED) ||
+    isLocalCheckoutValidationAllowed(source as NodeJS.ProcessEnv);
+
+  if (!isAllowedInPrinciple) {
+    return Object.freeze({ enabled: false, blockReason: MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON });
   }
+
   const paystack = resolvePaystackConfiguration(source);
   if (!paystack.runtime || !paystack.state.active) {
     return Object.freeze({ enabled: false, blockReason: paystack.state.blockReason ?? "PAYSTACK_DISABLED" });
