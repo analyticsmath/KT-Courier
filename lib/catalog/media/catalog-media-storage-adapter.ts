@@ -53,10 +53,10 @@ export class LocalCatalogMediaStorageAdapter implements CatalogMediaStorageAdapt
 
   constructor(rootDir?: string) {
     const env = process["env"];
-    const rawRoot = rootDir ?? env.CATALOG_MEDIA_LOCAL_DIR ?? path.join(process.cwd(), "var", "catalog-media");
-    this.rootDir = path.resolve(rawRoot);
+    const rawRoot = rootDir ?? env.CATALOG_MEDIA_LOCAL_DIR ?? path.join(/*turbopackIgnore: true*/ process.cwd(), "var", "catalog-media");
+    this.rootDir = path.resolve(/*turbopackIgnore: true*/ rawRoot);
 
-    const publicDir = path.resolve(process.cwd(), "public");
+    const publicDir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), "public");
     const relToPublic = path.relative(publicDir, this.rootDir);
     if (this.rootDir === publicDir || (!relToPublic.startsWith("..") && !path.isAbsolute(relToPublic))) {
       throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog media directory must not be located inside the public directory.", 500);

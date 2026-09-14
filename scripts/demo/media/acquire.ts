@@ -15,7 +15,24 @@ import crypto from "node:crypto";
 import https from "node:https";
 import sharp from "sharp";
 import { PrismaClient } from "@prisma/client";
-import { DEMO_MEDIA_SOURCES, type MediaSourceDefinition } from "./sources";
+export interface MediaSourceDefinition {
+  publicReference: string;
+  targetRelPath: string;
+  width: number;
+  height: number;
+  purpose: "PRODUCT_IMAGE" | "VARIANT_IMAGE" | "CATEGORY_IMAGE" | "BRAND_LOGO" | "STORE_LOGO" | "STORE_HERO" | "COMPLIANCE_DOCUMENT";
+  alt: string;
+  subject: string;
+  provider: "unsplash" | "wikimedia" | "pexels" | "openverse" | "fictional-brand";
+  pageUrl: string;
+  assetUrl: string;
+  author: string;
+  license: string;
+}
+
+const DEMO_MEDIA_SOURCES: MediaSourceDefinition[] = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "sources.json"), "utf8")
+);
 import { DEMO_STORES } from "../fixtures/stores";
 
 // Color palettes for fictional store brand logos
