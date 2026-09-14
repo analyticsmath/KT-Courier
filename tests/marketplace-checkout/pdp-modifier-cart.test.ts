@@ -16,7 +16,7 @@ const mockPrisma = vi.hoisted(() => ({
 
 vi.mock("@/lib/db/prisma", () => ({ prisma: mockPrisma }));
 
-vi.mock("@/lib/marketplace-checkout/composition-root", () => ({
+vi.mock("@/lib/storefront/storefront-production-lock", () => ({
   assertStorefrontPublicExposureAllowed: vi.fn(),
 }));
 
