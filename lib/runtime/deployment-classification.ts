@@ -297,6 +297,8 @@ export function isCheckoutExposureAllowed(
       const localOptIn =
         source.KT_LOCAL_CHECKOUT_VALIDATION === "true" ||
         source.KT_LOCAL_CHECKOUT_VALIDATION === "1" ||
+        source.KT_LOCAL_FULL_FLOW === "true" ||
+        source.KT_LOCAL_FULL_FLOW === "1" ||
         source.CHECKOUT_PUBLIC_ENABLED === "true";
       return localOptIn;
     }

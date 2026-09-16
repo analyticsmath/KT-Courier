@@ -1,5 +1,5 @@
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
-import { isLocalCheckoutValidationAllowed } from "@/lib/testing/safe-postgres-validator";
+import { isLocalCheckoutValidationAllowed, isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { isCheckoutExposureAllowed } from "@/lib/runtime/deployment-classification";
 
 export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false as const;
@@ -22,6 +22,10 @@ export class MarketplaceCheckoutProductionLockedError extends Error {
 export function evaluateMarketplaceCheckoutPublicGate(
   source: Record<string, string | undefined> = process.env,
 ): Readonly<{ enabled: boolean; blockReason: string | null }> {
+  if (isLocalFullFlowAllowed(source as NodeJS.ProcessEnv)) {
+    return Object.freeze({ enabled: true, blockReason: null });
+  }
+
   const isAllowedInPrinciple =
     isCheckoutExposureAllowed(source, MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED) ||
     isLocalCheckoutValidationAllowed(source as NodeJS.ProcessEnv);
@@ -43,6 +47,7 @@ export function assertMarketplaceCheckoutProductionReady(
   source: Record<string, string | undefined> = process.env,
 ): void {
   if (testApproval?.approved === true) return;
+  if (isLocalFullFlowAllowed(source as NodeJS.ProcessEnv)) return;
   const gate = evaluateMarketplaceCheckoutPublicGate(source);
   if (!gate.enabled) {
     throw new MarketplaceCheckoutProductionLockedError(operation, gate.blockReason ?? MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON);

@@ -1,5 +1,6 @@
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-checkout/production-lock";
+import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { prepareMarketplacePayment as preparePhase10MarketplacePayment, type MarketplacePaymentPreparationCommand } from "@/lib/services/payment-preparation.service";
 import { prepareMarketplacePaystackCustomerAction } from "@/lib/marketplace-checkout/marketplace-paystack-checkout.service";
 
@@ -23,6 +24,16 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
   return Object.freeze({
     async prepareMarketplacePayment(input: MarketplacePaymentPreparationCommand) {
       const payment = await preparePhase10MarketplacePayment({ ...input });
+      if (isLocalFullFlowAllowed()) {
+        return Object.freeze({
+          paymentReference: payment.publicReference,
+          paymentId: payment.id,
+          amount: payment.amount,
+          currency: "ZAR",
+          providerAction: null,
+          replayed: payment.replayed,
+        });
+      }
       const providerAction = await prepareMarketplacePaystackCustomerAction({
         paymentId: payment.id,
         paymentReference: payment.publicReference,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type {
@@ -70,10 +70,22 @@ export function ProductDetailExperience({
   const [cartFeedback, setCartFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [cartVersion, setCartVersion] = useState<number | null>(null);
 
+  // Multi-seller offer selection
+  const [selectedOfferReference, setSelectedOfferReference] = useState(product.offerReference);
+
+  useEffect(() => {
+    setSelectedOfferReference(product.offerReference);
+  }, [product.offerReference]);
+
+  const activeOffer = offers.find((o) => o.offerReference === selectedOfferReference) ?? product;
+
   // Modifiers state
-  const activeOfferRef = product.offerReference;
-  const modifierGroups = modifierGroupsByOffer?.[activeOfferRef] ?? [];
+  const modifierGroups = modifierGroupsByOffer?.[activeOffer.offerReference] ?? [];
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    setSelectedModifiers({});
+  }, [selectedOfferReference]);
 
   const toggleModifierOption = (groupReference: string, optionReference: string, maxSelections: number) => {
     setSelectedModifiers((prev) => {
@@ -98,7 +110,7 @@ export function ProductDetailExperience({
     return false;
   });
 
-  const isPurchasable = product.availability === "IN_STOCK" || product.availability === "LOW_STOCK";
+  const isPurchasable = activeOffer.availability === "IN_STOCK" || activeOffer.availability === "LOW_STOCK";
 
   const handleAddToCart = async () => {
     if (!isPurchasable || addingToCart) return;
@@ -140,13 +152,13 @@ export function ProductDetailExperience({
 
       const sendAddLine = async (ver: number) => {
         const opId = `add-${crypto.randomUUID()}`;
-        const reqHash = await computeHash(`${product.offerReference}:${quantity}:${ver}:${opId}`);
+        const reqHash = await computeHash(`${activeOffer.offerReference}:${quantity}:${ver}:${opId}`);
         return fetch("/api/cart/lines", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            offerReference: product.offerReference,
-            variantReference: product.variantReference,
+            offerReference: activeOffer.offerReference,
+            variantReference: activeOffer.variantReference,
             quantity,
             modifiers: payloadModifiers,
             operationId: opId,
@@ -320,21 +332,22 @@ export function ProductDetailExperience({
 
           <div className={styles.pdpPriceRow}>
             <span className={styles.pdpPrice}>
-              {offers.length > 1 ? "From " : ""}
-              {formatPrice(product.price.amount, product.price.currency)}
+              {offers.length > 1 && selectedOfferReference === product.offerReference ? "From " : ""}
+              {formatPrice(activeOffer.price.amount, activeOffer.price.currency)}
             </span>
             <span className={styles.pdpVatNote}>VAT included</span>
           </div>
 
           <span style={{ fontSize: "0.85rem", color: "var(--kt-graphite, #303532)" }}>
-            {availabilityLabel(product.availability)}
+            {availabilityLabel(activeOffer.availability)}
           </span>
 
-          {store && storeHref && (
-            <div className={styles.pdpSellerByline}>
-              Sold by <Link href={storeHref}>{store.name}</Link>
-            </div>
-          )}
+          <div className={styles.pdpSellerByline}>
+            Sold by{" "}
+            <Link href={marketplaceStoreHref(activeOffer.storeSlug) ?? "/shop"}>
+              {activeOffer.storeSlug === store?.slug ? (store?.name ?? activeOffer.storeSlug) : activeOffer.storeSlug}
+            </Link>
+          </div>
 
           {/* Variant Selector */}
           {variants.length > 1 && (
@@ -386,7 +399,7 @@ export function ProductDetailExperience({
             </li>
             <li style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--kt-muted, #5f6763)" }}>Fulfilment</span>
-              <span style={{ fontWeight: 540 }}>{product.fulfilmentMode.replaceAll("_", " ").toLowerCase()}</span>
+              <span style={{ fontWeight: 540 }}>{activeOffer.fulfilmentMode.replaceAll("_", " ").toLowerCase()}</span>
             </li>
             <li style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--kt-muted, #5f6763)" }}>Availability</span>
@@ -592,7 +605,11 @@ export function ProductDetailExperience({
         <h2 id="pdp-offers-heading" style={{ fontSize: "1.6rem", fontWeight: 560, marginBottom: 20 }}>
           Available from stores
         </h2>
-        <OfferComparison offers={offers} />
+        <OfferComparison
+          offers={offers}
+          selectedOfferReference={activeOffer.offerReference}
+          onSelectOffer={setSelectedOfferReference}
+        />
       </section>
 
       {/* Same Store Products */}

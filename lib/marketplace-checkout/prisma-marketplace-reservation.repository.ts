@@ -15,7 +15,7 @@ function state(row: any): MarketplaceReservationState {
 export function createPrismaMarketplaceReservationRepository(database: any = prisma): MarketplaceReservationRepository {
   let db = database;
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => { const previous = db; db = tx; try { return await work(); } finally { db = previous; } }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => { const previous = db; db = tx; try { return await work(); } finally { db = previous; } }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
     lockCheckout: async (checkoutId) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${checkoutId} FOR UPDATE`);
       const checkout = await db.marketplaceCheckout.findUnique({ where: { id: checkoutId } });

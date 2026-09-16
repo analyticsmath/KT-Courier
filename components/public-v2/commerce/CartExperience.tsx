@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { HydratedPublicCart, HydratedCartStoreGroup, HydratedCartLine } from "@/lib/marketplace-checkout/cart-projection";
+import { marketplaceStoreHref } from "@/lib/public-marketplace/routes";
 import styles from "./commerce.module.css";
 
 function formatMoney(amount: string | number) {
@@ -317,7 +318,7 @@ export function CartExperience() {
               >
                 <div>
                   <Link
-                    href={`/store/${group.storeSlug}`}
+                    href={marketplaceStoreHref(group.storeSlug) ?? "/shop"}
                     style={{
                       fontSize: "1.15rem",
                       fontWeight: 600,

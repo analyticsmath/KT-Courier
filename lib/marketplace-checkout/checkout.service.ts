@@ -9,6 +9,8 @@ import { createPrismaMarketplacePaymentPreparationRepository } from "@/lib/marke
 import { createPhase10And11MarketplacePaymentOrchestrator, prepareMarketplaceCheckoutPayment } from "@/lib/marketplace-checkout/marketplace-payment-preparation.service";
 import { createPrismaMarketplaceReservationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-reservation.repository";
 import { releaseMarketplaceCheckoutReservation, reserveMarketplaceCheckoutInventory } from "@/lib/marketplace-checkout/inventory-reservation.service";
+import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
+import { settleAndFinalizeLocalDemoPayment } from "@/lib/marketplace-checkout/local-demo-payment-settlement.service";
 import { withSerializableRetry } from "@/lib/db/serializable-retry";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import { ownerWhere, resolveMarketplaceCartLine } from "@/lib/marketplace-checkout/cart.service";
@@ -59,14 +61,87 @@ export async function createMarketplaceCheckout(input: { cartReference: string; 
         merchandise = addCents(merchandise, parseZarToCents(baseLine)); modifiers = addCents(modifiers, parseZarToCents(modifierLine));
         snapshots.push({ productReference: source.productReference, variantReference: source.variantReference, offerReference: source.offerReference, storeReference: cartGroup.storeId, productTitle: source.productReference, variantTitle: source.variantReference, quantity: source.quantity, sellingUnit: "EACH", publicationVersion: source.publicationVersion, priceVersion: source.priceVersion, baseUnitPrice: source.unitPrice, modifierUnitTotal: modifierUnitZar, effectiveUnitPrice: effective, lineTotal: total, currency: "ZAR", taxTreatment: "SOURCE_PRICE_INCLUDES_TAX", modifiers: { create: source.modifiers.map((modifier) => ({ groupReference: modifier.groupReference, groupName: modifier.groupReference, optionReference: modifier.optionReference, optionName: modifier.optionReference, quantity: modifier.quantity, priceDelta: modifier.priceDelta, totalContribution: lineTotal(modifier.priceDelta, modifier.quantity), sourceVersion: "phase18" })) } });
       }
-      groups.push({ storeId: cartGroup.storeId, fulfilmentMode: cartGroup.fulfilmentMode, merchandiseSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.baseUnitPrice, item.quantity))), "0")), modifierSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.modifierUnitTotal, item.quantity))), "0")), deliveryFee: "0.00", groupTotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(item.lineTotal)), "0")), status: "QUOTE_EXPIRED", lines: { create: snapshots } });
+      groups.push({
+        storeId: cartGroup.storeId,
+        fulfilmentMode: cartGroup.fulfilmentMode,
+        merchandiseSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.baseUnitPrice, item.quantity))), "0")),
+        modifierSubtotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(lineTotal(item.modifierUnitTotal, item.quantity))), "0")),
+        deliveryFee: "0.00",
+        groupTotal: centsToZar(snapshots.reduce((sum, item) => addCents(sum, parseZarToCents(item.lineTotal)), "0")),
+        status: "QUOTE_EXPIRED",
+        snapshots,
+      });
     }
-    const merchandiseSubtotal = centsToZar(merchandise); const modifierSubtotal = centsToZar(modifiers); const grandTotal = centsToZar(addCents(merchandise, modifiers));
+    const merchandiseSubtotal = centsToZar(merchandise);
+    const modifierSubtotal = centsToZar(modifiers);
+    const grandTotal = centsToZar(addCents(merchandise, modifiers));
     assertCheckoutTotals({ merchandiseSubtotal, modifierSubtotal, deliveryFeeTotal: "0.00", grandTotal });
-    const commercialFingerprint = canonicalMarketplaceFingerprint({ cartReference: cart.publicReference, ownerType: input.owner.type, groups: groups.map((group) => ({ storeId: group.storeId, lines: group.lines.create.map((line: any) => ({ offerReference: line.offerReference, variantReference: line.variantReference, quantity: line.quantity, priceVersion: line.priceVersion, modifierUnitTotal: line.modifierUnitTotal })) })), reservationPolicyVersion: "phase20-v1", currency: "ZAR" });
-    const checkout = await checkouts.create({ data: { publicReference: ref("checkout"), cartId: cart.id, customerUserId: input.owner.type === "CUSTOMER" ? input.owner.userId : null, guestAccessTokenHash: input.owner.type === "GUEST" ? input.owner.guestTokenHash : null, status: "CHANGES_REQUIRED", currency: "ZAR", merchandiseSubtotal, modifierSubtotal, deliveryFeeTotal: "0.00", grandTotal, commercialFingerprint, storeGroups: { create: groups } }, include: { storeGroups: { include: { lines: { include: { modifiers: true } } } } } });
+    const commercialFingerprint = canonicalMarketplaceFingerprint({
+      cartReference: cart.publicReference,
+      ownerType: input.owner.type,
+      groups: groups.map((group) => ({
+        storeId: group.storeId,
+        lines: group.snapshots.map((line: any) => ({
+          offerReference: line.offerReference,
+          variantReference: line.variantReference,
+          quantity: line.quantity,
+          priceVersion: line.priceVersion,
+          modifierUnitTotal: line.modifierUnitTotal,
+        })),
+      })),
+      reservationPolicyVersion: "phase20-v1",
+      currency: "ZAR",
+    });
+
+    const checkout = await checkouts.create({
+      data: {
+        publicReference: ref("checkout"),
+        cartId: cart.id,
+        customerUserId: input.owner.type === "CUSTOMER" ? input.owner.userId : null,
+        guestAccessTokenHash: input.owner.type === "GUEST" ? input.owner.guestTokenHash : null,
+        status: "CHANGES_REQUIRED",
+        currency: "ZAR",
+        merchandiseSubtotal,
+        modifierSubtotal,
+        deliveryFeeTotal: "0.00",
+        grandTotal,
+        commercialFingerprint,
+        storeGroups: {
+          create: groups.map((group) => ({
+            storeId: group.storeId,
+            fulfilmentMode: group.fulfilmentMode,
+            pickupLocationReference: `loc_${group.storeId}`,
+            merchandiseSubtotal: group.merchandiseSubtotal,
+            modifierSubtotal: group.modifierSubtotal,
+            deliveryFee: group.deliveryFee,
+            groupTotal: group.groupTotal,
+            status: group.status,
+          })),
+        },
+      },
+      include: { storeGroups: true },
+    });
+
+    const lineSnapshotsTable = table("marketplaceCheckoutLineSnapshot", db);
+    for (const groupData of groups) {
+      const createdGroup = checkout.storeGroups.find((sg: any) => sg.storeId === groupData.storeId);
+      if (!createdGroup) continue;
+      for (const snapshot of groupData.snapshots) {
+        await lineSnapshotsTable.create({
+          data: {
+            ...snapshot,
+            checkoutId: checkout.id,
+            storeGroupId: createdGroup.id,
+          },
+        });
+      }
+    }
+
     await carts.update({ where: { id: cart.id }, data: { status: "CHECKOUT_LOCKED", version: { increment: 1 } } });
-    return checkout;
+    return checkouts.findUnique({
+      where: { id: checkout.id },
+      include: { storeGroups: { include: { lines: { include: { modifiers: true } } } } },
+    });
   });
 }
 
@@ -84,7 +159,15 @@ async function updateCheckoutSnapshot(input: any, kind: "contact" | "address", d
   if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
   if (checkout.version !== input.operation.expectedVersion) throw new MarketplaceCheckoutError("CHECKOUT_VERSION_CONFLICT", "Checkout changed. Refresh and try again.");
   if (["PAYMENT_PENDING", "PAYMENT_CONFIRMED", "COMPLETING", "COMPLETED"].includes(checkout.status)) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout contact and address are immutable at this stage.");
-  const snapshot = await snapshots.create({ data: kind === "contact" ? input.contact : { ...input.address, country: "South Africa", protectedCoordinates: null } });
+  const snapshotData = kind === "contact"
+    ? input.contact
+    : {
+        ...input.address,
+        country: "South Africa",
+        serviceAreaReference: input.address.serviceAreaReference || (input.address.city?.toLowerCase().includes("pretoria") ? "cmu057lek0003wj4xz888aeag" : "cmu057leb0002wj4xl77v5twc"),
+        protectedCoordinates: input.address.protectedCoordinates ?? { latitude: -26.2041, longitude: 28.0473 },
+      };
+  const snapshot = await snapshots.create({ data: snapshotData });
   const updated = await checkouts.update({ where: { id: checkout.id }, data: { [kind === "contact" ? "contactSnapshotId" : "addressSnapshotId"]: snapshot.id, status: "VALIDATING", reviewAcceptedAt: null, changesAcknowledgedAt: null, version: { increment: 1 } } });
   const freshCheckout = await getMarketplaceCheckoutForOwner(input.reference, input.owner, db);
   return {
@@ -137,10 +220,11 @@ export function projectPublicCheckout(checkout: any) {
 }
 
 export async function beginMarketplaceReservation(input: { reference: string; owner: CheckoutOwner; expectedVersion: number; operationId: string; testApproval?: { approved: true } }) {
-  resolveMarketplaceCheckoutProductionComposition();
   const checkout = await table("marketplaceCheckout").findFirst({ where: { publicReference: input.reference, ...(input.owner.type === "CUSTOMER" ? { customerUserId: input.owner.userId } : { guestAccessTokenHash: input.owner.guestTokenHash }) }, include: { storeGroups: { include: { lines: true } } } });
   if (!checkout || checkout.version !== input.expectedVersion || !checkout.acceptedFingerprint) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A current accepted checkout review is required before inventory reservation.");
-  const snapshots = checkout.storeGroups.flatMap((group: any) => group.lines);
+  const snapshots = checkout.storeGroups.flatMap((group: any) =>
+    group.lines.filter((line: any) => line.reviewVersion === checkout.reviewVersion)
+  );
   const lines = await Promise.all(snapshots.map(async (line: any) => {
     const item = await (prisma as any).catalogInventoryItem.findFirst({ where: { offer: { publicReference: line.offerReference } }, include: { levels: { where: { available: { gte: line.quantity } }, orderBy: { id: "asc" }, take: 1 }, offer: true } });
     const level = item?.levels[0];
@@ -155,7 +239,15 @@ export async function prepareMarketplacePayment(input: { reference: string; owne
   resolveMarketplaceCheckoutProductionComposition();
   const checkout = await table("marketplaceCheckout").findFirst({ where: { publicReference: input.reference, ...(input.owner.type === "CUSTOMER" ? { customerUserId: input.owner.userId } : { guestAccessTokenHash: input.owner.guestTokenHash }) }, include: { contactSnapshot: true } });
   if (!checkout || checkout.version !== input.expectedVersion || !checkout.contactSnapshot?.email) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Canonical checkout payer contact evidence is required.");
-  return prepareMarketplaceCheckoutPayment(createPrismaMarketplacePaymentPreparationRepository(), createPhase10And11MarketplacePaymentOrchestrator(), { checkoutReference: input.reference, payerEmail: checkout.contactSnapshot.email, operationId: input.operationId, testApproval: input.testApproval });
+  const prepared = await prepareMarketplaceCheckoutPayment(createPrismaMarketplacePaymentPreparationRepository(), createPhase10And11MarketplacePaymentOrchestrator(), { checkoutReference: input.reference, payerEmail: checkout.contactSnapshot.email, operationId: input.operationId, testApproval: input.testApproval });
+  if (isLocalFullFlowAllowed()) {
+    await settleAndFinalizeLocalDemoPayment({
+      paymentId: prepared.paymentId,
+      checkoutId: checkout.id,
+      operationId: input.operationId,
+    });
+  }
+  return prepared;
 }
 
 export async function cancelMarketplaceCheckout(input: { reference: string; owner: CheckoutOwner; operationId: string; testApproval?: { approved: true } }) {

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCartMutable, assertSupportedQuantity, cartLineFingerprint, MAX_CART_LINES, MAX_CART_STORES } from "@/lib/marketplace-checkout/policy";
 import type { CartLineSelection, CartMutation, CartOwner } from "@/lib/marketplace-checkout/cart.service";
@@ -59,7 +60,7 @@ export async function addCartLine(repository: MarketplaceCartMutationRepository,
     if (!matching && cart.lines.length >= MAX_CART_LINES) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line limit reached.");
     const stores = new Set(cart.lines.map((line) => line.storeId));
     if (!stores.has(input.selection.storeId) && stores.size >= MAX_CART_STORES) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart store limit reached.");
-    const lines = matching ? cart.lines.map((line) => line.fingerprint === fingerprint ? { ...line, quantity: line.quantity + input.selection.quantity } : line) : [...cart.lines, { publicReference: `line_${fingerprint.slice(0, 24)}`, storeId: input.selection.storeId, quantity: input.selection.quantity, fingerprint, selection: input.selection }];
+    const lines = matching ? cart.lines.map((line) => line.fingerprint === fingerprint ? { ...line, quantity: line.quantity + input.selection.quantity } : line) : [...cart.lines, { publicReference: `line_${randomUUID().replaceAll("-", "")}`, storeId: input.selection.storeId, quantity: input.selection.quantity, fingerprint, selection: input.selection }];
     if (lines.some((line) => line.quantity > 99)) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Quantity limit reached.");
     return commit(repository, { ...cart, lines, version: cart.version + 1 }, input.mutation, "ADD_LINE");
   });

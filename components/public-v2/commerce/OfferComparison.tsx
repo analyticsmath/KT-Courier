@@ -12,15 +12,18 @@ function formatPrice(amount: string, currency: "ZAR") {
 
 interface OfferComparisonProps {
   offers: readonly StorefrontDocument[];
+  selectedOfferReference?: string;
+  onSelectOffer?: (offerReference: string) => void;
 }
 
-export function OfferComparison({ offers }: OfferComparisonProps) {
+export function OfferComparison({ offers, selectedOfferReference, onSelectOffer }: OfferComparisonProps) {
   if (!offers.length) return null;
 
   return (
     <ul aria-label="Available offers from stores" className={styles.offerComparisonList}>
       {offers.map((offer) => {
         const storeHref = marketplaceStoreHref(offer.storeSlug);
+        const isSelected = selectedOfferReference === offer.offerReference;
 
         return (
           <li className={styles.offerComparisonRow} key={offer.offerReference}>
@@ -63,10 +66,28 @@ export function OfferComparison({ offers }: OfferComparisonProps) {
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <span style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
                 {formatPrice(offer.price.amount, offer.price.currency)}
               </span>
+              {onSelectOffer && (
+                <button
+                  type="button"
+                  onClick={() => onSelectOffer(offer.offerReference)}
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    borderRadius: 4,
+                    border: isSelected ? "1px solid var(--kt-primary, #047857)" : "1px solid var(--kt-carbon, #101210)",
+                    backgroundColor: isSelected ? "var(--kt-primary, #047857)" : "transparent",
+                    color: isSelected ? "#ffffff" : "var(--kt-carbon, #101210)",
+                    cursor: isSelected ? "default" : "pointer",
+                  }}
+                >
+                  {isSelected ? "Selected" : "Buy from this store"}
+                </button>
+              )}
               {storeHref ? (
                 <Link
                   className={styles.sectionDirectLink}

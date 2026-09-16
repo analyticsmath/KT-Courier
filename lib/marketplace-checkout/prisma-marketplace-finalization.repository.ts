@@ -63,7 +63,7 @@ export function buildPaidMarketplaceCheckoutFromFrozenEvidence(row: any, evidenc
 export function createPrismaMarketplaceFinalizationRepository(database: any = prisma): MarketplaceFinalizationRepository {
   let db = database;
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => { const previous = db; db = tx; try { return await work(); } finally { db = previous; } }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => { const previous = db; db = tx; try { return await work(); } finally { db = previous; } }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
     lockVerifiedSuccessfulPayment: async (paymentId: string) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${paymentId} FOR UPDATE`);
       const payment = await db.payment.findUnique({ where: { id: paymentId } });

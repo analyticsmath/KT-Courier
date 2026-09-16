@@ -51,3 +51,14 @@ export function isLocalCheckoutValidationAllowed(env = process.env): boolean {
   if (env.KT_LOCAL_CHECKOUT_VALIDATION !== "true" && env.KT_LOCAL_CHECKOUT_VALIDATION !== "1") return false;
   return isSafeLocalTestDatabaseUrl(env.DATABASE_URL);
 }
+
+export function isLocalFullFlowAllowed(env = process.env): boolean {
+  if (
+    ((env.NODE_ENV as string) === "production" || (env.NODE_ENV as string) === "staging") &&
+    env.KT_RUNTIME_ENV !== "e2e"
+  ) {
+    return false;
+  }
+  if (env.KT_LOCAL_FULL_FLOW !== "true" && env.KT_LOCAL_FULL_FLOW !== "1") return false;
+  return isSafeLocalTestDatabaseUrl(env.DATABASE_URL);
+}

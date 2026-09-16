@@ -72,13 +72,24 @@ export default async function VariantPage({
     .filter((item) => item.productReference !== productData.product.productReference)
     .slice(0, 4);
 
-  // Variant document adapted to product structure for visual continuity
-  const variantAsProduct = {
+  // Canonical variant document with exact commercial identity
+  const selectedOffer = offers[0] ?? variant;
+  const canonicalVariantProduct = {
     ...productData.product,
+    ...variant,
+    productReference: variant.productReference,
+    productSlug: variant.productSlug,
+    variantReference: variant.variantReference,
+    offerReference: selectedOffer.offerReference,
+    storeReference: selectedOffer.storeReference,
+    storeSlug: selectedOffer.storeSlug,
+    fulfilmentMode: selectedOffer.fulfilmentMode,
+    price: selectedOffer.price,
+    availability: selectedOffer.availability,
+    publicationVersion: selectedOffer.publicationVersion,
     title: variant.title,
     primaryMedia: variant.primaryMedia || productData.product.primaryMedia,
-    price: variant.price,
-    availability: variant.availability,
+    mediaGallery: variant.mediaGallery && variant.mediaGallery.length > 0 ? variant.mediaGallery : productData.product.mediaGallery,
   };
 
   return (
@@ -90,9 +101,9 @@ export default async function VariantPage({
         type="application/ld+json"
       />
       <ProductDetailExperience
-        modifierGroupsByOffer={productData.modifierGroupsByOffer}
+        modifierGroupsByOffer={data.modifierGroupsByOffer}
         offers={offers}
-        product={variantAsProduct}
+        product={canonicalVariantProduct}
         relatedProducts={relatedProducts}
         sameStoreProducts={sameStoreProducts}
         selectedVariantReference={variant.variantReference}
