@@ -8,10 +8,13 @@ import { requireRole } from "@/lib/auth/guards";
 import { getDriverProfileByUserId } from "@/lib/services/driver-profile.service";
 import { getDriverProfileIdForUser, listDriverAssignments } from "@/lib/services/driver-assignments.service";
 import { UserRole } from "@/types/db";
+import { getDriverDashboardInsights } from "@/lib/dashboard-insights/driver-dashboard-insights";
+import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
+import { CountInsightPanel } from "@/components/protected-v2/visualizations/CountInsightPanel";
 
 export const metadata: Metadata = { title: "Driver home" };
 
-export default async function DriverDashboardPage() {
+export default async function DriverDashboardPage({ searchParams }: { searchParams: Promise<{ period?: string | string[] }> }) {
   const user = await requireRole(UserRole.DRIVER);
   const driver = await getDriverProfileByUserId(user.id);
   if (!driver) {
@@ -19,6 +22,7 @@ export default async function DriverDashboardPage() {
   }
 
   const driverProfileId = await getDriverProfileIdForUser(user.id);
-  const assignments = driverProfileId ? await listDriverAssignments(driverProfileId, "all") : [];
-  return <DriverHomePage driver={driver} assignments={assignments} />;
+  const period = parseDashboardPeriod((await searchParams).period);
+  const [assignments, insight] = await Promise.all([driverProfileId ? listDriverAssignments(driverProfileId, "all") : [], getDriverDashboardInsights(period)]);
+  return <DriverHomePage driver={driver} assignments={assignments} activity={insight ? <CountInsightPanel insight={insight} period={period} href="/driver" /> : null} />;
 }

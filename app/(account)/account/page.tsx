@@ -11,6 +11,9 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { CUSTOMER_ACTIVE_ORDER_STATUSES } from "@/lib/customer-presentation/customer-order-presentation";
 import { toOrderSummaryDto } from "@/lib/dto/order.dto";
 import { prisma } from "@/lib/db/prisma";
+import { getCustomerDashboardInsights } from "@/lib/dashboard-insights/customer-dashboard-insights";
+import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
+import { CountInsightPanel } from "@/components/protected-v2/visualizations/CountInsightPanel";
 
 export const metadata: Metadata = { title: "My delivery desk" };
 
@@ -24,12 +27,13 @@ function firstName(nameOrEmail: string): string {
   return nameOrEmail.split(" ")[0]?.split("@")[0] ?? nameOrEmail;
 }
 
-export default async function AccountDashboardPage() {
+export default async function AccountDashboardPage({ searchParams }: { searchParams: Promise<{ period?: string | string[] }> }) {
   const user = await getCurrentUser();
   const userId = user!.id;
   const activeStatuses = [...CUSTOMER_ACTIVE_ORDER_STATUSES];
+  const period = parseDashboardPeriod((await searchParams).period);
 
-  const [latestActiveRaw, recentRaw, activeCount, attentionCount] = await Promise.all([
+  const [latestActiveRaw, recentRaw, activeCount, attentionCount, insight] = await Promise.all([
     prisma.order.findFirst({
       where: { customerId: userId, status: { in: activeStatuses } },
       include: ORDER_INCLUDE,
@@ -44,6 +48,7 @@ export default async function AccountDashboardPage() {
     }),
     prisma.order.count({ where: { customerId: userId, status: { in: activeStatuses } } }),
     prisma.order.count({ where: { customerId: userId, status: { in: ["PENDING", "DELIVERY_ATTEMPTED"] } } }),
+    getCustomerDashboardInsights(period),
   ]);
 
   const latestActive = latestActiveRaw ? toOrderSummaryDto(latestActiveRaw) : null;
@@ -56,16 +61,19 @@ export default async function AccountDashboardPage() {
       description="See the delivery that needs your attention and start the next request."
       actions={<CustomerAction href="/account/request-delivery" tone="primary">Request delivery</CustomerAction>}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="eo-landing-grid">
+      {latestActive ? <CustomerActiveDelivery order={latestActive} /> : <CustomerEmptyDeliveryState />}
+      <div className="eo-landing-summary">
         <MetricTile label="Active deliveries" value={activeCount} description="Current customer deliveries" />
         <MetricTile label="Needs attention" value={attentionCount} description="Requests or attempts to review" />
       </div>
-      {latestActive ? <CustomerActiveDelivery order={latestActive} /> : <CustomerEmptyDeliveryState />}
+      </div>
       <OperationalPanel title="Recent deliveries" description="Your five most recently requested deliveries." action={<CustomerAction href="/account/orders">View all deliveries</CustomerAction>}>
         <CustomerOrderRecords orders={recentOrders} />
       </OperationalPanel>
+      <CountInsightPanel insight={insight} period={period} href="/account" />
       <OperationalPanel title="Account help" description="Saved addresses, notifications, and support remain available when you need them.">
-        <div className="flex flex-wrap gap-2"><CustomerAction href="/account/addresses">Saved addresses</CustomerAction><CustomerAction href="/account/notifications">Notifications</CustomerAction><CustomerAction href="/account/support">Support</CustomerAction></div>
+        <div className="eo-quick-links"><CustomerAction href="/account/addresses">Saved addresses</CustomerAction><CustomerAction href="/account/wallet">Wallet</CustomerAction><CustomerAction href="/account/notifications">Notifications</CustomerAction><CustomerAction href="/account/support">Support</CustomerAction></div>
       </OperationalPanel>
     </CustomerPage>
   );

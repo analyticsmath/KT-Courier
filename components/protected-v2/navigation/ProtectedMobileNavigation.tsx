@@ -49,7 +49,7 @@ export function ProtectedMobileNavigation({
         contextLabel={contextLabel}
         notifications={notifications}
         onNavigationOpen={() => setNavigationOpen(true)}
-        primaryAction={primaryAction}
+        primaryAction={groups.flatMap((group) => group.items).some((item) => item.exact && item.href === pathname) ? undefined : primaryAction}
         profileHref={profileHref}
         user={user}
       />
@@ -79,7 +79,7 @@ export function ProtectedMobileNavigation({
         title={`${contextLabel} navigation`}
       >
         <nav aria-label={`${contextLabel} full navigation`} className="eo-mobile-navigation-sheet">
-          <ProtectedNavigationLinks groups={drawerGroups} onNavigate={() => setNavigationOpen(false)} />
+          <ProtectedNavigationLinks groups={groups} searchable={context === "ADMIN" || context === "SUPER_ADMIN"} onNavigate={() => setNavigationOpen(false)} />
         </nav>
       </ProtectedDrawer>
     </>

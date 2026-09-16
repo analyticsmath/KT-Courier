@@ -74,7 +74,11 @@ describe("R14 customer account experience", () => {
     const overview = source("app/(account)/account/page.tsx");
     expect(overview).toContain('orderBy: [{ updatedAt: "desc" }, { id: "asc" }]');
     expect(overview).toContain("CUSTOMER_ACTIVE_ORDER_STATUSES");
-    expect(overview).not.toMatch(/chart|sparkline|percent|growth/i);
+    expect(overview).toContain('getCustomerDashboardInsights(period)');
+    const insights = source("lib/dashboard-insights/customer-dashboard-insights.ts");
+    expect(insights).toContain('requireRole(UserRole.CUSTOMER)');
+    expect(insights).toContain('customerId: user.id');
+    expect(insights).not.toMatch(/priceEstimate|Math.random/);
     expect(CUSTOMER_ACTIVE_ORDER_STATUSES).toContain("IN_TRANSIT");
   });
 

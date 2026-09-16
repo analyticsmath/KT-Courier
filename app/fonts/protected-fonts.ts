@@ -41,4 +41,12 @@ const protectedNewsreader = localFont({
   variable: "--eo-font-newsreader-source",
 });
 
-export const protectedFontVariables = `${protectedMonaSans.variable} ${protectedNewsreader.variable}`;
+const protectedMonaMono = localFont({
+  src: "./public/MonaSansMonoVF[wdth,wght].woff2",
+  weight: "200 900",
+  display: "swap",
+  preload: false,
+  variable: "--eo-font-mono-source",
+});
+
+export const protectedFontVariables = `${protectedMonaSans.variable} ${protectedNewsreader.variable} ${protectedMonaMono.variable}`;

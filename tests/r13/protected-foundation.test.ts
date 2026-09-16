@@ -51,7 +51,9 @@ describe("R13 protected Editorial Operations foundation", () => {
     const css = readSource("app/globals.css");
     expect(root).toContain('data-kt-protected-system="editorial-operations-v1"');
     expect(css).toContain('[data-kt-protected-system="editorial-operations-v1"]');
-    expect(css).toContain('--eo-canvas: #f5f7f5');
+    expect(css).toContain('--eo-canvas: #f3f4f0');
+    expect(css).toContain('--eo-operational: #2457d6');
+    expect(css).toContain('[data-kt-protected-system="editorial-operations-v1"].eo-shell');
     expect(css).toContain('[data-kt-visual-system="editorial-freight-v1"]');
   });
 

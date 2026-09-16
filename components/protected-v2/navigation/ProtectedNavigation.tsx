@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { ProtectedIcon } from "@/components/protected-v2/icons/ProtectedIcon";
 import type { ProtectedNavigationGroup, ProtectedNavigationItem } from "./types";
@@ -11,6 +11,7 @@ type ProtectedNavigationLinksProps = {
   groups: readonly ProtectedNavigationGroup[];
   onNavigate?: () => void;
   compact?: boolean;
+  searchable?: boolean;
 };
 
 export function isProtectedNavigationItemCurrent(item: ProtectedNavigationItem, pathname: string): boolean {
@@ -18,18 +19,24 @@ export function isProtectedNavigationItemCurrent(item: ProtectedNavigationItem, 
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function ProtectedNavigationLinks({ groups, onNavigate, compact = false }: ProtectedNavigationLinksProps) {
+export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, searchable = false }: ProtectedNavigationLinksProps) {
   const pathname = usePathname();
+  const instanceId = useId();
+  const [query, setQuery] = useState("");
   const [closedGroups, setClosedGroups] = useState<ReadonlySet<string>>(() => new Set());
+  // Only the permission-filtered server projection reaches this component.
+  const visibleGroups = groups.map((group) => ({ ...group, items: group.items.filter((item) => `${group.label} ${item.label}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) })).filter((group) => group.items.length > 0);
 
   return (
     <div className="eo-navigation-links">
-      {groups.map((group) => {
-        const isOpen = !closedGroups.has(group.id);
+      {searchable ? <label className="eo-navigation-search"><span>Find a workspace</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search navigation" /></label> : null}
+      {visibleGroups.length === 0 ? <p role="status" className="eo-navigation-search">No matching destinations.</p> : null}
+      {visibleGroups.map((group) => {
+        const isOpen = Boolean(query.trim()) || !closedGroups.has(group.id);
         return (
           <section className="eo-navigation-group" key={group.id}>
             <button
-              aria-controls={`eo-nav-group-${group.id}`}
+              aria-controls={`${instanceId}-${group.id}`}
               aria-expanded={isOpen}
               className="eo-navigation-group__toggle"
               onClick={() => {
@@ -46,7 +53,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false }
               <svg aria-hidden="true" className={cn("eo-navigation-group__chevron", !isOpen && "-rotate-90")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="m8 10 4 4 4-4" /></svg>
             </button>
             {isOpen ? (
-              <ul className="eo-navigation-group__items" id={`eo-nav-group-${group.id}`}>
+              <ul className="eo-navigation-group__items" id={`${instanceId}-${group.id}`}>
                 {group.items.map((item) => {
                   const current = isProtectedNavigationItemCurrent(item, pathname);
                   return (
@@ -79,13 +86,14 @@ type ProtectedDesktopNavigationProps = {
   groups: readonly ProtectedNavigationGroup[];
   user: { displayName: string; roleLabel: string; avatarUrl?: string | null };
   footer?: React.ReactNode;
+  searchable?: boolean;
 };
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "KT";
 }
 
-export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer }: ProtectedDesktopNavigationProps) {
+export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer, searchable }: ProtectedDesktopNavigationProps) {
   const [railExpanded, setRailExpanded] = useState(false);
 
   return (
@@ -107,7 +115,7 @@ export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer 
       </div>
       <p className="eo-desktop-navigation__context">{contextLabel}</p>
       <nav aria-label={`${contextLabel} sections`} className="eo-desktop-navigation__scroll">
-        <ProtectedNavigationLinks compact={!railExpanded} groups={groups} />
+        <ProtectedNavigationLinks compact={!railExpanded} groups={groups} searchable={searchable} />
       </nav>
       <div className="eo-desktop-navigation__account">
         <div className="eo-user-summary">

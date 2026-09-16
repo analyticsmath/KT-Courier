@@ -6,7 +6,7 @@ type ProtectedVisualRootProps = {
   className?: string;
 };
 
-/** Server boundary for the protected Editorial Operations visual system. */
+/** Server boundary for KT Control Desk; the eo namespace is retained in place. */
 export function ProtectedVisualRoot({ children, className }: ProtectedVisualRootProps) {
   return (
     <div

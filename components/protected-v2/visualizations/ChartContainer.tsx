@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { cn } from "@/lib/utils/cn";
 
-/** A data-free frame. Chart libraries and fixture series remain out of R13. */
+/** Accessible frame for server-owned series and their text alternatives. */
 export function ChartContainer({
   title,
   description,

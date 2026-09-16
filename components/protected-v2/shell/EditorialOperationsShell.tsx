@@ -51,9 +51,9 @@ export function EditorialOperationsShell({
   const profileHref = profileHrefFor(navigation);
 
   return (
-    <ProtectedVisualRoot className="eo-shell">
+    <ProtectedVisualRoot className={`eo-shell eo-shell--${context.toLowerCase()}`}>
       <a className="eo-skip-link" href="#protected-main-content">Skip to main content</a>
-      <ProtectedDesktopNavigation contextLabel={contextLabel} footer={navigationFooter} groups={navigation} user={user} />
+      <ProtectedDesktopNavigation contextLabel={contextLabel} footer={navigationFooter} groups={navigation} user={user} searchable={context === "ADMIN" || context === "SUPER_ADMIN"} />
       <div className="eo-shell__content">
         <ProtectedMobileNavigation
           context={context}

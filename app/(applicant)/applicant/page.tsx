@@ -1,6 +1,26 @@
 import Link from "next/link";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
+import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
+import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
+import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
+import { IllustrationFrame } from "@/components/protected-v2/illustrations/IllustrationFrame";
 import { getApplicantApplications } from "@/lib/applicant-presentation/applicant-data";
 import { getApplicantStatus } from "@/lib/applicant-presentation/applicant-status";
-export default async function ApplicantPage(){const apps=await getApplicantApplications();const current=apps[0];return <><ProtectedPageHeader eyebrow="KT Couriers" title="Candidate dossier" description="A private place to review the status and next available action for your applications."/>{!current?<ProtectedState kind="empty" title="No application to show" description="Your candidate dossier will show an application here once one is created through a published opening." action={<Link href="/careers">View published careers</Link>}/>:<section className="eo-panel eo-panel--spacious mt-6"><p className="m-0 text-xs font-bold uppercase tracking-widest text-[var(--eo-text-muted)]">Current application</p><h2 className="mt-2 text-2xl font-bold">{current.openingVersion?.publicTitle ?? "Application"}</h2><p className="text-[var(--eo-text-secondary)]">{getApplicantStatus(current.status).explanation}</p><Link className="inline-block rounded-[9px] bg-[var(--eo-operational)] px-4 py-3 text-sm font-bold text-white" href={`/applicant/applications/${current.publicReference}`}>Open application</Link></section>}</>}
+
+export default async function ApplicantPage() {
+  const apps = await getApplicantApplications();
+  const current = apps[0];
+  const status = current ? getApplicantStatus(current.status) : null;
+  return <ProtectedPageFrame>
+    <ProtectedPageHeader eyebrow="Your next chapter" title="Candidate dossier" description="Your applications, progress, and next available steps in one private place." />
+    {!current ? <ProtectedState kind="empty" title="Your journey starts with an opening" description="Find a role that fits you. Your application will appear here after you apply." illustration={<IllustrationFrame role="applicant" />} action={<Link className="eo-button eo-button--primary" href="/careers">View published careers</Link>} /> : <OperationalPanel className="eo-feature-card" title="Current application" padding="spacious" action={<IllustrationFrame role="applicant" />}>
+      <h2 className="text-2xl font-semibold">{current.openingVersion?.publicTitle ?? "Application"}</h2>
+      {status ? <ProtectedStatus label={status.label} tone={status.tone} /> : null}
+      <p className="my-4 text-[var(--eo-text-secondary)]">{status?.explanation}</p>
+      <p className="mb-4 text-sm text-[var(--eo-text-muted)]">Updated {new Intl.DateTimeFormat("en-ZA", { dateStyle: "medium", timeZone: "Africa/Johannesburg" }).format(current.updatedAt)}</p>
+      <Link className="eo-button eo-button--primary" href={`/applicant/applications/${current.publicReference}`}>Open application</Link>
+    </OperationalPanel>}
+    <OperationalPanel title="Your application workspace" tone="subtle"><div className="eo-quick-links"><Link className="eo-button" href="/applicant/applications">All applications</Link><Link className="eo-button" href="/applicant/profile">Profile</Link><Link className="eo-button" href="/applicant/privacy">Privacy and your data</Link></div></OperationalPanel>
+  </ProtectedPageFrame>;
+}

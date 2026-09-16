@@ -9,7 +9,7 @@ import {
   ProtectedState,
   ProtectedStatus,
 } from "@/components/protected-v2";
-import { ParcelDeskIllustration } from "@/components/protected-v2/illustrations/ParcelDeskIllustration";
+import { IllustrationFrame } from "@/components/protected-v2/illustrations/IllustrationFrame";
 import { formatCustomerDateTime, getCustomerOrderStatus } from "@/lib/customer-presentation/customer-order-presentation";
 import styles from "./CustomerPresentation.module.css";
 
@@ -80,7 +80,7 @@ export function CustomerActiveDelivery({ order }: { order: OrderSummaryDto }) {
   const status = getCustomerOrderStatus(order.status);
   const scheduledFor = formatCustomerDateTime(order.scheduledFor);
   return (
-    <OperationalPanel title="Active delivery" description="Your most recently updated delivery that is still in progress." action={<CustomerAction href="/account/orders">View all deliveries</CustomerAction>}>
+    <OperationalPanel className="eo-feature-card" title="Active delivery" description={`Updated ${formatCustomerDateTime(order.updatedAt) ?? "date unavailable"}`} action={<CustomerAction href={`/account/orders/${order.id}`}>View delivery</CustomerAction>}>
       <div className={styles.activeDelivery}>
         <div className={styles.activeDeliveryHead}>
           <div>
@@ -101,7 +101,7 @@ export function CustomerActiveDelivery({ order }: { order: OrderSummaryDto }) {
 }
 
 export function CustomerEmptyDeliveryState() {
-  return <ProtectedState kind="empty" title="No active deliveries" description="When you request a delivery, its customer-safe progress will appear here." illustration={<ParcelDeskIllustration />} action={<CustomerAction href="/account/request-delivery" tone="primary">Request delivery</CustomerAction>} />;
+  return <ProtectedState kind="empty" title="Ready for your next delivery" description="Your active delivery will appear here once you send a request." illustration={<IllustrationFrame role="customer" />} action={<CustomerAction href="/account/request-delivery" tone="primary">Request delivery</CustomerAction>} />;
 }
 
 export function CustomerOrderRecords({ orders }: { orders: readonly OrderSummaryDto[] }) {

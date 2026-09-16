@@ -1,4 +1,4 @@
-.scope { --developer-ink: #18333a; --developer-accent: #187178; --developer-alert: #9a4c2f; }
+.scope { --developer-ink: var(--eo-text); --developer-accent: var(--eo-operational); --developer-alert: var(--eo-warning); }
 
 .scope :global(.eo-developer-secret) { display: block; margin-top: 1rem; padding: .875rem; overflow-x: auto; border: 1px solid color-mix(in srgb, white 35%, transparent); border-radius: var(--eo-radius-control); background: rgba(0, 0, 0, .22); color: white; font-size: .875rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -13,7 +13,7 @@
 .scopeList { display: grid; gap: .75rem; }
 .scopeList li { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--eo-line-soft); padding-top: .75rem; }
 .scopeList li:first-child { border-top: 0; padding-top: 0; }
-.scopeList code { font-weight: 700; overflow-wrap: anywhere; }
+.scopeList code { font-weight: 650; overflow-wrap: anywhere; }
 .scopeList p { margin: .35rem 0 0; color: var(--eo-text-secondary); font-size: .875rem; }
 
 .bulletList { display: grid; gap: .65rem; }

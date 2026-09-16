@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 type EditorialTopbarProps = {
   contextLabel: string;
@@ -27,11 +28,12 @@ export function EditorialTopbar({
 }: EditorialTopbarProps) {
   const [accountOpen, setAccountOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const accountTrigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!accountOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setAccountOpen(false);
+      if (event.key === "Escape") { setAccountOpen(false); accountTrigger.current?.focus(); }
     };
     const onPointerDown = (event: MouseEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) setAccountOpen(false);
@@ -62,14 +64,15 @@ export function EditorialTopbar({
           </Link>
         ) : null}
         <div className="eo-topbar__account" ref={menuRef}>
-          <button aria-expanded={accountOpen} aria-haspopup="menu" aria-label="Open account menu" className={cn("eo-avatar-button", accountOpen && "is-open")} onClick={() => setAccountOpen((current) => !current)} type="button">
+          <button ref={accountTrigger} aria-expanded={accountOpen} aria-controls="eo-account-options" aria-label="Open account menu" className={cn("eo-avatar-button", accountOpen && "is-open")} onClick={() => setAccountOpen((current) => !current)} type="button">
             <span aria-hidden="true" className="eo-avatar">{initials(user.displayName)}</span>
             <span className="eo-topbar__user-copy"><strong>{user.displayName}</strong><small>{user.roleLabel}</small></span>
           </button>
           {accountOpen ? (
-            <div aria-label="Account menu" className="eo-account-menu" role="menu">
+            <div id="eo-account-options" aria-label="Account options" className="eo-account-menu">
               <p className="eo-account-menu__identity"><strong>{user.displayName}</strong><span>{user.roleLabel}</span></p>
-              {profileHref ? <Link onClick={() => setAccountOpen(false)} role="menuitem" href={profileHref}>Profile and settings</Link> : null}
+              {profileHref ? <Link onClick={() => setAccountOpen(false)} href={profileHref}>Profile and settings</Link> : null}
+              <SignOutButton />
             </div>
           ) : null}
         </div>

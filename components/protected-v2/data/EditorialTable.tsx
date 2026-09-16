@@ -14,7 +14,7 @@ export function EditorialTable<T extends { id: string }>({
   caption,
   columns,
   rows,
-  mobileMode = "scroll",
+  mobileMode = "stack",
   emptyState,
   className,
 }: {
