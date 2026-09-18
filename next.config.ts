@@ -53,6 +53,11 @@ const buildCpuOverride = parseBuildCpuOverride(process.env.KT_NEXT_BUILD_CPUS);
 const nextConfig: NextConfig = {
   output: "standalone",
   deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
+  typescript: {
+    // Typechecking is verified independently with dedicated memory via npm run typecheck.
+    // Disabling in-process build typecheck prevents worker OOM under bounded Docker build heaps.
+    ignoreBuildErrors: true,
+  },
   images: {
     formats: ["image/avif", "image/webp"],
   },
