@@ -16,92 +16,89 @@ export function HomepageMotionController() {
 
     const ctx = gsap.context(() => {
       // =========================================================================
-      // 1. HERO → CRAWLER: Environment Parallax + Foreground Actor Travel
+      // 1. HERO PINNED CHAPTER: States 02 -> 03 -> 04 -> 05 (Trailer Takeover)
+      // Duration target: 150vh (within 130-180vh approved contract specification)
       // =========================================================================
-      const heroScene = document.querySelector('[data-scene="hero"]');
-      const heroEnv = document.querySelector('[data-actor="hero-env"]');
-      const heroPlane = document.querySelector('[data-actor="hero-plane"]');
-      const heroCutout = document.querySelector('[data-actor="hero-cutout"]');
-      const heroNeighbor = document.querySelector('[data-actor="hero-neighbor"]');
-      const crawlerFirstImage = document.querySelector('[data-actor="crawler-first-item"]');
+      const heroScene = document.querySelector<HTMLElement>('[data-scene="hero"]');
+      const truckActor = document.querySelector<HTMLElement>('[data-actor="hero-truck-actor"]');
+      const typePlane = document.querySelector<HTMLElement>('[data-actor="hero-type-plane"]');
+      const baseline = document.querySelector<HTMLElement>('[data-actor="hero-baseline"]');
+      const ctaShop = document.querySelector<HTMLElement>('[data-actor="hero-cta-shop"]');
+      const ctaSend = document.querySelector<HTMLElement>('[data-actor="hero-cta-send"]');
+      const crawlerScene = document.querySelector<HTMLElement>('[data-scene="crawler"]');
+      const trailerTakeover = document.querySelector<HTMLElement>('[data-actor="trailer-takeover"]');
+      const marketplaceStage = document.querySelector<HTMLElement>('[data-actor="marketplace-stage"]');
 
-      if (heroScene && heroEnv && heroPlane) {
+      if (heroScene && truckActor && typePlane) {
         const heroTl = gsap.timeline({
           scrollTrigger: {
             trigger: heroScene,
             start: "top top",
-            end: "bottom top",
+            end: "+=150%",
+            pin: true,
+            pinSpacing: true,
             scrub: 0.6,
+            invalidateOnRefresh: true,
           },
         });
 
-        // Environment parallax (slow world: -4% to +4%)
-        heroTl.to(heroEnv, { scale: 1.06, yPercent: 4, ease: "none" }, 0);
+        // STATE 04: Environment moves first (Truck initially holds, typography counter-moves)
+        heroTl
+          .to(typePlane, { xPercent: -12, opacity: 0.7, ease: "none" }, 0)
+          .to(baseline, { xPercent: -20, ease: "none" }, 0)
+          .to(ctaShop, { yPercent: 15, opacity: 0.4, ease: "none" }, 0.1)
+          .to(ctaSend, { yPercent: 15, opacity: 0.4, ease: "none" }, 0.1);
 
-        // Editorial plane withdraws
-        heroTl.to(heroPlane, { yPercent: -28, opacity: 0.4, ease: "none" }, 0);
+        // STATE 03 & 04: Truck translates laterally across hero typography
+        heroTl.to(
+          truckActor,
+          {
+            xPercent: 35,
+            scale: 1.08,
+            ease: "power1.inOut",
+          },
+          0.15
+        );
 
-        // Foreground actor parallax (fashion cutout travels across hero/crawler boundary: +16%)
-        if (heroCutout) {
-          heroTl.to(
-            heroCutout,
-            { xPercent: 18, yPercent: -35, scale: 0.92, ease: "none" },
-            0
-          );
-        }
-
-        // Secondary neighbor media recedes
-        if (heroNeighbor) {
-          heroTl.to(heroNeighbor, { yPercent: -45, opacity: 0, ease: "none" }, 0);
-        }
-
-        // Overlapping boundary: first crawler image enters before hero is fully gone
-        if (crawlerFirstImage) {
+        // STATE 05: Trailer Takeover (Trailer grows to occupy viewport)
+        if (trailerTakeover) {
           heroTl.fromTo(
-            crawlerFirstImage,
-            { scale: 0.9, yPercent: 20 },
-            { scale: 1, yPercent: 0, ease: "none" },
+            trailerTakeover,
+            { scale: 0.85, opacity: 0, yPercent: 40 },
+            { scale: 1.0, opacity: 1, yPercent: 0, ease: "power2.out" },
             0.6
           );
         }
       }
 
       // =========================================================================
-      // 2. CRAWLER → PREPARE: Horizontal-to-Vertical & Selected Object Reframing
+      // 2. MARKETPLACE STAGE: States 06 & 07 (Trailer Resolves Into 5 Categories)
       // =========================================================================
-      const crawlerScene = document.querySelector('[data-scene="crawler"]');
-      const crawlerTrack = document.querySelector('[data-actor="crawler-track"]');
-      const crawlerActiveItem = document.querySelector('[data-actor="crawler-active-item"]');
-
-      if (crawlerScene && crawlerTrack) {
-        const crawlerTl = gsap.timeline({
+      if (crawlerScene && marketplaceStage) {
+        const marketTl = gsap.timeline({
           scrollTrigger: {
             trigger: crawlerScene,
-            start: "top top",
-            end: "bottom bottom",
+            start: "top 60%",
+            end: "center center",
             scrub: 0.5,
           },
         });
 
-        // Horizontal media progression
-        crawlerTl.to(crawlerTrack, { xPercent: -55, ease: "none" }, 0);
-
-        // Inner-image crop parallax on active category image
-        if (crawlerActiveItem) {
-          const innerImg = crawlerActiveItem.querySelector("img");
-          if (innerImg) {
-            crawlerTl.to(innerImg, { scale: 1.08, xPercent: 5, ease: "none" }, 0);
-          }
-        }
+        marketTl.fromTo(
+          marketplaceStage,
+          { yPercent: 12, opacity: 0.7, scale: 0.98 },
+          { yPercent: 0, opacity: 1, scale: 1, ease: "power2.out" },
+          0
+        );
       }
 
       // =========================================================================
-      // 3. PREPARATION: Merchant World Expansion & Package Foreground Actor
+      // 3. PREPARATION SCENE: State 08 (Choice Becomes Parcel)
       // =========================================================================
-      const prepScene = document.querySelector('[data-scene="preparation"]');
-      const merchantWorld = document.querySelector('[data-actor="merchant-world"]');
-      const packageActor = document.querySelector('[data-actor="package-actor"]');
-      const prepCopy = document.querySelector('[data-actor="prep-copy"]');
+      const prepScene = document.querySelector<HTMLElement>('[data-scene="preparation"]');
+      const merchantWorld = document.querySelector<HTMLElement>('[data-actor="merchant-world"]');
+      const packageActor = document.querySelector<HTMLElement>('[data-actor="package-actor"]');
+      const prepCopy = document.querySelector<HTMLElement>('[data-actor="prep-copy"]');
 
       if (prepScene && merchantWorld) {
         const prepTl = gsap.timeline({
@@ -113,116 +110,26 @@ export function HomepageMotionController() {
           },
         });
 
-        // Counter-parallax: Background merchant world expands slowly
         prepTl.fromTo(
           merchantWorld,
-          { scale: 0.92, yPercent: 8 },
-          { scale: 1.05, yPercent: -4, ease: "power1.out" },
+          { scale: 0.94, yPercent: 8 },
+          { scale: 1.04, yPercent: -4, ease: "power1.out" },
           0
         );
 
-        // Foreground actor parallax: Package actor detaches and moves independently (+18%)
         if (packageActor) {
           prepTl.fromTo(
             packageActor,
-            { yPercent: 35, scale: 0.85, opacity: 0.7 },
-            { yPercent: -20, scale: 1.02, opacity: 1, ease: "power2.out" },
-            0.08
+            { yPercent: 28, scale: 0.88, opacity: 0.7 },
+            { yPercent: -12, scale: 1.02, opacity: 1, ease: "power2.out" },
+            0.1
           );
         }
 
-        // Text differential: Copy holds briefly before sliding
         if (prepCopy) {
           prepTl.fromTo(
             prepCopy,
-            { yPercent: 12, opacity: 0.6 },
-            { yPercent: 0, opacity: 1, ease: "power1.out" },
-            0.04
-          );
-        }
-      }
-
-      // =========================================================================
-      // 4. PREPARE → HANDOFF: Edge-Slice Parallax & Viewport Ownership Takeover
-      // =========================================================================
-      const handoffScene = document.querySelector('[data-scene="handoff"]');
-      const slices = document.querySelectorAll('[data-slice-index]');
-      const handoffCopy = document.querySelector('[data-actor="handoff-copy"]');
-      const handoffContainer = document.querySelector('[data-actor="handoff-container"]');
-
-      if (handoffScene && slices.length > 0) {
-        const handoffTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: handoffScene,
-            start: "top 65%",
-            end: "center center",
-            scrub: 0.5,
-          },
-        });
-
-        // Edge-slice parallax: Vertical slices move at differential rates and converge
-        slices.forEach((slice, idx) => {
-          const isEven = idx % 2 === 0;
-          handoffTl.fromTo(
-            slice,
-            {
-              yPercent: isEven ? 18 : -18,
-              scaleY: 0.92,
-              opacity: 0.6,
-            },
-            {
-              yPercent: 0,
-              scaleY: 1,
-              opacity: 1,
-              ease: "power2.out",
-            },
-            idx * 0.06
-          );
-        });
-
-        // Handoff copy enters cleanly
-        if (handoffCopy) {
-          handoffTl.fromTo(
-            handoffCopy,
-            { yPercent: 16, opacity: 0.5 },
-            { yPercent: 0, opacity: 1, ease: "power1.out" },
-            0.12
-          );
-        }
-
-        // Handoff container holds viewport ownership
-        if (handoffContainer) {
-          handoffTl.to(handoffContainer, { scale: 1.02, ease: "none" }, 0.3);
-        }
-      }
-
-      // =========================================================================
-      // 5. HANDOFF → ROUTE: Map Hold / Road Documentary Differential
-      // =========================================================================
-      const routeScene = document.querySelector('[data-scene="route"]');
-      const routeRoad = document.querySelector('[data-actor="route-road"]');
-      const routeMap = document.querySelector('[data-actor="route-map"]');
-      const routeCopy = document.querySelector('[data-actor="route-copy"]');
-
-      if (routeScene && routeRoad) {
-        const routeTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: routeScene,
-            start: "top 70%",
-            end: "bottom top",
-            scrub: 0.55,
-          },
-        });
-
-        // Text/media differential: Map holds while road moves faster
-        routeTl
-          .to(routeRoad, { yPercent: -15, scale: 1.05, ease: "none" }, 0)
-          .fromTo(routeMap, { scale: 0.97, yPercent: 4 }, { scale: 1, yPercent: 0, ease: "none" }, 0);
-
-        if (routeCopy) {
-          routeTl.fromTo(
-            routeCopy,
-            { yPercent: 12, opacity: 0.7 },
+            { yPercent: 10, opacity: 0.6 },
             { yPercent: 0, opacity: 1, ease: "power1.out" },
             0.05
           );
@@ -230,42 +137,146 @@ export function HomepageMotionController() {
       }
 
       // =========================================================================
-      // 6. ROUTE → NETWORK: Spatial Grid Elevation & Commerce Field
+      // 4. LOCAL COLLECTION: State 09 (Mandatory White-Van Moment)
       // =========================================================================
-      const networkScene = document.querySelector('[data-scene="network"]');
-      const networkField = document.querySelector('[data-actor="network-field"]');
-      const networkTiles = document.querySelectorAll('[data-actor="network-tile"]');
+      const collectionScene = document.querySelector<HTMLElement>('[data-scene="collection"]');
+      const collectionVan = document.querySelector<HTMLElement>('[data-actor="collection-van"]');
+      const collectionCourier = document.querySelector<HTMLElement>('[data-actor="collection-courier"]');
 
-      if (networkScene && networkField) {
-        const networkTl = gsap.timeline({
+      if (collectionScene && collectionVan) {
+        const collectionTl = gsap.timeline({
           scrollTrigger: {
-            trigger: networkScene,
-            start: "top 80%",
-            end: "bottom top",
+            trigger: collectionScene,
+            start: "top 75%",
+            end: "center center",
             scrub: 0.5,
           },
         });
 
-        networkTl.to(networkField, { yPercent: -8, ease: "none" }, 0);
+        // White van enters from left with baseline weight
+        collectionTl.fromTo(
+          collectionVan,
+          { xPercent: -18, scale: 0.95, opacity: 0.7 },
+          { xPercent: 0, scale: 1, opacity: 1, ease: "power2.out" },
+          0
+        );
 
-        if (networkTiles.length > 0) {
-          networkTiles.forEach((tile, idx) => {
-            networkTl.fromTo(
-              tile,
-              { yPercent: 10 * (idx % 3), opacity: 0.8 },
-              { yPercent: 0, opacity: 1, ease: "none" },
-              0.05 * idx
-            );
-          });
+        // Courier approaches vehicle
+        if (collectionCourier) {
+          collectionTl.fromTo(
+            collectionCourier,
+            { xPercent: 16, opacity: 0.6 },
+            { xPercent: 0, opacity: 1, ease: "power2.out" },
+            0.15
+          );
         }
       }
 
       // =========================================================================
-      // 7. NETWORK → ARRIVAL: Single Order Resolution
+      // 5. CUSTODY HANDOFF: State 10 (Split Vignette & Chain of Custody)
       // =========================================================================
-      const arrivalScene = document.querySelector('[data-scene="arrival"]');
-      const arrivalMedia = document.querySelector('[data-actor="arrival-media"]');
-      const arrivalCopy = document.querySelector('[data-actor="arrival-copy"]');
+      const handoffScene = document.querySelector<HTMLElement>('[data-scene="handoff"]');
+      const handoffFrame = document.querySelector<HTMLElement>('[data-actor="handoff-frame"]');
+      const handoffCopy = document.querySelector<HTMLElement>('[data-actor="handoff-copy"]');
+
+      if (handoffScene && handoffFrame) {
+        const handoffTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: handoffScene,
+            start: "top 70%",
+            end: "center center",
+            scrub: 0.5,
+          },
+        });
+
+        handoffTl.fromTo(
+          handoffFrame,
+          { scale: 0.96, opacity: 0.8 },
+          { scale: 1, opacity: 1, ease: "power2.out" },
+          0
+        );
+
+        if (handoffCopy) {
+          handoffTl.fromTo(
+            handoffCopy,
+            { yPercent: 12, opacity: 0.6 },
+            { yPercent: 0, opacity: 1, ease: "power1.out" },
+            0.1
+          );
+        }
+      }
+
+      // =========================================================================
+      // 6. ROUTE / TRACKING: State 11 (Top-Down Vehicle + SVG Route Draw)
+      // =========================================================================
+      const routeScene = document.querySelector<HTMLElement>('[data-scene="route"]');
+      const routeRoad = document.querySelector<HTMLElement>('[data-actor="route-road"]');
+      const routeTopTruck = document.querySelector<HTMLElement>('[data-actor="route-top-truck"]');
+      const routeSvg = document.querySelector<SVGPathElement>('[data-actor="route-svg-line"] path');
+
+      if (routeScene && routeRoad) {
+        const routeTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: routeScene,
+            start: "top 75%",
+            end: "bottom top",
+            scrub: 0.55,
+          },
+        });
+
+        // Road parallax
+        routeTl.to(routeRoad, { yPercent: -14, scale: 1.06, ease: "none" }, 0);
+
+        // Top-down truck traversal along route
+        if (routeTopTruck) {
+          routeTl.fromTo(
+            routeTopTruck,
+            { yPercent: 25, xPercent: -15, scale: 0.92 },
+            { yPercent: -20, xPercent: 20, scale: 1.05, ease: "none" },
+            0
+          );
+        }
+
+        // SVG route line dashoffset animation
+        if (routeSvg) {
+          const pathLength = routeSvg.getTotalLength ? routeSvg.getTotalLength() : 1000;
+          gsap.set(routeSvg, { strokeDasharray: pathLength, strokeDashoffset: pathLength });
+          routeTl.to(routeSvg, { strokeDashoffset: 0, ease: "none" }, 0);
+        }
+      }
+
+      // =========================================================================
+      // 7. NETWORK SCALE: State 12 (White Flagship Return & Red Truck Escalation)
+      // =========================================================================
+      const networkScene = document.querySelector<HTMLElement>('[data-scene="network"]');
+      const networkTiles = document.querySelectorAll<HTMLElement>('[data-actor="network-tile"]');
+
+      if (networkScene && networkTiles.length > 0) {
+        const networkTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: networkScene,
+            start: "top 75%",
+            end: "center center",
+            scrub: 0.5,
+          },
+        });
+
+        networkTiles.forEach((tile, idx) => {
+          networkTl.fromTo(
+            tile,
+            { yPercent: 16 * (idx === 0 ? 1 : 1.5), opacity: 0.7 },
+            { yPercent: 0, opacity: 1, ease: "power2.out" },
+            0.1 * idx
+          );
+        });
+      }
+
+      // =========================================================================
+      // 8. ARRIVAL SCENE: State 13 (Quiet Human Delivery Resolution)
+      // =========================================================================
+      const arrivalScene = document.querySelector<HTMLElement>('[data-scene="arrival"]');
+      const arrivalMedia = document.querySelector<HTMLElement>('[data-actor="arrival-media"]');
+      const arrivalCopy = document.querySelector<HTMLElement>('[data-actor="arrival-copy"]');
 
       if (arrivalScene && arrivalMedia) {
         const arrivalTl = gsap.timeline({
@@ -273,35 +284,35 @@ export function HomepageMotionController() {
             trigger: arrivalScene,
             start: "top 75%",
             end: "bottom center",
-            scrub: 0.5,
+            scrub: 0.45,
           },
         });
 
         arrivalTl
           .fromTo(
             arrivalMedia,
-            { scale: 0.94, yPercent: 8 },
+            { scale: 0.95, yPercent: 10 },
             { scale: 1, yPercent: 0, ease: "power1.out" },
             0
           )
           .fromTo(
             arrivalCopy,
-            { yPercent: 14, opacity: 0.6 },
+            { yPercent: 12, opacity: 0.6 },
             { yPercent: 0, opacity: 1, ease: "power1.out" },
             0.1
           );
       }
 
       // =========================================================================
-      // 8. ARRIVAL → FOOTER: Footer Reveal Parallax
+      // 9. FINALE VIEWPORT: State 14 (Designed Viewport Reveal)
       // =========================================================================
-      const finaleScene = document.querySelector('[data-scene="finale"]');
-      const finaleCard = document.querySelector('[data-actor="finale-card"]');
+      const finaleScene = document.querySelector<HTMLElement>('[data-scene="finale"]');
+      const finaleCard = document.querySelector<HTMLElement>('[data-actor="finale-card"]');
 
       if (finaleScene && finaleCard) {
         gsap.fromTo(
           finaleCard,
-          { yPercent: 10, opacity: 0.8 },
+          { yPercent: 12, opacity: 0.8 },
           {
             yPercent: 0,
             opacity: 1,

@@ -3,6 +3,7 @@ import { getStorefrontHome } from "@/lib/services/storefront-catalog.service";
 import { HomeHeroWorld } from "./HomeHeroWorld";
 import { CommerceJourneyCrawler } from "./CommerceJourneyCrawler";
 import { PreparationScene } from "./PreparationScene";
+import { LocalCollectionScene } from "./LocalCollectionScene";
 import { HandoffScene } from "./HandoffScene";
 import { RouteGeographyScene } from "./RouteGeographyScene";
 import { NetworkFieldScene } from "./NetworkFieldScene";
@@ -41,9 +42,10 @@ export async function HomepageExperience() {
       <HomeHeroWorld />
       <CommerceJourneyCrawler categories={categories} />
       <PreparationScene />
+      <LocalCollectionScene />
       <HandoffScene />
       <RouteGeographyScene regions={regions} />
-      <NetworkFieldScene categories={categories} />
+      <NetworkFieldScene />
       <ArrivalScene />
       <HomepageFinale />
     </div>

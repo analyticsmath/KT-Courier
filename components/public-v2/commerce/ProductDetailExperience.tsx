@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { motion, LayoutGroup } from "motion/react";
 import type {
   StorefrontDocument,
   StorefrontProductCard,
@@ -241,8 +242,12 @@ export function ProductDetailExperience({
 
       {/* Main First Viewport Layout */}
       <div className={styles.pdpLayout}>
-        {/* Adaptive Gallery Media Field */}
-        <section aria-label="Product image gallery" className={styles.pdpMediaField}>
+        {/* Adaptive Gallery Media Field with Shared Element Transition Target */}
+        <section
+          aria-label="Product image gallery"
+          className={styles.pdpMediaField}
+          data-kt-shared-target={`product-${product.productReference}`}
+        >
           {gallery.length <= 1 && (
             <div className={styles.galleryHeroFrame}>
               {activeMedia ? (
@@ -443,33 +448,44 @@ export function ProductDetailExperience({
             </Link>
           </div>
 
-          {/* Variant Selector */}
+          {/* Variant Selector with Motion layoutId */}
           {variants.length > 1 && (
             <div className={styles.variantSelectorBlock}>
               <span className={styles.variantGroupLabel}>Available options</span>
-              <div className={styles.variantOptionsList}>
-                {variants.map((v) => {
-                  const isSelected = selectedVariantReference === v.variantReference;
-                  const vHref = marketplaceVariantHref(
-                    product.productSlug,
-                    product.productReference,
-                    v.variantReference
-                  );
-                  if (!vHref) return null;
+              <LayoutGroup id="pdp-variants">
+                <div className={styles.variantOptionsList}>
+                  {variants.map((v) => {
+                    const isSelected = selectedVariantReference === v.variantReference;
+                    const vHref = marketplaceVariantHref(
+                      product.productSlug,
+                      product.productReference,
+                      v.variantReference
+                    );
+                    if (!vHref) return null;
 
-                  return (
-                    <Link
-                      className={`${styles.variantOptionButton} ${
-                        isSelected ? styles.variantOptionButtonActive : ""
-                      }`}
-                      href={vHref}
-                      key={v.variantReference}
-                    >
-                      {Object.values(v.variantOptions).join(" · ") || "Standard"}
-                    </Link>
-                  );
-                })}
-              </div>
+                    return (
+                      <Link
+                        className={`${styles.variantOptionButton} ${
+                          isSelected ? styles.variantOptionButtonActive : ""
+                        } relative overflow-hidden`}
+                        href={vHref}
+                        key={v.variantReference}
+                      >
+                        <span className="relative z-10">
+                          {Object.values(v.variantOptions).join(" · ") || "Standard"}
+                        </span>
+                        {isSelected && (
+                          <motion.div
+                            layoutId="activeVariantIndicator"
+                            className="absolute inset-0 bg-[#0E1012]/10 z-0 pointer-events-none rounded-[2px]"
+                            transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                          />
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </LayoutGroup>
             </div>
           )}
 

@@ -67,6 +67,27 @@ export function MobilePublicNavigation() {
       active = false;
       window.removeEventListener("kt-cart-updated", handleCartUpdated);
     };
+  }, [isSuppressed]);
+
+  const [hiddenNearFooter, setHiddenNearFooter] = useState(false);
+
+
+  // Hide mobile bottom nav before footer legal links to avoid overlap
+  useEffect(() => {
+    if (isSuppressed) return;
+
+    const footer = document.querySelector("footer");
+    if (!footer) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHiddenNearFooter(entry.isIntersecting);
+      },
+      { rootMargin: "0px 0px -40px 0px", threshold: 0.1 }
+    );
+
+    observer.observe(footer);
+    return () => observer.disconnect();
   }, [pathname, isSuppressed]);
 
   if (isSuppressed) {
@@ -86,6 +107,10 @@ export function MobilePublicNavigation() {
       aria-label="Mobile application navigation"
       className={styles.mobileBottomNav}
       data-kt-app-shell="mobile-nav"
+      style={{
+        transform: hiddenNearFooter ? "translateY(120%)" : "none",
+        transition: "transform 240ms cubic-bezier(0.16, 1, 0.3, 1)",
+      }}
     >
       {items.map((item) => {
         const Icon = item.icon;

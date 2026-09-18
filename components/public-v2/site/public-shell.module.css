@@ -828,3 +828,100 @@
   color: var(--kt-cool-550, #7d8581);
   text-transform: uppercase;
 }
+
+/* =========================================================================
+   STATE 14: DESIGNED FINALE VIEWPORT
+   ========================================================================= */
+.designedFinaleViewport {
+  position: relative;
+  width: 100%;
+  background: var(--kt-carbon, #0E1012);
+  color: #F3F1EA;
+  padding: 120px 0 80px;
+  overflow: hidden;
+}
+
+.finaleViewportInner {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 var(--kt-grid-inset, 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.finaleBrandTypography {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.finaleBrandOverline {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--kt-cobalt, #347CFB);
+  margin-bottom: 8px;
+}
+
+.finaleGiantType {
+  margin: 0;
+  font-family: var(--kt-font-display, sans-serif);
+  font-size: clamp(3.6rem, 12vw, 10.5rem);
+  font-weight: 900;
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+  color: #F3F1EA;
+  user-select: none;
+}
+
+.finaleIntentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.finaleShopIntentCard,
+.finaleSendIntentCard {
+  padding: 32px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(217, 222, 226, 0.15);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.finaleShopIntentCard:hover,
+.finaleSendIntentCard:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--kt-cobalt, #347CFB);
+  transform: translateY(-2px);
+}
+
+.finaleArrowCircle,
+.finaleArrowCircleSend {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--kt-cobalt, #347CFB);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.finaleProtagonistCallback {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(217, 222, 226, 0.12);
+}
+
+@media (max-width: 767px) {
+  .finaleIntentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+

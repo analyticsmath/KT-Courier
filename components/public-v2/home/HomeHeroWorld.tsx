@@ -1,79 +1,97 @@
+"use client";
+
 import Image from "next/image";
+import Link from "next/link";
 import { marketplaceHref } from "@/lib/public-marketplace/routes";
-import { PublicButton, RouteMeta, EditorialLabel } from "@/components/public-v2/primitives";
-import { homeMedia } from "./home-media";
+import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import { ktMedia } from "@/components/public-v2/media";
 import styles from "./home-journey.module.css";
 
 export function HomeHeroWorld() {
+  const truckAsset = ktMedia.home.heroTruck.sideRight;
+
   return (
-    <section aria-labelledby="hero-title" className={styles.heroScene} data-kt-contrast="dark" data-scene="hero">
-      {/* Back Plane: Environmental Media & Watermark */}
-      <div className={styles.heroEnvironment} data-actor="hero-env">
-        <Image
-          alt={homeMedia.worldMarket.alt}
-          fill
-          priority
-          sizes="100vw"
-          src={homeMedia.worldMarket.src}
-          style={{ objectFit: "cover", objectPosition: homeMedia.worldMarket.objectPosition }}
-        />
-        <div className={styles.heroEnvironmentScrim} />
+    <section
+      aria-labelledby="hero-title"
+      className={styles.heroPosterScene}
+      data-kt-contrast="light"
+      data-scene="hero"
+    >
+      {/* Background Plane: Oversized KT COURIERS Typography & Road Horizon */}
+      <div className={styles.heroTypographyPlane} data-actor="hero-type-plane">
+        <h1 className={styles.heroOversizedTitle} id="hero-title">
+          <span className={styles.heroOversizedLine}>KT COURIERS</span>
+        </h1>
+        <div className={styles.heroGroundBaseline} data-actor="hero-baseline" />
       </div>
 
-      <div className={styles.heroContainer}>
-        {/* Middle Plane: Editorial Narrative & Action Hub */}
-        <div className={styles.heroEditorialPlane} data-actor="hero-plane">
-          <div className={styles.heroMetaRow}>
-            <EditorialLabel variant="badgeDark">EST. SOUTH AFRICA</EditorialLabel>
-            <RouteMeta routeCode="JHB-CENTRAL-01" status="ACTIVE" />
-          </div>
+      {/* Foreground Protagonist: Long White Truck crossing and occluding typography */}
+      <div className={styles.heroTruckForegroundStage} data-actor="hero-truck-stage">
+        <div className={styles.heroTruckImageContainer} data-actor="hero-truck-actor">
+          <Image
+            alt={truckAsset.alt}
+            src={truckAsset.src}
+            fill
+            priority
+            sizes="(max-width: 767px) 150vw, (max-width: 1440px) 90vw, 1600px"
+            className={styles.heroTruckImg}
+          />
+        </div>
+      </div>
 
-          <h1 className={styles.heroHeadline} id="hero-title">
-            <span>SOUTH AFRICAN</span>
-            <span className={styles.heroHeadlineAccent}>COMMERCE</span>
-            <span>IN MOTION.</span>
-          </h1>
-
-          <p className={styles.heroSupporting}>
-            From neighborhood makers and market stalls to dedicated courier corridors across
-            Johannesburg, Cape Town, and Durban. Two sides of one moving system.
-          </p>
-
-          <div className={styles.heroCommandStrip}>
-            <PublicButton arrow href={marketplaceHref()} size="lg" variant="signal">
-              SHOP LOCAL MAKERS
-            </PublicButton>
-            <PublicButton arrow href="/services/pricing" size="lg" variant="secondary">
-              CALCULATE DELIVERY
-            </PublicButton>
-          </div>
-
-          <div className={styles.heroOperationalProof}>
-            <span className={styles.heroProofItem}>ZAR Settled</span>
-            <span className={styles.heroProofDot}>·</span>
-            <span className={styles.heroProofItem}>Verified OTP Handoff</span>
-            <span className={styles.heroProofDot}>·</span>
-            <span className={styles.heroProofItem}>11 Active Service Corridors</span>
-          </div>
+      {/* Spatial CTA Territories: Shop (Lower-Left) & Send (Lower-Right) */}
+      <div className={styles.heroTerritoryGrid}>
+        {/* Lower-Left Territory: Shop Intent */}
+        <div className={styles.heroTerritoryShop} data-actor="hero-cta-shop">
+          <Link
+            href={marketplaceHref()}
+            className={styles.heroActionCardShop}
+            data-kt-sticky-mode="EXPLORE"
+          >
+            <span className={styles.heroActionBadge}>DISCOVER MARKETPLACE</span>
+            <div className={styles.heroActionHeadingRow}>
+              <span className={styles.heroActionTitle}>Shop Local Makers</span>
+              <div className={styles.heroActionArrowCircle}>
+                <KtIconArrowRight size={18} />
+              </div>
+            </div>
+            <p className={styles.heroActionSubtitle}>
+              Direct orders from verified South African artisans, kitchens & grocers.
+            </p>
+          </Link>
         </div>
 
-        {/* Front Plane: Flagship Long White Truck Protagonist Occluding Typography */}
-        <div className={styles.heroTruckStage} data-actor="hero-cutout">
-          <div className={styles.heroTruckWrapper}>
-            <Image
-              alt={homeMedia.heroTruck.alt}
-              fill
-              priority
-              sizes="(max-width: 767px) 100vw, (max-width: 1440px) 55vw, 760px"
-              src={homeMedia.heroTruck.src}
-              style={{ objectFit: "contain", objectPosition: "bottom right" }}
-            />
-          </div>
-          <div className={styles.heroTruckTelemetry}>
-            <span className={styles.heroTruckDot} />
-            <span>FLEET PROTAGONIST · LONG-HAUL CARGO #01</span>
-          </div>
+        {/* Lower-Right Territory: Send Intent */}
+        <div className={styles.heroTerritorySend} data-actor="hero-cta-send">
+          <Link
+            href="/services/pricing"
+            className={styles.heroActionCardSend}
+            data-kt-sticky-mode="QUOTE"
+          >
+            <span className={styles.heroActionBadgeSend}>DISPATCH & TRANSIT</span>
+            <div className={styles.heroActionHeadingRow}>
+              <span className={styles.heroActionTitle}>Send a Parcel</span>
+              <div className={styles.heroActionArrowCircleSend}>
+                <KtIconArrowRight size={18} />
+              </div>
+            </div>
+            <p className={styles.heroActionSubtitle}>
+              Calculated courier quotes and scheduled collection corridors.
+            </p>
+          </Link>
         </div>
+      </div>
+
+      {/* Mobile Decision Zone: Thumb-reachable dual action bar */}
+      <div className={styles.heroMobileDecisionZone}>
+        <Link href={marketplaceHref()} className={styles.heroMobileShopBtn}>
+          <span>SHOP MAKERS</span>
+          <KtIconArrowRight size={16} />
+        </Link>
+        <Link href="/services/pricing" className={styles.heroMobileSendBtn}>
+          <span>SEND PARCEL</span>
+          <KtIconArrowRight size={16} />
+        </Link>
       </div>
     </section>
   );

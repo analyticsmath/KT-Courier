@@ -1,53 +1,59 @@
+"use client";
+
 import Image from "next/image";
-import { homeMedia } from "./home-media";
+import { ktMedia } from "@/components/public-v2/media";
 import styles from "./home-journey.module.css";
 
 export function PreparationScene() {
   return (
-    <section aria-labelledby="prep-heading" className={styles.prepScene} data-scene="preparation">
-      <div className={styles.prepInner}>
-        <div className={styles.prepCopyBlock} data-actor="prep-copy">
-          <h2 className={styles.prepStatement} id="prep-heading">
-            Someone gets it ready.
+    <section
+      aria-labelledby="prep-heading"
+      className={styles.prepQuietScene}
+      data-scene="preparation"
+    >
+      <div className={styles.prepContainer}>
+        {/* Short, disciplined copy */}
+        <div className={styles.prepHeaderBlock} data-actor="prep-copy">
+          <span className={styles.prepChapterTag}>STATE 08 — PHYSICAL TRANSITION</span>
+          <h2 className={styles.prepMainHeadline} id="prep-heading">
+            Choice Becomes Object
           </h2>
-          <p className={styles.prepLead}>
-            The merchant prepares the order. Items are packaged and staged for collection as the delivery enters the workflow.
+          <p className={styles.prepShortLead}>
+            The merchant packages, seals, and stages the order. Digital selection is now physical freight.
           </p>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 16 }}>
-            <span
-              style={{
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                color: "var(--kt-cool-200, #eceeee)",
-              }}
-            >
-              Order Staged for Collection
-            </span>
-          </div>
         </div>
 
-        <div className={styles.prepMediaStage} data-actor="prep-stage">
-          <div className={styles.prepMerchantWorld} data-actor="merchant-world">
+        {/* Spatial Dual Frame: Merchant Workspace & Packaging Detail */}
+        <div className={styles.prepDualStage} data-actor="prep-stage">
+          {/* Main Merchant Prep Workspace */}
+          <div className={styles.prepMainFrame} data-actor="merchant-world">
             <Image
-              alt={homeMedia.merchantPrepare.alt}
+              alt="South African artisan preparing and packaging parcel in local workshop"
+              src={ktMedia.documentary.pickup.src}
               fill
               sizes="(max-width: 1023px) 100vw, 65vw"
-              src={homeMedia.merchantPrepare.src}
-              style={{ objectFit: "cover", objectPosition: homeMedia.merchantPrepare.objectPosition }}
+              className={styles.prepWorkshopImg}
             />
+            <div className={styles.prepFrameBadge}>
+              <span>ORDER STAGED · ROSEBANK WORKSHOP</span>
+            </div>
           </div>
 
-          <div className={styles.prepDetailActor} data-actor="package-actor">
-            <Image
-              alt={homeMedia.packageDetail.alt}
-              fill
-              sizes="(max-width: 767px) 180px, 320px"
-              src={homeMedia.packageDetail.src}
-              style={{ objectFit: "cover", objectPosition: homeMedia.packageDetail.objectPosition }}
-            />
+          {/* Connected Packaging Detail Actor */}
+          <div className={styles.prepParcelDetailFrame} data-actor="package-actor">
+            <div className="relative w-full h-full">
+              <Image
+                alt="Sealed dispatch parcel ready for courier handoff"
+                src={ktMedia.documentary.handoffDetail.src}
+                fill
+                sizes="(max-width: 767px) 220px, 340px"
+                className="object-cover"
+              />
+              <div className={styles.prepDetailLabel}>
+                <span className="w-2 h-2 rounded-full bg-[#347CFB] animate-pulse" />
+                <span>VERIFIED PARCEL #01</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

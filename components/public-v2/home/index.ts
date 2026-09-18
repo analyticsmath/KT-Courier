@@ -3,6 +3,7 @@ export * from "./HomepageV2";
 export * from "./HomeHeroWorld";
 export * from "./CommerceJourneyCrawler";
 export * from "./PreparationScene";
+export * from "./LocalCollectionScene";
 export * from "./HandoffScene";
 export * from "./RouteGeographyScene";
 export * from "./NetworkFieldScene";

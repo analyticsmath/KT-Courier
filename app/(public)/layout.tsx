@@ -5,6 +5,7 @@ import { PublicSmoothScroll } from "@/components/public-v2/motion/PublicSmoothSc
 import { PublicPageTransition } from "@/components/public-v2/motion/PublicPageTransition";
 import { MobilePublicNavigation } from "@/components/public-v2/site/MobilePublicNavigation";
 import { AddToCartFlightPortal } from "@/components/public-v2/commerce/AddToCartFlightPortal";
+import { StickyCursor } from "@/components/public-v2/motion/cursor/StickyCursor";
 import { publicFontVariables } from "@/app/fonts/public-fonts";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <PublicFooter />
         <MobilePublicNavigation />
         <AddToCartFlightPortal />
+        <StickyCursor />
       </PublicVisualRoot>
     </PublicSmoothScroll>
   );

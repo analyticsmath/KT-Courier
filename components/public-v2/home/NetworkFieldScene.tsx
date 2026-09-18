@@ -1,114 +1,99 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { marketplaceHref, marketplaceCategoryHref } from "@/lib/public-marketplace/routes";
-import { homeMedia } from "./home-media";
+import { ktMedia } from "@/components/public-v2/media";
+import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import styles from "./home-journey.module.css";
 
-interface NetworkFieldSceneProps {
-  categories?: readonly { path: string; name: string }[];
-}
-
-export function NetworkFieldScene({ categories = [] }: NetworkFieldSceneProps) {
-  const catMap = new Map(categories.map((c) => [c.path.toLowerCase(), c.path]));
-
-  const getHref = (defaultPath: string) => {
-    const matched = catMap.get(defaultPath.toLowerCase());
-    return matched ? marketplaceCategoryHref(matched) || marketplaceHref() : marketplaceHref();
-  };
+export function NetworkFieldScene() {
+  const whiteTruck = ktMedia.home.heroTruck.centeredHero;
+  const redTruck = ktMedia.home.redTruck.sideRight;
 
   return (
     <section
-      aria-labelledby="network-heading"
-      className={styles.networkScene}
+      aria-labelledby="network-scale-heading"
+      className={styles.networkScaleScene}
       data-scene="network"
     >
-      <div className={styles.networkInner}>
-        <div className={styles.networkHeader}>
-          <div>
-            <h2 className={styles.networkTitle} id="network-heading">
-              One network. More ways to move.
-            </h2>
-            <p className={styles.networkSub}>
-              Connecting independent retailers, neighborhood kitchens, local grocers, and commercial senders with dedicated courier delivery.
-            </p>
-          </div>
-
-          <Link className={styles.heroCommandPrimary} href={marketplaceHref()}>
-            Shop the marketplace &rarr;
-          </Link>
+      <div className={styles.networkScaleContainer}>
+        {/* Editorial Heading */}
+        <div className={styles.networkScaleHeader} data-actor="network-header">
+          <span className={styles.networkScaleChapterTag}>
+            STATE 12 — NETWORK SCALE
+          </span>
+          <h2 className={styles.networkScaleTitle} id="network-scale-heading">
+            Corridors Scale Up
+          </h2>
+          <p className={styles.networkScaleLead}>
+            Flagship freight capacity connects regional distribution centers. When volume demands surge, heavy transport enters the line.
+          </p>
         </div>
 
-        <div className={styles.networkFieldAsymmetric} data-actor="network-field">
-          {/* Large active category tile */}
-          <Link
-            className={styles.networkTileLarge}
-            href={getHref("/fashion")}
-          >
-            <Image
-              alt={homeMedia.fashion.alt}
-              fill
-              sizes="(max-width: 1023px) 100vw, 48vw"
-              src={homeMedia.fashion.src}
-              style={{
-                objectFit: "cover",
-                objectPosition: homeMedia.fashion.objectPosition,
-              }}
-            />
-            <span className={styles.networkTileLabel}>Fashion & Curated Accessories</span>
-          </Link>
+        {/* Dual Protagonist Stage: Long White Truck Flagship Callback + Rare Red Truck Freight Escalation */}
+        <div className={styles.networkFleetDualStage} data-actor="network-field">
+          {/* Flagship Long White Truck Callback */}
+          <div className={styles.fleetWhiteTruckCard} data-actor="network-tile">
+            <div className={styles.fleetTruckMediaFrame}>
+              <Image
+                alt={whiteTruck.alt}
+                src={whiteTruck.src}
+                fill
+                priority
+                sizes="(max-width: 1023px) 100vw, 50vw"
+                className="object-contain"
+              />
+            </div>
+            <div className={styles.fleetTruckMetaBar}>
+              <span className="text-[10px] font-mono tracking-widest text-[#347CFB] uppercase font-bold">
+                FLAGSHIP LONG-HAUL
+              </span>
+              <span className="text-sm font-semibold text-[#111318]">
+                Daily Linehaul Transit
+              </span>
+            </div>
+          </div>
 
-          {/* Narrow portrait strip */}
-          <Link
-            className={styles.networkTileStrip}
-            href={getHref("/homeware")}
-          >
-            <Image
-              alt={homeMedia.homeware.alt}
-              fill
-              sizes="(max-width: 1023px) 50vw, 22vw"
-              src={homeMedia.homeware.src}
-              style={{
-                objectFit: "cover",
-                objectPosition: homeMedia.homeware.objectPosition,
-              }}
-            />
-            <span className={styles.networkTileLabel}>Artisan Homeware</span>
-          </Link>
+          {/* Heavy Logistics Red Truck (Freight & Capacity Escalation) */}
+          <div className={styles.fleetRedTruckCard} data-actor="network-tile">
+            <div className={styles.fleetTruckMediaFrame}>
+              <Image
+                alt={redTruck.alt}
+                src={redTruck.src}
+                fill
+                priority
+                sizes="(max-width: 1023px) 100vw, 50vw"
+                className="object-contain"
+              />
+            </div>
+            <div className={styles.fleetTruckMetaBar}>
+              <span className="text-[10px] font-mono tracking-widest text-[#CF2930] uppercase font-bold">
+                HEAVY FREIGHT ESCALATION
+              </span>
+              <span className="text-sm font-semibold text-[#111318]">
+                Curtainside Pallet Cargo
+              </span>
+            </div>
+          </div>
+        </div>
 
-          {/* Tactile aperture */}
+        {/* Subordinate Movement Atlas Pathway */}
+        <div className={styles.networkSubordinateRow}>
           <Link
-            className={styles.networkTileAperture}
-            href={getHref("/retail")}
+            href="/services/freight"
+            className={styles.networkFreightAction}
+            data-kt-sticky-mode="FREIGHT"
           >
-            <Image
-              alt={homeMedia.packageDetail.alt}
-              fill
-              sizes="(max-width: 1023px) 50vw, 30vw"
-              src={homeMedia.packageDetail.src}
-              style={{
-                objectFit: "cover",
-                objectPosition: homeMedia.packageDetail.objectPosition,
-              }}
-            />
-            <span className={styles.networkTileLabel}>Handcrafted Packaging</span>
+            <span>Explore Heavy Freight Services</span>
+            <KtIconArrowRight size={16} />
           </Link>
-
-          {/* Landscape support frame */}
           <Link
-            className={styles.networkTileSupport}
-            href="/join"
+            href="/services"
+            className={styles.networkAtlasAction}
+            data-kt-sticky-mode="ATLAS"
           >
-            <Image
-              alt="Local South African merchant in workshop"
-              fill
-              sizes="(max-width: 1023px) 100vw, 30vw"
-              src="/media/public/auth/kt-auth-02-merchant.webp"
-              style={{
-                objectFit: "cover",
-                objectPosition: "50% 30%",
-              }}
-            />
-            <span className={styles.networkTileLabel}>Maker Community</span>
+            <span>Full Movement Atlas</span>
+            <KtIconArrowRight size={16} />
           </Link>
         </div>
       </div>

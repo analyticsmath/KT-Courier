@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "motion/react";
 import type { HydratedPublicCart, HydratedCartStoreGroup, HydratedCartLine } from "@/lib/marketplace-checkout/cart-projection";
 import { marketplaceStoreHref } from "@/lib/public-marketplace/routes";
 import styles from "./commerce.module.css";
@@ -350,107 +351,113 @@ export function CartExperience() {
 
               {/* Line Items */}
               <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {group.lines.map((line: HydratedCartLine) => {
-                  const isMutating = mutatingLineRef === line.reference;
-                  return (
-                    <li
-                      key={line.reference}
-                      style={{
-                        padding: "20px",
-                        borderBottom: "1px solid var(--kt-cool-100, #eceeee)",
-                        display: "grid",
-                        gridTemplateColumns: "1fr auto auto",
-                        gap: 20,
-                        alignItems: "center",
-                        opacity: isMutating ? 0.6 : 1,
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "1.05rem", color: "var(--kt-carbon, #101210)" }}>
-                          {line.title}
-                        </div>
-                        {line.variantTitle && (
-                          <div style={{ fontSize: "0.875rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
-                            Variant: {line.variantTitle}
+                <AnimatePresence initial={false}>
+                  {group.lines.map((line: HydratedCartLine) => {
+                    const isMutating = mutatingLineRef === line.reference;
+                    return (
+                      <motion.li
+                        animate={{ opacity: isMutating ? 0.6 : 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                        initial={{ opacity: 0, height: 0 }}
+                        key={line.reference}
+                        layout
+                        style={{
+                          padding: "20px",
+                          borderBottom: "1px solid var(--kt-cool-100, #eceeee)",
+                          display: "grid",
+                          gridTemplateColumns: "1fr auto auto",
+                          gap: 20,
+                          alignItems: "center",
+                        }}
+                        transition={{ duration: 0.22, ease: "easeOut" }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: "1.05rem", color: "var(--kt-carbon, #101210)" }}>
+                            {line.title}
                           </div>
-                        )}
-                        {line.modifiers.length > 0 && (
-                          <ul style={{ listStyle: "none", padding: 0, margin: "4px 0 0", fontSize: "0.85rem", color: "var(--kt-graphite, #303532)" }}>
-                            {line.modifiers.map((mod, idx) => (
-                              <li key={idx}>
-                                + {mod.optionName} ({formatMoney(mod.priceDelta)})
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <div style={{ fontSize: "0.9rem", color: "var(--kt-muted, #5f6763)", marginTop: 6 }}>
-                          Unit Price: {formatMoney(line.effectiveUnitPrice)}
+                          {line.variantTitle && (
+                            <div style={{ fontSize: "0.875rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
+                              Variant: {line.variantTitle}
+                            </div>
+                          )}
+                          {line.modifiers.length > 0 && (
+                            <ul style={{ listStyle: "none", padding: 0, margin: "4px 0 0", fontSize: "0.85rem", color: "var(--kt-graphite, #303532)" }}>
+                              {line.modifiers.map((mod, idx) => (
+                                <li key={idx}>
+                                  + {mod.optionName} ({formatMoney(mod.priceDelta)})
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <div style={{ fontSize: "0.9rem", color: "var(--kt-muted, #5f6763)", marginTop: 6 }}>
+                            Unit Price: {formatMoney(line.effectiveUnitPrice)}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Quantity Controls */}
-                      <div style={{ display: "inline-flex", alignItems: "center", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}>
-                        <button
-                          type="button"
-                          aria-label="Decrease quantity"
-                          onClick={() => handleUpdateQuantity(line, line.quantity - 1)}
-                          disabled={line.quantity <= 1 || isMutating}
-                          style={{
-                            padding: "6px 10px",
-                            background: "none",
-                            border: "none",
-                            cursor: line.quantity <= 1 || isMutating ? "not-allowed" : "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          -
-                        </button>
-                        <span style={{ padding: "6px 12px", fontSize: "0.9rem", fontWeight: 600, minWidth: 20, textAlign: "center" }}>
-                          {line.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label="Increase quantity"
-                          onClick={() => handleUpdateQuantity(line, line.quantity + 1)}
-                          disabled={line.quantity >= 99 || isMutating}
-                          style={{
-                            padding: "6px 10px",
-                            background: "none",
-                            border: "none",
-                            cursor: line.quantity >= 99 || isMutating ? "not-allowed" : "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      {/* Line Total & Remove */}
-                      <div style={{ textAlign: "right", minWidth: 100 }}>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
-                          {formatMoney(line.lineTotal)}
+                        {/* Quantity Controls */}
+                        <div style={{ display: "inline-flex", alignItems: "center", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}>
+                          <button
+                            aria-label="Decrease quantity"
+                            disabled={line.quantity <= 1 || isMutating}
+                            onClick={() => handleUpdateQuantity(line, line.quantity - 1)}
+                            style={{
+                              padding: "6px 10px",
+                              background: "none",
+                              border: "none",
+                              cursor: line.quantity <= 1 || isMutating ? "not-allowed" : "pointer",
+                              fontWeight: 600,
+                            }}
+                            type="button"
+                          >
+                            -
+                          </button>
+                          <span style={{ padding: "6px 12px", fontSize: "0.9rem", fontWeight: 600, minWidth: 20, textAlign: "center" }}>
+                            {line.quantity}
+                          </span>
+                          <button
+                            aria-label="Increase quantity"
+                            disabled={line.quantity >= 99 || isMutating}
+                            onClick={() => handleUpdateQuantity(line, line.quantity + 1)}
+                            style={{
+                              padding: "6px 10px",
+                              background: "none",
+                              border: "none",
+                              cursor: line.quantity >= 99 || isMutating ? "not-allowed" : "pointer",
+                              fontWeight: 600,
+                            }}
+                            type="button"
+                          >
+                            +
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLine(line)}
-                          disabled={isMutating}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--kt-red, #d83a2e)",
-                            fontSize: "0.85rem",
-                            cursor: isMutating ? "not-allowed" : "pointer",
-                            padding: "4px 0",
-                            marginTop: 4,
-                            textDecoration: "underline",
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
+
+                        {/* Line Total & Remove */}
+                        <div style={{ textAlign: "right", minWidth: 100 }}>
+                          <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
+                            {formatMoney(line.lineTotal)}
+                          </div>
+                          <button
+                            disabled={isMutating}
+                            onClick={() => handleRemoveLine(line)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--kt-red, #d83a2e)",
+                              fontSize: "0.85rem",
+                              cursor: isMutating ? "not-allowed" : "pointer",
+                              padding: "4px 0",
+                              marginTop: 4,
+                              textDecoration: "underline",
+                            }}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
               </ul>
 
               {/* Store Footer Subtotal */}

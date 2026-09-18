@@ -223,3 +223,104 @@
   padding-bottom: 2px;
   border-bottom: 1px solid var(--kt-cool-300, #dde1e0);
 }
+
+.corridorTelemetryPanel {
+  background-color: var(--kt-carbon, #0e1012);
+  color: var(--kt-paper, #f3f1ea);
+  border: 1px solid var(--kt-graphite, #59626a);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.telemetryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 12px;
+}
+
+.telemetryTitle {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--kt-signal-red, #cf2930);
+  margin: 0;
+}
+
+.telemetryBadge {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  background-color: var(--kt-cobalt, #347cfb);
+  color: #ffffff;
+  letter-spacing: 0.04em;
+}
+
+.routeSimulationTrack {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  background-color: #16181d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.routeSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.routePathDrawn {
+  stroke: var(--kt-cobalt, #347cfb);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+  fill: none;
+  animation: routeDashAnimation 18s linear infinite;
+}
+
+@keyframes routeDashAnimation {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.telemetryMetaRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .telemetryMetaRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.telemetryStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.telemetryStatLabel {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--kt-mist, #d9dee2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.telemetryStatValue {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+

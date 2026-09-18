@@ -4,6 +4,7 @@ import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { homeMedia } from "@/components/public-v2/home/home-media";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import { FloatingImageGallery } from "./FloatingImageGallery";
 import styles from "./about-page.module.css";
 
 const ecosystemStages = [
@@ -99,6 +100,9 @@ export function AboutPage() {
             </div>
           ))}
         </section>
+
+        {/* Floating Asymmetrical Gallery */}
+        <FloatingImageGallery />
 
         {/* Direct Pathway Links */}
         <div className={styles.pathwayRow}>

@@ -1,654 +1,361 @@
-/* KT COURIER — Continuous Homepage Journey Styles */
+/* KT COURIERS — Continuous Master Experience Stylesheet (States 00 - 14) */
 
 .journeyRoot {
   position: relative;
   width: 100%;
-  background-color: var(--kt-cool-050, #fafbfa);
-  color: var(--kt-carbon, #101210);
+  background-color: var(--kt-paper, #F3F1EA);
+  color: var(--kt-carbon, #0E1012);
   overflow-x: clip;
 }
 
 /* =========================================================================
-   SCENE 0: HERO (WORLD / MOVEMENT THESIS ENTRY)
+   STATES 02 - 04: HERO POSTER (WARM PAPER, OVERSIZED TYPE, OCCLUSION, SHOP & SEND)
    ========================================================================= */
-.heroScene {
+.heroPosterScene {
   position: relative;
   width: 100%;
   min-height: 100svh;
-  overflow: hidden;
   display: flex;
-  align-items: center;
-  background-color: var(--kt-carbon, #101210);
+  flex-direction: column;
+  justify-content: space-between;
+  background-color: var(--kt-paper, #F3F1EA);
+  overflow: hidden;
   padding-top: var(--public-header-height, 76px);
+  padding-bottom: 24px;
 }
 
-.heroEnvironment {
+.heroTypographyPlane {
   position: absolute;
-  inset: 0;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 1720px;
+  padding: 0 var(--kt-grid-inset, 32px);
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.heroOversizedTitle {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-family: var(--kt-font-display, sans-serif);
+  font-size: clamp(3.8rem, 13vw, 12.5rem);
+  font-weight: 900;
+  line-height: 0.84;
+  letter-spacing: -0.04em;
+  color: var(--kt-carbon, #0E1012);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.heroOversizedLine {
+  display: block;
+}
+
+.heroGroundBaseline {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(89, 98, 106, 0.25) 20%, rgba(89, 98, 106, 0.25) 80%, transparent);
+  margin-top: 12px;
+}
+
+.heroTruckForegroundStage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -46%);
+  width: 92vw;
+  max-width: 1480px;
+  height: clamp(260px, 42vw, 540px);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.heroTruckImageContainer {
+  position: relative;
   width: 100%;
   height: 100%;
-  z-index: 1;
-  transform-origin: center center;
   will-change: transform;
 }
 
-.heroEnvironmentScrim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    rgba(16, 18, 16, 0.94) 0%,
-    rgba(16, 18, 16, 0.82) 48%,
-    rgba(16, 18, 16, 0.45) 100%
-  );
-  z-index: 2;
+.heroTruckImg {
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 28px 36px rgba(14, 16, 18, 0.16));
 }
 
-@media (max-width: 1023px) {
-  .heroEnvironmentScrim {
-    background: linear-gradient(
-      to top,
-      rgba(16, 18, 16, 0.96) 0%,
-      rgba(16, 18, 16, 0.84) 60%,
-      rgba(16, 18, 16, 0.5) 100%
-    );
-  }
-}
-
-.heroContainer {
+/* Lower Spatial CTA Territories */
+.heroTerritoryGrid {
   position: relative;
   z-index: 10;
+  width: 100%;
   max-width: 1680px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 40px var(--kt-grid-inset, 32px);
-  display: grid;
-  grid-template-columns: minmax(460px, 1.4fr) clamp(300px, 28vw, 420px);
-  gap: clamp(32px, 5vw, 64px);
-  align-items: center;
-}
-
-@media (max-width: 1023px) {
-  .heroContainer {
-    grid-template-columns: 1fr;
-    padding-top: 32px;
-    padding-bottom: 56px;
-  }
-}
-
-.heroEditorialPlane {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 680px;
-  color: var(--kt-white, #ffffff);
-}
-
-.heroMetaRow {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.heroHeadline {
-  font-family: var(--kt-public-font-schibsted-source, sans-serif);
-  font-size: clamp(2.8rem, 6.5vw, 5.8rem);
-  font-weight: 750;
-  line-height: 0.92;
-  letter-spacing: -0.035em;
-  color: var(--kt-white, #ffffff);
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.heroHeadlineAccent {
-  color: var(--kt-red, #d83a2e);
-}
-
-.heroSupporting {
-  font-size: clamp(1rem, 1.3vw, 1.2rem);
-  line-height: 1.55;
-  color: var(--kt-cool-200, #dde1e0);
-  margin: 4px 0 12px;
-  max-width: 540px;
-}
-
-.heroCommandStrip {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 639px) {
-  .heroCommandStrip {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-  }
-
-  .heroCommandStrip a,
-  .heroCommandStrip button {
-    width: 100%;
-  }
-}
-
-.heroOperationalProof {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.75rem;
-  color: var(--kt-cool-400, #aeb5b2);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.heroProofDot {
-  color: var(--kt-red, #d83a2e);
-  font-weight: bold;
-}
-
-.heroForegroundActor {
-  position: relative;
-  z-index: 12;
-}
-
-.heroTruckStage {
-  position: relative;
-  z-index: 12;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
-  width: 100%;
-}
-
-.heroTruckWrapper {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1672 / 941;
-  max-width: 680px;
-  filter: drop-shadow(0 28px 40px rgba(0, 0, 0, 0.65));
-}
-
-.heroTruckTelemetry {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.6875rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--kt-cobalt, #347cfb);
-  background-color: rgba(14, 16, 18, 0.75);
-  border: 1px solid rgba(52, 124, 251, 0.3);
-  padding: 4px 10px;
-  border-radius: 4px;
-  backdrop-filter: blur(8px);
-}
-
-.heroTruckDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--kt-cobalt, #347cfb);
-  animation: pulse 2s infinite ease-in-out;
-}
-
-@media (max-width: 1023px) {
-  .heroTruckStage {
-    align-items: center;
-    margin-top: 24px;
-  }
-  .heroTruckWrapper {
-    max-width: 100%;
-  }
-}
-
-.heroParcelAction {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--kt-white, #ffffff);
-  text-decoration: none;
-  font-weight: 560;
-  transition: color 140ms ease;
-}
-
-.heroParcelAction:hover {
-  color: var(--kt-red, #d83a2e);
-}
-
-/* =========================================================================
-   SCENE 1: COMMERCE JOURNEY CRAWLER (WHITE DESERT LEVEL)
-   ========================================================================= */
-.crawlerScene {
-  position: relative;
-  width: 100%;
-  height: 180svh;
-  background-color: var(--kt-cool-050, #fafbfa);
-}
-
-@media (max-width: 767px) {
-  .crawlerScene {
-    height: auto;
-    padding: 64px 0 80px;
-  }
-}
-
-.crawlerStickyViewport {
-  position: sticky;
-  top: 0;
-  width: 100%;
-  height: 100svh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  margin: auto auto 0;
   padding: 0 var(--kt-grid-inset, 32px);
-}
-
-@media (max-width: 767px) {
-  .crawlerStickyViewport {
-    position: relative;
-    height: auto;
-    padding: 0 20px;
-  }
-}
-
-.crawlerHeader {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   justify-content: space-between;
-  align-items: flex-end;
-  max-width: 1680px;
-  margin: 0 auto 32px;
-  width: 100%;
+  gap: 32px;
 }
 
-.crawlerTitle {
-  font-size: clamp(1.8rem, 3.6vw, 3.2rem);
-  font-weight: 560;
-  letter-spacing: -0.03em;
-  color: var(--kt-carbon, #101210);
-  margin: 0;
-  line-height: 1.05;
+.heroTerritoryShop {
+  max-width: 440px;
+  justify-self: start;
 }
 
-.crawlerSub {
-  font-size: clamp(0.9rem, 1.2vw, 1.05rem);
-  color: var(--kt-muted, #5f6763);
-  margin: 8px 0 0;
+.heroTerritorySend {
+  max-width: 440px;
+  justify-self: end;
 }
 
-.crawlerStageTrack {
-  position: relative;
-  width: 100%;
-  max-width: 1680px;
-  height: clamp(380px, 56vh, 620px);
-  margin: 0 auto;
+.heroActionCardShop,
+.heroActionCardSend {
+  display: block;
+  padding: 20px 24px;
+  background: #FFFFFF;
+  border: 1px solid var(--kt-mist, #D9DEE2);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  box-shadow: 0 4px 16px rgba(14, 16, 18, 0.04);
+}
+
+.heroActionCardShop:hover,
+.heroActionCardSend:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(14, 16, 18, 0.08);
+  border-color: var(--kt-cobalt, #347CFB);
+}
+
+.heroActionBadge {
+  display: inline-block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-cobalt, #347CFB);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.heroActionBadgeSend {
+  display: inline-block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-carbon, #0E1012);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.heroActionHeadingRow {
   display: flex;
   align-items: center;
-  gap: 24px;
-}
-
-@media (max-width: 767px) {
-  .crawlerStageTrack {
-    height: auto;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    gap: 16px;
-    padding-bottom: 16px;
-    -webkit-overflow-scrolling: touch;
-  }
-}
-
-.crawlerItem {
-  position: relative;
-  height: 100%;
-  text-decoration: none;
-  color: inherit;
-  flex-shrink: 0;
-  transition: width 380ms cubic-bezier(0.16, 1, 0.3, 1), flex-grow 380ms cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-}
-
-@media (max-width: 767px) {
-  .crawlerItem {
-    width: 82vw;
-    height: 440px;
-    scroll-snap-align: start;
-  }
-}
-
-/* Active vs neighbor geometries */
-.crawlerItemActive {
-  width: clamp(360px, 48vw, 680px);
-  z-index: 10;
-}
-
-.crawlerItemStrip {
-  width: clamp(100px, 14vw, 180px);
-  opacity: 0.85;
-  z-index: 5;
-}
-
-.crawlerItemWide {
-  width: clamp(400px, 54vw, 760px);
-  z-index: 10;
-}
-
-.crawlerImageFrame {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background-color: var(--kt-cool-150, #eceeee);
-  overflow: hidden;
-}
-
-.crawlerImageFrame img {
-  object-fit: cover;
-  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1), filter 300ms ease;
-}
-
-.crawlerItemActive .crawlerImageFrame img {
-  transform: scale(1.03);
-}
-
-.crawlerItemLabelBlock {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 15;
-  display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  padding: 36px 24px 22px;
-  background: linear-gradient(to top, rgba(16, 18, 16, 0.9) 0%, rgba(16, 18, 16, 0.45) 60%, transparent 100%);
-  color: var(--kt-white, #ffffff);
+  gap: 12px;
 }
 
-.crawlerItemName {
-  font-family: var(--kt-public-font-schibsted-source, sans-serif);
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--kt-white, #ffffff);
+.heroActionTitle {
+  font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+  font-weight: 800;
+  color: var(--kt-ink, #111318);
+  letter-spacing: -0.02em;
 }
 
-.crawlerItemAction {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
-  font-weight: 550;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--kt-cool-200, #eceeee);
-  transition: color 140ms ease, transform 140ms ease;
+.heroActionArrowCircle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--kt-cobalt, #347CFB);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.crawlerItem:hover .crawlerItemAction {
-  color: var(--kt-red, #d83a2e);
-  transform: translateX(3px);
+.heroActionArrowCircleSend {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--kt-carbon, #0E1012);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.heroActionSubtitle {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--kt-graphite, #59626A);
+}
+
+/* Mobile Decision Zone */
+.heroMobileDecisionZone {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .heroTerritoryGrid {
+    display: none;
+  }
+
+  .heroMobileDecisionZone {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    padding: 0 16px;
+    z-index: 10;
+    margin-top: auto;
+  }
+
+  .heroMobileShopBtn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
+    background: var(--kt-cobalt, #347CFB);
+    color: #FFFFFF;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 4px;
+    text-decoration: none;
+  }
+
+  .heroMobileSendBtn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
+    background: var(--kt-carbon, #0E1012);
+    color: #FFFFFF;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 4px;
+    text-decoration: none;
+  }
+
+  .heroOversizedTitle {
+    font-size: clamp(3.2rem, 16vw, 5.2rem);
+    white-space: normal;
+    line-height: 0.9;
+  }
+
+  .heroTruckForegroundStage {
+    width: 130vw;
+    height: 320px;
+    left: 42%;
+  }
 }
 
 /* =========================================================================
-   SCENE 2: PREPARE (MERCHANT ENVIRONMENT ENTRY)
+   STATES 05 - 07: TRAILER TAKEOVER & 5-CATEGORY WORLD (ONE VISUAL OBJECT)
    ========================================================================= */
-.prepScene {
+.trailerTakeoverSection {
   position: relative;
   width: 100%;
-  min-height: 100svh;
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
-  display: flex;
-  align-items: center;
-  padding: clamp(60px, 8vw, 100px) var(--kt-grid-inset, 32px);
+  min-height: 100vh;
+  background: var(--kt-paper, #F3F1EA);
+  padding: 80px 0;
   overflow: hidden;
 }
 
-.prepInner {
-  position: relative;
-  z-index: 10;
-  max-width: 1680px;
-  margin: 0 auto;
-  width: 100%;
-  display: grid;
-  grid-template-columns: minmax(320px, 420px) 1fr;
-  gap: clamp(40px, 6vw, 80px);
-  align-items: center;
-}
-
-@media (max-width: 1023px) {
-  .prepInner {
-    grid-template-columns: 1fr;
-  }
-}
-
-.prepCopyBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  z-index: 5;
-}
-
-.prepStatement {
-  font-size: clamp(2.2rem, 4.5vw, 3.8rem);
-  font-weight: 560;
-  line-height: 0.98;
-  letter-spacing: -0.03em;
-  color: var(--kt-white, #ffffff);
-  margin: 0;
-}
-
-.prepLead {
-  font-size: clamp(0.95rem, 1.4vw, 1.15rem);
-  color: var(--kt-cool-350, #adb5b2);
-  line-height: 1.45;
-  margin: 0;
-}
-
-.prepMediaStage {
-  position: relative;
-  width: 100%;
-  height: clamp(400px, 65vh, 720px);
-  overflow: hidden;
-}
-
-.prepMerchantWorld {
+.trailerSurfaceTakeover {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   z-index: 1;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
-.prepDetailActor {
-  position: absolute;
-  bottom: 32px;
-  right: 32px;
-  width: clamp(200px, 26vw, 340px);
-  height: clamp(180px, 24vh, 260px);
-  z-index: 5;
-  border: 2px solid var(--kt-white, #ffffff);
-  overflow: hidden;
-}
-
-/* =========================================================================
-   SCENE 3: HANDOFF (SIGNATURE SPLIT TRANSITION)
-   ========================================================================= */
-.handoffScene {
-  position: relative;
-  width: 100%;
-  min-height: 100svh;
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  scroll-margin-top: var(--public-header-height, 76px);
-  padding-top: calc(var(--public-header-height, 76px) + clamp(40px, 6vw, 80px));
-  padding-bottom: clamp(60px, 8vw, 100px);
-  padding-left: var(--kt-grid-inset, 32px);
-  padding-right: var(--kt-grid-inset, 32px);
-  overflow: hidden;
-}
-
-.handoffInner {
-  position: relative;
-  z-index: 10;
-  max-width: 1500px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 36px;
-}
-
-.handoffCopyBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.handoffHeadline {
-  font-size: clamp(2.4rem, 6vw, 5.6rem);
-  font-weight: 560;
-  line-height: 0.94;
-  letter-spacing: -0.04em;
-  color: var(--kt-white, #ffffff);
-  margin: 0;
-  text-align: left;
-}
-
-.handoffTokenRow {
-  display: flex;
-  align-items: center;
-}
-
-.handoffTokenText {
-  font-size: 0.85rem;
-  font-weight: 540;
-  color: var(--kt-cool-350, #adb5b2);
-  letter-spacing: 0.03em;
-}
-
-.handoffTransformationFrame {
-  position: relative;
-  width: 100%;
-  height: clamp(400px, 65vh, 750px);
-  overflow: hidden;
-}
-
-.handoffSliceStage {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.handoffSlice {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  will-change: transform, clip-path, opacity;
-}
-
-.handoffTransformationFrame img {
+.trailerMaterialImg {
   object-fit: cover;
+  opacity: 0.15;
 }
 
-.handoffTokenRow {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.trailerTakeoverOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--kt-paper, #F3F1EA) 0%, rgba(243, 241, 234, 0.7) 40%, var(--kt-paper, #F3F1EA) 100%);
 }
 
-.handoffTokenText {
-  font-size: 0.875rem;
-  font-weight: 560;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--kt-cool-200, #eceeee);
-}
-
-/* =========================================================================
-   SCENE 4: ROUTE & GEOGRAPHY (REAL MAP PROTAGONIST)
-   ========================================================================= */
-.routeScene {
+.marketplaceSpatialStage {
   position: relative;
-  width: 100%;
-  min-height: 100svh;
-  background-color: var(--kt-cool-100, #f5f6f6);
-  color: var(--kt-carbon, #101210);
-  padding: clamp(60px, 8vw, 100px) var(--kt-grid-inset, 32px);
-  display: flex;
-  align-items: center;
-}
-
-.routeInner {
+  z-index: 5;
   max-width: 1680px;
   margin: 0 auto;
-  width: 100%;
-  display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: clamp(36px, 5vw, 72px);
-  align-items: stretch;
+  padding: 0 var(--kt-grid-inset, 32px);
 }
 
-@media (max-width: 1023px) {
-  .routeInner {
-    grid-template-columns: 1fr;
-  }
-}
-
-.routeInfoPanel {
+.marketplaceHeaderStrip {
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 28px;
+  margin-bottom: 36px;
 }
 
-.routeMainCopy {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.marketplaceChapterLabel {
+  display: block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-cobalt, #347CFB);
+  margin-bottom: 6px;
 }
 
-.routeTitle {
+.marketplaceHeading {
   font-size: clamp(2rem, 4vw, 3.4rem);
-  font-weight: 560;
+  font-weight: 850;
+  color: var(--kt-ink, #111318);
   letter-spacing: -0.03em;
-  color: var(--kt-carbon, #101210);
   margin: 0;
 }
 
-.routeSub {
-  font-size: 1rem;
-  color: var(--kt-muted, #5f6763);
-  line-height: 1.45;
-  margin: 0;
+.marketplaceAllLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--kt-ink, #111318);
+  text-decoration: none;
+  padding: 8px 14px;
+  border: 1px solid var(--kt-mist, #D9DEE2);
+  border-radius: 4px;
+  background: #FFFFFF;
 }
 
-.routeRegionSection {
+.spatialCategoryDeck {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+.categoryIndexNav {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-.routeRegionHeading {
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--kt-carbon, #101210);
-}
-
-.routeRegionList {
+.categoryIndexList {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -657,234 +364,799 @@
   gap: 8px;
 }
 
-.routeRegionButton {
-  background: none;
-  border: 1px solid var(--kt-cool-250, #dde1e0);
-  padding: 10px 14px;
-  text-align: left;
-  font-size: 0.875rem;
-  font-weight: 520;
-  color: var(--kt-carbon, #101210);
-  cursor: pointer;
+.categoryIndexBtn {
+  width: 100%;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: border-color 140ms ease, background-color 140ms ease;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
 }
 
-.routeRegionButton:hover,
-.routeRegionButtonActive {
-  background-color: var(--kt-white, #ffffff);
-  border-color: var(--kt-red, #d83a2e);
-  color: var(--kt-red, #d83a2e);
-  font-weight: 600;
+.categoryIndexBtn:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: var(--kt-mist, #D9DEE2);
 }
 
-.routeVisualsContainer {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 24px;
-  min-height: 520px;
+.categoryIndexBtnActive {
+  background: #FFFFFF !important;
+  border-color: var(--kt-cobalt, #347CFB) !important;
+  box-shadow: 0 4px 16px rgba(14, 16, 18, 0.05);
 }
 
-@media (max-width: 899px) {
-  .routeVisualsContainer {
-    grid-template-columns: 1fr;
-    min-height: auto;
-  }
+.categoryIndexNumber {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--kt-cobalt, #347CFB);
+  margin-top: 2px;
 }
 
-.routeMapSlot {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 420px;
-}
-
-.routeRoadSlot {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 420px;
-  overflow: hidden;
-}
-
-/* =========================================================================
-   SCENE 5: NETWORK (ASYMMETRIC FLOATING MEDIA FIELD)
-   ========================================================================= */
-.networkScene {
-  position: relative;
-  width: 100%;
-  min-height: 100svh;
-  background-color: var(--kt-cool-050, #fafbfa);
-  color: var(--kt-carbon, #101210);
-  padding: clamp(70px, 10vw, 120px) var(--kt-grid-inset, 32px);
-}
-
-.networkInner {
-  max-width: 1680px;
-  margin: 0 auto;
+.categoryIndexInfo {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 2px;
 }
 
-.networkHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 24px;
-}
-
-.networkTitle {
-  font-size: clamp(2rem, 4vw, 3.6rem);
-  font-weight: 560;
-  letter-spacing: -0.03em;
-  color: var(--kt-carbon, #101210);
-  margin: 0;
-}
-
-.networkSub {
+.categoryIndexTitle {
   font-size: 1.05rem;
-  color: var(--kt-muted, #5f6763);
-  margin: 8px 0 0;
-  max-width: 580px;
+  font-weight: 700;
+  color: var(--kt-ink, #111318);
 }
 
-.networkFieldAsymmetric {
-  display: grid;
-  grid-template-columns: 1.3fr 0.7fr 1fr;
-  grid-template-rows: 280px 280px;
-  gap: 24px;
+.categoryIndexTagline {
+  font-size: 0.8rem;
+  color: var(--kt-graphite, #59626A);
 }
 
-@media (max-width: 1023px) {
-  .networkFieldAsymmetric {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto;
-  }
+.activeCategoryMediaTerritory {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-@media (max-width: 599px) {
-  .networkFieldAsymmetric {
-    grid-template-columns: 1fr;
-  }
-}
-
-.networkTileLarge {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  position: relative;
-  overflow: hidden;
+.activeMediaLink {
+  display: block;
   text-decoration: none;
-  color: inherit;
-}
-
-.networkTileStrip {
-  grid-column: 2;
-  grid-row: 1 / span 2;
   position: relative;
+  border-radius: 4px;
   overflow: hidden;
-  text-decoration: none;
-  color: inherit;
+  box-shadow: 0 16px 40px rgba(14, 16, 18, 0.08);
 }
 
-.networkTileAperture {
-  grid-column: 3;
-  grid-row: 1;
-  position: relative;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
+.activeMediaImg {
+  object-fit: cover;
+  transition: transform 300ms ease;
 }
 
-.networkTileSupport {
-  grid-column: 3;
-  grid-row: 2;
-  position: relative;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
+.activeMediaLink:hover .activeMediaImg {
+  transform: scale(1.02);
 }
 
-@media (max-width: 1023px) {
-  .networkTileLarge,
-  .networkTileStrip,
-  .networkTileAperture,
-  .networkTileSupport {
-    grid-column: auto;
-    grid-row: auto;
-    height: 320px;
-  }
-}
-
-.networkTileLabel {
+.activeMediaBadgeBar {
   position: absolute;
   bottom: 0;
   left: 0;
-  padding: 12px 18px;
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
-  font-size: 0.875rem;
-  font-weight: 560;
+  right: 0;
+  padding: 20px 24px;
+  background: linear-gradient(0deg, rgba(14, 16, 18, 0.9) 0%, transparent 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #FFFFFF;
+}
+
+.activeCategoryLabel {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.activeCategoryAction {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--kt-cobalt, #347CFB);
+}
+
+.neighborContextStrip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.neighborThumbBtn {
+  position: relative;
+  height: 90px;
+  border: 1px solid var(--kt-mist, #D9DEE2);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  background: #0E1012;
+}
+
+.neighborThumbBtn:hover {
+  border-color: var(--kt-cobalt, #347CFB);
+}
+
+.neighborThumbLabel {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
   z-index: 10;
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFFFFF;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.mobileCategoryScrollSnap {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .spatialCategoryDeck {
+    display: none;
+  }
+
+  .mobileCategoryScrollSnap {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobileCategoryCard {
+    flex: 0 0 82vw;
+    scroll-snap-align: start;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #FFFFFF;
+    border: 1px solid var(--kt-mist, #D9DEE2);
+    text-decoration: none;
+  }
+
+  .mobileCategoryCardMedia {
+    position: relative;
+    width: 100%;
+    height: 240px;
+  }
+
+  .mobileCategoryCardMeta {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mobileCategoryCardNumber {
+    font-family: var(--kt-font-mono, monospace);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--kt-cobalt, #347CFB);
+  }
+
+  .mobileCategoryCardTitle {
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: var(--kt-ink, #111318);
+  }
 }
 
 /* =========================================================================
-   SCENE 6: ARRIVAL (RESOLUTION)
+   STATE 08: PREPARATION (CHOICE BECOMES PARCEL)
    ========================================================================= */
-.arrivalScene {
+.prepQuietScene {
   position: relative;
   width: 100%;
-  min-height: 90svh;
-  background-color: var(--kt-white, #ffffff);
-  color: var(--kt-carbon, #101210);
-  display: flex;
-  align-items: center;
-  padding: clamp(60px, 8vw, 110px) var(--kt-grid-inset, 32px);
+  padding: 96px 0;
+  background: #FFFFFF;
+  border-top: 1px solid var(--kt-mist, #D9DEE2);
 }
 
-.arrivalInner {
-  max-width: 1400px;
+.prepContainer {
+  max-width: 1680px;
   margin: 0 auto;
-  width: 100%;
+  padding: 0 var(--kt-grid-inset, 32px);
+}
+
+.prepHeaderBlock {
+  max-width: 680px;
+  margin-bottom: 36px;
+}
+
+.prepChapterTag {
+  display: block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-graphite, #59626A);
+  margin-bottom: 8px;
+}
+
+.prepMainHeadline {
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: var(--kt-ink, #111318);
+  margin: 0;
+}
+
+.prepShortLead {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--kt-graphite, #59626A);
+  margin-top: 8px;
+}
+
+.prepDualStage {
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(40px, 6vw, 80px);
+  grid-template-columns: 1.5fr 1fr;
+  gap: 32px;
   align-items: center;
+}
+
+.prepMainFrame {
+  position: relative;
+  height: clamp(340px, 40vw, 520px);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.prepWorkshopImg {
+  object-fit: cover;
+}
+
+.prepFrameBadge {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  padding: 6px 12px;
+  background: rgba(14, 16, 18, 0.85);
+  color: #FFFFFF;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.prepParcelDetailFrame {
+  position: relative;
+  height: clamp(280px, 32vw, 420px);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(14, 16, 18, 0.08);
+  border: 1px solid var(--kt-mist, #D9DEE2);
+}
+
+.prepDetailLabel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(14, 16, 18, 0.9);
+  color: #FFFFFF;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 @media (max-width: 899px) {
-  .arrivalInner {
+  .prepDualStage {
     grid-template-columns: 1fr;
   }
 }
 
-.arrivalMediaFrame {
+/* =========================================================================
+   STATE 09: LOCAL COLLECTION (MANDATORY WHITE-VAN MOMENT)
+   ========================================================================= */
+.collectionScene {
   position: relative;
   width: 100%;
-  height: clamp(360px, 55vh, 600px);
-  overflow: hidden;
+  padding: 96px 0;
+  background: var(--kt-paper, #F3F1EA);
+  border-top: 1px solid var(--kt-mist, #D9DEE2);
 }
 
-.arrivalContent {
+.collectionContainer {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 var(--kt-grid-inset, 32px);
+}
+
+.collectionHeader {
+  max-width: 680px;
+  margin-bottom: 32px;
+}
+
+.collectionChapterTag {
+  display: block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-cobalt, #347CFB);
+  margin-bottom: 6px;
+}
+
+.collectionHeadline {
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: var(--kt-ink, #111318);
+  margin: 0;
+}
+
+.collectionLead {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--kt-graphite, #59626A);
+  margin-top: 8px;
+}
+
+.collectionVehicleStage {
+  position: relative;
+  width: 100%;
+  height: clamp(340px, 45vw, 560px);
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.collectionVanActor {
+  position: relative;
+  width: 75%;
+  height: 90%;
+  will-change: transform;
+}
+
+.collectionVanImg {
+  object-fit: contain;
+  object-position: bottom left;
+  filter: drop-shadow(0 20px 28px rgba(14, 16, 18, 0.12));
+}
+
+.collectionCourierActor {
+  position: absolute;
+  right: 12%;
+  bottom: 0;
+  width: clamp(140px, 20vw, 260px);
+  height: clamp(220px, 32vw, 420px);
+  z-index: 10;
+}
+
+.collectionTelemetryRow {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* =========================================================================
+   STATE 10: CUSTODY HANDOFF (SPLIT VIGNETTE & VERIFIED OTP)
+   ========================================================================= */
+.handoffCustodyScene {
+  position: relative;
+  width: 100%;
+  padding: 96px 0;
+  background: #0E1012;
+  color: #F3F1EA;
+}
+
+.handoffContainer {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 var(--kt-grid-inset, 32px);
+}
+
+.handoffHeader {
+  max-width: 680px;
+  margin-bottom: 32px;
+}
+
+.handoffChapterTag {
+  display: block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-cobalt, #347CFB);
+  margin-bottom: 6px;
+}
+
+.handoffHeadline {
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: #F3F1EA;
+  margin: 0;
+}
+
+.handoffLead {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #D9DEE2;
+  opacity: 0.8;
+  margin-top: 8px;
+}
+
+.handoffSplitVignetteWrap {
+  width: 100%;
+}
+
+.handoffEvidenceBar {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(217, 222, 226, 0.15);
+  border-radius: 4px;
+}
+
+/* =========================================================================
+   STATE 11: ROUTE & TRACKING (TOP-DOWN VEHICLE, SVG ROUTE DRAW, PIXEL RECONSTRUCT)
+   ========================================================================= */
+.routeTrackingScene {
+  position: relative;
+  width: 100%;
+  padding: 96px 0;
+  background: var(--kt-paper, #F3F1EA);
+}
+
+.routeContainer {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 var(--kt-grid-inset, 32px);
+}
+
+.routeHeader {
+  max-width: 680px;
+  margin-bottom: 32px;
+}
+
+.routeChapterTag {
+  display: block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-cobalt, #347CFB);
+  margin-bottom: 6px;
+}
+
+.routeMainTitle {
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: var(--kt-ink, #111318);
+  margin: 0;
+}
+
+.routeLead {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--kt-graphite, #59626A);
+  margin-top: 8px;
+}
+
+.routeVisualsComposition {
+  position: relative;
+  width: 100%;
+  height: clamp(380px, 48vw, 620px);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--kt-mist, #D9DEE2);
+}
+
+.routeHighwaySlot {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.routeHighwayImg {
+  object-fit: cover;
+  filter: saturate(0.85) brightness(0.9);
+}
+
+.routeHighwayScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(14, 16, 18, 0.4) 0%, rgba(14, 16, 18, 0.7) 100%);
+}
+
+.routeSvgLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.routeAnimatedSvgPath {
+  animation: routeDashFlow 24s linear infinite;
+}
+
+@keyframes routeDashFlow {
+  to {
+    stroke-dashoffset: -400;
+  }
+}
+
+.routeTopDownTruckStage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(200px, 28vw, 420px);
+  height: clamp(100px, 14vw, 200px);
+  z-index: 10;
+  filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.5));
+}
+
+.routeTelemetryPixelBox {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 20;
+}
+
+.routePixelCard {
+  background: rgba(14, 16, 18, 0.92);
+  border: 1px solid var(--kt-cobalt, #347CFB);
+  border-radius: 2px;
+  padding: 16px 20px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.routeHubsBar {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
-.arrivalHeading {
-  font-size: clamp(2.6rem, 6vw, 5.2rem);
-  font-weight: 560;
-  letter-spacing: -0.04em;
-  color: var(--kt-carbon, #101210);
+.routeHubsLabel {
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--kt-graphite, #59626A);
+}
+
+.routeHubsPills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.routeHubPill {
+  padding: 6px 14px;
+  background: #FFFFFF;
+  border: 1px solid var(--kt-mist, #D9DEE2);
+  border-radius: 2px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--kt-ink, #111318);
+  cursor: pointer;
+}
+
+.routeHubPillActive {
+  background: var(--kt-carbon, #0E1012);
+  color: #FFFFFF;
+  border-color: var(--kt-carbon, #0E1012);
+}
+
+.routeAllCoverageLink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--kt-cobalt, #347CFB);
+  text-decoration: none;
+}
+
+/* =========================================================================
+   STATE 12: NETWORK SCALE (WHITE TRUCK RETURN & RED FREIGHT ESCALATION)
+   ========================================================================= */
+.networkScaleScene {
+  position: relative;
+  width: 100%;
+  padding: 96px 0;
+  background: #FFFFFF;
+  border-top: 1px solid var(--kt-mist, #D9DEE2);
+}
+
+.networkScaleContainer {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 var(--kt-grid-inset, 32px);
+}
+
+.networkScaleHeader {
+  max-width: 680px;
+  margin-bottom: 36px;
+}
+
+.networkScaleChapterTag {
+  display: block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-cobalt, #347CFB);
+  margin-bottom: 6px;
+}
+
+.networkScaleTitle {
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: var(--kt-ink, #111318);
+  margin: 0;
+}
+
+.networkScaleLead {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--kt-graphite, #59626A);
+  margin-top: 8px;
+}
+
+.networkFleetDualStage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.fleetWhiteTruckCard,
+.fleetRedTruckCard {
+  background: var(--kt-paper, #F3F1EA);
+  border: 1px solid var(--kt-mist, #D9DEE2);
+  border-radius: 4px;
+  overflow: hidden;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.fleetTruckMediaFrame {
+  position: relative;
+  width: 100%;
+  height: clamp(200px, 25vw, 340px);
+}
+
+.fleetTruckMetaBar {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.networkSubordinateRow {
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.networkFreightAction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: var(--kt-carbon, #0E1012);
+  color: #FFFFFF;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.networkAtlasAction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--kt-ink, #111318);
+  text-decoration: none;
+}
+
+@media (max-width: 899px) {
+  .networkFleetDualStage {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================================
+   STATE 13: ARRIVAL (QUIET HUMAN RESOLUTION)
+   ========================================================================= */
+.arrivalQuietScene {
+  position: relative;
+  width: 100%;
+  padding: 96px 0;
+  background: var(--kt-paper, #F3F1EA);
+  border-top: 1px solid var(--kt-mist, #D9DEE2);
+}
+
+.arrivalContainer {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 var(--kt-grid-inset, 32px);
+}
+
+.arrivalHeader {
+  max-width: 680px;
+  margin-bottom: 32px;
+}
+
+.arrivalChapterTag {
+  display: block;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--kt-graphite, #59626A);
+  margin-bottom: 6px;
+}
+
+.arrivalTitle {
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: var(--kt-ink, #111318);
   margin: 0;
 }
 
 .arrivalLead {
-  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
-  color: var(--kt-muted, #5f6763);
-  line-height: 1.45;
-  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--kt-graphite, #59626A);
+  margin-top: 8px;
+}
+
+.arrivalHumanStage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.arrivalCourierFrame {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  height: clamp(340px, 44vw, 560px);
+}
+
+.arrivalWarmStatusBadge {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background: #FFFFFF;
+  border: 1px solid var(--kt-mist, #D9DEE2);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4px 16px rgba(14, 16, 18, 0.04);
 }

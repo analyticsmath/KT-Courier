@@ -53,24 +53,35 @@
 }
 
 .roleTabButton {
+  position: relative;
   background-color: var(--kt-white, #ffffff);
   border: 1px solid var(--kt-cool-250, #dde1e0);
   padding: 14px 24px;
   cursor: pointer;
   white-space: nowrap;
   font-family: inherit;
-  transition: background-color 140ms ease, border-color 140ms ease;
+  transition: border-color 140ms ease;
+  overflow: hidden;
 }
 
 .roleTabButtonActive {
-  background-color: var(--kt-carbon, #101210);
   border-color: var(--kt-carbon, #101210);
 }
 
+.roleTabIndicator {
+  position: absolute;
+  inset: 0;
+  background-color: var(--kt-carbon, #101210);
+  z-index: 1;
+}
+
 .roleTabTitle {
+  position: relative;
+  z-index: 2;
   font-size: 1rem;
   font-weight: 560;
   color: var(--kt-carbon, #101210);
+  transition: color 140ms ease;
 }
 
 .roleTabButtonActive .roleTabTitle {
@@ -80,10 +91,17 @@
 .roleStageCard {
   background-color: var(--kt-white, #ffffff);
   border: 1px solid var(--kt-cool-200, #eceeee);
+  min-height: 540px;
+  overflow: hidden;
+}
+
+.roleStageGrid {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
   min-height: 540px;
+  width: 100%;
 }
+
 
 @media (max-width: 1023px) {
   .roleStageCard {

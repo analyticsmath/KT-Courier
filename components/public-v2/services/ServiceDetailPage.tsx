@@ -43,23 +43,52 @@ function ServiceFaqSection({ service }: ServiceWorldProps) {
   );
 }
 
+function getServiceProtagonist(slug: string) {
+  if (slug === "freight") {
+    return { name: "Red Freight Truck Protagonist", detail: "Heavy-haul regional transit fleet" };
+  }
+  if (slug === "parcel") {
+    return { name: "Courier Protagonist", detail: "Personal custody handoff & transit unit" };
+  }
+  if (slug === "grocery" || slug === "food" || slug === "pharmacy") {
+    return { name: "Urban Delivery Van Protagonist", detail: "Rapid dispatch urban vehicle" };
+  }
+  return { name: "Corridor Transit Protagonist", detail: "Standard network transport" };
+}
+
 /* =========================================================================
    FAMILY 1: TACTILE EVERYDAY (parcel, food, grocery, pharmacy)
    ========================================================================= */
 function TactileEverydayWorld({ service }: ServiceWorldProps) {
   const heroMedia = getServiceMedia(service.heroMediaId);
   const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
+  const protagonist = getServiceProtagonist(service.slug);
 
   return (
     <div className={styles.tactileWorld}>
       {/* Editorial Tactile Stage */}
       <section className={styles.tactileHero}>
         <div className={styles.tactileCopyPlane}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span
+              style={{
+                fontFamily: "var(--kt-font-mono, monospace)",
+                fontSize: "0.72rem",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: service.slug === "freight" ? "var(--kt-signal-red, #cf2930)" : "var(--kt-cobalt, #347cfb)",
+                fontWeight: 600,
+              }}
+            >
+              {protagonist.name}
+            </span>
+          </div>
           <h1 className={styles.tactileTitle}>{service.title}</h1>
           <p className={styles.tactileLead}>{service.summary}</p>
           <div className={styles.detailHeroActions}>
             <Link
               className={styles.detailPrimaryAction}
+              data-kt-cursor="QUOTE"
               href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
             >
               {service.primaryAction.label} <KtIconArrowRight size={16} />
@@ -67,7 +96,7 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
           </div>
         </div>
 
-        <div className={styles.tactileMediaShowcase}>
+        <div className={styles.tactileMediaShowcase} data-kt-cursor="VIEW">
           <Image
             alt={heroMedia.alt}
             fill
@@ -78,6 +107,7 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
           />
         </div>
       </section>
+
 
       {/* Item Handling & Dispatch Guidelines */}
       <section className={styles.tactileDetailsSection}>
@@ -131,17 +161,33 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
 function CommerceBusinessWorld({ service }: ServiceWorldProps) {
   const heroMedia = getServiceMedia(service.heroMediaId);
   const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
+  const protagonist = getServiceProtagonist(service.slug);
 
   return (
     <div className={styles.businessWorld}>
       {/* High-density Commerce Header */}
       <section className={styles.businessHero}>
         <div className={styles.businessHeaderLeft}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span
+              style={{
+                fontFamily: "var(--kt-font-mono, monospace)",
+                fontSize: "0.72rem",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "var(--kt-cobalt, #347cfb)",
+                fontWeight: 600,
+              }}
+            >
+              {protagonist.name}
+            </span>
+          </div>
           <h1 className={styles.businessTitle}>{service.title}</h1>
           <p className={styles.businessLead}>{service.summary}</p>
           <div className={styles.detailHeroActions}>
             <Link
               className={styles.detailPrimaryAction}
+              data-kt-cursor="QUOTE"
               href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
             >
               {service.primaryAction.label} <KtIconArrowRight size={16} />
@@ -149,7 +195,7 @@ function CommerceBusinessWorld({ service }: ServiceWorldProps) {
           </div>
         </div>
 
-        <div className={styles.businessHeroMediaStage}>
+        <div className={styles.businessHeroMediaStage} data-kt-cursor="VIEW">
           <Image
             alt={heroMedia.alt}
             fill
@@ -177,7 +223,7 @@ function CommerceBusinessWorld({ service }: ServiceWorldProps) {
         </div>
 
         {detailMediaItems.length > 0 && (
-          <div className={styles.businessMediaFrame}>
+          <div className={styles.businessMediaFrame} data-kt-cursor="VIEW">
             <Image
               alt={detailMediaItems[0].alt}
               fill
@@ -199,12 +245,13 @@ function CommerceBusinessWorld({ service }: ServiceWorldProps) {
    ========================================================================= */
 function PlannedMovementWorld({ service }: ServiceWorldProps) {
   const heroMedia = getServiceMedia(service.heroMediaId);
+  const protagonist = getServiceProtagonist(service.slug);
 
   return (
     <div className={styles.plannedWorld}>
       {/* Full-width Environmental Landscape */}
       <section className={styles.plannedHero}>
-        <div className={styles.plannedLandscapeFrame}>
+        <div className={styles.plannedLandscapeFrame} data-kt-cursor="VIEW">
           <Image
             alt={heroMedia.alt}
             fill
@@ -216,11 +263,26 @@ function PlannedMovementWorld({ service }: ServiceWorldProps) {
         </div>
 
         <div className={styles.plannedOverlayBox}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span
+              style={{
+                fontFamily: "var(--kt-font-mono, monospace)",
+                fontSize: "0.72rem",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: service.slug === "freight" ? "var(--kt-signal-red, #cf2930)" : "var(--kt-cobalt, #347cfb)",
+                fontWeight: 600,
+              }}
+            >
+              {protagonist.name}
+            </span>
+          </div>
           <h1 className={styles.plannedTitle}>{service.title}</h1>
           <p className={styles.plannedLead}>{service.summary}</p>
           <div className={styles.detailHeroActions}>
             <Link
               className={styles.detailPrimaryAction}
+              data-kt-cursor="QUOTE"
               href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
             >
               {service.primaryAction.label} <KtIconArrowRight size={16} />
@@ -318,6 +380,7 @@ function PricingIntelligenceWorld({ service }: ServiceWorldProps) {
           </p>
           <Link
             className={styles.detailPrimaryAction}
+            data-kt-cursor="QUOTE"
             href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
           >
             <span>Request a Delivery Quote</span>
