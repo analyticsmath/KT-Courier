@@ -43,17 +43,35 @@ function ServiceFaqSection({ service }: ServiceWorldProps) {
   );
 }
 
-function getServiceProtagonist(slug: string) {
+function getServiceClassification(slug: string) {
   if (slug === "freight") {
-    return { name: "Red Freight Truck Protagonist", detail: "Heavy-haul regional transit fleet" };
+    return { name: "Heavy Freight & Bulk Haulage", detail: "Regional highway transit" };
   }
   if (slug === "parcel") {
-    return { name: "Courier Protagonist", detail: "Personal custody handoff & transit unit" };
+    return { name: "Doorstep Parcel Delivery", detail: "Everyday direct custody handoff" };
   }
-  if (slug === "grocery" || slug === "food" || slug === "pharmacy") {
-    return { name: "Urban Delivery Van Protagonist", detail: "Rapid dispatch urban vehicle" };
+  if (slug === "grocery") {
+    return { name: "Grocery & Pantry Delivery", detail: "Store collection to door" };
   }
-  return { name: "Corridor Transit Protagonist", detail: "Standard network transport" };
+  if (slug === "food") {
+    return { name: "Food-Related Local Delivery", detail: "Kitchen pickup and transport" };
+  }
+  if (slug === "pharmacy") {
+    return { name: "Pharmacy-Related Delivery", detail: "Careful local delivery" };
+  }
+  if (slug === "moving") {
+    return { name: "Moving & Cargo Transport", detail: "Larger item volume transport" };
+  }
+  if (slug === "shuttle") {
+    return { name: "Scheduled Route Transport", detail: "Planned commercial transit" };
+  }
+  if (slug === "business") {
+    return { name: "Business Logistics", detail: "Repeat order dispatch" };
+  }
+  if (slug === "driver-network") {
+    return { name: "Driver & Courier Network", detail: "Local delivery operations" };
+  }
+  return { name: "Delivery Services", detail: "Confirmed route transit" };
 }
 
 /* =========================================================================
@@ -62,7 +80,7 @@ function getServiceProtagonist(slug: string) {
 function TactileEverydayWorld({ service }: ServiceWorldProps) {
   const heroMedia = getServiceMedia(service.heroMediaId);
   const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
-  const protagonist = getServiceProtagonist(service.slug);
+  const classification = getServiceClassification(service.slug);
 
   return (
     <div className={styles.tactileWorld}>
@@ -72,15 +90,15 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span
               style={{
-                fontFamily: "var(--kt-font-mono, monospace)",
+                fontFamily: "var(--font-mono, monospace)",
                 fontSize: "0.72rem",
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
-                color: service.slug === "freight" ? "var(--kt-signal-red, #cf2930)" : "var(--kt-cobalt, #347cfb)",
+                color: service.slug === "freight" ? "var(--kt-brand-red, #e10f1b)" : "var(--kt-brand-blue-accessible, #2a64dd)",
                 fontWeight: 600,
               }}
             >
-              {protagonist.name}
+              {classification.name}
             </span>
           </div>
           <h1 className={styles.tactileTitle}>{service.title}</h1>
@@ -161,7 +179,7 @@ function TactileEverydayWorld({ service }: ServiceWorldProps) {
 function CommerceBusinessWorld({ service }: ServiceWorldProps) {
   const heroMedia = getServiceMedia(service.heroMediaId);
   const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
-  const protagonist = getServiceProtagonist(service.slug);
+  const classification = getServiceClassification(service.slug);
 
   return (
     <div className={styles.businessWorld}>
@@ -171,15 +189,15 @@ function CommerceBusinessWorld({ service }: ServiceWorldProps) {
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span
               style={{
-                fontFamily: "var(--kt-font-mono, monospace)",
+                fontFamily: "var(--font-mono, monospace)",
                 fontSize: "0.72rem",
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
-                color: "var(--kt-cobalt, #347cfb)",
+                color: "var(--kt-brand-blue-accessible, #2a64dd)",
                 fontWeight: 600,
               }}
             >
-              {protagonist.name}
+              {classification.name}
             </span>
           </div>
           <h1 className={styles.businessTitle}>{service.title}</h1>
@@ -245,7 +263,7 @@ function CommerceBusinessWorld({ service }: ServiceWorldProps) {
    ========================================================================= */
 function PlannedMovementWorld({ service }: ServiceWorldProps) {
   const heroMedia = getServiceMedia(service.heroMediaId);
-  const protagonist = getServiceProtagonist(service.slug);
+  const classification = getServiceClassification(service.slug);
 
   return (
     <div className={styles.plannedWorld}>
@@ -266,15 +284,15 @@ function PlannedMovementWorld({ service }: ServiceWorldProps) {
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span
               style={{
-                fontFamily: "var(--kt-font-mono, monospace)",
+                fontFamily: "var(--font-mono, monospace)",
                 fontSize: "0.72rem",
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
-                color: service.slug === "freight" ? "var(--kt-signal-red, #cf2930)" : "var(--kt-cobalt, #347cfb)",
+                color: service.slug === "freight" ? "var(--kt-brand-red, #e10f1b)" : "var(--kt-brand-blue-accessible, #2a64dd)",
                 fontWeight: 600,
               }}
             >
-              {protagonist.name}
+              {classification.name}
             </span>
           </div>
           <h1 className={styles.plannedTitle}>{service.title}</h1>

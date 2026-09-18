@@ -1,26 +1,23 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
-import { PublicFooter } from "@/components/layout/PublicFooter";
-import { PublicVisualRoot } from "@/components/public-v2/foundation/PublicVisualRoot";
-import { PublicSmoothScroll } from "@/components/public-v2/motion/PublicSmoothScroll";
-import { PublicPageTransition } from "@/components/public-v2/motion/PublicPageTransition";
-import { MobilePublicNavigation } from "@/components/public-v2/site/MobilePublicNavigation";
+import { PublicHeader } from "@/components/public-v3/navigation/PublicHeader";
+import { PublicFooter } from "@/components/public-v3/navigation/PublicFooter";
+import { MobileNavigation } from "@/components/public-v3/navigation/MobileNavigation";
+import { PublicVisualRoot } from "@/components/public-v3/foundation/PublicVisualRoot";
+import { PublicMotionProvider } from "@/components/public-v3/motion/PublicMotionProvider";
 import { AddToCartFlightPortal } from "@/components/public-v2/commerce/AddToCartFlightPortal";
-import { StickyCursor } from "@/components/public-v2/motion/cursor/StickyCursor";
-import { publicFontVariables } from "@/app/fonts/public-fonts";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <PublicSmoothScroll>
-      <PublicVisualRoot className={`layout-public flex min-h-screen flex-col ${publicFontVariables}`}>
+    <PublicMotionProvider>
+      <PublicVisualRoot className="layout-public flex min-h-screen flex-col">
         <PublicHeader />
         <main className="flex-1" id="main-content">
-          <PublicPageTransition>{children}</PublicPageTransition>
+          {children}
         </main>
         <PublicFooter />
-        <MobilePublicNavigation />
+        <MobileNavigation />
         <AddToCartFlightPortal />
-        <StickyCursor />
       </PublicVisualRoot>
-    </PublicSmoothScroll>
+    </PublicMotionProvider>
   );
 }
+

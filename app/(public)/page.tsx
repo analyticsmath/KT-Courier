@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HomepageV2 } from "@/components/public-v2/home";
+import { PublicHomeExperience } from "@/components/public-v3/home";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 
 export const metadata: Metadata = {
@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: { absolute: "Marketplace and courier services | KT Couriers" },
 };
 
+// Canonical Public Homepage Experience (HomepageV2 upgraded to v3)
+const HomepageV2 = PublicHomeExperience;
+
 export default function HomePage() {
   return <HomepageV2 />;
 }
+

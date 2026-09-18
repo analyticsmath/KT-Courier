@@ -34,9 +34,9 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
       {/* Region Content & Serviceability Stream */}
       <div className={styles.regionStreamHolder}>
         <div className={styles.productTruthNotice}>
-          <span className={styles.noticeTitle}>Operational Notice</span>
+          <span className={styles.noticeTitle}>Delivery Verification</span>
           <p className={styles.noticeText}>
-            There is no postcode checker or anonymous live driver location tool on this page. Delivery availability is confirmed through the actual pickup and dropoff coordinates submitted with your request. The system does not treat an unavailable source as an empty coverage list.
+            Availability is confirmed from the pickup and drop-off details in your request. For custom cross-provincial dispatches, contact our operations team.
           </p>
         </div>
 
@@ -44,8 +44,8 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
           <PixelReconstruct active={true} durationMs={450} key={selectedRegion.name}>
             <div className={styles.corridorTelemetryPanel} data-kt-cursor="EXPLORE">
               <div className={styles.telemetryHeader}>
-                <span className={styles.telemetryTitle}>Corridor Telemetry · Route Transit</span>
-                <span className={styles.telemetryBadge}>CORRIDOR ACTIVE</span>
+                <span className={styles.telemetryTitle}>Region Details · {selectedRegion.name}</span>
+                <span className={styles.telemetryBadge}>ACTIVE REGION</span>
               </div>
 
               <div className={styles.routeSimulationTrack}>
@@ -61,7 +61,7 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
                     d="M 20 40 C 90 20, 140 60, 200 40 C 260 20, 310 60, 380 40"
                   />
                   <circle cx="20" cy="40" fill="#CF2930" r="4" />
-                  <text fill="#8E99A2" fontFamily="monospace" fontSize="9" x="12" y="65">HUB</text>
+                  <text fill="#8E99A2" fontFamily="monospace" fontSize="9" x="12" y="65">PICKUP</text>
                   <g transform="translate(190, 28)">
                     <rect fill="#FFFFFF" height="16" rx="2" width="28" x="0" y="4" />
                     <rect fill="#347CFB" height="12" opacity="0.8" rx="1" width="6" x="2" y="6" />
@@ -72,25 +72,25 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
                     <circle cx="22" cy="21" fill="#0E1012" r="1.5" />
                   </g>
                   <circle cx="380" cy="40" fill="#347CFB" r="4" />
-                  <text fill="#8E99A2" fontFamily="monospace" fontSize="9" x="365" y="65">DEST</text>
+                  <text fill="#8E99A2" fontFamily="monospace" fontSize="9" x="355" y="65">DELIVERY</text>
                 </svg>
               </div>
 
               <div className={styles.telemetryMetaRow}>
                 <div className={styles.telemetryStat}>
-                  <span className={styles.telemetryStatLabel}>Region Corridor</span>
+                  <span className={styles.telemetryStatLabel}>Region</span>
                   <span className={styles.telemetryStatValue}>{selectedRegion.name}</span>
                 </div>
                 <div className={styles.telemetryStat}>
-                  <span className={styles.telemetryStatLabel}>Sector Jurisdiction</span>
+                  <span className={styles.telemetryStatLabel}>Service Area</span>
                   <span className={styles.telemetryStatValue}>
                     {[selectedRegion.city, selectedRegion.province].filter(Boolean).join(", ") || "Active Region"}
                   </span>
                 </div>
                 <div className={styles.telemetryStat}>
-                  <span className={styles.telemetryStatLabel}>Transit Scope</span>
+                  <span className={styles.telemetryStatLabel}>Coverage Range</span>
                   <span className={styles.telemetryStatValue}>
-                    {selectedRegion.coverageRadiusKm ? `~${selectedRegion.coverageRadiusKm} km Radius` : "Standard Corridor"}
+                    {selectedRegion.coverageRadiusKm ? `~${selectedRegion.coverageRadiusKm} km Radius` : "Standard Route"}
                   </span>
                 </div>
               </div>
@@ -100,12 +100,12 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
 
         <div className={styles.activeRegionsListSection}>
           <h2 className={styles.sectionHeading}>
-            Configured Delivery Regions ({regions.length})
+            Delivery Regions ({regions.length})
           </h2>
 
           {snapshot.state === "SOURCE_UNAVAILABLE" ? (
             <div className={styles.emptyStateCard}>
-              <p>Regional directory temporarily unavailable. Active delivery operations continue as normal.</p>
+              <p>Our delivery region list is currently updating. Active delivery operations continue as normal. Contact our team to confirm service for your route.</p>
               <Link className={styles.primaryActionButton} href="/contact">
                 Contact operations team &rarr;
               </Link>

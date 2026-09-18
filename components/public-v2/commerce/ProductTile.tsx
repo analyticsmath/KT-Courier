@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "motion/react";
 import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
 import { availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
 import { marketplaceProductHref } from "@/lib/public-marketplace/routes";
@@ -46,11 +45,7 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
   };
 
   const tileInner = (
-    <motion.div
-      className="w-full flex flex-col"
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.16, ease: "easeOut" }}
-    >
+    <div className="w-full flex flex-col group">
       <div className={styles.productTileMediaFrame}>
         {mediaSrc ? (
           <Image
@@ -59,6 +54,7 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
             priority={priority}
             sizes="(max-width: 639px) calc(50vw - 20px), (max-width: 1023px) 33vw, 24vw"
             src={mediaSrc}
+            className="transition-transform duration-300 ease-out group-hover:scale-[1.01]"
           />
         ) : (
           <div
@@ -69,23 +65,23 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
               justifyContent: "center",
               width: "100%",
               height: "100%",
-              color: "var(--kt-muted, #5f6763)",
+              color: "var(--kt-road-grey, #6B6E6A)",
               fontSize: "0.85rem",
+              backgroundColor: "var(--kt-concrete, #D1CEC6)/20",
             }}
           >
             No image
           </div>
         )}
-        <span aria-hidden="true" className={styles.productTileQuickAction}>
-          {product.variantCount > 1 ? "Choose Options" : "View Details"}
-        </span>
       </div>
 
       <div className={styles.productTileBody}>
         {product.brandName && (
           <span className={styles.productTileBrand}>{product.brandName}</span>
         )}
-        <h3 className={styles.productTileTitle}>{product.title}</h3>
+        <h3 className={`${styles.productTileTitle} group-hover:underline underline-offset-2`}>
+          {product.title}
+        </h3>
         <span className={styles.productTilePrice}>
           {formatPrice(product.price.amount, product.price.currency)}
         </span>
@@ -98,7 +94,7 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
           </span>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 
   return (

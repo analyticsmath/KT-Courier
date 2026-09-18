@@ -18,13 +18,13 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
         </div>
 
         <div className={styles.heroCopyBlock}>
-          <h1 className={styles.heroTitle}>Coverage Areas & Delivery Corridors.</h1>
+          <h1 className={styles.heroTitle}>Where we deliver.</h1>
           <p className={styles.heroLead}>
-            Explore currently configured delivery regions. Store products may be available for browsing, while actual courier collection and delivery depend on configured operational corridors.
+            Explore our active delivery regions across South Africa. Availability is confirmed from the pickup and drop-off details in your request.
           </p>
 
           <div className={styles.productTruthNotice}>
-            <span className={styles.noticeTitle}>Operational Notice</span>
+            <span className={styles.noticeTitle}>Delivery Verification</span>
             <p className={styles.noticeText}>
               There is no postcode checker or anonymous live driver location tool on this page. Delivery availability is confirmed through the actual pickup and dropoff coordinates submitted with your request. The system does not treat an unavailable source as an empty coverage list.
             </p>

@@ -7,40 +7,29 @@ import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import { FloatingImageGallery } from "./FloatingImageGallery";
 import styles from "./about-page.module.css";
 
-const ecosystemStages = [
+const networkPillars = [
   {
-    step: "01",
-    role: "The Customer",
-    title: "A choice is made.",
-    desc: "A customer discovers handcrafted goods from a local maker or needs an essential document moved across the city.",
-    media: homeMedia.worldMarket,
-  },
-  {
-    step: "02",
-    role: "The Merchant",
-    title: "The item is prepared.",
-    desc: "The local store prepares, packages, and stages the order for courier collection.",
+    category: "Makers & Merchants",
+    title: "Trade begins with local preparation.",
+    desc: "Independent shops, craft producers, and regional suppliers prepare products with care before handover.",
     media: homeMedia.merchantPrepare,
   },
   {
-    step: "03",
-    role: "The Marketplace",
-    title: "Coordination occurs.",
-    desc: "Order records, delivery requests, and merchant catalogs connect through the central system.",
+    category: "Marketplace Continuity",
+    title: "Catalog diversity connects with real delivery.",
+    desc: "From everyday essentials to specialty items, every listing is backed by confirmed courier routes.",
     media: homeMedia.retailLocal,
   },
   {
-    step: "04",
-    role: "Movement",
-    title: "The route is navigated.",
-    desc: "Couriers navigate regional corridors between verified collection and delivery coordinates.",
+    category: "Regional Transport",
+    title: "Connecting routes across South Africa.",
+    desc: "Couriers and freight operators navigate provincial corridors and urban streets with verified custody.",
     media: homeMedia.routeRoad,
   },
   {
-    step: "05",
-    role: "The Recipient",
-    title: "The handoff resolves.",
-    desc: "Responsibility changes hands cleanly at the recipient's doorstep.",
+    category: "Doorstep Delivery",
+    title: "Clean, verified handoff at the destination.",
+    desc: "Packages reach recipients directly at homes, offices, and regional collection points on schedule.",
     media: homeMedia.arrival,
   },
 ] as const;
@@ -68,34 +57,34 @@ export function AboutPage() {
         {/* Narrative Intro */}
         <section aria-labelledby="about-heading" className={styles.aboutHero}>
           <h1 className={styles.aboutTitle} id="about-heading">
-            How commerce and delivery connect.
+            Commerce does not end at the checkout. Delivery does not start at the road. KT sits between the two.
           </h1>
           <p className={styles.aboutLead}>
-            KT Couriers provides a platform connecting local merchants, independent senders, and courier transit.
+            KT Couriers connects local merchant stores, independent senders, and trusted couriers across South African communities.
           </p>
         </section>
 
-        {/* Continuous Ecosystem Sequence */}
-        <section aria-label="Ecosystem Sequence" className={styles.ecosystemSequence}>
-          {ecosystemStages.map((stage) => (
-            <div className={styles.ecosystemNode} key={stage.step}>
+        {/* Human Narrative Sequence */}
+        <section aria-label="Our Network" className={styles.ecosystemSequence}>
+          {networkPillars.map((pillar) => (
+            <div className={styles.ecosystemNode} key={pillar.category}>
               <div className={styles.nodeMediaFrame}>
                 <Image
-                  alt={stage.media.alt}
+                  alt={pillar.media.alt}
                   fill
                   sizes="(max-width: 899px) 100vw, 50vw"
-                  src={stage.media.src}
+                  src={pillar.media.src}
                   style={{
                     objectFit: "cover",
-                    objectPosition: stage.media.objectPosition ?? "center",
+                    objectPosition: pillar.media.objectPosition ?? "center",
                   }}
                 />
               </div>
 
               <div className={styles.nodeCopyPlane}>
-                <span className={styles.nodeStepIndex}>{stage.step} · {stage.role}</span>
-                <h2 className={styles.nodeTitle}>{stage.title}</h2>
-                <p className={styles.nodeDesc}>{stage.desc}</p>
+                <span className={styles.nodeStepIndex}>{pillar.category}</span>
+                <h2 className={styles.nodeTitle}>{pillar.title}</h2>
+                <p className={styles.nodeDesc}>{pillar.desc}</p>
               </div>
             </div>
           ))}
@@ -107,11 +96,11 @@ export function AboutPage() {
         {/* Direct Pathway Links */}
         <div className={styles.pathwayRow}>
           <Link className={styles.pathwayLink} href="/shop">
-            <span>Explore Marketplace Catalog</span>
+            <span>Explore Marketplace</span>
             <KtIconArrowRight size={18} />
           </Link>
           <Link className={styles.pathwayLink} href="/services">
-            <span>Explore Movement Atlas</span>
+            <span>Explore Delivery Services</span>
             <KtIconArrowRight size={18} />
           </Link>
         </div>

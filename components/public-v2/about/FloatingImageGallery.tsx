@@ -11,15 +11,15 @@ import styles from "./about-page.module.css";
 const galleryItems = [
   {
     id: "people",
-    tag: "01 · People",
-    title: "Makers, store owners & dispatchers",
+    tag: "Merchants & Makers",
+    title: "Makers, store owners & dispatchers preparing orders",
     media: homeMedia.merchantPrepare,
     aspect: "4/5",
     depthFactor: 12,
   },
   {
     id: "marketplace",
-    tag: "02 · Marketplace",
+    tag: "Marketplace Continuity",
     title: "Catalog diversity connecting local commerce",
     media: homeMedia.retailLocal,
     aspect: "16/10",
@@ -27,15 +27,15 @@ const galleryItems = [
   },
   {
     id: "movement",
-    tag: "03 · Movement",
-    title: "Transit corridors spanning South Africa",
+    tag: "Transport Corridors",
+    title: "Transit routes spanning South Africa",
     media: homeMedia.routeRoad,
     aspect: "16/9",
     depthFactor: 16,
   },
   {
     id: "custody",
-    tag: "04 · Resolution",
+    tag: "Doorstep Delivery",
     title: "Verified doorstep delivery & custody handoff",
     media: homeMedia.arrival,
     aspect: "3/4",

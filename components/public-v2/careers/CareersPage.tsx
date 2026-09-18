@@ -67,9 +67,9 @@ export function CareersPage({ snapshot }: CareersPageProps) {
 
           {snapshot.state === "SOURCE_UNAVAILABLE" ? (
             <div className={styles.emptyStateNotice}>
-              <p className={styles.emptyStateTitle}>SOURCE_UNAVAILABLE: Role list temporarily unavailable</p>
+              <p className={styles.emptyStateTitle}>We can’t load the latest openings right now. Please try again shortly or contact KT.</p>
               <p className={styles.emptyStateText}>
-                We are currently updating our careers database. Please contact the team for recruitment questions.
+                We are updating our positions list. Please contact our team directly for recruitment and career inquiries.
               </p>
               <Link className={styles.emptyStateAction} href="/contact">
                 Contact KT Couriers &rarr;

@@ -101,7 +101,7 @@ export default function SafetyPage() {
               borderRadius: 4,
             }}
           >
-            Movement Atlas &rarr;
+            Delivery Services &rarr;
           </Link>
         </div>
       </section>

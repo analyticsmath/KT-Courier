@@ -1,0 +1,90 @@
+/* KT Courier Public Experience — Authoritative Design Tokens (v3) */
+:root {
+  /* Core Brand Tokens */
+  --kt-asphalt: #0B0D0F;
+  --kt-freight-paper: #F2EFE8;
+  --kt-concrete: #D1CEC6;
+  --kt-road-grey: #6B6E6A;
+  --kt-brand-blue: #3479F8;
+  --kt-brand-blue-accessible: #2A64DD;
+  --kt-brand-red: #E10F1B;
+  --kt-white: #FFFFFF;
+
+  /* Semantic Architecture Mappings */
+  --kt-bg-primary: var(--kt-freight-paper);
+  --kt-bg-dark: var(--kt-asphalt);
+  --kt-text-primary: var(--kt-asphalt);
+  --kt-text-secondary: var(--kt-road-grey);
+  --kt-text-inverse: var(--kt-freight-paper);
+  --kt-border-subtle: var(--kt-concrete);
+  --kt-border-dark: #23272B;
+
+  /* Radii */
+  --kt-radius-none: 0px;
+  --kt-radius-subtle: 4px;
+  --kt-radius-media: 6px;
+  --kt-radius-pill: 9999px;
+
+  /* Spacing and Layout */
+  --kt-header-height: clamp(64px, 5vw, 76px);
+  --kt-mobile-nav-height: 64px;
+  --kt-container-max: 1680px;
+  --kt-page-gutter: clamp(1.25rem, 4vw, 4.5rem);
+
+  /* Elevation (No decorative card shadows) */
+  --kt-shadow-overlay: 0 20px 48px rgba(11, 13, 15, 0.28);
+  --kt-shadow-sheet: -12px 0 36px rgba(11, 13, 15, 0.24);
+
+  /* Transitions */
+  --kt-ease-cinematic: cubic-bezier(0.16, 1, 0.3, 1);
+  --kt-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --kt-duration-fast: 180ms;
+  --kt-duration-normal: 320ms;
+  --kt-duration-scene: 650ms;
+}
+
+/* Public Root Theme Scope */
+[data-kt-theme="light"],
+.public-v3-root {
+  background-color: var(--kt-freight-paper);
+  color: var(--kt-asphalt);
+}
+
+[data-kt-contrast="dark"],
+[data-kt-scene-theme="dark"] {
+  background-color: var(--kt-asphalt);
+  color: var(--kt-freight-paper);
+}
+
+/* Authoritative Hero Truck Rules: Mobile containment without clipping */
+.hero-truck-container {
+  width: min(94vw, 1600px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-truck-container img {
+  width: min(94vw, 1600px);
+  max-width: 94vw;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .hero-truck-container {
+    width: min(94vw, 430px);
+    margin: 0 auto;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .hero-truck-container img {
+    width: min(94vw, 430px) !important;
+    max-width: 94vw !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+}
