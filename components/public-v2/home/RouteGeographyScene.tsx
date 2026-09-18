@@ -32,7 +32,7 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
           </div>
 
           <div className={styles.routeRegionSection}>
-            <span className={styles.routeRegionHeading}>Configured Delivery Hubs</span>
+            <h3 className={styles.routeRegionHeading}>Configured Delivery Hubs</h3>
             <ul className={styles.routeRegionList}>
               {regions.slice(0, 5).map((region, idx) => {
                 const isSelected = idx === selectedIdx;
@@ -46,8 +46,8 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
                       type="button"
                     >
                       <span>{region.name}</span>
-                      <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>
-                        {region.city || "Active"}
+                      <span style={{ fontSize: "0.75rem", opacity: 0.8, marginLeft: "8px" }}>
+                        {region.city ? ` — ${region.city}` : "Active"}
                       </span>
                     </button>
                   </li>

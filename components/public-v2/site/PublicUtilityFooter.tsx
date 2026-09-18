@@ -1,6 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
 import { KtCouriersWordmark } from "@/components/public-v2/brand";
 import { marketplaceHref } from "@/lib/public-marketplace/routes";
+import { ktMedia } from "@/components/public-v2/media";
 import styles from "./public-shell.module.css";
 
 export function PublicUtilityFooter() {
@@ -19,8 +21,8 @@ export function PublicUtilityFooter() {
                 </Link>
               </li>
               <li>
-                <Link className={styles.footerLargeLink} href="/account/request-delivery">
-                  Request Delivery Quote &rarr;
+                <Link className={styles.footerLargeLink} href="/services/pricing">
+                  Delivery Pricing & Estimator &rarr;
                 </Link>
               </li>
               <li>
@@ -126,6 +128,29 @@ export function PublicUtilityFooter() {
 
           <div className={styles.footerCopyright}>
             &copy; {new Date().getFullYear()} KT Couriers (Pty) Ltd. South Africa.
+          </div>
+        </div>
+
+        {/* 5. Signature Final Frame */}
+        <div className={styles.footerFinalFrame}>
+          <div className={styles.footerWordmarkStage}>
+            <span aria-hidden="true" className={styles.footerHugeWordmark}>
+              KT COURIERS
+            </span>
+            <div className={styles.footerForegroundHorizon}>
+              <Image
+                alt={ktMedia.routes.johannesburgCorridor.alt || "Johannesburg urban corridor"}
+                className={styles.footerHorizonImage}
+                fill
+                sizes="(max-width: 1024px) 100vw, 1680px"
+                src={ktMedia.routes.johannesburgCorridor.src}
+              />
+              <div className={styles.footerHorizonOverlay} />
+            </div>
+          </div>
+          <div className={styles.footerSignoff}>
+            <span>SOUTH AFRICAN COMMERCE IN MOTION</span>
+            <span>GAUTENG · WESTERN CAPE · KWAZULU-NATAL</span>
           </div>
         </div>
       </div>

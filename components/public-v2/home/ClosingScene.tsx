@@ -14,7 +14,7 @@ export function ClosingScene() {
           <p className={styles.sectionMarker}>Start here</p>
           <h2 id="closing-heading">Ready when you are.</h2>
           <div className={styles.closingActions}>
-            <Link className={styles.commandPrimary} href="/account/request-delivery">Get a quote <span aria-hidden="true">→</span></Link>
+            <Link className={styles.commandPrimary} href="/services/pricing">Get a quote <span aria-hidden="true">→</span></Link>
             <Link className={styles.textAction} href={anonymousTracking.href}>{anonymousTracking.actionLabel} <span aria-hidden="true">→</span></Link>
             <Link className={styles.textAction} href="/contact">Contact support <span aria-hidden="true">→</span></Link>
           </div>

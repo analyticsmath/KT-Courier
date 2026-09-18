@@ -1,33 +1,74 @@
-/* KT Courier Package A Public Design Tokens */
+/* KT Courier Public Design Tokens — Blueprint Palette & Geometry */
 :root {
-  --kt-carbon: #101210;
+  /* Blueprint Core Palette */
+  --kt-carbon: #0E1012;
+  --kt-ink: #111318;
+  --kt-paper: #F3F1EA;
+  --kt-graphite: #59626A;
+  --kt-mist: #D9DEE2;
+  --kt-cobalt: #347CFB;
+  --kt-cobalt-deep: #2A64DD;
+  --kt-signal-red: #CF2930;
+
+  /* Backward-compatible aliases */
   --kt-white: #FFFFFF;
+  --kt-red: var(--kt-signal-red);
+  --kt-cool-025: var(--kt-paper);
+  --kt-cool-050: #EDEBE4;
+  --kt-cool-100: var(--kt-mist);
+  --kt-cool-200: #CBD0D4;
+  --kt-cool-300: #A8B1B8;
+  --kt-cool-400: #85919A;
+  --kt-cool-550: var(--kt-graphite);
+  --kt-cool-650: #3E444A;
 
-  --kt-cool-025: #FAFBFA;
-  --kt-cool-050: #F5F6F6;
-  --kt-cool-100: #ECEEEE;
-  --kt-cool-200: #DDE1E0;
-  --kt-cool-300: #C9CECC;
-  --kt-cool-400: #AEB5B2;
-  --kt-cool-550: #7D8581;
-  --kt-cool-650: #5F6763;
-  --kt-graphite: #303532;
+  /* Geometry & Shape Grammar */
+  --kt-radius-none: 0;
+  --kt-radius-small: 4px;
+  --kt-radius-media: 8px;
+  --kt-radius-sheet: 20px;
 
-  --kt-red: #D83A2E;
+  /* Layout dimensions */
+  --public-header-height: clamp(68px, 5.5vw, 76px);
+  --kt-header-h: var(--public-header-height);
+  --kt-mobile-nav-h: 68px;
 
-  --kt-radius-small: 8px;
-  --kt-radius-media: 12px;
-  --kt-radius-sheet: 22px;
-
-  --kt-header-h: 74px;
-  --kt-mobile-nav-h: 64px;
+  /* Semantic surface & text mapping */
+  --canvas-light: var(--kt-paper);
+  --canvas-dark: var(--kt-carbon);
+  --text-primary: var(--kt-ink);
+  --text-inverse: var(--kt-paper);
+  --text-secondary: var(--kt-graphite);
+  --text-muted: #7A848C;
+  --line-light: var(--kt-mist);
+  --line-dark: var(--kt-graphite);
+  --line-subtle: rgba(217, 222, 226, 0.4);
+  --signal-primary: var(--kt-cobalt);
+  --signal-action: var(--kt-cobalt);
+  --signal-action-deep: var(--kt-cobalt-deep);
+  --signal-urgent: var(--kt-signal-red);
+  --state-success: #1A8754;
+  --state-warning: #C07D1E;
+  --state-error: var(--kt-signal-red);
 
   /* Typography scale */
+  --kt-font-sans: var(--kt-public-font-schibsted-source, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  --kt-font-display: var(--kt-public-font-schibsted-source, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  --kt-font-mono: var(--kt-public-font-mono-source, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   --kt-type-hero: clamp(4.8rem, 7.25vw, 8.05rem);
   --kt-type-major: clamp(2.85rem, 4.45vw, 5.15rem);
   --kt-type-section: clamp(2.1rem, 3vw, 3.65rem);
   --kt-type-lead: clamp(1.12rem, 1.35vw, 1.42rem);
   --kt-type-body: clamp(1rem, 0.35vw + 0.92rem, 1.12rem);
+
+  /* Responsive Display Scale */
+  --kt-type-display-hero: clamp(3.5rem, 11vw, 8.5rem);
+  --kt-type-display-section: clamp(2.25rem, 6.5vw, 5.25rem);
+  --kt-type-headline-xl: clamp(2rem, 4.5vw, 3.75rem);
+  --kt-type-headline-lg: clamp(1.5rem, 3.2vw, 2.75rem);
+  --kt-type-headline-md: clamp(1.2rem, 2vw, 1.85rem);
+  --kt-type-body-lg: clamp(1.05rem, 1.25vw, 1.3rem);
+  --kt-type-meta: clamp(0.72rem, 0.9vw, 0.82rem);
 
   /* Mobile scale */
   --kt-type-hero-mobile: clamp(3.15rem, 14vw, 4.35rem);
@@ -41,8 +82,12 @@
   --kt-grid-gutter: clamp(14px, 2vw, 24px);
 
   /* Elevation & Focus */
-  --kt-focus-ring: 0 0 0 2px var(--kt-white), 0 0 0 4px var(--kt-carbon);
-  --kt-focus-ring-dark: 0 0 0 2px var(--kt-carbon), 0 0 0 4px var(--kt-red);
+  --kt-focus-ring: 0 0 0 2px var(--kt-paper), 0 0 0 4px var(--kt-cobalt);
+  --kt-focus-ring-dark: 0 0 0 2px var(--kt-carbon), 0 0 0 4px var(--kt-cobalt);
+}
+
+html {
+  scroll-padding-top: var(--public-header-height);
 }
 
 /* Shape System */
@@ -80,4 +125,27 @@
 .shape-isolated-actor {
   background: transparent;
   pointer-events: none;
+}
+
+.shape-docked-notch {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+}
+
+.shape-route-cut {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 28px 100%, 0 calc(100% - 28px));
+}
+
+@media (max-width: 767px) {
+  .shape-docked-notch {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+  }
+  .shape-route-cut {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  }
+}
+
+.shape-cinematic-mask {
+  overflow: hidden;
+  position: relative;
+  will-change: clip-path, transform;
 }

@@ -1,13 +1,13 @@
 import Image from "next/image";
-import Link from "next/link";
 import { marketplaceHref } from "@/lib/public-marketplace/routes";
-import { KtIconArrowRight, KtIconArrowUpRight } from "@/components/public-v2/graphics/KtIcons";
+import { PublicButton, RouteMeta, EditorialLabel } from "@/components/public-v2/primitives";
 import { homeMedia } from "./home-media";
 import styles from "./home-journey.module.css";
 
 export function HomeHeroWorld() {
   return (
-    <section aria-labelledby="hero-title" className={styles.heroScene} data-scene="hero">
+    <section aria-labelledby="hero-title" className={styles.heroScene} data-kt-contrast="dark" data-scene="hero">
+      {/* Back Plane: Environmental Media & Watermark */}
       <div className={styles.heroEnvironment} data-actor="hero-env">
         <Image
           alt={homeMedia.worldMarket.alt}
@@ -17,49 +17,63 @@ export function HomeHeroWorld() {
           src={homeMedia.worldMarket.src}
           style={{ objectFit: "cover", objectPosition: homeMedia.worldMarket.objectPosition }}
         />
+        <div className={styles.heroEnvironmentScrim} />
       </div>
 
-      <div className={styles.heroEditorialPlane} data-actor="hero-plane">
-        <h1 className={styles.heroHeadline} id="hero-title">
-          <span>SHOP IT.</span>
-          <span>SEND IT.</span>
-          <span>MOVE IT.</span>
-        </h1>
-        <p className={styles.heroSupporting}>
-          Marketplace and delivery, connected through one network.
-        </p>
-        <div className={styles.heroCommandStrip}>
-          <Link className={styles.heroCommandPrimary} href={marketplaceHref()}>
-            <span>SHOP</span>
-            <KtIconArrowRight size={18} />
-          </Link>
-          <Link className={styles.heroCommandSecondary} href="/account/request-delivery">
-            <span>SEND</span>
-            <KtIconArrowUpRight size={18} />
-          </Link>
+      <div className={styles.heroContainer}>
+        {/* Middle Plane: Editorial Narrative & Action Hub */}
+        <div className={styles.heroEditorialPlane} data-actor="hero-plane">
+          <div className={styles.heroMetaRow}>
+            <EditorialLabel variant="badgeDark">EST. SOUTH AFRICA</EditorialLabel>
+            <RouteMeta routeCode="JHB-CENTRAL-01" status="ACTIVE" />
+          </div>
+
+          <h1 className={styles.heroHeadline} id="hero-title">
+            <span>SOUTH AFRICAN</span>
+            <span className={styles.heroHeadlineAccent}>COMMERCE</span>
+            <span>IN MOTION.</span>
+          </h1>
+
+          <p className={styles.heroSupporting}>
+            From neighborhood makers and market stalls to dedicated courier corridors across
+            Johannesburg, Cape Town, and Durban. Two sides of one moving system.
+          </p>
+
+          <div className={styles.heroCommandStrip}>
+            <PublicButton arrow href={marketplaceHref()} size="lg" variant="signal">
+              SHOP LOCAL MAKERS
+            </PublicButton>
+            <PublicButton arrow href="/services/pricing" size="lg" variant="secondary">
+              CALCULATE DELIVERY
+            </PublicButton>
+          </div>
+
+          <div className={styles.heroOperationalProof}>
+            <span className={styles.heroProofItem}>ZAR Settled</span>
+            <span className={styles.heroProofDot}>·</span>
+            <span className={styles.heroProofItem}>Verified OTP Handoff</span>
+            <span className={styles.heroProofDot}>·</span>
+            <span className={styles.heroProofItem}>11 Active Service Corridors</span>
+          </div>
         </div>
-      </div>
 
-      {/* Foreground cutout actor crossing the environmental boundary */}
-      <div className={styles.heroForegroundActor} data-actor="hero-cutout">
-        <Image
-          alt={homeMedia.fashionCutout.alt}
-          fill
-          sizes="(max-width: 1023px) 0px, 440px"
-          src={homeMedia.fashionCutout.src}
-          style={{ objectFit: "contain", objectPosition: "bottom right" }}
-        />
-      </div>
-
-      {/* Partial neighbor retail preview card */}
-      <div className={styles.heroNeighborCard} data-actor="hero-neighbor">
-        <Image
-          alt={homeMedia.retailLocal.alt}
-          fill
-          sizes="220px"
-          src={homeMedia.retailLocal.src}
-          style={{ objectFit: "cover", objectPosition: homeMedia.retailLocal.objectPosition }}
-        />
+        {/* Front Plane: Flagship Long White Truck Protagonist Occluding Typography */}
+        <div className={styles.heroTruckStage} data-actor="hero-cutout">
+          <div className={styles.heroTruckWrapper}>
+            <Image
+              alt={homeMedia.heroTruck.alt}
+              fill
+              priority
+              sizes="(max-width: 767px) 100vw, (max-width: 1440px) 55vw, 760px"
+              src={homeMedia.heroTruck.src}
+              style={{ objectFit: "contain", objectPosition: "bottom right" }}
+            />
+          </div>
+          <div className={styles.heroTruckTelemetry}>
+            <span className={styles.heroTruckDot} />
+            <span>FLEET PROTAGONIST · LONG-HAUL CARGO #01</span>
+          </div>
+        </div>
       </div>
     </section>
   );

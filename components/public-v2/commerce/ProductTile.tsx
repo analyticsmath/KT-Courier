@@ -49,6 +49,9 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
             No image
           </div>
         )}
+        <span aria-hidden="true" className={styles.productTileQuickAction}>
+          {product.variantCount > 1 ? "Choose Options" : "View Details"}
+        </span>
       </div>
 
       <div className={styles.productTileBody}>

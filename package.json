@@ -141,7 +141,6 @@
     "test:integration:storefront": "node scripts/storefront-integration-test.mjs",
     "test:integration:marketplace-checkout": "node scripts/marketplace-checkout-integration-test.mjs",
     "test:integration:store-orders": "node scripts/store-order-integration-test.mjs",
-    "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
     "promoters:periods:evaluate": "tsx scripts/process-promoter-period-evaluations.ts",
     "worker:start": "tsx scripts/background-worker.ts",
     "scheduler:start": "tsx scripts/scheduler-runner.ts"

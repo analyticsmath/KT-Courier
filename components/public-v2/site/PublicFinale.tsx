@@ -23,7 +23,7 @@ export function PublicFinale() {
             <span>Shop the marketplace</span>
             <KtIconArrowRight size={20} />
           </Link>
-          <Link className={styles.finaleSecondaryLink} href="/account/request-delivery">
+          <Link className={styles.finaleSecondaryLink} href="/services/pricing">
             <span>Send a delivery</span>
             <KtIconArrowUpRight size={20} />
           </Link>

@@ -51,8 +51,8 @@ export function MembershipPage() {
               </p>
 
               <div className={styles.actionRow}>
-                <Link className={styles.primaryAction} href="/account/request-delivery">
-                  <span>Request a Delivery Quote</span>
+                <Link className={styles.primaryAction} href="/services/pricing">
+                  <span>Calculate Delivery Estimate</span>
                   <KtIconArrowRight size={16} />
                 </Link>
                 <Link className={styles.secondaryAction} href="/contact">

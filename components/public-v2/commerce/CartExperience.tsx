@@ -103,6 +103,7 @@ export function CartExperience() {
       } else {
         await fetchCart();
       }
+      window.dispatchEvent(new CustomEvent("kt-cart-updated"));
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Could not update item quantity.");
     } finally {
@@ -145,6 +146,7 @@ export function CartExperience() {
       } else {
         await fetchCart();
       }
+      window.dispatchEvent(new CustomEvent("kt-cart-updated"));
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Could not remove item.");
     } finally {
@@ -182,6 +184,7 @@ export function CartExperience() {
       } else {
         await fetchCart();
       }
+      window.dispatchEvent(new CustomEvent("kt-cart-updated"));
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Could not clear cart.");
     } finally {

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ktMedia } from "@/components/public-v2/media";
 import styles from "./auth-pages.module.css";
 
 interface AuthMediaCompositionProps {
@@ -9,10 +10,10 @@ interface AuthMediaCompositionProps {
 }
 
 export function AuthMediaComposition({
-  primaryImage = "/media/public/auth/kt-auth-01-customer.webp",
-  primaryAlt = "KT Couriers account access",
-  secondaryImage = "/media/public/auth/kt-auth-03-product.webp",
-  secondaryAlt = "Product detail",
+  primaryImage = ktMedia.auth.customer.src,
+  primaryAlt = ktMedia.auth.customer.alt,
+  secondaryImage = ktMedia.auth.product.src,
+  secondaryAlt = ktMedia.auth.product.alt,
 }: AuthMediaCompositionProps) {
   return (
     <div aria-hidden="true" className={styles.mediaPlane}>

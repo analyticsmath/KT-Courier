@@ -1,0 +1,113 @@
+/* KT COURIERS — Homepage Opening Unseal (States 00 & 01) */
+
+.curtainRoot {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100svh;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--kt-carbon, #0e1012);
+  color: var(--kt-white, #ffffff);
+  overflow: hidden;
+  user-select: none;
+  pointer-events: auto;
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease;
+}
+
+.curtainRoot[data-unsealed="true"] {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.curtainBackground {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0.38;
+}
+
+.curtainBackground img {
+  object-fit: cover;
+  object-position: center 60%;
+  filter: grayscale(40%) contrast(1.15);
+}
+
+.curtainScrim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(14, 16, 18, 0.4) 0%, rgba(14, 16, 18, 0.95) 85%);
+  z-index: 2;
+}
+
+.curtainContent {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 24px;
+  gap: 24px;
+  max-width: 800px;
+}
+
+.curtainLabel {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--kt-cobalt, #347cfb);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.curtainPulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--kt-cobalt, #347cfb);
+  animation: pulse 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.curtainMasthead {
+  font-family: var(--kt-public-font-schibsted-source, sans-serif);
+  font-size: clamp(3rem, 9vw, 6.5rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.curtainSubtext {
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+  color: var(--kt-mist, #d9dee2);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  max-width: 520px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.curtainInteractionNotice {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--kt-graphite, #59626a);
+  margin-top: 16px;
+}

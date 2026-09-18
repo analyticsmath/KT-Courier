@@ -43,6 +43,43 @@
   color: var(--kt-carbon, #101210);
 }
 
+.header[data-tone="dark"] {
+  background-color: rgba(14, 16, 18, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.header[data-tone="dark"] .brandLink,
+.header[data-tone="dark"] .navItem,
+.header[data-tone="dark"] .utilLink,
+.header[data-tone="dark"] .compactIconButton {
+  color: #ffffff;
+}
+
+.header[data-tone="dark"] .navItem:hover,
+.header[data-tone="dark"] .utilLink:hover {
+  color: var(--kt-mist, #d9dee2);
+}
+
+.header[data-tone="dark"] .navItemActive {
+  color: #ffffff;
+}
+
+.header[data-tone="dark"] .navItemActive::after {
+  background-color: var(--kt-cobalt, #347cfb);
+}
+
+.header[data-tone="dark"] .quoteButton {
+  background-color: var(--kt-cobalt, #347cfb);
+  color: #ffffff;
+}
+
+.header[data-tone="dark"] .quoteButton:hover {
+  background-color: var(--kt-cobalt-deep, #2a64dd);
+}
+
 .headerInner {
   display: flex;
   align-items: center;
@@ -431,21 +468,22 @@
   color: var(--kt-carbon, #101210);
 }
 
-/* Mobile Bottom Navigation (<=767px) */
+/* Mobile Bottom Navigation (<=1023px) */
 .mobileBottomNav {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: calc(var(--kt-mobile-nav-h, 60px) + env(safe-area-inset-bottom));
+  height: calc(var(--kt-mobile-nav-h, 68px) + env(safe-area-inset-bottom, 0px));
   background-color: var(--kt-white, #ffffff);
-  border-top: 1px solid var(--kt-cool-250, #dde1e0);
+  border-top: 1px solid var(--kt-mist, #d9dee2);
   display: none;
   z-index: 800;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -2px 10px rgba(14, 16, 18, 0.04);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .mobileBottomNav {
     display: flex;
     align-items: center;
@@ -458,82 +496,211 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   text-decoration: none;
-  color: var(--kt-graphite, #303532);
-  font-size: 0.72rem;
+  color: var(--kt-graphite, #59626a);
+  font-size: 0.75rem;
   font-weight: 520;
-  padding: 6px 12px;
+  padding: 8px 4px;
   flex: 1;
+  min-height: 48px;
+  min-width: 48px;
+  position: relative;
+  transition: color 140ms ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobileNavItem:active {
+  opacity: 0.75;
 }
 
 .mobileNavItemActive {
-  color: var(--kt-red, #d83a2e);
+  color: var(--kt-cobalt, #347cfb);
   font-weight: 600;
 }
 
-/* Footer */
-.footer {
+.mobileNavItemSend {
+  color: var(--kt-ink, #111318);
+  font-weight: 600;
+}
+
+.mobileNavItemSend.mobileNavItemActive {
+  color: var(--kt-cobalt, #347cfb);
+}
+
+.mobileNavIconWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.mobileNavBadge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background-color: var(--kt-signal-red, #cf2930);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 9999px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.mobileNavLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+/* Desktop Utility Cart Badge */
+.utilCartBadge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  background-color: var(--kt-signal-red, #cf2930);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 9999px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* Two-Layer Destination Footer — Editorial Freight */
+.footerRoot {
   background-color: var(--kt-carbon, #101210);
   color: var(--kt-white, #ffffff);
-  padding: 80px var(--kt-grid-inset, 32px) 48px;
   border-top: 1px solid var(--kt-graphite, #303532);
+  padding: 80px 0 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (max-width: 1023px) {
+  .footerRoot {
+    padding-bottom: calc(48px + var(--kt-mobile-nav-h, 68px) + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .footerInner {
   max-width: 1680px;
   margin: 0 auto;
+  padding: 0 var(--kt-grid-inset, 32px);
   display: flex;
   flex-direction: column;
   gap: 64px;
 }
 
-.footerTopRow {
+.footerSpatialGrid {
   display: grid;
-  grid-template-columns: 1.5fr repeat(3, 1fr);
-  gap: 48px;
+  grid-template-columns: 1.2fr 1fr 1.6fr;
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
 }
 
 @media (max-width: 1023px) {
-  .footerTopRow {
-    grid-template-columns: repeat(2, 1fr);
+  .footerSpatialGrid {
+    grid-template-columns: 1fr;
+    gap: 48px;
   }
+}
+
+/* 1. Large Intent Cluster */
+.footerIntentCluster {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.footerClusterHeading {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kt-cool-400, #aeb5b2);
+}
+
+.footerIntentList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.footerLargeLink {
+  font-size: 1.15rem;
+  font-weight: 550;
+  color: var(--kt-white, #ffffff);
+  text-decoration: none;
+  transition: color 160ms ease, transform 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footerLargeLink:hover {
+  color: var(--kt-red, #d83a2e);
+  transform: translateX(4px);
+}
+
+/* 2. Brand & Operating Manifesto Plane */
+.footerBrandPlane {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.footerLogoLink {
+  display: inline-block;
+  color: var(--kt-white, #ffffff);
+}
+
+.footerManifesto {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--kt-cool-300, #c9cecc);
+  max-width: 380px;
+}
+
+/* 3. Secondary Navigation */
+.footerSecondaryGroup {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
 }
 
 @media (max-width: 639px) {
-  .footerTopRow {
+  .footerSecondaryGroup {
     grid-template-columns: 1fr;
+    gap: 32px;
   }
 }
 
-.footerBrandCol {
+.footerSubGroup {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.footerTagline {
-  font-size: 0.95rem;
-  color: var(--kt-cool-300, #c9cecc);
-  line-height: 1.5;
-  max-width: 320px;
-}
-
-.footerCol {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.footerColTitle {
-  font-size: 0.85rem;
-  font-weight: 600;
+.footerGroupHeader {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--kt-cool-300, #c9cecc);
+  color: var(--kt-cool-400, #aeb5b2);
 }
 
-.footerNavList {
+.footerLinkList {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -542,39 +709,122 @@
   gap: 10px;
 }
 
-.footerLink {
-  color: var(--kt-cool-200, #eceeee);
+.footerNavLink {
+  color: var(--kt-cool-200, #dde1e0);
   text-decoration: none;
   font-size: 0.9rem;
   transition: color 140ms ease;
 }
 
-.footerLink:hover {
+.footerNavLink:hover {
   color: var(--kt-white, #ffffff);
 }
 
-.footerBottomRow {
+/* 4. Lower Utility Bar */
+.footerLowerUtility {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding-top: 32px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 0.825rem;
-  color: var(--kt-cool-300, #c9cecc);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.8125rem;
+  color: var(--kt-cool-400, #aeb5b2);
   flex-wrap: wrap;
   gap: 16px;
 }
 
 .footerLegalLinks {
   display: flex;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 24px;
 }
 
 .footerLegalLink {
   color: inherit;
   text-decoration: none;
+  transition: color 140ms ease;
 }
 
 .footerLegalLink:hover {
   color: var(--kt-white, #ffffff);
+}
+
+.footerCopyright {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+/* 5. Signature Final Frame */
+.footerFinalFrame {
+  margin-top: 32px;
+  padding-top: 48px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+}
+
+.footerWordmarkStage {
+  position: relative;
+  width: 100%;
+  height: clamp(140px, 20vw, 280px);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.footerHugeWordmark {
+  font-family: var(--kt-public-font-schibsted-source, sans-serif);
+  font-size: clamp(4rem, 14vw, 13rem);
+  font-weight: 800;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.09);
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.footerForegroundHorizon {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 65%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.footerHorizonImage {
+  object-fit: cover;
+  object-position: center bottom;
+  opacity: 0.45;
+  mix-blend-mode: luminosity;
+}
+
+.footerHorizonOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--kt-carbon, #101210) 0%, transparent 80%);
+}
+
+.footerSignoff {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--kt-cool-550, #7d8581);
+  text-transform: uppercase;
 }

@@ -5,3 +5,4 @@ export type { CutoutImageProps } from "./CutoutImage";
 export { EditorialMediaFrame } from "./EditorialMediaFrame";
 export type { EditorialMediaFrameProps } from "./EditorialMediaFrame";
 export type { ImageFetchPriority, ImageLoading, LocalPublicImageSource } from "./types";
+export * from "./kt-media-registry";

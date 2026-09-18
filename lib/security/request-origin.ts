@@ -48,12 +48,23 @@ function getAllowedOrigins(request?: Request): string[] {
         "http://127.0.0.1:3001",
         "http://127.0.0.1:3002",
         "http://127.0.0.1:3200",
+        "http://[::1]:3000",
+        "http://[::1]:3001",
+        "http://[::1]:3002",
+        "http://[::1]:3200",
       ];
 
   addOrigin(origins, process.env.NEXT_PUBLIC_APP_URL);
   addOrigin(origins, process.env.APP_URL);
   addOrigin(origins, process.env.VERCEL_URL);
   addOrigin(origins, process.env.CORS_ALLOW_ORIGIN);
+
+  if (process.env.ALLOWED_ORIGINS) {
+    const custom = process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim());
+    for (const origin of custom) {
+      addOrigin(origins, origin);
+    }
+  }
 
   if (process.env.TRUSTED_PROXY_ORIGINS) {
     const trusted = process.env.TRUSTED_PROXY_ORIGINS.split(",").map((o) => o.trim());
@@ -62,8 +73,17 @@ function getAllowedOrigins(request?: Request): string[] {
     }
   }
 
-  // In non-production development environments only, allow current local request URL
+  // In non-production development environments only, allow the host the request was addressed to
   if (!isProduction && request) {
+    const rawHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+    if (rawHost) {
+      const host = rawHost.split(",")[0].trim();
+      const rawProto = request.headers.get("x-forwarded-proto");
+      const proto =
+        (rawProto ? rawProto.split(",")[0].trim() : null) ||
+        (request.url.startsWith("https:") ? "https" : "http");
+      addOrigin(origins, `${proto}://${host}`);
+    }
     addOrigin(origins, request.url);
   }
 

@@ -43,9 +43,9 @@ export function PublicSmoothScroll({ children }: { children: ReactNode }) {
     }
 
     const lenis = new Lenis({
-      lerp: 0.075,
+      lerp: 0.1,
       smoothWheel: true,
-      wheelMultiplier: 0.92,
+      wheelMultiplier: 1.0,
       autoRaf: false,
     });
     lenisRef.current = lenis;

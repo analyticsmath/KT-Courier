@@ -9,6 +9,7 @@ import { NetworkFieldScene } from "./NetworkFieldScene";
 import { ArrivalScene } from "./ArrivalScene";
 import { HomepageFinale } from "./HomepageFinale";
 import { HomepageMotionController } from "./HomepageMotionController";
+import { HomepageIntroCurtain } from "./HomepageIntroCurtain";
 import styles from "./home-journey.module.css";
 
 async function readHomepageData() {
@@ -35,6 +36,7 @@ export async function HomepageExperience() {
 
   return (
     <div className={styles.journeyRoot} data-kt-experience="master-rebuild">
+      <HomepageIntroCurtain />
       <HomepageMotionController />
       <HomeHeroWorld />
       <CommerceJourneyCrawler categories={categories} />

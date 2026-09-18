@@ -16,6 +16,7 @@ import { storefrontFilterHasCrawlRisk } from "@/lib/storefront/search/storefront
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
+import { ktMedia } from "@/components/public-v2/media";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({
@@ -59,20 +60,29 @@ export default async function CategoryPage({
   const filters = { ...requested, category: category.path, cursor: requested.cursor };
   const result = await new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search(filters);
 
+  const getCategoryHeroSrc = () => {
+    if (category.imageReference) return `/api/catalog/media/${category.imageReference}`;
+    const p = category.path.toLowerCase();
+    if (p.includes("food")) return ktMedia.categories.foodDining.hero.src;
+    if (p.includes("groc")) return ktMedia.categories.groceries.hero.src;
+    if (p.includes("fash") || p.includes("cloth")) return ktMedia.categories.fashion.hero.src;
+    if (p.includes("well") || p.includes("care")) return ktMedia.categories.healthWellness.hero.src;
+    if (p.includes("home")) return ktMedia.categories.homeLiving.hero.src;
+    return ktMedia.categories.fashion.streetLook1.src;
+  };
+
   const context = (
     <div style={{ marginBottom: "2rem" }}>
-      {category.imageReference && (
-        <div className={styles.categoryOpeningMediaFrame} style={{ marginBottom: "1.5rem" }}>
-          <Image
-            alt={category.name}
-            fill
-            priority
-            sizes="(max-width: 899px) 100vw, 88rem"
-            src={`/api/catalog/media/${category.imageReference}`}
-            style={{ objectFit: "cover" }}
-          />
-        </div>
-      )}
+      <div className={styles.categoryOpeningMediaFrame} style={{ marginBottom: "1.5rem" }}>
+        <Image
+          alt={category.name}
+          fill
+          priority
+          sizes="(max-width: 899px) 100vw, 88rem"
+          src={getCategoryHeroSrc()}
+          style={{ objectFit: "cover" }}
+        />
+      </div>
 
       {category.children && category.children.length > 0 && (
         <div style={{ marginBottom: "1.5rem" }}>

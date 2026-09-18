@@ -42,73 +42,73 @@ export function NetworkFieldScene({ categories = [] }: NetworkFieldSceneProps) {
           {/* Large active category tile */}
           <Link
             className={styles.networkTileLarge}
-            href={getHref("/retail")}
+            href={getHref("/fashion")}
           >
             <Image
-              alt={homeMedia.retailLocal.alt}
+              alt={homeMedia.fashion.alt}
               fill
               sizes="(max-width: 1023px) 100vw, 48vw"
-              src={homeMedia.retailLocal.src}
+              src={homeMedia.fashion.src}
               style={{
                 objectFit: "cover",
-                objectPosition: homeMedia.retailLocal.objectPosition,
+                objectPosition: homeMedia.fashion.objectPosition,
               }}
             />
-            <span className={styles.networkTileLabel}>Local Retail & Crafts</span>
+            <span className={styles.networkTileLabel}>Fashion & Curated Accessories</span>
           </Link>
 
           {/* Narrow portrait strip */}
           <Link
             className={styles.networkTileStrip}
-            href={getHref("/food")}
+            href={getHref("/homeware")}
           >
             <Image
-              alt={homeMedia.foodLocal.alt}
+              alt={homeMedia.homeware.alt}
               fill
               sizes="(max-width: 1023px) 50vw, 22vw"
-              src={homeMedia.foodLocal.src}
+              src={homeMedia.homeware.src}
               style={{
                 objectFit: "cover",
-                objectPosition: homeMedia.foodLocal.objectPosition,
+                objectPosition: homeMedia.homeware.objectPosition,
               }}
             />
-            <span className={styles.networkTileLabel}>Food & Kitchens</span>
+            <span className={styles.networkTileLabel}>Artisan Homeware</span>
           </Link>
 
           {/* Tactile aperture */}
           <Link
             className={styles.networkTileAperture}
-            href={getHref("/wellness")}
+            href={getHref("/retail")}
           >
             <Image
-              alt={homeMedia.wellness.alt}
+              alt={homeMedia.packageDetail.alt}
               fill
               sizes="(max-width: 1023px) 50vw, 30vw"
-              src={homeMedia.wellness.src}
+              src={homeMedia.packageDetail.src}
               style={{
                 objectFit: "cover",
-                objectPosition: homeMedia.wellness.objectPosition,
+                objectPosition: homeMedia.packageDetail.objectPosition,
               }}
             />
-            <span className={styles.networkTileLabel}>Wellness & Care</span>
+            <span className={styles.networkTileLabel}>Handcrafted Packaging</span>
           </Link>
 
           {/* Landscape support frame */}
           <Link
             className={styles.networkTileSupport}
-            href={getHref("/grocery")}
+            href="/join"
           >
             <Image
-              alt={homeMedia.grocery.alt}
+              alt="Local South African merchant in workshop"
               fill
               sizes="(max-width: 1023px) 100vw, 30vw"
-              src={homeMedia.grocery.src}
+              src="/media/public/auth/kt-auth-02-merchant.webp"
               style={{
                 objectFit: "cover",
-                objectPosition: homeMedia.grocery.objectPosition,
+                objectPosition: "50% 30%",
               }}
             />
-            <span className={styles.networkTileLabel}>Fresh Grocery</span>
+            <span className={styles.networkTileLabel}>Maker Community</span>
           </Link>
         </div>
       </div>

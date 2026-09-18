@@ -118,9 +118,9 @@ interface ServicesAtlasMenuProps {
 export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
   const [activeIdx, setActiveIdx] = useState(0);
   const activeService = allServices[activeIdx] || allServices[0];
-  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
-  // Focus management and Escape key handling
+  // Focus management and Escape / Arrow key handling
   useEffect(() => {
     if (!open) return;
 
@@ -128,31 +128,60 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIdx((prev) => {
+          const next = (prev + 1) % allServices.length;
+          itemRefs.current[next]?.focus();
+          return next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIdx((prev) => {
+          const next = (prev - 1 + allServices.length) % allServices.length;
+          itemRefs.current[next]?.focus();
+          return next;
+        });
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    firstLinkRef.current?.focus();
+    itemRefs.current[activeIdx]?.focus();
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open, onClose, activeIdx]);
 
   if (!open) return null;
 
   return (
     <div
-      aria-label="Service Index"
+      aria-label="Movement Atlas: Services Directory"
+      aria-modal="true"
       className={styles.serviceIndexBackdrop}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
     >
       <div className={styles.serviceIndexPlane}>
         <div className={styles.serviceIndexInner}>
           {/* Left Service Index Column */}
           <div className={styles.serviceIndexLeft}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.75rem", letterSpacing: "0.08em", color: "var(--kt-cool-650, #5F6763)", textTransform: "uppercase" }}>
+                11 Regional Corridors [ESC]
+              </span>
+              <button
+                aria-label="Close Atlas"
+                onClick={onClose}
+                style={{ background: "transparent", border: "1px solid var(--kt-cool-300, #C9CECC)", padding: "4px 8px", fontSize: "0.75rem", fontFamily: "var(--font-mono, monospace)", cursor: "pointer" }}
+                type="button"
+              >
+                CLOSE ×
+              </button>
+            </div>
             <ul className={styles.serviceIndexList} role="tablist">
               {allServices.map((service, idx) => {
                 const isActive = idx === activeIdx;
@@ -168,7 +197,9 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
                       onClick={onClose}
                       onFocus={() => setActiveIdx(idx)}
                       onMouseEnter={() => setActiveIdx(idx)}
-                      ref={idx === 0 ? firstLinkRef : undefined}
+                      ref={(el) => {
+                        itemRefs.current[idx] = el;
+                      }}
                       role="tab"
                     >
                       <span>{service.title}</span>

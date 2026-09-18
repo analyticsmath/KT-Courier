@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { KtCouriersWordmark } from "@/components/public-v2/brand";
 import {
@@ -20,11 +20,83 @@ export function PublicHeaderV3() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [mobileServicesView, setMobileServicesView] = useState(false);
+  const [cartCount, setCartCount] = useState<number>(0);
+  const [headerTone, setHeaderTone] = useState<"light" | "dark">("light");
 
   const handleMobileSheetClose = () => {
     setMobileSheetOpen(false);
     setMobileServicesView(false);
   };
+
+  // Sync live cart item count
+  useEffect(() => {
+    let active = true;
+    const fetchCartCount = async () => {
+      try {
+        const res = await fetch("/api/cart");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active && data.cart) {
+          const totalItems = (data.cart.lines || []).reduce(
+            (acc: number, line: { quantity: number }) => acc + line.quantity,
+            0
+          );
+          setCartCount(totalItems);
+        }
+      } catch {
+        // Fallback silently if offline or unauthenticated
+      }
+    };
+
+    fetchCartCount();
+
+    const handleCartUpdated = () => {
+      fetchCartCount();
+    };
+
+    window.addEventListener("kt-cart-updated", handleCartUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener("kt-cart-updated", handleCartUpdated);
+    };
+  }, []);
+
+  // Dynamic contrast adaptation over dark/light scenes
+  useEffect(() => {
+    const evaluateContrast = () => {
+      const darkSections = document.querySelectorAll(
+        "[data-kt-contrast='dark'], [data-tone='dark'], [data-kt-header-contrast='dark']"
+      );
+      let isDarkUnderHeader = false;
+      const headerThreshold = 72; // Header height in px
+
+      for (let i = 0; i < darkSections.length; i++) {
+        const rect = darkSections[i].getBoundingClientRect();
+        if (rect.top <= headerThreshold && rect.bottom >= 36) {
+          isDarkUnderHeader = true;
+          break;
+        }
+      }
+
+      setHeaderTone(isDarkUnderHeader ? "dark" : "light");
+    };
+
+    const handleCustomTone = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tone: "light" | "dark" }>;
+      if (customEvent.detail?.tone) {
+        setHeaderTone(customEvent.detail.tone);
+      }
+    };
+
+    window.addEventListener("scroll", evaluateContrast, { passive: true });
+    window.addEventListener("kt-header-tone", handleCustomTone);
+    evaluateContrast();
+
+    return () => {
+      window.removeEventListener("scroll", evaluateContrast);
+      window.removeEventListener("kt-header-tone", handleCustomTone);
+    };
+  }, []);
 
   return (
     <>
@@ -32,7 +104,7 @@ export function PublicHeaderV3() {
         Skip to main content
       </a>
 
-      <header className={styles.header}>
+      <header className={styles.header} data-tone={headerTone}>
         <div className={styles.headerInner}>
           <Link
             aria-label="KT Couriers"
@@ -58,14 +130,20 @@ export function PublicHeaderV3() {
               Sign in
             </Link>
             <Link
-              aria-label="Cart"
+              aria-label={`Cart with ${cartCount} items`}
               className={styles.utilLink}
+              data-kt-cart-target="header"
               href="/cart"
-              style={{ display: "inline-flex", alignItems: "center" }}
+              style={{ display: "inline-flex", alignItems: "center", position: "relative" }}
             >
               <KtIconCart size={18} />
+              {cartCount > 0 && (
+                <span aria-label={`${cartCount} items in cart`} className={styles.utilCartBadge}>
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </Link>
-            <Link className={styles.quoteButton} href="/account/request-delivery">
+            <Link className={styles.quoteButton} href="/services/pricing">
               Get a quote
             </Link>
           </div>
@@ -80,11 +158,18 @@ export function PublicHeaderV3() {
               <KtIconSearch size={20} />
             </Link>
             <Link
-              aria-label="Cart"
+              aria-label={`Cart with ${cartCount} items`}
               className={styles.compactIconButton}
+              data-kt-cart-target="mobile-header"
               href="/cart"
+              style={{ position: "relative" }}
             >
               <KtIconCart size={20} />
+              {cartCount > 0 && (
+                <span aria-label={`${cartCount} items in cart`} className={styles.utilCartBadge}>
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </Link>
             <button
               aria-expanded={mobileSheetOpen}
@@ -125,8 +210,8 @@ export function PublicHeaderV3() {
                 onClick={() => setMobileServicesView(false)}
                 type="button"
               >
-                <KtIconBack size={18} />
-                <span>Main menu</span>
+                <KtIconBack size={20} />
+                <span style={{ fontWeight: 600 }}>Back to Main Menu</span>
               </button>
 
               <ul className={styles.mobileSubList}>
@@ -159,7 +244,7 @@ export function PublicHeaderV3() {
               <li>
                 <Link
                   className={styles.mobileMenuRow}
-                  href="/account/request-delivery"
+                  href="/services/pricing"
                   onClick={handleMobileSheetClose}
                 >
                   <span>Send</span>

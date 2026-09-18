@@ -97,8 +97,8 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
 
         {/* Action Links */}
         <div className={styles.coverageActionGroup}>
-          <Link className={styles.primaryActionButton} href="/account/request-delivery">
-            <span>Request delivery quote</span>
+          <Link className={styles.primaryActionButton} href="/services/pricing">
+            <span>Calculate delivery estimate</span>
             <KtIconArrowRight size={18} />
           </Link>
           <Link className={styles.secondaryActionButton} href="/contact">

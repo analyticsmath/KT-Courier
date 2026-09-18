@@ -20,7 +20,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 32px 28px;
+  padding: 56px 28px 24px;
   background-color: var(--kt-cool-100, #f5f6f6);
   color: var(--kt-carbon, #101210);
   border: 1px solid var(--kt-cool-250, #dde1e0);

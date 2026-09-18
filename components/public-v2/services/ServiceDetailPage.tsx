@@ -10,9 +10,10 @@ import {
 } from "@/lib/public-services/service-page-registry";
 import { getServiceMedia } from "@/lib/public-assets/service-media";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import { PublicQuoteEstimator } from "./PublicQuoteEstimator";
 import styles from "./service-pages.module.css";
 
-// Canonical authenticated quote path for delivery requests
+// Canonical public quote path for delivery requests
 const CANONICAL_QUOTE_PATH = "/account/request-delivery";
 
 interface ServiceWorldProps {
@@ -289,6 +290,11 @@ function PricingIntelligenceWorld({ service }: ServiceWorldProps) {
       <section className={styles.pricingHero}>
         <h1 className={styles.pricingTitle}>{service.title}</h1>
         <p className={styles.pricingLead}>{service.summary}</p>
+      </section>
+
+      {/* Interactive Evidence-Driven Tariff Estimator */}
+      <section aria-label="Interactive delivery quote calculator">
+        <PublicQuoteEstimator />
       </section>
 
       {/* Dynamic Variable Pipeline */}

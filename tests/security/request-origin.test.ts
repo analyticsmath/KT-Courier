@@ -49,6 +49,31 @@ describe("request origin validation", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("allows IPv6 localhost development origin", () => {
+    const result = validateSameOriginRequest(
+      request({ origin: "http://[::1]:3000" })
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("allows origin matching request host header in development", () => {
+    const result = validateSameOriginRequest(
+      request({ origin: "http://192.168.10.7:3000", host: "192.168.10.7:3000" })
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("allows origin configured via ALLOWED_ORIGINS", () => {
+    vi.stubEnv("ALLOWED_ORIGINS", "http://custom-dev.local:3000,http://preview.local");
+    const result = validateSameOriginRequest(
+      request({ origin: "http://custom-dev.local:3000" })
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
   it("allows missing Origin and Referer for Phase 1 compatibility", () => {
     const result = validateSameOriginRequest(request());
 

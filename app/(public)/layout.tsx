@@ -4,6 +4,7 @@ import { PublicVisualRoot } from "@/components/public-v2/foundation/PublicVisual
 import { PublicSmoothScroll } from "@/components/public-v2/motion/PublicSmoothScroll";
 import { PublicPageTransition } from "@/components/public-v2/motion/PublicPageTransition";
 import { MobilePublicNavigation } from "@/components/public-v2/site/MobilePublicNavigation";
+import { AddToCartFlightPortal } from "@/components/public-v2/commerce/AddToCartFlightPortal";
 import { publicFontVariables } from "@/app/fonts/public-fonts";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         </main>
         <PublicFooter />
         <MobilePublicNavigation />
+        <AddToCartFlightPortal />
       </PublicVisualRoot>
     </PublicSmoothScroll>
   );

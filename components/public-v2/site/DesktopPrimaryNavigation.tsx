@@ -16,7 +16,7 @@ export function DesktopPrimaryNavigation({ onOpenServices, servicesOpen }: Deskt
 
   const links = [
     { label: "Shop", href: marketplaceHref() },
-    { label: "Send", href: "/account/request-delivery" },
+    { label: "Send", href: "/services/pricing" },
   ];
 
   return (

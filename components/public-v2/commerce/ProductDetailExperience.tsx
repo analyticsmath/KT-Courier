@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type {
@@ -17,6 +17,7 @@ import {
 import { availabilityLabel, AVAILABILITY_ADVISORY } from "@/lib/storefront/storefront-availability-policy";
 import { OfferComparison } from "./OfferComparison";
 import { ProductGrid } from "./ProductGrid";
+import { triggerCartFlight } from "./AddToCartFlightPortal";
 import styles from "./commerce.module.css";
 
 function formatPrice(amount: string, currency: "ZAR") {
@@ -71,21 +72,19 @@ export function ProductDetailExperience({
   const [cartVersion, setCartVersion] = useState<number | null>(null);
 
   // Multi-seller offer selection
-  const [selectedOfferReference, setSelectedOfferReference] = useState(product.offerReference);
+  const [selectedOfferOverride, setSelectedOfferOverride] = useState<string | null>(null);
+  const selectedOfferReference = selectedOfferOverride ?? product.offerReference;
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string[]>>({});
 
-  useEffect(() => {
-    setSelectedOfferReference(product.offerReference);
-  }, [product.offerReference]);
+  const handleSelectOffer = (offerRef: string) => {
+    setSelectedOfferOverride(offerRef);
+    setSelectedModifiers({});
+  };
 
   const activeOffer = offers.find((o) => o.offerReference === selectedOfferReference) ?? product;
 
   // Modifiers state
   const modifierGroups = modifierGroupsByOffer?.[activeOffer.offerReference] ?? [];
-  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string[]>>({});
-
-  useEffect(() => {
-    setSelectedModifiers({});
-  }, [selectedOfferReference]);
 
   const toggleModifierOption = (groupReference: string, optionReference: string, maxSelections: number) => {
     setSelectedModifiers((prev) => {
@@ -192,6 +191,16 @@ export function ProductDetailExperience({
         type: "success",
         message: `${quantity} ${quantity === 1 ? "item" : "items"} added to your cart.`,
       });
+
+      // Server-truth fulfilled: trigger physical object parabolic flight into cart target
+      triggerCartFlight({
+        sourceElement:
+          document.querySelector<HTMLElement>('[data-kt-action="add-to-cart"]') ||
+          document.querySelector<HTMLElement>(`.${styles.pdpMobileStickyBtn}`),
+        imageSrc: activeMedia ? `/api/catalog/media/${activeMedia.publicReference}` : undefined,
+      });
+
+      window.dispatchEvent(new CustomEvent("kt-cart-updated"));
     } catch (err) {
       setCartFeedback({
         type: "error",
@@ -232,84 +241,92 @@ export function ProductDetailExperience({
 
       {/* Main First Viewport Layout */}
       <div className={styles.pdpLayout}>
-        {/* Large Media Field with Gallery */}
+        {/* Adaptive Gallery Media Field */}
         <section aria-label="Product image gallery" className={styles.pdpMediaField}>
-          <div style={{ position: "relative", width: "100%", aspectRatio: "1/1", borderRadius: "12px", overflow: "hidden", backgroundColor: "var(--kt-surface-raised, #f6f8f7)" }}>
-            {activeMedia ? (
-              <Image
-                alt={activeMedia.alt || product.title}
-                fill
-                priority
-                sizes="(max-width: 991px) 100vw, 58vw"
-                src={`/api/catalog/media/${activeMedia.publicReference}`}
-                style={{ objectFit: "cover" }}
-              />
-            ) : (
-              <div
-                aria-label={`${product.title} image unavailable`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "100%",
-                  height: "100%",
-                  color: "var(--kt-muted, #5f6763)",
-                  fontSize: "0.95rem",
-                }}
-              >
-                Image unavailable
-              </div>
-            )}
-          </div>
+          {gallery.length <= 1 && (
+            <div className={styles.galleryHeroFrame}>
+              {activeMedia ? (
+                <Image
+                  alt={activeMedia.alt || product.title}
+                  fill
+                  priority
+                  sizes="(max-width: 991px) 100vw, 58vw"
+                  src={`/api/catalog/media/${activeMedia.publicReference}`}
+                  style={{ objectFit: "cover" }}
+                />
+              ) : (
+                <div
+                  aria-label={`${product.title} image unavailable`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "100%",
+                    height: "100%",
+                    color: "var(--kt-muted, #5f6763)",
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  Image unavailable
+                </div>
+              )}
+            </div>
+          )}
 
-          {gallery.length > 1 && (
-            <div
-              role="tablist"
-              aria-label="Product image thumbnails"
-              style={{
-                display: "flex",
-                gap: "10px",
-                marginTop: "12px",
-                overflowX: "auto",
-                paddingBottom: "4px",
-              }}
-            >
-              {gallery.map((media, idx) => {
-                const isSelected = idx === activeMediaIndex;
+          {gallery.length === 2 && (
+            <div className={styles.galleryDuoGrid}>
+              {gallery.map((media, idx) => (
+                <button
+                  key={media.publicReference}
+                  type="button"
+                  className={styles.galleryDuoItem}
+                  onClick={() => setActiveMediaIndex(idx)}
+                  style={{
+                    border: idx === activeMediaIndex ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
+                    padding: 0,
+                  }}
+                >
+                  <Image
+                    alt={media.alt || `${product.title} view ${idx + 1}`}
+                    fill
+                    sizes="(max-width: 991px) 50vw, 29vw"
+                    src={`/api/catalog/media/${media.publicReference}`}
+                    style={{ objectFit: "cover" }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {gallery.length === 3 && (
+            <div className={styles.galleryTriptychGrid}>
+              <div className={styles.galleryTriptychLead}>
+                <Image
+                  alt={gallery[activeMediaIndex]?.alt || product.title}
+                  fill
+                  priority
+                  sizes="(max-width: 991px) 100vw, 38vw"
+                  src={`/api/catalog/media/${gallery[activeMediaIndex]?.publicReference || gallery[0].publicReference}`}
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
+              {gallery.slice(1).map((media, offsetIdx) => {
+                const actualIdx = offsetIdx + 1;
                 return (
                   <button
                     key={media.publicReference}
                     type="button"
-                    role="tab"
-                    aria-selected={isSelected}
-                    aria-label={`View image ${idx + 1} of ${gallery.length}: ${media.alt || product.title}`}
-                    tabIndex={0}
-                    onClick={() => setActiveMediaIndex(idx)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setActiveMediaIndex(idx);
-                      }
-                    }}
+                    className={styles.galleryTriptychSide}
+                    onClick={() => setActiveMediaIndex(actualIdx)}
                     style={{
-                      position: "relative",
-                      width: "72px",
-                      height: "72px",
-                      flexShrink: 0,
-                      borderRadius: "8px",
-                      overflow: "hidden",
-                      border: isSelected ? "2px solid var(--kt-primary, #047857)" : "1px solid var(--kt-cool-200, #dde1e0)",
-                      cursor: "pointer",
+                      border: actualIdx === activeMediaIndex ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
                       padding: 0,
-                      background: "transparent",
-                      outlineOffset: "2px",
-                      transition: "border-color 0.15s ease",
                     }}
                   >
                     <Image
-                      alt={media.alt || `${product.title} view ${idx + 1}`}
+                      alt={media.alt || `${product.title} view ${actualIdx + 1}`}
                       fill
-                      sizes="72px"
+                      sizes="(max-width: 991px) 50vw, 20vw"
                       src={`/api/catalog/media/${media.publicReference}`}
                       style={{ objectFit: "cover" }}
                     />
@@ -317,6 +334,83 @@ export function ProductDetailExperience({
                 );
               })}
             </div>
+          )}
+
+          {gallery.length >= 4 && gallery.length <= 6 && (
+            <div className={styles.galleryAsymmetricGrid}>
+              <div className={styles.galleryAsymLead}>
+                <Image
+                  alt={gallery[activeMediaIndex]?.alt || product.title}
+                  fill
+                  priority
+                  sizes="(max-width: 991px) 100vw, 58vw"
+                  src={`/api/catalog/media/${gallery[activeMediaIndex]?.publicReference || gallery[0].publicReference}`}
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
+              {gallery.map((media, idx) => (
+                <button
+                  key={media.publicReference}
+                  type="button"
+                  className={styles.galleryAsymCell}
+                  onClick={() => setActiveMediaIndex(idx)}
+                  style={{
+                    border: idx === activeMediaIndex ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
+                    padding: 0,
+                  }}
+                >
+                  <Image
+                    alt={media.alt || `${product.title} thumb ${idx + 1}`}
+                    fill
+                    sizes="(max-width: 991px) 25vw, 15vw"
+                    src={`/api/catalog/media/${media.publicReference}`}
+                    style={{ objectFit: "cover" }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {gallery.length > 6 && (
+            <>
+              <div className={styles.galleryHeroFrame}>
+                <Image
+                  alt={gallery[activeMediaIndex]?.alt || product.title}
+                  fill
+                  priority
+                  sizes="(max-width: 991px) 100vw, 58vw"
+                  src={`/api/catalog/media/${gallery[activeMediaIndex]?.publicReference || gallery[0].publicReference}`}
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
+              <div className={styles.galleryThumbStrip} role="tablist" aria-label="Product thumbnails">
+                {gallery.map((media, idx) => {
+                  const isSelected = idx === activeMediaIndex;
+                  return (
+                    <button
+                      key={media.publicReference}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      aria-label={`View image ${idx + 1} of ${gallery.length}`}
+                      className={styles.galleryThumbButton}
+                      onClick={() => setActiveMediaIndex(idx)}
+                      style={{
+                        border: isSelected ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
+                      }}
+                    >
+                      <Image
+                        alt={media.alt || `${product.title} view ${idx + 1}`}
+                        fill
+                        sizes="72px"
+                        src={`/api/catalog/media/${media.publicReference}`}
+                        style={{ objectFit: "cover" }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
         </section>
 
@@ -524,6 +618,7 @@ export function ProductDetailExperience({
 
             <button
               type="button"
+              data-kt-action="add-to-cart"
               onClick={handleAddToCart}
               disabled={!isPurchasable || addingToCart}
               style={{
@@ -608,7 +703,7 @@ export function ProductDetailExperience({
         <OfferComparison
           offers={offers}
           selectedOfferReference={activeOffer.offerReference}
-          onSelectOffer={setSelectedOfferReference}
+          onSelectOffer={handleSelectOffer}
         />
       </section>
 
@@ -645,6 +740,26 @@ export function ProductDetailExperience({
           <ProductGrid label="Related products" products={relatedProducts} />
         </section>
       )}
+
+      {/* Mobile Sticky Add-to-Cart Action Bar */}
+      <div className={styles.pdpMobileStickyBar} aria-label="Quick purchase bar">
+        <div className={styles.pdpMobileStickyBarMeta}>
+          <span className={styles.pdpMobileStickyBarTitle}>{product.title}</span>
+          <span className={styles.pdpMobileStickyBarPrice}>
+            {formatPrice(activeOffer.price.amount, activeOffer.price.currency)}
+          </span>
+        </div>
+        <div className={styles.pdpMobileStickyBarActions}>
+          <button
+            type="button"
+            className={styles.pdpMobileStickyBtn}
+            onClick={handleAddToCart}
+            disabled={!isPurchasable || addingToCart}
+          >
+            {addingToCart ? "Adding..." : isPurchasable ? "Add to Cart" : "Unavailable"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

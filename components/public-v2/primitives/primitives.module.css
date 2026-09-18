@@ -1,0 +1,234 @@
+/* Public Primitives Styles — Editorial Freight System */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: inherit;
+  font-weight: 540;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  white-space: nowrap;
+  border-radius: 0;
+  position: relative;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--kt-red, #D83A2E);
+  outline-offset: 2px;
+}
+
+/* Sizes */
+.sizeSm {
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+}
+
+.sizeMd {
+  padding: 12px 22px;
+  font-size: 0.9375rem;
+  letter-spacing: 0.01em;
+}
+
+.sizeLg {
+  padding: 16px 32px;
+  font-size: 1.0625rem;
+  letter-spacing: 0.01em;
+}
+
+/* Variants */
+.variantPrimary {
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #FFFFFF);
+  border: 1px solid var(--kt-carbon, #101210);
+}
+
+.variantPrimary:hover {
+  background-color: var(--kt-graphite, #303532);
+  border-color: var(--kt-graphite, #303532);
+}
+
+.variantSignal {
+  background-color: var(--kt-red, #D83A2E);
+  color: var(--kt-white, #FFFFFF);
+  border: 1px solid var(--kt-red, #D83A2E);
+}
+
+.variantSignal:hover {
+  background-color: #B52F24;
+  border-color: #B52F24;
+}
+
+.variantSecondary {
+  background-color: transparent;
+  color: var(--kt-carbon, #101210);
+  border: 1px solid var(--kt-carbon, #101210);
+}
+
+.variantSecondary:hover {
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #FFFFFF);
+}
+
+.variantHairline {
+  background-color: transparent;
+  color: var(--kt-carbon, #101210);
+  border: 1px solid var(--kt-cool-300, #C9CECC);
+}
+
+.variantHairline:hover {
+  border-color: var(--kt-carbon, #101210);
+  background-color: var(--kt-cool-050, #F5F6F6);
+}
+
+.variantTransactional {
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #FFFFFF);
+  border: 1px solid var(--kt-carbon, #101210);
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.variantTransactional:hover:not(:disabled) {
+  background-color: var(--kt-graphite, #303532);
+}
+
+.variantTransactional:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.variantInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--kt-carbon, #101210);
+  border: none;
+  padding: 0;
+  font-size: 0.9375rem;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.variantInline:hover {
+  color: var(--kt-red, #D83A2E);
+}
+
+/* Icon motion */
+.arrowIcon {
+  transition: transform 160ms ease;
+}
+
+.button:hover .arrowIcon {
+  transform: translateX(3px);
+}
+
+/* Editorial Label */
+.editorialLabel {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  font-weight: 550;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--kt-cool-650, #5F6763);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editorialLabelSignal {
+  color: var(--kt-red, #D83A2E);
+}
+
+.editorialBadge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  font-weight: 550;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  background-color: var(--kt-cool-100, #ECEEEE);
+  color: var(--kt-carbon, #101210);
+  border-left: 2px solid var(--kt-carbon, #101210);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editorialBadgeDark {
+  background-color: var(--kt-carbon, #101210);
+  color: var(--kt-white, #FFFFFF);
+  border-left: 2px solid var(--kt-red, #D83A2E);
+}
+
+/* Route Meta */
+.routeMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--kt-cool-650, #5F6763);
+  letter-spacing: 0.04em;
+}
+
+.routeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--kt-red, #D83A2E);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.routeCode {
+  font-weight: 600;
+  color: var(--kt-carbon, #101210);
+}
+
+/* Media Frame */
+.mediaFrame {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--kt-cool-100, #ECEEEE);
+  border: 1px solid var(--kt-cool-200, #DDE1E0);
+}
+
+.mediaFrameForwardCut {
+  clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 0 100%);
+}
+
+@media (max-width: 767px) {
+  .mediaFrameForwardCut {
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+  }
+}
+
+/* Section Index */
+.sectionIndex {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--kt-cool-550, #7D8581);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionIndexRule {
+  flex: 1;
+  height: 1px;
+  background-color: var(--kt-cool-200, #DDE1E0);
+}
+
+.sectionIndexRuleDark {
+  background-color: var(--kt-graphite, #303532);
+}

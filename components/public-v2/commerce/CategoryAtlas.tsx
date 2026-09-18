@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { marketplaceCategoryHref, marketplaceCategoriesHref, marketplaceHref } from "@/lib/public-marketplace/routes";
-import { homeMedia } from "@/components/public-v2/home/home-media";
+import { ktMedia } from "@/components/public-v2/media";
 import styles from "./commerce.module.css";
 
 interface CategoryAtlasItem {
@@ -44,12 +44,12 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
   const getMediaSrc = (cat: CategoryAtlasItem) => {
     if (cat.imageReference) return `/api/catalog/media/${cat.imageReference}`;
     const p = cat.path.toLowerCase();
-    if (p.includes("food")) return homeMedia.foodLocal.src;
-    if (p.includes("groc")) return homeMedia.grocery.src;
-    if (p.includes("fash") || p.includes("cloth")) return homeMedia.fashion.src;
-    if (p.includes("well") || p.includes("care")) return homeMedia.wellness.src;
-    if (p.includes("home")) return homeMedia.homeware.src;
-    return homeMedia.retailLocal.src;
+    if (p.includes("food")) return ktMedia.categories.foodDining.hero.src;
+    if (p.includes("groc")) return ktMedia.categories.groceries.hero.src;
+    if (p.includes("fash") || p.includes("cloth")) return ktMedia.categories.fashion.hero.src;
+    if (p.includes("well") || p.includes("care")) return ktMedia.categories.healthWellness.hero.src;
+    if (p.includes("home")) return ktMedia.categories.homeLiving.hero.src;
+    return ktMedia.categories.fashion.streetLook1.src;
   };
 
   return (
