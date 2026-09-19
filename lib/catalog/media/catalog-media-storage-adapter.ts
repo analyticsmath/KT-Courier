@@ -323,6 +323,222 @@ export class S3CatalogMediaStorageAdapter implements CatalogMediaStorageAdapter 
   }
 }
 
+
+type CatalogCloudinaryConfig = Readonly<{
+  cloudName: string;
+  prefix: string;
+}>;
+
+function configuredCatalogCloudinary(
+  env: Record<string, string | undefined>,
+): CatalogCloudinaryConfig | null {
+  const cloudName = env.CLOUDINARY_CLOUD_NAME?.trim();
+  const rawPrefix = env.CLOUDINARY_CATALOG_PREFIX?.trim() || "kt-courier/catalog";
+  if (!cloudName || !/^[A-Za-z0-9_-]+$/.test(cloudName)) return null;
+
+  const prefix = rawPrefix.replace(/^\/+|\/+$/g, "");
+  if (!prefix || prefix.includes("..") || prefix.includes("\0")) return null;
+  if (!prefix.split("/").every((segment) => /^[A-Za-z0-9._-]+$/.test(segment))) return null;
+
+  return Object.freeze({ cloudName, prefix });
+}
+
+/**
+ * Read-only Cloudinary origin for already-mirrored immutable catalog objects.
+ * Public IDs are derived from the canonical storage key, never from user input.
+ * Uploads continue through the reviewed S3 adapter; this adapter only serves
+ * byte-identical public mirrors.
+ */
+export class CloudinaryCatalogMediaReadAdapter implements CatalogMediaStorageAdapter {
+  readonly code = "CLOUDINARY_CATALOG_READ";
+  readonly productionReady = true;
+
+  constructor(private readonly config: CatalogCloudinaryConfig) {}
+
+  private unavailable(): never {
+    throw new CatalogMediaStorageError(
+      "CATALOG_MEDIA_STORAGE_NOT_READY",
+      "Cloudinary catalog adapter is read-only.",
+    );
+  }
+
+  private sanitizeKey(rawKey: string): string {
+    if (
+      !rawKey ||
+      typeof rawKey !== "string" ||
+      rawKey.includes("\0") ||
+      rawKey.includes("..") ||
+      rawKey.startsWith("/") ||
+      /^[a-zA-Z]:/.test(rawKey)
+    ) {
+      throw new CatalogMediaStorageError(
+        "CATALOG_MEDIA_STORAGE_FAILURE",
+        "Invalid Cloudinary catalog storage key.",
+        400,
+      );
+    }
+    const clean = rawKey.split("\\").join("/").replace(/^catalog-media\//, "");
+    if (!clean || !clean.split("/").every((segment) => /^[A-Za-z0-9._-]+$/.test(segment))) {
+      throw new CatalogMediaStorageError(
+        "CATALOG_MEDIA_STORAGE_FAILURE",
+        "Invalid Cloudinary catalog storage key.",
+        400,
+      );
+    }
+    return clean;
+  }
+
+  private readUrl(storageKey: string): URL {
+    const clean = this.sanitizeKey(storageKey);
+    const publicId = [this.config.prefix, clean]
+      .join("/")
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/");
+    const suffix = /\.[A-Za-z0-9]+$/.test(clean) ? "" : ".webp";
+    return new URL(
+      `https://res.cloudinary.com/${encodeURIComponent(this.config.cloudName)}/image/upload/${publicId}${suffix}`,
+    );
+  }
+
+  async createUploadTarget(): Promise<CatalogMediaUploadTarget> {
+    return this.unavailable();
+  }
+
+  async confirmUpload(): Promise<{ byteSize: number }> {
+    return this.unavailable();
+  }
+
+  async openForValidation(input: Readonly<{ storageKey: string; maximumBytes: number }>): Promise<Uint8Array> {
+    const target = await this.createReadTarget(input);
+    return target.body;
+  }
+
+  async deleteUncommittedObject(): Promise<{ deleted: boolean }> {
+    return this.unavailable();
+  }
+
+  async createReadTarget(input: Readonly<{ storageKey: string; maximumBytes: number }>): Promise<CatalogMediaReadTarget> {
+    const url = this.readUrl(input.storageKey);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { Accept: "image/webp,image/*;q=0.8" },
+          signal: AbortSignal.timeout(12_000),
+        });
+
+        if (response.status === 404) {
+          throw new CatalogMediaStorageError(
+            "CATALOG_MEDIA_STORAGE_MISSING",
+            "Cloudinary catalog mirror is unavailable.",
+            404,
+          );
+        }
+        if (!response.ok) {
+          if (response.status >= 500 && attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 120 * (attempt + 1)));
+            continue;
+          }
+          throw new CatalogMediaStorageError(
+            "CATALOG_MEDIA_STORAGE_FAILURE",
+            "Cloudinary catalog mirror could not retrieve the object.",
+          );
+        }
+
+        const body = new Uint8Array(await response.arrayBuffer());
+        if (body.byteLength < 1 || body.byteLength > input.maximumBytes) {
+          throw new CatalogMediaStorageError(
+            "CATALOG_MEDIA_STORAGE_FAILURE",
+            "Cloudinary catalog mirror does not match the immutable size bound.",
+            409,
+          );
+        }
+        return { body, byteSize: body.byteLength };
+      } catch (error) {
+        if (error instanceof CatalogMediaStorageError) throw error;
+        if (attempt === 2) {
+          throw new CatalogMediaStorageError(
+            "CATALOG_MEDIA_STORAGE_FAILURE",
+            "Cloudinary catalog mirror is unavailable.",
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 120 * (attempt + 1)));
+      }
+    }
+
+    throw new CatalogMediaStorageError(
+      "CATALOG_MEDIA_STORAGE_FAILURE",
+      "Cloudinary catalog mirror is unavailable.",
+    );
+  }
+}
+
+/**
+ * Cloudinary-first delivery with canonical S3 fallback. This preserves public
+ * availability during migration while keeping S3 as the authoritative write
+ * target and checksum source.
+ */
+export class CloudinaryFirstCatalogMediaStorageAdapter implements CatalogMediaStorageAdapter {
+  readonly code = "CLOUDINARY_FIRST_S3_FALLBACK";
+  readonly productionReady: boolean;
+
+  constructor(
+    private readonly cloudinary: CatalogMediaStorageAdapter,
+    private readonly canonical: CatalogMediaStorageAdapter,
+  ) {
+    this.productionReady = canonical.productionReady;
+  }
+
+  createUploadTarget(input: Readonly<{ intentReference: string; storageKey: string; maximumBytes: number; expiresAt: Date }>) {
+    return this.canonical.createUploadTarget(input);
+  }
+
+  confirmUpload(input: Readonly<{ storageKey: string; bytes: Uint8Array; maximumBytes: number }>) {
+    return this.canonical.confirmUpload(input);
+  }
+
+  openForValidation(input: Readonly<{ storageKey: string; maximumBytes: number }>) {
+    return this.canonical.openForValidation(input);
+  }
+
+  deleteUncommittedObject(input: Readonly<{ storageKey: string }>) {
+    return this.canonical.deleteUncommittedObject(input);
+  }
+
+  async createReadTarget(input: Readonly<{ storageKey: string; maximumBytes: number }>): Promise<CatalogMediaReadTarget> {
+    try {
+      const mirrored = await this.cloudinary.createReadTarget(input);
+      if (mirrored.byteSize !== input.maximumBytes) {
+        return this.canonical.createReadTarget(input);
+      }
+      return mirrored;
+    } catch {
+      return this.canonical.createReadTarget(input);
+    }
+  }
+}
+
+export function createProductionCatalogMediaDeliveryStorageAdapter(
+  env: Record<string, string | undefined> = process["env"],
+): CatalogMediaStorageAdapter {
+  const canonical = createProductionCatalogMediaStorageAdapter(env);
+  if (env.CATALOG_MEDIA_DELIVERY?.trim().toLowerCase() !== "cloudinary") {
+    return canonical;
+  }
+
+  const cloudinary = configuredCatalogCloudinary(env);
+  if (!cloudinary || !canonical.productionReady) {
+    return canonical;
+  }
+
+  return new CloudinaryFirstCatalogMediaStorageAdapter(
+    new CloudinaryCatalogMediaReadAdapter(cloudinary),
+    canonical,
+  );
+}
+
 export function isLocalCatalogMediaStorageEnabled(env: Record<string, string | undefined> = process["env"]): boolean {
   return isDemoMediaDeliveryAllowed(env);
 }

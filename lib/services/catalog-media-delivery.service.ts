@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { CatalogMediaDeliveryService, type CatalogMediaDeliveryRepository } from "@/lib/catalog/media/catalog-media-delivery";
-import { createProductionCatalogMediaStorageAdapter } from "@/lib/catalog/media/catalog-media-storage-adapter";
+import { createProductionCatalogMediaDeliveryStorageAdapter } from "@/lib/catalog/media/catalog-media-storage-adapter";
 
 export class PrismaCatalogMediaDeliveryRepository implements CatalogMediaDeliveryRepository {
   async findPublicEvidence(publicReference: string) {
@@ -103,5 +103,5 @@ function snapshotReferencesAsset(snapshot: unknown, publicReference: string): bo
 }
 
 export function createProductionCatalogMediaDeliveryService() {
-  return new CatalogMediaDeliveryService(new PrismaCatalogMediaDeliveryRepository(), createProductionCatalogMediaStorageAdapter());
+  return new CatalogMediaDeliveryService(new PrismaCatalogMediaDeliveryRepository(), createProductionCatalogMediaDeliveryStorageAdapter());
 }
