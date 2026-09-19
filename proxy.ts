@@ -4,6 +4,8 @@ import type { NextRequest } from "next/server";
 export const SESSION_COOKIE_NAME = "kt_session";
 export const HOST_SESSION_COOKIE_NAME = "__Host-kt_session";
 
+const RAILWAY_PRODUCTION_ORIGIN = "https://web-production-9f8bb.up.railway.app";
+
 /**
  * Public browser routes that never require authentication session cookies.
  */
@@ -51,6 +53,16 @@ export function sanitizeReturnUrl(url: string | null | undefined): string {
  */
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
+
+  // Vercel deployment is intentionally used as the public edge while the
+  // production runtime and stateful dependencies live on Railway.
+  // The Vercel project currently has no production DATABASE_URL by design,
+  // so proxy every request to the healthy Railway runtime instead of invoking
+  // database-backed Vercel functions with incomplete configuration.
+  if (process.env.VERCEL && !process.env.DATABASE_URL?.trim()) {
+    const upstream = new URL(pathname + request.nextUrl.search, RAILWAY_PRODUCTION_ORIGIN);
+    return NextResponse.rewrite(upstream);
+  }
 
   // Static assets and internal Next.js endpoints are always bypassed
   if (
