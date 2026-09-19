@@ -231,8 +231,9 @@ export class S3CatalogMediaStorageAdapter implements CatalogMediaStorageAdapter 
   private async request(method: "GET" | "PUT" | "DELETE", rawKey: string, body?: Uint8Array): Promise<Response> {
     const key = this.sanitizeKey(rawKey);
     const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-    const base = this.config.endpoint.pathname.replace(/\\/$/, "");
-    const canonicalUri = `${base}/${encodeURIComponent(this.config.bucket)}/${encodedKey}`.replace(/\\/+/g, "/");
+    const endpointPath = this.config.endpoint.pathname;
+    const base = endpointPath === "/" ? "" : endpointPath.endsWith("/") ? endpointPath.slice(0, -1) : endpointPath;
+    const canonicalUri = `${base}/${encodeURIComponent(this.config.bucket)}/${encodedKey}`;
     const url = new URL(this.config.endpoint.toString());
     url.pathname = canonicalUri;
 
