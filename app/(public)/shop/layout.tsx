@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { MarketplaceUnavailable } from "@/components/public-v2/marketplace";
-import { PublicTransitionRouter } from "@/components/public-v2/motion/PublicTransitionRouter";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 
@@ -21,5 +20,5 @@ export function generateMetadata(): Metadata {
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   if (!publicStorefrontPageExposureAllowed()) return <MarketplaceUnavailable routeContext="storefront" />;
-  return <PublicTransitionRouter>{children}</PublicTransitionRouter>;
+  return children;
 }

@@ -10,19 +10,47 @@ import { getDriverProfileIdForUser, listDriverAssignments } from "@/lib/services
 import { UserRole } from "@/types/db";
 import { getDriverDashboardInsights } from "@/lib/dashboard-insights/driver-dashboard-insights";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
-import { CountInsightPanel } from "@/components/protected-v2/visualizations/CountInsightPanel";
 
 export const metadata: Metadata = { title: "Driver home" };
 
-export default async function DriverDashboardPage({ searchParams }: { searchParams: Promise<{ period?: string | string[] }> }) {
+export default async function DriverDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string | string[] }>;
+}) {
   const user = await requireRole(UserRole.DRIVER);
   const driver = await getDriverProfileByUserId(user.id);
   if (!driver) {
-    return <ProtectedPageFrame><ProtectedPageHeader eyebrow="Driver operations" title="Driver profile unavailable" description="A driver profile is required before operational records can be loaded." /><ProtectedState kind="restricted" title="Driver profile not configured" description="An administrator must link and initialise your driver profile before this workspace can show assignments or availability." illustration={<AccessBoundaryIllustration className="h-24 w-32" />} /></ProtectedPageFrame>;
+    return (
+      <ProtectedPageFrame>
+        <ProtectedPageHeader
+          eyebrow="Driver operations"
+          title="Driver profile unavailable"
+          description="A driver profile is required before operational records can be loaded."
+        />
+        <ProtectedState
+          kind="restricted"
+          title="Driver profile not configured"
+          description="An administrator must link and initialise your driver profile before this workspace can show assignments or availability."
+          illustration={<AccessBoundaryIllustration className="h-24 w-32" />}
+        />
+      </ProtectedPageFrame>
+    );
   }
 
   const driverProfileId = await getDriverProfileIdForUser(user.id);
   const period = parseDashboardPeriod((await searchParams).period);
-  const [assignments, insight] = await Promise.all([driverProfileId ? listDriverAssignments(driverProfileId, "all") : [], getDriverDashboardInsights(period)]);
-  return <DriverHomePage driver={driver} assignments={assignments} activity={insight ? <CountInsightPanel insight={insight} period={period} href="/driver" /> : null} />;
+  const [assignments, insight] = await Promise.all([
+    driverProfileId ? listDriverAssignments(driverProfileId, "all") : [],
+    getDriverDashboardInsights(period),
+  ]);
+
+  return (
+    <DriverHomePage
+      driver={driver}
+      assignments={assignments}
+      insight={insight}
+      period={period}
+    />
+  );
 }

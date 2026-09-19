@@ -9,7 +9,7 @@ vi.mock("@/lib/services/admin-dispatch.service", () => ({ getDispatchBoardData: 
 vi.mock("@/lib/services/admin-pickup-operations.service", () => ({ listPickupExceptions: mocks.exceptions }));
 vi.mock("@/lib/services/admin-delivery-exceptions.service", () => ({ listDeliveryExceptions: mocks.exceptions }));
 
-import { getCustomerDashboardInsights } from "@/lib/dashboard-insights/customer-dashboard-insights";
+import { getCustomerDashboardInsights, getCustomerDashboardBreakdown } from "@/lib/dashboard-insights/customer-dashboard-insights";
 import { getAdminDesk } from "@/lib/dashboard-insights/admin-desk";
 import { getAdminDashboardInsights } from "@/lib/dashboard-insights/admin-dashboard-insights";
 
@@ -20,6 +20,12 @@ describe("dashboard query authority", () => {
     await getCustomerDashboardInsights("7_DAYS");
     for (const call of [...mocks.count.mock.calls, ...mocks.findMany.mock.calls]) expect(call[0].where.customerId).toBe("owner-a");
     expect(mocks.findMany.mock.calls[0][0].select).toEqual({ createdAt: true });
+  });
+  it("scopes customer breakdown queries strictly to authenticated user", async () => {
+    mocks.requireRole.mockResolvedValue({ id: "owner-b", role: "CUSTOMER" });
+    const breakdown = await getCustomerDashboardBreakdown();
+    expect(breakdown.total).toBe(0);
+    for (const call of mocks.count.mock.calls) expect(call[0].where.customerId).toBe("owner-b");
   });
   it("runs no queries when customer authentication fails", async () => {
     mocks.requireRole.mockRejectedValue(new Error("denied"));

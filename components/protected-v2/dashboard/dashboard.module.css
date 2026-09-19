@@ -1,0 +1,650 @@
+/* ==========================================================================
+   KT Courier Dashboard-Only Visual Design System
+   Theme: Warm Editorial Operations Desk
+   Scope: Exclusively applied within .ktDashboard
+   ========================================================================== */
+
+.ktDashboard {
+  /* Surface & Ink Tokens */
+  --dash-canvas: #F2F0EC;
+  --dash-surface: #FCFBF8;
+  --dash-surface-subtle: #F7F5F0;
+  --dash-surface-muted: #ECE9E2;
+  --dash-ink: #171713;
+  --dash-ink-secondary: #42463F;
+  --dash-muted: #6D6A63;
+  --dash-line: #DED9CF;
+  --dash-line-strong: #C8C2B5;
+
+  /* High-Contrast Anchor */
+  --dash-charcoal: #1E211D;
+  --dash-charcoal-subtle: #292D28;
+  --dash-charcoal-line: #3A4038;
+  --dash-charcoal-text: #F4F6F2;
+  --dash-charcoal-muted: #9DA698;
+
+  /* Editorial Accent Hues */
+  --dash-brand: #C94336;
+  --dash-brand-soft: #F9ECE8;
+  --dash-brand-border: #E8B7AF;
+
+  --dash-orange: #F28C45;
+  --dash-orange-soft: #FDF1E6;
+  --dash-orange-border: #F6CEAC;
+
+  --dash-green: #2E6A4F;
+  --dash-green-soft: #E3EFE7;
+  --dash-green-border: #ABCDB6;
+
+  --dash-teal: #2C736A;
+  --dash-teal-soft: #E0EFEB;
+  --dash-teal-border: #A3C9C2;
+
+  --dash-yellow: #E4BD4F;
+  --dash-yellow-soft: #FCF7E6;
+  --dash-yellow-border: #F3DC9E;
+
+  --dash-lime: #D8EA5E;
+  --dash-lime-soft: #F6FAD4;
+  --dash-lime-border: #E3EF8D;
+
+  --dash-lavender: #B9A6E8;
+  --dash-lavender-soft: #F0EAFB;
+
+  /* Shadows */
+  --dash-shadow-subtle: 0 4px 16px rgba(23, 23, 19, 0.04);
+  --dash-shadow-card: 0 10px 30px rgba(30, 28, 24, 0.06);
+
+  /* Font Numeric Defaults */
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   Mandatory Zero-Animation & Instant-Interaction Kill-Switch
+   Scoped exclusively within .ktDashboard (never leaks to shell)
+   -------------------------------------------------------------------------- */
+.ktDashboard *,
+.ktDashboard *::before,
+.ktDashboard *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Canvas & Layout Frame
+   -------------------------------------------------------------------------- */
+.canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Compact Dashboard Header */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+@media (min-width: 768px) {
+  .header {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+  }
+}
+
+.headerLeading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--dash-brand);
+}
+
+.title {
+  font-size: clamp(1.4rem, 2.2vw, 1.875rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--dash-ink);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.description {
+  font-size: 0.84rem;
+  color: var(--dash-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   12-Column Responsive Bento Grid
+   -------------------------------------------------------------------------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+
+/* Grid Column Spans */
+.col12 { grid-column: span 12 / span 12; }
+.col8  { grid-column: span 12 / span 12; }
+.col7  { grid-column: span 12 / span 12; }
+.col6  { grid-column: span 12 / span 12; }
+.col5  { grid-column: span 12 / span 12; }
+.col4  { grid-column: span 12 / span 12; }
+.col3  { grid-column: span 6 / span 6; } /* 2-up on mobile/tablet */
+
+@media (min-width: 1024px) {
+  .col8 { grid-column: span 8 / span 8; }
+  .col7 { grid-column: span 7 / span 7; }
+  .col6 { grid-column: span 6 / span 6; }
+  .col5 { grid-column: span 5 / span 5; }
+  .col4 { grid-column: span 4 / span 4; }
+  .col3 { grid-column: span 3 / span 3; }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .col8 { grid-column: span 12 / span 12; }
+  .col7 { grid-column: span 12 / span 12; }
+  .col6 { grid-column: span 6 / span 6; }
+  .col5 { grid-column: span 12 / span 12; }
+  .col4 { grid-column: span 6 / span 6; }
+  .col3 { grid-column: span 6 / span 6; }
+}
+
+@media (max-width: 639px) {
+  .grid {
+    gap: 10px;
+  }
+  .col12, .col8, .col7, .col6, .col5, .col4 {
+    grid-column: span 12 / span 12;
+  }
+  .col3 {
+    grid-column: span 6 / span 6; /* 2-up on phones */
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Dashboard Card System
+   -------------------------------------------------------------------------- */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  border: 1px solid var(--dash-line);
+  background-color: var(--dash-surface);
+  box-shadow: var(--dash-shadow-subtle);
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Card Tones */
+.toneSurface {
+  background-color: var(--dash-surface);
+  border-color: var(--dash-line);
+  color: var(--dash-ink);
+}
+
+.toneMuted {
+  background-color: var(--dash-surface-muted);
+  border-color: var(--dash-line-strong);
+  color: var(--dash-ink);
+}
+
+.toneDark {
+  background-color: var(--dash-charcoal);
+  border-color: var(--dash-charcoal-line);
+  color: var(--dash-charcoal-text);
+  box-shadow: var(--dash-shadow-card);
+}
+
+.toneDark .cardDescription,
+.toneDark .metricLabel,
+.toneDark .metricMeta {
+  color: var(--dash-charcoal-muted);
+}
+
+.toneDark .cardTitle {
+  color: var(--dash-charcoal-text);
+}
+
+.toneBrand {
+  background-color: #FDF9F8;
+  border-color: var(--dash-brand-border);
+  color: var(--dash-ink);
+}
+
+.toneOrange {
+  background-color: #FDFBF8;
+  border-color: var(--dash-orange-border);
+  color: var(--dash-ink);
+}
+
+.toneGreen {
+  background-color: #F7FAF8;
+  border-color: var(--dash-green-border);
+  color: var(--dash-ink);
+}
+
+.toneLime {
+  background-color: #FAFCF2;
+  border-color: var(--dash-lime-border);
+  color: var(--dash-ink);
+}
+
+/* Card Padding Variants */
+.padCompact {
+  padding: 14px 16px;
+}
+
+.padNormal {
+  padding: 18px 20px;
+}
+
+.padSpacious {
+  padding: 24px 26px;
+}
+
+@media (max-width: 639px) {
+  .card {
+    border-radius: 16px;
+  }
+  .padNormal {
+    padding: 14px 16px;
+  }
+  .padSpacious {
+    padding: 18px 18px;
+  }
+}
+
+/* Card Header */
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cardHeadingGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cardEyebrow {
+  font-size: 0.6875rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dash-muted);
+}
+
+.cardTitle {
+  font-size: 0.9375rem;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+  color: var(--dash-ink);
+  line-height: 1.25;
+  margin: 0;
+}
+
+.cardDescription {
+  font-size: 0.78125rem;
+  color: var(--dash-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.cardAction {
+  flex-shrink: 0;
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--dash-line);
+}
+
+.toneDark .cardFooter {
+  border-top-color: var(--dash-charcoal-line);
+}
+
+/* --------------------------------------------------------------------------
+   Metric Card Anatomy (XS & Compact KPI)
+   -------------------------------------------------------------------------- */
+.metricCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 110px;
+}
+
+.metricTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.metricLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--dash-muted);
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.metricValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.metricValue {
+  font-size: clamp(1.5rem, 2.2vw, 2.125rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--dash-ink);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.toneDark .metricValue {
+  color: var(--dash-charcoal-text);
+}
+
+.metricDelta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.deltaUp {
+  background-color: var(--dash-green-soft);
+  color: var(--dash-green);
+}
+
+.deltaDown {
+  background-color: var(--dash-brand-soft);
+  color: var(--dash-brand);
+}
+
+.deltaFlat {
+  background-color: var(--dash-surface-muted);
+  color: var(--dash-muted);
+}
+
+.metricMeta {
+  font-size: 0.71875rem;
+  color: var(--dash-muted);
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.metricLink {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.metricLink:focus-visible {
+  outline: 2px solid var(--dash-brand);
+  outline-offset: 2px;
+  border-radius: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   Status Chips & Badges
+   -------------------------------------------------------------------------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.6875rem;
+  font-weight: 620;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.chipDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chipNeutral {
+  background-color: var(--dash-surface-muted);
+  color: var(--dash-ink-secondary);
+}
+.chipNeutral .chipDot { background-color: var(--dash-muted); }
+
+.chipSuccess {
+  background-color: var(--dash-green-soft);
+  color: var(--dash-green);
+}
+.chipSuccess .chipDot { background-color: var(--dash-green); }
+
+.chipWarning {
+  background-color: var(--dash-orange-soft);
+  color: #B25316;
+}
+.chipWarning .chipDot { background-color: var(--dash-orange); }
+
+.chipDanger {
+  background-color: var(--dash-brand-soft);
+  color: var(--dash-brand);
+}
+.chipDanger .chipDot { background-color: var(--dash-brand); }
+
+.chipTeal {
+  background-color: var(--dash-teal-soft);
+  color: var(--dash-teal);
+}
+.chipTeal .chipDot { background-color: var(--dash-teal); }
+
+/* --------------------------------------------------------------------------
+   Action Buttons (Instant State, No Transitions)
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.btnPrimary {
+  background-color: var(--dash-brand);
+  color: #FFFFFF;
+  border-color: var(--dash-brand);
+}
+.btnPrimary:hover {
+  background-color: #B5362A;
+  border-color: #B5362A;
+}
+
+.btnSecondary {
+  background-color: var(--dash-surface);
+  color: var(--dash-ink);
+  border-color: var(--dash-line-strong);
+}
+.btnSecondary:hover {
+  background-color: var(--dash-surface-muted);
+}
+
+.btnDark {
+  background-color: var(--dash-charcoal);
+  color: #FFFFFF;
+  border-color: var(--dash-charcoal-line);
+}
+.btnDark:hover {
+  background-color: #2F342D;
+}
+
+.btnQuiet {
+  background-color: transparent;
+  color: var(--dash-ink);
+}
+.btnQuiet:hover {
+  background-color: var(--dash-surface-muted);
+}
+
+.btnSm {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Dense Operational Queue / List Styling
+   -------------------------------------------------------------------------- */
+.recordList {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  divide-y: 1px solid var(--dash-line);
+}
+
+.recordItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--dash-line);
+}
+
+.recordItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.recordItem:first-child {
+  padding-top: 2px;
+}
+
+.recordLeading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recordTitle {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--dash-ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recordTitle:hover {
+  color: var(--dash-brand);
+  text-decoration: underline;
+}
+
+.recordSub {
+  font-size: 0.75rem;
+  color: var(--dash-muted);
+  line-height: 1.3;
+}
+
+.recordTime {
+  font-size: 0.6875rem;
+  color: var(--dash-muted);
+}
+
+.recordTrailing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Empty & Information States
+   -------------------------------------------------------------------------- */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 16px;
+  gap: 10px;
+}
+
+.emptyStateTitle {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  color: var(--dash-ink);
+  margin: 0;
+}
+
+.emptyStateDesc {
+  font-size: 0.8125rem;
+  color: var(--dash-muted);
+  max-width: 380px;
+  margin: 0;
+}

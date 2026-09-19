@@ -62,40 +62,76 @@ export function VanActor({
         }}
       />
 
-      {/* Calibrated Door Aperture: Opens over base side-left silhouette */}
+      {/* Calibrated Door Aperture & Travel Envelope (Collection Left Sequence) */}
       {isLeftCollectionDoorSequence && (
-        <div
-          data-van-cargo-aperture="true"
-          className="van-door-boundary pointer-events-none absolute inset-0 overflow-hidden"
-          style={{
-            clipPath: VAN_DOOR_CALIBRATION.cargoOpeningRect.clipPathInset,
-          }}
-          aria-hidden="true"
-        >
-          {/* Target for GSAP Collection timeline to control door reveal/scrub */}
+        <>
+          {/* Cargo aperture layer: geometrically corresponds to cargoOpeningRect */}
           <div
-            data-van-door-window="true"
-            data-van-door-travel-envelope="true"
-            className="van-door-window absolute inset-0 will-change-transform"
+            data-van-cargo-aperture="true"
+            className="van-cargo-aperture pointer-events-none absolute inset-0 overflow-hidden"
             style={{
-              opacity: isDoorOpen ? 1 : 0,
+              clipPath: VAN_DOOR_CALIBRATION.cargoOpeningRect.clipPathInset,
             }}
+            aria-hidden="true"
           >
-            <Image
-              src={doorOpenActor.webpSrc}
-              alt={doorOpenActor.alt}
-              width={doorOpenActor.width}
-              height={doorOpenActor.height}
-              sizes="(max-width: 767px) 90vw, 1200px"
-              className="w-full h-auto object-contain"
+            {/* Open interior registration revealed inside doorway aperture */}
+            <div
+              data-van-interior-reveal="true"
+              className="van-interior-reveal absolute inset-0 will-change-transform"
               style={{
-                maxWidth: "100%",
-                height: "auto",
-                display: "block",
+                opacity: isDoorOpen ? 1 : 0,
               }}
-            />
+            >
+              <Image
+                src={doorOpenActor.webpSrc}
+                alt={doorOpenActor.alt}
+                width={doorOpenActor.width}
+                height={doorOpenActor.height}
+                sizes="(max-width: 767px) 90vw, 1200px"
+                className="w-full h-auto object-contain"
+                style={{
+                  maxWidth: "100%",
+                  height: "auto",
+                  display: "block",
+                }}
+              />
+            </div>
           </div>
-        </div>
+
+          {/* Physical sliding-door travel layer: geometrically corresponds to slidingDoorTravelRect */}
+          <div
+            data-van-door-travel-envelope="true"
+            className="van-door-travel-envelope pointer-events-none absolute inset-0 overflow-hidden"
+            style={{
+              clipPath: VAN_DOOR_CALIBRATION.slidingDoorTravelRect.clipPathInset,
+            }}
+            aria-hidden="true"
+          >
+            {/* Sliding door panel geometry corresponding to slidingDoorTravelRect */}
+            <div
+              data-van-door-window="true"
+              data-van-door-panel="true"
+              className="van-door-panel absolute inset-0 will-change-transform"
+              style={{
+                opacity: isDoorOpen ? 1 : 0,
+              }}
+            >
+              <Image
+                src={doorOpenActor.webpSrc}
+                alt={doorOpenActor.alt}
+                width={doorOpenActor.width}
+                height={doorOpenActor.height}
+                sizes="(max-width: 767px) 90vw, 1200px"
+                className="w-full h-auto object-contain"
+                style={{
+                  maxWidth: "100%",
+                  height: "auto",
+                  display: "block",
+                }}
+              />
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
