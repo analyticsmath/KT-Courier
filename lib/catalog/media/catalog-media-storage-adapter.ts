@@ -225,7 +225,7 @@ export class S3CatalogMediaStorageAdapter implements CatalogMediaStorageAdapter 
     if (rawKey.startsWith("/") || /^[a-zA-Z]:/.test(rawKey)) {
       throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Absolute catalog storage keys are forbidden.", 400);
     }
-    return rawKey.replace(/\\\\/g, "/").replace(/^\\/+/, "");
+    return rawKey.split("\\\\").join("/");
   }
 
   private async request(method: "GET" | "PUT" | "DELETE", rawKey: string, body?: Uint8Array): Promise<Response> {
