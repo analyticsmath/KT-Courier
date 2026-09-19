@@ -17,7 +17,7 @@ COPY package.json package-lock.json ./
 # Keep the lockfile authoritative. The cache and bounded retries make slow
 # Docker Desktop proxy fetches observable/recoverable without weakening npm
 # integrity or TLS verification.
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
   npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000 --fetch-timeout=120000
 
 COPY prisma ./prisma
@@ -105,3 +105,7 @@ COPY --chown=node:node scripts ./scripts
 USER node
 
 CMD ["node", "node_modules/tsx/dist/cli.mjs", "scripts/scheduler-runner.ts"]
+
+# Default build target for platforms that auto-detect the root Dockerfile (e.g. Railway).
+# Named Compose targets above remain available for migrator/worker/scheduler services.
+FROM runner AS default-web
