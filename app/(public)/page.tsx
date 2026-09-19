@@ -4,6 +4,8 @@ import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { getStorefrontHome } from "@/lib/services/storefront-catalog.service";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   ...publicPageMetadata({
     title: "Marketplace and courier services",
