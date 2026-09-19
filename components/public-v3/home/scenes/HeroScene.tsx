@@ -49,8 +49,14 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       {/* Persistent White Hero Truck Actor Anchor (Completely visible on mobile without clipping) */}
       <div
         data-actor-anchor="hero-truck"
-        className={`${styles.heroTruckWrapper} min-h-[160px] sm:min-h-[260px] md:min-h-[360px] pointer-events-none`}
-      />
+        className={`${styles.heroTruckWrapper} min-h-[160px] sm:min-h-[260px] md:min-h-[360px] pointer-events-none relative`}
+      >
+        {/* Physical trailer cargo rectangle anchor for measured cinematic takeover */}
+        <div
+          data-trailer-mask-anchor="true"
+          className="absolute left-[16%] top-[14%] w-[54%] h-[72%] pointer-events-none"
+        />
+      </div>
 
       {/* Peripheral Human Copy & Primary Actions */}
       <div className={styles.heroActionsRow}>

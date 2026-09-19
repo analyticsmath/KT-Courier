@@ -38,9 +38,6 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
       <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center relative z-10">
         {/* Narrative Statement */}
         <div className="space-y-6 order-2 md:order-1">
-          <span className="text-xs uppercase font-mono tracking-widest text-[var(--kt-graphite)] block">
-            Chapter 10 &bull; Doorstep Arrival
-          </span>
           <h2
             id="arrival-heading"
             className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)]"
@@ -48,11 +45,8 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
             Delivered.
           </h2>
           <p className="text-lg sm:text-xl text-[var(--kt-graphite)] max-w-md leading-relaxed">
-            The journey ends where it should — with a clear, verified handover at the door.
+            The journey finishes at the destination.
           </p>
-          <div className="pt-4 border-t border-[var(--kt-concrete)]/50 text-xs sm:text-sm text-[var(--kt-graphite)] font-mono">
-            PHYSICAL HANDOFF VERIFIED &bull; DELIVERY COMPLETE
-          </div>
         </div>
 
         {/* Courier Anchor geometry for persistent Courier actor */}

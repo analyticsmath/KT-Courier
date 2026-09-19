@@ -88,12 +88,8 @@ async function main() {
 
     if (isProtagonist) {
       // Protagonist transparent cutouts (Trucks, Van, Courier)
+      // Runtime uses alpha-capable WebPs only. Master PNGs are excluded from public runtime.
       const cleanStem = asset.id.replace(/\./g, "-");
-      const pngDestName = `${cleanStem}.png`;
-      const pngDestPath = path.join(protagonistsOutputDir, pngDestName);
-      if (!(await fileExistsAndNotEmpty(pngDestPath))) {
-        await copyFile(sourceFullPath, pngDestPath);
-      }
 
       // Generate Alpha-capable WebP derivative
       const webpDestName = `${cleanStem}.webp`;
@@ -112,7 +108,6 @@ async function main() {
       const hasAlphaVerified = Boolean(webpMeta.hasAlpha);
 
       asset.runtimePaths = {
-        masterPng: `/media/public/protagonists/${pngDestName}`,
         webp: `/media/public/protagonists/${webpDestName}`,
         hasAlphaVerified,
       };
@@ -158,7 +153,7 @@ async function main() {
   // Save updated inventory with runtime paths
   await writeFile(inventoryPath, JSON.stringify(inventory, null, 2), "utf8");
   console.log(`Derived ${derivedCount} photographic/protagonist assets and processed ${vectorCount} vector SVGs.`);
-  console.log(`Alpha-QA completed for ${alphaCount} protagonist cutouts (both pristine PNG and alpha WebP verified).`);
+  console.log(`Alpha-QA completed for ${alphaCount} protagonist cutouts (alpha WebP verified).`);
   console.log(`Updated inventory written to: ${inventoryPath}`);
 }
 

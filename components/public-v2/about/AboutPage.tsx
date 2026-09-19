@@ -29,7 +29,7 @@ const networkPillars = [
   {
     category: "Doorstep Delivery",
     title: "Direct handoff at the destination.",
-    desc: "Packages reach recipients directly at homes and business addresses, with verified physical custody handoffs.",
+    desc: "Packages reach recipients directly at homes and business addresses, with clear in-person handovers upon arrival.",
     media: ktMediaV3.pages.about.photoEssay[4],
   },
 ] as const;
@@ -93,15 +93,15 @@ export function AboutPage() {
         {/* The People Behind the Network */}
         <section aria-label="People of KT Couriers" className="my-16 pt-12 border-t border-[var(--kt-concrete)]/40">
           <div className="max-w-2xl mb-8">
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-brand-red)] font-semibold block mb-2">
-              Human Custody
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] font-semibold block mb-2">
+              People behind the journey
             </span>
             <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[var(--kt-asphalt)]">
               The people who build and move the network.
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-4">
+            <div className="p-6 border border-[var(--kt-concrete)]/40 bg-[var(--kt-freight-paper)] space-y-4">
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
                 <Image
                   src={ktMediaV3.pages.about.portraits[0].src}
@@ -113,10 +113,10 @@ export function AboutPage() {
               </div>
               <div>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-road-grey)] block">
-                  Community Merchant Partner
+                  Local Merchants
                 </span>
                 <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)] mt-1">
-                  Local Artisans & Makers
+                  Artisans & Independent Shops
                 </h3>
                 <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed mt-2">
                   From neighborhood craft markets to established boutiques, independent South African merchants rely on KT for dependable fulfillment.
@@ -124,7 +124,7 @@ export function AboutPage() {
               </div>
             </div>
 
-            <div className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-4">
+            <div className="p-6 border border-[var(--kt-concrete)]/40 bg-[var(--kt-freight-paper)] space-y-4">
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
                 <Image
                   src={ktMediaV3.pages.about.portraits[1].src}
@@ -136,13 +136,13 @@ export function AboutPage() {
               </div>
               <div>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-road-grey)] block">
-                  Fleet & Logistics Operations
+                  Couriers & Drivers
                 </span>
                 <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)] mt-1">
-                  Professional Couriers & Drivers
+                  Delivery & Route Operators
                 </h3>
                 <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed mt-2">
-                  Operating across Gauteng corridors and South African inter-city freeways, delivering unbroken chain-of-custody for every consignment.
+                  Operating across urban corridors and regional roads, bringing packages safely to their destinations.
                 </p>
               </div>
             </div>

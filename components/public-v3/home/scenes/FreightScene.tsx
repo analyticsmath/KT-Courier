@@ -39,9 +39,6 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
 
       {/* Top Narrative Framing */}
       <div className="max-w-4xl mx-auto text-center pt-8 relative z-10">
-        <span className="text-xs font-mono uppercase tracking-widest text-[var(--kt-concrete)] block mb-3">
-          Chapter 09 &bull; Regional Freight & Heavy Haulage
-        </span>
         <h2
           id="freight-heading"
           className="font-display text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight mb-4 text-white"
@@ -65,7 +62,7 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
           href="/services/freight"
           className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-[var(--kt-asphalt)] font-bold text-xs uppercase tracking-wider hover:bg-[var(--kt-concrete)] transition-colors"
         >
-          Explore Freight & Bulk Haulage &rarr;
+          View freight &rarr;
         </Link>
       </div>
     </section>

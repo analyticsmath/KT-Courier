@@ -118,6 +118,20 @@ const SERVICES_LIST: ServiceItem[] = [
   },
 ];
 
+const SERVICE_CTA_MAP: Record<string, string> = {
+  parcel: "View parcel delivery",
+  ecommerce: "View e-commerce delivery",
+  food: "View food delivery",
+  grocery: "View grocery delivery",
+  pharmacy: "View pharmacy delivery",
+  moving: "View moving transport",
+  freight: "View freight delivery",
+  shuttle: "View route shuttle",
+  business: "View business delivery",
+  "driver-network": "View driver network",
+  pricing: "View delivery pricing",
+};
+
 export function PublicServicesOverview() {
   const [activeIdx, setActiveIdx] = useState(0);
   const activeService = SERVICES_LIST[activeIdx] || SERVICES_LIST[0];
@@ -195,7 +209,7 @@ export function PublicServicesOverview() {
           </div>
 
           {/* Right: Sticky Active Service Stage */}
-          <div className="lg:col-span-5 sticky top-28 space-y-6">
+          <div className="lg:col-span-5 sticky top-28 space-y-4">
             <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
               <Image
                 src={activeService.asset.src}
@@ -203,11 +217,10 @@ export function PublicServicesOverview() {
                 fill
                 sizes="(max-width: 1023px) 94vw, 450px"
                 className="object-cover"
-                priority
               />
             </div>
 
-            <div className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-3">
+            <div className="pt-2 space-y-3">
               <h2 className="font-display text-2xl font-bold tracking-tight text-[var(--kt-asphalt)]">
                 {activeService.headline}
               </h2>
@@ -219,7 +232,7 @@ export function PublicServicesOverview() {
                   href={activeService.href}
                   className="inline-flex items-center justify-center px-6 py-3 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] font-bold text-xs uppercase tracking-wider hover:bg-[#23272B] transition-colors w-full"
                 >
-                  Explore {activeService.title} Details
+                  {SERVICE_CTA_MAP[activeService.id] || "View service details"} &rarr;
                 </Link>
               </div>
             </div>

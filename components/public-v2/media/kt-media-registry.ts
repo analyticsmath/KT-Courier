@@ -15,7 +15,6 @@ export interface KTMediaAsset {
   focalPoint: readonly [number, number] | [number, number];
   hasAlpha: boolean;
   webpSrc?: string;
-  pngSrc?: string;
   srcSet?: string;
   desktopCrop: "full-bleed" | "optical-center" | "baseline-ground" | "side-anchored";
   mobileCrop: "portrait-slice" | "cab-focus" | "courier-upper" | "horizontal-crawl";
@@ -30,14 +29,13 @@ export const ktMedia = {
       sideRight: {
     id: "protagonist.truck.white.side-right",
     src: "/media/public/protagonists/protagonist-truck-white-side-right.webp",
-    alt: "KT Couriers long haul transport truck side profile facing right",
+    alt: "Couriers long haul transport truck side profile facing right",
     width: 1672,
     height: 941,
     aspectRatio: 1.777,
     focalPoint: [0.5, 0.55],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-side-right.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-side-right.png",
     
     desktopCrop: "baseline-ground",
     mobileCrop: "portrait-slice",
@@ -48,14 +46,13 @@ export const ktMedia = {
       sideLeft: {
     id: "protagonist.truck.white.side-left",
     src: "/media/public/protagonists/protagonist-truck-white-side-left.webp",
-    alt: "KT Couriers long haul transport truck side profile facing left",
+    alt: "Couriers long haul transport truck side profile facing left",
     width: 1672,
     height: 941,
     aspectRatio: 1.777,
     focalPoint: [0.5, 0.55],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-side-left.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-side-left.png",
     
     desktopCrop: "baseline-ground",
     mobileCrop: "portrait-slice",
@@ -66,14 +63,13 @@ export const ktMedia = {
       centeredHero: {
     id: "protagonist.truck.white.centered-hero",
     src: "/media/public/protagonists/protagonist-truck-white-centered-hero.webp",
-    alt: "KT Couriers flagship long white truck centered hero profile",
+    alt: "Couriers flagship long white truck centered hero profile",
     width: 1672,
     height: 941,
     aspectRatio: 1.777,
     focalPoint: [0.5, 0.55],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-centered-hero.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-centered-hero.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -84,14 +80,13 @@ export const ktMedia = {
       front3qRight: {
     id: "protagonist.truck.white.front-3q-right",
     src: "/media/public/protagonists/protagonist-truck-white-front-3q-right.webp",
-    alt: "Front three-quarter view of KT white truck approaching",
+    alt: "Front three-quarter view of White freight truck approaching",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.45, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-front-3q-right.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-front-3q-right.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -102,14 +97,13 @@ export const ktMedia = {
       front3qLeft: {
     id: "protagonist.truck.white.front-3q-left",
     src: "/media/public/protagonists/protagonist-truck-white-front-3q-left.webp",
-    alt: "Front three-quarter view of KT white truck angled left",
+    alt: "Front three-quarter view of White freight truck angled left",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.55, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-front-3q-left.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-front-3q-left.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -120,14 +114,13 @@ export const ktMedia = {
       topDownStraight: {
     id: "protagonist.truck.white.top-down-straight",
     src: "/media/public/protagonists/protagonist-truck-white-top-down-straight.webp",
-    alt: "Top-down view of KT Couriers white freight truck in transit corridor",
+    alt: "Top-down view of Couriers white freight truck in transit corridor",
     width: 1672,
     height: 941,
     aspectRatio: 1.777,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-top-down-straight.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-top-down-straight.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -138,14 +131,13 @@ export const ktMedia = {
       topDownTurning: {
     id: "protagonist.truck.white.top-down-turning",
     src: "/media/public/protagonists/protagonist-truck-white-top-down-turning.webp",
-    alt: "Top-down view of KT freight truck navigating regional transit turn",
+    alt: "Top-down view of Freight truck navigating regional transit turn",
     width: 1672,
     height: 941,
     aspectRatio: 1.777,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-top-down-turning.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-top-down-turning.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -163,7 +155,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-cargo-box-material.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-cargo-box-material.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -174,14 +165,13 @@ export const ktMedia = {
       cabCrop: {
     id: "protagonist.truck.white.close-crop-front-cab-only",
     src: "/media/public/protagonists/protagonist-truck-white-close-crop-front-cab-only.webp",
-    alt: "KT Couriers fleet truck asset 11_close_crop_front_cab_only.png",
+    alt: "Couriers fleet truck asset",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-close-crop-front-cab-only.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-close-crop-front-cab-only.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -192,14 +182,13 @@ export const ktMedia = {
       rearDoorsOpen: {
     id: "protagonist.truck.white.rear-doors-slightly-open",
     src: "/media/public/protagonists/protagonist-truck-white-rear-doors-slightly-open.webp",
-    alt: "KT Couriers fleet truck asset 14_rear_doors_slightly_open.png",
+    alt: "Couriers fleet truck asset",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-white-rear-doors-slightly-open.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-white-rear-doors-slightly-open.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -212,14 +201,13 @@ export const ktMedia = {
       sideRight: {
     id: "protagonist.van.side-right",
     src: "/media/public/protagonists/protagonist-van-side-right.webp",
-    alt: "KT Couriers neighborhood delivery van side view",
+    alt: "Couriers neighborhood delivery van side view",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-van-side-right.webp",
-    pngSrc: "/media/public/protagonists/protagonist-van-side-right.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -230,14 +218,13 @@ export const ktMedia = {
       slidingDoorOpen: {
     id: "protagonist.van.sliding-door-open",
     src: "/media/public/protagonists/protagonist-van-sliding-door-open.webp",
-    alt: "KT delivery van with sliding side door open for parcel staging",
+    alt: "White delivery van with sliding side door open for parcel staging",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.55, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-van-sliding-door-open.webp",
-    pngSrc: "/media/public/protagonists/protagonist-van-sliding-door-open.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -248,14 +235,13 @@ export const ktMedia = {
       rearDoorsOpen: {
     id: "protagonist.van.rear-doors-open",
     src: "/media/public/protagonists/protagonist-van-rear-doors-open.webp",
-    alt: "KT delivery van rear cargo doors open ready for loading",
+    alt: "White delivery van rear cargo doors open ready for loading",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-van-rear-doors-open.webp",
-    pngSrc: "/media/public/protagonists/protagonist-van-rear-doors-open.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -266,14 +252,13 @@ export const ktMedia = {
       allDoorsOpen: {
     id: "protagonist.van.all-doors-open",
     src: "/media/public/protagonists/protagonist-van-all-doors-open.webp",
-    alt: "KT delivery van open for neighborhood merchant collection",
+    alt: "White delivery van open for neighborhood merchant collection",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-van-all-doors-open.webp",
-    pngSrc: "/media/public/protagonists/protagonist-van-all-doors-open.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -284,14 +269,13 @@ export const ktMedia = {
       centeredHero: {
     id: "protagonist.van.centered-hero",
     src: "/media/public/protagonists/protagonist-van-centered-hero.webp",
-    alt: "KT Couriers local delivery vehicle centered hero view",
+    alt: "Couriers local delivery vehicle centered hero view",
     width: 1254,
     height: 1254,
     aspectRatio: 1,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-van-centered-hero.webp",
-    pngSrc: "/media/public/protagonists/protagonist-van-centered-hero.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -302,14 +286,13 @@ export const ktMedia = {
       front3qRight: {
     id: "protagonist.van.front-three-quarter-facing-right",
     src: "/media/public/protagonists/protagonist-van-front-three-quarter-facing-right.webp",
-    alt: "KT Couriers delivery van asset 03_front_three_quarter_facing_right.png",
+    alt: "Couriers delivery van asset",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-van-front-three-quarter-facing-right.webp",
-    pngSrc: "/media/public/protagonists/protagonist-van-front-three-quarter-facing-right.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -322,14 +305,13 @@ export const ktMedia = {
       sideRight: {
     id: "protagonist.truck.red.side-right",
     src: "/media/public/protagonists/protagonist-truck-red-side-right.webp",
-    alt: "KT Couriers heavy freight transport truck with red curtain trailer",
+    alt: "Couriers heavy freight transport truck with red curtain trailer",
     width: 1672,
     height: 941,
     aspectRatio: 1.777,
     focalPoint: [0.5, 0.55],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-red-side-right.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-red-side-right.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -347,7 +329,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.55],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-red-centered-hero.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-red-centered-hero.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -365,7 +346,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.55],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-red-curtain-open.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-red-curtain-open.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -376,14 +356,13 @@ export const ktMedia = {
       front3qRight: {
     id: "protagonist.truck.red.front-three-quarter-view-facing-right",
     src: "/media/public/protagonists/protagonist-truck-red-front-three-quarter-view-facing-right.webp",
-    alt: "KT Couriers heavy freight truck 03_front_three_quarter_view_facing_right.png",
+    alt: "Couriers heavy freight truck",
     width: 1448,
     height: 1086,
     aspectRatio: 1.333,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-truck-red-front-three-quarter-view-facing-right.webp",
-    pngSrc: "/media/public/protagonists/protagonist-truck-red-front-three-quarter-view-facing-right.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -396,14 +375,13 @@ export const ktMedia = {
       heroStanding: {
     id: "protagonist.courier.hero-standing",
     src: "/media/public/protagonists/protagonist-courier-hero-standing.webp",
-    alt: "KT Courier standing confidently in uniform holding parcel",
+    alt: "Courier standing in workwear holding parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-hero-standing.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-hero-standing.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -414,14 +392,13 @@ export const ktMedia = {
       carryOne: {
     id: "protagonist.courier.carry-one-parcel",
     src: "/media/public/protagonists/protagonist-courier-carry-one-parcel.webp",
-    alt: "KT Courier carrying parcel ready for transfer",
+    alt: "Courier carrying parcel ready for transfer",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-carry-one-parcel.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-carry-one-parcel.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -432,14 +409,13 @@ export const ktMedia = {
       walkRightCarryOne: {
     id: "protagonist.courier.walk-right-one-parcel",
     src: "/media/public/protagonists/protagonist-courier-walk-right-one-parcel.webp",
-    alt: "KT Courier walking briskly to the right delivering a package",
+    alt: "Courier walking right carrying delivery box",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-walk-right-one-parcel.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-walk-right-one-parcel.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -450,14 +426,13 @@ export const ktMedia = {
       readyHandover: {
     id: "protagonist.courier.ready-handover",
     src: "/media/public/protagonists/protagonist-courier-ready-handover.webp",
-    alt: "KT Courier preparing to hand over package to customer",
+    alt: "Courier presenting parcel for handover",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-ready-handover.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-ready-handover.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -468,14 +443,13 @@ export const ktMedia = {
       extendingHandoff: {
     id: "protagonist.courier.extending-handoff",
     src: "/media/public/protagonists/protagonist-courier-extending-handoff.webp",
-    alt: "KT Courier extending parcel forward completing physical delivery",
+    alt: "Courier holding parcel forward for recipient",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-extending-handoff.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-extending-handoff.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -486,14 +460,13 @@ export const ktMedia = {
       approachVehicle: {
     id: "protagonist.courier.approach-vehicle",
     src: "/media/public/protagonists/protagonist-courier-approach-vehicle.webp",
-    alt: "KT Courier approaching transport van with delivery manifest",
+    alt: "Courier approaching delivery van with parcel clipboard",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-approach-vehicle.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-approach-vehicle.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -504,14 +477,13 @@ export const ktMedia = {
       loadingUnloading: {
     id: "protagonist.courier.loading-unloading",
     src: "/media/public/protagonists/protagonist-courier-loading-unloading.webp",
-    alt: "KT Courier loading packages into delivery vehicle",
+    alt: "Courier loading parcels into delivery vehicle",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.4],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-loading-unloading.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-loading-unloading.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -523,14 +495,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.hero-standing",
     src: "/media/public/protagonists/protagonist-courier-hero-standing.webp",
-    alt: "KT Courier standing confidently in uniform holding parcel",
+    alt: "Courier standing in workwear holding parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-hero-standing.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-hero-standing.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -541,14 +512,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.carry-one-parcel",
     src: "/media/public/protagonists/protagonist-courier-carry-one-parcel.webp",
-    alt: "KT Courier carrying parcel ready for transfer",
+    alt: "Courier carrying parcel ready for transfer",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-carry-one-parcel.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-carry-one-parcel.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -559,14 +529,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.full-body-two-parcels",
     src: "/media/public/protagonists/protagonist-courier-full-body-two-parcels.webp",
-    alt: "KT Courier team member in active delivery pose 03_full_body_two_parcels.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-full-body-two-parcels.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-full-body-two-parcels.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -577,14 +546,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.walk-right-one-parcel",
     src: "/media/public/protagonists/protagonist-courier-walk-right-one-parcel.webp",
-    alt: "KT Courier walking briskly to the right delivering a package",
+    alt: "Courier walking right carrying delivery box",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-walk-right-one-parcel.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-walk-right-one-parcel.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -595,14 +563,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.walking-one-parcel-facing-left",
     src: "/media/public/protagonists/protagonist-courier-walking-one-parcel-facing-left.webp",
-    alt: "KT Courier team member in active delivery pose 05_walking_one_parcel_facing_left.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-walking-one-parcel-facing-left.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-walking-one-parcel-facing-left.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -613,14 +580,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.walking-two-parcels",
     src: "/media/public/protagonists/protagonist-courier-walking-two-parcels.webp",
-    alt: "KT Courier team member in active delivery pose 06_walking_two_parcels.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-walking-two-parcels.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-walking-two-parcels.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -631,14 +597,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.ready-handover",
     src: "/media/public/protagonists/protagonist-courier-ready-handover.webp",
-    alt: "KT Courier preparing to hand over package to customer",
+    alt: "Courier presenting parcel for handover",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-ready-handover.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-ready-handover.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -649,14 +614,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.extending-handoff",
     src: "/media/public/protagonists/protagonist-courier-extending-handoff.webp",
-    alt: "KT Courier extending parcel forward completing physical delivery",
+    alt: "Courier holding parcel forward for recipient",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-extending-handoff.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-extending-handoff.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -667,14 +631,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.looking-toward-viewer-with-parcel",
     src: "/media/public/protagonists/protagonist-courier-looking-toward-viewer-with-parcel.webp",
-    alt: "KT Courier team member in active delivery pose 09_looking_toward_viewer_with_parcel.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-looking-toward-viewer-with-parcel.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-looking-toward-viewer-with-parcel.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -685,14 +648,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.approach-vehicle",
     src: "/media/public/protagonists/protagonist-courier-approach-vehicle.webp",
-    alt: "KT Courier approaching transport van with delivery manifest",
+    alt: "Courier approaching delivery van with parcel clipboard",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.35],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-approach-vehicle.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-approach-vehicle.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -703,14 +665,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.looking-left-approaching-vehicle",
     src: "/media/public/protagonists/protagonist-courier-looking-left-approaching-vehicle.webp",
-    alt: "KT Courier team member in active delivery pose 11_looking_left_approaching_vehicle.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-looking-left-approaching-vehicle.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-looking-left-approaching-vehicle.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -721,14 +682,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.placing-parcel-down",
     src: "/media/public/protagonists/protagonist-courier-placing-parcel-down.webp",
-    alt: "KT Courier team member in active delivery pose 12_placing_parcel_down.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-placing-parcel-down.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-placing-parcel-down.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -739,14 +699,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.lifting-parcel-up",
     src: "/media/public/protagonists/protagonist-courier-lifting-parcel-up.webp",
-    alt: "KT Courier team member in active delivery pose 13_lifting_parcel_up.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-lifting-parcel-up.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-lifting-parcel-up.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -757,14 +716,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.small-parcel-one-hand",
     src: "/media/public/protagonists/protagonist-courier-small-parcel-one-hand.webp",
-    alt: "KT Courier team member in active delivery pose 14_small_parcel_one_hand.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-small-parcel-one-hand.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-small-parcel-one-hand.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -775,14 +733,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.medium-box-under-arm",
     src: "/media/public/protagonists/protagonist-courier-medium-box-under-arm.webp",
-    alt: "KT Courier team member in active delivery pose 15_medium_box_under_arm.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-medium-box-under-arm.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-medium-box-under-arm.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -793,14 +750,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.empty-hands-courier-hero",
     src: "/media/public/protagonists/protagonist-courier-empty-hands-courier-hero.webp",
-    alt: "KT Courier team member in active delivery pose 16_empty_hands_courier_hero.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-empty-hands-courier-hero.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-empty-hands-courier-hero.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -811,14 +767,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.forward-gesture-with-parcel",
     src: "/media/public/protagonists/protagonist-courier-forward-gesture-with-parcel.webp",
-    alt: "KT Courier team member in active delivery pose 17_forward_gesture_with_parcel.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-forward-gesture-with-parcel.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-forward-gesture-with-parcel.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -829,14 +784,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.loading-unloading",
     src: "/media/public/protagonists/protagonist-courier-loading-unloading.webp",
-    alt: "KT Courier loading packages into delivery vehicle",
+    alt: "Courier loading parcels into delivery vehicle",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.4],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-loading-unloading.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-loading-unloading.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -847,14 +801,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.half-body-holding-parcel",
     src: "/media/public/protagonists/protagonist-courier-half-body-holding-parcel.webp",
-    alt: "KT Courier team member in active delivery pose 19_half_body_holding_parcel.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-half-body-holding-parcel.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-half-body-holding-parcel.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -865,14 +818,13 @@ export const ktMedia = {
         {
     id: "protagonist.courier.close-crop-upper-body-portrait",
     src: "/media/public/protagonists/protagonist-courier-close-crop-upper-body-portrait.webp",
-    alt: "KT Courier team member in active delivery pose 20_close_crop_upper_body_portrait.png",
+    alt: "Courier holding delivery parcel",
     width: 1122,
     height: 1402,
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
     webpSrc: "/media/public/protagonists/protagonist-courier-close-crop-upper-body-portrait.webp",
-    pngSrc: "/media/public/protagonists/protagonist-courier-close-crop-upper-body-portrait.png",
     
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -896,7 +848,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-fashion-rosebank-leather-bags-640w.webp 640w, /media/public/derived/photo-fashion-rosebank-leather-bags-960w.webp 960w, /media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -913,7 +864,6 @@ export const ktMedia = {
     aspectRatio: 0.8,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-fashion-jhb-editorial-coat-640w.webp 640w, /media/public/derived/photo-fashion-jhb-editorial-coat-960w.webp 960w, /media/public/derived/photo-fashion-jhb-editorial-coat-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -932,7 +882,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-fashion-jhb-editorial-white-640w.webp 640w, /media/public/derived/photo-fashion-jhb-editorial-white-960w.webp 960w, /media/public/derived/photo-fashion-jhb-editorial-white-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -949,7 +898,6 @@ export const ktMedia = {
     aspectRatio: 0.751,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-fashion-jhb-street-graffiti-640w.webp 640w, /media/public/derived/photo-fashion-jhb-street-graffiti-960w.webp 960w, /media/public/derived/photo-fashion-jhb-street-graffiti-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -970,7 +918,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-grocery-fruit-crates-overhead-640w.webp 640w, /media/public/derived/photo-grocery-fruit-crates-overhead-960w.webp 960w, /media/public/derived/photo-grocery-fruit-crates-overhead-1440w.webp 1440w",
     desktopCrop: "full-bleed",
     mobileCrop: "portrait-slice",
@@ -987,7 +934,6 @@ export const ktMedia = {
     aspectRatio: 1.504,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-grocery-vegetables-crate-640w.webp 640w, /media/public/derived/photo-grocery-vegetables-crate-960w.webp 960w, /media/public/derived/photo-grocery-vegetables-crate-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -1008,7 +954,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-food-prepared-grain-bowl-640w.webp 640w, /media/public/derived/photo-food-prepared-grain-bowl-960w.webp 960w, /media/public/derived/photo-food-prepared-grain-bowl-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1025,7 +970,6 @@ export const ktMedia = {
     aspectRatio: 1.5,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-food-kitchen-plating-pass-640w.webp 640w, /media/public/derived/photo-food-kitchen-plating-pass-960w.webp 960w, /media/public/derived/photo-food-kitchen-plating-pass-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -1046,7 +990,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-commerce-cape-town-market-ceramics-640w.webp 640w, /media/public/derived/photo-commerce-cape-town-market-ceramics-960w.webp 960w, /media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1063,7 +1006,6 @@ export const ktMedia = {
     aspectRatio: 1.778,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-commerce-sculptural-ceramics-vessel-640w.webp 640w, /media/public/derived/photo-commerce-sculptural-ceramics-vessel-960w.webp 960w, /media/public/derived/photo-commerce-sculptural-ceramics-vessel-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -1084,7 +1026,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-wellness-amber-apothecary-bottles-640w.webp 640w, /media/public/derived/photo-wellness-amber-apothecary-bottles-960w.webp 960w, /media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1102,7 +1043,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-wellness-herbal-jars-dispensary-640w.webp 640w, /media/public/derived/photo-wellness-herbal-jars-dispensary-960w.webp 960w, /media/public/derived/photo-wellness-herbal-jars-dispensary-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1119,7 +1059,6 @@ export const ktMedia = {
     aspectRatio: 1,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-wellness-organic-botanical-serum-640w.webp 640w, /media/public/derived/photo-wellness-organic-botanical-serum-960w.webp 960w, /media/public/derived/photo-wellness-organic-botanical-serum-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -1142,7 +1081,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-route-night-highway-transit-960w.webp 960w, /media/public/derived/photo-route-night-highway-transit-1440w.webp 1440w, /media/public/derived/photo-route-night-highway-transit-1920w.webp 1920w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1159,7 +1097,6 @@ export const ktMedia = {
     aspectRatio: 1.778,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-route-overhead-cloverleaf-interchange-960w.webp 960w, /media/public/derived/photo-route-overhead-cloverleaf-interchange-1440w.webp 1440w, /media/public/derived/photo-route-overhead-cloverleaf-interchange-1920w.webp 1920w",
     desktopCrop: "optical-center",
@@ -1178,7 +1115,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-route-gauteng-transit-corridor-960w.webp 960w, /media/public/derived/photo-route-gauteng-transit-corridor-1440w.webp 1440w, /media/public/derived/photo-route-gauteng-transit-corridor-1920w.webp 1920w",
     desktopCrop: "full-bleed",
     mobileCrop: "portrait-slice",
@@ -1195,7 +1131,6 @@ export const ktMedia = {
     aspectRatio: 1.498,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-route-long-haul-freeway-vista-960w.webp 960w, /media/public/derived/photo-route-long-haul-freeway-vista-1440w.webp 1440w, /media/public/derived/photo-route-long-haul-freeway-vista-1920w.webp 1920w",
     desktopCrop: "optical-center",
@@ -1214,7 +1149,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-prep-maboneng-fleet-depot-640w.webp 640w, /media/public/derived/photo-prep-maboneng-fleet-depot-960w.webp 960w, /media/public/derived/photo-prep-maboneng-fleet-depot-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1228,13 +1162,12 @@ export const ktMedia = {
     driverArrival: {
     id: "photo.courier.doorstep-driver-arrival",
     src: "/media/public/derived/photo-courier-doorstep-driver-arrival-1440w.webp",
-    alt: "KT Courier arriving at destination doorstep with customer package",
+    alt: "Courier carrying parcel to residential entrance",
     width: 1600,
     height: 1068,
     aspectRatio: 1.498,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-courier-doorstep-driver-arrival-640w.webp 640w, /media/public/derived/photo-courier-doorstep-driver-arrival-960w.webp 960w, /media/public/derived/photo-courier-doorstep-driver-arrival-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -1253,7 +1186,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-courier-merchant-pickup-handoff-640w.webp 640w, /media/public/derived/photo-courier-merchant-pickup-handoff-960w.webp 960w, /media/public/derived/photo-courier-merchant-pickup-handoff-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1271,7 +1203,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-courier-digital-manifest-check-640w.webp 640w, /media/public/derived/photo-courier-digital-manifest-check-960w.webp 960w, /media/public/derived/photo-courier-digital-manifest-check-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1288,7 +1219,6 @@ export const ktMedia = {
     aspectRatio: 1.498,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-courier-recipient-physical-handoff-640w.webp 640w, /media/public/derived/photo-courier-recipient-physical-handoff-960w.webp 960w, /media/public/derived/photo-courier-recipient-physical-handoff-1440w.webp 1440w",
     desktopCrop: "optical-center",
@@ -1310,7 +1240,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-courier-recipient-receiving-delivery-640w.webp 640w, /media/public/derived/photo-courier-recipient-receiving-delivery-960w.webp 960w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1327,7 +1256,6 @@ export const ktMedia = {
     aspectRatio: 0.667,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-prep-artisan-box-assembly-640w.webp 640w, /media/public/derived/photo-prep-artisan-box-assembly-960w.webp 960w",
     desktopCrop: "optical-center",
@@ -1346,7 +1274,6 @@ export const ktMedia = {
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
-    
     srcSet: "/media/public/derived/photo-commerce-clean-packaged-goods-stack-640w.webp 640w, /media/public/derived/photo-commerce-clean-packaged-goods-stack-960w.webp 960w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
@@ -1363,7 +1290,6 @@ export const ktMedia = {
     aspectRatio: 0.667,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
-    
     
     srcSet: "/media/public/derived/photo-auth-recovery-keycard-640w.webp 640w, /media/public/derived/photo-auth-recovery-keycard-960w.webp 960w",
     desktopCrop: "optical-center",
@@ -1386,7 +1312,6 @@ export const ktMedia = {
     hasAlpha: true,
     
     
-    
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
@@ -1402,7 +1327,6 @@ export const ktMedia = {
     aspectRatio: 1,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
-    
     
     
     desktopCrop: "optical-center",
@@ -1422,7 +1346,6 @@ export const ktMedia = {
     hasAlpha: true,
     
     
-    
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
@@ -1440,7 +1363,6 @@ export const ktMedia = {
     hasAlpha: true,
     
     
-    
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
@@ -1456,7 +1378,6 @@ export const ktMedia = {
     aspectRatio: 1,
     focalPoint: [0.5, 0.5],
     hasAlpha: true,
-    
     
     
     desktopCrop: "optical-center",

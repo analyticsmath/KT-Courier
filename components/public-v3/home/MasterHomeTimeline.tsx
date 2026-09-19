@@ -10,6 +10,7 @@ import type {
   CourierStateId,
   RedTruckStateId,
 } from "../actors/actor-state-machine";
+import type { ActorVisibility } from "../actors/PersistentActorLayer";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -22,6 +23,7 @@ export interface MasterHomeTimelineProps {
   onCourierStateChange?: (state: CourierStateId) => void;
   onRedTruckStateChange?: (state: RedTruckStateId) => void;
   onActiveActorChange?: (actor: "white-truck" | "van" | "courier" | "red-truck" | null) => void;
+  onActorVisibilityChange?: (visibility: Partial<ActorVisibility>) => void;
   onMarketplaceActiveIdChange?: (id: string) => void;
 }
 
@@ -29,11 +31,11 @@ export interface MasterHomeTimelineProps {
  * Master Experience Controller (v3).
  * Coordinates persistent actor continuity and cinematic transitions across 9 linked scenes:
  * 1. Hero: Complete white truck silhouette (desktop entrance, strictly constrained mobile view without clipping)
- * 2. Trailer Takeover: Physical cargo rectangle expands across viewport into marketplace commerce
- * 3. Marketplace: Scroll-choreographed five-panel expansion with touch-safe mobile snap rail
+ * 2. Trailer Takeover: Physical cargo rectangle expands across viewport into marketplace commerce (measured clip + 1->3->5 progression)
+ * 3. Marketplace: Scroll-choreographed five-panel expansion with dynamic panel IDs
  * 4. Choice -> Parcel: Contraction of selected commerce aperture into preparation parcel
- * 5. Van Collection: Van arrives closed -> settles -> door opens under seam -> courier loads
- * 6. Custody Split: Courier bridges merchant handoff and transit seam
+ * 5. Van Collection: Van arrives closed -> settles -> door opens under seam -> courier loads (both van and courier visible)
+ * 6. Custody Split: Courier bridges merchant handoff and transit seam (animated 72/28 -> 50/50 -> 28/72)
  * 7. Route: Concealed swap to top-down straight truck traversing asphalt lane
  * 8. Freight: Red freight truck commands center plane
  * 9. Arrival: Courier extending handoff at quiet human doorstep
@@ -45,15 +47,31 @@ export function useMasterHomeTimeline({
   onCourierStateChange,
   onRedTruckStateChange,
   onActiveActorChange,
+  onActorVisibilityChange,
   onMarketplaceActiveIdChange,
 }: MasterHomeTimelineProps) {
   const { prefersReducedMotion } = useMotionContext();
   const timelineCtxRef = useRef<gsap.Context | null>(null);
 
+  // Maintain currently active scene anchors across resize & refresh
+  const currentAnchors = useRef<{
+    whiteTruck: HTMLElement | null;
+    van: HTMLElement | null;
+    courier: HTMLElement | null;
+    redTruck: HTMLElement | null;
+  }>({
+    whiteTruck: null,
+    van: null,
+    courier: null,
+    redTruck: null,
+  });
+
   useEffect(() => {
     if (typeof window === "undefined" || !rootRef.current || prefersReducedMotion) {
       return;
     }
+
+    let handleRefreshOrResize: () => void = () => {};
 
     const ctx = gsap.context(() => {
       const container = rootRef.current;
@@ -72,12 +90,19 @@ export function useMasterHomeTimeline({
       // Anchor Targets (Provided by scenes for spatial positioning)
       // ---------------------------------------------------------------------
       const heroAnchor = container.querySelector<HTMLElement>("[data-actor-anchor='hero-truck']");
+      const trailerMaskAnchor = container.querySelector<HTMLElement>("[data-trailer-mask-anchor]");
       const collectionVanAnchor = container.querySelector<HTMLElement>("[data-actor-anchor='collection-van']");
       const collectionCourierAnchor = container.querySelector<HTMLElement>("[data-actor-anchor='collection-courier']");
       const custodyCourierAnchor = container.querySelector<HTMLElement>("[data-actor-anchor='custody-courier']");
       const routeAnchor = container.querySelector<HTMLElement>("[data-actor-anchor='route-truck']");
       const freightAnchor = container.querySelector<HTMLElement>("[data-actor-anchor='freight-truck']");
       const arrivalCourierAnchor = container.querySelector<HTMLElement>("[data-actor-anchor='arrival-courier']");
+
+      // Initial active anchor assignment
+      currentAnchors.current.whiteTruck = heroAnchor;
+      currentAnchors.current.van = collectionVanAnchor;
+      currentAnchors.current.courier = collectionCourierAnchor;
+      currentAnchors.current.redTruck = freightAnchor;
 
       // Helper: Position an actor slot to match anchor geometry in container space
       const alignSlotToAnchor = (slot: HTMLElement | null, anchor: HTMLElement | null) => {
@@ -93,25 +118,44 @@ export function useMasterHomeTimeline({
         });
       };
 
-      // Initial anchor measurements
+      // Measure anchor positions using tracked current anchors
       const updateAllAnchorPositions = () => {
-        alignSlotToAnchor(whiteTruckSlot, heroAnchor);
-        alignSlotToAnchor(vanSlot, collectionVanAnchor);
-        alignSlotToAnchor(courierSlot, collectionCourierAnchor);
-        alignSlotToAnchor(redTruckSlot, freightAnchor);
+        alignSlotToAnchor(whiteTruckSlot, currentAnchors.current.whiteTruck || heroAnchor);
+        alignSlotToAnchor(vanSlot, currentAnchors.current.van || collectionVanAnchor);
+        alignSlotToAnchor(courierSlot, currentAnchors.current.courier || collectionCourierAnchor);
+        alignSlotToAnchor(redTruckSlot, currentAnchors.current.redTruck || freightAnchor);
+      };
+
+      handleRefreshOrResize = () => {
+        updateAllAnchorPositions();
       };
 
       updateAllAnchorPositions();
-      ScrollTrigger.addEventListener("refresh", updateAllAnchorPositions);
-      window.addEventListener("resize", updateAllAnchorPositions);
+      ScrollTrigger.addEventListener("refresh", handleRefreshOrResize);
+      window.addEventListener("resize", handleRefreshOrResize);
 
       // ---------------------------------------------------------------------
-      // Chapter 1: Hero Truck & Real Trailer Takeover
+      // Chapter 1: Hero Truck & Measured Trailer Takeover
       // ---------------------------------------------------------------------
       const heroSection = container.querySelector<HTMLElement>("[data-kt-scene='hero']");
       const ktWord = heroSection?.querySelector<HTMLElement>(".heroWordKt");
       const courierWord = heroSection?.querySelector<HTMLElement>(".heroWordCourier");
       const heroActions = heroSection?.querySelector<HTMLElement>(".heroActionsRow");
+
+      // Calculate exact trailer starting clip-path from physical trailer anchor geometry
+      const getMeasuredTrailerClip = (isMobile: boolean) => {
+        if (!trailerMaskAnchor) {
+          return isMobile ? "inset(32% 12% 28% 12%)" : "inset(24% 20% 24% 20%)";
+        }
+        const tRect = trailerMaskAnchor.getBoundingClientRect();
+        const vW = window.innerWidth || 1;
+        const vH = window.innerHeight || 1;
+        const top = Math.max(0, Math.min(95, (tRect.top / vH) * 100));
+        const bottom = Math.max(0, Math.min(95, ((vH - tRect.bottom) / vH) * 100));
+        const left = Math.max(0, Math.min(95, (tRect.left / vW) * 100));
+        const right = Math.max(0, Math.min(95, ((vW - tRect.right) / vW) * 100));
+        return `inset(${top.toFixed(1)}% ${right.toFixed(1)}% ${bottom.toFixed(1)}% ${left.toFixed(1)}%)`;
+      };
 
       if (heroSection && whiteTruckSlot) {
         const isMobile = window.innerWidth < 768;
@@ -126,10 +170,14 @@ export function useMasterHomeTimeline({
             anticipatePin: 1,
             invalidateOnRefresh: true,
             onEnter: () => {
+              currentAnchors.current.whiteTruck = heroAnchor;
+              onActorVisibilityChange?.({ whiteTruck: true, van: false, courier: false, redTruck: false });
               onActiveActorChange?.("white-truck");
               alignSlotToAnchor(whiteTruckSlot, heroAnchor);
             },
             onEnterBack: () => {
+              currentAnchors.current.whiteTruck = heroAnchor;
+              onActorVisibilityChange?.({ whiteTruck: true, van: false, courier: false, redTruck: false });
               onActiveActorChange?.("white-truck");
               onWhiteTruckStateChange?.("wide-hero");
               alignSlotToAnchor(whiteTruckSlot, heroAnchor);
@@ -204,14 +252,16 @@ export function useMasterHomeTimeline({
           heroTl.to(heroActions, { opacity: 0, y: 15, duration: 0.2 }, 0.66);
         }
 
-        // Trailer Takeover: expands trailer rectangle to full viewport
+        // Trailer Takeover: Measured clip-path expansion and 1 -> 3 -> 5 media progression
         if (trailerOverlay) {
+          const p1 = trailerOverlay.querySelector<HTMLElement>(".takeover-progression-1");
+          const p3 = trailerOverlay.querySelector<HTMLElement>(".takeover-progression-3");
+          const p5 = trailerOverlay.querySelector<HTMLElement>(".takeover-progression-5");
+
           heroTl.fromTo(
             trailerOverlay,
             {
-              clipPath: isMobile
-                ? "inset(32% 12% 28% 12%)"
-                : "inset(24% 20% 24% 20%)",
+              clipPath: getMeasuredTrailerClip(isMobile),
               opacity: 0,
             },
             {
@@ -222,15 +272,34 @@ export function useMasterHomeTimeline({
             },
             0.66
           );
+
+          // 1 -> 3 -> 5 visual progression crossfades
+          if (p1 && p3) {
+            heroTl.to(p1, { opacity: 0, duration: 0.12 }, 0.78);
+            heroTl.to(p3, { opacity: 1, duration: 0.12 }, 0.78);
+          }
+          if (p3 && p5) {
+            heroTl.to(p3, { opacity: 0, duration: 0.1 }, 0.88);
+            heroTl.to(p5, { opacity: 1, duration: 0.1 }, 0.88);
+          }
         }
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 2: Five-Panel Marketplace Scroll Choreography
+      // Chapter 2: Five-Panel Marketplace Scroll Choreography (Dynamic Panels)
       // ---------------------------------------------------------------------
       const marketSection = container.querySelector<HTMLElement>("[data-kt-scene='marketplace']");
       if (marketSection && window.innerWidth >= 900) {
-        const categoryIds = ["fashion", "food", "grocery", "home", "wellness"];
+        const panelEls = Array.from(
+          marketSection.querySelectorAll<HTMLElement>("[data-marketplace-panel-id]")
+        );
+        const dynamicIds = panelEls
+          .map((el) => el.getAttribute("data-marketplace-panel-id")!)
+          .filter(Boolean);
+        const categoryIds =
+          dynamicIds.length > 0
+            ? dynamicIds
+            : ["grocery", "fashion", "food", "home", "wellness"];
 
         ScrollTrigger.create({
           trigger: marketSection,
@@ -239,6 +308,7 @@ export function useMasterHomeTimeline({
           pin: true,
           scrub: 0.5,
           onEnter: () => {
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: false, redTruck: false });
             onActiveActorChange?.(null);
             if (trailerOverlay) gsap.to(trailerOverlay, { opacity: 0, duration: 0.2 });
           },
@@ -269,6 +339,7 @@ export function useMasterHomeTimeline({
               end: "bottom 30%",
               scrub: 0.5,
               onEnter: () => {
+                onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: false, redTruck: false });
                 onActiveActorChange?.(null);
               },
             },
@@ -303,6 +374,7 @@ export function useMasterHomeTimeline({
           start: "top 75%",
           end: "bottom 25%",
           onEnter: () => {
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: false, redTruck: false });
             onActiveActorChange?.(null);
           },
         });
@@ -310,6 +382,7 @@ export function useMasterHomeTimeline({
 
       // ---------------------------------------------------------------------
       // Chapter 6: Local Collection — Van Closed -> Open -> Courier Load
+      // Van and Courier are simultaneously visible during transfer
       // ---------------------------------------------------------------------
       const collectionSection = container.querySelector<HTMLElement>("[data-kt-scene='collection']");
 
@@ -321,8 +394,22 @@ export function useMasterHomeTimeline({
             end: "bottom 50%",
             scrub: 0.5,
             onEnter: () => {
+              currentAnchors.current.van = collectionVanAnchor;
+              currentAnchors.current.courier = collectionCourierAnchor;
               alignSlotToAnchor(vanSlot, collectionVanAnchor);
               alignSlotToAnchor(courierSlot, collectionCourierAnchor);
+              // Both van and courier simultaneously visible
+              onActorVisibilityChange?.({ whiteTruck: false, van: true, courier: true, redTruck: false });
+              onActiveActorChange?.("van");
+              onVanStateChange?.("side-right");
+              onCourierStateChange?.("look-right-approach");
+            },
+            onEnterBack: () => {
+              currentAnchors.current.van = collectionVanAnchor;
+              currentAnchors.current.courier = collectionCourierAnchor;
+              alignSlotToAnchor(vanSlot, collectionVanAnchor);
+              alignSlotToAnchor(courierSlot, collectionCourierAnchor);
+              onActorVisibilityChange?.({ whiteTruck: false, van: true, courier: true, redTruck: false });
               onActiveActorChange?.("van");
               onVanStateChange?.("side-right");
             },
@@ -339,10 +426,9 @@ export function useMasterHomeTimeline({
             duration: 0.4,
             ease: "power2.out",
             onComplete: () => {
-              // Settle hold -> state swap under body/door seam to sliding-door-open
+              // Settle hold -> localized door reveal to sliding-door-open
               onVanStateChange?.("sliding-door-open");
-              // Once door is open, courier loading state becomes active
-              onActiveActorChange?.("courier");
+              // Courier loading state in presence of open van
               onCourierStateChange?.("loading-unloading");
             },
           },
@@ -359,31 +445,70 @@ export function useMasterHomeTimeline({
               duration: 0.35,
               ease: "power2.out",
             },
-            0.3
+            0.25
           );
         }
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 7: Custody Transfer Seam
+      // Chapter 7: Custody Transfer Seam (72/28 -> 50/50 -> 28/72 split)
       // ---------------------------------------------------------------------
       const custodySection = container.querySelector<HTMLElement>("[data-kt-scene='custody']");
       if (custodySection && courierSlot) {
+        const custodyLeft = custodySection.querySelector<HTMLElement>(".kt-custody-left");
+        const custodyRight = custodySection.querySelector<HTMLElement>(".kt-custody-right");
+
         ScrollTrigger.create({
           trigger: custodySection,
           start: "top 70%",
           end: "bottom 30%",
           onEnter: () => {
+            currentAnchors.current.courier = custodyCourierAnchor;
             alignSlotToAnchor(courierSlot, custodyCourierAnchor);
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: true, redTruck: false });
             onActiveActorChange?.("courier");
             onCourierStateChange?.("ready-handover");
           },
           onEnterBack: () => {
+            currentAnchors.current.courier = custodyCourierAnchor;
             alignSlotToAnchor(courierSlot, custodyCourierAnchor);
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: true, redTruck: false });
             onActiveActorChange?.("courier");
             onCourierStateChange?.("ready-handover");
           },
         });
+
+        // Animate custody split width from 72/28 -> 50/50 -> 28/72 across scroll
+        if (custodyLeft && custodyRight) {
+          gsap.fromTo(
+            custodyLeft,
+            { width: "72%" },
+            {
+              width: "28%",
+              ease: "none",
+              scrollTrigger: {
+                trigger: custodySection,
+                start: "top 80%",
+                end: "bottom 20%",
+                scrub: true,
+              },
+            }
+          );
+          gsap.fromTo(
+            custodyRight,
+            { width: "28%" },
+            {
+              width: "72%",
+              ease: "none",
+              scrollTrigger: {
+                trigger: custodySection,
+                start: "top 80%",
+                end: "bottom 20%",
+                scrub: true,
+              },
+            }
+          );
+        }
       }
 
       // ---------------------------------------------------------------------
@@ -396,12 +521,16 @@ export function useMasterHomeTimeline({
           start: "top 80%",
           end: "bottom 20%",
           onEnter: () => {
+            currentAnchors.current.whiteTruck = routeAnchor;
             alignSlotToAnchor(whiteTruckSlot, routeAnchor);
+            onActorVisibilityChange?.({ whiteTruck: true, van: false, courier: false, redTruck: false });
             onActiveActorChange?.("white-truck");
             onWhiteTruckStateChange?.("top-down-straight");
           },
           onEnterBack: () => {
+            currentAnchors.current.whiteTruck = routeAnchor;
             alignSlotToAnchor(whiteTruckSlot, routeAnchor);
+            onActorVisibilityChange?.({ whiteTruck: true, van: false, courier: false, redTruck: false });
             onActiveActorChange?.("white-truck");
             onWhiteTruckStateChange?.("top-down-straight");
           },
@@ -433,12 +562,16 @@ export function useMasterHomeTimeline({
           start: "top 75%",
           end: "bottom 25%",
           onEnter: () => {
+            currentAnchors.current.redTruck = freightAnchor;
             alignSlotToAnchor(redTruckSlot, freightAnchor);
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: false, redTruck: true });
             onActiveActorChange?.("red-truck");
             onRedTruckStateChange?.("centered-hero");
           },
           onEnterBack: () => {
+            currentAnchors.current.redTruck = freightAnchor;
             alignSlotToAnchor(redTruckSlot, freightAnchor);
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: false, redTruck: true });
             onActiveActorChange?.("red-truck");
             onRedTruckStateChange?.("centered-hero");
           },
@@ -472,12 +605,16 @@ export function useMasterHomeTimeline({
           start: "top 75%",
           end: "bottom 25%",
           onEnter: () => {
+            currentAnchors.current.courier = arrivalCourierAnchor;
             alignSlotToAnchor(courierSlot, arrivalCourierAnchor);
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: true, redTruck: false });
             onActiveActorChange?.("courier");
             onCourierStateChange?.("extending-handoff");
           },
           onEnterBack: () => {
+            currentAnchors.current.courier = arrivalCourierAnchor;
             alignSlotToAnchor(courierSlot, arrivalCourierAnchor);
+            onActorVisibilityChange?.({ whiteTruck: false, van: false, courier: true, redTruck: false });
             onActiveActorChange?.("courier");
             onCourierStateChange?.("extending-handoff");
           },
@@ -504,8 +641,8 @@ export function useMasterHomeTimeline({
     timelineCtxRef.current = ctx;
 
     return () => {
-      ScrollTrigger.removeEventListener("refresh", () => {});
-      window.removeEventListener("resize", () => {});
+      ScrollTrigger.removeEventListener("refresh", handleRefreshOrResize);
+      window.removeEventListener("resize", handleRefreshOrResize);
       ctx.revert();
     };
   }, [
@@ -516,6 +653,7 @@ export function useMasterHomeTimeline({
     onCourierStateChange,
     onRedTruckStateChange,
     onActiveActorChange,
+    onActorVisibilityChange,
     onMarketplaceActiveIdChange,
   ]);
 }

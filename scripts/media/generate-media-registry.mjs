@@ -49,7 +49,6 @@ async function main() {
 
     const primarySrc = a.runtimePaths?.primary || a.runtimePaths?.webp || a.runtimePaths?.vector || `/media/public/images/${a.filename}`;
     const webpSrc = a.runtimePaths?.webp || undefined;
-    const pngSrc = a.runtimePaths?.masterPng || undefined;
 
     // Generate responsive srcSet if widths are present
     const srcSetEntries = [];
@@ -73,7 +72,6 @@ async function main() {
     focalPoint: [${a.focalPoint ? a.focalPoint[0] : 0.5}, ${a.focalPoint ? a.focalPoint[1] : 0.5}],
     hasAlpha: ${Boolean(a.hasAlpha)},
     ${webpSrc ? `webpSrc: "${webpSrc}",` : ""}
-    ${pngSrc ? `pngSrc: "${pngSrc}",` : ""}
     ${srcSet ? `srcSet: "${srcSet}",` : ""}
     desktopCrop: "${a.desktopCrop || "optical-center"}",
     mobileCrop: "${a.mobileCrop || "portrait-slice"}",
@@ -106,7 +104,6 @@ export interface KTMediaAsset {
   focalPoint: readonly [number, number] | [number, number];
   hasAlpha: boolean;
   webpSrc?: string;
-  pngSrc?: string;
   srcSet?: string;
   desktopCrop: "full-bleed" | "optical-center" | "baseline-ground" | "side-anchored";
   mobileCrop: "portrait-slice" | "cab-focus" | "courier-upper" | "horizontal-crawl";
@@ -294,7 +291,6 @@ export interface KTMediaV3Asset {
   focalPoint: readonly [number, number] | [number, number];
   hasAlpha: boolean;
   webpSrc?: string;
-  pngSrc?: string;
   srcSet?: string;
   desktopCrop: "full-bleed" | "optical-center" | "baseline-ground" | "side-anchored";
   mobileCrop: "portrait-slice" | "cab-focus" | "courier-upper" | "horizontal-crawl";

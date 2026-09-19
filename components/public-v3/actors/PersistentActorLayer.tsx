@@ -12,12 +12,20 @@ import type {
   RedTruckStateId,
 } from "./actor-state-machine";
 
+export interface ActorVisibility {
+  whiteTruck: boolean;
+  van: boolean;
+  courier: boolean;
+  redTruck: boolean;
+}
+
 export interface PersistentActorLayerProps {
   whiteTruckState?: WhiteTruckStateId;
   vanState?: VanStateId;
   courierState?: CourierStateId;
   redTruckState?: RedTruckStateId;
   activeActor?: "white-truck" | "van" | "courier" | "red-truck" | null;
+  actorVisibility?: Partial<ActorVisibility>;
   whiteTruckStyle?: React.CSSProperties;
   vanStyle?: React.CSSProperties;
   courierStyle?: React.CSSProperties;
@@ -31,6 +39,7 @@ export interface PersistentActorLayerProps {
  * The four actor components remain mounted for the entire session without re-parenting.
  * Discrete narrative-state changes are handled via props, while GSAP continuously
  * translates their slot elements toward measured scene anchor targets.
+ * Supports concurrent actor visibility (e.g. Van + Courier during collection).
  */
 export const PersistentActorLayer = memo(function PersistentActorLayer({
   whiteTruckState = "wide-hero",
@@ -38,12 +47,18 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
   courierState = "look-right-approach",
   redTruckState = "centered-hero",
   activeActor = "white-truck",
+  actorVisibility,
   whiteTruckStyle,
   vanStyle,
   courierStyle,
   redTruckStyle,
   isHero = true,
 }: PersistentActorLayerProps) {
+  const isWhiteTruckVisible = actorVisibility?.whiteTruck ?? (activeActor === "white-truck");
+  const isVanVisible = actorVisibility?.van ?? (activeActor === "van");
+  const isCourierVisible = actorVisibility?.courier ?? (activeActor === "courier");
+  const isRedTruckVisible = actorVisibility?.redTruck ?? (activeActor === "red-truck");
+
   return (
     <div
       className="kt-persistent-actor-layer pointer-events-none absolute inset-0 z-20 overflow-hidden"
@@ -52,7 +67,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
       {/* 1. Persistent White Truck Actor (Hero & Route Chapters) */}
       <div
         className={`actor-slot actor-slot-white-truck absolute transition-opacity duration-300 ${
-          activeActor === "white-truck" ? "opacity-100" : "opacity-0 pointer-events-none"
+          isWhiteTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={whiteTruckStyle}
       >
@@ -66,7 +81,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
       {/* 2. Persistent Van Actor (Collection Chapter) */}
       <div
         className={`actor-slot actor-slot-van absolute transition-opacity duration-300 ${
-          activeActor === "van" ? "opacity-100" : "opacity-0 pointer-events-none"
+          isVanVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={vanStyle}
       >
@@ -76,7 +91,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
       {/* 3. Persistent Courier Actor (Collection, Custody Split, Arrival Chapters) */}
       <div
         className={`actor-slot actor-slot-courier absolute transition-opacity duration-300 ${
-          activeActor === "courier" ? "opacity-100" : "opacity-0 pointer-events-none"
+          isCourierVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={courierStyle}
       >
@@ -86,7 +101,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
       {/* 4. Persistent Red Truck Actor (Freight Chapter) */}
       <div
         className={`actor-slot actor-slot-red-truck absolute transition-opacity duration-300 ${
-          activeActor === "red-truck" ? "opacity-100" : "opacity-0 pointer-events-none"
+          isRedTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={redTruckStyle}
       >

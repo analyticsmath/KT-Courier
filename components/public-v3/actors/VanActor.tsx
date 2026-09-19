@@ -21,7 +21,10 @@ export function VanActor({
   className = "",
   style = {},
 }: VanActorProps) {
-  const actor = VAN_STATES[stateId] ?? VAN_STATES["side-right"];
+  const isSideProfile = stateId === "side-right" || stateId === "sliding-door-open";
+  const isDoorOpen = stateId === "sliding-door-open";
+  const baseActor = isSideProfile ? VAN_STATES["side-right"] : (VAN_STATES[stateId] ?? VAN_STATES["side-right"]);
+  const doorOpenActor = VAN_STATES["sliding-door-open"];
 
   return (
     <div
@@ -34,11 +37,12 @@ export function VanActor({
         ...style,
       }}
     >
+      {/* Base van silhouette (closed side profile or current state) */}
       <Image
-        src={actor.webpSrc}
-        alt={actor.alt}
-        width={actor.width}
-        height={actor.height}
+        src={baseActor.webpSrc}
+        alt={baseActor.alt}
+        width={baseActor.width}
+        height={baseActor.height}
         priority={priority}
         sizes="(max-width: 767px) 90vw, 1200px"
         className="w-full h-auto object-contain"
@@ -48,6 +52,35 @@ export function VanActor({
           display: "block",
         }}
       />
+
+      {/* Localized door reveal layer (180-320ms reveal across door seam, no full-vehicle dissolve) */}
+      {isSideProfile && (
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden"
+          style={{
+            opacity: isDoorOpen ? 1 : 0,
+            clipPath: isDoorOpen
+              ? "inset(0% 0% 0% 0%)"
+              : "inset(14% 38% 14% 38%)",
+            transition: "clip-path 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 240ms ease-out",
+          }}
+          aria-hidden="true"
+        >
+          <Image
+            src={doorOpenActor.webpSrc}
+            alt={doorOpenActor.alt}
+            width={doorOpenActor.width}
+            height={doorOpenActor.height}
+            sizes="(max-width: 767px) 90vw, 1200px"
+            className="w-full h-auto object-contain"
+            style={{
+              maxWidth: "100%",
+              height: "auto",
+              display: "block",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

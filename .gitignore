@@ -90,3 +90,4 @@ next-env.d.ts
 # Local design-source media. Never commit.
 _asset-source/
 /public/media/public/images/
+/public/media/public/protagonists/*.png

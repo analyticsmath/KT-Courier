@@ -37,9 +37,6 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
 
       <div className="relative z-10 max-w-6xl mx-auto w-full pt-4">
         <div className="max-w-xl">
-          <span className="text-xs uppercase font-mono tracking-widest text-[var(--kt-graphite)] mb-3 block">
-            Chapter 06 &bull; Vehicle Arrival & Transfer
-          </span>
           <h2
             id="collection-heading"
             className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--kt-asphalt)] mb-4"
@@ -47,7 +44,7 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
             Collected by KT.
           </h2>
           <p className="text-base sm:text-lg text-[var(--kt-graphite)] leading-relaxed">
-            A courier pulls up, verifies the pickup manifest, and transfers the cargo into the van.
+            A courier arrives for collection and the parcel moves into the van.
           </p>
         </div>
       </div>

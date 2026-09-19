@@ -83,9 +83,9 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
             </div>
           ) : snapshot.state === "EMPTY_CONFIGURATION" || regions.length === 0 ? (
             <div className={styles.emptyStateCard}>
-              <p>No public delivery regions are currently configured.</p>
+              <p>We’re updating the public coverage list. Availability is confirmed from the pickup and drop-off details in your request.</p>
               <Link className={styles.primaryActionButton} href="/contact">
-                Contact the team for custom dispatch &rarr;
+                Contact the team to check availability &rarr;
               </Link>
             </div>
           ) : (

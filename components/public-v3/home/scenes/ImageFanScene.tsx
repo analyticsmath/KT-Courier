@@ -76,11 +76,8 @@ export function ImageFanScene({ className = "" }: ImageFanSceneProps) {
       aria-label="Selection to Parcel Transition"
     >
       <div className="max-w-xl mx-auto text-center px-6 mb-12 relative z-10">
-        <span className="text-xs uppercase font-mono tracking-widest text-[var(--kt-concrete)] mb-2 block">
-          Chapter 04 &bull; Choice to Parcel
-        </span>
         <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 text-[var(--kt-white)]">
-          Selected for pickup.
+          From shelf to parcel.
         </h2>
         <p className="text-sm sm:text-base text-[var(--kt-concrete)] leading-relaxed">
           From neighborhood craft workshops to curated shelves, items are carefully staged and sealed for transport.
@@ -93,7 +90,7 @@ export function ImageFanScene({ className = "" }: ImageFanSceneProps) {
           return (
             <div
               key={item.asset.id}
-              className={`kt-fan-card absolute rounded-sm overflow-hidden border border-white/15 shadow-2xl transition-transform duration-500 ease-out ${
+              className={`kt-fan-card absolute overflow-hidden transition-transform duration-500 ease-out ${
                 item.isHeroChoice ? "kt-fan-hero-card z-20" : "z-10"
               }`}
               style={{
@@ -112,7 +109,6 @@ export function ImageFanScene({ className = "" }: ImageFanSceneProps) {
                   fill
                   sizes="320px"
                   className="object-cover"
-                  priority={item.isHeroChoice}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/90 via-transparent to-transparent" />
                 <div className="absolute bottom-3 left-3 right-3">

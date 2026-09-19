@@ -53,7 +53,7 @@ export function FinaleScene({ className = "" }: FinaleSceneProps) {
         <div className="absolute inset-0 bg-gradient-to-r from-[var(--kt-freight-paper)] via-transparent to-[var(--kt-freight-paper)]" />
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-[10px] font-mono tracking-widest text-[var(--kt-freight-paper)] bg-[var(--kt-asphalt)]/70 px-3 py-1 uppercase">
-            Gauteng &bull; Western Cape &bull; KwaZulu-Natal &bull; Cross-Border
+            Shop &bull; Send &bull; Deliver
           </span>
         </div>
       </div>

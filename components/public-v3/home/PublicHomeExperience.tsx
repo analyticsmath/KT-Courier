@@ -15,7 +15,7 @@ import {
   FinaleScene,
 } from "./scenes";
 import { useMasterHomeTimeline } from "./MasterHomeTimeline";
-import { PersistentActorLayer } from "../actors/PersistentActorLayer";
+import { PersistentActorLayer, type ActorVisibility } from "../actors/PersistentActorLayer";
 import { ktMediaV3 } from "../media/kt-media-v3";
 import type {
   WhiteTruckStateId,
@@ -59,10 +59,23 @@ function TypographyLayer() {
 /**
  * Transition Layer.
  * Owns physical material takeover and aperture reveals across chapters.
+ * Implements 1 -> 3 -> 5 media progression into the five-panel corridor.
  * aria-hidden ensures visual continuity elements do not duplicate semantic screen reader content.
  */
 function TransitionLayer() {
-  const takeoverImg = ktMediaV3.editorial.fashion.brownCoat;
+  const p1 = ktMediaV3.editorial.fashion.brownCoat;
+  const p3 = [
+    ktMediaV3.editorial.grocery.fruitCrates,
+    ktMediaV3.editorial.fashion.leatherBags,
+    ktMediaV3.editorial.food.grainBowl,
+  ];
+  const p5 = [
+    ktMediaV3.editorial.grocery.fruitCrates,
+    ktMediaV3.editorial.fashion.leatherBags,
+    ktMediaV3.editorial.food.grainBowl,
+    ktMediaV3.editorial.ceramics.capeTownPlates,
+    ktMediaV3.editorial.wellness.apothecaryBottles,
+  ];
 
   return (
     <div
@@ -71,15 +84,49 @@ function TransitionLayer() {
       style={{ opacity: 0 }}
     >
       <div className="relative w-full h-full bg-[var(--kt-asphalt)]">
-        <Image
-          src={takeoverImg.src}
-          alt=""
-          fill
-          sizes="100vw"
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/90 via-transparent to-transparent" />
+        {/* Progression State 1: Single image emerging from trailer rectangle */}
+        <div className="takeover-progression-1 absolute inset-0 transition-opacity duration-200">
+          <Image
+            src={p1.src}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/90 via-transparent to-transparent" />
+        </div>
+
+        {/* Progression State 2: 3-Panel Aperture expansion */}
+        <div className="takeover-progression-3 absolute inset-0 flex opacity-0 transition-opacity duration-200">
+          {p3.map((img, i) => (
+            <div key={`p3-${i}`} className="relative flex-1 h-full border-r border-[#23272B] last:border-r-0 overflow-hidden">
+              <Image
+                src={img.src}
+                alt=""
+                fill
+                sizes="33vw"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-black/25" />
+            </div>
+          ))}
+        </div>
+
+        {/* Progression State 3: 5-Panel Corridor aligning with Marketplace scene */}
+        <div className="takeover-progression-5 absolute inset-0 flex opacity-0 transition-opacity duration-200">
+          {p5.map((img, i) => (
+            <div key={`p5-${i}`} className="relative flex-1 h-full border-r border-[#23272B] last:border-r-0 overflow-hidden">
+              <Image
+                src={img.src}
+                alt=""
+                fill
+                sizes="20vw"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-black/25" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -118,6 +165,12 @@ export function PublicHomeExperience({
   const [courierState, setCourierState] = useState<CourierStateId>("look-right-approach");
   const [redTruckState, setRedTruckState] = useState<RedTruckStateId>("centered-hero");
   const [activeActor, setActiveActor] = useState<"white-truck" | "van" | "courier" | "red-truck" | null>("white-truck");
+  const [actorVisibility, setActorVisibility] = useState<Partial<ActorVisibility>>({
+    whiteTruck: true,
+    van: false,
+    courier: false,
+    redTruck: false,
+  });
   const [marketplaceActiveId, setMarketplaceActiveId] = useState<string>("fashion");
 
   // Master Experience Controller
@@ -128,6 +181,7 @@ export function PublicHomeExperience({
     onCourierStateChange: setCourierState,
     onRedTruckStateChange: setRedTruckState,
     onActiveActorChange: setActiveActor,
+    onActorVisibilityChange: setActorVisibility,
     onMarketplaceActiveIdChange: setMarketplaceActiveId,
   });
 
@@ -149,6 +203,7 @@ export function PublicHomeExperience({
         courierState={courierState}
         redTruckState={redTruckState}
         activeActor={activeActor}
+        actorVisibility={actorVisibility}
         isHero={activeActor === "white-truck" && whiteTruckState === "wide-hero"}
       />
 
