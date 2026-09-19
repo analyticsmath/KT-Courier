@@ -67,7 +67,7 @@ export function VanActor({
         <div
           className="van-door-boundary pointer-events-none absolute inset-0 overflow-hidden"
           style={{
-            clipPath: VAN_DOOR_CALIBRATION.clipPathInset,
+            clipPath: VAN_DOOR_CALIBRATION.cargoOpeningRect.clipPathInset,
           }}
           aria-hidden="true"
         >

@@ -13,7 +13,7 @@ import {
   type GeneratedActorState,
 } from "./generated-actor-media";
 
-export { VAN_DOOR_CALIBRATION };
+export { VAN_DOOR_CALIBRATION, type GeneratedActorState };
 
 export type ConcealmentStrategy =
   | "typography-occlusion"
@@ -61,7 +61,11 @@ export interface ActorStateDefinition {
   groundContact: {
     x: number;
     y: number;
+    source?: "automatic" | "human-audited";
   };
+  validPreviousStates?: string[];
+  validNextStates?: string[];
+  requiredOcclusion?: string;
   allowedTransitionsIn?: string[];
   allowedTransitionsOut?: string[];
   concealment: ConcealmentStrategy;
@@ -83,14 +87,9 @@ function resolveGeneratedState(
 ): ActorStateDefinition {
   const gen: GeneratedActorState | undefined = GENERATED_ACTOR_STATES[`${actorType}:${id}`];
   if (!gen) {
-    return {
-      id,
-      ...fallback,
-      direction: fallback.orientation === "top-down" ? "top-down" : fallback.orientation,
-      action: "idle",
-      family: "default",
-      groundContact: { x: 0.5, y: 0.8 },
-    };
+    throw new Error(
+      `[ActorStateMachine] Fatal: Authoritative generated state missing for "${actorType}:${id}". Fail-closed invariant violated.`
+    );
   }
 
   const orientation: "right" | "left" | "center" | "top-down" | "detail" =
@@ -117,7 +116,12 @@ function resolveGeneratedState(
     action: gen.action,
     family: gen.family,
     groundContact: gen.groundContact,
-    concealment: fallback.concealment,
+    validPreviousStates: gen.validPreviousStates,
+    validNextStates: gen.validNextStates,
+    requiredOcclusion: gen.requiredOcclusion,
+    allowedTransitionsIn: gen.validPreviousStates,
+    allowedTransitionsOut: gen.validNextStates,
+    concealment: (gen.requiredOcclusion as ConcealmentStrategy) || fallback.concealment,
   };
 }
 

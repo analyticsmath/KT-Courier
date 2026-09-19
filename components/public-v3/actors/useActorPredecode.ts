@@ -8,6 +8,7 @@ const predecodedCache = new Set<string>();
  * Predecode actor states just in time.
  * Prevents frame drops or visual blanking during quick masked state switches.
  * Never loads all 62 states at boot; only current, next, and next+1 for the active scene.
+ * Invariant: Failed decodes are NOT cached as successes.
  */
 export function predecodeActorMedia(srcs: (string | undefined | null)[]): Promise<void[]> {
   if (typeof window === "undefined") return Promise.resolve([]);
@@ -26,8 +27,7 @@ export function predecodeActorMedia(srcs: (string | undefined | null)[]): Promis
               resolve();
             })
             .catch(() => {
-              // Graceful fallback if decode fails (e.g. unsupported format or aborted)
-              predecodedCache.add(src);
+              // INVARIANT: Do not cache failed decodes as successes
               resolve();
             });
         } else {
@@ -36,6 +36,7 @@ export function predecodeActorMedia(srcs: (string | undefined | null)[]): Promis
             resolve();
           };
           img.onerror = () => {
+            // INVARIANT: Do not cache failed decodes as successes
             resolve();
           };
         }
