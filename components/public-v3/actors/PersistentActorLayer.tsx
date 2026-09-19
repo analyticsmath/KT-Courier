@@ -1,112 +1,22 @@
 "use client";
 
 import { memo } from "react";
-import { WhiteTruckActor } from "./WhiteTruckActor";
-import { VanActor } from "./VanActor";
-import { CourierActor } from "./CourierActor";
-import { RedTruckActor } from "./RedTruckActor";
-import type {
-  WhiteTruckStateId,
-  VanStateId,
-  CourierStateId,
-  RedTruckStateId,
-} from "./actor-state-machine";
+import {
+  CinematicActorStage,
+  type CinematicActorStageProps,
+  type ActorVisibility,
+  CINEMATIC_LAYER_Z,
+} from "./CinematicActorStage";
 
-export interface ActorVisibility {
-  whiteTruck: boolean;
-  van: boolean;
-  courier: boolean;
-  redTruck: boolean;
-}
-
-export interface PersistentActorLayerProps {
-  whiteTruckState?: WhiteTruckStateId;
-  vanState?: VanStateId;
-  courierState?: CourierStateId;
-  redTruckState?: RedTruckStateId;
-  activeActor?: "white-truck" | "van" | "courier" | "red-truck" | null;
-  actorVisibility?: Partial<ActorVisibility>;
-  whiteTruckStyle?: React.CSSProperties;
-  vanStyle?: React.CSSProperties;
-  courierStyle?: React.CSSProperties;
-  redTruckStyle?: React.CSSProperties;
-  isHero?: boolean;
-}
+export type { ActorVisibility, CinematicActorStageProps as PersistentActorLayerProps };
+export { CINEMATIC_LAYER_Z };
 
 /**
- * Persistent Actor Layer.
- * Mounted ONCE at root level in PublicHomeExperience.
- * The four actor components remain mounted for the entire session without re-parenting.
- * Discrete narrative-state changes are handled via props, while GSAP continuously
- * translates their slot elements toward measured scene anchor targets.
- * Supports concurrent actor visibility (e.g. Van + Courier during collection).
+ * Persistent Actor Layer (alias for CinematicActorStage).
+ * Preserves backward compatibility while implementing the fixed camera stage contract.
  */
-export const PersistentActorLayer = memo(function PersistentActorLayer({
-  whiteTruckState = "wide-hero",
-  vanState = "side-right",
-  courierState = "look-right-approach",
-  redTruckState = "centered-hero",
-  activeActor = "white-truck",
-  actorVisibility,
-  whiteTruckStyle,
-  vanStyle,
-  courierStyle,
-  redTruckStyle,
-  isHero = true,
-}: PersistentActorLayerProps) {
-  const isWhiteTruckVisible = actorVisibility?.whiteTruck ?? (activeActor === "white-truck");
-  const isVanVisible = actorVisibility?.van ?? (activeActor === "van");
-  const isCourierVisible = actorVisibility?.courier ?? (activeActor === "courier");
-  const isRedTruckVisible = actorVisibility?.redTruck ?? (activeActor === "red-truck");
-
-  return (
-    <div
-      className="kt-persistent-actor-layer pointer-events-none absolute inset-0 z-20 overflow-hidden"
-      aria-hidden="true"
-    >
-      {/* 1. Persistent White Truck Actor (Hero & Route Chapters) */}
-      <div
-        className={`actor-slot actor-slot-white-truck absolute ${
-          isWhiteTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={whiteTruckStyle}
-      >
-        <WhiteTruckActor
-          stateId={whiteTruckState}
-          isHero={isHero}
-          priority={isHero}
-        />
-      </div>
-
-      {/* 2. Persistent Van Actor (Collection Chapter) */}
-      <div
-        className={`actor-slot actor-slot-van absolute ${
-          isVanVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={vanStyle}
-      >
-        <VanActor stateId={vanState} />
-      </div>
-
-      {/* 3. Persistent Courier Actor (Collection, Custody Split, Arrival Chapters) */}
-      <div
-        className={`actor-slot actor-slot-courier absolute ${
-          isCourierVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={courierStyle}
-      >
-        <CourierActor stateId={courierState} />
-      </div>
-
-      {/* 4. Persistent Red Truck Actor (Freight Chapter) */}
-      <div
-        className={`actor-slot actor-slot-red-truck absolute ${
-          isRedTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={redTruckStyle}
-      >
-        <RedTruckActor stateId={redTruckState} />
-      </div>
-    </div>
-  );
+export const PersistentActorLayer = memo(function PersistentActorLayer(
+  props: CinematicActorStageProps
+) {
+  return <CinematicActorStage {...props} />;
 });

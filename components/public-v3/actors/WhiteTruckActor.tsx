@@ -4,22 +4,25 @@ import Image from "next/image";
 import { WHITE_TRUCK_STATES, type WhiteTruckStateId } from "./actor-state-machine";
 
 interface WhiteTruckActorProps {
-  stateId: WhiteTruckStateId;
+  stateId?: WhiteTruckStateId;
   priority?: boolean;
   className?: string;
+  imageClassName?: string;
   isHero?: boolean;
   style?: React.CSSProperties;
 }
 
 /**
  * White Truck Protagonist Actor.
- * Enforces authoritative assets and concealment rules.
- * On mobile, the entire vehicle silhouette stays strictly visible within the viewport.
+ * Enforces authoritative dimensions and rightward travel performance.
+ * Sizing ownership is explicit via component props and container styles rather than
+ * accidental global class collisions.
  */
 export function WhiteTruckActor({
   stateId = "wide-hero",
   priority = false,
   className = "",
+  imageClassName = "",
   isHero = false,
   style = {},
 }: WhiteTruckActorProps) {
@@ -27,9 +30,12 @@ export function WhiteTruckActor({
 
   return (
     <div
-      className={`kt-white-truck-actor select-none pointer-events-none ${isHero ? "hero-truck-container" : ""} ${className}`}
+      className={`kt-white-truck-actor select-none pointer-events-none ${className}`}
       data-actor="white-truck"
       data-state={stateId}
+      data-hero={isHero ? "true" : "false"}
+      data-ground-contact-x={actor.groundContact.x}
+      data-ground-contact-y={actor.groundContact.y}
       style={{
         position: "relative",
         display: "inline-block",
@@ -44,10 +50,10 @@ export function WhiteTruckActor({
         priority={priority || isHero}
         sizes={
           isHero
-            ? "(max-width: 767px) min(92vw, 430px), (max-width: 1440px) 80vw, 1440px"
+            ? "(max-width: 767px) min(92vw, 430px), (max-width: 1440px) 84vw, 1440px"
             : "(max-width: 767px) 100vw, 1440px"
         }
-        className={isHero ? "heroTruck" : "w-full h-auto object-contain"}
+        className={`w-full h-auto object-contain block ${imageClassName}`}
         style={{
           maxWidth: "100%",
           height: "auto",

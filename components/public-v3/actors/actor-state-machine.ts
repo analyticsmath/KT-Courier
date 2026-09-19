@@ -2,9 +2,18 @@
  * KT Courier Public Experience — Actor State Machine
  *
  * Strongly typed definitions for all 62 pre-rendered performance states.
+ * Authoritative dimensions and ground contact baselines generated from local PNG masters via sharp.
  * Enforces orientation continuity, intrinsic ratios, and concealment rules.
  * Visible crossfades in unobstructed viewports are strictly forbidden.
  */
+
+import {
+  GENERATED_ACTOR_STATES,
+  VAN_DOOR_CALIBRATION,
+  type GeneratedActorState,
+} from "./generated-actor-media";
+
+export { VAN_DOOR_CALIBRATION };
 
 export type ConcealmentStrategy =
   | "typography-occlusion"
@@ -13,6 +22,29 @@ export type ConcealmentStrategy =
   | "road-geometry"
   | "door-sequence"
   | "scene-boundary";
+
+export type ActorDirection =
+  | "left"
+  | "right"
+  | "front"
+  | "rear"
+  | "top-down"
+  | "turning"
+  | "detail"
+  | "center";
+
+export type ActorAction =
+  | "idle"
+  | "approach"
+  | "travel"
+  | "accelerate"
+  | "brake"
+  | "open"
+  | "load"
+  | "handoff"
+  | "turn"
+  | "depart"
+  | "carry";
 
 export interface ActorStateDefinition {
   id: string;
@@ -23,9 +55,70 @@ export interface ActorStateDefinition {
   height: number;
   aspectRatio: number;
   orientation: "right" | "left" | "center" | "top-down" | "detail";
+  direction: ActorDirection;
+  action: ActorAction;
+  family: string;
+  groundContact: {
+    x: number;
+    y: number;
+  };
   allowedTransitionsIn?: string[];
   allowedTransitionsOut?: string[];
   concealment: ConcealmentStrategy;
+}
+
+function resolveGeneratedState(
+  actorType: "white-truck" | "van" | "courier" | "red-truck",
+  id: string,
+  fallback: {
+    name: string;
+    webpSrc: string;
+    alt: string;
+    width: number;
+    height: number;
+    aspectRatio: number;
+    orientation: "right" | "left" | "center" | "top-down" | "detail";
+    concealment: ConcealmentStrategy;
+  }
+): ActorStateDefinition {
+  const gen: GeneratedActorState | undefined = GENERATED_ACTOR_STATES[`${actorType}:${id}`];
+  if (!gen) {
+    return {
+      id,
+      ...fallback,
+      direction: fallback.orientation === "top-down" ? "top-down" : fallback.orientation,
+      action: "idle",
+      family: "default",
+      groundContact: { x: 0.5, y: 0.8 },
+    };
+  }
+
+  const orientation: "right" | "left" | "center" | "top-down" | "detail" =
+    gen.direction === "top-down" || gen.direction === "turning"
+      ? "top-down"
+      : gen.direction === "detail"
+      ? "detail"
+      : gen.direction === "left"
+      ? "left"
+      : gen.direction === "right"
+      ? "right"
+      : "center";
+
+  return {
+    id,
+    name: gen.sourceFile.replace(/\.[^.]+$/, ""),
+    webpSrc: gen.webpSrc,
+    alt: fallback.alt,
+    width: gen.width,
+    height: gen.height,
+    aspectRatio: gen.aspectRatio,
+    orientation,
+    direction: gen.direction,
+    action: gen.action,
+    family: gen.family,
+    groundContact: gen.groundContact,
+    concealment: fallback.concealment,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -50,8 +143,7 @@ export type WhiteTruckStateId =
   | "top-down-turning"; // 16
 
 export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition> = {
-  "wide-hero": {
-    id: "wide-hero",
+  "wide-hero": resolveGeneratedState("white-truck", "wide-hero", {
     name: "10_oversized_wide_hero_composition",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-oversized-wide-hero-composition.webp",
     alt: "KT Couriers white freight truck hero profile across typography",
@@ -60,9 +152,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "right",
     concealment: "scene-boundary",
-  },
-  "side-right": {
-    id: "side-right",
+  }),
+  "side-right": resolveGeneratedState("white-truck", "side-right", {
     name: "01_full_side_view_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-side-right.webp",
     alt: "KT Couriers white truck full side view facing right",
@@ -71,9 +162,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "right",
     concealment: "typography-occlusion",
-  },
-  "side-left": {
-    id: "side-left",
+  }),
+  "side-left": resolveGeneratedState("white-truck", "side-left", {
     name: "02_full_side_view_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-side-left.webp",
     alt: "KT Couriers white truck full side view facing left",
@@ -82,9 +172,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "left",
     concealment: "typography-occlusion",
-  },
-  "centered-hero": {
-    id: "centered-hero",
+  }),
+  "centered-hero": resolveGeneratedState("white-truck", "centered-hero", {
     name: "03_centered_hero_side_view",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-centered-hero.webp",
     alt: "KT Couriers white truck centered side hold",
@@ -93,9 +182,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "center",
     concealment: "typography-occlusion",
-  },
-  "front-3q-right": {
-    id: "front-3q-right",
+  }),
+  "front-3q-right": resolveGeneratedState("white-truck", "front-3q-right", {
     name: "04_front_three_quarter_view_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-front-3q-right.webp",
     alt: "KT Couriers white truck front three quarter view right",
@@ -104,9 +192,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1448 / 1086,
     orientation: "right",
     concealment: "road-geometry",
-  },
-  "front-3q-left": {
-    id: "front-3q-left",
+  }),
+  "front-3q-left": resolveGeneratedState("white-truck", "front-3q-left", {
     name: "05_front_three_quarter_view_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-front-3q-left.webp",
     alt: "KT Couriers white truck front three quarter view left",
@@ -115,9 +202,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1448 / 1086,
     orientation: "left",
     concealment: "road-geometry",
-  },
-  "rear-3q-right": {
-    id: "rear-3q-right",
+  }),
+  "rear-3q-right": resolveGeneratedState("white-truck", "rear-3q-right", {
     name: "06_rear_three_quarter_view_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-rear-three-quarter-view-facing-right.webp",
     alt: "KT Couriers white truck rear three quarter view right",
@@ -126,9 +212,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1448 / 1086,
     orientation: "right",
     concealment: "road-geometry",
-  },
-  "rear-3q-left": {
-    id: "rear-3q-left",
+  }),
+  "rear-3q-left": resolveGeneratedState("white-truck", "rear-3q-left", {
     name: "07_rear_three_quarter_view_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-rear-three-quarter-view-facing-left.webp",
     alt: "KT Couriers white truck rear three quarter view left",
@@ -137,9 +222,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1448 / 1086,
     orientation: "left",
     concealment: "road-geometry",
-  },
-  "top-down-straight": {
-    id: "top-down-straight",
+  }),
+  "top-down-straight": resolveGeneratedState("white-truck", "top-down-straight", {
     name: "08_top_down_view",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-top-down-straight.webp",
     alt: "KT Couriers white truck overhead top down route view",
@@ -148,9 +232,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "top-down",
     concealment: "road-geometry",
-  },
-  "top-down-angled": {
-    id: "top-down-angled",
+  }),
+  "top-down-angled": resolveGeneratedState("white-truck", "top-down-angled", {
     name: "09_top_down_angled_straight_road",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-top-down-angled-straight-road.webp",
     alt: "KT Couriers white truck angled top down approach",
@@ -159,9 +242,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "top-down",
     concealment: "road-geometry",
-  },
-  "front-cab-close": {
-    id: "front-cab-close",
+  }),
+  "front-cab-close": resolveGeneratedState("white-truck", "front-cab-close", {
     name: "11_close_crop_front_cab_only",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-close-crop-front-cab-only.webp",
     alt: "KT Couriers white truck driver cab close crop",
@@ -170,9 +252,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1.5,
     orientation: "detail",
     concealment: "camera-crop",
-  },
-  "cargo-box-close": {
-    id: "cargo-box-close",
+  }),
+  "cargo-box-close": resolveGeneratedState("white-truck", "cargo-box-close", {
     name: "12_close_crop_long_cargo_box_only",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-cargo-box-material.webp",
     alt: "KT Couriers white truck cargo box side panel",
@@ -181,9 +262,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1.75,
     orientation: "detail",
     concealment: "trailer-takeover",
-  },
-  "rear-portion-close": {
-    id: "rear-portion-close",
+  }),
+  "rear-portion-close": resolveGeneratedState("white-truck", "rear-portion-close", {
     name: "13_close_crop_rear_portion_only",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-close-crop-rear-portion-only.webp",
     alt: "KT Couriers white truck cargo rear door close crop",
@@ -192,9 +272,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1.5,
     orientation: "detail",
     concealment: "camera-crop",
-  },
-  "rear-doors-open": {
-    id: "rear-doors-open",
+  }),
+  "rear-doors-open": resolveGeneratedState("white-truck", "rear-doors-open", {
     name: "14_rear_doors_slightly_open",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-rear-doors-slightly-open.webp",
     alt: "KT Couriers white truck rear cargo doors slightly open",
@@ -203,9 +282,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1448 / 1086,
     orientation: "detail",
     concealment: "door-sequence",
-  },
-  "motion-energy": {
-    id: "motion-energy",
+  }),
+  "motion-energy": resolveGeneratedState("white-truck", "motion-energy", {
     name: "15_subtle_motion_energy",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-subtle-motion-energy.webp",
     alt: "KT Couriers white truck accelerating into motion",
@@ -214,9 +292,8 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "right",
     concealment: "typography-occlusion",
-  },
-  "top-down-turning": {
-    id: "top-down-turning",
+  }),
+  "top-down-turning": resolveGeneratedState("white-truck", "top-down-turning", {
     name: "16_top_down_turning_curve_transition",
     webpSrc: "/media/public/protagonists/protagonist-truck-white-top-down-turning.webp",
     alt: "KT Couriers white truck turning along highway curve",
@@ -225,7 +302,7 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
     aspectRatio: 1672 / 941,
     orientation: "top-down",
     concealment: "road-geometry",
-  },
+  }),
 };
 
 // ---------------------------------------------------------------------------
@@ -254,8 +331,7 @@ export type CourierStateId =
   | "half-body-holding"; // 19
 
 export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
-  "walk-right-one-parcel": {
-    id: "walk-right-one-parcel",
+  "walk-right-one-parcel": resolveGeneratedState("courier", "walk-right-one-parcel", {
     name: "04_walking_one_parcel_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-courier-walk-right-one-parcel.webp",
     alt: "KT courier carrying package walking right",
@@ -264,9 +340,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "right",
     concealment: "scene-boundary",
-  },
-  "walk-left-one-parcel": {
-    id: "walk-left-one-parcel",
+  }),
+  "walk-left-one-parcel": resolveGeneratedState("courier", "walk-left-one-parcel", {
     name: "05_walking_one_parcel_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-courier-walking-one-parcel-facing-left.webp",
     alt: "KT courier carrying package walking left",
@@ -275,9 +350,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "left",
     concealment: "scene-boundary",
-  },
-  "look-right-approach": {
-    id: "look-right-approach",
+  }),
+  "look-right-approach": resolveGeneratedState("courier", "look-right-approach", {
     name: "10_looking_right_approaching_vehicle",
     webpSrc: "/media/public/protagonists/protagonist-courier-approach-vehicle.webp",
     alt: "KT courier approaching delivery vehicle looking right",
@@ -286,9 +360,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "right",
     concealment: "door-sequence",
-  },
-  "look-left-approach": {
-    id: "look-left-approach",
+  }),
+  "look-left-approach": resolveGeneratedState("courier", "look-left-approach", {
     name: "11_looking_left_approaching_vehicle",
     webpSrc: "/media/public/protagonists/protagonist-courier-looking-left-approaching-vehicle.webp",
     alt: "KT courier approaching delivery vehicle looking left",
@@ -297,20 +370,18 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "left",
     concealment: "door-sequence",
-  },
-  "lift-parcel": {
-    id: "lift-parcel",
+  }),
+  "lift-parcel": resolveGeneratedState("courier", "lift-parcel", {
     name: "13_lifting_parcel_up",
     webpSrc: "/media/public/protagonists/protagonist-courier-lifting-parcel-up.webp",
     alt: "KT courier lifting packed parcel",
     width: 800,
     height: 1200,
     aspectRatio: 800 / 1200,
-    orientation: "center",
+    orientation: "left",
     concealment: "door-sequence",
-  },
-  "place-parcel": {
-    id: "place-parcel",
+  }),
+  "place-parcel": resolveGeneratedState("courier", "place-parcel", {
     name: "12_placing_parcel_down",
     webpSrc: "/media/public/protagonists/protagonist-courier-placing-parcel-down.webp",
     alt: "KT courier setting package down at delivery point",
@@ -319,42 +390,38 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "loading-unloading": {
-    id: "loading-unloading",
+  }),
+  "loading-unloading": resolveGeneratedState("courier", "loading-unloading", {
     name: "18_loading_unloading_parcel",
     webpSrc: "/media/public/protagonists/protagonist-courier-loading-unloading.webp",
     alt: "KT courier staging parcel into vehicle",
     width: 800,
     height: 1200,
     aspectRatio: 800 / 1200,
-    orientation: "right",
+    orientation: "left",
     concealment: "door-sequence",
-  },
-  "ready-handover": {
-    id: "ready-handover",
+  }),
+  "ready-handover": resolveGeneratedState("courier", "ready-handover", {
     name: "07_ready_to_handover_parcel",
     webpSrc: "/media/public/protagonists/protagonist-courier-ready-handover.webp",
     alt: "KT courier holding parcel ready for custody transfer",
     width: 800,
     height: 1200,
     aspectRatio: 800 / 1200,
-    orientation: "center",
+    orientation: "left",
     concealment: "scene-boundary",
-  },
-  "extending-handoff": {
-    id: "extending-handoff",
+  }),
+  "extending-handoff": resolveGeneratedState("courier", "extending-handoff", {
     name: "08_extending_parcel_for_handoff",
     webpSrc: "/media/public/protagonists/protagonist-courier-extending-handoff.webp",
     alt: "KT courier extending parcel forward for doorstep handover",
     width: 800,
     height: 1200,
     aspectRatio: 800 / 1200,
-    orientation: "center",
+    orientation: "left",
     concealment: "scene-boundary",
-  },
-  "look-viewer-parcel": {
-    id: "look-viewer-parcel",
+  }),
+  "look-viewer-parcel": resolveGeneratedState("courier", "look-viewer-parcel", {
     name: "09_looking_toward_viewer_with_parcel",
     webpSrc: "/media/public/protagonists/protagonist-courier-looking-toward-viewer-with-parcel.webp",
     alt: "KT courier standing with parcel looking toward camera",
@@ -363,20 +430,18 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "portrait-upper-body": {
-    id: "portrait-upper-body",
+  }),
+  "portrait-upper-body": resolveGeneratedState("courier", "portrait-upper-body", {
     name: "20_close_crop_upper_body_portrait",
     webpSrc: "/media/public/protagonists/protagonist-courier-close-crop-upper-body-portrait.webp",
     alt: "KT courier portrait close crop",
     width: 800,
     height: 1200,
     aspectRatio: 800 / 1200,
-    orientation: "center",
+    orientation: "detail",
     concealment: "camera-crop",
-  },
-  "hero-standing": {
-    id: "hero-standing",
+  }),
+  "hero-standing": resolveGeneratedState("courier", "hero-standing", {
     name: "01_original_pose_refined",
     webpSrc: "/media/public/protagonists/protagonist-courier-hero-standing.webp",
     alt: "KT courier standing confident hero pose",
@@ -385,9 +450,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "full-body-one-parcel": {
-    id: "full-body-one-parcel",
+  }),
+  "full-body-one-parcel": resolveGeneratedState("courier", "full-body-one-parcel", {
     name: "02_full_body_one_parcel",
     webpSrc: "/media/public/protagonists/protagonist-courier-carry-one-parcel.webp",
     alt: "KT courier full body standing with box",
@@ -396,9 +460,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "full-body-two-parcels": {
-    id: "full-body-two-parcels",
+  }),
+  "full-body-two-parcels": resolveGeneratedState("courier", "full-body-two-parcels", {
     name: "03_full_body_two_parcels",
     webpSrc: "/media/public/protagonists/protagonist-courier-full-body-two-parcels.webp",
     alt: "KT courier holding two boxes",
@@ -407,9 +470,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "walk-two-parcels": {
-    id: "walk-two-parcels",
+  }),
+  "walk-two-parcels": resolveGeneratedState("courier", "walk-two-parcels", {
     name: "06_walking_two_parcels",
     webpSrc: "/media/public/protagonists/protagonist-courier-walking-two-parcels.webp",
     alt: "KT courier walking with two delivery parcels",
@@ -418,9 +480,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "right",
     concealment: "scene-boundary",
-  },
-  "small-parcel-one-hand": {
-    id: "small-parcel-one-hand",
+  }),
+  "small-parcel-one-hand": resolveGeneratedState("courier", "small-parcel-one-hand", {
     name: "14_small_parcel_one_hand",
     webpSrc: "/media/public/protagonists/protagonist-courier-small-parcel-one-hand.webp",
     alt: "KT courier holding small package in one hand",
@@ -429,9 +490,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "medium-box-arm": {
-    id: "medium-box-arm",
+  }),
+  "medium-box-arm": resolveGeneratedState("courier", "medium-box-arm", {
     name: "15_medium_box_under_arm",
     webpSrc: "/media/public/protagonists/protagonist-courier-medium-box-under-arm.webp",
     alt: "KT courier holding medium box under arm",
@@ -440,9 +500,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "empty-hands-hero": {
-    id: "empty-hands-hero",
+  }),
+  "empty-hands-hero": resolveGeneratedState("courier", "empty-hands-hero", {
     name: "16_empty_hands_courier_hero",
     webpSrc: "/media/public/protagonists/protagonist-courier-empty-hands-courier-hero.webp",
     alt: "KT courier ready standing hero",
@@ -451,9 +510,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "forward-gesture": {
-    id: "forward-gesture",
+  }),
+  "forward-gesture": resolveGeneratedState("courier", "forward-gesture", {
     name: "17_forward_gesture_with_parcel",
     webpSrc: "/media/public/protagonists/protagonist-courier-forward-gesture-with-parcel.webp",
     alt: "KT courier gesturing forward with box",
@@ -462,9 +520,8 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "half-body-holding": {
-    id: "half-body-holding",
+  }),
+  "half-body-holding": resolveGeneratedState("courier", "half-body-holding", {
     name: "19_half_body_holding_parcel",
     webpSrc: "/media/public/protagonists/protagonist-courier-half-body-holding-parcel.webp",
     alt: "KT courier half body carrying delivery",
@@ -473,7 +530,7 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
     aspectRatio: 800 / 1200,
     orientation: "center",
     concealment: "camera-crop",
-  },
+  }),
 };
 
 // ---------------------------------------------------------------------------
@@ -481,7 +538,7 @@ export const COURIER_STATES: Record<CourierStateId, ActorStateDefinition> = {
 // ---------------------------------------------------------------------------
 export type VanStateId =
   | "side-right" // 01
-  | "side-left" // 02
+  | "side-left" // 02: Primary base profile for collection
   | "front-3q-right" // 03
   | "front-3q-left" // 04
   | "rear-3q-right" // 05
@@ -489,91 +546,83 @@ export type VanStateId =
   | "centered-hero" // 07
   | "front-half-close" // 08
   | "rear-half-close" // 09
-  | "sliding-door-open" // 10
+  | "sliding-door-open" // 10: Calibrated cargo door aperture (facing left)
   | "rear-doors-open" // 11
   | "all-doors-open" // 12
-  | "motion-transition"; // 13
+  | "motion-transition"; // 13: Arriving transition (facing left)
 
 export const VAN_STATES: Record<VanStateId, ActorStateDefinition> = {
-  "side-right": {
-    id: "side-right",
+  "side-right": resolveGeneratedState("van", "side-right", {
     name: "01_full_side_view_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-van-side-right.webp",
     alt: "KT Couriers local delivery van side view facing right",
-    width: 1400,
-    height: 800,
-    aspectRatio: 1400 / 800,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "right",
     concealment: "door-sequence",
-  },
-  "side-left": {
-    id: "side-left",
+  }),
+  "side-left": resolveGeneratedState("van", "side-left", {
     name: "02_full_side_view_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-van-full-side-view-facing-left.webp",
     alt: "KT Couriers delivery van side view facing left",
-    width: 1400,
-    height: 800,
-    aspectRatio: 1400 / 800,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "left",
     concealment: "door-sequence",
-  },
-  "front-3q-right": {
-    id: "front-3q-right",
+  }),
+  "front-3q-right": resolveGeneratedState("van", "front-3q-right", {
     name: "03_front_three_quarter_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-van-front-three-quarter-facing-right.webp",
     alt: "KT Couriers van front 3/4 view facing right",
-    width: 1400,
-    height: 900,
-    aspectRatio: 1400 / 900,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "right",
     concealment: "scene-boundary",
-  },
-  "front-3q-left": {
-    id: "front-3q-left",
+  }),
+  "front-3q-left": resolveGeneratedState("van", "front-3q-left", {
     name: "04_front_three_quarter_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-van-front-three-quarter-facing-left.webp",
     alt: "KT Couriers van front 3/4 view facing left",
-    width: 1400,
-    height: 900,
-    aspectRatio: 1400 / 900,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "left",
     concealment: "scene-boundary",
-  },
-  "rear-3q-right": {
-    id: "rear-3q-right",
+  }),
+  "rear-3q-right": resolveGeneratedState("van", "rear-3q-right", {
     name: "05_rear_three_quarter_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-van-rear-three-quarter-facing-right.webp",
     alt: "KT Couriers van rear 3/4 view facing right",
-    width: 1400,
-    height: 900,
-    aspectRatio: 1400 / 900,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "right",
     concealment: "scene-boundary",
-  },
-  "rear-3q-left": {
-    id: "rear-3q-left",
+  }),
+  "rear-3q-left": resolveGeneratedState("van", "rear-3q-left", {
     name: "06_rear_three_quarter_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-van-rear-three-quarter-facing-left.webp",
     alt: "KT Couriers van rear 3/4 view facing left",
-    width: 1400,
-    height: 900,
-    aspectRatio: 1400 / 900,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "left",
     concealment: "scene-boundary",
-  },
-  "centered-hero": {
-    id: "centered-hero",
+  }),
+  "centered-hero": resolveGeneratedState("van", "centered-hero", {
     name: "07_centered_hero_version",
     webpSrc: "/media/public/protagonists/protagonist-van-centered-hero.webp",
     alt: "KT Couriers van centered hero profile",
-    width: 1400,
-    height: 800,
-    aspectRatio: 1400 / 800,
-    orientation: "center",
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
+    orientation: "left",
     concealment: "scene-boundary",
-  },
-  "front-half-close": {
-    id: "front-half-close",
+  }),
+  "front-half-close": resolveGeneratedState("van", "front-half-close", {
     name: "08_close_crop_front_half",
     webpSrc: "/media/public/protagonists/protagonist-van-close-crop-front-half.webp",
     alt: "KT Couriers van front half crop",
@@ -582,9 +631,8 @@ export const VAN_STATES: Record<VanStateId, ActorStateDefinition> = {
     aspectRatio: 1.375,
     orientation: "detail",
     concealment: "camera-crop",
-  },
-  "rear-half-close": {
-    id: "rear-half-close",
+  }),
+  "rear-half-close": resolveGeneratedState("van", "rear-half-close", {
     name: "09_close_crop_rear_half",
     webpSrc: "/media/public/protagonists/protagonist-van-close-crop-rear-half.webp",
     alt: "KT Couriers van rear cargo area crop",
@@ -593,51 +641,47 @@ export const VAN_STATES: Record<VanStateId, ActorStateDefinition> = {
     aspectRatio: 1.375,
     orientation: "detail",
     concealment: "camera-crop",
-  },
-  "sliding-door-open": {
-    id: "sliding-door-open",
+  }),
+  "sliding-door-open": resolveGeneratedState("van", "sliding-door-open", {
     name: "10_side_sliding_door_open",
     webpSrc: "/media/public/protagonists/protagonist-van-sliding-door-open.webp",
     alt: "KT Couriers van with side sliding door open ready for parcel",
-    width: 1400,
-    height: 800,
-    aspectRatio: 1400 / 800,
-    orientation: "right",
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
+    orientation: "left",
     concealment: "door-sequence",
-  },
-  "rear-doors-open": {
-    id: "rear-doors-open",
+  }),
+  "rear-doors-open": resolveGeneratedState("van", "rear-doors-open", {
     name: "11_rear_doors_open",
     webpSrc: "/media/public/protagonists/protagonist-van-rear-doors-open.webp",
     alt: "KT Couriers van rear doors open",
-    width: 1400,
-    height: 900,
-    aspectRatio: 1400 / 900,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "center",
     concealment: "door-sequence",
-  },
-  "all-doors-open": {
-    id: "all-doors-open",
+  }),
+  "all-doors-open": resolveGeneratedState("van", "all-doors-open", {
     name: "12_side_and_rear_doors_open",
     webpSrc: "/media/public/protagonists/protagonist-van-all-doors-open.webp",
     alt: "KT Couriers van side and rear doors open for major loading",
-    width: 1400,
-    height: 900,
-    aspectRatio: 1400 / 900,
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
     orientation: "center",
     concealment: "door-sequence",
-  },
-  "motion-transition": {
-    id: "motion-transition",
+  }),
+  "motion-transition": resolveGeneratedState("van", "motion-transition", {
     name: "13_slight_motion_web_transition",
     webpSrc: "/media/public/protagonists/protagonist-van-slight-motion-web-transition.webp",
     alt: "KT Couriers van arriving in slight motion",
-    width: 1400,
-    height: 800,
-    aspectRatio: 1400 / 800,
-    orientation: "right",
+    width: 1448,
+    height: 1086,
+    aspectRatio: 1448 / 1086,
+    orientation: "left",
     concealment: "scene-boundary",
-  },
+  }),
 };
 
 // ---------------------------------------------------------------------------
@@ -658,8 +702,7 @@ export type RedTruckStateId =
   | "curtain-open"; // 12
 
 export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
-  "side-right": {
-    id: "side-right",
+  "side-right": resolveGeneratedState("red-truck", "side-right", {
     name: "01_full_side_view_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-side-right.webp",
     alt: "KT Couriers heavy haul red truck side view right",
@@ -668,9 +711,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1672 / 941,
     orientation: "right",
     concealment: "road-geometry",
-  },
-  "side-left": {
-    id: "side-left",
+  }),
+  "side-left": resolveGeneratedState("red-truck", "side-left", {
     name: "02_full_side_view_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-full-side-view-facing-left.webp",
     alt: "KT Couriers heavy freight red truck side view left",
@@ -679,9 +721,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1672 / 941,
     orientation: "left",
     concealment: "road-geometry",
-  },
-  "front-3q-right": {
-    id: "front-3q-right",
+  }),
+  "front-3q-right": resolveGeneratedState("red-truck", "front-3q-right", {
     name: "03_front_three_quarter_view_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-front-three-quarter-view-facing-right.webp",
     alt: "KT Couriers heavy red truck front 3/4 view right",
@@ -690,9 +731,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1448 / 1086,
     orientation: "right",
     concealment: "road-geometry",
-  },
-  "front-3q-left": {
-    id: "front-3q-left",
+  }),
+  "front-3q-left": resolveGeneratedState("red-truck", "front-3q-left", {
     name: "04_front_three_quarter_view_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-front-three-quarter-view-facing-left.webp",
     alt: "KT Couriers heavy red truck front 3/4 view left",
@@ -701,9 +741,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1448 / 1086,
     orientation: "left",
     concealment: "road-geometry",
-  },
-  "rear-3q-right": {
-    id: "rear-3q-right",
+  }),
+  "rear-3q-right": resolveGeneratedState("red-truck", "rear-3q-right", {
     name: "05_rear_three_quarter_view_facing_right",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-rear-three-quarter-view-facing-right.webp",
     alt: "KT Couriers heavy red truck rear 3/4 view right",
@@ -712,9 +751,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1448 / 1086,
     orientation: "right",
     concealment: "road-geometry",
-  },
-  "rear-3q-left": {
-    id: "rear-3q-left",
+  }),
+  "rear-3q-left": resolveGeneratedState("red-truck", "rear-3q-left", {
     name: "06_rear_three_quarter_view_facing_left",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-rear-three-quarter-view-facing-left.webp",
     alt: "KT Couriers heavy red truck rear 3/4 view left",
@@ -723,9 +761,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1448 / 1086,
     orientation: "left",
     concealment: "road-geometry",
-  },
-  "centered-hero": {
-    id: "centered-hero",
+  }),
+  "centered-hero": resolveGeneratedState("red-truck", "centered-hero", {
     name: "07_centered_hero_version",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-centered-hero.webp",
     alt: "KT Couriers red freight truck centered climax hero",
@@ -734,9 +771,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1672 / 941,
     orientation: "center",
     concealment: "scene-boundary",
-  },
-  "cab-crop": {
-    id: "cab-crop",
+  }),
+  "cab-crop": resolveGeneratedState("red-truck", "cab-crop", {
     name: "08_front_cab_close_crop",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-front-cab-close-crop.webp",
     alt: "KT Couriers heavy red truck cab detail",
@@ -745,9 +781,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1.5,
     orientation: "detail",
     concealment: "camera-crop",
-  },
-  "trailer-middle-crop": {
-    id: "trailer-middle-crop",
+  }),
+  "trailer-middle-crop": resolveGeneratedState("red-truck", "trailer-middle-crop", {
     name: "09_trailer_middle_section_close_crop",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-trailer-middle-section-close-crop.webp",
     alt: "KT Couriers red freight trailer middle section",
@@ -756,9 +791,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1.625,
     orientation: "detail",
     concealment: "camera-crop",
-  },
-  "rear-trailer-crop": {
-    id: "rear-trailer-crop",
+  }),
+  "rear-trailer-crop": resolveGeneratedState("red-truck", "rear-trailer-crop", {
     name: "10_rear_trailer_section_close_crop",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-rear-trailer-section-close-crop.webp",
     alt: "KT Couriers red freight rear trailer detail",
@@ -767,9 +801,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1.625,
     orientation: "detail",
     concealment: "camera-crop",
-  },
-  "motion-entry": {
-    id: "motion-entry",
+  }),
+  "motion-entry": resolveGeneratedState("red-truck", "motion-entry", {
     name: "11_motion_version",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-motion-version.webp",
     alt: "KT Couriers red freight truck arriving on highway with motion energy",
@@ -778,9 +811,8 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1672 / 941,
     orientation: "right",
     concealment: "road-geometry",
-  },
-  "curtain-open": {
-    id: "curtain-open",
+  }),
+  "curtain-open": resolveGeneratedState("red-truck", "curtain-open", {
     name: "12_trailer_curtain_partially_opened",
     webpSrc: "/media/public/protagonists/protagonist-truck-red-curtain-open.webp",
     alt: "KT Couriers red freight trailer curtain partially open",
@@ -789,5 +821,5 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     aspectRatio: 1448 / 1086,
     orientation: "detail",
     concealment: "door-sequence",
-  },
+  }),
 };

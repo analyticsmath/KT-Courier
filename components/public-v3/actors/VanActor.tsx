@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { VAN_STATES, type VanStateId } from "./actor-state-machine";
+import { VAN_STATES, VAN_DOOR_CALIBRATION, type VanStateId } from "./actor-state-machine";
 
 interface VanActorProps {
-  stateId: VanStateId;
+  stateId?: VanStateId;
   priority?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -13,17 +13,24 @@ interface VanActorProps {
 /**
  * Van Protagonist Actor.
  * Used for collection sequences and street movement.
- * Door opening is strictly a consequence of van arrival and stopping.
+ * Enforces the coherent LEFT-FACING collection family:
+ * motion-transition (#13) -> side-left (#02) -> sliding-door-open (#10).
+ * Door aperture is mathematically calibrated from pixel differences between #02 and #10 masters.
  */
 export function VanActor({
-  stateId = "side-right",
+  stateId = "side-left",
   priority = false,
   className = "",
   style = {},
 }: VanActorProps) {
-  const isSideProfile = stateId === "side-right" || stateId === "sliding-door-open";
+  // Collection sequence uses side-left as the base closed profile
+  const isLeftCollectionDoorSequence = stateId === "side-left" || stateId === "sliding-door-open";
   const isDoorOpen = stateId === "sliding-door-open";
-  const baseActor = isSideProfile ? VAN_STATES["side-right"] : (VAN_STATES[stateId] ?? VAN_STATES["side-right"]);
+
+  const baseActor = isLeftCollectionDoorSequence
+    ? VAN_STATES["side-left"]
+    : (VAN_STATES[stateId] ?? VAN_STATES["side-left"]);
+
   const doorOpenActor = VAN_STATES["sliding-door-open"];
 
   return (
@@ -31,13 +38,15 @@ export function VanActor({
       className={`kt-van-actor select-none pointer-events-none ${className}`}
       data-actor="van"
       data-state={stateId}
+      data-ground-contact-x={baseActor.groundContact.x}
+      data-ground-contact-y={baseActor.groundContact.y}
       style={{
         position: "relative",
         display: "inline-block",
         ...style,
       }}
     >
-      {/* Base van silhouette (closed side profile or current state) */}
+      {/* Base van silhouette (closed side-left profile or active state) */}
       <Image
         src={baseActor.webpSrc}
         alt={baseActor.alt}
@@ -53,12 +62,12 @@ export function VanActor({
         }}
       />
 
-      {/* Continuous GSAP-controlled door aperture: permanently clipped to calibrated door region */}
-      {isSideProfile && (
+      {/* Calibrated Door Aperture: Opens over base side-left silhouette */}
+      {isLeftCollectionDoorSequence && (
         <div
           className="van-door-boundary pointer-events-none absolute inset-0 overflow-hidden"
           style={{
-            clipPath: "inset(15% 36% 22% 32%)",
+            clipPath: VAN_DOOR_CALIBRATION.clipPathInset,
           }}
           aria-hidden="true"
         >
