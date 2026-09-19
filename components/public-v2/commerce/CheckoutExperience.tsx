@@ -422,13 +422,26 @@ export function CheckoutExperience() {
       }
 
       const result = await res.json();
-      if (result.providerAction?.type === "REDIRECT" && result.providerAction?.url) {
-        window.location.href = result.providerAction.url;
+      if (
+        result.providerAction?.type === "REDIRECT_GET" &&
+        typeof result.providerAction?.endpoint === "string"
+      ) {
+        window.location.assign(result.providerAction.endpoint);
         return;
       }
 
-      setOrderComplete(true);
-      setCurrentStep(6);
+      // Backward-compatible guard for any older response shape still in flight.
+      if (
+        result.providerAction?.type === "REDIRECT" &&
+        typeof result.providerAction?.url === "string"
+      ) {
+        window.location.assign(result.providerAction.url);
+        return;
+      }
+
+      setErrorMessage(
+        "Payment authorization is pending but no safe Paystack redirect was returned. Refresh the checkout before retrying."
+      );
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Payment preparation failed.");
     } finally {
