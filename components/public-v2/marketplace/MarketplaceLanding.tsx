@@ -9,6 +9,7 @@ import {
 import styles from "@/components/public-v2/commerce/commerce.module.css";
 import {
   marketplaceCategoriesHref,
+  marketplaceCategoryHref,
   marketplaceSearchHref,
 } from "@/lib/public-marketplace/routes";
 
@@ -68,7 +69,7 @@ export function MarketplaceLanding({
           <ProductGrid
             editorialCategoryHref={
               categories[0]
-                ? `/shop/categories/${categories[0].path}`
+                ? marketplaceCategoryHref(categories[0].path) ?? marketplaceCategoriesHref()
                 : marketplaceCategoriesHref()
             }
             editorialCategoryTitle={categories[0]?.name || "Local Food & Kitchens"}

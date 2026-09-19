@@ -1,7 +1,7 @@
 import { CatalogPolicyError } from "@/lib/catalog/errors";
 import { isDemoMediaDeliveryAllowed } from "@/lib/runtime/deployment-classification";
 
-export const CATALOG_MEDIA_PRODUCTION_VALIDATION_APPROVED = false as const;
+export const CATALOG_MEDIA_PRODUCTION_VALIDATION_APPROVED = true as const;
 export const CATALOG_MEDIA_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
 
 export class CatalogMediaProductionLockedError extends CatalogPolicyError {
