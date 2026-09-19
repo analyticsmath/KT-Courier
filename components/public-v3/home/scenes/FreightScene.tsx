@@ -23,6 +23,7 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
       className={`relative min-h-[96vh] flex flex-col justify-between bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] py-16 px-6 md:px-12 overflow-hidden ${className}`}
       data-kt-contrast="dark"
       data-kt-scene="freight"
+      data-motion="freight-world"
       aria-labelledby="freight-heading"
     >
       {/* Industrial Warehouse & Terminal Atmosphere */}

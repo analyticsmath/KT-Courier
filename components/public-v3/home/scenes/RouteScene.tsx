@@ -25,7 +25,10 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
       aria-labelledby="route-heading"
     >
       {/* Left Information Plane: Factual Route Narrative */}
-      <div className="w-full md:w-[42%] p-8 md:p-14 flex flex-col justify-center relative z-10">
+      <div
+        data-motion="route-copy"
+        className="w-full md:w-[42%] p-8 md:p-14 flex flex-col justify-center relative z-10"
+      >
         <h2
           id="route-heading"
           className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--kt-asphalt)] mb-4"
@@ -41,7 +44,10 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
       </div>
 
       {/* Central/Right Road Field: Aerial Geographic Plane with Top-Down Truck Anchor */}
-      <div className="kt-route-road-world relative bg-[var(--kt-asphalt)] flex-1 min-h-[420px] md:min-h-[580px] flex items-center justify-center border-t md:border-t-0 md:border-l border-[#23272B] overflow-hidden py-12">
+      <div
+        data-motion="route-road"
+        className="kt-route-road-world relative bg-[var(--kt-asphalt)] flex-1 min-h-[420px] md:min-h-[580px] flex items-center justify-center border-t md:border-t-0 md:border-l border-[#23272B] overflow-hidden py-12"
+      >
         {/* Real Aerial Geographic Underlay */}
         <div className="kt-aerial-road-underlay absolute inset-0 opacity-40 pointer-events-none will-change-transform">
           <Image
@@ -68,6 +74,7 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
 
         {/* Foreground Overpass Shadow Plane for concealed truck rotation (0.62–0.82) */}
         <div
+          data-motion="route-occluder"
           className="kt-route-overpass-shadow pointer-events-none absolute inset-x-0 h-48 bg-gradient-to-b from-transparent via-[#0B0D0F]/95 to-transparent z-25 opacity-0 will-change-transform"
           aria-hidden="true"
         />

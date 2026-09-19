@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import { CourierActor } from "../../actors/CourierActor";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
@@ -11,9 +12,19 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
 
   return (
     <div className="space-y-16">
-      {/* Editorial Hero Stage */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        <div className="lg:col-span-6 space-y-6">
+      {/* Giant Low-Contrast PARCEL Background Plane */}
+      <div className="relative overflow-hidden pt-4 -mb-10 pointer-events-none select-none">
+        <div
+          aria-hidden="true"
+          className="font-display text-[clamp(5rem,18vw,14rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/50 uppercase"
+        >
+          PARCEL
+        </div>
+      </div>
+
+      {/* Editorial Hero Stage with Sticky Heading & Courier Protagonist */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative z-10">
+        <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -37,17 +48,22 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
               </Link>
             )}
           </div>
+
+          {/* Courier Protagonist Presence */}
+          <div className="pt-4 max-w-[220px] filter drop-shadow-sm">
+            <CourierActor stateId="walk-right-one-parcel" priority />
+          </div>
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
             <Image
               src={heroMedia.src}
               alt={heroMedia.alt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
               style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
             />
           </div>

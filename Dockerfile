@@ -17,8 +17,7 @@ COPY package.json package-lock.json ./
 # Keep the lockfile authoritative. The cache and bounded retries make slow
 # Docker Desktop proxy fetches observable/recoverable without weakening npm
 # integrity or TLS verification.
-RUN --mount=type=cache,target=/root/.npm \
-  npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000 --fetch-timeout=120000
+RUN npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000 --fetch-timeout=120000
 
 COPY prisma ./prisma
 RUN npx prisma generate
@@ -47,6 +46,11 @@ ENV PORT=3000
 
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
+
+# Keep Prisma migration tooling in the production image so platform pre-deploy
+# migrations run deterministically without npx downloading packages at runtime.
+COPY --from=dependencies --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=dependencies --chown=nextjs:nodejs /app/prisma ./prisma
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
@@ -105,3 +109,7 @@ COPY --chown=node:node scripts ./scripts
 USER node
 
 CMD ["node", "node_modules/tsx/dist/cli.mjs", "scripts/scheduler-runner.ts"]
+
+# Default build target for platforms that auto-detect the root Dockerfile (e.g. Railway).
+# Named Compose targets above remain available for migrator/worker/scheduler services.
+FROM runner AS default-web

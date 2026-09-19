@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import { RedTruckActor } from "../../actors/RedTruckActor";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function FreightServiceView({ service }: AuthoredServiceViewProps) {
@@ -11,9 +12,28 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
 
   return (
     <div className="space-y-16">
+      {/* Giant Low-Contrast FREIGHT Typography with Red Truck Crossing */}
+      <div className="relative overflow-hidden pt-4 pb-2 select-none border-b border-[var(--kt-concrete)]/40">
+        <div
+          aria-hidden="true"
+          className="font-display text-[clamp(5rem,20vw,16rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/60 uppercase pointer-events-none"
+        >
+          FREIGHT
+        </div>
+
+        {/* Red Truck Protagonist crossing the typography across its baseline */}
+        <div className="relative z-10 -mt-14 sm:-mt-24 md:-mt-36 lg:-mt-48 max-w-4xl ml-2 sm:ml-8 filter drop-shadow-md pointer-events-none">
+          <RedTruckActor stateId="side-right" priority />
+        </div>
+      </div>
+
       {/* Planned Freight Hero Stage */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        <div className="lg:col-span-6 space-y-6">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative z-10">
+        <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
+          <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#E53935]" />
+            <span>Heavy Regional Highway Haul</span>
+          </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -40,14 +60,14 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
             <Image
               src={heroMedia.src}
               alt={heroMedia.alt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
             />
           </div>
         </div>

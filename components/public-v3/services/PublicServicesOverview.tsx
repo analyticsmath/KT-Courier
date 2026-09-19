@@ -138,20 +138,34 @@ export function PublicServicesOverview() {
 
   return (
     <article className="min-h-screen bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)]">
-      {/* Hero: Giant Low-Contrast SERVICES with White Truck Baseline */}
-      <section className="relative pt-16 pb-20 px-6 md:px-12 border-b border-[var(--kt-concrete)]/50 overflow-hidden">
+      {/* Hero: Giant Low-Contrast SERVICES with White Truck Baseline Occlusion */}
+      <section className="relative pt-12 sm:pt-16 pb-16 sm:pb-24 px-6 md:px-12 border-b border-[var(--kt-concrete)]/50 overflow-hidden">
         <div className="max-w-6xl mx-auto relative">
-          <h1 className="font-display text-[clamp(4rem,12vw,10rem)] font-extrabold tracking-tight leading-none text-[var(--kt-asphalt)]/90 mb-6 uppercase select-none">
-            SERVICES
-          </h1>
+          <div className="relative overflow-hidden pt-4">
+            {/* Giant low-contrast SERVICES type in background */}
+            <div
+              aria-hidden="true"
+              className="font-display text-[clamp(5rem,16vw,12rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/70 uppercase select-none pointer-events-none"
+            >
+              SERVICES
+            </div>
 
-          <p className="text-lg sm:text-xl text-[var(--kt-road-grey)] max-w-xl leading-relaxed">
-            From small parcels to planned freight, explore delivery services organized around what you are sending and how it moves.
-          </p>
+            {/* White truck traversing and occluding the baseline of the typography */}
+            <div className="relative z-10 -mt-14 sm:-mt-24 md:-mt-32 lg:-mt-40 max-w-3xl ml-4 sm:ml-12 filter drop-shadow-sm pointer-events-none">
+              <WhiteTruckActor stateId="side-right" priority />
+            </div>
+          </div>
 
-          {/* White truck traversing baseline */}
-          <div className="mt-8 max-w-2xl opacity-95">
-            <WhiteTruckActor stateId="side-right" />
+          <div className="mt-8 pt-6 border-t border-[var(--kt-concrete)]/40 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <h1 className="sr-only">KT Courier Services</h1>
+              <p className="text-lg sm:text-xl text-[var(--kt-road-grey)] max-w-xl leading-relaxed">
+                From small parcels to planned freight, explore delivery services organized around what you are sending and how it moves.
+              </p>
+            </div>
+            <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] shrink-0">
+              11 Authored Capabilities
+            </div>
           </div>
         </div>
       </section>
@@ -206,7 +220,7 @@ export function PublicServicesOverview() {
 
           {/* Right: Sticky Active Service Stage (64–70vh) */}
           <div className="lg:col-span-5 sticky top-28 space-y-4">
-            <div className="relative h-[48vh] sm:h-[56vh] lg:h-[64vh] w-full bg-[var(--kt-concrete)]/20 overflow-hidden border border-[var(--kt-concrete)]/40">
+            <div className="relative h-[54vh] sm:h-[62vh] lg:h-[68vh] w-full bg-[var(--kt-concrete)]/20 overflow-hidden border border-[var(--kt-concrete)]/40">
               <Image
                 src={activeService.asset.src}
                 alt={activeService.asset.alt}

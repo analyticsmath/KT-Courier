@@ -30,7 +30,7 @@
 
 .heroWordKt {
   position: absolute;
-  top: 24vh;
+  top: 17vh;
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--font-display);
@@ -46,7 +46,7 @@
 
 .heroWordCourier {
   position: absolute;
-  top: 42vh;
+  top: 54vh;
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--font-display);
@@ -66,7 +66,7 @@
     font-size: clamp(5rem, 24vw, 9rem);
   }
   .heroWordCourier {
-    top: 28vh;
+    top: 34vh;
     font-size: clamp(3.2rem, 16vw, 6.5rem);
   }
 }
@@ -210,110 +210,136 @@
   color: var(--kt-freight-paper);
 }
 
-/* 5-Panel Marketplace Scene */
+/* Horizontal Marketplace Journey (v3) */
 .marketplaceSection {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--kt-asphalt);
   color: var(--kt-freight-paper);
-  padding: 5rem 0 3rem;
+  padding: 4.5rem 0 2rem;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
 }
 
 .marketplaceHeader {
-  padding: 0 var(--kt-page-gutter) 3rem;
+  position: relative;
+  z-index: 15;
+  padding: 0 var(--kt-page-gutter);
   max-width: 800px;
 }
 
-.panelsContainer {
-  flex: 1;
-  display: flex;
-  width: 100%;
-  height: 620px;
-  overflow: hidden;
-}
-
-@media (max-width: 899px) {
-  .panelsContainer {
-    flex-direction: row;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    height: 520px;
-    padding: 0 var(--kt-page-gutter);
-    gap: 1rem;
-  }
-}
-
-.categoryPanel {
-  position: relative;
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 2rem;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  will-change: width;
-}
-
-@media (min-width: 900px) {
-  .categoryPanel {
-    flex: none;
-    width: 20%;
-  }
-}
-
-@media (max-width: 899px) {
-  .categoryPanel {
-    flex: 0 0 85vw;
-    scroll-snap-align: center;
-    border-right: none;
-  }
-}
-
-.panelMediaFrame {
+.marketplaceWordPlane {
   position: absolute;
   inset: 0;
-  z-index: 1;
-}
-
-.panelOverlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(11, 13, 15, 0.85) 0%, rgba(11, 13, 15, 0.2) 60%, transparent 100%);
+  pointer-events: none;
   z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
 }
 
-.panelContent {
+.marketplaceWord {
+  font-family: var(--font-display);
+  font-size: clamp(6rem, 24vw, 24rem);
+  font-weight: 900;
+  line-height: 0.8;
+  letter-spacing: -0.05em;
+  color: #16191D;
+  text-transform: uppercase;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.marketplaceRailWrapper {
   position: relative;
   z-index: 10;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
-.panelTitle {
+@media (max-width: 899px) {
+  .marketplaceRailWrapper {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 1rem;
+  }
+}
+
+.marketplaceRail {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  padding-left: clamp(1.5rem, 5vw, 6vw);
+  padding-right: clamp(1.5rem, 5vw, 6vw);
+  will-change: transform;
+}
+
+.marketplaceCard {
+  width: clamp(68vw, 72vw, 76vw);
+  margin-right: clamp(2vw, 2.5vw, 3vw);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 899px) {
+  .marketplaceCard {
+    width: 85vw;
+    margin-right: 1.25rem;
+    scroll-snap-align: center;
+  }
+}
+
+.marketplaceCardMedia {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background-color: #121518;
+}
+
+.marketplaceCardImg {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+}
+
+.marketplaceCardOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(11, 13, 15, 0.7) 0%, rgba(11, 13, 15, 0.1) 40%, transparent 100%);
+  pointer-events: none;
+}
+
+.marketplaceCardContent {
+  margin-top: 1.25rem;
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+}
+
+.marketplaceCardTitle {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.5vw, 3.25rem);
+  font-size: clamp(1.75rem, 2.8vw, 2.75rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   margin: 0 0 0.5rem;
   color: var(--kt-white);
 }
 
-.panelSub {
-  font-size: 0.95rem;
+.marketplaceCardTagline {
+  font-family: var(--font-body);
+  font-size: clamp(0.95rem, 1.1vw, 1.125rem);
   color: var(--kt-concrete);
-  margin-bottom: 1rem;
-}
-
-.panelLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--kt-brand-blue);
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  line-height: 1.5;
+  margin: 0;
 }

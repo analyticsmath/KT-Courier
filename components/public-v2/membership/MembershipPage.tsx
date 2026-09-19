@@ -54,7 +54,7 @@ export function MembershipPage() {
 
               <div className={styles.actionRow}>
                 <Link className={styles.primaryAction} href="/services/pricing">
-                  <span>Calculate Delivery Estimate</span>
+                  <span>View Delivery Pricing Factors</span>
                   <KtIconArrowRight size={16} />
                 </Link>
                 <Link className={styles.secondaryAction} href="/contact">
@@ -72,6 +72,53 @@ export function MembershipPage() {
                 src={media.src}
                 style={{ objectFit: "cover" }}
               />
+            </div>
+          </div>
+        </section>
+
+        {/* Stepped Editorial Sequence */}
+        <section aria-label="Account Progression" className="mt-16 pt-12 border-t border-[var(--kt-concrete)]/40">
+          <div className="mb-8">
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
+              Progression Pathway
+            </span>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--kt-asphalt)]">
+              How merchant & volume accounts are activated
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">01</span>
+                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+              </div>
+              <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">Account Registration</h3>
+              <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+                Establish an authenticated customer or store profile with confirmed business and pickup credentials.
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">02</span>
+                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+              </div>
+              <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">Volume & Route Confirmation</h3>
+              <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+                Operations reviews weekly dispatch volume, parcel types, and scheduled recurring pickup windows.
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">03</span>
+                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+              </div>
+              <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">Direct Fleet Coordination</h3>
+              <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+                Dedicated driver assigned to your dispatch rhythm with direct portal manifest and tracking.
+              </p>
             </div>
           </div>
         </section>

@@ -24,6 +24,7 @@ export default async function HomePage() {
   const home = await getStorefrontHome();
   const categories = home.categories.slice(0, 5).map((cat) => ({
     id: cat.reference,
+    categoryWord: cat.name.split(" ")[0]?.toUpperCase() || "LOCAL",
     title: cat.name,
     tagline: cat.description || "Local catalog collection.",
     image: cat.imageReference || "/media/public/derived/photo-fashion-jhb-editorial-coat-960w.webp",

@@ -23,16 +23,22 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       className={`${styles.heroSection} ${className}`}
       data-kt-contrast="light"
       data-kt-scene="hero"
+      data-motion="hero-stage"
       aria-label="KT Couriers Hero"
     >
       {/* Occlusion Plane: Giant KT / COURIER Typography Behind Truck */}
       <div className={styles.heroTypographyBackground} aria-hidden="true">
-        <span className={styles.heroWordKt}>KT</span>
-        <span className={styles.heroWordCourier}>COURIER</span>
+        <span className={styles.heroWordKt} data-motion="hero-kt">
+          KT
+        </span>
+        <span className={styles.heroWordCourier} data-motion="hero-courier">
+          COURIER
+        </span>
       </div>
 
       {/* Atmospheric Road Texture Plane (Enters under truck ground baseline) */}
       <div
+        data-motion="hero-road"
         className="kt-hero-road-atmosphere pointer-events-none absolute inset-x-0 bottom-0 h-48 opacity-20 overflow-hidden z-0"
         aria-hidden="true"
       >
@@ -49,18 +55,20 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       {/* Persistent White Hero Truck Actor Anchor (Completely visible on mobile without clipping) */}
       <div
         data-actor-anchor="hero-truck"
+        data-motion="hero-truck-anchor"
         className={`${styles.heroTruckWrapper} min-h-[160px] sm:min-h-[260px] md:min-h-[360px] pointer-events-none relative`}
       >
         {/* Physical trailer cargo rectangle anchor calibrated strictly to cargo box (excluding cab and wheels) */}
         <div
           data-trailer-mask-anchor="true"
+          data-motion="hero-trailer-anchor"
           className="absolute left-[18%] top-[18%] w-[50%] h-[52%] pointer-events-none"
         />
       </div>
 
       {/* Peripheral Human Copy & Primary Actions */}
-      <div className={styles.heroActionsRow}>
-        <div className={styles.heroCopyBlock}>
+      <div className={styles.heroActionsRow} data-motion="hero-actions">
+        <div className={styles.heroCopyBlock} data-motion="hero-copy">
           <h1 className={styles.heroTagline}>Shop local. Send with KT.</h1>
           <p className={styles.heroLead}>
             One place to discover local stores, arrange deliveries and keep up with what’s moving.

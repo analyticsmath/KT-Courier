@@ -21,6 +21,7 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
       className={`relative min-h-[92vh] flex flex-col justify-between bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] py-16 px-6 md:px-12 overflow-hidden ${className}`}
       data-kt-contrast="light"
       data-kt-scene="collection"
+      data-motion="collection-world"
       aria-labelledby="collection-heading"
     >
       {/* Street environment backdrop (Johannesburg dispatch context) */}
@@ -50,7 +51,10 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
       </div>
 
       {/* Actor Anchors: Measured layout slots for persistent Van and Courier on shared ground baseline */}
-      <div className="relative z-10 max-w-6xl mx-auto w-full flex flex-row items-end justify-start gap-4 my-auto pt-8">
+      <div
+        data-motion="collection-ground"
+        className="relative z-10 max-w-6xl mx-auto w-full flex flex-row items-end justify-start gap-4 my-auto pt-8"
+      >
         <div
           data-actor-anchor="collection-van"
           className="w-[54vw] max-w-2xl min-h-[240px] sm:min-h-[320px] pointer-events-none"

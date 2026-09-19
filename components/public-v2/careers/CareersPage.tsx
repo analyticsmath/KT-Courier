@@ -54,6 +54,11 @@ export function CareersPage({ snapshot }: CareersPageProps) {
           </Link>
         </div>
 
+        {/* Giant Low-Contrast Background Typography */}
+        <div aria-hidden="true" className="font-display text-[clamp(4.5rem,16vw,12rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/60 uppercase select-none pointer-events-none -mb-6 sm:-mb-10">
+          CAREERS
+        </div>
+
         <section aria-labelledby="careers-title" className={styles.careersHero}>
           <h1 className={styles.careersTitle} id="careers-title">
             Work behind the movement.
@@ -61,6 +66,10 @@ export function CareersPage({ snapshot }: CareersPageProps) {
           <p className={styles.careersLead}>
             Published roles appear here when recruitment makes an opening available. Each position maintains its own verified description and direct application path.
           </p>
+          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-black/[0.03] border border-[var(--kt-concrete)]/60 font-mono text-xs text-[var(--kt-road-grey)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-asphalt)]" />
+            <span>Zero Applicant Fees &bull; KT Couriers never charges application or onboarding fees</span>
+          </div>
         </section>
 
         {/* Documentary Operations Photo Stage */}

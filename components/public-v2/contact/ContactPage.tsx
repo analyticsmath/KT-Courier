@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { ContactForm } from "@/components/forms/ContactForm";
-import { homeMedia } from "@/components/public-v2/home/home-media";
+import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
 import styles from "./contact-page.module.css";
 
 export function ContactPage() {
@@ -56,11 +56,11 @@ export function ContactPage() {
           <div className={styles.contactMediaColumn}>
             <div className={styles.contactMediaFrame}>
               <Image
-                alt={homeMedia.merchantPrepare.alt}
+                alt={ktMediaV3.pages.services.business.primary.alt}
                 fill
                 priority
                 sizes="(max-width: 1023px) 0px, 480px"
-                src={homeMedia.merchantPrepare.src}
+                src={ktMediaV3.pages.services.business.primary.src}
                 style={{ objectFit: "cover" }}
               />
             </div>

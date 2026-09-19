@@ -32,9 +32,13 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
 
   return (
     <div className="space-y-16">
-      {/* Editorial Lead Stage */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        <div className="lg:col-span-7 space-y-6">
+      {/* Editorial Lead Stage — The Quietest Service Presentation */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <div className="lg:col-span-7 space-y-6 lg:sticky lg:top-28">
+          <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-asphalt)]" />
+            <span>Deterministic Pricing Policy &bull; Zero Speculative Rates</span>
+          </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -53,14 +57,14 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-5">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
             <Image
               src={mediaSet.primary.src}
               alt={mediaSet.primary.alt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 40vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
             />
           </div>
         </div>

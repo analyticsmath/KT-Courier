@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import { VanActor } from "../../actors/VanActor";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function MovingServiceView({ service }: AuthoredServiceViewProps) {
@@ -11,9 +12,13 @@ export function MovingServiceView({ service }: AuthoredServiceViewProps) {
 
   return (
     <div className="space-y-16">
-      {/* Planned Hero Stage */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        <div className="lg:col-span-6 space-y-6">
+      {/* Planned Hero Stage — Oversized Physical Scale */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
+          <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-3">
+            <span>Heavy Volume & Relocation</span>
+            <span className="text-[var(--kt-asphalt)] font-bold">10m³ – 45m³</span>
+          </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -37,19 +42,43 @@ export function MovingServiceView({ service }: AuthoredServiceViewProps) {
               </Link>
             )}
           </div>
+
+          {/* Vehicle / Cargo Foreground Actor */}
+          <div className="pt-6 border-t border-[var(--kt-concrete)]/40 max-w-md filter drop-shadow-sm">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--kt-road-grey)] mb-2">
+              Assigned Vehicle Staging — Cargo Doors Active
+            </div>
+            <VanActor stateId="all-doors-open" priority />
+          </div>
         </div>
 
-        <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
+        <div className="lg:col-span-6 space-y-6">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
             <Image
               src={heroMedia.src}
               alt={heroMedia.alt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
               style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
             />
+          </div>
+
+          {/* Scale Metrics Bar */}
+          <div className="grid grid-cols-3 gap-4 p-4 bg-black/[0.02] border border-[var(--kt-concrete)]/40 text-center">
+            <div>
+              <div className="font-display text-2xl font-black text-[var(--kt-asphalt)]">45m³</div>
+              <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--kt-road-grey)]">Max Volume</div>
+            </div>
+            <div>
+              <div className="font-display text-2xl font-black text-[var(--kt-asphalt)]">8.5T</div>
+              <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--kt-road-grey)]">Payload Rating</div>
+            </div>
+            <div>
+              <div className="font-display text-2xl font-black text-[var(--kt-asphalt)]">TAIL-LIFT</div>
+              <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--kt-road-grey)]">Direct Ground Level</div>
+            </div>
           </div>
         </div>
       </section>

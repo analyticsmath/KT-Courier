@@ -11,9 +11,13 @@ export function PharmacyServiceView({ service }: AuthoredServiceViewProps) {
 
   return (
     <div className="space-y-16">
-      {/* Editorial Hero Stage */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        <div className="lg:col-span-6 space-y-6">
+      {/* Editorial Hero Stage — Restrained Controlled Split */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
+          <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-asphalt)]" />
+            <span>Factual Verification & Custody Protocol</span>
+          </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -40,27 +44,27 @@ export function PharmacyServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
             <Image
               src={heroMedia.src}
               alt={heroMedia.alt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
               style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
             />
           </div>
         </div>
       </section>
 
-      {/* Handling & Review Notice — Unboxed Editorial Note */}
-      <section className="py-4 border-l-2 border-[var(--kt-asphalt)] pl-6 space-y-1">
-        <h3 className="font-display text-base font-bold text-[var(--kt-asphalt)]">
-          Pharmacy-Related Handling Policy
-        </h3>
+      {/* Handling & Review Notice — Restrained Factual Mandate */}
+      <section className="py-5 px-6 bg-black/[0.02] border-l-2 border-[var(--kt-asphalt)] border-y border-r border-[var(--kt-concrete)]/30 space-y-1.5">
+        <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-asphalt)] font-bold">
+          Mandatory Verification Protocol
+        </div>
         <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
-          Prescription verification and medication eligibility are confirmed during quote review. KT Couriers does not perform automated online dispensing. All pharmacy-related packages require complete pickup, destination, and recipient identification before dispatch.
+          Prescription validation and product eligibility are confirmed during dispatch intake. KT Couriers coordinates verified transportation only and does not dispense pharmaceuticals. Every pharmacy transport requires verified recipient identity and tamper-evident packaging.
         </p>
       </section>
 

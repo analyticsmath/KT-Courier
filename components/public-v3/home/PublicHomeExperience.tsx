@@ -66,7 +66,8 @@ function TypographyLayer() {
  * aria-hidden ensures visual continuity elements do not duplicate semantic screen reader content.
  */
 function TransitionLayer() {
-  const p1 = ktMediaV3.editorial.fashion.brownCoat;
+  // Authoritative Phase 3A: semantic media that initiates Marketplace (Fresh produce)
+  const p1 = ktMediaV3.editorial.grocery.fruitCrates;
   const p3 = [
     ktMediaV3.editorial.grocery.fruitCrates,
     ktMediaV3.editorial.fashion.leatherBags,
@@ -82,6 +83,7 @@ function TransitionLayer() {
 
   return (
     <div
+      data-motion="trailer-takeover"
       className="kt-trailer-takeover-plane pointer-events-none fixed inset-0 z-30 overflow-hidden"
       aria-hidden="true"
       style={{ opacity: 0, visibility: "hidden" }}

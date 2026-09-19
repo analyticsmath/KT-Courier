@@ -9,42 +9,42 @@ import { SecureLedgerIllustration } from "@/components/protected-v2/illustration
 
 export type DashboardIllustrationRole = "admin" | "customer" | "driver" | "store" | "promoter" | "applicant";
 
-const ROLE_PNG_MAP: Record<DashboardIllustrationRole, { src: string; alt: string; width: number; height: number }> = {
+const ROLE_ILLUSTRATION_MAP: Record<DashboardIllustrationRole, { src: string; alt: string; width: number; height: number }> = {
   admin: {
-    src: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/16_empty_hands_courier_hero.png",
-    alt: "Operations command centre courier",
+    src: "/media/public/illustrations/alghozy-Kgy_OpyLu-I-unsplash.svg",
+    alt: "Operations command centre fleet and logistics",
     width: 320,
-    height: 380,
+    height: 220,
   },
   customer: {
-    src: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/07_ready_to_handover_parcel.png",
-    alt: "Courier handing over parcel",
+    src: "/media/public/illustrations/kt-ill-package-receive.svg",
+    alt: "Customer receiving courier parcel delivery",
     width: 320,
-    height: 380,
+    height: 220,
   },
   driver: {
-    src: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/10_looking_right_approaching_vehicle.png",
-    alt: "Courier driver on dispatch route",
+    src: "/media/public/illustrations/rifky-nur-setyadi-kDI32HrG0iw-unsplash.svg",
+    alt: "Courier driver dispatch run and vehicle checklist",
     width: 320,
-    height: 380,
+    height: 220,
   },
   store: {
-    src: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/12_placing_parcel_down.png",
-    alt: "Preparing parcels for store collection",
+    src: "/media/public/illustrations/kt-ill-online-shopping.svg",
+    alt: "Merchant store fulfillment and packaging",
     width: 320,
-    height: 380,
+    height: 220,
   },
   promoter: {
-    src: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/19_half_body_holding_parcel.png",
-    alt: "Promoter partner courier connection",
+    src: "/media/public/illustrations/kt-ill-security.svg",
+    alt: "Promoter partner financial ledger security",
     width: 320,
-    height: 380,
+    height: 220,
   },
   applicant: {
-    src: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/01_original_pose_refined.png",
-    alt: "Courier candidate application",
+    src: "/media/public/illustrations/rifky-nur-setyadi-q_4m_HhfhLs-unsplash.svg",
+    alt: "Courier candidate application and onboarding",
     width: 320,
-    height: 380,
+    height: 220,
   },
 };
 
@@ -58,9 +58,9 @@ export function DashboardIllustrationAsset({
   preferSvg?: boolean;
 }) {
   const [loadError, setLoadError] = useState(false);
-  const asset = ROLE_PNG_MAP[role];
+  const asset = ROLE_ILLUSTRATION_MAP[role];
 
-  // If preferSvg or if raster asset failed to load, fall back to the guaranteed static SVG illustration components
+  // If preferSvg or if primary illustration failed to load, fall back to the guaranteed static SVG illustration components
   if (preferSvg || loadError) {
     switch (role) {
       case "applicant":
@@ -84,8 +84,9 @@ export function DashboardIllustrationAsset({
         alt={asset.alt}
         width={asset.width}
         height={asset.height}
-        className="object-contain max-h-[180px] w-auto pointer-events-none select-none"
-        sizes="(max-width: 640px) 140px, 200px"
+        unoptimized
+        className="w-full h-auto max-h-[180px] object-contain pointer-events-none select-none"
+        sizes="(max-width: 640px) 140px, 220px"
         onError={() => setLoadError(true)}
         priority={false}
       />

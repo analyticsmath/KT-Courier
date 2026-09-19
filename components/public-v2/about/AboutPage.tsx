@@ -47,10 +47,20 @@ export function AboutPage() {
       />
 
       <div className={styles.aboutInner}>
-        {/* Narrative Intro */}
+        {/* Narrative Intro with Inline-Image-In-Type Moment */}
         <section aria-labelledby="about-heading" className={styles.aboutHero}>
           <h1 className={styles.aboutTitle} id="about-heading">
-            Commerce does not end at the checkout. Delivery does not start at the road. KT sits between the two.
+            Commerce does not end at the checkout.{" "}
+            <span className="inline-block align-middle mx-1 sm:mx-2 w-12 h-6 sm:w-20 sm:h-9 relative overflow-hidden rounded-full border border-black/15 shadow-inner">
+              <Image
+                src={ktMediaV3.pages.about.photoEssay[3].src}
+                alt={ktMediaV3.pages.about.photoEssay[3].alt}
+                fill
+                sizes="80px"
+                className="object-cover"
+              />
+            </span>{" "}
+            Delivery does not start at the road. KT sits between the two.
           </h1>
           <p className={styles.aboutLead}>
             KT Couriers connects local merchant stores, independent senders, and courier operators across South African communities.

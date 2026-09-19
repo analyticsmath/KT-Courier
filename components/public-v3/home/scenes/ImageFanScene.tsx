@@ -204,12 +204,17 @@ export function ImageFanScene({ className = "", selectedMedia }: ImageFanScenePr
       {/* Fan Aperture Stage */}
       <div
         ref={stageRef}
-        className="kt-fan-stage relative w-full max-w-4xl h-[420px] sm:h-[480px] flex justify-center items-center"
+        data-motion="fan-stage"
+        tabIndex={0}
+        role="region"
+        aria-label="Image Fan Selection Stage"
+        className="kt-fan-stage relative w-full max-w-4xl h-[420px] sm:h-[480px] flex justify-center items-center outline-none focus-visible:ring-1 focus-visible:ring-[var(--kt-brand-blue)]"
       >
         {fanItems.map((item, idx) => {
           return (
             <div
               key={item.id}
+              data-motion={item.isHeroChoice ? "fan-hero" : undefined}
               className={`kt-fan-card absolute overflow-hidden ${
                 item.isHeroChoice ? "kt-fan-hero-card z-20" : "z-10"
               }`}

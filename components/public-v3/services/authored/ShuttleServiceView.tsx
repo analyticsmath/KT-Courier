@@ -12,8 +12,12 @@ export function ShuttleServiceView({ service }: AuthoredServiceViewProps) {
   return (
     <div className="space-y-16">
       {/* Planned Shuttle Hero Stage */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        <div className="lg:col-span-6 space-y-6">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
+          <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-asphalt)]" />
+            <span>Dedicated Hub-to-Hub Transport</span>
+          </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -37,24 +41,45 @@ export function ShuttleServiceView({ service }: AuthoredServiceViewProps) {
               </Link>
             )}
           </div>
+
+          {/* Route Geometry Diagram */}
+          <div className="pt-6 border-t border-[var(--kt-concrete)]/40 space-y-3">
+            <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)]">
+              Authoritative Corridor Geometry
+            </div>
+            <div className="p-4 bg-black/[0.02] border border-[var(--kt-concrete)]/40 font-mono text-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[var(--kt-asphalt)]">GAUTENG INTER-HUB</span>
+                <span className="text-[var(--kt-road-grey)]">N1 / R21 &bull; 58km</span>
+              </div>
+              <div className="relative h-2 w-full bg-[var(--kt-concrete)]/30 rounded-full overflow-hidden">
+                <div className="absolute inset-y-0 left-0 bg-[var(--kt-asphalt)] w-3/4 rounded-full" />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-[var(--kt-road-grey)]">
+                <span>OR Tambo Freight Zone</span>
+                <span className="font-bold text-[var(--kt-asphalt)]">Scheduled Shuttles</span>
+                <span>Pretoria Logistics Park</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
+        <div className="lg:col-span-6 space-y-6">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
             <Image
               src={heroMedia.src}
               alt={heroMedia.alt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
               style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
             />
           </div>
         </div>
       </section>
 
-      {/* Route Coordination Notice — Unboxed Editorial Note */}
+      {/* Route Coordination Notice — Restrained Editorial Note */}
       <section className="py-4 border-l-2 border-[var(--kt-asphalt)] pl-6 space-y-1">
         <h3 className="font-display text-base font-bold text-[var(--kt-asphalt)]">
           Commercial Hub-to-Hub Transport

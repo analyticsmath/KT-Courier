@@ -21,6 +21,7 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
       className={`relative min-h-[88vh] flex items-center justify-center bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] py-20 px-6 md:px-12 overflow-hidden ${className}`}
       data-kt-contrast="light"
       data-kt-scene="arrival"
+      data-motion="arrival-world"
       aria-labelledby="arrival-heading"
     >
       {/* Real Doorstep Documentary Backdrop */}

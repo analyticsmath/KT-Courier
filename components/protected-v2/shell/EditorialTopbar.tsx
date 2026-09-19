@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { SignOutButton } from "@/components/auth/SignOutButton";
@@ -52,7 +53,19 @@ export function EditorialTopbar({
         <button aria-label="Open navigation" className="eo-icon-button eo-topbar__menu-button" onClick={onNavigationOpen} type="button">
           <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
-        <Link aria-label="KT Couriers home" className="eo-topbar__brand" href="/"><span aria-hidden="true">KT</span></Link>
+        <Link aria-label="KT Couriers home" className="eo-topbar__brand flex items-center" href="/">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg overflow-hidden bg-transparent">
+            <Image
+              src="/media/public/illustrations/logo.svg"
+              alt="KT Couriers logo"
+              width={32}
+              height={32}
+              unoptimized
+              className="w-full h-full object-contain"
+              priority
+            />
+          </span>
+        </Link>
         <p className="eo-topbar__context">{contextLabel}</p>
       </div>
       <div className="eo-topbar__actions">

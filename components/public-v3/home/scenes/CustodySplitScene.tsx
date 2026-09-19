@@ -66,6 +66,7 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
       {/* Center Actor Anchor: Courier with Parcel bridging the physical seam */}
       <div
         data-actor-anchor="custody-courier"
+        data-motion="custody-seam"
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-64 sm:w-80 min-h-[300px] pointer-events-none"
       />
     </section>

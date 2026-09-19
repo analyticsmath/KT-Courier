@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 import { cn } from "@/lib/utils/cn";
@@ -100,7 +101,17 @@ export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer,
     <aside aria-label={`${contextLabel} primary navigation`} className={cn("eo-desktop-navigation", railExpanded && "is-rail-expanded")}>
       <div className="eo-desktop-navigation__brand">
         <Link aria-label="KT Couriers home" className="eo-brand" href="/">
-          <span aria-hidden="true" className="eo-brand__mark">KT</span>
+          <span className="eo-brand__mark flex items-center justify-center p-0.5 overflow-hidden !bg-transparent !border-0">
+            <Image
+              src="/media/public/illustrations/logo.svg"
+              alt="KT Couriers logo"
+              width={32}
+              height={32}
+              unoptimized
+              className="w-full h-full object-contain"
+              priority
+            />
+          </span>
           <span className="eo-brand__wordmark">KT Couriers</span>
         </Link>
         <button

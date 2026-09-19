@@ -115,6 +115,9 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
       return;
     }
 
+    let activeTween: gsap.core.Tween | null = null;
+    let takeoverTimer: NodeJS.Timeout | null = null;
+
     // 1. Shared Media Flight Handoff
     if (activeSharedMedia) {
       const destinationEl = document.querySelector<HTMLElement>(
@@ -127,7 +130,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
 
         destinationEl.style.opacity = "0";
 
-        gsap.fromTo(
+        activeTween = gsap.fromTo(
           proxy,
           {
             top: activeSharedMedia.rect.top,
@@ -158,10 +161,9 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
 
     // 2. Material Takeover Resolve
     if (takeoverActive) {
-      const timer = setTimeout(() => {
+      takeoverTimer = setTimeout(() => {
         setTakeoverActive(false);
       }, 400);
-      return () => clearTimeout(timer);
     }
 
     // 3. Quiet Route vs Cinematic Reveal
@@ -190,6 +192,11 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
     }
 
     prevPathRef.current = pathname;
+
+    return () => {
+      if (activeTween) activeTween.kill();
+      if (takeoverTimer) clearTimeout(takeoverTimer);
+    };
   }, [pathname, activeSharedMedia, takeoverActive, prefersReducedMotion]);
 
   return (

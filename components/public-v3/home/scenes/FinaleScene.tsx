@@ -180,8 +180,13 @@ export function FinaleScene({ className = "" }: FinaleSceneProps) {
 
       {/* 2. Monumental Brand Horizon Identity */}
       <div className="w-full my-auto py-12 text-center relative z-10 select-none kt-finale-identity-wrapper">
-        <h2 className="kt-finale-giant-type font-display text-[clamp(6rem,17vw,17rem)] font-black tracking-tighter leading-none text-[var(--kt-freight-paper)] uppercase opacity-95 will-change-transform">
-          KT COURIER
+        <h2 className="kt-finale-giant-type font-display text-[clamp(6rem,17vw,17rem)] font-black tracking-tighter leading-none text-[var(--kt-freight-paper)] uppercase opacity-95 will-change-transform flex flex-col items-center justify-center">
+          <span data-motion="finale-kt" className="kt-finale-word-kt inline-block will-change-transform">
+            KT
+          </span>
+          <span data-motion="finale-courier" className="kt-finale-word-courier inline-block will-change-transform -mt-2 sm:-mt-6">
+            COURIER
+          </span>
         </h2>
         <p className="font-mono text-xs sm:text-sm tracking-widest uppercase text-[var(--kt-concrete)] mt-2">
           Shop local &bull; Send anywhere &bull; Move with KT
@@ -189,7 +194,10 @@ export function FinaleScene({ className = "" }: FinaleSceneProps) {
       </div>
 
       {/* 3. Photographic Ground Corridor Strip Crossing Beneath Lower Type */}
-      <div className="w-full max-w-5xl mx-auto h-20 sm:h-24 relative overflow-hidden my-4 border-y border-[#23272B] z-10 kt-finale-ground-strip will-change-transform">
+      <div
+        data-motion="finale-road"
+        className="w-full max-w-5xl mx-auto h-20 sm:h-24 relative overflow-hidden my-4 border-y border-[#23272B] z-10 kt-finale-ground-strip will-change-transform"
+      >
         <Image
           src={groundStrip.src}
           alt={groundStrip.alt}

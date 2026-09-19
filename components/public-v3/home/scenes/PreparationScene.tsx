@@ -22,11 +22,15 @@ export function PreparationScene({ className = "" }: PreparationSceneProps) {
       className={`relative min-h-[90vh] flex items-center justify-center bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] py-20 px-6 md:px-12 overflow-hidden ${className}`}
       data-kt-contrast="light"
       data-kt-scene="preparation"
+      data-motion="prep-stage"
       aria-labelledby="prep-heading"
     >
       <div className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         {/* Dominant Documentary Image (65-75% width on desktop) */}
-        <div className="lg:col-span-8 relative aspect-[16/10] sm:aspect-[16/9] w-full bg-[var(--kt-concrete)]/20 rounded-none overflow-hidden">
+        <div
+          data-motion="prep-media"
+          className="lg:col-span-8 relative aspect-[16/10] sm:aspect-[16/9] w-full bg-[var(--kt-concrete)]/20 rounded-none overflow-hidden"
+        >
           <Image
             src={prepPhoto.src}
             alt={prepPhoto.alt}
@@ -37,6 +41,7 @@ export function PreparationScene({ className = "" }: PreparationSceneProps) {
           {/* Spatial target for Fan -> Preparation hero card contraction */}
           <div
             data-preparation-parcel-target="true"
+            data-motion="prep-parcel-target"
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 sm:w-64 h-36 sm:h-48 pointer-events-none opacity-0"
             aria-hidden="true"
           />

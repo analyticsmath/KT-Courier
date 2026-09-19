@@ -8,6 +8,7 @@ import styles from "../home-scenes.module.css";
 
 export interface MarketplaceCategoryItem {
   id: string;
+  categoryWord?: string;
   title: string;
   tagline: string;
   image: string;
@@ -18,6 +19,7 @@ export interface MarketplaceCategoryItem {
 export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   {
     id: "grocery",
+    categoryWord: "FRESH",
     title: "Fresh produce",
     tagline: "Farm-fresh vegetables, morning market crates, and regional pantry staples.",
     image: ktMediaV3.editorial.grocery.fruitCrates.src,
@@ -25,6 +27,7 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "fashion",
+    categoryWord: "FASHION",
     title: "Local fashion",
     tagline: "South African leathercraft, tailored streetwear, and local retail goods.",
     image: ktMediaV3.editorial.fashion.leatherBags.src,
@@ -32,6 +35,7 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "food",
+    categoryWord: "FOOD",
     title: "Food makers",
     tagline: "Warm prepared meals, independent bakeries, and daily artisan orders.",
     image: ktMediaV3.editorial.food.grainBowl.src,
@@ -39,6 +43,7 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "home",
+    categoryWord: "CRAFT",
     title: "Craft & home",
     tagline: "Handcrafted stoneware, architectural pottery, and residential pieces.",
     image: ktMediaV3.editorial.ceramics.capeTownPlates.src,
@@ -46,6 +51,7 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "wellness",
+    categoryWord: "CARE",
     title: "Personal care",
     tagline: "Amber glass botanicals, organic skincare, and sealed personal care.",
     image: ktMediaV3.editorial.wellness.apothecaryBottles.src,
@@ -62,12 +68,14 @@ interface MarketplaceFivePanelSceneProps {
 }
 
 /**
- * Five-Panel Marketplace Field.
- * Emerging from the White Truck trailer takeover, the physical cargo rectangle
- * expands into a multi-image local commerce corridor across five vertical apertures.
- * Desktop: scroll alone owns panel territory (54% active, 11.5% inactive).
- * Mobile: touch-safe native horizontal snap corridor (82–88vw).
- * Honors storefront production lock with single global status CTA.
+ * Chapter 02 & 03 — Marketplace Horizontal World (Phase 3B).
+ * True lateral journey replacing vertical column expansion:
+ * - Active image territory: ~72vw desktop
+ * - Next territory visible: ~20vw
+ * - Giant active category word (FRESH, FASHION, FOOD, CRAFT, CARE) moves behind media
+ * - Vertical scroll scrubs horizontal rail via GSAP ScrollTrigger
+ * - Mobile: native horizontal scroll-snap corridor
+ * - Honest storefront status link
  */
 export function MarketplaceFivePanelScene({
   className = "",
@@ -79,22 +87,27 @@ export function MarketplaceFivePanelScene({
     isStorefrontExposed && categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
 
   const [internalActiveId] = useState<string>(
-    displayItems[1]?.id || "fashion"
+    displayItems[0]?.id || "grocery"
   );
 
   const activeId = controlledActiveId || internalActiveId;
+  const activeItem =
+    displayItems.find((item) => item.id === activeId) || displayItems[0];
+  const activeCategoryWord = activeItem?.categoryWord || "FRESH";
 
   return (
     <section
       className={`${styles.marketplaceSection} ${className}`}
       data-kt-contrast="dark"
       data-kt-scene="marketplace"
+      data-motion="market-stage"
       aria-labelledby="marketplace-field-title"
     >
+      {/* Header */}
       <div className={styles.marketplaceHeader}>
         <h2
           id="marketplace-field-title"
-          className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-4 text-[var(--kt-white)]"
+          className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-3 text-[var(--kt-white)]"
         >
           {isStorefrontExposed
             ? "Find something worth sending."
@@ -107,66 +120,70 @@ export function MarketplaceFivePanelScene({
         </p>
       </div>
 
-      {/* Background Environmental Layer for Parallax Depth */}
-      <div
-        className="kt-market-bg-parallax absolute inset-0 pointer-events-none z-0 opacity-20 overflow-hidden will-change-transform"
-        aria-hidden="true"
-      >
-        <div className="absolute inset-0 w-[180%] -left-[40%] bg-gradient-to-r from-[#0B0D0F] via-[#23272B]/60 to-[#0B0D0F]" />
+      {/* Giant Active Category Word Plane (Moves behind media at slower rate) */}
+      <div className={styles.marketplaceWordPlane} aria-hidden="true">
+        <span
+          data-motion="market-word"
+          className={styles.marketplaceWord}
+        >
+          {activeCategoryWord}
+        </span>
       </div>
 
-      {/* 5-Panel Corridor Container */}
+      {/* Horizontal Rail Container */}
       <div
-        className={`${styles.panelsContainer} relative z-10`}
+        className={styles.marketplaceRailWrapper}
         role="region"
-        aria-label="Marketplace Categories Corridor"
+        aria-label="Marketplace Horizontal Category Rail"
       >
-        {displayItems.map((cat) => {
-          const isActive = activeId === cat.id;
+        <div
+          data-motion="market-rail"
+          className={styles.marketplaceRail}
+        >
+          {displayItems.map((cat, idx) => {
+            const isActive = activeId === cat.id;
 
-          return (
-            <div
-              key={cat.id}
-              id={`kt-market-panel-${cat.id}`}
-              data-marketplace-panel-id={cat.id}
-              data-marketplace-active={isActive ? "true" : "false"}
-              className={`${styles.categoryPanel} ${
-                isActive ? styles.categoryPanelActive : ""
-              }`}
-              aria-expanded={isActive}
-              aria-label={`${cat.title} Category`}
-            >
-              <div className={styles.panelMediaFrame}>
-                <Image
-                  src={cat.image}
-                  alt={cat.altText || cat.title}
-                  fill
-                  sizes="(max-width: 899px) 85vw, (max-width: 1440px) 55vw, 40vw"
-                  className="object-cover"
-                  style={{
-                    objectPosition: isActive ? "center 52%" : "center 50%",
-                    filter: isActive ? "brightness(1)" : "brightness(0.85)",
-                  }}
-                />
-              </div>
+            return (
+              <article
+                key={cat.id}
+                id={`kt-market-card-${cat.id}`}
+                data-marketplace-panel-id={cat.id}
+                data-marketplace-index={idx}
+                data-marketplace-active={isActive ? "true" : "false"}
+                className={styles.marketplaceCard}
+                aria-label={`${cat.title} Category`}
+              >
+                {/* Visual Media Frame (active image crop shifts 2-4% via GSAP) */}
+                <div className={styles.marketplaceCardMedia}>
+                  <Image
+                    src={cat.image}
+                    alt={cat.altText || cat.title}
+                    fill
+                    sizes="(max-width: 899px) 85vw, 75vw"
+                    className={`${styles.marketplaceCardImg} kt-market-card-img`}
+                    priority={idx === 0}
+                  />
+                  <div className={styles.marketplaceCardOverlay} />
+                </div>
 
-              <div className={styles.panelOverlay} />
-
-              <div className={styles.panelContent}>
-                <h3 className={styles.panelTitle}>{cat.title}</h3>
-                {isActive && (
-                  <p className={`${styles.panelSub} max-w-md leading-snug`}>
+                {/* Narrative Copy */}
+                <div
+                  data-motion="market-copy"
+                  className={styles.marketplaceCardContent}
+                >
+                  <h3 className={styles.marketplaceCardTitle}>{cat.title}</h3>
+                  <p className={styles.marketplaceCardTagline}>
                     {cat.tagline}
                   </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Single Global Marketplace Status CTA */}
-      <div className="mt-8 px-[var(--kt-page-gutter)] flex items-center justify-end flex-wrap gap-4">
+      {/* Single Global Marketplace Status Link */}
+      <div className="px-[var(--kt-page-gutter)] flex items-center justify-end z-20">
         <Link
           href="/shop"
           className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-[var(--kt-brand-blue)] hover:text-white transition-colors"

@@ -162,22 +162,24 @@
   display: flex;
   align-items: stretch;
   background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-carbon, #101210);
+  border: 1px solid var(--kt-cool-300, #c9cecc);
+  border-radius: 4px;
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
+  height: 52px;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .searchCommandForm:focus-within {
-  border-color: var(--kt-red, #d83a2e);
-  box-shadow: 0 0 0 2px rgba(216, 58, 46, 0.2);
+  border-color: var(--kt-carbon, #101210);
+  box-shadow: 0 0 0 1px var(--kt-carbon, #101210);
 }
 
 .searchCommandInput {
   flex: 1;
   min-width: 0;
-  min-height: 48px;
-  padding: 0 16px;
+  height: 100%;
+  padding: 0 18px;
   font-family: inherit;
   font-size: 0.95rem;
   color: var(--kt-carbon, #101210);
@@ -190,12 +192,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: 100%;
   padding: 0 20px;
   background-color: var(--kt-carbon, #101210);
   color: var(--kt-white, #ffffff);
-  font-weight: 560;
-  font-size: 0.9rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   border: none;
+  border-radius: 0 3px 3px 0;
   cursor: pointer;
   transition: background-color 160ms ease;
 }
