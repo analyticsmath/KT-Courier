@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PublicHomeExperience } from "@/components/public-v3/home";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
+import { marketplaceCategoryHref, marketplaceCategoriesHref } from "@/lib/public-marketplace/routes";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { getStorefrontHome } from "@/lib/services/storefront-catalog.service";
 
@@ -28,11 +29,12 @@ export default async function HomePage() {
     id: cat.reference,
     title: cat.name,
     tagline: cat.description || "Local catalog collection.",
-    image: cat.imageReference || "/media/public/derived/photo-fashion-jhb-editorial-coat-960w.webp",
+    image: cat.imageReference
+      ? `/api/catalog/media/${encodeURIComponent(cat.imageReference)}`
+      : "/media/public/derived/photo-fashion-jhb-editorial-coat-960w.webp",
     altText: cat.name,
-    href: `/shop/categories/${cat.path}`,
+    href: marketplaceCategoryHref(cat.path) ?? marketplaceCategoriesHref(),
   }));
 
   return <HomepageV2 isStorefrontExposed={true} storefrontCategories={categories} />;
 }
-
