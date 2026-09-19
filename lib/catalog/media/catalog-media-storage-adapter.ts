@@ -204,7 +204,7 @@ function sha256(value: string | Uint8Array): string {
 }
 
 function awsDate(now: Date): { stamp: string; timestamp: string } {
-  const timestamp = now.toISOString().replace(/[:-]|\\.\\d{3}/g, "");
+  const timestamp = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
   return { stamp: timestamp.slice(0, 8), timestamp };
 }
 
@@ -225,7 +225,7 @@ export class S3CatalogMediaStorageAdapter implements CatalogMediaStorageAdapter 
     if (rawKey.startsWith("/") || /^[a-zA-Z]:/.test(rawKey)) {
       throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Absolute catalog storage keys are forbidden.", 400);
     }
-    return rawKey.split("\\\\").join("/");
+    return rawKey.split("\\").join("/");
   }
 
   private async request(method: "GET" | "PUT" | "DELETE", rawKey: string, body?: Uint8Array): Promise<Response> {
@@ -239,11 +239,11 @@ export class S3CatalogMediaStorageAdapter implements CatalogMediaStorageAdapter 
 
     const payloadHash = sha256(body ?? new Uint8Array());
     const { stamp, timestamp } = awsDate(new Date());
-    const canonicalHeaders = `host:${url.host}\\nx-amz-content-sha256:${payloadHash}\\nx-amz-date:${timestamp}\\n`;
+    const canonicalHeaders = `host:${url.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${timestamp}\n`;
     const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
     const credentialScope = `${stamp}/${this.config.region}/s3/aws4_request`;
-    const canonicalRequest = `${method}\\n${canonicalUri}\\n\\n${canonicalHeaders}\\n${signedHeaders}\\n${payloadHash}`;
-    const stringToSign = `AWS4-HMAC-SHA256\\n${timestamp}\\n${credentialScope}\\n${sha256(canonicalRequest)}`;
+    const canonicalRequest = `${method}\n${canonicalUri}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+    const stringToSign = `AWS4-HMAC-SHA256\n${timestamp}\n${credentialScope}\n${sha256(canonicalRequest)}`;
     const signingKey = hmac(hmac(hmac(hmac(`AWS4${this.config.secretAccessKey}`, stamp), this.config.region), "s3"), "aws4_request");
     const signature = createHmac("sha256", signingKey).update(stringToSign, "utf8").digest("hex");
     const headers = {
