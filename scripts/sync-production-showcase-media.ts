@@ -74,24 +74,6 @@ async function main(): Promise<void> {
         throw new Error(`S3 round-trip verification failed for ${entry.publicReference}.`);
       }
 
-      await prisma.catalogMediaAsset.updateMany({
-        where: { publicReference: entry.publicReference },
-        data: {
-          storageProvider: "S3_COMPATIBLE",
-          storageKey: entry.storageKey,
-          status: "READY",
-          mimeType: entry.mimeType,
-          declaredMimeType: entry.mimeType,
-          byteSize: entry.byteSize,
-          declaredByteSize: entry.byteSize,
-          checksum: entry.checksum,
-          width: entry.width,
-          height: entry.height,
-          privacyInspectionPassed: true,
-          storageConfirmedAt: new Date(),
-          validatedAt: new Date(),
-        },
-      });
     }
   });
 
