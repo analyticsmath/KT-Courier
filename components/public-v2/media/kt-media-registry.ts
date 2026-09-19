@@ -1,9 +1,8 @@
 /**
- * KT COURIERS — AUTHORITATIVE TYPED MEDIA REGISTRY
+ * KT COURIERS — AUTHORITATIVE TYPED MEDIA REGISTRY (v2)
  *
  * Generated from Phase A/B media inventory & Sharp WebP derivation.
  * All route components and scenes import media exclusively through this registry.
- * No hardcoded filenames or random paths allowed in visual components.
  */
 
 export interface KTMediaAsset {
@@ -21,6 +20,8 @@ export interface KTMediaAsset {
   desktopCrop: "full-bleed" | "optical-center" | "baseline-ground" | "side-anchored";
   mobileCrop: "portrait-slice" | "cab-focus" | "courier-upper" | "horizontal-crawl";
   textSafeRegion: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center-clear";
+  priority?: number;
+  role?: string;
 }
 
 export const ktMedia = {
@@ -41,6 +42,8 @@ export const ktMedia = {
     desktopCrop: "baseline-ground",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       sideLeft: {
     id: "protagonist.truck.white.side-left",
@@ -57,6 +60,8 @@ export const ktMedia = {
     desktopCrop: "baseline-ground",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       centeredHero: {
     id: "protagonist.truck.white.centered-hero",
@@ -73,6 +78,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       front3qRight: {
     id: "protagonist.truck.white.front-3q-right",
@@ -89,6 +96,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       front3qLeft: {
     id: "protagonist.truck.white.front-3q-left",
@@ -105,6 +114,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       topDownStraight: {
     id: "protagonist.truck.white.top-down-straight",
@@ -121,6 +132,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       topDownTurning: {
     id: "protagonist.truck.white.top-down-turning",
@@ -137,6 +150,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       cargoBoxMaterial: {
     id: "protagonist.truck.white.cargo-box-material",
@@ -153,6 +168,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       cabCrop: {
     id: "protagonist.truck.white.close-crop-front-cab-only",
@@ -169,6 +186,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
       rearDoorsOpen: {
     id: "protagonist.truck.white.rear-doors-slightly-open",
@@ -185,6 +204,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-machine",
   },
     },
     van: {
@@ -203,6 +224,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-lastmile",
   },
       slidingDoorOpen: {
     id: "protagonist.van.sliding-door-open",
@@ -219,6 +242,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-lastmile",
   },
       rearDoorsOpen: {
     id: "protagonist.van.rear-doors-open",
@@ -235,6 +260,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-lastmile",
   },
       allDoorsOpen: {
     id: "protagonist.van.all-doors-open",
@@ -251,6 +278,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-lastmile",
   },
       centeredHero: {
     id: "protagonist.van.centered-hero",
@@ -267,6 +296,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-lastmile",
   },
       front3qRight: {
     id: "protagonist.van.front-three-quarter-facing-right",
@@ -283,6 +314,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-lastmile",
   },
     },
     redTruck: {
@@ -301,6 +334,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 2,
+    role: "protagonist-freight",
   },
       centeredHero: {
     id: "protagonist.truck.red.centered-hero",
@@ -317,6 +352,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 2,
+    role: "protagonist-freight",
   },
       curtainOpen: {
     id: "protagonist.truck.red.curtain-open",
@@ -333,6 +370,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 2,
+    role: "protagonist-freight",
   },
       front3qRight: {
     id: "protagonist.truck.red.front-three-quarter-view-facing-right",
@@ -349,6 +388,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 2,
+    role: "protagonist-freight",
   },
     },
     courier: {
@@ -367,6 +408,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
       carryOne: {
     id: "protagonist.courier.carry-one-parcel",
@@ -383,6 +426,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
       walkRightCarryOne: {
     id: "protagonist.courier.walk-right-one-parcel",
@@ -399,6 +444,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
       readyHandover: {
     id: "protagonist.courier.ready-handover",
@@ -415,6 +462,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
       extendingHandoff: {
     id: "protagonist.courier.extending-handoff",
@@ -431,6 +480,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
       approachVehicle: {
     id: "protagonist.courier.approach-vehicle",
@@ -447,6 +498,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
       loadingUnloading: {
     id: "protagonist.courier.loading-unloading",
@@ -463,6 +516,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
       allPoses: [
         {
@@ -480,6 +535,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.carry-one-parcel",
@@ -496,6 +553,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.full-body-two-parcels",
@@ -512,6 +571,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.walk-right-one-parcel",
@@ -528,6 +589,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.walking-one-parcel-facing-left",
@@ -544,6 +607,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.walking-two-parcels",
@@ -560,6 +625,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.ready-handover",
@@ -576,6 +643,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.extending-handoff",
@@ -592,6 +661,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.looking-toward-viewer-with-parcel",
@@ -608,6 +679,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.approach-vehicle",
@@ -624,6 +697,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.looking-left-approaching-vehicle",
@@ -640,6 +715,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.placing-parcel-down",
@@ -656,6 +733,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.lifting-parcel-up",
@@ -672,6 +751,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.small-parcel-one-hand",
@@ -688,6 +769,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.medium-box-under-arm",
@@ -704,6 +787,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.empty-hands-courier-hero",
@@ -720,6 +805,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.forward-gesture-with-parcel",
@@ -736,6 +823,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.loading-unloading",
@@ -752,6 +841,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.half-body-holding-parcel",
@@ -768,6 +859,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   },
         {
     id: "protagonist.courier.close-crop-upper-body-portrait",
@@ -784,6 +877,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "protagonist-human",
   }
       ] as readonly KTMediaAsset[],
     },
@@ -792,9 +887,9 @@ export const ktMedia = {
   categories: {
     fashion: {
       hero: {
-    id: "market.craft.leather-bags",
-    src: "/media/public/derived/market-craft-leather-bags-1920w.webp",
-    alt: "Handmade leather bags and accessories at Rosebank artisan market",
+    id: "photo.fashion.rosebank-leather-bags",
+    src: "/media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp",
+    alt: "Artisan leather bags and goods at Rosebank market ready for dispatch",
     width: 2560,
     height: 1707,
     aspectRatio: 1.5,
@@ -802,15 +897,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/market-craft-leather-bags-480w.webp 480w, /media/public/derived/market-craft-leather-bags-768w.webp 768w, /media/public/derived/market-craft-leather-bags-1080w.webp 1080w, /media/public/derived/market-craft-leather-bags-1440w.webp 1440w, /media/public/derived/market-craft-leather-bags-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-fashion-rosebank-leather-bags-640w.webp 640w, /media/public/derived/photo-fashion-rosebank-leather-bags-960w.webp 960w, /media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
       streetLook1: {
-    id: "market.fashion.jhb-fashion-brown-coat",
-    src: "/media/public/derived/market-fashion-jhb-fashion-brown-coat-1920w.webp",
-    alt: "Contemporary South African street fashion and apparel",
+    id: "photo.fashion.jhb-editorial-coat",
+    src: "/media/public/derived/photo-fashion-jhb-editorial-coat-1440w.webp",
+    alt: "Contemporary Johannesburg street fashion brown coat editorial",
     width: 2048,
     height: 2560,
     aspectRatio: 0.8,
@@ -818,15 +915,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/market-fashion-jhb-fashion-brown-coat-480w.webp 480w, /media/public/derived/market-fashion-jhb-fashion-brown-coat-768w.webp 768w, /media/public/derived/market-fashion-jhb-fashion-brown-coat-1080w.webp 1080w, /media/public/derived/market-fashion-jhb-fashion-brown-coat-1440w.webp 1440w, /media/public/derived/market-fashion-jhb-fashion-brown-coat-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-fashion-jhb-editorial-coat-640w.webp 640w, /media/public/derived/photo-fashion-jhb-editorial-coat-960w.webp 960w, /media/public/derived/photo-fashion-jhb-editorial-coat-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
       streetLook2: {
-    id: "market.fashion.jhb-fashion-white-top",
-    src: "/media/public/derived/market-fashion-jhb-fashion-white-top-1920w.webp",
-    alt: "Contemporary South African street fashion and apparel",
+    id: "photo.fashion.jhb-editorial-white",
+    src: "/media/public/derived/photo-fashion-jhb-editorial-white-1440w.webp",
+    alt: "South African urban apparel and streetwear editorial",
     width: 1922,
     height: 2560,
     aspectRatio: 0.751,
@@ -834,15 +933,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/market-fashion-jhb-fashion-white-top-480w.webp 480w, /media/public/derived/market-fashion-jhb-fashion-white-top-768w.webp 768w, /media/public/derived/market-fashion-jhb-fashion-white-top-1080w.webp 1080w, /media/public/derived/market-fashion-jhb-fashion-white-top-1440w.webp 1440w, /media/public/derived/market-fashion-jhb-fashion-white-top-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-fashion-jhb-editorial-white-640w.webp 640w, /media/public/derived/photo-fashion-jhb-editorial-white-960w.webp 960w, /media/public/derived/photo-fashion-jhb-editorial-white-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
       urbanGraffiti: {
-    id: "market.local.jhb-fashion-graffiti",
-    src: "/media/public/derived/market-local-jhb-fashion-graffiti-1920w.webp",
-    alt: "South African local market documentary photography jhb-fashion-graffiti.webp",
+    id: "photo.fashion.jhb-street-graffiti",
+    src: "/media/public/derived/photo-fashion-jhb-street-graffiti-1440w.webp",
+    alt: "Urban South African fashion portrait against textured city wall",
     width: 1922,
     height: 2560,
     aspectRatio: 0.751,
@@ -850,17 +951,19 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/market-local-jhb-fashion-graffiti-480w.webp 480w, /media/public/derived/market-local-jhb-fashion-graffiti-768w.webp 768w, /media/public/derived/market-local-jhb-fashion-graffiti-1080w.webp 1080w, /media/public/derived/market-local-jhb-fashion-graffiti-1440w.webp 1440w, /media/public/derived/market-local-jhb-fashion-graffiti-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-fashion-jhb-street-graffiti-640w.webp 640w, /media/public/derived/photo-fashion-jhb-street-graffiti-960w.webp 960w, /media/public/derived/photo-fashion-jhb-street-graffiti-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 2,
+    role: "editorial-commerce",
   },
     },
     groceries: {
       hero: {
-    id: "market.produce.fresh-crates",
-    src: "/media/public/derived/market-produce-fresh-crates-1920w.webp",
-    alt: "Farm-fresh vegetables and local produce stacked in market crates",
+    id: "photo.grocery.fruit-crates-overhead",
+    src: "/media/public/derived/photo-grocery-fruit-crates-overhead-1440w.webp",
+    alt: "Crates of fresh South African market fruit ready for local grocery dispatch",
     width: 2560,
     height: 1600,
     aspectRatio: 1.6,
@@ -868,51 +971,75 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/market-produce-fresh-crates-480w.webp 480w, /media/public/derived/market-produce-fresh-crates-768w.webp 768w, /media/public/derived/market-produce-fresh-crates-1080w.webp 1080w, /media/public/derived/market-produce-fresh-crates-1440w.webp 1440w, /media/public/derived/market-produce-fresh-crates-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-grocery-fruit-crates-overhead-640w.webp 640w, /media/public/derived/photo-grocery-fruit-crates-overhead-960w.webp 960w, /media/public/derived/photo-grocery-fruit-crates-overhead-1440w.webp 1440w",
+    desktopCrop: "full-bleed",
+    mobileCrop: "portrait-slice",
+    textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
+  },
+      freshGreens: {
+    id: "photo.grocery.vegetables-crate",
+    src: "/media/public/derived/photo-grocery-vegetables-crate-1440w.webp",
+    alt: "Farm fresh greens and market vegetables packed for delivery",
+    width: 2560,
+    height: 1702,
+    aspectRatio: 1.504,
+    focalPoint: [0.5, 0.5],
+    hasAlpha: false,
+    
+    
+    srcSet: "/media/public/derived/photo-grocery-vegetables-crate-640w.webp 640w, /media/public/derived/photo-grocery-vegetables-crate-960w.webp 960w, /media/public/derived/photo-grocery-vegetables-crate-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
-      freshGreens: {
-    id: "commerce.groceries.fresh-produce",
-    src: "/media/public/derived/commerce-groceries-fresh-produce-1920w.webp",
-    alt: "Organic crisp green produce for local grocery delivery",
-    width: 5184,
-    height: 3456,
+    },
+    foodDining: {
+      hero: {
+    id: "photo.food.prepared-grain-bowl",
+    src: "/media/public/derived/photo-food-prepared-grain-bowl-1440w.webp",
+    alt: "Artisan grain bowl prepared in local kitchen for rapid delivery",
+    width: 2560,
+    height: 1702,
+    aspectRatio: 1.504,
+    focalPoint: [0.5, 0.5],
+    hasAlpha: false,
+    
+    
+    srcSet: "/media/public/derived/photo-food-prepared-grain-bowl-640w.webp 640w, /media/public/derived/photo-food-prepared-grain-bowl-960w.webp 960w, /media/public/derived/photo-food-prepared-grain-bowl-1440w.webp 1440w",
+    desktopCrop: "optical-center",
+    mobileCrop: "portrait-slice",
+    textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
+  },
+      kitchenPlating: {
+    id: "photo.food.kitchen-plating-pass",
+    src: "/media/public/derived/photo-food-kitchen-plating-pass-1440w.webp",
+    alt: "Commercial kitchen chef preparing warm orders for delivery dispatch",
+    width: 5410,
+    height: 3607,
     aspectRatio: 1.5,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/commerce-groceries-fresh-produce-480w.webp 480w, /media/public/derived/commerce-groceries-fresh-produce-768w.webp 768w, /media/public/derived/commerce-groceries-fresh-produce-1080w.webp 1080w, /media/public/derived/commerce-groceries-fresh-produce-1440w.webp 1440w, /media/public/derived/commerce-groceries-fresh-produce-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-food-kitchen-plating-pass-640w.webp 640w, /media/public/derived/photo-food-kitchen-plating-pass-960w.webp 960w, /media/public/derived/photo-food-kitchen-plating-pass-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
-  },
-    },
-    foodDining: {
-      hero: {
-    id: "market.food.prepared-bowl",
-    src: "/media/public/derived/market-food-prepared-bowl-1920w.webp",
-    alt: "Freshly prepared healthy grain bowl from a local South African kitchen",
-    width: 2560,
-    height: 1702,
-    aspectRatio: 1.504,
-    focalPoint: [0.5, 0.5],
-    hasAlpha: false,
-    
-    
-    srcSet: "/media/public/derived/market-food-prepared-bowl-480w.webp 480w, /media/public/derived/market-food-prepared-bowl-768w.webp 768w, /media/public/derived/market-food-prepared-bowl-1080w.webp 1080w, /media/public/derived/market-food-prepared-bowl-1440w.webp 1440w, /media/public/derived/market-food-prepared-bowl-1920w.webp 1920w",
-    desktopCrop: "optical-center",
-    mobileCrop: "portrait-slice",
-    textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
     },
     homeLiving: {
       hero: {
-    id: "market.craft.ceramics",
-    src: "/media/public/derived/market-craft-ceramics-1920w.webp",
-    alt: "Artisanal handcrafted ceramic tableware and home decor",
+    id: "photo.commerce.cape-town-market-ceramics",
+    src: "/media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp",
+    alt: "Artisanal ceramic tableware from Cape Town market makers",
     width: 2560,
     height: 1702,
     aspectRatio: 1.504,
@@ -920,15 +1047,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/market-craft-ceramics-480w.webp 480w, /media/public/derived/market-craft-ceramics-768w.webp 768w, /media/public/derived/market-craft-ceramics-1080w.webp 1080w, /media/public/derived/market-craft-ceramics-1440w.webp 1440w, /media/public/derived/market-craft-ceramics-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-commerce-cape-town-market-ceramics-640w.webp 640w, /media/public/derived/photo-commerce-cape-town-market-ceramics-960w.webp 960w, /media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
       interiorVessel: {
-    id: "commerce.homeware.vitaly-gariev-1JnN9QhmTGU-unsplash",
-    src: "/media/public/derived/commerce-homeware-vitaly-gariev-1JnN9QhmTGU-unsplash-1920w.webp",
-    alt: "Curated natural ceramics and architectural homeware",
+    id: "photo.commerce.sculptural-ceramics-vessel",
+    src: "/media/public/derived/photo-commerce-sculptural-ceramics-vessel-1440w.webp",
+    alt: "Handcrafted architectural ceramic vessel for fragile courier transport",
     width: 3840,
     height: 2160,
     aspectRatio: 1.778,
@@ -936,33 +1065,19 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/commerce-homeware-vitaly-gariev-1JnN9QhmTGU-unsplash-480w.webp 480w, /media/public/derived/commerce-homeware-vitaly-gariev-1JnN9QhmTGU-unsplash-768w.webp 768w, /media/public/derived/commerce-homeware-vitaly-gariev-1JnN9QhmTGU-unsplash-1080w.webp 1080w, /media/public/derived/commerce-homeware-vitaly-gariev-1JnN9QhmTGU-unsplash-1440w.webp 1440w, /media/public/derived/commerce-homeware-vitaly-gariev-1JnN9QhmTGU-unsplash-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-commerce-sculptural-ceramics-vessel-640w.webp 640w, /media/public/derived/photo-commerce-sculptural-ceramics-vessel-960w.webp 960w, /media/public/derived/photo-commerce-sculptural-ceramics-vessel-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
     },
     healthWellness: {
       hero: {
-    id: "commerce.wellness.declan-sun-7tc4dlLcXF0-unsplash",
-    src: "/media/public/derived/commerce-wellness-declan-sun-7tc4dlLcXF0-unsplash-1920w.webp",
-    alt: "Amber glass natural skincare and botanical wellness items",
-    width: 6336,
-    height: 8191,
-    aspectRatio: 0.774,
-    focalPoint: [0.5, 0.5],
-    hasAlpha: false,
-    
-    
-    srcSet: "/media/public/derived/commerce-wellness-declan-sun-7tc4dlLcXF0-unsplash-480w.webp 480w, /media/public/derived/commerce-wellness-declan-sun-7tc4dlLcXF0-unsplash-768w.webp 768w, /media/public/derived/commerce-wellness-declan-sun-7tc4dlLcXF0-unsplash-1080w.webp 1080w, /media/public/derived/commerce-wellness-declan-sun-7tc4dlLcXF0-unsplash-1440w.webp 1440w, /media/public/derived/commerce-wellness-declan-sun-7tc4dlLcXF0-unsplash-1920w.webp 1920w",
-    desktopCrop: "optical-center",
-    mobileCrop: "portrait-slice",
-    textSafeRegion: "center-clear",
-  },
-      apothecaryJars: {
-    id: "commerce.wellness.karolina-grabowska-AeRjba-rnZ4-unsplash",
-    src: "/media/public/derived/commerce-wellness-karolina-grabowska-AeRjba-rnZ4-unsplash-1920w.webp",
-    alt: "Amber glass natural skincare and botanical wellness items",
+    id: "photo.wellness.amber-apothecary-bottles",
+    src: "/media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp",
+    alt: "Amber glass apothecary droppers and botanical wellness formulations",
     width: 4252,
     height: 6378,
     aspectRatio: 0.667,
@@ -970,15 +1085,35 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/commerce-wellness-karolina-grabowska-AeRjba-rnZ4-unsplash-480w.webp 480w, /media/public/derived/commerce-wellness-karolina-grabowska-AeRjba-rnZ4-unsplash-768w.webp 768w, /media/public/derived/commerce-wellness-karolina-grabowska-AeRjba-rnZ4-unsplash-1080w.webp 1080w, /media/public/derived/commerce-wellness-karolina-grabowska-AeRjba-rnZ4-unsplash-1440w.webp 1440w, /media/public/derived/commerce-wellness-karolina-grabowska-AeRjba-rnZ4-unsplash-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-wellness-amber-apothecary-bottles-640w.webp 640w, /media/public/derived/photo-wellness-amber-apothecary-bottles-960w.webp 960w, /media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
+  },
+      apothecaryJars: {
+    id: "photo.wellness.herbal-jars-dispensary",
+    src: "/media/public/derived/photo-wellness-herbal-jars-dispensary-1440w.webp",
+    alt: "Natural botanical creams and skincare jars arranged for dispatch",
+    width: 6475,
+    height: 4317,
+    aspectRatio: 1.5,
+    focalPoint: [0.5, 0.5],
+    hasAlpha: false,
+    
+    
+    srcSet: "/media/public/derived/photo-wellness-herbal-jars-dispensary-640w.webp 640w, /media/public/derived/photo-wellness-herbal-jars-dispensary-960w.webp 960w, /media/public/derived/photo-wellness-herbal-jars-dispensary-1440w.webp 1440w",
+    desktopCrop: "optical-center",
+    mobileCrop: "portrait-slice",
+    textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
       essentialOils: {
-    id: "commerce.wellness.ela-de-pure-dFubjAPlWfI-unsplash",
-    src: "/media/public/derived/commerce-wellness-ela-de-pure-dFubjAPlWfI-unsplash-1920w.webp",
-    alt: "Amber glass natural skincare and botanical wellness items",
+    id: "photo.wellness.organic-botanical-serum",
+    src: "/media/public/derived/photo-wellness-organic-botanical-serum-1440w.webp",
+    alt: "Sealed organic botanical skincare serum ready for express transit",
     width: 2400,
     height: 2400,
     aspectRatio: 1,
@@ -986,19 +1121,21 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/commerce-wellness-ela-de-pure-dFubjAPlWfI-unsplash-480w.webp 480w, /media/public/derived/commerce-wellness-ela-de-pure-dFubjAPlWfI-unsplash-768w.webp 768w, /media/public/derived/commerce-wellness-ela-de-pure-dFubjAPlWfI-unsplash-1080w.webp 1080w, /media/public/derived/commerce-wellness-ela-de-pure-dFubjAPlWfI-unsplash-1440w.webp 1440w, /media/public/derived/commerce-wellness-ela-de-pure-dFubjAPlWfI-unsplash-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-wellness-organic-botanical-serum-640w.webp 640w, /media/public/derived/photo-wellness-organic-botanical-serum-960w.webp 960w, /media/public/derived/photo-wellness-organic-botanical-serum-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
     },
   },
 
   routes: {
     nightTransitCorridor: {
-    id: "route.aerial.vije-vijendranath-HBUNTeUfLFo-unsplash",
-    src: "/media/public/derived/route-aerial-vije-vijendranath-HBUNTeUfLFo-unsplash-1920w.webp",
-    alt: "High-speed logistics highway corridor across Gauteng",
+    id: "photo.route.night-highway-transit",
+    src: "/media/public/derived/photo-route-night-highway-transit-1920w.webp",
+    alt: "Night transit freight route with vehicle light trails across highway",
     width: 5472,
     height: 3648,
     aspectRatio: 1.5,
@@ -1006,15 +1143,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/route-aerial-vije-vijendranath-HBUNTeUfLFo-unsplash-480w.webp 480w, /media/public/derived/route-aerial-vije-vijendranath-HBUNTeUfLFo-unsplash-768w.webp 768w, /media/public/derived/route-aerial-vije-vijendranath-HBUNTeUfLFo-unsplash-1080w.webp 1080w, /media/public/derived/route-aerial-vije-vijendranath-HBUNTeUfLFo-unsplash-1440w.webp 1440w, /media/public/derived/route-aerial-vije-vijendranath-HBUNTeUfLFo-unsplash-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-route-night-highway-transit-960w.webp 960w, /media/public/derived/photo-route-night-highway-transit-1440w.webp 1440w, /media/public/derived/photo-route-night-highway-transit-1920w.webp 1920w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "route-environment",
   },
     aerialHighway: {
-    id: "route.aerial.mavic-101-LhgEKILDWTg-unsplash",
-    src: "/media/public/derived/route-aerial-mavic-101-LhgEKILDWTg-unsplash-1920w.webp",
-    alt: "High-speed logistics highway corridor across Gauteng",
+    id: "photo.route.overhead-cloverleaf-interchange",
+    src: "/media/public/derived/photo-route-overhead-cloverleaf-interchange-1920w.webp",
+    alt: "Geometric highway interchange connecting north-south logistics corridors",
     width: 8192,
     height: 4608,
     aspectRatio: 1.778,
@@ -1022,15 +1161,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/route-aerial-mavic-101-LhgEKILDWTg-unsplash-480w.webp 480w, /media/public/derived/route-aerial-mavic-101-LhgEKILDWTg-unsplash-768w.webp 768w, /media/public/derived/route-aerial-mavic-101-LhgEKILDWTg-unsplash-1080w.webp 1080w, /media/public/derived/route-aerial-mavic-101-LhgEKILDWTg-unsplash-1440w.webp 1440w, /media/public/derived/route-aerial-mavic-101-LhgEKILDWTg-unsplash-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-route-overhead-cloverleaf-interchange-960w.webp 960w, /media/public/derived/photo-route-overhead-cloverleaf-interchange-1440w.webp 1440w, /media/public/derived/photo-route-overhead-cloverleaf-interchange-1920w.webp 1920w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "route-environment",
   },
     gautengTransitLine: {
-    id: "route.aerial.vije-vijendranath-9o5zeS6QbgM-unsplash",
-    src: "/media/public/derived/route-aerial-vije-vijendranath-9o5zeS6QbgM-unsplash-1920w.webp",
-    alt: "High-speed logistics highway corridor across Gauteng",
+    id: "photo.route.gauteng-transit-corridor",
+    src: "/media/public/derived/photo-route-gauteng-transit-corridor-1920w.webp",
+    alt: "Aerial perspective over Gauteng transit highway corridor",
     width: 6240,
     height: 4160,
     aspectRatio: 1.5,
@@ -1038,15 +1179,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/route-aerial-vije-vijendranath-9o5zeS6QbgM-unsplash-480w.webp 480w, /media/public/derived/route-aerial-vije-vijendranath-9o5zeS6QbgM-unsplash-768w.webp 768w, /media/public/derived/route-aerial-vije-vijendranath-9o5zeS6QbgM-unsplash-1080w.webp 1080w, /media/public/derived/route-aerial-vije-vijendranath-9o5zeS6QbgM-unsplash-1440w.webp 1440w, /media/public/derived/route-aerial-vije-vijendranath-9o5zeS6QbgM-unsplash-1920w.webp 1920w",
-    desktopCrop: "optical-center",
+    srcSet: "/media/public/derived/photo-route-gauteng-transit-corridor-960w.webp 960w, /media/public/derived/photo-route-gauteng-transit-corridor-1440w.webp 1440w, /media/public/derived/photo-route-gauteng-transit-corridor-1920w.webp 1920w",
+    desktopCrop: "full-bleed",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "route-environment",
   },
     johannesburgCorridor: {
-    id: "route.aerial.chuttersnap-xewrfLD8emE-unsplash",
-    src: "/media/public/derived/route-aerial-chuttersnap-xewrfLD8emE-unsplash-1920w.webp",
-    alt: "High-speed logistics highway corridor across Gauteng",
+    id: "photo.route.long-haul-freeway-vista",
+    src: "/media/public/derived/photo-route-long-haul-freeway-vista-1920w.webp",
+    alt: "Long haul freight transport freeway extending across landscape",
     width: 7360,
     height: 4912,
     aspectRatio: 1.498,
@@ -1054,34 +1197,38 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/route-aerial-chuttersnap-xewrfLD8emE-unsplash-480w.webp 480w, /media/public/derived/route-aerial-chuttersnap-xewrfLD8emE-unsplash-768w.webp 768w, /media/public/derived/route-aerial-chuttersnap-xewrfLD8emE-unsplash-1080w.webp 1080w, /media/public/derived/route-aerial-chuttersnap-xewrfLD8emE-unsplash-1440w.webp 1440w, /media/public/derived/route-aerial-chuttersnap-xewrfLD8emE-unsplash-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-route-long-haul-freeway-vista-960w.webp 960w, /media/public/derived/photo-route-long-haul-freeway-vista-1440w.webp 1440w, /media/public/derived/photo-route-long-haul-freeway-vista-1920w.webp 1920w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "route-environment",
   },
     mabonengWorkshop: {
-    id: "route.aerial.vije-vijendranath-PgSm_blvwLo-unsplash",
-    src: "/media/public/derived/route-aerial-vije-vijendranath-PgSm_blvwLo-unsplash-1920w.webp",
-    alt: "High-speed logistics highway corridor across Gauteng",
-    width: 4964,
-    height: 3309,
+    id: "photo.prep.maboneng-fleet-depot",
+    src: "/media/public/derived/photo-prep-maboneng-fleet-depot-1440w.webp",
+    alt: "Vehicle fleet preparation workshop in Maboneng, Johannesburg",
+    width: 2560,
+    height: 1707,
     aspectRatio: 1.5,
     focalPoint: [0.5, 0.5],
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/route-aerial-vije-vijendranath-PgSm_blvwLo-unsplash-480w.webp 480w, /media/public/derived/route-aerial-vije-vijendranath-PgSm_blvwLo-unsplash-768w.webp 768w, /media/public/derived/route-aerial-vije-vijendranath-PgSm_blvwLo-unsplash-1080w.webp 1080w, /media/public/derived/route-aerial-vije-vijendranath-PgSm_blvwLo-unsplash-1440w.webp 1440w, /media/public/derived/route-aerial-vije-vijendranath-PgSm_blvwLo-unsplash-1920w.webp 1920w",
+    srcSet: "/media/public/derived/photo-prep-maboneng-fleet-depot-640w.webp 640w, /media/public/derived/photo-prep-maboneng-fleet-depot-960w.webp 960w, /media/public/derived/photo-prep-maboneng-fleet-depot-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 2,
+    role: "merchant-prep",
   },
   },
 
   documentary: {
     driverArrival: {
-    id: "documentary.r2-doc-02-driver-arrival",
-    src: "/media/public/derived/documentary-r2-doc-02-driver-arrival-1440w.webp",
-    alt: "Physical custody transfer and parcel verification documentation",
+    id: "photo.courier.doorstep-driver-arrival",
+    src: "/media/public/derived/photo-courier-doorstep-driver-arrival-1440w.webp",
+    alt: "KT Courier arriving at destination doorstep with customer package",
     width: 1600,
     height: 1068,
     aspectRatio: 1.498,
@@ -1089,15 +1236,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/documentary-r2-doc-02-driver-arrival-480w.webp 480w, /media/public/derived/documentary-r2-doc-02-driver-arrival-768w.webp 768w, /media/public/derived/documentary-r2-doc-02-driver-arrival-1080w.webp 1080w, /media/public/derived/documentary-r2-doc-02-driver-arrival-1440w.webp 1440w",
+    srcSet: "/media/public/derived/photo-courier-doorstep-driver-arrival-640w.webp 640w, /media/public/derived/photo-courier-doorstep-driver-arrival-960w.webp 960w, /media/public/derived/photo-courier-doorstep-driver-arrival-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "courier-human",
   },
     pickup: {
-    id: "documentary.r2-doc-03-pickup",
-    src: "/media/public/derived/documentary-r2-doc-03-pickup-1440w.webp",
-    alt: "Physical custody transfer and parcel verification documentation",
+    id: "photo.courier.merchant-pickup-handoff",
+    src: "/media/public/derived/photo-courier-merchant-pickup-handoff-1440w.webp",
+    alt: "Courier verifying barcode manifest during merchant collection",
     width: 1600,
     height: 1068,
     aspectRatio: 1.498,
@@ -1105,15 +1254,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/documentary-r2-doc-03-pickup-480w.webp 480w, /media/public/derived/documentary-r2-doc-03-pickup-768w.webp 768w, /media/public/derived/documentary-r2-doc-03-pickup-1080w.webp 1080w, /media/public/derived/documentary-r2-doc-03-pickup-1440w.webp 1440w",
+    srcSet: "/media/public/derived/photo-courier-merchant-pickup-handoff-640w.webp 640w, /media/public/derived/photo-courier-merchant-pickup-handoff-960w.webp 960w, /media/public/derived/photo-courier-merchant-pickup-handoff-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "courier-human",
   },
     trackingCheck: {
-    id: "documentary.r2-doc-05-tracking",
-    src: "/media/public/derived/documentary-r2-doc-05-tracking-1440w.webp",
-    alt: "Physical custody transfer and parcel verification documentation",
+    id: "photo.courier.digital-manifest-check",
+    src: "/media/public/derived/photo-courier-digital-manifest-check-1440w.webp",
+    alt: "Driver verifying digital dispatch route manifest beside vehicle",
     width: 1600,
     height: 1068,
     aspectRatio: 1.498,
@@ -1121,15 +1272,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/documentary-r2-doc-05-tracking-480w.webp 480w, /media/public/derived/documentary-r2-doc-05-tracking-768w.webp 768w, /media/public/derived/documentary-r2-doc-05-tracking-1080w.webp 1080w, /media/public/derived/documentary-r2-doc-05-tracking-1440w.webp 1440w",
+    srcSet: "/media/public/derived/photo-courier-digital-manifest-check-640w.webp 640w, /media/public/derived/photo-courier-digital-manifest-check-960w.webp 960w, /media/public/derived/photo-courier-digital-manifest-check-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "courier-human",
   },
     handoffDetail: {
-    id: "documentary.r2-doc-06-handoff",
-    src: "/media/public/derived/documentary-r2-doc-06-handoff-1440w.webp",
-    alt: "Physical custody transfer and parcel verification documentation",
+    id: "photo.courier.recipient-physical-handoff",
+    src: "/media/public/derived/photo-courier-recipient-physical-handoff-1440w.webp",
+    alt: "Close up physical parcel exchange between courier and customer",
     width: 1600,
     height: 1068,
     aspectRatio: 1.498,
@@ -1137,18 +1290,20 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/documentary-r2-doc-06-handoff-480w.webp 480w, /media/public/derived/documentary-r2-doc-06-handoff-768w.webp 768w, /media/public/derived/documentary-r2-doc-06-handoff-1080w.webp 1080w, /media/public/derived/documentary-r2-doc-06-handoff-1440w.webp 1440w",
+    srcSet: "/media/public/derived/photo-courier-recipient-physical-handoff-640w.webp 640w, /media/public/derived/photo-courier-recipient-physical-handoff-960w.webp 960w, /media/public/derived/photo-courier-recipient-physical-handoff-1440w.webp 1440w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "courier-human",
   },
   },
 
   auth: {
     customer: {
-    id: "auth.kt-auth-01-customer",
-    src: "/media/public/derived/auth-kt-auth-01-customer-768w.webp",
-    alt: "KT Couriers secure authentication and partner access",
+    id: "photo.courier.recipient-receiving-delivery",
+    src: "/media/public/derived/photo-courier-recipient-receiving-delivery-960w.webp",
+    alt: "Customer receiving delivered goods safely at front entrance",
     width: 1000,
     height: 1500,
     aspectRatio: 0.667,
@@ -1156,15 +1311,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/auth-kt-auth-01-customer-480w.webp 480w, /media/public/derived/auth-kt-auth-01-customer-768w.webp 768w",
+    srcSet: "/media/public/derived/photo-courier-recipient-receiving-delivery-640w.webp 640w, /media/public/derived/photo-courier-recipient-receiving-delivery-960w.webp 960w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "courier-human",
   },
     merchant: {
-    id: "auth.kt-auth-02-merchant",
-    src: "/media/public/derived/auth-kt-auth-02-merchant-768w.webp",
-    alt: "KT Couriers secure authentication and partner access",
+    id: "photo.prep.artisan-box-assembly",
+    src: "/media/public/derived/photo-prep-artisan-box-assembly-960w.webp",
+    alt: "Artisan workshop merchant taping and assembling branded shipping box",
     width: 1001,
     height: 1500,
     aspectRatio: 0.667,
@@ -1172,15 +1329,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/auth-kt-auth-02-merchant-480w.webp 480w, /media/public/derived/auth-kt-auth-02-merchant-768w.webp 768w",
+    srcSet: "/media/public/derived/photo-prep-artisan-box-assembly-640w.webp 640w, /media/public/derived/photo-prep-artisan-box-assembly-960w.webp 960w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "merchant-prep",
   },
     product: {
-    id: "auth.kt-auth-03-product",
-    src: "/media/public/derived/auth-kt-auth-03-product-768w.webp",
-    alt: "KT Couriers secure authentication and partner access",
+    id: "photo.commerce.clean-packaged-goods-stack",
+    src: "/media/public/derived/photo-commerce-clean-packaged-goods-stack-960w.webp",
+    alt: "Branded parcels and curated retail goods ready for shipping",
     width: 1000,
     height: 1500,
     aspectRatio: 0.667,
@@ -1188,15 +1347,17 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/auth-kt-auth-03-product-480w.webp 480w, /media/public/derived/auth-kt-auth-03-product-768w.webp 768w",
+    srcSet: "/media/public/derived/photo-commerce-clean-packaged-goods-stack-640w.webp 640w, /media/public/derived/photo-commerce-clean-packaged-goods-stack-960w.webp 960w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 1,
+    role: "editorial-commerce",
   },
     recovery: {
-    id: "auth.kt-auth-04-recovery",
-    src: "/media/public/derived/auth-kt-auth-04-recovery-768w.webp",
-    alt: "KT Couriers secure authentication and partner access",
+    id: "photo.auth.recovery-keycard",
+    src: "/media/public/derived/photo-auth-recovery-keycard-960w.webp",
+    alt: "Secure account verification and recovery authentication visual",
     width: 1000,
     height: 1500,
     aspectRatio: 0.667,
@@ -1204,10 +1365,12 @@ export const ktMedia = {
     hasAlpha: false,
     
     
-    srcSet: "/media/public/derived/auth-kt-auth-04-recovery-480w.webp 480w, /media/public/derived/auth-kt-auth-04-recovery-768w.webp 768w",
+    srcSet: "/media/public/derived/photo-auth-recovery-keycard-640w.webp 640w, /media/public/derived/photo-auth-recovery-keycard-960w.webp 960w",
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 2,
+    role: "editorial-commerce",
   },
   },
 
@@ -1227,6 +1390,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 4,
+    role: "illustration-vector",
   },
     packageDelivery: {
     id: "illustration.package-delivery",
@@ -1243,6 +1408,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 4,
+    role: "illustration-vector",
   },
     gpsLocation: {
     id: "illustration.gps-location",
@@ -1259,6 +1426,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 4,
+    role: "illustration-vector",
   },
     onlineShopping: {
     id: "illustration.kt-ill-online-shopping",
@@ -1275,6 +1444,8 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 4,
+    role: "illustration-vector",
   },
     motionOrderState: {
     id: "illustration.kt-motion-order-state",
@@ -1291,14 +1462,12 @@ export const ktMedia = {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 4,
+    role: "illustration-vector",
   },
   },
 } as const;
 
-/**
- * Route-level and Scene-level Media Manifests.
- * Ensures routes only load and prewarm the assets they actually need.
- */
 export const sceneManifests = {
   homepage: {
     scene00_02_hero: [
@@ -1343,16 +1512,10 @@ export const sceneManifests = {
   },
 } as const;
 
-/**
- * Helper to generate responsive img srcSet string
- */
 export function getMediaSrcSet(asset: KTMediaAsset): string | undefined {
   return asset.srcSet;
 }
 
-/**
- * Identifies the single authoritative first-viewport LCP asset for a given route.
- */
 export function getRouteLcpAsset(pathname: string): KTMediaAsset | null {
   if (pathname === "/") return ktMedia.home.heroTruck.sideRight;
   if (pathname.startsWith("/shop/categories")) return ktMedia.categories.fashion.hero;

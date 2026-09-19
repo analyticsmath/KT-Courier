@@ -256,7 +256,60 @@ export function useMasterHomeTimeline({
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 4: Local Collection — Van Closed -> Open -> Courier Load
+      // Chapter 4: Perspective Image Fan (Choice -> Parcel Contraction)
+      // ---------------------------------------------------------------------
+      const fanSection = container.querySelector<HTMLElement>("[data-kt-scene='image-fan']");
+      if (fanSection) {
+        const fanCards = fanSection.querySelectorAll<HTMLElement>(".kt-fan-card");
+        if (fanCards.length > 0) {
+          const fanTl = gsap.timeline({
+            scrollTrigger: {
+              trigger: fanSection,
+              start: "top 70%",
+              end: "bottom 30%",
+              scrub: 0.5,
+              onEnter: () => {
+                onActiveActorChange?.(null);
+              },
+            },
+          });
+
+          // Cards collapse from their spread angle/offset toward center parcel alignment
+          fanCards.forEach((card) => {
+            const isHero = card.getAttribute("data-is-hero") === "true";
+            fanTl.to(
+              card,
+              {
+                x: 0,
+                y: isHero ? 0 : 20,
+                rotation: 0,
+                scale: isHero ? 1.05 : 0.88,
+                opacity: isHero ? 1 : 0.45,
+                ease: "power2.out",
+              },
+              0
+            );
+          });
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Chapter 5: Merchant Preparation & Corrugated Box
+      // ---------------------------------------------------------------------
+      const prepSection = container.querySelector<HTMLElement>("[data-kt-scene='preparation']");
+      if (prepSection) {
+        ScrollTrigger.create({
+          trigger: prepSection,
+          start: "top 75%",
+          end: "bottom 25%",
+          onEnter: () => {
+            onActiveActorChange?.(null);
+          },
+        });
+      }
+
+      // ---------------------------------------------------------------------
+      // Chapter 6: Local Collection — Van Closed -> Open -> Courier Load
       // ---------------------------------------------------------------------
       const collectionSection = container.querySelector<HTMLElement>("[data-kt-scene='collection']");
 
@@ -312,7 +365,7 @@ export function useMasterHomeTimeline({
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 5: Custody Transfer Seam
+      // Chapter 7: Custody Transfer Seam
       // ---------------------------------------------------------------------
       const custodySection = container.querySelector<HTMLElement>("[data-kt-scene='custody']");
       if (custodySection && courierSlot) {
@@ -334,7 +387,7 @@ export function useMasterHomeTimeline({
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 6: Route Overhead Continuity (Top-Down Straight Truck)
+      // Chapter 8: Route Overhead Continuity (Top-Down Straight Truck)
       // ---------------------------------------------------------------------
       const routeSection = container.querySelector<HTMLElement>("[data-kt-scene='route']");
       if (routeSection && whiteTruckSlot) {
@@ -371,7 +424,7 @@ export function useMasterHomeTimeline({
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 7: Heavy Freight Network Climax (Red Freight Truck)
+      // Chapter 9: Heavy Freight Network Climax (Red Freight Truck)
       // ---------------------------------------------------------------------
       const freightSection = container.querySelector<HTMLElement>("[data-kt-scene='freight']");
       if (freightSection && redTruckSlot) {
@@ -410,7 +463,7 @@ export function useMasterHomeTimeline({
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 8: Doorstep Arrival & Physical Handoff
+      // Chapter 10: Doorstep Arrival & Physical Handoff
       // ---------------------------------------------------------------------
       const arrivalSection = container.querySelector<HTMLElement>("[data-kt-scene='arrival']");
       if (arrivalSection && courierSlot) {

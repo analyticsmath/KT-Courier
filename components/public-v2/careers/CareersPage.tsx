@@ -1,7 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import type { PublicCareerOpeningsSnapshot } from "@/lib/public-careers/openings";
+import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import styles from "./careers-page.module.css";
 
@@ -58,6 +60,27 @@ export function CareersPage({ snapshot }: CareersPageProps) {
             Published roles appear here when recruitment makes an opening available. Each position maintains its own verified description and direct application path.
           </p>
         </section>
+
+        {/* Documentary Operations Photo Stage */}
+        <div className="relative aspect-[21/9] sm:aspect-[24/8] w-full mb-12 overflow-hidden border border-[var(--kt-concrete)]/60 bg-[var(--kt-asphalt)]">
+          <Image
+            src={ktMediaV3.pages.join.driverHero.src}
+            alt={ktMediaV3.pages.join.driverHero.alt}
+            fill
+            priority
+            sizes="(max-width: 1200px) 100vw, 1200px"
+            className="object-cover opacity-90"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/80 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-freight-paper)]">
+            <span className="text-xs font-mono uppercase tracking-widest bg-black/60 px-3 py-1">
+              Fleet Operations &bull; Dispatch Hub
+            </span>
+            <span className="text-xs font-mono text-[var(--kt-concrete)] hidden sm:inline">
+              Johannesburg Central Hub & Regional Depots
+            </span>
+          </div>
+        </div>
 
         {/* Editorial Role List */}
         <section aria-labelledby="openings-heading" className={styles.openingsSection}>

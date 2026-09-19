@@ -1,5 +1,6 @@
 export * from "./HeroScene";
 export * from "./MarketplaceFivePanelScene";
+export * from "./ImageFanScene";
 export * from "./PreparationScene";
 export * from "./CollectionScene";
 export * from "./CustodySplitScene";

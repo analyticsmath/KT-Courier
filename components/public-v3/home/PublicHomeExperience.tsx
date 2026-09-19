@@ -5,6 +5,7 @@ import Image from "next/image";
 import {
   HeroScene,
   MarketplaceFivePanelScene,
+  ImageFanScene,
   PreparationScene,
   CollectionScene,
   CustodySplitScene,
@@ -15,6 +16,7 @@ import {
 } from "./scenes";
 import { useMasterHomeTimeline } from "./MasterHomeTimeline";
 import { PersistentActorLayer } from "../actors/PersistentActorLayer";
+import { ktMediaV3 } from "../media/kt-media-v3";
 import type {
   WhiteTruckStateId,
   VanStateId,
@@ -30,7 +32,7 @@ interface PublicHomeExperienceProps {
 
 /**
  * Environment Layer.
- * Ambient environmental backdrop plane for paper, texture, and light continuity.
+ * Ambient environmental backdrop plane for warm paper texture and light continuity.
  */
 function EnvironmentLayer() {
   return (
@@ -60,6 +62,8 @@ function TypographyLayer() {
  * aria-hidden ensures visual continuity elements do not duplicate semantic screen reader content.
  */
 function TransitionLayer() {
+  const takeoverImg = ktMediaV3.editorial.fashion.brownCoat;
+
   return (
     <div
       className="kt-trailer-takeover-plane pointer-events-none fixed inset-0 z-30 overflow-hidden"
@@ -68,7 +72,7 @@ function TransitionLayer() {
     >
       <div className="relative w-full h-full bg-[var(--kt-asphalt)]">
         <Image
-          src="/media/public/images/jhb-fashion-brown-coat.webp"
+          src={takeoverImg.src}
           alt=""
           fill
           sizes="100vw"
@@ -83,7 +87,7 @@ function TransitionLayer() {
 
 /**
  * Chapter Content Layer.
- * Contains the narrative chapter sequence with scene layouts and measured actor anchors.
+ * Contains the continuous narrative chapter sequence with scene layouts and measured actor anchors.
  */
 function ChapterContentLayer({ children }: { children: React.ReactNode }) {
   return (
@@ -95,12 +99,12 @@ function ChapterContentLayer({ children }: { children: React.ReactNode }) {
 
 /**
  * PublicHomeExperience (v3).
- * Root architecture enforcing narrative actor continuity:
- * 1. EnvironmentLayer
- * 2. TypographyLayer
+ * Root architecture enforcing narrative actor continuity across 11 continuous chapters:
+ * 1. EnvironmentLayer (Warm Freight Paper #F1ECE2 canvas)
+ * 2. TypographyLayer (Monumental typographic scale)
  * 3. PersistentActorLayer (single mounted owner of White Truck, Van, Courier, and Red Truck)
- * 4. TransitionLayer (Material takeover transition)
- * 5. ChapterContentLayer (Narrative chapters with measured scene anchors)
+ * 4. TransitionLayer (Material trailer takeover into commerce corridor)
+ * 5. ChapterContentLayer (11 continuous narrative chapters)
  */
 export function PublicHomeExperience({
   isStorefrontExposed = false,
@@ -130,7 +134,7 @@ export function PublicHomeExperience({
   return (
     <div
       ref={containerRef}
-      className="kt-home-experience flex flex-col w-full relative overflow-hidden"
+      className="kt-home-experience flex flex-col w-full relative overflow-hidden bg-[var(--kt-freight-paper)]"
     >
       {/* 1. Ambient Environment Layer */}
       <EnvironmentLayer />
@@ -153,10 +157,10 @@ export function PublicHomeExperience({
 
       {/* 5. Chapter Content Layer (Supplies narrative content and spatial layout anchors) */}
       <ChapterContentLayer>
-        {/* Chapter 01: Hero & Brand Establish */}
+        {/* Chapter 01: Hero & Brand Establish (Poster Still on Freight Paper) */}
         <HeroScene />
 
-        {/* Chapter 02: Commerce Discovery — 5-Panel Marketplace Field */}
+        {/* Chapter 02 & 03: Trailer Takeover into 5-Panel Marketplace Corridor */}
         <MarketplaceFivePanelScene
           isStorefrontExposed={isStorefrontExposed}
           categories={storefrontCategories}
@@ -164,25 +168,28 @@ export function PublicHomeExperience({
           onActiveIdChange={setMarketplaceActiveId}
         />
 
-        {/* Chapter 03: Choice → Parcel Preparation */}
+        {/* Chapter 04: Perspective Image Fan (Choice -> Parcel Contraction) */}
+        <ImageFanScene />
+
+        {/* Chapter 05: Merchant Preparation & Corrugated Box Sealing */}
         <PreparationScene />
 
-        {/* Chapter 04: Local Collection — Van & Courier */}
+        {/* Chapter 06: Local Collection — Van Enters Closed -> Brakes -> Door Opens */}
         <CollectionScene />
 
-        {/* Chapter 05: Custody Transfer Seam */}
+        {/* Chapter 07: Custody Transfer Seam (72/28 -> 50/50 Dual Photography) */}
         <CustodySplitScene />
 
-        {/* Chapter 06: Transit Route & Verified Information Architecture */}
+        {/* Chapter 08: Transit Route & Aerial Highway Plane */}
         <RouteScene />
 
-        {/* Chapter 07: Heavy Freight Network Climax */}
+        {/* Chapter 09: Heavy Freight Climax (Massive Red Truck & Terminal Scale) */}
         <FreightScene />
 
-        {/* Chapter 08: Doorstep Arrival & Physical Handoff */}
+        {/* Chapter 10: Doorstep Arrival & Quiet Human Handoff */}
         <ArrivalScene />
 
-        {/* Chapter 09: Finale Resolution */}
+        {/* Chapter 11: Finale Resolution & Narrow Geographic Ground Strip */}
         <FinaleScene />
       </ChapterContentLayer>
     </div>

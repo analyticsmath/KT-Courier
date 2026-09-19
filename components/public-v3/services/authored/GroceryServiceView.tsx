@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getServiceMedia } from "@/lib/public-assets/service-media";
+import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function GroceryServiceView({ service }: AuthoredServiceViewProps) {
-  const heroMedia = getServiceMedia(service.heroMediaId);
-  const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
+  const mediaSet = ktMediaV3.pages.services.grocery;
+  const heroMedia = mediaSet.primary;
+  const detailMediaItems = [mediaSet.secondary, mediaSet.detail];
 
   return (
     <div className="space-y-16">
@@ -52,7 +53,7 @@ export function GroceryServiceView({ service }: AuthoredServiceViewProps) {
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
               className="object-cover"
-              style={{ objectPosition: heroMedia.focalPoint }}
+              style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
             />
           </div>
         </div>
@@ -134,7 +135,7 @@ export function GroceryServiceView({ service }: AuthoredServiceViewProps) {
                 fill
                 sizes="(max-width: 767px) 100vw, 50vw"
                 className="object-cover"
-                style={{ objectPosition: item.focalPoint }}
+                style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
               />
             </div>
           ))}

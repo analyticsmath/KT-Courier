@@ -3,21 +3,24 @@
   /* Blueprint Core Palette */
   --kt-carbon: #0E1012;
   --kt-ink: #111318;
-  --kt-paper: #F3F1EA;
-  --kt-graphite: #59626A;
-  --kt-mist: #D9DEE2;
-  --kt-cobalt: #347CFB;
+  --kt-freight-paper: #F1ECE2;
+  --kt-bone: #FBF9F3;
+  --kt-paper: #F1ECE2;
+  --kt-graphite: #5D5A55;
+  --kt-concrete: #CDC4B5;
+  --kt-mist: #CDC4B5;
+  --kt-cobalt: #3479F8;
   --kt-cobalt-deep: #2A64DD;
   --kt-deep-cobalt: #2A64DD;
-  --kt-signal-red: #CF2930;
+  --kt-signal-red: #E10F1B;
 
   /* Backward-compatible aliases */
   --kt-white: #FFFFFF;
   --kt-red: var(--kt-signal-red);
   --kt-cool-025: var(--kt-paper);
-  --kt-cool-050: #EDEBE4;
+  --kt-cool-050: var(--kt-freight-paper, #F1ECE2);
   --kt-cool-100: var(--kt-mist);
-  --kt-cool-200: #CBD0D4;
+  --kt-cool-200: #CDC4B5;
   --kt-cool-300: #A8B1B8;
   --kt-cool-400: #85919A;
   --kt-cool-550: var(--kt-graphite);

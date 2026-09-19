@@ -11,7 +11,7 @@ interface CanonicalKtLogoProps {
 
 /**
  * Authoritative KT Couriers brand identity wrapper.
- * Directly renders the owner-supplied SVG identity from public/media/public/images/illustration/logo.svg.
+ * Directly renders the owner-supplied SVG identity from public/media/public/illustrations/logo.svg.
  * Strictly preserves aspect ratio and original blue/red/black brand identity.
  */
 export function CanonicalKtLogo({
@@ -24,7 +24,7 @@ export function CanonicalKtLogo({
     return (
       <div className={`relative h-full w-full ${className}`}>
         <Image
-          src="/media/public/images/illustration/logo.svg"
+          src="/media/public/illustrations/logo.svg"
           alt={alt}
           fill
           priority={priority}
@@ -37,7 +37,7 @@ export function CanonicalKtLogo({
 
   return (
     <Image
-      src="/media/public/images/illustration/logo.svg"
+      src="/media/public/illustrations/logo.svg"
       alt={alt}
       width={size}
       height={size}

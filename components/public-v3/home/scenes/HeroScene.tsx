@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { ktMediaV3 } from "../../media/kt-media-v3";
 import styles from "../home-scenes.module.css";
 
 interface HeroSceneProps {
@@ -9,11 +11,13 @@ interface HeroSceneProps {
 
 /**
  * Scene 01 — Hero Truck & Brand Establish (Merged Immediate First View).
- * Displays the authoritative campaign frame:
+ * Displays the authoritative campaign frame on warm Freight Paper (#F1ECE2):
  * Giant KT / COURIER typography, complete white hero truck silhouette on desktop & mobile,
- * concise human copy, and clear Shop & Send actions.
+ * subtle road texture entering peripheral depth, concise human copy, and clear Shop & Send actions.
  */
 export function HeroScene({ className = "" }: HeroSceneProps) {
+  const roadTexture = ktMediaV3.editorial.route.gautengCorridor;
+
   return (
     <section
       className={`${styles.heroSection} ${className}`}
@@ -27,7 +31,22 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
         <span className={styles.heroWordCourier}>COURIER</span>
       </div>
 
-      {/* Persistent White Hero Truck Actor Anchor (Completely visible on mobile) */}
+      {/* Atmospheric Road Texture Plane (Enters under truck ground baseline) */}
+      <div
+        className="kt-hero-road-atmosphere pointer-events-none absolute inset-x-0 bottom-0 h-48 opacity-15 overflow-hidden z-0"
+        aria-hidden="true"
+      >
+        <Image
+          src={roadTexture.src}
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover object-bottom filter grayscale contrast-125"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-freight-paper)] via-transparent to-[var(--kt-freight-paper)]" />
+      </div>
+
+      {/* Persistent White Hero Truck Actor Anchor (Completely visible on mobile without clipping) */}
       <div
         data-actor-anchor="hero-truck"
         className={`${styles.heroTruckWrapper} min-h-[160px] sm:min-h-[260px] md:min-h-[360px] pointer-events-none`}

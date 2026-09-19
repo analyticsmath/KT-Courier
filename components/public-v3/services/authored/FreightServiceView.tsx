@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getServiceMedia } from "@/lib/public-assets/service-media";
+import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function FreightServiceView({ service }: AuthoredServiceViewProps) {
-  const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
+  const mediaSet = ktMediaV3.pages.services.freight;
+  const heroMedia = mediaSet.primary;
+  const detailMediaItems = [mediaSet.secondary, mediaSet.detail];
 
   return (
     <div className="space-y-16">
@@ -45,12 +47,12 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
         <div className="lg:col-span-6">
           <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
             <Image
-              src="/media/public/images/truck_asset_pack_12_images/01_full_side_view_facing_right.png"
-              alt="KT Couriers Red Freight Truck dominant profile"
+              src={heroMedia.src}
+              alt={heroMedia.alt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-contain p-4 bg-white/40"
+              className="object-cover"
             />
           </div>
         </div>
@@ -132,7 +134,7 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
                 fill
                 sizes="(max-width: 767px) 100vw, 50vw"
                 className="object-cover"
-                style={{ objectPosition: item.focalPoint }}
+                style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
               />
             </div>
           ))}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { WhiteTruckActor } from "../actors/WhiteTruckActor";
+import { ktMediaV3, type KTMediaV3Asset } from "../media/kt-media-v3";
 
 interface ServiceItem {
   id: string;
@@ -12,7 +13,7 @@ interface ServiceItem {
   headline: string;
   summary: string;
   href: string;
-  image: string;
+  asset: KTMediaV3Asset;
 }
 
 const SERVICES_LIST: ServiceItem[] = [
@@ -23,7 +24,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "From pickup to doorstep.",
     summary: "Same-day and scheduled delivery for everyday envelopes, small cartons, and time-sensitive packages.",
     href: "/services/parcel",
-    image: "/images/kt-couriers/provisional/r2/documentary/r2-doc-06-handoff.webp",
+    asset: ktMediaV3.pages.services.overview.parcel,
   },
   {
     id: "ecommerce",
@@ -32,7 +33,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "The order doesn’t stop at checkout.",
     summary: "Integrated merchant dispatch connecting local online purchases with dedicated courier transit.",
     href: "/services/ecommerce",
-    image: "/media/public/images/jhb-rosebank-bags.webp",
+    asset: ktMediaV3.pages.services.overview.ecommerce,
   },
   {
     id: "food",
@@ -41,7 +42,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "Picked up. Brought over.",
     summary: "Food-related local deliveries arranged from store kitchens and local food producers directly to customers.",
     href: "/services/food",
-    image: "/media/public/images/cape-town-market-food-bowl.webp",
+    asset: ktMediaV3.pages.services.overview.food,
   },
   {
     id: "grocery",
@@ -50,7 +51,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "From the shop to your door.",
     summary: "Market staples, fresh produce, and household pantry provisions collected and delivered directly.",
     href: "/services/grocery",
-    image: "/media/public/images/cape-town-market-vegetables.webp",
+    asset: ktMediaV3.pages.services.overview.grocery,
   },
   {
     id: "pharmacy",
@@ -59,7 +60,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "A careful handoff, clearly arranged.",
     summary: "Pharmacy-related deliveries arranged with careful handling and verified drop-off coordinates.",
     href: "/services/pharmacy",
-    image: "/media/public/images/jhb-rosebank-plants.webp",
+    asset: ktMediaV3.pages.services.overview.pharmacy,
   },
   {
     id: "moving",
@@ -68,7 +69,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "When it’s more than a parcel.",
     summary: "Larger household goods, office equipment, and bulky volume moves coordinated with cargo transport.",
     href: "/services/moving",
-    image: "/media/public/images/jhb-maboneng-vehicle-workshop.webp",
+    asset: ktMediaV3.pages.services.overview.moving,
   },
   {
     id: "freight",
@@ -77,7 +78,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "Bigger loads need a clear plan.",
     summary: "Scheduled heavy haulage and pallet freight coordinated across South African regional highways.",
     href: "/services/freight",
-    image: "/media/public/images/truck_asset_pack_12_images/01_full_side_view_facing_right.png",
+    asset: ktMediaV3.pages.services.overview.freight,
   },
   {
     id: "shuttle",
@@ -86,7 +87,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "Planned transport, clearly arranged.",
     summary: "Scheduled route transport coordinated between confirmed commercial hubs and departure points.",
     href: "/services/shuttle",
-    image: "/media/public/images/cape-town-road-night.webp",
+    asset: ktMediaV3.pages.services.overview.shuttle,
   },
   {
     id: "business",
@@ -95,7 +96,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "Delivery built into the day-to-day.",
     summary: "Account-based delivery management for local merchants and businesses with repeat daily orders.",
     href: "/services/business",
-    image: "/images/kt-couriers/provisional/r2/documentary/r2-doc-02-driver-arrival.webp",
+    asset: ktMediaV3.pages.services.overview.business,
   },
   {
     id: "driver-network",
@@ -104,7 +105,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "Meet the people who move it.",
     summary: "Professional couriers and transport operators providing reliable physical delivery across active regions.",
     href: "/services/driver-network",
-    image: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/01_original_pose_refined.png",
+    asset: ktMediaV3.pages.services.overview.driverNetwork,
   },
   {
     id: "pricing",
@@ -113,7 +114,7 @@ const SERVICES_LIST: ServiceItem[] = [
     headline: "What shapes your quote.",
     summary: "Clear, transparent delivery cost factors based on vehicle type, parcel size, and confirmed distance.",
     href: "/services/pricing",
-    image: "/media/public/images/illustration/Package delivery.svg",
+    asset: ktMediaV3.pages.services.overview.pricing,
   },
 ];
 
@@ -197,8 +198,8 @@ export function PublicServicesOverview() {
           <div className="lg:col-span-5 sticky top-28 space-y-6">
             <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
               <Image
-                src={activeService.image}
-                alt={activeService.title}
+                src={activeService.asset.src}
+                alt={activeService.asset.alt}
                 fill
                 sizes="(max-width: 1023px) 94vw, 450px"
                 className="object-cover"

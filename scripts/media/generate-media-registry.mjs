@@ -3,22 +3,26 @@ import path from "node:path";
 
 const rootDir = process.cwd();
 const inventoryPath = path.join(rootDir, "artifacts", "media", "media-inventory.json");
-const registryOutputPath = path.join(rootDir, "components", "public-v2", "media", "kt-media-registry.ts");
+const registryV2OutputPath = path.join(rootDir, "components", "public-v2", "media", "kt-media-registry.ts");
+const registryV3OutputPath = path.join(rootDir, "components", "public-v3", "media", "kt-media-v3.ts");
 
 async function main() {
-  console.log("=== PHASE B: GENERATING TYPED KT MEDIA REGISTRY ===");
+  console.log("=== PHASE B: GENERATING TYPED KT MEDIA REGISTRIES (v2 & v3) ===");
 
   const inventoryRaw = await readFile(inventoryPath, "utf8");
   const inventory = JSON.parse(inventoryRaw);
 
   const approved = inventory.filter((item) => item.approvedForRuntime);
-  console.log(`Building registry from ${approved.length} approved assets.`);
+  console.log(`Building registries from ${approved.length} approved assets.`);
 
   const assetMap = new Map();
   const lowerMap = new Map();
   for (const item of approved) {
     assetMap.set(item.id, item);
     lowerMap.set(item.id.toLowerCase(), item);
+    // Also index by filename
+    assetMap.set(item.filename, item);
+    lowerMap.set(item.filename.toLowerCase(), item);
   }
 
   // Helper to format an asset record for code generation
@@ -38,22 +42,23 @@ async function main() {
     desktopCrop: "optical-center",
     mobileCrop: "portrait-slice",
     textSafeRegion: "center-clear",
+    priority: 3,
+    role: "quiet-utility",
   }`;
     }
 
-    const isProtagonist = a.semanticRole.startsWith("protagonist-");
-    const isSvg = a.semanticRole === "illustration-vector";
-
-    let primarySrc = a.runtimePaths.primary || a.runtimePaths.webp || a.runtimePaths.vector || `/media/public/images/${a.filename}`;
-    let webpSrc = a.runtimePaths.webp || undefined;
-    let pngSrc = a.runtimePaths.masterPng || undefined;
+    const primarySrc = a.runtimePaths?.primary || a.runtimePaths?.webp || a.runtimePaths?.vector || `/media/public/images/${a.filename}`;
+    const webpSrc = a.runtimePaths?.webp || undefined;
+    const pngSrc = a.runtimePaths?.masterPng || undefined;
 
     // Generate responsive srcSet if widths are present
     const srcSetEntries = [];
-    for (const [key, val] of Object.entries(a.runtimePaths)) {
-      if (/^w\d+$/.test(key)) {
-        const w = key.slice(1);
-        srcSetEntries.push(`${val} ${w}w`);
+    if (a.runtimePaths) {
+      for (const [key, val] of Object.entries(a.runtimePaths)) {
+        if (/^w\d+$/.test(key)) {
+          const w = key.slice(1);
+          srcSetEntries.push(`${val} ${w}w`);
+        }
       }
     }
     const srcSet = srcSetEntries.length > 0 ? srcSetEntries.join(", ") : undefined;
@@ -61,18 +66,20 @@ async function main() {
     return `{
     id: "${a.id}",
     src: "${primarySrc}",
-    alt: ${JSON.stringify(a.altText)},
-    width: ${a.width},
-    height: ${a.height},
-    aspectRatio: ${a.aspectRatio},
-    focalPoint: [${a.focalPoint[0]}, ${a.focalPoint[1]}],
-    hasAlpha: ${a.hasAlpha},
+    alt: ${JSON.stringify(a.altText || "KT Couriers logistics")},
+    width: ${a.width || 1440},
+    height: ${a.height || 900},
+    aspectRatio: ${a.aspectRatio || 1.6},
+    focalPoint: [${a.focalPoint ? a.focalPoint[0] : 0.5}, ${a.focalPoint ? a.focalPoint[1] : 0.5}],
+    hasAlpha: ${Boolean(a.hasAlpha)},
     ${webpSrc ? `webpSrc: "${webpSrc}",` : ""}
     ${pngSrc ? `pngSrc: "${pngSrc}",` : ""}
     ${srcSet ? `srcSet: "${srcSet}",` : ""}
-    desktopCrop: "${a.desktopCrop}",
-    mobileCrop: "${a.mobileCrop}",
-    textSafeRegion: "${a.textSafeRegion}",
+    desktopCrop: "${a.desktopCrop || "optical-center"}",
+    mobileCrop: "${a.mobileCrop || "portrait-slice"}",
+    textSafeRegion: "${a.textSafeRegion || "center-clear"}",
+    priority: ${a.visualPriority || 2},
+    role: "${a.semanticRole || "quiet-utility"}",
   }`;
   }
 
@@ -81,12 +88,12 @@ async function main() {
     .filter((a) => a.semanticRole === "protagonist-human")
     .map((a) => toCode(a.id));
 
-  const content = `/**
- * KT COURIERS — AUTHORITATIVE TYPED MEDIA REGISTRY
+  // --- V2 REGISTRY OUTPUT (Backwards compatible) ---
+  const v2Content = `/**
+ * KT COURIERS — AUTHORITATIVE TYPED MEDIA REGISTRY (v2)
  *
  * Generated from Phase A/B media inventory & Sharp WebP derivation.
  * All route components and scenes import media exclusively through this registry.
- * No hardcoded filenames or random paths allowed in visual components.
  */
 
 export interface KTMediaAsset {
@@ -104,6 +111,8 @@ export interface KTMediaAsset {
   desktopCrop: "full-bleed" | "optical-center" | "baseline-ground" | "side-anchored";
   mobileCrop: "portrait-slice" | "cab-focus" | "courier-upper" | "horizontal-crawl";
   textSafeRegion: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center-clear";
+  priority?: number;
+  role?: string;
 }
 
 export const ktMedia = {
@@ -150,49 +159,50 @@ export const ktMedia = {
 
   categories: {
     fashion: {
-      hero: ${toCode("market.craft.leather-bags")},
-      streetLook1: ${toCode("market.fashion.jhb-fashion-brown-coat")},
-      streetLook2: ${toCode("market.fashion.jhb-fashion-white-top")},
-      urbanGraffiti: ${toCode("market.local.jhb-fashion-graffiti")},
+      hero: ${toCode("photo.fashion.rosebank-leather-bags")},
+      streetLook1: ${toCode("photo.fashion.jhb-editorial-coat")},
+      streetLook2: ${toCode("photo.fashion.jhb-editorial-white")},
+      urbanGraffiti: ${toCode("photo.fashion.jhb-street-graffiti")},
     },
     groceries: {
-      hero: ${toCode("market.produce.fresh-crates")},
-      freshGreens: ${toCode("commerce.groceries.fresh-produce")},
+      hero: ${toCode("photo.grocery.fruit-crates-overhead")},
+      freshGreens: ${toCode("photo.grocery.vegetables-crate")},
     },
     foodDining: {
-      hero: ${toCode("market.food.prepared-bowl")},
+      hero: ${toCode("photo.food.prepared-grain-bowl")},
+      kitchenPlating: ${toCode("photo.food.kitchen-plating-pass")},
     },
     homeLiving: {
-      hero: ${toCode("market.craft.ceramics")},
-      interiorVessel: ${toCode("commerce.homeware.vitaly-gariev-1jnn9qhmtgu-unsplash")},
+      hero: ${toCode("photo.commerce.cape-town-market-ceramics")},
+      interiorVessel: ${toCode("photo.commerce.sculptural-ceramics-vessel")},
     },
     healthWellness: {
-      hero: ${toCode("commerce.wellness.declan-sun-7tc4dllcxf0-unsplash")},
-      apothecaryJars: ${toCode("commerce.wellness.karolina-grabowska-aerjba-rnz4-unsplash")},
-      essentialOils: ${toCode("commerce.wellness.ela-de-pure-dfubjaplwfi-unsplash")},
+      hero: ${toCode("photo.wellness.amber-apothecary-bottles")},
+      apothecaryJars: ${toCode("photo.wellness.herbal-jars-dispensary")},
+      essentialOils: ${toCode("photo.wellness.organic-botanical-serum")},
     },
   },
 
   routes: {
-    nightTransitCorridor: ${toCode("route.aerial.vije-vijendranath-HBUNTeUfLFo-unsplash")},
-    aerialHighway: ${toCode("route.aerial.mavic-101-LhgEKILDWTg-unsplash")},
-    gautengTransitLine: ${toCode("route.aerial.vije-vijendranath-9o5zeS6QbgM-unsplash")},
-    johannesburgCorridor: ${toCode("route.aerial.chuttersnap-xewrfLD8emE-unsplash")},
-    mabonengWorkshop: ${toCode("route.aerial.vije-vijendranath-PgSm_blvwLo-unsplash")},
+    nightTransitCorridor: ${toCode("photo.route.night-highway-transit")},
+    aerialHighway: ${toCode("photo.route.overhead-cloverleaf-interchange")},
+    gautengTransitLine: ${toCode("photo.route.gauteng-transit-corridor")},
+    johannesburgCorridor: ${toCode("photo.route.long-haul-freeway-vista")},
+    mabonengWorkshop: ${toCode("photo.prep.maboneng-fleet-depot")},
   },
 
   documentary: {
-    driverArrival: ${toCode("documentary.r2-doc-02-driver-arrival")},
-    pickup: ${toCode("documentary.r2-doc-03-pickup")},
-    trackingCheck: ${toCode("documentary.r2-doc-05-tracking")},
-    handoffDetail: ${toCode("documentary.r2-doc-06-handoff")},
+    driverArrival: ${toCode("photo.courier.doorstep-driver-arrival")},
+    pickup: ${toCode("photo.courier.merchant-pickup-handoff")},
+    trackingCheck: ${toCode("photo.courier.digital-manifest-check")},
+    handoffDetail: ${toCode("photo.courier.recipient-physical-handoff")},
   },
 
   auth: {
-    customer: ${toCode("auth.kt-auth-01-customer")},
-    merchant: ${toCode("auth.kt-auth-02-merchant")},
-    product: ${toCode("auth.kt-auth-03-product")},
-    recovery: ${toCode("auth.kt-auth-04-recovery")},
+    customer: ${toCode("photo.courier.recipient-receiving-delivery")},
+    merchant: ${toCode("photo.prep.artisan-box-assembly")},
+    product: ${toCode("photo.commerce.clean-packaged-goods-stack")},
+    recovery: ${toCode("photo.auth.recovery-keycard")},
   },
 
   illustrations: {
@@ -204,10 +214,6 @@ export const ktMedia = {
   },
 } as const;
 
-/**
- * Route-level and Scene-level Media Manifests.
- * Ensures routes only load and prewarm the assets they actually need.
- */
 export const sceneManifests = {
   homepage: {
     scene00_02_hero: [
@@ -252,16 +258,10 @@ export const sceneManifests = {
   },
 } as const;
 
-/**
- * Helper to generate responsive img srcSet string
- */
 export function getMediaSrcSet(asset: KTMediaAsset): string | undefined {
   return asset.srcSet;
 }
 
-/**
- * Identifies the single authoritative first-viewport LCP asset for a given route.
- */
 export function getRouteLcpAsset(pathname: string): KTMediaAsset | null {
   if (pathname === "/") return ktMedia.home.heroTruck.sideRight;
   if (pathname.startsWith("/shop/categories")) return ktMedia.categories.fashion.hero;
@@ -275,9 +275,335 @@ export function getRouteLcpAsset(pathname: string): KTMediaAsset | null {
 }
 `;
 
-  await mkdir(path.dirname(registryOutputPath), { recursive: true });
-  await writeFile(registryOutputPath, content, "utf8");
-  console.log(`Authoritative media registry successfully generated at: ${registryOutputPath}`);
+  // --- V3 REGISTRY OUTPUT (Authoritative, typed, comprehensive) ---
+  const v3Content = `/**
+ * KT COURIERS — AUTHORITATIVE TYPED MEDIA REGISTRY V3
+ *
+ * Cinematic Production Standard & Asset Registry
+ * Connects 191 master assets and role-aware WebP derivatives to the public experience.
+ * All public-v3 components and scenes import media exclusively through this registry.
+ */
+
+export interface KTMediaV3Asset {
+  id: string;
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  aspectRatio: number;
+  focalPoint: readonly [number, number] | [number, number];
+  hasAlpha: boolean;
+  webpSrc?: string;
+  pngSrc?: string;
+  srcSet?: string;
+  desktopCrop: "full-bleed" | "optical-center" | "baseline-ground" | "side-anchored";
+  mobileCrop: "portrait-slice" | "cab-focus" | "courier-upper" | "horizontal-crawl";
+  textSafeRegion: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center-clear";
+  priority: number;
+  role: string;
+}
+
+export const ktMediaV3 = {
+  protagonists: {
+    whiteTruck: {
+      sideRight: ${toCode("protagonist.truck.white.side-right")},
+      sideLeft: ${toCode("protagonist.truck.white.side-left")},
+      centeredHero: ${toCode("protagonist.truck.white.centered-hero")},
+      front3qRight: ${toCode("protagonist.truck.white.front-3q-right")},
+      front3qLeft: ${toCode("protagonist.truck.white.front-3q-left")},
+      topDownStraight: ${toCode("protagonist.truck.white.top-down-straight")},
+      topDownTurning: ${toCode("protagonist.truck.white.top-down-turning")},
+      cargoBoxMaterial: ${toCode("protagonist.truck.white.cargo-box-material")},
+      cabCrop: ${toCode("protagonist.truck.white.close-crop-front-cab-only")},
+      rearDoorsOpen: ${toCode("protagonist.truck.white.rear-doors-slightly-open")},
+    },
+    van: {
+      sideRight: ${toCode("protagonist.van.side-right")},
+      slidingDoorOpen: ${toCode("protagonist.van.sliding-door-open")},
+      rearDoorsOpen: ${toCode("protagonist.van.rear-doors-open")},
+      allDoorsOpen: ${toCode("protagonist.van.all-doors-open")},
+      centeredHero: ${toCode("protagonist.van.centered-hero")},
+      front3qRight: ${toCode("protagonist.van.front-three-quarter-facing-right")},
+    },
+    redTruck: {
+      sideRight: ${toCode("protagonist.truck.red.side-right")},
+      centeredHero: ${toCode("protagonist.truck.red.centered-hero")},
+      curtainOpen: ${toCode("protagonist.truck.red.curtain-open")},
+      front3qRight: ${toCode("protagonist.truck.red.front-three-quarter-view-facing-right")},
+    },
+    courier: {
+      heroStanding: ${toCode("protagonist.courier.hero-standing")},
+      carryOne: ${toCode("protagonist.courier.carry-one-parcel")},
+      walkRightCarryOne: ${toCode("protagonist.courier.walk-right-one-parcel")},
+      readyHandover: ${toCode("protagonist.courier.ready-handover")},
+      extendingHandoff: ${toCode("protagonist.courier.extending-handoff")},
+      approachVehicle: ${toCode("protagonist.courier.approach-vehicle")},
+      loadingUnloading: ${toCode("protagonist.courier.loading-unloading")},
+      allPoses: [
+        ${courierPoses.join(",\n        ")}
+      ] as readonly KTMediaV3Asset[],
+    },
+  },
+
+  editorial: {
+    market: {
+      rosebankCraft: ${toCode("photo.market.rosebank-craft-stalls")},
+      rosebankDialogue: ${toCode("photo.market.rosebank-merchant-dialogue")},
+      rosebankPeople: ${toCode("photo.market.rosebank-busy-pathway")},
+      rosebankPlants: ${toCode("photo.market.rosebank-succulents-nursery")},
+      socialExchange: ${toCode("photo.market.south-african-social-exchange")},
+      artisanPortrait: ${toCode("photo.market.local-artisan-portrait")},
+      urbanStreet: ${toCode("photo.market.urban-merchant-street")},
+      weekendFair: ${toCode("photo.market.weekend-fair-awnings")},
+    },
+    merchant: {
+      boxAssembly: ${toCode("photo.prep.artisan-box-assembly")},
+      stagingShelves: ${toCode("photo.prep.store-staging-shelves")},
+      wrappingPackaging: ${toCode("photo.prep.wrapping-protective-packaging")},
+      boxingApparel: ${toCode("photo.prep.boxing-finished-apparel")},
+      woodworkLabeling: ${toCode("photo.prep.artisan-woodwork-labeling")},
+      leatherGoodsBoxing: ${toCode("photo.prep.leather-goods-boxing")},
+      dispatchDesk: ${toCode("photo.prep.workshop-dispatch-desk")},
+      mabonengDepot: ${toCode("photo.prep.maboneng-fleet-depot")},
+    },
+    courier: {
+      doorstepArrival: ${toCode("photo.courier.doorstep-driver-arrival")},
+      pickupHandoff: ${toCode("photo.courier.merchant-pickup-handoff")},
+      manifestCheck: ${toCode("photo.courier.digital-manifest-check")},
+      physicalHandoff: ${toCode("photo.courier.recipient-physical-handoff")},
+      customerArrival: ${toCode("photo.courier.recipient-receiving-delivery")},
+      driverRoute: ${toCode("photo.courier.south-african-driver-route")},
+      teamPortrait: ${toCode("photo.courier.delivery-team-portrait")},
+      dispatchWorker: ${toCode("photo.courier.dispatch-staging-worker")},
+    },
+    fashion: {
+      brownCoat: ${toCode("photo.fashion.jhb-editorial-coat")},
+      whiteTop: ${toCode("photo.fashion.jhb-editorial-white")},
+      streetGraffiti: ${toCode("photo.fashion.jhb-street-graffiti")},
+      leatherBags: ${toCode("photo.fashion.rosebank-leather-bags")},
+      jewelry: ${toCode("photo.fashion.rosebank-handcrafted-jewelry")},
+      garmentRack: ${toCode("photo.fashion.boutique-garment-rack")},
+      retailStorefront: ${toCode("photo.fashion.retail-store-front")},
+      leatherFootwear: ${toCode("photo.fashion.designer-footwear-leather")},
+    },
+    food: {
+      grainBowl: ${toCode("photo.food.prepared-grain-bowl")},
+      kitchenPlating: ${toCode("photo.food.kitchen-plating-pass")},
+      bakingBread: ${toCode("photo.food.fresh-baking-bread")},
+      restaurantDispatch: ${toCode("photo.food.restaurant-dispatch-counter")},
+    },
+    grocery: {
+      fruitCrates: ${toCode("photo.grocery.fruit-crates-overhead")},
+      vegetablesCrate: ${toCode("photo.grocery.vegetables-crate")},
+      organicGreens: ${toCode("photo.grocery.organic-greens-table")},
+      marketProduce: ${toCode("photo.grocery.market-counter-produce")},
+    },
+    wellness: {
+      apothecaryBottles: ${toCode("photo.wellness.amber-apothecary-bottles")},
+      herbalJars: ${toCode("photo.wellness.herbal-jars-dispensary")},
+      organicSerum: ${toCode("photo.wellness.organic-botanical-serum")},
+      minimalistBottles: ${toCode("photo.wellness.minimalist-wellness-bottles")},
+      licensedPharmacy: ${toCode("photo.wellness.licensed-pharmacy-counter")},
+      botanicalCompounding: ${toCode("photo.wellness.botanical-extract-compounding")},
+      temperatureSensitive: ${toCode("photo.wellness.temperature-sensitive-pack")},
+    },
+    warehouse: {
+      distributionPallets: ${toCode("photo.freight.distribution-center-pallets")},
+      highBayRacking: ${toCode("photo.freight.high-bay-warehouse-racking")},
+      loadingDocks: ${toCode("photo.freight.loading-dock-freight-doors")},
+      intermodalDepot: ${toCode("photo.freight.intermodal-container-depot")},
+      heavyForklift: ${toCode("photo.freight.heavy-forklift-pallet-transfer")},
+      commercialStaging: ${toCode("photo.freight.commercial-freight-staging-deck")},
+      fleetHangar: ${toCode("photo.freight.fleet-maintenance-hangar")},
+    },
+    route: {
+      gautengCorridor: ${toCode("photo.route.gauteng-transit-corridor")},
+      nightTransit: ${toCode("photo.route.night-highway-transit")},
+      johannesburgGrid: ${toCode("photo.route.johannesburg-street-grid")},
+      freewayFlyover: ${toCode("photo.route.metropolitan-freeway-flyover")},
+      regionalArterial: ${toCode("photo.route.regional-arterial-connector")},
+      cloverleafInterchange: ${toCode("photo.route.overhead-cloverleaf-interchange")},
+      longHaulFreeway: ${toCode("photo.route.long-haul-freeway-vista")},
+      capeTownTransit: ${toCode("photo.route.cape-town-coastal-transit")},
+      crossCountryRoad: ${toCode("photo.route.cross-country-freight-road")},
+      johannesburgSkyline: ${toCode("photo.route.johannesburg-skyline-aerial")},
+    },
+    ceramics: {
+      sculpturalVessel: ${toCode("photo.commerce.sculptural-ceramics-vessel")},
+      potteryStudio: ${toCode("photo.commerce.pottery-studio-shelving")},
+      stonewareTableware: ${toCode("photo.commerce.stoneware-tableware-collection")},
+      ceramicVase: ${toCode("photo.commerce.ceramic-vase-sculpture")},
+      capeTownPlates: ${toCode("photo.commerce.cape-town-market-ceramics")},
+      packagedStack: ${toCode("photo.commerce.clean-packaged-goods-stack")},
+      roasteryCounter: ${toCode("photo.commerce.coffee-roastery-counter")},
+    },
+  },
+
+  pages: {
+    homepage: {
+      heroPoster: ${toCode("protagonist.truck.white.side-right")},
+      trailerTakeover: [
+        ${toCode("photo.grocery.fruit-crates-overhead")},
+        ${toCode("photo.fashion.rosebank-leather-bags")},
+        ${toCode("photo.food.prepared-grain-bowl")},
+        ${toCode("photo.commerce.cape-town-market-ceramics")},
+        ${toCode("photo.wellness.amber-apothecary-bottles")},
+        ${toCode("photo.fashion.rosebank-handcrafted-jewelry")},
+      ],
+      imageFan: [
+        ${toCode("photo.fashion.rosebank-leather-bags")},
+        ${toCode("photo.grocery.vegetables-crate")},
+        ${toCode("photo.food.prepared-grain-bowl")},
+        ${toCode("photo.wellness.amber-apothecary-bottles")},
+        ${toCode("photo.commerce.sculptural-ceramics-vessel")},
+        ${toCode("photo.fashion.rosebank-handcrafted-jewelry")},
+        ${toCode("photo.fashion.jhb-editorial-white")},
+      ],
+      preparation: ${toCode("photo.prep.artisan-box-assembly")},
+      preparationSecondary: ${toCode("photo.prep.store-staging-shelves")},
+      collection: {
+        van: ${toCode("protagonist.van.side-right")},
+        slidingDoor: ${toCode("protagonist.van.sliding-door-open")},
+        courier: ${toCode("protagonist.courier.approach-vehicle")},
+      },
+      custodySplit: {
+        merchantSide: ${toCode("photo.courier.merchant-pickup-handoff")},
+        courierSide: ${toCode("photo.courier.digital-manifest-check")},
+      },
+      routePlane: ${toCode("photo.route.gauteng-transit-corridor")},
+      freightClimax: {
+        background: ${toCode("photo.freight.heavy-forklift-pallet-transfer")},
+        truck: ${toCode("protagonist.truck.red.side-right")},
+      },
+      arrival: {
+        background: ${toCode("photo.courier.doorstep-driver-arrival")},
+        courierHandoff: ${toCode("photo.courier.recipient-physical-handoff")},
+        actor: ${toCode("protagonist.courier.hero-standing")},
+      },
+    },
+    services: {
+      overview: {
+        parcel: ${toCode("photo.courier.recipient-physical-handoff")},
+        ecommerce: ${toCode("photo.prep.artisan-box-assembly")},
+        food: ${toCode("photo.food.prepared-grain-bowl")},
+        grocery: ${toCode("photo.grocery.fruit-crates-overhead")},
+        pharmacy: ${toCode("photo.wellness.amber-apothecary-bottles")},
+        moving: ${toCode("photo.freight.commercial-freight-staging-deck")},
+        freight: ${toCode("photo.freight.distribution-center-pallets")},
+        shuttle: ${toCode("photo.route.night-highway-transit")},
+        business: ${toCode("photo.prep.workshop-dispatch-desk")},
+        driverNetwork: ${toCode("photo.courier.delivery-team-portrait")},
+        pricing: ${toCode("photo.route.long-haul-freeway-vista")},
+      },
+      parcel: {
+        primary: ${toCode("photo.courier.doorstep-driver-arrival")},
+        secondary: ${toCode("photo.courier.merchant-pickup-handoff")},
+        detail: ${toCode("photo.courier.recipient-physical-handoff")},
+      },
+      ecommerce: {
+        primary: ${toCode("photo.prep.artisan-box-assembly")},
+        secondary: ${toCode("photo.prep.store-staging-shelves")},
+        detail: ${toCode("photo.prep.boxing-finished-apparel")},
+      },
+      food: {
+        primary: ${toCode("photo.food.kitchen-plating-pass")},
+        secondary: ${toCode("photo.food.prepared-grain-bowl")},
+        detail: ${toCode("photo.food.restaurant-dispatch-counter")},
+      },
+      grocery: {
+        primary: ${toCode("photo.grocery.fruit-crates-overhead")},
+        secondary: ${toCode("photo.grocery.vegetables-crate")},
+        detail: ${toCode("photo.grocery.market-counter-produce")},
+      },
+      pharmacy: {
+        primary: ${toCode("photo.wellness.amber-apothecary-bottles")},
+        secondary: ${toCode("photo.wellness.herbal-jars-dispensary")},
+        detail: ${toCode("photo.wellness.temperature-sensitive-pack")},
+      },
+      moving: {
+        primary: ${toCode("photo.freight.heavy-forklift-pallet-transfer")},
+        secondary: ${toCode("photo.freight.commercial-freight-staging-deck")},
+        detail: ${toCode("photo.freight.loading-dock-freight-doors")},
+      },
+      freight: {
+        primary: ${toCode("photo.freight.distribution-center-pallets")},
+        secondary: ${toCode("photo.freight.high-bay-warehouse-racking")},
+        detail: ${toCode("photo.route.cross-country-freight-road")},
+      },
+      shuttle: {
+        primary: ${toCode("photo.route.night-highway-transit")},
+        secondary: ${toCode("photo.route.metropolitan-freeway-flyover")},
+        detail: ${toCode("photo.route.overhead-cloverleaf-interchange")},
+      },
+      business: {
+        primary: ${toCode("photo.prep.workshop-dispatch-desk")},
+        secondary: ${toCode("photo.prep.wrapping-protective-packaging")},
+        detail: ${toCode("photo.prep.maboneng-fleet-depot")},
+      },
+      driverNetwork: {
+        primary: ${toCode("photo.courier.delivery-team-portrait")},
+        secondary: ${toCode("photo.courier.south-african-driver-route")},
+        detail: ${toCode("photo.courier.dispatch-staging-worker")},
+      },
+      pricing: {
+        primary: ${toCode("photo.route.long-haul-freeway-vista")},
+        secondary: ${toCode("photo.route.regional-arterial-connector")},
+        detail: ${toCode("photo.commerce.clean-packaged-goods-stack")},
+      },
+    },
+    about: {
+      photoEssay: [
+        ${toCode("photo.market.rosebank-craft-stalls")},
+        ${toCode("photo.route.gauteng-transit-corridor")},
+        ${toCode("photo.prep.artisan-box-assembly")},
+        ${toCode("photo.route.cross-country-freight-road")},
+        ${toCode("photo.courier.doorstep-driver-arrival")},
+      ],
+      portraits: [
+        ${toCode("photo.market.local-artisan-portrait")},
+        ${toCode("photo.courier.delivery-team-portrait")},
+      ],
+    },
+    coverage: {
+      hero: ${toCode("photo.route.gauteng-transit-corridor")},
+      capeTown: ${toCode("photo.route.cape-town-coastal-transit")},
+      interchange: ${toCode("photo.route.overhead-cloverleaf-interchange")},
+      skyline: ${toCode("photo.route.johannesburg-skyline-aerial")},
+    },
+    join: {
+      driverHero: ${toCode("photo.courier.delivery-team-portrait")},
+      merchantHero: ${toCode("photo.market.rosebank-merchant-dialogue")},
+      transitAction: ${toCode("photo.courier.south-african-driver-route")},
+    },
+    auth: {
+      customer: ${toCode("photo.courier.recipient-receiving-delivery")},
+      merchant: ${toCode("photo.prep.artisan-box-assembly")},
+      product: ${toCode("photo.commerce.clean-packaged-goods-stack")},
+      recovery: ${toCode("photo.auth.recovery-keycard")},
+    },
+  },
+
+  illustrations: {
+    orderDelivery: ${toCode("illustration.order-delivery")},
+    packageDelivery: ${toCode("illustration.package-delivery")},
+    gpsLocation: ${toCode("illustration.gps-location")},
+    onlineShopping: ${toCode("illustration.kt-ill-online-shopping")},
+    motionOrderState: ${toCode("illustration.kt-motion-order-state")},
+  },
+} as const;
+
+export function getMediaV3SrcSet(asset: KTMediaV3Asset): string | undefined {
+  return asset.srcSet;
+}
+`;
+
+  await mkdir(path.dirname(registryV2OutputPath), { recursive: true });
+  await writeFile(registryV2OutputPath, v2Content, "utf8");
+  console.log(`V2 media registry written to: ${registryV2OutputPath}`);
+
+  await mkdir(path.dirname(registryV3OutputPath), { recursive: true });
+  await writeFile(registryV3OutputPath, v3Content, "utf8");
+  console.log(`V3 authoritative media registry written to: ${registryV3OutputPath}`);
 }
 
 main().catch((err) => {

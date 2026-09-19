@@ -1,8 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
+import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function PricingServiceView({ service }: AuthoredServiceViewProps) {
+  const mediaSet = ktMediaV3.pages.services.pricing;
+
   const pricingFactors = [
     {
       title: "Pickup and drop-off locations",
@@ -29,18 +33,42 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
   return (
     <div className="space-y-16">
       {/* Editorial Lead Stage */}
-      <section className="space-y-6 max-w-3xl">
-        <div className="inline-flex items-center gap-2">
-          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-brand-blue-accessible)] font-semibold">
-            Delivery Pricing Explained
-          </span>
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+        <div className="lg:col-span-7 space-y-6">
+          <div className="inline-flex items-center gap-2">
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-brand-blue-accessible)] font-semibold">
+              Delivery Pricing Explained
+            </span>
+          </div>
+          <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
+            {service.title}
+          </h1>
+          <p className="text-lg sm:text-xl text-[var(--kt-road-grey)] leading-relaxed">
+            KT Couriers does not advertise speculative rate tables or deploy client-side guessing calculators. Every quote is calculated from real physical requirements submitted through our authenticated delivery request flow.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/account/request-delivery"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] font-bold text-xs uppercase tracking-wider hover:bg-[#23272B] transition-colors"
+            >
+              <span>Request a delivery quote</span>
+              <KtIconArrowRight size={16} />
+            </Link>
+          </div>
         </div>
-        <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
-          {service.title}
-        </h1>
-        <p className="text-lg sm:text-xl text-[var(--kt-road-grey)] leading-relaxed">
-          KT Couriers does not advertise speculative rate tables or deploy client-side guessing calculators. Every quote is calculated from real physical requirements submitted through our authenticated delivery request flow.
-        </p>
+
+        <div className="lg:col-span-5">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
+            <Image
+              src={mediaSet.primary.src}
+              alt={mediaSet.primary.alt}
+              fill
+              priority
+              sizes="(max-width: 1023px) 100vw, 40vw"
+              className="object-cover"
+            />
+          </div>
+        </div>
       </section>
 
       {/* The 5 Real Quote Factors */}

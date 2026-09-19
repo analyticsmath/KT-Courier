@@ -1,28 +1,46 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { ktMediaV3 } from "../../media/kt-media-v3";
 
 interface FreightSceneProps {
   className?: string;
 }
 
 /**
- * Scene 09 — Network / Freight Climax.
- * Red freight truck commands the center plane for heavy haulage and scheduled transit.
- * Color discipline: Red is supplied exclusively by the truck body, keeping UI architecture calm.
+ * Chapter 09 — Freight & Heavy Haulage Climax.
+ * Real warehouse, forklift, and line-haul distribution terminal photography behind
+ * the dominant Red Freight Truck actor.
+ * Industrial scale is communicated through physical vehicle mass.
+ * Color discipline: Red is supplied exclusively by the truck body and trailer curtain.
  */
 export function FreightScene({ className = "" }: FreightSceneProps) {
+  const warehouseBg = ktMediaV3.pages.homepage.freightClimax.background;
+
   return (
     <section
-      className={`relative min-h-[95vh] flex flex-col justify-between bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] py-16 px-6 md:px-12 overflow-hidden ${className}`}
+      className={`relative min-h-[96vh] flex flex-col justify-between bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] py-16 px-6 md:px-12 overflow-hidden ${className}`}
       data-kt-contrast="dark"
       data-kt-scene="freight"
       aria-labelledby="freight-heading"
     >
+      {/* Industrial Warehouse & Terminal Atmosphere */}
+      <div className="absolute inset-0 opacity-25 pointer-events-none z-0">
+        <Image
+          src={warehouseBg.src}
+          alt={warehouseBg.alt}
+          fill
+          sizes="100vw"
+          className="object-cover object-center filter contrast-125 brightness-75"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)] via-[var(--kt-asphalt)]/70 to-[var(--kt-asphalt)]" />
+      </div>
+
       {/* Top Narrative Framing */}
-      <div className="max-w-4xl mx-auto text-center pt-8">
-        <span className="text-xs font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-3">
-          Heavy Freight & Planned Transport
+      <div className="max-w-4xl mx-auto text-center pt-8 relative z-10">
+        <span className="text-xs font-mono uppercase tracking-widest text-[var(--kt-concrete)] block mb-3">
+          Chapter 09 &bull; Regional Freight & Heavy Haulage
         </span>
         <h2
           id="freight-heading"
@@ -31,7 +49,7 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
           Built for more than small parcels.
         </h2>
         <p className="text-base sm:text-xl text-[var(--kt-concrete)] max-w-2xl mx-auto leading-relaxed">
-          For larger or planned movement, the details are reviewed before the job is confirmed.
+          Palletized cargo, line-haul corridors, and dedicated fleet capacity across South Africa.
         </p>
       </div>
 
@@ -42,12 +60,12 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
       />
 
       {/* Bottom Action & Scope */}
-      <div className="max-w-xl mx-auto text-center pb-6">
+      <div className="max-w-xl mx-auto text-center pb-6 relative z-10">
         <Link
           href="/services/freight"
           className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-[var(--kt-asphalt)] font-bold text-xs uppercase tracking-wider hover:bg-[var(--kt-concrete)] transition-colors"
         >
-          Explore Freight & Bulk Haulage
+          Explore Freight & Bulk Haulage &rarr;
         </Link>
       </div>
     </section>

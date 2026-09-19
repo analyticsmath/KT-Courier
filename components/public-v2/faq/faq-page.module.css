@@ -1,7 +1,7 @@
 .faqRoot {
   position: relative;
   width: 100%;
-  background-color: var(--kt-cool-050, #fafbfa);
+  background-color: var(--kt-freight-paper, #F1ECE2);
   color: var(--kt-carbon, #101210);
   padding: clamp(36px, 6vw, 72px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
 }

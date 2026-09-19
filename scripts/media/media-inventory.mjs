@@ -1,4 +1,4 @@
-import { readdir, stat, writeFile, mkdir } from "node:fs/promises";
+import { readdir, stat, writeFile, mkdir, readFile } from "node:fs/promises";
 import crypto from "node:crypto";
 import path from "node:path";
 import sharp from "sharp";
@@ -31,7 +31,7 @@ async function scanFiles(dir, baseDir) {
 }
 
 // Visual and semantic classification dictionary
-function classifyAsset(relPath, filename, meta, hash) {
+function classifyAsset(relPath, filename, meta, hash, ledgerMap = new Map()) {
   const isSvg = /\.svg$/i.test(filename);
   const width = meta.width || 0;
   const height = meta.height || 0;
@@ -263,110 +263,31 @@ function classifyAsset(relPath, filename, meta, hash) {
 
   // 6. Root Photographic Masters (110 files)
   else {
-    // Specific curated South African photojournalism
-    if (filename.includes("jhb-rosebank") || filename.includes("cape-town-market") || filename.includes("sa-market") || filename.includes("jhb-fashion")) {
-      visualPriority = 1;
+    const ledgerItem = ledgerMap.get(filename);
+    if (ledgerItem && ledgerItem.priority <= 2) {
+      id = ledgerItem.semanticId;
       approvedForRuntime = true;
-      colorCharacter = "earth-natural";
+      visualPriority = ledgerItem.priority;
+      altText = ledgerItem.altText;
+      sceneCandidates = ledgerItem.recommendedScenes || [];
+      routeCandidates = ledgerItem.recommendedRoutes || ["/"];
+      desktopCrop = ledgerItem.cropIntentDesktop || "optical-center";
+      mobileCrop = ledgerItem.cropIntentMobile || "portrait-slice";
+      textSafeRegion = ledgerItem.textSafeRegion || "center-clear";
+      transitionSuitability = Boolean(ledgerItem.transitionSuitability);
+      colorCharacter = ledgerItem.visualCharacter || "warm-neutral";
 
-      if (filename.includes("jhb-rosebank-bags") || filename.includes("rosebank-bags")) {
-        id = "market.craft.leather-bags";
-        semanticRole = "category-hero";
-        sceneCandidates = ["scene-06-marketplace", "scene-07-categories"];
-        routeCandidates = ["/shop", "/shop/categories", "/shop/categories/fashion"];
-        altText = "Handmade leather bags and accessories at Rosebank artisan market";
-      } else if (filename.includes("cape-town-market-vegetables") || filename.includes("sa-market-fruit")) {
-        id = "market.produce.fresh-crates";
-        semanticRole = "category-hero";
-        sceneCandidates = ["scene-06-marketplace", "scene-07-categories"];
-        routeCandidates = ["/shop", "/shop/categories", "/shop/categories/groceries"];
-        altText = "Farm-fresh vegetables and local produce stacked in market crates";
-      } else if (filename.includes("cape-town-market-food-bowl")) {
-        id = "market.food.prepared-bowl";
-        semanticRole = "category-hero";
-        sceneCandidates = ["scene-06-marketplace", "scene-07-categories"];
-        routeCandidates = ["/shop", "/shop/categories", "/shop/categories/food-dining"];
-        altText = "Freshly prepared healthy grain bowl from a local South African kitchen";
-      } else if (filename.includes("cape-town-market-ceramics")) {
-        id = "market.craft.ceramics";
-        semanticRole = "category-hero";
-        sceneCandidates = ["scene-06-marketplace", "scene-07-categories"];
-        routeCandidates = ["/shop", "/shop/categories", "/shop/categories/home-living"];
-        altText = "Artisanal handcrafted ceramic tableware and home decor";
-      } else if (filename.includes("jhb-fashion-brown-coat") || filename.includes("jhb-fashion-white-top")) {
-        id = `market.fashion.${filename.replace('.webp', '')}`;
-        semanticRole = "merchant-window";
-        sceneCandidates = ["scene-07-categories"];
-        routeCandidates = ["/shop", "/shop/categories/fashion"];
-        altText = "Contemporary South African street fashion and apparel";
-      } else if (filename.includes("jhb-maboneng-vehicle-workshop")) {
-        id = "operations.maboneng.workshop";
+      if (ledgerItem.category === "route-road-aerial") {
         semanticRole = "route-environment";
-        sceneCandidates = ["scene-08-preparation", "scene-12-network"];
-        routeCandidates = ["/about", "/careers"];
-        altText = "Fleet dispatch and vehicle preparation workshop in Maboneng, Johannesburg";
-      } else if (filename.includes("cape-town-road-night") || filename.includes("jhb-urban-aerial")) {
-        id = `route.corridor.${filename.replace('.webp', '')}`;
-        semanticRole = "route-environment";
-        sceneCandidates = ["scene-11-route-tracking"];
-        routeCandidates = ["/", "/coverage-areas"];
-        altText = "South African metropolitan transit corridor at night";
+      } else if (ledgerItem.category === "warehouse-freight") {
+        semanticRole = "freight-scale";
+      } else if (ledgerItem.category === "courier-human") {
+        semanticRole = "courier-human";
+      } else if (ledgerItem.category === "merchant-preparation") {
+        semanticRole = "merchant-prep";
       } else {
-        id = `market.local.${filename.replace(/\.[^.]+$/, '')}`;
-        semanticRole = "merchant-window";
-        approvedForRuntime = true;
-        altText = `South African local market documentary photography ${filename}`;
+        semanticRole = "editorial-commerce";
       }
-    }
-    // Auth assets
-    else if (filename.startsWith("kt-auth-")) {
-      semanticRole = "quiet-utility";
-      approvedForRuntime = true;
-      visualPriority = 2;
-      routeCandidates = ["/login", "/signup", "/forgot-password", "/verify-otp"];
-      altText = "KT Couriers secure authentication and partner access";
-      id = `auth.${filename.replace('.webp', '')}`;
-    }
-    // Documentary series
-    else if (filename.startsWith("r2-doc-")) {
-      semanticRole = "preparation-detail";
-      approvedForRuntime = true;
-      visualPriority = 2;
-      sceneCandidates = ["scene-08-preparation", "scene-10-handoff", "scene-13-arrival"];
-      routeCandidates = ["/", "/about", "/safety"];
-      altText = "Physical custody transfer and parcel verification documentation";
-      id = `documentary.${filename.replace('.webp', '')}`;
-    }
-    // Unsplash food, wellness, fashion, homeware, routes
-    else if (filename.includes("pelzer") || filename.includes("allison-saeng")) {
-      id = "commerce.groceries.fresh-produce";
-      semanticRole = "category-hero";
-      approvedForRuntime = true;
-      visualPriority = 2;
-      routeCandidates = ["/shop/categories/groceries"];
-      altText = "Organic crisp green produce for local grocery delivery";
-    } else if (filename.includes("karolina-grabowska") || filename.includes("ela-de-pure") || filename.includes("declan-sun")) {
-      id = `commerce.wellness.${filename.replace(/\.[^.]+$/, '')}`;
-      semanticRole = "category-hero";
-      approvedForRuntime = true;
-      visualPriority = 2;
-      routeCandidates = ["/shop/categories/health-wellness"];
-      altText = "Amber glass natural skincare and botanical wellness items";
-    } else if (filename.includes("blauth") || filename.includes("vitaly-gariev")) {
-      id = `commerce.homeware.${filename.replace(/\.[^.]+$/, '')}`;
-      semanticRole = "category-hero";
-      approvedForRuntime = true;
-      visualPriority = 2;
-      routeCandidates = ["/shop/categories/home-living"];
-      altText = "Curated natural ceramics and architectural homeware";
-    } else if (filename.includes("vije-vijendranath") || filename.includes("chuttersnap") || filename.includes("mavic")) {
-      id = `route.aerial.${filename.replace(/\.[^.]+$/, '')}`;
-      semanticRole = "route-environment";
-      approvedForRuntime = true;
-      visualPriority = 2;
-      sceneCandidates = ["scene-11-route-tracking"];
-      routeCandidates = ["/", "/coverage-areas", "/about"];
-      altText = "High-speed logistics highway corridor across Gauteng";
     } else {
       // General high-res Unsplash repository (available if specifically needed, but default unapproved to avoid bloat)
       id = `library.archive.${filename.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()}`;
@@ -415,6 +336,18 @@ async function main() {
   const files = await scanFiles(mediaImagesDir, mediaImagesDir);
   console.log(`Found ${files.length} total raw media files under public/media/public/images.`);
 
+  let ledgerMap = new Map();
+  try {
+    const ledgerRaw = await readFile(path.join(artifactsMediaDir, "visual-selection-ledger.json"), "utf8");
+    const ledgerItems = JSON.parse(ledgerRaw);
+    for (const item of ledgerItems) {
+      ledgerMap.set(item.filename, item);
+    }
+    console.log(`Loaded ${ledgerMap.size} candidates from visual selection ledger.`);
+  } catch (err) {
+    console.warn("Could not load visual selection ledger:", err.message);
+  }
+
   const inventory = [];
   const hashGroups = new Map();
 
@@ -443,7 +376,7 @@ async function main() {
         hashGroups.set(hash, [file.relPath]);
       }
 
-      const record = classifyAsset(file.relPath, file.filename, meta, hash);
+      const record = classifyAsset(file.relPath, file.filename, meta, hash, ledgerMap);
       inventory.push(record);
     } catch (err) {
       console.error(`Error inspecting ${file.relPath}:`, err.message);

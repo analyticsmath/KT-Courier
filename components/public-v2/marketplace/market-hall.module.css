@@ -2,7 +2,7 @@
   --market-ink: var(--kt-carbon, #101210);
   --market-quiet: var(--kt-muted, #5f6763);
   --market-line: var(--kt-cool-200, #eceeee);
-  --market-surface: var(--kt-cool-050, #fafbfa);
+  --market-surface: var(--kt-bone, #FBF9F3);
   --market-red: var(--kt-red, #d83a2e);
   color: var(--market-ink);
   background: var(--kt-white, #ffffff);

@@ -26,7 +26,8 @@ export default async function HomePage() {
     id: cat.reference,
     title: cat.name,
     tagline: cat.description || "Local catalog collection.",
-    image: cat.imageReference || "/media/public/images/jhb-fashion-brown-coat.webp",
+    image: cat.imageReference || "/media/public/derived/photo-fashion-jhb-editorial-coat-960w.webp",
+    altText: cat.name,
     href: `/shop/categories/${cat.path}`,
   }));
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { homeMedia } from "@/components/public-v2/home/home-media";
+import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import { usePublicMotionPreference } from "@/components/public-v2/motion/usePublicMotionPreference";
 import styles from "./participation.module.css";
@@ -17,7 +17,7 @@ const pathways = [
     badge: "STORE PARTNER",
     description: "Store partners manage published catalog items, receive delivery requests, and coordinate parcel collections directly with KT couriers.",
     action: { label: "Create store account", href: "/signup?role=store" },
-    media: homeMedia.merchantPrepare,
+    media: ktMediaV3.pages.join.merchantHero,
   },
   {
     id: "driver",
@@ -26,7 +26,7 @@ const pathways = [
     badge: "COURIER DRIVER",
     description: "Courier drivers provide physical parcel transit and custody handoffs across confirmed local delivery routes.",
     action: { label: "Driver network information", href: "/services/driver-network" },
-    media: homeMedia.handoff,
+    media: ktMediaV3.pages.join.driverHero,
   },
   {
     id: "promoter",
@@ -35,7 +35,7 @@ const pathways = [
     badge: "COMMUNITY PARTNER",
     description: "Promoters introduce local stores and merchants to the KT delivery network and marketplace platform.",
     action: { label: "Inquire about promoter partnership", href: "/contact" },
-    media: homeMedia.worldMarket,
+    media: ktMediaV3.pages.join.transitAction,
   },
 ] as const;
 
@@ -127,15 +127,12 @@ export function ParticipationRoleSelector() {
 
             <div className={styles.roleMediaColumn}>
               <Image
+                src={activePathway.media.src}
                 alt={activePathway.media.alt}
                 fill
                 priority
                 sizes="(max-width: 1023px) 100vw, 45vw"
-                src={activePathway.media.src}
-                style={{
-                  objectFit: "cover",
-                  objectPosition: activePathway.media.objectPosition ?? "center",
-                }}
+                className="object-cover"
               />
             </div>
           </motion.div>

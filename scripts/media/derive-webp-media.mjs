@@ -1,4 +1,5 @@
 import { readFile, writeFile, mkdir, copyFile, stat } from "node:fs/promises";
+import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
@@ -8,10 +9,47 @@ const derivedOutputDir = path.join(rootDir, "public", "media", "public", "derive
 const illustrationsOutputDir = path.join(rootDir, "public", "media", "public", "illustrations");
 const protagonistsOutputDir = path.join(rootDir, "public", "media", "public", "protagonists");
 
-const RESPONSIVE_WIDTHS = [480, 768, 1080, 1440, 1920];
+function getRoleConfig(asset) {
+  const role = asset.semanticRole || "";
+  const isHero = role === "route-environment" || role === "freight-scale" || (asset.sceneCandidates && asset.sceneCandidates.some(s => s.includes("hero") || s.includes("aerial")));
+  const isPreview = role === "quiet-utility" || (asset.id && asset.id.startsWith("auth."));
+
+  if (isHero) {
+    return {
+      widths: [960, 1440, 1920],
+      quality: 88,
+      effort: 6,
+      role: "full-bleed-hero",
+    };
+  } else if (isPreview) {
+    return {
+      widths: [480, 768, 1080],
+      quality: 84,
+      effort: 5,
+      role: "small-preview",
+    };
+  } else {
+    // Standard editorial
+    return {
+      widths: [640, 960, 1440],
+      quality: 86,
+      effort: 5,
+      role: "standard-editorial",
+    };
+  }
+}
+
+async function fileExistsAndNotEmpty(filePath) {
+  try {
+    const s = await stat(filePath);
+    return s.size > 0;
+  } catch {
+    return false;
+  }
+}
 
 async function main() {
-  console.log("=== PHASE B: WEBP DERIVATION & ALPHA-QA PIPELINE ===");
+  console.log("=== PHASE B: ROLE-AWARE WEBP DERIVATION & ALPHA-QA PIPELINE ===");
 
   await mkdir(derivedOutputDir, { recursive: true });
   await mkdir(illustrationsOutputDir, { recursive: true });
@@ -38,7 +76,9 @@ async function main() {
       // SVGs stay pure vectors
       const destName = asset.filename;
       const destPath = path.join(illustrationsOutputDir, destName);
-      await copyFile(sourceFullPath, destPath);
+      if (!(await fileExistsAndNotEmpty(destPath))) {
+        await copyFile(sourceFullPath, destPath);
+      }
       asset.runtimePaths = {
         vector: `/media/public/illustrations/${destName}`,
       };
@@ -48,21 +88,24 @@ async function main() {
 
     if (isProtagonist) {
       // Protagonist transparent cutouts (Trucks, Van, Courier)
-      // Save pristine PNG in protagonists dir
       const cleanStem = asset.id.replace(/\./g, "-");
       const pngDestName = `${cleanStem}.png`;
       const pngDestPath = path.join(protagonistsOutputDir, pngDestName);
-      await copyFile(sourceFullPath, pngDestPath);
+      if (!(await fileExistsAndNotEmpty(pngDestPath))) {
+        await copyFile(sourceFullPath, pngDestPath);
+      }
 
       // Generate Alpha-capable WebP derivative
       const webpDestName = `${cleanStem}.webp`;
       const webpDestPath = path.join(protagonistsOutputDir, webpDestName);
 
-      const sourceImage = sharp(sourceFullPath);
-      await sourceImage
-        .clone()
-        .webp({ quality: 92, alphaQuality: 100, lossless: false, effort: 6 })
-        .toFile(webpDestPath);
+      if (!(await fileExistsAndNotEmpty(webpDestPath))) {
+        const sourceImage = sharp(sourceFullPath);
+        await sourceImage
+          .clone()
+          .webp({ quality: 92, alphaQuality: 100, lossless: false, effort: 6 })
+          .toFile(webpDestPath);
+      }
 
       // Verify alpha channel preservation
       const webpMeta = await sharp(webpDestPath).metadata();
@@ -79,11 +122,12 @@ async function main() {
       continue;
     }
 
-    // Photographic assets (Commerce, Route, About, etc.)
+    // Photographic assets (Role-aware responsive widths & quality)
     const cleanStem = asset.id.replace(/\./g, "-");
     asset.runtimePaths = {};
 
-    const availableWidths = RESPONSIVE_WIDTHS.filter((w) => w <= asset.width * 1.05);
+    const roleConfig = getRoleConfig(asset);
+    const availableWidths = roleConfig.widths.filter((w) => w <= asset.width * 1.05);
     if (availableWidths.length === 0) {
       availableWidths.push(asset.width);
     }
@@ -92,11 +136,13 @@ async function main() {
       const outFileName = `${cleanStem}-${w}w.webp`;
       const outFilePath = path.join(derivedOutputDir, outFileName);
 
-      await sharp(sourceFullPath)
-        .rotate()
-        .resize({ width: w, withoutEnlargement: true, fit: "inside" })
-        .webp({ quality: 88, effort: 5 })
-        .toFile(outFilePath);
+      if (!(await fileExistsAndNotEmpty(outFilePath))) {
+        await sharp(sourceFullPath)
+          .rotate()
+          .resize({ width: w, withoutEnlargement: true, fit: "inside" })
+          .webp({ quality: roleConfig.quality, effort: roleConfig.effort })
+          .toFile(outFilePath);
+      }
 
       asset.runtimePaths[`w${w}`] = `/media/public/derived/${outFileName}`;
     }
@@ -104,14 +150,15 @@ async function main() {
     // Default primary WebP path (largest available width)
     const primaryWidth = availableWidths[availableWidths.length - 1];
     asset.runtimePaths.primary = asset.runtimePaths[`w${primaryWidth}`];
+    asset.roleConfig = roleConfig;
 
     derivedCount++;
   }
 
   // Save updated inventory with runtime paths
   await writeFile(inventoryPath, JSON.stringify(inventory, null, 2), "utf8");
-  console.log(`Derived ${derivedCount} photographic/protagonist assets and copied ${vectorCount} vector SVGs.`);
-  console.log(`Alpha-QA completed for ${alphaCount} protagonist cutouts (both pristine PNG and alpha WebP emitted).`);
+  console.log(`Derived ${derivedCount} photographic/protagonist assets and processed ${vectorCount} vector SVGs.`);
+  console.log(`Alpha-QA completed for ${alphaCount} protagonist cutouts (both pristine PNG and alpha WebP verified).`);
   console.log(`Updated inventory written to: ${inventoryPath}`);
 }
 

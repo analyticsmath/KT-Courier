@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { motion } from "motion/react";
-import { homeMedia } from "@/components/public-v2/home/home-media";
+import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
 import { useFinePointer } from "@/components/public-v2/motion/useFinePointer";
 import { usePublicMotionPreference } from "@/components/public-v2/motion/usePublicMotionPreference";
 import styles from "./about-page.module.css";
@@ -13,7 +13,7 @@ const galleryItems = [
     id: "people",
     tag: "Merchants & Makers",
     title: "Makers, store owners & dispatchers preparing orders",
-    media: homeMedia.merchantPrepare,
+    media: ktMediaV3.pages.about.photoEssay[0],
     aspect: "4/5",
     depthFactor: 12,
   },
@@ -21,7 +21,7 @@ const galleryItems = [
     id: "marketplace",
     tag: "Marketplace Continuity",
     title: "Catalog diversity connecting local commerce",
-    media: homeMedia.retailLocal,
+    media: ktMediaV3.editorial.ceramics.sculpturalVessel,
     aspect: "16/10",
     depthFactor: 20,
   },
@@ -29,7 +29,7 @@ const galleryItems = [
     id: "movement",
     tag: "Transport Corridors",
     title: "Transit routes spanning South Africa",
-    media: homeMedia.routeRoad,
+    media: ktMediaV3.pages.about.photoEssay[1],
     aspect: "16/9",
     depthFactor: 16,
   },
@@ -37,7 +37,7 @@ const galleryItems = [
     id: "custody",
     tag: "Doorstep Delivery",
     title: "Verified doorstep delivery & custody handoff",
-    media: homeMedia.arrival,
+    media: ktMediaV3.pages.about.photoEssay[4],
     aspect: "3/4",
     depthFactor: 24,
   },
@@ -97,10 +97,7 @@ export function FloatingImageGallery() {
                   fill
                   sizes="(max-width: 768px) 100vw, 40vw"
                   src={item.media.src}
-                  style={{
-                    objectFit: "cover",
-                    objectPosition: item.media.objectPosition ?? "center",
-                  }}
+                  className="object-cover"
                 />
                 <div className={styles.cardInfoOverlay}>
                   <span className={styles.cardTag}>{item.tag}</span>

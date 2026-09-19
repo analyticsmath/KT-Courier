@@ -1,7 +1,7 @@
 .coverageRoot {
   position: relative;
   width: 100%;
-  background-color: var(--kt-cool-050, #fafbfa);
+  background-color: var(--kt-freight-paper, #F1ECE2);
   color: var(--kt-carbon, #101210);
   padding: clamp(32px, 5vw, 64px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
 }
@@ -145,8 +145,8 @@
 
 .regionCardButton:hover,
 .regionCardButtonActive {
-  border-color: var(--kt-red, #d83a2e);
-  background-color: var(--kt-cool-050, #fafbfa);
+  border-color: var(--kt-red, #E10F1B);
+  background-color: var(--kt-bone, #FBF9F3);
 }
 
 .regionCardHeader {

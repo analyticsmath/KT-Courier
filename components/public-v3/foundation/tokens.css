@@ -2,9 +2,12 @@
 :root {
   /* Core Brand Tokens */
   --kt-asphalt: #0B0D0F;
-  --kt-freight-paper: #F2EFE8;
-  --kt-concrete: #D1CEC6;
-  --kt-road-grey: #6B6E6A;
+  --kt-midnight: #151D33;
+  --kt-freight-paper: #F1ECE2;
+  --kt-bone: #FBF9F3;
+  --kt-concrete: #CDC4B5;
+  --kt-graphite: #5D5A55;
+  --kt-road-grey: #5D5A55;
   --kt-brand-blue: #3479F8;
   --kt-brand-blue-accessible: #2A64DD;
   --kt-brand-red: #E10F1B;
@@ -12,9 +15,10 @@
 
   /* Semantic Architecture Mappings */
   --kt-bg-primary: var(--kt-freight-paper);
+  --kt-bg-surface: var(--kt-bone);
   --kt-bg-dark: var(--kt-asphalt);
   --kt-text-primary: var(--kt-asphalt);
-  --kt-text-secondary: var(--kt-road-grey);
+  --kt-text-secondary: var(--kt-graphite);
   --kt-text-inverse: var(--kt-freight-paper);
   --kt-border-subtle: var(--kt-concrete);
   --kt-border-dark: #23272B;
