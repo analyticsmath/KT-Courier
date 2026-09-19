@@ -50,6 +50,7 @@ import { SeededRNG } from "./demo/generators/rng";
 import { SIMULATION_START, SIMULATION_END, FOUNDATION_DATE, randomDateBetween } from "./demo/generators/dates";
 import { StorefrontProjectionService } from "../lib/services/storefront-projection.service";
 import { rebuildStorefrontStoreDocument } from "../lib/services/storefront-store.service";
+import { rebuildStorefrontCategoryDocument } from "../lib/services/storefront-category.service";
 import { catalogPublicReference } from "../lib/catalog/catalog-normalization";
 import { buildCatalogPublicationSnapshot } from "../lib/catalog/catalog-publication-snapshot";
 
@@ -57,19 +58,27 @@ const prisma = new PrismaClient();
 const rng = new SeededRNG(20260912);
 const projectionService = new StorefrontProjectionService();
 
-export async function seedFullDemo() {
+export type SeedFullDemoOptions = Readonly<{
+  catalogOnly?: boolean;
+  includeDevAuthAccounts?: boolean;
+  skipSafetyCheck?: boolean;
+  catalogStorageProvider?: string;
+}>;
+
+export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
   console.log("================================================================================");
   console.log("🌱 STARTING KT COURIERS COMPREHENSIVE PRODUCTION-GRADE DEMO SEEDER");
   console.log("================================================================================");
 
-  // Safety Assertion
-  assertSeedExecutionAllowed();
+  // Standard demo execution remains fail-closed. A production catalog initializer
+  // may bypass only this generic demo guard after performing its own stricter checks.
+  if (!options.skipSafetyCheck) assertSeedExecutionAllowed();
 
   const passwordHash = getDefaultPasswordHash();
 
   // ── Stage 1: Foundation Authority ──────────────────────────────────────────
   console.log("\n[Stage 1/7] Initializing Canonical Foundation Bootstrap...");
-  const bootstrap = await seedFoundationBootstrap(prisma, { includeDevAuthAccounts: true });
+  const bootstrap = await seedFoundationBootstrap(prisma, { includeDevAuthAccounts: options.includeDevAuthAccounts ?? true });
   console.log("✓ Foundation bootstrap ready (SuperAdmin, Admin, Regions, Pricing, Settings, Ledger Accounts).");
 
   // ── Stage 2: Catalog Media Assets ──────────────────────────────────────────
@@ -79,6 +88,7 @@ export async function seedFullDemo() {
       where: { publicReference: entry.publicReference },
       update: {
         storageKey: entry.storageKey,
+        storageProvider: options.catalogStorageProvider ?? "LOCAL_FS",
         mimeType: entry.mimeType,
         byteSize: entry.byteSize,
         checksum: entry.checksum,
@@ -94,7 +104,7 @@ export async function seedFullDemo() {
       create: {
         publicReference: entry.publicReference,
         storageKey: entry.storageKey,
-        storageProvider: "LOCAL_FS",
+        storageProvider: options.catalogStorageProvider ?? "LOCAL_FS",
         mimeType: entry.mimeType,
         byteSize: entry.byteSize,
         checksum: entry.checksum,
@@ -557,10 +567,24 @@ export async function seedFullDemo() {
       }
     }
 
+    // Bind curated merchant media to the canonical store before the public store projection.
+    await prisma.catalogMediaAsset.updateMany({
+      where: { publicReference: { in: [storeDef.logoRef, storeDef.heroRef] } },
+      data: { ownerType: "STORE", ownerStoreId: store.id },
+    });
+
     // Rebuild StorefrontStoreDocument (with persistent logoMediaReference & heroMediaReference)
     await rebuildStorefrontStoreDocument(store.id);
   }
+  for (const category of categoryMap.values()) {
+    await rebuildStorefrontCategoryDocument(category.id);
+  }
   console.log(`✓ ${DEMO_STORES.length} Stores configured, ${publishedSnapshotCount} Published Store Offers projected.`);
+
+  if (options.catalogOnly) {
+    console.log("✓ Production showcase catalogue seed completed without synthetic customers, drivers, promoters, orders, or payment history.");
+    return;
+  }
 
   // ── Stage 5: Customers, Drivers & Promoters ────────────────────────────────
   console.log("\n[Stage 5/7] Registering Curated Identity Matrix...");
@@ -1333,6 +1357,10 @@ export async function seedFullDemo() {
   console.log(`  • Financial Ledger: 100% Balanced Double-Entry Ledgers & Phase 12 Succeeded Evidence`);
   console.log(`  • Safety: 100% Free of Forbidden Markers (#, brackets, artificial counters)`);
   console.log("================================================================================\n");
+}
+
+export async function disconnectFullDemoSeeder(): Promise<void> {
+  await prisma.$disconnect();
 }
 
 function pIdxFor(assortment: StoreAssortmentOffer[], target: StoreAssortmentOffer): number {

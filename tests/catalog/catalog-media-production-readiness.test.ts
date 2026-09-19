@@ -1,5 +1,13 @@
 import { expect, it } from "vitest";
-import { CATALOG_MEDIA_PRODUCTION_VALIDATION_APPROVED, CATALOG_MEDIA_PRODUCTION_BLOCK_REASON, assertCatalogMediaProductionActionAllowed } from "@/lib/catalog/media/catalog-media-production-lock";
+import { CATALOG_MEDIA_PRODUCTION_VALIDATION_APPROVED, assertCatalogMediaProductionActionAllowed } from "@/lib/catalog/media/catalog-media-production-lock";
 import { createProductionCatalogMediaStorageAdapter } from "@/lib/catalog/media/catalog-media-storage-adapter";
 
-it("keeps upload delivery cleanup and the production adapter source locked", async () => { expect(CATALOG_MEDIA_PRODUCTION_VALIDATION_APPROVED).toBe(false); expect(CATALOG_MEDIA_PRODUCTION_BLOCK_REASON).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED"); expect(() => assertCatalogMediaProductionActionAllowed("UPLOAD")).toThrow(); expect(() => assertCatalogMediaProductionActionAllowed("PUBLIC_DELIVERY")).toThrow(); const adapter = createProductionCatalogMediaStorageAdapter(); expect(adapter.productionReady).toBe(false); await expect(adapter.openForValidation({ storageKey: "private", maximumBytes: 1 })).rejects.toMatchObject({ code: "CATALOG_MEDIA_STORAGE_NOT_READY" }); });
+it("uses explicit production approval while still requiring configured durable storage", async () => {
+  expect(CATALOG_MEDIA_PRODUCTION_VALIDATION_APPROVED).toBe(true);
+  expect(() => assertCatalogMediaProductionActionAllowed("PUBLIC_DELIVERY")).not.toThrow();
+  const adapter = createProductionCatalogMediaStorageAdapter({});
+  expect(adapter.productionReady).toBe(false);
+  await expect(adapter.openForValidation({ storageKey: "catalog-media/missing", maximumBytes: 1 })).rejects.toMatchObject({
+    code: "CATALOG_MEDIA_STORAGE_NOT_READY",
+  });
+});

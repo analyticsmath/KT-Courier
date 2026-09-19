@@ -1,3 +1,4 @@
+import { createHash, createHmac } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CatalogPolicyError } from "@/lib/catalog/errors";
@@ -171,11 +172,166 @@ export class LocalCatalogMediaStorageAdapter implements CatalogMediaStorageAdapt
   }
 }
 
+
+type CatalogS3Config = Readonly<{
+  endpoint: URL;
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}>;
+
+function configuredCatalogS3(env: Record<string, string | undefined>): CatalogS3Config | null {
+  const endpoint = env.CATALOG_MEDIA_S3_ENDPOINT;
+  const bucket = env.CATALOG_MEDIA_S3_BUCKET;
+  const region = env.CATALOG_MEDIA_S3_REGION;
+  const accessKeyId = env.CATALOG_MEDIA_S3_ACCESS_KEY_ID;
+  const secretAccessKey = env.CATALOG_MEDIA_S3_SECRET_ACCESS_KEY;
+  if (!endpoint || !bucket || !region || !accessKeyId || !secretAccessKey) return null;
+  try {
+    return { endpoint: new URL(endpoint), bucket, region, accessKeyId, secretAccessKey };
+  } catch {
+    return null;
+  }
+}
+
+function hmac(key: string | Buffer, value: string): Buffer {
+  return createHmac("sha256", key).update(value, "utf8").digest();
+}
+
+function sha256(value: string | Uint8Array): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function awsDate(now: Date): { stamp: string; timestamp: string } {
+  const timestamp = now.toISOString().replace(/[:-]|\\.\\d{3}/g, "");
+  return { stamp: timestamp.slice(0, 8), timestamp };
+}
+
+/**
+ * Server-side S3-compatible catalog storage adapter.
+ * Browser clients never receive bucket credentials or raw object keys.
+ */
+export class S3CatalogMediaStorageAdapter implements CatalogMediaStorageAdapter {
+  readonly code = "S3_COMPATIBLE_CATALOG";
+  readonly productionReady = true;
+
+  constructor(private readonly config: CatalogS3Config) {}
+
+  private sanitizeKey(rawKey: string): string {
+    if (!rawKey || typeof rawKey !== "string" || rawKey.includes("\\0") || rawKey.includes("..")) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Invalid catalog storage key.", 400);
+    }
+    if (rawKey.startsWith("/") || /^[a-zA-Z]:/.test(rawKey)) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Absolute catalog storage keys are forbidden.", 400);
+    }
+    return rawKey.replace(/\\\\/g, "/").replace(/^\\/+/, "");
+  }
+
+  private async request(method: "GET" | "PUT" | "DELETE", rawKey: string, body?: Uint8Array): Promise<Response> {
+    const key = this.sanitizeKey(rawKey);
+    const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+    const base = this.config.endpoint.pathname.replace(/\\/$/, "");
+    const canonicalUri = `${base}/${encodeURIComponent(this.config.bucket)}/${encodedKey}`.replace(/\\/+/g, "/");
+    const url = new URL(this.config.endpoint.toString());
+    url.pathname = canonicalUri;
+
+    const payloadHash = sha256(body ?? new Uint8Array());
+    const { stamp, timestamp } = awsDate(new Date());
+    const canonicalHeaders = `host:${url.host}\\nx-amz-content-sha256:${payloadHash}\\nx-amz-date:${timestamp}\\n`;
+    const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+    const credentialScope = `${stamp}/${this.config.region}/s3/aws4_request`;
+    const canonicalRequest = `${method}\\n${canonicalUri}\\n\\n${canonicalHeaders}\\n${signedHeaders}\\n${payloadHash}`;
+    const stringToSign = `AWS4-HMAC-SHA256\\n${timestamp}\\n${credentialScope}\\n${sha256(canonicalRequest)}`;
+    const signingKey = hmac(hmac(hmac(hmac(`AWS4${this.config.secretAccessKey}`, stamp), this.config.region), "s3"), "aws4_request");
+    const signature = createHmac("sha256", signingKey).update(stringToSign, "utf8").digest("hex");
+    const headers = {
+      authorization: `AWS4-HMAC-SHA256 Credential=${this.config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+      "x-amz-content-sha256": payloadHash,
+      "x-amz-date": timestamp,
+    };
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          method,
+          headers,
+          body: body ? Buffer.from(body) : undefined,
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (response.status < 500 || attempt === 2) return response;
+      } catch {
+        if (attempt === 2) {
+          throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog object storage is unavailable.");
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+
+    throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog object storage is unavailable.");
+  }
+
+  async createUploadTarget(input: Readonly<{ intentReference: string; storageKey: string; maximumBytes: number; expiresAt: Date }>): Promise<CatalogMediaUploadTarget> {
+    void input.storageKey;
+    void input.maximumBytes;
+    return Object.freeze({
+      mode: "APPLICATION",
+      uploadPath: `/api/store/catalog/media/uploads/${encodeURIComponent(input.intentReference)}/content`,
+      expiresAt: input.expiresAt.toISOString(),
+      requiredHeaders: Object.freeze({ "content-type": "application/octet-stream" }),
+    });
+  }
+
+  async confirmUpload(input: Readonly<{ storageKey: string; bytes: Uint8Array; maximumBytes: number }>): Promise<{ byteSize: number }> {
+    if (input.bytes.byteLength < 1 || input.bytes.byteLength > input.maximumBytes) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog media exceeds its upload target.", 413);
+    }
+    const response = await this.request("PUT", input.storageKey, input.bytes);
+    if (!response.ok) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog object storage rejected the upload.");
+    }
+    return { byteSize: input.bytes.byteLength };
+  }
+
+  async openForValidation(input: Readonly<{ storageKey: string; maximumBytes: number }>): Promise<Uint8Array> {
+    const response = await this.request("GET", input.storageKey);
+    if (response.status === 404) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_MISSING", "Catalog media object is unavailable.", 404);
+    }
+    if (!response.ok) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog object storage could not retrieve the object.");
+    }
+    const body = new Uint8Array(await response.arrayBuffer());
+    if (body.byteLength > input.maximumBytes) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Stored catalog media exceeds its validation limit.", 413);
+    }
+    return body;
+  }
+
+  async deleteUncommittedObject(input: Readonly<{ storageKey: string }>): Promise<{ deleted: boolean }> {
+    const response = await this.request("DELETE", input.storageKey);
+    if (!response.ok && response.status !== 404) {
+      throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_FAILURE", "Catalog object storage could not delete the object.");
+    }
+    return { deleted: response.status !== 404 };
+  }
+
+  async createReadTarget(input: Readonly<{ storageKey: string; maximumBytes: number }>): Promise<CatalogMediaReadTarget> {
+    const body = await this.openForValidation(input);
+    return { body, byteSize: body.byteLength };
+  }
+}
+
 export function isLocalCatalogMediaStorageEnabled(env: Record<string, string | undefined> = process["env"]): boolean {
   return isDemoMediaDeliveryAllowed(env);
 }
 
 export function createProductionCatalogMediaStorageAdapter(env: Record<string, string | undefined> = process["env"]): CatalogMediaStorageAdapter {
+  const mode = env.CATALOG_MEDIA_STORAGE?.trim().toLowerCase();
+  const s3 = configuredCatalogS3(env);
+  if ((mode === "s3" || mode === "s3-compatible") && s3) {
+    return new S3CatalogMediaStorageAdapter(s3);
+  }
   if (isLocalCatalogMediaStorageEnabled(env)) {
     return new LocalCatalogMediaStorageAdapter();
   }

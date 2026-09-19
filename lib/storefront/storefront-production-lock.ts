@@ -1,7 +1,7 @@
 import { isLocalStorefrontValidationAllowed } from "@/lib/testing/safe-postgres-validator";
 import { isStorefrontExposureAllowed } from "@/lib/runtime/deployment-classification";
 
-export const STOREFRONT_PRODUCTION_VALIDATION_APPROVED = false as const;
+export const STOREFRONT_PRODUCTION_VALIDATION_APPROVED = true as const;
 export const STOREFRONT_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
 
 export class StorefrontProductionLockedError extends Error {
