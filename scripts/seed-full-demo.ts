@@ -567,12 +567,6 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
       }
     }
 
-    // Bind curated merchant media to the canonical store before the public store projection.
-    await prisma.catalogMediaAsset.updateMany({
-      where: { publicReference: { in: [storeDef.logoRef, storeDef.heroRef] } },
-      data: { ownerType: "STORE", ownerStoreId: store.id },
-    });
-
     // Rebuild StorefrontStoreDocument (with persistent logoMediaReference & heroMediaReference)
     await rebuildStorefrontStoreDocument(store.id);
   }
