@@ -53,32 +53,37 @@ export function VanActor({
         }}
       />
 
-      {/* Localized door reveal layer (180-320ms reveal across door seam, no full-vehicle dissolve) */}
+      {/* Continuous GSAP-controlled door aperture: permanently clipped to calibrated door region */}
       {isSideProfile && (
         <div
-          className="absolute inset-0 pointer-events-none overflow-hidden"
+          className="van-door-boundary pointer-events-none absolute inset-0 overflow-hidden"
           style={{
-            opacity: isDoorOpen ? 1 : 0,
-            clipPath: isDoorOpen
-              ? "inset(0% 0% 0% 0%)"
-              : "inset(14% 38% 14% 38%)",
-            transition: "clip-path 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 240ms ease-out",
+            clipPath: "inset(15% 36% 22% 32%)",
           }}
           aria-hidden="true"
         >
-          <Image
-            src={doorOpenActor.webpSrc}
-            alt={doorOpenActor.alt}
-            width={doorOpenActor.width}
-            height={doorOpenActor.height}
-            sizes="(max-width: 767px) 90vw, 1200px"
-            className="w-full h-auto object-contain"
+          {/* Target for GSAP Collection timeline to control door reveal/scrub */}
+          <div
+            data-van-door-window="true"
+            className="van-door-window absolute inset-0 will-change-transform"
             style={{
-              maxWidth: "100%",
-              height: "auto",
-              display: "block",
+              opacity: isDoorOpen ? 1 : 0,
             }}
-          />
+          >
+            <Image
+              src={doorOpenActor.webpSrc}
+              alt={doorOpenActor.alt}
+              width={doorOpenActor.width}
+              height={doorOpenActor.height}
+              sizes="(max-width: 767px) 90vw, 1200px"
+              className="w-full h-auto object-contain"
+              style={{
+                maxWidth: "100%",
+                height: "auto",
+                display: "block",
+              }}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -33,7 +33,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
 
       {/* Atmospheric Road Texture Plane (Enters under truck ground baseline) */}
       <div
-        className="kt-hero-road-atmosphere pointer-events-none absolute inset-x-0 bottom-0 h-48 opacity-15 overflow-hidden z-0"
+        className="kt-hero-road-atmosphere pointer-events-none absolute inset-x-0 bottom-0 h-48 opacity-20 overflow-hidden z-0"
         aria-hidden="true"
       >
         <Image
@@ -51,10 +51,10 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
         data-actor-anchor="hero-truck"
         className={`${styles.heroTruckWrapper} min-h-[160px] sm:min-h-[260px] md:min-h-[360px] pointer-events-none relative`}
       >
-        {/* Physical trailer cargo rectangle anchor for measured cinematic takeover */}
+        {/* Physical trailer cargo rectangle anchor calibrated strictly to cargo box (excluding cab and wheels) */}
         <div
           data-trailer-mask-anchor="true"
-          className="absolute left-[16%] top-[14%] w-[54%] h-[72%] pointer-events-none"
+          className="absolute left-[18%] top-[18%] w-[50%] h-[52%] pointer-events-none"
         />
       </div>
 

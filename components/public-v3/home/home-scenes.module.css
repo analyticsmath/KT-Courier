@@ -85,12 +85,17 @@
   z-index: 20;
   display: flex;
   flex-direction: column;
-  sm-flex-direction: row;
   justify-content: space-between;
   align-items: flex-start;
-  sm-align-items: flex-end;
   padding: 0 var(--kt-page-gutter);
   gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .heroActionsRow {
+    flex-direction: row;
+    align-items: flex-end;
+  }
 }
 
 .heroCopyBlock {
@@ -199,28 +204,25 @@
 .categoryPanel {
   position: relative;
   height: 100%;
-  transition: flex-basis var(--kt-duration-normal) var(--kt-ease-cinematic), width var(--kt-duration-normal) var(--kt-ease-cinematic);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   padding: 2rem;
-  cursor: pointer;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  will-change: width;
 }
 
 @media (min-width: 900px) {
   .categoryPanel {
-    flex: 1;
-  }
-  .categoryPanelActive {
-    flex: 2.8;
+    flex: none;
+    width: 20%;
   }
 }
 
 @media (max-width: 899px) {
   .categoryPanel {
-    flex: 0 0 82vw;
+    flex: 0 0 85vw;
     scroll-snap-align: center;
     border-right: none;
   }

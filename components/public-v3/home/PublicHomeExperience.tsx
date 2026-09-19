@@ -23,7 +23,10 @@ import type {
   CourierStateId,
   RedTruckStateId,
 } from "../actors/actor-state-machine";
-import type { MarketplaceCategoryItem } from "./scenes/MarketplaceFivePanelScene";
+import {
+  FIVE_PANEL_MEDIA,
+  type MarketplaceCategoryItem,
+} from "./scenes/MarketplaceFivePanelScene";
 
 interface PublicHomeExperienceProps {
   isStorefrontExposed?: boolean;
@@ -81,11 +84,11 @@ function TransitionLayer() {
     <div
       className="kt-trailer-takeover-plane pointer-events-none fixed inset-0 z-30 overflow-hidden"
       aria-hidden="true"
-      style={{ opacity: 0 }}
+      style={{ opacity: 0, visibility: "hidden" }}
     >
       <div className="relative w-full h-full bg-[var(--kt-asphalt)]">
         {/* Progression State 1: Single image emerging from trailer rectangle */}
-        <div className="takeover-progression-1 absolute inset-0 transition-opacity duration-200">
+        <div className="takeover-progression-1 absolute inset-0 will-change-[opacity]">
           <Image
             src={p1.src}
             alt=""
@@ -96,10 +99,15 @@ function TransitionLayer() {
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/90 via-transparent to-transparent" />
         </div>
 
-        {/* Progression State 2: 3-Panel Aperture expansion */}
-        <div className="takeover-progression-3 absolute inset-0 flex opacity-0 transition-opacity duration-200">
+        {/* Progression State 2: 3-Panel Aperture expansion (0/100/0 -> 33/34/33) */}
+        <div className="takeover-progression-3 absolute inset-0 flex opacity-0 will-change-[opacity]">
           {p3.map((img, i) => (
-            <div key={`p3-${i}`} className="relative flex-1 h-full border-r border-[#23272B] last:border-r-0 overflow-hidden">
+            <div
+              key={`p3-${i}`}
+              data-takeover-p3-panel={i}
+              className="relative h-full border-r border-[#23272B] last:border-r-0 overflow-hidden will-change-[width]"
+              style={{ width: i === 1 ? "100%" : "0%" }}
+            >
               <Image
                 src={img.src}
                 alt=""
@@ -112,10 +120,15 @@ function TransitionLayer() {
           ))}
         </div>
 
-        {/* Progression State 3: 5-Panel Corridor aligning with Marketplace scene */}
-        <div className="takeover-progression-5 absolute inset-0 flex opacity-0 transition-opacity duration-200">
+        {/* Progression State 3: 5-Panel Corridor aligning with Marketplace scene (0/50/0/50/0 -> 20/20/20/20/20) */}
+        <div className="takeover-progression-5 absolute inset-0 flex opacity-0 will-change-[opacity]">
           {p5.map((img, i) => (
-            <div key={`p5-${i}`} className="relative flex-1 h-full border-r border-[#23272B] last:border-r-0 overflow-hidden">
+            <div
+              key={`p5-${i}`}
+              data-takeover-p5-panel={i}
+              className="relative h-full border-r border-[#23272B] last:border-r-0 overflow-hidden will-change-[width]"
+              style={{ width: (i === 1 || i === 3) ? "50%" : "0%" }}
+            >
               <Image
                 src={img.src}
                 alt=""
@@ -185,6 +198,15 @@ export function PublicHomeExperience({
     onMarketplaceActiveIdChange: setMarketplaceActiveId,
   });
 
+  const categoriesList =
+    storefrontCategories && storefrontCategories.length > 0
+      ? storefrontCategories
+      : FIVE_PANEL_MEDIA;
+  const selectedMarketplaceMedia =
+    categoriesList.find((item) => item.id === marketplaceActiveId) ||
+    categoriesList[1] ||
+    FIVE_PANEL_MEDIA[1];
+
   return (
     <div
       ref={containerRef}
@@ -220,11 +242,10 @@ export function PublicHomeExperience({
           isStorefrontExposed={isStorefrontExposed}
           categories={storefrontCategories}
           activeId={marketplaceActiveId}
-          onActiveIdChange={setMarketplaceActiveId}
         />
 
-        {/* Chapter 04: Perspective Image Fan (Choice -> Parcel Contraction) */}
-        <ImageFanScene />
+        {/* Chapter 04: Perspective Image Fan (Choice -> Parcel Contraction, inherits active Marketplace media) */}
+        <ImageFanScene selectedMedia={selectedMarketplaceMedia} />
 
         {/* Chapter 05: Merchant Preparation & Corrugated Box Sealing */}
         <PreparationScene />

@@ -50,7 +50,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 md:px-10 h-[var(--kt-header-height)] transition-colors duration-[220ms] ease-out ${
+        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 md:px-10 h-[var(--kt-header-height)] transition-colors duration-[160ms] ease-out ${
           isDark
             ? "bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] border-b border-[#23272B]"
             : "bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] border-b border-[var(--kt-concrete)]/40"

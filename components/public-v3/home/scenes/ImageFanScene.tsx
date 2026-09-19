@@ -3,12 +3,21 @@
 import Image from "next/image";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 
-interface ImageFanSceneProps {
-  className?: string;
+export interface SelectedFanMedia {
+  id?: string;
+  title: string;
+  image: string;
+  altText?: string;
 }
 
-const FAN_ITEMS = [
+interface ImageFanSceneProps {
+  className?: string;
+  selectedMedia?: SelectedFanMedia;
+}
+
+export const BASE_FAN_ITEMS = [
   {
+    id: "leather",
     asset: ktMediaV3.editorial.fashion.leatherBags,
     label: "Artisan Leather",
     rotation: -14,
@@ -16,6 +25,7 @@ const FAN_ITEMS = [
     yOffset: 24,
   },
   {
+    id: "market",
     asset: ktMediaV3.editorial.grocery.vegetablesCrate,
     label: "Fresh Market",
     rotation: -9,
@@ -23,6 +33,7 @@ const FAN_ITEMS = [
     yOffset: 12,
   },
   {
+    id: "kitchen",
     asset: ktMediaV3.editorial.food.grainBowl,
     label: "Local Kitchen",
     rotation: -4,
@@ -30,14 +41,16 @@ const FAN_ITEMS = [
     yOffset: 4,
   },
   {
-    asset: ktMediaV3.editorial.ceramics.sculpturalVessel,
-    label: "Ceramic Studio",
+    id: "hero",
+    asset: ktMediaV3.editorial.fashion.leatherBags,
+    label: "Local Craft",
     rotation: 0,
     xOffset: 0,
     yOffset: 0,
     isHeroChoice: true,
   },
   {
+    id: "wellness",
     asset: ktMediaV3.editorial.wellness.apothecaryBottles,
     label: "Botanical Wellness",
     rotation: 4,
@@ -45,6 +58,7 @@ const FAN_ITEMS = [
     yOffset: 4,
   },
   {
+    id: "jewelry",
     asset: ktMediaV3.editorial.fashion.jewelry,
     label: "Handcrafted Jewelry",
     rotation: 9,
@@ -52,6 +66,7 @@ const FAN_ITEMS = [
     yOffset: 12,
   },
   {
+    id: "apparel",
     asset: ktMediaV3.editorial.fashion.whiteTop,
     label: "Boutique Apparel",
     rotation: 14,
@@ -62,12 +77,27 @@ const FAN_ITEMS = [
 
 /**
  * Chapter 4 — Perspective Image Fan (Choice -> Parcel Transition).
- * Displays a perspective fan of 7 authentic local commerce items.
+ * Displays a perspective fan of authentic local commerce items.
+ * The central hero card strictly inherits the active Marketplace media (Amendment 3).
+ * Initial geometry is owned by GSAP; CSS transform transitions are removed.
  * As scroll advances, the fan compresses, aligns, and contracts
- * toward parcel dimensions, executing the physical metamorphosis from
- * merchant browsing to packed courier cargo.
+ * toward parcel dimensions in PreparationScene.
  */
-export function ImageFanScene({ className = "" }: ImageFanSceneProps) {
+export function ImageFanScene({ className = "", selectedMedia }: ImageFanSceneProps) {
+  const fanItems = BASE_FAN_ITEMS.map((item) => {
+    if (item.isHeroChoice && selectedMedia) {
+      return {
+        ...item,
+        asset: {
+          src: selectedMedia.image,
+          alt: selectedMedia.altText || selectedMedia.title,
+        },
+        label: selectedMedia.title,
+      };
+    }
+    return item;
+  });
+
   return (
     <section
       className={`kt-image-fan-section relative min-h-[90vh] flex flex-col justify-center items-center py-20 overflow-hidden bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] ${className}`}
@@ -86,20 +116,22 @@ export function ImageFanScene({ className = "" }: ImageFanSceneProps) {
 
       {/* Fan Aperture Stage */}
       <div className="kt-fan-stage relative w-full max-w-4xl h-[420px] sm:h-[480px] flex justify-center items-center">
-        {FAN_ITEMS.map((item, idx) => {
+        {fanItems.map((item, idx) => {
           return (
             <div
-              key={item.asset.id}
-              className={`kt-fan-card absolute overflow-hidden transition-transform duration-500 ease-out ${
+              key={item.id}
+              className={`kt-fan-card absolute overflow-hidden ${
                 item.isHeroChoice ? "kt-fan-hero-card z-20" : "z-10"
               }`}
               style={{
                 width: "min(68vw, 280px)",
                 height: "min(92vw, 380px)",
-                transform: `translateX(${item.xOffset}px) translateY(${item.yOffset}px) rotate(${item.rotation}deg)`,
                 transformOrigin: "bottom center",
               }}
               data-fan-index={idx}
+              data-fan-rot={item.rotation}
+              data-fan-x={item.xOffset}
+              data-fan-y={item.yOffset}
               data-is-hero={item.isHeroChoice ? "true" : "false"}
             >
               <div className="relative w-full h-full bg-[#1A1E24]">
@@ -111,11 +143,14 @@ export function ImageFanScene({ className = "" }: ImageFanSceneProps) {
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/90 via-transparent to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--kt-concrete)]">
-                    {item.label}
-                  </span>
-                </div>
+                {/* Reduced label density: dominant hero label only */}
+                {item.isHeroChoice && (
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--kt-concrete)]">
+                      {item.label}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           );

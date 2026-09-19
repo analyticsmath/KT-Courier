@@ -33,17 +33,17 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
           On the way.
         </h2>
         <p className="text-base sm:text-lg text-[var(--kt-graphite)] leading-relaxed mb-6">
-          Once a delivery is accepted, the route enters regional transit. Real road geometry guides line-haul movement between hubs.
+          Once a delivery is accepted, it moves from pickup toward its destination. Delivery status updates are available through customer and store accounts.
         </p>
         <p className="text-xs sm:text-sm text-[var(--kt-graphite)] leading-relaxed border-t border-[var(--kt-concrete)]/50 pt-6">
-          Corridor routing is confirmed from verified pickup and delivery addresses submitted at booking.
+          Availability is confirmed from the pickup and drop-off details submitted with the request.
         </p>
       </div>
 
       {/* Central/Right Road Field: Aerial Geographic Plane with Top-Down Truck Anchor */}
-      <div className="relative bg-[var(--kt-asphalt)] flex-1 min-h-[420px] md:min-h-[580px] flex items-center justify-center border-t md:border-t-0 md:border-l border-[#23272B] overflow-hidden py-12">
+      <div className="kt-route-road-world relative bg-[var(--kt-asphalt)] flex-1 min-h-[420px] md:min-h-[580px] flex items-center justify-center border-t md:border-t-0 md:border-l border-[#23272B] overflow-hidden py-12">
         {/* Real Aerial Geographic Underlay */}
-        <div className="kt-aerial-road-underlay absolute inset-0 opacity-40 pointer-events-none">
+        <div className="kt-aerial-road-underlay absolute inset-0 opacity-40 pointer-events-none will-change-transform">
           <Image
             src={aerialRoute.src}
             alt={aerialRoute.alt}
@@ -56,7 +56,7 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
 
         {/* Physical lane markings */}
         <div
-          className="absolute inset-y-0 w-0 border-r-2 border-dashed border-[#CDC4B5]/30 left-1/2 -translate-x-1/2 pointer-events-none z-5"
+          className="kt-route-lane-markings absolute inset-y-0 w-0 border-r-2 border-dashed border-[#CDC4B5]/30 left-1/2 -translate-x-1/2 pointer-events-none z-5 will-change-transform"
           aria-hidden="true"
         />
 
@@ -65,6 +65,26 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
           data-actor-anchor="route-truck"
           className="relative z-10 w-64 sm:w-80 md:w-96 min-h-[140px] flex items-center justify-center transform md:rotate-90 pointer-events-none"
         />
+
+        {/* Foreground Overpass Shadow Plane for concealed truck rotation (0.62–0.82) */}
+        <div
+          className="kt-route-overpass-shadow pointer-events-none absolute inset-x-0 h-48 bg-gradient-to-b from-transparent via-[#0B0D0F]/95 to-transparent z-25 opacity-0 will-change-transform"
+          aria-hidden="true"
+        />
+
+        {/* Industrial / Freight Overlap Plane entering 0.80–1.00 */}
+        <div
+          className="kt-route-freight-overlap pointer-events-none absolute inset-0 bg-[#0B0D0F] opacity-0 z-20"
+          aria-hidden="true"
+        >
+          <Image
+            src={ktMediaV3.pages.homepage.freightClimax.background.src}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover filter contrast-125 brightness-75 opacity-30"
+          />
+        </div>
       </div>
     </section>
   );

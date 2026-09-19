@@ -66,7 +66,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
     >
       {/* 1. Persistent White Truck Actor (Hero & Route Chapters) */}
       <div
-        className={`actor-slot actor-slot-white-truck absolute transition-opacity duration-300 ${
+        className={`actor-slot actor-slot-white-truck absolute ${
           isWhiteTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={whiteTruckStyle}
@@ -80,7 +80,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
 
       {/* 2. Persistent Van Actor (Collection Chapter) */}
       <div
-        className={`actor-slot actor-slot-van absolute transition-opacity duration-300 ${
+        className={`actor-slot actor-slot-van absolute ${
           isVanVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={vanStyle}
@@ -90,7 +90,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
 
       {/* 3. Persistent Courier Actor (Collection, Custody Split, Arrival Chapters) */}
       <div
-        className={`actor-slot actor-slot-courier absolute transition-opacity duration-300 ${
+        className={`actor-slot actor-slot-courier absolute ${
           isCourierVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={courierStyle}
@@ -100,7 +100,7 @@ export const PersistentActorLayer = memo(function PersistentActorLayer({
 
       {/* 4. Persistent Red Truck Actor (Freight Chapter) */}
       <div
-        className={`actor-slot actor-slot-red-truck absolute transition-opacity duration-300 ${
+        className={`actor-slot actor-slot-red-truck absolute ${
           isRedTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         style={redTruckStyle}

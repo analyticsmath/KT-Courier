@@ -15,7 +15,7 @@ export interface MarketplaceCategoryItem {
   href?: string;
 }
 
-const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
+export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   {
     id: "grocery",
     title: "Fresh produce",
@@ -65,8 +65,8 @@ interface MarketplaceFivePanelSceneProps {
  * Five-Panel Marketplace Field.
  * Emerging from the White Truck trailer takeover, the physical cargo rectangle
  * expands into a multi-image local commerce corridor across five vertical apertures.
- * Desktop: scroll selects active territory expanding to 52–58% with internal crop shifts.
- * Mobile: touch-safe snap corridor.
+ * Desktop: scroll alone owns panel territory (54% active, 11.5% inactive).
+ * Mobile: touch-safe native horizontal snap corridor (82–88vw).
  * Honors storefront production lock with single global status CTA.
  */
 export function MarketplaceFivePanelScene({
@@ -74,21 +74,15 @@ export function MarketplaceFivePanelScene({
   isStorefrontExposed = false,
   categories = [],
   activeId: controlledActiveId,
-  onActiveIdChange,
 }: MarketplaceFivePanelSceneProps) {
   const displayItems =
     isStorefrontExposed && categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
 
-  const [internalActiveId, setInternalActiveId] = useState<string>(
+  const [internalActiveId] = useState<string>(
     displayItems[1]?.id || "fashion"
   );
 
   const activeId = controlledActiveId || internalActiveId;
-
-  const handleSelect = (id: string) => {
-    setInternalActiveId(id);
-    onActiveIdChange?.(id);
-  };
 
   return (
     <section
@@ -127,13 +121,10 @@ export function MarketplaceFivePanelScene({
               key={cat.id}
               id={`kt-market-panel-${cat.id}`}
               data-marketplace-panel-id={cat.id}
+              data-marketplace-active={isActive ? "true" : "false"}
               className={`${styles.categoryPanel} ${
                 isActive ? styles.categoryPanelActive : ""
               }`}
-              onMouseEnter={() => handleSelect(cat.id)}
-              onClick={() => handleSelect(cat.id)}
-              tabIndex={0}
-              role="button"
               aria-expanded={isActive}
               aria-label={`${cat.title} Category`}
             >
@@ -143,9 +134,11 @@ export function MarketplaceFivePanelScene({
                   alt={cat.altText || cat.title}
                   fill
                   sizes="(max-width: 899px) 85vw, (max-width: 1440px) 55vw, 40vw"
-                  className={`object-cover transition-transform duration-700 ease-out ${
-                    isActive ? "scale-105" : "scale-100 filter brightness-90"
-                  }`}
+                  className="object-cover"
+                  style={{
+                    objectPosition: isActive ? "center 52%" : "center 50%",
+                    filter: isActive ? "brightness(1)" : "brightness(0.85)",
+                  }}
                 />
               </div>
 
