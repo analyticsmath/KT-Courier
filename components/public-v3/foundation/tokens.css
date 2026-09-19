@@ -60,17 +60,17 @@
   color: var(--kt-freight-paper);
 }
 
-/* Authoritative Hero Truck Rules: Mobile containment without clipping */
+/* Authoritative Hero Truck Rules: 80vw desktop target, 90-92vw mobile containment without clipping */
 .hero-truck-container {
-  width: min(94vw, 1600px);
+  width: min(80vw, 1440px);
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
 .hero-truck-container img {
-  width: min(94vw, 1600px);
-  max-width: 94vw;
+  width: min(80vw, 1440px);
+  max-width: 80vw;
   height: auto;
   object-fit: contain;
   display: block;
@@ -78,7 +78,7 @@
 
 @media (max-width: 767px) {
   .hero-truck-container {
-    width: min(94vw, 430px);
+    width: min(92vw, 430px);
     margin: 0 auto;
     position: relative;
     left: 50%;
@@ -86,9 +86,66 @@
   }
 
   .hero-truck-container img {
-    width: min(94vw, 430px) !important;
-    max-width: 94vw !important;
+    width: min(92vw, 430px) !important;
+    max-width: 92vw !important;
     height: auto !important;
     object-fit: contain !important;
   }
+}
+
+/* Explicit Action Tokens (Minimum 4.5:1 text contrast guaranteed) */
+.kt-action-filled,
+.kt-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--kt-asphalt) !important;
+  color: var(--kt-freight-paper) !important;
+  border: 1.5px solid var(--kt-asphalt) !important;
+  border-radius: var(--kt-radius-none);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background-color var(--kt-duration-fast) ease, color var(--kt-duration-fast) ease;
+  text-decoration: none;
+}
+
+.kt-action-filled:hover,
+.kt-btn-primary:hover {
+  background-color: #23272B !important;
+  color: var(--kt-freight-paper) !important;
+}
+
+.kt-action-filled:focus-visible,
+.kt-btn-primary:focus-visible {
+  outline: 2px solid var(--kt-brand-blue-accessible) !important;
+  outline-offset: 2px;
+}
+
+.kt-action-outline,
+.kt-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent !important;
+  color: var(--kt-asphalt) !important;
+  border: 1.5px solid var(--kt-asphalt) !important;
+  border-radius: var(--kt-radius-none);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background-color var(--kt-duration-fast) ease, color var(--kt-duration-fast) ease;
+  text-decoration: none;
+}
+
+.kt-action-outline:hover,
+.kt-btn-secondary:hover {
+  background-color: var(--kt-asphalt) !important;
+  color: var(--kt-freight-paper) !important;
+}
+
+.kt-action-outline:focus-visible,
+.kt-btn-secondary:focus-visible {
+  outline: 2px solid var(--kt-brand-blue-accessible) !important;
+  outline-offset: 2px;
 }

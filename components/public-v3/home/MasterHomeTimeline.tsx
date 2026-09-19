@@ -265,22 +265,21 @@ export function useMasterHomeTimeline({
           scrollTrigger: {
             trigger: heroSection,
             start: "top top",
-            end: isMobile ? "+=110%" : "+=160%",
+            end: isMobile ? "+=110%" : "+=180%",
             pin: true,
-            scrub: 0.25,
+            scrub: 0.2,
             anticipatePin: 1,
             invalidateOnRefresh: true,
             onUpdate: (self) => {
               const p = self.progress;
               // Deterministic Hero/Takeover state derived strictly from progress
-              if (p < 0.64) {
+              if (p < 0.60) {
                 if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
                 setWhiteTruckStateSafe("wide-hero");
                 setActorVisibilitySafe({ whiteTruck: true, van: false, courier: false, redTruck: false });
                 setActiveActorSafe("white-truck");
-              } else if (p >= 0.64 && p <= 1.0) {
+              } else if (p >= 0.60 && p <= 1.0) {
                 if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 1 });
-                // Amendment 1: Keep wide-hero stable during takeover; do not swap to cargo-box-close
                 setWhiteTruckStateSafe("wide-hero");
                 setActorVisibilitySafe({ whiteTruck: true, van: false, courier: false, redTruck: false });
                 setActiveActorSafe("white-truck");
@@ -291,46 +290,96 @@ export function useMasterHomeTimeline({
 
         heroTrigger = heroTl.scrollTrigger ?? null;
 
-        // 0.00–0.38: Approach / Settle
-        // Fixed vertical baseline; truck 1.0 rate, environment ~1.15 opposite, typography ~0.20
+        // 4-Plane Hero Motion Choreography
+        // Plane 1: Typography counter-moves behind protagonist
+        // Plane 2: Road atmosphere environmental counter-movement
+        // Plane 3: White Truck protagonist physical movement
+        // Plane 4: Trailer takeover aperture expanding from measured cargo box
         if (!isMobile) {
-          heroTl.fromTo(
+          // 0.00–0.20: Establish Hold (truck x: -4vw, monumental type, copy still and readable)
+          heroTl.set(
             whiteTruckSlot,
-            { x: "-12vw", y: 0, scale: 1, opacity: 0.95 },
-            { x: "0vw", y: 0, scale: 1, opacity: 1, duration: 0.38, ease: "power2.out" },
+            { x: "-4vw", y: 0, scale: 1, opacity: 1 },
             0
           );
           if (heroRoadAtmosphere) {
-            heroTl.fromTo(
+            heroTl.set(heroRoadAtmosphere, { x: "0vw" }, 0);
+          }
+          if (heroActions) {
+            heroTl.set(heroActions, { opacity: 1, y: 0 }, 0);
+          }
+
+          // 0.20–0.35: Subtle environmental motion begins; truck readies to move
+          if (heroRoadAtmosphere) {
+            heroTl.to(
               heroRoadAtmosphere,
-              { x: "14vw" },
-              { x: "0vw", duration: 0.38, ease: "power2.out" },
-              0
+              { x: "4vw", duration: 0.15, ease: "power1.out" },
+              0.20
+            );
+          }
+          heroTl.to(
+            whiteTruckSlot,
+            { x: "-3vw", duration: 0.15, ease: "power1.out" },
+            0.20
+          );
+
+          // 0.35–0.50: Truck advances; type counter-moves slightly; copy yields near 0.45
+          heroTl.to(
+            whiteTruckSlot,
+            { x: "12vw", duration: 0.15, ease: "power2.in" },
+            0.35
+          );
+          if (heroRoadAtmosphere) {
+            heroTl.to(
+              heroRoadAtmosphere,
+              { x: "14vw", duration: 0.15, ease: "power1.inOut" },
+              0.35
             );
           }
           if (ktWord) {
-            heroTl.fromTo(ktWord, { x: "2.5vw" }, { x: "-1vw", duration: 0.38, ease: "none" }, 0);
+            heroTl.fromTo(ktWord, { x: "0vw" }, { x: "-2.5vw", duration: 0.15, ease: "none" }, 0.35);
           }
           if (courierWord) {
-            heroTl.fromTo(courierWord, { x: "-2.5vw" }, { x: "1vw", duration: 0.38, ease: "none" }, 0);
+            heroTl.fromTo(courierWord, { x: "0vw" }, { x: "2.5vw", duration: 0.15, ease: "none" }, 0.35);
+          }
+          if (heroActions) {
+            heroTl.to(heroActions, { opacity: 0.7, duration: 0.08 }, 0.42);
+          }
+
+          // 0.50–0.60: Truck commits to exit; copy and CTAs leave; cab exits right side
+          heroTl.to(
+            whiteTruckSlot,
+            { x: "48vw", duration: 0.10, ease: "power2.in" },
+            0.50
+          );
+          if (heroActions) {
+            heroTl.to(heroActions, { opacity: 0, y: 15, duration: 0.08 }, 0.50);
           }
         } else {
+          // Mobile authored Hero
           heroTl.fromTo(
             whiteTruckSlot,
-            { y: "10px", scale: 1.0, opacity: 0.95 },
-            { y: "0px", scale: 1.0, x: "0px", opacity: 1, duration: 0.38, ease: "power2.out" },
-            0
+            { y: "0px", scale: 1.0, opacity: 1 },
+            { y: "-4px", scale: 1.0, duration: 0.15, ease: "power1.out" },
+            0.20
           );
+          heroTl.to(
+            whiteTruckSlot,
+            { x: "15vw", duration: 0.15, ease: "power2.in" },
+            0.35
+          );
+          heroTl.to(
+            whiteTruckSlot,
+            { x: "50vw", duration: 0.10, ease: "power2.in" },
+            0.50
+          );
+          if (heroActions) {
+            heroTl.to(heroActions, { opacity: 0, y: 15, duration: 0.08 }, 0.50);
+          }
         }
 
-        // 0.38–0.64: Genuine Reading Hold (motion effectively still)
-        if (heroActions) {
-          heroTl.fromTo(heroActions, { opacity: 0.8 }, { opacity: 1, duration: 0.1 }, 0.38);
-        }
-
-        // 0.64–0.88: Material Takeover Expansion
+        // 0.60–0.72: Trailer Takeover Plane begins as narrow preview at measured trailer cargo bounds
         if (trailerOverlay) {
-          // Initialize takeover overlay exactly at measured trailer cargo-box bounds in pixels
           heroTl.set(
             trailerOverlay,
             {
@@ -340,10 +389,10 @@ export function useMasterHomeTimeline({
               height: initialTrailerRect.height,
               autoAlpha: 1,
             },
-            0.64
+            0.60
           );
 
-          // Animate takeover plane to full viewport bounds
+          // 0.68–0.82: Animate takeover plane to full viewport bounds
           heroTl.to(
             trailerOverlay,
             {
@@ -351,49 +400,45 @@ export function useMasterHomeTimeline({
               top: 0,
               width: "100%",
               height: "100%",
-              duration: 0.24,
+              duration: 0.14,
               ease: "power2.inOut",
             },
-            0.64
+            0.68
           );
 
-          if (heroActions) {
-            heroTl.to(heroActions, { opacity: 0, y: 15, duration: 0.15 }, 0.64);
-          }
-
           // 1 -> 3 -> 5 Aperture Width Evolution
-          // Progression 1 (single image) starts at 100%
+          // 0.60–0.74: Progression 1 (single preview image)
           if (p1Layer && p3Layer) {
-            heroTl.to(p1Layer, { autoAlpha: 0, duration: 0.08 }, 0.74);
-            heroTl.to(p3Layer, { autoAlpha: 1, duration: 0.08 }, 0.74);
+            heroTl.to(p1Layer, { autoAlpha: 0, duration: 0.06 }, 0.74);
+            heroTl.to(p3Layer, { autoAlpha: 1, duration: 0.06 }, 0.74);
           }
 
-          // 3-panel aperture expands: 0/100/0 -> 33.3/33.4/33.3
+          // 0.74–0.82: 3-panel aperture expands: 0/100/0 -> 33.3/33.4/33.3
           if (p3Panels && p3Panels.length === 3) {
             heroTl.fromTo(
               p3Panels[0],
               { width: "0%" },
-              { width: "33.3%", duration: 0.1, ease: "power1.inOut" },
+              { width: "33.3%", duration: 0.08, ease: "power1.inOut" },
               0.74
             );
             heroTl.fromTo(
               p3Panels[1],
               { width: "100%" },
-              { width: "33.4%", duration: 0.1, ease: "power1.inOut" },
+              { width: "33.4%", duration: 0.08, ease: "power1.inOut" },
               0.74
             );
             heroTl.fromTo(
               p3Panels[2],
               { width: "0%" },
-              { width: "33.3%", duration: 0.1, ease: "power1.inOut" },
+              { width: "33.3%", duration: 0.08, ease: "power1.inOut" },
               0.74
             );
           }
 
-          // 5-panel aperture expands: 0/50/0/50/0 -> 20/20/20/20/20
+          // 0.82–1.00: 5-panel corridor aligns with Marketplace scene (0/50/0/50/0 -> 20/20/20/20/20)
           if (p3Layer && p5Layer) {
-            heroTl.to(p3Layer, { autoAlpha: 0, duration: 0.06 }, 0.84);
-            heroTl.to(p5Layer, { autoAlpha: 1, duration: 0.06 }, 0.84);
+            heroTl.to(p3Layer, { autoAlpha: 0, duration: 0.06 }, 0.82);
+            heroTl.to(p5Layer, { autoAlpha: 1, duration: 0.06 }, 0.82);
           }
 
           if (p5Panels && p5Panels.length === 5) {
@@ -401,36 +446,33 @@ export function useMasterHomeTimeline({
               p5Panels[0],
               { width: "0%" },
               { width: "20%", duration: 0.08, ease: "power1.inOut" },
-              0.84
+              0.82
             );
             heroTl.fromTo(
               p5Panels[1],
               { width: "50%" },
               { width: "20%", duration: 0.08, ease: "power1.inOut" },
-              0.84
+              0.82
             );
             heroTl.fromTo(
               p5Panels[2],
               { width: "0%" },
               { width: "20%", duration: 0.08, ease: "power1.inOut" },
-              0.84
+              0.82
             );
             heroTl.fromTo(
               p5Panels[3],
               { width: "50%" },
               { width: "20%", duration: 0.08, ease: "power1.inOut" },
-              0.84
+              0.82
             );
             heroTl.fromTo(
               p5Panels[4],
               { width: "0%" },
               { width: "20%", duration: 0.08, ease: "power1.inOut" },
-              0.84
+              0.82
             );
           }
-
-          // 0.88–1.00: Full-frame handoff still matching p5
-          // Hold full viewport, 20/20/20/20/20 still
         }
       }
 
@@ -450,14 +492,16 @@ export function useMasterHomeTimeline({
             : ["grocery", "fashion", "food", "home", "wellness"];
 
         if (window.innerWidth >= 900) {
-          // Desktop: Pin duration +=105vh
+          // Desktop: Pin duration +=195%, scrub: 0.18 (Mandatory Motion-Density Amendment)
+          const marketBg = marketSection.querySelector<HTMLElement>(".kt-market-bg-parallax");
+
           const marketTl = gsap.timeline({
             scrollTrigger: {
               trigger: marketSection,
               start: "top top",
-              end: "+=105%",
+              end: "+=195%",
               pin: true,
-              scrub: 0.25,
+              scrub: 0.18,
               anticipatePin: 1,
               invalidateOnRefresh: true,
               onEnter: () => {
@@ -521,6 +565,16 @@ export function useMasterHomeTimeline({
               },
             },
           });
+
+          // Layered background environmental parallax (~65% rate)
+          if (marketBg) {
+            marketTl.fromTo(
+              marketBg,
+              { xPercent: 0 },
+              { xPercent: -22, duration: 1.0, ease: "none" },
+              0
+            );
+          }
 
           marketTrigger = marketTl.scrollTrigger ?? null;
         } else {
@@ -685,6 +739,7 @@ export function useMasterHomeTimeline({
       // ---------------------------------------------------------------------
       if (collectionSection && vanSlot) {
         const vanDoorWindow = vanSlot.querySelector<HTMLElement>("[data-van-door-window]");
+        const streetEnv = collectionSection.querySelector<HTMLElement>(".kt-collection-street-env");
 
         const collectTl = gsap.timeline({
           scrollTrigger: {
@@ -695,9 +750,9 @@ export function useMasterHomeTimeline({
             anticipatePin: 1,
             onUpdate: (self) => {
               const p = self.progress;
-              // Deterministic progress-derived visibility (P1-07):
-              // At enter: van only. Around 0.68: courier appears.
-              if (p < 0.68) {
+              // Deterministic progress-derived visibility:
+              // At enter: van only. Door > 65% open (p >= 0.76): courier appears
+              if (p < 0.76) {
                 setActorVisibilitySafe({ whiteTruck: false, van: true, courier: false, redTruck: false });
                 setActiveActorSafe("van");
               } else {
@@ -705,8 +760,8 @@ export function useMasterHomeTimeline({
                 setActiveActorSafe("van");
               }
 
-              // Courier loading pose only while partially covered under door/seam
-              if (p >= 0.82) {
+              // Courier loading pose once transfer begins (p >= 0.84)
+              if (p >= 0.84) {
                 setCourierStateSafe("loading-unloading");
               } else {
                 setCourierStateSafe("look-right-approach");
@@ -731,44 +786,54 @@ export function useMasterHomeTimeline({
           },
         });
 
-        // 0.00–0.52: Van approach (x -8vw -> +8px, power2.out)
+        // 0.00–0.52: Van approach (x -38vw -> 7vw, power2.out)
         collectTl.fromTo(
           vanSlot,
-          { x: "-8vw", opacity: 0.9 },
-          { x: "8px", opacity: 1, duration: 0.52, ease: "power2.out" },
+          { x: "-38vw", opacity: 0.9 },
+          { x: "7vw", opacity: 1, duration: 0.52, ease: "power2.out" },
           0
         );
 
-        // 0.52–0.62: Braking overshoot / settle (+8px -> 0px, power1.out)
+        // Environmental counter-movement (rate 0.4)
+        if (streetEnv) {
+          collectTl.fromTo(
+            streetEnv,
+            { x: "0vw" },
+            { x: "3.5vw", duration: 0.62, ease: "power1.out" },
+            0
+          );
+        }
+
+        // 0.52–0.62: Braking settle (settles 4px back, 7vw -> calc(7vw - 4px))
         collectTl.to(
           vanSlot,
-          { x: "0px", duration: 0.1, ease: "power1.out" },
+          { x: "calc(7vw - 4px)", duration: 0.1, ease: "power1.out" },
           0.52
         );
 
-        // 0.62–0.72: Closed hold (van is still and closed)
+        // 0.62–0.70: Closed hold (van is still and closed)
 
-        // 0.72–0.84: Door continuous aperture reveal (Amendment 4)
+        // 0.70–0.82: Door continuous aperture reveal (door slides open)
         if (vanDoorWindow) {
           collectTl.fromTo(
             vanDoorWindow,
-            { opacity: 0, x: "8%" },
+            { opacity: 0, x: "12%" },
             { opacity: 1, x: "0%", duration: 0.12, ease: "power1.inOut" },
-            0.72
+            0.70
           );
         }
 
-        // 0.68–0.82: Courier begins appearing at door (look-right-approach)
+        // 0.76–0.88: Courier becomes visible once door is >65% open and enters
         if (courierSlot) {
           collectTl.fromTo(
             courierSlot,
-            { x: "5vw", opacity: 0 },
-            { x: "0vw", opacity: 1, duration: 0.14, ease: "power2.out" },
-            0.68
+            { x: "6vw", opacity: 0 },
+            { x: "0vw", opacity: 1, duration: 0.12, ease: "power2.out" },
+            0.76
           );
         }
 
-        // 0.82–0.94: Courier loads parcel into van (transfer resolves)
+        // 0.84–1.00: Courier loads parcel into van (transfer resolves)
       }
 
       // ---------------------------------------------------------------------
@@ -777,6 +842,8 @@ export function useMasterHomeTimeline({
       if (custodySection && courierSlot) {
         const custodyLeft = custodySection.querySelector<HTMLElement>(".kt-custody-left");
         const custodyRight = custodySection.querySelector<HTMLElement>(".kt-custody-right");
+        const custodyMerchantImg = custodySection.querySelector<HTMLElement>(".kt-custody-merchant-img");
+        const custodyCourierImg = custodySection.querySelector<HTMLElement>(".kt-custody-courier-img");
         const routeConcealment = custodySection.querySelector<HTMLElement>(".kt-custody-route-concealment");
 
         const custodyTl = gsap.timeline({
@@ -804,16 +871,30 @@ export function useMasterHomeTimeline({
           },
         });
 
-        // 0.00 -> 0.45: 72/28 -> 50/50
+        // 0.00 -> 0.45: 72/28 -> 50/50 with opposing photographic crop drift
         if (custodyLeft && custodyRight) {
           custodyTl.fromTo(custodyLeft, { width: "72%" }, { width: "50%", duration: 0.45, ease: "none" }, 0);
           custodyTl.fromTo(custodyRight, { width: "28%" }, { width: "50%", duration: 0.45, ease: "none" }, 0);
 
-          // 0.45–0.53: HOLD at 50/50 (courier centered, no width movement)
+          if (custodyMerchantImg) {
+            custodyTl.fromTo(custodyMerchantImg, { xPercent: -2, scale: 1.0 }, { xPercent: 3, scale: 1.03, duration: 0.45, ease: "none" }, 0);
+          }
+          if (custodyCourierImg) {
+            custodyTl.fromTo(custodyCourierImg, { xPercent: 2, scale: 1.0 }, { xPercent: -3, scale: 1.03, duration: 0.45, ease: "none" }, 0);
+          }
 
-          // 0.53 -> 1.00: 50/50 -> 28/72
+          // 0.45–0.53: HOLD at 50/50 (courier centered, no width movement, physical responsibility pause)
+
+          // 0.53 -> 1.00: 50/50 -> 28/72 with continued opposing crop drift
           custodyTl.to(custodyLeft, { width: "28%", duration: 0.47, ease: "none" }, 0.53);
           custodyTl.to(custodyRight, { width: "72%", duration: 0.47, ease: "none" }, 0.53);
+
+          if (custodyMerchantImg) {
+            custodyTl.to(custodyMerchantImg, { xPercent: 6, scale: 1.05, duration: 0.47, ease: "none" }, 0.53);
+          }
+          if (custodyCourierImg) {
+            custodyTl.to(custodyCourierImg, { xPercent: -6, scale: 1.05, duration: 0.47, ease: "none" }, 0.53);
+          }
         }
 
         // P1-09: During final ~18–22% (0.78–1.00):
@@ -886,21 +967,21 @@ export function useMasterHomeTimeline({
           },
         });
 
-        // Environment Road-World Movement: yPercent 10 -> -12, scale 1.03 -> 1.06
+        // Environment Road-World Movement: rate 1.0 (yPercent 12 -> -14, scale 1.03 -> 1.07)
         if (aerialRoad) {
           routeTl.fromTo(
             aerialRoad,
-            { yPercent: 10, scale: 1.03 },
-            { yPercent: -12, scale: 1.06, duration: 1.0, ease: "none" },
+            { yPercent: 12, scale: 1.03 },
+            { yPercent: -14, scale: 1.07, duration: 1.0, ease: "none" },
             0
           );
         }
 
-        // Truck travels along the lane: small relative distance, stable scale
+        // Truck travels along the lane: rate ~0.60
         routeTl.fromTo(
           whiteTruckSlot,
-          { y: "-24px" },
-          { y: "0px", duration: 0.42, ease: "power1.out" },
+          { y: "-30px" },
+          { y: "6px", duration: 0.42, ease: "power1.out" },
           0
         );
 
@@ -936,7 +1017,7 @@ export function useMasterHomeTimeline({
       // Chapter 09: Heavy Freight Climax (P1-12)
       // ---------------------------------------------------------------------
       if (freightSection && redTruckSlot) {
-        const freightWarehouse = freightSection.querySelector<HTMLElement>(".absolute.inset-0.opacity-25");
+        const freightWarehouse = freightSection.querySelector<HTMLElement>(".kt-freight-warehouse-env");
 
         const freightTl = gsap.timeline({
           scrollTrigger: {
@@ -971,12 +1052,12 @@ export function useMasterHomeTimeline({
         });
 
         // 0.00–0.18: Red truck grounded/still; warehouse environment enters
-        // 0.18–0.62: 2–3% environment dolly shift; truck nearly fixed
+        // 0.18–0.62: 2–3% environment dolly shift (1.035); truck nearly fixed
         if (freightWarehouse) {
           freightTl.fromTo(
             freightWarehouse,
-            { scale: 1.0, y: "16px" },
-            { scale: 1.03, y: "-16px", duration: 0.62, ease: "power1.out" },
+            { scale: 1.0, y: "20px" },
+            { scale: 1.035, y: "-20px", duration: 0.62, ease: "power1.out" },
             0
           );
         }
@@ -1045,24 +1126,50 @@ export function useMasterHomeTimeline({
       }
 
       // ---------------------------------------------------------------------
-      // Chapter 11: Finale Scene (P1-13)
+      // Chapter 11: Finale Scene (Single Brand Horizon Payoff)
       // ---------------------------------------------------------------------
       if (finaleSection) {
-        ScrollTrigger.create({
-          trigger: finaleSection,
-          start: "top 70%",
-          end: "bottom bottom",
-          onEnter: () => {
-            if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
-            setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
-            setActiveActorSafe(null);
-          },
-          onEnterBack: () => {
-            if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
-            setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
-            setActiveActorSafe(null);
+        const finaleGiantType = finaleSection.querySelector<HTMLElement>(".kt-finale-giant-type");
+        const finaleGroundStrip = finaleSection.querySelector<HTMLElement>(".kt-finale-ground-strip");
+
+        const finaleTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: finaleSection,
+            start: "top 75%",
+            end: "bottom bottom",
+            scrub: 0.25,
+            onEnter: () => {
+              if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
+            onEnterBack: () => {
+              if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
           },
         });
+
+        if (finaleGiantType) {
+          // Monumental type horizon rise (8–12vh)
+          finaleTl.fromTo(
+            finaleGiantType,
+            { y: "10vh", opacity: 0.8 },
+            { y: "0vh", opacity: 1, duration: 0.6, ease: "power2.out" },
+            0
+          );
+        }
+
+        if (finaleGroundStrip) {
+          // Ground corridor strip travels horizontally
+          finaleTl.fromTo(
+            finaleGroundStrip,
+            { x: "-6vw" },
+            { x: "0vw", duration: 0.8, ease: "power1.out" },
+            0
+          );
+        }
       }
 
       // ---------------------------------------------------------------------

@@ -128,13 +128,13 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
 
         {/* Action Links */}
         <div className={styles.coverageActionGroup}>
-          <Link className={styles.primaryActionButton} href="/services/pricing">
+          <Link className="kt-action-filled" href="/services/pricing">
             <span>View pricing factors</span>
-            <KtIconArrowRight size={18} />
+            <KtIconArrowRight size={16} />
           </Link>
-          <Link className={styles.secondaryActionButton} href="/contact">
+          <Link className="kt-action-outline" href="/contact">
             <span>Delivery question?</span>
-            <KtIconArrowUpRight size={18} />
+            <KtIconArrowUpRight size={16} />
           </Link>
         </div>
       </div>

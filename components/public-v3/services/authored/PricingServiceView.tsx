@@ -35,11 +35,6 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
       {/* Editorial Lead Stage */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
         <div className="lg:col-span-7 space-y-6">
-          <div className="inline-flex items-center gap-2">
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-brand-blue-accessible)] font-semibold">
-              Delivery Pricing Explained
-            </span>
-          </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -49,7 +44,7 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
           <div className="pt-2">
             <Link
               href="/account/request-delivery"
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] font-bold text-xs uppercase tracking-wider hover:bg-[#23272B] transition-colors"
+              className="kt-action-filled px-6 py-3.5 inline-flex items-center gap-2"
             >
               <span>Request a delivery quote</span>
               <KtIconArrowRight size={16} />
@@ -58,7 +53,7 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-5">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
             <Image
               src={mediaSet.primary.src}
               alt={mediaSet.primary.alt}
@@ -71,27 +66,26 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
         </div>
       </section>
 
-      {/* The 5 Real Quote Factors */}
+      {/* The 5 Real Quote Factors — Unboxed Editorial Sequence */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div>
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
-            Clear Cost Factors
-          </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
             The five factors that shape your quote
           </h2>
         </div>
 
-        <div className="space-y-4">
+        <div className="divide-y divide-[var(--kt-concrete)]/40 border-y border-[var(--kt-concrete)]/40">
           {pricingFactors.map((factor, idx) => (
             <div
               key={idx}
-              className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 flex flex-col sm:flex-row sm:items-baseline gap-4 justify-between"
+              className="py-5 flex flex-col sm:flex-row sm:items-baseline gap-4 justify-between"
             >
               <div className="space-y-1">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                  Factor 0{idx + 1}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
+                    Factor 0{idx + 1}
+                  </span>
+                </div>
                 <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
                   {factor.title}
                 </h3>
@@ -104,26 +98,26 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
         </div>
       </section>
 
-      {/* Quote Process Steps */}
+      {/* Quote Process Steps — Unboxed Editorial Sequence */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div>
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
-            Request Workflow
-          </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
             How your quote is prepared
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {service.process.map((step, idx) => (
             <div
               key={idx}
-              className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-3"
+              className="pt-4 border-t border-[var(--kt-concrete)] space-y-2"
             >
-              <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                Step 0{idx + 1}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
+                  0{idx + 1}
+                </span>
+                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+              </div>
               <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
                 {step.title}
               </h3>
@@ -136,17 +130,17 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
       </section>
 
       {/* Canonical Single Action Block */}
-      <section className="p-8 sm:p-12 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] space-y-6">
-        <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+      <section className="py-12 border-t border-[var(--kt-concrete)]/40 space-y-6">
+        <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
           Ready to get an accurate delivery quote?
         </h3>
-        <p className="text-sm sm:text-base text-[var(--kt-concrete)] max-w-xl leading-relaxed">
+        <p className="text-sm sm:text-base text-[var(--kt-road-grey)] max-w-xl leading-relaxed">
           Submit pickup, drop-off, and parcel details directly into the authenticated delivery request flow to receive a confirmed price.
         </p>
         <div className="pt-2">
           <Link
             href="/account/request-delivery"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-[var(--kt-asphalt)] font-bold text-xs uppercase tracking-wider hover:bg-[var(--kt-concrete)] transition-colors"
+            className="kt-action-filled px-8 py-3.5 inline-flex items-center gap-2"
           >
             <span>Request a delivery quote</span>
             <KtIconArrowRight size={16} />

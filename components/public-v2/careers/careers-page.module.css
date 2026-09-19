@@ -59,13 +59,13 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  border-top: 1px solid var(--kt-concrete, #D1CEC6);
 }
 
 .roleItem {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
-  padding: clamp(24px, 4vw, 36px);
+  background-color: transparent;
+  border-bottom: 1px solid var(--kt-concrete, #D1CEC6);
+  padding: clamp(28px, 4vw, 40px) 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -87,18 +87,19 @@
 }
 
 .roleTrackBadge {
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-concrete, #D1CEC6);
   color: var(--kt-carbon, #101210);
-  padding: 4px 10px;
+  padding: 3px 8px;
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-family: var(--kt-font-mono, monospace);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .roleTitle {
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-size: clamp(1.4rem, 2.5vw, 1.8rem);
+  font-weight: 560;
   letter-spacing: -0.02em;
   color: var(--kt-carbon, #101210);
   margin: 0;
@@ -106,9 +107,10 @@
 
 .roleSummary {
   font-size: 0.95rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-road-grey, #6B6E6A);
   line-height: 1.5;
   margin: 0;
+  max-width: 800px;
 }
 
 .roleActionRow {
@@ -119,12 +121,18 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.95rem;
+  font-family: var(--kt-font-mono, monospace);
+  font-size: 0.75rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--kt-carbon, #101210);
   text-decoration: none;
-  padding-bottom: 2px;
-  border-bottom: 2px solid var(--kt-red, #d83a2e);
+  transition: color 140ms ease;
+}
+
+.roleLink:hover {
+  color: var(--kt-signal-red, #cf2930);
 }
 
 .emptyStateNotice {

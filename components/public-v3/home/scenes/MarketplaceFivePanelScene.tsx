@@ -107,9 +107,17 @@ export function MarketplaceFivePanelScene({
         </p>
       </div>
 
+      {/* Background Environmental Layer for Parallax Depth */}
+      <div
+        className="kt-market-bg-parallax absolute inset-0 pointer-events-none z-0 opacity-20 overflow-hidden will-change-transform"
+        aria-hidden="true"
+      >
+        <div className="absolute inset-0 w-[180%] -left-[40%] bg-gradient-to-r from-[#0B0D0F] via-[#23272B]/60 to-[#0B0D0F]" />
+      </div>
+
       {/* 5-Panel Corridor Container */}
       <div
-        className={styles.panelsContainer}
+        className={`${styles.panelsContainer} relative z-10`}
         role="region"
         aria-label="Marketplace Categories Corridor"
       >

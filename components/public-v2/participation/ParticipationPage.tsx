@@ -1,4 +1,4 @@
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
+import Link from "next/link";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { ParticipationRoleSelector } from "./ParticipationRoleSelector";
 import styles from "./participation.module.css";
@@ -17,10 +17,13 @@ export function ParticipationPage() {
       />
 
       <div className={styles.joinInner}>
-        <div className={styles.breadcrumbs}>
-          <PublicBreadcrumbs
-            items={[{ label: "Home", href: "/" }, { label: "Join" }]}
-          />
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+          >
+            ← Home
+          </Link>
         </div>
 
         <section aria-labelledby="join-title" className={styles.joinHero}>

@@ -44,7 +44,7 @@ export function WhiteTruckActor({
         priority={priority || isHero}
         sizes={
           isHero
-            ? "(max-width: 767px) min(94vw, 430px), (max-width: 1440px) 94vw, 1600px"
+            ? "(max-width: 767px) min(92vw, 430px), (max-width: 1440px) 80vw, 1440px"
             : "(max-width: 767px) 100vw, 1440px"
         }
         className={isHero ? "heroTruck" : "w-full h-auto object-contain"}

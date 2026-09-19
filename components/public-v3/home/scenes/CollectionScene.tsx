@@ -24,7 +24,7 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
       aria-labelledby="collection-heading"
     >
       {/* Street environment backdrop (Johannesburg dispatch context) */}
-      <div className="absolute inset-0 z-0 opacity-25 pointer-events-none overflow-hidden">
+      <div className="kt-collection-street-env absolute inset-0 z-0 opacity-25 pointer-events-none overflow-hidden will-change-transform">
         <Image
           src={streetEnv.src}
           alt={streetEnv.alt}
@@ -49,15 +49,15 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
         </div>
       </div>
 
-      {/* Actor Anchors: Measured layout slots for persistent Van and Courier */}
-      <div className="relative z-10 max-w-6xl mx-auto w-full flex flex-col sm:flex-row items-end justify-center gap-6 my-auto pt-12">
+      {/* Actor Anchors: Measured layout slots for persistent Van and Courier on shared ground baseline */}
+      <div className="relative z-10 max-w-6xl mx-auto w-full flex flex-row items-end justify-start gap-4 my-auto pt-8">
         <div
           data-actor-anchor="collection-van"
-          className="w-full max-w-2xl min-h-[220px] sm:min-h-[300px] pointer-events-none"
+          className="w-[54vw] max-w-2xl min-h-[240px] sm:min-h-[320px] pointer-events-none"
         />
         <div
           data-actor-anchor="collection-courier"
-          className="w-48 sm:w-56 -ml-12 sm:-ml-24 mb-2 min-h-[220px] pointer-events-none"
+          className="w-[30vw] max-w-xs -ml-10 sm:-ml-20 min-h-[240px] sm:min-h-[320px] pointer-events-none self-end"
         />
       </div>
     </section>

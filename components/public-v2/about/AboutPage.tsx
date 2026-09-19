@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
@@ -48,12 +47,6 @@ export function AboutPage() {
       />
 
       <div className={styles.aboutInner}>
-        <div className={styles.breadcrumbs}>
-          <PublicBreadcrumbs
-            items={[{ label: "Home", href: "/" }, { label: "About" }]}
-          />
-        </div>
-
         {/* Narrative Intro */}
         <section aria-labelledby="about-heading" className={styles.aboutHero}>
           <h1 className={styles.aboutTitle} id="about-heading">
@@ -90,7 +83,7 @@ export function AboutPage() {
         {/* Floating Asymmetrical Gallery */}
         <FloatingImageGallery />
 
-        {/* The People Behind the Network */}
+        {/* The People Behind the Network — Unboxed Editorial Portraits */}
         <section aria-label="People of KT Couriers" className="my-16 pt-12 border-t border-[var(--kt-concrete)]/40">
           <div className="max-w-2xl mb-8">
             <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] font-semibold block mb-2">
@@ -100,9 +93,9 @@ export function AboutPage() {
               The people who build and move the network.
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="p-6 border border-[var(--kt-concrete)]/40 bg-[var(--kt-freight-paper)] space-y-4">
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:divide-x md:divide-[var(--kt-concrete)]/40">
+            <div className="space-y-4 md:pr-6">
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/30">
                 <Image
                   src={ktMediaV3.pages.about.portraits[0].src}
                   alt={ktMediaV3.pages.about.portraits[0].alt}
@@ -111,7 +104,7 @@ export function AboutPage() {
                   className="object-cover"
                 />
               </div>
-              <div>
+              <div className="pt-2">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-road-grey)] block">
                   Local Merchants
                 </span>
@@ -124,8 +117,8 @@ export function AboutPage() {
               </div>
             </div>
 
-            <div className="p-6 border border-[var(--kt-concrete)]/40 bg-[var(--kt-freight-paper)] space-y-4">
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
+            <div className="space-y-4 md:pl-6">
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/30">
                 <Image
                   src={ktMediaV3.pages.about.portraits[1].src}
                   alt={ktMediaV3.pages.about.portraits[1].alt}
@@ -134,7 +127,7 @@ export function AboutPage() {
                   className="object-cover"
                 />
               </div>
-              <div>
+              <div className="pt-2">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-road-grey)] block">
                   Couriers & Drivers
                 </span>

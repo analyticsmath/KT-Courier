@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PublicBreadcrumbs, type PublicBreadcrumbItem } from "@/components/public-v2/navigation";
+import type { PublicBreadcrumbItem } from "@/components/public-v2/navigation";
 import { RouteLine } from "@/components/public-v2/graphics";
 import type { SupportingPageMediaAsset } from "@/lib/public-assets/supporting-page-media";
 import styles from "./support-pages.module.css";
@@ -19,7 +19,7 @@ export type SupportingPageHeroProps = {
 };
 
 export function SupportingPageHero({
-  breadcrumb,
+  breadcrumb: _breadcrumb,
   eyebrow,
   title,
   summary,
@@ -30,8 +30,13 @@ export function SupportingPageHero({
 }: SupportingPageHeroProps) {
   return (
     <>
-      <div className={styles.breadcrumbs}>
-        <PublicBreadcrumbs items={breadcrumb} />
+      <div className="mb-6">
+        <Link
+          href="/"
+          className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+        >
+          ← Home
+        </Link>
       </div>
       <section className={styles.hero} data-kt-support-hero={variant}>
         <div className={styles.heroCopy}>

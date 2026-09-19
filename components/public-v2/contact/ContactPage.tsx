@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { homeMedia } from "@/components/public-v2/home/home-media";
@@ -20,10 +19,13 @@ export function ContactPage() {
       />
 
       <div className={styles.contactInner}>
-        <div className={styles.breadcrumbs}>
-          <PublicBreadcrumbs
-            items={[{ label: "Home", href: "/" }, { label: "Contact" }]}
-          />
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+          >
+            ← Home
+          </Link>
         </div>
 
         <section aria-labelledby="contact-title" className={styles.contactHero}>

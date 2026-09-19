@@ -1,4 +1,4 @@
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
+import Link from "next/link";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import {
   getPublicServicePage,
@@ -104,14 +104,14 @@ export async function ServiceDetailPage({ serviceId }: { serviceId: PublicServic
       />
 
       <div className={styles.pageInner}>
-        <div className={styles.breadcrumbs}>
-          <PublicBreadcrumbs
-            items={[
-              { label: "Home", href: "/" },
-              { label: "Services", href: "/services" },
-              { label: service.eyebrow },
-            ]}
-          />
+        <div className="pb-6">
+          <Link
+            href="/services"
+            className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors"
+          >
+            <span>&larr;</span>
+            <span>All services</span>
+          </Link>
         </div>
 
         {/* Authored Route View */}

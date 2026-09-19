@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { RouteLine } from "@/components/public-v2/graphics";
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { PublicBreadcrumbScript } from "@/components/public-v2/support";
 import { DEVELOPER_API_VERSION, DEVELOPER_SCOPE_DESCRIPTIONS, DEVELOPER_SCOPES } from "@/lib/developer-api/contracts";
 import { PUBLIC_API_ROUTE_MANIFEST } from "@/lib/developer-api/openapi";
@@ -49,7 +48,14 @@ export function DeveloperOverviewPage({ signedIn = false }: { signedIn?: boolean
     <article className={styles.page}>
       <PublicBreadcrumbScript items={[{ label: "Home", href: "/" }, { label: "Developers", href: "/developers" }]} />
       <div className={styles.inner}>
-        <PublicBreadcrumbs className={styles.breadcrumb} items={[{ label: "Home", href: "/" }, { label: "Developers" }]} />
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+          >
+            ← Home
+          </Link>
+        </div>
         <section className={styles.hero} aria-labelledby="developers-title">
           <div className={styles.heroCopy}>
 

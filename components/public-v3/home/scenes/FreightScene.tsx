@@ -26,7 +26,7 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
       aria-labelledby="freight-heading"
     >
       {/* Industrial Warehouse & Terminal Atmosphere */}
-      <div className="absolute inset-0 opacity-25 pointer-events-none z-0">
+      <div className="kt-freight-warehouse-env absolute inset-0 opacity-25 pointer-events-none z-0 will-change-transform">
         <Image
           src={warehouseBg.src}
           alt={warehouseBg.alt}
@@ -60,7 +60,7 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
       <div className="max-w-xl mx-auto text-center pb-6 relative z-10">
         <Link
           href="/services/freight"
-          className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-[var(--kt-asphalt)] font-bold text-xs uppercase tracking-wider hover:bg-[var(--kt-concrete)] transition-colors"
+          className="kt-action-filled px-8 py-3.5 inline-flex items-center justify-center font-bold text-xs uppercase tracking-wider !bg-[var(--kt-freight-paper)] !text-[var(--kt-asphalt)] hover:!bg-white"
         >
           View freight &rarr;
         </Link>

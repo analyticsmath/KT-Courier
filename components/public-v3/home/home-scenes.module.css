@@ -20,34 +20,55 @@
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   pointer-events: none;
   z-index: 1;
   user-select: none;
-  padding-top: 2vh;
+  overflow: hidden;
 }
 
 .heroWordKt {
+  position: absolute;
+  top: 24vh;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--font-display);
-  font-size: var(--type-hero-kt);
+  font-size: var(--type-hero-kt, clamp(6rem, 20vw, 19rem));
   font-weight: 900;
   line-height: 0.8;
   letter-spacing: -0.05em;
   color: var(--kt-asphalt);
   opacity: 0.95;
   margin: 0;
+  will-change: transform;
 }
 
 .heroWordCourier {
+  position: absolute;
+  top: 42vh;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--font-display);
-  font-size: var(--type-hero-courier);
+  font-size: var(--type-hero-courier, clamp(4rem, 14vw, 13rem));
   font-weight: 900;
   line-height: 0.85;
   letter-spacing: -0.04em;
   color: var(--kt-asphalt);
   opacity: 0.9;
   margin: 0;
+  will-change: transform;
+}
+
+@media (max-width: 767px) {
+  .heroWordKt {
+    top: 14vh;
+    font-size: clamp(5rem, 24vw, 9rem);
+  }
+  .heroWordCourier {
+    top: 28vh;
+    font-size: clamp(3.2rem, 16vw, 6.5rem);
+  }
 }
 
 .heroTruckWrapper {
@@ -58,21 +79,27 @@
   justify-content: center;
   align-items: flex-end;
   margin-top: auto;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
+  height: 78vh;
 }
 
 /* Authoritative Hero Truck Rules: Complete vehicle visible on mobile */
 .heroTruck {
-  width: min(94vw, 1600px);
+  width: min(80vw, 1440px);
   height: auto;
   object-fit: contain;
   display: block;
 }
 
 @media (max-width: 767px) {
+  .heroTruckWrapper {
+    height: auto;
+    margin-top: auto;
+    margin-bottom: 1rem;
+  }
   .heroTruck {
-    width: min(94vw, 430px);
-    max-width: 94vw;
+    width: min(92vw, 430px);
+    max-width: 92vw;
     height: auto;
     left: 50%;
     transform: translateX(-50%);
@@ -80,39 +107,47 @@
   }
 }
 
+/* Protected Safe Reading Field (Desktop left 5-6vw, baseline 65-70vh, max-width 330-370px) */
 .heroActionsRow {
-  position: relative;
-  z-index: 20;
+  position: absolute;
+  left: clamp(1.5rem, 5.5vw, 6vw);
+  bottom: clamp(2rem, 12vh, 18vh);
+  z-index: 25;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   align-items: flex-start;
-  padding: 0 var(--kt-page-gutter);
-  gap: 1.5rem;
+  max-width: 360px;
+  gap: 16px;
 }
 
-@media (min-width: 640px) {
+@media (max-width: 767px) {
   .heroActionsRow {
-    flex-direction: row;
-    align-items: flex-end;
+    position: relative;
+    left: auto;
+    bottom: auto;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 var(--kt-page-gutter);
+    margin-top: 1rem;
+    gap: 16px;
   }
 }
 
 .heroCopyBlock {
-  max-width: 480px;
+  max-width: 360px;
 }
 
 .heroTagline {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 3.2vw, 2.5rem);
+  font-size: clamp(1.4rem, 2.4vw, 2.1rem);
   font-weight: 800;
   letter-spacing: -0.03em;
-  line-height: 1.05;
-  margin-bottom: 0.5rem;
+  line-height: 1.1;
+  margin-bottom: 0.35rem;
 }
 
 .heroLead {
-  font-size: var(--type-lead);
+  font-size: 0.95rem;
   color: var(--kt-road-grey);
   line-height: 1.45;
   margin: 0;
@@ -121,22 +156,31 @@
 .heroCtas {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (max-width: 639px) {
+  .heroCtas {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .btnPrimary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.875rem 2rem;
+  padding: 0.75rem 1.75rem;
   background-color: var(--kt-asphalt);
   color: var(--kt-freight-paper);
   font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  border: 1.5px solid var(--kt-asphalt);
   border-radius: var(--kt-radius-none);
-  transition: background-color var(--kt-duration-fast) ease;
+  transition: background-color var(--kt-duration-fast) ease, color var(--kt-duration-fast) ease;
   text-decoration: none;
 }
 
@@ -148,13 +192,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.875rem 2rem;
+  padding: 0.75rem 1.75rem;
   background-color: transparent;
   color: var(--kt-asphalt);
   border: 1.5px solid var(--kt-asphalt);
   font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   border-radius: var(--kt-radius-none);
   transition: all var(--kt-duration-fast) ease;

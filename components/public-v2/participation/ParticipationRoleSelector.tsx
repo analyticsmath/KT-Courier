@@ -115,12 +115,12 @@ export function ParticipationRoleSelector() {
 
               <div className={styles.roleActionRow}>
                 <Link
-                  className={styles.rolePrimaryAction}
+                  className="kt-action-filled"
                   data-kt-cursor="JOIN"
                   href={activePathway.action.href}
                 >
                   <span>{activePathway.action.label}</span>
-                  <KtIconArrowRight size={18} />
+                  <KtIconArrowRight size={16} />
                 </Link>
               </div>
             </div>

@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import Image from "next/image";
+import gsap from "gsap";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 
 export interface SelectedFanMedia {
@@ -84,6 +86,8 @@ export const BASE_FAN_ITEMS = [
  * toward parcel dimensions in PreparationScene.
  */
 export function ImageFanScene({ className = "", selectedMedia }: ImageFanSceneProps) {
+  const stageRef = useRef<HTMLDivElement>(null);
+
   const fanItems = BASE_FAN_ITEMS.map((item) => {
     if (item.isHeroChoice && selectedMedia) {
       return {
@@ -97,6 +101,89 @@ export function ImageFanScene({ className = "", selectedMedia }: ImageFanScenePr
     }
     return item;
   });
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof window === "undefined") return;
+
+    // Check fine pointer (mouse / trackpad)
+    const hasFinePointer = window.matchMedia("(pointer: fine)").matches;
+    if (!hasFinePointer) return;
+
+    const cards = Array.from(stage.querySelectorAll<HTMLElement>(".kt-fan-card"));
+    if (cards.length === 0) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      const rect = stage.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = (e.clientX - centerX) / (rect.width / 2);
+      const dy = (e.clientY - centerY) / (rect.height / 2);
+      const clampedX = Math.max(-1, Math.min(1, dx));
+      const clampedY = Math.max(-1, Math.min(1, dy));
+
+      cards.forEach((card) => {
+        const isHero = card.getAttribute("data-is-hero") === "true";
+        const baseRot = parseFloat(card.getAttribute("data-fan-rot") || "0");
+        const baseX = parseFloat(card.getAttribute("data-fan-x") || "0");
+        const baseY = parseFloat(card.getAttribute("data-fan-y") || "0");
+        const idx = parseInt(card.getAttribute("data-fan-index") || "3", 10);
+        const distFromHero = Math.abs(idx - 3);
+
+        let microX = 0;
+        let microY = 0;
+        let microRot = 0;
+
+        if (isHero) {
+          microX = clampedX * 12;
+          microY = clampedY * 12;
+          microRot = clampedX * 1.5;
+        } else if (distFromHero === 1) {
+          microX = clampedX * 8;
+          microY = clampedY * 8;
+          microRot = clampedX * 1.0;
+        } else {
+          microX = clampedX * 4;
+          microY = clampedY * 4;
+          microRot = clampedX * 0.5;
+        }
+
+        gsap.to(card, {
+          x: baseX + microX,
+          y: baseY + microY,
+          rotation: baseRot + microRot,
+          duration: 0.35,
+          ease: "power2.out",
+          overwrite: "auto",
+        });
+      });
+    };
+
+    const handlePointerLeave = () => {
+      cards.forEach((card) => {
+        const baseRot = parseFloat(card.getAttribute("data-fan-rot") || "0");
+        const baseX = parseFloat(card.getAttribute("data-fan-x") || "0");
+        const baseY = parseFloat(card.getAttribute("data-fan-y") || "0");
+
+        gsap.to(card, {
+          x: baseX,
+          y: baseY,
+          rotation: baseRot,
+          duration: 0.4,
+          ease: "power2.out",
+          overwrite: "auto",
+        });
+      });
+    };
+
+    stage.addEventListener("pointermove", handlePointerMove);
+    stage.addEventListener("pointerleave", handlePointerLeave);
+
+    return () => {
+      stage.removeEventListener("pointermove", handlePointerMove);
+      stage.removeEventListener("pointerleave", handlePointerLeave);
+    };
+  }, []);
 
   return (
     <section
@@ -115,7 +202,10 @@ export function ImageFanScene({ className = "", selectedMedia }: ImageFanScenePr
       </div>
 
       {/* Fan Aperture Stage */}
-      <div className="kt-fan-stage relative w-full max-w-4xl h-[420px] sm:h-[480px] flex justify-center items-center">
+      <div
+        ref={stageRef}
+        className="kt-fan-stage relative w-full max-w-4xl h-[420px] sm:h-[480px] flex justify-center items-center"
+      >
         {fanItems.map((item, idx) => {
           return (
             <div

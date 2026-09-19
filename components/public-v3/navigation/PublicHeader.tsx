@@ -50,7 +50,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 md:px-10 h-[var(--kt-header-height)] transition-colors duration-[160ms] ease-out ${
+        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 lg:px-12 h-[66px] transition-colors duration-[160ms] ease-out ${
           isDark
             ? "bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] border-b border-[#23272B]"
             : "bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] border-b border-[var(--kt-concrete)]/40"
@@ -62,12 +62,9 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
           <Link
             href="/"
             aria-label="KT Couriers Home"
-            className="flex items-center gap-3 transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="flex items-center transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--kt-brand-blue)]"
           >
-            <CanonicalKtLogo size={42} priority />
-            <span className="font-display font-extrabold text-lg tracking-tight uppercase">
-              KT <span className="font-normal text-xs tracking-wider opacity-80">Couriers</span>
-            </span>
+            <CanonicalKtLogo size={34} priority />
           </Link>
         </div>
 

@@ -31,7 +31,7 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
           alt={merchantSide.alt}
           fill
           sizes="50vw"
-          className="object-cover filter contrast-105"
+          className="kt-custody-merchant-img object-cover filter contrast-105 will-change-transform"
         />
         <div className="absolute inset-0 bg-black/30" />
       </div>
@@ -43,7 +43,7 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
           alt={courierSide.alt}
           fill
           sizes="50vw"
-          className="object-cover filter contrast-105"
+          className="kt-custody-courier-img object-cover filter contrast-105 will-change-transform"
         />
         <div className="absolute inset-0 bg-black/25" />
 

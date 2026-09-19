@@ -68,10 +68,10 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
         </div>
 
         <div className={styles.heroCtas}>
-          <Link href="/shop" className={styles.btnPrimary}>
+          <Link href="/shop" className={`${styles.btnPrimary} kt-action-filled`}>
             Shop
           </Link>
-          <Link href="/services/parcel" className={styles.btnSecondary}>
+          <Link href="/services/parcel" className={`${styles.btnSecondary} kt-action-outline`}>
             Send a parcel
           </Link>
         </div>

@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 
 export function PublicFooter() {
+  const pathname = usePathname();
+
+  // Law 6: The site ends once. On homepage, FinaleScene provides the single unified brand horizon.
+  if (pathname === "/") {
+    return null;
+  }
+
   return (
     <footer
       className="bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] pt-16 pb-24 md:pb-16 px-6 md:px-12 border-t border-[#23272B]"

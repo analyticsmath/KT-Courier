@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import type { PublicCareerOpeningsSnapshot } from "@/lib/public-careers/openings";
 import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
@@ -46,10 +45,13 @@ export function CareersPage({ snapshot }: CareersPageProps) {
       />
 
       <div className={styles.careersInner}>
-        <div className={styles.breadcrumbs}>
-          <PublicBreadcrumbs
-            items={[{ label: "Home", href: "/" }, { label: "Careers" }]}
-          />
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+          >
+            ← Home
+          </Link>
         </div>
 
         <section aria-labelledby="careers-title" className={styles.careersHero}>

@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
+import Link from "next/link";
+import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import type { PublicCoverageSnapshot } from "@/lib/public-coverage/coverage";
 import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
 import { CoverageInteractiveView } from "./CoverageInteractiveView";
@@ -12,11 +13,24 @@ interface CoveragePageProps {
 export function CoveragePage({ snapshot }: CoveragePageProps) {
   return (
     <article className={styles.coverageRoot}>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: publicBreadcrumbJsonLd([
+            { label: "Home", href: "/" },
+            { label: "Coverage Areas", href: "/coverage" },
+          ]),
+        }}
+        type="application/ld+json"
+      />
+
       <div className={styles.coverageHeaderInner}>
-        <div className={styles.breadcrumbs}>
-          <PublicBreadcrumbs
-            items={[{ label: "Home", href: "/" }, { label: "Coverage Areas" }]}
-          />
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+          >
+            ← Home
+          </Link>
         </div>
 
         <div className={styles.heroCopyBlock}>
@@ -57,7 +71,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
 
       {/* Route Environments Photography Strip */}
       <section aria-label="Route Environments" className="max-w-6xl mx-auto px-6 md:px-12 py-16 border-t border-[var(--kt-concrete)]/40">
-        <div className="mb-8">
+        <div className="mb-10">
           <span className="text-xs font-mono uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
             Route Environments
           </span>
@@ -65,8 +79,8 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
             Transit Corridors & Road Networks
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-3 p-4 border border-[var(--kt-concrete)]/40 bg-[var(--kt-freight-paper)]">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[var(--kt-concrete)]/40">
+          <div className="space-y-4 pb-8 md:pb-0 md:pr-8">
             <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
               <Image
                 src={ktMediaV3.pages.coverage.skyline.src}
@@ -84,7 +98,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
             </p>
           </div>
 
-          <div className="space-y-3 p-4 border border-[var(--kt-concrete)]/40 bg-[var(--kt-freight-paper)]">
+          <div className="space-y-4 py-8 md:py-0 md:px-8">
             <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
               <Image
                 src={ktMediaV3.pages.coverage.capeTown.src}
@@ -102,7 +116,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
             </p>
           </div>
 
-          <div className="space-y-3 p-4 border border-[var(--kt-concrete)]/40 bg-[var(--kt-freight-paper)]">
+          <div className="space-y-4 pt-8 md:pt-0 md:pl-8">
             <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
               <Image
                 src={ktMediaV3.pages.coverage.interchange.src}

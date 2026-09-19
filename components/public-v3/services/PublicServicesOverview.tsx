@@ -141,10 +141,6 @@ export function PublicServicesOverview() {
       {/* Hero: Giant Low-Contrast SERVICES with White Truck Baseline */}
       <section className="relative pt-16 pb-20 px-6 md:px-12 border-b border-[var(--kt-concrete)]/50 overflow-hidden">
         <div className="max-w-6xl mx-auto relative">
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-4">
-            Delivery Services
-          </span>
-
           <h1 className="font-display text-[clamp(4rem,12vw,10rem)] font-extrabold tracking-tight leading-none text-[var(--kt-asphalt)]/90 mb-6 uppercase select-none">
             SERVICES
           </h1>
@@ -163,7 +159,7 @@ export function PublicServicesOverview() {
       {/* Explorer: Full-Width Stable Service Rows + Fixed Media Preview Stage */}
       <section className="max-w-6xl mx-auto px-6 md:px-12 py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          {/* Left: Stable Interactive Rows with Hairline Separators */}
+          {/* Left: Stable Interactive Rows with Hairline Separators (5–49vw) */}
           <div className="lg:col-span-7 border-t border-[var(--kt-concrete)]/40 divide-y divide-[var(--kt-concrete)]/40">
             {SERVICES_LIST.map((service, idx) => {
               const isActive = idx === activeIdx;
@@ -208,15 +204,15 @@ export function PublicServicesOverview() {
             })}
           </div>
 
-          {/* Right: Sticky Active Service Stage */}
+          {/* Right: Sticky Active Service Stage (64–70vh) */}
           <div className="lg:col-span-5 sticky top-28 space-y-4">
-            <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
+            <div className="relative h-[48vh] sm:h-[56vh] lg:h-[64vh] w-full bg-[var(--kt-concrete)]/20 overflow-hidden border border-[var(--kt-concrete)]/40">
               <Image
                 src={activeService.asset.src}
                 alt={activeService.asset.alt}
                 fill
                 sizes="(max-width: 1023px) 94vw, 450px"
-                className="object-cover"
+                className="object-cover transition-all duration-300"
               />
             </div>
 
@@ -230,7 +226,7 @@ export function PublicServicesOverview() {
               <div className="pt-3 border-t border-[var(--kt-concrete)]/40">
                 <Link
                   href={activeService.href}
-                  className="inline-flex items-center justify-center px-6 py-3 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] font-bold text-xs uppercase tracking-wider hover:bg-[#23272B] transition-colors w-full"
+                  className="kt-action-filled w-full py-3.5 inline-flex items-center justify-center font-bold text-xs uppercase tracking-wider"
                 >
                   {SERVICE_CTA_MAP[activeService.id] || "View service details"} &rarr;
                 </Link>

@@ -14,11 +14,6 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
       {/* Planned Freight Hero Stage */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
         <div className="lg:col-span-6 space-y-6">
-          <div className="inline-flex items-center gap-2">
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-brand-red)] font-semibold">
-              Heavy Freight & Bulk Haulage
-            </span>
-          </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
           </h1>
@@ -28,7 +23,7 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
           <div className="pt-2 flex items-center gap-4 flex-wrap">
             <Link
               href={service.primaryAction.href || "/account/request-delivery"}
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] font-bold text-xs uppercase tracking-wider hover:bg-[#23272B] transition-colors"
+              className="kt-action-filled px-6 py-3.5 inline-flex items-center gap-2"
             >
               <span>{service.primaryAction.label}</span>
               <KtIconArrowRight size={16} />
@@ -45,7 +40,7 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
+          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
             <Image
               src={heroMedia.src}
               alt={heroMedia.alt}
@@ -58,26 +53,26 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
         </div>
       </section>
 
-      {/* Coordination Workflow */}
+      {/* Coordination Workflow — Unboxed Editorial Sequence */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div>
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
-            Regional Coordination
-          </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
             Highway transit and pallet management
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {service.process.map((step, idx) => (
             <div
               key={idx}
-              className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-3"
+              className="pt-4 border-t border-[var(--kt-concrete)] space-y-2"
             >
-              <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                Step 0{idx + 1}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
+                  0{idx + 1}
+                </span>
+                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+              </div>
               <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
                 {step.title}
               </h3>
@@ -89,9 +84,9 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
         </div>
       </section>
 
-      {/* Pallet Criteria & Loading Dock Requirements */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-[var(--kt-concrete)]/40">
-        <div className="p-8 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-4">
+      {/* Pallet Criteria & Loading Dock Requirements — Unboxed Two-Column Layout */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-concrete)]/40 md:divide-x md:divide-[var(--kt-concrete)]/40">
+        <div className="space-y-4 md:pr-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
             Pallet & Heavy Freight Suitability
           </h3>
@@ -105,7 +100,7 @@ export function FreightServiceView({ service }: AuthoredServiceViewProps) {
           </ul>
         </div>
 
-        <div className="p-8 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-4">
+        <div className="space-y-4 md:pl-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
             Dock & Forklift Preparation
           </h3>
