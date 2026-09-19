@@ -13,10 +13,10 @@ import type {
 } from "./actor-state-machine";
 
 export interface PersistentActorLayerProps {
-  whiteTruckState?: WhiteTruckStateId | null;
-  vanState?: VanStateId | null;
-  courierState?: CourierStateId | null;
-  redTruckState?: RedTruckStateId | null;
+  whiteTruckState?: WhiteTruckStateId;
+  vanState?: VanStateId;
+  courierState?: CourierStateId;
+  redTruckState?: RedTruckStateId;
   activeActor?: "white-truck" | "van" | "courier" | "red-truck" | null;
   whiteTruckStyle?: React.CSSProperties;
   vanStyle?: React.CSSProperties;
@@ -27,73 +27,71 @@ export interface PersistentActorLayerProps {
 
 /**
  * Persistent Actor Layer.
- * Survives across cinematic chapters, managing active actors without destroying/recreating
- * separate image elements per section.
+ * Mounted ONCE at root level in PublicHomeExperience.
+ * The four actor components remain mounted for the entire session without re-parenting.
+ * Discrete narrative-state changes are handled via props, while GSAP continuously
+ * translates their slot elements toward measured scene anchor targets.
  */
 export const PersistentActorLayer = memo(function PersistentActorLayer({
-  whiteTruckState,
-  vanState,
-  courierState,
-  redTruckState,
+  whiteTruckState = "wide-hero",
+  vanState = "side-right",
+  courierState = "look-right-approach",
+  redTruckState = "centered-hero",
   activeActor = "white-truck",
   whiteTruckStyle,
   vanStyle,
   courierStyle,
   redTruckStyle,
-  isHero = false,
+  isHero = true,
 }: PersistentActorLayerProps) {
   return (
     <div
       className="kt-persistent-actor-layer pointer-events-none absolute inset-0 z-20 overflow-hidden"
       aria-hidden="true"
     >
-      {whiteTruckState && (
-        <div
-          className={`actor-slot actor-slot-white-truck absolute transition-opacity duration-300 ${
-            activeActor === "white-truck" ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-          style={whiteTruckStyle}
-        >
-          <WhiteTruckActor
-            stateId={whiteTruckState}
-            isHero={isHero}
-            priority={isHero}
-          />
-        </div>
-      )}
+      {/* 1. Persistent White Truck Actor (Hero & Route Chapters) */}
+      <div
+        className={`actor-slot actor-slot-white-truck absolute transition-opacity duration-300 ${
+          activeActor === "white-truck" ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        style={whiteTruckStyle}
+      >
+        <WhiteTruckActor
+          stateId={whiteTruckState}
+          isHero={isHero}
+          priority={isHero}
+        />
+      </div>
 
-      {vanState && (
-        <div
-          className={`actor-slot actor-slot-van absolute transition-opacity duration-300 ${
-            activeActor === "van" ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-          style={vanStyle}
-        >
-          <VanActor stateId={vanState} />
-        </div>
-      )}
+      {/* 2. Persistent Van Actor (Collection Chapter) */}
+      <div
+        className={`actor-slot actor-slot-van absolute transition-opacity duration-300 ${
+          activeActor === "van" ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        style={vanStyle}
+      >
+        <VanActor stateId={vanState} />
+      </div>
 
-      {courierState && (
-        <div
-          className={`actor-slot actor-slot-courier absolute transition-opacity duration-300 ${
-            activeActor === "courier" ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-          style={courierStyle}
-        >
-          <CourierActor stateId={courierState} />
-        </div>
-      )}
+      {/* 3. Persistent Courier Actor (Collection, Custody Split, Arrival Chapters) */}
+      <div
+        className={`actor-slot actor-slot-courier absolute transition-opacity duration-300 ${
+          activeActor === "courier" ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        style={courierStyle}
+      >
+        <CourierActor stateId={courierState} />
+      </div>
 
-      {redTruckState && (
-        <div
-          className={`actor-slot actor-slot-red-truck absolute transition-opacity duration-300 ${
-            activeActor === "red-truck" ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-          style={redTruckStyle}
-        >
-          <RedTruckActor stateId={redTruckState} />
-        </div>
-      )}
+      {/* 4. Persistent Red Truck Actor (Freight Chapter) */}
+      <div
+        className={`actor-slot actor-slot-red-truck absolute transition-opacity duration-300 ${
+          activeActor === "red-truck" ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        style={redTruckStyle}
+      >
+        <RedTruckActor stateId={redTruckState} />
+      </div>
     </div>
   );
 });

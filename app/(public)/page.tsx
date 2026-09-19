@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { PublicHomeExperience } from "@/components/public-v3/home";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
+import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
+import { getStorefrontHome } from "@/lib/services/storefront-catalog.service";
 
 export const metadata: Metadata = {
   ...publicPageMetadata({
@@ -14,7 +16,20 @@ export const metadata: Metadata = {
 // Canonical Public Homepage Experience (HomepageV2 upgraded to v3)
 const HomepageV2 = PublicHomeExperience;
 
-export default function HomePage() {
-  return <HomepageV2 />;
+export default async function HomePage() {
+  if (!publicStorefrontPageExposureAllowed()) {
+    return <HomepageV2 isStorefrontExposed={false} storefrontCategories={[]} />;
+  }
+
+  const home = await getStorefrontHome();
+  const categories = home.categories.slice(0, 5).map((cat) => ({
+    id: cat.reference,
+    title: cat.name,
+    tagline: cat.description || "Local catalog collection.",
+    image: cat.imageReference || "/media/public/images/jhb-fashion-brown-coat.webp",
+    href: `/shop/categories/${cat.path}`,
+  }));
+
+  return <HomepageV2 isStorefrontExposed={true} storefrontCategories={categories} />;
 }
 

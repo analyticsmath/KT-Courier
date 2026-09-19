@@ -13,7 +13,6 @@ interface ServiceItem {
   summary: string;
   href: string;
   image: string;
-  actorNote: string;
 }
 
 const SERVICES_LIST: ServiceItem[] = [
@@ -25,7 +24,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Same-day and scheduled delivery for everyday envelopes, small cartons, and time-sensitive packages.",
     href: "/services/parcel",
     image: "/images/kt-couriers/provisional/r2/documentary/r2-doc-06-handoff.webp",
-    actorNote: "Courier & direct parcel handoff",
   },
   {
     id: "ecommerce",
@@ -35,7 +33,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Integrated merchant dispatch connecting local online purchases with dedicated courier transit.",
     href: "/services/ecommerce",
     image: "/media/public/images/jhb-rosebank-bags.webp",
-    actorNote: "Order to merchant to parcel transit",
   },
   {
     id: "food",
@@ -45,7 +42,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Food-related local deliveries arranged from store kitchens and local food producers directly to customers.",
     href: "/services/food",
     image: "/media/public/images/cape-town-market-food-bowl.webp",
-    actorNote: "Kitchen preparation & van delivery",
   },
   {
     id: "grocery",
@@ -55,7 +51,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Market staples, fresh produce, and household pantry provisions collected and delivered directly.",
     href: "/services/grocery",
     image: "/media/public/images/cape-town-market-vegetables.webp",
-    actorNote: "Store collection to doorstep",
   },
   {
     id: "pharmacy",
@@ -65,7 +60,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Pharmacy-related deliveries arranged with careful handling and verified drop-off coordinates.",
     href: "/services/pharmacy",
     image: "/media/public/images/jhb-rosebank-plants.webp",
-    actorNote: "Direct transit & careful custody",
   },
   {
     id: "moving",
@@ -75,7 +69,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Larger household goods, office equipment, and bulky volume moves coordinated with cargo transport.",
     href: "/services/moving",
     image: "/media/public/images/jhb-maboneng-vehicle-workshop.webp",
-    actorNote: "Volume transport vehicle scale",
   },
   {
     id: "freight",
@@ -85,7 +78,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Scheduled heavy haulage and pallet freight coordinated across South African regional highways.",
     href: "/services/freight",
     image: "/media/public/images/truck_asset_pack_12_images/01_full_side_view_facing_right.png",
-    actorNote: "Red freight truck & highway transit",
   },
   {
     id: "shuttle",
@@ -95,7 +87,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Scheduled route transport coordinated between confirmed commercial hubs and departure points.",
     href: "/services/shuttle",
     image: "/media/public/images/cape-town-road-night.webp",
-    actorNote: "Scheduled route transit",
   },
   {
     id: "business",
@@ -105,7 +96,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Account-based delivery management for local merchants and businesses with repeat daily orders.",
     href: "/services/business",
     image: "/images/kt-couriers/provisional/r2/documentary/r2-doc-02-driver-arrival.webp",
-    actorNote: "Dedicated merchant account coordination",
   },
   {
     id: "driver-network",
@@ -115,7 +105,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Professional couriers and transport operators providing reliable physical delivery across active regions.",
     href: "/services/driver-network",
     image: "/media/public/images/KT_Courier_20_Transparent_PNG_Assets/01_original_pose_refined.png",
-    actorNote: "Courier team & physical handoffs",
   },
   {
     id: "pricing",
@@ -125,7 +114,6 @@ const SERVICES_LIST: ServiceItem[] = [
     summary: "Clear, transparent delivery cost factors based on vehicle type, parcel size, and confirmed distance.",
     href: "/services/pricing",
     image: "/media/public/images/illustration/Package delivery.svg",
-    actorNote: "Factual distance and parcel dimensions",
   },
 ];
 
@@ -157,11 +145,11 @@ export function PublicServicesOverview() {
         </div>
       </section>
 
-      {/* Explorer: Stable Service Rows + Active Media Preview */}
+      {/* Explorer: Full-Width Stable Service Rows + Fixed Media Preview Stage */}
       <section className="max-w-6xl mx-auto px-6 md:px-12 py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          {/* Left: Stable Interactive Rows */}
-          <div className="lg:col-span-7 space-y-2">
+          {/* Left: Stable Interactive Rows with Hairline Separators */}
+          <div className="lg:col-span-7 border-t border-[var(--kt-concrete)]/40 divide-y divide-[var(--kt-concrete)]/40">
             {SERVICES_LIST.map((service, idx) => {
               const isActive = idx === activeIdx;
 
@@ -170,38 +158,36 @@ export function PublicServicesOverview() {
                   key={service.id}
                   onMouseEnter={() => setActiveIdx(idx)}
                   onFocus={() => setActiveIdx(idx)}
-                  className={`p-6 border transition-all duration-200 block ${
+                  className={`group py-5 px-4 transition-colors duration-150 flex items-center justify-between border-l-2 ${
                     isActive
-                      ? "bg-white border-[var(--kt-asphalt)] shadow-sm"
-                      : "bg-transparent border-[var(--kt-concrete)]/50 hover:border-[var(--kt-road-grey)]"
+                      ? "border-l-[var(--kt-asphalt)] bg-black/[0.03]"
+                      : "border-l-transparent hover:bg-black/[0.015] hover:border-l-[var(--kt-road-grey)]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-mono font-medium text-[var(--kt-road-grey)] block mb-1">
-                        0{idx + 1} · {service.actorNote}
-                      </span>
-                      <Link
-                        href={service.href}
-                        className="font-display text-xl sm:text-2xl font-bold tracking-tight hover:text-[var(--kt-brand-blue)] transition-colors block"
-                      >
-                        {service.title}
-                      </Link>
-                    </div>
-
+                  <div className="pr-4">
                     <Link
                       href={service.href}
-                      className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-[var(--kt-brand-blue-accessible)] hover:underline ml-4 shrink-0"
+                      className={`font-display text-xl sm:text-2xl font-bold tracking-tight transition-colors block ${
+                        isActive ? "text-[var(--kt-asphalt)]" : "text-[var(--kt-road-grey)] group-hover:text-[var(--kt-asphalt)]"
+                      }`}
                     >
-                      View &rarr;
+                      {service.title}
                     </Link>
+                    <p className="text-xs text-[var(--kt-road-grey)] line-clamp-1 mt-1 font-normal">
+                      {service.headline}
+                    </p>
                   </div>
 
-                  {isActive && (
-                    <p className="mt-3 text-sm text-[var(--kt-road-grey)] leading-relaxed border-t border-[var(--kt-concrete)]/40 pt-3">
-                      {service.summary}
-                    </p>
-                  )}
+                  <Link
+                    href={service.href}
+                    aria-label={`View ${service.title} details`}
+                    className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider shrink-0 transition-colors ${
+                      isActive ? "text-[var(--kt-asphalt)]" : "text-[var(--kt-road-grey)] group-hover:text-[var(--kt-asphalt)]"
+                    }`}
+                  >
+                    <span>View</span>
+                    <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+                  </Link>
                 </div>
               );
             })}
@@ -209,7 +195,7 @@ export function PublicServicesOverview() {
 
           {/* Right: Sticky Active Service Stage */}
           <div className="lg:col-span-5 sticky top-28 space-y-6">
-            <div className="relative aspect-[4/3] w-full bg-white border border-[var(--kt-concrete)] overflow-hidden shadow-sm">
+            <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden">
               <Image
                 src={activeService.image}
                 alt={activeService.title}
@@ -220,17 +206,14 @@ export function PublicServicesOverview() {
               />
             </div>
 
-            <div className="p-6 bg-white border border-[var(--kt-concrete)] space-y-3">
-              <span className="text-xs font-mono uppercase tracking-wider text-[var(--kt-road-grey)] block">
-                {activeService.actorNote}
-              </span>
-              <h3 className="font-display text-2xl font-bold tracking-tight">
+            <div className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-3">
+              <h2 className="font-display text-2xl font-bold tracking-tight text-[var(--kt-asphalt)]">
                 {activeService.headline}
-              </h3>
+              </h2>
               <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
                 {activeService.summary}
               </p>
-              <div className="pt-4">
+              <div className="pt-3 border-t border-[var(--kt-concrete)]/40">
                 <Link
                   href={activeService.href}
                   className="inline-flex items-center justify-center px-6 py-3 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] font-bold text-xs uppercase tracking-wider hover:bg-[#23272B] transition-colors w-full"

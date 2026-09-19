@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { WhiteTruckActor } from "../../actors/WhiteTruckActor";
 import styles from "../home-scenes.module.css";
 
 interface HeroSceneProps {
@@ -28,10 +27,11 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
         <span className={styles.heroWordCourier}>COURIER</span>
       </div>
 
-      {/* Persistent White Hero Truck Actor (Completely visible on mobile) */}
-      <div className={styles.heroTruckWrapper}>
-        <WhiteTruckActor stateId="wide-hero" isHero priority />
-      </div>
+      {/* Persistent White Hero Truck Actor Anchor (Completely visible on mobile) */}
+      <div
+        data-actor-anchor="hero-truck"
+        className={`${styles.heroTruckWrapper} min-h-[160px] sm:min-h-[260px] md:min-h-[360px] pointer-events-none`}
+      />
 
       {/* Peripheral Human Copy & Primary Actions */}
       <div className={styles.heroActionsRow}>

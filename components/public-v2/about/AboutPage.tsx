@@ -11,25 +11,25 @@ const networkPillars = [
   {
     category: "Makers & Merchants",
     title: "Trade begins with local preparation.",
-    desc: "Independent shops, craft producers, and regional suppliers prepare products with care before handover.",
+    desc: "Independent shops, craft producers, and local suppliers prepare items for pickup and delivery.",
     media: homeMedia.merchantPrepare,
   },
   {
-    category: "Marketplace Continuity",
-    title: "Catalog diversity connects with real delivery.",
-    desc: "From everyday essentials to specialty items, every listing is backed by confirmed courier routes.",
+    category: "Marketplace Discovery",
+    title: "Connecting local items with delivery requests.",
+    desc: "Discover products from local merchants and arrange delivery through the platform.",
     media: homeMedia.retailLocal,
   },
   {
     category: "Regional Transport",
     title: "Connecting routes across South Africa.",
-    desc: "Couriers and freight operators navigate provincial corridors and urban streets with verified custody.",
+    desc: "Couriers and transport operators move parcels across confirmed regional roads and urban streets.",
     media: homeMedia.routeRoad,
   },
   {
     category: "Doorstep Delivery",
-    title: "Clean, verified handoff at the destination.",
-    desc: "Packages reach recipients directly at homes, offices, and regional collection points on schedule.",
+    title: "Direct handoff at the destination.",
+    desc: "Packages reach recipients directly at homes and business addresses, with status updates available through user accounts.",
     media: homeMedia.arrival,
   },
 ] as const;
@@ -60,7 +60,7 @@ export function AboutPage() {
             Commerce does not end at the checkout. Delivery does not start at the road. KT sits between the two.
           </h1>
           <p className={styles.aboutLead}>
-            KT Couriers connects local merchant stores, independent senders, and trusted couriers across South African communities.
+            KT Couriers connects local merchant stores, independent senders, and courier operators across South African communities.
           </p>
         </section>
 

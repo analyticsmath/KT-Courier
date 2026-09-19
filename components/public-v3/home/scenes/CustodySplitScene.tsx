@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { CourierActor } from "../../actors/CourierActor";
 
 interface CustodySplitSceneProps {
   className?: string;
@@ -54,10 +53,11 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
         </div>
       </div>
 
-      {/* Center Actor: Courier with Parcel bridging the physical seam */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-64 sm:w-80 pointer-events-none drop-shadow-2xl">
-        <CourierActor stateId="ready-handover" />
-      </div>
+      {/* Center Actor Anchor: Courier with Parcel bridging the physical seam */}
+      <div
+        data-actor-anchor="custody-courier"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-64 sm:w-80 min-h-[300px] pointer-events-none"
+      />
     </section>
   );
 }

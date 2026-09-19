@@ -1,16 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { VanActor } from "../../actors/VanActor";
-import { CourierActor } from "../../actors/CourierActor";
 
 interface CollectionSceneProps {
   className?: string;
 }
 
 /**
- * Scene 05 — Van Collection.
+ * Scene — Van Collection.
  * Courier arrives at the merchant location, van sliding door opens, and the parcel is collected.
+ * The persistent actor layer renders the van and courier into these measured anchors.
  */
 export function CollectionScene({ className = "" }: CollectionSceneProps) {
   return (
@@ -33,9 +32,6 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
 
       <div className="relative z-10 max-w-6xl mx-auto w-full pt-4">
         <div className="max-w-xl">
-          <span className="text-xs font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
-            Stage 02 · Collection
-          </span>
           <h2
             id="collection-heading"
             className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--kt-asphalt)] mb-4"
@@ -48,14 +44,10 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
         </div>
       </div>
 
-      {/* Actors: Van with sliding door open + Courier loading */}
+      {/* Actor Anchors: Measured layout slots for persistent Van and Courier */}
       <div className="relative z-10 max-w-6xl mx-auto w-full flex flex-col sm:flex-row items-end justify-center gap-6 my-auto pt-12">
-        <div className="w-full max-w-2xl">
-          <VanActor stateId="sliding-door-open" />
-        </div>
-        <div className="w-48 sm:w-56 -ml-12 sm:-ml-24 mb-2">
-          <CourierActor stateId="loading-unloading" />
-        </div>
+        <div data-actor-anchor="collection-van" className="w-full max-w-2xl min-h-[220px] sm:min-h-[300px] pointer-events-none" />
+        <div data-actor-anchor="collection-courier" className="w-48 sm:w-56 -ml-12 sm:-ml-24 mb-2 min-h-[220px] pointer-events-none" />
       </div>
     </section>
   );

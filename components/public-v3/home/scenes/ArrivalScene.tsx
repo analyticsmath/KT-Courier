@@ -1,13 +1,11 @@
 "use client";
 
-import { CourierActor } from "../../actors/CourierActor";
-
 interface ArrivalSceneProps {
   className?: string;
 }
 
 /**
- * Scene 10 & 11 — Arrival & Physical Handoff.
+ * Scene — Arrival & Physical Handoff.
  * Mechanical world intensity drops quickly to a quiet, human doorstep delivery.
  * Clean physical handoff without artificial OTP or fake verification badges.
  */
@@ -22,9 +20,6 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
       <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
         {/* Narrative Statement */}
         <div className="space-y-6 order-2 md:order-1">
-          <span className="text-xs font-bold uppercase tracking-widest text-[var(--kt-road-grey)]">
-            Stage 04 · Arrival
-          </span>
           <h2
             id="arrival-heading"
             className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)]"
@@ -39,11 +34,9 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
           </div>
         </div>
 
-        {/* Courier Protagonist Extending Parcel */}
+        {/* Courier Anchor geometry for persistent Courier actor */}
         <div className="flex justify-center items-center order-1 md:order-2">
-          <div className="w-64 sm:w-80 lg:w-96 drop-shadow-xl">
-            <CourierActor stateId="extending-handoff" />
-          </div>
+          <div data-actor-anchor="arrival-courier" className="w-64 sm:w-80 lg:w-96 min-h-[300px] flex items-center justify-center pointer-events-none" />
         </div>
       </div>
     </section>

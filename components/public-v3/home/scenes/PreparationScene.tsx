@@ -37,9 +37,6 @@ export function PreparationScene({ className = "" }: PreparationSceneProps) {
 
         {/* Right: Narrative Framing */}
         <div className="space-y-6">
-          <span className="text-xs font-bold uppercase tracking-widest text-[var(--kt-road-grey)]">
-            Stage 01 · Origin
-          </span>
           <h2
             id="prep-heading"
             className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--kt-asphalt)]"

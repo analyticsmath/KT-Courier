@@ -15,11 +15,7 @@ const pathways = [
     title: "Store Partners & Merchants",
     tagline: "Publish your store catalog and coordinate courier delivery for customer orders.",
     badge: "STORE PARTNER",
-    requirements: [
-      "Registered business or verified sole trader details",
-      "Collection address within active KT service areas",
-      "Products packaged and staged for standard courier pickup",
-    ],
+    description: "Store partners manage published catalog items, receive delivery requests, and coordinate parcel collections directly with KT couriers.",
     action: { label: "Create store account", href: "/signup?role=store" },
     media: homeMedia.merchantPrepare,
   },
@@ -28,11 +24,7 @@ const pathways = [
     title: "Driver & Courier Network",
     tagline: "Provide courier delivery across designated hubs and regional transit routes.",
     badge: "COURIER DRIVER",
-    requirements: [
-      "Valid South African driver's license and vehicle roadworthy certificate",
-      "Smartphone capable of running the KT driver dispatch application",
-      "Route familiarity in active delivery areas with verified custody compliance",
-    ],
+    description: "Courier drivers provide physical parcel transit and custody handoffs across confirmed local delivery routes.",
     action: { label: "Driver network information", href: "/services/driver-network" },
     media: homeMedia.handoff,
   },
@@ -41,11 +33,7 @@ const pathways = [
     title: "Promoters & Ambassadors",
     tagline: "Connect local merchants and customers with the KT marketplace and delivery network.",
     badge: "COMMUNITY PARTNER",
-    requirements: [
-      "Active merchant network or commercial relationships in your region",
-      "Direct coordination with the KT operations team",
-      "Commitment to verified merchant onboarding standards",
-    ],
+    description: "Promoters introduce local stores and merchants to the KT delivery network and marketplace platform.",
     action: { label: "Inquire about promoter partnership", href: "/contact" },
     media: homeMedia.worldMarket,
   },
@@ -115,14 +103,14 @@ export function ParticipationRoleSelector() {
               </div>
 
               <p className={styles.roleTagline}>{activePathway.tagline}</p>
+              <p style={{ fontSize: "0.95rem", color: "var(--kt-road-grey, #6B6E6A)", lineHeight: 1.5, margin: "12px 0 20px" }}>
+                {activePathway.description}
+              </p>
 
               <div className={styles.roleRequirementsBlock}>
-                <h3 className={styles.requirementsTitle}>Onboarding Requirements</h3>
-                <ul className={styles.requirementsList}>
-                  {activePathway.requirements.map((req) => (
-                    <li key={req}>{req}</li>
-                  ))}
-                </ul>
+                <p style={{ fontSize: "0.85rem", color: "var(--kt-road-grey, #6B6E6A)", fontStyle: "italic", margin: 0 }}>
+                  Contact KT for current participation requirements.
+                </p>
               </div>
 
               <div className={styles.roleActionRow}>

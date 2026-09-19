@@ -29,13 +29,13 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
         {/* Narrative Header */}
         <div className={styles.routeHeader} data-actor="route-copy">
           <span className={styles.routeChapterTag}>
-            STATE 11 — ROUTE / TRACKING
+            DELIVERY REGIONS
           </span>
           <h2 className={styles.routeMainTitle} id="route-heading">
-            Corridor Traversal & Geometry
+            Regional Transport Routes
           </h2>
           <p className={styles.routeLead}>
-            Vehicle coordinates plot across verified provincial transit arteries. Real-time telemetry maintains custody integrity.
+            Deliveries move through confirmed service regions across South Africa. Route progress is coordinated directly through the delivery request.
           </p>
         </div>
 

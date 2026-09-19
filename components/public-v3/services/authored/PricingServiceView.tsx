@@ -1,0 +1,130 @@
+import Link from "next/link";
+import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import type { AuthoredServiceViewProps } from "./types";
+
+export function PricingServiceView({ service }: AuthoredServiceViewProps) {
+  const pricingFactors = [
+    {
+      title: "Pickup and drop-off locations",
+      description: "Accurate street addresses and verified destination coordinates determine the confirmed transit distance.",
+    },
+    {
+      title: "Delivery service type",
+      description: "Standard local courier, scheduled dispatch, bulk haulage, or direct dedicated movement.",
+    },
+    {
+      title: "Parcel count, dimensions and weight",
+      description: "Size, physical volume, and loading requirements that establish the appropriate transport vehicle.",
+    },
+    {
+      title: "Scheduling requirements",
+      description: "Same-day urgent dispatch, specific arrival window requests, or planned advance bookings.",
+    },
+    {
+      title: "Current operational availability",
+      description: "Confirmed fleet capacity and driver availability across the requested route at dispatch time.",
+    },
+  ];
+
+  return (
+    <div className="space-y-16">
+      {/* Editorial Lead Stage */}
+      <section className="space-y-6 max-w-3xl">
+        <div className="inline-flex items-center gap-2">
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-brand-blue-accessible)] font-semibold">
+            Delivery Pricing Explained
+          </span>
+        </div>
+        <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
+          {service.title}
+        </h1>
+        <p className="text-lg sm:text-xl text-[var(--kt-road-grey)] leading-relaxed">
+          KT Couriers does not advertise speculative rate tables or deploy client-side guessing calculators. Every quote is calculated from real physical requirements submitted through our authenticated delivery request flow.
+        </p>
+      </section>
+
+      {/* The 5 Real Quote Factors */}
+      <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
+        <div>
+          <span className="text-xs font-mono font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
+            Clear Cost Factors
+          </span>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
+            The five factors that shape your quote
+          </h2>
+        </div>
+
+        <div className="space-y-4">
+          {pricingFactors.map((factor, idx) => (
+            <div
+              key={idx}
+              className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 flex flex-col sm:flex-row sm:items-baseline gap-4 justify-between"
+            >
+              <div className="space-y-1">
+                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
+                  Factor 0{idx + 1}
+                </span>
+                <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
+                  {factor.title}
+                </h3>
+                <p className="text-sm text-[var(--kt-road-grey)] max-w-2xl leading-relaxed">
+                  {factor.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Quote Process Steps */}
+      <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
+        <div>
+          <span className="text-xs font-mono font-bold uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
+            Request Workflow
+          </span>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
+            How your quote is prepared
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {service.process.map((step, idx) => (
+            <div
+              key={idx}
+              className="p-6 bg-white/60 border border-[var(--kt-concrete)]/60 space-y-3"
+            >
+              <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
+                Step 0{idx + 1}
+              </span>
+              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
+                {step.title}
+              </h3>
+              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Canonical Single Action Block */}
+      <section className="p-8 sm:p-12 bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] space-y-6">
+        <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+          Ready to get an accurate delivery quote?
+        </h3>
+        <p className="text-sm sm:text-base text-[var(--kt-concrete)] max-w-xl leading-relaxed">
+          Submit pickup, drop-off, and parcel details directly into the authenticated delivery request flow to receive a confirmed price.
+        </p>
+        <div className="pt-2">
+          <Link
+            href="/account/request-delivery"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-[var(--kt-asphalt)] font-bold text-xs uppercase tracking-wider hover:bg-[var(--kt-concrete)] transition-colors"
+          >
+            <span>Request a delivery quote</span>
+            <KtIconArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
+    </div>
+  );
+}

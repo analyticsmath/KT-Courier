@@ -24,9 +24,8 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
           </p>
 
           <div className={styles.productTruthNotice}>
-            <span className={styles.noticeTitle}>Delivery Verification</span>
             <p className={styles.noticeText}>
-              There is no postcode checker or anonymous live driver location tool on this page. Delivery availability is confirmed through the actual pickup and dropoff coordinates submitted with your request. The system does not treat an unavailable source as an empty coverage list.
+              Availability is confirmed from the pickup and drop-off details in your request. There is no postcode checker or anonymous live driver location tool on this page. The system does not treat an unavailable source as an empty coverage list.
             </p>
           </div>
         </div>

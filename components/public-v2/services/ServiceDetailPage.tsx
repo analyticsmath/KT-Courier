@@ -1,5 +1,3 @@
-import Image from "next/image";
-import Link from "next/link";
 import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import {
@@ -8,13 +6,23 @@ import {
   type PublicServiceId,
   type PublicServicePageDefinition,
 } from "@/lib/public-services/service-page-registry";
-import { getServiceMedia } from "@/lib/public-assets/service-media";
-import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
-import { PublicQuoteEstimator } from "./PublicQuoteEstimator";
+import {
+  ParcelServiceView,
+  EcommerceServiceView,
+  FoodServiceView,
+  GroceryServiceView,
+  PharmacyServiceView,
+  MovingServiceView,
+  FreightServiceView,
+  ShuttleServiceView,
+  BusinessServiceView,
+  DriverNetworkServiceView,
+  PricingServiceView,
+} from "@/components/public-v3/services/authored";
 import styles from "./service-pages.module.css";
 
 // Canonical public quote path for delivery requests
-const CANONICAL_QUOTE_PATH = "/account/request-delivery";
+export const CANONICAL_QUOTE_PATH = "/account/request-delivery";
 
 interface ServiceWorldProps {
   service: PublicServicePageDefinition;
@@ -43,391 +51,38 @@ function ServiceFaqSection({ service }: ServiceWorldProps) {
   );
 }
 
-function getServiceClassification(slug: string) {
-  if (slug === "freight") {
-    return { name: "Heavy Freight & Bulk Haulage", detail: "Regional highway transit" };
-  }
-  if (slug === "parcel") {
-    return { name: "Doorstep Parcel Delivery", detail: "Everyday direct custody handoff" };
-  }
-  if (slug === "grocery") {
-    return { name: "Grocery & Pantry Delivery", detail: "Store collection to door" };
-  }
-  if (slug === "food") {
-    return { name: "Food-Related Local Delivery", detail: "Kitchen pickup and transport" };
-  }
-  if (slug === "pharmacy") {
-    return { name: "Pharmacy-Related Delivery", detail: "Careful local delivery" };
-  }
-  if (slug === "moving") {
-    return { name: "Moving & Cargo Transport", detail: "Larger item volume transport" };
-  }
-  if (slug === "shuttle") {
-    return { name: "Scheduled Route Transport", detail: "Planned commercial transit" };
-  }
-  if (slug === "business") {
-    return { name: "Business Logistics", detail: "Repeat order dispatch" };
-  }
-  if (slug === "driver-network") {
-    return { name: "Driver & Courier Network", detail: "Local delivery operations" };
-  }
-  return { name: "Delivery Services", detail: "Confirmed route transit" };
-}
-
 /* =========================================================================
-   FAMILY 1: TACTILE EVERYDAY (parcel, food, grocery, pharmacy)
-   ========================================================================= */
-function TactileEverydayWorld({ service }: ServiceWorldProps) {
-  const heroMedia = getServiceMedia(service.heroMediaId);
-  const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
-  const classification = getServiceClassification(service.slug);
-
-  return (
-    <div className={styles.tactileWorld}>
-      {/* Editorial Tactile Stage */}
-      <section className={styles.tactileHero}>
-        <div className={styles.tactileCopyPlane}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "0.72rem",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: service.slug === "freight" ? "var(--kt-brand-red, #e10f1b)" : "var(--kt-brand-blue-accessible, #2a64dd)",
-                fontWeight: 600,
-              }}
-            >
-              {classification.name}
-            </span>
-          </div>
-          <h1 className={styles.tactileTitle}>{service.title}</h1>
-          <p className={styles.tactileLead}>{service.summary}</p>
-          <div className={styles.detailHeroActions}>
-            <Link
-              className={styles.detailPrimaryAction}
-              data-kt-cursor="QUOTE"
-              href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
-            >
-              {service.primaryAction.label} <KtIconArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
-
-        <div className={styles.tactileMediaShowcase} data-kt-cursor="VIEW">
-          <Image
-            alt={heroMedia.alt}
-            fill
-            priority
-            sizes="(max-width: 1023px) 100vw, 60vw"
-            src={heroMedia.src}
-            style={{ objectFit: "cover", objectPosition: heroMedia.focalPoint }}
-          />
-        </div>
-      </section>
-
-
-      {/* Item Handling & Dispatch Guidelines */}
-      <section className={styles.tactileDetailsSection}>
-        <h2 className={styles.worldSectionTitle}>Handling & Dispatch Details</h2>
-        <div className={styles.tactileGrid}>
-          <div className={styles.tactileCard}>
-            <h3 className={styles.cardHeader}>Suitable Items</h3>
-            <ul className={styles.bulletList}>
-              {service.idealFor.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className={styles.tactileCard}>
-            <h3 className={styles.cardHeader}>Preparation Guide</h3>
-            <ul className={styles.bulletList}>
-              {service.preparation.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Secondary Detail Media Mosaic */}
-        {detailMediaItems.length > 0 && (
-          <div className={styles.detailMediaMosaic}>
-            {detailMediaItems.map((item, idx) => (
-              <div className={styles.mosaicFrame} key={idx}>
-                <Image
-                  alt={item.alt}
-                  fill
-                  sizes="(max-width: 767px) 100vw, 50vw"
-                  src={item.src}
-                  style={{ objectFit: "cover", objectPosition: item.focalPoint }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <ServiceFaqSection service={service} />
-    </div>
-  );
-}
-
-/* =========================================================================
-   FAMILY 2: COMMERCE & BUSINESS (ecommerce, business, driver-network)
-   ========================================================================= */
-function CommerceBusinessWorld({ service }: ServiceWorldProps) {
-  const heroMedia = getServiceMedia(service.heroMediaId);
-  const detailMediaItems = service.detailMediaIds.map((id) => getServiceMedia(id));
-  const classification = getServiceClassification(service.slug);
-
-  return (
-    <div className={styles.businessWorld}>
-      {/* High-density Commerce Header */}
-      <section className={styles.businessHero}>
-        <div className={styles.businessHeaderLeft}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "0.72rem",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "var(--kt-brand-blue-accessible, #2a64dd)",
-                fontWeight: 600,
-              }}
-            >
-              {classification.name}
-            </span>
-          </div>
-          <h1 className={styles.businessTitle}>{service.title}</h1>
-          <p className={styles.businessLead}>{service.summary}</p>
-          <div className={styles.detailHeroActions}>
-            <Link
-              className={styles.detailPrimaryAction}
-              data-kt-cursor="QUOTE"
-              href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
-            >
-              {service.primaryAction.label} <KtIconArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
-
-        <div className={styles.businessHeroMediaStage} data-kt-cursor="VIEW">
-          <Image
-            alt={heroMedia.alt}
-            fill
-            priority
-            sizes="(max-width: 1023px) 100vw, 50vw"
-            src={heroMedia.src}
-            style={{ objectFit: "cover", objectPosition: heroMedia.focalPoint }}
-          />
-        </div>
-      </section>
-
-      {/* Structured Account Operations */}
-      <section className={styles.businessOpsSection}>
-        <h2 className={styles.worldSectionTitle}>Account Operations & Dispatch</h2>
-        <div className={styles.workflowGrid}>
-          {service.process.map((step, idx) => (
-            <div className={styles.workflowStepCard} key={idx}>
-              <span className={styles.stepNumber}>0{idx + 1}</span>
-              <div>
-                <h3 className={styles.workflowHeading}>{step.title}</h3>
-                <p className={styles.workflowDesc}>{step.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {detailMediaItems.length > 0 && (
-          <div className={styles.businessMediaFrame} data-kt-cursor="VIEW">
-            <Image
-              alt={detailMediaItems[0].alt}
-              fill
-              sizes="(max-width: 1023px) 100vw, 1200px"
-              src={detailMediaItems[0].src}
-              style={{ objectFit: "cover" }}
-            />
-          </div>
-        )}
-      </section>
-
-      <ServiceFaqSection service={service} />
-    </div>
-  );
-}
-
-/* =========================================================================
-   FAMILY 3: PLANNED MOVEMENT (freight, moving, shuttle)
-   ========================================================================= */
-function PlannedMovementWorld({ service }: ServiceWorldProps) {
-  const heroMedia = getServiceMedia(service.heroMediaId);
-  const classification = getServiceClassification(service.slug);
-
-  return (
-    <div className={styles.plannedWorld}>
-      {/* Full-width Environmental Landscape */}
-      <section className={styles.plannedHero}>
-        <div className={styles.plannedLandscapeFrame} data-kt-cursor="VIEW">
-          <Image
-            alt={heroMedia.alt}
-            fill
-            priority
-            sizes="100vw"
-            src={heroMedia.src}
-            style={{ objectFit: "cover", objectPosition: heroMedia.focalPoint }}
-          />
-        </div>
-
-        <div className={styles.plannedOverlayBox}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "0.72rem",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: service.slug === "freight" ? "var(--kt-brand-red, #e10f1b)" : "var(--kt-brand-blue-accessible, #2a64dd)",
-                fontWeight: 600,
-              }}
-            >
-              {classification.name}
-            </span>
-          </div>
-          <h1 className={styles.plannedTitle}>{service.title}</h1>
-          <p className={styles.plannedLead}>{service.summary}</p>
-          <div className={styles.detailHeroActions}>
-            <Link
-              className={styles.detailPrimaryAction}
-              data-kt-cursor="QUOTE"
-              href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
-            >
-              {service.primaryAction.label} <KtIconArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Spatial Variables & Route Considerations */}
-      <section className={styles.plannedSpatialSection}>
-        <h2 className={styles.worldSectionTitle}>Spatial & Scheduling Variables</h2>
-        <div className={styles.spatialMatrix}>
-          <div className={styles.spatialCard}>
-            <h3 className={styles.cardHeader}>Capacity & Dimensions</h3>
-            <ul className={styles.bulletList}>
-              {service.idealFor.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className={styles.spatialCard}>
-            <h3 className={styles.cardHeader}>Scheduling Requirements</h3>
-            <ul className={styles.bulletList}>
-              {service.preparation.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <ServiceFaqSection service={service} />
-    </div>
-  );
-}
-
-/* =========================================================================
-   FAMILY 4: PRICING INTELLIGENCE (pricing)
-   ========================================================================= */
-function PricingIntelligenceWorld({ service }: ServiceWorldProps) {
-  const pricingSteps = [
-    {
-      title: "1. Pickup Location",
-      desc: "Street address and coordinate verification within active collection corridors.",
-    },
-    {
-      title: "2. Dropoff Destination",
-      desc: "Transit distance and route terrain across regional delivery corridors.",
-    },
-    {
-      title: "3. Item Details & Volume",
-      desc: "Parcel count, physical dimensions, weight tier, and specialized handling instructions.",
-    },
-    {
-      title: "4. Timing & Dispatch",
-      desc: "Standard dispatch workflow or planned scheduling preferences.",
-    },
-    {
-      title: "5. Review & Final Quote",
-      desc: "Transparent price confirmation generated directly through the delivery request flow.",
-    },
-  ];
-
-  return (
-    <div className={styles.pricingWorld}>
-      <section className={styles.pricingHero}>
-        <h1 className={styles.pricingTitle}>{service.title}</h1>
-        <p className={styles.pricingLead}>{service.summary}</p>
-      </section>
-
-      {/* Interactive Evidence-Driven Tariff Estimator */}
-      <section aria-label="Interactive delivery quote calculator">
-        <PublicQuoteEstimator />
-      </section>
-
-      {/* Dynamic Variable Pipeline */}
-      <section className={styles.pricingPipelineSection}>
-        <h2 className={styles.worldSectionTitle}>Calculation Variables</h2>
-        <div className={styles.pricingPipelineList}>
-          {pricingSteps.map((step) => (
-            <div className={styles.pricingStepCard} key={step.title}>
-              <h3 className={styles.stepTitle}>{step.title}</h3>
-              <p className={styles.stepDesc}>{step.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className={styles.pricingActionBlock}>
-          <h3 style={{ fontSize: "1.4rem", fontWeight: 600, margin: "0 0 12px" }}>
-            Ready to request a delivery quote?
-          </h3>
-          <p style={{ color: "var(--kt-cool-350, #adb5b2)", margin: "0 0 24px", maxWidth: 600 }}>
-            Enter your pickup and drop-off coordinates in the delivery request form to receive an exact quote.
-          </p>
-          <Link
-            className={styles.detailPrimaryAction}
-            data-kt-cursor="QUOTE"
-            href={service.primaryAction.href || CANONICAL_QUOTE_PATH}
-          >
-            <span>Request a Delivery Quote</span>
-            <KtIconArrowRight size={16} />
-          </Link>
-        </div>
-      </section>
-
-      <ServiceFaqSection service={service} />
-    </div>
-  );
-}
-
-/* =========================================================================
-   ROOT SERVICE DETAIL PAGE (FAMILY ROUTER)
+   ROOT SERVICE DETAIL PAGE (AUTHORED ROUTE DELEGATOR)
    ========================================================================= */
 export async function ServiceDetailPage({ serviceId }: { serviceId: PublicServiceId }) {
   const service = getPublicServicePage(serviceId);
 
-  const renderWorld = () => {
-    switch (service.family) {
-      case "EVERYDAY_MOVEMENT":
-        return <TactileEverydayWorld service={service} />;
-      case "BUSINESS_FLOW":
-        return <CommerceBusinessWorld service={service} />;
-      case "PLANNED_MOVEMENT":
-        return <PlannedMovementWorld service={service} />;
-      case "QUOTE_INTELLIGENCE":
-        return <PricingIntelligenceWorld service={service} />;
+  const renderAuthoredView = () => {
+    switch (service.id) {
+      case "parcel":
+        return <ParcelServiceView service={service} />;
+      case "ecommerce":
+        return <EcommerceServiceView service={service} />;
+      case "food":
+        return <FoodServiceView service={service} />;
+      case "grocery":
+        return <GroceryServiceView service={service} />;
+      case "pharmacy":
+        return <PharmacyServiceView service={service} />;
+      case "moving":
+        return <MovingServiceView service={service} />;
+      case "freight":
+        return <FreightServiceView service={service} />;
+      case "shuttle":
+        return <ShuttleServiceView service={service} />;
+      case "business":
+        return <BusinessServiceView service={service} />;
+      case "driver-network":
+        return <DriverNetworkServiceView service={service} />;
+      case "pricing":
+        return <PricingServiceView service={service} />;
+      default:
+        return <ParcelServiceView service={service} />;
     }
   };
 
@@ -459,8 +114,11 @@ export async function ServiceDetailPage({ serviceId }: { serviceId: PublicServic
           />
         </div>
 
-        {/* Authored Composition Family Renderer */}
-        {renderWorld()}
+        {/* Authored Route View */}
+        {renderAuthoredView()}
+
+        {/* Route FAQs with Native <details> */}
+        <ServiceFaqSection service={service} />
       </div>
     </article>
   );

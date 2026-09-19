@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { RedTruckActor } from "../../actors/RedTruckActor";
 
 interface FreightSceneProps {
   className?: string;
@@ -36,10 +35,11 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
         </p>
       </div>
 
-      {/* Hero Actor: Centered Red Freight Truck */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto my-auto px-4">
-        <RedTruckActor stateId="centered-hero" />
-      </div>
+      {/* Hero Actor Anchor: Centered Red Freight Truck */}
+      <div
+        data-actor-anchor="freight-truck"
+        className="relative z-10 w-full max-w-5xl mx-auto my-auto px-4 min-h-[240px] sm:min-h-[360px] pointer-events-none flex items-center justify-center"
+      />
 
       {/* Bottom Action & Scope */}
       <div className="max-w-xl mx-auto text-center pb-6">

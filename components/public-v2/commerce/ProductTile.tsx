@@ -54,7 +54,7 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
             priority={priority}
             sizes="(max-width: 639px) calc(50vw - 20px), (max-width: 1023px) 33vw, 24vw"
             src={mediaSrc}
-            className="transition-transform duration-300 ease-out group-hover:scale-[1.01]"
+            className="object-cover"
           />
         ) : (
           <div
