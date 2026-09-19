@@ -144,7 +144,7 @@ const CANONICAL_REGISTRY = [
     action: "travel",
     family: "hero",
     webpFilename: "protagonist-truck-white-oversized-wide-hero-composition.webp",
-    humanGroundContact: { x: 0.1420, y: 0.8002 },
+    humanGroundContact: { x: 0.8502, y: 0.8575 },
     validPreviousStates: ["side-right"],
     validNextStates: ["cargo-box-close", "side-right"],
     requiredOcclusion: "scene-boundary",
@@ -210,7 +210,7 @@ const CANONICAL_REGISTRY = [
     action: "accelerate",
     family: "network-motion-left", // Excluded from rightward Hero family
     webpFilename: "protagonist-truck-white-subtle-motion-energy.webp",
-    humanGroundContact: { x: 0.8565, y: 0.8002 },
+    humanGroundContact: { x: 0.1584, y: 0.8283 },
     validPreviousStates: ["side-left"],
     validNextStates: ["side-left"],
     requiredOcclusion: "typography-occlusion",
@@ -360,7 +360,7 @@ const CANONICAL_REGISTRY = [
     action: "open",
     family: "collection",
     webpFilename: "protagonist-van-sliding-door-open.webp",
-    humanGroundContact: { x: 0.7997, y: 0.8177 },
+    humanGroundContact: { x: 0.8018, y: 0.8250 },
     validPreviousStates: ["side-left"],
     validNextStates: ["side-left"],
     requiredOcclusion: "door-sequence",
@@ -400,7 +400,7 @@ const CANONICAL_REGISTRY = [
     action: "approach",
     family: "collection",
     webpFilename: "protagonist-van-slight-motion-web-transition.webp",
-    humanGroundContact: { x: 0.7719, y: 0.8177 },
+    humanGroundContact: { x: 0.4685, y: 0.8916 },
     validPreviousStates: [],
     validNextStates: ["side-left"],
     requiredOcclusion: "scene-boundary",
@@ -431,7 +431,7 @@ const CANONICAL_REGISTRY = [
     action: "idle",
     family: "portrait",
     webpFilename: "protagonist-courier-hero-standing.webp",
-    humanGroundContact: { x: 0.5401, y: 0.9850 },
+    humanGroundContact: { x: 0.7028, y: 0.9993 },
     validPreviousStates: [],
     validNextStates: [],
     requiredOcclusion: "scene-boundary",
@@ -445,7 +445,7 @@ const CANONICAL_REGISTRY = [
     action: "carry",
     family: "portrait",
     webpFilename: "protagonist-courier-carry-one-parcel.webp",
-    humanGroundContact: { x: 0.5365, y: 0.9829 },
+    humanGroundContact: { x: 0.5936, y: 0.9715 },
     validPreviousStates: [],
     validNextStates: [],
     requiredOcclusion: "scene-boundary",
@@ -459,7 +459,7 @@ const CANONICAL_REGISTRY = [
     action: "carry",
     family: "portrait",
     webpFilename: "protagonist-courier-full-body-two-parcels.webp",
-    humanGroundContact: { x: 0.5365, y: 0.9829 },
+    humanGroundContact: { x: 0.5896, y: 0.9722 },
     validPreviousStates: [],
     validNextStates: [],
     requiredOcclusion: "scene-boundary",
@@ -473,7 +473,7 @@ const CANONICAL_REGISTRY = [
     action: "travel",
     family: "street",
     webpFilename: "protagonist-courier-walk-right-one-parcel.webp",
-    humanGroundContact: { x: 0.6738, y: 0.9544 },
+    humanGroundContact: { x: 0.6756, y: 0.9536 },
     validPreviousStates: [],
     validNextStates: [],
     requiredOcclusion: "scene-boundary",
@@ -487,7 +487,7 @@ const CANONICAL_REGISTRY = [
     action: "travel",
     family: "arrival",
     webpFilename: "protagonist-courier-walking-one-parcel-facing-left.webp",
-    humanGroundContact: { x: 0.3717, y: 0.9565 },
+    humanGroundContact: { x: 0.3721, y: 0.9565 },
     validPreviousStates: [],
     validNextStates: ["extending-handoff"],
     requiredOcclusion: "architectural-mask",
@@ -569,7 +569,7 @@ const CANONICAL_REGISTRY = [
     action: "approach",
     family: "collection",
     webpFilename: "protagonist-courier-looking-left-approaching-vehicle.webp",
-    humanGroundContact: { x: 0.6894, y: 0.9786 },
+    humanGroundContact: { x: 0.6898, y: 0.9779 },
     validPreviousStates: [],
     validNextStates: ["lift-parcel"],
     requiredOcclusion: "van-door",
@@ -596,7 +596,7 @@ const CANONICAL_REGISTRY = [
     action: "load",
     family: "collection",
     webpFilename: "protagonist-courier-lifting-parcel-up.webp",
-    humanGroundContact: { x: 0.6796, y: 0.9779 },
+    humanGroundContact: { x: 0.6800, y: 0.9779 },
     validPreviousStates: ["look-left-approach"],
     validNextStates: ["loading-unloading"],
     requiredOcclusion: "parcel-coverage",
@@ -662,7 +662,7 @@ const CANONICAL_REGISTRY = [
     action: "load",
     family: "collection",
     webpFilename: "protagonist-courier-loading-unloading.webp",
-    humanGroundContact: { x: 0.6558, y: 0.9857 },
+    humanGroundContact: { x: 0.7594, y: 0.9757 },
     validPreviousStates: ["lift-parcel"],
     validNextStates: ["ready-handover"],
     requiredOcclusion: "parcel-coverage",
@@ -706,7 +706,7 @@ const CANONICAL_REGISTRY = [
     action: "travel",
     family: "freight",
     webpFilename: "protagonist-truck-red-side-right.webp",
-    humanGroundContact: { x: 0.1420, y: 0.8002 },
+    humanGroundContact: { x: 0.9103, y: 0.7566 },
     validPreviousStates: ["motion-entry"],
     validNextStates: ["curtain-open", "centered-hero"],
     requiredOcclusion: "camera-crop",
@@ -720,7 +720,7 @@ const CANONICAL_REGISTRY = [
     action: "travel",
     family: "freight-left",
     webpFilename: "protagonist-truck-red-full-side-view-facing-left.webp",
-    humanGroundContact: { x: 0.8565, y: 0.8002 },
+    humanGroundContact: { x: 0.0906, y: 0.7354 },
     validPreviousStates: [],
     validNextStates: [],
     requiredOcclusion: "road-geometry",
@@ -786,7 +786,7 @@ const CANONICAL_REGISTRY = [
     action: "idle",
     family: "freight",
     webpFilename: "protagonist-truck-red-centered-hero.webp",
-    humanGroundContact: { x: 0.5000, y: 0.8002 },
+    humanGroundContact: { x: 0.4462, y: 0.7492 },
     validPreviousStates: ["side-right"],
     validNextStates: [],
     requiredOcclusion: "scene-boundary",
@@ -839,7 +839,7 @@ const CANONICAL_REGISTRY = [
     action: "accelerate",
     family: "freight",
     webpFilename: "protagonist-truck-red-motion-version.webp",
-    humanGroundContact: { x: 0.1420, y: 0.8002 },
+    humanGroundContact: { x: 0.1041, y: 0.7556 },
     validPreviousStates: [],
     validNextStates: ["side-right"],
     requiredOcclusion: "viewport-edge",
@@ -853,7 +853,7 @@ const CANONICAL_REGISTRY = [
     action: "open",
     family: "freight",
     webpFilename: "protagonist-truck-red-curtain-open.webp",
-    humanGroundContact: { x: 0.6799, y: 0.8398 },
+    humanGroundContact: { x: 0.2692, y: 0.7577 },
     validPreviousStates: ["side-right"],
     validNextStates: [],
     requiredOcclusion: "door-sequence",
@@ -917,13 +917,26 @@ async function computeAuditedVanDoorCalibration() {
   const doorOpenFile = path.join(imagesDir, "KT_Courier_Van_Asset_Pack_14_PNGs", "10_side_sliding_door_open.png");
 
   console.log("Analyzing Van masters for audited door calibration...");
-  const [rawClosed, rawOpen] = await Promise.all([
+  const [metaClosed, metaOpen, rawClosed, rawOpen] = await Promise.all([
+    sharp(closedLeftFile).metadata(),
+    sharp(doorOpenFile).metadata(),
     sharp(closedLeftFile).raw().toBuffer({ resolveWithObject: true }),
     sharp(doorOpenFile).raw().toBuffer({ resolveWithObject: true }),
   ]);
 
   const width = rawClosed.info.width; // 1448
   const height = rawClosed.info.height; // 1086
+
+  // HARD INVARIANT: Canvas geometry must match expected source truth
+  if (width !== 1448 || height !== 1086) {
+    throw new Error(`INVARIANT VIOLATION: Closed Van master canvas is ${width}x${height}, expected 1448x1086`);
+  }
+  if (rawOpen.info.width !== 1448 || rawOpen.info.height !== 1086) {
+    throw new Error(`INVARIANT VIOLATION: Open Van master canvas is ${rawOpen.info.width}x${rawOpen.info.height}, expected 1448x1086`);
+  }
+  if (width !== rawOpen.info.width || height !== rawOpen.info.height) {
+    throw new Error(`INVARIANT VIOLATION: Van door calibration master dimension mismatch (${width}x${height} vs ${rawOpen.info.width}x${rawOpen.info.height})`);
+  }
 
   // Audit results based on pixel delta density analysis across 1448x1086 canvas:
   // 1. cargoOpeningRect: The dark interior doorway aperture revealed when door slides open.
@@ -1078,12 +1091,26 @@ async function main() {
 
   // Generate TypeScript code
   const tsContent = `/**
- * AUTOGENERATED ACTOR PERFORMANCE METADATA (v1.1)
+ * AUTOGENERATED ACTOR PERFORMANCE METADATA (v1.2)
  * Generated by scripts/media/build-actor-performance-manifest.mjs
  * Authoritative source: Local raw PNG masters via sharp.metadata() & visual pixel audit.
  * FAIL-CLOSED: Missing states throw compilation errors.
  * DO NOT EDIT MANUALLY.
  */
+
+export type ConcealmentStrategy =
+  | "typography-occlusion"
+  | "trailer-takeover"
+  | "camera-crop"
+  | "road-geometry"
+  | "door-sequence"
+  | "scene-boundary"
+  | "overpass-shadow"
+  | "architectural-mask"
+  | "custody-seam"
+  | "parcel-coverage"
+  | "van-door"
+  | "viewport-edge";
 
 export interface GeneratedActorState {
   id: string;
@@ -1104,7 +1131,7 @@ export interface GeneratedActorState {
   };
   validPreviousStates: string[];
   validNextStates: string[];
-  requiredOcclusion: string;
+  requiredOcclusion: ConcealmentStrategy;
 }
 
 export const VAN_DOOR_CALIBRATION = ${JSON.stringify(doorCalibration, null, 2)} as const;

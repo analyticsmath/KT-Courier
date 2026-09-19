@@ -32,14 +32,17 @@ interface TransitionContextValue {
   activeSharedMedia: SharedMediaData | null;
 }
 
-const TransitionContext = createContext<TransitionContextValue | null>(null);
+const DEFAULT_TRANSITION_CONTEXT: TransitionContextValue = {
+  captureSourceMedia: () => {},
+  triggerMaterialTakeover: () => {},
+  activeSharedMedia: null,
+};
 
-export function useTransitionContext() {
+const TransitionContext = createContext<TransitionContextValue>(DEFAULT_TRANSITION_CONTEXT);
+
+export function useTransitionContext(): TransitionContextValue {
   const ctx = useContext(TransitionContext);
-  if (!ctx) {
-    throw new Error("useTransitionContext must be used within PublicTransitionRouter");
-  }
-  return ctx;
+  return ctx ?? DEFAULT_TRANSITION_CONTEXT;
 }
 
 const QUIET_ROUTES = [

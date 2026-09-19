@@ -65,6 +65,7 @@ export function VanActor({
       {/* Calibrated Door Aperture: Opens over base side-left silhouette */}
       {isLeftCollectionDoorSequence && (
         <div
+          data-van-cargo-aperture="true"
           className="van-door-boundary pointer-events-none absolute inset-0 overflow-hidden"
           style={{
             clipPath: VAN_DOOR_CALIBRATION.cargoOpeningRect.clipPathInset,
@@ -74,6 +75,7 @@ export function VanActor({
           {/* Target for GSAP Collection timeline to control door reveal/scrub */}
           <div
             data-van-door-window="true"
+            data-van-door-travel-envelope="true"
             className="van-door-window absolute inset-0 will-change-transform"
             style={{
               opacity: isDoorOpen ? 1 : 0,
