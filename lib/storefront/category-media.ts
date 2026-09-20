@@ -44,7 +44,8 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       format: "jpg",
     },
     "CMA-CAT-BEVERAGES": {
-      src: "/media/public/derived/photo-commerce-coffee-roastery-counter-1440w.webp",
+      publicId: "nrd-D6Tu_L3chLE-unsplash",
+      format: "jpg",
     },
     "CMA-CAT-SNACKS": {
       publicId: "kt-courier/category-overrides/snacks",
@@ -95,7 +96,8 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       format: "jpg",
     },
     "CMA-CAT-PERSONAL-CARE": {
-      src: "/media/public/derived/photo-wellness-herbal-jars-dispensary-1440w.webp",
+      publicId: "karolina-grabowska-VQJtB5dmKxc-unsplash",
+      format: "jpg",
     },
 
     // Fashion
@@ -108,7 +110,8 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       format: "jpg",
     },
     "CMA-CAT-FOOTWEAR": {
-      src: "/media/public/derived/photo-fashion-designer-footwear-leather-1440w.webp",
+      publicId: "casey-horner-1zf36NOjoCE-unsplash",
+      format: "jpg",
     },
     "CMA-CAT-ACCESSORIES": {
       publicId: "kt-courier/category-overrides/accessories",
