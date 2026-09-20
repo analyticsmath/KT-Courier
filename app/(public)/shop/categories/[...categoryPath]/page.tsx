@@ -33,13 +33,16 @@ export async function generateMetadata({
   const category = await getStorefrontCategory(categoryPath);
   const filters = parseMarketplaceSearchParams(await searchParams);
   const canonical = category ? marketplaceCategoryHref(category.path) : null;
+  const categoryMedia = category
+    ? storefrontCategoryMediaSrc(category.imageReference)
+    : undefined;
   return category
     ? {
         title: `${category.name} | KT Couriers Marketplace`,
         description: category.description,
         alternates: canonical ? { canonical } : undefined,
-        ...(category.imageReference
-          ? { openGraph: { images: [{ url: `/api/catalog/media/${category.imageReference}`, alt: category.name }] } }
+        ...(categoryMedia
+          ? { openGraph: { images: [{ url: categoryMedia, alt: category.name }] } }
           : {}),
         ...(storefrontFilterHasCrawlRisk(filters) ? { robots: { index: false, follow: true } } : {}),
       }
