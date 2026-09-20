@@ -12,6 +12,7 @@ import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront
 import { getStorefrontProduct, getStorefrontStore } from "@/lib/services/storefront-catalog.service";
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
+import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({
@@ -61,7 +62,7 @@ export default async function ProductPage({
   if (!data || data.product.productSlug !== parsed.slug) notFound();
   const { product, offers } = data;
 
-  const [sameStore, related, store] = await Promise.all([
+  const [sameStore, related, store, categoryHierarchy] = await Promise.all([
     new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search({
       store: product.storeSlug,
       pageSize: 8,
@@ -71,6 +72,7 @@ export default async function ProductPage({
       pageSize: 8,
     }),
     getStorefrontStore(product.storeSlug),
+    getCommerceCategoryHierarchy(product.categoryPath),
   ]);
 
   const sameStoreProducts = sameStore.results
@@ -91,6 +93,7 @@ export default async function ProductPage({
       />
       <ProductDetailExperience
         modifierGroupsByOffer={data.modifierGroupsByOffer}
+        categoryHierarchy={categoryHierarchy}
         offers={offers}
         product={product}
         relatedProducts={relatedProducts}

@@ -10,6 +10,7 @@ export default async function ShopPage() {
       categories={home.categories}
       products={home.newArrivals}
       stores={home.stores}
+      collections={home.collections}
     />
   );
 }

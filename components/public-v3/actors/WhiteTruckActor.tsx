@@ -47,7 +47,7 @@ export function WhiteTruckActor({
         alt={actor.alt}
         width={actor.width}
         height={actor.height}
-        priority={priority || isHero}
+        preload={priority || isHero}
         sizes={
           isHero
             ? "(max-width: 767px) min(92vw, 430px), (max-width: 1440px) 84vw, 1440px"

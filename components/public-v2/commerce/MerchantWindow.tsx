@@ -45,7 +45,7 @@ export function MerchantWindow({ stores }: MerchantWindowProps) {
 
         <div className={styles.merchantWindowLayout}>
           {/* Merchant Names Stream */}
-          <ul className={styles.merchantNamesColumn} role="tablist">
+          <ul className={styles.merchantNamesColumn}>
             {stores.slice(0, 6).map((store, idx) => {
               const isActive = idx === activeIdx;
               const href = marketplaceStoreHref(store.slug);
@@ -54,14 +54,12 @@ export function MerchantWindow({ stores }: MerchantWindowProps) {
                 <li key={store.reference}>
                   {href ? (
                     <Link
-                      aria-selected={isActive}
                       className={`${styles.merchantNameRow} ${
                         isActive ? styles.merchantNameRowActive : ""
                       }`}
                       href={href}
                       onFocus={() => setActiveIdx(idx)}
                       onMouseEnter={() => setActiveIdx(idx)}
-                      role="tab"
                     >
                       <span className={styles.merchantNameTitle}>{store.name}</span>
                       <span className={styles.merchantOfferCount}>
@@ -70,13 +68,11 @@ export function MerchantWindow({ stores }: MerchantWindowProps) {
                     </Link>
                   ) : (
                     <div
-                      aria-selected={isActive}
                       aria-disabled="true"
                       className={`${styles.merchantNameRow} ${
                         isActive ? styles.merchantNameRowActive : ""
                       }`}
                       style={{ opacity: 0.8, cursor: "not-allowed" }}
-                      role="tab"
                     >
                       <span className={styles.merchantNameTitle}>{store.name}</span>
                       <span className={styles.merchantOfferCount}>Unavailable</span>

@@ -38,7 +38,7 @@ export function CourierActor({
         alt={actor.alt}
         width={actor.width}
         height={actor.height}
-        priority={priority}
+        preload={priority}
         sizes="(max-width: 767px) 70vw, 600px"
         className="w-full h-auto object-contain"
         style={{

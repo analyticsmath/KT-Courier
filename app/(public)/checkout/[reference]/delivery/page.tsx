@@ -1,2 +1,5 @@
-import { Card } from "@/components/ui/Card";
-export default async function CheckoutDeliveryPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8"><h1 className="text-2xl font-black">Delivery address and fees</h1><Card className="mt-5"><p className="text-sm">One South African recipient address is used for every store group. Delivery fees are quoted by the server for {reference}; this page never calculates a fee.</p></Card></section>; }
+import { CheckoutReferenceState } from "@/components/public-v2/commerce/CheckoutReferenceState";
+export default async function CheckoutReferencePage({ params }: { params: Promise<{ reference: string }> }) {
+  const { reference } = await params;
+  return <CheckoutReferenceState title="Delivery details" description="Return to checkout to review your address and the delivery options available for your order." reference={reference} />;
+}

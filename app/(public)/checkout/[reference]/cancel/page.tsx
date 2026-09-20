@@ -1,2 +1,5 @@
-import { Card } from "@/components/ui/Card";
-export default async function CheckoutCancelPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8" aria-live="polite"><h1 className="text-2xl font-black">Payment status</h1><Card className="mt-5"><p className="text-sm">Leaving the provider does not cancel {reference}. Any pending or unknown payment stays pending while authoritative confirmation is checked.</p></Card></section>; }
+import { CheckoutReferenceState } from "@/components/public-v2/commerce/CheckoutReferenceState";
+export default async function CheckoutReferencePage({ params }: { params: Promise<{ reference: string }> }) {
+  const { reference } = await params;
+  return <CheckoutReferenceState title="Payment not completed" description="You left the payment step. You can return to checkout to review your order and try again when you’re ready." reference={reference} />;
+}

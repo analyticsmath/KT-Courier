@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { marketplaceCategoryHref, marketplaceCategoriesHref } from "@/lib/public-marketplace/routes";
 import { ktMedia } from "@/components/public-v2/media";
-import { MaskCursor } from "@/components/public-v2/motion/cursor/MaskCursor";
 import { useTransitionContext } from "@/components/public-v2/motion/PublicTransitionRouter";
 import styles from "./commerce.module.css";
 
@@ -46,15 +45,6 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
     return ktMedia.categories.fashion.hero.src;
   };
 
-  const getCategorySecondaryMedia = (cat: CategoryDiscoveryItem) => {
-    const pathLower = cat.path.toLowerCase();
-    if (pathLower.includes("fash")) return ktMedia.categories.fashion.streetLook1.src;
-    if (pathLower.includes("groc")) return ktMedia.categories.groceries.freshGreens.src;
-    if (pathLower.includes("well")) return ktMedia.categories.healthWellness.essentialOils.src;
-    if (pathLower.includes("home")) return ktMedia.categories.homeLiving.interiorVessel.src;
-    return ktMedia.categories.fashion.streetLook2.src;
-  };
-
   const handleCategoryClick = (e: React.MouseEvent<HTMLAnchorElement>, cat: CategoryDiscoveryItem) => {
     const target = e.currentTarget;
     const mediaSrc = getCategoryMedia(cat);
@@ -67,10 +57,10 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
         <div className={styles.sectionHeaderRow}>
           <div>
             <span className="text-[11px] font-mono tracking-widest text-[#347CFB] uppercase font-bold block mb-1">
-              FIVE CATEGORY ARCHITECTURE
+              Browse the marketplace
             </span>
             <h2 className={styles.sectionTitleMain} id="category-discovery-title">
-              Marketplace Worlds
+              Shop by category
             </h2>
           </div>
           <Link className={styles.sectionDirectLink} href={marketplaceCategoriesHref()} data-kt-sticky-mode="ALL">
@@ -81,7 +71,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
         {/* 5-Category World as ONE Interactive Visual Object with Depth & Overlap */}
         <div className="relative w-full mt-6 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8 items-start">
           {/* Category Index Navigation */}
-          <ul className="flex flex-col gap-2 m-0 p-0 list-none" role="tablist">
+          <ul className="flex flex-col gap-2 m-0 p-0 list-none">
             {displayCategories.map((category, idx) => {
               const isActive = idx === activeIdx;
               const href = marketplaceCategoryHref(category.path) ?? marketplaceCategoriesHref();
@@ -89,7 +79,6 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
               return (
                 <li key={category.reference}>
                   <Link
-                    aria-selected={isActive}
                     className={`flex items-start gap-3 p-4 rounded-[4px] border transition-all duration-150 text-left no-underline ${
                       isActive
                         ? "bg-white border-[#347CFB] shadow-sm text-[#111318]"
@@ -99,7 +88,6 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                     onClick={(e) => handleCategoryClick(e, category)}
                     onFocus={() => setActiveIdx(idx)}
                     onMouseEnter={() => setActiveIdx(idx)}
-                    role="tab"
                     data-kt-sticky-mode="VIEW"
                   >
                     <span className="font-mono text-xs font-bold text-[#347CFB] mt-0.5">
@@ -131,25 +119,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
               data-kt-sticky-mode="OPEN"
               data-kt-shared-target={`category-${activeCat.path}`}
             >
-              <MaskCursor
-                revealContent={
-                  <div className="relative w-full h-full bg-[#0E1012]">
-                    <Image
-                      alt={`${activeCat.name} alternate view`}
-                      src={getCategorySecondaryMedia(activeCat)}
-                      fill
-                      sizes="(max-width: 1023px) 100vw, 65vw"
-                      className="object-cover brightness-110"
-                    />
-                    <div className="absolute top-4 left-4 z-20 px-2 py-1 bg-[#347CFB] text-white text-[10px] font-mono tracking-widest uppercase">
-                      INSPECT PERSPECTIVE
-                    </div>
-                  </div>
-                }
-                className="w-full h-[460px] md:h-[540px]"
-                maskRadius={130}
-              >
-                <div className="relative w-full h-full bg-[#111318]">
+              <div className="relative w-full h-[360px] md:h-[460px]">
                   <Image
                     alt={activeCat.name}
                     fill
@@ -170,8 +140,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                     </div>
                     <span className={styles.mediaActionLink}>View Category &rarr;</span>
                   </div>
-                </div>
-              </MaskCursor>
+              </div>
             </Link>
 
             {/* Compressed Neighbor Previews */}

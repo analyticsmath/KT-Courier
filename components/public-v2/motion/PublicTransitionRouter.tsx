@@ -105,6 +105,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (prevPathRef.current === pathname) return;
     const isQuiet = QUIET_ROUTES.some((route) => pathname === route || pathname?.startsWith(`${route}/`));
+    const isCommerce = pathname === "/shop" || pathname?.startsWith("/shop/") || pathname === "/cart" || pathname?.startsWith("/checkout");
 
     if (prefersReducedMotion) {
       prevPathRef.current = pathname;
@@ -169,7 +170,9 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
     // 3. Quiet Route vs Cinematic Reveal
     const container = containerRef.current;
     if (container && !activeSharedMedia && !takeoverActive) {
-      if (isQuiet) {
+      if (isCommerce) {
+        gsap.set(container, { clearProps: "opacity,transform" });
+      } else if (isQuiet) {
         gsap.fromTo(
           container,
           { opacity: 0.4, y: 6 },

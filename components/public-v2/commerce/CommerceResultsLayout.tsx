@@ -9,6 +9,9 @@ import { MobileFilterSheet } from "./MobileFilterSheet";
 import { AppliedFilterBar } from "./AppliedFilterBar";
 import { SortControl } from "./SortControl";
 import styles from "./commerce.module.css";
+import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
+import { listStorefrontCategories, getStorefrontFacetDisplayNames } from "@/lib/services/storefront-catalog.service";
+import { availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
 
 interface BreadcrumbItem {
   label: string;
@@ -28,7 +31,18 @@ interface CommerceResultsLayoutProps {
   emptyDescription?: string;
 }
 
-export function CommerceResultsLayout({
+function titleCase(value: string) {
+  return value.replace(/^\/+|\/+$/g, "").split(/[\/_-]+/).filter(Boolean).map((word) => word.replace(/^\p{L}/u, (letter) => letter.toLocaleUpperCase("en-ZA"))).join(" ") || "Browse";
+}
+
+function enumLabel(code: string, value: string) {
+  if (code === "availability") return availabilityLabel(value as Parameters<typeof availabilityLabel>[0]);
+  if (code === "fulfilment") return value === "COURIER_DELIVERY" ? "Courier delivery" : value === "STORE_PICKUP" ? "Store pickup" : value === "PICKUP_AND_DELIVERY" ? "Pickup and delivery" : titleCase(value);
+  if (code === "condition") return ({ NEW: "New", REFURBISHED: "Refurbished", RECONDITIONED: "Reconditioned", USED: "Used" } as Record<string, string>)[value] ?? titleCase(value);
+  return titleCase(value);
+}
+
+export async function CommerceResultsLayout({
   title,
   description,
   breadcrumbs = [{ label: "Shop", href: marketplaceHref() }],
@@ -40,36 +54,53 @@ export function CommerceResultsLayout({
   emptyTitle = "No products found",
   emptyDescription = "Try clearing filters or searching for a different keyword.",
 }: CommerceResultsLayoutProps) {
-  const { results, facets, appliedFilters, resultCount } = result;
+  const brandReferences = [...new Set([
+    ...result.facets.filter((facet) => facet.code === "brand").flatMap((facet) => facet.values.map((value) => value.value)),
+    ...result.appliedFilters.filter((filter) => filter.code === "brand").map((filter) => filter.value),
+  ])].slice(0, 20);
+  const storeSlugs = [...new Set([
+    ...result.facets.filter((facet) => facet.code === "store").flatMap((facet) => facet.values.map((value) => value.value)),
+    ...result.appliedFilters.filter((filter) => filter.code === "store").map((filter) => filter.value),
+  ])].slice(0, 20);
+  const [categories, displayNames] = await Promise.all([
+    listStorefrontCategories(),
+    getStorefrontFacetDisplayNames({ storeSlugs, brandReferences }),
+  ]);
+  const categoryNames = new Map(categories.map((category) => [category.path.startsWith("/") ? category.path : `/${category.path}`, category.name]));
+  const storeNames = displayNames.stores;
+  const brandNames = displayNames.brands;
+  const labelFor = (code: string, value: string) => {
+    if (code === "category") {
+      const path = value.startsWith("/") ? value : `/${value}`;
+      return categoryNames.get(path) ?? titleCase(value.split("/").filter(Boolean).at(-1) ?? value);
+    }
+    if (code === "store") return storeNames.get(value) ?? titleCase(value);
+    if (code === "brand") return brandNames.get(value) ?? "Brand";
+    return enumLabel(code, value);
+  };
+  const facets = result.facets.map((facet) => ({
+    ...facet,
+    label: facet.code === "category" ? "Category" : facet.code === "store" ? "Store" : facet.code === "brand" ? "Brand" : titleCase(facet.label),
+    values: facet.values.map((value) => ({ ...value, label: labelFor(facet.code, value.value) })),
+  }));
+  const priceRange = [filters.minPrice, filters.maxPrice].some(Boolean)
+    ? `${filters.minPrice ? `From ${new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" }).format(Number(filters.minPrice))}` : ""}${filters.minPrice && filters.maxPrice ? " – " : ""}${filters.maxPrice ? `Up to ${new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" }).format(Number(filters.maxPrice))}` : ""}`
+    : null;
+  const appliedFilters = [
+    ...result.appliedFilters.map((filter) => ({
+    ...filter,
+    label: labelFor(filter.code, filter.value),
+    })),
+    ...(priceRange ? [{ code: "price", value: `${filters.minPrice ?? ""}:${filters.maxPrice ?? ""}`, label: priceRange }] : []),
+  ];
+  const scopedCodes = route.kind === "store" ? new Set(["store"]) : route.kind === "category" ? new Set(["category"]) : route.kind === "store-category" ? new Set(["store", "category"]) : new Set<string>();
+  const visibleAppliedFilters = appliedFilters.filter((filter) => !scopedCodes.has(filter.code));
+  const { results, resultCount } = result;
 
   return (
     <div className={styles.commerceInner}>
       {/* Breadcrumb Bar */}
-      {breadcrumbs.length > 0 && (
-        <nav
-          aria-label="Breadcrumb"
-          style={{
-            fontSize: "0.85rem",
-            color: "var(--kt-muted, #5f6763)",
-            padding: "1.5rem 0 1rem",
-          }}
-        >
-          {breadcrumbs.map((crumb, idx) => (
-            <span key={crumb.label}>
-              {idx > 0 && " / "}
-              {crumb.href ? (
-                <Link href={crumb.href} style={{ color: "inherit", textDecoration: "none" }}>
-                  {crumb.label}
-                </Link>
-              ) : (
-                <span aria-current="page" style={{ color: "var(--kt-carbon, #101210)", fontWeight: 600 }}>
-                  {crumb.label}
-                </span>
-              )}
-            </span>
-          ))}
-        </nav>
-      )}
+      {breadcrumbs.length > 0 && <CommerceBreadcrumbs items={breadcrumbs} />}
 
       {/* Header & Title Plane */}
       <div style={{ marginBottom: "2rem" }}>
@@ -114,7 +145,7 @@ export function CommerceResultsLayout({
 
       {/* Applied Filter Tags */}
       <AppliedFilterBar
-        appliedFilters={appliedFilters}
+        appliedFilters={visibleAppliedFilters}
         filters={filters}
         retainedFilters={retainedFilters}
         route={route}

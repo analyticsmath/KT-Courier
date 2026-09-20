@@ -1,2 +1,5 @@
-import { Card } from "@/components/ui/Card";
-export default async function CheckoutContactPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8"><h1 className="text-2xl font-black">Contact details</h1><Card className="mt-5"><p className="text-sm">Checkout {reference} collects only recipient contact details required to coordinate delivery. Updating contact details invalidates an accepted review.</p></Card></section>; }
+import { CheckoutReferenceState } from "@/components/public-v2/commerce/CheckoutReferenceState";
+export default async function CheckoutReferencePage({ params }: { params: Promise<{ reference: string }> }) {
+  const { reference } = await params;
+  return <CheckoutReferenceState title="Contact details" description="Return to checkout to review the contact details for your order." reference={reference} />;
+}

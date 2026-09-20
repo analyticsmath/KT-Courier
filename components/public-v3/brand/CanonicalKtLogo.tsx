@@ -27,7 +27,7 @@ export function CanonicalKtLogo({
           src="/media/public/illustrations/logo.svg"
           alt={alt}
           fill
-          priority={priority}
+          preload={priority}
           sizes="120px"
           style={{ objectFit: "contain" }}
         />
@@ -41,7 +41,7 @@ export function CanonicalKtLogo({
       alt={alt}
       width={size}
       height={size}
-      priority={priority}
+      preload={priority}
       className={`inline-block ${className}`}
       style={{
         width: `${size}px`,

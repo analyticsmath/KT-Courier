@@ -24,7 +24,9 @@ export function PreparationScene({ className = "" }: PreparationSceneProps) {
       data-kt-scene="preparation"
       data-motion="prep-stage"
       aria-labelledby="prep-heading"
+      style={{ "--kt-home-budget": 105 } as React.CSSProperties}
     >
+      <div className="kt-home-sticky-stage kt-home-preparation-sticky">
       <div className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         {/* Dominant Documentary Image (65-75% width on desktop) */}
         <div
@@ -59,6 +61,7 @@ export function PreparationScene({ className = "" }: PreparationSceneProps) {
             The parcel has been prepared and is waiting for collection.
           </p>
         </div>
+      </div>
       </div>
     </section>
   );

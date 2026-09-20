@@ -67,7 +67,7 @@ export function MembershipPage() {
               <Image
                 alt={media.alt}
                 fill
-                priority
+                preload
                 sizes="(max-width: 1023px) 100vw, 45vw"
                 src={media.src}
                 style={{ objectFit: "cover" }}

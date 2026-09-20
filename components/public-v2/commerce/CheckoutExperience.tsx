@@ -20,13 +20,17 @@ async function computeHash(val: string): Promise<string> {
 
 interface CheckoutStoreGroup {
   storeReference: string;
+  storeName?: string;
+  storeSlug?: string;
   status: string;
   fulfilmentMode: string;
   deliveryFee?: string;
   quoteReference?: string;
   lines: Array<{
     productReference: string;
+    productTitle?: string;
     variantReference: string;
+    variantTitle?: string;
     offerReference: string;
     quantity: number;
     baseUnitPrice: string;
@@ -49,6 +53,25 @@ interface PublicCheckoutData {
   };
   storeGroups: CheckoutStoreGroup[];
   changes?: Array<{ type: string; lineReference: string; acknowledgedAt: string | null }>;
+}
+
+function retainCheckoutPresentation(next: PublicCheckoutData, previous: PublicCheckoutData | null): PublicCheckoutData {
+  if (!previous) return next;
+  return {
+    ...next,
+    storeGroups: next.storeGroups.map((group) => {
+      const oldGroup = previous.storeGroups.find((candidate) => candidate.storeReference === group.storeReference);
+      return {
+        ...group,
+        storeName: group.storeName ?? oldGroup?.storeName,
+        storeSlug: group.storeSlug ?? oldGroup?.storeSlug,
+        lines: group.lines.map((line) => {
+          const oldLine = oldGroup?.lines.find((candidate) => candidate.productReference === line.productReference && candidate.variantReference === line.variantReference);
+          return { ...line, productTitle: line.productTitle ?? oldLine?.productTitle, variantTitle: line.variantTitle ?? oldLine?.variantTitle };
+        }),
+      };
+    }),
+  };
 }
 
 export function CheckoutExperience() {
@@ -151,12 +174,12 @@ export function CheckoutExperience() {
 
       const data = await res.json();
       if (data.checkout && data.checkout.storeGroups) {
-        setCheckout(data.checkout);
+        setCheckout(retainCheckoutPresentation(data.checkout, checkout));
       } else {
         const freshRes = await fetch(`/api/checkout/${activeRef}`);
         if (freshRes.ok) {
           const freshData = await freshRes.json();
-          setCheckout(freshData.checkout);
+          setCheckout(retainCheckoutPresentation(freshData.checkout, checkout));
         }
       }
       setCurrentStep(2);
@@ -206,13 +229,13 @@ export function CheckoutExperience() {
       const data = await res.json();
       let nextVersion = checkout.version + 1;
       if (data.checkout && data.checkout.storeGroups) {
-        setCheckout(data.checkout);
+        setCheckout(retainCheckoutPresentation(data.checkout, checkout));
         nextVersion = data.checkout.version;
       } else {
         const freshRes = await fetch(`/api/checkout/${activeRef}`);
         if (freshRes.ok) {
           const freshData = await freshRes.json();
-          setCheckout(freshData.checkout);
+          setCheckout(retainCheckoutPresentation(freshData.checkout, checkout));
           nextVersion = freshData.checkout.version;
         }
       }
@@ -252,7 +275,7 @@ export function CheckoutExperience() {
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
         const freshData = await freshRes.json();
-        setCheckout(freshData.checkout);
+        setCheckout(retainCheckoutPresentation(freshData.checkout, checkout));
       }
       setCurrentStep(3);
     } catch (err) {
@@ -318,7 +341,7 @@ export function CheckoutExperience() {
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
         const freshData = await freshRes.json();
-        setCheckout(freshData.checkout);
+        setCheckout(retainCheckoutPresentation(freshData.checkout, checkout));
       }
       setCurrentStep(4);
     } catch (err) {
@@ -385,7 +408,7 @@ export function CheckoutExperience() {
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
         const freshData = await freshRes.json();
-        setCheckout(freshData.checkout);
+        setCheckout(retainCheckoutPresentation(freshData.checkout, checkout));
       }
       setCurrentStep(5);
     } catch (err) {
@@ -452,7 +475,7 @@ export function CheckoutExperience() {
   if (!checkoutRef) {
     return (
       <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center", maxWidth: 600, margin: "0 auto" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: 560, marginBottom: "1rem" }}>No Active Checkout Found</h1>
+        <h1 style={{ fontSize: "2rem", fontWeight: 560, marginBottom: "1rem" }}>Your checkout is not available</h1>
         <p style={{ color: "var(--kt-muted, #5f6763)", marginBottom: "2rem" }}>
           Please add items to your shopping cart and click &quot;Proceed to Checkout&quot;.
         </p>
@@ -477,7 +500,7 @@ export function CheckoutExperience() {
   if (loading) {
     return (
       <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center" }}>
-        <p style={{ fontSize: "1.1rem", color: "var(--kt-muted, #5f6763)" }}>Loading checkout session...</p>
+        <p style={{ fontSize: "1.1rem", color: "var(--kt-muted, #5f6763)" }}>Preparing your checkout…</p>
       </div>
     );
   }
@@ -488,12 +511,12 @@ export function CheckoutExperience() {
         <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: "#eef8f1", color: "#1e6e38", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.5rem" }}>
           ✓
         </div>
-        <h1 style={{ fontSize: "2.2rem", fontWeight: 560, marginBottom: "1rem" }}>Order Successfully Placed!</h1>
+        <h1 style={{ fontSize: "2.2rem", fontWeight: 560, marginBottom: "1rem" }}>Your order is confirmed</h1>
         <p style={{ fontSize: "1.1rem", color: "var(--kt-graphite, #303532)", marginBottom: "1.5rem" }}>
-          Checkout Reference: <strong style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</strong>
+          Order reference: <strong style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</strong>
         </p>
         <p style={{ color: "var(--kt-muted, #5f6763)", lineHeight: 1.6, marginBottom: "2rem" }}>
-          Your order has been split into dedicated store fulfilment orders. Each vendor is preparing your package, and you will receive real-time SMS/Email courier tracking updates as delivery stages advance.
+          Your order is being prepared by the stores shown in your order summary. You can follow its progress as fulfilment updates become available.
         </p>
         <Link
           href="/shop"
@@ -507,7 +530,7 @@ export function CheckoutExperience() {
             fontWeight: 600,
           }}
         >
-          Return to Marketplace &rarr;
+          Continue shopping
         </Link>
       </div>
     );
@@ -517,10 +540,10 @@ export function CheckoutExperience() {
     <div className={styles.commerceInner} style={{ padding: "2.5rem 0 5rem" }}>
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ fontSize: "2.2rem", fontWeight: 560, margin: "0 0 0.5rem" }}>
-          Authoritative Marketplace Checkout
+          Secure checkout
         </h1>
         <p style={{ color: "var(--kt-muted, #5f6763)", margin: 0, fontSize: "0.95rem" }}>
-          Reference: <span style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</span> · Version {checkout?.version}
+          Order reference: <span style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</span>
         </p>
       </div>
 
@@ -540,16 +563,9 @@ export function CheckoutExperience() {
         </div>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr minmax(320px, 380px)",
-          gap: "2.5rem",
-          alignItems: "start",
-        }}
-      >
+      <div className={styles.checkoutMainLayout}>
         {/* Left Column: Multi-Step Flow */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <div className={styles.checkoutMainColumn}>
           {/* Step 1: Contact Details */}
           <div
             style={{
@@ -561,7 +577,7 @@ export function CheckoutExperience() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
-                1. Contact Information
+                1. Contact
               </h2>
               {currentStep > 1 && (
                 <button
@@ -591,7 +607,7 @@ export function CheckoutExperience() {
                   />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className={styles.checkoutFieldGrid}>
                   <div>
                     <label htmlFor="contactEmail" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
                       Email Address
@@ -674,7 +690,7 @@ export function CheckoutExperience() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
-                2. Delivery Address & Instructions
+                2. Delivery address
               </h2>
               {currentStep > 2 && (
                 <button
@@ -704,7 +720,7 @@ export function CheckoutExperience() {
                   />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className={styles.checkoutFieldGrid}>
                   <div>
                     <label htmlFor="addrLine2" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
                       Unit / Building (Optional)
@@ -733,7 +749,7 @@ export function CheckoutExperience() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div className={styles.checkoutFieldGridThree}>
                   <div>
                     <label htmlFor="addrCity" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
                       City
@@ -832,7 +848,7 @@ export function CheckoutExperience() {
               }}
             >
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
-                3. Fulfilment & Delivery Breakdown
+                3. Delivery options
               </h2>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -850,16 +866,16 @@ export function CheckoutExperience() {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600 }}>Store: {group.storeReference}</div>
+                      <div style={{ fontWeight: 600 }}>{group.storeName ?? "Local store"}</div>
                       <div style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
-                        {group.fulfilmentMode === "STORE_PICKUP" ? "Store Pickup" : "Courier Direct Dispatch"} · {group.lines.length} items
+                        {group.fulfilmentMode === "STORE_PICKUP" ? "Store pickup" : group.fulfilmentMode === "PICKUP_AND_DELIVERY" ? "Pickup and delivery" : "Courier delivery"} · {group.lines.length} {group.lines.length === 1 ? "item" : "items"}
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
                         {group.deliveryFee ? formatMoney(group.deliveryFee) : "Calculated"}
                       </div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--kt-muted, #5f6763)" }}>Delivery Quote</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--kt-muted, #5f6763)" }}>Delivery fee</div>
                     </div>
                   </div>
                 ))}
@@ -881,7 +897,7 @@ export function CheckoutExperience() {
                     cursor: submitting ? "not-allowed" : "pointer",
                   }}
                 >
-                  {submitting ? "Freezing Commercial Review..." : "Review Order & Final Totals \u2192"}
+                  {submitting ? "Updating order…" : "Review order →"}
                 </button>
               )}
             </div>
@@ -898,15 +914,12 @@ export function CheckoutExperience() {
               }}
             >
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
-                4. Final Commercial Review & Terms
+                4. Review your order
               </h2>
 
               <div style={{ backgroundColor: "var(--kt-cool-050, #f5f6f6)", padding: "16px", borderRadius: 4, marginBottom: "1rem" }}>
                 <div style={{ fontSize: "0.9rem", color: "var(--kt-carbon, #101210)", lineHeight: 1.5 }}>
-                  By completing this order, stock is locked authoritatively with the merchant(s), and delivery obligations are bound to KT Couriers (Pty) Ltd.
-                </div>
-                <div style={{ marginTop: 8, fontSize: "0.8rem", color: "var(--kt-muted, #5f6763)" }}>
-                  Commercial Evidence Fingerprint: <span style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{commercialFingerprint?.slice(0, 24)}...</span>
+                  Review your items and delivery details, then accept the terms to continue to payment.
                 </div>
               </div>
 
@@ -939,7 +952,7 @@ export function CheckoutExperience() {
                       cursor: termsAgreed && !submitting ? "pointer" : "not-allowed",
                     }}
                   >
-                    {submitting ? "Reserving Inventory..." : "Acknowledge & Reserve Inventory \u2192"}
+                    {submitting ? "Preparing payment…" : "Continue to payment →"}
                   </button>
                 </div>
               )}
@@ -957,7 +970,7 @@ export function CheckoutExperience() {
               }}
             >
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
-                5. Secure Payment
+                5. Payment
               </h2>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -972,12 +985,12 @@ export function CheckoutExperience() {
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600 }}>Paystack Secure Digital Gateway</div>
+                    <div style={{ fontWeight: 600 }}>Paystack</div>
                     <div style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
-                      Credit / Debit Card, Instant EFT, SnapScan (HMAC-SHA512 Verified)
+                      Available payment methods are shown securely by Paystack.
                     </div>
                   </div>
-                  <span style={{ fontSize: "1.2rem" }}>🔒</span>
+                  <svg aria-hidden="true" width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M6 10V7a6 6 0 0 1 12 0v3M5 10h14v11H5V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 14v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 </div>
 
                 <p style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", lineHeight: 1.4 }}>
@@ -1007,20 +1020,10 @@ export function CheckoutExperience() {
           )}
         </div>
 
-        {/* Right Column: Authoritative Multi-Vendor Summary */}
-        <aside
-          aria-label="Authoritative checkout summary"
-          style={{
-            border: "1px solid var(--kt-cool-200, #dde1e0)",
-            borderRadius: 6,
-            backgroundColor: "#ffffff",
-            padding: "24px",
-            position: "sticky",
-            top: 24,
-          }}
-        >
+        {/* Order summary */}
+        <aside aria-label="Order summary" className={styles.checkoutSummary}>
           <h2 style={{ fontSize: "1.3rem", fontWeight: 560, marginTop: 0, marginBottom: "1.2rem" }}>
-            Summary Breakdown
+            Order summary
           </h2>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: "0.95rem" }}>
@@ -1055,20 +1058,20 @@ export function CheckoutExperience() {
                 color: "var(--kt-carbon, #101210)",
               }}
             >
-              <span>Authoritative Total</span>
+              <span>Total</span>
               <span>{formatMoney(checkout?.totals.grandTotal)}</span>
             </div>
           </div>
 
           <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--kt-cool-100, #eceeee)", paddingTop: "1rem" }}>
             <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8 }}>
-              Fulfilment Groups ({checkout?.storeGroups.length ?? 0}):
+              Stores in this order ({checkout?.storeGroups.length ?? 0})
             </div>
             <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "0.8rem", color: "var(--kt-graphite, #303532)", display: "flex", flexDirection: "column", gap: 6 }}>
               {checkout?.storeGroups.map((g, idx) => (
                 <li key={idx} style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>{g.storeReference}</span>
-                  <span style={{ color: "var(--kt-muted, #5f6763)" }}>{g.fulfilmentMode}</span>
+                  <span>{g.storeName ?? "Local store"}</span>
+                  <span style={{ color: "var(--kt-muted, #5f6763)" }}>{g.fulfilmentMode === "STORE_PICKUP" ? "Store pickup" : g.fulfilmentMode === "PICKUP_AND_DELIVERY" ? "Pickup and delivery" : "Courier delivery"}</span>
                 </li>
               ))}
             </ul>

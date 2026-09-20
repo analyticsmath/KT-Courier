@@ -19,6 +19,8 @@ import { availabilityLabel, AVAILABILITY_ADVISORY } from "@/lib/storefront/store
 import { OfferComparison } from "./OfferComparison";
 import { ProductGrid } from "./ProductGrid";
 import { triggerCartFlight } from "./AddToCartFlightPortal";
+import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
+import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
 import styles from "./commerce.module.css";
 
 function formatPrice(amount: string, currency: "ZAR") {
@@ -41,6 +43,7 @@ interface ProductDetailExperienceProps {
   relatedProducts?: readonly StorefrontProductCard[];
   selectedVariantReference?: string;
   modifierGroupsByOffer?: Record<string, StorefrontModifierGroupDTO[]>;
+  categoryHierarchy?: readonly CommerceCategoryNode[];
 }
 
 export function ProductDetailExperience({
@@ -51,6 +54,7 @@ export function ProductDetailExperience({
   relatedProducts = [],
   selectedVariantReference,
   modifierGroupsByOffer,
+  categoryHierarchy = [],
 }: ProductDetailExperienceProps) {
   const variants = [
     ...new Map(offers.map((offer) => [offer.variantReference, offer])).values(),
@@ -195,9 +199,7 @@ export function ProductDetailExperience({
 
       // Server-truth fulfilled: trigger physical object parabolic flight into cart target
       triggerCartFlight({
-        sourceElement:
-          document.querySelector<HTMLElement>('[data-kt-action="add-to-cart"]') ||
-          document.querySelector<HTMLElement>(`.${styles.pdpMobileStickyBtn}`),
+        sourceElement: document.querySelector<HTMLElement>('[data-kt-cart-flight-source="product-media"]'),
         imageSrc: activeMedia ? `/api/catalog/media/${activeMedia.publicReference}` : undefined,
       });
 
@@ -214,31 +216,11 @@ export function ProductDetailExperience({
 
   return (
     <div className={styles.commerceInner}>
-      {/* Breadcrumb Navigation */}
-      <nav
-        aria-label="Breadcrumb"
-        style={{
-          fontSize: "0.85rem",
-          color: "var(--kt-muted, #5f6763)",
-          padding: "1.5rem 0 1rem",
-        }}
-      >
-        <Link href={marketplaceHref()} style={{ color: "inherit", textDecoration: "none" }}>
-          Shop
-        </Link>{" "}
-        /{" "}
-        {categoryHref ? (
-          <Link href={categoryHref} style={{ color: "inherit", textDecoration: "none" }}>
-            {product.categoryPath}
-          </Link>
-        ) : (
-          <span>{product.categoryPath}</span>
-        )}{" "}
-        /{" "}
-        <span aria-current="page" style={{ color: "var(--kt-carbon, #101210)", fontWeight: 600 }}>
-          {product.title}
-        </span>
-      </nav>
+      <div className={styles.pdpMobileTopBar}>
+        <button aria-label="Go back" onClick={() => window.history.back()} type="button">‹ <span>Back</span></button>
+        <Link aria-label="Cart" data-kt-cart-target="mobile-header" href="/cart">Cart</Link>
+      </div>
+      <CommerceBreadcrumbs items={[{ label: "Shop", href: marketplaceHref() }, ...categoryHierarchy.map((item) => ({ label: item.name, href: item.href })), { label: product.title }]} />
 
       {/* Main First Viewport Layout */}
       <div className={styles.pdpLayout}>
@@ -249,7 +231,7 @@ export function ProductDetailExperience({
           data-kt-shared-target={`product-${product.productReference}`}
         >
           {gallery.length <= 1 && (
-            <div className={styles.galleryHeroFrame}>
+            <div className={styles.galleryHeroFrame} data-kt-cart-flight-source="product-media">
               {activeMedia ? (
                 <Image
                   alt={activeMedia.alt || product.title}
@@ -285,6 +267,7 @@ export function ProductDetailExperience({
                   key={media.publicReference}
                   type="button"
                   className={styles.galleryDuoItem}
+                  data-kt-cart-flight-source={idx === activeMediaIndex ? "product-media" : undefined}
                   onClick={() => setActiveMediaIndex(idx)}
                   style={{
                     border: idx === activeMediaIndex ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
@@ -305,7 +288,7 @@ export function ProductDetailExperience({
 
           {gallery.length === 3 && (
             <div className={styles.galleryTriptychGrid}>
-              <div className={styles.galleryTriptychLead}>
+              <div className={styles.galleryTriptychLead} data-kt-cart-flight-source="product-media">
                 <Image
                   alt={gallery[activeMediaIndex]?.alt || product.title}
                   fill
@@ -343,7 +326,7 @@ export function ProductDetailExperience({
 
           {gallery.length >= 4 && gallery.length <= 6 && (
             <div className={styles.galleryAsymmetricGrid}>
-              <div className={styles.galleryAsymLead}>
+              <div className={styles.galleryAsymLead} data-kt-cart-flight-source="product-media">
                 <Image
                   alt={gallery[activeMediaIndex]?.alt || product.title}
                   fill
@@ -378,7 +361,7 @@ export function ProductDetailExperience({
 
           {gallery.length > 6 && (
             <>
-              <div className={styles.galleryHeroFrame}>
+              <div className={styles.galleryHeroFrame} data-kt-cart-flight-source="product-media">
                 <Image
                   alt={gallery[activeMediaIndex]?.alt || product.title}
                   fill
@@ -444,7 +427,7 @@ export function ProductDetailExperience({
           <div className={styles.pdpSellerByline}>
             Sold by{" "}
             <Link href={marketplaceStoreHref(activeOffer.storeSlug) ?? "/shop"}>
-              {activeOffer.storeSlug === store?.slug ? (store?.name ?? activeOffer.storeSlug) : activeOffer.storeSlug}
+              {activeOffer.storeName ?? (activeOffer.storeSlug === store?.slug ? store?.name : undefined) ?? activeOffer.storeSlug.split("-").map((part) => `${part[0]?.toLocaleUpperCase("en-ZA")}${part.slice(1)}`).join(" ")}
             </Link>
           </div>
 
@@ -745,7 +728,7 @@ export function ProductDetailExperience({
         <section aria-labelledby="pdp-related-heading" className={styles.pdpRelatedSection}>
           <div className={styles.sectionHeaderRow}>
             <h2 id="pdp-related-heading" style={{ fontSize: "1.6rem", fontWeight: 560 }}>
-              Related in {product.categoryPath}
+              Related in {categoryHierarchy.at(-1)?.name ?? "this category"}
             </h2>
             {categoryHref && (
               <Link className={styles.sectionDirectLink} href={categoryHref}>

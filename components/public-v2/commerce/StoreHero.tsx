@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { marketplaceHref, marketplaceStoresHref, marketplaceStoreCategoryHref } from "@/lib/public-marketplace/routes";
+import { marketplaceStoreCategoryHref } from "@/lib/public-marketplace/routes";
+import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import { homeMedia } from "@/components/public-v2/home/home-media";
 import styles from "./commerce.module.css";
 
@@ -47,16 +48,7 @@ export function StoreHero({ store }: StoreHeroProps) {
       {/* Brand Identity & Breadcrumbs Plane */}
       <div className={styles.commerceInner} style={{ position: "relative", zIndex: 5 }}>
         <div className={styles.storeHeroContentOverlay}>
-          <nav aria-label="Breadcrumb" style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)" }}>
-            <Link href={marketplaceHref()} style={{ color: "inherit", textDecoration: "none" }}>
-              Shop
-            </Link>{" "}
-            /{" "}
-            <Link href={marketplaceStoresHref()} style={{ color: "inherit", textDecoration: "none" }}>
-              Stores
-            </Link>{" "}
-            / <span aria-current="page" style={{ color: "var(--kt-carbon, #101210)", fontWeight: 600 }}>{store.name}</span>
-          </nav>
+          <CommerceBreadcrumbs items={[{ label: "Shop", href: "/shop" }, { label: "Stores", href: "/shop/stores" }, { label: store.name }]} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {store.logoMediaReference && (

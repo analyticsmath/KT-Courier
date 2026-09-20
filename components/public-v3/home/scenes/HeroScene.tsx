@@ -26,6 +26,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       data-motion="hero-stage"
       aria-label="KT Couriers Hero"
     >
+      <div className={styles.heroStage}>
       {/* Occlusion Plane: Giant KT / COURIER Typography Behind Truck */}
       <div className={styles.heroTypographyBackground} aria-hidden="true">
         <span className={styles.heroWordKt} data-motion="hero-kt">
@@ -52,20 +53,6 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-freight-paper)] via-transparent to-[var(--kt-freight-paper)]" />
       </div>
 
-      {/* Persistent White Hero Truck Actor Anchor (Completely visible on mobile without clipping) */}
-      <div
-        data-actor-anchor="hero-truck"
-        data-motion="hero-truck-anchor"
-        className={`${styles.heroTruckWrapper} min-h-[160px] sm:min-h-[260px] md:min-h-[360px] pointer-events-none relative`}
-      >
-        {/* Physical trailer cargo rectangle anchor calibrated strictly to cargo box (excluding cab and wheels) */}
-        <div
-          data-trailer-mask-anchor="true"
-          data-motion="hero-trailer-anchor"
-          className="absolute left-[18%] top-[18%] w-[50%] h-[52%] pointer-events-none"
-        />
-      </div>
-
       {/* Peripheral Human Copy & Primary Actions */}
       <div className={styles.heroActionsRow} data-motion="hero-actions">
         <div className={styles.heroCopyBlock} data-motion="hero-copy">
@@ -83,6 +70,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
             Send a parcel
           </Link>
         </div>
+      </div>
       </div>
     </section>
   );

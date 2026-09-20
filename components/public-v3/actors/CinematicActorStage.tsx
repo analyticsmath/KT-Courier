@@ -1,48 +1,15 @@
 "use client";
 
 import { memo } from "react";
-import { WhiteTruckActor } from "./WhiteTruckActor";
-import { VanActor } from "./VanActor";
-import { CourierActor } from "./CourierActor";
-import { RedTruckActor } from "./RedTruckActor";
-import type {
-  WhiteTruckStateId,
-  VanStateId,
-  CourierStateId,
-  RedTruckStateId,
+import Image from "next/image";
+import {
+  COURIER_STATES,
+  RED_TRUCK_STATES,
+  VAN_STATES,
+  WHITE_TRUCK_STATES,
+  type ActorStateDefinition,
 } from "./actor-state-machine";
 
-export interface ActorVisibility {
-  whiteTruck: boolean;
-  van: boolean;
-  courier: boolean;
-  redTruck: boolean;
-}
-
-export interface CinematicActorStageProps {
-  whiteTruckState?: WhiteTruckStateId;
-  vanState?: VanStateId;
-  courierState?: CourierStateId;
-  redTruckState?: RedTruckStateId;
-  activeActor?: "white-truck" | "van" | "courier" | "red-truck" | null;
-  actorVisibility?: Partial<ActorVisibility>;
-  whiteTruckStyle?: React.CSSProperties;
-  vanStyle?: React.CSSProperties;
-  courierStyle?: React.CSSProperties;
-  redTruckStyle?: React.CSSProperties;
-  isHero?: boolean;
-}
-
-/**
- * Authoritative Cinematic Layer Contract:
- * - Environment backdrop:       z-0
- * - Chapter / world media:      z-10
- * - Background typography:      z-15
- * - Persistent actors stage:    z-20 (THIS STAGE)
- * - Physical occluders:         z-25 (Architecture passing in front of actors)
- * - Material takeover:          z-30 (Active trailer/corridor takeover only)
- * - Header / Navigation:        z-50+
- */
 export const CINEMATIC_LAYER_Z = {
   environment: 0,
   chapterMedia: 10,
@@ -53,88 +20,115 @@ export const CINEMATIC_LAYER_Z = {
   navigation: 50,
 } as const;
 
-/**
- * CinematicActorStage — Fixed Viewport Camera Stage.
- * Mounted ONCE in PublicHomeExperience.
- * 
- * CSS Contract:
- * - position: fixed
- * - top: var(--kt-header-height)
- * - left: 0, right: 0, bottom: 0
- * - pointer-events: none
- * - overflow: hidden
- * - z-index: 20
- */
-export const CinematicActorStage = memo(function CinematicActorStage({
-  whiteTruckState = "wide-hero",
-  vanState = "side-left",
-  courierState = "look-left-approach",
-  redTruckState = "centered-hero",
-  activeActor = "white-truck",
-  actorVisibility,
-  whiteTruckStyle,
-  vanStyle,
-  courierStyle,
-  redTruckStyle,
-  isHero = true,
-}: CinematicActorStageProps) {
-  const isWhiteTruckVisible = actorVisibility?.whiteTruck ?? (activeActor === "white-truck");
-  const isVanVisible = actorVisibility?.van ?? (activeActor === "van");
-  const isCourierVisible = actorVisibility?.courier ?? (activeActor === "courier");
-  const isRedTruckVisible = actorVisibility?.redTruck ?? (activeActor === "red-truck");
+function StateBank({
+  actor,
+  states,
+  preloadStates = [],
+}: {
+  actor: "white-truck" | "van" | "courier" | "red-truck";
+  states: Record<string, ActorStateDefinition>;
+  preloadStates?: string[];
+}) {
+  return (
+    <>
+      {Object.values(states).map((state) => {
+        if (!state.webpSrc) return null;
+        const preload = preloadStates.includes(state.id);
+        return (
+          <Image
+            key={`${actor}:${state.id}`}
+            data-actor-state-layer={state.id}
+            data-actor-type={actor}
+            src={state.webpSrc}
+            alt=""
+            fill
+            sizes="100vw"
+            preload={preload}
+            loading={preload ? "eager" : "lazy"}
+            fetchPriority={preload ? "high" : "low"}
+            className="kt-actor-state-layer"
+            aria-hidden="true"
+          />
+        );
+      })}
+    </>
+  );
+}
 
+/** Persistent, pre-rendered frame bank; the director selects layers without React rerenders. */
+export const CinematicActorStage = memo(function CinematicActorStage() {
   return (
     <div
+      data-kt-actor-stage
       className="kt-cinematic-actor-stage pointer-events-none fixed left-0 right-0 bottom-0 overflow-hidden"
       aria-hidden="true"
-      style={{
-        top: "var(--kt-header-height, 4rem)",
-        zIndex: CINEMATIC_LAYER_Z.actorsStage,
-      }}
+      style={{ top: "var(--kt-header-height, 4rem)", zIndex: CINEMATIC_LAYER_Z.actorsStage }}
     >
-      {/* 1. White Truck Slot (Hero & Route Chapters) */}
-      <div
-        className={`actor-slot actor-slot-white-truck absolute will-change-transform ${
-          isWhiteTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={whiteTruckStyle}
-      >
-        <WhiteTruckActor
-          stateId={whiteTruckState}
-          isHero={isHero}
-          priority={isHero}
+      <div data-actor-slot="white-truck" className="kt-actor-slot kt-actor-slot-white-truck">
+        <StateBank
+          actor="white-truck"
+          states={{
+            "side-right": WHITE_TRUCK_STATES["side-right"],
+            "wide-hero": WHITE_TRUCK_STATES["wide-hero"],
+            "cargo-box-close": WHITE_TRUCK_STATES["cargo-box-close"],
+            "top-down-straight": WHITE_TRUCK_STATES["top-down-straight"],
+            "top-down-angled": WHITE_TRUCK_STATES["top-down-angled"],
+            "top-down-turning": WHITE_TRUCK_STATES["top-down-turning"],
+          }}
+          preloadStates={["side-right", "wide-hero", "cargo-box-close"]}
+        />
+        <div data-actor-material-anchor="white-truck-cargo-box" aria-hidden="true" />
+      </div>
+
+      <div data-actor-slot="van" className="kt-actor-slot kt-actor-slot-van">
+        <StateBank
+          actor="van"
+          states={{
+            "motion-transition": VAN_STATES["motion-transition"],
+            "side-left": VAN_STATES["side-left"],
+            "sliding-door-open": VAN_STATES["sliding-door-open"],
+          }}
+          preloadStates={["motion-transition", "side-left"]}
+        />
+        <div data-van-door-aperture aria-hidden="true">
+          <Image
+            src={VAN_STATES["sliding-door-open"].webpSrc}
+            alt=""
+            fill
+            sizes="65vw"
+            loading="lazy"
+            className="kt-van-door-interior-layer"
+          />
+        </div>
+      </div>
+
+      <div data-actor-slot="courier" className="kt-actor-slot kt-actor-slot-courier">
+        <StateBank
+          actor="courier"
+          states={{
+            "look-left-approach": COURIER_STATES["look-left-approach"],
+            "lift-parcel": COURIER_STATES["lift-parcel"],
+            "loading-unloading": COURIER_STATES["loading-unloading"],
+            "ready-handover": COURIER_STATES["ready-handover"],
+            "walk-left-one-parcel": COURIER_STATES["walk-left-one-parcel"],
+            "extending-handoff": COURIER_STATES["extending-handoff"],
+          }}
+          preloadStates={["look-left-approach", "lift-parcel", "walk-left-one-parcel"]}
         />
       </div>
 
-      {/* 2. Van Slot (Collection Chapter — Left-Facing) */}
-      <div
-        className={`actor-slot actor-slot-van absolute will-change-transform ${
-          isVanVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={vanStyle}
-      >
-        <VanActor stateId={vanState} />
+      <div data-actor-slot="red-truck" className="kt-actor-slot kt-actor-slot-red-truck">
+        <StateBank
+          actor="red-truck"
+          states={{
+            "motion-entry": RED_TRUCK_STATES["motion-entry"],
+            "side-right": RED_TRUCK_STATES["side-right"],
+            "centered-hero": RED_TRUCK_STATES["centered-hero"],
+          }}
+          preloadStates={["motion-entry", "side-right"]}
+        />
       </div>
-
-      {/* 3. Courier Slot (Collection, Custody Split, Arrival Chapters) */}
-      <div
-        className={`actor-slot actor-slot-courier absolute will-change-transform ${
-          isCourierVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={courierStyle}
-      >
-        <CourierActor stateId={courierState} />
-      </div>
-
-      {/* 4. Red Truck Slot (Freight Chapter) */}
-      <div
-        className={`actor-slot actor-slot-red-truck absolute will-change-transform ${
-          isRedTruckVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        style={redTruckStyle}
-      >
-        <RedTruckActor stateId={redTruckState} />
-      </div>
+      <div data-kt-home-occluder className="kt-home-actor-occluder" aria-hidden="true" />
     </div>
   );
 });

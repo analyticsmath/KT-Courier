@@ -52,10 +52,32 @@ function facetHref(
 }
 
 export function DesktopFilterRail({ facets, filters, route }: DesktopFilterRailProps) {
-  if (!facets.length) return null;
+  const hiddenFilters: Array<{ name: string; value: string }> = [];
+  if (filters.q) hiddenFilters.push({ name: "q", value: filters.q });
+  if (filters.category && route.kind !== "category" && route.kind !== "store-category") hiddenFilters.push({ name: "category", value: filters.category });
+  if (filters.store && route.kind !== "store" && route.kind !== "store-category") hiddenFilters.push({ name: "store", value: filters.store });
+  if (filters.brand) hiddenFilters.push({ name: "brand", value: filters.brand });
+  if (filters.sort) hiddenFilters.push({ name: "sort", value: filters.sort });
+  for (const code of ["availability", "condition", "fulfilment"] as const) {
+    if (filters[code]?.length) hiddenFilters.push({ name: code, value: filters[code]!.join(",") });
+  }
+  for (const [code, values] of Object.entries(filters.facets ?? {})) {
+    if (values.length) hiddenFilters.push({ name: `f.${code}`, value: values.join(",") });
+  }
 
   return (
     <aside aria-label="Filters" className={styles.plpFilterSidebar}>
+      <form action={marketplaceListingHref(route, {})} className={styles.desktopPriceForm} method="get">
+        {hiddenFilters.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}
+        <fieldset>
+          <legend className={styles.facetHeading}>Price range · ZAR</legend>
+          <div className={styles.desktopPriceInputs}>
+            <label className={styles.desktopPriceField}>Minimum<input inputMode="decimal" min="0" name="minPrice" type="number" defaultValue={filters.minPrice ?? ""} /></label>
+            <label className={styles.desktopPriceField}>Maximum<input inputMode="decimal" min="0" name="maxPrice" type="number" defaultValue={filters.maxPrice ?? ""} /></label>
+          </div>
+          <button className={styles.desktopPriceApply} type="submit">Apply price</button>
+        </fieldset>
+      </form>
       {facets.map((facet) => (
         <div className={styles.facetGroup} key={facet.code}>
           <h3 className={styles.facetHeading}>{facet.label}</h3>

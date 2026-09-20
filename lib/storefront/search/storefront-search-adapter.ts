@@ -192,10 +192,15 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
   }
 }
 
-export async function loadStorefrontDocuments(input: { productReference?: string; variantReference?: string; storeSlug?: string; categoryPath?: string; limit?: number }): Promise<StorefrontDocument[]> {
+export async function loadStorefrontDocuments(input: { productReference?: string; productReferences?: readonly string[]; variantReference?: string; variantReferences?: readonly string[]; storeSlug?: string; categoryPath?: string; limit?: number }): Promise<StorefrontDocument[]> {
   const clauses = [Prisma.sql`"status" = 'ACTIVE'`];
   if (input.productReference) clauses.push(Prisma.sql`"productPublicReference" = ${input.productReference}`);
   if (input.variantReference) clauses.push(Prisma.sql`"variantPublicReference" = ${input.variantReference}`);
+  const referenceClauses = [
+    ...(input.productReferences?.length ? [Prisma.sql`"productPublicReference" IN (${Prisma.join([...new Set(input.productReferences)].slice(0, 100))})`] : []),
+    ...(input.variantReferences?.length ? [Prisma.sql`"variantPublicReference" IN (${Prisma.join([...new Set(input.variantReferences)].slice(0, 100))})`] : []),
+  ];
+  if (referenceClauses.length) clauses.push(Prisma.sql`(${Prisma.join(referenceClauses, " OR ")})`);
   if (input.storeSlug) clauses.push(Prisma.sql`"storeSlug" = ${input.storeSlug}`);
   if (input.categoryPath) {
     const normPath = input.categoryPath.startsWith("/") ? input.categoryPath : `/${input.categoryPath}`;

@@ -23,7 +23,9 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
       data-kt-contrast="dark"
       data-kt-scene="custody"
       aria-label="Custody Transfer"
+      style={{ "--kt-home-budget": 165 } as React.CSSProperties}
     >
+      <div className="kt-home-sticky-stage kt-home-custody-sticky">
       {/* Left: Merchant Origin World */}
       <div className="kt-custody-left relative w-1/2 min-h-full overflow-hidden border-r border-[#23272B] will-change-[width]">
         <Image
@@ -69,6 +71,7 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
         data-motion="custody-seam"
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-64 sm:w-80 min-h-[300px] pointer-events-none"
       />
+      </div>
     </section>
   );
 }

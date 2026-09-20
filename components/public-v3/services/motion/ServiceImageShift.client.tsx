@@ -69,7 +69,7 @@ export function ServiceImageShift({
         src={asset.src}
         alt={asset.alt}
         fill
-        priority={priority}
+        preload={priority}
         sizes={sizes}
         className="object-cover will-change-transform"
         style={{

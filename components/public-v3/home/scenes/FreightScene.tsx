@@ -25,7 +25,9 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
       data-kt-scene="freight"
       data-motion="freight-world"
       aria-labelledby="freight-heading"
+      style={{ "--kt-home-budget": 210 } as React.CSSProperties}
     >
+      <div className="kt-home-sticky-stage kt-home-freight-sticky">
       {/* Industrial Warehouse & Terminal Atmosphere */}
       <div className="kt-freight-warehouse-env absolute inset-0 opacity-25 pointer-events-none z-0 will-change-transform">
         <Image
@@ -78,6 +80,7 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
         >
           View freight &rarr;
         </Link>
+      </div>
       </div>
     </section>
   );

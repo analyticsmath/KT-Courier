@@ -23,7 +23,9 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
       data-kt-scene="arrival"
       data-motion="arrival-world"
       aria-labelledby="arrival-heading"
+      style={{ "--kt-home-budget": 155 } as React.CSSProperties}
     >
+      <div className="kt-home-sticky-stage kt-home-arrival-sticky">
       {/* Real Doorstep Documentary Backdrop */}
       <div className="absolute inset-0 opacity-15 pointer-events-none z-0">
         <Image
@@ -57,6 +59,7 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
             className="w-64 sm:w-80 lg:w-96 min-h-[320px] flex items-center justify-center pointer-events-none"
           />
         </div>
+      </div>
       </div>
     </section>
   );

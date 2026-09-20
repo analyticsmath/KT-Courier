@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { CommerceResultsLayout } from "@/components/public-v2/commerce";
-import { MarketplaceCategoryRail } from "@/components/public-v2/marketplace/MarketplaceCards";
 import styles from "@/components/public-v2/commerce/commerce.module.css";
 import {
   marketplaceCategoriesHref,
@@ -18,6 +17,7 @@ import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefr
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
 import { ktMedia } from "@/components/public-v2/media";
 import { notFound } from "next/navigation";
+import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
 
 export async function generateMetadata({
   params,
@@ -71,6 +71,7 @@ export default async function CategoryPage({
     return ktMedia.categories.fashion.streetLook1.src;
   };
 
+  const [categoryHierarchy] = await Promise.all([getCommerceCategoryHierarchy(category.path)]);
   const context = (
     <div style={{ marginBottom: "2rem" }}>
       <div className={styles.categoryOpeningMediaFrame} style={{ marginBottom: "1.5rem" }}>
@@ -99,9 +100,6 @@ export default async function CategoryPage({
               );
             })}
           </div>
-          <div style={{ display: "none" }}>
-            <MarketplaceCategoryRail categories={category.children} label={`${category.name} subcategories`} />
-          </div>
         </div>
       )}
     </div>
@@ -110,11 +108,7 @@ export default async function CategoryPage({
   return (
     <main className={styles.commerceRoot} id="storefront-content">
       <CommerceResultsLayout
-        breadcrumbs={[
-          { label: "Shop", href: marketplaceHref() },
-          { label: "Categories", href: marketplaceCategoriesHref() },
-          { label: category.name },
-        ]}
+        breadcrumbs={[{ label: "Shop", href: marketplaceHref() }, { label: "Categories", href: marketplaceCategoriesHref() }, ...categoryHierarchy.map(({ name, href }) => ({ label: name, href: href ?? undefined }))]}
         context={context}
         description={category.description}
         emptyDescription="This category currently has no matching items. Explore its subcategories or return to all categories."

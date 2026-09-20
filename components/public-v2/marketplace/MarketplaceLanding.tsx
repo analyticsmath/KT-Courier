@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
 import {
   ShopEntryField,
@@ -32,14 +33,25 @@ export type MarketplaceStore = {
   publishedOfferCount: number;
 };
 
+export type MarketplaceCollection = {
+  reference: string;
+  slug: string;
+  name: string;
+  description?: string;
+  itemCount: number;
+  coverMediaReference?: string;
+};
+
 export function MarketplaceLanding({
   categories,
   stores,
   products,
+  collections = [],
 }: {
   categories: readonly MarketplaceCategory[];
   stores: readonly MarketplaceStore[];
   products: readonly StorefrontProductCard[];
+  collections?: readonly MarketplaceCollection[];
 }) {
   return (
     <main className={styles.commerceRoot} id="storefront-content">
@@ -49,10 +61,7 @@ export function MarketplaceLanding({
       {/* 2. Category Discovery Field */}
       <CategoryDiscoveryField categories={categories} />
 
-      {/* 3. Merchant Window */}
-      <MerchantWindow stores={stores} />
-
-      {/* 4. Live Marketplace Products */}
+      {/* 3. Live Marketplace Products */}
       <section aria-labelledby="live-products-title" className={styles.productGridSection}>
         <div className={styles.commerceInner}>
           <div className={styles.sectionHeaderRow}>
@@ -79,6 +88,28 @@ export function MarketplaceLanding({
           />
         </div>
       </section>
+
+      {/* 4. Independent local stores */}
+      <MerchantWindow stores={stores} />
+
+      {/* 5. Active editorial collections */}
+      {collections.length > 0 && <section aria-labelledby="home-collections-title" className={styles.commerceSection}>
+        <div className={styles.commerceInner}>
+          <div className={styles.commerceSectionHeader}>
+            <div><p className={styles.productTileBrand}>Curated edits</p><h2 id="home-collections-title">Collections</h2></div>
+            <Link className={styles.sectionDirectLink} href="/shop/collections">All collections &rarr;</Link>
+          </div>
+          <ul className={styles.collectionGrid}>
+            {collections.slice(0, 3).map((collection, index) => {
+              const href = `/shop/collections/${encodeURIComponent(collection.slug)}`;
+              return <li key={collection.reference}><Link className={styles.collectionCard} href={href}>
+                {collection.coverMediaReference && <span className={styles.collectionCardImage}><Image alt="" fill priority={index === 0} sizes="(max-width: 767px) 100vw, 40vw" src={`/api/catalog/media/${collection.coverMediaReference}`} style={{ objectFit: "cover" }} /></span>}
+                <span className={styles.collectionCardCopy}><h2>{collection.name}</h2>{collection.description && <p>{collection.description}</p>}</span>
+              </Link></li>;
+            })}
+          </ul>
+        </div>
+      </section>}
     </main>
   );
 }

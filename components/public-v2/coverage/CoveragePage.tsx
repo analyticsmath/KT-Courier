@@ -51,7 +51,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
             src={ktMediaV3.pages.coverage.hero.src}
             alt={ktMediaV3.pages.coverage.hero.alt}
             fill
-            priority
+            preload
             sizes="(max-width: 1200px) 100vw, 1200px"
             className="object-cover opacity-90"
           />

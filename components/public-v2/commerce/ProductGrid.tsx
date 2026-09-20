@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import Image from "next/image";
 import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
 import { ProductTile } from "./ProductTile";
@@ -28,7 +29,7 @@ export function ProductGrid({
         const showInterruption = withEditorialInterruption && idx === 4;
 
         return (
-          <div key={product.productReference} style={{ display: "contents" }}>
+          <Fragment key={product.productReference}>
             {showInterruption && (
               <li className={styles.editorialInterruptionTile}>
                 <Image
@@ -52,7 +53,7 @@ export function ProductGrid({
               </li>
             )}
             <ProductTile priority={idx < 4} product={product} />
-          </div>
+          </Fragment>
         );
       })}
     </ul>

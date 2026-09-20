@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic projection over database catalog and cart models */
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { MarketplaceCartState } from "@/lib/marketplace-checkout/cart-mutation.service";
 
@@ -14,6 +15,9 @@ export interface HydratedCartModifier {
 export interface HydratedCartLine {
   reference: string;
   productReference: string;
+  productSlug?: string;
+  primaryMediaReference?: string;
+  primaryMediaAlt?: string;
   variantReference: string;
   offerReference: string;
   title: string;
@@ -62,10 +66,12 @@ export async function projectHydratedCart(cart: MarketplaceCartState | any): Pro
   const rawLines: any[] = cart.lines ?? [];
   const storeIdSet = new Set<string>();
   const offerRefSet = new Set<string>();
+  const productRefSet = new Set<string>();
 
   for (const line of rawLines) {
     if (line.storeId) storeIdSet.add(line.storeId);
     if (line.selection?.offerReference) offerRefSet.add(line.selection.offerReference);
+    if (line.selection?.productReference) productRefSet.add(line.selection.productReference);
   }
 
   // Fetch store details
@@ -97,6 +103,11 @@ export async function projectHydratedCart(cart: MarketplaceCartState | any): Pro
         },
       })
     : [];
+
+  const mediaRows = productRefSet.size > 0
+    ? await prisma.$queryRaw<Array<{ productPublicReference: string; productSlug: string; primaryMediaPublicReference: string | null; primaryMediaAlt: string | null }>>(Prisma.sql`SELECT DISTINCT ON ("productPublicReference") "productPublicReference", "productSlug", "primaryMediaPublicReference", "primaryMediaAlt" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "productPublicReference" IN (${Prisma.join([...productRefSet])}) ORDER BY "productPublicReference", "searchable" DESC, "sourceUpdatedAt" DESC`)
+    : [];
+  const productDisplayMap = new Map(mediaRows.map((row) => [row.productPublicReference, row]));
 
   const offerMap = new Map<string, any>();
   const modifierGroupMap = new Map<string, string>(); // ref -> name
@@ -136,6 +147,7 @@ export async function projectHydratedCart(cart: MarketplaceCartState | any): Pro
 
     const enrichedLines: HydratedCartLine[] = lines.map((line) => {
       const offer = offerMap.get(line.selection?.offerReference);
+      const productDisplay = productDisplayMap.get(line.selection?.productReference ?? "");
       const basePrice = Number(line.selection?.unitPrice ?? 0);
       const qty = Number(line.quantity ?? 1);
       grandItemCount += qty;
@@ -166,6 +178,9 @@ export async function projectHydratedCart(cart: MarketplaceCartState | any): Pro
       return {
         reference: line.publicReference,
         productReference: line.selection?.productReference ?? "",
+        ...(productDisplay?.productSlug ? { productSlug: productDisplay.productSlug } : {}),
+        ...(productDisplay?.primaryMediaPublicReference ? { primaryMediaReference: productDisplay.primaryMediaPublicReference } : {}),
+        ...(productDisplay?.primaryMediaAlt ? { primaryMediaAlt: productDisplay.primaryMediaAlt } : {}),
         variantReference: line.selection?.variantReference ?? "",
         offerReference: line.selection?.offerReference ?? "",
         title: offer?.product?.title ?? "Product",

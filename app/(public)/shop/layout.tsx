@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { MarketplaceUnavailable } from "@/components/public-v2/marketplace";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
+import { CommerceSubnav } from "@/components/public-v2/commerce/CommerceSubnav";
 
 export function generateMetadata(): Metadata {
   if (!publicStorefrontPageExposureAllowed()) {
@@ -20,5 +21,5 @@ export function generateMetadata(): Metadata {
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   if (!publicStorefrontPageExposureAllowed()) return <MarketplaceUnavailable routeContext="storefront" />;
-  return children;
+  return <><CommerceSubnav />{children}</>;
 }

@@ -1,2 +1,5 @@
-import { Card } from "@/components/ui/Card";
-export default async function CheckoutStatusPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8" aria-live="polite"><h1 className="text-2xl font-black">Checkout status</h1><Card className="mt-5"><p className="text-sm">Status for {reference} is server-authoritative. Refreshing this page cannot consume stock, create an order, or alter payment state.</p></Card></section>; }
+import { CheckoutReferenceState } from "@/components/public-v2/commerce/CheckoutReferenceState";
+export default async function CheckoutReferencePage({ params }: { params: Promise<{ reference: string }> }) {
+  const { reference } = await params;
+  return <CheckoutReferenceState title="Order status" description="Return to checkout to view the latest status and next step for your order." reference={reference} />;
+}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import styles from "../home-scenes.module.css";
+import { marketplaceBudgetVh } from "../director/home-chapters";
 
 export interface MarketplaceCategoryItem {
   id: string;
@@ -14,6 +14,7 @@ export interface MarketplaceCategoryItem {
   image: string;
   altText?: string;
   href?: string;
+  hasEditorialMedia?: boolean;
 }
 
 export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
@@ -63,8 +64,6 @@ interface MarketplaceFivePanelSceneProps {
   className?: string;
   isStorefrontExposed?: boolean;
   categories?: MarketplaceCategoryItem[];
-  activeId?: string;
-  onActiveIdChange?: (id: string) => void;
 }
 
 /**
@@ -73,7 +72,7 @@ interface MarketplaceFivePanelSceneProps {
  * - Active image territory: ~72vw desktop
  * - Next territory visible: ~20vw
  * - Giant active category word (FRESH, FASHION, FOOD, CRAFT, CARE) moves behind media
- * - Vertical scroll scrubs horizontal rail via GSAP ScrollTrigger
+ * - The homepage director resolves a normalized vertical-scroll rail position
  * - Mobile: native horizontal scroll-snap corridor
  * - Honest storefront status link
  */
@@ -81,16 +80,10 @@ export function MarketplaceFivePanelScene({
   className = "",
   isStorefrontExposed = false,
   categories = [],
-  activeId: controlledActiveId,
 }: MarketplaceFivePanelSceneProps) {
   const displayItems =
     isStorefrontExposed && categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
-
-  const [internalActiveId] = useState<string>(
-    displayItems[0]?.id || "grocery"
-  );
-
-  const activeId = controlledActiveId || internalActiveId;
+  const activeId = displayItems[0]?.id;
   const activeItem =
     displayItems.find((item) => item.id === activeId) || displayItems[0];
   const activeCategoryWord = activeItem?.categoryWord || "FRESH";
@@ -102,7 +95,9 @@ export function MarketplaceFivePanelScene({
       data-kt-scene="marketplace"
       data-motion="market-stage"
       aria-labelledby="marketplace-field-title"
+      style={{ minHeight: `${marketplaceBudgetVh(displayItems.length)}svh` }}
     >
+      <div className={styles.marketplaceStickyStage} data-marketplace-sticky-stage>
       {/* Header */}
       <div className={styles.marketplaceHeader}>
         <h2
@@ -133,6 +128,7 @@ export function MarketplaceFivePanelScene({
       {/* Horizontal Rail Container */}
       <div
         className={styles.marketplaceRailWrapper}
+        data-marketplace-rail-wrapper
         role="region"
         aria-label="Marketplace Horizontal Category Rail"
       >
@@ -161,7 +157,7 @@ export function MarketplaceFivePanelScene({
                     fill
                     sizes="(max-width: 899px) 85vw, 75vw"
                     className={`${styles.marketplaceCardImg} kt-market-card-img`}
-                    priority={idx === 0}
+                    preload={idx === 0}
                   />
                   <div className={styles.marketplaceCardOverlay} />
                 </div>
@@ -190,6 +186,7 @@ export function MarketplaceFivePanelScene({
         >
           {isStorefrontExposed ? "Browse all shops" : "Marketplace status"} &rarr;
         </Link>
+      </div>
       </div>
     </section>
   );

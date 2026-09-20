@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
+import Image from "next/image";
 import type { HydratedPublicCart, HydratedCartStoreGroup, HydratedCartLine } from "@/lib/marketplace-checkout/cart-projection";
 import { marketplaceStoreHref } from "@/lib/public-marketplace/routes";
+import { marketplaceProductHref } from "@/lib/public-marketplace/routes";
 import styles from "./commerce.module.css";
 
 function formatMoney(amount: string | number) {
@@ -225,8 +227,10 @@ export function CartExperience() {
 
   if (loading) {
     return (
-      <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center" }}>
-        <p style={{ fontSize: "1.1rem", color: "var(--kt-muted, #5f6763)" }}>Loading your shopping cart...</p>
+      <div aria-busy="true" className={`${styles.commerceInner} ${styles.cartPage}`}>
+        <div className={styles.commercePageIntro}><div className={styles.cartSkeletonHeading} /><p>Loading your shopping bag…</p></div>
+        <div className={styles.cartSkeletonLine} />
+        <div className={styles.cartSkeletonLine} />
       </div>
     );
   }
@@ -235,39 +239,24 @@ export function CartExperience() {
 
   if (isEmpty) {
     return (
-      <div className={styles.commerceInner} style={{ padding: "4rem 0", maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
-        <h1 style={{ fontSize: "2.2rem", fontWeight: 560, marginBottom: "1rem" }}>Your Cart is Empty</h1>
-        <p style={{ fontSize: "1.05rem", color: "var(--kt-muted, #5f6763)", marginBottom: "2rem", lineHeight: 1.5 }}>
-          Explore thousands of verified local stores, products, and courier delivery options across South Africa.
-        </p>
-        <Link
-          href="/shop"
-          style={{
-            display: "inline-block",
-            padding: "14px 28px",
-            backgroundColor: "var(--kt-carbon, #101210)",
-            color: "#ffffff",
-            fontWeight: 600,
-            textDecoration: "none",
-            borderRadius: 4,
-          }}
-        >
-          Explore Marketplace &rarr;
-        </Link>
+      <div className={`${styles.commerceInner} ${styles.cartEmptyState}`}>
+        <svg aria-hidden="true" className={styles.cartEmptyIcon} fill="none" viewBox="0 0 64 64"><path d="M12 20h40l-4 34H16l-4-34Z" stroke="currentColor" strokeWidth="2"/><path d="M23 24v-6a9 9 0 0 1 18 0v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+        <h1 className={styles.commerceTitle}>Your cart is empty</h1>
+        <p className={styles.commerceLead}>Find something you love, then it will be waiting here.</p>
+        <Link className={`${styles.productActionButton} ${styles.productActionButtonPrimary}`} href="/shop">Browse products</Link>
+        <div className={styles.cartCategoryLinks}><Link href="/shop/categories">Shop by category</Link><Link href="/shop/stores">Explore stores</Link></div>
       </div>
     );
   }
 
   return (
-    <div className={styles.commerceInner} style={{ padding: "2.5rem 0 5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2.2rem", fontWeight: 560, margin: 0 }}>
-          Your Shopping Cart
-        </h1>
+    <div className={`${styles.commerceInner} ${styles.cartPage}`}>
+      <header className={styles.cartPageHeader}>
+        <h1 className={styles.commerceTitle}>Shopping bag</h1>
         <span style={{ fontSize: "1rem", color: "var(--kt-muted, #5f6763)" }}>
           {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"} across {cart.storeGroups.length} {cart.storeGroups.length === 1 ? "store" : "stores"}
         </span>
-      </div>
+      </header>
 
       {errorMessage && (
         <div
@@ -286,40 +275,17 @@ export function CartExperience() {
         </div>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr minmax(320px, 380px)",
-          gap: "2.5rem",
-          alignItems: "start",
-        }}
-      >
+      <div className={styles.cartLayout}>
         {/* Multi-Vendor Store Groups */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+        <div className={styles.cartStoreGroups}>
           {cart.storeGroups.map((group: HydratedCartStoreGroup) => (
             <section
               key={group.storeId}
               aria-label={`Items from ${group.storeName}`}
-              style={{
-                border: "1px solid var(--kt-cool-200, #dde1e0)",
-                borderRadius: 6,
-                backgroundColor: "#ffffff",
-                overflow: "hidden",
-              }}
+              className={styles.cartStoreGroup}
             >
               {/* Store Header */}
-              <div
-                style={{
-                  padding: "16px 20px",
-                  backgroundColor: "var(--kt-cool-050, #f5f6f6)",
-                  borderBottom: "1px solid var(--kt-cool-200, #dde1e0)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 10,
-                }}
-              >
+              <div className={styles.cartStoreHeader}>
                 <div>
                   <Link
                     href={marketplaceStoreHref(group.storeSlug) ?? "/shop"}
@@ -345,12 +311,12 @@ export function CartExperience() {
                     borderRadius: 4,
                   }}
                 >
-                  {group.fulfilmentMode === "STORE_PICKUP" ? "Store Pickup" : "Courier Delivery"}
+                  {group.fulfilmentMode === "STORE_PICKUP" ? "Store pickup" : group.fulfilmentMode === "PICKUP_AND_DELIVERY" ? "Pickup and delivery" : "Courier delivery"}
                 </span>
               </div>
 
               {/* Line Items */}
-              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              <ul className={styles.cartLineList}>
                 <AnimatePresence initial={false}>
                   {group.lines.map((line: HydratedCartLine) => {
                     const isMutating = mutatingLineRef === line.reference;
@@ -361,20 +327,12 @@ export function CartExperience() {
                         initial={{ opacity: 0, height: 0 }}
                         key={line.reference}
                         layout
-                        style={{
-                          padding: "20px",
-                          borderBottom: "1px solid var(--kt-cool-100, #eceeee)",
-                          display: "grid",
-                          gridTemplateColumns: "1fr auto auto",
-                          gap: 20,
-                          alignItems: "center",
-                        }}
+                        className={styles.cartLine}
                         transition={{ duration: 0.22, ease: "easeOut" }}
                       >
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: "1.05rem", color: "var(--kt-carbon, #101210)" }}>
-                            {line.title}
-                          </div>
+                        {line.primaryMediaReference ? <span className={styles.cartLineMedia}><Image alt={line.primaryMediaAlt || line.title} fill sizes="(max-width: 767px) 96px, 128px" src={`/api/catalog/media/${line.primaryMediaReference}`} style={{ objectFit: "cover" }} /></span> : <span aria-hidden="true" className={styles.cartLineMedia} />}
+                        <div className={styles.cartLineInfo}>
+                          {line.productSlug && marketplaceProductHref(line.productSlug, line.productReference) ? <Link className={styles.cartProductTitle} href={marketplaceProductHref(line.productSlug, line.productReference)!}>{line.title}</Link> : <strong className={styles.cartProductTitle}>{line.title}</strong>}
                           {line.variantTitle && (
                             <div style={{ fontSize: "0.875rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
                               Variant: {line.variantTitle}
@@ -389,42 +347,30 @@ export function CartExperience() {
                               ))}
                             </ul>
                           )}
-                          <div style={{ fontSize: "0.9rem", color: "var(--kt-muted, #5f6763)", marginTop: 6 }}>
-                            Unit Price: {formatMoney(line.effectiveUnitPrice)}
+                          <div className={styles.cartLineUnitPrice}>
+                            {formatMoney(line.effectiveUnitPrice)} each
                           </div>
                         </div>
 
                         {/* Quantity Controls */}
-                        <div style={{ display: "inline-flex", alignItems: "center", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}>
+                        <div className={styles.cartQuantityStepper}>
                           <button
                             aria-label="Decrease quantity"
                             disabled={line.quantity <= 1 || isMutating}
                             onClick={() => handleUpdateQuantity(line, line.quantity - 1)}
-                            style={{
-                              padding: "6px 10px",
-                              background: "none",
-                              border: "none",
-                              cursor: line.quantity <= 1 || isMutating ? "not-allowed" : "pointer",
-                              fontWeight: 600,
-                            }}
+                            className={styles.cartQuantityButton}
                             type="button"
                           >
                             -
                           </button>
-                          <span style={{ padding: "6px 12px", fontSize: "0.9rem", fontWeight: 600, minWidth: 20, textAlign: "center" }}>
+                          <span className={styles.cartQuantityValue}>
                             {line.quantity}
                           </span>
                           <button
                             aria-label="Increase quantity"
                             disabled={line.quantity >= 99 || isMutating}
                             onClick={() => handleUpdateQuantity(line, line.quantity + 1)}
-                            style={{
-                              padding: "6px 10px",
-                              background: "none",
-                              border: "none",
-                              cursor: line.quantity >= 99 || isMutating ? "not-allowed" : "pointer",
-                              fontWeight: 600,
-                            }}
+                            className={styles.cartQuantityButton}
                             type="button"
                           >
                             +
@@ -432,23 +378,14 @@ export function CartExperience() {
                         </div>
 
                         {/* Line Total & Remove */}
-                        <div style={{ textAlign: "right", minWidth: 100 }}>
-                          <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
+                        <div className={styles.cartLineTotal}>
+            <div className={styles.cartLineAmount}>
                             {formatMoney(line.lineTotal)}
                           </div>
                           <button
                             disabled={isMutating}
                             onClick={() => handleRemoveLine(line)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--kt-red, #d83a2e)",
-                              fontSize: "0.85rem",
-                              cursor: isMutating ? "not-allowed" : "pointer",
-                              padding: "4px 0",
-                              marginTop: 4,
-                              textDecoration: "underline",
-                            }}
+                            className={styles.cartRemoveButton}
                             type="button"
                           >
                             Remove
@@ -461,16 +398,7 @@ export function CartExperience() {
               </ul>
 
               {/* Store Footer Subtotal */}
-              <div
-                style={{
-                  padding: "14px 20px",
-                  backgroundColor: "var(--kt-cool-050, #f5f6f6)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: "0.95rem",
-                }}
-              >
+              <div className={styles.cartStoreFooter}>
                 <span style={{ color: "var(--kt-muted, #5f6763)" }}>Store Subtotal</span>
                 <span style={{ fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
                   {formatMoney(group.totals.subtotal)}
@@ -481,17 +409,7 @@ export function CartExperience() {
         </div>
 
         {/* Authoritative Order Summary Panel */}
-        <aside
-          aria-label="Cart summary"
-          style={{
-            border: "1px solid var(--kt-cool-200, #dde1e0)",
-            borderRadius: 6,
-            backgroundColor: "#ffffff",
-            padding: "24px",
-            position: "sticky",
-            top: 24,
-          }}
-        >
+        <aside aria-label="Cart summary" className={styles.cartSummary}>
           <h2 style={{ fontSize: "1.3rem", fontWeight: 560, marginTop: 0, marginBottom: "1.2rem" }}>
             Order Summary
           </h2>
@@ -537,10 +455,11 @@ export function CartExperience() {
               borderRadius: 4,
             }}
           >
-            Delivery fees, promotions, and route verification are authoritatively evaluated per store in checkout.
+            Delivery fees and available promotions are confirmed during checkout.
           </p>
 
           <button
+            className={`${styles.productActionButton} ${styles.productActionButtonPrimary} ${styles.cartSummaryPrimary}`}
             type="button"
             onClick={handleProceedToCheckout}
             disabled={checkingOut}
@@ -578,6 +497,10 @@ export function CartExperience() {
             </button>
           </div>
         </aside>
+      </div>
+      <div className={styles.cartMobileCheckout}>
+        <span><small>Order total</small><strong>{formatMoney(cart.totals.grandTotal)}</strong></span>
+        <button className={`${styles.productActionButton} ${styles.productActionButtonPrimary}`} disabled={checkingOut} onClick={handleProceedToCheckout} type="button">{checkingOut ? "Preparing…" : "Checkout"}</button>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { CommerceSearchCommand } from "./CommerceSearchCommand";
@@ -24,15 +23,10 @@ interface MerchantDirectoryProps {
 }
 
 export function MerchantDirectory({ stores, query = "" }: MerchantDirectoryProps) {
-  const [activeIdx, setActiveIdx] = useState(0);
-
-  const activeStore = stores[activeIdx] || stores[0];
-  const activeHref = (activeStore ? marketplaceStoreHref(activeStore.slug) : null) ?? marketplaceStoresHref();
-
   return (
     <div className={styles.categoryAtlasPage}>
       {/* Search Header */}
-      <div style={{ maxWidth: 540, marginBottom: "2.5rem" }}>
+        <div style={{ maxWidth: 540, marginBottom: "2rem" }}>
         <CommerceSearchCommand
           action={marketplaceStoresHref()}
           placeholder="Search stores..."
@@ -51,85 +45,23 @@ export function MerchantDirectory({ stores, query = "" }: MerchantDirectoryProps
           </Link>
         </div>
       ) : (
-        <div className={styles.categoryAtlasLayout}>
-          {/* Store List Column */}
-          <ul className={styles.merchantNamesColumn} role="tablist">
-            {stores.map((store, idx) => {
-              const isActive = idx === activeIdx;
-              const href = marketplaceStoreHref(store.slug) ?? marketplaceStoresHref();
-
-              return (
-                <li key={store.reference}>
-                  <Link
-                    aria-selected={isActive}
-                    className={`${styles.merchantNameRow} ${
-                      isActive ? styles.merchantNameRowActive : ""
-                    }`}
-                    href={href}
-                    onFocus={() => setActiveIdx(idx)}
-                    onMouseEnter={() => setActiveIdx(idx)}
-                    role="tab"
-                  >
-                    <span className={styles.merchantNameTitle}>{store.name}</span>
-                    <span className={styles.merchantOfferCount}>
-                      {store.publishedOfferCount} {store.publishedOfferCount === 1 ? "product" : "products"} listed
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* Sticky Active Store Stage */}
-          {activeStore && (
-            <div className={styles.merchantHeroStage} style={{ position: "sticky", top: "calc(var(--kt-header-h, 72px) + 24px)" }}>
-              <div className={styles.merchantHeroMediaFrame}>
-                <Image
-                  alt={activeStore.name}
-                  fill
-                  priority
-                  sizes="(max-width: 899px) 100vw, 55vw"
-                  src={
-                    activeStore.heroMediaReference
-                      ? `/api/catalog/media/${activeStore.heroMediaReference}`
-                      : homeMedia.merchantPrepare.src
-                  }
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
-
-              <div className={styles.merchantIdentityBar}>
-                <div className={styles.merchantIdentityInfo}>
-                  {activeStore.logoMediaReference ? (
-                    <div className={styles.merchantLogoFrame}>
-                      <Image
-                        alt={`${activeStore.name} logo`}
-                        fill
-                        sizes="48px"
-                        src={`/api/catalog/media/${activeStore.logoMediaReference}`}
-                        style={{ objectFit: "cover" }}
-                      />
-                    </div>
-                  ) : null}
-                  <div className={styles.merchantDetailsText}>
-                    <Link className={styles.merchantNameLink} href={activeHref}>
-                      {activeStore.name}
-                    </Link>
-                    {activeStore.description ? (
-                      <p className={styles.merchantDescSnippet}>
-                        {activeStore.description}
-                      </p>
-                    ) : null}
-                  </div>
+        <ul className={styles.commerceStoreGrid} aria-label="Marketplace stores">
+          {stores.map((store, index) => {
+            const href = marketplaceStoreHref(store.slug) ?? marketplaceStoresHref();
+            return <li key={store.reference}>
+              <Link className={styles.commerceStoreCard} href={href}>
+                <div className={styles.commerceStoreMedia}>
+                  <Image alt={store.name} fill priority={index < 3} sizes="(max-width: 767px) 100vw, 33vw" src={store.heroMediaReference ? `/api/catalog/media/${store.heroMediaReference}` : homeMedia.merchantPrepare.src} style={{ objectFit: "cover" }} />
                 </div>
-
-                <Link className={styles.enterStoreButton} href={activeHref}>
-                  <span>Visit Storefront</span> &rarr;
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
+                <div className={styles.commerceStoreIdentity}>
+                  {store.logoMediaReference && <span className={styles.commerceStoreLogo}><Image alt="" fill sizes="48px" src={`/api/catalog/media/${store.logoMediaReference}`} style={{ objectFit: "cover" }} /></span>}
+                  <div><h2>{store.name}</h2><span className={styles.commerceStoreMeta}>{store.publishedOfferCount} {store.publishedOfferCount === 1 ? "product" : "products"}</span></div>
+                </div>
+                {store.description && <p className={styles.commerceStoreMeta}>{store.description}</p>}
+              </Link>
+            </li>;
+          })}
+        </ul>
       )}
     </div>
   );

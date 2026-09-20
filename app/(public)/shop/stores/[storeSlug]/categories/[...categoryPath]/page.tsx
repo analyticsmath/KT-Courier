@@ -14,6 +14,9 @@ import { parseMarketplaceSearchParams, type MarketplaceSearchParams } from "@/li
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
 import { notFound } from "next/navigation";
+import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
+import Image from "next/image";
+import Link from "next/link";
 
 export const metadata: Metadata = noIndexPublicMetadata;
 
@@ -37,15 +40,22 @@ export default async function StoreCategoryPage({
   const filters = { ...requested, store: store.slug, category: categoryRecord.path };
   const result = await new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search(filters);
   const storeHref = marketplaceStoreHref(store.slug);
+  const categoryHierarchy = await getCommerceCategoryHierarchy(categoryRecord.path);
 
   return (
     <main className={styles.commerceRoot} id="storefront-content">
+      <div className={styles.commerceInner}>
+        <div className={styles.commerceStoreMiniBar}>
+          {store.logoMediaReference && <span className={styles.commerceStoreLogo}><Image alt="" fill sizes="44px" src={`/api/catalog/media/${store.logoMediaReference}`} style={{ objectFit: "cover" }} /></span>}
+          <div><Link href={storeHref ?? marketplaceStoresHref()}>{store.name}</Link><span>Store collection</span></div>
+        </div>
+      </div>
       <CommerceResultsLayout
         breadcrumbs={[
           { label: "Shop", href: marketplaceHref() },
           { label: "Stores", href: marketplaceStoresHref() },
           ...(storeHref ? [{ label: store.name, href: storeHref }] : []),
-          { label: categoryRecord.name },
+          ...categoryHierarchy.map(({ name, href }) => ({ label: name, href: href ?? undefined })),
         ]}
         description={`Products from ${store.name} in ${categoryRecord.name}.`}
         emptyDescription={`${store.name} currently has no products in this category.`}
@@ -54,7 +64,7 @@ export default async function StoreCategoryPage({
         retainedFilters={{ store: store.slug, category: categoryRecord.path }}
         result={result}
         route={{ kind: "store-category", storeSlug: store.slug, categoryPath: categoryRecord.path }}
-        title={`${store.name} — ${categoryRecord.name}`}
+        title={categoryRecord.name}
       />
     </main>
   );

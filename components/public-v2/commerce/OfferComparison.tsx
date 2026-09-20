@@ -24,6 +24,8 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
       {offers.map((offer) => {
         const storeHref = marketplaceStoreHref(offer.storeSlug);
         const isSelected = selectedOfferReference === offer.offerReference;
+        const storeName = offer.storeName ?? offer.storeSlug.split("-").map((part) => `${part[0]?.toLocaleUpperCase("en-ZA")}${part.slice(1)}`).join(" ");
+        const fulfilment = offer.fulfilmentMode === "COURIER_DELIVERY" ? "Courier delivery" : offer.fulfilmentMode === "STORE_PICKUP" ? "Store pickup" : "Pickup and delivery";
 
         return (
           <li className={styles.offerComparisonRow} key={offer.offerReference}>
@@ -38,7 +40,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
                     textDecoration: "none",
                   }}
                 >
-                  {offer.storeSlug}
+                  {storeName}
                 </Link>
               ) : (
                 <span
@@ -48,7 +50,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
                     color: "var(--kt-carbon, #101210)",
                   }}
                 >
-                  {offer.storeSlug}
+                  {storeName}
                 </span>
               )}
               <div
@@ -60,7 +62,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
                   marginTop: 4,
                 }}
               >
-                <span>{offer.fulfilmentMode.replaceAll("_", " ").toLowerCase()}</span>
+                <span>{fulfilment}</span>
                 <span>&bull;</span>
                 <span>{availabilityLabel(offer.availability)}</span>
               </div>

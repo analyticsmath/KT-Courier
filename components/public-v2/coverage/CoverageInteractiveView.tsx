@@ -71,7 +71,11 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
 
         <div className={styles.activeRegionsListSection}>
           <h2 className={styles.sectionHeading}>
-            Delivery Regions ({regions.length})
+            {snapshot.state === "ACTIVE_REGIONS"
+              ? `Delivery Regions (${regions.length})`
+              : snapshot.state === "SOURCE_UNAVAILABLE"
+                ? "Delivery Regions · updating"
+                : "Coverage list being updated"}
           </h2>
 
           {snapshot.state === "SOURCE_UNAVAILABLE" ? (

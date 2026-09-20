@@ -159,7 +159,7 @@ export function PublicServicesOverview() {
           trigger: headerSectionRef.current,
           start: "top top",
           end: isMobile ? "+=80%" : "+=120%",
-          scrub: 0.3,
+          scrub: true,
         },
       });
 
@@ -279,6 +279,7 @@ export function PublicServicesOverview() {
                 src={activeService.asset.src}
                 alt={activeService.asset.alt}
                 fill
+                preload={activeIdx === 0}
                 sizes="(max-width: 1023px) 94vw, 450px"
                 className="object-cover transition-all duration-300"
                 style={{

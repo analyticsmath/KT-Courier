@@ -35,6 +35,9 @@ function removeApplied(
   const next = copyFilters(filters);
   if (code === "category" || code === "store" || code === "brand") {
     next[code] = undefined;
+  } else if (code === "price") {
+    next.minPrice = undefined;
+    next.maxPrice = undefined;
   } else if (code === "availability" || code === "condition" || code === "fulfilment") {
     next[code] = (next[code] ?? []).filter((item) => item !== value);
   } else {

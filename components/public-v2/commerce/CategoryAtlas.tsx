@@ -56,7 +56,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
     <div className={styles.categoryAtlasPage}>
       <div className={styles.categoryAtlasLayout}>
         {/* Category Index Column */}
-        <ul className={styles.categoryListStream} role="tablist">
+        <ul className={styles.categoryListStream}>
           {categories.map((cat, idx) => {
             const isActive = idx === activeIdx;
             const href = marketplaceCategoryHref(cat.path) ?? marketplaceCategoriesHref();
@@ -64,14 +64,12 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
             return (
               <li key={cat.reference}>
                 <Link
-                  aria-selected={isActive}
                   className={`${styles.categoryStreamItem} ${
                     isActive ? styles.categoryStreamItemActive : ""
                   }`}
                   href={href}
                   onFocus={() => setActiveIdx(idx)}
                   onMouseEnter={() => setActiveIdx(idx)}
-                  role="tab"
                 >
                   <div>
                     <span className={styles.categoryStreamTitle}>{cat.name}</span>

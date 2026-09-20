@@ -39,6 +39,13 @@ export function ShopEntryField({ categories }: ShopEntryFieldProps) {
             <div className={styles.entrySearchWrap}>
               <CommerceSearchCommand />
             </div>
+            <nav aria-label="Shop by category" className={styles.entryCategoryShortcuts}>
+              {categories.slice(0, 4).map((category) => {
+                const href = marketplaceCategoryHref(category.path);
+                return href ? <Link href={href} key={category.reference}>{category.name}</Link> : null;
+              })}
+              <Link href="/shop/categories">All categories <span aria-hidden="true">→</span></Link>
+            </nav>
           </div>
 
           {/* Visual Market Media Composition */}

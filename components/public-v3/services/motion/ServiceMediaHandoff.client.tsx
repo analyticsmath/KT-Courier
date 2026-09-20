@@ -122,7 +122,7 @@ export function ServiceMediaHandoff({
                   src={stage.asset.src}
                   alt={stage.asset.alt}
                   fill
-                  priority={idx === 0}
+                  preload={idx === 0}
                   sizes="(max-width: 1023px) 100vw, 60vw"
                   className="object-cover"
                   style={{

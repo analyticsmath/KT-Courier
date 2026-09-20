@@ -52,7 +52,7 @@ export function VanActor({
         alt={baseActor.alt}
         width={baseActor.width}
         height={baseActor.height}
-        priority={priority}
+        preload={priority}
         sizes="(max-width: 767px) 90vw, 1200px"
         className="w-full h-auto object-contain"
         style={{

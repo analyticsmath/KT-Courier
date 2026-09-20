@@ -25,7 +25,7 @@ export type CheckoutOwner = CartOwner;
 export type CheckoutOperation = { operationId: string; requestHash: string; expectedVersion: number };
 
 export async function getMarketplaceCheckoutForOwner(reference: string, owner: CheckoutOwner, db = database): Promise<any> {
-  const checkout = await table("marketplaceCheckout", db).findFirst({ where: { publicReference: reference, ...(owner.type === "CUSTOMER" ? { customerUserId: owner.userId } : { guestAccessTokenHash: owner.guestTokenHash }) }, include: { storeGroups: { include: { lines: { include: { modifiers: true } } } }, changes: true } });
+  const checkout = await table("marketplaceCheckout", db).findFirst({ where: { publicReference: reference, ...(owner.type === "CUSTOMER" ? { customerUserId: owner.userId } : { guestAccessTokenHash: owner.guestTokenHash }) }, include: { storeGroups: { include: { store: { select: { name: true, slug: true } }, lines: { include: { modifiers: true } } } }, changes: true } });
   if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
   return checkout;
 }
@@ -200,6 +200,8 @@ export function projectPublicCheckout(checkout: any) {
     })),
     storeGroups: (checkout.storeGroups ?? []).map((group: any) => ({
       storeReference: group.storeId ?? group.storeReference,
+      ...(group.store?.name ? { storeName: group.store.name } : {}),
+      ...(group.store?.slug ? { storeSlug: group.store.slug } : {}),
       status: group.status,
       fulfilmentMode: group.fulfilmentMode,
       deliveryFee: group.deliveryFee?.toString?.() ?? group.deliveryFee ?? "0.00",
@@ -207,7 +209,9 @@ export function projectPublicCheckout(checkout: any) {
       quoteExpiresAt: group.deliveryQuoteExpiresAt,
       lines: (group.lines ?? []).map((line: any) => ({
         productReference: line.productReference,
+        ...(line.productTitle ? { productTitle: line.productTitle } : {}),
         variantReference: line.variantReference,
+        ...(line.variantTitle ? { variantTitle: line.variantTitle } : {}),
         offerReference: line.offerReference,
         quantity: line.quantity,
         baseUnitPrice: line.baseUnitPrice?.toString?.() ?? line.baseUnitPrice,

@@ -1,2 +1,5 @@
-import { Card } from "@/components/ui/Card";
-export default async function CheckoutReturnPage({ params }: { params: Promise<{ reference: string }> }) { const { reference } = await params; return <section className="mx-auto max-w-3xl px-4 py-8" aria-live="polite"><h1 className="text-2xl font-black">Confirming payment</h1><Card className="mt-5"><p className="text-sm">Your browser return for {reference} is not payment confirmation. We will show a pending status until verified provider confirmation is applied.</p></Card></section>; }
+import { CheckoutReferenceState } from "@/components/public-v2/commerce/CheckoutReferenceState";
+export default async function CheckoutReferencePage({ params }: { params: Promise<{ reference: string }> }) {
+  const { reference } = await params;
+  return <CheckoutReferenceState title="Confirming your payment" description="Payment confirmation may take a moment. Your order status will update when it is ready." reference={reference} />;
+}

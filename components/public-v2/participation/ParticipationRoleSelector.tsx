@@ -130,7 +130,7 @@ export function ParticipationRoleSelector() {
                 src={activePathway.media.src}
                 alt={activePathway.media.alt}
                 fill
-                priority
+                preload
                 sizes="(max-width: 1023px) 100vw, 45vw"
                 className="object-cover"
               />
@@ -141,4 +141,3 @@ export function ParticipationRoleSelector() {
     </section>
   );
 }
-

@@ -72,17 +72,17 @@ export function EcommerceServiceView({ service }: AuthoredServiceViewProps) {
             )}
           </div>
 
-          <div className="pt-4 max-w-md filter drop-shadow-sm">
-            <VanActor stateId="side-left" priority />
-          </div>
         </div>
 
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-6 relative">
           <ServiceStickyMedia
             media={[heroMedia, ...detailMediaItems]}
             activeIndex={0}
             aspectRatio="aspect-[4/3]"
           />
+          <div className="absolute left-0 bottom-0 z-20 w-[58%] max-w-lg -translate-x-[8%] translate-y-[8%] pointer-events-none drop-shadow-lg">
+            <VanActor className="w-full" stateId="side-left" priority />
+          </div>
         </div>
       </section>
 

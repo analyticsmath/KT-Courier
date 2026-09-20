@@ -115,6 +115,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
           <Link
             href="/cart"
             aria-label={`Shopping cart containing ${cartCount} items`}
+            data-kt-cart-target="header"
             className="relative p-1.5 hover:text-[var(--kt-brand-blue)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
           >
             <svg

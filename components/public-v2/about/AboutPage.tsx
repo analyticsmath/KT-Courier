@@ -57,6 +57,7 @@ export function AboutPage() {
                 alt={ktMediaV3.pages.about.photoEssay[3].alt}
                 fill
                 sizes="80px"
+                preload
                 className="object-cover"
               />
             </span>{" "}
@@ -69,13 +70,14 @@ export function AboutPage() {
 
         {/* Human Narrative Sequence */}
         <section aria-label="Our Network" className={styles.ecosystemSequence}>
-          {networkPillars.map((pillar) => (
+          {networkPillars.map((pillar, index) => (
             <div className={styles.ecosystemNode} key={pillar.category}>
               <div className={styles.nodeMediaFrame}>
                 <Image
                   alt={pillar.media.alt}
                   fill
                   sizes="(max-width: 899px) 100vw, 50vw"
+                  preload={index === 0}
                   src={pillar.media.src}
                   className="object-cover"
                 />

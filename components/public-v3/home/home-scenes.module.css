@@ -3,16 +3,21 @@
 /* Hero Scene */
 .heroSection {
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding-top: var(--kt-header-height);
-  padding-bottom: 2rem;
+  min-height: 250vh;
+  min-height: 250svh;
+  padding: 0;
   background-color: var(--kt-freight-paper);
   color: var(--kt-asphalt);
   overflow: hidden;
+}
+
+.heroStage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .heroTypographyBackground {
@@ -30,11 +35,11 @@
 
 .heroWordKt {
   position: absolute;
-  top: 17vh;
+  top: 12vh;
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--font-display);
-  font-size: var(--type-hero-kt, clamp(6rem, 20vw, 19rem));
+  font-size: var(--type-hero-kt, clamp(8rem, 16vw, 15rem));
   font-weight: 900;
   line-height: 0.8;
   letter-spacing: -0.05em;
@@ -46,11 +51,11 @@
 
 .heroWordCourier {
   position: absolute;
-  top: 54vh;
+  top: 34vh;
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--font-display);
-  font-size: var(--type-hero-courier, clamp(4rem, 14vw, 13rem));
+  font-size: var(--type-hero-courier, clamp(5rem, 12vw, 11rem));
   font-weight: 900;
   line-height: 0.85;
   letter-spacing: -0.04em;
@@ -61,14 +66,28 @@
 }
 
 @media (max-width: 767px) {
+  .heroSection {
+    min-height: auto;
+  }
+  .heroStage {
+    position: relative;
+    height: auto;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-top: var(--kt-header-height);
+    padding-bottom: 1.5rem;
+  }
   .heroWordKt {
     top: 14vh;
-    font-size: clamp(5rem, 24vw, 9rem);
+    font-size: clamp(5rem, 20vw, 8rem);
   }
   .heroWordCourier {
-    top: 34vh;
-    font-size: clamp(3.2rem, 16vw, 6.5rem);
+    top: 29vh;
+    font-size: clamp(3.2rem, 14vw, 5.5rem);
   }
+  .heroActionsRow { margin-top: 25rem; }
 }
 
 .heroTruckWrapper {
@@ -111,7 +130,7 @@
 .heroActionsRow {
   position: absolute;
   left: clamp(1.5rem, 5.5vw, 6vw);
-  bottom: clamp(2rem, 12vh, 18vh);
+  bottom: clamp(6rem, 14vh, 9rem);
   z-index: 25;
   display: flex;
   flex-direction: column;
@@ -213,8 +232,8 @@
 /* Horizontal Marketplace Journey (v3) */
 .marketplaceSection {
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 355vh;
+  min-height: 355svh;
   background-color: var(--kt-asphalt);
   color: var(--kt-freight-paper);
   padding: 4.5rem 0 2rem;
@@ -222,6 +241,219 @@
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
+}
+
+.marketplaceStickyStage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4.5rem 0 2rem;
+  overflow: hidden;
+}
+
+:global(.kt-home-experience [data-kt-scene]) {
+  overflow: clip;
+  scroll-margin-top: var(--kt-header-height, 4rem);
+}
+
+:global(.kt-home-experience [data-kt-scene][style*="--kt-home-budget"]) {
+  min-height: calc(var(--kt-home-budget) * 1svh) !important;
+}
+
+:global(.kt-home-sticky-stage) {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 100svh;
+  padding-top: var(--kt-header-height, 4rem);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+:global(.kt-home-preparation-sticky) {
+  justify-content: center;
+  padding: 5rem 0;
+}
+
+:global(.kt-home-collection-sticky) {
+  justify-content: space-between;
+}
+
+:global(.kt-home-custody-sticky) {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+:global(.kt-home-fan-sticky) {
+  justify-content: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+:global(.kt-home-route-sticky) {
+  isolation: isolate;
+}
+
+:global(.kt-home-freight-sticky),
+:global(.kt-home-arrival-sticky),
+:global(.kt-home-finale-sticky) {
+  justify-content: space-between;
+}
+
+:global(.kt-home-experience .kt-cinematic-actor-stage) {
+  visibility: hidden;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+:global(.kt-home-experience [data-actor-slot]) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+}
+
+:global(.kt-home-experience .kt-actor-state-layer) {
+  object-fit: contain;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+:global(.kt-home-experience [data-actor-material-anchor]) {
+  position: absolute;
+  left: 3%;
+  top: 12%;
+  width: 68%;
+  height: 52%;
+}
+
+:global(.kt-home-actor-occluder) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 25;
+}
+
+:global(.kt-home-experience [data-van-door-aperture]) {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: inset(50% 50% 50% 50%);
+  opacity: 0;
+  visibility: hidden;
+}
+
+:global(.kt-home-experience .kt-van-door-interior-layer) {
+  object-fit: contain;
+}
+
+:global(.kt-home-experience .kt-trailer-takeover-plane) {
+  opacity: 0;
+  visibility: hidden;
+  clip-path: inset(0 0 0 0);
+}
+
+:global(.kt-home-experience .takeover-progression-1) {
+  opacity: 1;
+  visibility: visible;
+}
+
+:global(.kt-home-experience .takeover-progression-3),
+:global(.kt-home-experience .takeover-progression-5) {
+  opacity: 0;
+  visibility: hidden;
+}
+
+:global(.kt-home-experience [data-takeover-p3-panel]),
+:global(.kt-home-experience [data-takeover-p5-panel]) {
+  flex: 0 0 auto;
+  width: 0;
+}
+
+:global(.kt-home-experience [data-takeover-p3-panel="1"]) {
+  width: 100%;
+}
+
+:global(.kt-home-experience [data-takeover-p5-panel="1"]),
+:global(.kt-home-experience [data-takeover-p5-panel="3"]) {
+  width: 50%;
+}
+
+:global(.kt-home-experience .kt-fan-card) {
+  width: min(44vw, 360px);
+  height: min(62vh, 560px);
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+}
+
+:global(.kt-home-experience .kt-fan-hero-card) {
+  width: min(62vw, 760px);
+  height: min(68vh, 620px);
+}
+
+:global(.kt-home-experience .kt-fan-selected-media-layer) {
+  opacity: 0;
+  visibility: hidden;
+}
+
+:global(.kt-home-experience .kt-fan-selected-media-layer[data-fan-active="true"]) {
+  opacity: 1;
+  visibility: visible;
+}
+
+:global(.kt-home-experience .kt-home-motion-debug) {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1000;
+  max-width: min(360px, 90vw);
+  padding: 0.75rem 1rem;
+  color: #f2efe8;
+  background: rgba(11, 13, 15, 0.94);
+  border: 1px solid rgba(242, 239, 232, 0.28);
+  font: 11px/1.45 var(--font-mono);
+  white-space: pre-line;
+}
+
+@media (max-width: 767px) {
+  :global(.kt-home-experience [data-kt-scene]) {
+    min-height: auto !important;
+    height: auto;
+  }
+
+  :global(.kt-home-sticky-stage) {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 100svh;
+  }
+
+  :global(.kt-home-experience .kt-fan-card) {
+    width: min(48vw, 220px);
+    height: min(54vh, 420px);
+  }
+
+  :global(.kt-home-experience .kt-fan-hero-card) {
+    width: min(84vw, 380px);
+    height: min(62vh, 480px);
+  }
 }
 
 .marketplaceHeader {
@@ -342,4 +574,19 @@
   color: var(--kt-concrete);
   line-height: 1.5;
   margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.kt-home-experience [data-kt-scene]),
+  :global(.kt-home-experience [data-kt-scene][style*="--kt-home-budget"]) {
+    min-height: auto !important;
+    height: auto;
+  }
+
+  :global(.kt-home-sticky-stage) {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 80svh;
+  }
 }

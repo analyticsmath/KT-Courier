@@ -80,7 +80,7 @@ export function ServiceStickyMedia({
           src={activeAsset.src}
           alt={activeAsset.alt}
           fill
-          priority
+          preload
           sizes="(max-width: 1023px) 100vw, 50vw"
           className="object-cover transition-transform duration-1000 ease-out scale-100"
           style={{

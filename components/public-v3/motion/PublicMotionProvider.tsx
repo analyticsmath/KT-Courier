@@ -106,6 +106,13 @@ export function PublicMotionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // The homepage director resolves header tone from the same frame as its actors.
+    // A second geometry scanner would compete with that chapter ownership.
+    if (pathname === "/") {
+      setHeaderTone("light");
+      return;
+    }
+
     const evaluateTone = () => {
       const darkSections = document.querySelectorAll(
         "[data-kt-contrast='dark'], [data-kt-scene-theme='dark']"
@@ -130,7 +137,7 @@ export function PublicMotionProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener("scroll", evaluateTone);
     };
-  }, [pathname]);
+  }, [pathname, setHeaderTone]);
 
   return (
     <MotionContext.Provider

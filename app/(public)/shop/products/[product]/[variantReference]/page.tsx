@@ -15,6 +15,7 @@ import {
 } from "@/lib/services/storefront-catalog.service";
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
+import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({
@@ -53,7 +54,7 @@ export default async function VariantPage({
   if (!data || data.variant.productSlug !== parsed.slug || !productData) notFound();
   const { variant, offers } = data;
 
-  const [sameStore, related, store] = await Promise.all([
+  const [sameStore, related, store, categoryHierarchy] = await Promise.all([
     new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search({
       store: productData.product.storeSlug,
       pageSize: 8,
@@ -63,6 +64,7 @@ export default async function VariantPage({
       pageSize: 8,
     }),
     getStorefrontStore(productData.product.storeSlug),
+    getCommerceCategoryHierarchy(productData.product.categoryPath),
   ]);
 
   const sameStoreProducts = sameStore.results
@@ -102,6 +104,7 @@ export default async function VariantPage({
       />
       <ProductDetailExperience
         modifierGroupsByOffer={data.modifierGroupsByOffer}
+        categoryHierarchy={categoryHierarchy}
         offers={offers}
         product={canonicalVariantProduct}
         relatedProducts={relatedProducts}

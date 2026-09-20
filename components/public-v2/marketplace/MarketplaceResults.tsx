@@ -85,7 +85,7 @@ export function MarketplaceResults({ title, description, result, filters, route,
   return (
     <main className={`${styles.page} ${styles.listing}`} id="storefront-content">
       <div className={styles.inner}>
-        {breadcrumbs.length ? <nav aria-label="Breadcrumb" className={styles.breadcrumb}>{breadcrumbs.map((item, index) => <span key={`${item.label}:${index}`}>{index ? " / " : ""}{item.href ? <Link href={item.href}>{item.label}</Link> : <span aria-current="page">{item.label}</span>}</span>)}</nav> : null}
+        {breadcrumbs.length ? <nav aria-label="Breadcrumb" className={styles.breadcrumb}>{breadcrumbs.map((item, index) => <span key={`${item.label}:${index}`}>{index ? <svg aria-hidden="true" fill="none" height="12" viewBox="0 0 12 12" width="12"><path d="m4.5 2.5 3.5 3.5-3.5 3.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.4" /></svg> : null}{item.href ? <Link href={item.href}>{item.label}</Link> : <span aria-current="page">{item.label}</span>}</span>)}</nav> : null}
         <div className={styles.listingHeading}>
           <h1>{title}</h1>
           {description ? <p className={styles.listingDescription}>{description}</p> : null}

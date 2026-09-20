@@ -8,6 +8,8 @@ const base: CustomerTrackingRow = {
   guestConfirmationHash: null,
   marketplaceStatus: "CONFIRMED",
   storeOrderReference: "store_order_1",
+  storeName: "Market A",
+  storeSlug: "market-a",
   preparationStatus: "HANDED_OFF",
   resolutionStatus: "CLEAR",
   bridgeStatus: "IN_TRANSIT",

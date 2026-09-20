@@ -54,7 +54,7 @@ export function SupportingPageHero({
             <Image
               alt={media.alt}
               fill
-              priority
+              preload
               sizes="(max-width: 767px) calc(100vw - 40px), 44vw"
               src={media.src}
               style={{ objectPosition: media.focalPoint }}

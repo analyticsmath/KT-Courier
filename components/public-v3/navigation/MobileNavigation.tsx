@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useMotionContext } from "../motion/PublicMotionProvider";
 
@@ -8,11 +9,36 @@ export function MobileNavigation() {
   const pathname = usePathname();
   const { headerTone } = useMotionContext();
   const isDark = headerTone === "dark";
+  const isCommerce = pathname.startsWith("/shop") || pathname === "/cart";
+  const isProductPage = pathname.startsWith("/shop/products/");
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    if (!isCommerce) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/cart", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (active) setCartCount((payload.cart?.lines ?? []).reduce(
+          (sum: number, line: { quantity?: number }) => sum + (line.quantity ?? 0), 0,
+        ));
+      } catch { /* Cart count is a convenience; the cart remains available. */ }
+    };
+    void refresh();
+    window.addEventListener("kt-cart-updated", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener("kt-cart-updated", refresh);
+    };
+  }, [isCommerce]);
 
   // Hide mobile nav on checkout and full-screen auth if needed
   if (pathname.startsWith("/checkout")) {
     return null;
   }
+  if (isProductPage) return null;
 
   const items = [
     {
@@ -86,6 +112,15 @@ export function MobileNavigation() {
       ),
     },
   ];
+  const navItems = isCommerce
+    ? [
+        items[1]!,
+        { label: "Categories", href: "/shop/categories", icon: <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="2"/><rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="2"/><rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="2"/><rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="2"/></svg> },
+        { label: "Search", href: "/shop/search", icon: <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8" strokeWidth="2"/><path d="m16 16 5 5" strokeWidth="2" strokeLinecap="round"/></svg> },
+        items[3]!,
+        items[4]!,
+      ]
+    : items;
 
   return (
     <nav
@@ -95,12 +130,14 @@ export function MobileNavigation() {
           ? "bg-[var(--kt-asphalt)] border-[#23272B] text-[var(--kt-freight-paper)]"
           : "bg-[var(--kt-freight-paper)] border-[var(--kt-concrete)]/40 text-[var(--kt-asphalt)]"
       }`}
+      data-kt-app-shell="mobile-nav"
+      data-commerce-nav={isCommerce ? "true" : undefined}
       style={{
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
         height: "calc(var(--kt-mobile-nav-height) + env(safe-area-inset-bottom, 0px))",
       }}
     >
-      {items.map((item) => {
+      {navItems.map((item) => {
         const isActive =
           item.href === "/"
             ? pathname === "/"
@@ -109,6 +146,8 @@ export function MobileNavigation() {
         return (
           <Link
             key={item.href}
+            aria-current={isActive ? "page" : undefined}
+            data-kt-cart-target={isCommerce && item.href === "/cart" ? "mobile-bottom-nav" : undefined}
             href={item.href}
             className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors ${
               isActive
@@ -116,7 +155,10 @@ export function MobileNavigation() {
                 : "opacity-75 hover:opacity-100"
             }`}
           >
-            {item.icon}
+            <span className="relative">
+              {item.icon}
+              {isCommerce && item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--kt-brand-blue)] px-1 text-[9px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>}
+            </span>
             <span className="mt-1">{item.label}</span>
           </Link>
         );

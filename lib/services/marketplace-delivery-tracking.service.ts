@@ -15,6 +15,8 @@ export type CustomerTrackingRow = Readonly<{
   guestConfirmationHash: string | null;
   marketplaceStatus: string;
   storeOrderReference: string;
+  storeName: string;
+  storeSlug: string;
   preparationStatus: string;
   resolutionStatus: string;
   bridgeStatus: string;
@@ -28,6 +30,8 @@ export type CustomerTrackingRow = Readonly<{
 
 export type CustomerTrackingStoreOrder = Readonly<{
   storeOrderReference: string;
+  storeName: string;
+  storeSlug: string;
   fulfilmentStatus: string;
   deliveryStatus: string;
   courierOrderReference: string | null;
@@ -47,6 +51,8 @@ export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow): Cus
   const mayExposeLocation = allowsCustomerLocation(row.courierStatus);
   return Object.freeze({
     storeOrderReference: row.storeOrderReference,
+    storeName: row.storeName,
+    storeSlug: row.storeSlug,
     fulfilmentStatus: row.preparationStatus,
     deliveryStatus: row.bridgeStatus,
     courierOrderReference: row.courierOrderReference,
@@ -75,12 +81,14 @@ export async function getMarketplaceDeliveryTracking(input: Readonly<{
     SELECT marketplace_order."publicReference" AS "marketplaceOrderReference",
       marketplace_order."customerUserId", marketplace_order."guestConfirmationHash", marketplace_order."status" AS "marketplaceStatus",
       store_order."publicReference" AS "storeOrderReference", store_order."preparationStatus", store_order."resolutionStatus",
+      store."name" AS "storeName", store."slug" AS "storeSlug",
       store_order."deliveryBridgeStatus" AS "bridgeStatus", courier_order."orderNumber" AS "courierOrderReference",
       courier_order."status" AS "courierStatus", assignment."status" AS "assignmentStatus",
       latest_location."latitude" AS "locationLatitude", latest_location."longitude" AS "locationLongitude",
       latest_location."receivedAt" AS "locationObservedAt"
     FROM "MarketplaceOrder" marketplace_order
     JOIN "MarketplaceStoreOrder" store_order ON store_order."marketplaceOrderId" = marketplace_order."id"
+    JOIN "Store" store ON store."id" = store_order."storeId"
     LEFT JOIN "MarketplaceStoreOrderDeliveryBridge" bridge ON bridge."marketplaceStoreOrderId" = store_order."id"
     LEFT JOIN "Order" courier_order ON courier_order."id" = bridge."courierOrderId"
     LEFT JOIN "OrderAssignment" assignment ON assignment."orderId" = courier_order."id" AND assignment."activeOrderGuard" = courier_order."id"

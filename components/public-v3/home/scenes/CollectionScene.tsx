@@ -23,7 +23,9 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
       data-kt-scene="collection"
       data-motion="collection-world"
       aria-labelledby="collection-heading"
+      style={{ "--kt-home-budget": 220 } as React.CSSProperties}
     >
+      <div className="kt-home-sticky-stage kt-home-collection-sticky">
       {/* Street environment backdrop (Johannesburg dispatch context) */}
       <div className="kt-collection-street-env absolute inset-0 z-0 opacity-25 pointer-events-none overflow-hidden will-change-transform">
         <Image
@@ -63,6 +65,7 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
           data-actor-anchor="collection-courier"
           className="w-[30vw] max-w-xs -ml-10 sm:-ml-20 min-h-[240px] sm:min-h-[320px] pointer-events-none self-end"
         />
+      </div>
       </div>
     </section>
   );

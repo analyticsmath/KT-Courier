@@ -247,7 +247,7 @@ export function AddToCartFlightPortal() {
               style={{ objectFit: "cover" }}
             />
           ) : (
-            <span style={{ fontSize: "1.25rem" }}>📦</span>
+            <svg aria-hidden="true" fill="none" height="22" viewBox="0 0 24 24" width="22"><path d="M4 8h16l-1.5 12h-13L4 8Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M8 9V6a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
           )}
         </div>
       ))}

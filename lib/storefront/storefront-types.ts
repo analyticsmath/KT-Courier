@@ -10,6 +10,7 @@ export type StorefrontDocument = {
   offerReference: string;
   storeReference: string;
   storeSlug: string;
+  storeName?: string;
   categoryReference: string;
   categoryPath: string;
   productTypeCode: string;

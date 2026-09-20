@@ -54,10 +54,9 @@ export function CareersPage({ snapshot }: CareersPageProps) {
           </Link>
         </div>
 
-        {/* Giant Low-Contrast Background Typography */}
-        <div aria-hidden="true" className="font-display text-[clamp(4.5rem,16vw,12rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/60 uppercase select-none pointer-events-none -mb-6 sm:-mb-10">
-          CAREERS
-        </div>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--kt-road-grey)] mb-3">
+          Careers at KT Couriers
+        </p>
 
         <section aria-labelledby="careers-title" className={styles.careersHero}>
           <h1 className={styles.careersTitle} id="careers-title">
@@ -78,7 +77,7 @@ export function CareersPage({ snapshot }: CareersPageProps) {
             src={ktMediaV3.pages.join.driverHero.src}
             alt={ktMediaV3.pages.join.driverHero.alt}
             fill
-            priority
+            preload
             sizes="(max-width: 1200px) 100vw, 1200px"
             className="object-cover opacity-90"
           />
@@ -96,7 +95,11 @@ export function CareersPage({ snapshot }: CareersPageProps) {
         {/* Editorial Role List */}
         <section aria-labelledby="openings-heading" className={styles.openingsSection}>
           <h2 className={styles.openingsHeading} id="openings-heading">
-            Current Published Positions ({openings.length})
+            {snapshot.state === "AVAILABLE" && openings.length > 0
+              ? `Current Published Positions (${openings.length})`
+              : snapshot.state === "SOURCE_UNAVAILABLE"
+                ? "Current published positions · updating"
+                : "Recruitment updates"}
           </h2>
 
           {snapshot.state === "SOURCE_UNAVAILABLE" ? (

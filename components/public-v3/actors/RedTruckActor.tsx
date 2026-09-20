@@ -38,7 +38,7 @@ export function RedTruckActor({
         alt={actor.alt}
         width={actor.width}
         height={actor.height}
-        priority={priority}
+        preload={priority}
         sizes="(max-width: 767px) 94vw, 1500px"
         className="w-full h-auto object-contain"
         style={{
