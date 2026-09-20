@@ -5,11 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { marketplaceCategoryHref, marketplaceCategoriesHref } from "@/lib/public-marketplace/routes";
 import { ktMedia } from "@/components/public-v2/media";
-<<<<<<< HEAD
-=======
-import { hasStorefrontCategoryMediaOverride, storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
-import { MaskCursor } from "@/components/public-v2/motion/cursor/MaskCursor";
->>>>>>> 6fb7b51f51ef2d38fe219fafa132589cb3ee8e95
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import { useTransitionContext } from "@/components/public-v2/motion/PublicTransitionRouter";
 import styles from "./commerce.module.css";
 
@@ -49,21 +45,6 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
     return ktMedia.categories.fashion.hero.src;
   };
 
-<<<<<<< HEAD
-=======
-  const getCategorySecondaryMedia = (cat: CategoryDiscoveryItem) => {
-    if (hasStorefrontCategoryMediaOverride(cat.imageReference)) {
-      return storefrontCategoryMediaSrc(cat.imageReference)!;
-    }
-    const pathLower = cat.path.toLowerCase();
-    if (pathLower.includes("fash")) return ktMedia.categories.fashion.streetLook1.src;
-    if (pathLower.includes("groc")) return ktMedia.categories.groceries.freshGreens.src;
-    if (pathLower.includes("well")) return ktMedia.categories.healthWellness.essentialOils.src;
-    if (pathLower.includes("home")) return ktMedia.categories.homeLiving.interiorVessel.src;
-    return ktMedia.categories.fashion.streetLook2.src;
-  };
-
->>>>>>> 6fb7b51f51ef2d38fe219fafa132589cb3ee8e95
   const handleCategoryClick = (e: React.MouseEvent<HTMLAnchorElement>, cat: CategoryDiscoveryItem) => {
     const target = e.currentTarget;
     const mediaSrc = getCategoryMedia(cat);
