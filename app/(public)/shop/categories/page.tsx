@@ -3,6 +3,7 @@ import { CategoryAtlas } from "@/components/public-v2/commerce";
 import { CommerceBreadcrumbs } from "@/components/public-v2/commerce/CommerceBreadcrumbs";
 import styles from "@/components/public-v2/commerce/commerce.module.css";
 import { listStorefrontCategories } from "@/lib/services/storefront-catalog.service";
+import { selectFeaturedMarketplaceCategories } from "@/lib/public-marketplace/featured-categories";
 
 export const metadata: Metadata = {
   title: "Categories | KT Couriers Marketplace",
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function CategoriesPage() {
-  const categories = await listStorefrontCategories();
+  const categoryTaxonomy = await listStorefrontCategories();
+  const categories = selectFeaturedMarketplaceCategories(categoryTaxonomy);
 
   return (
     <main className={styles.commerceRoot} id="storefront-content">
@@ -22,7 +24,7 @@ export default async function CategoriesPage() {
         <div style={{ marginBottom: "2rem" }}>
           <h1 className={styles.commerceTitle}>Categories</h1>
           <p style={{ color: "var(--kt-muted, #5f6763)", fontSize: "1.05rem", margin: 0, maxWidth: 600 }}>
-            Explore goods, groceries, and services across independent local stores.
+            Explore the five primary marketplace worlds, then move into their focused subcategories.
           </p>
         </div>
 
