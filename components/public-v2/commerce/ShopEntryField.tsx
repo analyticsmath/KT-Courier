@@ -41,7 +41,7 @@ export function ShopEntryField({ categories }: ShopEntryFieldProps) {
               <CommerceSearchCommand />
             </div>
             <nav aria-label="Shop by category" className={styles.entryCategoryShortcuts}>
-              {categories.slice(0, 4).map((category) => {
+              {categories.slice(0, 5).map((category) => {
                 const href = marketplaceCategoryHref(category.path);
                 return href ? <Link href={href} key={category.reference}>{category.name}</Link> : null;
               })}
