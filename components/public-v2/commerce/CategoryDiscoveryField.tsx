@@ -65,7 +65,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
         </div>
 
         {/* Mobile Horizontal Snap Grid (Visible on phone/tablet) */}
-        <div className="md:hidden mt-4 overflow-x-auto pb-4 -mx-4 px-4 flex gap-3 snap-x snap-mandatory scrollbar-none">
+        <div className="md:hidden mt-3 overflow-x-auto pb-3 flex gap-2.5 snap-x snap-mandatory scrollbar-none pr-2">
           {displayCategories.map((cat) => {
             const href = marketplaceCategoryHref(cat.path) ?? marketplaceCategoriesHref();
             return (
@@ -73,13 +73,13 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                 key={cat.reference}
                 href={href}
                 onClick={(e) => handleCategoryClick(e, cat)}
-                className="snap-start flex-none w-[200px] h-[160px] relative rounded-xl overflow-hidden border border-[var(--commerce-line)] no-underline group"
+                className="snap-start flex-none w-[152px] h-[126px] sm:w-[168px] sm:h-[136px] relative rounded-xl overflow-hidden border border-[var(--commerce-line)] no-underline group"
               >
                 <Image
                   alt={cat.name}
                   src={getCategoryMedia(cat)}
                   fill
-                  sizes="200px"
+                  sizes="(max-width: 639px) 152px, 168px"
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3 flex flex-col justify-end">

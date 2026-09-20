@@ -1152,9 +1152,9 @@ export const DEMO_PRODUCT_TEMPLATES: ProductTemplate[] = [
     "sellingUnit": "EACH",
     "inventoryTrackingMode": "TRACKED",
     "imageKeys": [
-      "CMA-PROD-STAND-1",
-      "CMA-PROD-STAND-2",
-      "CMA-PROD-STAND-3"
+      "CMA-PROD-STAND-1-R2",
+      "CMA-PROD-STAND-2-R2",
+      "CMA-PROD-STAND-3-R2"
     ],
     "attributes": {
       "material": "Aluminium"
@@ -2689,9 +2689,9 @@ export const DEMO_PRODUCT_TEMPLATES: ProductTemplate[] = [
     "sellingUnit": "EACH",
     "inventoryTrackingMode": "TRACKED",
     "imageKeys": [
-      "CMA-PROD-CARMATS-1",
-      "CMA-PROD-CARMATS-2",
-      "CMA-PROD-CARMATS-3"
+      "CMA-PROD-CARMATS-1-R2",
+      "CMA-PROD-CARMATS-2-R2",
+      "CMA-PROD-CARMATS-3-R2"
     ],
     "attributes": {
       "pieceCount": 4,
@@ -3243,9 +3243,9 @@ export const DEMO_PRODUCT_TEMPLATES: ProductTemplate[] = [
     "sellingUnit": "EACH",
     "inventoryTrackingMode": "TRACKED",
     "imageKeys": [
-      "CMA-PROD-HEADPHONES-1",
-      "CMA-PROD-HEADPHONES-2",
-      "CMA-PROD-HEADPHONES-3"
+      "CMA-PROD-HEADPHONES-1-R2",
+      "CMA-PROD-HEADPHONES-2-R2",
+      "CMA-PROD-HEADPHONES-3-R2"
     ],
     "attributes": {
       "batteryLife": "40 Hours",

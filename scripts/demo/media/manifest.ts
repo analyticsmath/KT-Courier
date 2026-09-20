@@ -5727,7 +5727,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Rugged Waterproof Bluetooth Speaker 16 Watt — Compact outdoor wireless speaker"
   },
   {
-    "publicReference": "CMA-PROD-STAND-1",
+    "publicReference": "CMA-PROD-STAND-1-R2",
     "storageKey": "catalog-media/2725cefbb673b54b179646abc41a6b2539afc10cfacf255db33dd01e0ef2b3fe",
     "relativePath": "products/prod-laptop-stand-aluminium-v1.webp",
     "width": 1200,
@@ -5749,7 +5749,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Ergonomic Foldable Aluminium Laptop Stand (Hero presentation) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-STAND-2",
+    "publicReference": "CMA-PROD-STAND-2-R2",
     "storageKey": "catalog-media/de1fc3bfbdc3c7369a9dbbab08fe0072881c218d05a6d55cc22424b54c2dfe03",
     "relativePath": "products/prod-laptop-stand-aluminium-v2.webp",
     "width": 1200,
@@ -5771,7 +5771,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Ergonomic Foldable Aluminium Laptop Stand (Ingredient and packaging view) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-STAND-3",
+    "publicReference": "CMA-PROD-STAND-3-R2",
     "storageKey": "catalog-media/5d6aad9d8d9085621e76b67df2620de6917b331c1ffcd9bd3b088f0155aa2c70",
     "relativePath": "products/prod-laptop-stand-aluminium-v3.webp",
     "width": 1200,
@@ -10479,7 +10479,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Quick Puncture Repair Emergency Tyre Inflator 500ml (Styled context presentation) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-CARMATS-1",
+    "publicReference": "CMA-PROD-CARMATS-1-R2",
     "storageKey": "catalog-media/494388091b62edd01e7681b165a303b6bad94c18941b4488a7ada6157e674981",
     "relativePath": "products/prod-all-weather-car-mats-v1.webp",
     "width": 1200,
@@ -10501,7 +10501,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Heavy Duty Deep-Dish Rubber Car Floor Mats 4pc (Hero presentation) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-CARMATS-2",
+    "publicReference": "CMA-PROD-CARMATS-2-R2",
     "storageKey": "catalog-media/266911cc486742d6f7c144ea7fdce2e593082d780644322b0c979dca43528975",
     "relativePath": "products/prod-all-weather-car-mats-v2.webp",
     "width": 1200,
@@ -10523,7 +10523,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Heavy Duty Deep-Dish Rubber Car Floor Mats 4pc (Ingredient and packaging view) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-CARMATS-3",
+    "publicReference": "CMA-PROD-CARMATS-3-R2",
     "storageKey": "catalog-media/943c86e8456591ac0f517eeebf3632ae3ebfc07e47b8c9e12e2642eeeca8bfa7",
     "relativePath": "products/prod-all-weather-car-mats-v3.webp",
     "width": 1200,
@@ -12129,7 +12129,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Heavy Duty 6-Way Surge Protected Power Strip with USB (Styled context presentation) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-HEADPHONES-1",
+    "publicReference": "CMA-PROD-HEADPHONES-1-R2",
     "storageKey": "catalog-media/488c4b35f911d3048654f6f205592c2aacd99197a028f7b9ac5874486fc83b67",
     "relativePath": "products/prod-anc-headphones-bt-v1.webp",
     "width": 1200,
@@ -12151,7 +12151,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Hybrid Active Noise Cancelling Over-Ear Bluetooth Headphones (Hero presentation) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-HEADPHONES-2",
+    "publicReference": "CMA-PROD-HEADPHONES-2-R2",
     "storageKey": "catalog-media/c8b061e424b39cc12d48b4790981be5c08893c4f195c1319f2d9057c3193703d",
     "relativePath": "products/prod-anc-headphones-bt-v2.webp",
     "width": 1200,
@@ -12173,7 +12173,7 @@ export const DEMO_MEDIA_MANIFEST: CatalogMediaManifestEntry[] = [
     "subject": "Hybrid Active Noise Cancelling Over-Ear Bluetooth Headphones (Ingredient and packaging view) — authentic merchandise photography"
   },
   {
-    "publicReference": "CMA-PROD-HEADPHONES-3",
+    "publicReference": "CMA-PROD-HEADPHONES-3-R2",
     "storageKey": "catalog-media/94de76b920697e0a2845e5ae24764129496393ceb2932753d370b8dbcbe1e752",
     "relativePath": "products/prod-anc-headphones-bt-v3.webp",
     "width": 1200,

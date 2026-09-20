@@ -3626,7 +3626,7 @@
     "license": "Unsplash License"
   },
   {
-    "publicReference": "CMA-PROD-STAND-1",
+    "publicReference": "CMA-PROD-STAND-1-R2",
     "targetRelPath": "products/prod-laptop-stand-aluminium-v1.webp",
     "width": 1200,
     "height": 1200,
@@ -3640,7 +3640,7 @@
     "license": "Unsplash License"
   },
   {
-    "publicReference": "CMA-PROD-STAND-2",
+    "publicReference": "CMA-PROD-STAND-2-R2",
     "targetRelPath": "products/prod-laptop-stand-aluminium-v2.webp",
     "width": 1200,
     "height": 1200,
@@ -3654,7 +3654,7 @@
     "license": "Unsplash License"
   },
   {
-    "publicReference": "CMA-PROD-STAND-3",
+    "publicReference": "CMA-PROD-STAND-3-R2",
     "targetRelPath": "products/prod-laptop-stand-aluminium-v3.webp",
     "width": 1200,
     "height": 1200,
@@ -6650,7 +6650,7 @@
     "license": "CC BY-SA 4.0"
   },
   {
-    "publicReference": "CMA-PROD-CARMATS-1",
+    "publicReference": "CMA-PROD-CARMATS-1-R2",
     "targetRelPath": "products/prod-all-weather-car-mats-v1.webp",
     "width": 1200,
     "height": 1200,
@@ -6664,7 +6664,7 @@
     "license": "Unsplash License"
   },
   {
-    "publicReference": "CMA-PROD-CARMATS-2",
+    "publicReference": "CMA-PROD-CARMATS-2-R2",
     "targetRelPath": "products/prod-all-weather-car-mats-v2.webp",
     "width": 1200,
     "height": 1200,
@@ -6678,7 +6678,7 @@
     "license": "Unsplash License"
   },
   {
-    "publicReference": "CMA-PROD-CARMATS-3",
+    "publicReference": "CMA-PROD-CARMATS-3-R2",
     "targetRelPath": "products/prod-all-weather-car-mats-v3.webp",
     "width": 1200,
     "height": 1200,
@@ -7700,7 +7700,7 @@
     "license": "GFDL 1.2"
   },
   {
-    "publicReference": "CMA-PROD-HEADPHONES-1",
+    "publicReference": "CMA-PROD-HEADPHONES-1-R2",
     "targetRelPath": "products/prod-anc-headphones-bt-v1.webp",
     "width": 1200,
     "height": 1200,
@@ -7714,7 +7714,7 @@
     "license": "Unsplash License"
   },
   {
-    "publicReference": "CMA-PROD-HEADPHONES-2",
+    "publicReference": "CMA-PROD-HEADPHONES-2-R2",
     "targetRelPath": "products/prod-anc-headphones-bt-v2.webp",
     "width": 1200,
     "height": 1200,
@@ -7728,7 +7728,7 @@
     "license": "Unsplash License"
   },
   {
-    "publicReference": "CMA-PROD-HEADPHONES-3",
+    "publicReference": "CMA-PROD-HEADPHONES-3-R2",
     "targetRelPath": "products/prod-anc-headphones-bt-v3.webp",
     "width": 1200,
     "height": 1200,

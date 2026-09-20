@@ -82,29 +82,40 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
   console.log("✓ Foundation bootstrap ready (SuperAdmin, Admin, Regions, Pricing, Settings, Ledger Accounts).");
 
   // ── Stage 2: Catalog Media Assets ──────────────────────────────────────────
-  console.log(`\n[Stage 2/7] Inserting ${DEMO_MEDIA_MANIFEST.length} Verified Catalog Media Assets...`);
+  console.log(`\n[Stage 2/7] Ensuring ${DEMO_MEDIA_MANIFEST.length} Verified Catalog Media Assets...`);
+  const catalogStorageProvider = options.catalogStorageProvider ?? "LOCAL_FS";
   for (const entry of DEMO_MEDIA_MANIFEST) {
-    await prisma.catalogMediaAsset.upsert({
+    const existing = await prisma.catalogMediaAsset.findUnique({
       where: { publicReference: entry.publicReference },
-      update: {
-        storageKey: entry.storageKey,
-        storageProvider: options.catalogStorageProvider ?? "LOCAL_FS",
-        mimeType: entry.mimeType,
-        byteSize: entry.byteSize,
-        checksum: entry.checksum,
-        width: entry.width,
-        height: entry.height,
-        status: "READY",
-        privacyInspectionPassed: true,
-        declaredMimeType: entry.mimeType,
-        declaredByteSize: entry.byteSize,
-        purpose: entry.purpose,
-        updatedByUserId: bootstrap.superAdminId,
-      },
-      create: {
+    });
+
+    if (existing) {
+      const immutableDrift = [
+        existing.storageKey !== entry.storageKey ? "storageKey" : null,
+        existing.storageProvider !== catalogStorageProvider ? "storageProvider" : null,
+        existing.purpose !== entry.purpose ? "purpose" : null,
+        existing.declaredMimeType !== entry.mimeType ? "declaredMimeType" : null,
+        existing.declaredByteSize !== entry.byteSize ? "declaredByteSize" : null,
+        existing.checksum !== entry.checksum ? "checksum" : null,
+        existing.mimeType !== entry.mimeType ? "mimeType" : null,
+        existing.byteSize !== entry.byteSize ? "byteSize" : null,
+        existing.width !== entry.width ? "width" : null,
+        existing.height !== entry.height ? "height" : null,
+      ].filter((field): field is string => Boolean(field));
+
+      if (immutableDrift.length > 0) {
+        throw new Error(
+          `Catalog media ${entry.publicReference} has immutable declaration drift (${immutableDrift.join(", ")}). Create a new versioned publicReference instead of mutating trusted media evidence.`,
+        );
+      }
+      continue;
+    }
+
+    await prisma.catalogMediaAsset.create({
+      data: {
         publicReference: entry.publicReference,
         storageKey: entry.storageKey,
-        storageProvider: options.catalogStorageProvider ?? "LOCAL_FS",
+        storageProvider: catalogStorageProvider,
         mimeType: entry.mimeType,
         byteSize: entry.byteSize,
         checksum: entry.checksum,
@@ -123,7 +134,7 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
       },
     });
   }
-  console.log(`✓ ${DEMO_MEDIA_MANIFEST.length} Catalog Media Assets registered.`);
+  console.log(`✓ ${DEMO_MEDIA_MANIFEST.length} Catalog Media Assets verified/registered.`);
 
   // ── Stage 3: Product Types & Categories ────────────────────────────────────
   console.log("\n[Stage 3/7] Registering Product Types and Master Categories...");
