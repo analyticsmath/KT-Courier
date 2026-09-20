@@ -5,6 +5,7 @@ import {
   hasStorefrontCategoryMediaOverride,
   storefrontCategoryMediaSrc,
 } from "@/lib/storefront/category-media";
+import { marketplaceCategoryHref, marketplaceHref } from "@/lib/public-marketplace/routes";
 import { PublicHomeExperience } from "@/components/public-v3/home";
 
 export const dynamic = "force-dynamic";
@@ -20,14 +21,14 @@ export default async function HomePage() {
       const curatedImage = storefrontCategoryMediaSrc(cat.imageReference, "") || "";
 
       return resolveHomepageCategoryVisual({
-        id: cat.id,
+        id: cat.reference,
         title: cat.name,
         tagline:
           cat.description ||
           "Local category available through the KT marketplace.",
         image: curatedImage,
         altText: cat.name,
-        href: `/shop/category/${encodeURIComponent(cat.slug)}`,
+        href: marketplaceCategoryHref(cat.path) ?? marketplaceHref(),
         /**
          * Only an explicitly curated category contract is allowed to bypass the
          * homepage semantic resolver. A raw catalogue reference can be valid for
