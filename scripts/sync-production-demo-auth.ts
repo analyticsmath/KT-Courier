@@ -49,10 +49,116 @@ function allSeededDemoEmails(): string[] {
   ]));
 }
 
+async function ensureRequestedDemoIdentities(passwordHash: string): Promise<void> {
+  const [driverFixture, customerOne, customerTwo, admin] = await Promise.all([
+    Promise.resolve(DEMO_DRIVERS.find((driver) => driver.email === "driver.lerato.adams1@ktcouriers.local")),
+    Promise.resolve(DEMO_CUSTOMERS.find((customer) => customer.email === "sizwe.zulu1@example.co.za")),
+    Promise.resolve(DEMO_CUSTOMERS.find((customer) => customer.email === "tanya.chetty2@example.co.za")),
+    prisma.user.findUnique({ where: { email: "admin@ktcouriers.local" }, select: { id: true } }),
+  ]);
+
+  if (!driverFixture || !customerOne || !customerTwo || !admin) {
+    throw new Error("Required production demo identity fixture or admin authority is unavailable.");
+  }
+
+  const driverUser = await prisma.user.upsert({
+    where: { email: driverFixture.email },
+    update: {
+      name: driverFixture.name,
+      phone: driverFixture.phone,
+      passwordHash,
+      role: "DRIVER",
+      status: "ACTIVE",
+    },
+    create: {
+      email: driverFixture.email,
+      name: driverFixture.name,
+      phone: driverFixture.phone,
+      passwordHash,
+      role: "DRIVER",
+      status: "ACTIVE",
+      emailVerifiedAt: new Date(),
+    },
+  });
+
+  await prisma.driverProfile.upsert({
+    where: { userId: driverUser.id },
+    update: {
+      displayName: driverFixture.name,
+      phone: driverFixture.phone,
+      active: true,
+      approvedAt: new Date(),
+      approvedByAdminId: admin.id,
+      availability: "OFFLINE",
+      idNumber: driverFixture.idNumber,
+      onboardingStatus: "APPROVED",
+      status: "ACTIVE",
+      vehicleMake: driverFixture.vehicleModel.split(" ")[0] ?? "Demo",
+      vehicleModel: driverFixture.vehicleModel,
+      vehicleRegistration: driverFixture.vehiclePlate,
+      vehicleType: driverFixture.vehicleType === "MOTORCYCLE" ? "MOTORBIKE" : driverFixture.vehicleType,
+    },
+    create: {
+      userId: driverUser.id,
+      driverCode: "KT-DEMO-DRV-001",
+      displayName: driverFixture.name,
+      phone: driverFixture.phone,
+      active: true,
+      approvedAt: new Date(),
+      approvedByAdminId: admin.id,
+      availability: "OFFLINE",
+      idNumber: driverFixture.idNumber,
+      onboardingStatus: "APPROVED",
+      status: "ACTIVE",
+      vehicleMake: driverFixture.vehicleModel.split(" ")[0] ?? "Demo",
+      vehicleModel: driverFixture.vehicleModel,
+      vehicleRegistration: driverFixture.vehiclePlate,
+      vehicleType: driverFixture.vehicleType === "MOTORCYCLE" ? "MOTORBIKE" : driverFixture.vehicleType,
+    },
+  });
+
+  for (const customer of [customerOne, customerTwo]) {
+    const user = await prisma.user.upsert({
+      where: { email: customer.email },
+      update: {
+        name: `${customer.firstName} ${customer.lastName}`,
+        phone: customer.phone,
+        passwordHash,
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      },
+      create: {
+        email: customer.email,
+        name: `${customer.firstName} ${customer.lastName}`,
+        phone: customer.phone,
+        passwordHash,
+        role: "CUSTOMER",
+        status: "ACTIVE",
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    await prisma.customerProfile.upsert({
+      where: { userId: user.id },
+      update: {
+        displayName: `${customer.firstName} ${customer.lastName}`,
+        defaultPhone: customer.phone,
+      },
+      create: {
+        userId: user.id,
+        displayName: `${customer.firstName} ${customer.lastName}`,
+        defaultPhone: customer.phone,
+      },
+    });
+  }
+}
+
 async function main(): Promise<void> {
   const password = requireProductionAuthorization();
   const passwordHash = await bcrypt.hash(password, 10);
   const seededEmails = allSeededDemoEmails();
+
+  await ensureRequestedDemoIdentities(passwordHash);
 
   const updated = await prisma.user.updateMany({
     where: { email: { in: seededEmails } },
@@ -78,6 +184,9 @@ async function main(): Promise<void> {
 
   const found = new Set(requestedAccounts.map((user) => user.email));
   const missingRequested = REQUESTED_LOGIN_EMAILS.filter((email) => !found.has(email));
+  if (missingRequested.length > 0) {
+    throw new Error(`Requested production demo accounts are still missing: ${missingRequested.join(", ")}`);
+  }
 
   console.log(JSON.stringify({
     event: "production_demo_credentials_synced",
