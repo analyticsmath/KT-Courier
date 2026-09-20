@@ -94,16 +94,44 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
   if (input.chapter === "hero") {
     const hero = HOME_BEATS.hero;
     const truckPath = HOME_LAYOUT.heroTruckPath;
-    if (within(progress, hero.truckApproach[0], hero.suspensionSettle[1])) {
+    if (within(progress, hero.truckApproach[0], hero.suspensionSettle[0])) {
+      const approachProgress = range(
+        progress,
+        hero.truckApproach[0],
+        hero.suspensionSettle[0],
+      );
       actors.whiteTruck = {
         ...actors.whiteTruck,
+        state: "front-3q-right",
         visible: true,
-        targetX: interpolate(truckPath.arrivalX[0], truckPath.holdX, range(progress, hero.truckApproach[0], hero.suspensionSettle[1])),
+        targetX: interpolate(
+          truckPath.arrivalX[0],
+          truckPath.holdX,
+          approachProgress,
+        ),
         groundY: 0.9,
-        widthVw: 70,
+        widthVw: interpolate(54, 62, approachProgress),
       };
     }
-    if (after(progress, hero.suspensionSettle[0]) && progress < hero.cargoLock[0]) {
+    if (within(progress, hero.suspensionSettle[0], hero.suspensionSettle[1])) {
+      const registrationProgress = range(
+        progress,
+        hero.suspensionSettle[0],
+        hero.suspensionSettle[1],
+      );
+      actors.whiteTruck = {
+        ...actors.whiteTruck,
+        state: registrationProgress < 0.5 ? "side-right" : "wide-hero",
+        visible: false,
+        targetX: truckPath.holdX,
+        groundY: 0.9,
+        widthVw: registrationProgress < 0.5 ? 70 : 72,
+      };
+      owner = "hero-typography-concealment";
+      occlusion = "typography-occlusion";
+      transitionProgress = registrationProgress;
+    }
+    if (after(progress, hero.suspensionSettle[1]) && progress < hero.cargoLock[0]) {
       actors.whiteTruck = {
         ...actors.whiteTruck,
         state: "wide-hero",
@@ -116,14 +144,6 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
         groundY: 0.9,
         widthVw: 72,
       };
-      if (within(progress, hero.suspensionSettle[0], hero.suspensionSettle[1])) {
-        actors.whiteTruck.visible = false;
-      }
-      if (within(progress, hero.suspensionSettle[0], hero.suspensionSettle[1])) {
-        owner = "hero-typography-concealment";
-        occlusion = "typography-occlusion";
-        transitionProgress = range(progress, hero.suspensionSettle[0], hero.suspensionSettle[1]);
-      }
     }
     if (within(progress, hero.cargoLock[0], hero.oneToThree[0])) {
       actors.whiteTruck = { ...actors.whiteTruck, state: "cargo-box-close", visible: false, targetX: truckPath.cargoX, widthVw: 90 };
