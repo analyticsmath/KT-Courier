@@ -113,6 +113,47 @@ async function main(): Promise<void> {
     prisma.marketplaceStoreOrder.count(),
   ]);
 
+  const [sizweUser, tanyaUser, leratoUser, ubuntuOwner] = await Promise.all([
+    prisma.user.findUnique({ where: { email: "sizwe.zulu1@example.co.za" }, select: { id: true } }),
+    prisma.user.findUnique({ where: { email: "tanya.chetty2@example.co.za" }, select: { id: true } }),
+    prisma.user.findUnique({ where: { email: "driver.lerato.adams1@ktcouriers.local" }, select: { id: true } }),
+    prisma.user.findUnique({ where: { email: "store.ubuntu-fresh-market@ktcouriers.local" }, select: { id: true } }),
+  ]);
+
+  const leratoProfile = leratoUser
+    ? await prisma.driverProfile.findUnique({ where: { userId: leratoUser.id }, select: { id: true } })
+    : null;
+  const ubuntuStore = ubuntuOwner
+    ? await prisma.store.findFirst({ where: { ownerUserId: ubuntuOwner.id }, select: { id: true, slug: true } })
+    : null;
+
+  const [
+    sizweCourierOrders,
+    tanyaCourierOrders,
+    leratoAssignments,
+    leratoCompletedAssignments,
+    ubuntuCourierOrders,
+    ubuntuMarketplaceOrders,
+  ] = await Promise.all([
+    sizweUser ? prisma.order.count({ where: { customerId: sizweUser.id } }) : Promise.resolve(0),
+    tanyaUser ? prisma.order.count({ where: { customerId: tanyaUser.id } }) : Promise.resolve(0),
+    leratoProfile ? prisma.orderAssignment.count({ where: { driverProfileId: leratoProfile.id } }) : Promise.resolve(0),
+    leratoProfile ? prisma.orderAssignment.count({ where: { driverProfileId: leratoProfile.id, status: "COMPLETED" } }) : Promise.resolve(0),
+    ubuntuStore ? prisma.order.count({ where: { storeId: ubuntuStore.id } }) : Promise.resolve(0),
+    ubuntuStore ? prisma.marketplaceStoreOrder.count({ where: { storeId: ubuntuStore.id } }) : Promise.resolve(0),
+  ]);
+
+  console.log(JSON.stringify({
+    event: "production_demo_account_coverage",
+    sizweCourierOrders,
+    tanyaCourierOrders,
+    leratoAssignments,
+    leratoCompletedAssignments,
+    ubuntuStoreSlug: ubuntuStore?.slug ?? null,
+    ubuntuCourierOrders,
+    ubuntuMarketplaceOrders,
+  }));
+
   console.log(JSON.stringify({
     event: "production_demo_universe_ready",
     ...after,
