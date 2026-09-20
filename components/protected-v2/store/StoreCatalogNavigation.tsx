@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
-import { AccessBoundaryIllustration } from "@/components/protected-v2/illustrations/AccessBoundaryIllustration";
+import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import styles from "./store-pages.module.css";
 
 const destinations = [
@@ -18,5 +17,16 @@ export function StoreCatalogNavigation() {
 }
 
 export function StorefrontAvailability() {
-  return <div className={styles.scope}><ProtectedState kind="locked" title="Storefront publication is not available" description="Catalog drafting and review remain separate from public storefront publication. This page does not imply that products, prices, offers, or checkout are live." illustration={<AccessBoundaryIllustration className="h-20 w-28" />} /></div>;
+  return (
+    <OperationalPanel
+      title="Storefront publication is live"
+      description="Published catalog offers are projected to the public KT Courier marketplace. Draft or review-state records remain private until they are published."
+      padding="compact"
+      action={<Link className="text-sm font-semibold underline underline-offset-4" href="/shop">View live marketplace</Link>}
+    >
+      <p className="text-sm text-[var(--eo-text-secondary)]">
+        Manage product identity, pricing, inventory, media, and offers here. Published records can be browsed and purchased from the live storefront.
+      </p>
+    </OperationalPanel>
+  );
 }
