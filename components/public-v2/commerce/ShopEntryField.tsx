@@ -24,6 +24,16 @@ export function ShopEntryField({ categories }: ShopEntryFieldProps) {
   const primaryHref = (primaryCat ? marketplaceCategoryHref(primaryCat.path) : null) ?? marketplaceHref();
   const secondaryHref = (secondaryCat ? marketplaceCategoryHref(secondaryCat.path) : null) ?? marketplaceHref();
 
+  const fallbackMediaForCategory = (category?: CategorySummary) => {
+    const path = category?.path.toLowerCase() ?? "";
+    if (path.includes("groc")) return homeMedia.grocery.src;
+    if (path.includes("fash") || path.includes("cloth")) return homeMedia.fashion.src;
+    if (path.includes("food")) return homeMedia.foodLocal.src;
+    if (path.includes("home")) return homeMedia.homeware.src;
+    if (path.includes("pharm") || path.includes("well") || path.includes("care")) return homeMedia.wellness.src;
+    return homeMedia.retailLocal.src;
+  };
+
   return (
     <section aria-labelledby="market-entry-title" className={styles.marketEntryField}>
       <div className={styles.commerceInnerWide}>
@@ -60,7 +70,7 @@ export function ShopEntryField({ categories }: ShopEntryFieldProps) {
                 sizes="(max-width: 899px) 100vw, 55vw"
                 src={storefrontCategoryMediaSrc(
                   primaryCat?.imageReference,
-                  homeMedia.fashion.src,
+                  fallbackMediaForCategory(primaryCat),
                 )!}
                 style={{ objectFit: "cover" }}
               />
@@ -81,7 +91,7 @@ export function ShopEntryField({ categories }: ShopEntryFieldProps) {
                 sizes="25vw"
                 src={storefrontCategoryMediaSrc(
                   secondaryCat?.imageReference,
-                  homeMedia.grocery.src,
+                  fallbackMediaForCategory(secondaryCat),
                 )!}
                 style={{ objectFit: "cover" }}
               />
