@@ -26,7 +26,7 @@ describe("mobile hero geometry contract", () => {
 
   it("keeps the mobile hero stage sticky and outside generic stage unpinning", () => {
     expect(styles).toMatch(
-      /@media \(max-width: 767px\) \{\s*\.heroStage \{\s*position: sticky;\s*top: 0;\s*height: 100svh;\s*min-height: 100svh;/,
+      /@media \(max-width: 767px\) \{\s*\.heroStage \{\s*position: sticky;\s*top: 0;\s*height: 100dvh;\s*min-height: 100svh;\s*padding: 0;\s*box-sizing: border-box;/,
     );
     expect(heroScene).toContain("className={styles.heroStage}");
     expect(heroScene).not.toContain("kt-home-sticky-stage");
@@ -35,15 +35,36 @@ describe("mobile hero geometry contract", () => {
 
   it("keeps the mobile CTA row above the shared navigation-safe boundary", () => {
     expect(styles).not.toContain("clamp(10rem, 25svh, 13rem)");
-    expect(styles).toMatch(/\.heroActionsRow\s*\{\s*left: 50%;\s*bottom: var\(--kt-mobile-action-safe-bottom\);/);
+    expect(styles).toMatch(/\.heroActionsRow\s*\{\s*left: 50%;\s*bottom: calc\(\s*var\(--kt-mobile-nav-height\)\s*\+ env\(safe-area-inset-bottom, 0px\)\s*\+ clamp\(0.75rem, 1.5dvh, 1rem\)\s*\);/);
   });
 
   it("uses measured actor-stage geometry for mobile Hero placement", () => {
     expect(director).toContain("stageWidthPx = actorStageRect?.width || window.innerWidth");
     expect(director).toContain("stageHeightPx = actorStageRect?.height || window.innerHeight");
-    expect(director).toContain("const sizingHeight = mobileHeroGeometry ? stageHeightPx : window.innerHeight");
-    expect(director).toContain("y: mobileHeroGeometry ? stageHeightPx * actor.groundY");
+    expect(director).toContain("const sizingHeight = mobileHeroGeometry ? heroUsableActorHeightPx : window.innerHeight");
+    expect(director).toContain("y: mobileHeroGeometry ? heroUsableActorHeightPx * actor.groundY");
+    expect(director).toContain("mobileNav?.getBoundingClientRect().height ?? 0");
     expect(actorStage).toMatch(/preloadStates=\{\[\.\.\.HERO_TRUCK_SEQUENCE\.slice\(0, 6\)\]\}/);
     expect(actorStage).toContain("preloadStates={[]}");
+  });
+
+  it("does not statically hide the persistent Hero actor stage, slots, or layers", () => {
+    const staticActorRules = [
+      /:global\(\.kt-home-experience \.kt-cinematic-actor-stage\) \{([\s\S]*?)\n\}/,
+      /:global\(\.kt-home-experience \[data-actor-slot\]\) \{([\s\S]*?)\n\}/,
+      /:global\(\.kt-home-experience \.kt-actor-state-layer\) \{([\s\S]*?)\n\}/,
+    ];
+    staticActorRules.forEach((rule) => expect(styles.match(rule)?.[1]).not.toContain("visibility: hidden"));
+  });
+
+  it("uses visible containers and opacity-only Hero frame blending", () => {
+    const heroSequenceBranch = director.slice(
+      director.indexOf("if (isHeroSequence && layers)"),
+      director.indexOf("} else {", director.indexOf("if (isHeroSequence && layers)")),
+    );
+    expect(heroSequenceBranch).toContain('opacity: alpha, visibility: "visible"');
+    expect(heroSequenceBranch).not.toContain("autoAlpha");
+    expect(director).toContain("if (!prefersReducedMotion) preloadRemainingHeroSequence();");
+    expect(director).toContain("HERO_TRUCK_SEQUENCE.slice(6).forEach");
   });
 });

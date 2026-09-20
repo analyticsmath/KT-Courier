@@ -72,14 +72,15 @@
   .heroStage {
     position: sticky;
     top: 0;
-    height: 100svh;
+    height: 100dvh;
     min-height: 100svh;
-    display: block;
-    padding-top: var(--kt-header-height);
-    padding-bottom: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    isolation: isolate;
   }
   .heroBrandLockup {
-    top: calc(var(--kt-header-height) + clamp(0.45rem, 1.8svh, 0.9rem));
+    top: calc(var(--kt-header-height) + clamp(0.65rem, 1.6dvh, 1rem));
     width: calc(100vw - 1rem);
     gap: clamp(0.05rem, 0.7svh, 0.35rem);
   }
@@ -130,7 +131,11 @@
 @media (max-width: 767px) {
   .heroActionsRow {
     left: 50%;
-    bottom: var(--kt-mobile-action-safe-bottom);
+    bottom: calc(
+      var(--kt-mobile-nav-height)
+      + env(safe-area-inset-bottom, 0px)
+      + clamp(0.75rem, 1.5dvh, 1rem)
+    );
     width: min(34rem, calc(100vw - 1.5rem));
     max-width: none;
     padding: 0;
@@ -326,7 +331,8 @@
 }
 
 :global(.kt-home-experience .kt-cinematic-actor-stage) {
-  visibility: hidden;
+  visibility: visible;
+  opacity: 1;
   overflow: hidden;
   pointer-events: none;
 }
@@ -338,14 +344,15 @@
   width: 1px;
   height: 1px;
   transform-origin: 0 0;
-  visibility: hidden;
+  visibility: visible;
+  opacity: 0;
   will-change: transform, opacity;
 }
 
 :global(.kt-home-experience .kt-actor-state-layer) {
   object-fit: contain;
   opacity: 0;
-  visibility: hidden;
+  visibility: visible;
   pointer-events: none;
 }
 

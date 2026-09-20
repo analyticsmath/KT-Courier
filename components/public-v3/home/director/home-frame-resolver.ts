@@ -119,15 +119,15 @@ function resolveHeroVisibleHeight(progress: number, viewportMode: "mobile" | "de
   const value = (start: number, end: number, from: number, to: number) =>
     interpolate(from, to, smooth(range(progress, start, end)));
 
-  if (progress < beats.travellingTurn[0]) return value(beats.entryReveal[0], beats.entryReveal[1], mobile ? 17 : 22, mobile ? 22 : 29);
-  if (progress < beats.travellingTurn[1]) return value(beats.travellingTurn[0], beats.travellingTurn[1], mobile ? 22 : 29, mobile ? 26 : 34);
-  if (progress < beats.centreSettle[1]) return mobile ? 26 : 34;
-  if (progress < beats.centreTurn[1]) return value(beats.centreTurn[0], beats.centreTurn[1], mobile ? 26 : 34, mobile ? 31 : 40);
-  if (progress < beats.frontalEstablish[1]) return mobile ? 31 : 40;
-  if (progress < beats.frontalApproach[1]) return value(beats.frontalApproach[0], beats.frontalApproach[1], mobile ? 31 : 40, mobile ? 44 : 58);
-  if (progress < beats.closeApproach[1]) return value(beats.closeApproach[0], beats.closeApproach[1], mobile ? 44 : 58, mobile ? 63 : 78);
-  if (progress < beats.cameraPass[1]) return value(beats.cameraPass[0], beats.cameraPass[1], mobile ? 63 : 78, mobile ? 102 : 112);
-  return value(beats.release[0], beats.release[1], mobile ? 102 : 112, mobile ? 124 : 138);
+  if (progress < beats.travellingTurn[0]) return value(beats.entryReveal[0], beats.entryReveal[1], mobile ? 20 : 22, mobile ? 24 : 29);
+  if (progress < beats.travellingTurn[1]) return value(beats.travellingTurn[0], beats.travellingTurn[1], mobile ? 24 : 29, mobile ? 32 : 34);
+  if (progress < beats.centreSettle[1]) return mobile ? 36 : 34;
+  if (progress < beats.centreTurn[1]) return value(beats.centreTurn[0], beats.centreTurn[1], mobile ? 36 : 34, mobile ? 42 : 40);
+  if (progress < beats.frontalEstablish[1]) return mobile ? 42 : 40;
+  if (progress < beats.frontalApproach[1]) return value(beats.frontalApproach[0], beats.frontalApproach[1], mobile ? 42 : 40, mobile ? 58 : 58);
+  if (progress < beats.closeApproach[1]) return value(beats.closeApproach[0], beats.closeApproach[1], mobile ? 58 : 58, mobile ? 82 : 78);
+  if (progress < beats.cameraPass[1]) return value(beats.cameraPass[0], beats.cameraPass[1], mobile ? 82 : 78, mobile ? 112 : 112);
+  return value(beats.release[0], beats.release[1], mobile ? 112 : 112, mobile ? 124 : 138);
 }
 
 export function resolveHeroTruckFrame(

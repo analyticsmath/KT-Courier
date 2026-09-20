@@ -19,6 +19,7 @@ import { clamp01, HOME_BEATS, range } from "./home-beats";
 import { formatHomeDebugFrame } from "./home-debug";
 import { alignGroundContact } from "./home-grounding";
 import { closestReadyHeroSequenceState, isActorImageReady, markActorImageReady } from "./home-actor-image-readiness";
+import { deriveHeroActorPresentation } from "./hero-actor-presentation";
 import { assertPhysicalCoverage, physicalCoverage } from "./home-occlusion";
 import {
   assertActorTransition,
@@ -45,6 +46,9 @@ type HeroTruckPresentation = {
   imageReady: boolean;
   visible: boolean;
   blend: number;
+  width: number;
+  height: number;
+  slotOpacity: number;
 };
 
 const ACTOR_TYPES: Record<ActorName, ActorType> = {
@@ -198,6 +202,7 @@ export function useHomeNarrativeDirector({
     if (!root) return;
 
     const actorStage = root.querySelector<HTMLElement>("[data-kt-actor-stage]");
+    if (actorStage) gsap.set(actorStage, { opacity: 1, visibility: "visible" });
     const physicalOccluders = new Map<string, HTMLElement>();
     root.querySelectorAll<HTMLElement>("[data-home-occluder]").forEach((element) => {
       const id = element.dataset.homeOccluder;
@@ -234,11 +239,11 @@ export function useHomeNarrativeDirector({
       const slot = root.querySelector<HTMLElement>(`[data-actor-slot='${ACTOR_SLOTS[actor]}']`);
       if (!slot) return;
       slotNodes.set(actor, slot);
-      gsap.set(slot, { autoAlpha: 0 });
+      gsap.set(slot, { opacity: 0, visibility: "visible" });
       const layers = new Map<string, HTMLImageElement>();
       slot.querySelectorAll<HTMLImageElement>("[data-actor-state-layer]").forEach((layer) => {
         layers.set(layer.dataset.actorStateLayer ?? "", layer);
-        gsap.set(layer, { autoAlpha: 0 });
+        gsap.set(layer, { opacity: 0, visibility: "visible" });
       });
       stateLayers.set(actor, layers);
     });
@@ -327,6 +332,8 @@ export function useHomeNarrativeDirector({
     let stageTopPx = actorStage?.getBoundingClientRect().top ?? 0;
     let stageWidthPx = actorStage?.getBoundingClientRect().width || window.innerWidth;
     let stageHeightPx = actorStage?.getBoundingClientRect().height || window.innerHeight;
+    let mobileNavHeightPx = 0;
+    let heroUsableActorHeightPx = stageHeightPx;
     let fanTransferGeometry: FanTransferGeometry | null = null;
     let resizeTimer = 0;
     let routePathLength = 0;
@@ -402,14 +409,17 @@ export function useHomeNarrativeDirector({
           const fallbackState = closestReadyHeroSequenceState(actor.state, readyStates);
           if (!fallbackState) {
             requestActorImageDecode(layers.get(HERO_TRUCK_SEQUENCE[0]), "high");
-            layers.forEach((layer) => gsap.set(layer, { autoAlpha: 0 }));
-            gsap.set(slot, { autoAlpha: 0 });
+            layers.forEach((layer) => gsap.set(layer, { opacity: 0, visibility: "visible" }));
+            gsap.set(slot, { opacity: 0, visibility: "visible" });
             return {
               displayedState: actor.state,
               requestedReady: false,
               imageReady: false,
               visible: false,
               blend: 0,
+              width: 0,
+              height: 0,
+              slotOpacity: 0,
             };
           }
           displayedState = fallbackState;
@@ -427,17 +437,11 @@ export function useHomeNarrativeDirector({
             : canBlend && state === actor.blendToState
               ? blend
               : 0;
-          gsap.set(layer, { autoAlpha: alpha });
+          gsap.set(layer, { opacity: alpha, visibility: "visible" });
         });
         if (activeLayer) lastLayerState.set(name, displayedState);
         const imageReady = isActorImageReady(activeLayer);
-        heroPresentation = {
-          displayedState,
-          requestedReady,
-          imageReady,
-          visible: Boolean(actor.visible && imageReady),
-          blend,
-        };
+        heroPresentation = { displayedState, requestedReady, imageReady, visible: false, blend, width: 0, height: 0, slotOpacity: 0 };
       } else {
         const previousLayerState = lastLayerState.get(name);
         if (previousLayerState !== displayedState) {
@@ -449,7 +453,7 @@ export function useHomeNarrativeDirector({
       let width: number;
       let height: number;
       const mobileHeroGeometry = name === "whiteTruck" && frame.chapter === "hero" && window.innerWidth <= 767;
-      const sizingHeight = mobileHeroGeometry ? stageHeightPx : window.innerHeight;
+      const sizingHeight = mobileHeroGeometry ? heroUsableActorHeightPx : window.innerHeight;
       const targetWidthBase = mobileHeroGeometry ? stageWidthPx : window.innerWidth;
       if (actor.sizeMode?.mode === "visible-height") {
         const visibleHeight = sizingHeight * actor.sizeMode.visibleHeightVh / 100;
@@ -466,10 +470,13 @@ export function useHomeNarrativeDirector({
         groundContact: definition.groundContact,
         target: {
           x: targetWidthBase * actor.targetX,
-          y: mobileHeroGeometry ? stageHeightPx * actor.groundY : window.innerHeight * actor.groundY - stageTopPx,
+          y: mobileHeroGeometry ? heroUsableActorHeightPx * actor.groundY : window.innerHeight * actor.groundY - stageTopPx,
         },
       });
-      gsap.set(slot, {
+      const presentation = isHeroSequence
+        ? deriveHeroActorPresentation({ actorVisible: actor.visible, imageReady: heroPresentation?.imageReady ?? false, width, height })
+        : null;
+      const slotGeometry = {
         x: aligned.left,
         y: aligned.top,
         width,
@@ -477,8 +484,23 @@ export function useHomeNarrativeDirector({
         rotation: actor.rotation,
         scale: actor.scale,
         transformOrigin: "0 0",
-        autoAlpha: actor.visible ? 1 : 0,
-      });
+      };
+      if (presentation) {
+        gsap.set(slot, {
+          ...slotGeometry,
+          opacity: presentation.opacity,
+          visibility: presentation.visibility,
+        });
+      } else {
+        gsap.set(slot, { ...slotGeometry, autoAlpha: actor.visible ? 1 : 0 });
+      }
+
+      if (heroPresentation) {
+        heroPresentation.width = width;
+        heroPresentation.height = height;
+        heroPresentation.slotOpacity = presentation?.opacity ?? 0;
+        heroPresentation.visible = presentation?.isVisible ?? false;
+      }
 
       if (name === "van" && doorAperture) {
         const doorProgress = frame.chapter === "collection"
@@ -659,12 +681,18 @@ export function useHomeNarrativeDirector({
         root.dataset.homeWhiteTruckNextState = frame.actors.whiteTruck.blendToState ?? "";
         root.dataset.homeWhiteTruckReady = String(heroTruckPresentation?.requestedReady ?? false);
         root.dataset.homeWhiteTruckBlend = (heroTruckPresentation?.blend ?? 0).toFixed(3);
+        root.dataset.homeWhiteTruckWidth = (heroTruckPresentation?.width ?? 0).toFixed(2);
+        root.dataset.homeWhiteTruckHeight = (heroTruckPresentation?.height ?? 0).toFixed(2);
+        root.dataset.homeWhiteTruckSlotOpacity = (heroTruckPresentation?.slotOpacity ?? 0).toFixed(3);
       } else {
         delete root.dataset.homeWhiteTruckVisible;
         delete root.dataset.homeWhiteTruckState;
         delete root.dataset.homeWhiteTruckNextState;
         delete root.dataset.homeWhiteTruckReady;
         delete root.dataset.homeWhiteTruckBlend;
+        delete root.dataset.homeWhiteTruckWidth;
+        delete root.dataset.homeWhiteTruckHeight;
+        delete root.dataset.homeWhiteTruckSlotOpacity;
       }
       setPhysicalOcclusion(frame);
 
@@ -841,6 +869,9 @@ export function useHomeNarrativeDirector({
       stageTopPx = actorStageRect?.top ?? 0;
       stageWidthPx = actorStageRect?.width || window.innerWidth;
       stageHeightPx = actorStageRect?.height || window.innerHeight;
+      const mobileNav = document.querySelector<HTMLElement>("[data-kt-app-shell='mobile-nav']");
+      mobileNavHeightPx = mobileNav?.getBoundingClientRect().height ?? 0;
+      heroUsableActorHeightPx = Math.max(0, stageHeightPx - mobileNavHeightPx);
       fanTransferGeometry = null;
       const firstCard = marketCards[0];
       if (firstCard) {
@@ -950,7 +981,6 @@ export function useHomeNarrativeDirector({
     preloadChapter(initialPosition.chapter);
     if (initialPosition.chapter === "fan") preloadFanSelection(categories.length - 1);
     seekFromScroll(window.scrollY);
-    if (actorStage) gsap.set(actorStage, { autoAlpha: 1 });
     if (!prefersReducedMotion) preloadRemainingHeroSequence();
 
     const revealAfterLayout = async () => {

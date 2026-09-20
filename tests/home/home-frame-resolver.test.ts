@@ -174,7 +174,7 @@ describe("homepage narrative frame resolver", () => {
     expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "desktop" }).actors.whiteTruck.sizeMode)
       .toMatchObject({ mode: "visible-height", visibleHeightVh: 34 });
     expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "mobile" }).actors.whiteTruck.sizeMode)
-      .toMatchObject({ mode: "visible-height", visibleHeightVh: 26 });
+      .toMatchObject({ mode: "visible-height", visibleHeightVh: 36 });
     expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "mobile" }).actors.whiteTruck.groundY).toBe(0.85);
     expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "desktop" }).actors.whiteTruck.groundY).toBe(0.88);
   });
