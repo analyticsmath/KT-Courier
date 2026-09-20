@@ -553,24 +553,42 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
 
         const snapshotValue = buildCatalogPublicationSnapshot(baseSnapshot);
 
-        const existingSnapshot = await prisma.catalogPublicationSnapshot.findUnique({
-          where: { publicReference: snapshotRef },
-        });
-
-        const snapshotRecord = existingSnapshot ?? await prisma.catalogPublicationSnapshot.create({
-          data: {
-            publicReference: snapshotRef,
-            versionNumber: 1,
-            publicationVersion: snapshotValue.publicationVersion,
-            productId: master.product.id,
-            variantId: master.variant.id,
-            offerId: offer.id,
-            status: "PUBLISHED",
-            snapshot: snapshotValue as any,
-            createdByUserId: bootstrap.superAdminId,
-            createdAt,
+        // Publication snapshots are immutable append-only evidence. Reuse an
+        // existing snapshot only when the publicationVersion is identical;
+        // otherwise append a new version instead of replaying stale evidence.
+        let snapshotRecord = await prisma.catalogPublicationSnapshot.findUnique({
+          where: {
+            offerId_publicationVersion: {
+              offerId: offer.id,
+              publicationVersion: snapshotValue.publicationVersion,
+            },
           },
         });
+
+        if (!snapshotRecord) {
+          const latestSnapshot = await prisma.catalogPublicationSnapshot.findFirst({
+            where: { offerId: offer.id },
+            orderBy: { versionNumber: "desc" },
+          });
+          const nextVersion = (latestSnapshot?.versionNumber ?? 0) + 1;
+          const nextSnapshotReference =
+            nextVersion === 1 ? snapshotRef : `${snapshotRef}-V${nextVersion}`;
+
+          snapshotRecord = await prisma.catalogPublicationSnapshot.create({
+            data: {
+              publicReference: nextSnapshotReference,
+              versionNumber: nextVersion,
+              publicationVersion: snapshotValue.publicationVersion,
+              productId: master.product.id,
+              variantId: master.variant.id,
+              offerId: offer.id,
+              status: "PUBLISHED",
+              snapshot: snapshotValue as any,
+              createdByUserId: bootstrap.superAdminId,
+              createdAt,
+            },
+          });
+        }
 
         // Project into StorefrontProductDocument (with persistent mediaGallery)
         await projectionService.buildPublishedSnapshot(snapshotRecord.publicReference);
