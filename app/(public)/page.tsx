@@ -30,12 +30,33 @@ export default async function HomePage() {
   }
 
   const home = await getStorefrontHome();
-  const categories = home.categories.slice(0, 5).map((cat) => {
+  const categoryOrder = ["groceries", "fashion", "food-dining", "home-living", "pharmacy"] as const;
+  const categoryWordByPath: Record<(typeof categoryOrder)[number], string> = {
+    groceries: "FRESH",
+    fashion: "FASHION",
+    "food-dining": "FOOD",
+    "home-living": "CRAFT",
+    pharmacy: "CARE",
+  };
+
+  const byPath = new Map(
+    home.categories.map((category) => [
+      category.path.replace(/^\/+/, ""),
+      category,
+    ]),
+  );
+
+  const orderedCategories = categoryOrder
+    .map((path) => byPath.get(path))
+    .filter((category): category is (typeof home.categories)[number] => Boolean(category));
+
+  const categories = orderedCategories.map((cat) => {
+    const normalizedPath = cat.path.replace(/^\/+/, "") as (typeof categoryOrder)[number];
     const curatedImage = storefrontCategoryMediaSrc(cat.imageReference, "") || "";
 
     return resolveHomepageCategoryVisual({
       id: cat.reference,
-      categoryWord: cat.name.split(" ")[0]?.toUpperCase() || "LOCAL",
+      categoryWord: categoryWordByPath[normalizedPath] || cat.name.split(" ")[0]?.toUpperCase() || "LOCAL",
       title: cat.name,
       tagline: cat.description || "Local catalog collection.",
       image: curatedImage,
