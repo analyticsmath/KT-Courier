@@ -10,6 +10,7 @@ import {
   marketplaceStoreHref,
 } from "@/lib/public-marketplace/routes";
 import { KtIconSearch, KtIconTune, KtIconClose } from "@/components/public-v2/graphics/KtIcons";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import styles from "./commerce.module.css";
 
 interface CommerceSearchCommandProps {
@@ -43,6 +44,7 @@ type SuggestionEntry = {
   detail?: string;
   href: string;
   mediaReference?: string;
+  mediaSrc?: string;
   mediaAlt?: string;
 };
 
@@ -107,7 +109,8 @@ export function CommerceSearchCommand({
     });
     const categories = (payload?.categories ?? []).flatMap((category) => {
       const href = marketplaceCategoryHref(category.path);
-      return href ? [{ key: `category:${category.reference}`, group: "Categories", title: category.name, href, ...(category.imageReference ? { mediaReference: category.imageReference, mediaAlt: "" } : {}) }] : [];
+      const mediaSrc = storefrontCategoryMediaSrc(category.imageReference);
+      return href ? [{ key: `category:${category.reference}`, group: "Categories", title: category.name, href, ...(mediaSrc ? { mediaSrc, mediaAlt: category.name } : {}) }] : [];
     });
     const stores = (payload?.stores ?? []).flatMap((store) => {
       const href = marketplaceStoreHref(store.slug);
@@ -209,7 +212,7 @@ export function CommerceSearchCommand({
                   role="option"
                   type="button"
                 >
-                  {entry.mediaReference ? <span className={styles.searchSuggestionMedia}><Image alt={entry.mediaAlt ?? ""} fill sizes="42px" src={`/api/catalog/media/${encodeURIComponent(entry.mediaReference)}`} /></span> : <span className={styles.searchSuggestionMediaPlaceholder} aria-hidden="true"><KtIconSearch size={17} /></span>}
+                  {entry.mediaSrc || entry.mediaReference ? <span className={styles.searchSuggestionMedia}><Image alt={entry.mediaAlt ?? ""} fill sizes="42px" src={entry.mediaSrc ?? `/api/catalog/media/${encodeURIComponent(entry.mediaReference!)}`} /></span> : <span className={styles.searchSuggestionMediaPlaceholder} aria-hidden="true"><KtIconSearch size={17} /></span>}
                   <span className={styles.searchSuggestionCopy}><span>{entry.title}</span>{entry.detail ? <small>{entry.detail}</small> : null}</span>
                   <span aria-hidden="true" className={styles.searchSuggestionArrow}>↗</span>
                 </button>;
