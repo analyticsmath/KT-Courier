@@ -1,8 +1,15 @@
 import type { HomeFrame } from "./home-frame-resolver";
 
 export function formatHomeDebugFrame(frame: HomeFrame): string {
-  const actorLine = (label: string, actor: HomeFrame["actors"]["whiteTruck"]) =>
-    `${label}: ${actor.state} · ${actor.visible ? "visible" : "hidden"}`;
+  const actorLine = (label: string, actor: HomeFrame["actors"]["whiteTruck"]) => {
+    const interpolation = actor.blendToState && actor.stateBlend && actor.stateBlend > 0
+      ? ` → ${actor.blendToState} ${Math.round(actor.stateBlend * 100)}%`
+      : "";
+    const size = actor.sizeMode?.mode === "visible-height"
+      ? ` · visible ${actor.sizeMode.visibleHeightVh.toFixed(1)}vh`
+      : "";
+    return `${label}: ${actor.state}${interpolation} · ${actor.visible ? "visible" : "hidden"}${size}`;
+  };
   const ownership = [
     frame.sceneOwnership.previous ?? "—",
     frame.sceneOwnership.current,

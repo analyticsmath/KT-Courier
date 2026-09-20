@@ -3,6 +3,7 @@ import {
   RED_TRUCK_STATES,
   VAN_STATES,
   WHITE_TRUCK_STATES,
+  HERO_TRUCK_SEQUENCE,
   type ActorStateDefinition,
 } from "../../actors/actor-state-machine";
 
@@ -32,6 +33,12 @@ export const HOME_ACTOR_TRANSITIONS: readonly ActorTransition[] = [
   { actor: "courier", from: "walk-left-one-parcel", to: "extending-handoff", occlusion: "arrival-architecture-mask", minimumCoverage: 0.9 },
 ];
 
+export function isAdjacentHeroSequenceTransition(previousState: string, nextState: string): boolean {
+  const previousIndex = HERO_TRUCK_SEQUENCE.indexOf(previousState as (typeof HERO_TRUCK_SEQUENCE)[number]);
+  const nextIndex = HERO_TRUCK_SEQUENCE.indexOf(nextState as (typeof HERO_TRUCK_SEQUENCE)[number]);
+  return previousIndex >= 0 && nextIndex >= 0 && Math.abs(previousIndex - nextIndex) === 1;
+}
+
 export function assertActorTransition(
   actor: ActorType,
   previousState: string,
@@ -47,6 +54,10 @@ export function assertActorTransition(
 
   if (!previous || !next) {
     errors.push(`Unknown ${actor} state: ${previousState} → ${nextState}`);
+  } else if (actor === "white-truck" && isAdjacentHeroSequenceTransition(previousState, nextState)) {
+    // These are consecutive source frames of one continuous hero performance.
+    // They intentionally transition without a physical occluder, in either direction.
+    return;
   } else {
     if (!previous.validNextStates?.includes(nextState)) errors.push(`${actor}:${previousState} does not allow next state ${nextState}`);
     if (!next.validPreviousStates?.includes(previousState)) errors.push(`${actor}:${nextState} does not allow previous state ${previousState}`);

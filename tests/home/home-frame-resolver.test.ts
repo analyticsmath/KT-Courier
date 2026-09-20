@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   COURIER_STATES,
+  HERO_TRUCK_SEQUENCE,
   RED_TRUCK_STATES,
   VAN_STATES,
   WHITE_TRUCK_STATES,
 } from "@/components/public-v3/actors/actor-state-machine";
 import {
   assertActorTransition,
+  isAdjacentHeroSequenceTransition,
   HOME_ACTOR_TRANSITIONS,
   validateHomeActorTransitions,
 } from "@/components/public-v3/home/director/home-actor-transitions";
@@ -15,6 +17,7 @@ import { assertPhysicalCoverage, physicalCoverage } from "@/components/public-v3
 import { resolveHomeFrame } from "@/components/public-v3/home/director/home-frame-resolver";
 
 const categories = ["grocery", "fashion", "food", "home", "wellness"].map((id) => ({ id }));
+const viewportMode = "desktop" as const;
 const progressSamples = [0, 0.08, 0.16, 0.29, 0.39, 0.52, 0.66, 0.82, 0.89, 0.95, 0.985, 1];
 const stateBanks = {
   whiteTruck: WHITE_TRUCK_STATES,
@@ -27,7 +30,7 @@ describe("homepage narrative frame resolver", () => {
   it("resolves the same chapter position to the same complete frame", () => {
     for (const chapter of HOME_CHAPTERS) {
       for (const progress of progressSamples) {
-        const input = { chapter, progress, marketplaceCategories: categories };
+        const input = { chapter, progress, viewportMode, marketplaceCategories: categories };
         const frame = resolveHomeFrame(input);
         expect(resolveHomeFrame(input)).toEqual(frame);
 
@@ -59,11 +62,16 @@ describe("homepage narrative frame resolver", () => {
     ]);
 
     expect(() => assertActorTransition("courier", "look-left-approach", "lift-parcel", null)).toThrow(/parcel-mask/);
+    expect(isAdjacentHeroSequenceTransition(HERO_TRUCK_SEQUENCE[0], HERO_TRUCK_SEQUENCE[1])).toBe(true);
+    expect(isAdjacentHeroSequenceTransition(HERO_TRUCK_SEQUENCE[1], HERO_TRUCK_SEQUENCE[0])).toBe(true);
+    expect(isAdjacentHeroSequenceTransition(HERO_TRUCK_SEQUENCE[0], HERO_TRUCK_SEQUENCE[2])).toBe(false);
+    expect(() => assertActorTransition("white-truck", HERO_TRUCK_SEQUENCE[0], HERO_TRUCK_SEQUENCE[1], null)).not.toThrow();
+    expect(() => assertActorTransition("white-truck", HERO_TRUCK_SEQUENCE[1], HERO_TRUCK_SEQUENCE[0], null)).not.toThrow();
   });
 
   it("keeps the courier exposed while the named parcel mask covers both pose changes", () => {
-    const lift = resolveHomeFrame({ chapter: "collection", progress: 0.76, marketplaceCategories: categories });
-    const load = resolveHomeFrame({ chapter: "collection", progress: 0.85, marketplaceCategories: categories });
+    const lift = resolveHomeFrame({ chapter: "collection", progress: 0.76, viewportMode, marketplaceCategories: categories });
+    const load = resolveHomeFrame({ chapter: "collection", progress: 0.85, viewportMode, marketplaceCategories: categories });
     expect(lift.actors.courier.state).toBe("lift-parcel");
     expect(lift.actors.courier.visible).toBe(true);
     expect(lift.occlusion).toMatchObject({ id: "parcel-mask", requiredCoverage: 0.9 });
@@ -73,9 +81,9 @@ describe("homepage narrative frame resolver", () => {
   });
 
   it("keeps route truck orientation changes under named overhead structures", () => {
-    const firstSwap = resolveHomeFrame({ chapter: "route", progress: 0.6, marketplaceCategories: categories });
-    const angled = resolveHomeFrame({ chapter: "route", progress: 0.64, marketplaceCategories: categories });
-    const secondSwap = resolveHomeFrame({ chapter: "route", progress: 0.84, marketplaceCategories: categories });
+    const firstSwap = resolveHomeFrame({ chapter: "route", progress: 0.6, viewportMode, marketplaceCategories: categories });
+    const angled = resolveHomeFrame({ chapter: "route", progress: 0.64, viewportMode, marketplaceCategories: categories });
+    const secondSwap = resolveHomeFrame({ chapter: "route", progress: 0.84, viewportMode, marketplaceCategories: categories });
     expect(firstSwap.actors.whiteTruck).toMatchObject({ state: "top-down-angled", visible: true });
     expect(firstSwap.occlusion).toMatchObject({ id: "route-overpass-a", requiredCoverage: 0.92 });
     expect(angled.actors.whiteTruck).toMatchObject({ state: "top-down-angled", visible: true });
@@ -86,40 +94,95 @@ describe("homepage narrative frame resolver", () => {
   it("holds each live marketplace category and passes the final visual owner to Fan", () => {
     for (let index = 0; index < categories.length; index += 1) {
       const progress = (index + 0.4) / categories.length;
-      const frame = resolveHomeFrame({ chapter: "marketplace", progress, marketplaceCategories: categories });
+      const frame = resolveHomeFrame({ chapter: "marketplace", progress, viewportMode, marketplaceCategories: categories });
       expect(frame.marketplace.activeIndex).toBe(index);
       expect(frame.marketplace.activeId).toBe(categories[index]?.id);
       expect(frame.marketplace.holdProgress).toBeGreaterThan(0);
       expect(frame.selection.marketplaceId).toBe(frame.marketplace.activeId);
     }
 
-    const finalMarketplace = resolveHomeFrame({ chapter: "marketplace", progress: 1, marketplaceCategories: categories });
-    const deepFanRefresh = resolveHomeFrame({ chapter: "fan", progress: 0.42, marketplaceCategories: categories });
+    const finalMarketplace = resolveHomeFrame({ chapter: "marketplace", progress: 1, viewportMode, marketplaceCategories: categories });
+    const deepFanRefresh = resolveHomeFrame({ chapter: "fan", progress: 0.42, viewportMode, marketplaceCategories: categories });
     expect(finalMarketplace.selection.marketplaceId).toBe("wellness");
     expect(deepFanRefresh.selection.marketplaceId).toBe("wellness");
     expect(deepFanRefresh.fan.selectedId).toBe("wellness");
   });
 
-  it("keeps Hero on one side profile through hold and cargo takeover", () => {
-    for (const progress of [0.16, 0.29, 0.39, 0.52, 0.66, 0.82, 0.89]) {
-      const frame = resolveHomeFrame({ chapter: "hero", progress, marketplaceCategories: categories });
-      expect(frame.actors.whiteTruck.state).toBe("side-right");
-      expect(frame.actors.whiteTruck.visible).toBe(true);
+  it("directs the complete V5 truck performance deterministically on desktop and mobile", () => {
+    const points = [0, 0.13, 0.18, 0.25, 0.33, 0.4, 0.45, 0.5, 0.58, 0.6, 0.62, 0.7, 0.82, 0.92, 0.975, 1];
+
+    for (const mode of ["desktop", "mobile"] as const) {
+      const frames = points.map((progress) => resolveHomeFrame({
+        chapter: "hero",
+        progress,
+        viewportMode: mode,
+        marketplaceCategories: categories,
+      }));
+
+      points.forEach((progress, index) => {
+        const frame = frames[index]!;
+        const actor = frame.actors.whiteTruck;
+        expect(resolveHomeFrame({ chapter: "hero", progress, viewportMode: mode, marketplaceCategories: categories })).toEqual(frame);
+        expect(actor.visible).toBe(progress >= 0.13 && progress < 1);
+        expect(frame.world.owner).toBe("hero");
+        expect(frame.sceneOwnership.next).toBe("marketplace");
+        if (actor.visible) {
+          expect(HERO_TRUCK_SEQUENCE).toContain(actor.state);
+          expect(actor.sizeMode).toMatchObject({ mode: "visible-height" });
+          expect(actor.sizeMode?.mode === "visible-height" ? actor.sizeMode.visibleHeightVh : 0).toBeGreaterThan(0);
+          expect(actor.stateBlend ?? 0).toBeGreaterThanOrEqual(0);
+          expect(actor.stateBlend ?? 0).toBeLessThanOrEqual(1);
+        }
+      });
+
+      const reverseFrames = [...points].reverse().map((progress) => resolveHomeFrame({
+        chapter: "hero",
+        progress,
+        viewportMode: mode,
+        marketplaceCategories: categories,
+      }));
+      expect(reverseFrames.reverse()).toEqual(frames);
+
+      const approachFrames = [0.13, 0.18, 0.22, 0.25, 0.33, 0.4].map((progress) =>
+        resolveHomeFrame({ chapter: "hero", progress, viewportMode: mode, marketplaceCategories: categories }).actors.whiteTruck,
+      );
+      for (let index = 1; index < approachFrames.length; index += 1) {
+        expect(approachFrames[index]!.targetX).toBeGreaterThanOrEqual(approachFrames[index - 1]!.targetX);
+      }
     }
-    const cargo = resolveHomeFrame({ chapter: "hero", progress: 0.89, marketplaceCategories: categories });
-    expect(cargo.occlusion).toMatchObject({ id: "hero-cargo-mask", requiredCoverage: 0.9 });
-    expect(cargo.world.owner).toBe("hero");
-    const takeover = resolveHomeFrame({ chapter: "hero", progress: 0.95, marketplaceCategories: categories });
-    expect(takeover.actors.whiteTruck.visible).toBe(false);
-    expect(takeover.world.owner).toBe("marketplace");
+
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0, viewportMode: "desktop" }).actors.whiteTruck.visible).toBe(false);
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.13, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("front-3q-entry-phase-01");
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("front-3q-entry-phase-06");
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.54, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("front-center-transition-phase-01");
+    const frontalBlendStart = resolveHomeFrame({ chapter: "hero", progress: 0.58, viewportMode: "desktop" }).actors.whiteTruck;
+    expect(frontalBlendStart).toMatchObject({
+      state: "front-center-transition-phase-02",
+      blendToState: "true-front-center-full",
+      stateBlend: 0,
+    });
+    const frontalBlendMiddle = resolveHomeFrame({ chapter: "hero", progress: 0.6, viewportMode: "desktop" }).actors.whiteTruck;
+    expect(frontalBlendMiddle.state).toBe("front-center-transition-phase-02");
+    expect(frontalBlendMiddle.blendToState).toBe("true-front-center-full");
+    expect(frontalBlendMiddle.stateBlend).toBeCloseTo(0.5, 2);
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.62, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("true-front-center-full");
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.7, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("true-front-center-full");
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.82, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("true-front-center-medium");
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.92, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("true-front-center-close");
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.975, viewportMode: "desktop" }).actors.whiteTruck.state).toBe("true-front-center-extreme-close");
+    expect(resolveHomeFrame({ chapter: "hero", progress: 1, viewportMode: "desktop" }).actors.whiteTruck.visible).toBe(false);
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "desktop" }).actors.whiteTruck.sizeMode)
+      .toMatchObject({ mode: "visible-height", visibleHeightVh: 34 });
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "mobile" }).actors.whiteTruck.sizeMode)
+      .toMatchObject({ mode: "visible-height", visibleHeightVh: 26 });
   });
 
   it("keeps freight visible through its climax hold and releases it before Arrival owns the frame", () => {
-    const climax = resolveHomeFrame({ chapter: "freight", progress: 0.86, marketplaceCategories: categories });
+    const climax = resolveHomeFrame({ chapter: "freight", progress: 0.86, viewportMode, marketplaceCategories: categories });
     expect(climax.actors.redTruck).toMatchObject({ state: "side-right", visible: true });
-    const release = resolveHomeFrame({ chapter: "freight", progress: 0.96, marketplaceCategories: categories });
+    const release = resolveHomeFrame({ chapter: "freight", progress: 0.96, viewportMode, marketplaceCategories: categories });
     expect(release.occlusion.id).toBe("freight-gate-mask");
-    const arrival = resolveHomeFrame({ chapter: "arrival", progress: 0.94, marketplaceCategories: categories });
+    const arrival = resolveHomeFrame({ chapter: "arrival", progress: 0.94, viewportMode, marketplaceCategories: categories });
     expect(arrival.actors.redTruck.visible).toBe(false);
     expect(arrival.actors.courier.visible).toBe(true);
   });

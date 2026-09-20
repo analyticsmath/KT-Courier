@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "motion/react";
 import type {
   StorefrontDocument,
@@ -15,19 +15,15 @@ import {
   marketplaceStoreHref,
   marketplaceVariantHref,
 } from "@/lib/public-marketplace/routes";
-import { availabilityLabel, AVAILABILITY_ADVISORY } from "@/lib/storefront/storefront-availability-policy";
-import { OfferComparison } from "./OfferComparison";
+import { formatCommercePrice } from "@/lib/public-marketplace/commerce-presentation";
+import { ProductMediaGallery } from "./ProductMediaGallery";
+import { SellerSelector } from "./SellerSelector";
+import { ProductInformation } from "./ProductInformation";
 import { ProductGrid } from "./ProductGrid";
 import { triggerCartFlight } from "./AddToCartFlightPortal";
 import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
 import styles from "./commerce.module.css";
-
-function formatPrice(amount: string, currency: "ZAR") {
-  return new Intl.NumberFormat("en-ZA", { style: "currency", currency }).format(
-    Number(amount)
-  );
-}
 
 interface ProductStoreInfo {
   slug: string;
@@ -56,6 +52,8 @@ export function ProductDetailExperience({
   modifierGroupsByOffer,
   categoryHierarchy = [],
 }: ProductDetailExperienceProps) {
+  const router = useRouter();
+
   const variants = [
     ...new Map(offers.map((offer) => [offer.variantReference, offer])).values(),
   ];
@@ -65,15 +63,18 @@ export function ProductDetailExperience({
     : product.primaryMedia
       ? [product.primaryMedia]
       : [];
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
-  const activeMedia = gallery[activeMediaIndex] ?? product.primaryMedia;
 
   const categoryHref = marketplaceCategoryHref(product.categoryPath);
   const storeHref = store ? marketplaceStoreHref(store.slug) : null;
 
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
-  const [cartFeedback, setCartFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [buyingNow, setBuyingNow] = useState(false);
+  const [cartFeedback, setCartFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+    existingCartItemCount?: number;
+  } | null>(null);
   const [cartVersion, setCartVersion] = useState<number | null>(null);
 
   // Multi-seller offer selection
@@ -84,6 +85,7 @@ export function ProductDetailExperience({
   const handleSelectOffer = (offerRef: string) => {
     setSelectedOfferOverride(offerRef);
     setSelectedModifiers({});
+    setCartFeedback(null);
   };
 
   const activeOffer = offers.find((o) => o.offerReference === selectedOfferReference) ?? product;
@@ -116,13 +118,46 @@ export function ProductDetailExperience({
 
   const isPurchasable = activeOffer.availability === "IN_STOCK" || activeOffer.availability === "LOW_STOCK";
 
+  const computeHash = async (val: string) => {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(val));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  };
+
+  const getPayloadModifiers = () => {
+    return Object.entries(selectedModifiers).flatMap(([groupReference, optionRefs]) =>
+      optionRefs.map((optionReference) => ({
+        groupReference,
+        optionReference,
+        quantity: 1,
+      }))
+    );
+  };
+
+  const executeAddLine = async (ver: number) => {
+    const opId = `add-${crypto.randomUUID()}`;
+    const reqHash = await computeHash(`${activeOffer.offerReference}:${quantity}:${ver}:${opId}`);
+    return fetch("/api/cart/lines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        offerReference: activeOffer.offerReference,
+        variantReference: activeOffer.variantReference,
+        quantity,
+        modifiers: getPayloadModifiers(),
+        operationId: opId,
+        requestHash: reqHash,
+        cartVersion: ver,
+      }),
+    });
+  };
+
   const handleAddToCart = async () => {
-    if (!isPurchasable || addingToCart) return;
+    if (!isPurchasable || addingToCart || buyingNow) return;
 
     if (missingRequiredGroup) {
       setCartFeedback({
         type: "error",
-        message: `Please make a required selection for "${missingRequiredGroup.name}".`,
+        message: `Please select a required option for "${missingRequiredGroup.name}".`,
       });
       return;
     }
@@ -141,38 +176,7 @@ export function ProductDetailExperience({
         }
       }
 
-      const computeHash = async (val: string) => {
-        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(val));
-        return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-      };
-
-      const payloadModifiers = Object.entries(selectedModifiers).flatMap(([groupReference, optionRefs]) =>
-        optionRefs.map((optionReference) => ({
-          groupReference,
-          optionReference,
-          quantity: 1,
-        }))
-      );
-
-      const sendAddLine = async (ver: number) => {
-        const opId = `add-${crypto.randomUUID()}`;
-        const reqHash = await computeHash(`${activeOffer.offerReference}:${quantity}:${ver}:${opId}`);
-        return fetch("/api/cart/lines", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            offerReference: activeOffer.offerReference,
-            variantReference: activeOffer.variantReference,
-            quantity,
-            modifiers: payloadModifiers,
-            operationId: opId,
-            requestHash: reqHash,
-            cartVersion: ver,
-          }),
-        });
-      };
-
-      let res = await sendAddLine(activeVersion);
+      let res = await executeAddLine(activeVersion);
 
       if (res.status === 409) {
         const refreshRes = await fetch("/api/cart");
@@ -180,7 +184,7 @@ export function ProductDetailExperience({
           const freshData = await refreshRes.json();
           const freshVersion = freshData.cart?.version ?? (activeVersion + 1);
           setCartVersion(freshVersion);
-          res = await sendAddLine(freshVersion);
+          res = await executeAddLine(freshVersion);
         }
       }
 
@@ -197,10 +201,10 @@ export function ProductDetailExperience({
         message: `${quantity} ${quantity === 1 ? "item" : "items"} added to your cart.`,
       });
 
-      // Server-truth fulfilled: trigger physical object parabolic flight into cart target
+      // Trigger physical cart flight into header cart target
       triggerCartFlight({
         sourceElement: document.querySelector<HTMLElement>('[data-kt-cart-flight-source="product-media"]'),
-        imageSrc: activeMedia ? `/api/catalog/media/${activeMedia.publicReference}` : undefined,
+        imageSrc: activeOffer.primaryMedia ? `/api/catalog/media/${activeOffer.primaryMedia.publicReference}` : undefined,
       });
 
       window.dispatchEvent(new CustomEvent("kt-cart-updated"));
@@ -214,224 +218,161 @@ export function ProductDetailExperience({
     }
   };
 
+  /**
+   * Buy Now: adds the item to the customer's existing cart, then creates
+   * a canonical checkout session with the combined cart and navigates to checkout.
+   */
+  const handleBuyNow = async () => {
+    if (!isPurchasable || addingToCart || buyingNow) return;
+
+    if (missingRequiredGroup) {
+      setCartFeedback({
+        type: "error",
+        message: `Please select a required option for "${missingRequiredGroup.name}".`,
+      });
+      return;
+    }
+
+    setBuyingNow(true);
+    setCartFeedback(null);
+
+    try {
+      // Check existing cart state to get version and reference
+      let activeVersion = cartVersion ?? 1;
+      let cartRef: string | undefined;
+
+      const initialCartRes = await fetch("/api/cart");
+      if (initialCartRes.ok) {
+        const initialCartData = await initialCartRes.json();
+        activeVersion = initialCartData.cart?.version ?? 1;
+        cartRef = initialCartData.cart?.reference;
+        setCartVersion(activeVersion);
+      }
+
+      // Add selected offer to the canonical cart
+      let res = await executeAddLine(activeVersion);
+
+      if (res.status === 409) {
+        const refreshRes = await fetch("/api/cart");
+        if (refreshRes.ok) {
+          const freshData = await refreshRes.json();
+          const freshVersion = freshData.cart?.version ?? (activeVersion + 1);
+          cartRef = freshData.cart?.reference;
+          setCartVersion(freshVersion);
+          res = await executeAddLine(freshVersion);
+        }
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || "Failed to prepare checkout.");
+      }
+
+      const addData = await res.json();
+      cartRef = addData.cart?.reference ?? cartRef;
+      if (!cartRef) {
+        // Fetch cart reference if not returned directly
+        const fetchCart = await fetch("/api/cart");
+        const fetchCartData = await fetchCart.json().catch(() => ({}));
+        cartRef = fetchCartData.cart?.reference;
+      }
+
+      if (!cartRef) {
+        throw new Error("Unable to establish canonical cart reference for checkout.");
+      }
+
+      // Notify cart listeners
+      window.dispatchEvent(new CustomEvent("kt-cart-updated"));
+
+      // Create checkout session using existing canonical cart
+      const checkoutRes = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cartReference: cartRef }),
+      });
+
+      if (!checkoutRes.ok) {
+        const checkoutErr = await checkoutRes.json().catch(() => ({}));
+        throw new Error(checkoutErr.error || checkoutErr.message || "Checkout initialization failed.");
+      }
+
+      const checkoutData = await checkoutRes.json();
+      const checkoutReference = checkoutData.checkout?.reference;
+
+      if (!checkoutReference) {
+        throw new Error("Server did not return a valid checkout session.");
+      }
+
+      // Route directly to the returned checkout reference
+      router.push(`/checkout?ref=${encodeURIComponent(checkoutReference)}`);
+    } catch (err) {
+      setCartFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Could not proceed to checkout.",
+      });
+      setBuyingNow(false);
+    }
+  };
+
+  const breadcrumbItems = [
+    { label: "Shop", href: marketplaceHref() },
+    ...categoryHierarchy.map((item) => ({ label: item.name, href: item.href })),
+    { label: product.title },
+  ];
+
   return (
     <div className={styles.commerceInner}>
+      {/* Mobile Top Header */}
       <div className={styles.pdpMobileTopBar}>
-        <button aria-label="Go back" onClick={() => window.history.back()} type="button">‹ <span>Back</span></button>
-        <Link aria-label="Cart" data-kt-cart-target="mobile-header" href="/cart">Cart</Link>
+        <button aria-label="Go back" onClick={() => window.history.back()} type="button">
+          ‹ <span>Back</span>
+        </button>
+        <Link aria-label="Cart" data-kt-cart-target="mobile-header" href="/cart">
+          Cart
+        </Link>
       </div>
-      <CommerceBreadcrumbs items={[{ label: "Shop", href: marketplaceHref() }, ...categoryHierarchy.map((item) => ({ label: item.name, href: item.href })), { label: product.title }]} />
 
-      {/* Main First Viewport Layout */}
+      {/* Breadcrumbs */}
+      <CommerceBreadcrumbs items={breadcrumbItems} />
+
+      {/* Main First Viewport Split Layout */}
       <div className={styles.pdpLayout}>
-        {/* Adaptive Gallery Media Field with Shared Element Transition Target */}
-        <section
-          aria-label="Product image gallery"
-          className={styles.pdpMediaField}
-          data-kt-shared-target={`product-${product.productReference}`}
-        >
-          {gallery.length <= 1 && (
-            <div className={styles.galleryHeroFrame} data-kt-cart-flight-source="product-media">
-              {activeMedia ? (
-                <Image
-                  alt={activeMedia.alt || product.title}
-                  fill
-                  priority
-                  sizes="(max-width: 991px) 100vw, 58vw"
-                  src={`/api/catalog/media/${activeMedia.publicReference}`}
-                  style={{ objectFit: "cover" }}
-                />
-              ) : (
-                <div
-                  aria-label={`${product.title} image unavailable`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "100%",
-                    height: "100%",
-                    color: "var(--kt-muted, #5f6763)",
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  Image unavailable
-                </div>
-              )}
-            </div>
+        {/* Product Media Gallery */}
+        <ProductMediaGallery product={product} mediaGallery={gallery} />
+
+        {/* Product Purchase Column */}
+        <section aria-label="Purchase product" className={styles.pdpInfoPlane}>
+          {/* Identity & Context */}
+          <div>
+            {product.brandName && (
+              <p className={styles.pdpBrandBadge}>{product.brandName}</p>
+            )}
+            <h1 className={styles.pdpTitle}>{product.title}</h1>
+          </div>
+
+          {/* Short Description */}
+          {product.shortDescription && (
+            <p className={styles.pdpShortDescription}>{product.shortDescription}</p>
           )}
 
-          {gallery.length === 2 && (
-            <div className={styles.galleryDuoGrid}>
-              {gallery.map((media, idx) => (
-                <button
-                  key={media.publicReference}
-                  type="button"
-                  className={styles.galleryDuoItem}
-                  data-kt-cart-flight-source={idx === activeMediaIndex ? "product-media" : undefined}
-                  onClick={() => setActiveMediaIndex(idx)}
-                  style={{
-                    border: idx === activeMediaIndex ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
-                    padding: 0,
-                  }}
-                >
-                  <Image
-                    alt={media.alt || `${product.title} view ${idx + 1}`}
-                    fill
-                    sizes="(max-width: 991px) 50vw, 29vw"
-                    src={`/api/catalog/media/${media.publicReference}`}
-                    style={{ objectFit: "cover" }}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-
-          {gallery.length === 3 && (
-            <div className={styles.galleryTriptychGrid}>
-              <div className={styles.galleryTriptychLead} data-kt-cart-flight-source="product-media">
-                <Image
-                  alt={gallery[activeMediaIndex]?.alt || product.title}
-                  fill
-                  priority
-                  sizes="(max-width: 991px) 100vw, 38vw"
-                  src={`/api/catalog/media/${gallery[activeMediaIndex]?.publicReference || gallery[0].publicReference}`}
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
-              {gallery.slice(1).map((media, offsetIdx) => {
-                const actualIdx = offsetIdx + 1;
-                return (
-                  <button
-                    key={media.publicReference}
-                    type="button"
-                    className={styles.galleryTriptychSide}
-                    onClick={() => setActiveMediaIndex(actualIdx)}
-                    style={{
-                      border: actualIdx === activeMediaIndex ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
-                      padding: 0,
-                    }}
-                  >
-                    <Image
-                      alt={media.alt || `${product.title} view ${actualIdx + 1}`}
-                      fill
-                      sizes="(max-width: 991px) 50vw, 20vw"
-                      src={`/api/catalog/media/${media.publicReference}`}
-                      style={{ objectFit: "cover" }}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {gallery.length >= 4 && gallery.length <= 6 && (
-            <div className={styles.galleryAsymmetricGrid}>
-              <div className={styles.galleryAsymLead} data-kt-cart-flight-source="product-media">
-                <Image
-                  alt={gallery[activeMediaIndex]?.alt || product.title}
-                  fill
-                  priority
-                  sizes="(max-width: 991px) 100vw, 58vw"
-                  src={`/api/catalog/media/${gallery[activeMediaIndex]?.publicReference || gallery[0].publicReference}`}
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
-              {gallery.map((media, idx) => (
-                <button
-                  key={media.publicReference}
-                  type="button"
-                  className={styles.galleryAsymCell}
-                  onClick={() => setActiveMediaIndex(idx)}
-                  style={{
-                    border: idx === activeMediaIndex ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
-                    padding: 0,
-                  }}
-                >
-                  <Image
-                    alt={media.alt || `${product.title} thumb ${idx + 1}`}
-                    fill
-                    sizes="(max-width: 991px) 25vw, 15vw"
-                    src={`/api/catalog/media/${media.publicReference}`}
-                    style={{ objectFit: "cover" }}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-
-          {gallery.length > 6 && (
-            <>
-              <div className={styles.galleryHeroFrame} data-kt-cart-flight-source="product-media">
-                <Image
-                  alt={gallery[activeMediaIndex]?.alt || product.title}
-                  fill
-                  priority
-                  sizes="(max-width: 991px) 100vw, 58vw"
-                  src={`/api/catalog/media/${gallery[activeMediaIndex]?.publicReference || gallery[0].publicReference}`}
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
-              <div className={styles.galleryThumbStrip} role="tablist" aria-label="Product thumbnails">
-                {gallery.map((media, idx) => {
-                  const isSelected = idx === activeMediaIndex;
-                  return (
-                    <button
-                      key={media.publicReference}
-                      type="button"
-                      role="tab"
-                      aria-selected={isSelected}
-                      aria-label={`View image ${idx + 1} of ${gallery.length}`}
-                      className={styles.galleryThumbButton}
-                      onClick={() => setActiveMediaIndex(idx)}
-                      style={{
-                        border: isSelected ? "2px solid var(--kt-carbon, #101210)" : "1px solid var(--kt-cool-200, #dde1e0)",
-                      }}
-                    >
-                      <Image
-                        alt={media.alt || `${product.title} view ${idx + 1}`}
-                        fill
-                        sizes="72px"
-                        src={`/api/catalog/media/${media.publicReference}`}
-                        style={{ objectFit: "cover" }}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </section>
-
-        {/* Product Information Plane */}
-        <section aria-label="Product details" className={styles.pdpInfoPlane}>
-          {product.brandName && (
-            <span style={{ fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--kt-muted, #5f6763)" }}>
-              {product.brandName}
-            </span>
-          )}
-
-          <h1 className={styles.pdpTitle}>{product.title}</h1>
-
+          {/* Price & VAT Row */}
           <div className={styles.pdpPriceRow}>
             <span className={styles.pdpPrice}>
               {offers.length > 1 && selectedOfferReference === product.offerReference ? "From " : ""}
-              {formatPrice(activeOffer.price.amount, activeOffer.price.currency)}
+              {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
             </span>
             <span className={styles.pdpVatNote}>VAT included</span>
           </div>
 
-          <span style={{ fontSize: "0.85rem", color: "var(--kt-graphite, #303532)" }}>
-            {availabilityLabel(activeOffer.availability)}
-          </span>
+          {/* Seller / Offer Decision Section */}
+          <SellerSelector
+            offers={offers}
+            selectedOfferReference={activeOffer.offerReference}
+            onSelectOffer={handleSelectOffer}
+            defaultStoreName={store?.name}
+          />
 
-          <div className={styles.pdpSellerByline}>
-            Sold by{" "}
-            <Link href={marketplaceStoreHref(activeOffer.storeSlug) ?? "/shop"}>
-              {activeOffer.storeName ?? (activeOffer.storeSlug === store?.slug ? store?.name : undefined) ?? activeOffer.storeSlug.split("-").map((part) => `${part[0]?.toLocaleUpperCase("en-ZA")}${part.slice(1)}`).join(" ")}
-            </Link>
-          </div>
-
-          {/* Variant Selector with Motion layoutId */}
+          {/* Variant Selector */}
           {variants.length > 1 && (
             <div className={styles.variantSelectorBlock}>
               <span className={styles.variantGroupLabel}>Available options</span>
@@ -472,245 +413,167 @@ export function ProductDetailExperience({
             </div>
           )}
 
-          {/* Attributes List */}
-          <ul
-            aria-label="Product specifications"
-            style={{
-              listStyle: "none",
-              padding: "16px 0",
-              margin: 0,
-              borderBlock: "1px solid var(--kt-cool-200, #dde1e0)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              fontSize: "0.9rem",
-            }}
-          >
-            <li style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--kt-muted, #5f6763)" }}>Condition</span>
-              <span style={{ fontWeight: 540 }}>{product.condition.replaceAll("_", " ").toLowerCase()}</span>
-            </li>
-            <li style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--kt-muted, #5f6763)" }}>Fulfilment</span>
-              <span style={{ fontWeight: 540 }}>{activeOffer.fulfilmentMode.replaceAll("_", " ").toLowerCase()}</span>
-            </li>
-            <li style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--kt-muted, #5f6763)" }}>Availability</span>
-              <span style={{ fontWeight: 540 }}>{AVAILABILITY_ADVISORY}</span>
-            </li>
-          </ul>
+          {/* Modifiers Selection */}
+          {modifierGroups.length > 0 && (
+            <div className={styles.pdpModifiersContainer}>
+              <span className={styles.variantGroupLabel}>Customise options</span>
+              {modifierGroups.map((group) => {
+                const selected = selectedModifiers[group.groupReference] ?? [];
+                const isGroupSatisfied = !group.isRequired || selected.length >= group.minimumSelections;
 
-          {/* Interactive Purchase Controls */}
-          <div className={styles.pdpPurchaseStatusBox}>
-            {modifierGroups.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--kt-cool-200, #dde1e0)" }}>
-                <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>Customise Options</span>
-                {modifierGroups.map((group) => {
-                  const selected = selectedModifiers[group.groupReference] ?? [];
-                  return (
-                    <div key={group.groupReference} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
-                          {group.name}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                            backgroundColor: group.isRequired && selected.length === 0 ? "#fdf2f2" : "#eef8f1",
-                            color: group.isRequired && selected.length === 0 ? "#ba1a1a" : "#1e6e38",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {group.isRequired ? (selected.length === 0 ? "Required" : "Selected") : "Optional"}
-                        </span>
-                      </div>
-                      {group.description && (
-                        <p style={{ fontSize: "0.8rem", color: "var(--kt-muted, #5f6763)", margin: 0 }}>
-                          {group.description}
-                        </p>
-                      )}
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        {group.options.map((option) => {
-                          const isChecked = selected.includes(option.optionReference);
-                          const isRadio = group.maximumSelections === 1;
-                          return (
-                            <label
-                              key={option.optionReference}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "8px 12px",
-                                borderRadius: 4,
-                                border: isChecked ? "1px solid var(--kt-carbon, #101210)" : "1px solid #e0e4e2",
-                                backgroundColor: isChecked ? "#f9faf9" : "transparent",
-                                cursor: "pointer",
-                                fontSize: "0.875rem",
-                              }}
-                            >
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input
-                                  type={isRadio ? "radio" : "checkbox"}
-                                  name={group.groupReference}
-                                  checked={isChecked}
-                                  onChange={() => toggleModifierOption(group.groupReference, option.optionReference, group.maximumSelections)}
-                                />
-                                <span>{option.name}</span>
-                              </div>
-                              <span style={{ color: Number(option.priceDelta) > 0 ? "var(--kt-carbon, #101210)" : "var(--kt-muted, #5f6763)", fontWeight: 540 }}>
-                                {Number(option.priceDelta) > 0 ? `+${formatPrice(option.priceDelta, "ZAR")}` : "Included"}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
+                return (
+                  <div key={group.groupReference} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className={styles.pdpModifierGroupHeader}>
+                      <span className={styles.pdpModifierGroupName}>{group.name}</span>
+                      <span
+                        className={
+                          group.isRequired && !isGroupSatisfied
+                            ? styles.pdpModifierBadgeRequired
+                            : styles.pdpModifierBadgeOptional
+                        }
+                      >
+                        {group.isRequired ? (isGroupSatisfied ? "Selected" : "Required") : "Optional"}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
-                Quantity
-              </span>
-              <div style={{ display: "inline-flex", alignItems: "center", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4, overflow: "hidden" }}>
+                    {group.description && (
+                      <p style={{ fontSize: "0.8rem", color: "var(--commerce-muted)", margin: 0 }}>
+                        {group.description}
+                      </p>
+                    )}
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {group.options.map((option) => {
+                        const isChecked = selected.includes(option.optionReference);
+                        const isRadio = group.maximumSelections === 1;
+
+                        return (
+                          <label
+                            key={option.optionReference}
+                            className={`${styles.pdpModifierOptionRow} ${
+                              isChecked ? styles.pdpModifierOptionRowActive : ""
+                            }`}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <input
+                                type={isRadio ? "radio" : "checkbox"}
+                                name={group.groupReference}
+                                checked={isChecked}
+                                onChange={() =>
+                                  toggleModifierOption(
+                                    group.groupReference,
+                                    option.optionReference,
+                                    group.maximumSelections
+                                  )
+                                }
+                              />
+                              <span>{option.name}</span>
+                            </div>
+                            <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                              {Number(option.priceDelta) > 0
+                                ? `+${formatCommercePrice(option.priceDelta, "ZAR")}`
+                                : "Included"}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Quantity & Dual Purchase Actions */}
+          <div className={styles.pdpActionsBlock}>
+            <div className={styles.pdpQuantityRow}>
+              <span className={styles.pdpQuantityLabel}>Quantity</span>
+              <div className={styles.pdpQuantityStepper}>
                 <button
                   type="button"
                   aria-label="Decrease quantity"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  disabled={quantity <= 1 || addingToCart}
-                  style={{
-                    padding: "6px 12px",
-                    background: "none",
-                    border: "none",
-                    cursor: quantity <= 1 ? "not-allowed" : "pointer",
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                  }}
+                  disabled={quantity <= 1 || addingToCart || buyingNow}
+                  className={styles.pdpQuantityBtn}
                 >
-                  -
+                  −
                 </button>
-                <span style={{ padding: "6px 14px", fontSize: "0.95rem", fontWeight: 600, minWidth: 24, textAlign: "center" }}>
-                  {quantity}
-                </span>
+                <span className={styles.pdpQuantityVal}>{quantity}</span>
                 <button
                   type="button"
                   aria-label="Increase quantity"
                   onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-                  disabled={quantity >= 10 || addingToCart}
-                  style={{
-                    padding: "6px 12px",
-                    background: "none",
-                    border: "none",
-                    cursor: quantity >= 10 ? "not-allowed" : "pointer",
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                  }}
+                  disabled={quantity >= 10 || addingToCart || buyingNow}
+                  className={styles.pdpQuantityBtn}
                 >
                   +
                 </button>
               </div>
             </div>
 
-            <button
-              type="button"
-              data-kt-action="add-to-cart"
-              onClick={handleAddToCart}
-              disabled={!isPurchasable || addingToCart}
-              style={{
-                marginTop: 10,
-                width: "100%",
-                padding: "14px 20px",
-                backgroundColor: isPurchasable ? "var(--kt-carbon, #101210)" : "#8e9591",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 4,
-                fontSize: "1rem",
-                fontWeight: 600,
-                cursor: isPurchasable && !addingToCart ? "pointer" : "not-allowed",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              {addingToCart ? "Adding to Cart..." : isPurchasable ? "Add to Cart" : "Currently Unavailable"}
-            </button>
+            {/* Action Buttons: Add to cart & Buy now */}
+            <div className={styles.pdpActionButtons}>
+              <button
+                type="button"
+                data-kt-action="add-to-cart"
+                onClick={handleAddToCart}
+                disabled={!isPurchasable || addingToCart || buyingNow}
+                className={styles.pdpBtnAddToCart}
+              >
+                {addingToCart ? "Adding..." : "Add to cart"}
+              </button>
 
+              <button
+                type="button"
+                data-kt-action="buy-now"
+                onClick={handleBuyNow}
+                disabled={!isPurchasable || addingToCart || buyingNow}
+                className={styles.pdpBtnBuyNow}
+              >
+                {buyingNow ? "Preparing checkout..." : isPurchasable ? "Buy now" : "Unavailable"}
+              </button>
+            </div>
+
+            {/* Add to Cart / Buy Now Feedback Toast */}
             {cartFeedback && (
               <div
-                style={{
-                  marginTop: 10,
-                  padding: "10px 14px",
-                  borderRadius: 4,
-                  fontSize: "0.875rem",
-                  backgroundColor: cartFeedback.type === "success" ? "#eef8f1" : "#fdf2f2",
-                  color: cartFeedback.type === "success" ? "#1e6e38" : "#ba1a1a",
-                  border: `1px solid ${cartFeedback.type === "success" ? "#bce3c6" : "#f8b4b4"}`,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
+                className={`${styles.pdpFeedbackBox} ${
+                  cartFeedback.type === "success" ? styles.pdpFeedbackSuccess : styles.pdpFeedbackError
+                }`}
+                role="status"
               >
                 <span>{cartFeedback.message}</span>
                 {cartFeedback.type === "success" && (
-                  <Link
-                    href="/cart"
-                    style={{
-                      fontWeight: 600,
-                      color: "#1e6e38",
-                      textDecoration: "underline",
-                      marginLeft: 8,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    View Cart &rarr;
-                  </Link>
+                  <div className={styles.pdpFeedbackActions}>
+                    <Link href="/cart" className={styles.pdpFeedbackBtn}>
+                      View cart
+                    </Link>
+                    <Link
+                      href="/checkout"
+                      className={`${styles.pdpFeedbackBtn} ${styles.pdpFeedbackBtnPrimary}`}
+                    >
+                      Checkout
+                    </Link>
+                  </div>
                 )}
               </div>
-            )}
-
-            {storeHref && (
-              <Link className={styles.sectionDirectLink} href={storeHref} style={{ marginTop: 8 }}>
-                Explore more from {store?.name || "this store"} &rarr;
-              </Link>
             )}
           </div>
         </section>
       </div>
 
-      {/* Description Section */}
-      {product.description && (
-        <section aria-labelledby="pdp-desc-heading" className={styles.pdpOffersSection}>
-          <h2 id="pdp-desc-heading" style={{ fontSize: "1.6rem", fontWeight: 560, marginBottom: 16 }}>
-            About this product
-          </h2>
-          <p style={{ fontSize: "1.05rem", color: "var(--kt-graphite, #303532)", lineHeight: 1.6, maxWidth: 800 }}>
-            {product.description}
-          </p>
-        </section>
-      )}
-
-      {/* Available Offers from Stores */}
-      <section aria-labelledby="pdp-offers-heading" className={styles.pdpOffersSection}>
-        <h2 id="pdp-offers-heading" style={{ fontSize: "1.6rem", fontWeight: 560, marginBottom: 20 }}>
-          Available from stores
-        </h2>
-        <OfferComparison
-          offers={offers}
-          selectedOfferReference={activeOffer.offerReference}
-          onSelectOffer={handleSelectOffer}
-        />
-      </section>
+      {/* Structured Product Information (Overview + Details) */}
+      <ProductInformation
+        product={product}
+        activeOffer={activeOffer}
+        storeName={store?.name}
+      />
 
       {/* Same Store Products */}
       {sameStoreProducts.length > 0 && (
         <section aria-labelledby="pdp-same-store-heading" className={styles.pdpRelatedSection}>
-          <div className={styles.sectionHeaderRow}>
-            <h2 id="pdp-same-store-heading" style={{ fontSize: "1.6rem", fontWeight: 560 }}>
+          <div className={styles.commerceSectionHeader}>
+            <h2 id="pdp-same-store-heading">
               More from {store?.name || "this store"}
             </h2>
             {storeHref && (
@@ -726,9 +589,9 @@ export function ProductDetailExperience({
       {/* Related Category Products */}
       {relatedProducts.length > 0 && (
         <section aria-labelledby="pdp-related-heading" className={styles.pdpRelatedSection}>
-          <div className={styles.sectionHeaderRow}>
-            <h2 id="pdp-related-heading" style={{ fontSize: "1.6rem", fontWeight: 560 }}>
-              Related in {categoryHierarchy.at(-1)?.name ?? "this category"}
+          <div className={styles.commerceSectionHeader}>
+            <h2 id="pdp-related-heading">
+              You may also like
             </h2>
             {categoryHref && (
               <Link className={styles.sectionDirectLink} href={categoryHref}>
@@ -740,25 +603,35 @@ export function ProductDetailExperience({
         </section>
       )}
 
-      {/* Mobile Sticky Add-to-Cart Action Bar */}
-      <div className={styles.pdpMobileStickyBar} aria-label="Quick purchase bar">
-        <div className={styles.pdpMobileStickyBarMeta}>
-          <span className={styles.pdpMobileStickyBarTitle}>{product.title}</span>
-          <span className={styles.pdpMobileStickyBarPrice}>
-            {formatPrice(activeOffer.price.amount, activeOffer.price.currency)}
-          </span>
+      {/* Mobile Sticky Purchase Dock (No truncated title, pure price + dual action) */}
+      {isPurchasable && (
+        <div className={styles.pdpMobileStickyBar} aria-label="Quick purchase dock">
+          <div className={styles.pdpMobileStickyPriceCol}>
+            <span className={styles.pdpMobileStickyPrice}>
+              {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
+            </span>
+            <span className={styles.pdpMobileStickyVat}>VAT included</span>
+          </div>
+          <div className={styles.pdpMobileStickyBtns}>
+            <button
+              type="button"
+              className={styles.pdpMobileStickyAddBtn}
+              onClick={handleAddToCart}
+              disabled={!isPurchasable || addingToCart || buyingNow}
+            >
+              {addingToCart ? "Adding..." : "Add to cart"}
+            </button>
+            <button
+              type="button"
+              className={styles.pdpMobileStickyBuyBtn}
+              onClick={handleBuyNow}
+              disabled={!isPurchasable || addingToCart || buyingNow}
+            >
+              {buyingNow ? "Checking out..." : "Buy now"}
+            </button>
+          </div>
         </div>
-        <div className={styles.pdpMobileStickyBarActions}>
-          <button
-            type="button"
-            className={styles.pdpMobileStickyBtn}
-            onClick={handleAddToCart}
-            disabled={!isPurchasable || addingToCart}
-          >
-            {addingToCart ? "Adding..." : isPurchasable ? "Add to Cart" : "Unavailable"}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

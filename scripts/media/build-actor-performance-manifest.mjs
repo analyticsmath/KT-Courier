@@ -8,10 +8,10 @@ const protagonistsWebpDir = path.join(rootDir, "public", "media", "public", "pro
 const artifactsMediaDir = path.join(rootDir, "artifacts", "media");
 const generatedDir = path.join(rootDir, "components", "public-v3", "actors");
 
-// Canonical definition table for all 62 master assets
+// Canonical definition table for all 74 master assets
 const CANONICAL_REGISTRY = [
   // ---------------------------------------------------------------------------
-  // White Truck (16 States)
+  // White Truck (28 States)
   // ---------------------------------------------------------------------------
   {
     packName: "white_truck_asset_pack_16_images",
@@ -228,6 +228,162 @@ const CANONICAL_REGISTRY = [
     validPreviousStates: ["top-down-angled"],
     validNextStates: [],
     requiredOcclusion: "overpass-shadow",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "17_front_3q_entry_phase_01.png",
+    id: "front-3q-entry-phase-01",
+    direction: "right",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-3q-entry-phase-01.webp",
+    validPreviousStates: [],
+    validNextStates: ["front-3q-entry-phase-02"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "18_front_3q_entry_phase_02.png",
+    id: "front-3q-entry-phase-02",
+    direction: "right",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-3q-entry-phase-02.webp",
+    validPreviousStates: ["front-3q-entry-phase-01"],
+    validNextStates: ["front-3q-entry-phase-03"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "19_front_3q_entry_phase_03.png",
+    id: "front-3q-entry-phase-03",
+    direction: "right",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-3q-entry-phase-03.webp",
+    validPreviousStates: ["front-3q-entry-phase-02"],
+    validNextStates: ["front-3q-entry-phase-04"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "20_front_3q_entry_phase_04.png",
+    id: "front-3q-entry-phase-04",
+    direction: "right",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-3q-entry-phase-04.webp",
+    validPreviousStates: ["front-3q-entry-phase-03"],
+    validNextStates: ["front-3q-entry-phase-05"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "21_front_3q_entry_phase_05.png",
+    id: "front-3q-entry-phase-05",
+    direction: "right",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-3q-entry-phase-05.webp",
+    validPreviousStates: ["front-3q-entry-phase-04"],
+    validNextStates: ["front-3q-entry-phase-06"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "22_front_3q_entry_phase_06.png",
+    id: "front-3q-entry-phase-06",
+    direction: "right",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-3q-entry-phase-06.webp",
+    validPreviousStates: ["front-3q-entry-phase-05"],
+    validNextStates: ["front-center-transition-phase-01"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "23_front_center_transition_phase_01.png",
+    id: "front-center-transition-phase-01",
+    direction: "front",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-center-transition-phase-01.webp",
+    validPreviousStates: ["front-3q-entry-phase-06"],
+    validNextStates: ["front-center-transition-phase-02"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "24_front_center_transition_phase_02.png",
+    id: "front-center-transition-phase-02",
+    direction: "front",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-front-center-transition-phase-02.webp",
+    validPreviousStates: ["front-center-transition-phase-01"],
+    validNextStates: ["true-front-center-full"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "25_true_front_center_full.png",
+    id: "true-front-center-full",
+    direction: "front",
+    action: "idle",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-true-front-center-full.webp",
+    validPreviousStates: ["front-center-transition-phase-02"],
+    validNextStates: ["true-front-center-medium"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "26_true_front_center_medium.png",
+    id: "true-front-center-medium",
+    direction: "front",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-true-front-center-medium.webp",
+    validPreviousStates: ["true-front-center-full"],
+    validNextStates: ["true-front-center-close"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "27_true_front_center_close.png",
+    id: "true-front-center-close",
+    direction: "front",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-true-front-center-close.webp",
+    validPreviousStates: ["true-front-center-medium"],
+    validNextStates: ["true-front-center-extreme-close"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "white_truck_asset_pack_16_images",
+    actorType: "white-truck",
+    sourceFile: "28_true_front_center_extreme_close.png",
+    id: "true-front-center-extreme-close",
+    direction: "front",
+    action: "approach",
+    family: "hero-sequence",
+    webpFilename: "protagonist-truck-white-true-front-center-extreme-close.webp",
+    validPreviousStates: ["true-front-center-close"],
+    validNextStates: [],
+    requiredOcclusion: "none",
   },
 
   // ---------------------------------------------------------------------------
@@ -874,6 +1030,41 @@ async function verifyWebpExists(webpFilename) {
   }
 }
 
+// Compute normalized bounds of the visible alpha silhouette. Alpha <= 8 is treated as padding.
+async function computeVisibleBounds(filePath, width, height) {
+  const { data, info } = await sharp(filePath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const alpha = data[(y * width + x) * info.channels + 3];
+      if (alpha > 8) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    throw new Error(`INVARIANT VIOLATION: No visible pixels in actor master: ${filePath}`);
+  }
+
+  return {
+    x: Number((minX / width).toFixed(6)),
+    y: Number((minY / height).toFixed(6)),
+    width: Number(((maxX - minX + 1) / width).toFixed(6)),
+    height: Number(((maxY - minY + 1) / height).toFixed(6)),
+  };
+}
+
 // Compute automatic ground contact baseline using alpha channel edge analysis
 async function computeAutomaticGroundContact(filePath, width, height) {
   const { data, info } = await sharp(filePath)
@@ -992,9 +1183,9 @@ async function main() {
 
   const doorCalibration = await computeAuditedVanDoorCalibration();
 
-  // INVARIANT 1: Total canonical definitions must equal exactly 62
-  if (CANONICAL_REGISTRY.length !== 62) {
-    throw new Error(`INVARIANT VIOLATION: Expected 62 registry entries, got ${CANONICAL_REGISTRY.length}`);
+  // INVARIANT 1: Total canonical definitions must equal exactly 74
+  if (CANONICAL_REGISTRY.length !== 74) {
+    throw new Error(`INVARIANT VIOLATION: Expected 74 registry entries, got ${CANONICAL_REGISTRY.length}`);
   }
 
   // INVARIANT 2: Check actor counts per pack
@@ -1009,7 +1200,7 @@ async function main() {
     idsPerActor[entry.actorType].add(entry.id);
   }
 
-  if (counts["white-truck"] !== 16 || counts.van !== 14 || counts.courier !== 20 || counts["red-truck"] !== 12) {
+  if (counts["white-truck"] !== 28 || counts.van !== 14 || counts.courier !== 20 || counts["red-truck"] !== 12) {
     throw new Error(`INVARIANT VIOLATION: Pack count mismatch: ${JSON.stringify(counts)}`);
   }
 
@@ -1026,6 +1217,10 @@ async function main() {
 
     // INVARIANT 4: Runtime WebP must exist and be valid
     const webpSrc = await verifyWebpExists(entry.webpFilename);
+    if (entry.family === "hero-sequence" && !meta.hasAlpha) {
+      throw new Error(`INVARIANT VIOLATION: Hero sequence master must preserve alpha: ${rawPath}`);
+    }
+    const visibleBounds = await computeVisibleBounds(rawPath, meta.width, meta.height);
 
     // Compute or apply ground contact
     let groundContact = entry.humanGroundContact;
@@ -1049,6 +1244,7 @@ async function main() {
       aspectRatio,
       format: meta.format,
       hasAlpha: Boolean(meta.hasAlpha),
+      visibleBounds,
       direction: entry.direction,
       action: entry.action,
       family: entry.family,
@@ -1099,6 +1295,7 @@ async function main() {
  */
 
 export type ConcealmentStrategy =
+  | "none"
   | "typography-occlusion"
   | "trailer-takeover"
   | "camera-crop"
@@ -1121,6 +1318,7 @@ export interface GeneratedActorState {
   height: number;
   aspectRatio: number;
   hasAlpha: boolean;
+  visibleBounds: { x: number; y: number; width: number; height: number };
   direction: "left" | "right" | "front" | "rear" | "top-down" | "turning" | "detail" | "center";
   action: "idle" | "approach" | "travel" | "accelerate" | "brake" | "open" | "load" | "handoff" | "turn" | "depart" | "carry";
   family: string;
@@ -1148,6 +1346,7 @@ ${processedStates
     height: ${s.height},
     aspectRatio: ${s.aspectRatio},
     hasAlpha: ${s.hasAlpha},
+    visibleBounds: ${JSON.stringify(s.visibleBounds)},
     direction: "${s.direction}",
     action: "${s.action}",
     family: "${s.family}",

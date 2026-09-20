@@ -7,6 +7,21 @@ const rootDir = process.cwd();
 const mediaImagesDir = path.join(rootDir, "public", "media", "public", "images");
 const artifactsMediaDir = path.join(rootDir, "artifacts", "media");
 
+const WHITE_TRUCK_HERO_SEQUENCE = new Map([
+  ["17_front_3q_entry_phase_01.png", ["front-3q-entry-phase-01", "KT white truck entering in a front three-quarter view"]],
+  ["18_front_3q_entry_phase_02.png", ["front-3q-entry-phase-02", "KT white truck advancing in a front three-quarter view"]],
+  ["19_front_3q_entry_phase_03.png", ["front-3q-entry-phase-03", "KT white truck continuing its front three-quarter approach"]],
+  ["20_front_3q_entry_phase_04.png", ["front-3q-entry-phase-04", "KT white truck turning toward a frontal view"]],
+  ["21_front_3q_entry_phase_05.png", ["front-3q-entry-phase-05", "KT white truck continuing its turn toward camera"]],
+  ["22_front_3q_entry_phase_06.png", ["front-3q-entry-phase-06", "KT white truck settling into a centered approach"]],
+  ["23_front_center_transition_phase_01.png", ["front-center-transition-phase-01", "KT white truck transitioning toward a centered frontal view"]],
+  ["24_front_center_transition_phase_02.png", ["front-center-transition-phase-02", "KT white truck nearly facing forward"]],
+  ["25_true_front_center_full.png", ["true-front-center-full", "Full centered frontal view of the KT white truck"]],
+  ["26_true_front_center_medium.png", ["true-front-center-medium", "Medium centered frontal view of the KT white truck approaching"]],
+  ["27_true_front_center_close.png", ["true-front-center-close", "Close centered frontal view of the KT white truck approaching"]],
+  ["28_true_front_center_extreme_close.png", ["true-front-center-extreme-close", "Extreme close centered frontal view of the KT white truck"]],
+]);
+
 async function hashFile(filePath) {
   const fileBuffer = await sharp(filePath).toBuffer();
   return crypto.createHash("md5").update(fileBuffer).digest("hex");
@@ -57,7 +72,7 @@ function classifyAsset(relPath, filename, meta, hash, ledgerMap = new Map()) {
   let approvedForRuntime = false;
   let altText = "";
 
-  // 1. White Truck Protagonist Pack (16 PNGs)
+  // 1. White Truck Protagonist Pack (28 PNGs)
   if (relPath.startsWith("white_truck_asset_pack_16_images/")) {
     semanticRole = "protagonist-machine";
     transitionSuitability = true;
@@ -68,7 +83,16 @@ function classifyAsset(relPath, filename, meta, hash, ledgerMap = new Map()) {
     approvedForRuntime = true;
     routeCandidates = ["/", "/services", "/coverage-areas"];
 
-    if (filename.includes("01_full_side_view_facing_right")) {
+    const heroSequenceState = WHITE_TRUCK_HERO_SEQUENCE.get(filename);
+    if (heroSequenceState) {
+      const [sequenceId, description] = heroSequenceState;
+      id = `protagonist.truck.white.${sequenceId}`;
+      sceneCandidates = ["scene-02-hero"];
+      altText = description;
+      focalPoint = [0.5, 0.72];
+      desktopCrop = "baseline-ground";
+      mobileCrop = "horizontal-crawl";
+    } else if (filename.includes("01_full_side_view_facing_right")) {
       id = "protagonist.truck.white.side-right";
       sceneCandidates = ["scene-02-hero", "scene-03-entry", "scene-04-inertia", "scene-12-network"];
       altText = "KT Couriers long haul transport truck side profile facing right";

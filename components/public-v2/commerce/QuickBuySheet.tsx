@@ -188,18 +188,40 @@ export function QuickBuySheet({
           </div>
 
           {loading && <p role="status" className={styles.productActionFeedback}>Loading available options…</p>}
-          {!loading && payload && payload.offers.length > 0 && <section className={styles.quickBuyGroup}>
-            <h3>Choose an option</h3>
-            <div className={styles.quickBuyChoices} role="radiogroup" aria-label="Seller and product option">
-              {payload.offers.map((offer) => {
-                const selected = selectedOffer?.offerReference === offer.offerReference;
-                const variant = Object.values(offer.variantOptions).join(" · ");
-                return <button aria-checked={selected} className={styles.quickBuyChoice} key={offer.offerReference} onClick={() => { setSelectedOffer(offer); setModifiers({}); setError(null); setSuccess(null); }} role="radio" type="button">
-                  <span>{humanStoreName(offer)}{variant ? ` · ${variant}` : ""}</span><br /><small>{money(offer.price.amount)} · {availabilityLabel(offer.availability)}</small>
-                </button>;
-              })}
-            </div>
-          </section>}
+          {!loading && payload && (payload.offers.length > 1 || (payload.offers[0] && Object.keys(payload.offers[0].variantOptions).length > 0)) && (
+            <section className={styles.quickBuyGroup}>
+              <h3>{payload.offers.length > 1 ? "Choose seller & option" : "Option"}</h3>
+              <div className={styles.quickBuyChoices} role="radiogroup" aria-label="Seller and product option">
+                {payload.offers.map((offer) => {
+                  const selected = selectedOffer?.offerReference === offer.offerReference;
+                  const variant = Object.values(offer.variantOptions).join(" · ");
+                  return (
+                    <button
+                      aria-checked={selected}
+                      className={styles.quickBuyChoice}
+                      key={offer.offerReference}
+                      onClick={() => {
+                        setSelectedOffer(offer);
+                        setModifiers({});
+                        setError(null);
+                        setSuccess(null);
+                      }}
+                      role="radio"
+                      type="button"
+                    >
+                      <span style={{ fontWeight: selected ? 650 : 500 }}>
+                        {humanStoreName(offer)}{variant ? ` · ${variant}` : ""}
+                      </span>
+                      <br />
+                      <small style={{ opacity: 0.85 }}>
+                        {money(offer.price.amount)} · {availabilityLabel(offer.availability)}
+                      </small>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {groups.map((group) => <section className={styles.quickBuyGroup} data-modifier-group={group.groupReference} key={group.groupReference}>
             <h3>{group.name}{group.isRequired ? " · Required" : " · Optional"}</h3>

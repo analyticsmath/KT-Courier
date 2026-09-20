@@ -32,6 +32,11 @@
   /* Spacing and Layout */
   --kt-header-height: clamp(64px, 5vw, 76px);
   --kt-mobile-nav-height: 64px;
+  --kt-mobile-action-safe-bottom: calc(
+    var(--kt-mobile-nav-height)
+    + env(safe-area-inset-bottom, 0px)
+    + clamp(0.9rem, 2.2svh, 1.4rem)
+  );
   --kt-container-max: 1680px;
   --kt-page-gutter: clamp(1.25rem, 4vw, 4.5rem);
 

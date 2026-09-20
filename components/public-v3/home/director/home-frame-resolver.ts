@@ -1,6 +1,7 @@
 import type { HomeChapter } from "./home-chapters";
 import { HOME_CHAPTERS } from "./home-chapters";
-import { after, before, clamp01, HOME_BEATS, range, within } from "./home-beats";
+import { before, clamp01, HOME_BEATS, range, within } from "./home-beats";
+import { HERO_TRUCK_SEQUENCE } from "../../actors/actor-state-machine";
 
 export type CameraMode =
   | "editorial-side"
@@ -13,6 +14,10 @@ export type CameraMode =
 
 export type FocusCorridor = "left-lower" | "center-lower" | "center" | "center-vertical" | "right-center";
 
+export type ActorSizeMode =
+  | { mode: "width"; widthVw: number }
+  | { mode: "visible-height"; visibleHeightVh: number };
+
 export type ActorFrame = {
   state: string;
   visible: boolean;
@@ -20,6 +25,9 @@ export type ActorFrame = {
   targetX: number;
   groundY: number;
   widthVw: number;
+  sizeMode?: ActorSizeMode;
+  blendToState?: string;
+  stateBlend?: number;
   rotation: number;
   scale: number;
 };
@@ -62,6 +70,7 @@ export interface HomeFrame {
 export interface HomeFrameInput {
   chapter: HomeChapter;
   progress: number;
+  viewportMode: "mobile" | "desktop";
   marketplaceCategories?: ReadonlyArray<{ id: string }>;
 }
 
@@ -77,6 +86,84 @@ const hidden = (state: string): ActorFrame => ({
 
 const interpolate = (from: number, to: number, amount: number) => from + (to - from) * amount;
 const smooth = (progress: number) => progress * progress * (3 - 2 * progress);
+
+function resolveHeroSequencePosition(progress: number): number {
+  const beats = HOME_BEATS.hero;
+  if (progress < beats.travellingTurn[0]) return 0;
+  if (progress < beats.travellingTurn[1]) {
+    return interpolate(0, 5, smooth(range(progress, beats.travellingTurn[0], beats.travellingTurn[1])));
+  }
+  if (progress < beats.centreTurn[0]) return 5;
+  if (progress < beats.centreTurn[1]) {
+    return interpolate(5, 7.76, smooth(range(progress, beats.centreTurn[0], beats.centreTurn[1])));
+  }
+  if (progress < beats.frontalBlend[1]) {
+    return interpolate(7.76, 8, smooth(range(progress, beats.frontalBlend[0], beats.frontalBlend[1])));
+  }
+  if (progress < beats.frontalEstablish[1]) return 8;
+  if (progress < beats.frontalApproach[1]) {
+    return interpolate(8, 9, smooth(range(progress, beats.frontalApproach[0], beats.frontalApproach[1])));
+  }
+  if (progress < beats.closeApproach[1]) {
+    return interpolate(9, 10, smooth(range(progress, beats.closeApproach[0], beats.closeApproach[1])));
+  }
+  if (progress < beats.cameraPass[1]) {
+    return interpolate(10, 11, smooth(range(progress, beats.cameraPass[0], beats.cameraPass[1])));
+  }
+  return 11;
+}
+
+function resolveHeroVisibleHeight(progress: number, viewportMode: "mobile" | "desktop"): number {
+  const mobile = viewportMode === "mobile";
+  const beats = HOME_BEATS.hero;
+  const value = (start: number, end: number, from: number, to: number) =>
+    interpolate(from, to, smooth(range(progress, start, end)));
+
+  if (progress < beats.travellingTurn[0]) return value(beats.entryReveal[0], beats.entryReveal[1], mobile ? 17 : 22, mobile ? 22 : 29);
+  if (progress < beats.travellingTurn[1]) return value(beats.travellingTurn[0], beats.travellingTurn[1], mobile ? 22 : 29, mobile ? 26 : 34);
+  if (progress < beats.centreSettle[1]) return mobile ? 26 : 34;
+  if (progress < beats.centreTurn[1]) return value(beats.centreTurn[0], beats.centreTurn[1], mobile ? 26 : 34, mobile ? 31 : 40);
+  if (progress < beats.frontalEstablish[1]) return mobile ? 31 : 40;
+  if (progress < beats.frontalApproach[1]) return value(beats.frontalApproach[0], beats.frontalApproach[1], mobile ? 31 : 40, mobile ? 44 : 58);
+  if (progress < beats.closeApproach[1]) return value(beats.closeApproach[0], beats.closeApproach[1], mobile ? 44 : 58, mobile ? 63 : 78);
+  if (progress < beats.cameraPass[1]) return value(beats.cameraPass[0], beats.cameraPass[1], mobile ? 63 : 78, mobile ? 102 : 112);
+  return value(beats.release[0], beats.release[1], mobile ? 102 : 112, mobile ? 124 : 138);
+}
+
+export function resolveHeroTruckFrame(
+  progress: number,
+  viewportMode: "mobile" | "desktop",
+): ActorFrame {
+  const p = clamp01(progress);
+  const beats = HOME_BEATS.hero;
+  const position = resolveHeroSequencePosition(p);
+  const index = Math.min(HERO_TRUCK_SEQUENCE.length - 1, Math.floor(position));
+  const fraction = position - index;
+  const nextIndex = Math.min(HERO_TRUCK_SEQUENCE.length - 1, index + 1);
+  const blend = nextIndex === index ? 0 : smooth(range(fraction, 0.76, 1));
+  let targetX = interpolate(-0.26, 0.25, smooth(range(p, beats.entryReveal[0], beats.entryReveal[1])));
+
+  if (p >= beats.travellingTurn[0]) {
+    targetX = interpolate(0.25, 0.5, smooth(range(p, beats.travellingTurn[0], beats.travellingTurn[1])));
+  }
+  if (p >= beats.centreSettle[0]) {
+    targetX = interpolate(0.5, 0.49, smooth(range(p, beats.centreSettle[0], beats.centreSettle[1])));
+  }
+  if (p >= beats.centreTurn[1]) targetX = interpolate(0.49, 0.5, smooth(range(p, beats.centreTurn[1], 1)));
+
+  return {
+    state: HERO_TRUCK_SEQUENCE[index],
+    blendToState: HERO_TRUCK_SEQUENCE[nextIndex],
+    stateBlend: blend,
+    visible: p >= beats.entryReveal[0] && p < 1,
+    targetX,
+    groundY: viewportMode === "mobile" ? 0.89 : 0.88,
+    widthVw: 60,
+    sizeMode: { mode: "visible-height", visibleHeightVh: resolveHeroVisibleHeight(p, viewportMode) },
+    rotation: 0,
+    scale: 1,
+  };
+}
 
 function resolveMarketplace(progress: number, categories: ReadonlyArray<{ id: string }>) {
   const count = categories.length;
@@ -180,7 +267,7 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
       ? marketplace.activeId
       : selectedMarketplaceId;
   const actors = {
-    whiteTruck: hidden("side-right"),
+    whiteTruck: hidden(HERO_TRUCK_SEQUENCE[0]),
     van: hidden("side-left"),
     courier: hidden("look-left-approach"),
     redTruck: hidden("side-right"),
@@ -197,35 +284,7 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
   let routePathProgress = 0;
 
   if (input.chapter === "hero") {
-    const hero = HOME_BEATS.hero;
-    const compact = typeof window !== "undefined" && window.innerWidth <= 767;
-    const holdWidth = compact ? 90 : 66;
-    const entryWidth = compact ? 66 : 50;
-    const cameraWidth = compact ? 180 : 244;
-    if (progress >= hero.truckEntry[0]) {
-      const entry = range(progress, hero.truckEntry[0], hero.truckEntry[1]);
-      const brake = range(progress, hero.brake[0], hero.brake[1]);
-      const anticipation = range(progress, hero.anticipation[0], hero.anticipation[1]);
-      const pressure = range(progress, hero.cameraPressure[0], hero.passCamera[1]);
-      const targetX = progress < hero.brake[0]
-        ? interpolate(-0.25, 0.56, smooth(entry))
-        : progress < hero.centreHold[0]
-          ? interpolate(0.56, 0.53, smooth(brake))
-          : interpolate(0.53, 0.5, smooth(anticipation + (1 - anticipation) * pressure));
-      const widthVw = progress < hero.brake[0]
-        ? interpolate(entryWidth, holdWidth, smooth(entry))
-        : progress < hero.anticipation[0]
-          ? holdWidth
-          : interpolate(holdWidth, cameraWidth, smooth(pressure));
-      actors.whiteTruck = {
-        ...actors.whiteTruck,
-        state: "front-3q-right",
-        visible: true,
-        targetX,
-        groundY: compact ? 0.86 : 0.88,
-        widthVw,
-      };
-    }
+    actors.whiteTruck = resolveHeroTruckFrame(progress, input.viewportMode);
   } else if (input.chapter === "marketplace") {
     if (progress >= 0.94) {
       occlusionId = "market-to-fan-card-mask";

@@ -14,7 +14,7 @@ export const HOME_CHAPTERS = [
 export type HomeChapter = (typeof HOME_CHAPTERS)[number];
 
 export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
-  hero: 200,
+  hero: 205,
   marketplace: 355,
   fan: 155,
   preparation: 105,
@@ -24,6 +24,10 @@ export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
   freight: 210,
   arrival: 155,
   finale: 120,
+};
+
+export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Partial<Record<HomeChapter, number>> = {
+  hero: 190,
 };
 
 export const HOME_MOBILE_POLICY: Record<HomeChapter, "document" | "native-snap"> = {
@@ -48,4 +52,8 @@ export function chapterBudgetVh(chapter: HomeChapter, categoryCount = 5): number
   return chapter === "marketplace"
     ? marketplaceBudgetVh(categoryCount)
     : HOME_CHAPTER_BUDGETS_VH[chapter];
+}
+
+export function mobileChapterBudgetVh(chapter: HomeChapter, categoryCount = 5): number {
+  return HOME_MOBILE_CHAPTER_BUDGETS_VH[chapter] ?? chapterBudgetVh(chapter, categoryCount);
 }

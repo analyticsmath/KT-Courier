@@ -32,7 +32,6 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
   const activeCat = displayCategories[activeIdx] || displayCategories[0];
   const activeHref = (activeCat ? marketplaceCategoryHref(activeCat.path) : null) ?? marketplaceCategoriesHref();
 
-  // Primary authoritative media matching from ktMedia
   const getCategoryMedia = (cat: CategoryDiscoveryItem) => {
     const authoritative = storefrontCategoryMediaSrc(cat.imageReference);
     if (authoritative) return authoritative;
@@ -54,12 +53,12 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
   return (
     <section aria-labelledby="category-discovery-title" className={styles.categoryDiscoverySection}>
       <div className={styles.commerceInner}>
-        <div className={styles.sectionHeaderRow}>
+        <div className={styles.commerceSectionHeader}>
           <div>
-            <span className="text-[11px] font-mono tracking-widest text-[#347CFB] uppercase font-bold block mb-1">
+            <span className="text-[11px] font-mono tracking-widest text-[#1776d2] uppercase font-bold block mb-1">
               Browse the marketplace
             </span>
-            <h2 className={styles.sectionTitleMain} id="category-discovery-title">
+            <h2 id="category-discovery-title" style={{ margin: 0, fontSize: "clamp(1.5rem, 2.5vw, 2.2rem)", letterSpacing: "-0.03em" }}>
               Shop by category
             </h2>
           </div>
@@ -68,8 +67,41 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
           </Link>
         </div>
 
-        {/* 5-Category World as ONE Interactive Visual Object with Depth & Overlap */}
-        <div className="relative w-full mt-6 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8 items-start">
+        {/* Mobile Horizontal Snap Grid (Visible on phone/tablet) */}
+        <div className="md:hidden mt-4 overflow-x-auto pb-4 -mx-4 px-4 flex gap-3 snap-x snap-mandatory scrollbar-none">
+          {displayCategories.map((cat) => {
+            const href = marketplaceCategoryHref(cat.path) ?? marketplaceCategoriesHref();
+            return (
+              <Link
+                key={cat.reference}
+                href={href}
+                onClick={(e) => handleCategoryClick(e, cat)}
+                className="snap-start flex-none w-[200px] h-[160px] relative rounded-xl overflow-hidden border border-[var(--commerce-line)] no-underline group"
+              >
+                <Image
+                  alt={cat.name}
+                  src={getCategoryMedia(cat)}
+                  fill
+                  sizes="200px"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3 flex flex-col justify-end">
+                  <strong className="text-white text-[0.95rem] font-semibold leading-snug">
+                    {cat.name}
+                  </strong>
+                  <span className="text-[11px] text-white/80 mt-0.5">
+                    {Boolean(cat.productCount && cat.productCount > 0)
+                      ? `${cat.productCount} products`
+                      : "Explore collection"}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Desktop 5-Category Discovery Split (Hidden on mobile) */}
+        <div className="hidden md:grid relative w-full mt-6 grid-cols-[300px_1fr] gap-8 items-start">
           {/* Category Index Navigation */}
           <ul className="flex flex-col gap-2 m-0 p-0 list-none">
             {displayCategories.map((category, idx) => {
@@ -79,10 +111,10 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
               return (
                 <li key={category.reference}>
                   <Link
-                    className={`flex items-start gap-3 p-4 rounded-[4px] border transition-all duration-150 text-left no-underline ${
+                    className={`flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 text-left no-underline ${
                       isActive
-                        ? "bg-white border-[#347CFB] shadow-sm text-[#111318]"
-                        : "bg-transparent border-transparent hover:bg-white/60 hover:border-[#D9DEE2] text-[#59626A]"
+                        ? "bg-white border-[var(--kt-carbon,#101210)] shadow-sm text-[#111318]"
+                        : "bg-transparent border-transparent hover:bg-white/60 text-[#59626A]"
                     }`}
                     href={href}
                     onClick={(e) => handleCategoryClick(e, category)}
@@ -90,7 +122,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                     onMouseEnter={() => setActiveIdx(idx)}
                     data-kt-sticky-mode="VIEW"
                   >
-                    <span className="font-mono text-xs font-bold text-[#347CFB] mt-0.5">
+                    <span className="font-mono text-xs font-bold text-[var(--commerce-muted)] mt-0.5">
                       0{idx + 1}
                     </span>
                     <div className="flex flex-col">
@@ -98,7 +130,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                         {category.name}
                       </span>
                       <span className="text-xs text-[#59626A] mt-0.5">
-                        {typeof category.productCount === "number"
+                        {Boolean(category.productCount && category.productCount > 0)
                           ? `${category.productCount} products`
                           : "Explore collection"}
                       </span>
@@ -109,41 +141,45 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
             })}
           </ul>
 
-          {/* Active Category Object with Mask Cursor & Depth Previews */}
+          {/* Active Category Stage */}
           <div className="flex flex-col gap-4">
             <Link
               aria-label={`Explore ${activeCat.name}`}
               href={activeHref}
               onClick={(e) => handleCategoryClick(e, activeCat)}
-              className="relative block rounded-[4px] overflow-hidden shadow-xl border border-[#D9DEE2]/40"
+              className="relative block rounded-2xl overflow-hidden border border-[var(--commerce-line)] no-underline group"
               data-kt-sticky-mode="OPEN"
               data-kt-shared-target={`category-${activeCat.path}`}
             >
-              <div className="relative w-full h-[360px] md:h-[460px]">
-                  <Image
-                    alt={activeCat.name}
-                    fill
-                    priority
-                    sizes="(max-width: 899px) 100vw, 65vw"
-                    src={getCategoryMedia(activeCat)}
-                    style={{ objectFit: "cover" }}
-                    className="transition-transform duration-300 hover:scale-[1.02]"
-                  />
-                  <div className={styles.entryMediaOverlay}>
-                    <div>
-                      <span className={styles.mediaCategoryName}>{activeCat.name}</span>
-                      {activeCat.description && (
-                        <p style={{ fontSize: "0.85rem", color: "var(--kt-cool-300, #c9cecc)", margin: "4px 0 0" }}>
-                          {activeCat.description}
-                        </p>
-                      )}
-                    </div>
-                    <span className={styles.mediaActionLink}>View Category &rarr;</span>
+              <div className="relative w-full h-[440px]">
+                <Image
+                  alt={activeCat.name}
+                  fill
+                  priority
+                  sizes="(max-width: 899px) 100vw, 65vw"
+                  src={getCategoryMedia(activeCat)}
+                  style={{ objectFit: "cover" }}
+                  className="transition-transform duration-500 group-hover:scale-[1.02]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent p-6 flex justify-between items-end">
+                  <div className="max-w-[70%]">
+                    <span className="text-white text-xl font-bold tracking-tight block">
+                      {activeCat.name}
+                    </span>
+                    {activeCat.description && (
+                      <p className="text-white/80 text-sm mt-1 line-clamp-2">
+                        {activeCat.description}
+                      </p>
+                    )}
                   </div>
+                  <span className="text-white text-xs font-semibold uppercase tracking-wider py-2 px-4 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 group-hover:bg-white group-hover:text-black transition-colors">
+                    Explore &rarr;
+                  </span>
+                </div>
               </div>
             </Link>
 
-            {/* Compressed Neighbor Previews */}
+            {/* Thumbnail Previews for Siblings */}
             <div className="grid grid-cols-4 gap-3">
               {displayCategories.map((cat, idx) => {
                 if (idx === activeIdx) return null;
@@ -152,7 +188,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                     key={cat.reference}
                     type="button"
                     onClick={() => setActiveIdx(idx)}
-                    className="relative h-20 rounded-[2px] overflow-hidden border border-[#D9DEE2] hover:border-[#347CFB] cursor-pointer bg-[#0E1012] p-0"
+                    className="relative h-20 rounded-lg overflow-hidden border border-[var(--commerce-line)] hover:border-[var(--kt-carbon,#101210)] cursor-pointer bg-[#0E1012] p-0"
                     data-kt-sticky-mode="SELECT"
                     aria-label={`Switch to ${cat.name}`}
                   >
@@ -161,9 +197,9 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                       src={getCategoryMedia(cat)}
                       fill
                       sizes="160px"
-                      className="object-cover opacity-85 hover:opacity-100 transition-opacity"
+                      className="object-cover opacity-80 hover:opacity-100 transition-opacity"
                     />
-                    <span className="absolute bottom-1 left-2 z-10 text-[10px] font-bold text-white shadow-sm truncate max-w-[90%]">
+                    <span className="absolute bottom-1.5 left-2 z-10 text-[11px] font-semibold text-white truncate max-w-[90%] drop-shadow">
                       {cat.name}
                     </span>
                   </button>

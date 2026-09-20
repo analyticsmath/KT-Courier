@@ -28,7 +28,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
   Object.freeze({
     // Groceries
     "CMA-CAT-GROCERIES": {
-      src: "/media/public/derived/photo-grocery-fruit-crates-overhead-1440w.webp",
+      src: "/media/public/derived/photo-grocery-market-counter-produce-1440w.webp",
     },
     "CMA-CAT-FRESH-PRODUCE": {
       publicId: "cape-town-market-vegetables",
@@ -78,11 +78,10 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
 
     // Pharmacy & wellness
     "CMA-CAT-PHARMACY": {
-      src: "/media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp",
+      src: "/media/public/derived/photo-wellness-licensed-pharmacy-counter-1440w.webp",
     },
     "CMA-CAT-OTC-RELIEF": {
-      publicId: "kt-courier/category-overrides/otc",
-      format: "jpg",
+      src: "/media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp",
     },
     "CMA-CAT-FIRST-AID": {
       publicId: "kt-courier/category-overrides/first-aid",
@@ -93,25 +92,22 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       format: "jpg",
     },
     "CMA-CAT-PERSONAL-CARE": {
-      publicId: "karolina-grabowska-VQJtB5dmKxc-unsplash",
-      format: "jpg",
+      src: "/media/public/derived/photo-wellness-organic-botanical-serum-1440w.webp",
     },
 
     // Fashion
     "CMA-CAT-FASHION": {
-      src: "/media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp",
+      src: "/media/public/derived/photo-fashion-jhb-editorial-coat-1440w.webp",
     },
     "CMA-CAT-CLOTHING": {
       publicId: "kt-courier/category-overrides/clothing",
       format: "jpg",
     },
     "CMA-CAT-FOOTWEAR": {
-      publicId: "casey-horner-1zf36NOjoCE-unsplash",
-      format: "jpg",
+      src: "/media/public/derived/photo-fashion-designer-footwear-leather-1440w.webp",
     },
     "CMA-CAT-ACCESSORIES": {
-      publicId: "kt-courier/category-overrides/accessories",
-      format: "jpg",
+      src: "/media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp",
     },
 
     // Electronics. The authored audio category photograph is also the strongest
@@ -131,15 +127,14 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
 
     // Home & living
     "CMA-CAT-HOME-LIVING": {
-      src: "/media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp",
+      src: "/media/public/derived/commerce-homeware-natalia-blauth-43i1AK0McxM-unsplash-1440w.webp",
     },
     "CMA-CAT-COOKWARE": {
       publicId: "kt-courier/category-overrides/cookware",
       format: "jpg",
     },
     "CMA-CAT-DECOR": {
-      publicId: "kt-courier/category-overrides/decor",
-      format: "jpg",
+      src: "/media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp",
     },
 
     // Remaining top-level marketplace categories
@@ -166,7 +161,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
   });
 
 function curatedCategoryMediaSrc(asset: CuratedCategoryMedia): string {
-  if ("src" in asset) return asset.src;
+  if (asset.src) return asset.src;
   return `${CLOUDINARY_CATEGORY_BASE}/${asset.publicId}.${asset.format}`;
 }
 

@@ -10,6 +10,7 @@ import {
   VAN_DOOR_CALIBRATION,
   VAN_STATES,
   WHITE_TRUCK_STATES,
+  HERO_TRUCK_SEQUENCE,
   type ActorStateDefinition,
 } from "../../actors/actor-state-machine";
 import type { HomeChapter } from "./home-chapters";
@@ -20,6 +21,7 @@ import { alignGroundContact } from "./home-grounding";
 import { assertPhysicalCoverage, physicalCoverage } from "./home-occlusion";
 import {
   assertActorTransition,
+  isAdjacentHeroSequenceTransition,
   validateHomeActorTransitions,
   type ActorType,
 } from "./home-actor-transitions";
@@ -57,7 +59,7 @@ const ACTOR_STATES: Record<ActorType, Record<string, ActorStateDefinition>> = {
 };
 
 const PRELOAD_STATES: Record<HomeChapter, Partial<Record<ActorName, string[]>>> = {
-  hero: { whiteTruck: ["front-3q-right"] },
+  hero: { whiteTruck: HERO_TRUCK_SEQUENCE.slice(0, 6) },
   marketplace: {},
   fan: {},
   preparation: {},
@@ -207,6 +209,9 @@ export function useHomeNarrativeDirector({
       .sort((a, b) => HOME_CHAPTERS.indexOf(a.chapter) - HOME_CHAPTERS.indexOf(b.chapter));
     const slotNodes = new Map<ActorName, HTMLElement>();
     const stateLayers = new Map<ActorName, Map<string, HTMLImageElement>>();
+    const decodedActorImages = new WeakSet<HTMLImageElement>();
+    const pendingActorDecodes = new WeakMap<HTMLImageElement, Promise<boolean>>();
+    let refreshFrameAfterDecode: (() => void) | null = null;
     (Object.keys(ACTOR_SLOTS) as ActorName[]).forEach((actor) => {
       const slot = root.querySelector<HTMLElement>(`[data-actor-slot='${ACTOR_SLOTS[actor]}']`);
       if (!slot) return;
@@ -218,6 +223,37 @@ export function useHomeNarrativeDirector({
       });
       stateLayers.set(actor, layers);
     });
+
+    const isActorImageDecoded = (image: HTMLImageElement | undefined): boolean => {
+      return Boolean(image && (decodedActorImages.has(image) || image.dataset.actorStateDecoded === "true"));
+    };
+
+    const requestActorImageDecode = (image: HTMLImageElement | undefined, priority: "high" | "auto" = "auto") => {
+      if (!image) return;
+      image.loading = "eager";
+      image.fetchPriority = priority;
+      if (isActorImageDecoded(image)) return;
+      if (pendingActorDecodes.has(image)) return;
+
+      const pending = Promise.resolve()
+        .then(() => typeof image.decode === "function" ? image.decode() : undefined)
+        .then(() => {
+          if (image.complete && image.naturalWidth > 0) {
+            decodedActorImages.add(image);
+            image.dataset.actorStateDecoded = "true";
+            return true;
+          }
+          return false;
+        })
+        .catch(() => false);
+      pendingActorDecodes.set(image, pending);
+      void pending.then((decoded) => {
+        pendingActorDecodes.delete(image);
+        if (decoded && refreshFrameAfterDecode) {
+          window.requestAnimationFrame(refreshFrameAfterDecode);
+        }
+      });
+    };
 
     const cards = Array.from(root.querySelectorAll<HTMLElement>(".kt-fan-card"));
     const fanHeroCard = root.querySelector<HTMLElement>(".kt-fan-hero-card");
@@ -244,6 +280,7 @@ export function useHomeNarrativeDirector({
     const custodyRight = root.querySelector<HTMLElement>(".kt-custody-right");
     const custodyConcealment = root.querySelector<HTMLElement>(".kt-custody-route-concealment");
     const finaleRoad = root.querySelector<HTMLElement>("[data-motion='finale-road']");
+    const heroRoad = root.querySelector<HTMLElement>("[data-motion='hero-road']");
     const heroKt = root.querySelector<HTMLElement>("[data-motion='hero-kt']");
     const heroCourier = root.querySelector<HTMLElement>("[data-motion='hero-courier']");
     const heroActions = root.querySelector<HTMLElement>("[data-motion='hero-actions']");
@@ -316,19 +353,61 @@ export function useHomeNarrativeDirector({
       const slot = slotNodes.get(name);
       if (!slot) return;
       const actorType = ACTOR_TYPES[name];
-      const displayedState = name === "van" && actor.state === "sliding-door-open" ? "side-left" : actor.state;
-      const definition = ACTOR_STATES[actorType][displayedState];
+      let displayedState = name === "van" && actor.state === "sliding-door-open" ? "side-left" : actor.state;
+      let definition = ACTOR_STATES[actorType][displayedState];
       if (!definition) return;
 
-      const previousLayerState = lastLayerState.get(name);
-      if (previousLayerState !== displayedState) {
-        const layers = stateLayers.get(name);
-        layers?.forEach((layer, state) => gsap.set(layer, { autoAlpha: state === displayedState ? 1 : 0 }));
-        lastLayerState.set(name, displayedState);
+      const layers = stateLayers.get(name);
+      const isHeroSequence = name === "whiteTruck" && definition.family === "hero-sequence";
+      if (isHeroSequence && layers) {
+        const primaryLayer = layers.get(actor.state);
+        const nextLayer = actor.blendToState ? layers.get(actor.blendToState) : undefined;
+        requestActorImageDecode(primaryLayer, "high");
+        if (actor.stateBlend && actor.stateBlend > 0) requestActorImageDecode(nextLayer);
+
+        if (!isActorImageDecoded(primaryLayer)) {
+          const fallbackState = lastLayerState.get(name);
+          const fallbackLayer = fallbackState ? layers.get(fallbackState) : undefined;
+          if (!isActorImageDecoded(fallbackLayer)) {
+            gsap.set(slot, { autoAlpha: 0 });
+            return;
+          }
+          displayedState = fallbackState!;
+          definition = ACTOR_STATES[actorType][displayedState] ?? definition;
+        }
+
+        const activeLayer = layers.get(displayedState);
+        const canBlend = displayedState === actor.state
+          && Boolean(nextLayer && actor.stateBlend && actor.stateBlend > 0 && isActorImageDecoded(nextLayer));
+        const blend = canBlend ? actor.stateBlend ?? 0 : 0;
+        layers.forEach((layer, state) => {
+          const alpha = state === displayedState
+            ? 1 - blend
+            : canBlend && state === actor.blendToState
+              ? blend
+              : 0;
+          gsap.set(layer, { autoAlpha: alpha });
+        });
+        if (activeLayer) lastLayerState.set(name, displayedState);
+      } else {
+        const previousLayerState = lastLayerState.get(name);
+        if (previousLayerState !== displayedState) {
+          layers?.forEach((layer, state) => gsap.set(layer, { autoAlpha: state === displayedState ? 1 : 0 }));
+          lastLayerState.set(name, displayedState);
+        }
       }
 
-      const width = window.innerWidth * actor.widthVw / 100;
-      const height = width / definition.aspectRatio;
+      let width: number;
+      let height: number;
+      if (actor.sizeMode?.mode === "visible-height") {
+        const visibleHeight = window.innerHeight * actor.sizeMode.visibleHeightVh / 100;
+        height = visibleHeight / Math.max(0.01, definition.visibleBounds.height);
+        width = height * definition.aspectRatio;
+      } else {
+        const widthVw = actor.sizeMode?.mode === "width" ? actor.sizeMode.widthVw : actor.widthVw;
+        width = window.innerWidth * widthVw / 100;
+        height = width / definition.aspectRatio;
+      }
       const aligned = alignGroundContact({
         width,
         height,
@@ -482,7 +561,7 @@ export function useHomeNarrativeDirector({
 
     const applyFrame = (chapter: HomeChapter, progress: number) => {
       const effectiveProgress = prefersReducedMotion ? 0.5 : progress;
-      const frame = resolveHomeFrame({ chapter, progress: effectiveProgress, marketplaceCategories: categoryIds });
+      const frame = resolveHomeFrame({ chapter, progress: effectiveProgress, viewportMode: window.innerWidth <= 767 ? "mobile" : "desktop", marketplaceCategories: categoryIds });
       applyRouteGeometry(frame);
       const previousFrame = lastFrame;
       if (process.env.NODE_ENV !== "production" && previousFrame
@@ -526,6 +605,7 @@ export function useHomeNarrativeDirector({
           const previousActor = previousFrame.actors[name];
           const nextActor = frame.actors[name];
           const changedWhileExposed = previousActor.state !== nextActor.state && previousActor.visible && nextActor.visible;
+          if (name === "whiteTruck" && isAdjacentHeroSequenceTransition(previousActor.state, nextActor.state)) return;
           const coveredRelease = previousActor.visible && !nextActor.visible;
           if (!changedWhileExposed && !coveredRelease) return;
           if (coveredRelease) {
@@ -619,16 +699,29 @@ export function useHomeNarrativeDirector({
         x: chapter === "finale" ? interpolate(-80, 0, effectiveProgress) : 0,
         autoAlpha: chapter === "finale" ? range(effectiveProgress, 0.58, 0.75) : 0,
       });
-      if (heroKt && chapter === "hero") gsap.set(heroKt, { y: interpolate(0, -14, range(effectiveProgress, HOME_BEATS.hero.anticipation[0], HOME_BEATS.hero.passCamera[1])) });
-      if (heroCourier && chapter === "hero") gsap.set(heroCourier, { y: interpolate(0, 10, range(effectiveProgress, HOME_BEATS.hero.anticipation[0], HOME_BEATS.hero.passCamera[1])) });
+      if (heroKt && chapter === "hero") {
+        gsap.set(heroKt, {
+          y: prefersReducedMotion ? 0 : interpolate(0, -14, range(effectiveProgress, HOME_BEATS.hero.centreSettle[0], HOME_BEATS.hero.cameraPass[1])),
+          autoAlpha: prefersReducedMotion ? 1 : interpolate(1, 0.3, range(effectiveProgress, HOME_BEATS.hero.entryReveal[0], HOME_BEATS.hero.frontalApproach[1])),
+        });
+      }
+      if (heroCourier && chapter === "hero") {
+        gsap.set(heroCourier, {
+          y: prefersReducedMotion ? 0 : interpolate(0, 10, range(effectiveProgress, HOME_BEATS.hero.centreSettle[0], HOME_BEATS.hero.cameraPass[1])),
+          autoAlpha: prefersReducedMotion ? 1 : interpolate(1, 0.34, range(effectiveProgress, HOME_BEATS.hero.entryReveal[0], HOME_BEATS.hero.frontalApproach[1])),
+        });
+      }
+      if (heroRoad && chapter === "hero") {
+        gsap.set(heroRoad, {
+          autoAlpha: prefersReducedMotion ? 0 : 0.24 * range(effectiveProgress, HOME_BEATS.hero.entryReveal[0], HOME_BEATS.hero.frontalApproach[1]),
+        });
+      }
       if (heroActions && chapter === "hero") {
         const hero = HOME_BEATS.hero;
         const alpha = prefersReducedMotion
           ? 1
-          : effectiveProgress < 0.16
-            ? 1
-            : 1 - range(effectiveProgress, 0.16, 0.26);
-        gsap.set(heroActions, { autoAlpha: alpha, y: prefersReducedMotion ? 0 : interpolate(0, -12, range(effectiveProgress, 0.16, 0.26)) });
+          : 1 - range(effectiveProgress, hero.entryReveal[0], hero.entryReveal[1]);
+        gsap.set(heroActions, { autoAlpha: alpha, y: prefersReducedMotion ? 0 : interpolate(0, -10, range(effectiveProgress, hero.entryReveal[0], hero.entryReveal[1])) });
       }
       if (prepCollectionIncoming) {
         gsap.set(prepCollectionIncoming, {
@@ -714,12 +807,15 @@ export function useHomeNarrativeDirector({
       Object.entries(frame.actors).forEach(([name, actor]) => {
         if (!actor.visible) return;
         const state = name === "van" && actor.state === "sliding-door-open" ? "side-left" : actor.state;
-        const image = stateLayers.get(name as ActorName)?.get(state);
-        if (image) {
-          image.loading = "eager";
-          image.fetchPriority = "high";
-        }
+        const layers = stateLayers.get(name as ActorName);
+        requestActorImageDecode(layers?.get(state), "high");
+        if (!prefersReducedMotion && actor.blendToState) requestActorImageDecode(layers?.get(actor.blendToState));
       });
+    };
+
+    const preloadRemainingHeroSequence = () => {
+      const layers = stateLayers.get("whiteTruck");
+      HERO_TRUCK_SEQUENCE.slice(6).forEach((state) => requestActorImageDecode(layers?.get(state)));
     };
 
     const preloadFanSelection = (index = categories.length - 1) => {
@@ -737,7 +833,7 @@ export function useHomeNarrativeDirector({
       if (progress >= 0.72 && nextChapterIndex < HOME_CHAPTERS.length) {
         preloadChapter(HOME_CHAPTERS[nextChapterIndex]);
       }
-      const frame = resolveHomeFrame({ chapter, progress, marketplaceCategories: categoryIds });
+      const frame = resolveHomeFrame({ chapter, progress, viewportMode: window.innerWidth <= 767 ? "mobile" : "desktop", marketplaceCategories: categoryIds });
       if ((chapter === "marketplace" && progress >= 0.68) || chapter === "fan") {
         preloadFanSelection(chapter === "marketplace" ? frame.marketplace.activeIndex : categories.length - 1);
       }
@@ -759,6 +855,7 @@ export function useHomeNarrativeDirector({
         seekFromScroll(window.scrollY);
       });
     };
+    refreshFrameAfterDecode = () => seekFromScroll(window.scrollY);
 
     try {
       if (process.env.NODE_ENV !== "production") validateHomeActorTransitions();
@@ -779,6 +876,7 @@ export function useHomeNarrativeDirector({
     const initialFrame = resolveHomeFrame({
       chapter: initialPosition.chapter,
       progress: prefersReducedMotion ? 0.5 : initialPosition.progress,
+      viewportMode: window.innerWidth <= 767 ? "mobile" : "desktop",
       marketplaceCategories: categoryIds,
     });
     preloadChapter(initialPosition.chapter);
@@ -789,7 +887,7 @@ export function useHomeNarrativeDirector({
       await document.fonts?.ready;
       const { chapter, progress } = rangeForScroll(window.scrollY);
       preloadChapter(chapter);
-      const currentFrame = resolveHomeFrame({ chapter, progress, marketplaceCategories: categoryIds });
+      const currentFrame = resolveHomeFrame({ chapter, progress, viewportMode: window.innerWidth <= 767 ? "mobile" : "desktop", marketplaceCategories: categoryIds });
       preloadFrame(currentFrame);
       const chapterSection = ranges.find((item) => item.chapter === chapter)?.section;
       const currentChapterImages = Array.from(chapterSection?.querySelectorAll<HTMLImageElement>("img") ?? [])
@@ -799,7 +897,17 @@ export function useHomeNarrativeDirector({
         .filter((image) => image.loading === "eager");
       await Promise.all(
         [...new Set([...eagerActorImages, ...currentChapterImages])]
-          .map((image) => image.decode?.().catch(() => undefined)),
+          .map(async (image) => {
+            try {
+              await image.decode?.();
+              if (image.hasAttribute("data-actor-state-layer")) {
+                decodedActorImages.add(image);
+                image.dataset.actorStateDecoded = "true";
+              }
+            } catch {
+              // A failed predecode never authorizes an empty actor frame.
+            }
+          }),
       );
       ScrollTrigger.refresh();
       measureRanges();
@@ -810,6 +918,7 @@ export function useHomeNarrativeDirector({
         isInitialized = true;
         lastFrame = frame;
       }
+      if (!prefersReducedMotion) preloadRemainingHeroSequence();
     };
 
     const resizeDirector = () => {

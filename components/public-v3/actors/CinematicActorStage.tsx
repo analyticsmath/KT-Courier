@@ -7,6 +7,7 @@ import {
   RED_TRUCK_STATES,
   VAN_STATES,
   WHITE_TRUCK_STATES,
+  HERO_TRUCK_SEQUENCE,
   type ActorStateDefinition,
 } from "./actor-state-machine";
 
@@ -77,12 +78,23 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
         <StateBank
           actor="white-truck"
           states={{
-            "front-3q-right": WHITE_TRUCK_STATES["front-3q-right"],
+            "front-3q-entry-phase-01": WHITE_TRUCK_STATES["front-3q-entry-phase-01"],
+            "front-3q-entry-phase-02": WHITE_TRUCK_STATES["front-3q-entry-phase-02"],
+            "front-3q-entry-phase-03": WHITE_TRUCK_STATES["front-3q-entry-phase-03"],
+            "front-3q-entry-phase-04": WHITE_TRUCK_STATES["front-3q-entry-phase-04"],
+            "front-3q-entry-phase-05": WHITE_TRUCK_STATES["front-3q-entry-phase-05"],
+            "front-3q-entry-phase-06": WHITE_TRUCK_STATES["front-3q-entry-phase-06"],
+            "front-center-transition-phase-01": WHITE_TRUCK_STATES["front-center-transition-phase-01"],
+            "front-center-transition-phase-02": WHITE_TRUCK_STATES["front-center-transition-phase-02"],
+            "true-front-center-full": WHITE_TRUCK_STATES["true-front-center-full"],
+            "true-front-center-medium": WHITE_TRUCK_STATES["true-front-center-medium"],
+            "true-front-center-close": WHITE_TRUCK_STATES["true-front-center-close"],
+            "true-front-center-extreme-close": WHITE_TRUCK_STATES["true-front-center-extreme-close"],
             "top-down-straight": WHITE_TRUCK_STATES["top-down-straight"],
             "top-down-angled": WHITE_TRUCK_STATES["top-down-angled"],
             "top-down-turning": WHITE_TRUCK_STATES["top-down-turning"],
           }}
-          preloadStates={["front-3q-right"]}
+          preloadStates={[...HERO_TRUCK_SEQUENCE.slice(0, 6)]}
         />
       </div>
 

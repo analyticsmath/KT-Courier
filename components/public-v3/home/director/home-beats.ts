@@ -24,16 +24,18 @@ export function within(progress: number, start: number, end: number): boolean {
 
 export const HOME_BEATS = {
   hero: {
-    posterRead: [0, 0.14],
-    truckEntry: [0.14, 0.32],
-    brake: [0.32, 0.39],
-    centreHold: [0.39, 0.5],
-    anticipation: [0.5, 0.57],
-    cameraPressure: [0.57, 0.72],
-    perspectiveSwap: [0.72, 0.8],
-    headOnCharge: [0.8, 0.94],
-    passCamera: [0.94, 0.985],
-    release: [0.985, 1],
+    posterRead: [0, 0.13],
+    entryReveal: [0.13, 0.22],
+    travellingTurn: [0.22, 0.4],
+    centreSettle: [0.4, 0.5],
+    centreTurn: [0.5, 0.58],
+    frontalEstablish: [0.58, 0.66],
+    frontalBlend: [0.58, 0.62],
+    frontalHold: [0.62, 0.66],
+    frontalApproach: [0.66, 0.78],
+    closeApproach: [0.78, 0.9],
+    cameraPass: [0.9, 0.975],
+    release: [0.975, 1],
   },
   marketplace: { incoming: [0, 0.24], hold: [0.24, 0.72], departure: [0.72, 1], ownerThreshold: 0.82 },
   fan: {

@@ -1,7 +1,7 @@
 /**
  * KT Courier Public Experience — Actor State Machine
  *
- * Strongly typed definitions for all 62 pre-rendered performance states.
+ * Strongly typed definitions for all 74 pre-rendered performance states.
  * Authoritative dimensions and ground contact baselines generated from local PNG masters via sharp.
  * Enforces orientation continuity, intrinsic ratios, and concealment rules.
  * Visible crossfades in unobstructed viewports are strictly forbidden.
@@ -39,6 +39,23 @@ export type ActorAction =
   | "depart"
   | "carry";
 
+export const HERO_TRUCK_SEQUENCE = [
+  "front-3q-entry-phase-01",
+  "front-3q-entry-phase-02",
+  "front-3q-entry-phase-03",
+  "front-3q-entry-phase-04",
+  "front-3q-entry-phase-05",
+  "front-3q-entry-phase-06",
+  "front-center-transition-phase-01",
+  "front-center-transition-phase-02",
+  "true-front-center-full",
+  "true-front-center-medium",
+  "true-front-center-close",
+  "true-front-center-extreme-close",
+] as const;
+
+export type HeroTruckSequenceStateId = (typeof HERO_TRUCK_SEQUENCE)[number];
+
 export interface ActorStateDefinition {
   id: string;
   name: string;
@@ -47,6 +64,7 @@ export interface ActorStateDefinition {
   width: number;
   height: number;
   aspectRatio: number;
+  visibleBounds: { x: number; y: number; width: number; height: number };
   orientation: "right" | "left" | "center" | "top-down" | "detail";
   direction: ActorDirection;
   action: ActorAction;
@@ -97,6 +115,7 @@ function resolveGeneratedState(
     width: gen.width,
     height: gen.height,
     aspectRatio: gen.aspectRatio,
+    visibleBounds: gen.visibleBounds,
     orientation,
     direction: gen.direction,
     action: gen.action,
@@ -112,7 +131,7 @@ function resolveGeneratedState(
 }
 
 // ---------------------------------------------------------------------------
-// White Truck — 16 States (Flagship Long-Haul Transport)
+// White Truck — 28 States (Flagship Long-Haul Transport)
 // ---------------------------------------------------------------------------
 export type WhiteTruckStateId =
   | "wide-hero" // 10: Primary campaign hero composition
@@ -130,7 +149,8 @@ export type WhiteTruckStateId =
   | "rear-portion-close" // 13
   | "rear-doors-open" // 14
   | "motion-energy" // 15: Acceleration state
-  | "top-down-turning"; // 16
+  | "top-down-turning" // 16
+  | HeroTruckSequenceStateId;
 
 export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition> = {
   "wide-hero": resolveGeneratedState("white-truck", "wide-hero", {
@@ -180,6 +200,42 @@ export const WHITE_TRUCK_STATES: Record<WhiteTruckStateId, ActorStateDefinition>
   }),
   "top-down-turning": resolveGeneratedState("white-truck", "top-down-turning", {
     alt: "KT Couriers white truck turning along highway curve",
+  }),
+  "front-3q-entry-phase-01": resolveGeneratedState("white-truck", "front-3q-entry-phase-01", {
+    alt: "KT white truck entering in a front three-quarter view",
+  }),
+  "front-3q-entry-phase-02": resolveGeneratedState("white-truck", "front-3q-entry-phase-02", {
+    alt: "KT white truck advancing in a front three-quarter view",
+  }),
+  "front-3q-entry-phase-03": resolveGeneratedState("white-truck", "front-3q-entry-phase-03", {
+    alt: "KT white truck continuing its front three-quarter approach",
+  }),
+  "front-3q-entry-phase-04": resolveGeneratedState("white-truck", "front-3q-entry-phase-04", {
+    alt: "KT white truck turning toward a frontal view",
+  }),
+  "front-3q-entry-phase-05": resolveGeneratedState("white-truck", "front-3q-entry-phase-05", {
+    alt: "KT white truck continuing its turn toward camera",
+  }),
+  "front-3q-entry-phase-06": resolveGeneratedState("white-truck", "front-3q-entry-phase-06", {
+    alt: "KT white truck settling into a centered approach",
+  }),
+  "front-center-transition-phase-01": resolveGeneratedState("white-truck", "front-center-transition-phase-01", {
+    alt: "KT white truck transitioning toward a centered frontal view",
+  }),
+  "front-center-transition-phase-02": resolveGeneratedState("white-truck", "front-center-transition-phase-02", {
+    alt: "KT white truck nearly facing forward",
+  }),
+  "true-front-center-full": resolveGeneratedState("white-truck", "true-front-center-full", {
+    alt: "Full centered frontal view of the KT white truck",
+  }),
+  "true-front-center-medium": resolveGeneratedState("white-truck", "true-front-center-medium", {
+    alt: "Medium centered frontal view of the KT white truck approaching",
+  }),
+  "true-front-center-close": resolveGeneratedState("white-truck", "true-front-center-close", {
+    alt: "Close centered frontal view of the KT white truck approaching",
+  }),
+  "true-front-center-extreme-close": resolveGeneratedState("white-truck", "true-front-center-extreme-close", {
+    alt: "Extreme close centered frontal view of the KT white truck",
   }),
 };
 

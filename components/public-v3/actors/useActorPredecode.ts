@@ -7,7 +7,7 @@ const predecodedCache = new Set<string>();
 /**
  * Predecode actor states just in time.
  * Prevents frame drops or visual blanking during quick masked state switches.
- * Never loads all 62 states at boot; only current, next, and next+1 for the active scene.
+ * Never loads all 74 states at boot; only current, next, and next+1 for the active scene.
  * Invariant: Failed decodes are NOT cached as successes.
  */
 export function predecodeActorMedia(srcs: (string | undefined | null)[]): Promise<void[]> {
