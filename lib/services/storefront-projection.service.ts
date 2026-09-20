@@ -94,7 +94,11 @@ export class StorefrontProjectionService {
     const filterableAttributes = approvedFacetAttributes(source.product.productTypeDefinition.searchFacetSchema, { ...attributes, ...variantAttributes });
     const variantOptions = Object.fromEntries(source.variant.optionValues.map((link) => [link.optionValue.option.code, link.optionValue.label]));
     const inventory = source.offer.inventoryItem;
-    const sourceFresh = !inventory?.levels.some((level) => now.getTime() - level.updatedAt.getTime() > 30 * 60 * 1000);
+    // Inventory levels in this marketplace database are the canonical stock authority.
+    // Their age is not evidence of staleness: reservations and stock mutations update
+    // the same rows transactionally. The previous 30-minute timeout caused valid
+    // seeded/managed stock to degrade to CONFIRM_AT_CHECKOUT indefinitely.
+    const sourceFresh = Boolean(inventory && inventory.levels.length > 0);
     const availability = deriveStorefrontAvailability({ trackingMode: source.offer.inventoryTrackingMode, availableQuantities: inventory?.levels.map((level) => level.available), allowBackorder: inventory?.allowBackorder, sourceFresh, eligible: true });
     const searchText = normalizeStorefrontQuery([source.product.title, source.product.brand?.name, source.product.productTypeDefinition.name, source.product.primaryCategory.path, source.offer.store.name, source.variant.gtin, source.variant.mpn, ...Object.values(variantOptions), ...Object.values(filterableAttributes).flatMap((value) => Array.isArray(value) ? value : [String(value)])].filter(Boolean).join(" ")).value;
     const document: StorefrontDocument = {

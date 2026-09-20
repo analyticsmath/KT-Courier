@@ -3,6 +3,7 @@ import Image from "next/image";
 import { CommerceSearchCommand } from "./CommerceSearchCommand";
 import { marketplaceCategoryHref, marketplaceHref } from "@/lib/public-marketplace/routes";
 import { homeMedia } from "@/components/public-v2/home/home-media";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import styles from "./commerce.module.css";
 
 interface CategorySummary {
@@ -57,11 +58,10 @@ export function ShopEntryField({ categories }: ShopEntryFieldProps) {
                 fill
                 priority
                 sizes="(max-width: 899px) 100vw, 55vw"
-                src={
-                  primaryCat?.imageReference
-                    ? `/api/catalog/media/${primaryCat.imageReference}`
-                    : homeMedia.fashion.src
-                }
+                src={storefrontCategoryMediaSrc(
+                  primaryCat?.imageReference,
+                  homeMedia.fashion.src,
+                )!}
                 style={{ objectFit: "cover" }}
               />
               <div className={styles.entryMediaOverlay}>
@@ -79,11 +79,10 @@ export function ShopEntryField({ categories }: ShopEntryFieldProps) {
                 fill
                 priority
                 sizes="25vw"
-                src={
-                  secondaryCat?.imageReference
-                    ? `/api/catalog/media/${secondaryCat.imageReference}`
-                    : homeMedia.grocery.src
-                }
+                src={storefrontCategoryMediaSrc(
+                  secondaryCat?.imageReference,
+                  homeMedia.grocery.src,
+                )!}
                 style={{ objectFit: "cover" }}
               />
               <div className={styles.entryMediaOverlay}>

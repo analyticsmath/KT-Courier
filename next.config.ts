@@ -60,6 +60,13 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/q8gbzml2/image/upload/**",
+      },
+    ],
   },
   ...(buildCpuOverride !== undefined
     ? {
