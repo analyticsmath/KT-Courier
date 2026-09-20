@@ -26,15 +26,54 @@ export const BASE_FAN_ITEMS = [
   { id: "apparel", asset: ktMediaV3.editorial.fashion.whiteTop, label: "Boutique Apparel", rotation: 14, xOffset: 360, yOffset: 24 },
 ];
 
-/** The selected marketplace image stays central while surrounding images spread, settle, and release. */
-export function ImageFanScene({ className = "", selectedMedia, marketplaceMedia = [] }: ImageFanSceneProps) {
-  const fanItems = BASE_FAN_ITEMS.map((item) => item.isHeroChoice && selectedMedia
-    ? {
+/**
+ * The image fan is a continuation of the marketplace, not a new random gallery.
+ * Live marketplace category photography fills the surrounding fan positions and
+ * the selected marketplace image keeps ownership of the central card.
+ */
+export function ImageFanScene({
+  className = "",
+  selectedMedia,
+  marketplaceMedia = [],
+}: ImageFanSceneProps) {
+  const surroundingMarketplaceMedia = marketplaceMedia.filter(
+    (media) =>
+      Boolean(media.image) &&
+      (!selectedMedia?.id || media.id !== selectedMedia.id),
+  );
+
+  let surroundingIndex = 0;
+  const fanItems = BASE_FAN_ITEMS.map((item) => {
+    if (item.isHeroChoice && selectedMedia?.image) {
+      return {
         ...item,
-        asset: { src: selectedMedia.image, alt: selectedMedia.altText || selectedMedia.title },
+        asset: {
+          src: selectedMedia.image,
+          alt: selectedMedia.altText || selectedMedia.title,
+        },
         label: selectedMedia.title,
-      }
-    : item);
+      };
+    }
+
+    if (!item.isHeroChoice && surroundingMarketplaceMedia.length) {
+      const media =
+        surroundingMarketplaceMedia[
+          surroundingIndex % surroundingMarketplaceMedia.length
+        ];
+      surroundingIndex += 1;
+
+      return {
+        ...item,
+        asset: {
+          src: media.image,
+          alt: media.altText || media.title,
+        },
+        label: media.title,
+      };
+    }
+
+    return item;
+  });
 
   return (
     <section
@@ -76,7 +115,7 @@ export function ImageFanScene({ className = "", selectedMedia, marketplaceMedia 
               <div className="relative w-full h-full bg-[#1A1E24]">
                 {item.isHeroChoice && marketplaceMedia.length ? marketplaceMedia.map((media) => (
                   <div
-                    key={media.id}
+                    key={media.id || media.title}
                     className="kt-fan-selected-media-layer absolute inset-0"
                     data-fan-media-id={media.id}
                     data-fan-active={media.id === selectedMedia?.id ? "true" : "false"}
