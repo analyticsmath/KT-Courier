@@ -15,8 +15,8 @@ import { storefrontFilterHasCrawlRisk } from "@/lib/storefront/search/storefront
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
-import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import { ktMedia } from "@/components/public-v2/media";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import { notFound } from "next/navigation";
 import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
 
@@ -33,17 +33,13 @@ export async function generateMetadata({
   const category = await getStorefrontCategory(categoryPath);
   const filters = parseMarketplaceSearchParams(await searchParams);
   const canonical = category ? marketplaceCategoryHref(category.path) : null;
-  const categoryMedia = category
-    ? storefrontCategoryMediaSrc(category.imageReference)
-    : undefined;
-
   return category
     ? {
         title: `${category.name} | KT Couriers Marketplace`,
         description: category.description,
         alternates: canonical ? { canonical } : undefined,
-        ...(categoryMedia
-          ? { openGraph: { images: [{ url: categoryMedia, alt: category.name }] } }
+        ...(category.imageReference
+          ? { openGraph: { images: [{ url: `/api/catalog/media/${category.imageReference}`, alt: category.name }] } }
           : {}),
         ...(storefrontFilterHasCrawlRisk(filters) ? { robots: { index: false, follow: true } } : {}),
       }
@@ -68,7 +64,6 @@ export default async function CategoryPage({
   const getCategoryHeroSrc = () => {
     const authoritative = storefrontCategoryMediaSrc(category.imageReference);
     if (authoritative) return authoritative;
-
     const p = category.path.toLowerCase();
     if (p.includes("food")) return ktMedia.categories.foodDining.hero.src;
     if (p.includes("groc")) return ktMedia.categories.groceries.hero.src;
