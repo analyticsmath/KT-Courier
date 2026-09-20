@@ -42,8 +42,7 @@ export function ImageFanScene({
       (!selectedMedia?.id || media.id !== selectedMedia.id),
   );
 
-  let surroundingIndex = 0;
-  const fanItems = BASE_FAN_ITEMS.map((item) => {
+  const fanItems = BASE_FAN_ITEMS.map((item, itemIndex) => {
     if (item.isHeroChoice && selectedMedia?.image) {
       return {
         ...item,
@@ -56,11 +55,13 @@ export function ImageFanScene({
     }
 
     if (!item.isHeroChoice && surroundingMarketplaceMedia.length) {
+      const surroundingPosition = BASE_FAN_ITEMS
+        .slice(0, itemIndex)
+        .filter((candidate) => !candidate.isHeroChoice).length;
       const media =
         surroundingMarketplaceMedia[
-          surroundingIndex % surroundingMarketplaceMedia.length
+          surroundingPosition % surroundingMarketplaceMedia.length
         ];
-      surroundingIndex += 1;
 
       return {
         ...item,
