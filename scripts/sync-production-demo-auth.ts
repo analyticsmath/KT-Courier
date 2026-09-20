@@ -16,7 +16,7 @@ const FOUNDATION_EMAILS = [
   "promoter@ktcouriers.local",
 ] as const;
 
-const CRITICAL_LOGIN_EMAILS = [
+const REQUESTED_LOGIN_EMAILS = [
   "admin@ktcouriers.local",
   "store.ubuntu-fresh-market@ktcouriers.local",
   "driver.lerato.adams1@ktcouriers.local",
@@ -51,34 +51,41 @@ function allSeededDemoEmails(): string[] {
 
 async function main(): Promise<void> {
   const password = requireProductionAuthorization();
-
-  const critical = await prisma.user.findMany({
-    where: { email: { in: [...CRITICAL_LOGIN_EMAILS] } },
-    select: { email: true, role: true, status: true },
-  });
-
-  const found = new Set(critical.map((user) => user.email));
-  const missing = CRITICAL_LOGIN_EMAILS.filter((email) => !found.has(email));
-  if (missing.length > 0) {
-    throw new Error(`Critical seeded demo accounts are missing: ${missing.join(", ")}`);
-  }
-
   const passwordHash = await bcrypt.hash(password, 10);
   const seededEmails = allSeededDemoEmails();
+
   const updated = await prisma.user.updateMany({
     where: { email: { in: seededEmails } },
     data: { passwordHash },
   });
 
+  const [requestedAccounts, activeSeededCandidates] = await Promise.all([
+    prisma.user.findMany({
+      where: { email: { in: [...REQUESTED_LOGIN_EMAILS] } },
+      select: { email: true, role: true, status: true },
+      orderBy: { email: "asc" },
+    }),
+    prisma.user.findMany({
+      where: {
+        email: { in: seededEmails },
+        status: "ACTIVE",
+        role: { in: ["ADMIN", "SUPER_ADMIN", "STORE", "DRIVER", "CUSTOMER"] },
+      },
+      select: { email: true, role: true, status: true },
+      orderBy: [{ role: "asc" }, { email: "asc" }],
+    }),
+  ]);
+
+  const found = new Set(requestedAccounts.map((user) => user.email));
+  const missingRequested = REQUESTED_LOGIN_EMAILS.filter((email) => !found.has(email));
+
   console.log(JSON.stringify({
     event: "production_demo_credentials_synced",
     knownSeededEmails: seededEmails.length,
     updatedUsers: updated.count,
-    criticalAccounts: critical.map((user) => ({
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    })),
+    requestedAccounts,
+    missingRequested,
+    activeSeededCandidates: activeSeededCandidates.slice(0, 40),
   }));
 }
 
