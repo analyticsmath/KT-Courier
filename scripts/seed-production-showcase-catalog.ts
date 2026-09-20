@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { writeFile } from "node:fs/promises";
 import { disconnectFullDemoSeeder, seedFullDemo } from "./seed-full-demo";
 
 const prisma = new PrismaClient();
@@ -75,8 +76,26 @@ async function verifyCatalogue(): Promise<void> {
   }));
 }
 
+async function hasExistingCatalogueState(): Promise<boolean> {
+  const [mediaAssets, products, stores] = await Promise.all([
+    prisma.catalogMediaAsset.count(),
+    prisma.catalogProduct.count(),
+    prisma.store.count(),
+  ]);
+  return mediaAssets > 0 || products > 0 || stores > 0;
+}
+
 async function main(): Promise<void> {
   requireProductionCatalogAuthorization();
+
+  // Production deploys are not catalogue migrations. Once the showcase catalogue
+  // exists, verify it and leave immutable catalog/media declarations untouched.
+  if (await hasExistingCatalogueState()) {
+    await verifyCatalogue();
+    console.log(JSON.stringify({ event: "production_showcase_catalogue_existing" }));
+    return;
+  }
+
   await seedFullDemo({
     catalogOnly: true,
     includeDevAuthAccounts: false,
@@ -84,6 +103,11 @@ async function main(): Promise<void> {
     catalogStorageProvider: "S3_COMPATIBLE",
   });
   await verifyCatalogue();
+
+  // The media sync command runs immediately after this script in the same Railway
+  // pre-deploy container. This sentinel tells it that this is the one-time bootstrap
+  // path and that bundled media must actually be uploaded to durable storage.
+  await writeFile("/tmp/kt-showcase-catalog-seeded-now", new Date().toISOString(), "utf8");
 }
 
 main()

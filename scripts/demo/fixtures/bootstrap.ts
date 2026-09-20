@@ -45,7 +45,7 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   // 1. Roles and standard user accounts
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@ktcouriers.local" },
-    update: { name: "System Super Admin", role: "SUPER_ADMIN", status: "ACTIVE" },
+    update: { name: "System Super Admin", passwordHash, role: "SUPER_ADMIN", status: "ACTIVE" },
     create: {
       email: "superadmin@ktcouriers.local",
       name: "System Super Admin",
@@ -57,7 +57,7 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@ktcouriers.local" },
-    update: { name: "Operations Admin", role: "ADMIN", status: "ACTIVE" },
+    update: { name: "Operations Admin", passwordHash, role: "ADMIN", status: "ACTIVE" },
     create: {
       email: "admin@ktcouriers.local",
       name: "Operations Admin",
@@ -206,25 +206,25 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     console.log("  [Bootstrap] Ensuring development testing auth logins...");
     await prisma.user.upsert({
       where: { email: "customer@ktcouriers.local" },
-      update: { name: "Thabo Mokoena", role: "CUSTOMER", status: "ACTIVE" },
+      update: { name: "Thabo Mokoena", passwordHash, role: "CUSTOMER", status: "ACTIVE" },
       create: { email: "customer@ktcouriers.local", name: "Thabo Mokoena", passwordHash, role: "CUSTOMER", status: "ACTIVE" },
     });
 
     await prisma.user.upsert({
       where: { email: "driver@ktcouriers.local" },
-      update: { name: "Sipho Khumalo", role: "DRIVER", status: "ACTIVE" },
+      update: { name: "Sipho Khumalo", passwordHash, role: "DRIVER", status: "ACTIVE" },
       create: { email: "driver@ktcouriers.local", name: "Sipho Khumalo", passwordHash, role: "DRIVER", status: "ACTIVE" },
     });
 
     await prisma.user.upsert({
       where: { email: "store@ktcouriers.local" },
-      update: { name: "Nandi Khumalo", role: "STORE", status: "ACTIVE" },
+      update: { name: "Nandi Khumalo", passwordHash, role: "STORE", status: "ACTIVE" },
       create: { email: "store@ktcouriers.local", name: "Nandi Khumalo", passwordHash, role: "STORE", status: "ACTIVE" },
     });
 
     await prisma.user.upsert({
       where: { email: "promoter@ktcouriers.local" },
-      update: { name: "Lerato Sithole", role: "PROMOTER", status: "ACTIVE" },
+      update: { name: "Lerato Sithole", passwordHash, role: "PROMOTER", status: "ACTIVE" },
       create: { email: "promoter@ktcouriers.local", name: "Lerato Sithole", passwordHash, role: "PROMOTER", status: "ACTIVE" },
     });
   }

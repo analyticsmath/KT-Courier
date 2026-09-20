@@ -355,7 +355,7 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
     // Store Owner User
     const ownerUser = await prisma.user.upsert({
       where: { email: ownerEmail },
-      update: { name: storeDef.contactName, status: storeDef.status === "DISABLED" ? "SUSPENDED" : "ACTIVE" },
+      update: { name: storeDef.contactName, passwordHash, status: storeDef.status === "DISABLED" ? "SUSPENDED" : "ACTIVE" },
       create: {
         email: ownerEmail,
         name: storeDef.contactName,
@@ -618,7 +618,7 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
     const createdAt = FOUNDATION_DATE;
     const user = await prisma.user.upsert({
       where: { email: c.email },
-      update: { name: `${c.firstName} ${c.lastName}`, phone: c.phone },
+      update: { name: `${c.firstName} ${c.lastName}`, phone: c.phone, passwordHash },
       create: {
         email: c.email,
         name: `${c.firstName} ${c.lastName}`,
@@ -658,7 +658,7 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
     const createdAt = randomDateBetween(FOUNDATION_DATE, new Date("2026-02-28T00:00:00.000Z"), rng);
     const user = await prisma.user.upsert({
       where: { email: d.email },
-      update: { name: d.name, phone: d.phone },
+      update: { name: d.name, phone: d.phone, passwordHash },
       create: {
         email: d.email,
         name: d.name,
@@ -732,7 +732,7 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
     const createdAt = randomDateBetween(FOUNDATION_DATE, new Date("2026-02-28T00:00:00.000Z"), rng);
     const user = await prisma.user.upsert({
       where: { email: p.email },
-      update: { name: p.name, phone: p.phone },
+      update: { name: p.name, phone: p.phone, passwordHash },
       create: {
         email: p.email,
         name: p.name,
