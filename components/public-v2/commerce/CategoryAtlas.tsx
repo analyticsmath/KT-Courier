@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { marketplaceCategoryHref, marketplaceCategoriesHref, marketplaceHref } from "@/lib/public-marketplace/routes";
 import { ktMedia } from "@/components/public-v2/media";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import styles from "./commerce.module.css";
 
 interface CategoryAtlasItem {
@@ -42,7 +43,8 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
   const activeHref = (activeCat ? marketplaceCategoryHref(activeCat.path) : null) ?? marketplaceCategoriesHref();
 
   const getMediaSrc = (cat: CategoryAtlasItem) => {
-    if (cat.imageReference) return `/api/catalog/media/${cat.imageReference}`;
+    const authoritative = storefrontCategoryMediaSrc(cat.imageReference);
+    if (authoritative) return authoritative;
     const p = cat.path.toLowerCase();
     if (p.includes("food")) return ktMedia.categories.foodDining.hero.src;
     if (p.includes("groc")) return ktMedia.categories.groceries.hero.src;
