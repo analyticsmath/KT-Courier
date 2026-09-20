@@ -28,8 +28,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
   Object.freeze({
     // Groceries
     "CMA-CAT-GROCERIES": {
-      publicId: "kt-courier/category-overrides/groceries",
-      format: "jpg",
+      src: "/media/public/derived/photo-grocery-fruit-crates-overhead-1440w.webp",
     },
     "CMA-CAT-FRESH-PRODUCE": {
       publicId: "cape-town-market-vegetables",
@@ -58,8 +57,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
 
     // Food & dining
     "CMA-CAT-FOOD-DINING": {
-      publicId: "cape-town-market-food-bowl",
-      format: "webp",
+      src: "/media/public/derived/photo-food-prepared-grain-bowl-1440w.webp",
     },
     "CMA-CAT-BURGERS": {
       publicId: "kt-courier/category-overrides/burgers",
@@ -80,8 +78,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
 
     // Pharmacy & wellness
     "CMA-CAT-PHARMACY": {
-      publicId: "kt-courier/category-overrides/pharmacy",
-      format: "jpg",
+      src: "/media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp",
     },
     "CMA-CAT-OTC-RELIEF": {
       publicId: "kt-courier/category-overrides/otc",
@@ -102,8 +99,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
 
     // Fashion
     "CMA-CAT-FASHION": {
-      publicId: "kt-courier/category-overrides/fashion",
-      format: "jpg",
+      src: "/media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp",
     },
     "CMA-CAT-CLOTHING": {
       publicId: "kt-courier/category-overrides/clothing",
@@ -135,8 +131,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
 
     // Home & living
     "CMA-CAT-HOME-LIVING": {
-      publicId: "cape-town-market-ceramics",
-      format: "webp",
+      src: "/media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp",
     },
     "CMA-CAT-COOKWARE": {
       publicId: "kt-courier/category-overrides/cookware",
