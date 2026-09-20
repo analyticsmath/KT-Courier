@@ -3,6 +3,10 @@ import { PublicHomeExperience } from "@/components/public-v3/home";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 import { marketplaceCategoryHref, marketplaceCategoriesHref } from "@/lib/public-marketplace/routes";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
+import {
+  FEATURED_MARKETPLACE_CATEGORY_PATHS,
+  type FeaturedMarketplaceCategoryPath,
+} from "@/lib/public-marketplace/featured-categories";
 import { getStorefrontHome } from "@/lib/services/storefront-catalog.service";
 import { resolveHomepageCategoryVisual } from "@/components/public-v3/home/director/home-category-media";
 import {
@@ -30,8 +34,8 @@ export default async function HomePage() {
   }
 
   const home = await getStorefrontHome();
-  const categoryOrder = ["groceries", "fashion", "food-dining", "home-living", "pharmacy"] as const;
-  const categoryWordByPath: Record<(typeof categoryOrder)[number], string> = {
+  const categoryOrder = FEATURED_MARKETPLACE_CATEGORY_PATHS;
+  const categoryWordByPath: Record<FeaturedMarketplaceCategoryPath, string> = {
     groceries: "FRESH",
     fashion: "FASHION",
     "food-dining": "FOOD",
@@ -51,7 +55,7 @@ export default async function HomePage() {
     .filter((category): category is (typeof home.categories)[number] => Boolean(category));
 
   const categories = orderedCategories.map((cat) => {
-    const normalizedPath = cat.path.replace(/^\/+/, "") as (typeof categoryOrder)[number];
+    const normalizedPath = cat.path.replace(/^\/+/, "") as FeaturedMarketplaceCategoryPath;
     const curatedImage = storefrontCategoryMediaSrc(cat.imageReference, "") || "";
 
     return resolveHomepageCategoryVisual({
