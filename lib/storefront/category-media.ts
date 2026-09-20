@@ -1,10 +1,18 @@
 const CLOUDINARY_CATEGORY_BASE =
   "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000";
 
-type CuratedCategoryMedia = Readonly<{
-  publicId: string;
-  format: "jpg" | "webp";
-}>;
+type CuratedCategoryMedia = Readonly<
+  | {
+      publicId: string;
+      format: "jpg" | "webp";
+      src?: never;
+    }
+  | {
+      src: string;
+      publicId?: never;
+      format?: never;
+    }
+>;
 
 /**
  * Curated category media is deliberately explicit.
@@ -36,8 +44,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       format: "jpg",
     },
     "CMA-CAT-BEVERAGES": {
-      publicId: "kt-courier/category-overrides/pantry",
-      format: "jpg",
+      src: "/media/public/derived/photo-commerce-coffee-roastery-counter-1440w.webp",
     },
     "CMA-CAT-SNACKS": {
       publicId: "kt-courier/category-overrides/snacks",
@@ -88,8 +95,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       format: "jpg",
     },
     "CMA-CAT-PERSONAL-CARE": {
-      publicId: "kt-courier/category-overrides/pharmacy",
-      format: "jpg",
+      src: "/media/public/derived/photo-wellness-herbal-jars-dispensary-1440w.webp",
     },
 
     // Fashion
@@ -102,8 +108,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       format: "jpg",
     },
     "CMA-CAT-FOOTWEAR": {
-      publicId: "kt-courier/category-overrides/fashion",
-      format: "jpg",
+      src: "/media/public/derived/photo-fashion-designer-footwear-leather-1440w.webp",
     },
     "CMA-CAT-ACCESSORIES": {
       publicId: "kt-courier/category-overrides/accessories",
@@ -163,6 +168,7 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
   });
 
 function curatedCategoryMediaSrc(asset: CuratedCategoryMedia): string {
+  if ("src" in asset) return asset.src;
   return `${CLOUDINARY_CATEGORY_BASE}/${asset.publicId}.${asset.format}`;
 }
 
