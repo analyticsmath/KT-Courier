@@ -43,5 +43,5 @@ export function availabilityLabel(value: StorefrontAvailabilityState): string {
   }[value];
 }
 
-export const AVAILABILITY_ADVISORY = "Availability is shown for browsing only and will be confirmed before checkout.";
+export const AVAILABILITY_ADVISORY = "Stock shown here reflects current marketplace inventory and is revalidated when the cart is reserved at checkout.";
 
