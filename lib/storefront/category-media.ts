@@ -27,7 +27,15 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       publicId: "cape-town-market-vegetables",
       format: "webp",
     },
+    "CMA-CAT-DAIRY-EGGS": {
+      publicId: "kt-courier/category-overrides/groceries",
+      format: "jpg",
+    },
     "CMA-CAT-PANTRY": {
+      publicId: "kt-courier/category-overrides/pantry",
+      format: "jpg",
+    },
+    "CMA-CAT-BEVERAGES": {
       publicId: "kt-courier/category-overrides/pantry",
       format: "jpg",
     },
@@ -79,6 +87,10 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
       publicId: "kt-courier/category-overrides/vitamins",
       format: "jpg",
     },
+    "CMA-CAT-PERSONAL-CARE": {
+      publicId: "kt-courier/category-overrides/pharmacy",
+      format: "jpg",
+    },
 
     // Fashion
     "CMA-CAT-FASHION": {
@@ -87,6 +99,10 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
     },
     "CMA-CAT-CLOTHING": {
       publicId: "kt-courier/category-overrides/clothing",
+      format: "jpg",
+    },
+    "CMA-CAT-FOOTWEAR": {
+      publicId: "kt-courier/category-overrides/fashion",
       format: "jpg",
     },
     "CMA-CAT-ACCESSORIES": {
