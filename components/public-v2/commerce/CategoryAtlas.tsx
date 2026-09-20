@@ -99,7 +99,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
                     )}
                   </div>
                   <span className={styles.categoryStreamCount}>
-                    {typeof cat.productCount === "number" ? `${cat.productCount} items` : "Explore"}
+                    {Boolean(cat.productCount && cat.productCount > 0) ? `${cat.productCount} items` : "Explore"}
                   </span>
                 </Link>
               </li>
@@ -121,7 +121,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
             <div className={styles.entryMediaOverlay}>
               <div>
                 <span className={styles.mediaCategoryName}>{activeCat.name}</span>
-                {typeof activeCat.productCount === "number" && (
+                {Boolean(activeCat.productCount && activeCat.productCount > 0) && (
                   <p style={{ fontSize: "0.85rem", color: "var(--kt-cool-300, #c9cecc)", margin: "4px 0 0" }}>
                     {activeCat.productCount} products listed
                   </p>

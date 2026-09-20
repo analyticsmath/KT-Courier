@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { StorefrontFilterInput } from "@/lib/storefront/search/storefront-filter-url";
 import type { StorefrontFacet } from "@/lib/storefront/storefront-types";
 import { marketplaceListingHref, marketplaceHref, type MarketplaceListingRoute } from "@/lib/public-marketplace/routes";
@@ -52,54 +56,114 @@ function facetHref(
 }
 
 export function DesktopFilterRail({ facets, filters, route }: DesktopFilterRailProps) {
-  const hiddenFilters: Array<{ name: string; value: string }> = [];
-  if (filters.q) hiddenFilters.push({ name: "q", value: filters.q });
-  if (filters.category && route.kind !== "category" && route.kind !== "store-category") hiddenFilters.push({ name: "category", value: filters.category });
-  if (filters.store && route.kind !== "store" && route.kind !== "store-category") hiddenFilters.push({ name: "store", value: filters.store });
-  if (filters.brand) hiddenFilters.push({ name: "brand", value: filters.brand });
-  if (filters.sort) hiddenFilters.push({ name: "sort", value: filters.sort });
-  for (const code of ["availability", "condition", "fulfilment"] as const) {
-    if (filters[code]?.length) hiddenFilters.push({ name: code, value: filters[code]!.join(",") });
-  }
-  for (const [code, values] of Object.entries(filters.facets ?? {})) {
-    if (values.length) hiddenFilters.push({ name: `f.${code}`, value: values.join(",") });
-  }
+  const router = useRouter();
+  const [minPrice, setMinPrice] = useState(filters.minPrice ?? "");
+  const [maxPrice, setMaxPrice] = useState(filters.maxPrice ?? "");
+  const [showAllFacets, setShowAllFacets] = useState<Record<string, boolean>>({});
+
+  const handlePriceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const next: StorefrontFilterInput = {
+      ...filters,
+      minPrice: minPrice || undefined,
+      maxPrice: maxPrice || undefined,
+      cursor: undefined,
+      page: undefined,
+    };
+    router.push(marketplaceListingHref(route, next) ?? marketplaceHref());
+  };
+
+  const toggleShowAll = (code: string) => {
+    setShowAllFacets((prev) => ({ ...prev, [code]: !prev[code] }));
+  };
 
   return (
     <aside aria-label="Filters" className={styles.plpFilterSidebar}>
-      <form action={marketplaceListingHref(route, {})} className={styles.desktopPriceForm} method="get">
-        {hiddenFilters.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}
-        <fieldset>
-          <legend className={styles.facetHeading}>Price range · ZAR</legend>
+      {/* Price Range Filter Form */}
+      <form className={styles.desktopPriceForm} onSubmit={handlePriceSubmit}>
+        <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+          <legend className={styles.desktopFacetHeading} style={{ marginBottom: 10 }}>
+            Price range · ZAR
+          </legend>
           <div className={styles.desktopPriceInputs}>
-            <label className={styles.desktopPriceField}>Minimum<input inputMode="decimal" min="0" name="minPrice" type="number" defaultValue={filters.minPrice ?? ""} /></label>
-            <label className={styles.desktopPriceField}>Maximum<input inputMode="decimal" min="0" name="maxPrice" type="number" defaultValue={filters.maxPrice ?? ""} /></label>
+            <label className={styles.desktopPriceField}>
+              <span>Minimum</span>
+              <input
+                aria-label="Minimum price in rand"
+                inputMode="decimal"
+                min="0"
+                onChange={(e) => setMinPrice(e.target.value)}
+                placeholder="0"
+                type="number"
+                value={minPrice}
+              />
+            </label>
+            <label className={styles.desktopPriceField}>
+              <span>Maximum</span>
+              <input
+                aria-label="Maximum price in rand"
+                inputMode="decimal"
+                min="0"
+                onChange={(e) => setMaxPrice(e.target.value)}
+                placeholder="Any"
+                type="number"
+                value={maxPrice}
+              />
+            </label>
           </div>
-          <button className={styles.desktopPriceApply} type="submit">Apply price</button>
+          <button className={styles.desktopPriceApply} style={{ marginTop: 10, width: "100%" }} type="submit">
+            Apply price
+          </button>
         </fieldset>
       </form>
-      {facets.map((facet) => (
-        <div className={styles.facetGroup} key={facet.code}>
-          <h3 className={styles.facetHeading}>{facet.label}</h3>
-          <ul className={styles.facetList}>
-            {facet.values.map((val: { value: string; label: string; count: number; selected: boolean }) => {
-              const href = facetHref(route, filters, facet.code, val.value);
-              return (
-                <li key={val.value}>
-                  <Link
-                    className={styles.facetRowLink}
-                    data-selected={val.selected ? "true" : undefined}
-                    href={href}
-                  >
-                    <span>{val.label}</span>
-                    <span className={styles.facetCount}>{val.count}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+
+      {/* Facet Groups with Show More Cap */}
+      {facets.map((facet) => {
+        const isShowingAll = showAllFacets[facet.code] ?? false;
+        const displayValues = isShowingAll ? facet.values : facet.values.slice(0, 7);
+        const hasMore = facet.values.length > 7;
+
+        return (
+          <div className={styles.desktopFacetGroup} key={facet.code}>
+            <h3 className={styles.desktopFacetHeading}>{facet.label}</h3>
+            <ul className={styles.facetList}>
+              {displayValues.map((val) => {
+                const href = facetHref(route, filters, facet.code, val.value);
+                return (
+                  <li key={val.value}>
+                    <Link
+                      className={styles.desktopFacetRowLink}
+                      data-selected={val.selected ? "true" : undefined}
+                      href={href}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <span
+                          aria-hidden="true"
+                          className={styles.desktopFacetIndicator}
+                        />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {val.label}
+                        </span>
+                      </span>
+                      <span className={styles.facetCount}>{val.count}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {hasMore && (
+              <button
+                className={styles.facetShowMoreButton}
+                onClick={() => toggleShowAll(facet.code)}
+                type="button"
+              >
+                {isShowingAll ? "− Show less" : `+ Show ${facet.values.length - 7} more`}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </aside>
   );
 }

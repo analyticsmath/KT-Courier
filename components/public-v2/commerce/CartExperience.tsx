@@ -490,7 +490,9 @@ export function CartExperience() {
                 color: "var(--kt-muted, #5f6763)",
                 fontSize: "0.85rem",
                 cursor: clearingCart ? "not-allowed" : "pointer",
-                textDecoration: "underline",
+                padding: "6px 12px",
+                borderRadius: "999px",
+                transition: "color 140ms ease",
               }}
             >
               {clearingCart ? "Clearing..." : "Clear Shopping Cart"}

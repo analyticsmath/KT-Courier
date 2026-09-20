@@ -583,7 +583,7 @@ export function CheckoutExperience() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(1)}
-                  style={{ background: "none", border: "none", color: "var(--kt-red, #d83a2e)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "underline" }}
+                  style={{ background: "none", border: "none", color: "var(--kt-red, #d83a2e)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}
                 >
                   Edit
                 </button>
@@ -696,7 +696,7 @@ export function CheckoutExperience() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(2)}
-                  style={{ background: "none", border: "none", color: "var(--kt-red, #d83a2e)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "underline" }}
+                  style={{ background: "none", border: "none", color: "var(--kt-red, #d83a2e)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}
                 >
                   Edit
                 </button>

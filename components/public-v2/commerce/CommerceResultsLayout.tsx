@@ -117,18 +117,9 @@ export async function CommerceResultsLayout({
       {/* Optional Context (e.g. Search Suggestions or Category Media) */}
       {context}
 
-      {/* Utility Bar: Count & Sort */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingBottom: 16,
-          borderBottom: "1px solid var(--kt-cool-200, #dde1e0)",
-          marginBottom: 20,
-        }}
-      >
-        <span style={{ fontSize: "0.9rem", color: "var(--kt-graphite, #303532)" }}>
+      {/* Utility Bar: Count & Sort (Desktop) */}
+      <div className={styles.plpUtilityBar}>
+        <span className={styles.plpUtilityCount}>
           {resultCount} {resultCount === 1 ? "product" : "products"}
         </span>
 

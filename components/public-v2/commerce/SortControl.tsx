@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { StorefrontFilterInput, StorefrontSort } from "@/lib/storefront/search/storefront-filter-url";
 import { marketplaceListingHref, type MarketplaceListingRoute } from "@/lib/public-marketplace/routes";
+import styles from "./commerce.module.css";
 
 const sortLabels: Record<StorefrontSort, string> = {
   RELEVANCE: "Relevance",
@@ -40,26 +41,17 @@ export function SortControl({ route, filters }: SortControlProps) {
   };
 
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <div className={styles.sortControlWrapper}>
       <label
+        className={styles.sortControlLabel}
         htmlFor="plp-sort-select"
-        style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)" }}
       >
         Sort:
       </label>
       <select
+        className={styles.sortControlSelect}
         id="plp-sort-select"
         onChange={(e) => handleSortChange(e.target.value as StorefrontSort)}
-        style={{
-          padding: "6px 12px",
-          border: "1px solid var(--kt-cool-300, #c9cecc)",
-          backgroundColor: "var(--kt-white, #ffffff)",
-          color: "var(--kt-carbon, #101210)",
-          fontFamily: "inherit",
-          fontSize: "0.85rem",
-          cursor: "pointer",
-          outline: "none",
-        }}
         value={currentSort}
       >
         {supportedSorts.map((sort) => (

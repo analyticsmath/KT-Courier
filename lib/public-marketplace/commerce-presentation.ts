@@ -1,4 +1,4 @@
-import type { AvailabilityState } from "@/lib/storefront/storefront-types";
+import type { StorefrontAvailabilityState } from "@/lib/storefront/storefront-availability-policy";
 
 /**
  * Centralized human-readable presentation for marketplace enums and technical strings.
@@ -43,7 +43,7 @@ export function humanizeCondition(condition: string | undefined | null): string 
   }
 }
 
-export function humanizeAvailability(availability: AvailabilityState | string | undefined | null): {
+export function humanizeAvailability(availability: StorefrontAvailabilityState | string | undefined | null): {
   label: string;
   isAvailable: boolean;
   isLowStock: boolean;
@@ -58,6 +58,14 @@ export function humanizeAvailability(availability: AvailabilityState | string | 
       return { label: "Low stock", isAvailable: true, isLowStock: true };
     case "OUT_OF_STOCK":
       return { label: "Out of stock", isAvailable: false, isLowStock: false };
+    case "MADE_TO_ORDER":
+      return { label: "Made to order", isAvailable: true, isLowStock: false };
+    case "UNTRACKED":
+      return { label: "In stock", isAvailable: true, isLowStock: false };
+    case "CONFIRM_AT_CHECKOUT":
+      return { label: "Confirm at checkout", isAvailable: true, isLowStock: false };
+    case "NOT_AVAILABLE_IN_AREA":
+      return { label: "Not available in area", isAvailable: false, isLowStock: false };
     case "DISCONTINUED":
       return { label: "Discontinued", isAvailable: false, isLowStock: false };
     default:
@@ -111,5 +119,5 @@ export function aggregateCategoryCount(
     (c) => c.path.replace(/^\/+|\/+$/g, "") === normalizedParent
   )?.productCount ?? 0;
 
-  return hasChildren ? Math.max(total, directCount) : directCount;
+  return directCount + total;
 }
