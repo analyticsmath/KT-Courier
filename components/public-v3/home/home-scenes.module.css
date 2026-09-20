@@ -350,6 +350,10 @@
   z-index: 25;
 }
 
+:global(.kt-home-occluder-hero-typography-mask) {
+  background: var(--kt-freight-paper);
+}
+
 :global(.kt-home-occluder-parcel-mask) {
   background:
     linear-gradient(90deg, transparent 48%, rgba(84, 49, 22, .32) 49%, transparent 51%),

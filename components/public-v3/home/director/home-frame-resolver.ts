@@ -200,24 +200,53 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
   if (input.chapter === "hero") {
     const hero = HOME_BEATS.hero;
     const truckPath = HOME_LAYOUT.heroTruckPath;
-    if (progress >= hero.truckApproach[0] && progress < 1) {
-      const approach = range(progress, hero.truckApproach[0], hero.decelerate[0]);
+    if (within(progress, hero.truckApproach[0], hero.suspensionSettle[0])) {
+      const approach = range(progress, hero.truckApproach[0], hero.suspensionSettle[0]);
+      actors.whiteTruck = {
+        ...actors.whiteTruck,
+        state: "front-3q-right",
+        visible: true,
+        targetX: interpolate(truckPath.arrivalX[0], truckPath.holdX, smooth(approach)),
+        groundY: 0.9,
+        widthVw: interpolate(54, 62, approach),
+      };
+    }
+    if (within(progress, hero.suspensionSettle[0], hero.suspensionSettle[1])) {
+      const registration = range(progress, hero.suspensionSettle[0], hero.suspensionSettle[1]);
+      actors.whiteTruck = {
+        ...actors.whiteTruck,
+        state: registration < 0.5 ? "side-right" : "wide-hero",
+        visible: false,
+        targetX: truckPath.holdX,
+        groundY: 0.9,
+        widthVw: registration < 0.5 ? 70 : 72,
+      };
+      occlusionId = "hero-typography-mask";
+      occlusionProgress = registration;
+      requiredCoverage = 0.9;
+    }
+    if (progress >= hero.suspensionSettle[1] && progress < hero.cargoLock[0]) {
       const departure = range(progress, hero.accelerate[0], hero.trailerDominance[1]);
       actors.whiteTruck = {
         ...actors.whiteTruck,
-        visible: progress < hero.oneToThree[0],
-        targetX: progress < hero.decelerate[0]
-          ? interpolate(truckPath.arrivalX[0], truckPath.holdX, smooth(approach))
-          : progress < hero.accelerate[0]
-            ? truckPath.holdX
-            : progress < hero.trailerDominance[1]
-              ? interpolate(truckPath.holdX, truckPath.cargoX, smooth(departure))
-              : truckPath.cargoX,
-        groundY: 0.85,
-        widthVw: progress < hero.accelerate[0] ? 61 : progress < hero.trailerDominance[1] ? 61 : 64,
+        state: "wide-hero",
+        visible: true,
+        targetX: progress < hero.accelerate[0]
+          ? truckPath.holdX
+          : interpolate(truckPath.holdX, truckPath.cargoX, smooth(departure)),
+        groundY: 0.9,
+        widthVw: 72,
       };
     }
     if (progress >= hero.cargoLock[0]) {
+      actors.whiteTruck = {
+        ...actors.whiteTruck,
+        state: "cargo-box-close",
+        visible: false,
+        targetX: truckPath.cargoX,
+        groundY: 0.9,
+        widthVw: 90,
+      };
       occlusionId = "hero-cargo-mask";
       occlusionProgress = range(progress, hero.cargoLock[0], hero.oneToThree[0]);
       requiredCoverage = 0.9;

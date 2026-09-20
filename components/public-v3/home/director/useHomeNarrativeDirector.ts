@@ -57,7 +57,7 @@ const ACTOR_STATES: Record<ActorType, Record<string, ActorStateDefinition>> = {
 };
 
 const PRELOAD_STATES: Record<HomeChapter, Partial<Record<ActorName, string[]>>> = {
-  hero: { whiteTruck: ["side-right", "cargo-box-close"] },
+  hero: { whiteTruck: ["front-3q-right", "side-right", "wide-hero", "cargo-box-close"] },
   marketplace: {},
   fan: {},
   preparation: {},

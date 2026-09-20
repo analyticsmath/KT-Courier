@@ -95,7 +95,7 @@ export const GENERATED_ACTOR_STATES: Record<string, GeneratedActorState> = {
     action: "travel",
     family: "hero",
     groundContact: { x: 0.142, y: 0.8002, source: "human-audited" },
-    validPreviousStates: ["wide-hero","centered-hero"],
+    validPreviousStates: ["front-3q-right","wide-hero","centered-hero"],
     validNextStates: ["wide-hero","cargo-box-close"],
     requiredOcclusion: "typography-occlusion",
   },

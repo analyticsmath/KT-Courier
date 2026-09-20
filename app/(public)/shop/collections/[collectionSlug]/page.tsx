@@ -17,6 +17,7 @@ import {
 import { getStorefrontCollection } from "@/lib/services/storefront-catalog.service";
 import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 
 export async function generateMetadata({ params }: { params: Promise<{ collectionSlug: string }> }): Promise<Metadata> {
   if (!publicStorefrontPageExposureAllowed()) return { robots: { index: false, follow: true } };
@@ -76,11 +77,16 @@ export default async function CollectionPage({ params }: { params: Promise<{ col
             const title = item.label ?? ("name" in target ? target.name : target.title);
             const description = "shortDescription" in target ? target.shortDescription : "description" in target ? target.description : undefined;
             const mediaReference = item.variant?.primaryMedia?.publicReference ?? item.category?.imageReference ?? item.store?.heroMediaReference ?? item.store?.logoMediaReference;
+            const mediaSrc = item.category
+              ? storefrontCategoryMediaSrc(item.category.imageReference)
+              : mediaReference
+                ? `/api/catalog/media/${encodeURIComponent(mediaReference)}`
+                : undefined;
             const typeLabel = item.category ? "Category" : item.store ? "Store" : "Product option";
             return <li className={styles.collectionMixedCard} key={`${item.targetType}:${item.targetReference}`}>
               <Link href={href}>
                 <span className={styles.collectionMixedMedia}>
-                  {mediaReference && <Image alt="" fill priority={index < 4} sizes="(max-width: 767px) 50vw, 25vw" src={`/api/catalog/media/${mediaReference}`} style={{ objectFit: "cover" }} />}
+                  {mediaSrc && <Image alt="" fill priority={index < 4} sizes="(max-width: 767px) 50vw, 25vw" src={mediaSrc} style={{ objectFit: "cover" }} />}
                 </span>
                 <span className={styles.productTileBrand}>{typeLabel}</span>
                 <strong>{title}</strong>

@@ -1,32 +1,174 @@
 const CLOUDINARY_CATEGORY_BASE =
   "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000";
 
-const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, string>> = Object.freeze({
-  "CMA-CAT-AUTOMOTIVE": "automotive.jpg",
-  "CMA-CAT-BOOKS": "books.jpg",
-  "CMA-CAT-CAKES": "cakes.jpg",
-  "CMA-CAT-PETS": "pets.jpg",
-  "CMA-CAT-FASHION": "fashion.jpg",
-  "CMA-CAT-CLOTHING": "clothing.jpg",
-  "CMA-CAT-ACCESSORIES": "accessories.jpg",
-  "CMA-CAT-AUDIO": "audio.jpg",
-  "CMA-CAT-POWER": "power.jpg",
-  "CMA-CAT-COOKWARE": "cookware.jpg",
-  "CMA-CAT-DECOR": "decor.jpg",
-  "CMA-CAT-GROCERIES": "groceries.jpg",
-  "CMA-CAT-PANTRY": "pantry.jpg",
-  "CMA-CAT-SNACKS": "snacks.jpg",
-  "CMA-CAT-HOUSEHOLD": "household.jpg",
-  "CMA-CAT-BURGERS": "burgers.jpg",
-  "CMA-CAT-PIZZA": "pizza.jpg",
-  "CMA-CAT-GRILL": "grill.jpg",
-  "CMA-CAT-TRADITIONAL": "traditional.jpg",
-  "CMA-CAT-PHARMACY": "pharmacy.jpg",
-  "CMA-CAT-OTC-RELIEF": "otc.jpg",
-  "CMA-CAT-FIRST-AID": "first-aid.jpg",
-  "CMA-CAT-VITAMINS": "vitamins.jpg",
-  "CMA-CAT-FLOWERS": "flowers.jpg",
-});
+type CuratedCategoryMedia = Readonly<
+  | {
+      publicId: string;
+      format: "jpg" | "webp";
+      src?: never;
+    }
+  | {
+      src: string;
+      publicId?: never;
+      format?: never;
+    }
+>;
+
+/**
+ * Curated category media is deliberately explicit.
+ *
+ * These references are the visual contract for commerce category surfaces. They
+ * point either to the production category-overrides set or to the authored
+ * South African editorial photography supplied in the KT Images library.
+ *
+ * Do not infer a category image by array position: category IDs are the source
+ * of truth, so marketplace ordering can change without photography drifting.
+ */
+const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
+  Object.freeze({
+    // Groceries
+    "CMA-CAT-GROCERIES": {
+      src: "/media/public/derived/photo-grocery-fruit-crates-overhead-1440w.webp",
+    },
+    "CMA-CAT-FRESH-PRODUCE": {
+      publicId: "cape-town-market-vegetables",
+      format: "webp",
+    },
+    "CMA-CAT-DAIRY-EGGS": {
+      publicId: "kt-courier/category-overrides/groceries",
+      format: "jpg",
+    },
+    "CMA-CAT-PANTRY": {
+      publicId: "kt-courier/category-overrides/pantry",
+      format: "jpg",
+    },
+    "CMA-CAT-BEVERAGES": {
+      publicId: "nrd-D6Tu_L3chLE-unsplash",
+      format: "jpg",
+    },
+    "CMA-CAT-SNACKS": {
+      publicId: "kt-courier/category-overrides/snacks",
+      format: "jpg",
+    },
+    "CMA-CAT-HOUSEHOLD": {
+      publicId: "kt-courier/category-overrides/household",
+      format: "jpg",
+    },
+
+    // Food & dining
+    "CMA-CAT-FOOD-DINING": {
+      src: "/media/public/derived/photo-food-prepared-grain-bowl-1440w.webp",
+    },
+    "CMA-CAT-BURGERS": {
+      publicId: "kt-courier/category-overrides/burgers",
+      format: "jpg",
+    },
+    "CMA-CAT-PIZZA": {
+      publicId: "kt-courier/category-overrides/pizza",
+      format: "jpg",
+    },
+    "CMA-CAT-GRILL": {
+      publicId: "kt-courier/category-overrides/grill",
+      format: "jpg",
+    },
+    "CMA-CAT-TRADITIONAL": {
+      publicId: "kt-courier/category-overrides/traditional",
+      format: "jpg",
+    },
+
+    // Pharmacy & wellness
+    "CMA-CAT-PHARMACY": {
+      src: "/media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp",
+    },
+    "CMA-CAT-OTC-RELIEF": {
+      publicId: "kt-courier/category-overrides/otc",
+      format: "jpg",
+    },
+    "CMA-CAT-FIRST-AID": {
+      publicId: "kt-courier/category-overrides/first-aid",
+      format: "jpg",
+    },
+    "CMA-CAT-VITAMINS": {
+      publicId: "kt-courier/category-overrides/vitamins",
+      format: "jpg",
+    },
+    "CMA-CAT-PERSONAL-CARE": {
+      publicId: "karolina-grabowska-VQJtB5dmKxc-unsplash",
+      format: "jpg",
+    },
+
+    // Fashion
+    "CMA-CAT-FASHION": {
+      src: "/media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp",
+    },
+    "CMA-CAT-CLOTHING": {
+      publicId: "kt-courier/category-overrides/clothing",
+      format: "jpg",
+    },
+    "CMA-CAT-FOOTWEAR": {
+      publicId: "casey-horner-1zf36NOjoCE-unsplash",
+      format: "jpg",
+    },
+    "CMA-CAT-ACCESSORIES": {
+      publicId: "kt-courier/category-overrides/accessories",
+      format: "jpg",
+    },
+
+    // Electronics. The authored audio category photograph is also the strongest
+    // available umbrella visual for the top-level electronics collection.
+    "CMA-CAT-ELECTRONICS": {
+      publicId: "kt-courier/category-overrides/audio",
+      format: "jpg",
+    },
+    "CMA-CAT-AUDIO": {
+      publicId: "kt-courier/category-overrides/audio",
+      format: "jpg",
+    },
+    "CMA-CAT-POWER": {
+      publicId: "kt-courier/category-overrides/power",
+      format: "jpg",
+    },
+
+    // Home & living
+    "CMA-CAT-HOME-LIVING": {
+      src: "/media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp",
+    },
+    "CMA-CAT-COOKWARE": {
+      publicId: "kt-courier/category-overrides/cookware",
+      format: "jpg",
+    },
+    "CMA-CAT-DECOR": {
+      publicId: "kt-courier/category-overrides/decor",
+      format: "jpg",
+    },
+
+    // Remaining top-level marketplace categories
+    "CMA-CAT-AUTOMOTIVE": {
+      publicId: "kt-courier/category-overrides/automotive",
+      format: "jpg",
+    },
+    "CMA-CAT-BOOKS": {
+      publicId: "kt-courier/category-overrides/books",
+      format: "jpg",
+    },
+    "CMA-CAT-CAKES": {
+      publicId: "kt-courier/category-overrides/cakes",
+      format: "jpg",
+    },
+    "CMA-CAT-FLOWERS": {
+      publicId: "kt-courier/category-overrides/flowers",
+      format: "jpg",
+    },
+    "CMA-CAT-PETS": {
+      publicId: "kt-courier/category-overrides/pets",
+      format: "jpg",
+    },
+  });
+
+function curatedCategoryMediaSrc(asset: CuratedCategoryMedia): string {
+  if ("src" in asset) return asset.src;
+  return `${CLOUDINARY_CATEGORY_BASE}/${asset.publicId}.${asset.format}`;
+}
 
 export function hasStorefrontCategoryMediaOverride(
   imageReference: string | undefined | null,
@@ -41,9 +183,13 @@ export function storefrontCategoryMediaSrc(
   if (imageReference) {
     const override = CATEGORY_MEDIA_OVERRIDES[imageReference];
     if (override) {
-      return `${CLOUDINARY_CATEGORY_BASE}/kt-courier/category-overrides/${override}`;
+      return curatedCategoryMediaSrc(override);
     }
+
+    // Product/catalog media remains authoritative when a category has no
+    // curated photography contract yet.
     return `/api/catalog/media/${encodeURIComponent(imageReference)}`;
   }
+
   return fallback;
 }

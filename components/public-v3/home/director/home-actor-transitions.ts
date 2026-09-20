@@ -25,6 +25,9 @@ export interface ActorTransition {
 
 /** Only transitions that occur in an exposed chapter are listed; each names its rendered covering element. */
 export const HOME_ACTOR_TRANSITIONS: readonly ActorTransition[] = [
+  { actor: "white-truck", from: "front-3q-right", to: "side-right", occlusion: "hero-typography-mask", minimumCoverage: 0.9 },
+  { actor: "white-truck", from: "side-right", to: "wide-hero", occlusion: "hero-typography-mask", minimumCoverage: 0.9 },
+  { actor: "white-truck", from: "wide-hero", to: "cargo-box-close", occlusion: "hero-cargo-mask", minimumCoverage: 0.9 },
   { actor: "courier", from: "look-left-approach", to: "lift-parcel", occlusion: "parcel-mask", minimumCoverage: 0.9 },
   { actor: "courier", from: "lift-parcel", to: "loading-unloading", occlusion: "parcel-mask", minimumCoverage: 0.9 },
   { actor: "white-truck", from: "top-down-straight", to: "top-down-angled", occlusion: "route-overpass-a", minimumCoverage: 0.92 },

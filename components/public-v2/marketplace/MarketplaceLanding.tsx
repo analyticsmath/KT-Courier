@@ -8,6 +8,7 @@ import {
   ProductGrid,
 } from "@/components/public-v2/commerce";
 import styles from "@/components/public-v2/commerce/commerce.module.css";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import {
   marketplaceCategoriesHref,
   marketplaceCategoryHref,
@@ -103,7 +104,7 @@ export function MarketplaceLanding({
             {collections.slice(0, 3).map((collection, index) => {
               const href = `/shop/collections/${encodeURIComponent(collection.slug)}`;
               return <li key={collection.reference}><Link className={styles.collectionCard} href={href}>
-                {collection.coverMediaReference && <span className={styles.collectionCardImage}><Image alt="" fill priority={index === 0} sizes="(max-width: 767px) 100vw, 40vw" src={`/api/catalog/media/${collection.coverMediaReference}`} style={{ objectFit: "cover" }} /></span>}
+                {collection.coverMediaReference && <span className={styles.collectionCardImage}><Image alt="" fill priority={index === 0} sizes="(max-width: 767px) 100vw, 40vw" src={storefrontCategoryMediaSrc(collection.coverMediaReference)!} style={{ objectFit: "cover" }} /></span>}
                 <span className={styles.collectionCardCopy}><h2>{collection.name}</h2>{collection.description && <p>{collection.description}</p>}</span>
               </Link></li>;
             })}

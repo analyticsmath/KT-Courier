@@ -23,7 +23,7 @@ const CANONICAL_REGISTRY = [
     family: "hero",
     webpFilename: "protagonist-truck-white-side-right.webp",
     humanGroundContact: { x: 0.1420, y: 0.8002 },
-    validPreviousStates: ["wide-hero", "centered-hero"],
+    validPreviousStates: ["front-3q-right", "wide-hero", "centered-hero"],
     validNextStates: ["wide-hero", "cargo-box-close"],
     requiredOcclusion: "typography-occlusion",
   },

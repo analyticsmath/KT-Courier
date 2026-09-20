@@ -16,6 +16,7 @@ import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront
 import { PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
 import { ktMedia } from "@/components/public-v2/media";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import { notFound } from "next/navigation";
 import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
 
@@ -32,13 +33,16 @@ export async function generateMetadata({
   const category = await getStorefrontCategory(categoryPath);
   const filters = parseMarketplaceSearchParams(await searchParams);
   const canonical = category ? marketplaceCategoryHref(category.path) : null;
+  const categoryMedia = category
+    ? storefrontCategoryMediaSrc(category.imageReference)
+    : undefined;
   return category
     ? {
         title: `${category.name} | KT Couriers Marketplace`,
         description: category.description,
         alternates: canonical ? { canonical } : undefined,
-        ...(category.imageReference
-          ? { openGraph: { images: [{ url: `/api/catalog/media/${category.imageReference}`, alt: category.name }] } }
+        ...(categoryMedia
+          ? { openGraph: { images: [{ url: categoryMedia, alt: category.name }] } }
           : {}),
         ...(storefrontFilterHasCrawlRisk(filters) ? { robots: { index: false, follow: true } } : {}),
       }
@@ -61,12 +65,13 @@ export default async function CategoryPage({
   const result = await new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search(filters);
 
   const getCategoryHeroSrc = () => {
-    if (category.imageReference) return `/api/catalog/media/${category.imageReference}`;
+    const authoritative = storefrontCategoryMediaSrc(category.imageReference);
+    if (authoritative) return authoritative;
     const p = category.path.toLowerCase();
     if (p.includes("food")) return ktMedia.categories.foodDining.hero.src;
     if (p.includes("groc")) return ktMedia.categories.groceries.hero.src;
     if (p.includes("fash") || p.includes("cloth")) return ktMedia.categories.fashion.hero.src;
-    if (p.includes("well") || p.includes("care")) return ktMedia.categories.healthWellness.hero.src;
+    if (p.includes("pharm") || p.includes("well") || p.includes("care")) return ktMedia.categories.healthWellness.hero.src;
     if (p.includes("home")) return ktMedia.categories.homeLiving.hero.src;
     return ktMedia.categories.fashion.streetLook1.src;
   };

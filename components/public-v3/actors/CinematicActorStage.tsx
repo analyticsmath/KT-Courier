@@ -21,6 +21,7 @@ export const CINEMATIC_LAYER_Z = {
 } as const;
 
 const HOME_OCCLUDERS = [
+  "hero-typography-mask",
   "parcel-mask",
   "custody-seam-mask",
   "route-overpass-a",
@@ -77,6 +78,7 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
         <StateBank
           actor="white-truck"
           states={{
+            "front-3q-right": WHITE_TRUCK_STATES["front-3q-right"],
             "side-right": WHITE_TRUCK_STATES["side-right"],
             "wide-hero": WHITE_TRUCK_STATES["wide-hero"],
             "cargo-box-close": WHITE_TRUCK_STATES["cargo-box-close"],
@@ -84,7 +86,7 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
             "top-down-angled": WHITE_TRUCK_STATES["top-down-angled"],
             "top-down-turning": WHITE_TRUCK_STATES["top-down-turning"],
           }}
-          preloadStates={["side-right", "wide-hero", "cargo-box-close"]}
+          preloadStates={["front-3q-right", "side-right", "wide-hero", "cargo-box-close"]}
         />
         <div data-actor-material-anchor="white-truck-cargo-box" aria-hidden="true" />
       </div>

@@ -49,7 +49,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
     if (p.includes("food")) return ktMedia.categories.foodDining.hero.src;
     if (p.includes("groc")) return ktMedia.categories.groceries.hero.src;
     if (p.includes("fash") || p.includes("cloth")) return ktMedia.categories.fashion.hero.src;
-    if (p.includes("well") || p.includes("care")) return ktMedia.categories.healthWellness.hero.src;
+    if (p.includes("pharm") || p.includes("well") || p.includes("care")) return ktMedia.categories.healthWellness.hero.src;
     if (p.includes("home")) return ktMedia.categories.homeLiving.hero.src;
     return ktMedia.categories.fashion.streetLook1.src;
   };

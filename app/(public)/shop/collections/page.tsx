@@ -5,6 +5,7 @@ import { CommerceBreadcrumbs } from "@/components/public-v2/commerce/CommerceBre
 import styles from "@/components/public-v2/commerce/commerce.module.css";
 import { marketplaceCollectionHref, marketplaceHref } from "@/lib/public-marketplace/routes";
 import { listStorefrontCollections } from "@/lib/services/storefront-catalog.service";
+import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 
 export const metadata: Metadata = {
   title: "Collections | KT Couriers Marketplace",
@@ -30,7 +31,7 @@ export default async function CollectionsPage() {
               if (!href) return null;
               return <li key={collection.reference}>
                 <Link className={styles.collectionCard} href={href}>
-                  {collection.coverMediaReference && <span className={styles.collectionCardImage}><Image alt="" fill priority={collections.indexOf(collection) === 0} sizes="(max-width: 767px) 100vw, (max-width: 1200px) 60vw, 66vw" src={`/api/catalog/media/${collection.coverMediaReference}`} style={{ objectFit: "cover" }} /></span>}
+                  {collection.coverMediaReference && <span className={styles.collectionCardImage}><Image alt="" fill priority={collections.indexOf(collection) === 0} sizes="(max-width: 767px) 100vw, (max-width: 1200px) 60vw, 66vw" src={storefrontCategoryMediaSrc(collection.coverMediaReference)!} style={{ objectFit: "cover" }} /></span>}
                   <span className={styles.collectionCardCopy}>
                     <h2>{collection.name}</h2>
                     {collection.description && <p>{collection.description}</p>}

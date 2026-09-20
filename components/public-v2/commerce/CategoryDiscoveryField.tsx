@@ -40,7 +40,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
     if (pathLower.includes("food")) return ktMedia.categories.foodDining.hero.src;
     if (pathLower.includes("groc")) return ktMedia.categories.groceries.hero.src;
     if (pathLower.includes("fash") || pathLower.includes("cloth")) return ktMedia.categories.fashion.hero.src;
-    if (pathLower.includes("well") || pathLower.includes("care")) return ktMedia.categories.healthWellness.hero.src;
+    if (pathLower.includes("pharm") || pathLower.includes("well") || pathLower.includes("care")) return ktMedia.categories.healthWellness.hero.src;
     if (pathLower.includes("home")) return ktMedia.categories.homeLiving.hero.src;
     return ktMedia.categories.fashion.hero.src;
   };
