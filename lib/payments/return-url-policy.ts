@@ -1,7 +1,7 @@
 import { PaymentError } from "./errors";
 import type { PaymentProviderCode } from "./types";
 import { buildPayfastCallbackUrls } from "./providers/payfast/payfast-callback-urls";
-import { buildPaystackCallbackUrls } from "./providers/paystack/paystack-callback-urls";
+import { buildMarketplacePaystackCallbackUrls, buildPaystackCallbackUrls } from "./providers/paystack/paystack-callback-urls";
 
 export type PaymentCallbackUrls = Readonly<{
   returnUrl: string;
@@ -34,4 +34,18 @@ export function buildServerPaymentCallbackUrls(
     return buildPayfastCallbackUrls(origin.origin, publicReference);
   }
   return buildPaystackCallbackUrls(origin.origin, publicReference);
+}
+
+
+export function buildServerMarketplacePaymentCallbackUrls(
+  publicReference: string,
+): PaymentCallbackUrls {
+  const configuredOrigin = process.env.PAYMENT_APP_ORIGIN;
+  if (!configuredOrigin) {
+    throw new PaymentError(
+      "PAYMENT_PROVIDER_CONFIGURATION_INVALID",
+      "Server payment callback origin is not configured.",
+    );
+  }
+  return buildMarketplacePaystackCallbackUrls(configuredOrigin, publicReference);
 }

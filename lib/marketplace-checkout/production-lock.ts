@@ -2,9 +2,9 @@ import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/
 import { isLocalCheckoutValidationAllowed, isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { isCheckoutExposureAllowed } from "@/lib/runtime/deployment-classification";
 
-export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false as const;
-export const MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON = "CHECKOUT_PUBLIC_DISABLED" as const;
-export const MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON = "CHECKOUT_PUBLIC_DISABLED" as const;
+export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = true as const;
+export const MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON = "CHECKOUT_VALIDATION_FAILED" as const;
+export const MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON = "CHECKOUT_VALIDATION_FAILED" as const;
 
 export class MarketplaceCheckoutProductionLockedError extends Error {
   readonly code: string;

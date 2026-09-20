@@ -22,7 +22,7 @@ import {
   type NormalizedProviderError,
 } from "@/lib/payments/providers/provider-errors";
 import { validateProviderResult, type ValidatedProviderResult } from "@/lib/payments/providers/provider-result-validation";
-import { buildServerPaymentCallbackUrls, type PaymentCallbackUrls } from "@/lib/payments/return-url-policy";
+import { buildServerMarketplacePaymentCallbackUrls, buildServerPaymentCallbackUrls, type PaymentCallbackUrls } from "@/lib/payments/return-url-policy";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
 import { PAYMENT_SESSION_POLICY_VERSION, type PaymentAttemptState, type PaymentProviderCode, type PaymentState } from "@/lib/payments/types";
 import { CreateProviderSessionSchema, type CreateProviderSessionInput } from "@/lib/validation/payments";
@@ -579,7 +579,7 @@ export async function createMarketplaceProviderCheckoutSession(
   input: Readonly<{ paymentId: string; idempotencyKey: string; payerEmail: string; guestCheckoutEvidence: boolean }>,
   dependencies: SessionDependencies = {},
 ): Promise<ProviderSessionDto> {
-  const callbackUrlFactory = dependencies.callbackUrls ?? buildServerPaymentCallbackUrls;
+  const callbackUrlFactory = dependencies.callbackUrls ?? buildServerMarketplacePaymentCallbackUrls;
   const registry = dependencies.registry ?? createProductionPaymentProviderRegistry();
   const adapter = registry.getAdapter("PAYSTACK");
   const reservation = await reserveMarketplaceAttempt(input, callbackUrlFactory, adapter);
