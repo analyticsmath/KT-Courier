@@ -77,46 +77,27 @@ export function DesktopFilterRail({ facets, filters, route }: DesktopFilterRailP
     setShowAllFacets((prev) => ({ ...prev, [code]: !prev[code] }));
   };
 
+  const hasActiveFilters = Boolean(
+    filters.minPrice ||
+    filters.maxPrice ||
+    filters.brand ||
+    (filters.availability && filters.availability.length > 0) ||
+    (filters.condition && filters.condition.length > 0) ||
+    (filters.fulfilment && filters.fulfilment.length > 0) ||
+    (filters.facets && Object.values(filters.facets).some((v) => v && v.length > 0)) ||
+    (filters.category && route.kind !== "category" && route.kind !== "store-category") ||
+    (filters.store && route.kind !== "store" && route.kind !== "store-category")
+  );
+
+  const clearHref = marketplaceListingHref(route, {
+    ...(filters.q ? { q: filters.q } : {}),
+    ...(route.kind === "store" || route.kind === "store-category" ? { store: route.storeSlug } : {}),
+    ...(route.kind === "category" ? { category: route.categoryPath } : {}),
+    ...(route.kind === "store-category" ? { category: route.categoryPath } : {}),
+  }) ?? marketplaceHref();
+
   return (
     <aside aria-label="Filters" className={styles.plpFilterSidebar}>
-      {/* Price Range Filter Form */}
-      <form className={styles.desktopPriceForm} onSubmit={handlePriceSubmit}>
-        <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-          <legend className={styles.desktopFacetHeading} style={{ marginBottom: 10 }}>
-            Price range · ZAR
-          </legend>
-          <div className={styles.desktopPriceInputs}>
-            <label className={styles.desktopPriceField}>
-              <span>Minimum</span>
-              <input
-                aria-label="Minimum price in rand"
-                inputMode="decimal"
-                min="0"
-                onChange={(e) => setMinPrice(e.target.value)}
-                placeholder="0"
-                type="number"
-                value={minPrice}
-              />
-            </label>
-            <label className={styles.desktopPriceField}>
-              <span>Maximum</span>
-              <input
-                aria-label="Maximum price in rand"
-                inputMode="decimal"
-                min="0"
-                onChange={(e) => setMaxPrice(e.target.value)}
-                placeholder="Any"
-                type="number"
-                value={maxPrice}
-              />
-            </label>
-          </div>
-          <button className={styles.desktopPriceApply} style={{ marginTop: 10, width: "100%" }} type="submit">
-            Apply price
-          </button>
-        </fieldset>
-      </form>
-
       {/* Facet Groups with Show More Cap */}
       {facets.map((facet) => {
         const isShowingAll = showAllFacets[facet.code] ?? false;
@@ -164,6 +145,53 @@ export function DesktopFilterRail({ facets, filters, route }: DesktopFilterRailP
           </div>
         );
       })}
+
+      {/* Price Range Filter Form */}
+      <form className={styles.desktopPriceForm} onSubmit={handlePriceSubmit}>
+        <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+          <legend className={styles.desktopFacetHeading} style={{ marginBottom: 10 }}>
+            Price range · ZAR
+          </legend>
+          <div className={styles.desktopPriceInputs}>
+            <label className={styles.desktopPriceField}>
+              <span>Minimum</span>
+              <input
+                aria-label="Minimum price in rand"
+                inputMode="decimal"
+                min="0"
+                onChange={(e) => setMinPrice(e.target.value)}
+                placeholder="0"
+                type="number"
+                value={minPrice}
+              />
+            </label>
+            <label className={styles.desktopPriceField}>
+              <span>Maximum</span>
+              <input
+                aria-label="Maximum price in rand"
+                inputMode="decimal"
+                min="0"
+                onChange={(e) => setMaxPrice(e.target.value)}
+                placeholder="Any"
+                type="number"
+                value={maxPrice}
+              />
+            </label>
+          </div>
+          <button className={styles.desktopPriceApply} style={{ marginTop: 10, width: "100%" }} type="submit">
+            Apply price
+          </button>
+        </fieldset>
+      </form>
+
+      {/* Clear all filters */}
+      {hasActiveFilters && (
+        <div style={{ paddingTop: 4 }}>
+          <Link className={styles.clearAllFiltersLink} href={clearHref} style={{ marginLeft: 0 }}>
+            Clear all filters
+          </Link>
+        </div>
+      )}
     </aside>
   );
 }

@@ -23,6 +23,7 @@ import { ProductGrid } from "./ProductGrid";
 import { triggerCartFlight } from "./AddToCartFlightPortal";
 import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
+import { cn } from "@/lib/utils/cn";
 import styles from "./commerce.module.css";
 
 interface ProductStoreInfo {
@@ -321,7 +322,7 @@ export function ProductDetailExperience({
   ];
 
   return (
-    <div className={styles.commerceInner}>
+    <div className={cn(styles.commerceInner, styles.pdpExperience)}>
       {/* Mobile Top Header */}
       <div className={styles.pdpMobileTopBar}>
         <button aria-label="Go back" onClick={() => window.history.back()} type="button">

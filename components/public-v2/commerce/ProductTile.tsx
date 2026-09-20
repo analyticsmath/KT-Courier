@@ -49,10 +49,10 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
     <li style={{ listStyle: "none" }}>
       <article className={styles.productTile}>
         {href ? <Link aria-label={`View ${product.title}`} className={styles.productTileMediaFrame} data-kt-sticky-mode="VIEW" href={href} onClick={handleClick}>
-          {mediaSrc ? <Image alt={product.primaryMedia?.alt || product.title} fill priority={priority} sizes="(max-width: 639px) calc(50vw - 24px), (max-width: 1023px) 33vw, 24vw" src={mediaSrc} className="object-cover" /> : <span className={styles.productTileAvailability}>Image unavailable</span>}
+          {mediaSrc ? <Image alt={product.primaryMedia?.alt || product.title} fill priority={priority} sizes="(max-width: 639px) calc(50vw - 24px), (max-width: 1023px) 33vw, 24vw" src={mediaSrc} className={styles.productTileImage} /> : <span className={styles.productTileAvailability}>Image unavailable</span>}
           {product.storeCount > 1 && <span className={styles.productTileStatus}>From {product.storeCount} stores</span>}
         </Link> : <div aria-disabled="true" className={`${styles.productTileMediaFrame} ${styles.productTileDisabled}`}>
-          {mediaSrc && <Image alt={product.primaryMedia?.alt || product.title} fill priority={priority} sizes="(max-width: 639px) calc(50vw - 24px), (max-width: 1023px) 33vw, 24vw" src={mediaSrc} className="object-cover" />}
+          {mediaSrc && <Image alt={product.primaryMedia?.alt || product.title} fill priority={priority} sizes="(max-width: 639px) calc(50vw - 24px), (max-width: 1023px) 33vw, 24vw" src={mediaSrc} className={styles.productTileImage} />}
           <span className={styles.productTileUnavailableBadge}>Temporarily unavailable</span>
         </div>}
         <div className={styles.productTileBody}>

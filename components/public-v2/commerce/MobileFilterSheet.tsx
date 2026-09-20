@@ -111,9 +111,27 @@ export function MobileFilterSheet({ facets, filters, route, resultCount }: Mobil
   const [showAllFacets, setShowAllFacets] = useState<Record<string, boolean>>({});
 
   const openSheet = useCallback(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      return;
+    }
     setDraft(copyFilters(filters));
     setOpen(true);
   }, [filters]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) {
+        setOpen(false);
+      }
+    };
+    if (mql.matches) {
+      setOpen(false);
+    }
+    mql.addEventListener?.("change", handler);
+    return () => mql.removeEventListener?.("change", handler);
+  }, []);
 
   useEffect(() => {
     window.addEventListener("kt:open-filter-sheet", openSheet);
@@ -191,7 +209,6 @@ export function MobileFilterSheet({ facets, filters, route, resultCount }: Mobil
         ariaLabel="Filter and sort products"
         className={styles.filterMobileSheetDialog}
         closeOnBackdropClick
-        description="Choose filters, then apply them to the product list."
         onOpenChange={setOpen}
         open={open}
         title="Filter & sort"

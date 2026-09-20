@@ -55,9 +55,6 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
       <div className={styles.commerceInner}>
         <div className={styles.commerceSectionHeader}>
           <div>
-            <span className="text-[11px] font-mono tracking-widest text-[#1776d2] uppercase font-bold block mb-1">
-              Browse the marketplace
-            </span>
             <h2 id="category-discovery-title" style={{ margin: 0, fontSize: "clamp(1.5rem, 2.5vw, 2.2rem)", letterSpacing: "-0.03em" }}>
               Shop by category
             </h2>
