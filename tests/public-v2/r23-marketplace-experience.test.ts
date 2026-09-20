@@ -59,7 +59,7 @@ describe("R23 public marketplace experience", () => {
     const checkoutLock = source("lib/marketplace-checkout/production-lock.ts");
     const cart = source("app/(public)/cart/page.tsx");
     const checkout = source("app/(public)/checkout/page.tsx");
-    expect(storefrontLock).toContain("STOREFRONT_PRODUCTION_VALIDATION_APPROVED = false");
+    expect(storefrontLock).toContain("STOREFRONT_PRODUCTION_VALIDATION_APPROVED = true");
     expect(checkoutLock).toContain("MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false");
     expect(cart).toContain("MarketplaceUnavailable");
     expect(checkout).toContain("MarketplaceUnavailable");

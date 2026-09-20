@@ -1,8 +1,15 @@
-import Image from "next/image";
+"use client";
+
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import { CourierActor } from "../../actors/CourierActor";
+import {
+  ServiceStickyMedia,
+  ServiceMediaHandoff,
+  ServiceTypeOcclusion,
+  type MediaHandoffStage,
+} from "../motion";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function FoodServiceView({ service }: AuthoredServiceViewProps) {
@@ -10,10 +17,45 @@ export function FoodServiceView({ service }: AuthoredServiceViewProps) {
   const heroMedia = mediaSet.primary;
   const detailMediaItems = [mediaSet.secondary, mediaSet.detail];
 
+  const foodStages: MediaHandoffStage[] = [
+    {
+      id: "stage-kitchen",
+      stageName: "Kitchen Dispatch",
+      title: "Prepared freshly in local food kitchens",
+      subtitle: "Orders are prepared by independent restaurants, bakeries, and culinary kitchens for immediate handoff.",
+      asset: heroMedia,
+    },
+    {
+      id: "stage-pack",
+      stageName: "Thermal Pack",
+      title: "Protected in insulated food carriers",
+      subtitle: "Meals are sealed in temperature-preserving transit packs to preserve dish quality from pickup to doorstep.",
+      asset: mediaSet.secondary,
+    },
+    {
+      id: "stage-courier",
+      stageName: "Courier Transit",
+      title: "Direct dedicated delivery to recipient",
+      subtitle: "Couriers complete the delivery run directly without intermediate consolidation.",
+      asset: mediaSet.detail,
+    },
+  ];
+
   return (
     <div className="space-y-16">
-      {/* Editorial Hero Stage */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+      {/* 1. Large FOOD Word Moving Behind Image */}
+      <ServiceTypeOcclusion
+        word="FOOD"
+        rate={0.3}
+        foregroundElement={
+          <div className="max-w-xs ml-4 sm:ml-12 filter drop-shadow-sm">
+            <CourierActor stateId="look-viewer-parcel" priority />
+          </div>
+        }
+      />
+
+      {/* 2. Editorial Hero Stage */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative z-10">
         <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
           <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)]">
             Kitchen Collection & Direct Transit
@@ -44,108 +86,34 @@ export function FoodServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
-            <Image
-              src={heroMedia.src}
-              alt={heroMedia.alt}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-              style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
-            />
-          </div>
+          <ServiceStickyMedia
+            media={[heroMedia, ...detailMediaItems]}
+            activeIndex={0}
+            aspectRatio="aspect-[4/3]"
+          />
         </div>
       </section>
 
-      {/* Handling & Transit Workflow: Kitchen Collection -> Packaging -> Courier */}
+      {/* 3. Fast Rhythm Sequence: Kitchen -> Pack -> Courier */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
-            Kitchen collection and direct delivery
-          </h2>
+          <div>
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-1">
+              Fresh Transit Flow
+            </span>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
+              Kitchen collection and direct delivery
+            </h2>
+          </div>
           <span className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)]">
-            Kitchen &rarr; Thermal Pack &rarr; Courier
+            Kitchen &rarr; Pack &rarr; Courier
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-          {/* 1. Kitchen Collection */}
-          <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-3 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">01 / KITCHEN DISPATCH</span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {service.process[0]?.title || "Kitchen Collection"}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed mt-2">
-                {service.process[0]?.description || "Pickup timed precisely to kitchen completion to eliminate dwell time."}
-              </p>
-            </div>
-            {detailMediaItems[0] && (
-              <div className="relative aspect-[16/10] w-full mt-4 bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
-                <Image
-                  src={detailMediaItems[0].src}
-                  alt={detailMediaItems[0].alt}
-                  fill
-                  sizes="(max-width: 767px) 100vw, 33vw"
-                  className="object-cover"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* 2. Packaging */}
-          <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-3 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">02 / THERMAL PACK</span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {service.process[1]?.title || "Thermal Containment"}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed mt-2">
-                {service.process[1]?.description || "Sealed insulated containers prevent heat loss and liquid spillages."}
-              </p>
-            </div>
-            {detailMediaItems[1] && (
-              <div className="relative aspect-[16/10] w-full mt-4 bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
-                <Image
-                  src={detailMediaItems[1].src}
-                  alt={detailMediaItems[1].alt}
-                  fill
-                  sizes="(max-width: 767px) 100vw, 33vw"
-                  className="object-cover"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* 3. Courier */}
-          <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-3 flex flex-col justify-between bg-black/[0.015] p-4 rounded-sm border-r border-b border-l border-[var(--kt-concrete)]/40">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="font-mono text-xs font-bold text-[var(--kt-asphalt)]">03 / COURIER HANDOFF</span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {service.process[2]?.title || "Direct Doorstep Transit"}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed mt-2">
-                {service.process[2]?.description || "Dedicated courier directly travels to recipient without intermediate batching."}
-              </p>
-            </div>
-            <div className="mt-4 max-w-[200px] filter drop-shadow-sm">
-              <CourierActor stateId="ready-handover" priority />
-            </div>
-          </div>
-        </div>
+        <ServiceMediaHandoff stages={foodStages} />
       </section>
 
-      {/* Packaging Requirements & Handoff Guidelines — Unboxed Two-Column Layout */}
+      {/* 4. Kitchen Standards & Handling Guidelines */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-concrete)]/40 md:divide-x md:divide-[var(--kt-concrete)]/40">
         <div className="space-y-4 md:pr-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
@@ -163,7 +131,7 @@ export function FoodServiceView({ service }: AuthoredServiceViewProps) {
 
         <div className="space-y-4 md:pl-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-            Food Packaging Requirements
+            Kitchen Packing Checklist
           </h3>
           <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
             {service.preparation.map((item, idx) => (
@@ -175,27 +143,6 @@ export function FoodServiceView({ service }: AuthoredServiceViewProps) {
           </ul>
         </div>
       </section>
-
-      {/* Detail Media Frames */}
-      {detailMediaItems.length > 0 && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-[var(--kt-concrete)]/40">
-          {detailMediaItems.map((item, idx) => (
-            <div
-              key={idx}
-              className="relative aspect-[16/10] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden"
-            >
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                sizes="(max-width: 767px) 100vw, 50vw"
-                className="object-cover"
-                style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
-              />
-            </div>
-          ))}
-        </section>
-      )}
     </div>
   );
 }

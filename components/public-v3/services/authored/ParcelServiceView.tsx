@@ -1,28 +1,48 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
 import { CourierActor } from "../../actors/CourierActor";
+import {
+  ServiceStickyMedia,
+  ServiceTextChapters,
+  ServiceImageShift,
+  ServiceTypeOcclusion,
+} from "../motion";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
   const mediaSet = ktMediaV3.pages.services.parcel;
   const heroMedia = mediaSet.primary;
   const detailMediaItems = [mediaSet.secondary, mediaSet.detail];
+  const allMedia = [heroMedia, ...detailMediaItems];
+
+  const [activeChapter, setActiveChapter] = useState(0);
+
+  const processChapters = service.process.map((step, idx) => ({
+    id: `parcel-step-${idx}`,
+    stepNumber: `0${idx + 1}`,
+    title: step.title,
+    description: step.description,
+    badge: idx === 0 ? "INTAKE" : idx === 1 ? "TRANSIT" : "HANDOFF",
+  }));
 
   return (
     <div className="space-y-16">
-      {/* Giant Low-Contrast PARCEL Background Plane */}
-      <div className="relative overflow-hidden pt-4 -mb-10 pointer-events-none select-none">
-        <div
-          aria-hidden="true"
-          className="font-display text-[clamp(5rem,18vw,14rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/50 uppercase"
-        >
-          PARCEL
-        </div>
-      </div>
+      {/* 1. Monumental Typographic Depth Plane with Courier Crossing Baseline */}
+      <ServiceTypeOcclusion
+        word="PARCEL"
+        rate={0.25}
+        foregroundElement={
+          <div className="max-w-xs ml-4 sm:ml-12 filter drop-shadow-sm">
+            <CourierActor stateId="walk-right-one-parcel" priority />
+          </div>
+        }
+      />
 
-      {/* Editorial Hero Stage with Sticky Heading & Courier Protagonist */}
+      {/* 2. Editorial Hero Stage: Sticky Title + Media Transition */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative z-10">
         <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
@@ -48,60 +68,50 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
               </Link>
             )}
           </div>
-
-          {/* Courier Protagonist Presence */}
-          <div className="pt-4 max-w-[220px] filter drop-shadow-sm">
-            <CourierActor stateId="walk-right-one-parcel" priority />
-          </div>
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
-            <Image
-              src={heroMedia.src}
-              alt={heroMedia.alt}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-              style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
-            />
-          </div>
+          <ServiceStickyMedia
+            media={allMedia}
+            activeIndex={activeChapter}
+            aspectRatio="aspect-[4/3]"
+          />
         </div>
       </section>
 
-      {/* Custody Chain & Workflow — Unboxed Editorial Sequence */}
+      {/* 3. Custody Chain & Text Chapters — Process steps drive adjacent media */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-1">
+            Custody Protocol
+          </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
             How custody is maintained
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {service.process.map((step, idx) => (
-            <div
-              key={idx}
-              className="pt-4 border-t border-[var(--kt-concrete)] space-y-2"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                  0{idx + 1}
-                </span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-7">
+            <ServiceTextChapters
+              chapters={processChapters}
+              activeIndex={activeChapter}
+              onActiveIndexChange={setActiveChapter}
+            />
+          </div>
+          <div className="lg:col-span-5 hidden lg:block sticky top-36">
+            <div className="p-4 bg-black/[0.02] border border-[var(--kt-concrete)]/40 text-xs font-mono space-y-2 text-[var(--kt-road-grey)]">
+              <div className="font-bold text-[var(--kt-asphalt)] uppercase">
+                Active Chapter &bull; {processChapters[activeChapter]?.badge}
               </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {step.title}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
-                {step.description}
+              <p>
+                Each transfer point records custody timestamp and confirmed delivery coordinates.
               </p>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
-      {/* Suitable Items & Packaging Guidelines — Unboxed Two-Column Layout */}
+      {/* 4. Suitable Items & Packaging Guidelines */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-concrete)]/40 md:divide-x md:divide-[var(--kt-concrete)]/40">
         <div className="space-y-4 md:pr-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
@@ -132,23 +142,16 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
         </div>
       </section>
 
-      {/* Secondary Media Mosaic */}
+      {/* 5. Secondary Documentary Media Drift */}
       {detailMediaItems.length > 0 && (
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-[var(--kt-concrete)]/40">
           {detailMediaItems.map((item, idx) => (
-            <div
+            <ServiceImageShift
               key={idx}
-              className="relative aspect-[16/10] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden"
-            >
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                sizes="(max-width: 767px) 100vw, 50vw"
-                className="object-cover"
-                style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
-              />
-            </div>
+              asset={item}
+              aspectRatio="aspect-[16/10]"
+              sizes="(max-width: 767px) 100vw, 50vw"
+            />
           ))}
         </section>
       )}

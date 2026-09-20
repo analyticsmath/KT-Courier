@@ -33,7 +33,7 @@ function ServiceFaqSection({ service }: ServiceWorldProps) {
   return (
     <section aria-labelledby="service-faq-heading" className={styles.serviceFaqSection}>
       <h2 className={styles.worldSectionTitle} id="service-faq-heading">
-        Route Information & Questions
+        Service questions & answers
       </h2>
       <div className={styles.faqList}>
         {service.faqIds.map((faqId) => {

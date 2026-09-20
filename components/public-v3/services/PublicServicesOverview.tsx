@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { WhiteTruckActor } from "../actors/WhiteTruckActor";
 import { ktMediaV3, type KTMediaV3Asset } from "../media/kt-media-v3";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 interface ServiceItem {
   id: string;
@@ -136,22 +142,70 @@ export function PublicServicesOverview() {
   const [activeIdx, setActiveIdx] = useState(0);
   const activeService = SERVICES_LIST[activeIdx] || SERVICES_LIST[0];
 
+  const headerSectionRef = useRef<HTMLElement>(null);
+  const truckSlotRef = useRef<HTMLDivElement>(null);
+  const servicesWordRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !headerSectionRef.current || !truckSlotRef.current) {
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      const isMobile = window.innerWidth < 768;
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: headerSectionRef.current,
+          start: "top top",
+          end: isMobile ? "+=80%" : "+=120%",
+          scrub: 0.3,
+        },
+      });
+
+      // White Truck enters left -> traverses/occludes SERVICES word -> settles -> exits right
+      tl.fromTo(
+        truckSlotRef.current,
+        { x: isMobile ? "-80vw" : "-60vw" },
+        { x: isMobile ? "20vw" : "35vw", ease: "none", duration: 1.0 }
+      );
+
+      if (servicesWordRef.current) {
+        tl.fromTo(
+          servicesWordRef.current,
+          { x: "0vw" },
+          { x: isMobile ? "-4vw" : "-8vw", ease: "none", duration: 1.0 },
+          0
+        );
+      }
+    }, headerSectionRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
     <article className="min-h-screen bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)]">
-      {/* Hero: Giant Low-Contrast SERVICES with White Truck Baseline Occlusion */}
-      <section className="relative pt-12 sm:pt-16 pb-16 sm:pb-24 px-6 md:px-12 border-b border-[var(--kt-concrete)]/50 overflow-hidden">
+      {/* Hero: Giant Low-Contrast SERVICES with White Truck Baseline Traversal */}
+      <section
+        ref={headerSectionRef}
+        className="relative pt-12 sm:pt-16 pb-16 sm:pb-24 px-6 md:px-12 border-b border-[var(--kt-concrete)]/50 overflow-hidden"
+      >
         <div className="max-w-6xl mx-auto relative">
           <div className="relative overflow-hidden pt-4">
             {/* Giant low-contrast SERVICES type in background */}
             <div
+              ref={servicesWordRef}
               aria-hidden="true"
-              className="font-display text-[clamp(5rem,16vw,12rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/70 uppercase select-none pointer-events-none"
+              className="font-display text-[clamp(5rem,16vw,12rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/70 uppercase select-none pointer-events-none will-change-transform"
             >
               SERVICES
             </div>
 
             {/* White truck traversing and occluding the baseline of the typography */}
-            <div className="relative z-10 -mt-14 sm:-mt-24 md:-mt-32 lg:-mt-40 max-w-3xl ml-4 sm:ml-12 filter drop-shadow-sm pointer-events-none">
+            <div
+              ref={truckSlotRef}
+              className="relative z-10 -mt-14 sm:-mt-24 md:-mt-32 lg:-mt-40 max-w-3xl filter drop-shadow-sm pointer-events-none will-change-transform"
+            >
               <WhiteTruckActor stateId="side-right" priority />
             </div>
           </div>
@@ -227,6 +281,9 @@ export function PublicServicesOverview() {
                 fill
                 sizes="(max-width: 1023px) 94vw, 450px"
                 className="object-cover transition-all duration-300"
+                style={{
+                  objectPosition: `${activeService.asset.focalPoint[0] * 100}% ${activeService.asset.focalPoint[1] * 100}%`,
+                }}
               />
             </div>
 

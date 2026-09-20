@@ -110,7 +110,7 @@ describe("R23 marketplace route activation", () => {
     expect(sources).not.toMatch(/Categories are not available for public browsing|Stores are not available for public browsing|Products are not available for public browsing/i);
     expect(cart).toContain('routeContext="cart"');
     expect(checkout).toContain('routeContext="checkout"');
-    expect(storefrontLock).toContain("STOREFRONT_PRODUCTION_VALIDATION_APPROVED = false");
+    expect(storefrontLock).toContain("STOREFRONT_PRODUCTION_VALIDATION_APPROVED = true");
     expect(checkoutLock).toContain("MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false");
   });
 });

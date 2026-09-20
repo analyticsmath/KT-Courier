@@ -111,9 +111,7 @@ export function useMasterHomeTimeline({
       // Progression Layers in Trailer Takeover
       const p1Layer = trailerOverlay?.querySelector<HTMLElement>(".takeover-progression-1");
       const p3Layer = trailerOverlay?.querySelector<HTMLElement>(".takeover-progression-3");
-      const p5Layer = trailerOverlay?.querySelector<HTMLElement>(".takeover-progression-5");
       const p3Panels = trailerOverlay?.querySelectorAll<HTMLElement>("[data-takeover-p3-panel]");
-      const p5Panels = trailerOverlay?.querySelectorAll<HTMLElement>("[data-takeover-p5-panel]");
 
       // Scene Sections
       const heroSection = container.querySelector<HTMLElement>("[data-kt-scene='hero']");
@@ -142,14 +140,21 @@ export function useMasterHomeTimeline({
       currentAnchors.current.courier = collectionCourierAnchor;
       currentAnchors.current.redTruck = freightAnchor;
 
-      // Helper: Position actor slot to match anchor in container space
+      // Fixed Viewport Camera Stage
+      const stage =
+        container.querySelector<HTMLElement>(".kt-cinematic-actor-stage") ||
+        (typeof document !== "undefined"
+          ? document.querySelector<HTMLElement>(".kt-cinematic-actor-stage")
+          : null);
+
+      // Helper: Position actor slot to match anchor in fixed stage space
       const alignSlotToAnchor = (slot: HTMLElement | null, anchor: HTMLElement | null) => {
-        if (!slot || !anchor || !container) return;
-        const cRect = container.getBoundingClientRect();
+        if (!slot || !anchor) return;
+        const sRect = stage ? stage.getBoundingClientRect() : { top: 0, left: 0 };
         const aRect = anchor.getBoundingClientRect();
         gsap.set(slot, {
-          top: aRect.top - cRect.top,
-          left: aRect.left - cRect.left,
+          top: aRect.top - sRect.top,
+          left: aRect.left - sRect.left,
           width: aRect.width,
           height: aRect.height,
           position: "absolute",
@@ -272,19 +277,19 @@ export function useMasterHomeTimeline({
             invalidateOnRefresh: true,
             onUpdate: (self) => {
               const p = self.progress;
-              // Deterministic Hero/Takeover state derived strictly from progress
-              if (p < 0.84) {
+              // Deterministic Hero/Takeover state derived strictly from progress (Item 6)
+              if (p < 0.86) {
                 if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
                 setWhiteTruckStateSafe("wide-hero");
                 setActorVisibilitySafe({ whiteTruck: true, van: false, courier: false, redTruck: false });
                 setActiveActorSafe("white-truck");
-              } else if (p >= 0.84 && p < 0.95) {
+              } else if (p >= 0.86 && p < 0.94) {
                 if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 1 });
                 setWhiteTruckStateSafe("wide-hero");
                 setActorVisibilitySafe({ whiteTruck: true, van: false, courier: false, redTruck: false });
                 setActiveActorSafe("white-truck");
               } else {
-                // p >= 0.95: White truck consumed, takeover completes into marketplace
+                // p >= 0.94: White truck consumed, takeover completes into marketplace
                 if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 1 });
                 setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
                 setActiveActorSafe(null);
@@ -295,10 +300,10 @@ export function useMasterHomeTimeline({
 
         heroTrigger = heroTl.scrollTrigger ?? null;
 
-        // Authoritative 4-Plane Hero Motion Choreography
-        // Motion ratios: Truck: 1.00, Road/env: 0.35–0.55 counter, COURIER: 0.12–0.20, KT: 0.05–0.12
+        // Authoritative 4-Plane Hero Motion Choreography (Directive Items 6, 7, 8, 9)
+        // Motion ratios: Truck: 1.00, Road/env: 0.45 counter, COURIER: 0.18, KT: 0.08, Copy: 0 during hold
         if (!isMobile) {
-          // 0.00–0.08: Brand & environment establish. Truck starts genuinely off-screen left.
+          // 0.00–0.07: Brand & environment establish. Truck starts genuinely off-screen left.
           heroTl.set(
             whiteTruckSlot,
             { x: "-105vw", y: 0, scale: 1, opacity: 1 },
@@ -317,51 +322,56 @@ export function useMasterHomeTimeline({
             heroTl.set(courierWord, { x: "0vw" }, 0);
           }
 
-          // 0.08–0.24: Truck enters from left; environment counter-moves
+          // 0.07–0.22: Truck enters left → right; environment counter-moves
           heroTl.to(
             whiteTruckSlot,
-            { x: "-20vw", duration: 0.16, ease: "power2.out" },
-            0.08
+            { x: "-20vw", duration: 0.15, ease: "power2.out" },
+            0.07
           );
           if (heroRoadAtmosphere) {
             heroTl.to(
               heroRoadAtmosphere,
-              { x: "3.5vw", duration: 0.16, ease: "power1.out" },
-              0.08
+              { x: "3.5vw", duration: 0.15, ease: "power1.out" },
+              0.07
             );
           }
           if (ktWord) {
-            heroTl.to(ktWord, { x: "-0.8vw", duration: 0.16, ease: "none" }, 0.08);
+            heroTl.to(ktWord, { x: "-0.8vw", duration: 0.15, ease: "none" }, 0.07);
           }
           if (courierWord) {
-            heroTl.to(courierWord, { x: "-1.8vw", duration: 0.16, ease: "none" }, 0.08);
+            heroTl.to(courierWord, { x: "-1.8vw", duration: 0.15, ease: "none" }, 0.07);
           }
 
-          // 0.24–0.34: Truck decelerates into Hero composition
+          // 0.22–0.33: Truck decelerates into Hero hold with subtle 2-4px suspension settle
           heroTl.to(
             whiteTruckSlot,
-            { x: "-3vw", duration: 0.10, ease: "power3.out" },
-            0.24
+            { x: "0vw", y: "3px", duration: 0.07, ease: "power3.out" },
+            0.22
+          );
+          heroTl.to(
+            whiteTruckSlot,
+            { y: "0px", duration: 0.04, ease: "power1.out" },
+            0.29
           );
           if (heroRoadAtmosphere) {
             heroTl.to(
               heroRoadAtmosphere,
-              { x: "5vw", duration: 0.10, ease: "power1.out" },
-              0.24
+              { x: "5vw", duration: 0.11, ease: "power1.out" },
+              0.22
             );
           }
           if (ktWord) {
-            heroTl.to(ktWord, { x: "-1.2vw", duration: 0.10, ease: "none" }, 0.24);
+            heroTl.to(ktWord, { x: "-1.2vw", duration: 0.11, ease: "none" }, 0.22);
           }
           if (courierWord) {
-            heroTl.to(courierWord, { x: "-2.5vw", duration: 0.10, ease: "none" }, 0.24);
+            heroTl.to(courierWord, { x: "-2.5vw", duration: 0.11, ease: "none" }, 0.22);
           }
 
-          // 0.34–0.46: READING HOLD. Truck nearly still; copy & CTAs fully readable; typography settles
+          // 0.33–0.46: READING HOLD. Truck nearly still; copy & CTAs fully readable; typography settles
           heroTl.to(
             whiteTruckSlot,
-            { x: "-2.2vw", duration: 0.12, ease: "none" },
-            0.34
+            { x: "0.8vw", duration: 0.13, ease: "none" },
+            0.33
           );
 
           // 0.46–0.55: Environment moves first; truck prepares to accelerate
@@ -374,17 +384,17 @@ export function useMasterHomeTimeline({
           }
           heroTl.to(
             whiteTruckSlot,
-            { x: "-0.5vw", duration: 0.09, ease: "power1.in" },
+            { x: "2.5vw", duration: 0.09, ease: "power1.in" },
             0.46
           );
           if (heroActions) {
-            heroTl.to(heroActions, { opacity: 0.7, duration: 0.04 }, 0.51);
+            heroTl.to(heroActions, { opacity: 0.7, duration: 0.04 }, 0.50);
           }
 
           // 0.55–0.68: Truck accelerates right; copy clears before collision
           heroTl.to(
             whiteTruckSlot,
-            { x: "42vw", duration: 0.13, ease: "power2.in" },
+            { x: "45vw", duration: 0.13, ease: "power2.in" },
             0.55
           );
           if (heroActions) {
@@ -404,21 +414,21 @@ export function useMasterHomeTimeline({
             heroTl.to(courierWord, { x: "3.5vw", duration: 0.13, ease: "none" }, 0.55);
           }
 
-          // 0.68–0.76: Cab exits; trailer remains in frame
+          // 0.68–0.78: Cab exits; trailer remains across frame
           heroTl.to(
             whiteTruckSlot,
-            { x: "64vw", duration: 0.08, ease: "power1.out" },
+            { x: "65vw", duration: 0.10, ease: "power1.out" },
             0.68
           );
 
-          // 0.76–0.84: Trailer dominates frame
+          // 0.78–0.86: Trailer becomes dominant foreground surface
           heroTl.to(
             whiteTruckSlot,
-            { x: "78vw", duration: 0.08, ease: "power1.inOut" },
-            0.76
+            { x: "80vw", duration: 0.08, ease: "power1.inOut" },
+            0.78
           );
         } else {
-          // Mobile authored Hero choreography
+          // Mobile authored Hero choreography (Directive Item 10)
           heroTl.set(
             whiteTruckSlot,
             { x: "-120vw", y: 0, scale: 1, opacity: 1 },
@@ -428,25 +438,25 @@ export function useMasterHomeTimeline({
             heroTl.set(heroActions, { opacity: 1, y: 0 }, 0);
           }
 
-          // 0.08–0.24: Truck enters from left
+          // 0.07–0.22: Truck enters from left
           heroTl.to(
             whiteTruckSlot,
-            { x: "-25vw", duration: 0.16, ease: "power2.out" },
-            0.08
+            { x: "-25vw", duration: 0.15, ease: "power2.out" },
+            0.07
           );
 
-          // 0.24–0.34: Deceleration into settle
+          // 0.22–0.33: Deceleration into settle
           heroTl.to(
             whiteTruckSlot,
-            { x: "0vw", duration: 0.10, ease: "power3.out" },
-            0.24
+            { x: "0vw", duration: 0.11, ease: "power3.out" },
+            0.22
           );
 
-          // 0.34–0.46: Reading hold (full silhouette visible, copy readable)
+          // 0.33–0.46: Reading hold (full silhouette visible, copy readable)
           heroTl.to(
             whiteTruckSlot,
-            { x: "0.8vw", duration: 0.12, ease: "none" },
-            0.34
+            { x: "0.8vw", duration: 0.13, ease: "none" },
+            0.33
           );
 
           // 0.46–0.55: Preparation to accelerate
@@ -456,7 +466,7 @@ export function useMasterHomeTimeline({
             0.46
           );
           if (heroActions) {
-            heroTl.to(heroActions, { opacity: 0.7, duration: 0.04 }, 0.51);
+            heroTl.to(heroActions, { opacity: 0.7, duration: 0.04 }, 0.50);
           }
 
           // 0.55–0.68: Acceleration right; copy clears
@@ -469,22 +479,22 @@ export function useMasterHomeTimeline({
             heroTl.to(heroActions, { opacity: 0, y: 15, duration: 0.04 }, 0.55);
           }
 
-          // 0.68–0.76: Cab exits; trailer remains
+          // 0.68–0.78: Cab exits; trailer remains
           heroTl.to(
             whiteTruckSlot,
-            { x: "72vw", duration: 0.08, ease: "power1.out" },
+            { x: "72vw", duration: 0.10, ease: "power1.out" },
             0.68
           );
 
-          // 0.76–0.84: Trailer dominates frame
+          // 0.78–0.86: Trailer dominates frame
           heroTl.to(
             whiteTruckSlot,
             { x: "85vw", duration: 0.08, ease: "power1.inOut" },
-            0.76
+            0.78
           );
         }
 
-        // 0.84–0.93: Trailer Takeover Plane appears inside trailer bounds and expands
+        // 0.86–0.94: Trailer Takeover Plane appears inside trailer bounds and expands
         if (trailerOverlay) {
           heroTl.set(
             trailerOverlay,
@@ -495,7 +505,7 @@ export function useMasterHomeTimeline({
               height: initialTrailerRect.height,
               autoAlpha: 1,
             },
-            0.84
+            0.86
           );
 
           heroTl.to(
@@ -505,16 +515,16 @@ export function useMasterHomeTimeline({
               top: 0,
               width: "100%",
               height: "100%",
-              duration: 0.09,
+              duration: 0.08,
               ease: "power2.inOut",
             },
-            0.84
+            0.86
           );
 
           // Subdivide aperture into adjacent media
           if (p1Layer && p3Layer) {
-            heroTl.to(p1Layer, { autoAlpha: 0, duration: 0.04 }, 0.88);
-            heroTl.to(p3Layer, { autoAlpha: 1, duration: 0.04 }, 0.88);
+            heroTl.to(p1Layer, { autoAlpha: 0, duration: 0.04 }, 0.89);
+            heroTl.to(p3Layer, { autoAlpha: 1, duration: 0.04 }, 0.89);
           }
 
           if (p3Panels && p3Panels.length === 3) {
@@ -522,26 +532,26 @@ export function useMasterHomeTimeline({
               p3Panels[0],
               { width: "0%" },
               { width: "33.3%", duration: 0.05, ease: "power1.inOut" },
-              0.88
+              0.89
             );
             heroTl.fromTo(
               p3Panels[1],
               { width: "100%" },
               { width: "33.4%", duration: 0.05, ease: "power1.inOut" },
-              0.88
+              0.89
             );
             heroTl.fromTo(
               p3Panels[2],
               { width: "0%" },
               { width: "33.3%", duration: 0.05, ease: "power1.inOut" },
-              0.88
+              0.89
             );
           }
 
-          // 0.93–1.00: White truck consumed; trailer takeover hands off to Marketplace
+          // 0.94–1.00: White truck consumed; trailer takeover hands off to Marketplace
           heroTl.to(
             whiteTruckSlot,
-            { opacity: 0, duration: 0.05 },
+            { opacity: 0, duration: 0.06 },
             0.94
           );
         }
@@ -835,26 +845,28 @@ export function useMasterHomeTimeline({
         const collectTl = gsap.timeline({
           scrollTrigger: {
             trigger: collectionSection,
-            start: "top 70%",
-            end: "bottom 45%",
+            start: "top top",
+            end: isMobile ? "+=130%" : "+=170%",
+            pin: true,
             scrub: 0.25,
             anticipatePin: 1,
+            invalidateOnRefresh: true,
             onUpdate: (self) => {
               const p = self.progress;
 
-              // Van state transition family: motion-transition -> side-left -> sliding-door-open
+              // Van state transition family: motion-transition (#13) -> side-left (#02) -> sliding-door-open (#10)
               if (p < 0.38) {
                 setVanStateSafe("motion-transition");
                 setActorVisibilitySafe({ whiteTruck: false, van: true, courier: false, redTruck: false });
                 setActiveActorSafe("van");
-              } else if (p >= 0.38 && p < 0.72) {
+              } else if (p >= 0.38 && p < 0.70) {
                 setVanStateSafe("side-left");
                 setActorVisibilitySafe({ whiteTruck: false, van: true, courier: false, redTruck: false });
                 setActiveActorSafe("van");
               } else {
                 setVanStateSafe("sliding-door-open");
                 // Door open -> courier visible near opening
-                const showCourier = p >= 0.78;
+                const showCourier = p >= 0.76;
                 setActorVisibilitySafe({ whiteTruck: false, van: true, courier: showCourier, redTruck: false });
                 setActiveActorSafe("van");
 
@@ -871,7 +883,9 @@ export function useMasterHomeTimeline({
               currentAnchors.current.courier = collectionCourierAnchor;
               alignSlotToAnchor(vanSlot, collectionVanAnchor);
               alignSlotToAnchor(courierSlot, collectionCourierAnchor);
-              setVanStateSafe("side-left");
+              setVanStateSafe("motion-transition");
+              setActorVisibilitySafe({ whiteTruck: false, van: true, courier: false, redTruck: false });
+              setActiveActorSafe("van");
             },
             onEnterBack: () => {
               if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
@@ -879,16 +893,26 @@ export function useMasterHomeTimeline({
               currentAnchors.current.courier = collectionCourierAnchor;
               alignSlotToAnchor(vanSlot, collectionVanAnchor);
               alignSlotToAnchor(courierSlot, collectionCourierAnchor);
-              setVanStateSafe("side-left");
+              setVanStateSafe("sliding-door-open");
+              setActorVisibilitySafe({ whiteTruck: false, van: true, courier: true, redTruck: false });
+              setActiveActorSafe("van");
+            },
+            onLeave: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
+            onLeaveBack: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
             },
           },
         });
 
-        // 0.00–0.48: Van approach (x -42vw -> 5vw, power2.out)
+        // 0.00–0.46: Van approach (x -42vw -> 5vw, power2.out)
         collectTl.fromTo(
           vanSlot,
           { x: "-42vw", opacity: 0.9 },
-          { x: "5vw", opacity: 1, duration: 0.48, ease: "power2.out" },
+          { x: "5vw", opacity: 1, duration: 0.46, ease: "power2.out" },
           0
         );
 
@@ -897,65 +921,65 @@ export function useMasterHomeTimeline({
           collectTl.fromTo(
             streetEnv,
             { x: "0vw" },
-            { x: "3.5vw", duration: 0.58, ease: "power1.out" },
+            { x: "3.5vw", duration: 0.56, ease: "power1.out" },
             0
           );
         }
 
-        // 0.48–0.58: Braking deceleration (settles 4px back, 5vw -> calc(5vw - 4px))
+        // 0.46–0.56: Braking deceleration (settles 4px back, 5vw -> calc(5vw - 4px))
         collectTl.to(
           vanSlot,
-          { x: "calc(5vw - 4px)", duration: 0.1, ease: "power1.out" },
-          0.48
+          { x: "calc(5vw - 4px)", duration: 0.10, ease: "power1.out" },
+          0.46
         );
 
-        // 0.58–0.64: Subtle suspension settle
+        // 0.56–0.62: Subtle suspension settle
         collectTl.to(
           vanSlot,
-          { y: "2px", duration: 0.03, ease: "power1.in" },
-          0.58
+          { y: "3px", duration: 0.03, ease: "power1.in" },
+          0.56
         );
         collectTl.to(
           vanSlot,
           { y: "0px", duration: 0.03, ease: "power1.out" },
-          0.61
+          0.59
         );
 
-        // 0.64–0.72: Closed Van hold
+        // 0.62–0.70: Closed Van hold
 
-        // 0.72–0.84: Mechanical sliding door physical event
+        // 0.70–0.84: Mechanical sliding door physical event
         // Door travels rearward inside travel envelope while cargo aperture reveals interior
         if (vanInterior) {
           collectTl.fromTo(
             vanInterior,
             { opacity: 0 },
-            { opacity: 1, duration: 0.12, ease: "power1.inOut" },
-            0.72
+            { opacity: 1, duration: 0.14, ease: "power1.inOut" },
+            0.70
           );
         }
         if (vanDoorPanel) {
           collectTl.fromTo(
             vanDoorPanel,
             { opacity: 0, x: "0%" },
-            { opacity: 1, x: "16%", duration: 0.12, ease: "power1.inOut" },
-            0.72
+            { opacity: 1, x: "16%", duration: 0.14, ease: "power1.inOut" },
+            0.70
           );
         } else if (vanDoorWindow) {
           collectTl.fromTo(
             vanDoorWindow,
             { opacity: 0, x: "12%" },
-            { opacity: 1, x: "0%", duration: 0.12, ease: "power1.inOut" },
-            0.72
+            { opacity: 1, x: "0%", duration: 0.14, ease: "power1.inOut" },
+            0.70
           );
         }
 
-        // 0.78–0.88: Courier becomes visible once door travels rearward
+        // 0.76–0.86: Courier becomes visible once door travels rearward
         if (courierSlot) {
           collectTl.fromTo(
             courierSlot,
             { x: "6vw", opacity: 0 },
             { x: "0vw", opacity: 1, duration: 0.10, ease: "power2.out" },
-            0.78
+            0.76
           );
         }
 
@@ -975,16 +999,19 @@ export function useMasterHomeTimeline({
         const custodyTl = gsap.timeline({
           scrollTrigger: {
             trigger: custodySection,
-            start: "top 65%",
-            end: "bottom 35%",
+            start: "top top",
+            end: isMobile ? "+=110%" : "+=140%",
+            pin: true,
             scrub: 0.25,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
             onEnter: () => {
               if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
               currentAnchors.current.courier = custodyCourierAnchor;
               alignSlotToAnchor(courierSlot, custodyCourierAnchor);
               setActorVisibilitySafe({ whiteTruck: false, van: false, courier: true, redTruck: false });
               setActiveActorSafe("courier");
-              setCourierStateSafe("ready-handover");
+              setCourierStateSafe("loading-unloading");
             },
             onEnterBack: () => {
               if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
@@ -993,6 +1020,22 @@ export function useMasterHomeTimeline({
               setActorVisibilitySafe({ whiteTruck: false, van: false, courier: true, redTruck: false });
               setActiveActorSafe("courier");
               setCourierStateSafe("ready-handover");
+            },
+            onLeave: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
+            onLeaveBack: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
+            onUpdate: (self) => {
+              const p = self.progress;
+              if (p < 0.50) {
+                setCourierStateSafe("loading-unloading");
+              } else {
+                setCourierStateSafe("ready-handover");
+              }
             },
           },
         });
@@ -1056,9 +1099,12 @@ export function useMasterHomeTimeline({
         const routeTl = gsap.timeline({
           scrollTrigger: {
             trigger: routeSection,
-            start: "top 60%",
-            end: "bottom 20%",
+            start: "top top",
+            end: isMobile ? "+=120%" : "+=150%",
+            pin: true,
             scrub: 0.25,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
             onUpdate: (self) => {
               const p = self.progress;
 
@@ -1072,9 +1118,9 @@ export function useMasterHomeTimeline({
               }
 
               // Authored Route sequence: 08 straight -> 09 angled -> 16 turning
-              if (p < 0.50) {
+              if (p < 0.48) {
                 setWhiteTruckStateSafe("top-down-straight");
-              } else if (p >= 0.50 && p < 0.70) {
+              } else if (p >= 0.48 && p < 0.68) {
                 setWhiteTruckStateSafe("top-down-angled");
               } else {
                 setWhiteTruckStateSafe("top-down-turning");
@@ -1085,12 +1131,24 @@ export function useMasterHomeTimeline({
               currentAnchors.current.whiteTruck = routeAnchor;
               alignSlotToAnchor(whiteTruckSlot, routeAnchor);
               setWhiteTruckStateSafe("top-down-straight");
+              setActorVisibilitySafe({ whiteTruck: true, van: false, courier: false, redTruck: false });
+              setActiveActorSafe("white-truck");
             },
             onEnterBack: () => {
               if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
               currentAnchors.current.whiteTruck = routeAnchor;
               alignSlotToAnchor(whiteTruckSlot, routeAnchor);
-              setWhiteTruckStateSafe("top-down-straight");
+              setWhiteTruckStateSafe("top-down-turning");
+              setActorVisibilitySafe({ whiteTruck: true, van: false, courier: false, redTruck: false });
+              setActiveActorSafe("white-truck");
+            },
+            onLeave: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
+            onLeaveBack: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
             },
           },
         });
@@ -1146,17 +1204,26 @@ export function useMasterHomeTimeline({
       // ---------------------------------------------------------------------
       if (freightSection && redTruckSlot) {
         const freightWarehouse = freightSection.querySelector<HTMLElement>(".kt-freight-warehouse-env");
+        const freightType = freightSection.querySelector<HTMLElement>("[data-motion='freight-type']");
 
         const freightTl = gsap.timeline({
           scrollTrigger: {
             trigger: freightSection,
-            start: "top 65%",
-            end: "bottom 30%",
+            start: "top top",
+            end: isMobile ? "+=110%" : "+=140%",
+            pin: true,
             scrub: 0.25,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
             onUpdate: (self) => {
               const p = self.progress;
               // Red truck leaves before courier appears in arrival (P1-13)
-              if (p < 0.86) {
+              if (p < 0.25) {
+                setRedTruckStateSafe("motion-entry");
+                setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: true });
+                setActiveActorSafe("red-truck");
+              } else if (p >= 0.25 && p < 0.86) {
+                setRedTruckStateSafe("centered-hero");
                 setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: true });
                 setActiveActorSafe("red-truck");
               } else {
@@ -1168,13 +1235,25 @@ export function useMasterHomeTimeline({
               if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
               currentAnchors.current.redTruck = freightAnchor;
               alignSlotToAnchor(redTruckSlot, freightAnchor);
-              setRedTruckStateSafe("centered-hero");
+              setRedTruckStateSafe("motion-entry");
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: true });
+              setActiveActorSafe("red-truck");
             },
             onEnterBack: () => {
               if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
               currentAnchors.current.redTruck = freightAnchor;
               alignSlotToAnchor(redTruckSlot, freightAnchor);
               setRedTruckStateSafe("centered-hero");
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: true });
+              setActiveActorSafe("red-truck");
+            },
+            onLeave: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
+            onLeaveBack: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
             },
           },
         });
@@ -1186,6 +1265,15 @@ export function useMasterHomeTimeline({
             freightWarehouse,
             { scale: 1.0, y: "20px" },
             { scale: 1.035, y: "-20px", duration: 0.62, ease: "power1.out" },
+            0
+          );
+        }
+
+        if (freightType) {
+          freightTl.fromTo(
+            freightType,
+            { x: "4vw", opacity: 0.04 },
+            { x: "-4vw", opacity: 0.08, duration: 1.0, ease: "none" },
             0
           );
         }
@@ -1213,9 +1301,12 @@ export function useMasterHomeTimeline({
         gsap.timeline({
           scrollTrigger: {
             trigger: arrivalSection,
-            start: "top 65%",
-            end: "bottom 30%",
+            start: "top top",
+            end: isMobile ? "+=80%" : "+=110%",
+            pin: true,
             scrub: 0.25,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
             onEnter: () => {
               if (trailerOverlay) gsap.set(trailerOverlay, { autoAlpha: 0 });
               currentAnchors.current.courier = arrivalCourierAnchor;
@@ -1232,6 +1323,14 @@ export function useMasterHomeTimeline({
               setActiveActorSafe("courier");
               setCourierStateSafe("extending-handoff");
             },
+            onLeave: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
+            onLeaveBack: () => {
+              setActorVisibilitySafe({ whiteTruck: false, van: false, courier: false, redTruck: false });
+              setActiveActorSafe(null);
+            },
           },
         });
 
@@ -1245,7 +1344,7 @@ export function useMasterHomeTimeline({
             ease: "power2.out",
             scrollTrigger: {
               trigger: arrivalSection,
-              start: "top 65%",
+              start: "top top",
               end: "center center",
               scrub: 0.3,
             },

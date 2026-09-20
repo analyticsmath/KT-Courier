@@ -1,5 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import { marketplaceSearchHref } from "@/lib/public-marketplace/routes";
-import { KtIconSearch } from "@/components/public-v2/graphics/KtIcons";
+import { KtIconSearch, KtIconTune, KtIconClose } from "@/components/public-v2/graphics/KtIcons";
 import styles from "./commerce.module.css";
 
 interface CommerceSearchCommandProps {
@@ -8,6 +11,8 @@ interface CommerceSearchCommandProps {
   placeholder?: string;
   hidden?: Array<{ name: string; value: string }>;
   className?: string;
+  onToggleFilter?: () => void;
+  showFilterButton?: boolean;
 }
 
 export function CommerceSearchCommand({
@@ -16,7 +21,11 @@ export function CommerceSearchCommand({
   placeholder = "Search products, stores or categories...",
   hidden = [],
   className = "",
+  onToggleFilter,
+  showFilterButton = false,
 }: CommerceSearchCommandProps) {
+  const [val, setVal] = useState(query);
+
   return (
     <form
       action={action}
@@ -31,26 +40,55 @@ export function CommerceSearchCommand({
           value={field.value}
         />
       ))}
+      <div className={styles.searchIconPrefix} aria-hidden="true">
+        <KtIconSearch size={18} />
+      </div>
       <label className="sr-only" htmlFor="commerce-search-input">
         Search the marketplace
       </label>
       <input
         aria-label="Search the marketplace"
         className={styles.searchCommandInput}
-        defaultValue={query}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
         id="commerce-search-input"
         maxLength={160}
         name="q"
         placeholder={placeholder}
         type="search"
       />
+      {val ? (
+        <button
+          type="button"
+          aria-label="Clear search"
+          className={styles.searchClearButton}
+          onClick={() => setVal("")}
+        >
+          <KtIconClose size={16} />
+        </button>
+      ) : null}
+      {showFilterButton ? (
+        <button
+          type="button"
+          aria-label="Toggle filters"
+          className={styles.searchFilterButton}
+          onClick={() => {
+            if (onToggleFilter) {
+              onToggleFilter();
+            } else if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("kt:open-filter-sheet"));
+            }
+          }}
+        >
+          <KtIconTune size={18} />
+        </button>
+      ) : null}
       <button
         aria-label="Submit search"
         className={styles.searchCommandButton}
         type="submit"
       >
-        <KtIconSearch size={18} />
-        <span style={{ marginLeft: 6 }}>Search</span>
+        <span>Search</span>
       </button>
     </form>
   );

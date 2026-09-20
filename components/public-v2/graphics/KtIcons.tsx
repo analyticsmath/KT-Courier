@@ -152,3 +152,12 @@ export function KtIconPackage({ size = 20, ...props }: IconProps) {
     </svg>
   );
 }
+
+export function KtIconTune({ size = 20, ...props }: IconProps) {
+  return (
+    <svg fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width={size} {...props}>
+      <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
+    </svg>
+  );
+}
+

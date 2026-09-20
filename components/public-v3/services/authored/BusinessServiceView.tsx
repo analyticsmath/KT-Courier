@@ -1,7 +1,14 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import {
+  ServiceStickyMedia,
+  ServiceTextChapters,
+  ServiceImageShift,
+} from "../motion";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function BusinessServiceView({ service }: AuthoredServiceViewProps) {
@@ -9,9 +16,19 @@ export function BusinessServiceView({ service }: AuthoredServiceViewProps) {
   const heroMedia = mediaSet.primary;
   const detailMediaItems = [mediaSet.secondary, mediaSet.detail];
 
+  const [activeChapter, setActiveChapter] = useState(0);
+
+  const businessChapters = service.process.map((step, idx) => ({
+    id: `business-step-${idx}`,
+    stepNumber: `0${idx + 1}`,
+    title: step.title,
+    description: step.description,
+    badge: idx === 0 ? "ACCOUNT" : idx === 1 ? "BATCHING" : "SETTLEMENT",
+  }));
+
   return (
     <div className="space-y-16">
-      {/* Business Hero Stage */}
+      {/* 1. Business Hero Stage */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
           <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-2">
@@ -42,79 +59,60 @@ export function BusinessServiceView({ service }: AuthoredServiceViewProps) {
             )}
           </div>
 
-          {/* Repeat-Dispatch Rhythm Component */}
+          {/* Repeat-Dispatch Visual Rhythm (Cadence without Fake Clock Times) */}
           <div className="pt-6 border-t border-[var(--kt-concrete)]/40 space-y-3">
             <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)]">
-              Authoritative Daily Dispatch Rhythm
+              Repeated Dispatch Cadence
             </div>
             <div className="grid grid-cols-3 gap-2 font-mono text-xs text-center">
               <div className="p-3 bg-black/[0.02] border border-[var(--kt-concrete)]/40">
-                <div className="text-[var(--kt-asphalt)] font-bold">08:30</div>
+                <div className="text-[var(--kt-asphalt)] font-bold">BATCH 01</div>
                 <div className="text-[10px] text-[var(--kt-road-grey)] uppercase mt-0.5">Morning Pickup</div>
               </div>
               <div className="p-3 bg-black/[0.02] border border-[var(--kt-concrete)]/40">
-                <div className="text-[var(--kt-asphalt)] font-bold">13:00</div>
+                <div className="text-[var(--kt-asphalt)] font-bold">BATCH 02</div>
                 <div className="text-[10px] text-[var(--kt-road-grey)] uppercase mt-0.5">Midday Run</div>
               </div>
               <div className="p-3 bg-black/[0.02] border border-[var(--kt-concrete)]/40">
-                <div className="text-[var(--kt-asphalt)] font-bold">17:00</div>
-                <div className="text-[10px] text-[var(--kt-road-grey)] uppercase mt-0.5">Clearance</div>
+                <div className="text-[var(--kt-asphalt)] font-bold">BATCH 03</div>
+                <div className="text-[10px] text-[var(--kt-road-grey)] uppercase mt-0.5">Daily Clearance</div>
               </div>
             </div>
           </div>
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
-            <Image
-              src={heroMedia.src}
-              alt={heroMedia.alt}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-              style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
-            />
-          </div>
+          <ServiceStickyMedia
+            media={[heroMedia, ...detailMediaItems]}
+            activeIndex={activeChapter}
+            aspectRatio="aspect-[4/3]"
+          />
         </div>
       </section>
 
-      {/* Account Operations Workflow — Unboxed Editorial Sequence */}
+      {/* 2. Account Operations Workflow — Text Chapters */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-1">
+            Account Management
+          </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
             Account-based delivery management
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {service.process.map((step, idx) => (
-            <div
-              key={idx}
-              className="pt-4 border-t border-[var(--kt-concrete)] space-y-2"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                  0{idx + 1}
-                </span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {step.title}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
-                {step.description}
-              </p>
-            </div>
-          ))}
-        </div>
+        <ServiceTextChapters
+          chapters={businessChapters}
+          activeIndex={activeChapter}
+          onActiveIndexChange={setActiveChapter}
+        />
       </section>
 
-      {/* Merchant Criteria & Daily Operations — Unboxed Two-Column Layout */}
+      {/* 3. Merchant Fit & Standards */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-concrete)]/40 md:divide-x md:divide-[var(--kt-concrete)]/40">
         <div className="space-y-4 md:pr-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-            Built For Business Needs
+            Merchant Partners
           </h3>
           <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
             {service.idealFor.map((item, idx) => (
@@ -128,7 +126,7 @@ export function BusinessServiceView({ service }: AuthoredServiceViewProps) {
 
         <div className="space-y-4 md:pl-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-            Onboarding & Dispatch Preparation
+            Account Integration
           </h3>
           <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
             {service.preparation.map((item, idx) => (
@@ -141,23 +139,16 @@ export function BusinessServiceView({ service }: AuthoredServiceViewProps) {
         </div>
       </section>
 
-      {/* Detail Media Frames */}
+      {/* 4. Secondary Media Drift */}
       {detailMediaItems.length > 0 && (
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-[var(--kt-concrete)]/40">
           {detailMediaItems.map((item, idx) => (
-            <div
+            <ServiceImageShift
               key={idx}
-              className="relative aspect-[16/10] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden"
-            >
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                sizes="(max-width: 767px) 100vw, 50vw"
-                className="object-cover"
-                style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
-              />
-            </div>
+              asset={item}
+              aspectRatio="aspect-[16/10]"
+              sizes="(max-width: 767px) 100vw, 50vw"
+            />
           ))}
         </section>
       )}

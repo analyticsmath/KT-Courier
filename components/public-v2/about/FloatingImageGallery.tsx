@@ -19,7 +19,7 @@ const galleryItems = [
   },
   {
     id: "marketplace",
-    tag: "Marketplace Continuity",
+    tag: "Local Storefronts",
     title: "Catalog diversity connecting local commerce",
     media: ktMediaV3.editorial.ceramics.sculpturalVessel,
     aspect: "16/10",
@@ -27,7 +27,7 @@ const galleryItems = [
   },
   {
     id: "movement",
-    tag: "Transport Corridors",
+    tag: "Regional Transit",
     title: "Transit routes spanning South Africa",
     media: ktMediaV3.pages.about.photoEssay[1],
     aspect: "16/9",
@@ -71,7 +71,7 @@ export function FloatingImageGallery() {
       ref={containerRef}
     >
       <div className={styles.galleryHeader}>
-        <span className={styles.galleryEyebrow}>Physical Continuity</span>
+        <span className={styles.galleryEyebrow}>Trade in Motion</span>
         <h2 className={styles.galleryTitle}>Every order is someone&apos;s trade in transit.</h2>
       </div>
 

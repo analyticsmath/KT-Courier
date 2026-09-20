@@ -38,6 +38,19 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)] via-[var(--kt-asphalt)]/70 to-[var(--kt-asphalt)]" />
       </div>
 
+      {/* Monumental FREIGHT Typography Depth Plane behind Red Truck (Directive Items 20, 43, 61) */}
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden z-5 select-none"
+        aria-hidden="true"
+      >
+        <span
+          data-motion="freight-type"
+          className="font-display text-[clamp(6rem,22vw,20rem)] font-black tracking-tighter leading-none text-white/[0.06] uppercase select-none pointer-events-none will-change-transform"
+        >
+          FREIGHT
+        </span>
+      </div>
+
       {/* Top Narrative Framing */}
       <div className="max-w-4xl mx-auto text-center pt-8 relative z-10">
         <h2

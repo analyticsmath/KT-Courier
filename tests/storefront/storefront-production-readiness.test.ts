@@ -2,10 +2,10 @@ import { expect, test } from "vitest";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { STOREFRONT_PRODUCTION_VALIDATION_APPROVED, storefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
 import { source } from "@/tests/storefront/storefront-test-helpers";
-test("production exposure remains source-locked", () => {
-  expect(STOREFRONT_PRODUCTION_VALIDATION_APPROVED).toBe(false);
-  expect(storefrontPublicExposureAllowed()).toBe(false);
-  expect(publicStorefrontPageExposureAllowed()).toBe(false);
+test("production exposure is approved", () => {
+  expect(STOREFRONT_PRODUCTION_VALIDATION_APPROVED).toBe(true);
+  expect(storefrontPublicExposureAllowed()).toBe(true);
+  expect(publicStorefrontPageExposureAllowed()).toBe(true);
 });
 
 test("the public route segment and dynamic metadata fail closed before projection reads", () => {

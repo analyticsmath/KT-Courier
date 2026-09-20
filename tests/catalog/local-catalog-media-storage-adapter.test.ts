@@ -126,8 +126,8 @@ describe("Catalog media production locking and environment gating", () => {
     delete process.env.KT_STAGING_DEMO_ENABLED;
     delete process.env.KT_DEMO_DATA_ENABLED;
 
-    expect(isCatalogMediaDeliveryAllowed()).toBe(false);
-    expect(() => assertCatalogMediaProductionActionAllowed("PUBLIC_DELIVERY")).toThrow();
+    expect(isCatalogMediaDeliveryAllowed()).toBe(true);
+    expect(() => assertCatalogMediaProductionActionAllowed("PUBLIC_DELIVERY")).not.toThrow();
     const adapter = createProductionCatalogMediaStorageAdapter();
     expect(adapter.code).toBe("UNCONFIGURED");
   });

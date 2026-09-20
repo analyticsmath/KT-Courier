@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { StorefrontFilterInput } from "@/lib/storefront/search/storefront-filter-url";
 import type { StorefrontFacet } from "@/lib/storefront/storefront-types";
@@ -22,6 +22,12 @@ export function MobileFilterSheet({
   resultCount,
 }: MobileFilterSheetProps) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpen = () => setOpen(true);
+    window.addEventListener("kt:open-filter-sheet", handleOpen);
+    return () => window.removeEventListener("kt:open-filter-sheet", handleOpen);
+  }, []);
 
   return (
     <>

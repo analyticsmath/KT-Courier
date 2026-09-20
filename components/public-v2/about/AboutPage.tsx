@@ -15,8 +15,8 @@ const networkPillars = [
   },
   {
     category: "Workshop Staging",
-    title: "Careful packaging and verification.",
-    desc: "Every order is inspected, packed with protective materials, and sealed for reliable courier transit.",
+    title: "Careful packaging and preparation.",
+    desc: "Items are packed with protective materials and prepared for courier collection.",
     media: ktMediaV3.pages.about.photoEssay[2],
   },
   {

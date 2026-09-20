@@ -52,7 +52,7 @@ export default async function SearchPage({
     <div style={{ marginBottom: "2rem" }}>
       {/* Search Input Command */}
       <div style={{ maxWidth: 540, marginBottom: "1.5rem" }}>
-        <CommerceSearchCommand query={filters.q || ""} />
+        <CommerceSearchCommand query={filters.q || ""} showFilterButton />
       </div>
 
       {/* Did you mean suggestion */}

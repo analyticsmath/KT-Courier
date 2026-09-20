@@ -85,10 +85,10 @@ export function CareersPage({ snapshot }: CareersPageProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/80 via-transparent to-transparent" />
           <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-freight-paper)]">
             <span className="text-xs font-mono uppercase tracking-widest bg-black/60 px-3 py-1">
-              Fleet Operations &bull; Dispatch Hub
+              Fleet & Route Operations
             </span>
             <span className="text-xs font-mono text-[var(--kt-concrete)] hidden sm:inline">
-              Johannesburg Central Hub & Regional Depots
+              Courier and dispatch operations across South Africa
             </span>
           </div>
         </div>

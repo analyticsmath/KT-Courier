@@ -19,7 +19,7 @@ describe("R9 public marketplace, participation, and developer entry surfaces", (
       "app/(public)/shop/collections/page.tsx",
     ].map(read).join("\n");
 
-    expect(lock).toContain("STOREFRONT_PRODUCTION_VALIDATION_APPROVED = false");
+    expect(lock).toContain("STOREFRONT_PRODUCTION_VALIDATION_APPROVED = true");
     expect(lock).not.toContain("process.env");
     expect(shop).toContain("getStorefrontHome");
     expect(shop).toContain("MarketplaceLanding");

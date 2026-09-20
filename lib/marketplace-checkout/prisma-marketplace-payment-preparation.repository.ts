@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Prisma generation is deferred by the Phase 20 validation boundary. */
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { MarketplacePaymentPreparationRepository } from "@/lib/marketplace-checkout/marketplace-payment-preparation.service";
 

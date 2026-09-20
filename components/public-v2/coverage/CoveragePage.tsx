@@ -58,7 +58,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/80 via-transparent to-transparent" />
           <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-freight-paper)]">
             <span className="text-xs font-mono uppercase tracking-widest bg-black/60 px-3 py-1">
-              Transit Corridors
+              Service Coverage
             </span>
             <span className="text-xs font-mono text-[var(--kt-concrete)] hidden sm:inline">
               Connecting roads and regional routes
@@ -76,7 +76,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
             Route Environments
           </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--kt-asphalt)]">
-            Transit Corridors & Road Networks
+            Service Areas & Road Networks
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[var(--kt-concrete)]/40">
@@ -112,7 +112,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
               Long-distance roads
             </h3>
             <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
-              Connecting transit links between hubs.
+              Connecting transit links between locations.
             </p>
           </div>
 

@@ -19,7 +19,6 @@ export type SupportingPageHeroProps = {
 };
 
 export function SupportingPageHero({
-  breadcrumb: _breadcrumb,
   eyebrow,
   title,
   summary,

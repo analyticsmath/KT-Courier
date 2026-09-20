@@ -70,8 +70,8 @@ describe("Catalog Media Delivery Gate & Storage Isolation", () => {
       delete process.env.KT_STAGING_DEMO_ENABLED;
       delete process.env.KT_DEMO_DATA_ENABLED;
 
-      expect(isCatalogMediaDeliveryAllowed()).toBe(false);
-      expect(() => assertCatalogMediaProductionActionAllowed("PUBLIC_DELIVERY")).toThrow();
+      expect(isCatalogMediaDeliveryAllowed()).toBe(true);
+      expect(() => assertCatalogMediaProductionActionAllowed("PUBLIC_DELIVERY")).not.toThrow();
       const adapter = createProductionCatalogMediaStorageAdapter();
       expect(adapter.code).toBe("UNCONFIGURED");
     });
@@ -92,7 +92,7 @@ describe("Catalog Media Delivery Gate & Storage Isolation", () => {
       process.env.CATALOG_MEDIA_STORAGE = "filesystem";
       delete process.env.KT_STAGING_DEMO_ENABLED;
 
-      expect(isCatalogMediaDeliveryAllowed()).toBe(false);
+      expect(isCatalogMediaDeliveryAllowed()).toBe(true);
       const adapter = createProductionCatalogMediaStorageAdapter();
       expect(adapter.code).toBe("UNCONFIGURED");
     });

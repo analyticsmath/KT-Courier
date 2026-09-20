@@ -1,7 +1,14 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import {
+  ServiceStickyMedia,
+  ServiceTextChapters,
+  ServiceImageShift,
+} from "../motion";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function PharmacyServiceView({ service }: AuthoredServiceViewProps) {
@@ -9,14 +16,24 @@ export function PharmacyServiceView({ service }: AuthoredServiceViewProps) {
   const heroMedia = mediaSet.primary;
   const detailMediaItems = [mediaSet.secondary, mediaSet.detail];
 
+  const [activeChapter, setActiveChapter] = useState(0);
+
+  const pharmacyChapters = service.process.map((step, idx) => ({
+    id: `pharmacy-step-${idx}`,
+    stepNumber: `0${idx + 1}`,
+    title: step.title,
+    description: step.description,
+    badge: idx === 0 ? "COLLECTION" : idx === 1 ? "PROTECTED" : "DIRECT HANDOFF",
+  }));
+
   return (
     <div className="space-y-16">
-      {/* Editorial Hero Stage — Restrained Controlled Split */}
+      {/* 1. Controlled Editorial Split Stage: Sticky Copy + Media */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
           <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-asphalt)]" />
-            <span>Factual Verification & Custody Protocol</span>
+            <span>Careful Handling & Direct Transit</span>
           </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
@@ -44,66 +61,47 @@ export function PharmacyServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
-            <Image
-              src={heroMedia.src}
-              alt={heroMedia.alt}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-              style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
-            />
-          </div>
+          <ServiceStickyMedia
+            media={[heroMedia, ...detailMediaItems]}
+            activeIndex={activeChapter}
+            aspectRatio="aspect-[4/3]"
+          />
         </div>
       </section>
 
-      {/* Handling & Review Notice — Restrained Factual Mandate */}
+      {/* 2. Restrained Factual Notice (Zero HUD, Zero Speculation) */}
       <section className="py-5 px-6 bg-black/[0.02] border-l-2 border-[var(--kt-asphalt)] border-y border-r border-[var(--kt-concrete)]/30 space-y-1.5">
         <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-asphalt)] font-bold">
-          Mandatory Verification Protocol
+          Careful Transport Protocol
         </div>
         <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
-          Prescription validation and product eligibility are confirmed during dispatch intake. KT Couriers coordinates verified transportation only and does not dispense pharmaceuticals. Every pharmacy transport requires verified recipient identity and tamper-evident packaging.
+          KT Couriers coordinates careful, dedicated local transport for health and wellness products prepared by certified pharmacies and dispensaries. Items are transported directly from pickup to the designated destination address.
         </p>
       </section>
 
-      {/* Workflow — Unboxed Editorial Sequence */}
+      {/* 3. Text Chapters — Direct Handoff Steps */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-1">
+            Custody Sequence
+          </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
             Careful handling from counter to recipient
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {service.process.map((step, idx) => (
-            <div
-              key={idx}
-              className="pt-4 border-t border-[var(--kt-concrete)] space-y-2"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                  0{idx + 1}
-                </span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {step.title}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
-                {step.description}
-              </p>
-            </div>
-          ))}
-        </div>
+        <ServiceTextChapters
+          chapters={pharmacyChapters}
+          activeIndex={activeChapter}
+          onActiveIndexChange={setActiveChapter}
+        />
       </section>
 
-      {/* Suitable Items & Packaging Guide — Unboxed Two-Column Layout */}
+      {/* 4. Suitable Categories & Preparation Standards */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-concrete)]/40 md:divide-x md:divide-[var(--kt-concrete)]/40">
         <div className="space-y-4 md:pr-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-            Suitable Items
+            Suitable Shipments
           </h3>
           <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
             {service.idealFor.map((item, idx) => (
@@ -130,23 +128,16 @@ export function PharmacyServiceView({ service }: AuthoredServiceViewProps) {
         </div>
       </section>
 
-      {/* Detail Media Mosaic */}
+      {/* 5. Documentary Detail Media Drift */}
       {detailMediaItems.length > 0 && (
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-[var(--kt-concrete)]/40">
           {detailMediaItems.map((item, idx) => (
-            <div
+            <ServiceImageShift
               key={idx}
-              className="relative aspect-[16/10] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden"
-            >
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                sizes="(max-width: 767px) 100vw, 50vw"
-                className="object-cover"
-                style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
-              />
-            </div>
+              asset={item}
+              aspectRatio="aspect-[16/10]"
+              sizes="(max-width: 767px) 100vw, 50vw"
+            />
           ))}
         </section>
       )}

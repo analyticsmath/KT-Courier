@@ -1,26 +1,48 @@
-import Image from "next/image";
+"use client";
+
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import {
+  ServiceStickyMedia,
+  ServiceHorizontalMedia,
+  type HorizontalMediaItem,
+} from "../motion";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function GroceryServiceView({ service }: AuthoredServiceViewProps) {
   const mediaSet = ktMediaV3.pages.services.grocery;
   const heroMedia = mediaSet.primary;
   const detailMediaItems = [mediaSet.secondary, mediaSet.detail];
-  const groceryStripItems = [
-    { ...mediaSet.primary, caption: "Fresh Produce Staging", tag: "Market Fresh" },
-    { ...mediaSet.secondary, caption: "Farm-Selected Vegetables", tag: "Farm Direct" },
-    { ...mediaSet.detail, caption: "Insulated Chilled Packing", tag: "Protected Cold" },
+
+  const groceryShelfItems: HorizontalMediaItem[] = [
+    {
+      asset: mediaSet.primary,
+      title: "Fresh Produce Staging",
+      tag: "Market Fresh",
+      description: "Morning market crates, regional fruits, and crisp greens sorted for dispatch.",
+    },
+    {
+      asset: mediaSet.secondary,
+      title: "Farm-Selected Vegetables",
+      tag: "Farm Direct",
+      description: "Root vegetables and local pantry provisions packed in ventilated cartons.",
+    },
+    {
+      asset: mediaSet.detail,
+      title: "Protected Packing",
+      tag: "Cold & Pantry",
+      description: "Careful partition packing preventing crushing during local urban transit.",
+    },
   ];
 
   return (
     <div className="space-y-16">
-      {/* Editorial Hero Stage */}
+      {/* 1. Anchored Text + Sticky Media Shelf Stage */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
           <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)]">
-            Market Staples & Produce
+            Market Staples & Produce Shelf
           </div>
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
             {service.title}
@@ -48,99 +70,38 @@ export function GroceryServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
-            <Image
-              src={heroMedia.src}
-              alt={heroMedia.alt}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-              style={{ objectPosition: `${heroMedia.focalPoint[0] * 100}% ${heroMedia.focalPoint[1] * 100}%` }}
-            />
-          </div>
+          <ServiceStickyMedia
+            media={[heroMedia, ...detailMediaItems]}
+            activeIndex={0}
+            aspectRatio="aspect-[4/3]"
+          />
         </div>
       </section>
 
-      {/* Horizontal Image Strip: Market / Shelf / Selected Produce */}
+      {/* 2. Horizontal Media Shelf: Market / Shelf / Selected Produce */}
       <section className="space-y-4 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
-            Selected provisions & handling standards
-          </h2>
+          <div>
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-1">
+              Produce Shelf
+            </span>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
+              Selected provisions & handling standards
+            </h2>
+          </div>
           <span className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)]">
-            Market Shelf &rarr; Cool Pack &rarr; Residential Delivery
+            Market Shelf &rarr; Cool Pack &rarr; Delivery
           </span>
         </div>
 
-        <div className="flex gap-6 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory scrollbar-none">
-          {groceryStripItems.map((item, idx) => (
-            <div
-              key={idx}
-              className="relative w-[300px] sm:w-[380px] shrink-0 snap-start bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden group"
-            >
-              <div className="relative aspect-[16/10] w-full overflow-hidden">
-                <Image
-                  src={item.src}
-                  alt={item.alt}
-                  fill
-                  sizes="(max-width: 640px) 300px, 380px"
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
-                />
-                <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm text-white px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider">
-                  {item.tag}
-                </div>
-              </div>
-              <div className="p-4 bg-[var(--kt-freight-paper)] border-t border-[var(--kt-concrete)]/40">
-                <div className="font-display text-base font-bold text-[var(--kt-asphalt)]">
-                  {item.caption}
-                </div>
-                <div className="text-xs text-[var(--kt-road-grey)] mt-1 line-clamp-1">
-                  {item.alt}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <ServiceHorizontalMedia items={groceryShelfItems} />
       </section>
 
-      {/* Store Collection To Doorstep Workflow — Unboxed Editorial Sequence */}
-      <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
-        <div>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
-            From merchant counter to residential delivery
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {service.process.map((step, idx) => (
-            <div
-              key={idx}
-              className="pt-4 border-t border-[var(--kt-concrete)] space-y-2"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                  0{idx + 1}
-                </span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {step.title}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
-                {step.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Suitable Items & Preparation — Unboxed Two-Column Layout */}
+      {/* 3. Suitable Categories & Storage Guides */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-concrete)]/40 md:divide-x md:divide-[var(--kt-concrete)]/40">
         <div className="space-y-4 md:pr-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-            Suitable Grocery Provisions
+            Grocery Categories
           </h3>
           <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
             {service.idealFor.map((item, idx) => (
@@ -154,7 +115,7 @@ export function GroceryServiceView({ service }: AuthoredServiceViewProps) {
 
         <div className="space-y-4 md:pl-6">
           <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-            Packing & Weight Guidelines
+            Packing & Transit Standards
           </h3>
           <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
             {service.preparation.map((item, idx) => (
@@ -166,27 +127,6 @@ export function GroceryServiceView({ service }: AuthoredServiceViewProps) {
           </ul>
         </div>
       </section>
-
-      {/* Detail Media Mosaic */}
-      {detailMediaItems.length > 0 && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-[var(--kt-concrete)]/40">
-          {detailMediaItems.map((item, idx) => (
-            <div
-              key={idx}
-              className="relative aspect-[16/10] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/60 overflow-hidden"
-            >
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                sizes="(max-width: 767px) 100vw, 50vw"
-                className="object-cover"
-                style={{ objectPosition: `${item.focalPoint[0] * 100}% ${item.focalPoint[1] * 100}%` }}
-              />
-            </div>
-          ))}
-        </section>
-      )}
     </div>
   );
 }

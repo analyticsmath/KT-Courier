@@ -1,7 +1,9 @@
-import Image from "next/image";
+"use client";
+
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
+import { ServiceStickyMedia } from "../motion";
 import type { AuthoredServiceViewProps } from "./types";
 
 export function PricingServiceView({ service }: AuthoredServiceViewProps) {
@@ -18,7 +20,7 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
     },
     {
       title: "Parcel count, dimensions and weight",
-      description: "Size, physical volume, and loading requirements that establish the appropriate transport vehicle.",
+      description: "Physical volume, weight classification, and loading requirements establish the appropriate vehicle.",
     },
     {
       title: "Scheduling requirements",
@@ -32,7 +34,7 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
 
   return (
     <div className="space-y-16">
-      {/* Editorial Lead Stage — The Quietest Service Presentation */}
+      {/* 1. Editorial Lead Stage — The Quietest Service Presentation */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         <div className="lg:col-span-7 space-y-6 lg:sticky lg:top-28">
           <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-road-grey)] flex items-center gap-2">
@@ -57,22 +59,20 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="lg:col-span-5">
-          <div className="relative aspect-[4/3] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden group">
-            <Image
-              src={mediaSet.primary.src}
-              alt={mediaSet.primary.alt}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 40vw"
-              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-            />
-          </div>
+          <ServiceStickyMedia
+            media={[mediaSet.primary]}
+            activeIndex={0}
+            aspectRatio="aspect-[4/3]"
+          />
         </div>
       </section>
 
-      {/* The 5 Real Quote Factors — Unboxed Editorial Sequence */}
+      {/* 2. The 5 Real Quote Factors — Unboxed Editorial Sequence */}
       <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
         <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-1">
+            Quote Methodology
+          </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
             The five factors that shape your quote
           </h2>
@@ -99,56 +99,6 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Quote Process Steps — Unboxed Editorial Sequence */}
-      <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
-        <div>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
-            How your quote is prepared
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {service.process.map((step, idx) => (
-            <div
-              key={idx}
-              className="pt-4 border-t border-[var(--kt-concrete)] space-y-2"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
-                  0{idx + 1}
-                </span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
-                {step.title}
-              </h3>
-              <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed">
-                {step.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Canonical Single Action Block */}
-      <section className="py-12 border-t border-[var(--kt-concrete)]/40 space-y-6">
-        <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
-          Ready to get an accurate delivery quote?
-        </h3>
-        <p className="text-sm sm:text-base text-[var(--kt-road-grey)] max-w-xl leading-relaxed">
-          Submit pickup, drop-off, and parcel details directly into the authenticated delivery request flow to receive a confirmed price.
-        </p>
-        <div className="pt-2">
-          <Link
-            href="/account/request-delivery"
-            className="kt-action-filled px-8 py-3.5 inline-flex items-center gap-2"
-          >
-            <span>Request a delivery quote</span>
-            <KtIconArrowRight size={16} />
-          </Link>
         </div>
       </section>
     </div>
