@@ -175,6 +175,32 @@ describe("homepage narrative frame resolver", () => {
       .toMatchObject({ mode: "visible-height", visibleHeightVh: 34 });
     expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "mobile" }).actors.whiteTruck.sizeMode)
       .toMatchObject({ mode: "visible-height", visibleHeightVh: 26 });
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "mobile" }).actors.whiteTruck.groundY).toBe(0.85);
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "desktop" }).actors.whiteTruck.groundY).toBe(0.88);
+  });
+
+  it("resolves the complete mobile V5 hero sequence on the desktop normalized beats", () => {
+    const expectedStates: Array<[number, string, string?]> = [
+      [0.13, "front-3q-entry-phase-01"],
+      [0.18, "front-3q-entry-phase-01"],
+      [0.3, "front-3q-entry-phase-03"],
+      [0.45, "front-3q-entry-phase-06"],
+      [0.55, "front-center-transition-phase-01", "front-center-transition-phase-02"],
+      [0.62, "true-front-center-full"],
+      [0.72, "true-front-center-full", "true-front-center-medium"],
+      [0.84, "true-front-center-medium", "true-front-center-close"],
+      [0.94, "true-front-center-close", "true-front-center-extreme-close"],
+      [0.98, "true-front-center-extreme-close"],
+    ];
+
+    expect(resolveHomeFrame({ chapter: "hero", progress: 0, viewportMode: "mobile" }).actors.whiteTruck.visible).toBe(false);
+    for (const [progress, state, blendToState] of expectedStates) {
+      const actor = resolveHomeFrame({ chapter: "hero", progress, viewportMode: "mobile" }).actors.whiteTruck;
+      expect(actor.visible).toBe(true);
+      expect(actor.state).toBe(state);
+      if (blendToState) expect(actor.blendToState).toBe(blendToState);
+    }
+    expect(resolveHomeFrame({ chapter: "hero", progress: 1, viewportMode: "mobile" }).actors.whiteTruck.visible).toBe(false);
   });
 
   it("keeps freight visible through its climax hold and releases it before Arrival owns the frame", () => {

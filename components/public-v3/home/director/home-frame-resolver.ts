@@ -157,7 +157,7 @@ export function resolveHeroTruckFrame(
     stateBlend: blend,
     visible: p >= beats.entryReveal[0] && p < 1,
     targetX,
-    groundY: viewportMode === "mobile" ? 0.89 : 0.88,
+    groundY: viewportMode === "mobile" ? 0.85 : 0.88,
     widthVw: 60,
     sizeMode: { mode: "visible-height", visibleHeightVh: resolveHeroVisibleHeight(p, viewportMode) },
     rotation: 0,

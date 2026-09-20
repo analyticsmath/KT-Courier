@@ -130,7 +130,7 @@
 @media (max-width: 767px) {
   .heroActionsRow {
     left: 50%;
-    bottom: calc(var(--kt-mobile-action-safe-bottom) + clamp(10rem, 25svh, 13rem));
+    bottom: var(--kt-mobile-action-safe-bottom);
     width: min(34rem, calc(100vw - 1.5rem));
     max-width: none;
     padding: 0;
@@ -279,7 +279,7 @@
 
 @media (max-width: 767px) {
   :global(.kt-home-experience [data-kt-scene="hero"]) {
-    min-height: calc(var(--kt-home-mobile-budget, 190) * 1svh) !important;
+    min-height: calc(var(--kt-home-mobile-budget, 260) * 1svh) !important;
   }
 }
 
@@ -568,7 +568,7 @@
   }
 
   :global(.kt-home-experience [data-kt-scene="hero"]) {
-    min-height: calc(var(--kt-home-mobile-budget, 190) * 1svh) !important;
+    min-height: calc(var(--kt-home-mobile-budget, 260) * 1svh) !important;
     height: auto;
   }
 

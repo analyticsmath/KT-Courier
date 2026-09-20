@@ -18,6 +18,7 @@ import { HOME_CHAPTERS } from "./home-chapters";
 import { clamp01, HOME_BEATS, range } from "./home-beats";
 import { formatHomeDebugFrame } from "./home-debug";
 import { alignGroundContact } from "./home-grounding";
+import { closestReadyHeroSequenceState, isActorImageReady, markActorImageReady } from "./home-actor-image-readiness";
 import { assertPhysicalCoverage, physicalCoverage } from "./home-occlusion";
 import {
   assertActorTransition,
@@ -37,6 +38,13 @@ type ProgressTimeline = { timeline: gsap.core.Timeline; proxy: { progress: numbe
 type FanTransferGeometry = {
   source: { left: number; top: number; width: number; height: number };
   targetDocument: { left: number; top: number; width: number; height: number };
+};
+type HeroTruckPresentation = {
+  displayedState: string;
+  requestedReady: boolean;
+  imageReady: boolean;
+  visible: boolean;
+  blend: number;
 };
 
 const ACTOR_TYPES: Record<ActorName, ActorType> = {
@@ -209,13 +217,24 @@ export function useHomeNarrativeDirector({
       .sort((a, b) => HOME_CHAPTERS.indexOf(a.chapter) - HOME_CHAPTERS.indexOf(b.chapter));
     const slotNodes = new Map<ActorName, HTMLElement>();
     const stateLayers = new Map<ActorName, Map<string, HTMLImageElement>>();
-    const decodedActorImages = new WeakSet<HTMLImageElement>();
-    const pendingActorDecodes = new WeakMap<HTMLImageElement, Promise<boolean>>();
-    let refreshFrameAfterDecode: (() => void) | null = null;
+    const requestedActorReadiness = new WeakSet<HTMLImageElement>();
+    const notifiedActorReadiness = new WeakSet<HTMLImageElement>();
+    let refreshFrameAfterActorReady: (() => void) | null = null;
+    let actorReadyRefreshFrame = 0;
+    const scheduleActorReadyRefresh = (image: HTMLImageElement) => {
+      if (!isActorImageReady(image) || notifiedActorReadiness.has(image)) return;
+      notifiedActorReadiness.add(image);
+      if (!refreshFrameAfterActorReady || actorReadyRefreshFrame) return;
+      actorReadyRefreshFrame = window.requestAnimationFrame(() => {
+        actorReadyRefreshFrame = 0;
+        refreshFrameAfterActorReady?.();
+      });
+    };
     (Object.keys(ACTOR_SLOTS) as ActorName[]).forEach((actor) => {
       const slot = root.querySelector<HTMLElement>(`[data-actor-slot='${ACTOR_SLOTS[actor]}']`);
       if (!slot) return;
       slotNodes.set(actor, slot);
+      gsap.set(slot, { autoAlpha: 0 });
       const layers = new Map<string, HTMLImageElement>();
       slot.querySelectorAll<HTMLImageElement>("[data-actor-state-layer]").forEach((layer) => {
         layers.set(layer.dataset.actorStateLayer ?? "", layer);
@@ -224,35 +243,40 @@ export function useHomeNarrativeDirector({
       stateLayers.set(actor, layers);
     });
 
-    const isActorImageDecoded = (image: HTMLImageElement | undefined): boolean => {
-      return Boolean(image && (decodedActorImages.has(image) || image.dataset.actorStateDecoded === "true"));
-    };
-
     const requestActorImageDecode = (image: HTMLImageElement | undefined, priority: "high" | "auto" = "auto") => {
       if (!image) return;
-      image.loading = "eager";
       image.fetchPriority = priority;
-      if (isActorImageDecoded(image)) return;
-      if (pendingActorDecodes.has(image)) return;
+      if (isActorImageReady(image)) {
+        image.dataset.actorStateReady = "true";
+        return;
+      }
+      if (requestedActorReadiness.has(image)) return;
+      requestedActorReadiness.add(image);
 
-      const pending = Promise.resolve()
-        .then(() => typeof image.decode === "function" ? image.decode() : undefined)
-        .then(() => {
-          if (image.complete && image.naturalWidth > 0) {
-            decodedActorImages.add(image);
-            image.dataset.actorStateDecoded = "true";
-            return true;
-          }
-          return false;
-        })
-        .catch(() => false);
-      pendingActorDecodes.set(image, pending);
-      void pending.then((decoded) => {
-        pendingActorDecodes.delete(image);
-        if (decoded && refreshFrameAfterDecode) {
-          window.requestAnimationFrame(refreshFrameAfterDecode);
+      const cleanup = () => {
+        image.removeEventListener("load", onLoad);
+        image.removeEventListener("error", cleanup);
+      };
+      const markReadyAndRefresh = () => {
+        if (!markActorImageReady(image) && !isActorImageReady(image)) return;
+        cleanup();
+        scheduleActorReadyRefresh(image);
+      };
+      const onLoad = () => markReadyAndRefresh();
+      image.addEventListener("load", onLoad, { once: true });
+      image.addEventListener("error", cleanup, { once: true });
+      image.loading = "eager";
+
+      if (typeof image.decode === "function") {
+        try {
+          void image.decode().then(() => {
+            if (image.naturalWidth > 0) image.dataset.actorStateReady = "true";
+            markReadyAndRefresh();
+          }, markReadyAndRefresh);
+        } catch {
+          markReadyAndRefresh();
         }
-      });
+      }
     };
 
     const cards = Array.from(root.querySelectorAll<HTMLElement>(".kt-fan-card"));
@@ -301,9 +325,10 @@ export function useHomeNarrativeDirector({
     let lastFrame: HomeFrame | null = null;
     let measuredCardStep = 0;
     let stageTopPx = actorStage?.getBoundingClientRect().top ?? 0;
+    let stageWidthPx = actorStage?.getBoundingClientRect().width || window.innerWidth;
+    let stageHeightPx = actorStage?.getBoundingClientRect().height || window.innerHeight;
     let fanTransferGeometry: FanTransferGeometry | null = null;
     let resizeTimer = 0;
-    let isInitialized = false;
     let routePathLength = 0;
     let routePathViewBox = { width: 1000, height: 800 };
 
@@ -349,36 +374,52 @@ export function useHomeNarrativeDirector({
       setMarketplaceActive(Math.round(marketRailWrapper.scrollLeft / measuredCardStep));
     };
 
-    const applyActor = (name: ActorName, actor: ActorFrame, frame: HomeFrame) => {
+    const applyActor = (name: ActorName, actor: ActorFrame, frame: HomeFrame): HeroTruckPresentation | null => {
       const slot = slotNodes.get(name);
-      if (!slot) return;
+      if (!slot) return null;
       const actorType = ACTOR_TYPES[name];
       let displayedState = name === "van" && actor.state === "sliding-door-open" ? "side-left" : actor.state;
       let definition = ACTOR_STATES[actorType][displayedState];
-      if (!definition) return;
+      if (!definition) return null;
 
       const layers = stateLayers.get(name);
       const isHeroSequence = name === "whiteTruck" && definition.family === "hero-sequence";
+      let heroPresentation: HeroTruckPresentation | null = null;
       if (isHeroSequence && layers) {
         const primaryLayer = layers.get(actor.state);
         const nextLayer = actor.blendToState ? layers.get(actor.blendToState) : undefined;
-        requestActorImageDecode(primaryLayer, "high");
-        if (actor.stateBlend && actor.stateBlend > 0) requestActorImageDecode(nextLayer);
+        const requestedIndex = HERO_TRUCK_SEQUENCE.indexOf(actor.state as (typeof HERO_TRUCK_SEQUENCE)[number]);
+        requestActorImageDecode(primaryLayer, requestedIndex >= 0 && requestedIndex < 6 ? "high" : "auto");
+        if (actor.stateBlend && actor.stateBlend > 0) requestActorImageDecode(nextLayer, "auto");
 
-        if (!isActorImageDecoded(primaryLayer)) {
-          const fallbackState = lastLayerState.get(name);
-          const fallbackLayer = fallbackState ? layers.get(fallbackState) : undefined;
-          if (!isActorImageDecoded(fallbackLayer)) {
+        const requestedReady = isActorImageReady(primaryLayer);
+        if (!requestedReady) {
+          const readyStates = new Set(
+            Array.from(layers.entries())
+              .filter(([, layer]) => isActorImageReady(layer))
+              .map(([state]) => state),
+          );
+          const fallbackState = closestReadyHeroSequenceState(actor.state, readyStates);
+          if (!fallbackState) {
+            requestActorImageDecode(layers.get(HERO_TRUCK_SEQUENCE[0]), "high");
+            layers.forEach((layer) => gsap.set(layer, { autoAlpha: 0 }));
             gsap.set(slot, { autoAlpha: 0 });
-            return;
+            return {
+              displayedState: actor.state,
+              requestedReady: false,
+              imageReady: false,
+              visible: false,
+              blend: 0,
+            };
           }
-          displayedState = fallbackState!;
+          displayedState = fallbackState;
           definition = ACTOR_STATES[actorType][displayedState] ?? definition;
         }
 
         const activeLayer = layers.get(displayedState);
-        const canBlend = displayedState === actor.state
-          && Boolean(nextLayer && actor.stateBlend && actor.stateBlend > 0 && isActorImageDecoded(nextLayer));
+        const canBlend = requestedReady
+          && displayedState === actor.state
+          && Boolean(nextLayer && actor.stateBlend && actor.stateBlend > 0 && isActorImageReady(nextLayer));
         const blend = canBlend ? actor.stateBlend ?? 0 : 0;
         layers.forEach((layer, state) => {
           const alpha = state === displayedState
@@ -389,6 +430,14 @@ export function useHomeNarrativeDirector({
           gsap.set(layer, { autoAlpha: alpha });
         });
         if (activeLayer) lastLayerState.set(name, displayedState);
+        const imageReady = isActorImageReady(activeLayer);
+        heroPresentation = {
+          displayedState,
+          requestedReady,
+          imageReady,
+          visible: Boolean(actor.visible && imageReady),
+          blend,
+        };
       } else {
         const previousLayerState = lastLayerState.get(name);
         if (previousLayerState !== displayedState) {
@@ -399,8 +448,11 @@ export function useHomeNarrativeDirector({
 
       let width: number;
       let height: number;
+      const mobileHeroGeometry = name === "whiteTruck" && frame.chapter === "hero" && window.innerWidth <= 767;
+      const sizingHeight = mobileHeroGeometry ? stageHeightPx : window.innerHeight;
+      const targetWidthBase = mobileHeroGeometry ? stageWidthPx : window.innerWidth;
       if (actor.sizeMode?.mode === "visible-height") {
-        const visibleHeight = window.innerHeight * actor.sizeMode.visibleHeightVh / 100;
+        const visibleHeight = sizingHeight * actor.sizeMode.visibleHeightVh / 100;
         height = visibleHeight / Math.max(0.01, definition.visibleBounds.height);
         width = height * definition.aspectRatio;
       } else {
@@ -412,7 +464,10 @@ export function useHomeNarrativeDirector({
         width,
         height,
         groundContact: definition.groundContact,
-        target: { x: window.innerWidth * actor.targetX, y: window.innerHeight * actor.groundY - stageTopPx },
+        target: {
+          x: targetWidthBase * actor.targetX,
+          y: mobileHeroGeometry ? stageHeightPx * actor.groundY : window.innerHeight * actor.groundY - stageTopPx,
+        },
       });
       gsap.set(slot, {
         x: aligned.left,
@@ -439,6 +494,7 @@ export function useHomeNarrativeDirector({
           clipPath: `inset(${top}% ${right}% ${bottom}% ${left}%)`,
         });
       }
+      return heroPresentation;
     };
 
     const applyRouteGeometry = (frame: HomeFrame) => {
@@ -592,10 +648,24 @@ export function useHomeNarrativeDirector({
         setMarketplaceSelection(activeSelectionId);
       }
 
-      applyActor("whiteTruck", frame.actors.whiteTruck, frame);
+      const heroTruckPresentation = applyActor("whiteTruck", frame.actors.whiteTruck, frame);
       applyActor("van", frame.actors.van, frame);
       applyActor("courier", frame.actors.courier, frame);
       applyActor("redTruck", frame.actors.redTruck, frame);
+      root.dataset.homeViewportMode = window.innerWidth <= 767 ? "mobile" : "desktop";
+      if (chapter === "hero") {
+        root.dataset.homeWhiteTruckVisible = String(heroTruckPresentation?.visible ?? false);
+        root.dataset.homeWhiteTruckState = heroTruckPresentation?.displayedState ?? frame.actors.whiteTruck.state;
+        root.dataset.homeWhiteTruckNextState = frame.actors.whiteTruck.blendToState ?? "";
+        root.dataset.homeWhiteTruckReady = String(heroTruckPresentation?.requestedReady ?? false);
+        root.dataset.homeWhiteTruckBlend = (heroTruckPresentation?.blend ?? 0).toFixed(3);
+      } else {
+        delete root.dataset.homeWhiteTruckVisible;
+        delete root.dataset.homeWhiteTruckState;
+        delete root.dataset.homeWhiteTruckNextState;
+        delete root.dataset.homeWhiteTruckReady;
+        delete root.dataset.homeWhiteTruckBlend;
+      }
       setPhysicalOcclusion(frame);
 
       if (process.env.NODE_ENV !== "production" && previousFrame
@@ -761,10 +831,16 @@ export function useHomeNarrativeDirector({
         const end = start + Math.max(1, rect.height);
         const stickyStage = section.querySelector<HTMLElement>("[data-home-sticky-stage], .kt-home-sticky-stage, [data-marketplace-sticky-stage]");
         const isSticky = Boolean(stickyStage && getComputedStyle(stickyStage).position === "sticky");
-        const scrollSpan = isSticky ? rect.height - window.innerHeight : rect.height;
+        const stickyHeight = chapter === "hero" && window.innerWidth <= 767 && stickyStage
+          ? stickyStage.getBoundingClientRect().height || window.innerHeight
+          : window.innerHeight;
+        const scrollSpan = isSticky ? rect.height - stickyHeight : rect.height;
         ranges.push({ chapter, section, start, end, progressEnd: start + Math.max(1, scrollSpan) });
       });
-      stageTopPx = actorStage?.getBoundingClientRect().top ?? 0;
+      const actorStageRect = actorStage?.getBoundingClientRect();
+      stageTopPx = actorStageRect?.top ?? 0;
+      stageWidthPx = actorStageRect?.width || window.innerWidth;
+      stageHeightPx = actorStageRect?.height || window.innerHeight;
       fanTransferGeometry = null;
       const firstCard = marketCards[0];
       if (firstCard) {
@@ -855,15 +931,13 @@ export function useHomeNarrativeDirector({
         seekFromScroll(window.scrollY);
       });
     };
-    refreshFrameAfterDecode = () => seekFromScroll(window.scrollY);
+    refreshFrameAfterActorReady = () => seekFromScroll(window.scrollY);
 
     try {
       if (process.env.NODE_ENV !== "production") validateHomeActorTransitions();
     } catch (error) {
       console.error(error);
     }
-
-    if (actorStage) gsap.set(actorStage, { autoAlpha: 0 });
 
     HOME_CHAPTERS.forEach((chapter) => {
       const timeline = createNormalizedTimeline((progress) => applyFrame(chapter, progress));
@@ -873,51 +947,18 @@ export function useHomeNarrativeDirector({
     measureRanges();
     if (useNativeMarketRail) setMarketplaceActive(0);
     const initialPosition = rangeForScroll(window.scrollY);
-    const initialFrame = resolveHomeFrame({
-      chapter: initialPosition.chapter,
-      progress: prefersReducedMotion ? 0.5 : initialPosition.progress,
-      viewportMode: window.innerWidth <= 767 ? "mobile" : "desktop",
-      marketplaceCategories: categoryIds,
-    });
     preloadChapter(initialPosition.chapter);
-    preloadFrame(initialFrame);
     if (initialPosition.chapter === "fan") preloadFanSelection(categories.length - 1);
+    seekFromScroll(window.scrollY);
+    if (actorStage) gsap.set(actorStage, { autoAlpha: 1 });
+    if (!prefersReducedMotion) preloadRemainingHeroSequence();
 
     const revealAfterLayout = async () => {
       await document.fonts?.ready;
-      const { chapter, progress } = rangeForScroll(window.scrollY);
-      preloadChapter(chapter);
-      const currentFrame = resolveHomeFrame({ chapter, progress, viewportMode: window.innerWidth <= 767 ? "mobile" : "desktop", marketplaceCategories: categoryIds });
-      preloadFrame(currentFrame);
-      const chapterSection = ranges.find((item) => item.chapter === chapter)?.section;
-      const currentChapterImages = Array.from(chapterSection?.querySelectorAll<HTMLImageElement>("img") ?? [])
-        .filter((image) => image.loading === "eager");
-      const eagerActorImages = Array.from(stateLayers.values())
-        .flatMap((layers) => Array.from(layers.values()))
-        .filter((image) => image.loading === "eager");
-      await Promise.all(
-        [...new Set([...eagerActorImages, ...currentChapterImages])]
-          .map(async (image) => {
-            try {
-              await image.decode?.();
-              if (image.hasAttribute("data-actor-state-layer")) {
-                decodedActorImages.add(image);
-                image.dataset.actorStateDecoded = "true";
-              }
-            } catch {
-              // A failed predecode never authorizes an empty actor frame.
-            }
-          }),
-      );
       ScrollTrigger.refresh();
       measureRanges();
       const frame = seekFromScroll(window.scrollY);
       applyFrame(frame.chapter, frame.chapterProgress);
-      if (actorStage) gsap.set(actorStage, { autoAlpha: 1 });
-      if (!isInitialized) {
-        isInitialized = true;
-        lastFrame = frame;
-      }
       if (!prefersReducedMotion) preloadRemainingHeroSequence();
     };
 

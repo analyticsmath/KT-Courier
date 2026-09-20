@@ -1,7 +1,9 @@
 "use client";
 
 import { memo } from "react";
+import type { SyntheticEvent } from "react";
 import Image from "next/image";
+import { markActorImageReady } from "../home/director/home-actor-image-readiness";
 import {
   COURIER_STATES,
   RED_TRUCK_STATES,
@@ -30,6 +32,10 @@ const HOME_OCCLUDERS = [
   "freight-gate-mask",
 ] as const;
 
+function handleActorImageLoad(event: SyntheticEvent<HTMLImageElement>) {
+  markActorImageReady(event.currentTarget);
+}
+
 function StateBank({
   actor,
   states,
@@ -53,9 +59,9 @@ function StateBank({
             alt=""
             fill
             sizes="100vw"
-            preload={preload}
             loading={preload ? "eager" : "lazy"}
             fetchPriority={preload ? "high" : "low"}
+            onLoad={handleActorImageLoad}
             className="kt-actor-state-layer"
             aria-hidden="true"
           />
@@ -106,7 +112,7 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
             "side-left": VAN_STATES["side-left"],
             "sliding-door-open": VAN_STATES["sliding-door-open"],
           }}
-          preloadStates={["motion-transition", "side-left"]}
+          preloadStates={[]}
         />
         <div data-van-door-aperture data-home-occluder="van-door-mask" aria-hidden="true">
           <Image
@@ -131,7 +137,7 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
             "walk-left-one-parcel": COURIER_STATES["walk-left-one-parcel"],
             "extending-handoff": COURIER_STATES["extending-handoff"],
           }}
-          preloadStates={["look-left-approach", "lift-parcel", "walk-left-one-parcel"]}
+          preloadStates={[]}
         />
       </div>
 
@@ -143,7 +149,7 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
             "side-right": RED_TRUCK_STATES["side-right"],
             "centered-hero": RED_TRUCK_STATES["centered-hero"],
           }}
-          preloadStates={["motion-entry", "side-right"]}
+          preloadStates={[]}
         />
       </div>
       {HOME_OCCLUDERS.map((id) => (

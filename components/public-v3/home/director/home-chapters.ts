@@ -27,7 +27,7 @@ export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
 };
 
 export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Partial<Record<HomeChapter, number>> = {
-  hero: 190,
+  hero: 260,
 };
 
 export const HOME_MOBILE_POLICY: Record<HomeChapter, "document" | "native-snap"> = {
