@@ -108,7 +108,7 @@ describe("payment provider session service", () => {
     const original = fake.createCheckoutSession.bind(fake);
     vi.spyOn(fake, "createCheckoutSession").mockImplementation(async (...args) => { expect(inTransaction).toBe(false); return original(...args); });
     const result = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" }, { registry: new PaymentProviderRegistry({ adapters: [fake] }), callbackUrls });
-    expect(result).toMatchObject({ paymentStatus: "REQUIRES_ACTION", attempt: { attemptNumber: 1, status: "REQUIRES_ACTION", merchantReference: "kt:payment:pay_abcdefghijklmnop:attempt:1" } });
+    expect(result).toMatchObject({ paymentStatus: "REQUIRES_ACTION", attempt: { attemptNumber: 1, status: "REQUIRES_ACTION", merchantReference: "kt-payment-pay_abcdefghijklmnop-attempt-1" } });
     expect(result.attempt).not.toHaveProperty("providerCredentialVersion");
     expect(attempt?.requestSnapshot).toMatchObject({ provider: "PAYSTACK" });
     expect(fake.calls).toBe(1); expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(3); expect(historyCreate).toHaveBeenCalledOnce(); expect(historyCreateMany).toHaveBeenCalledOnce();
@@ -138,7 +138,7 @@ describe("payment provider session service", () => {
     historyCreateMany.mockRejectedValueOnce(new Error("finalization rollback"));
     await expect(createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:4" }, { registry: new PaymentProviderRegistry({ adapters: [new FakePaymentProvider("processing", "PAYSTACK")] }), callbackUrls })).rejects.toThrow("finalization rollback");
     expect(payment).toMatchObject({ status: "PROVIDER_PENDING", latestAttemptNumber: 1 });
-    expect(attempt).toMatchObject({ status: "REQUESTING", merchantReference: "kt:payment:pay_abcdefghijklmnop:attempt:1" });
+    expect(attempt).toMatchObject({ status: "REQUESTING", merchantReference: "kt-payment-pay_abcdefghijklmnop-attempt-1" });
   });
 });
 
