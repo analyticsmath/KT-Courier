@@ -81,8 +81,7 @@ export function MarketplaceFivePanelScene({
   isStorefrontExposed = false,
   categories = [],
 }: MarketplaceFivePanelSceneProps) {
-  const displayItems =
-    isStorefrontExposed && categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
+  const displayItems = categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
   const activeId = displayItems[0]?.id;
   const activeItem =
     displayItems.find((item) => item.id === activeId) || displayItems[0];
@@ -146,6 +145,7 @@ export function MarketplaceFivePanelScene({
                 data-marketplace-panel-id={cat.id}
                 data-marketplace-index={idx}
                 data-marketplace-active={isActive ? "true" : "false"}
+                data-home-occluder={idx === displayItems.length - 1 ? "market-to-fan-card-mask" : undefined}
                 className={styles.marketplaceCard}
                 aria-label={`${cat.title} Category`}
               >

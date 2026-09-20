@@ -27,16 +27,18 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
     >
       <div className="kt-home-sticky-stage kt-home-collection-sticky">
       {/* Street environment backdrop (Johannesburg dispatch context) */}
-      <div className="kt-collection-street-env absolute inset-0 z-0 opacity-25 pointer-events-none overflow-hidden will-change-transform">
+      <div className="kt-collection-street-env absolute inset-0 z-0 opacity-20 pointer-events-none overflow-hidden">
         <Image
           src={streetEnv.src}
           alt={streetEnv.alt}
           fill
           sizes="100vw"
-          className="object-cover object-center"
+          className="object-cover object-top"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--kt-freight-paper)] via-transparent to-[var(--kt-freight-paper)]" />
       </div>
+      <div className="kt-collection-ground-plane absolute inset-x-0 bottom-0 z-[1] h-[15vh] pointer-events-none" aria-hidden="true" />
+      <div data-home-occluder="collection-viewport-edge" className="kt-collection-ground-line absolute inset-x-0 top-[85%] z-[2] pointer-events-none" aria-hidden="true" />
 
       <div className="relative z-10 max-w-6xl mx-auto w-full pt-4">
         <div className="max-w-xl">

@@ -100,8 +100,7 @@ export class StorefrontSearchService {
 
   async search(filters: StorefrontFilterInput): Promise<StorefrontSearchResponse> {
     const requested = filters.q ? normalizeStorefrontQuery(filters.q).value : undefined;
-    const candidateQueries = requested ? expandStorefrontSynonyms(requested, this.options.synonymTerms ?? []) : [undefined];
-    const candidates = await Promise.all(candidateQueries.map((query) => this.adapter.search({
+    const searchCandidates = (query: string | undefined) => this.adapter.search({
       query,
       storeSlug: filters.store,
       categoryPath: filters.category,
@@ -112,8 +111,17 @@ export class StorefrontSearchService {
       condition: filters.condition,
       fulfilment: filters.fulfilment,
       limit: 100000,
-    })));
-    const documents = [...new Map(candidates.flat().map((document) => [document.publicReference, document])).values()];
+    });
+    const primaryDocuments = await searchCandidates(requested);
+    let documents = primaryDocuments;
+    // Synonyms broaden discovery only when the requested words have no direct catalog matches.
+    if (requested && primaryDocuments.length === 0) {
+      const fallbackQueries = expandStorefrontSynonyms(requested, this.options.synonymTerms ?? [])
+        .filter((query) => query !== requested);
+      const fallbackCandidates = await Promise.all(fallbackQueries.map(searchCandidates));
+      documents = fallbackCandidates.flat();
+    }
+    documents = [...new Map(documents.map((document) => [document.publicReference, document])).values()];
     const filtered = documents.filter((document) => matchesFilters(document, filters));
     const sorted = sortDocuments(filtered, { ...filters, q: requested });
     const grouped = groupProductResults(sorted);

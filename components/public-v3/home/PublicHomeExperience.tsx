@@ -32,6 +32,7 @@ function TransitionLayer({ categories }: { categories: MarketplaceCategoryItem[]
   return (
     <div
       data-motion="trailer-takeover"
+      data-home-occluder="hero-cargo-mask"
       className="kt-trailer-takeover-plane pointer-events-none fixed inset-0 z-30 overflow-hidden"
       aria-hidden="true"
     >
@@ -82,7 +83,7 @@ export function PublicHomeExperience({
 }: PublicHomeExperienceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const categoriesList = storefrontCategories.length > 0 ? storefrontCategories : FIVE_PANEL_MEDIA;
-  const selectedMarketplaceMedia = categoriesList[categoriesList.length - 1] ?? FIVE_PANEL_MEDIA[0];
+  const selectedMarketplaceMedia = categoriesList.at(-1) ?? FIVE_PANEL_MEDIA[0];
 
   useHomeNarrativeDirector({ rootRef: containerRef, categories: categoriesList });
 
@@ -97,12 +98,14 @@ export function PublicHomeExperience({
 
       <PersistentActorLayer />
       <TransitionLayer categories={categoriesList} />
+      <div data-home-occluder="arrival-architecture-mask" className="kt-home-final-release-curtain" aria-hidden="true" />
+      <div data-motion="arrival-footer-title" className="kt-home-final-release-title" aria-hidden="true"><span>KT</span><span>COURIER</span></div>
 
       <ChapterContentLayer>
         <HeroScene />
         <MarketplaceFivePanelScene
           isStorefrontExposed={isStorefrontExposed}
-          categories={storefrontCategories}
+          categories={categoriesList}
         />
         <ImageFanScene
           selectedMedia={selectedMarketplaceMedia}
@@ -116,6 +119,12 @@ export function PublicHomeExperience({
         <ArrivalScene />
         <FinaleScene />
       </ChapterContentLayer>
+
+      <div data-kt-motion-debug-geometry hidden aria-hidden="true">
+        <div className="kt-home-debug-focus" />
+        <div className="kt-home-debug-ground" />
+        <div className="kt-home-debug-card-band" />
+      </div>
 
       {process.env.NODE_ENV !== "production" ? (
         <aside

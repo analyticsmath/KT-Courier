@@ -61,7 +61,7 @@ function cleanCategoryPath(value: string | null): string | undefined {
 export function parseStorefrontFilters(params: URLSearchParams): StorefrontFilterInput {
   if ([...params.keys()].length > MAX_PARAMS) return {};
   const q = params.get("q");
-  const normalizedQuery = q ? normalizeStorefrontQuery(q).value : undefined;
+  const normalizedQuery = q ? normalizeStorefrontQuery(q).displayValue : undefined;
   const facets: Record<string, string[]> = {};
   for (const [key, value] of params.entries()) {
     if (!key.startsWith("f.")) continue;
@@ -93,7 +93,7 @@ export function parseStorefrontFilters(params: URLSearchParams): StorefrontFilte
 
 export function canonicalStorefrontQuery(input: StorefrontFilterInput): string {
   const params = new URLSearchParams();
-  if (input.q) params.set("q", normalizeStorefrontQuery(input.q).value);
+  if (input.q) params.set("q", normalizeStorefrontQuery(input.q).displayValue);
   if (input.category) params.set("category", input.category);
   if (input.store) params.set("store", input.store);
   if (input.brand) params.set("brand", input.brand);
@@ -117,4 +117,3 @@ export function canonicalStorefrontQuery(input: StorefrontFilterInput): string {
 export function storefrontFilterHasCrawlRisk(input: StorefrontFilterInput): boolean {
   return Boolean(input.q || input.store || input.brand || input.minPrice || input.maxPrice || input.availability?.length || input.condition?.length || input.fulfilment?.length || Object.keys(input.facets ?? {}).length || input.sort || input.page || input.cursor);
 }
-

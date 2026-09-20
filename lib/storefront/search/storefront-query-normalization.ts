@@ -17,6 +17,8 @@ const BRAND_ALIASES: Record<string, string> = {
 
 export type StorefrontNormalizedQuery = {
   value: string;
+  /** User-facing normalized text; preserves the words the customer entered. */
+  displayValue: string;
   tokens: string[];
   exactIdentifier: boolean;
   truncated: boolean;
@@ -41,13 +43,12 @@ export function normalizeStorefrontQuery(input: string): StorefrontNormalizedQue
     .replace(/[^\p{L}\p{N}\s.+#&/'-]/gu, " ");
   const folded = punctuationNormalised.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("en-ZA");
   const originalTokens = folded.trim().replace(/\s+/g, " ").split(" ").filter((token) => Boolean(token) && token !== "-").slice(0, MAX_TOKENS);
-  const tokens = originalTokens.map((token) => {
-    const aliased = UNIT_ALIASES[token] ?? BRAND_ALIASES[token] ?? token;
-    return singularToken(aliased);
-  });
+  const displayTokens = originalTokens.map((token) => UNIT_ALIASES[token] ?? BRAND_ALIASES[token] ?? token);
+  const tokens = displayTokens.map(singularToken);
   const value = tokens.join(" ");
   return {
     value,
+    displayValue: displayTokens.join(" "),
     tokens,
     // GTIN, MPN and intentionally hyphenated model codes must remain exact.
     exactIdentifier: tokens.length === 1 && /^(?:\d{8,14}|[a-z]{1,8}[a-z\d]*-[a-z\d-]+)$/i.test(originalTokens[0] ?? ""),

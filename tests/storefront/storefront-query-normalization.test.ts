@@ -6,5 +6,9 @@ describe("storefront query normalisation", () => {
     expect(normalizeStorefrontQuery("SM-A556E-DS").value).toBe("sm-a556e-ds");
   });
   test("marks bounded identifiers as exact", () => expect(normalizeStorefrontQuery("1234567890123").exactIdentifier).toBe(true));
+  test("keeps plural search text intact in the URL-facing query", () => {
+    const query = normalizeStorefrontQuery("Headphones");
+    expect(query.value).toBe("headphon");
+    expect(query.displayValue).toBe("headphones");
+  });
 });
-

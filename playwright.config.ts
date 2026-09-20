@@ -24,6 +24,26 @@ export default defineConfig({
       ],
     },
     {
+      name: "cinematic-1440",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
+      testMatch: [/home-cinematic-regression\.spec\.ts/, /storefront-search\.spec\.ts/],
+    },
+    {
+      name: "cinematic-1366",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 }, channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
+      testMatch: [/home-cinematic-regression\.spec\.ts/],
+    },
+    {
+      name: "cinematic-mobile-390",
+      use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 }, channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
+      testMatch: [/home-cinematic-regression\.spec\.ts/],
+    },
+    {
+      name: "cinematic-tablet-768",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true, channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
+      testMatch: [/home-cinematic-regression\.spec\.ts/],
+    },
+    {
       name: "mobile",
       use: { ...devices["Pixel 5"], channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
       testMatch: [/mobile-viewport\.spec\.ts/],

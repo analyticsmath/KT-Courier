@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useMotionContext } from "../motion/PublicMotionProvider";
+import { useMarketplaceCartCount } from "./marketplace-cart-client";
 
 export function MobileNavigation() {
   const pathname = usePathname();
@@ -11,28 +11,7 @@ export function MobileNavigation() {
   const isDark = headerTone === "dark";
   const isCommerce = pathname.startsWith("/shop") || pathname === "/cart";
   const isProductPage = pathname.startsWith("/shop/products/");
-  const [cartCount, setCartCount] = useState(0);
-
-  useEffect(() => {
-    if (!isCommerce) return;
-    let active = true;
-    const refresh = async () => {
-      try {
-        const response = await fetch("/api/cart", { cache: "no-store" });
-        if (!response.ok) return;
-        const payload = await response.json();
-        if (active) setCartCount((payload.cart?.lines ?? []).reduce(
-          (sum: number, line: { quantity?: number }) => sum + (line.quantity ?? 0), 0,
-        ));
-      } catch { /* Cart count is a convenience; the cart remains available. */ }
-    };
-    void refresh();
-    window.addEventListener("kt-cart-updated", refresh);
-    return () => {
-      active = false;
-      window.removeEventListener("kt-cart-updated", refresh);
-    };
-  }, [isCommerce]);
+  const cartCount = useMarketplaceCartCount(isCommerce);
 
   // Hide mobile nav on checkout and full-screen auth if needed
   if (pathname.startsWith("/checkout")) {

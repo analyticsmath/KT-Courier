@@ -45,10 +45,13 @@ export function MobilePublicNavigation() {
         if (!res.ok) return;
         const data = await res.json();
         if (active && data.cart) {
-          const totalItems = (data.cart.lines || []).reduce(
-            (acc: number, line: { quantity: number }) => acc + line.quantity,
-            0
-          );
+          const totalItems = typeof data.cart.itemCount === "number"
+            ? data.cart.itemCount
+            : (data.cart.storeGroups || []).reduce(
+                (total: number, group: { lines?: Array<{ quantity: number }> }) =>
+                  total + (group.lines || []).reduce((sum, line) => sum + line.quantity, 0),
+                0,
+              );
           setCartCount(totalItems);
         }
       } catch {

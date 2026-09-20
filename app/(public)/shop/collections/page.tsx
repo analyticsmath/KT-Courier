@@ -43,8 +43,8 @@ export default async function CollectionsPage() {
         ) : (
           <section className={styles.commerceEmptyState}>
             <p className={styles.productTileBrand}>Curated for you</p>
-            <h2>New collections are on their way.</h2>
-            <p>Browse the full range of products and independent stores in the meantime.</p>
+            <h2>No published collections are available yet.</h2>
+            <p>Browse published products and independent stores while curated collections are unavailable.</p>
             <div className={styles.productActionRow}>
               <Link className={`${styles.productActionButton} ${styles.productActionButtonPrimary}`} href={marketplaceHref()}>Browse the shop</Link>
               <Link className={styles.productActionButton} href="/shop/categories">Shop by category</Link>

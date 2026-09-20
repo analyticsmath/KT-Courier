@@ -29,11 +29,11 @@ export function FinaleScene({ className = "" }: FinaleSceneProps) {
       data-kt-scene="finale"
       role="contentinfo"
       aria-label="KT Couriers Brand Horizon & Directory"
-      style={{ "--kt-home-budget": 120 } as React.CSSProperties}
+      style={{ "--kt-home-budget": 200 } as React.CSSProperties}
     >
       <div className="kt-home-sticky-stage kt-home-finale-sticky">
       {/* 1. Upper Utility Layer: Brand statement & subordinate directory */}
-      <div className="w-full max-w-6xl mx-auto relative z-20">
+      <div data-motion="finale-utility" className="w-full max-w-6xl mx-auto relative z-20">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-12 pb-12 border-b border-[#23272B]/80">
           <div className="space-y-4 max-w-sm">
             <div className="flex items-center gap-3">
@@ -182,11 +182,11 @@ export function FinaleScene({ className = "" }: FinaleSceneProps) {
 
       {/* 2. Monumental Brand Horizon Identity */}
       <div className="w-full my-auto py-12 text-center relative z-10 select-none kt-finale-identity-wrapper">
-        <h2 className="kt-finale-giant-type font-display text-[clamp(6rem,17vw,17rem)] font-black tracking-tighter leading-none text-[var(--kt-freight-paper)] uppercase opacity-95 will-change-transform flex flex-col items-center justify-center">
-          <span data-motion="finale-kt" className="kt-finale-word-kt inline-block will-change-transform">
+        <h2 data-motion="finale-title" className="kt-finale-giant-type font-display text-[clamp(6rem,17vw,17rem)] font-black tracking-tighter leading-none text-[var(--kt-freight-paper)] uppercase opacity-95 will-change-transform flex flex-col items-center justify-center">
+          <span className="kt-finale-word-kt inline-block">
             KT
           </span>
-          <span data-motion="finale-courier" className="kt-finale-word-courier inline-block will-change-transform -mt-2 sm:-mt-6">
+          <span className="kt-finale-word-courier inline-block -mt-2 sm:-mt-6">
             COURIER
           </span>
         </h2>
@@ -216,7 +216,7 @@ export function FinaleScene({ className = "" }: FinaleSceneProps) {
       </div>
 
       {/* 4. Bottom Legal & Copyright Horizon */}
-      <div className="w-full max-w-6xl mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[var(--kt-road-grey)] gap-4 relative z-20 border-t border-[#23272B]/60">
+      <div data-motion="finale-legal" className="w-full max-w-6xl mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[var(--kt-road-grey)] gap-4 relative z-20 border-t border-[#23272B]/60">
         <p>&copy; {new Date().getFullYear()} KT Couriers (Pty) Ltd. All rights reserved.</p>
         <p className="font-medium text-[var(--kt-concrete)]">Shop local. Send with KT.</p>
       </div>

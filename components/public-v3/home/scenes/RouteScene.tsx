@@ -20,15 +20,32 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
       style={{ "--kt-home-budget": 260 } as React.CSSProperties}
     >
       <div className="kt-home-sticky-stage kt-home-route-sticky">
-        <div className="kt-aerial-road-underlay absolute inset-0 opacity-45 pointer-events-none">
+        <svg
+          aria-hidden="true"
+          className="kt-route-path-plane absolute inset-0 z-[1] h-full w-full pointer-events-none"
+          viewBox="0 0 1000 800"
+          preserveAspectRatio="none"
+        >
+          <path
+            data-route-path
+            d="M -40 610 C 110 680 190 520 330 500 C 470 480 455 360 520 270 C 595 165 730 175 1040 120"
+            fill="none"
+            stroke="#292e32"
+            strokeWidth="300"
+            strokeLinecap="round"
+          />
+          <path
+            d="M -40 610 C 110 680 190 520 330 500 C 470 480 455 360 520 270 C 595 165 730 175 1040 120"
+            fill="none"
+            stroke="rgba(255,255,255,.4)"
+            strokeWidth="5"
+            strokeDasharray="22 20"
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="kt-aerial-road-underlay absolute inset-0 z-0 opacity-45 pointer-events-none">
           <Image src={aerialRoute.src} alt="" fill sizes="100vw" className="object-cover object-center contrast-125" />
           <div className="absolute inset-0 bg-[#080a0d]/60" />
-        </div>
-
-        <div className="kt-route-spine absolute inset-y-[-20%] left-1/2 w-[min(44vw,560px)] -translate-x-1/2 -rotate-[18deg] bg-[#252a2e] border-x border-white/10" aria-hidden="true">
-          <div className="absolute inset-y-0 left-1/2 border-l-2 border-dashed border-white/25" />
-          <div className="absolute inset-y-0 left-[15%] border-l border-white/10" />
-          <div className="absolute inset-y-0 right-[15%] border-l border-white/10" />
         </div>
 
         <div className="relative z-10 w-full h-full max-w-7xl mx-auto px-8 md:px-16 py-24 flex flex-col justify-between pointer-events-none">
@@ -49,14 +66,6 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
         </div>
 
         <div data-actor-anchor="route-truck" className="absolute left-1/2 top-1/2 w-1 h-1 pointer-events-none" aria-hidden="true" />
-        <div
-          data-motion="route-occluder"
-          className="kt-route-overpass-shadow pointer-events-none absolute inset-x-0 h-[25vh] bg-gradient-to-b from-transparent via-[#090b0d] to-transparent opacity-0 z-25"
-          aria-hidden="true"
-        />
-        <div className="kt-route-freight-overlap pointer-events-none absolute inset-0 bg-[#0B0D0F] opacity-0 z-20">
-          <Image src={ktMediaV3.pages.homepage.freightClimax.background.src} alt="" fill sizes="100vw" className="object-cover brightness-50 opacity-30" />
-        </div>
       </div>
     </section>
   );

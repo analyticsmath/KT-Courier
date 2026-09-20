@@ -17,6 +17,7 @@ import { HOME_CHAPTERS } from "./home-chapters";
 import { clamp01, HOME_BEATS, range } from "./home-beats";
 import { formatHomeDebugFrame } from "./home-debug";
 import { alignGroundContact } from "./home-grounding";
+import { assertPhysicalCoverage, physicalCoverage } from "./home-occlusion";
 import {
   assertActorTransition,
   validateHomeActorTransitions,
@@ -29,7 +30,7 @@ if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 
 type ActorName = "whiteTruck" | "van" | "courier" | "redTruck";
 type ActorSlotName = "white-truck" | "van" | "courier" | "red-truck";
-type SceneRange = { chapter: HomeChapter; section: HTMLElement; start: number; end: number };
+type SceneRange = { chapter: HomeChapter; section: HTMLElement; start: number; end: number; progressEnd: number };
 type ProgressTimeline = { timeline: gsap.core.Timeline; proxy: { progress: number } };
 type FanTransferGeometry = {
   source: { left: number; top: number; width: number; height: number };
@@ -56,7 +57,7 @@ const ACTOR_STATES: Record<ActorType, Record<string, ActorStateDefinition>> = {
 };
 
 const PRELOAD_STATES: Record<HomeChapter, Partial<Record<ActorName, string[]>>> = {
-  hero: { whiteTruck: ["side-right", "wide-hero", "cargo-box-close"] },
+  hero: { whiteTruck: ["side-right", "cargo-box-close"] },
   marketplace: {},
   fan: {},
   preparation: {},
@@ -66,7 +67,7 @@ const PRELOAD_STATES: Record<HomeChapter, Partial<Record<ActorName, string[]>>> 
   },
   custody: { courier: ["loading-unloading", "ready-handover"] },
   route: { whiteTruck: ["top-down-straight", "top-down-angled", "top-down-turning"] },
-  freight: { redTruck: ["motion-entry", "side-right", "centered-hero"] },
+  freight: { redTruck: ["side-right"] },
   arrival: { courier: ["walk-left-one-parcel", "extending-handoff"] },
   finale: {},
 };
@@ -100,17 +101,25 @@ function interpolate(from: number, to: number, amount: number): number {
   return from + (to - from) * amount;
 }
 
+function smooth(amount: number): number {
+  return amount * amount * (3 - 2 * amount);
+}
+
 function applyFanMotion(cards: HTMLElement[], progress: number, transfer?: FanTransferGeometry | null): void {
   const p = clamp01(progress);
   const spread = range(p, 0.12, 0.32);
   const compress = range(p, 0.5, 0.68);
   const contract = range(p, 0.8, 0.92);
   const parcel = range(p, 0.92, 1);
+  const offsetScale = Math.max(0.45, Math.min(1, window.innerWidth / 1024));
 
   cards.forEach((card) => {
     const isHero = card.dataset.isHero === "true";
     gsap.set(card, { transformOrigin: "bottom center" });
-    const baseX = Number(card.dataset.fanX ?? 0);
+    const rawX = Number(card.dataset.fanX ?? 0);
+    const baseX = window.innerWidth <= 599
+      ? Math.sign(rawX) * (Math.abs(rawX) < 200 ? window.innerWidth * 0.36 : window.innerWidth * 0.54)
+      : rawX * offsetScale;
     const baseY = Number(card.dataset.fanY ?? 0);
     const baseRotation = Number(card.dataset.fanRot ?? 0);
     if (p < 0.12) {
@@ -176,12 +185,19 @@ export function useHomeNarrativeDirector({
     if (!root) return;
 
     const actorStage = root.querySelector<HTMLElement>("[data-kt-actor-stage]");
-    const directorOccluder = root.querySelector<HTMLElement>("[data-kt-home-occluder]");
+    const physicalOccluders = new Map<string, HTMLElement>();
+    root.querySelectorAll<HTMLElement>("[data-home-occluder]").forEach((element) => {
+      const id = element.dataset.homeOccluder;
+      if (id) physicalOccluders.set(id, element);
+    });
     const takeover = root.querySelector<HTMLElement>("[data-motion='trailer-takeover']");
     const debugPanel = root.querySelector<HTMLElement>("[data-kt-motion-debug]");
+    const debugGeometry = root.querySelector<HTMLElement>("[data-kt-motion-debug-geometry]");
     const debugEnabled = process.env.NODE_ENV !== "production"
       && new URLSearchParams(window.location.search).get("ktMotionDebug") === "1";
     if (debugPanel) debugPanel.hidden = !debugEnabled;
+    if (debugGeometry) debugGeometry.hidden = !debugEnabled;
+    root.dataset.ktMotionDebug = String(debugEnabled);
 
     const sections = Array.from(root.querySelectorAll<HTMLElement>("[data-kt-scene]"))
       .map((section) => ({ section, chapter: chapterFromSection(section) }))
@@ -211,7 +227,9 @@ export function useHomeNarrativeDirector({
       const id = layer.dataset.fanMediaId;
       if (!id) return;
       fanMediaLayers.set(id, layer);
-      const image = layer.querySelector<HTMLImageElement>("[data-fan-selected-image]");
+      const image = layer instanceof HTMLImageElement
+        ? layer
+        : layer.querySelector<HTMLImageElement>("[data-fan-selected-image]");
       if (image) fanMediaImages.set(id, image);
     });
     const marketCards = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-panel-id]"));
@@ -219,8 +237,7 @@ export function useHomeNarrativeDirector({
     const marketRailWrapper = root.querySelector<HTMLElement>("[data-marketplace-rail-wrapper]");
     const marketWord = root.querySelector<HTMLElement>("[data-motion='market-word']");
     const doorAperture = root.querySelector<HTMLElement>("[data-van-door-aperture]");
-    const routeOccluder = root.querySelector<HTMLElement>("[data-motion='route-occluder']");
-    const routeOverlap = root.querySelector<HTMLElement>(".kt-route-freight-overlap");
+    const routePath = root.querySelector<SVGPathElement>("[data-route-path]");
     const custodyLeft = root.querySelector<HTMLElement>(".kt-custody-left");
     const custodyRight = root.querySelector<HTMLElement>(".kt-custody-right");
     const custodyConcealment = root.querySelector<HTMLElement>(".kt-custody-route-concealment");
@@ -228,6 +245,11 @@ export function useHomeNarrativeDirector({
     const heroKt = root.querySelector<HTMLElement>("[data-motion='hero-kt']");
     const heroCourier = root.querySelector<HTMLElement>("[data-motion='hero-courier']");
     const heroActions = root.querySelector<HTMLElement>("[data-motion='hero-actions']");
+    const prepCollectionIncoming = root.querySelector<HTMLElement>("[data-motion='prep-collection-incoming']");
+    const arrivalFooterTitle = root.querySelector<HTMLElement>("[data-motion='arrival-footer-title']");
+    const finaleTitle = root.querySelector<HTMLElement>("[data-motion='finale-title']");
+    const finaleUtility = root.querySelector<HTMLElement>("[data-motion='finale-utility']");
+    const finaleLegal = root.querySelector<HTMLElement>("[data-motion='finale-legal']");
     const cargoAnchor = root.querySelector<HTMLElement>("[data-actor-material-anchor='white-truck-cargo-box']");
     const transitionOne = takeover?.querySelector<HTMLElement>(".takeover-progression-1");
     const transitionThree = takeover?.querySelector<HTMLElement>(".takeover-progression-3");
@@ -240,6 +262,7 @@ export function useHomeNarrativeDirector({
     const timelines = new Map<HomeChapter, ProgressTimeline>();
     const lastLayerState = new Map<ActorName, string>();
     let lastMarketplaceIndex = -1;
+    let activeSelectionId: string | null = null;
     let useNativeMarketRail = window.matchMedia("(max-width: 899px)").matches;
     let lastTone: HomeFrame["headerTone"] | null = null;
     let lastFrame: HomeFrame | null = null;
@@ -249,23 +272,22 @@ export function useHomeNarrativeDirector({
     let fanTransferGeometry: FanTransferGeometry | null = null;
     let resizeTimer = 0;
     let isInitialized = false;
+    let routePathLength = 0;
+    let routePathViewBox = { width: 1000, height: 800 };
 
-    const setTransitionLayer = (
-      frame: HomeFrame,
-      activeTransitionProgress: number,
-    ) => {
+    const setTransitionLayer = (frame: HomeFrame) => {
       if (!takeover) return;
-      const active = frame.chapter === "hero" && frame.transition.owner !== null
-        && frame.chapterProgress >= 0.82;
+      const active = frame.chapter === "hero" && frame.occlusion.id === "hero-cargo-mask"
+        && frame.chapterProgress >= HOME_BEATS.hero.cargoLock[0];
       if (!active) {
         gsap.set(takeover, { autoAlpha: 0, clipPath: "inset(0 0 0 0)" });
         return;
       }
 
-      if (frame.transition.owner === "hero-cargo-takeover" && cargoAnchor) {
+      if (frame.occlusion.id === "hero-cargo-mask" && cargoAnchor) {
         const rect = measuredCargoRect ?? cargoAnchor.getBoundingClientRect();
         measuredCargoRect = rect;
-        const p = activeTransitionProgress;
+        const p = frame.occlusion.progress;
         const lerpInset = (edge: number) => edge * (1 - p);
         const top = Math.max(0, rect.top);
         const right = Math.max(0, window.innerWidth - rect.right);
@@ -312,14 +334,29 @@ export function useHomeNarrativeDirector({
       });
       if (marketWord) marketWord.textContent = marketplaceWord(categories[safeIndex]);
       const selectedCategory = categories[safeIndex];
-      if (selectedCategory) {
-        fanMediaLayers.forEach((layer, id) => gsap.set(layer, { autoAlpha: id === selectedCategory.id ? 1 : 0 }));
-        const fanImage = fanMediaImages.get(selectedCategory.id);
-        if (fanImage) {
-          fanImage.loading = "eager";
-          fanImage.fetchPriority = "high";
+      if (selectedCategory) setMarketplaceSelection(selectedCategory.id);
+    };
+
+    const setMarketplaceSelection = (id: string | null) => {
+      const selectedCategory = categories.find((category) => category.id === id);
+      fanMediaLayers.forEach((layer, layerId) => {
+        gsap.set(layer, { autoAlpha: layerId === id ? 1 : 0 });
+        layer.dataset.fanActive = String(layerId === id);
+      });
+      root.dataset.selectedMarketplaceId = id ?? "";
+      if (fanSelectedLabel) fanSelectedLabel.textContent = selectedCategory?.title ?? "";
+      const fanImage = id ? fanMediaImages.get(id) : null;
+      if (fanImage) {
+        fanImage.loading = "eager";
+        fanImage.fetchPriority = "high";
+      }
+      if (process.env.NODE_ENV !== "production" && id) {
+        const visible = Array.from(fanMediaLayers.entries()).filter(([, layer]) => {
+          return Number(getComputedStyle(layer).opacity) > 0.5;
+        });
+        if (visible.length !== 1 || visible[0]?.[0] !== id) {
+          console.error("[HomeDirector] Fan selection must activate exactly one marketplace image.", { id, visible: visible.map(([layerId]) => layerId) });
         }
-        if (fanSelectedLabel) fanSelectedLabel.textContent = selectedCategory.title;
       }
     };
 
@@ -364,7 +401,7 @@ export function useHomeNarrativeDirector({
 
       if (name === "van" && doorAperture) {
         const doorProgress = frame.chapter === "collection"
-          ? range(frame.chapterProgress, 0.52, 0.68)
+          ? range(frame.chapterProgress, HOME_BEATS.collection.door[0], HOME_BEATS.collection.door[1])
           : 0;
         const opening = VAN_DOOR_CALIBRATION.cargoOpeningRect.normalized;
         const top = interpolate(50, opening.y * 100, doorProgress);
@@ -378,9 +415,132 @@ export function useHomeNarrativeDirector({
       }
     };
 
+    const applyRouteGeometry = (frame: HomeFrame) => {
+      if (frame.chapter !== "route" || !routePath || routePathLength <= 0) return;
+      const svg = routePath.ownerSVGElement;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const scaleX = rect.width / routePathViewBox.width;
+      const scaleY = rect.height / routePathViewBox.height;
+      const distance = routePathLength * frame.route.pathProgress;
+      const point = routePath.getPointAtLength(distance);
+      const ahead = routePath.getPointAtLength(Math.min(routePathLength, distance + 2));
+      let deltaX = (ahead.x - point.x) * scaleX;
+      let deltaY = (ahead.y - point.y) * scaleY;
+      if (Math.abs(deltaX) + Math.abs(deltaY) < 0.01) {
+        const behind = routePath.getPointAtLength(Math.max(0, distance - 2));
+        deltaX = (point.x - behind.x) * scaleX;
+        deltaY = (point.y - behind.y) * scaleY;
+      }
+      const tangent = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+      frame.actors.whiteTruck.targetX = (rect.left + point.x * scaleX) / window.innerWidth;
+      frame.actors.whiteTruck.groundY = (rect.top + point.y * scaleY) / window.innerHeight;
+      frame.actors.whiteTruck.rotation = tangent;
+      frame.route.tangentAngle = tangent;
+      root.dataset.homeRouteProgress = frame.route.pathProgress.toFixed(3);
+      root.dataset.homeRouteTangent = tangent.toFixed(1);
+    };
+
+    let activePhysicalOcclusion: string | null = null;
+    const setPhysicalOcclusion = (frame: HomeFrame) => {
+      const id = frame.occlusion.id;
+      root.dataset.homeOcclusionCoverage = "—";
+      if (activePhysicalOcclusion && activePhysicalOcclusion !== id) {
+        const previous = physicalOccluders.get(activePhysicalOcclusion);
+        if (previous) gsap.set(previous, { autoAlpha: 0 });
+      }
+      activePhysicalOcclusion = id;
+      if (!id) return;
+      const element = physicalOccluders.get(id);
+      if (!element) return;
+      const reportCoverage = (actorName: ActorName) => {
+        const actorRect = slotNodes.get(actorName)?.getBoundingClientRect();
+        if (actorRect) root.dataset.homeOcclusionCoverage = `${(physicalCoverage(actorRect, element.getBoundingClientRect()) * 100).toFixed(1)}%`;
+      };
+      if (id === "hero-cargo-mask") {
+        reportCoverage("whiteTruck");
+        return;
+      }
+      if (id === "market-to-fan-card-mask" || id === "fan-parcel-mask") {
+        root.dataset.homeOcclusionCoverage = "transfer plane";
+        return;
+      }
+
+      if (id === "route-terminal-mask" || (id === "route-overpass-a" && frame.chapter === "custody")) {
+        const progress = frame.occlusion.progress;
+        gsap.set(element, {
+          left: 0,
+          top: 0,
+          width: window.innerWidth,
+          height: Math.max(1, window.innerHeight - stageTopPx),
+          clipPath: `inset(0 0 ${interpolate(100, 0, progress)}% 0)`,
+          autoAlpha: 1,
+        });
+        reportCoverage("whiteTruck");
+        return;
+      }
+
+      if (id === "custody-seam-mask" && frame.chapter === "collection") {
+        const progress = frame.occlusion.progress;
+        gsap.set(element, {
+          left: 0,
+          top: 0,
+          width: window.innerWidth,
+          height: Math.max(1, window.innerHeight - stageTopPx),
+          clipPath: `inset(0 0 0 ${interpolate(100, 0, progress)}%)`,
+          autoAlpha: 1,
+        });
+        reportCoverage("van");
+        return;
+      }
+
+      if (id === "arrival-architecture-mask" && frame.chapter === "arrival" && frame.chapterProgress >= HOME_BEATS.arrival.footerRelease[0]) {
+        const progress = frame.occlusion.progress;
+        gsap.set(element, {
+          left: 0,
+          top: 0,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          background: "var(--kt-asphalt)",
+          clipPath: `inset(${interpolate(100, 0, progress)}% 0 0 0)`,
+          autoAlpha: 1,
+        });
+        reportCoverage("courier");
+        return;
+      }
+
+      const actorName: ActorName = id === "parcel-mask" || id === "custody-seam-mask" || id === "arrival-architecture-mask"
+        ? "courier"
+        : id === "freight-gate-mask"
+          ? "redTruck"
+          : id === "van-door-mask" || id === "collection-viewport-edge"
+            ? "van"
+            : "whiteTruck";
+      const slot = slotNodes.get(actorName);
+      if (!slot) return;
+      const rect = slot.getBoundingClientRect();
+      gsap.set(element, {
+        left: rect.left,
+        top: rect.top - stageTopPx,
+        width: rect.width,
+        height: rect.height,
+        clipPath: "inset(0)",
+        autoAlpha: 1,
+      });
+      const coverageActor: ActorName = id === "parcel-mask" || id === "custody-seam-mask" || id === "arrival-architecture-mask"
+        ? "courier"
+        : id === "freight-gate-mask"
+          ? "redTruck"
+          : id === "van-door-mask" || id === "collection-viewport-edge"
+            ? "van"
+            : "whiteTruck";
+      reportCoverage(coverageActor);
+    };
+
     const applyFrame = (chapter: HomeChapter, progress: number) => {
       const effectiveProgress = prefersReducedMotion ? 0.5 : progress;
       const frame = resolveHomeFrame({ chapter, progress: effectiveProgress, marketplaceCategories: categoryIds });
+      applyRouteGeometry(frame);
       const previousFrame = lastFrame;
       if (process.env.NODE_ENV !== "production" && previousFrame
         && previousFrame.chapter === frame.chapter
@@ -388,25 +548,81 @@ export function useHomeNarrativeDirector({
         (Object.keys(ACTOR_TYPES) as ActorName[]).forEach((name) => {
           const previousActor = previousFrame.actors[name];
           const nextActor = frame.actors[name];
-          if (previousActor.state !== nextActor.state && (previousActor.visible || nextActor.visible)) {
+          if (previousActor.state !== nextActor.state && previousActor.visible && nextActor.visible) {
             try {
-              assertActorTransition(ACTOR_TYPES[name], previousActor.state, nextActor.state, frame.transition.occlusion);
+              assertActorTransition(ACTOR_TYPES[name], previousActor.state, nextActor.state, frame.occlusion.id);
             } catch (error) {
-              console.error(error);
+              console.error("[HomeDirector] Actor state transition is not declared.", {
+                actor: name,
+                previousState: previousActor.state,
+                nextState: nextActor.state,
+                occluderId: frame.occlusion.id,
+                error,
+              });
             }
           }
         });
       }
-      if (previousFrame?.transition.owner !== "hero-cargo-takeover" && frame.transition.owner === "hero-cargo-takeover") {
+      if (previousFrame?.occlusion.id !== "hero-cargo-mask" && frame.occlusion.id === "hero-cargo-mask") {
         measuredCargoRect = null;
       }
-      if (frame.transition.owner !== "hero-cargo-takeover") measuredCargoRect = null;
+      if (frame.occlusion.id !== "hero-cargo-mask") measuredCargoRect = null;
       lastFrame = frame;
+
+      if (activeSelectionId !== frame.selection.marketplaceId) {
+        activeSelectionId = frame.selection.marketplaceId;
+        setMarketplaceSelection(activeSelectionId);
+      }
 
       applyActor("whiteTruck", frame.actors.whiteTruck, frame);
       applyActor("van", frame.actors.van, frame);
       applyActor("courier", frame.actors.courier, frame);
       applyActor("redTruck", frame.actors.redTruck, frame);
+      setPhysicalOcclusion(frame);
+
+      if (process.env.NODE_ENV !== "production" && previousFrame
+        && previousFrame.chapter === frame.chapter
+        && Math.abs(previousFrame.chapterProgress - frame.chapterProgress) <= 0.05) {
+        (Object.keys(ACTOR_TYPES) as ActorName[]).forEach((name) => {
+          const previousActor = previousFrame.actors[name];
+          const nextActor = frame.actors[name];
+          const changedWhileExposed = previousActor.state !== nextActor.state && previousActor.visible && nextActor.visible;
+          const coveredRelease = previousActor.visible && !nextActor.visible;
+          if (!changedWhileExposed && !coveredRelease) return;
+          if (coveredRelease) {
+            const actorRect = slotNodes.get(name)?.getBoundingClientRect();
+            const fullyExited = actorRect && (
+              actorRect.right <= 0 || actorRect.left >= window.innerWidth
+              || actorRect.bottom <= stageTopPx || actorRect.top >= window.innerHeight
+            );
+            if (fullyExited) return;
+          }
+          const slot = slotNodes.get(name);
+          const occluder = frame.occlusion.id ? physicalOccluders.get(frame.occlusion.id) : null;
+          const measured = slot && occluder
+            ? physicalCoverage(slot.getBoundingClientRect(), occluder.getBoundingClientRect())
+            : 0;
+          try {
+            if (!slot || !occluder) throw new Error("The declared occluder is not rendered in this scene.");
+            assertPhysicalCoverage({
+              actorRect: slot.getBoundingClientRect(),
+              occluderRect: occluder.getBoundingClientRect(),
+              minimumCoverage: frame.occlusion.requiredCoverage || 0.85,
+            });
+          } catch (error) {
+            console.error("[HomeDirector] Actor state changed without measured physical coverage.", {
+              actor: name,
+              previousState: previousActor.state,
+              nextState: nextActor.state,
+              previousVisible: previousActor.visible,
+              nextVisible: nextActor.visible,
+              occluderId: frame.occlusion.id,
+              measuredCoverage: measured,
+              error,
+            });
+          }
+        });
+      }
 
       const visibleVehicles = [frame.actors.whiteTruck, frame.actors.van, frame.actors.redTruck]
         .filter((actor) => actor.visible).length;
@@ -420,6 +636,7 @@ export function useHomeNarrativeDirector({
       if (lastTone !== frame.headerTone) {
         lastTone = frame.headerTone;
         setHeaderTone(frame.headerTone);
+        window.dispatchEvent(new CustomEvent("kt-header-tone", { detail: { tone: frame.headerTone } }));
       }
 
       if (marketRail && frame.chapter === "marketplace") {
@@ -449,60 +666,63 @@ export function useHomeNarrativeDirector({
 
       if (chapter === "custody" && custodyLeft && custodyRight) {
         const p = effectiveProgress;
-        const leftWidth = p < 0.4
-          ? interpolate(72, 50, range(p, 0.18, 0.4))
-          : p < 0.54
+        const leftWidth = p < 0.38
+          ? interpolate(60, 50, range(p, 0.18, 0.38))
+          : p < 0.56
             ? 50
-            : interpolate(50, 24, range(p, 0.54, 0.74));
+            : interpolate(50, 30, range(p, 0.56, 0.72));
         gsap.set(custodyLeft, { width: `${leftWidth}%` });
         gsap.set(custodyRight, { width: `${100 - leftWidth}%` });
-        if (custodyConcealment) gsap.set(custodyConcealment, { autoAlpha: range(p, 0.74, 1) });
+        if (custodyConcealment) gsap.set(custodyConcealment, { autoAlpha: range(p, 0.72, 0.86) });
       }
 
-      if (routeOccluder) {
-        const routeP = chapter === "route" ? effectiveProgress : -1;
-        const first = routeP >= 0.54 && routeP < 0.64 ? Math.sin(Math.PI * range(routeP, 0.54, 0.64)) : 0;
-        const second = routeP >= 0.78 && routeP < 0.88 ? Math.sin(Math.PI * range(routeP, 0.78, 0.88)) : 0;
-        gsap.set(routeOccluder, { autoAlpha: Math.max(first, second), y: interpolate(-80, 80, routeP < 0.64 ? range(routeP, 0.54, 0.64) : range(routeP, 0.78, 0.88)) });
+      if (finaleRoad) gsap.set(finaleRoad, {
+        x: chapter === "finale" ? interpolate(-80, 0, effectiveProgress) : 0,
+        autoAlpha: chapter === "finale" ? range(effectiveProgress, 0.58, 0.75) : 0,
+      });
+      if (heroKt && chapter === "hero") gsap.set(heroKt, { y: interpolate(0, -12, range(effectiveProgress, HOME_BEATS.hero.accelerate[0], HOME_BEATS.hero.trailerDominance[1])) });
+      if (heroCourier && chapter === "hero") gsap.set(heroCourier, { y: interpolate(0, -8, range(effectiveProgress, HOME_BEATS.hero.accelerate[0], HOME_BEATS.hero.trailerDominance[1])) });
+      if (heroActions && chapter === "hero") {
+        const hero = HOME_BEATS.hero;
+        const alpha = effectiveProgress < hero.decelerate[0]
+          ? 0
+          : effectiveProgress < hero.suspensionSettle[1]
+            ? range(effectiveProgress, hero.decelerate[0], hero.suspensionSettle[1])
+            : effectiveProgress < hero.readingHold[1]
+              ? 1
+              : effectiveProgress < hero.anticipation[1]
+                ? 1 - range(effectiveProgress, hero.anticipation[0], hero.anticipation[1])
+                : 0;
+        gsap.set(heroActions, { autoAlpha: alpha });
       }
-      if (routeOverlap) {
-        gsap.set(routeOverlap, { autoAlpha: chapter === "route" ? range(effectiveProgress, 0.94, HOME_BEATS.route.truckRelease) : chapter === "freight" ? 1 : 0 });
+      if (prepCollectionIncoming) {
+        gsap.set(prepCollectionIncoming, {
+          autoAlpha: chapter === "preparation" ? range(effectiveProgress, HOME_BEATS.preparation.collectionUnderlay[0], HOME_BEATS.preparation.collectionUnderlay[1]) : 0,
+        });
       }
-      if (finaleRoad) gsap.set(finaleRoad, { x: chapter === "finale" ? interpolate(-80, 0, effectiveProgress) : 0 });
-      if (heroKt && chapter === "hero") gsap.set(heroKt, { y: interpolate(0, -18, range(effectiveProgress, 0.59, 0.82)) });
-      if (heroCourier && chapter === "hero") gsap.set(heroCourier, { y: interpolate(0, -12, range(effectiveProgress, 0.59, 0.82)) });
-      if (heroActions && chapter === "hero") gsap.set(heroActions, { autoAlpha: effectiveProgress >= 0.36 ? 1 : range(effectiveProgress, 0.23, 0.36) });
+      if (arrivalFooterTitle) {
+        const release = chapter === "arrival" ? range(effectiveProgress, HOME_BEATS.arrival.footerRelease[0], HOME_BEATS.arrival.footerRelease[1]) : 0;
+        gsap.set(arrivalFooterTitle, {
+          autoAlpha: chapter === "arrival" ? range(effectiveProgress, 0.94, 0.985) : 0,
+          y: chapter === "arrival" ? interpolate(34, 0, smooth(release)) : 0,
+        });
+      }
+      if (finaleTitle) gsap.set(finaleTitle, { autoAlpha: chapter === "finale" ? 1 : 0 });
+      if (finaleUtility) gsap.set(finaleUtility, { autoAlpha: chapter === "finale" ? range(effectiveProgress, 0.2, 0.48) : 0 });
+      if (finaleLegal) gsap.set(finaleLegal, { autoAlpha: chapter === "finale" ? range(effectiveProgress, 0.48, 0.72) : 0 });
 
-      if (directorOccluder) {
-        const occlusion = frame.transition.occlusion;
-        if (occlusion === "overpass-shadow") {
-          gsap.set(directorOccluder, { autoAlpha: 1, left: 0, top: "42%", width: "100%", height: "25%", clipPath: "inset(0)", background: "linear-gradient(180deg, transparent, rgba(8,10,12,.98) 30%, rgba(8,10,12,.98) 70%, transparent)" });
-        } else if (occlusion === "architectural-mask") {
-          gsap.set(directorOccluder, { autoAlpha: 1, left: `${interpolate(34, 64, frame.transition.progress)}%`, top: "18%", width: "38%", height: "72%", clipPath: "inset(0)", background: "var(--kt-freight-paper)" });
-        } else if (occlusion === "viewport-edge") {
-          gsap.set(directorOccluder, { autoAlpha: 1, left: 0, top: 0, width: "38%", height: "100%", clipPath: "inset(0)", background: "linear-gradient(90deg, rgba(11,13,15,.94), transparent)" });
-        } else if (occlusion === "road-geometry" && chapter === "route") {
-          gsap.set(directorOccluder, {
-            autoAlpha: 1,
-            left: 0,
-            top: 0,
-            width: "100%",
-            height: "100%",
-            clipPath: `inset(${interpolate(100, 0, frame.transition.progress)}% 0 0 0)`,
-            background: "linear-gradient(180deg, var(--kt-asphalt), #151a1e 55%, var(--kt-asphalt))",
-          });
-        } else if (occlusion === "scene-boundary" && chapter === "freight") {
-          gsap.set(directorOccluder, { autoAlpha: 1, left: 0, top: "50%", width: "100%", height: "50%", clipPath: "inset(0)", background: "linear-gradient(180deg, transparent, var(--kt-asphalt))" });
-        } else {
-          gsap.set(directorOccluder, { autoAlpha: 0, clipPath: "inset(0)" });
-        }
-      }
-
-      setTransitionLayer(frame, frame.transition.progress);
+      setTransitionLayer(frame);
       root.dataset.homeChapter = frame.chapter;
       root.dataset.homeProgress = frame.chapterProgress.toFixed(3);
-      root.dataset.homeOcclusion = frame.transition.occlusion ?? "";
-      if (debugPanel && debugEnabled) debugPanel.textContent = formatHomeDebugFrame(frame);
+      root.dataset.homeOcclusion = frame.occlusion.id ?? "";
+      root.dataset.homeWorldOwner = frame.world.owner;
+      root.dataset.homeSelectedMarketplaceId = frame.selection.marketplaceId ?? "";
+      root.dataset.homeFocus = frame.world.focus;
+      root.dataset.homeRouteProgress = frame.route.pathProgress.toFixed(3);
+      root.dataset.homeRouteTangent = frame.route.tangentAngle.toFixed(1);
+      if (debugPanel && debugEnabled) {
+        debugPanel.textContent = `${formatHomeDebugFrame(frame)}\nmeasured coverage: ${root.dataset.homeOcclusionCoverage ?? "—"}`;
+      }
       return frame;
     };
 
@@ -511,7 +731,11 @@ export function useHomeNarrativeDirector({
       sections.forEach(({ chapter, section }) => {
         const rect = section.getBoundingClientRect();
         const start = rect.top + window.scrollY;
-        ranges.push({ chapter, section, start, end: start + Math.max(1, rect.height) });
+        const end = start + Math.max(1, rect.height);
+        const stickyStage = section.querySelector<HTMLElement>("[data-home-sticky-stage], .kt-home-sticky-stage, [data-marketplace-sticky-stage]");
+        const isSticky = Boolean(stickyStage && getComputedStyle(stickyStage).position === "sticky");
+        const scrollSpan = isSticky ? rect.height - window.innerHeight : rect.height;
+        ranges.push({ chapter, section, start, end, progressEnd: start + Math.max(1, scrollSpan) });
       });
       stageTopPx = actorStage?.getBoundingClientRect().top ?? 0;
       measuredCargoRect = null;
@@ -521,6 +745,13 @@ export function useHomeNarrativeDirector({
         const cardStyle = window.getComputedStyle(firstCard);
         measuredCardStep = firstCard.getBoundingClientRect().width + Number.parseFloat(cardStyle.marginRight || "0");
       }
+      if (routePath) {
+        routePathLength = routePath.getTotalLength();
+        const viewBox = routePath.ownerSVGElement?.viewBox.baseVal;
+        if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+          routePathViewBox = { width: viewBox.width, height: viewBox.height };
+        }
+      }
     };
 
     const rangeForScroll = (scrollY: number): { chapter: HomeChapter; progress: number } => {
@@ -529,7 +760,7 @@ export function useHomeNarrativeDirector({
       if (!current) return { chapter: "hero", progress: 0 };
       return {
         chapter: current.chapter,
-        progress: clamp01((scrollY - current.start) / (current.end - current.start)),
+        progress: clamp01((scrollY - current.start) / (current.progressEnd - current.start)),
       };
     };
 
@@ -558,10 +789,8 @@ export function useHomeNarrativeDirector({
       });
     };
 
-    const preloadFanSelection = (index = lastMarketplaceIndex) => {
-      const safeIndex = index >= 0
-        ? Math.min(categories.length - 1, index)
-        : useNativeMarketRail ? 0 : categories.length - 1;
+    const preloadFanSelection = (index = categories.length - 1) => {
+      const safeIndex = Math.max(0, Math.min(categories.length - 1, index));
       const selectedCategory = categories[safeIndex];
       const image = selectedCategory ? fanMediaImages.get(selectedCategory.id) : null;
       if (!image) return;
@@ -577,11 +806,25 @@ export function useHomeNarrativeDirector({
       }
       const frame = resolveHomeFrame({ chapter, progress, marketplaceCategories: categoryIds });
       if ((chapter === "marketplace" && progress >= 0.68) || chapter === "fan") {
-        preloadFanSelection(chapter === "marketplace" ? frame.marketplace.activeIndex : lastMarketplaceIndex);
+        preloadFanSelection(chapter === "marketplace" ? frame.marketplace.activeIndex : categories.length - 1);
       }
       preloadFrame(frame);
-      timelines.get(chapter)?.timeline.progress(prefersReducedMotion ? 0.5 : progress);
+      const normalizedProgress = prefersReducedMotion ? 0.5 : progress;
+      timelines.get(chapter)?.timeline.progress(normalizedProgress);
+      // A chapter timeline does not emit onUpdate when revisiting the same
+      // progress value after another chapter has taken ownership. Reapply the
+      // deterministic frame so reverse scrolling reconstructs that exact view.
+      if (root.dataset.homeChapter !== chapter) applyFrame(chapter, normalizedProgress);
       return frame;
+    };
+
+    let scrollFrame = 0;
+    const syncFrameFromWindowScroll = () => {
+      if (scrollFrame) return;
+      scrollFrame = window.requestAnimationFrame(() => {
+        scrollFrame = 0;
+        seekFromScroll(window.scrollY);
+      });
     };
 
     try {
@@ -608,7 +851,7 @@ export function useHomeNarrativeDirector({
     });
     preloadChapter(initialPosition.chapter);
     preloadFrame(initialFrame);
-    if (initialPosition.chapter === "fan") preloadFanSelection();
+    if (initialPosition.chapter === "fan") preloadFanSelection(categories.length - 1);
 
     const revealAfterLayout = async () => {
       await document.fonts?.ready;
@@ -648,7 +891,7 @@ export function useHomeNarrativeDirector({
         if (frozen) {
           const target = ranges.find((item) => item.chapter === frozen.chapter);
           if (target) {
-            const targetY = target.start + frozen.chapterProgress * (target.end - target.start);
+            const targetY = target.start + frozen.chapterProgress * (target.progressEnd - target.start);
             window.scrollTo(0, targetY);
           }
         }
@@ -664,8 +907,8 @@ export function useHomeNarrativeDirector({
       end: "bottom bottom",
       scrub: true,
       invalidateOnRefresh: true,
-      onUpdate: () => seekFromScroll(window.scrollY),
     });
+    window.addEventListener("scroll", syncFrameFromWindowScroll, { passive: true });
     window.addEventListener("resize", resizeDirector, { passive: true });
     marketRailWrapper?.addEventListener("scroll", syncNativeMarketplace, { passive: true });
     const context = gsap.context(() => {}, root);
@@ -673,6 +916,8 @@ export function useHomeNarrativeDirector({
 
     return () => {
       window.clearTimeout(resizeTimer);
+      window.cancelAnimationFrame(scrollFrame);
+      window.removeEventListener("scroll", syncFrameFromWindowScroll);
       window.removeEventListener("resize", resizeDirector);
       marketRailWrapper?.removeEventListener("scroll", syncNativeMarketplace);
       trigger.kill();

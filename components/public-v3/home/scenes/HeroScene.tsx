@@ -26,7 +26,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       data-motion="hero-stage"
       aria-label="KT Couriers Hero"
     >
-      <div className={styles.heroStage}>
+      <div className={styles.heroStage} data-home-sticky-stage>
       {/* Occlusion Plane: Giant KT / COURIER Typography Behind Truck */}
       <div className={styles.heroTypographyBackground} aria-hidden="true">
         <span className={styles.heroWordKt} data-motion="hero-kt">

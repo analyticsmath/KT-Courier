@@ -350,6 +350,73 @@
   z-index: 25;
 }
 
+:global(.kt-home-occluder-parcel-mask) {
+  background:
+    linear-gradient(90deg, transparent 48%, rgba(84, 49, 22, .32) 49%, transparent 51%),
+    linear-gradient(180deg, #c39463, #9f7045);
+  border: 3px solid rgba(75, 45, 25, .72);
+  box-shadow: inset 0 0 0 1px rgba(255, 236, 205, .42), 0 10px 30px rgba(0, 0, 0, .24);
+}
+
+:global(.kt-home-occluder-route-overpass-a),
+:global(.kt-home-occluder-route-overpass-b) {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .1) 0 2px, transparent 2px 12px),
+    linear-gradient(180deg, #596168, #242a2f 34%, #111518 72%, #474f54);
+  border-block: 5px solid #8c969b;
+  box-shadow: 0 0 0 18px rgba(11, 13, 15, .35), 0 22px 36px rgba(0, 0, 0, .45);
+}
+
+:global(.kt-home-occluder-custody-seam-mask),
+:global(.kt-home-occluder-route-terminal-mask),
+:global(.kt-home-occluder-freight-gate-mask) {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 26px, rgba(255, 255, 255, .08) 27px 29px),
+    linear-gradient(145deg, #343b40, #13171a 60%, #30363b);
+  border: 2px solid rgba(220, 225, 226, .25);
+}
+
+:global(.kt-home-occluder-arrival-architecture-mask) {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 20%, rgba(97, 80, 58, .36) 21% 24%),
+    linear-gradient(180deg, #e8dece, #c9b99f);
+  border-inline: 4px solid rgba(101, 83, 60, .45);
+}
+
+:global(.kt-home-final-release-curtain) {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 22%, rgba(109, 91, 68, .26) 23% 25%),
+    linear-gradient(180deg, #e8dece, #c9b99f);
+}
+
+:global(.kt-home-final-release-title) {
+  position: fixed;
+  inset: 0;
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--kt-freight-paper);
+  font-family: var(--font-display);
+  font-size: clamp(6rem, 17vw, 17rem);
+  font-weight: 900;
+  line-height: .76;
+  letter-spacing: -.065em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 :global(.kt-home-experience [data-van-door-aperture]) {
   position: absolute;
   inset: 0;
@@ -361,6 +428,27 @@
 
 :global(.kt-home-experience .kt-van-door-interior-layer) {
   object-fit: contain;
+}
+
+:global(.kt-home-experience .kt-collection-street-env img) {
+  transform: scale(1.72);
+  transform-origin: center top;
+}
+
+:global(.kt-collection-ground-plane) {
+  background: linear-gradient(180deg, rgba(163, 158, 148, .2), rgba(79, 83, 82, .2));
+  border-top: 1px solid rgba(43, 47, 47, .22);
+}
+
+:global(.kt-collection-ground-line) {
+  border-top: 1px solid rgba(35, 39, 40, .45);
+  box-shadow: 0 -5px 14px rgba(25, 29, 30, .08);
+}
+
+:global(.kt-preparation-collection-image) {
+  transform: scale(1.5);
+  transform-origin: center top;
+  opacity: .28;
 }
 
 :global(.kt-home-experience .kt-trailer-takeover-plane) {
@@ -396,16 +484,16 @@
 }
 
 :global(.kt-home-experience .kt-fan-card) {
-  width: min(44vw, 360px);
-  height: min(62vh, 560px);
+  width: min(24vw, 350px);
+  height: min(58vh, 500px);
   opacity: 0;
   visibility: hidden;
   will-change: transform, opacity;
 }
 
 :global(.kt-home-experience .kt-fan-hero-card) {
-  width: min(62vw, 760px);
-  height: min(68vh, 620px);
+  width: min(30vw, 440px);
+  height: min(62vh, 540px);
 }
 
 :global(.kt-home-experience .kt-fan-selected-media-layer) {
@@ -432,6 +520,60 @@
   white-space: pre-line;
 }
 
+:global(.kt-home-experience[data-kt-motion-debug="true"] [data-actor-slot]) {
+  outline: 1px solid rgba(40, 120, 255, .9);
+}
+
+:global(.kt-home-experience[data-kt-motion-debug="true"] [data-home-occluder]) {
+  outline: 1px dashed rgba(255, 190, 40, .95);
+}
+
+:global(.kt-home-experience[data-kt-motion-debug="true"] [data-actor-material-anchor]) {
+  outline: 1px solid rgba(255, 70, 80, .95);
+}
+
+:global(.kt-home-experience[data-kt-motion-debug="true"] [data-route-path]) {
+  opacity: .92;
+}
+
+:global(.kt-home-experience [data-kt-motion-debug-geometry]:not([hidden])) {
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+  pointer-events: none;
+}
+
+:global(.kt-home-debug-focus) {
+  position: absolute;
+  left: 36%;
+  top: 48%;
+  width: 28%;
+  height: 34%;
+  border: 1px dashed rgba(40, 120, 255, .85);
+  background: rgba(40, 120, 255, .035);
+}
+
+:global(.kt-home-experience[data-home-focus="left-lower"] .kt-home-debug-focus) { left: 8%; width: 32%; }
+:global(.kt-home-experience[data-home-focus="right-center"] .kt-home-debug-focus) { left: 60%; width: 30%; top: 32%; height: 44%; }
+:global(.kt-home-experience[data-home-focus="center-vertical"] .kt-home-debug-focus) { left: 38%; width: 24%; top: 12%; height: 76%; }
+:global(.kt-home-experience[data-home-focus="center"] .kt-home-debug-focus) { left: 28%; width: 44%; top: 24%; height: 52%; }
+
+:global(.kt-home-debug-ground) {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 85%;
+  border-top: 1px dashed rgba(255, 40, 70, .85);
+}
+
+:global(.kt-home-debug-card-band) {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed rgba(40, 220, 160, .85);
+}
+
 @media (max-width: 767px) {
   :global(.kt-home-experience [data-kt-scene]) {
     min-height: auto !important;
@@ -445,14 +587,37 @@
     min-height: 100svh;
   }
 
+  .marketplaceStickyStage {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 100svh;
+  }
+
   :global(.kt-home-experience .kt-fan-card) {
-    width: min(48vw, 220px);
-    height: min(54vh, 420px);
+    width: min(28vw, 220px);
+    height: min(46vh, 340px);
   }
 
   :global(.kt-home-experience .kt-fan-hero-card) {
-    width: min(84vw, 380px);
-    height: min(62vh, 480px);
+    width: min(38vw, 290px);
+    height: min(52vh, 380px);
+  }
+
+  :global(.kt-home-experience .kt-collection-street-env img) {
+    transform: scale(1.42);
+  }
+}
+
+@media (max-width: 599px) {
+  :global(.kt-home-experience .kt-fan-card:not(.kt-fan-hero-card)) {
+    width: min(24vw, 110px);
+    height: min(30vh, 220px);
+  }
+
+  :global(.kt-home-experience .kt-fan-hero-card) {
+    width: min(66vw, 290px);
+    height: min(48vh, 360px);
   }
 }
 
@@ -509,20 +674,26 @@
   display: flex;
   align-items: stretch;
   width: max-content;
-  padding-left: clamp(1.5rem, 5vw, 6vw);
-  padding-right: clamp(1.5rem, 5vw, 6vw);
+  padding-left: 17.5vw;
+  padding-right: 17.5vw;
   will-change: transform;
 }
 
 .marketplaceCard {
-  width: clamp(68vw, 72vw, 76vw);
-  margin-right: clamp(2vw, 2.5vw, 3vw);
+  position: relative;
+  width: 65vw;
+  margin-right: 5vw;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
 }
 
 @media (max-width: 899px) {
+  .marketplaceRail {
+    padding-left: 7.5vw;
+    padding-right: 7.5vw;
+  }
+
   .marketplaceCard {
     width: 85vw;
     margin-right: 1.25rem;
@@ -553,7 +724,11 @@
 }
 
 .marketplaceCardContent {
-  margin-top: 1.25rem;
+  position: absolute;
+  left: clamp(1rem, 3vw, 3rem);
+  right: clamp(1rem, 3vw, 3rem);
+  bottom: clamp(1rem, 3vh, 2.5rem);
+  z-index: 2;
   max-width: 540px;
   display: flex;
   flex-direction: column;

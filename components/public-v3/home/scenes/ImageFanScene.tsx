@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { ktMediaV3 } from "../../media/kt-media-v3";
+import { FIVE_PANEL_MEDIA } from "./MarketplaceFivePanelScene";
 
 export interface SelectedFanMedia {
-  id?: string;
+  id: string;
   title: string;
   image: string;
   altText?: string;
@@ -16,25 +16,23 @@ interface ImageFanSceneProps {
   marketplaceMedia?: SelectedFanMedia[];
 }
 
-export const BASE_FAN_ITEMS = [
-  { id: "leather", asset: ktMediaV3.editorial.fashion.leatherBags, label: "Artisan Leather", rotation: -14, xOffset: -360, yOffset: 24 },
-  { id: "market", asset: ktMediaV3.editorial.grocery.vegetablesCrate, label: "Fresh Market", rotation: -9, xOffset: -240, yOffset: 12 },
-  { id: "kitchen", asset: ktMediaV3.editorial.food.grainBowl, label: "Local Kitchen", rotation: -4, xOffset: -120, yOffset: 4 },
-  { id: "hero", asset: ktMediaV3.editorial.fashion.leatherBags, label: "Local Craft", rotation: 0, xOffset: 0, yOffset: 0, isHeroChoice: true },
-  { id: "wellness", asset: ktMediaV3.editorial.wellness.apothecaryBottles, label: "Botanical Wellness", rotation: 4, xOffset: 120, yOffset: 4 },
-  { id: "jewelry", asset: ktMediaV3.editorial.fashion.jewelry, label: "Handcrafted Jewelry", rotation: 9, xOffset: 240, yOffset: 12 },
-  { id: "apparel", asset: ktMediaV3.editorial.fashion.whiteTop, label: "Boutique Apparel", rotation: 14, xOffset: 360, yOffset: 24 },
-];
+type SupportCard = { id: string; title: string; image: string; altText?: string; fanX: number; fanRotation: number };
 
-/** The selected marketplace image stays central while surrounding images spread, settle, and release. */
+/** The selected rail item owns the center card; the other live categories become its four previews. */
 export function ImageFanScene({ className = "", selectedMedia, marketplaceMedia = [] }: ImageFanSceneProps) {
-  const fanItems = BASE_FAN_ITEMS.map((item) => item.isHeroChoice && selectedMedia
-    ? {
-        ...item,
-        asset: { src: selectedMedia.image, alt: selectedMedia.altText || selectedMedia.title },
-        label: selectedMedia.title,
-      }
-    : item);
+  const source = marketplaceMedia.length ? marketplaceMedia.slice(0, 5) : FIVE_PANEL_MEDIA;
+  const selected = source.find((media) => media.id === selectedMedia?.id) ?? source.at(-1)!;
+  const supportOffsets = [-330, -165, 165, 330];
+  const supportCards: SupportCard[] = source
+    .filter((media) => media.id !== selected.id)
+    .map((media, index) => {
+      const fanX = supportOffsets[index] ?? (index < 2 ? -330 : 330);
+      return {
+        ...media,
+        fanX,
+        fanRotation: Math.sign(fanX) * (Math.abs(fanX) < 200 ? 6 : 12),
+      };
+    });
 
   return (
     <section
@@ -50,7 +48,7 @@ export function ImageFanScene({ className = "", selectedMedia, marketplaceMedia 
             From shelf to parcel.
           </h2>
           <p className="text-sm sm:text-base text-[var(--kt-concrete)] leading-relaxed">
-            From neighborhood craft workshops to curated shelves, items are carefully staged and sealed for transport.
+            The selected marketplace category stays in the center as the surrounding categories fan out.
           </p>
         </div>
 
@@ -58,62 +56,70 @@ export function ImageFanScene({ className = "", selectedMedia, marketplaceMedia 
           data-motion="fan-stage"
           tabIndex={0}
           role="region"
-          aria-label="Image Fan Selection Stage"
+          aria-label="Marketplace category selection"
           className="kt-fan-stage relative w-full max-w-6xl h-[70vh] flex justify-center items-center outline-none focus-visible:ring-1 focus-visible:ring-[var(--kt-brand-blue)]"
         >
-          {fanItems.map((item, idx) => (
-            <div
+          {supportCards.map((item, index) => (
+            <article
               key={item.id}
-              data-motion={item.isHeroChoice ? "fan-hero" : undefined}
-              className={`kt-fan-card absolute overflow-hidden ${item.isHeroChoice ? "kt-fan-hero-card z-20" : "z-10"}`}
+              data-fan-support-id={item.id}
+              className="kt-fan-card kt-fan-support-card absolute overflow-hidden z-10"
               style={{ transformOrigin: "bottom center" }}
-              data-fan-index={idx}
-              data-fan-rot={item.rotation}
-              data-fan-x={item.xOffset}
-              data-fan-y={item.yOffset}
-              data-is-hero={item.isHeroChoice ? "true" : "false"}
+              data-fan-index={index}
+              data-fan-rot={item.fanRotation}
+              data-fan-x={item.fanX}
+              data-fan-y={Math.abs(item.fanX) > 200 ? 20 : 8}
+              data-is-hero="false"
+              aria-label={item.title}
             >
               <div className="relative w-full h-full bg-[#1A1E24]">
-                {item.isHeroChoice && marketplaceMedia.length ? marketplaceMedia.map((media) => (
-                  <div
-                    key={media.id}
-                    className="kt-fan-selected-media-layer absolute inset-0"
-                    data-fan-media-id={media.id}
-                    data-fan-active={media.id === selectedMedia?.id ? "true" : "false"}
-                    aria-hidden="true"
-                  >
-                    <Image
-                      data-fan-selected-image={media.id}
-                      src={media.image}
-                      alt=""
-                      fill
-                      sizes="(max-width: 767px) 86vw, 62vw"
-                      loading="lazy"
-                      className="object-cover"
-                    />
-                  </div>
-                )) : (
+                <Image src={item.image} alt={item.altText || item.title} fill sizes="(max-width: 767px) 24vw, (max-width: 1439px) 25vw, 350px" loading="lazy" className="object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/90 via-transparent to-transparent" />
+                <span className="absolute bottom-4 left-4 right-4 text-xs font-mono uppercase tracking-wider text-[var(--kt-concrete)]">{item.title}</span>
+              </div>
+            </article>
+          ))}
+
+          <article
+            data-motion="fan-hero"
+            data-home-occluder="fan-parcel-mask"
+            data-fan-card-id={selected.id}
+            data-fan-active="true"
+            className="kt-fan-card kt-fan-hero-card absolute overflow-hidden z-20"
+            style={{ transformOrigin: "bottom center" }}
+            data-fan-index={supportCards.length}
+            data-fan-rot="0"
+            data-fan-x="0"
+            data-fan-y="0"
+            data-is-hero="true"
+            aria-label={`Selected category: ${selected.title}`}
+          >
+            <div className="relative w-full h-full bg-[#1A1E24]">
+              {source.map((media) => (
+                <div
+                  key={media.id}
+                  className="kt-fan-selected-media-layer absolute inset-0"
+                  data-fan-media-id={media.id}
+                  data-fan-active={media.id === selected.id ? "true" : "false"}
+                  aria-hidden="true"
+                >
                   <Image
-                    data-fan-selected-image={item.isHeroChoice ? "true" : undefined}
-                    src={item.asset.src}
-                    alt={item.asset.alt}
+                    data-fan-selected-image={media.id}
+                    src={media.image}
+                    alt=""
                     fill
-                    sizes="(max-width: 767px) 86vw, 62vw"
-                    loading="lazy"
+                    sizes="(max-width: 767px) 66vw, (max-width: 1439px) 30vw, 440px"
+                    loading={media.id === selected.id ? "eager" : "lazy"}
                     className="object-cover"
                   />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/80 via-transparent to-transparent" />
-                {item.isHeroChoice ? (
-                  <div className="absolute bottom-5 left-5 right-5">
-                    <span data-fan-selected-label className="text-xs font-mono uppercase tracking-wider text-[var(--kt-concrete)]">
-                      {item.label}
-                    </span>
-                  </div>
-                ) : null}
+                </div>
+              ))}
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/90 via-transparent to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4">
+                <span data-fan-selected-label className="text-xs font-mono uppercase tracking-wider text-[var(--kt-concrete)]">{selected.title}</span>
               </div>
             </div>
-          ))}
+          </article>
         </div>
         <div data-actor-anchor="fan-parcel-target" className="sr-only" aria-hidden="true" />
       </div>

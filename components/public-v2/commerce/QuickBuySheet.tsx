@@ -6,6 +6,7 @@ import type { StorefrontDocument, StorefrontProductCard } from "@/lib/storefront
 import type { StorefrontModifierGroupDTO } from "@/lib/services/storefront-catalog.service";
 import { availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
 import { triggerCartFlight } from "./AddToCartFlightPortal";
+import { getMarketplaceCart } from "@/components/public-v3/navigation/marketplace-cart-client";
 import styles from "./commerce.module.css";
 
 type ProductPayload = {
@@ -134,10 +135,9 @@ export function QuickBuySheet({
     setError(null);
     setSuccess(null);
     try {
-      const cartResponse = await fetch("/api/cart", { cache: "no-store" });
-      if (!cartResponse.ok) throw new Error("Your cart could not be loaded. Please try again.");
-      const cartData = await cartResponse.json();
-      let version = cartData.cart?.version ?? 1;
+      const cartData = await getMarketplaceCart();
+      if (!cartData.ok || !cartData.cart) throw new Error("Your cart could not be loaded. Please try again.");
+      let version = cartData.cart.version ?? 1;
       const modifierLines = Object.entries(modifiers).flatMap(([groupReference, optionReferences]) => optionReferences.map((optionReference) => ({ groupReference, optionReference, quantity: 1 })));
       const send = async (cartVersion: number) => {
         const operationId = `add-${crypto.randomUUID()}`;
@@ -150,10 +150,9 @@ export function QuickBuySheet({
       };
       let response = await send(version);
       if (response.status === 409) {
-        const refresh = await fetch("/api/cart", { cache: "no-store" });
-        if (!refresh.ok) throw new Error("Your cart changed. Refresh and try again.");
-        const latest = await refresh.json();
-        version = latest.cart?.version ?? version + 1;
+        const latest = await getMarketplaceCart();
+        if (!latest.ok || !latest.cart) throw new Error("Your cart changed. Refresh and try again.");
+        version = latest.cart.version ?? version + 1;
         response = await send(version);
       }
       if (!response.ok) {

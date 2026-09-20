@@ -20,21 +20,16 @@ export interface ActorTransition {
   from: string;
   to: string;
   occlusion: string;
+  minimumCoverage: number;
 }
 
+/** Only transitions that occur in an exposed chapter are listed; each names its rendered covering element. */
 export const HOME_ACTOR_TRANSITIONS: readonly ActorTransition[] = [
-  { actor: "white-truck", from: "side-right", to: "wide-hero", occlusion: "typography-occlusion" },
-  { actor: "white-truck", from: "wide-hero", to: "cargo-box-close", occlusion: "trailer-takeover" },
-  { actor: "van", from: "motion-transition", to: "side-left", occlusion: "scene-boundary" },
-  { actor: "van", from: "side-left", to: "sliding-door-open", occlusion: "door-sequence" },
-  { actor: "courier", from: "look-left-approach", to: "lift-parcel", occlusion: "van-door" },
-  { actor: "courier", from: "lift-parcel", to: "loading-unloading", occlusion: "parcel-coverage" },
-  { actor: "courier", from: "loading-unloading", to: "ready-handover", occlusion: "custody-seam" },
-  { actor: "white-truck", from: "top-down-straight", to: "top-down-angled", occlusion: "overpass-shadow" },
-  { actor: "white-truck", from: "top-down-angled", to: "top-down-turning", occlusion: "overpass-shadow" },
-  { actor: "red-truck", from: "motion-entry", to: "side-right", occlusion: "viewport-edge" },
-  { actor: "red-truck", from: "side-right", to: "centered-hero", occlusion: "scene-boundary" },
-  { actor: "courier", from: "walk-left-one-parcel", to: "extending-handoff", occlusion: "architectural-mask" },
+  { actor: "courier", from: "look-left-approach", to: "lift-parcel", occlusion: "parcel-mask", minimumCoverage: 0.9 },
+  { actor: "courier", from: "lift-parcel", to: "loading-unloading", occlusion: "parcel-mask", minimumCoverage: 0.9 },
+  { actor: "white-truck", from: "top-down-straight", to: "top-down-angled", occlusion: "route-overpass-a", minimumCoverage: 0.92 },
+  { actor: "white-truck", from: "top-down-angled", to: "top-down-turning", occlusion: "route-overpass-b", minimumCoverage: 0.92 },
+  { actor: "courier", from: "walk-left-one-parcel", to: "extending-handoff", occlusion: "arrival-architecture-mask", minimumCoverage: 0.9 },
 ];
 
 export function assertActorTransition(
@@ -45,21 +40,18 @@ export function assertActorTransition(
 ): void {
   const previous = ACTOR_STATES[actor][previousState];
   const next = ACTOR_STATES[actor][nextState];
+  const declared = HOME_ACTOR_TRANSITIONS.find((item) =>
+    item.actor === actor && item.from === previousState && item.to === nextState,
+  );
   const errors: string[] = [];
 
   if (!previous || !next) {
     errors.push(`Unknown ${actor} state: ${previousState} → ${nextState}`);
   } else {
-    if (!previous.validNextStates?.includes(nextState)) {
-      errors.push(`${actor}:${previousState} does not allow next state ${nextState}`);
-    }
-    if (!next.validPreviousStates?.includes(previousState)) {
-      errors.push(`${actor}:${nextState} does not allow previous state ${previousState}`);
-    }
-    const requiredOcclusions = [previous.requiredOcclusion, next.requiredOcclusion].filter(Boolean);
-    if (!activeOcclusion || !requiredOcclusions.includes(activeOcclusion as never)) {
-      errors.push(`${actor}:${previousState} → ${nextState} requires an active occlusion (${requiredOcclusions.join(" or ")})`);
-    }
+    if (!previous.validNextStates?.includes(nextState)) errors.push(`${actor}:${previousState} does not allow next state ${nextState}`);
+    if (!next.validPreviousStates?.includes(previousState)) errors.push(`${actor}:${nextState} does not allow previous state ${previousState}`);
+    if (!declared) errors.push(`${actor}:${previousState} → ${nextState} has no physical transition declaration`);
+    else if (activeOcclusion !== declared.occlusion) errors.push(`${actor}:${previousState} → ${nextState} requires rendered occluder ${declared.occlusion}`);
   }
 
   if (errors.length && process.env.NODE_ENV !== "production") {
@@ -69,11 +61,6 @@ export function assertActorTransition(
 
 export function validateHomeActorTransitions(): void {
   for (const transition of HOME_ACTOR_TRANSITIONS) {
-    assertActorTransition(
-      transition.actor,
-      transition.from,
-      transition.to,
-      transition.occlusion,
-    );
+    assertActorTransition(transition.actor, transition.from, transition.to, transition.occlusion);
   }
 }

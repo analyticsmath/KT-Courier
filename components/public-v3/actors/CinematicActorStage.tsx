@@ -20,6 +20,15 @@ export const CINEMATIC_LAYER_Z = {
   navigation: 50,
 } as const;
 
+const HOME_OCCLUDERS = [
+  "parcel-mask",
+  "custody-seam-mask",
+  "route-overpass-a",
+  "route-overpass-b",
+  "route-terminal-mask",
+  "freight-gate-mask",
+] as const;
+
 function StateBank({
   actor,
   states,
@@ -90,7 +99,7 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
           }}
           preloadStates={["motion-transition", "side-left"]}
         />
-        <div data-van-door-aperture aria-hidden="true">
+        <div data-van-door-aperture data-home-occluder="van-door-mask" aria-hidden="true">
           <Image
             src={VAN_STATES["sliding-door-open"].webpSrc}
             alt=""
@@ -128,7 +137,14 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
           preloadStates={["motion-entry", "side-right"]}
         />
       </div>
-      <div data-kt-home-occluder className="kt-home-actor-occluder" aria-hidden="true" />
+      {HOME_OCCLUDERS.map((id) => (
+        <div
+          key={id}
+          data-home-occluder={id}
+          className={`kt-home-actor-occluder kt-home-occluder-${id}`}
+          aria-hidden="true"
+        />
+      ))}
     </div>
   );
 });

@@ -67,6 +67,13 @@ export function CommerceSearchCommand({
   const listId = `${id}-suggestions`;
 
   useEffect(() => {
+    setVal(query);
+    setActiveIndex(-1);
+    setPayload(null);
+    setFailed(false);
+  }, [query]);
+
+  useEffect(() => {
     if (!focused || trimmed.length < 2) return;
 
     const controller = new AbortController();

@@ -5,13 +5,16 @@ import { createPrismaMarketplaceCartRepository } from "@/lib/marketplace-checkou
 import { createMarketplaceGuestSecret, hashMarketplaceGuestSecret, marketplaceGuestCookieOptions, MARKETPLACE_CART_COOKIE } from "@/lib/marketplace-checkout/tokens";
 import { marketplaceError, marketplaceJson, marketplaceOwner } from "@/lib/marketplace-checkout/api-policy";
 import { projectHydratedCart } from "@/lib/marketplace-checkout/cart-projection";
+import { withSerializableRetry } from "@/lib/db/serializable-retry";
 
 export async function GET(request: NextRequest) {
   try {
     let owner = await marketplaceOwner(request); let guestSecret: string | undefined;
     if (!owner) { guestSecret = createMarketplaceGuestSecret(); owner = { type: "GUEST", guestTokenHash: hashMarketplaceGuestSecret(guestSecret) }; }
     const repository = createPrismaMarketplaceCartRepository();
-    const cart = await createOrResolveCart(repository, owner as CartOwner, () => repository.create(owner as CartOwner));
+    const cart = await withSerializableRetry(() =>
+      createOrResolveCart(repository, owner as CartOwner, () => repository.create(owner as CartOwner)),
+    );
     const response = marketplaceJson({ cart: await projectHydratedCart(cart) });
     if (guestSecret) response.cookies.set(MARKETPLACE_CART_COOKIE, guestSecret, marketplaceGuestCookieOptions);
     return response;

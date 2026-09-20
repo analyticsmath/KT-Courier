@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 import { CurvedMenuSheet } from "./CurvedMenuSheet";
 import { useMotionContext } from "../motion/PublicMotionProvider";
+import { useMarketplaceCartCount } from "./marketplace-cart-client";
 
 interface PublicHeaderProps {
   className?: string;
@@ -13,37 +14,7 @@ interface PublicHeaderProps {
 export function PublicHeader({ className = "" }: PublicHeaderProps) {
   const { headerTone } = useMotionContext();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [cartCount, setCartCount] = useState<number>(0);
-
-  // Sync real live cart count
-  useEffect(() => {
-    let active = true;
-    const fetchCartCount = async () => {
-      try {
-        const res = await fetch("/api/cart");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (active && data.cart) {
-          const count = (data.cart.lines || []).reduce(
-            (acc: number, line: { quantity: number }) => acc + line.quantity,
-            0
-          );
-          setCartCount(count);
-        }
-      } catch {
-        // Fallback silently if offline or initial load
-      }
-    };
-
-    fetchCartCount();
-
-    const onCartUpdated = () => fetchCartCount();
-    window.addEventListener("kt-cart-updated", onCartUpdated);
-    return () => {
-      active = false;
-      window.removeEventListener("kt-cart-updated", onCartUpdated);
-    };
-  }, []);
+  const cartCount = useMarketplaceCartCount();
 
   const isDark = headerTone === "dark";
 
@@ -56,6 +27,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
             : "bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] border-b border-[var(--kt-concrete)]/40"
         } ${className}`}
         role="banner"
+        data-tone={headerTone}
       >
         {/* Left: Canonical Brand Logo */}
         <div className="flex items-center">

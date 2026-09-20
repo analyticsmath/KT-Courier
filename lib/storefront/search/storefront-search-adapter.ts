@@ -170,7 +170,7 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
       clauses.push(Prisma.sql`"fulfilmentMode" IN (${Prisma.join(input.fulfilment.map((v) => Prisma.sql`${v}`))})`);
     }
     if (normalized) {
-      clauses.push(Prisma.sql`("normalizedTitle" LIKE ${`${normalized}%`} OR "searchText" ILIKE ${`%${normalized}%`} OR similarity("searchText", ${normalized}) >= 0.28)`);
+      clauses.push(Prisma.sql`("normalizedTitle" LIKE ${`${normalized}%`} OR "searchText" ILIKE ${`%${normalized}%`})`);
     }
     const orderBy = normalized
       ? Prisma.sql`ORDER BY CASE WHEN "normalizedTitle" = ${normalized} THEN 0 WHEN "normalizedTitle" LIKE ${`${normalized}%`} THEN 1 ELSE 2 END, "publicReference" ASC`
