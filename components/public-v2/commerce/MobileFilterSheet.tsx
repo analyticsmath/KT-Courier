@@ -99,6 +99,7 @@ const PRICE_PRESETS: Array<{ label: string; min?: string; max?: string }> = [
 export function MobileFilterSheet({ facets, filters, route, resultCount }: MobileFilterSheetProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [compactViewport, setCompactViewport] = useState(false);
   const [draft, setDraft] = useState(() => copyFilters(filters));
   const [expandedFacets, setExpandedFacets] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -111,32 +112,30 @@ export function MobileFilterSheet({ facets, filters, route, resultCount }: Mobil
   const [showAllFacets, setShowAllFacets] = useState<Record<string, boolean>>({});
 
   const openSheet = useCallback(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
-      return;
-    }
+    if (!compactViewport) return;
     setDraft(copyFilters(filters));
     setOpen(true);
-  }, [filters]);
+  }, [compactViewport, filters]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mql = window.matchMedia("(min-width: 1024px)");
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (e.matches) {
-        setOpen(false);
-      }
+    const mql = window.matchMedia("(max-width: 1023px)");
+    const syncViewport = () => {
+      const compact = mql.matches;
+      setCompactViewport(compact);
+      if (!compact) setOpen(false);
     };
-    if (mql.matches) {
-      setOpen(false);
-    }
-    mql.addEventListener?.("change", handler);
-    return () => mql.removeEventListener?.("change", handler);
+
+    syncViewport();
+    mql.addEventListener?.("change", syncViewport);
+    return () => mql.removeEventListener?.("change", syncViewport);
   }, []);
 
   useEffect(() => {
+    if (!compactViewport) return;
     window.addEventListener("kt:open-filter-sheet", openSheet);
     return () => window.removeEventListener("kt:open-filter-sheet", openSheet);
-  }, [openSheet]);
+  }, [compactViewport, openSheet]);
 
   const clearAll = () => {
     setDraft({
@@ -182,6 +181,7 @@ export function MobileFilterSheet({ facets, filters, route, resultCount }: Mobil
         <button
           aria-expanded={open}
           className={styles.mobileFilterOpenButton}
+          disabled={!compactViewport}
           onClick={openSheet}
           type="button"
         >
@@ -205,8 +205,9 @@ export function MobileFilterSheet({ facets, filters, route, resultCount }: Mobil
         </button>
       </div>
 
-      <MobileSheet
-        ariaLabel="Filter and sort products"
+      {compactViewport && (
+        <MobileSheet
+          ariaLabel="Filter and sort products"
         className={styles.filterMobileSheetDialog}
         closeOnBackdropClick
         onOpenChange={setOpen}
@@ -434,7 +435,8 @@ export function MobileFilterSheet({ facets, filters, route, resultCount }: Mobil
             Show products
           </button>
         </footer>
-      </MobileSheet>
+        </MobileSheet>
+      )}
     </>
   );
 }

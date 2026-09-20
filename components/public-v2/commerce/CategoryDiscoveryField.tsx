@@ -73,17 +73,17 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                 key={cat.reference}
                 href={href}
                 onClick={(e) => handleCategoryClick(e, cat)}
-                className="snap-start flex-none w-[152px] h-[126px] sm:w-[168px] sm:h-[136px] relative rounded-xl overflow-hidden border border-[var(--commerce-line)] no-underline group"
+                className="snap-start flex-none w-[136px] h-[112px] sm:w-[152px] sm:h-[124px] relative rounded-xl overflow-hidden border border-[var(--commerce-line)] no-underline group"
               >
                 <Image
                   alt={cat.name}
                   src={getCategoryMedia(cat)}
                   fill
-                  sizes="(max-width: 639px) 152px, 168px"
+                  sizes="(max-width: 639px) 136px, 152px"
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3 flex flex-col justify-end">
-                  <strong className="text-white text-[0.95rem] font-semibold leading-snug">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2.5 flex flex-col justify-end">
+                  <strong className="text-white text-[0.9rem] font-semibold leading-snug">
                     {cat.name}
                   </strong>
                   <span className="text-[11px] text-white/80 mt-0.5">

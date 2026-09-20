@@ -3052,3 +3052,95 @@
   .pdpExperience { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)); }
   .pdpRelatedSection:last-of-type { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)); }
 }
+
+
+/* Commerce viewport hardening — keep mobile-only controls out of desktop and
+   tighten the app-like shop composition on narrow phones. */
+@media (min-width: 1024px) {
+  .searchFilterButton {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .commerceInner,
+  .commerceInnerWide {
+    padding-inline: 16px;
+  }
+
+  .marketEntryField {
+    padding-block: 1.5rem 2.25rem;
+  }
+
+  .marketEntryLayout {
+    gap: 22px;
+  }
+
+  .entryCopyPlane {
+    gap: 14px;
+  }
+
+  .entryTitle {
+    font-size: clamp(2.05rem, 10.5vw, 2.7rem);
+    line-height: 0.98;
+  }
+
+  .entryLead {
+    max-width: 32rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  .entrySearchWrap {
+    margin-top: 2px;
+  }
+
+  .entryCategoryShortcuts {
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 2px 2px 6px;
+    scrollbar-width: none;
+  }
+
+  .entryCategoryShortcuts::-webkit-scrollbar {
+    display: none;
+  }
+
+  .entryCategoryShortcuts a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 0.78rem;
+  }
+
+  .entryMediaComposition {
+    height: 250px;
+  }
+
+  .entryMediaOverlay {
+    padding: 14px 16px;
+  }
+
+  .mediaCategoryName {
+    font-size: 0.95rem;
+  }
+
+  .categoryDiscoverySection {
+    padding-block: 2.25rem 3rem;
+  }
+
+  .sectionHeaderRow {
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .sectionTitleMain {
+    font-size: 1.7rem;
+  }
+
+  .mobileFilterOpenButton:disabled {
+    pointer-events: none;
+    opacity: 0;
+  }
+}

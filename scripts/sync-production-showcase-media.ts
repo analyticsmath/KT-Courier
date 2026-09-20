@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { createProductionCatalogMediaStorageAdapter } from "../lib/catalog/media/catalog-media-storage-adapter";
@@ -38,10 +38,47 @@ async function readAsset(storageKey: string, checksum: string): Promise<Uint8Arr
   throw new Error(`Bundled catalogue media bytes are missing for ${storageKey}.`);
 }
 
+async function seededDuringThisPredeploy(): Promise<boolean> {
+  try {
+    await access("/tmp/kt-showcase-catalog-seeded-now");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main(): Promise<void> {
   assertAuthorized();
   const storage = createProductionCatalogMediaStorageAdapter();
   if (!storage.productionReady) throw new Error("Production catalog S3 adapter is not configured.");
+
+  const manifestReferences = DEMO_MEDIA_MANIFEST.map((entry) => entry.publicReference);
+  const readyExistingAssets = await prisma.catalogMediaAsset.count({
+    where: {
+      publicReference: { in: manifestReferences },
+      status: "READY",
+      privacyInspectionPassed: true,
+      storageProvider: "S3_COMPATIBLE",
+    },
+  });
+  const seededNow = await seededDuringThisPredeploy();
+
+  // Normal application deploys must never rewrite already-trusted immutable media.
+  // Uploading is reserved for the same pre-deploy container that just bootstrapped
+  // an empty catalogue. Existing production data is therefore deployment-stable.
+  if (!seededNow && readyExistingAssets >= DEMO_MEDIA_MANIFEST.length) {
+    console.log(JSON.stringify({
+      event: "production_catalog_media_existing",
+      ready: readyExistingAssets,
+      skippedUpload: true,
+    }));
+    return;
+  }
+  if (!seededNow && readyExistingAssets > 0) {
+    throw new Error(
+      `Production catalogue media is partially initialized (ready=${readyExistingAssets}); refusing to rewrite immutable media during an application deploy.`,
+    );
+  }
 
   let cursor = 0;
   const concurrency = 12;
