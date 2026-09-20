@@ -1473,12 +1473,15 @@
 
 /* Mobile Sheet Elevated Dialog */
 .filterMobileSheetDialog {
-  display: flex !important;
   flex-direction: column !important;
   padding: 0 !important;
   overflow: hidden !important;
-  background: var(--kt-white, #ffffff) !important;
+  background: var(--kt-white, #fff) !important;
   border: 1px solid var(--commerce-line, #dde1e0) !important;
+}
+
+.filterMobileSheetDialog[open] {
+  display: flex !important;
 }
 
 .filterMobileSheetDialog::backdrop {
@@ -1489,6 +1492,10 @@
 /* Desktop: hide mobile sheet completely */
 @media (min-width: 1024px) {
   .filterMobileSheetDialog {
+    display: none !important;
+  }
+
+  .filterMobileSheetDialog[open] {
     display: none !important;
   }
 }
