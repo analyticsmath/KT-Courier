@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { ktMediaV3 } from "../../media/kt-media-v3";
+import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
+import styles from "../post-hero-scenes.module.css";
 
 interface CollectionSceneProps {
   className?: string;
@@ -18,16 +20,16 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
 
   return (
     <section
-      className={`relative min-h-[92vh] flex flex-col justify-between bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] py-16 px-6 md:px-12 overflow-hidden ${className}`}
+      className={`${styles.collectionSection} ${className}`}
       data-kt-contrast="light"
       data-kt-scene="collection"
       data-motion="collection-world"
       aria-labelledby="collection-heading"
-      style={{ "--kt-home-budget": 220 } as React.CSSProperties}
+      style={{ "--kt-home-budget": chapterBudgetVh("collection"), "--kt-home-mobile-budget": mobileChapterBudgetVh("collection") } as React.CSSProperties}
     >
       <div className="kt-home-sticky-stage kt-home-collection-sticky">
       {/* Street environment backdrop (Johannesburg dispatch context) */}
-      <div className="kt-collection-street-env absolute inset-0 z-0 opacity-20 pointer-events-none overflow-hidden">
+      <div className={`${styles.collectionStreet} kt-collection-street-env`}>
         <Image
           src={streetEnv.src}
           alt={streetEnv.alt}
@@ -35,30 +37,27 @@ export function CollectionScene({ className = "" }: CollectionSceneProps) {
           sizes="100vw"
           className="object-cover object-top"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--kt-freight-paper)] via-transparent to-[var(--kt-freight-paper)]" />
+        <div className={styles.collectionStreetShade} />
       </div>
       <div className="kt-collection-ground-plane absolute inset-x-0 bottom-0 z-[1] h-[15vh] pointer-events-none" aria-hidden="true" />
       <div data-home-occluder="collection-viewport-edge" className="kt-collection-ground-line absolute inset-x-0 top-[85%] z-[2] pointer-events-none" aria-hidden="true" />
 
-      <div className="relative z-10 max-w-6xl mx-auto w-full pt-4">
-        <div className="max-w-xl">
+      <div className={styles.collectionHeading}>
+        <div>
           <h2
             id="collection-heading"
             className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--kt-asphalt)] mb-4"
           >
             Collected by KT.
           </h2>
-          <p className="text-base sm:text-lg text-[var(--kt-graphite)] leading-relaxed">
-            A courier arrives for collection and the parcel moves into the van.
+          <p>
+            The van arrives, holds its place, and only then opens for the parcel.
           </p>
         </div>
       </div>
 
       {/* Actor Anchors: Measured layout slots for persistent Van and Courier on shared ground baseline */}
-      <div
-        data-motion="collection-ground"
-        className="relative z-10 max-w-6xl mx-auto w-full flex flex-row items-end justify-start gap-4 my-auto pt-8"
-      >
+      <div data-motion="collection-ground" className={styles.collectionActorPlane}>
         <div
           data-actor-anchor="collection-van"
           className="w-[54vw] max-w-2xl min-h-[240px] sm:min-h-[320px] pointer-events-none"

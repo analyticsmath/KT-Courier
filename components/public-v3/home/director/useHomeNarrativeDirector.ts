@@ -14,7 +14,7 @@ import {
   type ActorStateDefinition,
 } from "../../actors/actor-state-machine";
 import type { HomeChapter } from "./home-chapters";
-import { HOME_CHAPTERS } from "./home-chapters";
+import { HOME_CHAPTERS, HOME_MOBILE_POLICY } from "./home-chapters";
 import { clamp01, HOME_BEATS, range } from "./home-beats";
 import { formatHomeDebugFrame } from "./home-debug";
 import { alignGroundContact } from "./home-grounding";
@@ -189,10 +189,12 @@ export function useHomeNarrativeDirector({
   rootRef,
   categories,
   enabled,
+  onMarketplaceSelectionChange,
 }: {
   rootRef: React.RefObject<HTMLDivElement | null>;
   categories: HomepageCategoryVisual[];
   enabled: boolean;
+  onMarketplaceSelectionChange?: (id: string) => void;
 }): void {
   const { prefersReducedMotion, setHeaderTone } = useMotionContext();
 
@@ -303,6 +305,7 @@ export function useHomeNarrativeDirector({
     const marketRail = root.querySelector<HTMLElement>("[data-motion='market-rail']");
     const marketRailWrapper = root.querySelector<HTMLElement>("[data-marketplace-rail-wrapper]");
     const marketWord = root.querySelector<HTMLElement>("[data-motion='market-word']");
+    const marketSlices = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-slice]"));
     const doorAperture = root.querySelector<HTMLElement>("[data-van-door-aperture]");
     const routePath = root.querySelector<SVGPathElement>("[data-route-path]");
     const custodyLeft = root.querySelector<HTMLElement>(".kt-custody-left");
@@ -354,12 +357,16 @@ export function useHomeNarrativeDirector({
     };
 
     const setMarketplaceSelection = (id: string | null) => {
+      if (activeSelectionId === id) return;
+      activeSelectionId = id;
       const selectedCategory = categories.find((category) => category.id === id);
       fanMediaLayers.forEach((layer, layerId) => {
         gsap.set(layer, { autoAlpha: layerId === id ? 1 : 0 });
         layer.dataset.fanActive = String(layerId === id);
       });
       root.dataset.selectedMarketplaceId = id ?? "";
+      root.dataset.homeMarketSelectedId = id ?? "";
+      if (id) onMarketplaceSelectionChange?.(id);
       if (fanSelectedLabel) fanSelectedLabel.textContent = selectedCategory?.title ?? "";
       const fanImage = id ? fanMediaImages.get(id) : null;
       if (fanImage) {
@@ -519,6 +526,29 @@ export function useHomeNarrativeDirector({
       return heroPresentation;
     };
 
+    const applyMarketplaceSlice = (frame: HomeFrame) => {
+      if (!marketSlices.length) return;
+      const incoming = frame.chapter === "marketplace" && frame.marketplace.incomingId
+        ? categories.find(({ id }) => id === frame.marketplace.incomingId)
+        : null;
+      if (!incoming) {
+        gsap.set(marketSlices, { autoAlpha: 0 });
+        return;
+      }
+      const centerOutOrder = [3, 4, 2, 5, 1, 6, 0, 7];
+      marketSlices.forEach((slice, index) => {
+        const order = centerOutOrder.indexOf(index);
+        const sliceProgress = clamp01((frame.marketplace.moveProgress - order * 0.075) / 0.475);
+        gsap.set(slice, {
+          autoAlpha: sliceProgress,
+          backgroundImage: `url(${incoming.image})`,
+          backgroundSize: "800% 100%",
+          backgroundPosition: `${(index / 7) * 100}% 50%`,
+          clipPath: `inset(${(1 - sliceProgress) * 50}% 0 ${(1 - sliceProgress) * 50}% 0)`,
+        });
+      });
+    };
+
     const applyRouteGeometry = (frame: HomeFrame) => {
       if (frame.chapter !== "route" || !routePath || routePathLength <= 0) return;
       const svg = routePath.ownerSVGElement;
@@ -666,8 +696,7 @@ export function useHomeNarrativeDirector({
       lastFrame = frame;
 
       if (activeSelectionId !== frame.selection.marketplaceId) {
-        activeSelectionId = frame.selection.marketplaceId;
-        setMarketplaceSelection(activeSelectionId);
+        setMarketplaceSelection(frame.selection.marketplaceId);
       }
 
       const heroTruckPresentation = applyActor("whiteTruck", frame.actors.whiteTruck, frame);
@@ -762,6 +791,7 @@ export function useHomeNarrativeDirector({
         if (useNativeMarketRail) syncNativeMarketplace();
         else setMarketplaceActive(frame.marketplace.activeIndex);
       }
+      applyMarketplaceSlice(frame);
 
       if (chapter === "fan") {
         if (effectiveProgress >= 0.92 && !fanTransferGeometry && fanHeroCard && prepParcelTarget) {
@@ -845,6 +875,18 @@ export function useHomeNarrativeDirector({
       root.dataset.homeFocus = frame.world.focus;
       root.dataset.homeRouteProgress = frame.route.pathProgress.toFixed(3);
       root.dataset.homeRouteTangent = frame.route.tangentAngle.toFixed(1);
+      root.dataset.homeMarketIndex = String(frame.marketplace.activeIndex);
+      root.dataset.homeVanState = frame.actors.van.state;
+      root.dataset.homeCourierState = frame.actors.courier.state;
+      root.dataset.homeRouteState = frame.actors.whiteTruck.state;
+      root.dataset.homeRedTruckState = frame.actors.redTruck.state;
+      root.dataset.homeFinalePhase = chapter === "finale" ? (effectiveProgress < 0.45 ? "brand" : effectiveProgress < 0.75 ? "utility" : "legal") : "";
+      const mobileNav = document.querySelector<HTMLElement>("[data-kt-app-shell='mobile-nav']");
+      if (mobileNav && window.innerWidth <= 767) {
+        const hideNav = chapter === "finale" && effectiveProgress >= 0.46;
+        mobileNav.dataset.homeFinaleHidden = String(hideNav);
+        mobileNav.inert = hideNav;
+      }
       if (debugPanel && debugEnabled) {
         debugPanel.textContent = `${formatHomeDebugFrame(frame)}\nmeasured coverage: ${root.dataset.homeOcclusionCoverage ?? "—"}`;
       }
@@ -854,6 +896,7 @@ export function useHomeNarrativeDirector({
     const measureRanges = () => {
       ranges.length = 0;
       sections.forEach(({ chapter, section }) => {
+        section.dataset.homeMobilePolicy = HOME_MOBILE_POLICY[chapter];
         const rect = section.getBoundingClientRect();
         const start = rect.top + window.scrollY;
         const end = start + Math.max(1, rect.height);
@@ -1032,9 +1075,14 @@ export function useHomeNarrativeDirector({
       window.removeEventListener("scroll", syncFrameFromWindowScroll);
       window.removeEventListener("resize", resizeDirector);
       marketRailWrapper?.removeEventListener("scroll", syncNativeMarketplace);
+      const mobileNav = document.querySelector<HTMLElement>("[data-kt-app-shell='mobile-nav']");
+      if (mobileNav) {
+        mobileNav.dataset.homeFinaleHidden = "false";
+        mobileNav.inert = false;
+      }
       trigger.kill();
       context.revert();
       timelines.forEach(({ timeline }) => timeline.kill());
     };
-  }, [rootRef, categories, enabled, prefersReducedMotion, setHeaderTone]);
+  }, [rootRef, categories, enabled, onMarketplaceSelectionChange, prefersReducedMotion, setHeaderTone]);
 }

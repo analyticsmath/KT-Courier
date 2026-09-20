@@ -37,9 +37,15 @@ export function PublicHomeExperience({
   const [introResolved, setIntroResolved] = useState(false);
   const resolveIntro = useCallback(() => setIntroResolved(true), []);
   const categoriesList = storefrontCategories.length > 0 ? storefrontCategories : FIVE_PANEL_MEDIA;
-  const selectedMarketplaceMedia = categoriesList.at(-1) ?? FIVE_PANEL_MEDIA[0];
+  const [selectedMarketplaceId, setSelectedMarketplaceId] = useState(() => categoriesList[0]?.id ?? FIVE_PANEL_MEDIA[0].id);
+  const selectedMarketplaceMedia = categoriesList.find(({ id }) => id === selectedMarketplaceId) ?? categoriesList[0] ?? FIVE_PANEL_MEDIA[0];
 
-  useHomeNarrativeDirector({ rootRef: containerRef, categories: categoriesList, enabled: introResolved });
+  useHomeNarrativeDirector({
+    rootRef: containerRef,
+    categories: categoriesList,
+    enabled: introResolved,
+    onMarketplaceSelectionChange: setSelectedMarketplaceId,
+  });
 
   return (
     <div
@@ -52,13 +58,14 @@ export function PublicHomeExperience({
 
       <PersistentActorLayer />
       <div data-home-occluder="arrival-architecture-mask" className="kt-home-final-release-curtain" aria-hidden="true" />
-      <div data-motion="arrival-footer-title" className="kt-home-final-release-title" aria-hidden="true"><span>KT</span><span>COURIER</span></div>
 
       <ChapterContentLayer>
         <HeroScene />
         <MarketplaceFivePanelScene
           isStorefrontExposed={isStorefrontExposed}
           categories={categoriesList}
+          selectedMarketplaceId={selectedMarketplaceId}
+          onMarketplaceSelectionChange={setSelectedMarketplaceId}
         />
         <ImageFanScene
           selectedMedia={selectedMarketplaceMedia}

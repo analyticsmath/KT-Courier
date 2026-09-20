@@ -12,7 +12,7 @@ import {
   HOME_ACTOR_TRANSITIONS,
   validateHomeActorTransitions,
 } from "@/components/public-v3/home/director/home-actor-transitions";
-import { HOME_CHAPTERS } from "@/components/public-v3/home/director/home-chapters";
+import { HOME_CHAPTERS, HOME_CHAPTER_BUDGETS_VH, HOME_MOBILE_CHAPTER_BUDGETS_VH, HOME_MOBILE_POLICY } from "@/components/public-v3/home/director/home-chapters";
 import { assertPhysicalCoverage, physicalCoverage } from "@/components/public-v3/home/director/home-occlusion";
 import { resolveHomeFrame } from "@/components/public-v3/home/director/home-frame-resolver";
 
@@ -56,6 +56,7 @@ describe("homepage narrative frame resolver", () => {
     expect(HOME_ACTOR_TRANSITIONS.map(({ occlusion }) => occlusion)).toEqual([
       "parcel-mask",
       "parcel-mask",
+      "custody-seam-mask",
       "route-overpass-a",
       "route-overpass-b",
       "arrival-architecture-mask",
@@ -78,6 +79,14 @@ describe("homepage narrative frame resolver", () => {
     expect(load.actors.courier.state).toBe("loading-unloading");
     expect(load.actors.courier.visible).toBe(true);
     expect(load.occlusion).toMatchObject({ id: "parcel-mask", requiredCoverage: 0.9 });
+  });
+
+  it("keeps the courier visibly accountable through the custody seam", () => {
+    const beforeSeam = resolveHomeFrame({ chapter: "custody", progress: 0.4, viewportMode, marketplaceCategories: categories });
+    const throughSeam = resolveHomeFrame({ chapter: "custody", progress: 0.58, viewportMode, marketplaceCategories: categories });
+    expect(beforeSeam.actors.courier).toMatchObject({ state: "loading-unloading", visible: true });
+    expect(throughSeam.actors.courier).toMatchObject({ state: "ready-handover", visible: true });
+    expect(throughSeam.occlusion).toMatchObject({ id: "custody-seam-mask", requiredCoverage: 0.9 });
   });
 
   it("keeps route truck orientation changes under named overhead structures", () => {
@@ -177,6 +186,37 @@ describe("homepage narrative frame resolver", () => {
       .toMatchObject({ mode: "visible-height", visibleHeightVh: 36 });
     expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "mobile" }).actors.whiteTruck.groundY).toBe(0.85);
     expect(resolveHomeFrame({ chapter: "hero", progress: 0.4, viewportMode: "desktop" }).actors.whiteTruck.groundY).toBe(0.88);
+  });
+
+  it("locks the frozen V5 Hero states, geometry, and budget at every acceptance point", () => {
+    const points = [0, 0.13, 0.22, 0.4, 0.5, 0.58, 0.62, 0.66, 0.78, 0.9, 0.975, 1] as const;
+    const expected = {
+      desktop: [
+        ["front-3q-entry-phase-01", false, -0.26, 22], ["front-3q-entry-phase-01", true, -0.26, 22], ["front-3q-entry-phase-01", true, 0.25, 29], ["front-3q-entry-phase-06", true, 0.5, 34], ["front-3q-entry-phase-06", true, 0.49, 34], ["front-center-transition-phase-02", true, 0.49, 40], ["true-front-center-full", true, 0.4903, 40], ["true-front-center-full", true, 0.491, 40], ["true-front-center-medium", true, 0.4946, 58], ["true-front-center-close", true, 0.4986, 78], ["true-front-center-extreme-close", true, 0.4999, 112], ["true-front-center-extreme-close", false, 0.5, 138],
+      ],
+      mobile: [
+        ["front-3q-entry-phase-01", false, -0.26, 20], ["front-3q-entry-phase-01", true, -0.26, 20], ["front-3q-entry-phase-01", true, 0.25, 24], ["front-3q-entry-phase-06", true, 0.5, 36], ["front-3q-entry-phase-06", true, 0.49, 36], ["front-center-transition-phase-02", true, 0.49, 42], ["true-front-center-full", true, 0.4903, 42], ["true-front-center-full", true, 0.491, 42], ["true-front-center-medium", true, 0.4946, 58], ["true-front-center-close", true, 0.4986, 82], ["true-front-center-extreme-close", true, 0.4999, 112], ["true-front-center-extreme-close", false, 0.5, 124],
+      ],
+    } as const;
+
+    for (const mode of ["desktop", "mobile"] as const) {
+      points.forEach((progress, index) => {
+        const [state, visible, targetX, visibleHeightVh] = expected[mode][index]!;
+        const actor = resolveHomeFrame({ chapter: "hero", progress, viewportMode: mode, marketplaceCategories: categories }).actors.whiteTruck;
+        expect(actor.state).toBe(state);
+        expect(actor.visible).toBe(visible);
+        expect(actor.targetX).toBeCloseTo(targetX, 3);
+        expect(actor.sizeMode).toMatchObject({ mode: "visible-height", visibleHeightVh });
+      });
+    }
+    expect(HOME_CHAPTER_BUDGETS_VH.hero).toBe(205);
+    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH.hero).toBe(260);
+  });
+
+  it("uses a single chapter budget and explicit mobile ownership policy", () => {
+    expect(HOME_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 300, fan: 150, preparation: 125, collection: 205, custody: 170, route: 235, freight: 190, arrival: 150, finale: 145 });
+    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 150, fan: 120, preparation: 115, collection: 185, custody: 155, route: 210, freight: 175, arrival: 145, finale: 130 });
+    expect(HOME_MOBILE_POLICY).toMatchObject({ marketplace: "native-snap", fan: "document", preparation: "document", collection: "sticky", custody: "sticky", route: "sticky", freight: "sticky", arrival: "sticky", finale: "document" });
   });
 
   it("resolves the complete mobile V5 hero sequence on the desktop normalized beats", () => {

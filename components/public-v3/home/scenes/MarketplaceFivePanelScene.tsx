@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
-import styles from "../home-scenes.module.css";
-import { marketplaceBudgetVh } from "../director/home-chapters";
+import { marketplaceBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
+import styles from "../post-hero-scenes.module.css";
 
 export interface MarketplaceCategoryItem {
   id: string;
@@ -64,6 +64,8 @@ interface MarketplaceFivePanelSceneProps {
   className?: string;
   isStorefrontExposed?: boolean;
   categories?: MarketplaceCategoryItem[];
+  selectedMarketplaceId?: string;
+  onMarketplaceSelectionChange?: (id: string) => void;
 }
 
 /**
@@ -80,9 +82,13 @@ export function MarketplaceFivePanelScene({
   className = "",
   isStorefrontExposed = false,
   categories = [],
+  selectedMarketplaceId,
+  onMarketplaceSelectionChange,
 }: MarketplaceFivePanelSceneProps) {
   const displayItems = categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
-  const activeId = displayItems[0]?.id;
+  const activeId = displayItems.some(({ id }) => id === selectedMarketplaceId)
+    ? selectedMarketplaceId
+    : displayItems[0]?.id;
   const activeItem =
     displayItems.find((item) => item.id === activeId) || displayItems[0];
   const activeCategoryWord = activeItem?.categoryWord || "FRESH";
@@ -94,10 +100,17 @@ export function MarketplaceFivePanelScene({
       data-kt-scene="marketplace"
       data-motion="market-stage"
       aria-labelledby="marketplace-field-title"
-      style={{ minHeight: `${marketplaceBudgetVh(displayItems.length)}svh` }}
+      style={{ minHeight: `${marketplaceBudgetVh(displayItems.length)}svh`, "--kt-home-mobile-budget": mobileChapterBudgetVh("marketplace", displayItems.length) } as React.CSSProperties}
     >
       <div className={styles.marketplaceStickyStage} data-marketplace-sticky-stage>
-      {/* Header */}
+      <div className={styles.marketplaceAtmosphere} aria-hidden="true">
+        {displayItems.map((item) => (
+          <div key={item.id} data-marketplace-backdrop={item.id} data-marketplace-backdrop-active={item.id === activeId} className={styles.marketplaceBackdrop} style={{ backgroundImage: `url(${item.image})` }} />
+        ))}
+        <div className={styles.marketplaceSlicePlane}>
+          {Array.from({ length: 8 }, (_, index) => <span key={index} data-marketplace-slice style={{ "--slice": index } as React.CSSProperties} />)}
+        </div>
+      </div>
       <div className={styles.marketplaceHeader}>
         <h2
           id="marketplace-field-title"
@@ -114,7 +127,6 @@ export function MarketplaceFivePanelScene({
         </p>
       </div>
 
-      {/* Giant Active Category Word Plane (Moves behind media at slower rate) */}
       <div className={styles.marketplaceWordPlane} aria-hidden="true">
         <span
           data-motion="market-word"
@@ -124,12 +136,11 @@ export function MarketplaceFivePanelScene({
         </span>
       </div>
 
-      {/* Horizontal Rail Container */}
       <div
         className={styles.marketplaceRailWrapper}
         data-marketplace-rail-wrapper
         role="region"
-        aria-label="Marketplace Horizontal Category Rail"
+          aria-label="Marketplace category atlas"
       >
         <div
           data-motion="market-rail"
@@ -137,6 +148,7 @@ export function MarketplaceFivePanelScene({
         >
           {displayItems.map((cat, idx) => {
             const isActive = activeId === cat.id;
+            const distance = Math.abs(idx - Math.max(0, displayItems.findIndex(({ id }) => id === activeId)));
 
             return (
               <article
@@ -145,11 +157,11 @@ export function MarketplaceFivePanelScene({
                 data-marketplace-panel-id={cat.id}
                 data-marketplace-index={idx}
                 data-marketplace-active={isActive ? "true" : "false"}
+                data-marketplace-distance={distance}
                 data-home-occluder={idx === displayItems.length - 1 ? "market-to-fan-card-mask" : undefined}
                 className={styles.marketplaceCard}
                 aria-label={`${cat.title} Category`}
               >
-                {/* Visual Media Frame (active image crop shifts 2-4% via GSAP) */}
                 <div className={styles.marketplaceCardMedia}>
                   <Image
                     src={cat.image}
@@ -162,7 +174,6 @@ export function MarketplaceFivePanelScene({
                   <div className={styles.marketplaceCardOverlay} />
                 </div>
 
-                {/* Narrative Copy */}
                 <div
                   data-motion="market-copy"
                   className={styles.marketplaceCardContent}
@@ -171,15 +182,39 @@ export function MarketplaceFivePanelScene({
                   <p className={styles.marketplaceCardTagline}>
                     {cat.tagline}
                   </p>
+                  {cat.href ? <Link href={cat.href} className={styles.marketplacePanelLink}>Explore category <span aria-hidden="true">↗</span></Link> : null}
                 </div>
+                <button
+                  type="button"
+                  className={styles.marketplaceSelectionButton}
+                  aria-label={`Preview ${cat.title}`}
+                  aria-pressed={isActive}
+                  onFocus={() => onMarketplaceSelectionChange?.(cat.id)}
+                  onClick={() => onMarketplaceSelectionChange?.(cat.id)}
+                />
               </article>
             );
           })}
         </div>
       </div>
 
-      {/* Single Global Marketplace Status Link */}
-      <div className="px-[var(--kt-page-gutter)] flex items-center justify-end z-20">
+      <div className={styles.marketplaceIndex} role="tablist" aria-label="Marketplace categories">
+        {displayItems.map((cat, index) => (
+          <button
+            type="button"
+            key={cat.id}
+            role="tab"
+            aria-selected={cat.id === activeId}
+            className={styles.marketplaceIndexButton}
+            data-marketplace-index-control={cat.id}
+            onFocus={() => onMarketplaceSelectionChange?.(cat.id)}
+            onClick={() => onMarketplaceSelectionChange?.(cat.id)}
+          >
+            <span>{String(index + 1).padStart(2, "0")}</span>{cat.title}
+          </button>
+        ))}
+      </div>
+      <div className={styles.marketplaceShopLink}>
         <Link
           href="/shop"
           className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-[var(--kt-brand-blue)] hover:text-white transition-colors"

@@ -342,6 +342,21 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
     }
   } else if (input.chapter === "custody") {
     const beats = HOME_BEATS.custody;
+    actors.courier = {
+      ...actors.courier,
+      state: progress >= beats.networkOwns[0] ? "ready-handover" : "loading-unloading",
+      visible: progress < 0.94,
+      targetX: progress < beats.networkOwns[0]
+        ? interpolate(0.44, 0.5, smooth(range(progress, beats.approachSeam[0], beats.seamHold[1])))
+        : interpolate(0.5, 0.58, smooth(range(progress, beats.networkOwns[0], beats.routePrepared[1]))),
+      groundY: 0.86,
+      widthVw: 17,
+    };
+    if (within(progress, 0.54, 0.65)) {
+      occlusionId = "custody-seam-mask";
+      occlusionProgress = range(progress, 0.54, 0.65);
+      requiredCoverage = 0.9;
+    }
     if (progress >= beats.roadEnters[0]) {
       occlusionId = "route-overpass-a";
       occlusionProgress = range(progress, beats.roadEnters[0], 1);
