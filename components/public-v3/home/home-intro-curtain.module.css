@@ -3,7 +3,7 @@
   inset: 0;
   z-index: 100;
   overflow: hidden;
-  background: var(--kt-midnight);
+  background: transparent;
   pointer-events: all;
   isolation: isolate;
 }
@@ -11,7 +11,7 @@
 .panel {
   position: absolute;
   inset-block: 0;
-  width: 50.1%;
+  width: 50.2%;
   background: var(--kt-midnight);
   will-change: transform;
 }

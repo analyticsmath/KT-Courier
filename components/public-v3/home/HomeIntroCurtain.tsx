@@ -80,6 +80,8 @@ export function HomeIntroCurtain({ onResolved }: { onResolved: () => void }) {
         return;
       }
 
+      const splitStart = 1.28;
+      const splitDuration = window.matchMedia("(max-width: 767px)").matches ? 0.98 : 1.02;
       const timeline = gsap.timeline({ onComplete: complete });
       timeline.fromTo(content, { autoAlpha: 0, scale: 0.94 }, {
         autoAlpha: 1,
@@ -116,14 +118,26 @@ export function HomeIntroCurtain({ onResolved }: { onResolved: () => void }) {
       }, 0.9);
       if (routeOrbit) timeline.to(routeOrbit, { scale: 0.9, duration: 0.2, ease: "power2.inOut" }, 0.9);
       timeline.fromTo(seam, { autoAlpha: 0, scaleY: 0 }, {
-        autoAlpha: 0.62,
+        autoAlpha: 0.66,
         scaleY: 1,
-        duration: 0.17,
+        duration: 0.2,
         ease: "power2.out",
-      }, 1.05);
-      timeline.to(content, { autoAlpha: 0, scale: 0.97, duration: 0.23, ease: "power2.in" }, 1.38);
-      timeline.to(leftPanel, { xPercent: -104, duration: 0.62, ease: "power3.inOut" }, 1.2);
-      timeline.to(rightPanel, { xPercent: 104, duration: 0.62, ease: "power3.inOut" }, 1.2);
+      }, 1.04);
+
+      // A short, restrained pull at the seam creates tension before the main release.
+      timeline.to(leftPanel, { x: -6, duration: 0.1, ease: "power1.out" }, 1.18);
+      timeline.to(rightPanel, { x: 6, duration: 0.1, ease: "power1.out" }, 1.18);
+      timeline.to(leftPanel, { xPercent: -105, duration: splitDuration, ease: "power3.inOut" }, splitStart);
+      timeline.to(rightPanel, { xPercent: 105, duration: splitDuration, ease: "power3.inOut" }, splitStart);
+
+      // Keep the title card present until the panels have started to uncover the hero.
+      timeline.to(content, { autoAlpha: 0, scale: 0.97, duration: 0.32, ease: "power2.in" }, 1.4);
+      timeline.to(seam, { autoAlpha: 0.76, duration: 0.08, ease: "power2.out" }, splitStart);
+      timeline.to(seam, {
+        autoAlpha: 0,
+        duration: splitDuration * 0.3,
+        ease: "power2.in",
+      }, splitStart + 0.08);
     }, curtain);
 
     return () => {
