@@ -57,7 +57,7 @@ const ACTOR_STATES: Record<ActorType, Record<string, ActorStateDefinition>> = {
 };
 
 const PRELOAD_STATES: Record<HomeChapter, Partial<Record<ActorName, string[]>>> = {
-  hero: { whiteTruck: ["front-3q-right", "side-right", "wide-hero", "cargo-box-close"] },
+  hero: { whiteTruck: ["front-3q-right"] },
   marketplace: {},
   fan: {},
   preparation: {},
@@ -174,13 +174,16 @@ function applyFanMotion(cards: HTMLElement[], progress: number, transfer?: FanTr
 export function useHomeNarrativeDirector({
   rootRef,
   categories,
+  enabled,
 }: {
   rootRef: React.RefObject<HTMLDivElement | null>;
   categories: HomepageCategoryVisual[];
+  enabled: boolean;
 }): void {
   const { prefersReducedMotion, setHeaderTone } = useMotionContext();
 
   useEffect(() => {
+    if (!enabled) return;
     const root = rootRef.current;
     if (!root) return;
 
@@ -190,7 +193,6 @@ export function useHomeNarrativeDirector({
       const id = element.dataset.homeOccluder;
       if (id) physicalOccluders.set(id, element);
     });
-    const takeover = root.querySelector<HTMLElement>("[data-motion='trailer-takeover']");
     const debugPanel = root.querySelector<HTMLElement>("[data-kt-motion-debug]");
     const debugGeometry = root.querySelector<HTMLElement>("[data-kt-motion-debug-geometry]");
     const debugEnabled = process.env.NODE_ENV !== "production"
@@ -250,12 +252,6 @@ export function useHomeNarrativeDirector({
     const finaleTitle = root.querySelector<HTMLElement>("[data-motion='finale-title']");
     const finaleUtility = root.querySelector<HTMLElement>("[data-motion='finale-utility']");
     const finaleLegal = root.querySelector<HTMLElement>("[data-motion='finale-legal']");
-    const cargoAnchor = root.querySelector<HTMLElement>("[data-actor-material-anchor='white-truck-cargo-box']");
-    const transitionOne = takeover?.querySelector<HTMLElement>(".takeover-progression-1");
-    const transitionThree = takeover?.querySelector<HTMLElement>(".takeover-progression-3");
-    const transitionFive = takeover?.querySelector<HTMLElement>(".takeover-progression-5");
-    const panelsThree = Array.from(takeover?.querySelectorAll<HTMLElement>("[data-takeover-p3-panel]") ?? []);
-    const panelsFive = Array.from(takeover?.querySelectorAll<HTMLElement>("[data-takeover-p5-panel]") ?? []);
 
     const categoryIds = categories.map(({ id }) => ({ id }));
     const ranges: SceneRange[] = [];
@@ -268,60 +264,11 @@ export function useHomeNarrativeDirector({
     let lastFrame: HomeFrame | null = null;
     let measuredCardStep = 0;
     let stageTopPx = actorStage?.getBoundingClientRect().top ?? 0;
-    let measuredCargoRect: DOMRect | null = null;
     let fanTransferGeometry: FanTransferGeometry | null = null;
     let resizeTimer = 0;
     let isInitialized = false;
     let routePathLength = 0;
     let routePathViewBox = { width: 1000, height: 800 };
-
-    const setTransitionLayer = (frame: HomeFrame) => {
-      if (!takeover) return;
-      const active = frame.chapter === "hero" && frame.occlusion.id === "hero-cargo-mask"
-        && frame.chapterProgress >= HOME_BEATS.hero.cargoLock[0];
-      if (!active) {
-        gsap.set(takeover, { autoAlpha: 0, clipPath: "inset(0 0 0 0)" });
-        return;
-      }
-
-      if (frame.occlusion.id === "hero-cargo-mask" && cargoAnchor) {
-        const rect = measuredCargoRect ?? cargoAnchor.getBoundingClientRect();
-        measuredCargoRect = rect;
-        const p = frame.occlusion.progress;
-        const lerpInset = (edge: number) => edge * (1 - p);
-        const top = Math.max(0, rect.top);
-        const right = Math.max(0, window.innerWidth - rect.right);
-        const bottom = Math.max(0, window.innerHeight - rect.bottom);
-        const left = Math.max(0, rect.left);
-        gsap.set(takeover, {
-          autoAlpha: 1,
-          clipPath: `inset(${lerpInset(top)}px ${lerpInset(right)}px ${lerpInset(bottom)}px ${lerpInset(left)}px)`,
-        });
-      } else {
-        gsap.set(takeover, { autoAlpha: 1, clipPath: "inset(0 0 0 0)" });
-      }
-
-      const hero = frame.chapterProgress;
-      if (transitionOne) gsap.set(transitionOne, { autoAlpha: hero < 0.94 ? 1 : 0 });
-      if (transitionThree) gsap.set(transitionThree, { autoAlpha: hero >= 0.88 && hero < 0.98 ? 1 : 0 });
-      if (transitionFive) gsap.set(transitionFive, { autoAlpha: hero >= 0.94 ? 1 : 0 });
-
-      const threeProgress = range(hero, 0.88, 0.94);
-      panelsThree.forEach((panel, index) => {
-        const count = Math.max(1, panelsThree.length);
-        const target = 100 / count;
-        const start = index === Math.floor(count / 2) ? 100 : 0;
-        gsap.set(panel, { width: `${interpolate(start, target, threeProgress)}%` });
-      });
-
-      const fiveProgress = range(hero, 0.94, 0.98);
-      panelsFive.forEach((panel, index) => {
-        const count = Math.max(1, panelsFive.length);
-        const target = 100 / count;
-        const start = index === 1 || index === 3 ? 50 : 0;
-        gsap.set(panel, { width: `${interpolate(start, target, fiveProgress)}%` });
-      });
-    };
 
     const setMarketplaceActive = (index: number) => {
       const safeIndex = Math.max(0, Math.min(marketCards.length - 1, index));
@@ -457,10 +404,6 @@ export function useHomeNarrativeDirector({
         const actorRect = slotNodes.get(actorName)?.getBoundingClientRect();
         if (actorRect) root.dataset.homeOcclusionCoverage = `${(physicalCoverage(actorRect, element.getBoundingClientRect()) * 100).toFixed(1)}%`;
       };
-      if (id === "hero-cargo-mask") {
-        reportCoverage("whiteTruck");
-        return;
-      }
       if (id === "market-to-fan-card-mask" || id === "fan-parcel-mask") {
         root.dataset.homeOcclusionCoverage = "transfer plane";
         return;
@@ -563,10 +506,6 @@ export function useHomeNarrativeDirector({
           }
         });
       }
-      if (previousFrame?.occlusion.id !== "hero-cargo-mask" && frame.occlusion.id === "hero-cargo-mask") {
-        measuredCargoRect = null;
-      }
-      if (frame.occlusion.id !== "hero-cargo-mask") measuredCargoRect = null;
       lastFrame = frame;
 
       if (activeSelectionId !== frame.selection.marketplaceId) {
@@ -680,20 +619,16 @@ export function useHomeNarrativeDirector({
         x: chapter === "finale" ? interpolate(-80, 0, effectiveProgress) : 0,
         autoAlpha: chapter === "finale" ? range(effectiveProgress, 0.58, 0.75) : 0,
       });
-      if (heroKt && chapter === "hero") gsap.set(heroKt, { y: interpolate(0, -12, range(effectiveProgress, HOME_BEATS.hero.accelerate[0], HOME_BEATS.hero.trailerDominance[1])) });
-      if (heroCourier && chapter === "hero") gsap.set(heroCourier, { y: interpolate(0, -8, range(effectiveProgress, HOME_BEATS.hero.accelerate[0], HOME_BEATS.hero.trailerDominance[1])) });
+      if (heroKt && chapter === "hero") gsap.set(heroKt, { y: interpolate(0, -14, range(effectiveProgress, HOME_BEATS.hero.anticipation[0], HOME_BEATS.hero.passCamera[1])) });
+      if (heroCourier && chapter === "hero") gsap.set(heroCourier, { y: interpolate(0, 10, range(effectiveProgress, HOME_BEATS.hero.anticipation[0], HOME_BEATS.hero.passCamera[1])) });
       if (heroActions && chapter === "hero") {
         const hero = HOME_BEATS.hero;
-        const alpha = effectiveProgress < hero.decelerate[0]
-          ? 0
-          : effectiveProgress < hero.suspensionSettle[1]
-            ? range(effectiveProgress, hero.decelerate[0], hero.suspensionSettle[1])
-            : effectiveProgress < hero.readingHold[1]
-              ? 1
-              : effectiveProgress < hero.anticipation[1]
-                ? 1 - range(effectiveProgress, hero.anticipation[0], hero.anticipation[1])
-                : 0;
-        gsap.set(heroActions, { autoAlpha: alpha });
+        const alpha = prefersReducedMotion
+          ? 1
+          : effectiveProgress < 0.16
+            ? 1
+            : 1 - range(effectiveProgress, 0.16, 0.26);
+        gsap.set(heroActions, { autoAlpha: alpha, y: prefersReducedMotion ? 0 : interpolate(0, -12, range(effectiveProgress, 0.16, 0.26)) });
       }
       if (prepCollectionIncoming) {
         gsap.set(prepCollectionIncoming, {
@@ -711,7 +646,6 @@ export function useHomeNarrativeDirector({
       if (finaleUtility) gsap.set(finaleUtility, { autoAlpha: chapter === "finale" ? range(effectiveProgress, 0.2, 0.48) : 0 });
       if (finaleLegal) gsap.set(finaleLegal, { autoAlpha: chapter === "finale" ? range(effectiveProgress, 0.48, 0.72) : 0 });
 
-      setTransitionLayer(frame);
       root.dataset.homeChapter = frame.chapter;
       root.dataset.homeProgress = frame.chapterProgress.toFixed(3);
       root.dataset.homeOcclusion = frame.occlusion.id ?? "";
@@ -738,7 +672,6 @@ export function useHomeNarrativeDirector({
         ranges.push({ chapter, section, start, end, progressEnd: start + Math.max(1, scrollSpan) });
       });
       stageTopPx = actorStage?.getBoundingClientRect().top ?? 0;
-      measuredCargoRect = null;
       fanTransferGeometry = null;
       const firstCard = marketCards[0];
       if (firstCard) {
@@ -834,7 +767,6 @@ export function useHomeNarrativeDirector({
     }
 
     if (actorStage) gsap.set(actorStage, { autoAlpha: 0 });
-    if (takeover) gsap.set(takeover, { autoAlpha: 0 });
 
     HOME_CHAPTERS.forEach((chapter) => {
       const timeline = createNormalizedTimeline((progress) => applyFrame(chapter, progress));
@@ -924,5 +856,5 @@ export function useHomeNarrativeDirector({
       context.revert();
       timelines.forEach(({ timeline }) => timeline.kill());
     };
-  }, [rootRef, categories, prefersReducedMotion, setHeaderTone]);
+  }, [rootRef, categories, enabled, prefersReducedMotion, setHeaderTone]);
 }

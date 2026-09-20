@@ -24,18 +24,16 @@ export function within(progress: number, start: number, end: number): boolean {
 
 export const HOME_BEATS = {
   hero: {
-    poster: [0, 0.08],
-    truckApproach: [0.08, 0.24],
-    decelerate: [0.24, 0.32],
-    suspensionSettle: [0.32, 0.37],
-    readingHold: [0.37, 0.54],
-    anticipation: [0.54, 0.6],
-    accelerate: [0.6, 0.76],
-    trailerDominance: [0.76, 0.86],
-    cargoLock: [0.86, 0.92],
-    oneToThree: [0.92, 0.96],
-    threeToFive: [0.96, 0.99],
-    handoff: [0.99, 1],
+    posterRead: [0, 0.14],
+    truckEntry: [0.14, 0.32],
+    brake: [0.32, 0.39],
+    centreHold: [0.39, 0.5],
+    anticipation: [0.5, 0.57],
+    cameraPressure: [0.57, 0.72],
+    perspectiveSwap: [0.72, 0.8],
+    headOnCharge: [0.8, 0.94],
+    passCamera: [0.94, 0.985],
+    release: [0.985, 1],
   },
   marketplace: { incoming: [0, 0.24], hold: [0.24, 0.72], departure: [0.72, 1], ownerThreshold: 0.82 },
   fan: {
@@ -114,12 +112,3 @@ export const HOME_BEATS = {
     footerRelease: [0.92, 1],
   },
 } as const satisfies Record<string, Record<string, number | Beat>>;
-
-export const HOME_LAYOUT = {
-  heroTruckPath: {
-    arrivalX: [0.08, 0.4],
-    holdX: 0.4,
-    accelerationX: 0.58,
-    cargoX: 0.69,
-  },
-} as const;

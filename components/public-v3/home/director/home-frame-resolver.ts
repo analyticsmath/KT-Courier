@@ -1,6 +1,6 @@
 import type { HomeChapter } from "./home-chapters";
 import { HOME_CHAPTERS } from "./home-chapters";
-import { after, before, clamp01, HOME_BEATS, HOME_LAYOUT, range, within } from "./home-beats";
+import { after, before, clamp01, HOME_BEATS, range, within } from "./home-beats";
 
 export type CameraMode =
   | "editorial-side"
@@ -117,7 +117,6 @@ function resolveMarketplace(progress: number, categories: ReadonlyArray<{ id: st
 
 function worldForChapter(chapter: HomeChapter, progress: number) {
   const transitions: Partial<Record<HomeChapter, { next: HomeChapter; start: number; end: number; owner: string }>> = {
-    hero: { next: "marketplace", start: 0.86, end: 1, owner: "hero-cargo-handoff" },
     marketplace: { next: "fan", start: 0.94, end: 1, owner: "market-fan-handoff" },
     fan: { next: "preparation", start: 0.93, end: 1, owner: "fan-parcel-handoff" },
     preparation: { next: "collection", start: 0.84, end: 1, owner: "preparation-collection-handoff" },
@@ -199,62 +198,33 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
 
   if (input.chapter === "hero") {
     const hero = HOME_BEATS.hero;
-    const truckPath = HOME_LAYOUT.heroTruckPath;
-    if (within(progress, hero.truckApproach[0], hero.suspensionSettle[0])) {
-      const approach = range(progress, hero.truckApproach[0], hero.suspensionSettle[0]);
+    const compact = typeof window !== "undefined" && window.innerWidth <= 767;
+    const holdWidth = compact ? 90 : 66;
+    const entryWidth = compact ? 66 : 50;
+    const cameraWidth = compact ? 180 : 244;
+    if (progress >= hero.truckEntry[0]) {
+      const entry = range(progress, hero.truckEntry[0], hero.truckEntry[1]);
+      const brake = range(progress, hero.brake[0], hero.brake[1]);
+      const anticipation = range(progress, hero.anticipation[0], hero.anticipation[1]);
+      const pressure = range(progress, hero.cameraPressure[0], hero.passCamera[1]);
+      const targetX = progress < hero.brake[0]
+        ? interpolate(-0.25, 0.56, smooth(entry))
+        : progress < hero.centreHold[0]
+          ? interpolate(0.56, 0.53, smooth(brake))
+          : interpolate(0.53, 0.5, smooth(anticipation + (1 - anticipation) * pressure));
+      const widthVw = progress < hero.brake[0]
+        ? interpolate(entryWidth, holdWidth, smooth(entry))
+        : progress < hero.anticipation[0]
+          ? holdWidth
+          : interpolate(holdWidth, cameraWidth, smooth(pressure));
       actors.whiteTruck = {
         ...actors.whiteTruck,
         state: "front-3q-right",
         visible: true,
-        targetX: interpolate(truckPath.arrivalX[0], truckPath.holdX, smooth(approach)),
-        groundY: 0.9,
-        widthVw: interpolate(54, 62, approach),
+        targetX,
+        groundY: compact ? 0.86 : 0.88,
+        widthVw,
       };
-    }
-    if (within(progress, hero.suspensionSettle[0], hero.suspensionSettle[1])) {
-      const registration = range(progress, hero.suspensionSettle[0], hero.suspensionSettle[1]);
-      actors.whiteTruck = {
-        ...actors.whiteTruck,
-        state: registration < 0.5 ? "side-right" : "wide-hero",
-        visible: false,
-        targetX: truckPath.holdX,
-        groundY: 0.9,
-        widthVw: registration < 0.5 ? 70 : 72,
-      };
-      occlusionId = "hero-typography-mask";
-      occlusionProgress = registration;
-      requiredCoverage = 0.9;
-    }
-    if (progress >= hero.suspensionSettle[1] && progress < hero.cargoLock[0]) {
-      const departure = range(progress, hero.accelerate[0], hero.trailerDominance[1]);
-      actors.whiteTruck = {
-        ...actors.whiteTruck,
-        state: "wide-hero",
-        visible: true,
-        targetX: progress < hero.accelerate[0]
-          ? truckPath.holdX
-          : interpolate(truckPath.holdX, truckPath.cargoX, smooth(departure)),
-        groundY: 0.9,
-        widthVw: 72,
-      };
-    }
-    if (progress >= hero.cargoLock[0]) {
-      actors.whiteTruck = {
-        ...actors.whiteTruck,
-        state: "cargo-box-close",
-        visible: false,
-        targetX: truckPath.cargoX,
-        groundY: 0.9,
-        widthVw: 90,
-      };
-      occlusionId = "hero-cargo-mask";
-      occlusionProgress = range(progress, hero.cargoLock[0], hero.oneToThree[0]);
-      requiredCoverage = 0.9;
-    }
-    if (progress >= hero.oneToThree[0]) {
-      actors.whiteTruck.visible = false; // Cargo material has expanded over the complete actor before release.
-      occlusionProgress = range(progress, hero.cargoLock[0], hero.oneToThree[0]);
-      requiredCoverage = 0.9;
     }
   } else if (input.chapter === "marketplace") {
     if (progress >= 0.94) {

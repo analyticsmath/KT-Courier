@@ -25,16 +25,15 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       data-kt-scene="hero"
       data-motion="hero-stage"
       aria-label="KT Couriers Hero"
+      style={{ "--kt-home-budget": 200 } as React.CSSProperties}
     >
       <div className={styles.heroStage} data-home-sticky-stage>
-      {/* Occlusion Plane: Giant KT / COURIER Typography Behind Truck */}
+      {/* One campaign lockup, always behind the persistent truck actor. */}
       <div className={styles.heroTypographyBackground} aria-hidden="true">
-        <span className={styles.heroWordKt} data-motion="hero-kt">
-          KT
-        </span>
-        <span className={styles.heroWordCourier} data-motion="hero-courier">
-          COURIER
-        </span>
+        <div className={styles.heroBrandLockup}>
+          <span className={styles.heroWordKt} data-motion="hero-kt">KT</span>
+          <span className={styles.heroWordCourier} data-motion="hero-courier">COURIER</span>
+        </div>
       </div>
 
       {/* Atmospheric Road Texture Plane (Enters under truck ground baseline) */}
@@ -53,7 +52,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-freight-paper)] via-transparent to-[var(--kt-freight-paper)]" />
       </div>
 
-      {/* Peripheral Human Copy & Primary Actions */}
+      {/* The reading state is complete before the truck enters. */}
       <div className={styles.heroActionsRow} data-motion="hero-actions">
         <div className={styles.heroCopyBlock} data-motion="hero-copy">
           <h1 className={styles.heroTagline}>Shop local. Send with KT.</h1>

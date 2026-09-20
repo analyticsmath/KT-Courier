@@ -1,0 +1,76 @@
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  background: var(--kt-midnight);
+  pointer-events: all;
+}
+
+.panel {
+  position: absolute;
+  inset-block: 0;
+  width: calc(50% + 2px);
+  background: var(--kt-midnight);
+  will-change: transform;
+}
+
+.panelLeft {
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 2px) 48%, 100% 52%, 100% 100%, 0 100%);
+  animation: partLeft 630ms cubic-bezier(.7, 0, .25, 1) 820ms forwards;
+}
+
+.panelRight {
+  right: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 2px 52%, 0 48%);
+  animation: partRight 630ms cubic-bezier(.7, 0, .25, 1) 820ms forwards;
+}
+
+.seam {
+  position: absolute;
+  inset-block: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: rgba(242, 239, 232, .72);
+  opacity: 0;
+  transform: scaleY(.18);
+  transform-origin: center;
+  animation: pressure 290ms ease-out 620ms forwards;
+}
+
+.logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(13rem, 42vw);
+  height: min(6rem, 20vw);
+  transform: translate(-50%, -50%);
+  animation: logoRelease 300ms ease-in 720ms forwards;
+}
+
+@keyframes pressure {
+  from { opacity: 0; transform: scaleY(.18); }
+  to { opacity: .9; transform: scaleY(1); }
+}
+
+@keyframes partLeft {
+  to { transform: translateX(-103%) translateZ(0); }
+}
+
+@keyframes partRight {
+  to { transform: translateX(103%) translateZ(0); }
+}
+
+@keyframes logoRelease {
+  to { opacity: 0; transform: translate(-50%, -50%) scale(.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panelLeft,
+  .panelRight,
+  .seam,
+  .logo {
+    animation: none;
+  }
+}

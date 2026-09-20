@@ -14,7 +14,7 @@ export const HOME_CHAPTERS = [
 export type HomeChapter = (typeof HOME_CHAPTERS)[number];
 
 export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
-  hero: 250,
+  hero: 200,
   marketplace: 355,
   fan: 155,
   preparation: 105,

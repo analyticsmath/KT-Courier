@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef } from "react";
-import Image from "next/image";
+import { useCallback, useRef, useState } from "react";
 import {
   HeroScene,
   MarketplaceFivePanelScene,
@@ -18,58 +17,11 @@ import { useHomeNarrativeDirector } from "./director/useHomeNarrativeDirector";
 import { PersistentActorLayer } from "../actors/PersistentActorLayer";
 import type { MarketplaceCategoryItem } from "./scenes/MarketplaceFivePanelScene";
 import { FIVE_PANEL_MEDIA } from "./scenes/MarketplaceFivePanelScene";
+import { HomeIntroCurtain } from "./HomeIntroCurtain";
 
 interface PublicHomeExperienceProps {
   isStorefrontExposed?: boolean;
   storefrontCategories?: MarketplaceCategoryItem[];
-}
-
-/** One measured media surface for the cargo-to-marketplace handoff. */
-function TransitionLayer({ categories }: { categories: MarketplaceCategoryItem[] }) {
-  const visibleCategories = categories.slice(0, 5);
-  const first = visibleCategories[0] ?? FIVE_PANEL_MEDIA[0];
-
-  return (
-    <div
-      data-motion="trailer-takeover"
-      data-home-occluder="hero-cargo-mask"
-      className="kt-trailer-takeover-plane pointer-events-none fixed inset-0 z-30 overflow-hidden"
-      aria-hidden="true"
-    >
-      <div className="relative w-full h-full bg-[var(--kt-asphalt)]">
-        <div className="takeover-progression-1 absolute inset-0">
-          <Image src={first.image} alt="" fill sizes="100vw" preload className="object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/50 to-transparent" />
-        </div>
-
-        <div className="takeover-progression-3 absolute inset-0 flex">
-          {visibleCategories.slice(0, 3).map((category, index) => (
-            <div
-              key={`takeover-3-${category.id}`}
-              data-takeover-p3-panel={index}
-              className="relative h-full border-r border-[#23272B] last:border-r-0 overflow-hidden"
-            >
-              <Image src={category.image} alt="" fill sizes="33vw" preload className="object-cover" />
-              <div className="absolute inset-0 bg-black/25" />
-            </div>
-          ))}
-        </div>
-
-        <div className="takeover-progression-5 absolute inset-0 flex">
-          {visibleCategories.map((category, index) => (
-            <div
-              key={`takeover-5-${category.id}`}
-              data-takeover-p5-panel={index}
-              className="relative h-full border-r border-[#23272B] last:border-r-0 overflow-hidden"
-            >
-              <Image src={category.image} alt="" fill sizes="20vw" preload={index >= 3} className="object-cover" />
-              <div className="absolute inset-0 bg-black/25" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function ChapterContentLayer({ children }: { children: React.ReactNode }) {
@@ -82,10 +34,12 @@ export function PublicHomeExperience({
   storefrontCategories = [],
 }: PublicHomeExperienceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [introResolved, setIntroResolved] = useState(false);
+  const resolveIntro = useCallback(() => setIntroResolved(true), []);
   const categoriesList = storefrontCategories.length > 0 ? storefrontCategories : FIVE_PANEL_MEDIA;
   const selectedMarketplaceMedia = categoriesList.at(-1) ?? FIVE_PANEL_MEDIA[0];
 
-  useHomeNarrativeDirector({ rootRef: containerRef, categories: categoriesList });
+  useHomeNarrativeDirector({ rootRef: containerRef, categories: categoriesList, enabled: introResolved });
 
   return (
     <div
@@ -97,7 +51,6 @@ export function PublicHomeExperience({
       <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
 
       <PersistentActorLayer />
-      <TransitionLayer categories={categoriesList} />
       <div data-home-occluder="arrival-architecture-mask" className="kt-home-final-release-curtain" aria-hidden="true" />
       <div data-motion="arrival-footer-title" className="kt-home-final-release-title" aria-hidden="true"><span>KT</span><span>COURIER</span></div>
 
@@ -136,6 +89,7 @@ export function PublicHomeExperience({
           KT cinematic director
         </aside>
       ) : null}
+      <HomeIntroCurtain onResolved={resolveIntro} />
     </div>
   );
 }
