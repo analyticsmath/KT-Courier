@@ -23,6 +23,7 @@ export interface ActorTransition {
 }
 
 export const HOME_ACTOR_TRANSITIONS: readonly ActorTransition[] = [
+  { actor: "white-truck", from: "front-3q-right", to: "side-right", occlusion: "typography-occlusion" },
   { actor: "white-truck", from: "side-right", to: "wide-hero", occlusion: "typography-occlusion" },
   { actor: "white-truck", from: "wide-hero", to: "cargo-box-close", occlusion: "trailer-takeover" },
   { actor: "van", from: "motion-transition", to: "side-left", occlusion: "scene-boundary" },
