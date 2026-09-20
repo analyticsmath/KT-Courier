@@ -197,7 +197,11 @@ export async function getStorefrontVariant(productReference: string, variantRefe
 
 export async function getStorefrontHome() {
   const [categories, stores, search, collections] = await Promise.all([listStorefrontCategories(), listStorefrontStores({ limit: 12 }), new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search({ pageSize: 12 }), listStorefrontCollections()]);
-  return { categories: categories.slice(0, 12), stores, newArrivals: search.results, collections, availabilityNotice: "Choose a service area to see area-specific availability. Browsing is available without one." };
+  const topLevelCategories = categories.filter((category) => {
+    const normalizedPath = category.path.replace(/^\/+/, "");
+    return normalizedPath.length > 0 && !normalizedPath.includes("/");
+  });
+  return { categories: topLevelCategories.slice(0, 12), stores, newArrivals: search.results, collections, availabilityNotice: "Choose a service area to see area-specific availability. Browsing is available without one." };
 }
 
 export async function listStorefrontCollections() {
