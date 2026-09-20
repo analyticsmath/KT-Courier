@@ -562,8 +562,13 @@
 }
 
 @media (max-width: 767px) {
-  :global(.kt-home-experience [data-kt-scene]) {
+  :global(.kt-home-experience [data-kt-scene]:not([data-kt-scene="hero"])) {
     min-height: auto !important;
+    height: auto;
+  }
+
+  :global(.kt-home-experience [data-kt-scene="hero"]) {
+    min-height: calc(var(--kt-home-mobile-budget, 190) * 1svh) !important;
     height: auto;
   }
 
