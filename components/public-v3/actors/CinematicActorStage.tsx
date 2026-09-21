@@ -23,15 +23,6 @@ export const CINEMATIC_LAYER_Z = {
   navigation: 50,
 } as const;
 
-const HOME_OCCLUDERS = [
-  "parcel-mask",
-  "custody-seam-mask",
-  "route-overpass-a",
-  "route-overpass-b",
-  "route-terminal-mask",
-  "freight-gate-mask",
-] as const;
-
 function handleActorImageLoad(event: SyntheticEvent<HTMLImageElement>) {
   markActorImageReady(event.currentTarget);
 }
@@ -152,14 +143,6 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
           preloadStates={[]}
         />
       </div>
-      {HOME_OCCLUDERS.map((id) => (
-        <div
-          key={id}
-          data-home-occluder={id}
-          className={`kt-home-actor-occluder kt-home-occluder-${id}`}
-          aria-hidden="true"
-        />
-      ))}
     </div>
   );
 });

@@ -83,7 +83,6 @@ export function ImageFanScene({ className = "", selectedMedia, marketplaceMedia 
 
           <article
             data-motion="fan-hero"
-            data-home-occluder="fan-parcel-mask"
             data-fan-card-id={selected.id}
             data-fan-active="true"
             className={`${styles.fanCard} ${styles.fanHeroCard} kt-fan-card kt-fan-hero-card`}

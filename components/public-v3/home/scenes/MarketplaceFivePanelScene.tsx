@@ -158,7 +158,6 @@ export function MarketplaceFivePanelScene({
                 data-marketplace-index={idx}
                 data-marketplace-active={isActive ? "true" : "false"}
                 data-marketplace-distance={distance}
-                data-home-occluder={idx === displayItems.length - 1 ? "market-to-fan-card-mask" : undefined}
                 className={styles.marketplaceCard}
                 aria-label={`${cat.title} Category`}
               >

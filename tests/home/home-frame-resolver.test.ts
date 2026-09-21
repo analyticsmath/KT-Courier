@@ -15,6 +15,7 @@ import {
 import { HOME_CHAPTERS, HOME_CHAPTER_BUDGETS_VH, HOME_MOBILE_CHAPTER_BUDGETS_VH, HOME_MOBILE_POLICY } from "@/components/public-v3/home/director/home-chapters";
 import { assertPhysicalCoverage, physicalCoverage } from "@/components/public-v3/home/director/home-occlusion";
 import { resolveHomeFrame } from "@/components/public-v3/home/director/home-frame-resolver";
+import { marketplaceTrackX } from "@/components/public-v3/home/director/home-marketplace-geometry";
 
 const categories = ["grocery", "fashion", "food", "home", "wellness"].map((id) => ({ id }));
 const viewportMode = "desktop" as const;
@@ -51,18 +52,9 @@ describe("homepage narrative frame resolver", () => {
     }
   });
 
-  it("declares each exposed state change with its rendered physical cover", () => {
+  it("removes generic post-Hero actor covers and keeps Hero sequence validation", () => {
     expect(() => validateHomeActorTransitions()).not.toThrow();
-    expect(HOME_ACTOR_TRANSITIONS.map(({ occlusion }) => occlusion)).toEqual([
-      "parcel-mask",
-      "parcel-mask",
-      "custody-seam-mask",
-      "route-overpass-a",
-      "route-overpass-b",
-      "arrival-architecture-mask",
-    ]);
-
-    expect(() => assertActorTransition("courier", "look-left-approach", "lift-parcel", null)).toThrow(/parcel-mask/);
+    expect(HOME_ACTOR_TRANSITIONS).toEqual([]);
     expect(isAdjacentHeroSequenceTransition(HERO_TRUCK_SEQUENCE[0], HERO_TRUCK_SEQUENCE[1])).toBe(true);
     expect(isAdjacentHeroSequenceTransition(HERO_TRUCK_SEQUENCE[1], HERO_TRUCK_SEQUENCE[0])).toBe(true);
     expect(isAdjacentHeroSequenceTransition(HERO_TRUCK_SEQUENCE[0], HERO_TRUCK_SEQUENCE[2])).toBe(false);
@@ -70,34 +62,31 @@ describe("homepage narrative frame resolver", () => {
     expect(() => assertActorTransition("white-truck", HERO_TRUCK_SEQUENCE[1], HERO_TRUCK_SEQUENCE[0], null)).not.toThrow();
   });
 
-  it("keeps the courier exposed while the named parcel mask covers both pose changes", () => {
-    const lift = resolveHomeFrame({ chapter: "collection", progress: 0.76, viewportMode, marketplaceCategories: categories });
-    const load = resolveHomeFrame({ chapter: "collection", progress: 0.85, viewportMode, marketplaceCategories: categories });
-    expect(lift.actors.courier.state).toBe("lift-parcel");
-    expect(lift.actors.courier.visible).toBe(true);
-    expect(lift.occlusion).toMatchObject({ id: "parcel-mask", requiredCoverage: 0.9 });
-    expect(load.actors.courier.state).toBe("loading-unloading");
-    expect(load.actors.courier.visible).toBe(true);
-    expect(load.occlusion).toMatchObject({ id: "parcel-mask", requiredCoverage: 0.9 });
+  it("holds one visible courier state through collection and custody", () => {
+    for (const chapter of ["collection", "custody"] as const) {
+      for (const progress of progressSamples) {
+        const frame = resolveHomeFrame({ chapter, progress, viewportMode, marketplaceCategories: categories });
+        expect(frame.occlusion.id).toBeNull();
+        if (frame.actors.courier.visible) expect(frame.actors.courier.state).toBe("loading-unloading");
+      }
+    }
   });
 
-  it("keeps the courier visibly accountable through the custody seam", () => {
-    const beforeSeam = resolveHomeFrame({ chapter: "custody", progress: 0.4, viewportMode, marketplaceCategories: categories });
-    const throughSeam = resolveHomeFrame({ chapter: "custody", progress: 0.58, viewportMode, marketplaceCategories: categories });
-    expect(beforeSeam.actors.courier).toMatchObject({ state: "loading-unloading", visible: true });
-    expect(throughSeam.actors.courier).toMatchObject({ state: "ready-handover", visible: true });
-    expect(throughSeam.occlusion).toMatchObject({ id: "custody-seam-mask", requiredCoverage: 0.9 });
+  it("uses one Route truck state with monotonic path progress", () => {
+    const frames = progressSamples.map((progress) => resolveHomeFrame({ chapter: "route", progress, viewportMode, marketplaceCategories: categories }));
+    frames.filter((frame) => frame.actors.whiteTruck.visible).forEach((frame) => {
+      expect(frame.actors.whiteTruck.state).toBe("top-down-straight");
+      expect(frame.occlusion.id).toBeNull();
+    });
+    expect(frames.map((frame) => frame.route.pathProgress)).toEqual([...frames.map((frame) => frame.route.pathProgress)].sort((a, b) => a - b));
   });
 
-  it("keeps route truck orientation changes under named overhead structures", () => {
-    const firstSwap = resolveHomeFrame({ chapter: "route", progress: 0.6, viewportMode, marketplaceCategories: categories });
-    const angled = resolveHomeFrame({ chapter: "route", progress: 0.64, viewportMode, marketplaceCategories: categories });
-    const secondSwap = resolveHomeFrame({ chapter: "route", progress: 0.84, viewportMode, marketplaceCategories: categories });
-    expect(firstSwap.actors.whiteTruck).toMatchObject({ state: "top-down-angled", visible: true });
-    expect(firstSwap.occlusion).toMatchObject({ id: "route-overpass-a", requiredCoverage: 0.92 });
-    expect(angled.actors.whiteTruck).toMatchObject({ state: "top-down-angled", visible: true });
-    expect(secondSwap.actors.whiteTruck).toMatchObject({ state: "top-down-turning", visible: true });
-    expect(secondSwap.occlusion).toMatchObject({ id: "route-overpass-b", requiredCoverage: 0.92 });
+  it("centers cards using their actual centres without a constant-step drift", () => {
+    const centres = [320, 860, 1400, 1940, 2480];
+    expect(marketplaceTrackX(centres, 0, 720)).toBe(400);
+    expect(marketplaceTrackX(centres, 0.5, 720)).toBe(130);
+    expect(marketplaceTrackX(centres, 4, 720)).toBe(-1760);
+    expect(marketplaceTrackX(centres, 2.5, 512)).toBe(-1158);
   });
 
   it("holds each live marketplace category and passes the final visual owner to Fan", () => {
@@ -247,7 +236,7 @@ describe("homepage narrative frame resolver", () => {
     const climax = resolveHomeFrame({ chapter: "freight", progress: 0.86, viewportMode, marketplaceCategories: categories });
     expect(climax.actors.redTruck).toMatchObject({ state: "side-right", visible: true });
     const release = resolveHomeFrame({ chapter: "freight", progress: 0.96, viewportMode, marketplaceCategories: categories });
-    expect(release.occlusion.id).toBe("freight-gate-mask");
+    expect(release.occlusion.id).toBeNull();
     const arrival = resolveHomeFrame({ chapter: "arrival", progress: 0.94, viewportMode, marketplaceCategories: categories });
     expect(arrival.actors.redTruck.visible).toBe(false);
     expect(arrival.actors.courier.visible).toBe(true);

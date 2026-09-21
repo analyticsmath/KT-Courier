@@ -2,6 +2,7 @@ import type { HomeChapter } from "./home-chapters";
 import { HOME_CHAPTERS } from "./home-chapters";
 import { before, clamp01, HOME_BEATS, range, within } from "./home-beats";
 import { HERO_TRUCK_SEQUENCE } from "../../actors/actor-state-machine";
+import { visualOwnership, type VisualOwner } from "./home-visual-ownership";
 
 export type CameraMode =
   | "editorial-side"
@@ -64,6 +65,7 @@ export interface HomeFrame {
   };
   fan: { phase: "hidden" | "spread" | "compress" | "selected" | "parcel-transfer"; progress: number; selectedId: string | null };
   route: { pathProgress: number; tangentAngle: number };
+  visual: { primaryOwner: VisualOwner; incomingOwner?: VisualOwner };
   sceneOwnership: { previous: HomeChapter | null; current: HomeChapter; next: HomeChapter | null };
 }
 
@@ -285,12 +287,6 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
 
   if (input.chapter === "hero") {
     actors.whiteTruck = resolveHeroTruckFrame(progress, input.viewportMode);
-  } else if (input.chapter === "marketplace") {
-    if (progress >= 0.94) {
-      occlusionId = "market-to-fan-card-mask";
-      occlusionProgress = range(progress, 0.94, 1);
-      requiredCoverage = 0.85;
-    }
   } else if (input.chapter === "fan") {
     const beats = HOME_BEATS.fan;
     if (before(progress, beats.imageArrives[1])) fan.phase = "spread";
@@ -298,11 +294,6 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
     else if (within(progress, beats.compress[0], beats.selectedHold[0])) fan.phase = "compress";
     else if (within(progress, beats.selectedHold[0], beats.contract[0])) fan.phase = "selected";
     else fan.phase = "parcel-transfer";
-    if (progress >= beats.parcelHandoff[0]) {
-      occlusionId = "fan-parcel-mask";
-      occlusionProgress = range(progress, beats.parcelHandoff[0], 1);
-      requiredCoverage = 0.85;
-    }
   } else if (input.chapter === "collection") {
     const beats = HOME_BEATS.collection;
     if (progress >= beats.vanApproach[0] && progress < 1) {
@@ -321,30 +312,17 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
       actors.courier = {
         ...actors.courier,
         visible: true,
-        state: progress >= beats.load[0] ? "loading-unloading" : progress >= beats.lift[0] ? "lift-parcel" : "look-left-approach",
+        state: "loading-unloading",
         targetX: progress >= beats.lift[0] ? 0.42 : interpolate(0.38, 0.42, smooth(walking)),
         groundY: 0.85,
         widthVw: 16,
       };
     }
-    if (within(progress, beats.liftMask[0], beats.liftMask[1])) {
-      occlusionId = "parcel-mask";
-      occlusionProgress = range(progress, beats.liftMask[0], beats.liftMask[1]);
-      requiredCoverage = 0.9;
-    } else if (within(progress, beats.loadMask[0], beats.loadMask[1])) {
-      occlusionId = "parcel-mask";
-      occlusionProgress = range(progress, beats.loadMask[0], beats.loadMask[1]);
-      requiredCoverage = 0.9;
-    } else if (progress >= beats.resolved[0]) {
-      occlusionId = "custody-seam-mask";
-      occlusionProgress = range(progress, beats.resolved[0], 1);
-      requiredCoverage = 0.9;
-    }
   } else if (input.chapter === "custody") {
     const beats = HOME_BEATS.custody;
     actors.courier = {
       ...actors.courier,
-      state: progress >= beats.networkOwns[0] ? "ready-handover" : "loading-unloading",
+      state: "loading-unloading",
       visible: progress < 0.94,
       targetX: progress < beats.networkOwns[0]
         ? interpolate(0.44, 0.5, smooth(range(progress, beats.approachSeam[0], beats.seamHold[1])))
@@ -352,23 +330,9 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
       groundY: 0.86,
       widthVw: 17,
     };
-    if (within(progress, 0.54, 0.65)) {
-      occlusionId = "custody-seam-mask";
-      occlusionProgress = range(progress, 0.54, 0.65);
-      requiredCoverage = 0.9;
-    }
-    if (progress >= beats.roadEnters[0]) {
-      occlusionId = "route-overpass-a";
-      occlusionProgress = range(progress, beats.roadEnters[0], 1);
-      requiredCoverage = 0.9;
-    }
   } else if (input.chapter === "route") {
     const beats = HOME_BEATS.route;
-    const state = progress < beats.firstSwap[0]
-      ? "top-down-straight"
-      : progress < beats.secondSwap[0]
-        ? "top-down-angled"
-        : "top-down-turning";
+    const state = "top-down-straight";
     routePathProgress = progress < beats.straightTravel[1]
       ? range(progress, beats.straightTravel[0], beats.straightTravel[1]) * 0.24
       : progress < beats.straightHold[1]
@@ -391,19 +355,6 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
       widthVw: 28,
       rotation: 0,
     };
-    if (within(progress, beats.firstOcclusion[0], beats.firstOcclusion[1])) {
-      occlusionId = "route-overpass-a";
-      occlusionProgress = range(progress, beats.firstOcclusion[0], beats.firstOcclusion[1]);
-      requiredCoverage = 0.92;
-    } else if (within(progress, beats.secondOcclusion[0], beats.secondOcclusion[1])) {
-      occlusionId = "route-overpass-b";
-      occlusionProgress = range(progress, beats.secondOcclusion[0], beats.secondOcclusion[1]);
-      requiredCoverage = 0.92;
-    } else if (progress >= beats.freightOverlap[0]) {
-      occlusionId = "route-terminal-mask";
-      occlusionProgress = range(progress, beats.freightOverlap[0], beats.truckRelease);
-      requiredCoverage = 0.92;
-    }
   } else if (input.chapter === "freight") {
     const beats = HOME_BEATS.freight;
     if (progress >= beats.entry[0] && progress < 1) {
@@ -422,17 +373,12 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
         widthVw: progress >= beats.cameraPressure[0] ? interpolate(62, 66, range(progress, beats.cameraPressure[0], beats.climaxArrival[1])) : 62,
       };
     }
-    if (progress >= beats.release[0]) {
-      occlusionId = "freight-gate-mask";
-      occlusionProgress = range(progress, beats.release[0], 1);
-      requiredCoverage = 0.9;
-    }
   } else if (input.chapter === "arrival") {
     const beats = HOME_BEATS.arrival;
     if (progress >= beats.walkIn[0] && progress < 1) {
       actors.courier = {
         ...actors.courier,
-        state: progress >= beats.handoff[0] ? "extending-handoff" : "walk-left-one-parcel",
+        state: "extending-handoff",
         visible: progress < 0.99,
         targetX: progress >= beats.handoff[0]
           ? 0.73
@@ -440,15 +386,6 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
         groundY: 0.87,
         widthVw: 16,
       };
-    }
-    if (within(progress, beats.handoffMask[0], beats.handoffMask[1])) {
-      occlusionId = "arrival-architecture-mask";
-      occlusionProgress = range(progress, beats.handoffMask[0], beats.handoffMask[1]);
-      requiredCoverage = 0.9;
-    } else if (progress >= beats.footerRelease[0]) {
-      occlusionId = "arrival-architecture-mask";
-      occlusionProgress = range(progress, beats.footerRelease[0], beats.footerRelease[1]);
-      requiredCoverage = 0.9;
     }
   }
 
@@ -483,6 +420,7 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
     marketplace,
     fan,
     route: { pathProgress: clamp01(routePathProgress), tangentAngle: 0 },
+    visual: visualOwnership(input.chapter),
     sceneOwnership: {
       previous: chapterIndex > 0 ? HOME_CHAPTERS[chapterIndex - 1] : null,
       current: input.chapter,

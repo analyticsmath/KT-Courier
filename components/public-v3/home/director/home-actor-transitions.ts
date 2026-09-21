@@ -24,15 +24,8 @@ export interface ActorTransition {
   minimumCoverage: number;
 }
 
-/** Only transitions that occur in an exposed chapter are listed; each names its rendered covering element. */
-export const HOME_ACTOR_TRANSITIONS: readonly ActorTransition[] = [
-  { actor: "courier", from: "look-left-approach", to: "lift-parcel", occlusion: "parcel-mask", minimumCoverage: 0.9 },
-  { actor: "courier", from: "lift-parcel", to: "loading-unloading", occlusion: "parcel-mask", minimumCoverage: 0.9 },
-  { actor: "courier", from: "loading-unloading", to: "ready-handover", occlusion: "custody-seam-mask", minimumCoverage: 0.9 },
-  { actor: "white-truck", from: "top-down-straight", to: "top-down-angled", occlusion: "route-overpass-a", minimumCoverage: 0.92 },
-  { actor: "white-truck", from: "top-down-angled", to: "top-down-turning", occlusion: "route-overpass-b", minimumCoverage: 0.92 },
-  { actor: "courier", from: "walk-left-one-parcel", to: "extending-handoff", occlusion: "arrival-architecture-mask", minimumCoverage: 0.9 },
-];
+/** Post-Hero actors retain one visible source state; media itself carries every transition. */
+export const HOME_ACTOR_TRANSITIONS: readonly ActorTransition[] = [];
 
 export function isAdjacentHeroSequenceTransition(previousState: string, nextState: string): boolean {
   const previousIndex = HERO_TRUCK_SEQUENCE.indexOf(previousState as (typeof HERO_TRUCK_SEQUENCE)[number]);

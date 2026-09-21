@@ -50,13 +50,6 @@ export function PreparationScene({ className = "" }: PreparationSceneProps) {
             sizes="(max-width: 1024px) 100vw, 70vw"
             className="object-cover"
           />
-          {/* Spatial target for Fan -> Preparation hero card contraction */}
-          <div
-            data-preparation-parcel-target="true"
-            data-motion="prep-parcel-target"
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 sm:w-64 h-36 sm:h-48 pointer-events-none opacity-0"
-            aria-hidden="true"
-          />
         </div>
 
         <div className={styles.preparationDetail}>

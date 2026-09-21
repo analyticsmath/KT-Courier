@@ -29,7 +29,6 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
     >
       <div className="kt-home-sticky-stage kt-home-custody-sticky">
       <div className={styles.custodyCopy}><h2>In KT custody.</h2><p>One visible courier carries the responsibility from merchant counter into the delivery network.</p></div>
-      <div data-home-occluder="custody-seam-mask" className={styles.custodySeam} aria-hidden="true"><span>KT</span></div>
       <div className={`${styles.custodyPane} kt-custody-left`}>
         <Image
           src={merchantSide.src}
@@ -50,24 +49,9 @@ export function CustodySplitScene({ className = "" }: CustodySplitSceneProps) {
           className="kt-custody-courier-img object-cover filter contrast-105 will-change-transform"
         />
         <div className="absolute inset-0 bg-black/25" />
-
-        {/* Concealment Road/Overpass Plane entering during final 20% of Custody */}
-        <div
-          className="kt-custody-route-concealment absolute inset-0 opacity-0 pointer-events-none overflow-hidden bg-[var(--kt-asphalt)]"
-          aria-hidden="true"
-        >
-          <Image
-            src={ktMediaV3.pages.homepage.routePlane.src}
-            alt=""
-            fill
-            sizes="50vw"
-            className="object-cover opacity-40 filter contrast-125"
-          />
-          <div className="absolute inset-0 bg-black/40" />
-        </div>
       </div>
 
-      {/* Center Actor Anchor: Courier with Parcel bridging the physical seam */}
+      {/* Persistent courier anchor bridges the two documentary worlds. */}
       <div
         data-actor-anchor="custody-courier"
         data-motion="custody-seam"

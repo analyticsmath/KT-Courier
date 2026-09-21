@@ -18,6 +18,7 @@ import { PersistentActorLayer } from "../actors/PersistentActorLayer";
 import type { MarketplaceCategoryItem } from "./scenes/MarketplaceFivePanelScene";
 import { FIVE_PANEL_MEDIA } from "./scenes/MarketplaceFivePanelScene";
 import { HomeIntroCurtain } from "./HomeIntroCurtain";
+import { PersistentStoryMediaLayer } from "./PersistentStoryMediaLayer";
 
 interface PublicHomeExperienceProps {
   isStorefrontExposed?: boolean;
@@ -57,7 +58,7 @@ export function PublicHomeExperience({
       <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
 
       <PersistentActorLayer />
-      <div data-home-occluder="arrival-architecture-mask" className="kt-home-final-release-curtain" aria-hidden="true" />
+      <PersistentStoryMediaLayer items={categoriesList} />
 
       <ChapterContentLayer>
         <HeroScene />

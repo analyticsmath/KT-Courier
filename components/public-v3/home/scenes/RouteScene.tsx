@@ -48,9 +48,6 @@ export function RouteScene({ className = "" }: RouteSceneProps) {
             strokeLinecap="round"
           />
         </svg>
-        <div className={styles.routeOverpassA} aria-hidden="true" />
-        <div className={styles.routeOverpassB} aria-hidden="true" />
-
         <div className={styles.routeContent}>
           <div data-motion="route-copy">
             <h2 id="route-heading">
