@@ -19,7 +19,25 @@
 .shopViewportRoot {
   --shop-header-offset: 66px;
   --shop-bottom-nav-clearance: calc(var(--kt-mobile-nav-height, 68px) + env(safe-area-inset-bottom, 0px));
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
   padding-top: var(--shop-header-offset);
+}
+
+.shopViewportRoot .commerceInner,
+.shopViewportRoot .commerceInnerWide,
+.shopViewportRoot .marketEntryLayout,
+.shopViewportRoot .entryCopyPlane,
+.shopViewportRoot .entrySearchWrap,
+.shopViewportRoot .searchCommandShell,
+.shopViewportRoot .searchCommandForm,
+.shopViewportRoot .entryMediaComposition,
+.shopViewportRoot .dominantMediaFrame {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .commerceInner {
@@ -113,6 +131,15 @@
 .merchantDirectoryEmpty { padding: 3rem 0; }
 .merchantDirectoryEmpty h2 { margin: 0; font-size: 1.8rem; font-weight: 560; }
 .merchantDirectoryEmpty p { margin: 8px 0 24px; color: var(--commerce-muted); }
+.desktopFilterRailHeader { margin: 0 0 14px; color: var(--commerce-muted); font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.searchResultsContext { margin-bottom: 2rem; }
+.searchResultsField { max-width: 540px; margin-bottom: 1.5rem; }
+.searchCorrection { margin: 0 0 1rem; color: var(--commerce-ink); font-size: 1rem; }
+.searchDiscoveryGroups { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--commerce-line); }
+.searchDiscoveryGroup { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.searchDiscoveryLabel { flex: none; color: var(--commerce-muted); font-size: .85rem; }
+.searchDiscoveryChip { display: inline-flex; min-height: 34px; align-items: center; flex: none; border: 1px solid var(--commerce-line); border-radius: 999px; padding: 6px 12px; color: var(--commerce-ink); font-size: .85rem; text-decoration: none; white-space: nowrap; }
+.searchDiscoveryChip:hover, .searchDiscoveryChip:focus-visible { border-color: var(--commerce-ink); background: white; outline: none; }
 
 .productTile { min-width: 0; }
 .productTileMediaFrame { border-radius: var(--commerce-radius); background: #eeece6; }
@@ -431,7 +458,7 @@
 }
 
 .searchCommandInput {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   height: 100%;
   padding: 0 18px;
@@ -3040,6 +3067,23 @@
   }
 }
 
+@media (max-width: 1023px) {
+  .shopViewportRoot .searchDiscoveryGroup {
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .shopViewportRoot .searchDiscoveryGroup::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @media (max-width: 767px) {
   .marketEntryField { min-height: 0; padding-block: 12px 22px; }
   .marketEntryLayout { grid-template-columns: 1fr; gap: 14px; }
@@ -3084,14 +3128,6 @@
   .pdpRelatedSection:last-of-type { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)); }
 }
 
-
-/* Commerce viewport hardening — keep mobile-only controls out of desktop and
-   tighten the app-like shop composition on narrow phones. */
-@media (min-width: 1024px) {
-  .searchFilterButton {
-    display: none;
-  }
-}
 
 @media (max-width: 639px) {
   .commerceInner,
@@ -3286,27 +3322,50 @@
 }
 
 .shopViewportRoot .plpFilterSidebar {
-  top: calc(66px + 48px + 22px);
-  max-height: calc(100svh - 158px);
+  position: sticky;
+  top: calc(66px + 48px + 18px);
+  max-height: calc(100dvh - 150px);
   overflow-y: auto;
-  scrollbar-width: none;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 10px;
+  padding-bottom: 18px;
+  scrollbar-width: thin;
 }
 
 .shopViewportRoot .plpFilterSidebar::-webkit-scrollbar {
-  display: none;
+  width: 6px;
 }
 
-/* Product detail: sticky commerce decision plane on the left,
-   full scroll-gallery on the right. */
+.shopViewportRoot .plpFilterSidebar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--commerce-ink) 20%, transparent);
+}
+
+.shopViewportRoot .plpFilterSidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.shopViewportRoot .plpFilterSidebar:focus-visible,
+.shopViewportRoot .plpFilterSidebar[data-focused="true"] {
+  outline: 2px solid var(--kt-brand-blue, #1776d2);
+  outline-offset: 5px;
+}
+
+/* Product detail: a natural media narrative on the left and a sticky purchase plane on the right. */
 .shopViewportRoot .pdpLayout {
-  grid-template-columns: minmax(330px, .78fr) minmax(0, 1.34fr);
-  grid-template-areas: "info media";
+  grid-template-columns: minmax(0, 1.34fr) minmax(330px, .78fr);
+  grid-template-areas: "media info";
   gap: clamp(40px, 5.2vw, 78px);
+  align-items: start;
 }
 
 .shopViewportRoot .pdpInfoPlane {
   grid-area: info;
-  /* Do not constrain this plane: the gallery owns the document scroll. */
+  position: sticky;
+  top: calc(var(--shop-header-offset, 66px) + 20px);
+  align-self: start;
   max-height: none;
   overflow: visible;
   padding: 0;
@@ -3390,15 +3449,15 @@
   }
 
   .shopViewportRoot .marketEntryField {
-    padding-block: 18px 30px;
+    padding-block: 14px 22px;
   }
 
   .shopViewportRoot .marketEntryLayout {
-    gap: 18px;
+    gap: 14px;
   }
 
   .shopViewportRoot .entryCopyPlane {
-    gap: 12px;
+    gap: 10px;
   }
 
   .shopViewportRoot .entryTitle {
@@ -3435,12 +3494,29 @@
   }
 
   .shopViewportRoot .entryCategoryShortcuts {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
     gap: 8px;
-    margin-inline: -2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
     padding: 2px 2px 4px;
+    scrollbar-width: none;
+  }
+
+  .shopViewportRoot .entryCategoryShortcuts::-webkit-scrollbar {
+    display: none;
   }
 
   .shopViewportRoot .entryCategoryShortcuts a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    scroll-snap-align: start;
     padding: 8px 11px;
     border: 1px solid color-mix(in srgb, var(--commerce-ink) 10%, transparent);
     border-radius: 999px;
@@ -3451,7 +3527,7 @@
   }
 
   .shopViewportRoot .entryMediaComposition {
-    height: 224px;
+    height: clamp(170px, 48vw, 195px);
   }
 
   .shopViewportRoot .dominantMediaFrame {

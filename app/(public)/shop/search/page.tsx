@@ -49,15 +49,15 @@ export default async function SearchPage({
   const title = filters.q ? `Results for “${filters.q}”` : "Search the Marketplace";
 
   const context = (
-    <div style={{ marginBottom: "2rem" }}>
+    <div className={styles.searchResultsContext}>
       {/* Search Input Command */}
-      <div style={{ maxWidth: 540, marginBottom: "1.5rem" }}>
+      <div className={styles.searchResultsField}>
         <CommerceSearchCommand query={filters.q || ""} showFilterButton />
       </div>
 
       {/* Did you mean suggestion */}
       {result.correction && (
-        <p style={{ fontSize: "1rem", color: "var(--kt-carbon, #101210)", margin: "0 0 1rem" }}>
+        <p className={styles.searchCorrection}>
           Did you mean:{" "}
           <Link
             className={styles.sectionDirectLink}
@@ -70,20 +70,19 @@ export default async function SearchPage({
 
       {/* Suggested Matching Categories or Stores */}
       {(categories.length > 0 || stores.length > 0) && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 0", borderBottom: "1px solid var(--kt-cool-200, #dde1e0)" }}>
+        <div className={styles.searchDiscoveryGroups}>
           {categories.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)" }}>
+            <div className={styles.searchDiscoveryGroup}>
+              <span className={styles.searchDiscoveryLabel}>
                 Categories:
               </span>
               {categories.map((cat) => {
                 const catHref = marketplaceCategoryHref(cat.path) ?? marketplaceHref();
                 return (
                   <Link
-                    className={styles.subcategoryTile}
+                    className={styles.searchDiscoveryChip}
                     href={catHref}
                     key={cat.reference}
-                    style={{ padding: "6px 12px", fontSize: "0.85rem" }}
                   >
                     {cat.name}
                   </Link>
@@ -93,18 +92,17 @@ export default async function SearchPage({
           )}
 
           {stores.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)" }}>
+            <div className={styles.searchDiscoveryGroup}>
+              <span className={styles.searchDiscoveryLabel}>
                 Storefronts:
               </span>
               {stores.map((store) => {
                 const storeHref = marketplaceStoreHref(store.slug) ?? marketplaceHref();
                 return (
                   <Link
-                    className={styles.subcategoryTile}
+                    className={styles.searchDiscoveryChip}
                     href={storeHref}
                     key={store.reference}
-                    style={{ padding: "6px 12px", fontSize: "0.85rem" }}
                   >
                     {store.name}
                   </Link>

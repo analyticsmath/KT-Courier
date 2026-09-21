@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { StorefrontFilterInput } from "@/lib/storefront/search/storefront-filter-url";
@@ -57,6 +57,7 @@ function facetHref(
 
 export function DesktopFilterRail({ facets, filters, route }: DesktopFilterRailProps) {
   const router = useRouter();
+  const railRef = useRef<HTMLElement>(null);
   const [minPrice, setMinPrice] = useState(filters.minPrice ?? "");
   const [maxPrice, setMaxPrice] = useState(filters.maxPrice ?? "");
   const [showAllFacets, setShowAllFacets] = useState<Record<string, boolean>>({});
@@ -96,8 +97,22 @@ export function DesktopFilterRail({ facets, filters, route }: DesktopFilterRailP
     ...(route.kind === "store-category" ? { category: route.categoryPath } : {}),
   }) ?? marketplaceHref();
 
+  useEffect(() => {
+    const focusRail = () => {
+      const rail = railRef.current;
+      if (!rail) return;
+      rail.scrollIntoView({ behavior: "smooth", block: "start" });
+      rail.focus({ preventScroll: true });
+      rail.dataset.focused = "true";
+      window.setTimeout(() => { delete rail.dataset.focused; }, 1200);
+    };
+    window.addEventListener("kt:focus-desktop-filters", focusRail);
+    return () => window.removeEventListener("kt:focus-desktop-filters", focusRail);
+  }, []);
+
   return (
-    <aside aria-label="Filters" className={styles.plpFilterSidebar}>
+    <aside aria-label="Filters" className={styles.plpFilterSidebar} ref={railRef} tabIndex={-1}>
+      <div className={styles.desktopFilterRailHeader}>Filters</div>
       {/* Facet Groups with Show More Cap */}
       {facets.map((facet) => {
         const isShowingAll = showAllFacets[facet.code] ?? false;

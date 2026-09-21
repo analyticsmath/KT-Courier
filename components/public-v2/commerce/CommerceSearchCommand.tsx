@@ -69,6 +69,8 @@ export function CommerceSearchCommand({
   const listId = `${id}-suggestions`;
 
   useEffect(() => {
+    // The route query is the canonical value after a search navigation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVal(query);
     setActiveIndex(-1);
     setPayload(null);
@@ -195,9 +197,12 @@ export function CommerceSearchCommand({
           value={val}
         />
         {val ? <button type="button" aria-label="Clear search" className={styles.searchClearButton} onClick={() => { setVal(""); setActiveIndex(-1); }}><KtIconClose size={16} /></button> : null}
-        {showFilterButton ? <button type="button" aria-label="Toggle filters" className={styles.searchFilterButton} onClick={() => {
+        {showFilterButton ? <button type="button" aria-label="Focus filters" className={styles.searchFilterButton} onClick={() => {
           if (onToggleFilter) onToggleFilter();
-          else if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("kt:open-filter-sheet"));
+          else if (typeof window !== "undefined") {
+            const desktop = window.matchMedia("(min-width: 1024px)").matches;
+            window.dispatchEvent(new CustomEvent(desktop ? "kt:focus-desktop-filters" : "kt:open-filter-sheet"));
+          }
         }}><KtIconTune size={18} /></button> : null}
         <button aria-label="Submit search" className={styles.searchCommandButton} type="submit"><span>Search</span></button>
       </form>
