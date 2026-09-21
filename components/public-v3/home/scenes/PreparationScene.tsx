@@ -44,7 +44,7 @@ export function PreparationScene({ className = "" }: { className?: string }) {
           </div>
         </div>
         <div className={styles.preparationStreetTransition} data-preparation-street aria-hidden="true">
-          <Image src={street.src} alt="" fill sizes="100vw" className="object-cover object-top" />
+          <Image src={street.src} alt="" fill sizes="100vw" className="object-cover" />
         </div>
       </div>
     </section>

@@ -75,12 +75,6 @@ export function MarketplaceFivePanelScene({
   const displayItems = categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
   const activeIndex = Math.max(0, displayItems.findIndex(({ id }) => id === selectedMarketplaceId));
   const activeId = displayItems[activeIndex]?.id;
-  const activeItem = displayItems[activeIndex] ?? displayItems[0];
-  const portalItems = [...displayItems];
-  for (const item of FIVE_PANEL_MEDIA) {
-    if (portalItems.length >= 5) break;
-    if (!portalItems.some(({ id }) => id === item.id)) portalItems.push(item);
-  }
   const notifySelection = (id: string) => {
     onMarketplaceSelectionChange?.(id);
     window.dispatchEvent(new CustomEvent("kt-marketplace-user-selection", { detail: { id } }));
@@ -166,41 +160,6 @@ export function MarketplaceFivePanelScene({
           </div>
         </div>
 
-        <div className={styles.marketplacePortal} data-marketplace-portal aria-hidden="true">
-          <div className={styles.marketplacePortalConstellation}>
-            {portalItems.map((item) => (
-              <div
-                key={item.id}
-                data-marketplace-portal-support-id={item.id}
-                className={styles.marketplacePortalSupport}
-              >
-                <Image src={item.image} alt="" fill sizes="16vw" loading="eager" />
-              </div>
-            ))}
-            {activeItem ? (
-              <div
-                data-marketplace-portal-center
-                data-story-source="portal"
-                className={styles.marketplacePortalCenter}
-                style={{ backgroundImage: `url(${activeItem.image})` }}
-              >
-                <span>{activeItem.title}</span>
-              </div>
-            ) : null}
-          </div>
-          <p data-marketplace-portal-caption className={styles.marketplacePortalCaption}>From shelf to parcel.</p>
-        </div>
-
-        <div className={styles.marketplaceExitSlices} aria-hidden="true">
-          {Array.from({ length: 7 }, (_, index) => (
-            <span
-              key={index}
-              data-marketplace-exit-slice={index}
-              style={activeItem ? { backgroundImage: `url(${activeItem.image})` } : undefined}
-            />
-          ))}
-        </div>
-
         <div className={styles.marketplaceShopLink}>
           <Link href="/shop">
             {isStorefrontExposed ? "Browse all shops" : "Marketplace status"} <span aria-hidden="true">→</span>
@@ -208,5 +167,35 @@ export function MarketplaceFivePanelScene({
         </div>
       </div>
     </section>
+  );
+}
+
+/** The sole Marketplace exit: the selected card opens into moving media strips. */
+export function MarketplaceExitTransitionLayer({
+  categories,
+  selectedMarketplaceId,
+}: {
+  categories: readonly MarketplaceCategoryItem[];
+  selectedMarketplaceId?: string;
+}) {
+  const displayItems = categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
+  const activeItem = displayItems.find(({ id }) => id === selectedMarketplaceId) ?? displayItems[0];
+  const preparationImage = ktMediaV3.pages.homepage.preparation;
+
+  return (
+    <div className={styles.marketplaceExitSlices} data-marketplace-exit-slices aria-hidden="true">
+      {Array.from({ length: 7 }, (_, index) => (
+        <span key={index} data-marketplace-exit-slice={index}>
+          <i
+            data-marketplace-exit-outgoing
+            style={activeItem ? { backgroundImage: `url("${activeItem.image}")` } : undefined}
+          />
+          <i
+            data-marketplace-exit-incoming
+            style={{ backgroundImage: `url("${preparationImage.src}")` }}
+          />
+        </span>
+      ))}
+    </div>
   );
 }

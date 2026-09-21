@@ -4,22 +4,24 @@ import { clamp01, HOME_BEATS, range } from "./home-beats";
 import { routeTruckRotationForTangent } from "./home-frame-resolver";
 import { actorTargetForOffscreenEdge } from "./home-marketplace-geometry";
 
+export const JOURNEY_ROAD_OCCLUSION_THRESHOLD = 0.98;
+
 export type MotionOwner =
   | "none"
   | "market-rail"
-  | "market-portal"
-  | "market-exit-slices"
-  | "prep-media"
+  | "market-to-prep-strips"
+  | "prep-street"
   | "van"
   | "van-door"
   | "courier-approach"
   | "courier-lift"
+  | "courier-load"
   | "journey-road"
   | "route-truck"
+  | "freight-transition"
   | "freight-truck"
   | "freight-services"
-  | "destination-takeover"
-  | "arrival-courier"
+  | "handoff-takeover"
   | "finale-brand"
   | "finale-utility";
 
@@ -31,8 +33,9 @@ export type PostHeroActorKey =
   | "courier:loading-unloading"
   | "courier:ready-handover"
   | "white-truck:top-down-straight"
-  | "red-truck:side-right"
-  | "courier:extending-handoff";
+  | "red-truck:side-right";
+
+export type PostHeroActorName = "van" | "courier" | "white-truck" | "red-truck";
 
 export const POST_HERO_RESOLVER_ACTOR_STATES: readonly PostHeroActorKey[] = [
   "van:collection-side-right",
@@ -43,22 +46,22 @@ export const POST_HERO_RESOLVER_ACTOR_STATES: readonly PostHeroActorKey[] = [
   "courier:ready-handover",
   "white-truck:top-down-straight",
   "red-truck:side-right",
-  "courier:extending-handoff",
 ];
 
 export interface PostHeroActorPose {
   state: PostHeroActorKey;
   visible: boolean;
   xVw: number;
-  widthVw: number;
   groundY: number;
+  widthVw: number;
   rotation: number;
 }
+
+export type PostHeroActorFrames = Record<PostHeroActorName, PostHeroActorPose>;
 
 export interface MarketplaceFrame {
   activeIndex: number;
   positionIndex: number;
-  portalProgress: number;
   exitProgress: number;
   motionOwner: MotionOwner;
 }
@@ -67,7 +70,7 @@ export interface PostHeroFrame {
   chapter: HomeChapter;
   progress: number;
   motionOwner: MotionOwner;
-  actors: Partial<Record<"van" | "courier" | "white-truck" | "red-truck", PostHeroActorPose>>;
+  actors: PostHeroActorFrames;
   marketplace?: MarketplaceFrame;
   prepMediaProgress: number;
   streetReveal: number;
@@ -90,23 +93,32 @@ function smooth(progress: number): number {
   return progress * progress * (3 - 2 * progress);
 }
 
+function hiddenPose(state: PostHeroActorKey): PostHeroActorPose {
+  return { state, visible: false, xVw: 0, groundY: 0, widthVw: 0, rotation: 0 };
+}
+
+function initialActors(): PostHeroActorFrames {
+  return {
+    van: hiddenPose("van:collection-side-right"),
+    courier: hiddenPose("courier:look-right-approach"),
+    "white-truck": hiddenPose("white-truck:top-down-straight"),
+    "red-truck": hiddenPose("red-truck:side-right"),
+  };
+}
+
 export function resolveMarketplaceFrame(progress: number, categoryCount: number): MarketplaceFrame {
   const p = clamp01(progress);
   const count = Math.max(1, categoryCount);
-  const portalProgress = range(p, ...HOME_BEATS.marketplace.portalBuild);
   const exitProgress = range(p, ...HOME_BEATS.marketplace.exitSlices);
 
   if (count === 1 || p >= HOME_BEATS.marketplace.categoryTraversal[1]) {
     return {
       activeIndex: count - 1,
       positionIndex: count - 1,
-      portalProgress,
       exitProgress,
-      motionOwner: p >= HOME_BEATS.marketplace.mediaHandoff[0]
-        ? "prep-media"
-        : p >= HOME_BEATS.marketplace.exitSlices[0]
-          ? "market-exit-slices"
-          : p >= 0.84 ? "market-portal" : "none",
+      motionOwner: p >= HOME_BEATS.marketplace.exitSlices[0]
+        ? "market-to-prep-strips"
+        : "none",
     };
   }
 
@@ -138,13 +150,10 @@ export function resolveMarketplaceFrame(progress: number, categoryCount: number)
   return {
     activeIndex: Math.max(0, Math.min(count - 1, Math.round(positionIndex))),
     positionIndex,
-    portalProgress,
     exitProgress,
-    motionOwner: p >= HOME_BEATS.marketplace.mediaHandoff[0]
-      ? "prep-media"
-      : p >= HOME_BEATS.marketplace.exitSlices[0]
-        ? "market-exit-slices"
-        : p >= 0.84 ? "market-portal" : moving ? "market-rail" : "none",
+    motionOwner: p >= HOME_BEATS.marketplace.exitSlices[0]
+      ? "market-to-prep-strips"
+      : moving ? "market-rail" : "none",
   };
 }
 
@@ -159,7 +168,7 @@ export function resolvePostHeroFrame(
     chapter,
     progress: p,
     motionOwner: "none",
-    actors: {},
+    actors: initialActors(),
     prepMediaProgress: chapter === "preparation" ? range(p, ...HOME_BEATS.preparation.mediaTransfer) : 0,
     streetReveal: chapter === "preparation" ? range(p, ...HOME_BEATS.preparation.streetReveal) : 0,
     custodyProgress: 0,
@@ -175,7 +184,7 @@ export function resolvePostHeroFrame(
 
   if (chapter === "journey") {
     const beats = HOME_BEATS.journey;
-    const vanWidth = mobile ? 124 : 70;
+    const vanWidth = mobile ? 124 : 62;
     const vanEntryX = actorTargetForOffscreenEdge({
       definition: VAN_STATES["collection-side-right"],
       renderedWidth: vanWidth,
@@ -183,24 +192,27 @@ export function resolvePostHeroFrame(
       edge: "left",
       marginPx: 1,
     }) * 100;
-    const vanEndX = mobile ? 46 : 47;
+    const settledVanX = mobile ? 55 : 55;
     const vanEntry = smooth(range(p, ...beats.vanEntry));
-    const vanX = p < beats.vanBrake[0]
-      ? interpolate(vanEntryX, vanEndX, vanEntry)
-      : vanEndX;
-    const doorOpen = p >= beats.vanDoor[0] && p < beats.roadGrow[1];
-    if (p >= beats.vanEntry[0] && p < beats.roadGrow[1]) {
+    const vanBrake = smooth(range(p, ...beats.vanBrake));
+    const vanX = p < beats.vanEntry[1]
+      ? interpolate(vanEntryX, settledVanX, vanEntry)
+      : p < beats.vanBrake[1]
+        ? interpolate(settledVanX, settledVanX + 1.2, vanBrake)
+        : settledVanX + 1.2;
+
+    if (p >= beats.vanEntry[0] && p < beats.routeReveal[0]) {
       frame.actors.van = {
-        state: doorOpen ? "van:collection-door-open-right" : "van:collection-side-right",
+        state: p >= beats.vanDoor[0] ? "van:collection-door-open-right" : "van:collection-side-right",
         visible: true,
         xVw: vanX,
         widthVw: vanWidth,
-        groundY: mobile ? 0.79 : 0.84,
+        groundY: mobile ? 0.8 : 0.84,
         rotation: 0,
       };
     }
 
-    if (p >= beats.courierApproach[0] && p < beats.roadGrow[1]) {
+    if (p >= beats.courierApproach[0] && p < beats.routeReveal[0]) {
       const courierState: PostHeroActorKey = p >= beats.custodyHold[0]
         ? "courier:ready-handover"
         : p >= beats.parcelLoad[0]
@@ -208,34 +220,36 @@ export function resolvePostHeroFrame(
           : p >= beats.courierLift[0]
             ? "courier:lift-parcel"
             : "courier:look-right-approach";
+      const approach = smooth(range(p, ...beats.courierApproach));
       frame.actors.courier = {
         state: courierState,
         visible: true,
-        xVw: mobile ? 54 : 58,
-        widthVw: mobile ? 48 : 19,
-        groundY: mobile ? 0.79 : 0.84,
+        xVw: interpolate(mobile ? 12 : 24, mobile ? 42 : 45, approach),
+        widthVw: mobile ? 46 : 20,
+        groundY: mobile ? 0.8 : 0.84,
         rotation: 0,
       };
     }
 
-    frame.custodyProgress = range(p, ...beats.parcelLoad);
+    frame.custodyProgress = range(p, ...beats.custodyHold);
     frame.roadReveal = range(p, ...beats.roadGrow);
     frame.routeProgress = range(p, ...beats.routeTravel);
-    if (p >= beats.routeReveal[0]) {
+    if (p >= beats.routeReveal[0] && frame.roadReveal >= JOURNEY_ROAD_OCCLUSION_THRESHOLD) {
       frame.actors["white-truck"] = {
         state: "white-truck:top-down-straight",
-        visible: p < 1,
-        xVw: interpolate(mobile ? 26 : 20, mobile ? 64 : 72, smooth(frame.routeProgress)),
-        widthVw: mobile ? 33 : 28,
-        groundY: interpolate(0.63, 0.38, smooth(frame.routeProgress)),
+        visible: true,
+        xVw: interpolate(mobile ? -4 : -3, 104, smooth(range(p, ...beats.routeReveal))),
+        widthVw: mobile ? 28 : 15,
+        groundY: interpolate(0.72, 0.28, smooth(frame.routeProgress)),
         rotation: routeTruckRotationForTangent(-20),
       };
     }
 
-    if (p < beats.vanEntry[1] && p >= beats.vanEntry[0]) frame.motionOwner = "van";
+    if (p >= beats.vanEntry[0] && p < beats.vanEntry[1]) frame.motionOwner = "van";
     else if (p >= beats.vanDoor[0] && p < beats.courierApproach[0]) frame.motionOwner = "van-door";
     else if (p >= beats.courierApproach[0] && p < beats.courierLift[0]) frame.motionOwner = "courier-approach";
     else if (p >= beats.courierLift[0] && p < beats.parcelLoad[0]) frame.motionOwner = "courier-lift";
+    else if (p >= beats.parcelLoad[0] && p < beats.custodyHold[1]) frame.motionOwner = "courier-load";
     else if (p >= beats.roadGrow[0] && p < beats.routeReveal[0]) frame.motionOwner = "journey-road";
     else if (p >= beats.routeReveal[0]) frame.motionOwner = "route-truck";
     return frame;
@@ -243,7 +257,19 @@ export function resolvePostHeroFrame(
 
   if (chapter === "freight") {
     const beats = HOME_BEATS.freight;
-    const truckWidth = mobile ? 136 : 68;
+    if (p < beats.routeContinuation[1]) {
+      const exit = smooth(range(p, ...beats.routeContinuation));
+      frame.actors["white-truck"] = {
+        state: "white-truck:top-down-straight",
+        visible: true,
+        xVw: interpolate(88, 104, exit),
+        widthVw: mobile ? 28 : 15,
+        groundY: interpolate(0.28, 0.17, exit),
+        rotation: routeTruckRotationForTangent(-10),
+      };
+    }
+
+    const truckWidth = mobile ? 136 : 72;
     const truckEntryX = actorTargetForOffscreenEdge({
       definition: RED_TRUCK_STATES["side-right"],
       renderedWidth: truckWidth,
@@ -256,60 +282,41 @@ export function resolvePostHeroFrame(
     if (p < beats.truckEntry[1]) {
       truckX = interpolate(truckEntryX, settledX, smooth(range(p, ...beats.truckEntry)));
     } else if (p >= beats.truckResume[0] && p < beats.truckResume[1]) {
-      truckX = interpolate(settledX, mobile ? 160 : 145, smooth(range(p, ...beats.truckResume)));
+      truckX = interpolate(settledX, mobile ? 164 : 146, smooth(range(p, ...beats.truckResume)));
+    } else if (p >= beats.truckResume[1]) {
+      truckX = mobile ? 164 : 146;
     }
 
-    if (p >= beats.truckEntry[0] && p < beats.destinationTakeover[1]) {
+    if (p >= beats.truckEntry[0] && p < beats.destinationTakeover[0]) {
       frame.actors["red-truck"] = {
         state: "red-truck:side-right",
-        visible: p < 0.96,
+        visible: true,
         xVw: truckX,
         widthVw: truckWidth,
-        groundY: mobile ? 0.8 : 0.84,
+        groundY: mobile ? 0.76 : 0.74,
         rotation: 0,
       };
     }
     frame.servicesProgress = range(p, ...beats.servicesRise);
     frame.destinationProgress = range(p, ...beats.destinationTakeover);
-    if (p >= beats.truckEntry[0] && p < beats.truckBrake[1]) frame.motionOwner = "freight-truck";
+
+    if (p < beats.environment[1]) frame.motionOwner = "freight-transition";
+    else if (p >= beats.truckEntry[0] && p < beats.truckBrake[1]) frame.motionOwner = "freight-truck";
     else if (p >= beats.servicesRise[0] && p < beats.servicesRise[1]) frame.motionOwner = "freight-services";
     else if (p >= beats.truckResume[0] && p < beats.truckResume[1]) frame.motionOwner = "freight-truck";
-    else if (p >= beats.destinationTakeover[0]) frame.motionOwner = "destination-takeover";
+    else if (p >= beats.destinationTakeover[0]) frame.motionOwner = "handoff-takeover";
     return frame;
   }
 
-  const beats = HOME_BEATS.finale;
-  frame.handoffProgress = range(p, ...beats.courierHandoff);
-  frame.brandProgress = range(p, ...beats.brandRise);
-  frame.utilityProgress = range(p, ...beats.utilityReveal);
-  frame.legalProgress = range(p, ...beats.legalReveal);
-  if (p >= beats.arrivalFade[0] && p < beats.utilityReveal[0]) {
-    frame.motionOwner = "finale-brand";
-  }
-  if (p >= beats.courierHandoff[0] && p < beats.brandRise[0]) {
-    frame.actors.courier = {
-      state: "courier:extending-handoff",
-      visible: true,
-      xVw: interpolate(mobile ? 113 : 108, mobile ? 58 : 67, smooth(frame.handoffProgress)),
-      widthVw: mobile ? 52 : 20,
-      groundY: mobile ? 0.81 : 0.85,
-      rotation: 0,
-    };
-    frame.motionOwner = "arrival-courier";
-  } else if (p >= beats.brandRise[0] && p < beats.arrivalFade[1]) {
-    frame.motionOwner = "finale-brand";
-  } else if (p >= beats.utilityReveal[0]) {
-    frame.motionOwner = "finale-utility";
+  if (chapter === "finale") {
+    const beats = HOME_BEATS.finale;
+    frame.handoffProgress = range(p, ...beats.arrivalWorld);
+    frame.brandProgress = range(p, ...beats.brandRise);
+    frame.utilityProgress = range(p, ...beats.utilityReveal);
+    frame.legalProgress = range(p, ...beats.legalReveal);
+    if (p >= beats.brandRise[0] && p < beats.utilityReveal[0]) frame.motionOwner = "finale-brand";
+    if (p >= beats.utilityReveal[0]) frame.motionOwner = "finale-utility";
   }
 
   return frame;
-}
-
-export function resolveHomeChapter(
-  chapter: HomeChapter,
-  progress: number,
-  viewportMode: "mobile" | "desktop",
-): PostHeroFrame | null {
-  if (chapter === "hero") return null;
-  return resolvePostHeroFrame(chapter, progress, viewportMode);
 }

@@ -23,8 +23,8 @@ export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
   hero: 260,
   marketplace: 100,
   preparation: 105,
-  journey: 260,
-  freight: 208,
+  journey: 290,
+  freight: 210,
   finale: 150,
 };
 

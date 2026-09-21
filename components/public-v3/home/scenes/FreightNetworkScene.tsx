@@ -3,9 +3,7 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import { ktMediaV3 } from "../../media/kt-media-v3";
-import { POST_HERO_RESOLVER_ACTOR_STATES } from "../director/post-hero-frame-resolver";
 import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
-import { PostHeroActorBank } from "../actors/PostHeroActorSprite";
 import styles from "../post-hero-scenes.module.css";
 
 const SERVICES = [
@@ -16,8 +14,7 @@ const SERVICES = [
 ];
 
 export function FreightNetworkScene({ className = "" }: { className?: string }) {
-  const route = ktMediaV3.pages.homepage.routePlane;
-  const destination = ktMediaV3.pages.homepage.arrival.background;
+  const destination = ktMediaV3.editorial.courier.physicalHandoff;
   const style = {
     "--kt-home-budget": `${chapterBudgetVh("freight")}svh`,
     "--kt-home-mobile-budget": `${mobileChapterBudgetVh("freight")}svh`,
@@ -32,22 +29,11 @@ export function FreightNetworkScene({ className = "" }: { className?: string }) 
       style={style}
     >
       <div className={styles.freightStickyStage} data-home-sticky-stage>
-        <div className={styles.freightRoad}>
-          <Image src={route.src} alt="" fill sizes="100vw" className="object-cover object-center" />
-          <div />
-        </div>
         <p className={styles.freightBackdropWord} aria-hidden="true">FREIGHT</p>
         <div className={styles.freightHeading}>
           <p>Across the network</p>
           <h2 id="freight-heading">Built for more than small parcels.</h2>
         </div>
-
-        <PostHeroActorBank
-          actor="red-truck"
-          scene="freight"
-          states={POST_HERO_RESOLVER_ACTOR_STATES.filter((state) => state.startsWith("red-truck:"))}
-          className={styles.freightTruck}
-        />
 
         <div className={styles.freightServicePlane} data-motion="freight-services">
           <div className={styles.freightServiceIntro}>

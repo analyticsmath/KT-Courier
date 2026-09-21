@@ -16,7 +16,6 @@ export const POST_HERO_ACTOR_ASSETS: Record<PostHeroActorKey, ActorStateDefiniti
   "courier:ready-handover": COURIER_STATES["ready-handover"],
   "white-truck:top-down-straight": WHITE_TRUCK_STATES["top-down-straight"],
   "red-truck:side-right": RED_TRUCK_STATES["side-right"],
-  "courier:extending-handoff": COURIER_STATES["extending-handoff"],
 };
 
 export type PostHeroActorStatus = "idle" | "loading" | "ready" | "error";
@@ -32,6 +31,18 @@ export function getPostHeroActorStatus(key: PostHeroActorKey): PostHeroActorStat
   return statuses.get(key) ?? "idle";
 }
 
+export function markPostHeroActorReady(key: PostHeroActorKey): void {
+  statuses.set(key, "ready");
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("kt-posthero-actor-ready"));
+}
+
+export function markPostHeroActorError(key: PostHeroActorKey): void {
+  statuses.set(key, "error");
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(`[PostHeroActor] Could not load ${key} (${POST_HERO_ACTOR_ASSETS[key].webpSrc}).`);
+  }
+}
+
 /** Decode a critical actor asset before the scroll director can reveal its slot. */
 export function preloadPostHeroActor(key: PostHeroActorKey): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
@@ -45,21 +56,18 @@ export function preloadPostHeroActor(key: PostHeroActorKey): Promise<boolean> {
     const image = new window.Image();
     image.decoding = "async";
     image.onload = () => {
-      statuses.set(key, "ready");
+      markPostHeroActorReady(key);
       resolve(true);
     };
     image.onerror = () => {
-      statuses.set(key, "error");
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(`[PostHeroActor] Could not preload ${key} (${definition.webpSrc}).`);
-      }
+      markPostHeroActorError(key);
       resolve(false);
     };
     image.src = definition.webpSrc;
     if (typeof image.decode === "function") {
       void image.decode().then(() => {
         if (image.naturalWidth > 0) {
-          statuses.set(key, "ready");
+          markPostHeroActorReady(key);
           resolve(true);
         }
       }).catch(() => {
@@ -71,7 +79,7 @@ export function preloadPostHeroActor(key: PostHeroActorKey): Promise<boolean> {
   return request;
 }
 
-const CHAPTER_ACTOR_ASSETS: Record<"journey" | "freight" | "finale", readonly PostHeroActorKey[]> = {
+const CHAPTER_ACTOR_ASSETS: Record<"journey" | "freight", readonly PostHeroActorKey[]> = {
   journey: [
     "van:collection-side-right",
     "van:collection-door-open-right",
@@ -81,7 +89,6 @@ const CHAPTER_ACTOR_ASSETS: Record<"journey" | "freight" | "finale", readonly Po
     "courier:ready-handover",
   ],
   freight: ["white-truck:top-down-straight", "red-truck:side-right"],
-  finale: ["courier:extending-handoff"],
 };
 
 export function postHeroActorsForChapter(chapter: keyof typeof CHAPTER_ACTOR_ASSETS): readonly PostHeroActorKey[] {

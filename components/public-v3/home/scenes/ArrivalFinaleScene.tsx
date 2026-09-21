@@ -4,13 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { ktMediaV3 } from "../../media/kt-media-v3";
-import { POST_HERO_RESOLVER_ACTOR_STATES } from "../director/post-hero-frame-resolver";
 import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
-import { PostHeroActorBank } from "../actors/PostHeroActorSprite";
 import styles from "../post-hero-scenes.module.css";
 
 export function ArrivalFinaleScene({ className = "" }: { className?: string }) {
-  const arrival = ktMediaV3.pages.homepage.arrival.background;
+  const arrival = ktMediaV3.editorial.courier.physicalHandoff;
   const style = {
     "--kt-home-budget": `${chapterBudgetVh("finale")}svh`,
     "--kt-home-mobile-budget": `${mobileChapterBudgetVh("finale")}svh`,
@@ -32,13 +30,6 @@ export function ArrivalFinaleScene({ className = "" }: { className?: string }) {
           <div />
         </div>
         <p className={styles.finaleDelivered} data-finale-delivered>Delivered.</p>
-        <PostHeroActorBank
-          actor="courier"
-          scene="finale"
-          states={POST_HERO_RESOLVER_ACTOR_STATES.filter((state) => state === "courier:extending-handoff")}
-          className={styles.finaleCourier}
-        />
-
         <div className={styles.finaleBrandHorizon} data-finale-brand-horizon aria-hidden="true" />
         <div className={styles.finaleIdentity}>
           <h2 data-motion="finale-title" className={styles.finaleTitle}>

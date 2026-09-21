@@ -20,10 +20,11 @@ import { resolveMarketplaceFrame, resolvePostHeroFrame, type PostHeroActorPose, 
 import {
   isPostHeroActorReady,
   POST_HERO_ACTOR_ASSETS,
-  preloadPostHeroActor,
+  markPostHeroActorReady,
   preloadPostHeroActorsForChapter,
 } from "../actors/post-hero-actor-preload";
-import type { PostHeroActorKey } from "./post-hero-frame-resolver";
+import { resolvePostHeroActorLifecycle } from "../actors/post-hero-cinematic-runtime";
+import type { PostHeroActorKey, PostHeroActorName } from "./post-hero-frame-resolver";
 
 if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 
@@ -104,40 +105,31 @@ export function useHomeNarrativeDirector({
       .filter((entry): entry is { section: HTMLElement; chapter: HomeChapter } => entry.chapter !== null)
       .sort((a, b) => HOME_CHAPTERS.indexOf(a.chapter) - HOME_CHAPTERS.indexOf(b.chapter));
 
-    const localSlots = Array.from(root.querySelectorAll<HTMLElement>("[data-posthero-actor-slot]"));
-    const localLayers = new Map<string, HTMLImageElement>();
-    localSlots.forEach((slot) => {
-      const scene = slot.dataset.postheroScene ?? "";
-      const actor = slot.dataset.postheroActorSlot ?? "";
+    const postHeroStage = root.querySelector<HTMLElement>("[data-posthero-cinematic-layer]");
+    const postHeroSlots = new Map<PostHeroActorName, HTMLElement>();
+    const postHeroLayers = new Map<PostHeroActorKey, HTMLImageElement>();
+    postHeroStage?.querySelectorAll<HTMLElement>("[data-posthero-actor-slot]").forEach((slot) => {
+      const actor = slot.dataset.postheroActorSlot as PostHeroActorName | undefined;
+      if (actor) postHeroSlots.set(actor, slot);
       slot.querySelectorAll<HTMLImageElement>("[data-posthero-actor-state]").forEach((image) => {
-        const key = image.dataset.postheroActorState;
-        if (key) localLayers.set(`${scene}:${actor}:${key}`, image);
+        const state = image.dataset.postheroActorState as PostHeroActorKey | undefined;
+        if (state) {
+          postHeroLayers.set(state, image);
+          if (image.complete && image.naturalWidth > 0) markPostHeroActorReady(state);
+        }
         gsap.set(image, { opacity: 0, visibility: "visible" });
       });
       gsap.set(slot, { opacity: 0, visibility: "hidden" });
     });
-    void Promise.all([
-      preloadPostHeroActorsForChapter("journey"),
-      preloadPostHeroActorsForChapter("freight"),
-      preloadPostHeroActorsForChapter("finale"),
-    ]);
+    if (postHeroStage) gsap.set(postHeroStage, { opacity: 0, visibility: "hidden" });
+    void preloadPostHeroActorsForChapter("journey");
 
-    const storyMediaLayer = root.querySelector<HTMLElement>("[data-persistent-story-media]");
-    const storyMediaFrame = root.querySelector<HTMLElement>("[data-story-media-frame]");
-    const storyMediaImages = new Map<string, HTMLImageElement>();
-    root.querySelectorAll<HTMLImageElement>("[data-story-media-id]").forEach((image) => {
-      const id = image.dataset.storyMediaId;
-      if (id) storyMediaImages.set(id, image);
-    });
     const marketplaceSection = root.querySelector<HTMLElement>("[data-kt-scene='marketplace']");
     const marketRailWrapper = root.querySelector<HTMLElement>("[data-marketplace-rail-wrapper]");
     const marketRail = root.querySelector<HTMLElement>("[data-motion='market-rail']");
     const marketCards = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-panel-id]"));
-    const marketPortal = root.querySelector<HTMLElement>("[data-marketplace-portal]");
-    const marketPortalCenter = root.querySelector<HTMLElement>("[data-marketplace-portal-center]");
-    const marketSupports = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-portal-support-id]"));
     const marketExitSlices = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-exit-slice]"));
-    const prepTarget = root.querySelector<HTMLElement>("[data-preparation-target]");
+    const marketExitLayer = root.querySelector<HTMLElement>("[data-marketplace-exit-slices]");
     const prepPhoto = root.querySelector<HTMLElement>("[data-preparation-target]");
     const prepStreet = root.querySelector<HTMLElement>("[data-preparation-street]");
     const journeyRoad = root.querySelector<HTMLElement>("[data-journey-road]");
@@ -167,7 +159,6 @@ export function useHomeNarrativeDirector({
     const categoryIds = categories.map(({ id }) => id);
     const sceneRanges: SceneRange[] = [];
     const marketCardCenters: number[] = [];
-    const activeActorState = new Map<string, PostHeroActorKey>();
     let activeSelectionId: string | null = null;
     let marketplaceManualSelectionId: string | null = null;
     let frozenExitSelectionId: string | null = null;
@@ -183,6 +174,7 @@ export function useHomeNarrativeDirector({
     let routePathLength = 0;
     let routeViewBox = { width: 1000, height: 800 };
     let marketplaceKeyboardLock = false;
+    let freightPackStarted = false;
 
     const requestHeroImageDecode = (image?: HTMLImageElement, priority: "high" | "auto" = "auto") => {
       if (!image) return;
@@ -203,13 +195,6 @@ export function useHomeNarrativeDirector({
       activeSelectionId = id;
       root.dataset.selectedMarketplaceId = id;
       root.dataset.homeSelectedMarketplaceId = id;
-      storyMediaImages.forEach((image, imageId) => {
-        gsap.set(image, { autoAlpha: imageId === id ? 1 : 0 });
-        if (imageId === id) {
-          image.loading = "eager";
-          image.fetchPriority = "high";
-        }
-      });
       onMarketplaceSelectionChange?.(id);
     };
 
@@ -330,61 +315,58 @@ export function useHomeNarrativeDirector({
       };
     };
 
-    const hideLocalActorSlots = () => {
-      localSlots.forEach((slot) => gsap.set(slot, { autoAlpha: 0, visibility: "hidden" }));
-    };
-
     const actorReady = (key: PostHeroActorKey, image: HTMLImageElement | undefined) =>
       isPostHeroActorReady(key) || Boolean(image?.complete && image.naturalWidth > 0);
 
-    const placeLocalActor = (chapter: PostHeroChapter, actor: string, pose: PostHeroActorPose) => {
-      const slot = localSlots.find((item) => item.dataset.postheroScene === chapter && item.dataset.postheroActorSlot === actor);
+    const placePersistentActor = (actor: PostHeroActorName, pose: PostHeroActorPose) => {
+      const slot = postHeroSlots.get(actor);
       if (!slot) return;
-      const cacheKey = `${chapter}:${actor}`;
-      const imageKey = `${chapter}:${actor}:${pose.state}`;
-      const requestedLayer = localLayers.get(imageKey);
-      const ready = actorReady(pose.state, requestedLayer);
-      let displayedState = pose.state;
+      const previousDisplayed = slot.dataset.postheroDisplayedState as PostHeroActorKey | undefined;
+      const previousRequested = slot.dataset.postheroRequestedState as PostHeroActorKey | undefined;
+      const previous = previousRequested
+        ? {
+            requestedState: previousRequested,
+            displayedState: previousDisplayed || null,
+            pendingState: (slot.dataset.postheroPendingState as PostHeroActorKey | "") || null,
+            visible: slot.dataset.postheroVisible === "true",
+          }
+        : undefined;
+      const requestedLayer = postHeroLayers.get(pose.state);
+      const lifecycle = resolvePostHeroActorLifecycle({
+        requestedState: pose.state,
+        requestedReady: actorReady(pose.state, requestedLayer),
+        previous,
+        visible: pose.visible,
+      });
+      const layer = postHeroLayers.get(lifecycle.displayedState);
+      const definition = POST_HERO_ACTOR_ASSETS[lifecycle.displayedState];
 
-      if (!ready) {
-        const pendingState = slot.dataset.postheroPendingState;
-        if (pendingState !== pose.state) {
-          slot.dataset.postheroPendingState = pose.state;
-          void preloadPostHeroActor(pose.state).then((loaded) => {
-            if (!loaded) return;
-            const currentScene = root.dataset.homeChapter;
-            const currentState = slot.dataset.postheroPendingState;
-            if (currentScene === chapter && currentState === pose.state) scheduleFrame();
-          });
-        }
-        const priorState = activeActorState.get(cacheKey);
-        const readyFallback = Array.from(localLayers.entries()).find(([key, image]) =>
-          key.startsWith(`${chapter}:${actor}:`) && actorReady(image.dataset.postheroActorState as PostHeroActorKey, image),
-        )?.[0].split(":").slice(2).join(":") as PostHeroActorKey | undefined;
-        displayedState = priorState ?? readyFallback ?? pose.state;
-      } else {
-        activeActorState.set(cacheKey, pose.state);
-        slot.dataset.postheroPendingState = "";
-      }
+      slot.dataset.postheroExpectedActor = actor;
+      slot.dataset.postheroRequestedState = lifecycle.requestedState;
+      slot.dataset.postheroDisplayedState = lifecycle.displayedState;
+      slot.dataset.postheroPendingState = lifecycle.pendingState ?? "";
+      slot.dataset.postheroStateReady = String(lifecycle.stateReady);
+      slot.dataset.postheroVisible = String(lifecycle.visible);
 
-      const layerKey = `${chapter}:${actor}:${displayedState}`;
-      const layer = localLayers.get(layerKey);
-      if (!layer || !actorReady(displayedState, layer)) {
-        gsap.set(slot, { autoAlpha: 0, visibility: "hidden" });
-        return;
-      }
       slot.querySelectorAll<HTMLImageElement>("[data-posthero-actor-state]").forEach((image) => {
+        const state = image.dataset.postheroActorState as PostHeroActorKey;
+        const ready = actorReady(state, image);
+        image.dataset.postheroActorStatus = ready ? "ready" : "loading";
         gsap.set(image, { opacity: image === layer ? 1 : 0, visibility: "visible" });
-        image.dataset.postheroActorStatus = actorReady(image.dataset.postheroActorState as PostHeroActorKey, image) ? "ready" : "loading";
       });
 
-      const visibleStateDefinition = POST_HERO_ACTOR_ASSETS[displayedState];
+      if (!lifecycle.visible) {
+        slot.dataset.postheroSlotOpacity = "0";
+        gsap.set(slot, { opacity: 0, visibility: "hidden" });
+        return;
+      }
+
       const displayWidth = window.innerWidth * pose.widthVw / 100;
-      const displayHeight = displayWidth / Math.max(0.01, visibleStateDefinition.aspectRatio);
+      const displayHeight = displayWidth / Math.max(0.01, definition.aspectRatio);
       const aligned = alignGroundContact({
         width: displayWidth,
         height: displayHeight,
-        groundContact: visibleStateDefinition.groundContact,
+        groundContact: definition.groundContact,
         target: {
           x: window.innerWidth * pose.xVw / 100,
           y: window.innerHeight * pose.groundY,
@@ -398,39 +380,43 @@ export function useHomeNarrativeDirector({
         rotation: pose.rotation,
         scale: 1,
         transformOrigin: "0 0",
-        autoAlpha: 1,
+        opacity: 1,
         visibility: "visible",
       });
-      slot.dataset.postheroActorState = displayedState;
-      slot.dataset.postheroRequestedState = pose.state;
-      slot.dataset.postheroActorReady = String(actorReady(displayedState, layer));
+      slot.dataset.postheroSlotOpacity = "1";
+      slot.dataset.postheroX = aligned.left.toFixed(1);
+      slot.dataset.postheroY = aligned.top.toFixed(1);
+      slot.dataset.postheroWidth = displayWidth.toFixed(1);
+
+      const stateChanged = previousDisplayed !== lifecycle.displayedState || previous?.visible !== true;
+      if (process.env.NODE_ENV !== "production" && stateChanged) {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+          if (!slot.isConnected || slot.dataset.postheroRequestedState !== pose.state) return;
+          const rect = slot.getBoundingClientRect();
+          const opacity = Number.parseFloat(slot.style.opacity || "1");
+          if (opacity <= 0 || rect.width <= 0 || rect.height <= 0) {
+            if (slot.dataset.postheroWarnedState !== pose.state) {
+              slot.dataset.postheroWarnedState = pose.state;
+              console.warn(`[PostHeroActor] ${actor} should be visible in ${pose.state}, but its slot has no visible geometry.`);
+            }
+          } else {
+            slot.dataset.postheroWarnedState = "";
+          }
+        }));
+      }
     };
 
     const updateSceneLayers = (frame: PostHeroFrame) => {
       if (frame.chapter === "preparation") {
-        styleOpacity(prepStreet, frame.streetReveal, {
-          height: `${interpolate(7, window.innerHeight * 0.35, frame.streetReveal)}px`,
-        });
-        if (prepPhoto) gsap.set(prepPhoto, { autoAlpha: interpolate(0.72, 1, range(frame.progress, 0, 0.18)) });
-        if (storyMediaLayer && storyMediaFrame) {
-          const mediaProgress = frame.prepMediaProgress;
-          const target = prepPhoto?.getBoundingClientRect();
-          if (target && mediaProgress < 1) {
-            gsap.set(storyMediaLayer, { visibility: "visible" });
-            gsap.set(storyMediaFrame, {
-              left: target.left,
-              top: target.top,
-              width: target.width,
-              height: target.height,
-              autoAlpha: 1 - mediaProgress,
-            });
-          } else {
-            gsap.set(storyMediaLayer, { visibility: "hidden" });
-            gsap.set(storyMediaFrame, { autoAlpha: 0 });
-          }
+        if (prepStreet) {
+          gsap.set(prepStreet, {
+            clipPath: `inset(${(1 - frame.streetReveal) * 100}% 0 0 0)`,
+            autoAlpha: frame.streetReveal > 0 ? 1 : 0,
+          });
         }
+        if (prepPhoto) gsap.set(prepPhoto, { autoAlpha: interpolate(0.72, 1, range(frame.progress, 0, 0.18)) });
       } else {
-        styleOpacity(prepStreet, 0, { height: 0 });
+        if (prepStreet) gsap.set(prepStreet, { clipPath: "inset(100% 0 0 0)", autoAlpha: 0 });
         if (prepPhoto) gsap.set(prepPhoto, { autoAlpha: 1 });
       }
 
@@ -465,9 +451,9 @@ export function useHomeNarrativeDirector({
       if (frame.chapter === "finale") {
         const brand = frame.brandProgress;
         if (finaleArrival) gsap.set(finaleArrival, { autoAlpha: 1 - range(frame.progress, ...HOME_BEATS.finale.arrivalFade) });
-        if (finaleBrandHorizon) gsap.set(finaleBrandHorizon, { height: `${brand * 100}%` });
+        if (finaleBrandHorizon) gsap.set(finaleBrandHorizon, { height: `${brand * 72}%` });
         if (finaleTitle) gsap.set(finaleTitle, { yPercent: 85 * (1 - brand), autoAlpha: range(brand, 0.18, 0.52) });
-        if (finaleDelivered) gsap.set(finaleDelivered, { autoAlpha: 1 - range(frame.progress, ...HOME_BEATS.finale.deliveredHold) });
+        if (finaleDelivered) gsap.set(finaleDelivered, { autoAlpha: range(frame.progress, ...HOME_BEATS.finale.delivered) * (1 - range(frame.progress, ...HOME_BEATS.finale.brandRise)) });
         styleOpacity(finaleUtility, frame.utilityProgress, { y: interpolate(16, 0, frame.utilityProgress) });
         styleOpacity(finaleLegal, frame.legalProgress, { y: interpolate(10, 0, frame.legalProgress) });
       } else {
@@ -485,29 +471,26 @@ export function useHomeNarrativeDirector({
       const frame = resolveMarketplaceFrame(progress, categories.length);
       const railFocused = marketplaceKeyboardLock && Boolean(marketRailWrapper?.contains(document.activeElement));
       const manualIndex = marketplaceManualSelectionId ? categoryIds.indexOf(marketplaceManualSelectionId) : -1;
-      const portalIndex = progress >= 0.84 && manualIndex >= 0 ? manualIndex : frame.activeIndex;
-      if (progress < 0.91) frozenExitSelectionId = null;
+      const selectedIndex = progress >= HOME_BEATS.marketplace.finalCardHold[0] && manualIndex >= 0
+        ? manualIndex
+        : frame.activeIndex;
+      if (progress < HOME_BEATS.marketplace.exitSlices[0]) frozenExitSelectionId = null;
 
       if (nativeMarketplace) {
         syncNativeMarketplace();
-      } else if (marketRail && progress < 0.84) {
+      } else if (marketRail) {
         gsap.set(marketRail, { x: marketplaceTrackX(marketCardCenters, frame.positionIndex, window.innerWidth / 2) });
-        if (!railFocused) setMarketplaceActive(frame.activeIndex);
-      } else if (progress >= 0.84 && progress < 0.91) {
-        if (marketRail && manualIndex >= 0) {
-          gsap.set(marketRail, { x: marketplaceTrackX(marketCardCenters, portalIndex, window.innerWidth / 2) });
-        }
-        if (!railFocused) setMarketplaceActive(portalIndex);
+        if (!railFocused) setMarketplaceActive(selectedIndex);
       }
 
       const visualIndex = nativeMarketplace
         ? Math.max(0, categories.findIndex(({ id }) => id === activeSelectionId))
-        : progress >= 0.84 ? portalIndex : frame.positionIndex;
+        : progress >= HOME_BEATS.marketplace.finalCardHold[0] ? selectedIndex : frame.positionIndex;
       marketCards.forEach((card, index) => {
         card.dataset.marketplaceDistance = String(Math.round(Math.abs(index - visualIndex)));
       });
 
-      if (progress >= 0.91 && !frozenExitSelectionId) {
+      if (progress >= HOME_BEATS.marketplace.exitSlices[0] && !frozenExitSelectionId) {
         const chosen = marketplaceManualSelectionId
           ?? (nativeMarketplace
           ? activeSelectionId ?? categories[0]?.id
@@ -517,76 +500,68 @@ export function useHomeNarrativeDirector({
         frozenExitSelectionId = chosen ?? null;
         if (frozenExitSelectionId) setMarketplaceSelection(frozenExitSelectionId);
       }
-      const selectionId = progress >= 0.91
+      const selectionId = progress >= HOME_BEATS.marketplace.exitSlices[0]
         ? frozenExitSelectionId
-        : progress >= 0.84 && marketplaceManualSelectionId
+        : progress >= HOME_BEATS.marketplace.finalCardHold[0] && marketplaceManualSelectionId
           ? marketplaceManualSelectionId
           : railFocused && activeSelectionId
           ? activeSelectionId
           : activeSelectionId ?? categories[frame.activeIndex]?.id;
       if (selectionId) setMarketplaceSelection(selectionId);
 
-      const portalProgress = range(progress, 0.84, 0.875);
-      styleOpacity(marketPortal, portalProgress);
-      if (marketPortal) gsap.set(marketPortal, { visibility: portalProgress > 0 ? "visible" : "hidden" });
-      if (marketRail) gsap.set(marketRail, { autoAlpha: 1 - portalProgress });
-      const supportCandidates = marketSupports.filter((support) => support.dataset.marketplacePortalSupportId !== selectionId).slice(0, 4);
-      const visibleSupports = new Set(supportCandidates);
-      marketSupports.forEach((support) => {
-        const index = supportCandidates.indexOf(support);
-        if (!visibleSupports.has(support)) {
-          delete support.dataset.marketplaceSupportSlot;
-          gsap.set(support, { autoAlpha: 0 });
-          return;
-        }
-        const side = index < 2 ? -1 : 1;
-        const depth = index % 2 === 0 ? 1 : 0.78;
-        support.dataset.marketplaceSupportSlot = String(index);
-        gsap.set(support, {
-          x: side * (window.innerWidth * 0.12 + index * 4),
-          y: interpolate(24, 0, portalProgress) + (index % 2 ? 18 : -8),
-          scale: interpolate(0.82, depth, portalProgress),
-          autoAlpha: portalProgress,
-        });
-      });
-      const exitProgress = range(progress, ...HOME_BEATS.marketplace.exitSlices);
+      const exitProgress = frame.exitProgress;
       const centerOutOrder = [3, 4, 2, 5, 1, 6, 0];
       const mobileExit = window.innerWidth <= 899 && !prefersReducedMotion;
       const exitOrder = mobileExit ? [2, 1, 3, 0, 4] : centerOutOrder;
       const exitSliceCount = mobileExit ? 5 : 7;
-      marketExitSlices.forEach((slice, index) => {
-        const order = exitOrder.indexOf(index);
-        const local = order < 0 ? 0 : clamp01((exitProgress - order * (mobileExit ? 0.08 : 0.055)) / 0.48);
-        gsap.set(slice, {
-          autoAlpha: local,
-          clipPath: `inset(0 ${(1 - local) * 50}% 0 ${(1 - local) * 50}%)`,
-          backgroundSize: `${exitSliceCount * 100}% 100%`,
-          backgroundPosition: `${(index / (exitSliceCount - 1)) * 100}% 50%`,
-        });
-      });
+      const exitActive = progress >= HOME_BEATS.marketplace.exitSlices[0] && !prefersReducedMotion;
+      if (!exitActive || !marketExitLayer || !frozenExitSelectionId) {
+        if (marketExitLayer) gsap.set(marketExitLayer, { visibility: "hidden" });
+        marketExitSlices.forEach((slice) => gsap.set(slice, { opacity: 0, visibility: "hidden" }));
+        if (marketRail) gsap.set(marketRail, { autoAlpha: 1 });
+      } else {
+        const activeCard = marketCards.find((card) => card.dataset.marketplacePanelId === frozenExitSelectionId);
+        const source = activeCard?.getBoundingClientRect();
+        if (source && source.width > 0 && source.height > 0) {
+          const frameProgress = smooth(range(exitProgress, 0, 0.96));
+          const frameLeft = interpolate(source.left, 0, frameProgress);
+          const frameTop = interpolate(source.top, 0, frameProgress);
+          const frameWidth = interpolate(source.width, window.innerWidth, frameProgress);
+          const frameHeight = interpolate(source.height, window.innerHeight, frameProgress);
+          const imageBlend = smooth(range(exitProgress, 0.18, 0.86));
+          gsap.set(marketExitLayer, { visibility: "visible" });
+          if (marketRail) gsap.set(marketRail, { autoAlpha: 1 - range(exitProgress, 0, 0.14) });
 
-      if (storyMediaLayer && storyMediaFrame) {
-        const isHandoff = progress >= HOME_BEATS.marketplace.mediaHandoff[0];
-        const id = isHandoff ? frozenExitSelectionId : selectionId;
-        storyMediaImages.forEach((image, imageId) => gsap.set(image, { autoAlpha: imageId === id ? 1 : 0 }));
-        if (isHandoff && id) {
-          const source = marketPortalCenter?.getBoundingClientRect() ?? marketCards.find((card) => card.dataset.marketplacePanelId === id)?.getBoundingClientRect();
-          const target = prepTarget?.getBoundingClientRect();
-          const handoff = range(progress, ...HOME_BEATS.marketplace.mediaHandoff);
-          if (source && target) {
-            gsap.set(storyMediaLayer, { visibility: "visible" });
-            gsap.set(storyMediaFrame, {
-              left: interpolate(0, target.left, handoff),
-              top: interpolate(0, target.top, handoff),
-              width: interpolate(window.innerWidth, target.width, handoff),
-              height: interpolate(window.innerHeight, target.height, handoff),
-              autoAlpha: 1,
-            });
-            if (handoff === 0) gsap.set(storyMediaFrame, { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
-          }
+          marketExitSlices.forEach((slice, index) => {
+            const outgoing = slice.querySelector<HTMLElement>("[data-marketplace-exit-outgoing]");
+            const incoming = slice.querySelector<HTMLElement>("[data-marketplace-exit-incoming]");
+            const order = exitOrder.indexOf(index);
+            const active = order >= 0 && index < exitSliceCount;
+            if (!active) {
+              gsap.set(slice, { opacity: 0, visibility: "hidden" });
+              return;
+            }
+            const localProgress = smooth(range(exitProgress, order * (mobileExit ? 0.024 : 0.018), 0.96));
+            const startLeft = source.left + source.width * index / exitSliceCount;
+            const startWidth = source.width / exitSliceCount;
+            const targetLeft = window.innerWidth * index / exitSliceCount;
+            const targetWidth = window.innerWidth / exitSliceCount;
+            const left = interpolate(startLeft, targetLeft, localProgress);
+            const top = interpolate(source.top, 0, localProgress);
+            const width = interpolate(startWidth, targetWidth, localProgress);
+            const height = interpolate(source.height, window.innerHeight, localProgress);
+            gsap.set(slice, { left, top, width, height, opacity: 1, visibility: "visible" });
+            const imageVars = {
+              left: frameLeft - left,
+              top: frameTop - top,
+              width: frameWidth,
+              height: frameHeight,
+            };
+            if (outgoing) gsap.set(outgoing, { ...imageVars, opacity: 1 - imageBlend });
+            if (incoming) gsap.set(incoming, { ...imageVars, opacity: imageBlend });
+          });
         } else {
-          gsap.set(storyMediaLayer, { visibility: "hidden" });
-          gsap.set(storyMediaFrame, { autoAlpha: 0 });
+          gsap.set(marketExitLayer, { visibility: "hidden" });
         }
       }
 
@@ -600,9 +575,10 @@ export function useHomeNarrativeDirector({
       const mode = window.innerWidth <= 767 ? "mobile" : "desktop";
       const frame = resolvePostHeroFrame(chapter, progress, mode);
       updateSceneLayers(frame);
-      hideLocalActorSlots();
+      const showActorStage = chapter === "journey" || chapter === "freight";
+      if (postHeroStage) gsap.set(postHeroStage, { opacity: showActorStage ? 1 : 0, visibility: showActorStage ? "visible" : "hidden" });
 
-      if (chapter === "journey" && routePath && frame.actors["white-truck"]?.visible) {
+      if (chapter === "journey" && routePath && frame.actors["white-truck"].visible) {
         const svg = routePath.ownerSVGElement;
         if (svg) {
           if (!routePathLength) {
@@ -625,27 +601,23 @@ export function useHomeNarrativeDirector({
           }
           const tangent = Math.atan2(dy, dx) * (180 / Math.PI);
           const truck = frame.actors["white-truck"];
-          if (truck) {
-            truck.xVw = ((svgRect.left + point.x * scaleX) / window.innerWidth) * 100;
-            truck.groundY = (svgRect.top + point.y * scaleY) / window.innerHeight;
-            truck.rotation = routeTruckRotationForTangent(tangent);
-          }
+          truck.xVw = ((svgRect.left + point.x * scaleX) / window.innerWidth) * 100;
+          truck.groundY = (svgRect.top + point.y * scaleY) / window.innerHeight;
+          truck.rotation = routeTruckRotationForTangent(tangent);
           root.dataset.homeRouteTangent = tangent.toFixed(1);
           root.dataset.homeRouteProgress = frame.routeProgress.toFixed(3);
           root.dataset.homeRouteHeadingOffset = "180";
         }
       }
 
-      Object.entries(frame.actors).forEach(([actor, pose]) => {
-        if (pose?.visible) placeLocalActor(chapter, actor, pose);
-      });
+      (Object.entries(frame.actors) as [PostHeroActorName, PostHeroActorPose][]).forEach(([actor, pose]) => placePersistentActor(actor, pose));
       root.dataset.homeMotionOwner = frame.motionOwner;
       root.dataset.homeProgress = frame.progress.toFixed(3);
       root.dataset.homeWorldOwner = chapter;
-      root.dataset.homeVanState = frame.actors.van?.state ?? "hidden";
-      root.dataset.homeCourierState = frame.actors.courier?.state ?? "hidden";
-      root.dataset.homeRouteState = frame.actors["white-truck"]?.state ?? "hidden";
-      root.dataset.homeRedTruckState = frame.actors["red-truck"]?.state ?? "hidden";
+      root.dataset.homeVanState = frame.actors.van.visible ? frame.actors.van.state : "hidden";
+      root.dataset.homeCourierState = frame.actors.courier.visible ? frame.actors.courier.state : "hidden";
+      root.dataset.homeRouteState = frame.actors["white-truck"].visible ? frame.actors["white-truck"].state : "hidden";
+      root.dataset.homeRedTruckState = frame.actors["red-truck"].visible ? frame.actors["red-truck"].state : "hidden";
     };
 
     const measureRanges = () => {
@@ -685,16 +657,19 @@ export function useHomeNarrativeDirector({
     };
 
     const preloadForChapter = (chapter: HomeChapter, progress: number) => {
-      if (chapter === "marketplace" && progress >= 0.4) void preloadPostHeroActorsForChapter("journey");
-      if (chapter === "journey") {
-        void preloadPostHeroActorsForChapter("journey");
-        if (progress >= 0.55) void preloadPostHeroActorsForChapter("freight");
+      if ((chapter === "marketplace" && progress >= 0.04) || chapter === "journey" || chapter === "freight") {
+        if (!freightPackStarted) {
+          freightPackStarted = true;
+          ["white-truck:top-down-straight", "red-truck:side-right"].forEach((state) => {
+            const image = postHeroLayers.get(state as PostHeroActorKey);
+            if (image) {
+              image.loading = "eager";
+              image.fetchPriority = "high";
+            }
+          });
+          void preloadPostHeroActorsForChapter("freight");
+        }
       }
-      if (chapter === "freight") {
-        void preloadPostHeroActorsForChapter("freight");
-        if (progress >= 0.65) void preloadPostHeroActorsForChapter("finale");
-      }
-      if (chapter === "finale") void preloadPostHeroActorsForChapter("finale");
     };
 
     const applyChapter = (chapter: HomeChapter, rawProgress: number) => {
@@ -702,9 +677,9 @@ export function useHomeNarrativeDirector({
         hero: 0.5,
         marketplace: 0.5,
         preparation: 0.42,
-        journey: 0.78,
+        journey: 0.68,
         freight: 0.65,
-        finale: 0.75,
+        finale: 0.95,
       };
       const progress = prefersReducedMotion ? reducedProgress[chapter] ?? rawProgress : rawProgress;
       latestChapter = chapter;
@@ -712,6 +687,8 @@ export function useHomeNarrativeDirector({
       root.dataset.homeChapter = chapter;
       root.dataset.homeProgress = progress.toFixed(3);
       root.dataset.homeViewportMode = window.innerWidth <= 767 ? "mobile" : "desktop";
+      const postHeroActorsOwnChapter = chapter === "journey" || chapter === "freight";
+      if (postHeroStage) gsap.set(postHeroStage, { opacity: postHeroActorsOwnChapter ? 1 : 0, visibility: postHeroActorsOwnChapter ? "visible" : "hidden" });
 
       const tone = homeHeaderTone(chapter, progress);
       if (tone !== lastTone) {
@@ -750,11 +727,10 @@ export function useHomeNarrativeDirector({
       } else {
         if (chapter !== "marketplace") marketplaceKeyboardLock = false;
         if (heroSlot) gsap.set(heroSlot, { autoAlpha: 0, visibility: "hidden" });
+        if (marketExitLayer) gsap.set(marketExitLayer, { visibility: "hidden" });
+        marketExitSlices.forEach((slice) => gsap.set(slice, { opacity: 0, visibility: "hidden" }));
         if (chapter === "marketplace") {
           applyMarketplace(progress);
-          const exitImage = progress >= 0.91 ? frozenExitSelectionId : activeSelectionId;
-          if (exitImage) void preloadPostHeroActorsForChapter("journey");
-          localSlots.forEach((slot) => gsap.set(slot, { autoAlpha: 0, visibility: "hidden" }));
         } else {
           frozenExitSelectionId = null;
           applyPostHero(chapter as PostHeroChapter, progress);
@@ -768,7 +744,7 @@ export function useHomeNarrativeDirector({
 
       const mobileNav = document.querySelector<HTMLElement>("[data-kt-app-shell='mobile-nav']");
       if (mobileNav && window.innerWidth <= 767) {
-        const hideNav = chapter === "finale" && progress >= 0.62;
+        const hideNav = chapter === "finale" && progress >= 0.72;
         mobileNav.dataset.homeFinaleHidden = String(hideNav);
         mobileNav.inert = hideNav;
       }
@@ -777,11 +753,6 @@ export function useHomeNarrativeDirector({
 
     const seekFromScroll = (scrollY = window.scrollY) => {
       const { chapter, progress } = rangeForScroll(scrollY);
-      const chapterIndex = HOME_CHAPTERS.indexOf(chapter);
-      const next = HOME_CHAPTERS[chapterIndex + 1];
-      if (next === "journey" && progress >= 0.55) void preloadPostHeroActorsForChapter("journey");
-      if (next === "freight" && progress >= 0.55) void preloadPostHeroActorsForChapter("freight");
-      if (next === "finale" && progress >= 0.55) void preloadPostHeroActorsForChapter("finale");
       applyChapter(chapter, progress);
     };
 
@@ -814,6 +785,7 @@ export function useHomeNarrativeDirector({
     window.addEventListener("resize", resizeDirector, { passive: true });
     marketRailWrapper?.addEventListener("scroll", syncNativeMarketplace, { passive: true });
     window.addEventListener("kt-marketplace-user-selection", onMarketplaceUserSelection);
+    window.addEventListener("kt-posthero-actor-ready", scheduleFrame);
 
     const onMarketplaceKeyDown = (event: KeyboardEvent) => {
       if (!marketRailWrapper || !marketRailWrapper.contains(document.activeElement) || nativeMarketplace) return;
@@ -855,6 +827,7 @@ export function useHomeNarrativeDirector({
       window.removeEventListener("resize", resizeDirector);
       marketRailWrapper?.removeEventListener("scroll", syncNativeMarketplace);
       window.removeEventListener("kt-marketplace-user-selection", onMarketplaceUserSelection);
+      window.removeEventListener("kt-posthero-actor-ready", scheduleFrame);
       marketRailWrapper?.removeEventListener("keydown", onMarketplaceKeyDown);
       marketRailWrapper?.removeEventListener("wheel", onMarketplaceWheel);
       const mobileNav = document.querySelector<HTMLElement>("[data-kt-app-shell='mobile-nav']");

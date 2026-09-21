@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { HeroScene } from "./scenes/HeroScene";
-import { MarketplaceFivePanelScene, FIVE_PANEL_MEDIA, type MarketplaceCategoryItem } from "./scenes/MarketplaceFivePanelScene";
+import { MarketplaceExitTransitionLayer, MarketplaceFivePanelScene, FIVE_PANEL_MEDIA, type MarketplaceCategoryItem } from "./scenes/MarketplaceFivePanelScene";
 import { PreparationScene } from "./scenes/PreparationScene";
 import { DeliveryJourneyScene } from "./scenes/DeliveryJourneyScene";
 import { FreightNetworkScene } from "./scenes/FreightNetworkScene";
@@ -10,7 +10,7 @@ import { ArrivalFinaleScene } from "./scenes/ArrivalFinaleScene";
 import { useHomeNarrativeDirector } from "./director/useHomeNarrativeDirector";
 import { PersistentActorLayer } from "../actors/PersistentActorLayer";
 import { HomeIntroCurtain } from "./HomeIntroCurtain";
-import { PersistentStoryMediaLayer } from "./PersistentStoryMediaLayer";
+import { PersistentPostHeroCinematicLayer } from "./actors/PersistentPostHeroCinematicLayer";
 
 interface PublicHomeExperienceProps {
   isStorefrontExposed?: boolean;
@@ -48,7 +48,7 @@ export function PublicHomeExperience({
       <div className="kt-environment-layer pointer-events-none absolute inset-0 z-0 bg-[var(--kt-freight-paper)]" aria-hidden="true" />
       <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
       <PersistentActorLayer />
-      <PersistentStoryMediaLayer items={categories} />
+      {introResolved ? <PersistentPostHeroCinematicLayer /> : null}
 
       <ChapterContentLayer>
         <HeroScene />
@@ -63,6 +63,8 @@ export function PublicHomeExperience({
         <FreightNetworkScene />
         <ArrivalFinaleScene />
       </ChapterContentLayer>
+
+      <MarketplaceExitTransitionLayer categories={categories} selectedMarketplaceId={selectedMarketplaceId} />
 
       <div data-kt-motion-debug-geometry hidden aria-hidden="true">
         <div className="kt-home-debug-focus" />

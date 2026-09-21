@@ -3,9 +3,7 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import { ktMediaV3 } from "../../media/kt-media-v3";
-import { POST_HERO_RESOLVER_ACTOR_STATES } from "../director/post-hero-frame-resolver";
 import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
-import { PostHeroActorBank } from "../actors/PostHeroActorSprite";
 import styles from "../post-hero-scenes.module.css";
 
 export function DeliveryJourneyScene({ className = "" }: { className?: string }) {
@@ -33,8 +31,8 @@ export function DeliveryJourneyScene({ className = "" }: { className?: string })
         <div className={styles.journeyGround} aria-hidden="true" />
 
         <div className={styles.journeyCopy}>
-          <p>Collected by KT.</p>
-          <h2 id="journey-heading">A careful handoff. A clear route.</h2>
+          <h2 id="journey-heading">Collected by KT.</h2>
+          <p>From the merchant counter into KT custody.</p>
         </div>
 
         <div className={styles.journeyRoad} data-journey-road aria-hidden="true">
@@ -59,28 +57,9 @@ export function DeliveryJourneyScene({ className = "" }: { className?: string })
           </svg>
         </div>
 
-        <PostHeroActorBank
-          actor="van"
-          scene="journey"
-          states={POST_HERO_RESOLVER_ACTOR_STATES.filter((state) => state.startsWith("van:"))}
-          className={styles.journeyVan}
-        />
-        <PostHeroActorBank
-          actor="courier"
-          scene="journey"
-          states={POST_HERO_RESOLVER_ACTOR_STATES.filter((state) => state.startsWith("courier:") && !state.endsWith("extending-handoff"))}
-          className={styles.journeyCourier}
-        />
-        <PostHeroActorBank
-          actor="white-truck"
-          scene="journey"
-          states={POST_HERO_RESOLVER_ACTOR_STATES.filter((state) => state.startsWith("white-truck:"))}
-          className={styles.journeyRouteTruck}
-        />
-
-        <aside className={styles.journeyCustody} data-journey-custody aria-hidden="true">
+        <aside className={styles.journeyCustody} data-journey-custody aria-label="Merchant pickup evidence">
           <div>
-            <Image src={custodyEvidence.src} alt="" fill sizes="(max-width: 767px) 72vw, 32vw" className="object-cover" />
+            <Image src={custodyEvidence.src} alt={custodyEvidence.alt} fill sizes="(max-width: 767px) 72vw, 32vw" className="object-cover" />
           </div>
           <p>In KT custody.</p>
         </aside>

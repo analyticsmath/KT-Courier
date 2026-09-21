@@ -60,7 +60,7 @@ describe("mobile hero geometry contract", () => {
   it("uses visible containers and opacity-only Hero frame blending", () => {
     const heroActorBranch = director.slice(
       director.indexOf("const applyHeroActor"),
-      director.indexOf("const hideLocalActorSlots"),
+      director.indexOf("const placePersistentActor"),
     );
     expect(heroActorBranch).toContain('gsap.set(layer, { opacity: alpha, visibility: "visible" });');
     expect(heroActorBranch).not.toContain("autoAlpha");

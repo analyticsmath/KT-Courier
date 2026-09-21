@@ -1,8 +1,24 @@
+.postHeroCinematicLayer {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  overflow: clip;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  contain: layout style;
+}
+
 .postHeroActorSlot {
   position: absolute;
-  inset: 0 auto auto 0;
-  pointer-events: none;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
   transform-origin: 0 0;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
   will-change: transform, opacity;
 }
 
@@ -18,29 +34,6 @@
   pointer-events: none;
   user-select: none;
   will-change: opacity;
-}
-
-.storyMediaLayer {
-  position: fixed;
-  z-index: 60;
-  inset: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.storyMediaFrame {
-  position: absolute;
-  top: 0;
-  left: 0;
-  overflow: hidden;
-  opacity: 0;
-  background: #090c0e;
-  will-change: left, top, width, height, opacity;
-}
-
-.storyMediaImage {
-  object-fit: cover;
-  object-position: center;
 }
 
 .marketplaceSection {
@@ -126,7 +119,7 @@
   overflow: hidden;
   isolation: isolate;
   background: #191d1f;
-  opacity: 0.48;
+  opacity: 0.4;
   transform: scale(0.84);
   transform-origin: center center;
 }
@@ -139,11 +132,6 @@
 .marketplaceCard[data-marketplace-distance="1"] {
   opacity: 0.7;
   transform: scale(0.92);
-}
-
-.marketplaceCard[data-marketplace-distance]:not([data-marketplace-distance="0"]):not([data-marketplace-distance="1"]) {
-  opacity: 0.4;
-  transform: scale(0.84);
 }
 
 .marketplaceCardMedia,
@@ -228,109 +216,6 @@
   outline-offset: -0.75rem;
 }
 
-.marketplacePortal {
-  position: absolute;
-  z-index: 13;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.marketplacePortalConstellation {
-  position: relative;
-  width: min(78vw, 88rem);
-  height: min(78svh, 48rem);
-  perspective: 1200px;
-}
-
-.marketplacePortalCenter {
-  position: absolute;
-  z-index: 3;
-  top: 50%;
-  left: 50%;
-  width: min(32vw, 31rem);
-  aspect-ratio: 1.18;
-  display: flex;
-  align-items: flex-end;
-  padding: 1.4rem;
-  transform: translate(-50%, -50%);
-  background-color: #1a1e20;
-  background-size: cover;
-  background-position: center;
-  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.35);
-}
-
-.marketplacePortalCenter::before {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background: linear-gradient(180deg, transparent 40%, rgba(4, 6, 7, 0.72));
-}
-
-.marketplacePortalCenter span {
-  position: relative;
-  z-index: 1;
-  font-size: clamp(1rem, 1.5vw, 1.4rem);
-  font-weight: 700;
-}
-
-.marketplacePortalSupport {
-  position: absolute;
-  z-index: 1;
-  width: clamp(8rem, 16vw, 17rem);
-  aspect-ratio: 0.88;
-  overflow: hidden;
-  background: #26292a;
-  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3);
-  transform: translate(-50%, -50%);
-}
-
-.marketplacePortalSupport img {
-  object-fit: cover;
-}
-
-.marketplacePortalSupport[data-marketplace-support-slot="0"] { top: 28%; left: 20%; }
-.marketplacePortalSupport[data-marketplace-support-slot="1"] { top: 69%; left: 28%; }
-.marketplacePortalSupport[data-marketplace-support-slot="2"] { top: 28%; left: 80%; }
-.marketplacePortalSupport[data-marketplace-support-slot="3"] { top: 69%; left: 72%; }
-
-.marketplacePortalCaption {
-  position: absolute;
-  bottom: 8%;
-  left: 50%;
-  margin: 0;
-  color: #d0d0cc;
-  font-size: 0.88rem;
-  transform: translateX(-50%);
-}
-
-.marketplaceExitSlices {
-  position: absolute;
-  z-index: 16;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.marketplaceExitSlices > span {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 14.2858%;
-  background-color: #090c0e;
-  background-repeat: no-repeat;
-  will-change: clip-path, opacity;
-}
-
-.marketplaceExitSlices > span:nth-child(1) { left: 0%; }
-.marketplaceExitSlices > span:nth-child(2) { left: 14.2857%; }
-.marketplaceExitSlices > span:nth-child(3) { left: 28.5714%; }
-.marketplaceExitSlices > span:nth-child(4) { left: 42.8571%; }
-.marketplaceExitSlices > span:nth-child(5) { left: 57.1428%; }
-.marketplaceExitSlices > span:nth-child(6) { left: 71.4285%; }
-.marketplaceExitSlices > span:nth-child(7) { left: 85.7142%; }
-
 .marketplaceShopLink {
   position: absolute;
   z-index: 18;
@@ -350,6 +235,36 @@
 }
 
 .marketplaceShopLink a:hover { color: white; }
+
+.marketplaceExitSlices {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.marketplaceExitSlices > span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  overflow: hidden;
+  background: #090c0e;
+  will-change: left, top, width, height;
+}
+
+.marketplaceExitSlices > span > i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  will-change: opacity, left, top, width, height;
+}
 
 .preparationSection {
   position: relative;
@@ -454,19 +369,23 @@
 .preparationStreetTransition {
   position: absolute;
   z-index: 15;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 0;
+  inset: 0;
   overflow: hidden;
+  clip-path: inset(100% 0 0 0);
   pointer-events: none;
+  will-change: clip-path, opacity;
+}
+
+.preparationStreetTransition > img {
+  object-fit: cover;
+  object-position: center 38%;
 }
 
 .preparationStreetTransition::after {
   position: absolute;
   inset: 0;
   content: "";
-  background: linear-gradient(180deg, rgba(23, 26, 28, 0.05), rgba(23, 26, 28, 0.65));
+  background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%);
 }
 
 .journeySection {
@@ -491,8 +410,6 @@
 .journeyStreet > img,
 .journeyRoad,
 .journeyRoad > img,
-.freightRoad,
-.freightRoad > img,
 .freightDestination,
 .freightDestination > img,
 .finaleArrivalImage,
@@ -505,7 +422,6 @@
 .journeyStreet > img { object-fit: cover; object-position: center 38%; }
 
 .journeyStreetShade,
-.freightRoad > div,
 .freightDestination > div,
 .finaleArrivalImage > div {
   position: absolute;
@@ -520,7 +436,7 @@
   bottom: 0;
   left: 0;
   height: 19%;
-  background: linear-gradient(180deg, #68645a, #282c2d 77%);
+  background: linear-gradient(180deg, rgba(104, 100, 90, 0.72), #282c2d 78%);
 }
 
 .journeyRoad {
@@ -545,44 +461,35 @@
   z-index: 10;
   top: clamp(5.5rem, 11vh, 9rem);
   left: clamp(1.5rem, 7vw, 8rem);
-  max-width: 48rem;
+  max-width: 42rem;
   color: #f1ece2;
-}
-
-.journeyCopy p {
-  margin: 0 0 0.75rem;
-  color: rgba(241, 236, 226, 0.78);
-  font-size: 0.75rem;
-  font-weight: 720;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .journeyCopy h2 {
   max-width: 10ch;
   margin: 0;
   font-family: var(--font-display, var(--font-mona-sans, sans-serif));
-  font-size: clamp(3rem, 6.5vw, 7rem);
+  font-size: clamp(2.5rem, 4.3vw, 4.8rem);
   font-weight: 780;
-  line-height: 0.9;
+  line-height: 0.93;
   letter-spacing: -0.065em;
   text-wrap: balance;
 }
 
-.journeyVan,
-.journeyCourier,
-.journeyRouteTruck,
-.freightTruck,
-.finaleCourier {
-  z-index: 5;
+.journeyCopy p {
+  max-width: 24rem;
+  margin: 1rem 0 0;
+  color: rgba(241, 236, 226, 0.82);
+  font-size: clamp(0.9rem, 1.1vw, 1.08rem);
+  line-height: 1.5;
 }
 
 .journeyCustody {
   position: absolute;
   z-index: 8;
+  top: 61%;
   right: clamp(1.5rem, 8vw, 9rem);
-  bottom: 20%;
-  width: clamp(15rem, 28vw, 31rem);
+  width: clamp(12rem, 20vw, 22rem);
   color: white;
   opacity: 0;
   will-change: transform, opacity;
@@ -595,6 +502,8 @@
   overflow: hidden;
 }
 
+.journeyCustody > div img { object-fit: cover; }
+
 .journeyCustody p {
   margin: 0.7rem 0 0;
   font-size: 0.82rem;
@@ -604,8 +513,8 @@
 .journeyRouteAnnotation {
   position: absolute;
   z-index: 9;
-  right: clamp(1.5rem, 8vw, 9rem);
   top: 15%;
+  right: clamp(1.5rem, 8vw, 9rem);
   margin: 0;
   color: white;
   font-size: 0.78rem;
@@ -618,8 +527,8 @@
   z-index: 1;
   min-height: var(--kt-home-budget, 205svh);
   overflow: clip;
-  color: #f1ece2;
-  background: #181c1e;
+  color: #171a1c;
+  background: #f1ece2;
 }
 
 .freightStickyStage {
@@ -629,20 +538,16 @@
   min-height: 650px;
   overflow: hidden;
   isolation: isolate;
-  background: #1b1f21;
+  background: #f1ece2;
 }
-
-.freightRoad { z-index: 0; }
-.freightRoad > img { filter: brightness(0.36) saturate(0.5); }
-.freightRoad > div { background: linear-gradient(180deg, rgba(10, 12, 13, 0.35), rgba(10, 12, 13, 0.62)); }
 
 .freightBackdropWord {
   position: absolute;
   z-index: 1;
-  top: 12%;
+  top: 17%;
   left: 4vw;
   margin: 0;
-  color: rgba(241, 236, 226, 0.2);
+  color: rgba(23, 26, 28, 0.1);
   font-family: var(--font-display, var(--font-mona-sans, sans-serif));
   font-size: clamp(8rem, 23vw, 28rem);
   font-weight: 850;
@@ -656,12 +561,12 @@
   z-index: 8;
   top: clamp(5rem, 10vh, 8rem);
   left: clamp(1.5rem, 7vw, 8rem);
-  max-width: 48rem;
+  max-width: 42rem;
 }
 
 .freightHeading p {
   margin: 0 0 0.8rem;
-  color: rgba(241, 236, 226, 0.75);
+  color: #686b69;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -672,14 +577,12 @@
   max-width: 10ch;
   margin: 0;
   font-family: var(--font-display, var(--font-mona-sans, sans-serif));
-  font-size: clamp(3rem, 6.2vw, 6.8rem);
+  font-size: clamp(2.8rem, 4.8vw, 5.3rem);
   font-weight: 790;
-  line-height: 0.9;
+  line-height: 0.92;
   letter-spacing: -0.065em;
   text-wrap: balance;
 }
-
-.freightTruck { z-index: 5; }
 
 .freightServicePlane {
   position: absolute;
@@ -761,8 +664,8 @@
   will-change: clip-path, opacity;
 }
 
-.freightDestination > img { object-position: center 46%; }
-.freightDestination > div { background: linear-gradient(90deg, rgba(9, 12, 14, 0.22), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.25), transparent 60%); }
+.freightDestination > img { object-position: center 50%; }
+.freightDestination > div { background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%); }
 
 .finaleSection {
   position: relative;
@@ -784,8 +687,8 @@
 }
 
 .finaleArrivalImage { z-index: 0; }
-.finaleArrivalImage > img { object-position: center 46%; }
-.finaleArrivalImage > div { background: linear-gradient(90deg, rgba(8, 10, 11, 0.05), rgba(8, 10, 11, 0.2)), linear-gradient(0deg, rgba(8, 10, 11, 0.2), transparent 65%); }
+.finaleArrivalImage > img { object-position: center 50%; }
+.finaleArrivalImage > div { background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%); }
 
 .finaleDelivered {
   position: absolute;
@@ -795,7 +698,7 @@
   margin: 0;
   color: white;
   font-family: var(--font-display, var(--font-mona-sans, sans-serif));
-  font-size: clamp(2rem, 4vw, 4.5rem);
+  font-size: clamp(2.1rem, 3.6vw, 4rem);
   font-weight: 720;
   letter-spacing: -0.055em;
 }
@@ -933,20 +836,8 @@
   .marketplaceCardContent { right: 1.25rem; bottom: 1.4rem; left: 1.25rem; }
   .marketplaceCardContent h3 { font-size: clamp(2.1rem, 8vw, 3.4rem); }
   .marketplaceCardContent p { font-size: 0.88rem; }
-  .marketplacePortal { position: absolute; inset: 0; }
-  .marketplacePortalConstellation { width: 100%; height: 100%; }
-  .marketplacePortalCenter { width: 76vw; max-width: 31rem; }
-  .marketplacePortalSupport { display: none; }
-  .marketplacePortalCaption { bottom: 14%; }
-  .marketplaceShopLink { bottom: max(1rem, env(safe-area-inset-bottom)); left: 8vw; }
-  .marketplaceExitSlices { position: absolute; }
-  .marketplaceExitSlices > span { width: 20%; }
-  .marketplaceExitSlices > span:nth-child(1) { left: 0%; }
-  .marketplaceExitSlices > span:nth-child(2) { left: 20%; }
-  .marketplaceExitSlices > span:nth-child(3) { left: 40%; }
-  .marketplaceExitSlices > span:nth-child(4) { left: 60%; }
-  .marketplaceExitSlices > span:nth-child(5) { left: 80%; }
   .marketplaceExitSlices > span:nth-child(n+6) { display: none; }
+  .marketplaceShopLink { bottom: max(1rem, env(safe-area-inset-bottom)); left: 8vw; }
 
   .preparationSection { min-height: var(--kt-home-mobile-budget, 105svh); }
   .preparationStickyStage { position: relative; top: auto; height: auto; min-height: 100svh; overflow: hidden; }
@@ -964,21 +855,21 @@
   .preparationStatement p { margin-top: 0.85rem; font-size: 0.95rem; }
   .preparationMainImage { flex: 0 0 auto; width: 100%; height: min(52svh, 34rem); min-height: 19rem; }
   .preparationDetail { width: 100%; flex-direction: column; align-items: flex-start; gap: 0.55rem; padding-top: 0.85rem; }
-  .preparationStreetTransition { height: 0; }
 
-  .journeySection { min-height: var(--kt-home-mobile-budget, 260svh); }
-  .journeyStickyStage { min-height: 580px; }
-  .journeyCopy { top: max(5rem, calc(env(safe-area-inset-top) + 4rem)); right: 8vw; left: 8vw; max-width: 38rem; }
-  .journeyCopy h2 { max-width: 9ch; font-size: clamp(2.8rem, 10vw, 4.8rem); }
+  .journeySection { min-height: var(--kt-home-mobile-budget, 290svh); }
+  .journeyStickyStage { min-height: 100svh; }
+  .journeyCopy { top: max(5rem, calc(env(safe-area-inset-top) + 4rem)); right: 8vw; left: 8vw; max-width: 34rem; }
+  .journeyCopy h2 { max-width: 9ch; font-size: clamp(2.35rem, 7vw, 3.2rem); }
+  .journeyCopy p { max-width: 18rem; margin-top: 0.75rem; font-size: 0.9rem; }
   .journeyGround { height: 22%; }
-  .journeyCustody { right: 8vw; bottom: calc(18% + env(safe-area-inset-bottom)); width: 72vw; max-width: 26rem; }
+  .journeyCustody { top: auto; right: 8vw; bottom: calc(23% + env(safe-area-inset-bottom)); width: 52vw; max-width: 20rem; }
   .journeyRouteAnnotation { top: auto; right: 8vw; bottom: 25%; }
 
-  .freightSection { min-height: var(--kt-home-mobile-budget, 208svh); }
-  .freightStickyStage { min-height: 580px; }
-  .freightBackdropWord { top: 22%; left: 2vw; font-size: clamp(7rem, 25vw, 12rem); }
+  .freightSection { min-height: var(--kt-home-mobile-budget, 210svh); }
+  .freightStickyStage { min-height: 100svh; }
+  .freightBackdropWord { top: 25%; left: 2vw; font-size: clamp(7rem, 25vw, 12rem); }
   .freightHeading { top: max(5rem, calc(env(safe-area-inset-top) + 4rem)); right: 8vw; left: 8vw; }
-  .freightHeading h2 { max-width: 9ch; font-size: clamp(2.9rem, 10vw, 4.8rem); }
+  .freightHeading h2 { max-width: 9ch; font-size: clamp(2.3rem, 7vw, 3.5rem); }
   .freightServicePlane { min-height: 46%; padding: 1.3rem 8vw max(1.5rem, env(safe-area-inset-bottom)); }
   .freightServiceIntro { display: block; margin-bottom: 0.8rem; }
   .freightServiceIntro p { max-width: 25rem; margin-top: 0.4rem; font-size: 0.8rem; }
@@ -990,41 +881,62 @@
   .freightServicePlane li span { font-size: 0.7rem; }
 
   .finaleSection { min-height: var(--kt-home-mobile-budget, 150svh); }
-  .finaleStickyStage { min-height: 580px; }
-  .finaleDelivered { top: max(5rem, calc(env(safe-area-inset-top) + 4rem)); left: 8vw; font-size: clamp(2rem, 7vw, 3.4rem); }
+  .finaleStickyStage { min-height: 100svh; }
+  .finaleDelivered { top: max(5rem, calc(env(safe-area-inset-top) + 4rem)); left: 8vw; font-size: clamp(1.8rem, 8vw, 3rem); }
   .finaleIdentity { bottom: max(5.5rem, calc(env(safe-area-inset-bottom) + 5rem)); }
-  .finaleTitle { font-size: clamp(5rem, 19vw, 9rem); }
+  .finaleTitle { font-size: clamp(4.5rem, 17vw, 8rem); }
   .finaleMotto { max-width: 84vw; margin: 1rem auto 0; font-size: 0.68rem; }
   .finaleUtility { right: 8vw; bottom: calc(env(safe-area-inset-bottom) + 1.15rem); left: 8vw; gap: 0.65rem 1.1rem; }
   .finaleUtility a { font-size: 0.7rem; }
   .finaleLegal { right: 8vw; bottom: calc(env(safe-area-inset-bottom) + 0.2rem); left: 8vw; font-size: 0.58rem; }
 }
 
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  :global(.kt-home-experience [data-kt-scene="marketplace"][style*="--kt-home-mobile-budget"]:not([data-kt-scene="hero"])) { min-height: var(--kt-home-mobile-budget, 100svh) !important; }
+  :global(.kt-home-experience [data-kt-scene="preparation"][style*="--kt-home-mobile-budget"]:not([data-kt-scene="hero"])) { min-height: var(--kt-home-mobile-budget, 105svh) !important; }
+  :global(.kt-home-experience [data-kt-scene="journey"][style*="--kt-home-mobile-budget"]:not([data-kt-scene="hero"])) { min-height: var(--kt-home-mobile-budget, 290svh) !important; }
+  :global(.kt-home-experience [data-kt-scene="freight"][style*="--kt-home-mobile-budget"]:not([data-kt-scene="hero"])) { min-height: var(--kt-home-mobile-budget, 210svh) !important; }
+  :global(.kt-home-experience [data-kt-scene="finale"][style*="--kt-home-mobile-budget"]:not([data-kt-scene="hero"])) { min-height: var(--kt-home-mobile-budget, 150svh) !important; }
+  :global(.kt-home-experience [data-kt-scene="journey"] [data-home-sticky-stage]),
+  :global(.kt-home-experience [data-kt-scene="freight"] [data-home-sticky-stage]),
+  :global(.kt-home-experience [data-kt-scene="finale"] [data-home-sticky-stage]) {
+    position: sticky !important;
+    top: 0 !important;
+    height: 100svh !important;
+    min-height: 100svh !important;
+  }
+}
+
 @media (max-width: 599px) {
   .marketplaceCard { min-height: 23rem; }
   .preparationComposition { width: 86vw; }
-  .journeyCopy h2 { font-size: clamp(2.7rem, 11vw, 4rem); }
-  .journeyCustody { bottom: calc(22% + env(safe-area-inset-bottom)); }
+  .journeyCopy h2 { font-size: clamp(2.2rem, 8.5vw, 3.2rem); }
+  .journeyCustody { width: 54vw; bottom: calc(24% + env(safe-area-inset-bottom)); }
   .journeyRouteAnnotation { bottom: 28%; }
-  .finaleTitle { font-size: clamp(4.5rem, 20vw, 7.5rem); }
+  .freightServicePlane { min-height: 48%; }
+  .freightServicePlane li strong { font-size: 0.95rem; }
+  .finaleTitle { font-size: clamp(4rem, 17vw, 7rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .marketplaceCard { transition: none; }
+  :global(.kt-home-experience .kt-chapter-content-layer [data-kt-scene][style*="--kt-home-budget"]:not([data-kt-scene="hero"])) {
+    min-height: auto !important;
+    height: auto;
+  }
   .marketplaceSection,
   .preparationSection,
   .journeySection,
   .freightSection,
-  .finaleSection { min-height: auto; overflow: visible; }
+  .finaleSection { min-height: auto !important; overflow: visible; }
   .marketplaceStickyStage,
   .preparationStickyStage,
   .journeyStickyStage,
   .freightStickyStage,
   .finaleStickyStage {
-    position: relative;
-    top: auto;
-    height: auto;
-    min-height: 100svh;
+    position: relative !important;
+    top: auto !important;
+    height: auto !important;
+    min-height: 80svh !important;
     overflow: hidden;
   }
   .marketplaceStickyStage { padding-bottom: 5rem; }
@@ -1040,15 +952,36 @@
     transform: none;
     scroll-snap-align: center;
   }
-  .marketplacePortal,
   .marketplaceExitSlices { display: none; }
   .preparationStreetTransition,
   .journeyRoad { display: none; }
-  .journeyStreet { filter: saturate(0.6); }
+  .journeyStreet { filter: saturate(0.7); }
   .freightServicePlane { transform: none !important; opacity: 1 !important; }
   .freightDestination { display: none; }
-  .finaleBrandHorizon { height: 58% !important; }
-  .finaleTitle { transform: none !important; opacity: 1 !important; }
+  .finaleStickyStage {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 1rem;
+    min-height: 100svh !important;
+    padding: 54svh 8vw 1.5rem;
+  }
+  .finaleArrivalImage { height: 56svh; bottom: auto; }
+  .finaleArrivalImage > img { object-position: center 42%; }
+  .finaleDelivered { top: max(2rem, env(safe-area-inset-top)); left: 8vw; opacity: 1 !important; }
+  .finaleBrandHorizon { height: 46% !important; }
+  .finaleIdentity { position: relative; right: auto; bottom: auto; left: auto; width: 100%; }
+  .finaleTitle { transform: none !important; opacity: 1 !important; font-size: clamp(4rem, 17vw, 7rem); }
+  .finaleMotto { margin-top: 0.9rem; }
   .finaleUtility,
-  .finaleLegal { opacity: 1 !important; }
+  .finaleLegal {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    display: flex;
+    justify-content: center;
+    opacity: 1 !important;
+  }
+  .finaleLegal { display: block; }
 }
