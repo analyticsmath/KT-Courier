@@ -21,8 +21,6 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
 
-  const activeMedia = gallery[activeIndex] ?? product.primaryMedia;
-
   const scrollToSlide = useCallback((index: number) => {
     setActiveIndex(index);
     if (mobileScrollerRef.current) {
@@ -111,53 +109,33 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
         )}
       </div>
 
-      {/* Desktop Gallery Stage & Thumbnail Rail */}
+      {/* Desktop scroll-gallery: the purchase column stays pinned while every image passes. */}
       <div className={styles.pdpDesktopGalleryStage}>
-        <div className={styles.pdpDesktopHeroFrame} data-kt-cart-flight-source="product-media">
-          {activeMedia ? (
-            <Image
-              alt={activeMedia.alt || product.title}
-              fill
-              priority
-              sizes="(max-width: 991px) 100vw, 58vw"
-              src={`/api/catalog/media/${activeMedia.publicReference}`}
-              className={styles.pdpImageContain}
-            />
-          ) : (
+        {gallery.length > 0 ? (
+          gallery.map((media, index) => (
+            <div
+              className={styles.pdpDesktopHeroFrame}
+              data-kt-cart-flight-source={index === 0 ? "product-media" : undefined}
+              key={media.publicReference || index}
+            >
+              <Image
+                alt={media.alt || `${product.title} - View ${index + 1}`}
+                fill
+                priority={index === 0}
+                sizes="(max-width: 991px) 100vw, 58vw"
+                src={`/api/catalog/media/${media.publicReference}`}
+                className={styles.pdpImageContain}
+              />
+              {gallery.length > 1 && (
+                <span className={styles.pdpDesktopMediaIndex} aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+                </span>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className={styles.pdpDesktopHeroFrame} data-kt-cart-flight-source="product-media">
             <div className={styles.pdpGalleryEmpty}>Image unavailable</div>
-          )}
-        </div>
-
-        {gallery.length > 1 && (
-          <div
-            className={styles.pdpDesktopThumbStrip}
-            role="tablist"
-            aria-label="Product alternate views"
-          >
-            {gallery.map((media, idx) => {
-              const isSelected = idx === activeIndex;
-              return (
-                <button
-                  key={media.publicReference || idx}
-                  type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  aria-label={`View image ${idx + 1} of ${gallery.length}`}
-                  className={`${styles.pdpDesktopThumbButton} ${
-                    isSelected ? styles.pdpDesktopThumbButtonActive : ""
-                  }`}
-                  onClick={() => setActiveIndex(idx)}
-                >
-                  <Image
-                    alt={media.alt || `${product.title} thumbnail ${idx + 1}`}
-                    fill
-                    sizes="80px"
-                    src={`/api/catalog/media/${media.publicReference}`}
-                    className={styles.pdpImageCover}
-                  />
-                </button>
-              );
-            })}
           </div>
         )}
       </div>
