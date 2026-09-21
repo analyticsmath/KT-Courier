@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { deriveHeroActorPresentation } from "@/components/public-v3/home/director/hero-actor-presentation";
 import { closestReadyHeroSequenceState } from "@/components/public-v3/home/director/home-actor-image-readiness";
-import { resolveHomeFrame } from "@/components/public-v3/home/director/home-frame-resolver";
+import { resolveHeroTruckFrame } from "@/components/public-v3/home/director/home-frame-resolver";
 
 describe("Hero actor presentation invariant", () => {
   it("exposes every ready, visible Hero frame with positive geometry", () => {
     for (const progress of [0.18, 0.3, 0.45, 0.55, 0.62, 0.72, 0.84, 0.94, 0.98]) {
-      const actor = resolveHomeFrame({ chapter: "hero", progress, viewportMode: "mobile" }).actors.whiteTruck;
+      const actor = resolveHeroTruckFrame(progress, "mobile");
       const readyFallback = closestReadyHeroSequenceState(actor.state, new Set([actor.state]));
       const presentation = deriveHeroActorPresentation({
         actorVisible: actor.visible,

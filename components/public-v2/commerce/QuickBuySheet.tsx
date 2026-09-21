@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StorefrontDocument, StorefrontProductCard } from "@/lib/storefront/storefront-types";
 import type { StorefrontModifierGroupDTO } from "@/lib/services/storefront-catalog.service";
@@ -37,6 +38,7 @@ export function QuickBuySheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [payload, setPayload] = useState<ProductPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<StorefrontDocument | null>(null);
@@ -159,10 +161,16 @@ export function QuickBuySheet({
         const detail = await response.json().catch(() => ({}));
         throw new Error(detail.error || detail.message || "This item could not be added to your cart.");
       }
-      setSuccess("Added to your cart.");
+      const isPhone = window.matchMedia("(max-width: 767px)").matches;
+      if (!isPhone) setSuccess("Added to your cart.");
       const source = panelRef.current?.querySelector<HTMLElement>('[data-kt-cart-flight-source="quick-buy"]');
       triggerCartFlight({ sourceElement: source, imageSrc: media ? `/api/catalog/media/${media.publicReference}` : undefined });
       window.dispatchEvent(new CustomEvent("kt-cart-updated"));
+      if (isPhone) {
+        onClose();
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        window.setTimeout(() => router.push("/cart"), reduced ? 0 : 650);
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "This item could not be added to your cart.");
     } finally {

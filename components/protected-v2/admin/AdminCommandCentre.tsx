@@ -9,7 +9,7 @@ import {
   DashboardHeader,
   DashboardIllustrationAsset,
   DashboardPeriodControl,
-  StaticBarChart,
+  StaticActivityChart,
   StaticDonutChart,
   type DonutItem,
 } from "@/components/protected-v2/dashboard";
@@ -79,7 +79,7 @@ export function AdminCommandCentre({
             previousValue={comparison ? comparison.previous : undefined}
             description={insight ? insight.periodLabel : "Network activity"}
             href={desk.ordersAllowed ? "/admin/orders" : undefined}
-            tone="brand"
+            tone="surface"
           />
         </DashboardCol>
 
@@ -135,7 +135,7 @@ export function AdminCommandCentre({
                   Total is available. Activity detail exceeds display limits for this window; choose a shorter period.
                 </p>
               ) : insight.buckets.some((b) => b.value > 0) ? (
-                <StaticBarChart
+                <StaticActivityChart
                   buckets={insight.buckets}
                   label={`${insight.title} · ${insight.periodLabel}`}
                   tone="brand"
@@ -274,7 +274,6 @@ export function AdminCommandCentre({
             padding="normal"
           >
             <div className="flex flex-col gap-3">
-              <DashboardIllustrationAsset role="admin" />
               {desk.regions ? (
                 <div className="flex flex-wrap gap-1.5 pt-2">
                   {desk.regions.map((region) => (
@@ -291,6 +290,7 @@ export function AdminCommandCentre({
               ) : (
                 <p className={styles.emptyStateDesc}>Regional coverage data unavailable.</p>
               )}
+              <DashboardIllustrationAsset role="admin" className={styles.illustrationCompact} />
             </div>
           </DashboardCard>
         </DashboardCol>

@@ -12,9 +12,11 @@ export interface SegmentItem {
 export function StaticSegmentedBar({
   segments,
   label,
+  totalLabel,
 }: {
   segments: readonly SegmentItem[];
   label: string;
+  totalLabel?: string;
 }) {
   const total = segments.reduce((sum, s) => sum + s.value, 0);
 
@@ -23,7 +25,7 @@ export function StaticSegmentedBar({
       <div
         className={styles.segmentedTrack}
         role="img"
-        aria-label={`${label}: total ${total}`}
+        aria-label={`${label}: total ${totalLabel ?? total}`}
       >
         {total > 0 ? (
           segments.map((segment) => {

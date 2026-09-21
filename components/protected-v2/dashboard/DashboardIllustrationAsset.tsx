@@ -6,6 +6,7 @@ import { RouteQueueIllustration } from "@/components/protected-v2/illustrations/
 import { ParcelDeskIllustration } from "@/components/protected-v2/illustrations/ParcelDeskIllustration";
 import { AccessBoundaryIllustration } from "@/components/protected-v2/illustrations/AccessBoundaryIllustration";
 import { SecureLedgerIllustration } from "@/components/protected-v2/illustrations/SecureLedgerIllustration";
+import styles from "./dashboard.module.css";
 
 export type DashboardIllustrationRole = "admin" | "customer" | "driver" | "store" | "promoter" | "applicant";
 
@@ -62,31 +63,36 @@ export function DashboardIllustrationAsset({
 
   // If preferSvg or if primary illustration failed to load, fall back to the guaranteed static SVG illustration components
   if (preferSvg || loadError) {
+    let illustration: React.ReactNode;
     switch (role) {
       case "applicant":
-        return <AccessBoundaryIllustration className={`w-full max-w-[200px] h-auto ${className}`} />;
+        illustration = <AccessBoundaryIllustration className={styles.illustrationArt} />;
+        break;
       case "promoter":
-        return <SecureLedgerIllustration className={`w-full max-w-[200px] h-auto ${className}`} />;
+        illustration = <SecureLedgerIllustration className={styles.illustrationArt} />;
+        break;
       case "customer":
       case "store":
-        return <ParcelDeskIllustration className={`w-full max-w-[220px] h-auto ${className}`} />;
+        illustration = <ParcelDeskIllustration className={styles.illustrationArt} />;
+        break;
       case "admin":
       case "driver":
       default:
-        return <RouteQueueIllustration className={`w-full max-w-[220px] h-auto ${className}`} />;
+        illustration = <RouteQueueIllustration className={styles.illustrationArt} />;
     }
+    return <div className={`${styles.illustrationFrame} ${className}`}>{illustration}</div>;
   }
 
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden ${className}`}>
+    <div className={`${styles.illustrationFrame} ${className}`}>
       <Image
         src={asset.src}
         alt={asset.alt}
         width={asset.width}
         height={asset.height}
         unoptimized
-        className="w-full h-auto max-h-[180px] object-contain pointer-events-none select-none"
-        sizes="(max-width: 640px) 140px, 220px"
+        className={styles.illustrationImage}
+        sizes="(max-width: 639px) 120px, 180px"
         onError={() => setLoadError(true)}
         priority={false}
       />

@@ -7,22 +7,25 @@
    Segmented Period Control
    -------------------------------------------------------------------------- */
 .periods {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   padding: 3px;
   background-color: var(--dash-surface-muted);
   border: 1px solid var(--dash-line);
   border-radius: 12px;
   gap: 2px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .periodLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 4px 12px;
+  min-height: 36px;
+  min-width: 54px;
+  padding: 4px 11px;
   border-radius: 9px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -46,6 +49,23 @@
   box-shadow: 0 1px 4px rgba(23, 23, 19, 0.06);
 }
 
+.periodLink:focus-visible,
+.chartAlternative summary:focus-visible {
+  outline: 2px solid var(--dash-brand);
+  outline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .periods { width: 100%; }
+  .periodLink {
+    min-width: 0;
+    min-height: 44px;
+    flex: 1 1 0;
+    padding-inline: 5px;
+    font-size: 0.6875rem;
+  }
+}
+
 /* --------------------------------------------------------------------------
    Static Bar Chart
    -------------------------------------------------------------------------- */
@@ -53,7 +73,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -90,19 +110,23 @@
 .barChartDelta {
   font-size: 0.75rem;
   font-weight: 650;
-  color: var(--dash-green);
+  color: var(--dash-muted);
   display: inline-flex;
   align-items: center;
   gap: 2px;
 }
 
 .barChartColumns {
+  position: relative;
   display: flex;
   align-items: flex-end;
-  gap: 6px;
-  height: 140px;
-  padding-bottom: 2px;
-  border-bottom: 2px solid var(--dash-line);
+  gap: 8px;
+  height: 188px;
+  padding: 4px 2px 2px;
+  border-bottom: 1px solid var(--dash-line-strong);
+  background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--dash-line) 100%);
+  background-size: 100% 25%;
+  background-repeat: repeat-y;
   width: 100%;
   min-width: 0;
 }
@@ -115,7 +139,7 @@
   flex: 1 1 0;
   min-width: 0;
   height: 100%;
-  gap: 6px;
+  gap: 7px;
 }
 
 .barCount {
@@ -130,17 +154,17 @@
   display: flex;
   align-items: flex-end;
   width: 100%;
-  max-width: 36px;
-  height: 100px;
-  background-color: var(--dash-surface-subtle);
-  border-radius: 4px 4px 0 0;
+  max-width: 42px;
+  height: 132px;
+  background-color: transparent;
+  border-radius: 5px 5px 0 0;
   overflow: hidden;
 }
 
 .barFill {
   width: 100%;
   background-color: var(--dash-brand);
-  border-radius: 4px 4px 0 0;
+  border-radius: 5px 5px 0 0;
   min-height: 2px;
 }
 
@@ -157,7 +181,7 @@
 }
 
 .barLabel {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--dash-muted);
   text-align: center;
@@ -170,16 +194,128 @@
 
 @media (max-width: 639px) {
   .barChartColumns {
-    height: 120px;
-    gap: 3px;
+    height: 158px;
+    gap: 5px;
+    background-size: 100% 25%;
   }
   .barTrack {
-    max-width: 24px;
-    height: 85px;
+    max-width: 30px;
+    height: 108px;
   }
   .barCount {
+    font-size: 0.65625rem;
+  }
+  .barLabel {
     font-size: 0.625rem;
   }
+}
+
+/* Static SVG trend chart for longer authoritative time series. */
+.trendChartContainer {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trendPlotArea { position: relative; min-width: 0; }
+
+.trendChartTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.trendPlot {
+  display: block;
+  width: 100%;
+  height: 216px;
+  overflow: visible;
+}
+
+.trendGridLine {
+  stroke: var(--dash-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.trendAxisLabels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.trendAxisLabel {
+  position: absolute;
+  left: 0;
+  width: 32px;
+  transform: translateY(-50%);
+  color: var(--dash-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+}
+
+.trendTickRow {
+  position: relative;
+  height: 24px;
+  overflow: hidden;
+}
+
+.trendTickDesktop,
+.trendTickMobile {
+  position: absolute;
+  inset: 0;
+}
+
+.trendTickMobile { display: none; }
+
+.trendTick {
+  position: absolute;
+  top: 0;
+  max-width: 108px;
+  overflow: hidden;
+  color: var(--dash-muted);
+  font-size: 0.6875rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trendLine {
+  fill: none;
+  stroke: var(--dash-brand);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.trendLineGreen { stroke: var(--dash-green); }
+.trendLineTeal { stroke: var(--dash-teal); }
+.trendLineCharcoal { stroke: var(--dash-charcoal); }
+
+.trendPoint {
+  fill: var(--dash-brand);
+  stroke: var(--dash-surface);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.trendPointGreen { fill: var(--dash-green); }
+.trendPointTeal { fill: var(--dash-teal); }
+.trendPointCharcoal { fill: var(--dash-charcoal); }
+
+@media (max-width: 639px) {
+  .trendPlot { height: 176px; }
+  .trendAxisLabel { width: 28px; font-size: 0.625rem; }
+  .trendTickDesktop { display: none; }
+  .trendTickMobile { display: block; }
+  .trendTick { max-width: 76px; font-size: 0.625rem; }
 }
 
 /* --------------------------------------------------------------------------
@@ -188,7 +324,7 @@
 .donutChartWrapper {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   width: 100%;
 }
 
@@ -202,8 +338,8 @@
 
 .donutSvgArea {
   position: relative;
-  width: 150px;
-  height: 150px;
+  width: 148px;
+  height: 148px;
   margin: 0 auto;
   flex-shrink: 0;
 }
@@ -246,7 +382,7 @@
 .donutLegend {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -255,8 +391,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 0.75rem;
+  gap: 10px;
+  font-size: 0.78125rem;
 }
 
 .donutLegendLeading {
@@ -275,7 +411,7 @@
 
 .donutLegendLabel {
   color: var(--dash-ink-secondary);
-  font-weight: 550;
+  font-weight: 560;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -312,9 +448,9 @@
 .segmentedTrack {
   display: flex;
   width: 100%;
-  height: 12px;
+  height: 14px;
   background-color: var(--dash-surface-muted);
-  border-radius: 6px;
+  border-radius: 7px;
   overflow: hidden;
   gap: 1px;
 }
@@ -332,6 +468,8 @@
   border-top: 1px solid var(--dash-line);
   padding-top: 6px;
   font-size: 0.75rem;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .chartAlternative summary {
@@ -351,6 +489,7 @@
 
 .chartAlternative table {
   width: 100%;
+  min-width: 520px;
   border-collapse: collapse;
   margin-top: 8px;
   font-size: 0.71875rem;

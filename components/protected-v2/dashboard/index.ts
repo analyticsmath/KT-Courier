@@ -6,5 +6,7 @@ export { DashboardHeader } from "./DashboardHeader";
 export { DashboardIllustrationAsset, type DashboardIllustrationRole } from "./DashboardIllustrationAsset";
 export { DashboardPeriodControl } from "./charts/DashboardPeriodControl";
 export { StaticBarChart } from "./charts/StaticBarChart";
+export { StaticTrendChart } from "./charts/StaticTrendChart";
+export { StaticActivityChart } from "./charts/StaticActivityChart";
 export { StaticDonutChart, type DonutItem } from "./charts/StaticDonutChart";
 export { StaticSegmentedBar, type SegmentItem } from "./charts/StaticSegmentedBar";

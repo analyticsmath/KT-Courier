@@ -33,10 +33,14 @@ export function StaticDonutChart({
   const circumference = 2 * Math.PI * radius; // ~414.69
 
   let accumulatedOffset = 0;
+  const accessibleSummary = items.map((item) => {
+    const percent = total > 0 ? Math.round((item.value / total) * 100) : 0;
+    return `${item.label}: ${item.value.toLocaleString("en-ZA")} (${percent}%)`;
+  }).join("; ");
 
   return (
     <div className={`${styles.donutChartWrapper} ${layout === "row" ? styles.donutChartWrapperRow : ""}`}>
-      <div className={styles.donutSvgArea} role="img" aria-label={`${title}: total ${displayTotal}`}>
+      <div className={styles.donutSvgArea} role="img" aria-label={`${title}. ${accessibleSummary}. Total ${displayTotal}`}>
         <svg
           viewBox={`0 0 ${size} ${size}`}
           className={styles.donutSvg}

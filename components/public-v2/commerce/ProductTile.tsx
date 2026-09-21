@@ -57,8 +57,19 @@ export function ProductTile({ product, priority = false }: ProductTileProps) {
         </div>}
         <div className={styles.productTileBody}>
           {product.brandName && <span className={styles.productTileBrand}>{product.brandName}</span>}
-          {href ? <Link className={styles.productTileTitleLink} data-kt-sticky-mode="VIEW" href={href} onClick={handleClick}><h3 className={styles.productTileTitle}>{product.title}</h3></Link> : <h3 className={styles.productTileTitle}>{product.title}</h3>}
-          <span className={styles.productTilePrice}>{product.price.from ? "From " : ""}{formatPrice(product.price.amount, product.price.currency)}</span>
+          <div className={styles.productTilePrimaryRow}>
+            {href ? (
+              <Link className={styles.productTileTitleLink} data-kt-sticky-mode="VIEW" href={href} onClick={handleClick}>
+                <h3 className={styles.productTileTitle}>{product.title}</h3>
+              </Link>
+            ) : (
+              <h3 className={styles.productTileTitle}>{product.title}</h3>
+            )}
+            <span className={styles.productTilePrice}>
+              {product.price.from ? "From " : ""}
+              {formatPrice(product.price.amount, product.price.currency)}
+            </span>
+          </div>
           <span className={styles.productTileAvailability}>{availabilityLabel(product.availability)}{product.variantCount > 1 ? ` · ${product.variantCount} options` : ""}</span>
         </div>
         <div className={styles.productActionRow}>

@@ -8,6 +8,8 @@ import {
   DashboardMetricCard,
   DashboardHeader,
   DashboardIllustrationAsset,
+  StaticSegmentedBar,
+  type SegmentItem,
 } from "@/components/protected-v2/dashboard";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
@@ -51,6 +53,30 @@ export interface PromoterDashboardOverviewProps {
   unreadNotifications: number;
 }
 
+function safePromoterMinorUnits(value: unknown): number | null {
+  const decimal = typeof value === "string"
+    ? value
+    : value && typeof value === "object" && "toString" in value
+      ? String(value)
+      : null;
+  if (!decimal) return null;
+
+  const match = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(decimal);
+  if (!match) return null;
+
+  const [, sign, integer, fraction = ""] = match;
+  const amount = BigInt(integer) * 100n + BigInt(fraction.padEnd(2, "0"));
+  const minorUnits = sign ? -amount : amount;
+  if (minorUnits < 0n || minorUnits > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+  return Number(minorUnits);
+}
+
+function formatPromoterMinorUnits(value: bigint, currency: string): string {
+  const whole = value / 100n;
+  const fraction = String(value % 100n).padStart(2, "0");
+  return formatPromoterMoney(`${whole}.${fraction}`, currency);
+}
+
 export function PromoterDashboardOverview({
   account,
   referralCodes,
@@ -70,6 +96,34 @@ export function PromoterDashboardOverview({
   });
   const primaryCode = referralCodes.find((code) => code.status === "ACTIVE") ?? null;
   const recent = referrals.slice(0, 5);
+  const walletMinorUnits = wallet
+    ? [
+        safePromoterMinorUnits(wallet.availableBalance),
+        safePromoterMinorUnits(wallet.pendingBalance),
+        safePromoterMinorUnits(wallet.lockedBalance),
+      ]
+    : null;
+  const walletMinorUnitTotal = walletMinorUnits?.every((value) => value !== null)
+    ? walletMinorUnits.reduce((total, value) => total + BigInt(value ?? 0), 0n)
+    : null;
+  const walletComposition: readonly SegmentItem[] | null = wallet
+    && walletMinorUnits
+    && walletMinorUnitTotal !== null
+    && walletMinorUnitTotal > 0n
+    && walletMinorUnitTotal <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? (() => {
+        const [availableValue, pendingValue, lockedValue] = walletMinorUnits;
+        if (availableValue === null || pendingValue === null || lockedValue === null) return null;
+        const available = availableValue;
+        const pending = pendingValue;
+        const locked = lockedValue;
+        return [
+          { key: "available", label: "Available", value: available, displayValue: formatPromoterMoney(wallet.availableBalance, wallet.currency), color: "var(--dash-green)" },
+          { key: "pending", label: "Pending", value: pending, displayValue: formatPromoterMoney(wallet.pendingBalance, wallet.currency), color: "var(--dash-orange)" },
+          { key: "locked", label: "Locked", value: locked, displayValue: formatPromoterMoney(wallet.lockedBalance, wallet.currency), color: "var(--dash-neutral-data)" },
+        ];
+      })()
+    : null;
 
   return (
     <DashboardCanvas>
@@ -93,7 +147,7 @@ export function PromoterDashboardOverview({
       <DashboardGrid ariaLabel="Programme and ledger summary">
         <DashboardCol span={7}>
           <DashboardCard
-            tone="brand"
+            tone="surface"
             eyebrow="Programme lifecycle"
             title={
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -105,7 +159,7 @@ export function PromoterDashboardOverview({
             padding="normal"
           >
             <div className="flex flex-col sm:flex-row items-center gap-5 pt-1">
-              <DashboardIllustrationAsset role="promoter" className="sm:max-w-[150px]" />
+              <DashboardIllustrationAsset role="promoter" className={styles.illustrationCompact} />
               <div className="flex flex-col gap-3 text-center sm:text-left">
                 <p className="text-sm text-[var(--dash-ink-secondary)] leading-relaxed m-0">
                   {lifecycle.description}
@@ -171,7 +225,7 @@ export function PromoterDashboardOverview({
             value={wallet ? formatPromoterMoney(wallet.availableBalance, wallet.currency) : "Not provisioned"}
             description="Current wallet projection"
             href="/promoter/wallet"
-            tone="green"
+            tone="surface"
           />
         </DashboardCol>
 
@@ -191,7 +245,7 @@ export function PromoterDashboardOverview({
             value={pendingQualificationCount}
             description="Owned attribution records"
             href="/promoter/referrals"
-            tone={pendingQualificationCount > 0 ? "orange" : "surface"}
+            tone="surface"
             badge={
               pendingQualificationCount > 0 ? (
                 <span className={`${styles.chip} ${styles.chipWarning}`}>Under review</span>
@@ -226,8 +280,22 @@ export function PromoterDashboardOverview({
             padding="normal"
           >
             {wallet ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3 rounded-xl bg-[var(--dash-green-soft)] border border-[var(--dash-green-border)]">
+              <div className="flex flex-col gap-4">
+                {walletComposition ? (
+                  <StaticSegmentedBar
+                    segments={walletComposition}
+                    label="Wallet balance composition"
+                    totalLabel={formatPromoterMinorUnits(walletMinorUnitTotal!, wallet.currency)}
+                  />
+                ) : (
+                  <p className={styles.emptyStateDesc}>
+                    {walletMinorUnitTotal === 0n
+                      ? "All projected wallet balances are zero."
+                      : "A balance composition is unavailable for the current wallet projection."}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-[var(--dash-surface-subtle)] border border-[var(--dash-line)]">
                   <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--dash-green)] block">
                     Available
                   </span>
@@ -239,7 +307,7 @@ export function PromoterDashboardOverview({
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-[var(--dash-orange-soft)] border border-[var(--dash-orange-border)]">
+                <div className="p-3 rounded-xl bg-[var(--dash-surface-subtle)] border border-[var(--dash-line)]">
                   <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--dash-orange)] block">
                     Pending
                   </span>
@@ -251,7 +319,7 @@ export function PromoterDashboardOverview({
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-[var(--dash-surface-muted)] border border-[var(--dash-line)]">
+                <div className="p-3 rounded-xl bg-[var(--dash-surface-subtle)] border border-[var(--dash-line)]">
                   <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--dash-muted)] block">
                     Locked
                   </span>
@@ -261,6 +329,7 @@ export function PromoterDashboardOverview({
                   <span className="text-[0.6875rem] text-[var(--dash-muted)] mt-1 block">
                     Reserve buffer
                   </span>
+                </div>
                 </div>
               </div>
             ) : (

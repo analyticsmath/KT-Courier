@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { ktMediaV3 } from "../../media/kt-media-v3";
 import { marketplaceBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
 import styles from "../post-hero-scenes.module.css";
@@ -11,7 +12,8 @@ export interface MarketplaceCategoryItem {
   title: string;
   tagline: string;
   image: string;
-  altText?: string;
+  altText: string;
+  categoryWord?: string;
   href?: string;
   hasEditorialMedia?: boolean;
 }
@@ -62,15 +64,7 @@ interface MarketplaceFivePanelSceneProps {
   onMarketplaceSelectionChange?: (id: string) => void;
 }
 
-/**
- * Chapter 02 & 03 — Marketplace Horizontal World (Phase 3B).
- * True lateral journey replacing vertical column expansion:
- * - Active image territory: ~72vw desktop
- * - Next territory visible: ~20vw
- * - The homepage director resolves a normalized vertical-scroll rail position
- * - Mobile: native horizontal scroll-snap corridor
- * - Honest storefront status link
- */
+/** Marketplace Atlas: a quiet world whose category rail carries the movement. */
 export function MarketplaceFivePanelScene({
   className = "",
   isStorefrontExposed = false,
@@ -79,113 +73,139 @@ export function MarketplaceFivePanelScene({
   onMarketplaceSelectionChange,
 }: MarketplaceFivePanelSceneProps) {
   const displayItems = categories.length > 0 ? categories : FIVE_PANEL_MEDIA;
-  const activeId = displayItems.some(({ id }) => id === selectedMarketplaceId)
-    ? selectedMarketplaceId
-    : displayItems[0]?.id;
+  const activeIndex = Math.max(0, displayItems.findIndex(({ id }) => id === selectedMarketplaceId));
+  const activeId = displayItems[activeIndex]?.id;
+  const activeItem = displayItems[activeIndex] ?? displayItems[0];
+  const portalItems = [...displayItems];
+  for (const item of FIVE_PANEL_MEDIA) {
+    if (portalItems.length >= 5) break;
+    if (!portalItems.some(({ id }) => id === item.id)) portalItems.push(item);
+  }
+  const notifySelection = (id: string) => {
+    onMarketplaceSelectionChange?.(id);
+    window.dispatchEvent(new CustomEvent("kt-marketplace-user-selection", { detail: { id } }));
+  };
+  const sectionStyle = {
+    "--kt-home-budget": `${marketplaceBudgetVh(displayItems.length)}svh`,
+    "--kt-home-mobile-budget": `${mobileChapterBudgetVh("marketplace")}svh`,
+  } as CSSProperties;
 
   return (
     <section
       className={`${styles.marketplaceSection} ${className}`}
       data-kt-contrast="dark"
       data-kt-scene="marketplace"
-      data-motion="market-stage"
       aria-labelledby="marketplace-field-title"
-      style={{ minHeight: `${marketplaceBudgetVh(displayItems.length)}svh`, "--kt-home-mobile-budget": mobileChapterBudgetVh("marketplace", displayItems.length) } as React.CSSProperties}
+      style={sectionStyle}
     >
       <div className={styles.marketplaceStickyStage} data-marketplace-sticky-stage>
-      <div className={styles.marketplaceAtmosphere} aria-hidden="true">
-        {displayItems.map((item) => (
-          <div key={item.id} data-marketplace-backdrop={item.id} className={styles.marketplaceBackdrop} style={{ backgroundImage: `url(${item.image})` }} />
-        ))}
-        <div className={styles.marketplaceSlicePlane}>
-          {Array.from({ length: 7 }, (_, index) => <span key={index} data-marketplace-slice style={{ "--slice": index } as React.CSSProperties} />)}
+        <div className={styles.marketplaceHeader}>
+          <h2 id="marketplace-field-title">
+            {isStorefrontExposed ? "Find something worth sending." : "Marketplace coming together."}
+          </h2>
+          <p>
+            {isStorefrontExposed
+              ? "Browse local stores and everyday finds, then let KT take it from there."
+              : "Local merchant catalogues are being prepared for public browsing."}
+          </p>
         </div>
-      </div>
-      <div className={styles.marketplaceHeader}>
-        <h2
-          id="marketplace-field-title"
-          className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-3 text-[var(--kt-white)]"
-        >
-          {isStorefrontExposed
-            ? "Find something worth sending."
-            : "Marketplace coming together."}
-        </h2>
-        <p className="text-base sm:text-lg text-[var(--kt-concrete)] max-w-xl leading-relaxed">
-          {isStorefrontExposed
-            ? "Browse local stores and everyday finds, then let KT take it from there."
-            : "Local merchant catalogues are being prepared for public browsing."}
-        </p>
-      </div>
 
-      <div
-        className={styles.marketplaceRailWrapper}
-        data-marketplace-rail-wrapper
-        role="region"
-          aria-label="Marketplace category atlas"
-      >
         <div
-          data-motion="market-rail"
-          className={styles.marketplaceRail}
+          className={styles.marketplaceRailWrapper}
+          data-marketplace-rail-wrapper
+          role="region"
+          aria-label="Marketplace category atlas"
+          tabIndex={0}
         >
-          {displayItems.map((cat, idx) => {
-            const isActive = activeId === cat.id;
-            const distance = Math.abs(idx - Math.max(0, displayItems.findIndex(({ id }) => id === activeId)));
-
-            return (
-              <article
-                key={cat.id}
-                id={`kt-market-card-${cat.id}`}
-                data-marketplace-panel-id={cat.id}
-                data-marketplace-index={idx}
-                data-marketplace-active={isActive ? "true" : "false"}
-                data-marketplace-distance={distance}
-                className={styles.marketplaceCard}
-                aria-label={`${cat.title} Category`}
-              >
-                <div className={styles.marketplaceCardMedia}>
-                  <Image
-                    src={cat.image}
-                    alt={cat.altText || cat.title}
-                    fill
-                    sizes="(max-width: 899px) 85vw, 75vw"
-                    className={`${styles.marketplaceCardImg} kt-market-card-img`}
-                    preload={idx === 0}
-                  />
-                  <div className={styles.marketplaceCardOverlay} />
-                </div>
-
-                <div
-                  data-motion="market-copy"
-                  className={styles.marketplaceCardContent}
+          <div data-motion="market-rail" className={styles.marketplaceRail}>
+            {displayItems.map((category, index) => {
+              const isActive = activeId === category.id;
+              return (
+                <article
+                  key={category.id}
+                  id={`kt-market-card-${category.id}`}
+                  data-marketplace-panel-id={category.id}
+                  data-marketplace-index={index}
+                  data-marketplace-active={isActive ? "true" : "false"}
+                  data-marketplace-distance={Math.abs(index - activeIndex)}
+                  className={styles.marketplaceCard}
+                  aria-label={`${category.title} category`}
                 >
-                  <h3 className={styles.marketplaceCardTitle}>{cat.title}</h3>
-                  <p className={styles.marketplaceCardTagline}>
-                    {cat.tagline}
-                  </p>
-                  {cat.href ? <Link href={cat.href} className={styles.marketplacePanelLink}>Explore category <span aria-hidden="true">↗</span></Link> : null}
-                </div>
-                <button
-                  type="button"
-                  className={styles.marketplaceSelectionButton}
-                  aria-label={`Preview ${cat.title}`}
-                  aria-pressed={isActive}
-                  onFocus={() => onMarketplaceSelectionChange?.(cat.id)}
-                  onClick={() => onMarketplaceSelectionChange?.(cat.id)}
-                />
-              </article>
-            );
-          })}
+                  <div className={styles.marketplaceCardMedia}>
+                    <Image
+                      src={category.image}
+                      alt={category.altText || category.title}
+                      fill
+                      sizes="(max-width: 899px) 84vw, clamp(30rem, 42vw, 46rem)"
+                      className={styles.marketplaceCardImg}
+                      preload={index === 0}
+                    />
+                    <div className={styles.marketplaceCardOverlay} />
+                  </div>
+                  <div className={styles.marketplaceCardContent}>
+                    {category.categoryWord ? <span>{category.categoryWord}</span> : null}
+                    <h3>{category.title}</h3>
+                    <p>{category.tagline}</p>
+                    {category.href ? (
+                      <Link href={category.href} className={styles.marketplacePanelLink}>
+                        Explore category <span aria-hidden="true">↗</span>
+                      </Link>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.marketplaceSelectionButton}
+                    aria-label={`Select ${category.title}`}
+                    aria-pressed={isActive}
+                    onFocus={() => notifySelection(category.id)}
+                    onClick={() => notifySelection(category.id)}
+                  />
+                </article>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      <div className={styles.marketplaceShopLink}>
-        <Link
-          href="/shop"
-          className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-[var(--kt-concrete)] hover:text-white transition-colors"
-        >
-          {isStorefrontExposed ? "Browse all shops" : "Marketplace status"} &rarr;
-        </Link>
-      </div>
+        <div className={styles.marketplacePortal} data-marketplace-portal aria-hidden="true">
+          <div className={styles.marketplacePortalConstellation}>
+            {portalItems.map((item) => (
+              <div
+                key={item.id}
+                data-marketplace-portal-support-id={item.id}
+                className={styles.marketplacePortalSupport}
+              >
+                <Image src={item.image} alt="" fill sizes="16vw" loading="eager" />
+              </div>
+            ))}
+            {activeItem ? (
+              <div
+                data-marketplace-portal-center
+                data-story-source="portal"
+                className={styles.marketplacePortalCenter}
+                style={{ backgroundImage: `url(${activeItem.image})` }}
+              >
+                <span>{activeItem.title}</span>
+              </div>
+            ) : null}
+          </div>
+          <p data-marketplace-portal-caption className={styles.marketplacePortalCaption}>From shelf to parcel.</p>
+        </div>
+
+        <div className={styles.marketplaceExitSlices} aria-hidden="true">
+          {Array.from({ length: 7 }, (_, index) => (
+            <span
+              key={index}
+              data-marketplace-exit-slice={index}
+              style={activeItem ? { backgroundImage: `url(${activeItem.image})` } : undefined}
+            />
+          ))}
+        </div>
+
+        <div className={styles.marketplaceShopLink}>
+          <Link href="/shop">
+            {isStorefrontExposed ? "Browse all shops" : "Marketplace status"} <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </div>
     </section>
   );

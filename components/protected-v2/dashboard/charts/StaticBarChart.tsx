@@ -29,6 +29,9 @@ export function StaticBarChart({
   scaleLabel,
 }: StaticBarChartProps) {
   const max = Math.max(1, ...buckets.map((b) => b.value));
+  const peakIndex = buckets.reduce((peak, bucket, index) => bucket.value > (buckets[peak]?.value ?? -1) ? index : peak, 0);
+  const denseStep = Math.max(1, Math.ceil((buckets.length - 1) / 5));
+  const showDenseIndex = (index: number) => index === 0 || index === buckets.length - 1 || index === peakIndex || index % denseStep === 0;
   const fillClass = TONE_CLASSES[tone];
 
   return (
@@ -50,11 +53,14 @@ export function StaticBarChart({
       </div>
 
       <div className={styles.barChartColumns} role="img" aria-label={label}>
-        {buckets.map((bucket) => {
+        {buckets.map((bucket, index) => {
           const heightPercent = Math.round((bucket.value / max) * 100);
+          const showDenseLabel = buckets.length <= 7 || showDenseIndex(index);
           return (
             <div className={styles.barColumn} key={bucket.start}>
-              <span className={styles.barCount}>{bucket.value > 0 ? bucket.value.toLocaleString("en-ZA") : "0"}</span>
+              <span className={styles.barCount} aria-hidden={!showDenseLabel}>
+                {showDenseLabel ? bucket.value.toLocaleString("en-ZA") : ""}
+              </span>
               <div className={styles.barTrack}>
                 <div
                   className={fillClass}
@@ -62,8 +68,8 @@ export function StaticBarChart({
                   title={`${bucket.label}: ${bucket.value}`}
                 />
               </div>
-              <span className={styles.barLabel} title={bucket.label}>
-                {bucket.label}
+              <span className={styles.barLabel} title={bucket.label} aria-hidden={!showDenseLabel}>
+                {showDenseLabel ? bucket.label : ""}
               </span>
             </div>
           );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { gsap } from "@/components/public-v2/motion/gsap-public";
 import { usePublicMotionPreference } from "@/components/public-v2/motion/usePublicMotionPreference";
@@ -32,7 +32,15 @@ export function triggerCartFlight(payload: FlightPayload) {
 export function AddToCartFlightPortal() {
   const { prefersReducedMotion } = usePublicMotionPreference();
   const [activeFlights, setActiveFlights] = useState<ActiveFlight[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const timelinesRef = useRef(new Map<string, gsap.core.Timeline>());
+  const safetyTimersRef = useRef(new Map<string, number>());
+  const animationFramesRef = useRef(new Map<string, number[]>());
+
+  const removeFlight = useCallback((flightId: string) => {
+    setActiveFlights((current) =>
+      current.filter((flight) => flight.id !== flightId)
+    );
+  }, []);
 
   const startFlight = useCallback(
     (payload: FlightPayload) => {
@@ -56,25 +64,29 @@ export function AddToCartFlightPortal() {
         return;
       }
 
-      // Discover authoritative target element
+      // Keep the established mobile target priority, including the PDP header cart.
       const isMobile = window.innerWidth <= 1023;
       let targetEl: HTMLElement | null = null;
 
       if (isMobile) {
         targetEl =
-          document.querySelector<HTMLElement>('[data-kt-cart-target="mobile-bottom-nav"]') ||
-          document.querySelector<HTMLElement>('[data-kt-cart-target="mobile-header"]');
+          document.querySelector<HTMLElement>(
+            '[data-kt-cart-target="mobile-bottom-nav"]'
+          ) ||
+          document.querySelector<HTMLElement>(
+            '[data-kt-cart-target="mobile-header"]'
+          );
       } else {
-        targetEl = document.querySelector<HTMLElement>('[data-kt-cart-target="header"]');
-      }
-
-      // Fallback to any visible cart target
-      if (!targetEl) {
-        targetEl = document.querySelector<HTMLElement>('[data-kt-cart-target]');
+        targetEl = document.querySelector<HTMLElement>(
+          '[data-kt-cart-target="header"]'
+        );
       }
 
       if (!targetEl) {
-        // No visual target in DOM: immediately dispatch update
+        targetEl = document.querySelector<HTMLElement>("[data-kt-cart-target]");
+      }
+
+      if (!targetEl) {
         window.dispatchEvent(new CustomEvent("kt-cart-updated"));
         return;
       }
@@ -84,7 +96,6 @@ export function AddToCartFlightPortal() {
       const targetY = targetRect.top + targetRect.height / 2 - 16;
 
       if (prefersReducedMotion) {
-        // Instant target pulse, no flight
         targetEl.animate(
           [
             { transform: "scale(1)" },
@@ -97,7 +108,8 @@ export function AddToCartFlightPortal() {
         return;
       }
 
-      const flightId = `flight-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const flightId =
+        "flight-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
       const flightData: ActiveFlight = {
         id: flightId,
         imageSrc: payload.imageSrc,
@@ -108,107 +120,159 @@ export function AddToCartFlightPortal() {
         targetX,
         targetY,
       };
+      let finished = false;
+      let safetyTimer: number | null = null;
 
-      setActiveFlights((prev) => [...prev, flightData]);
+      const finishFlight = () => {
+        if (finished) return;
+        finished = true;
 
-      // Request next frame to mount and animate
-      requestAnimationFrame(() => {
-        const flightEl = document.getElementById(flightId);
-        if (!flightEl) return;
+        if (safetyTimer !== null) window.clearTimeout(safetyTimer);
+        safetyTimersRef.current.delete(flightId);
 
-        const distanceY = targetY - startY;
-        const arcPeak = Math.min(-60, -Math.abs(distanceY * 0.4) - 40);
+        const pendingFrames = animationFramesRef.current.get(flightId);
+        pendingFrames?.forEach((frameId) =>
+          window.cancelAnimationFrame(frameId)
+        );
+        animationFramesRef.current.delete(flightId);
 
-        const tl = gsap.timeline({
-          onComplete: () => {
-            setActiveFlights((prev) => prev.filter((f) => f.id !== flightId));
-            window.dispatchEvent(new CustomEvent("kt-cart-updated"));
+        const timeline = timelinesRef.current.get(flightId);
+        timelinesRef.current.delete(flightId);
+        timeline?.kill();
 
-            if (targetEl) {
-              gsap.fromTo(
-                targetEl,
-                { scale: 0.8 },
-                { scale: 1.25, duration: 0.16, ease: "power2.out", yoyo: true, repeat: 1 }
-              );
+        removeFlight(flightId);
+        window.dispatchEvent(new CustomEvent("kt-cart-updated"));
+
+        if (targetEl?.isConnected) {
+          gsap.fromTo(
+            targetEl,
+            { scale: 0.8 },
+            {
+              scale: 1.25,
+              duration: 0.16,
+              ease: "power2.out",
+              yoyo: true,
+              repeat: 1,
             }
-          },
+          );
+        }
+      };
+
+      safetyTimer = window.setTimeout(finishFlight, 1400);
+      safetyTimersRef.current.set(flightId, safetyTimer);
+      setActiveFlights((current) => [...current, flightData]);
+
+      const frameIds: number[] = [];
+      animationFramesRef.current.set(flightId, frameIds);
+      const firstFrame = window.requestAnimationFrame(() => {
+        if (finished) return;
+
+        const secondFrame = window.requestAnimationFrame(() => {
+          if (finished) return;
+
+          const flightEl = document.getElementById(flightId);
+          if (!flightEl || !targetEl?.isConnected) {
+            finishFlight();
+            return;
+          }
+
+          const distanceY = targetY - startY;
+          const arcPeak = Math.min(-60, -Math.abs(distanceY * 0.4) - 40);
+          const timeline = gsap.timeline({
+            onComplete: finishFlight,
+            onInterrupt: finishFlight,
+          });
+          timelinesRef.current.set(flightId, timeline);
+
+          timeline.fromTo(
+            flightEl,
+            {
+              x: startX,
+              y: startY,
+              scale: 1,
+              opacity: 1,
+              borderRadius: "8px",
+            },
+            {
+              x: targetX,
+              duration: 0.65,
+              ease: "power1.inOut",
+            },
+            0
+          );
+
+          timeline.to(
+            flightEl,
+            {
+              y: startY + arcPeak,
+              duration: 0.28,
+              ease: "power2.out",
+            },
+            0
+          );
+
+          timeline.to(
+            flightEl,
+            {
+              y: targetY,
+              duration: 0.37,
+              ease: "power2.in",
+            },
+            0.28
+          );
+
+          timeline.to(
+            flightEl,
+            {
+              scale: 0.18,
+              opacity: 0,
+              duration: 0.18,
+              ease: "power1.in",
+            },
+            0.48
+          );
         });
-
-        // Parabolic trajectory: X progresses smoothly, Y arcs upwards before landing
-        tl.fromTo(
-          flightEl,
-          {
-            x: startX,
-            y: startY,
-            scale: 1,
-            opacity: 1,
-            borderRadius: "8px",
-          },
-          {
-            x: targetX,
-            duration: 0.65,
-            ease: "power1.inOut",
-          },
-          0
-        );
-
-        tl.to(
-          flightEl,
-          {
-            y: startY + arcPeak,
-            duration: 0.28,
-            ease: "power2.out",
-          },
-          0
-        );
-
-        tl.to(
-          flightEl,
-          {
-            y: targetY,
-            duration: 0.37,
-            ease: "power2.in",
-          },
-          0.28
-        );
-
-        tl.to(
-          flightEl,
-          {
-            scale: 0.35,
-            opacity: 0.75,
-            duration: 0.25,
-            ease: "power1.in",
-          },
-          0.4
-        );
+        frameIds.push(secondFrame);
       });
+      frameIds.push(firstFrame);
     },
-    [prefersReducedMotion]
+    [prefersReducedMotion, removeFlight]
   );
 
   useEffect(() => {
-    const handleTrigger = (e: Event) => {
-      const customEvent = e as CustomEvent<FlightPayload>;
-      if (customEvent.detail) {
-        startFlight(customEvent.detail);
-      }
+    const timelines = timelinesRef.current;
+    const safetyTimers = safetyTimersRef.current;
+    const animationFrames = animationFramesRef.current;
+    const handleTrigger = (event: Event) => {
+      const customEvent = event as CustomEvent<FlightPayload>;
+      if (customEvent.detail) startFlight(customEvent.detail);
     };
 
     window.addEventListener("kt-trigger-cart-flight", handleTrigger);
     return () => {
       window.removeEventListener("kt-trigger-cart-flight", handleTrigger);
+
+      for (const timeline of [...timelines.values()]) {
+        timeline.kill();
+      }
+      timelines.clear();
+
+      safetyTimers.forEach((timerId) => window.clearTimeout(timerId));
+      safetyTimers.clear();
+
+      animationFrames.forEach((frameIds) =>
+        frameIds.forEach((frameId) => window.cancelAnimationFrame(frameId))
+      );
+      animationFrames.clear();
+      setActiveFlights([]);
     };
   }, [startFlight]);
 
-  if (activeFlights.length === 0) {
-    return null;
-  }
+  if (activeFlights.length === 0) return null;
 
   return (
     <div
       aria-hidden="true"
-      ref={containerRef}
       style={{
         position: "fixed",
         inset: 0,
@@ -230,7 +294,8 @@ export function AddToCartFlightPortal() {
             height: "48px",
             borderRadius: "8px",
             overflow: "hidden",
-            boxShadow: "0 12px 28px rgba(14, 16, 18, 0.45), 0 0 0 1px rgba(52, 124, 251, 0.4)",
+            boxShadow:
+              "0 12px 28px rgba(14, 16, 18, 0.45), 0 0 0 1px rgba(52, 124, 251, 0.4)",
             backgroundColor: "var(--kt-carbon, #0e1012)",
             display: "flex",
             alignItems: "center",
@@ -247,7 +312,26 @@ export function AddToCartFlightPortal() {
               style={{ objectFit: "cover" }}
             />
           ) : (
-            <svg aria-hidden="true" fill="none" height="22" viewBox="0 0 24 24" width="22"><path d="M4 8h16l-1.5 12h-13L4 8Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M8 9V6a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="22"
+              viewBox="0 0 24 24"
+              width="22"
+            >
+              <path
+                d="M4 8h16l-1.5 12h-13L4 8Z"
+                stroke="currentColor"
+                strokeLinejoin="round"
+                strokeWidth="1.7"
+              />
+              <path
+                d="M8 9V6a4 4 0 0 1 8 0v3"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.7"
+              />
+            </svg>
           )}
         </div>
       ))}

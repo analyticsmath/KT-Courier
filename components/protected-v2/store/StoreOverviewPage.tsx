@@ -9,7 +9,7 @@ import {
   DashboardHeader,
   DashboardIllustrationAsset,
   DashboardPeriodControl,
-  StaticBarChart,
+  StaticActivityChart,
   StaticDonutChart,
   type DonutItem,
 } from "@/components/protected-v2/dashboard";
@@ -92,7 +92,7 @@ export function StoreOverviewPage({
             value={summary.needsAttention}
             description="Review, customer action, or reconciliation"
             href="#fulfilment-bench"
-            tone={summary.needsAttention > 0 ? "orange" : "surface"}
+            tone="surface"
             badge={
               summary.needsAttention > 0 ? (
                 <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>
@@ -117,7 +117,7 @@ export function StoreOverviewPage({
             value={summary.readyForCollection}
             description="Awaiting driver or customer pickup"
             href="#fulfilment-bench"
-            tone="green"
+            tone="surface"
           />
         </DashboardCol>
 
@@ -181,7 +181,7 @@ export function StoreOverviewPage({
                   Total is available. Activity detail exceeds display limits for this window; choose a shorter period.
                 </p>
               ) : insight.buckets.some((b) => b.value > 0) ? (
-                <StaticBarChart
+                <StaticActivityChart
                   buckets={insight.buckets}
                   label={`${insight.title} · ${insight.periodLabel}`}
                   tone="brand"
@@ -223,8 +223,6 @@ export function StoreOverviewPage({
             padding="normal"
           >
             <div className="flex flex-col gap-3">
-              <DashboardIllustrationAsset role="store" />
-
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--dash-surface-muted)] border border-[var(--dash-line)]">
                 <span className="text-xs font-semibold text-[var(--dash-ink)]">Account status</span>
                 <ProtectedStatus label={state.label} tone={state.tone} />
@@ -236,6 +234,7 @@ export function StoreOverviewPage({
                   ? "Saved pickup address is configured for new delivery collections."
                   : "No pickup address saved. Add an address to speed up courier dispatch."}
               </div>
+              <DashboardIllustrationAsset role="store" className={styles.illustrationCompact} />
             </div>
           </DashboardCard>
         </DashboardCol>

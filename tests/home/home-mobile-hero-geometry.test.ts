@@ -39,11 +39,11 @@ describe("mobile hero geometry contract", () => {
   });
 
   it("uses measured actor-stage geometry for mobile Hero placement", () => {
-    expect(director).toContain("stageWidthPx = actorStageRect?.width || window.innerWidth");
-    expect(director).toContain("stageHeightPx = actorStageRect?.height || window.innerHeight");
-    expect(director).toContain("const sizingHeight = mobileHeroGeometry ? heroUsableActorHeightPx : window.innerHeight");
-    expect(director).toContain("y: mobileHeroGeometry ? heroUsableActorHeightPx * actor.groundY");
-    expect(director).toContain("mobileNav?.getBoundingClientRect().height ?? 0");
+    expect(director).toContain("stageWidth = rect.width || window.innerWidth");
+    expect(director).toContain("const sizingHeight = mobileHero ? heroUsableActorHeight : window.innerHeight");
+    expect(director).toContain("x: targetWidthBase * frame.targetX");
+    expect(director).toContain("y: mobileHero ? heroUsableActorHeight * frame.groundY");
+    expect(director).toContain("getBoundingClientRect().height ?? 0");
     expect(actorStage).toMatch(/preloadStates=\{\[\.\.\.HERO_TRUCK_SEQUENCE\.slice\(0, 6\)\]\}/);
     expect(actorStage).toContain("preloadStates={[]}");
   });
@@ -58,13 +58,13 @@ describe("mobile hero geometry contract", () => {
   });
 
   it("uses visible containers and opacity-only Hero frame blending", () => {
-    const heroSequenceBranch = director.slice(
-      director.indexOf("if (isHeroSequence && layers)"),
-      director.indexOf("} else {", director.indexOf("if (isHeroSequence && layers)")),
+    const heroActorBranch = director.slice(
+      director.indexOf("const applyHeroActor"),
+      director.indexOf("const hideLocalActorSlots"),
     );
-    expect(heroSequenceBranch).toContain('opacity: alpha, visibility: "visible"');
-    expect(heroSequenceBranch).not.toContain("autoAlpha");
-    expect(director).toContain("if (!prefersReducedMotion) preloadRemainingHeroSequence();");
+    expect(heroActorBranch).toContain('gsap.set(layer, { opacity: alpha, visibility: "visible" });');
+    expect(heroActorBranch).not.toContain("autoAlpha");
+    expect(director).toContain("if (!prefersReducedMotion)");
     expect(director).toContain("HERO_TRUCK_SEQUENCE.slice(6).forEach");
   });
 });

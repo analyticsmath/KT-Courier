@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import type { MarketplaceCategoryItem } from "./scenes/MarketplaceFivePanelScene";
+import styles from "./post-hero-scenes.module.css";
 
-/** A fixed, viewport-owned media plane used for the marketplace → fan → parcel handoff. */
+/** Fixed media plane that carries the chosen category into Preparation. */
 export function PersistentStoryMediaLayer({ items }: { items: MarketplaceCategoryItem[] }) {
   return (
-    <div className="kt-persistent-story-media-layer" data-persistent-story-media aria-hidden="true">
-      <div className="kt-persistent-story-media-frame" data-story-media-frame>
+    <div className={styles.storyMediaLayer} data-persistent-story-media aria-hidden="true">
+      <div className={styles.storyMediaFrame} data-story-media-frame>
         {items.map((item) => (
           <Image
             key={item.id}
@@ -15,12 +16,11 @@ export function PersistentStoryMediaLayer({ items }: { items: MarketplaceCategor
             src={item.image}
             alt=""
             fill
-            sizes="(max-width: 767px) 72vw, 34vw"
-            className="kt-persistent-story-media-image"
+            sizes="100vw"
+            className={styles.storyMediaImage}
           />
         ))}
       </div>
-      <div data-story-preparation-target className="kt-story-preparation-target" />
     </div>
   );
 }

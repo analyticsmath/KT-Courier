@@ -13,7 +13,7 @@ import {
   DashboardHeader,
   DashboardIllustrationAsset,
   DashboardPeriodControl,
-  StaticBarChart,
+  StaticActivityChart,
   StaticDonutChart,
   type DonutItem,
 } from "@/components/protected-v2/dashboard";
@@ -84,16 +84,16 @@ export function DriverHomePage({
         }
       />
 
-      {/* Row 1: Active Run Console (8 cols) + Driver Profile & Roster (4 cols) */}
-      <DashboardGrid ariaLabel="Active run focus">
-        <DashboardCol span={8}>
+      <div className={styles.driverDashboardLayout}>
+      <DashboardGrid className={styles.driverFocusGroup} ariaLabel="Active run focus">
+        <DashboardCol span={12}>
           {active ? (
             <div className="flex flex-col gap-3">
               <DriverActiveRun assignment={active} />
             </div>
           ) : state.state === "ASSIGNMENT_DECISION_REQUIRED" && pendingOffers[0] ? (
             <DashboardCard
-              tone="orange"
+              tone="surface"
               eyebrow="Offer awaiting decision"
               title={
                 <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -140,7 +140,7 @@ export function DriverHomePage({
               padding="normal"
             >
               <div className="flex flex-col sm:flex-row items-center gap-5 py-2">
-                <DashboardIllustrationAsset role="driver" className="sm:max-w-[160px]" />
+                <DashboardIllustrationAsset role="driver" className={styles.illustrationCompact} />
                 <div className="flex flex-col gap-3 text-center sm:text-left">
                   <p className="text-sm text-[var(--dash-ink-secondary)] m-0">{state.description}</p>
                   <div>
@@ -154,7 +154,10 @@ export function DriverHomePage({
           )}
         </DashboardCol>
 
-        <DashboardCol span={4}>
+      </DashboardGrid>
+
+      <DashboardGrid className={styles.driverRosterGroup} ariaLabel="Driver profile and roster">
+        <DashboardCol span={12}>
           <DashboardCard
             tone="dark"
             eyebrow="Roster details"
@@ -194,15 +197,14 @@ export function DriverHomePage({
         </DashboardCol>
       </DashboardGrid>
 
-      {/* KPI Metric Strip (4-card band, 2-up on mobile) */}
-      <DashboardGrid ariaLabel="Driver workload metrics">
+      <DashboardGrid className={styles.driverMetricsGroup} ariaLabel="Driver workload metrics">
         <DashboardCol span={3}>
           <DashboardMetricCard
             label="Current assignments"
             value={currentWork.length}
             description="Accepted, active runs"
             href="/driver/assignments"
-            tone="green"
+            tone="surface"
           />
         </DashboardCol>
 
@@ -212,7 +214,7 @@ export function DriverHomePage({
             value={pendingOffers.length}
             description="Dispatched offers to review"
             href="/driver/assignments"
-            tone={pendingOffers.length > 0 ? "orange" : "surface"}
+            tone="surface"
             badge={
               pendingOffers.length > 0 ? (
                 <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>
@@ -244,8 +246,7 @@ export function DriverHomePage({
         </DashboardCol>
       </DashboardGrid>
 
-      {/* Row 2: Analytics (7 cols completed chart + 5 cols assignment state mix) */}
-      <DashboardGrid ariaLabel="Driver performance analytics">
+      <DashboardGrid className={styles.driverAnalyticsGroup} ariaLabel="Driver performance analytics">
         <DashboardCol span={7}>
           {insight ? (
             <DashboardCard
@@ -260,7 +261,7 @@ export function DriverHomePage({
                   Total is available. Detail exceeds display limits for this window; choose a shorter period.
                 </p>
               ) : insight.buckets.some((b) => b.value > 0) ? (
-                <StaticBarChart
+                <StaticActivityChart
                   buckets={insight.buckets}
                   label={`${insight.title} · ${insight.periodLabel}`}
                   tone="teal"
@@ -316,7 +317,7 @@ export function DriverHomePage({
 
       {/* Row 3: Upcoming Work Queue / Next Record (12 cols) */}
       {nextRecord && (
-        <DashboardGrid ariaLabel="Next assignment">
+        <DashboardGrid className={styles.driverQueueGroup} ariaLabel="Next assignment">
           <DashboardCol span={12}>
             <DashboardCard
               eyebrow="Work queue"
@@ -350,6 +351,7 @@ export function DriverHomePage({
           </DashboardCol>
         </DashboardGrid>
       )}
+      </div>
     </DashboardCanvas>
   );
 }

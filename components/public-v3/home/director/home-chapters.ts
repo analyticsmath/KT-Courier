@@ -1,42 +1,31 @@
 export const HOME_CHAPTERS = [
   "hero",
   "marketplace",
-  "fan",
   "preparation",
-  "collection",
-  "custody",
-  "route",
+  "journey",
   "freight",
-  "arrival",
   "finale",
 ] as const;
 
 export type HomeChapter = (typeof HOME_CHAPTERS)[number];
+export type PostHeroChapter = Exclude<HomeChapter, "hero">;
 
 export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
   hero: 205,
-  marketplace: 225,
-  fan: 115,
-  preparation: 110,
-  collection: 175,
-  custody: 130,
-  route: 180,
-  freight: 160,
-  arrival: 125,
-  finale: 110,
+  marketplace: 235,
+  preparation: 120,
+  journey: 320,
+  freight: 205,
+  finale: 150,
 };
 
 export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
   hero: 260,
   marketplace: 100,
-  fan: 102,
   preparation: 105,
-  collection: 165,
-  custody: 130,
-  route: 170,
-  freight: 150,
-  arrival: 128,
-  finale: 112,
+  journey: 260,
+  freight: 208,
+  finale: 150,
 };
 
 export type HomeMobilePolicy = "document" | "native-snap" | "sticky";
@@ -44,19 +33,15 @@ export type HomeMobilePolicy = "document" | "native-snap" | "sticky";
 export const HOME_MOBILE_POLICY: Record<HomeChapter, HomeMobilePolicy> = {
   hero: "document",
   marketplace: "native-snap",
-  fan: "document",
   preparation: "document",
-  collection: "sticky",
-  custody: "sticky",
-  route: "sticky",
+  journey: "sticky",
   freight: "sticky",
-  arrival: "sticky",
-  finale: "document",
+  finale: "sticky",
 };
 
 export function marketplaceBudgetVh(categoryCount: number): number {
-  const visibleCategoryCount = Math.min(5, Math.max(3, categoryCount));
-  return Math.min(240, Math.max(215, 125 + visibleCategoryCount * 20));
+  const visibleCategoryCount = Math.min(6, Math.max(3, categoryCount));
+  return Math.min(245, Math.max(220, 190 + visibleCategoryCount * 9));
 }
 
 export function chapterBudgetVh(chapter: HomeChapter, categoryCount = 5): number {
@@ -65,6 +50,8 @@ export function chapterBudgetVh(chapter: HomeChapter, categoryCount = 5): number
     : HOME_CHAPTER_BUDGETS_VH[chapter];
 }
 
-export function mobileChapterBudgetVh(chapter: HomeChapter, categoryCount = 5): number {
-  return HOME_MOBILE_CHAPTER_BUDGETS_VH[chapter] ?? chapterBudgetVh(chapter, categoryCount);
+export function mobileChapterBudgetVh(chapter: HomeChapter): number {
+  return chapter === "marketplace"
+    ? 100
+    : HOME_MOBILE_CHAPTER_BUDGETS_VH[chapter];
 }

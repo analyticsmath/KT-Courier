@@ -9,10 +9,11 @@ import {
   DashboardHeader,
   DashboardIllustrationAsset,
   DashboardPeriodControl,
-  StaticBarChart,
+  StaticActivityChart,
   StaticDonutChart,
   type DonutItem,
 } from "@/components/protected-v2/dashboard";
+import { ProtectedIcon } from "@/components/protected-v2/icons/ProtectedIcon";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { formatCustomerDateTime, getCustomerOrderStatus } from "@/lib/customer-presentation/customer-order-presentation";
 import type { OrderSummaryDto } from "@/lib/dto/order.dto";
@@ -66,12 +67,13 @@ export function CustomerDashboardHome({
         }
       />
 
-      {/* Hero Operational Band (8 cols active dossier / empty state, 4 cols shortcuts) */}
-      <DashboardGrid ariaLabel="Active delivery focus">
-        <DashboardCol span={8}>
+      <div className={styles.customerDashboardLayout}>
+      {/* Mobile order prioritises delivery context and analysis before shortcuts. */}
+      <DashboardGrid className={styles.customerFocusGroup} ariaLabel="Active delivery focus">
+        <DashboardCol span={12}>
           {latestActive && activeStatus ? (
             <DashboardCard
-              tone="brand"
+              tone="surface"
               eyebrow="Active courier run"
               title={
                 <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -145,42 +147,16 @@ export function CustomerDashboardHome({
             </DashboardCard>
           )}
         </DashboardCol>
-
-        <DashboardCol span={4}>
-          <DashboardCard
-            tone="dark"
-            eyebrow="Quick access"
-            title="Account services"
-            description="Manage your delivery preferences"
-            padding="normal"
-          >
-            <div className="flex flex-col gap-2 pt-1">
-              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/addresses">
-                📍 Saved addresses
-              </Link>
-              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/wallet">
-                💳 Customer wallet
-              </Link>
-              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/notifications">
-                🔔 Notifications
-              </Link>
-              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/support">
-                💬 Support and help
-              </Link>
-            </div>
-          </DashboardCard>
-        </DashboardCol>
       </DashboardGrid>
 
-      {/* KPI Metric Strip (4-card band, 2-up on mobile) */}
-      <DashboardGrid ariaLabel="Customer delivery metrics">
+      <DashboardGrid className={styles.customerMetricsGroup} ariaLabel="Customer delivery metrics">
         <DashboardCol span={3}>
           <DashboardMetricCard
             label="Active deliveries"
             value={activeCount}
             description="Parcels currently in flight"
             href="/account/orders"
-            tone="green"
+            tone="surface"
           />
         </DashboardCol>
 
@@ -190,7 +166,7 @@ export function CustomerDashboardHome({
             value={attentionCount}
             description="Pending or delivery attempts"
             href="/account/orders"
-            tone={attentionCount > 0 ? "orange" : "surface"}
+            tone="surface"
             badge={
               attentionCount > 0 ? (
                 <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>
@@ -222,8 +198,7 @@ export function CustomerDashboardHome({
         </DashboardCol>
       </DashboardGrid>
 
-      {/* Row 2: Analytics (7 cols activity chart + 5 cols status mix donut) */}
-      <DashboardGrid ariaLabel="Customer delivery analytics">
+      <DashboardGrid className={styles.customerAnalyticsGroup} ariaLabel="Customer delivery analytics">
         <DashboardCol span={7}>
           <DashboardCard
             eyebrow="Activity trend"
@@ -237,7 +212,7 @@ export function CustomerDashboardHome({
                 Total is available. Activity detail exceeds display limits for this window; choose a shorter period.
               </p>
             ) : insight.buckets.some((b) => b.value > 0) ? (
-              <StaticBarChart
+              <StaticActivityChart
                 buckets={insight.buckets}
                 label={`${insight.title} · ${insight.periodLabel}`}
                 tone="brand"
@@ -284,8 +259,38 @@ export function CustomerDashboardHome({
         </DashboardCol>
       </DashboardGrid>
 
-      {/* Row 3: Recent Deliveries List (12 cols) */}
-      <DashboardGrid ariaLabel="Recent delivery records">
+      <DashboardGrid className={styles.customerServicesGroup} ariaLabel="Customer account services">
+        <DashboardCol span={12}>
+          <DashboardCard
+            tone="dark"
+            eyebrow="Quick access"
+            title="Account services"
+            description="Manage your delivery preferences"
+            padding="normal"
+          >
+            <div className={styles.quickAccessList}>
+              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/addresses">
+                <ProtectedIcon className={styles.quickAccessIcon} name="map" />
+                <span>Saved addresses</span>
+              </Link>
+              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/wallet">
+                <ProtectedIcon className={styles.quickAccessIcon} name="wallet" />
+                <span>Customer wallet</span>
+              </Link>
+              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/notifications">
+                <ProtectedIcon className={styles.quickAccessIcon} name="bell" />
+                <span>Notifications</span>
+              </Link>
+              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/support">
+                <ProtectedIcon className={styles.quickAccessIcon} name="support" />
+                <span>Support and help</span>
+              </Link>
+            </div>
+          </DashboardCard>
+        </DashboardCol>
+      </DashboardGrid>
+
+      <DashboardGrid className={styles.customerRecordsGroup} ariaLabel="Recent delivery records">
         <DashboardCol span={12}>
           <DashboardCard
             eyebrow="Order history"
@@ -339,6 +344,7 @@ export function CustomerDashboardHome({
           </DashboardCard>
         </DashboardCol>
       </DashboardGrid>
+      </div>
     </DashboardCanvas>
   );
 }
