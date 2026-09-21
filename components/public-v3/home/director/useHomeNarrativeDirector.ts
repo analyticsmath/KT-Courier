@@ -27,7 +27,7 @@ import {
   validateHomeActorTransitions,
   type ActorType,
 } from "./home-actor-transitions";
-import { resolveHomeFrame, type ActorFrame, type HomeFrame } from "./home-frame-resolver";
+import { resolveHomeFrame, routeTruckRotationForTangent, type ActorFrame, type HomeFrame } from "./home-frame-resolver";
 import type { HomepageCategoryVisual } from "./home-category-media";
 import { marketplaceTrackX } from "./home-marketplace-geometry";
 
@@ -77,7 +77,7 @@ const PRELOAD_STATES: Record<HomeChapter, Partial<Record<ActorName, string[]>>> 
   fan: {},
   preparation: {},
   collection: {
-    van: ["motion-transition", "side-left", "sliding-door-open"],
+    van: ["collection-side-right", "collection-door-open-right"],
     courier: ["look-left-approach", "lift-parcel", "loading-unloading"],
   },
   custody: { courier: ["loading-unloading", "ready-handover"] },
@@ -108,10 +108,6 @@ function createNormalizedTimeline(onProgress: (progress: number) => void): Progr
   return { timeline, proxy };
 }
 
-function marketplaceWord(category: HomepageCategoryVisual | undefined): string {
-  return category?.categoryWord?.trim() || category?.title.trim().split(/\s+/)[0]?.toUpperCase() || "LOCAL";
-}
-
 function interpolate(from: number, to: number, amount: number): number {
   return from + (to - from) * amount;
 }
@@ -122,10 +118,9 @@ function smooth(amount: number): number {
 
 function applyFanMotion(cards: HTMLElement[], progress: number, transfer?: FanTransferGeometry | null): void {
   const p = clamp01(progress);
-  const spread = range(p, 0.12, 0.32);
-  const compress = range(p, 0.5, 0.68);
-  const contract = range(p, 0.8, 0.92);
-  const parcel = range(p, 0.92, 1);
+  const spread = range(p, 0.12, 0.3);
+  const compress = range(p, 0.68, 0.82);
+  const parcel = range(p, 0.88, 1);
   const offsetScale = Math.max(0.45, Math.min(1, window.innerWidth / 1024));
 
   cards.forEach((card) => {
@@ -137,32 +132,32 @@ function applyFanMotion(cards: HTMLElement[], progress: number, transfer?: FanTr
       : rawX * offsetScale;
     const baseY = Number(card.dataset.fanY ?? 0);
     const baseRotation = Number(card.dataset.fanRot ?? 0);
+    const supportScale = card.dataset.fanSlot?.includes("far") ? 0.78 : 0.9;
+    const supportOpacity = card.dataset.fanSlot?.includes("far") ? 0.5 : 1;
     if (p < 0.12) {
-      gsap.set(card, { x: 0, y: 36, rotation: 0, scale: isHero ? 0.94 : 0.78, autoAlpha: isHero ? 1 : 0.15 });
-    } else if (p < 0.32) {
+      gsap.set(card, { x: 0, y: isHero ? 0 : 24, rotation: 0, scale: isHero ? 1 : 0.78, autoAlpha: isHero ? 1 : 0 });
+    } else if (p < 0.3) {
       gsap.set(card, {
         x: interpolate(0, baseX, spread),
-        y: interpolate(12, baseY, spread),
+        y: interpolate(0, baseY, spread),
         rotation: baseRotation * spread,
-        scale: isHero ? 1 : interpolate(0.82, 1, spread),
-        autoAlpha: isHero ? 1 : interpolate(0.25, 1, spread),
+        scale: isHero ? 1 : interpolate(0.72, supportScale, spread),
+        autoAlpha: isHero ? 1 : spread * supportOpacity,
       });
-    } else if (p < 0.5) {
-      gsap.set(card, { x: baseX, y: baseY, rotation: baseRotation, scale: 1, autoAlpha: 1 });
     } else if (p < 0.68) {
+      gsap.set(card, { x: baseX, y: baseY, rotation: baseRotation, scale: isHero ? 1 : supportScale, autoAlpha: isHero ? 1 : supportOpacity });
+    } else if (p < 0.82) {
       gsap.set(card, {
         x: baseX * (1 - compress),
         y: baseY * (1 - compress),
         rotation: baseRotation * (1 - compress),
-        scale: isHero ? 1 : 1 - compress * 0.1,
-        autoAlpha: isHero ? 1 : 1 - compress * 0.78,
+        scale: isHero ? 1 : supportScale * (1 - compress * 0.1),
+        autoAlpha: isHero ? 1 : supportOpacity * (1 - compress),
       });
-    } else if (p < 0.8) {
+    } else if (p < 0.88) {
       gsap.set(card, { x: 0, y: 0, rotation: 0, scale: isHero ? 1.05 : 0.72, autoAlpha: isHero ? 1 : 0 });
-    } else if (p < 0.92) {
-      gsap.set(card, { x: 0, y: 0, rotation: 0, scale: isHero ? 1.05 - contract * 0.18 : 0, autoAlpha: isHero ? 1 : 0 });
     } else if (isHero && transfer) {
-      const handoff = range(p, 0.92, 1);
+      const handoff = range(p, 0.88, 1);
       const targetCenterX = transfer.targetViewport.left + transfer.targetViewport.width / 2;
       const targetCenterY = transfer.targetViewport.top + transfer.targetViewport.height / 2;
       const sourceCenterX = transfer.source.left + transfer.source.width / 2;
@@ -179,7 +174,7 @@ function applyFanMotion(cards: HTMLElement[], progress: number, transfer?: FanTr
         autoAlpha: 1,
       });
     } else {
-      gsap.set(card, { x: 0, y: 0, rotation: 0, scale: isHero ? 0.87 - parcel * 0.08 : 0, autoAlpha: isHero ? 1 : 0 });
+      gsap.set(card, { x: 0, y: 0, rotation: 0, scale: isHero ? 1 - parcel * 0.12 : 0, autoAlpha: isHero ? 1 : 0 });
     }
   });
 }
@@ -306,7 +301,7 @@ export function useHomeNarrativeDirector({
     const marketCards = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-panel-id]"));
     const marketRail = root.querySelector<HTMLElement>("[data-motion='market-rail']");
     const marketRailWrapper = root.querySelector<HTMLElement>("[data-marketplace-rail-wrapper]");
-    const marketWord = root.querySelector<HTMLElement>("[data-motion='market-word']");
+    const marketBackdrops = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-backdrop]"));
     const marketSlices = Array.from(root.querySelectorAll<HTMLElement>("[data-marketplace-slice]"));
     const doorAperture = root.querySelector<HTMLElement>("[data-van-door-aperture]");
     const routePath = root.querySelector<SVGPathElement>("[data-route-path]");
@@ -319,6 +314,7 @@ export function useHomeNarrativeDirector({
     const heroCourier = root.querySelector<HTMLElement>("[data-motion='hero-courier']");
     const heroActions = root.querySelector<HTMLElement>("[data-motion='hero-actions']");
     const prepCollectionIncoming = root.querySelector<HTMLElement>("[data-motion='prep-collection-incoming']");
+    const freightServices = root.querySelector<HTMLElement>("[data-motion='freight-services']");
     const arrivalFooterTitle = root.querySelector<HTMLElement>("[data-motion='arrival-footer-title']");
     const finaleTitle = root.querySelector<HTMLElement>("[data-motion='finale-title']");
     const finaleUtility = root.querySelector<HTMLElement>("[data-motion='finale-utility']");
@@ -353,7 +349,6 @@ export function useHomeNarrativeDirector({
         card.dataset.marketplaceActive = String(active);
         card.setAttribute("aria-current", active ? "true" : "false");
       });
-      if (marketWord) marketWord.textContent = marketplaceWord(categories[safeIndex]);
       const selectedCategory = categories[safeIndex];
       if (selectedCategory) setMarketplaceSelection(selectedCategory.id);
     };
@@ -401,7 +396,7 @@ export function useHomeNarrativeDirector({
       const slot = slotNodes.get(name);
       if (!slot) return null;
       const actorType = ACTOR_TYPES[name];
-      let displayedState = name === "van" && actor.state === "sliding-door-open" ? "side-left" : actor.state;
+      let displayedState = name === "van" && actor.state === "collection-door-open-right" ? "collection-side-right" : actor.state;
       let definition = ACTOR_STATES[actorType][displayedState];
       if (!definition) return null;
 
@@ -528,7 +523,7 @@ export function useHomeNarrativeDirector({
         const bottom = interpolate(50, (1 - opening.y - opening.height) * 100, doorProgress);
         const left = interpolate(50, opening.x * 100, doorProgress);
         gsap.set(doorAperture, {
-          autoAlpha: doorProgress > 0 || actor.state === "sliding-door-open" ? 1 : 0,
+          autoAlpha: doorProgress > 0 || actor.state === "collection-door-open-right" ? 1 : 0,
           clipPath: `inset(${top}% ${right}% ${bottom}% ${left}%)`,
         });
       }
@@ -544,15 +539,15 @@ export function useHomeNarrativeDirector({
         gsap.set(marketSlices, { autoAlpha: 0 });
         return;
       }
-      const centerOutOrder = [3, 4, 2, 5, 1, 6, 0, 7];
+      const centerOutOrder = [3, 4, 2, 5, 1, 6, 0];
       marketSlices.forEach((slice, index) => {
         const order = centerOutOrder.indexOf(index);
-        const sliceProgress = clamp01((frame.marketplace.moveProgress - order * 0.075) / 0.475);
+        const sliceProgress = clamp01((frame.marketplace.backdropProgress - order * 0.075) / 0.55);
         gsap.set(slice, {
           autoAlpha: sliceProgress,
           backgroundImage: `url(${incoming.image})`,
-          backgroundSize: "800% 100%",
-          backgroundPosition: `${(index / 7) * 100}% 50%`,
+          backgroundSize: "700% 100%",
+          backgroundPosition: `${(index / 6) * 100}% 50%`,
           clipPath: `inset(${(1 - sliceProgress) * 50}% 0 ${(1 - sliceProgress) * 50}% 0)`,
         });
       });
@@ -578,7 +573,7 @@ export function useHomeNarrativeDirector({
       const tangent = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
       frame.actors.whiteTruck.targetX = (rect.left + point.x * scaleX) / window.innerWidth;
       frame.actors.whiteTruck.groundY = (rect.top + point.y * scaleY) / window.innerHeight;
-      frame.actors.whiteTruck.rotation = tangent;
+      frame.actors.whiteTruck.rotation = routeTruckRotationForTangent(tangent);
       frame.route.tangentAngle = tangent;
       root.dataset.homeRouteProgress = frame.route.pathProgress.toFixed(3);
       root.dataset.homeRouteTangent = tangent.toFixed(1);
@@ -591,7 +586,8 @@ export function useHomeNarrativeDirector({
     };
 
     const applyFrame = (chapter: HomeChapter, progress: number) => {
-      const effectiveProgress = prefersReducedMotion ? 0.5 : progress;
+      const reducedMotionProgress: Record<HomeChapter, number> = { hero: 0.5, marketplace: 0.4, fan: 0.42, preparation: 0.5, collection: 0.82, custody: 0.48, route: 0.52, freight: 0.5, arrival: 0.56, finale: 0.2 };
+      const effectiveProgress = prefersReducedMotion ? reducedMotionProgress[chapter] : progress;
       const frame = resolveHomeFrame({ chapter, progress: effectiveProgress, viewportMode: window.innerWidth <= 767 ? "mobile" : "desktop", marketplaceCategories: categoryIds });
       applyRouteGeometry(frame);
       const previousFrame = lastFrame;
@@ -715,10 +711,13 @@ export function useHomeNarrativeDirector({
         if (useNativeMarketRail) syncNativeMarketplace();
         else setMarketplaceActive(frame.marketplace.activeIndex);
       }
+      marketBackdrops.forEach((backdrop, index) => {
+        gsap.set(backdrop, { autoAlpha: frame.chapter === "marketplace" && index === frame.marketplace.backdropIndex ? 0.33 : 0 });
+      });
       applyMarketplaceSlice(frame);
 
       if (chapter === "fan") {
-        if (effectiveProgress >= 0.92 && !fanTransferGeometry && fanHeroCard && storyPreparationTarget) {
+        if (effectiveProgress >= 0.88 && !fanTransferGeometry && fanHeroCard && storyPreparationTarget) {
           gsap.set(fanHeroCard, { x: 0, y: 0, rotation: 0, scale: 0.87, transformOrigin: "50% 50%", autoAlpha: 1 });
           const source = fanHeroCard.getBoundingClientRect();
           const target = storyPreparationTarget.getBoundingClientRect();
@@ -782,6 +781,11 @@ export function useHomeNarrativeDirector({
           y: prefersReducedMotion ? 0 : interpolate(0, -14, range(effectiveProgress, HOME_BEATS.hero.centreSettle[0], HOME_BEATS.hero.cameraPass[1])),
           autoAlpha: prefersReducedMotion ? 1 : interpolate(1, 0.3, range(effectiveProgress, HOME_BEATS.hero.entryReveal[0], HOME_BEATS.hero.frontalApproach[1])),
         });
+      }
+
+      if (freightServices) {
+        const servicesVisible = chapter === "freight" ? range(effectiveProgress, HOME_BEATS.freight.settle[1], HOME_BEATS.freight.silhouetteHold[0]) : 0;
+        gsap.set(freightServices, { autoAlpha: servicesVisible, y: interpolate(20, 0, servicesVisible) });
       }
       if (heroCourier && chapter === "hero") {
         gsap.set(heroCourier, {
@@ -902,7 +906,7 @@ export function useHomeNarrativeDirector({
     const preloadFrame = (frame: HomeFrame) => {
       Object.entries(frame.actors).forEach(([name, actor]) => {
         if (!actor.visible) return;
-        const state = name === "van" && actor.state === "sliding-door-open" ? "side-left" : actor.state;
+        const state = name === "van" && actor.state === "collection-door-open-right" ? "collection-side-right" : actor.state;
         const layers = stateLayers.get(name as ActorName);
         requestActorImageDecode(layers?.get(state), "high");
         if (!prefersReducedMotion && actor.blendToState) requestActorImageDecode(layers?.get(actor.blendToState));

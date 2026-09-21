@@ -32,7 +32,7 @@ export function ImageFanScene({ className = "", selectedMedia, marketplaceMedia 
       return {
         ...media,
         fanSlot,
-        fanRotation: fanSlot.includes("left") ? (fanSlot.includes("far") ? -13 : -7) : fanSlot.includes("far") ? 13 : 7,
+        fanRotation: fanSlot.includes("left") ? (fanSlot.includes("far") ? -22 : -13) : fanSlot.includes("far") ? 22 : 13,
       };
     });
 

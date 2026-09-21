@@ -15,28 +15,28 @@ export type HomeChapter = (typeof HOME_CHAPTERS)[number];
 
 export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
   hero: 205,
-  marketplace: 300,
-  fan: 150,
-  preparation: 125,
-  collection: 205,
-  custody: 170,
-  route: 235,
-  freight: 190,
-  arrival: 150,
-  finale: 145,
+  marketplace: 225,
+  fan: 115,
+  preparation: 110,
+  collection: 175,
+  custody: 130,
+  route: 180,
+  freight: 160,
+  arrival: 125,
+  finale: 110,
 };
 
 export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
   hero: 260,
-  marketplace: 150,
-  fan: 120,
-  preparation: 115,
-  collection: 185,
-  custody: 155,
-  route: 210,
-  freight: 175,
-  arrival: 145,
-  finale: 130,
+  marketplace: 100,
+  fan: 102,
+  preparation: 105,
+  collection: 165,
+  custody: 130,
+  route: 170,
+  freight: 150,
+  arrival: 128,
+  finale: 112,
 };
 
 export type HomeMobilePolicy = "document" | "native-snap" | "sticky";
@@ -55,8 +55,8 @@ export const HOME_MOBILE_POLICY: Record<HomeChapter, HomeMobilePolicy> = {
 };
 
 export function marketplaceBudgetVh(categoryCount: number): number {
-  const visibleCategoryCount = Math.min(6, Math.max(3, categoryCount));
-  return Math.min(340, 90 + visibleCategoryCount * 42);
+  const visibleCategoryCount = Math.min(5, Math.max(3, categoryCount));
+  return Math.min(240, Math.max(215, 125 + visibleCategoryCount * 20));
 }
 
 export function chapterBudgetVh(chapter: HomeChapter, categoryCount = 5): number {

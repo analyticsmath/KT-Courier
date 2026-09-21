@@ -61,6 +61,9 @@ export function ArrivalScene({ className = "" }: ArrivalSceneProps) {
           />
         </div>
       </div>
+      <div data-motion="arrival-footer-title" className={styles.arrivalFinaleBridge} aria-hidden="true">
+        <span>KT</span><span>COURIER</span>
+      </div>
       </div>
     </section>
   );

@@ -1,8 +1,15 @@
 import type { HomeChapter } from "./home-chapters";
 import { HOME_CHAPTERS } from "./home-chapters";
 import { before, clamp01, HOME_BEATS, range, within } from "./home-beats";
-import { HERO_TRUCK_SEQUENCE } from "../../actors/actor-state-machine";
+import { HERO_TRUCK_SEQUENCE, RED_TRUCK_STATES, VAN_STATES } from "../../actors/actor-state-machine";
 import { visualOwnership, type VisualOwner } from "./home-visual-ownership";
+import { actorTargetForOffscreenEdge } from "./home-marketplace-geometry";
+
+export const ROUTE_TRUCK_ASSET_HEADING_OFFSET_DEG = 180;
+
+export function routeTruckRotationForTangent(tangentDeg: number): number {
+  return tangentDeg + ROUTE_TRUCK_ASSET_HEADING_OFFSET_DEG;
+}
 
 export type CameraMode =
   | "editorial-side"
@@ -62,10 +69,17 @@ export interface HomeFrame {
     moveProgress: number;
     holdProgress: number;
     positionIndex: number;
+    backdropProgress: number;
+    backdropIndex: number;
+    motionOwner: "none" | "market-rail" | "market-backdrop";
   };
   fan: { phase: "hidden" | "spread" | "compress" | "selected" | "parcel-transfer"; progress: number; selectedId: string | null };
   route: { pathProgress: number; tangentAngle: number };
   visual: { primaryOwner: VisualOwner; incomingOwner?: VisualOwner };
+  motionOwner:
+    | "none" | "market-rail" | "market-backdrop" | "fan-support" | "fan-transfer"
+    | "van" | "van-door" | "courier" | "route-truck" | "freight-truck"
+    | "freight-services" | "arrival-image" | "finale-brand";
   sceneOwnership: { previous: HomeChapter | null; current: HomeChapter; next: HomeChapter | null };
 }
 
@@ -170,37 +184,34 @@ export function resolveHeroTruckFrame(
 function resolveMarketplace(progress: number, categories: ReadonlyArray<{ id: string }>) {
   const count = categories.length;
   if (!count) {
-    return { activeIndex: 0, activeId: null, incomingId: null, moveProgress: 0, holdProgress: 0, positionIndex: 0 };
+    return { activeIndex: 0, activeId: null, incomingId: null, moveProgress: 0, holdProgress: 0, positionIndex: 0, backdropProgress: 0, backdropIndex: 0, motionOwner: "none" as const };
   }
-  const segmentPosition = clamp01(progress) * count;
-  const segment = Math.min(count - 1, Math.floor(segmentPosition));
-  const local = progress === 1 ? 1 : segmentPosition - segment;
-  let moveProgress = 0;
-  let positionIndex = segment;
-  let activeIndex = segment;
-  let incomingId: string | null = null;
-
-  if (segment > 0 && local < 0.24) {
-    moveProgress = range(local, 0, 0.24);
-    positionIndex = interpolate(segment - 1, segment, smooth(moveProgress));
-    activeIndex = moveProgress >= HOME_BEATS.marketplace.ownerThreshold ? segment : segment - 1;
-  } else if (segment < count - 1 && local >= 0.72) {
-    moveProgress = range(local, 0.72, 1);
-    positionIndex = interpolate(segment, segment + 1, smooth(moveProgress));
-    incomingId = categories[segment + 1]?.id ?? null;
-    activeIndex = moveProgress >= HOME_BEATS.marketplace.ownerThreshold ? segment + 1 : segment;
-  }
-
-  const inHold = segment === 0
-    ? local >= 0.24 && local < 0.72
-    : local >= 0.24 && local < 0.72;
+  if (count === 1) return { activeIndex: 0, activeId: categories[0]?.id ?? null, incomingId: null, moveProgress: 0, holdProgress: 1, positionIndex: 0, backdropProgress: 0, backdropIndex: 0, motionOwner: "none" as const };
+  const transitionPosition = clamp01(progress) * (count - 1);
+  const segment = Math.min(count - 2, Math.floor(transitionPosition));
+  const local = progress === 1 ? 1 : transitionPosition - segment;
+  const incomingIndex = segment + 1;
+  const railMove = range(local, HOME_BEATS.marketplace.railMove[0], HOME_BEATS.marketplace.railMove[1]);
+  const backdropProgress = range(local, HOME_BEATS.marketplace.backdropTakeover[0], HOME_BEATS.marketplace.backdropTakeover[1]);
+  const railIsMoving = local >= HOME_BEATS.marketplace.railMove[0] && local < HOME_BEATS.marketplace.railMove[1];
+  const backdropIsMoving = local >= HOME_BEATS.marketplace.backdropTakeover[0] && local < HOME_BEATS.marketplace.backdropTakeover[1];
+  const activeIndex = local >= HOME_BEATS.marketplace.railSettle[0] ? incomingIndex : segment;
+  const positionIndex = local < HOME_BEATS.marketplace.railMove[0]
+    ? segment
+    : local < HOME_BEATS.marketplace.railSettle[0]
+      ? interpolate(segment, incomingIndex, smooth(railMove))
+      : incomingIndex;
+  const inHold = local < HOME_BEATS.marketplace.railMove[0] || local >= HOME_BEATS.marketplace.readIncoming[0];
   return {
     activeIndex,
     activeId: categories[activeIndex]?.id ?? null,
-    incomingId,
-    moveProgress,
-    holdProgress: inHold ? range(local, 0.24, 0.72) : 0,
+    incomingId: categories[incomingIndex]?.id ?? null,
+    moveProgress: railMove,
+    holdProgress: inHold ? range(local, local < 0.2 ? 0 : 0.88, local < 0.2 ? 0.2 : 1) : 0,
     positionIndex,
+    backdropProgress,
+    backdropIndex: local >= HOME_BEATS.marketplace.readIncoming[0] ? incomingIndex : segment,
+    motionOwner: railIsMoving ? "market-rail" : backdropIsMoving ? "market-backdrop" : "none" as const,
   };
 }
 
@@ -270,7 +281,7 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
       : selectedMarketplaceId;
   const actors = {
     whiteTruck: hidden(HERO_TRUCK_SEQUENCE[0]),
-    van: hidden("side-left"),
+    van: hidden("collection-side-right"),
     courier: hidden("look-left-approach"),
     redTruck: hidden("side-right"),
   };
@@ -291,18 +302,24 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
     const beats = HOME_BEATS.fan;
     if (before(progress, beats.imageArrives[1])) fan.phase = "spread";
     else if (within(progress, beats.spread[0], beats.fullHold[0])) fan.phase = "spread";
+    else if (within(progress, beats.fullHold[0], beats.counterMotion[0])) fan.phase = "spread";
+    else if (within(progress, beats.counterMotion[0], beats.compress[0])) fan.phase = "spread";
     else if (within(progress, beats.compress[0], beats.selectedHold[0])) fan.phase = "compress";
-    else if (within(progress, beats.selectedHold[0], beats.contract[0])) fan.phase = "selected";
+    else if (within(progress, beats.selectedHold[0], beats.parcelHandoff[0])) fan.phase = "selected";
     else fan.phase = "parcel-transfer";
   } else if (input.chapter === "collection") {
     const beats = HOME_BEATS.collection;
     if (progress >= beats.vanApproach[0] && progress < 1) {
-      const approach = range(progress, beats.vanApproach[0], beats.vanHold[0]);
+      const entryX = actorTargetForOffscreenEdge({
+        definition: VAN_STATES["collection-side-right"], renderedWidth: 58, viewportWidth: 100, edge: "left", marginPx: 2,
+      });
       actors.van = {
         ...actors.van,
         visible: true,
-        state: "side-left",
-        targetX: progress < beats.vanHold[0] ? interpolate(0.18, 0.57, smooth(approach)) : 0.57,
+        state: progress >= beats.door[0] ? "collection-door-open-right" : "collection-side-right",
+        targetX: progress < beats.brake[0]
+          ? interpolate(entryX, 0.57, smooth(range(progress, beats.vanApproach[0], beats.brake[0])))
+          : 0.57,
         groundY: 0.85,
         widthVw: 58,
       };
@@ -312,8 +329,8 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
       actors.courier = {
         ...actors.courier,
         visible: true,
-        state: "loading-unloading",
-        targetX: progress >= beats.lift[0] ? 0.42 : interpolate(0.38, 0.42, smooth(walking)),
+        state: progress >= beats.load[0] ? "loading-unloading" : progress >= beats.lift[0] ? "lift-parcel" : "look-right-approach",
+        targetX: progress >= beats.lift[0] ? 0.42 : interpolate(0.33, 0.42, smooth(walking)),
         groundY: 0.85,
         widthVw: 16,
       };
@@ -353,19 +370,22 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
       targetX: 0.5,
       groundY: 0.58,
       widthVw: 28,
-      rotation: 0,
+      rotation: routeTruckRotationForTangent(0),
     };
   } else if (input.chapter === "freight") {
     const beats = HOME_BEATS.freight;
     if (progress >= beats.entry[0] && progress < 1) {
       const entry = range(progress, beats.entry[0], beats.settle[1]);
       const exit = range(progress, beats.release[0], 1);
+      const entryX = actorTargetForOffscreenEdge({
+        definition: RED_TRUCK_STATES["side-right"], renderedWidth: 62, viewportWidth: 100, edge: "left", marginPx: 2,
+      });
       actors.redTruck = {
         ...actors.redTruck,
         state: "side-right",
         visible: progress < 0.985,
         targetX: progress < beats.climaxArrival[0]
-          ? interpolate(0.04, 0.86, smooth(entry))
+          ? interpolate(entryX, 0.86, smooth(entry))
           : progress < beats.release[0]
             ? interpolate(0.86, 0.96, smooth(range(progress, beats.climaxArrival[0], beats.climaxArrival[1])))
             : interpolate(0.96, 1.95, smooth(exit)),
@@ -401,6 +421,16 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
   const headerTone = headerToneForOwner(worldInfo.owner);
   const transitionOwner = occlusionId ?? worldInfo.transitionOwner;
   const transitionProgress = occlusionId ? occlusionProgress : worldInfo.blend;
+  const motionOwner: HomeFrame["motionOwner"] = input.chapter === "marketplace"
+    ? marketplace.motionOwner
+    : input.chapter === "fan"
+      ? progress >= HOME_BEATS.fan.parcelHandoff[0] ? "fan-transfer" : "fan-support"
+      : input.chapter === "collection"
+        ? progress < HOME_BEATS.collection.door[0] ? "van" : progress < HOME_BEATS.collection.courierApproach[0] ? "van-door" : "courier"
+        : input.chapter === "route" ? "route-truck"
+          : input.chapter === "freight" ? progress < HOME_BEATS.freight.settle[1] ? "freight-truck" : progress < HOME_BEATS.freight.silhouetteHold[0] ? "freight-services" : "freight-truck"
+            : input.chapter === "arrival" ? progress >= HOME_BEATS.arrival.footerRelease[0] ? "finale-brand" : "arrival-image"
+              : input.chapter === "finale" ? "finale-brand" : "none";
   return {
     chapter: input.chapter,
     chapterProgress: progress,
@@ -421,6 +451,7 @@ export function resolveHomeFrame(input: HomeFrameInput): HomeFrame {
     fan,
     route: { pathProgress: clamp01(routePathProgress), tangentAngle: 0 },
     visual: visualOwnership(input.chapter),
+    motionOwner,
     sceneOwnership: {
       previous: chapterIndex > 0 ? HOME_CHAPTERS[chapterIndex - 1] : null,
       current: input.chapter,

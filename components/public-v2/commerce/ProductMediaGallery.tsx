@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
 import styles from "./commerce.module.css";
@@ -20,8 +20,6 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
   const [activeIndex, setActiveIndex] = useState(0);
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
-
-  const activeMedia = gallery[activeIndex] ?? product.primaryMedia;
 
   const scrollToSlide = useCallback((index: number) => {
     setActiveIndex(index);
@@ -111,53 +109,26 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
         )}
       </div>
 
-      {/* Desktop Gallery Stage & Thumbnail Rail */}
+      {/* Desktop media column: images scroll naturally while the purchase plane stays put. */}
       <div className={styles.pdpDesktopGalleryStage}>
-        <div className={styles.pdpDesktopHeroFrame} data-kt-cart-flight-source="product-media">
-          {activeMedia ? (
+        {gallery.length > 0 ? gallery.map((media, index) => (
+          <div
+            className={styles.pdpDesktopHeroFrame}
+            data-kt-cart-flight-source={index === 0 ? "product-media" : undefined}
+            key={media.publicReference || index}
+          >
             <Image
-              alt={activeMedia.alt || product.title}
+              alt={media.alt || `${product.title} - View ${index + 1}`}
               fill
-              priority
+              priority={index === 0}
               sizes="(max-width: 991px) 100vw, 58vw"
-              src={`/api/catalog/media/${activeMedia.publicReference}`}
+              src={`/api/catalog/media/${media.publicReference}`}
               className={styles.pdpImageContain}
             />
-          ) : (
+          </div>
+        )) : (
+          <div className={styles.pdpDesktopHeroFrame} data-kt-cart-flight-source="product-media">
             <div className={styles.pdpGalleryEmpty}>Image unavailable</div>
-          )}
-        </div>
-
-        {gallery.length > 1 && (
-          <div
-            className={styles.pdpDesktopThumbStrip}
-            role="tablist"
-            aria-label="Product alternate views"
-          >
-            {gallery.map((media, idx) => {
-              const isSelected = idx === activeIndex;
-              return (
-                <button
-                  key={media.publicReference || idx}
-                  type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  aria-label={`View image ${idx + 1} of ${gallery.length}`}
-                  className={`${styles.pdpDesktopThumbButton} ${
-                    isSelected ? styles.pdpDesktopThumbButtonActive : ""
-                  }`}
-                  onClick={() => setActiveIndex(idx)}
-                >
-                  <Image
-                    alt={media.alt || `${product.title} thumbnail ${idx + 1}`}
-                    fill
-                    sizes="80px"
-                    src={`/api/catalog/media/${media.publicReference}`}
-                    className={styles.pdpImageCover}
-                  />
-                </button>
-              );
-            })}
           </div>
         )}
       </div>

@@ -55,7 +55,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
       <div className={styles.commerceInner}>
         <div className={styles.commerceSectionHeader}>
           <div>
-            <h2 id="category-discovery-title" style={{ margin: 0, fontSize: "clamp(1.5rem, 2.5vw, 2.2rem)", letterSpacing: "-0.03em" }}>
+            <h2 className={styles.categoryDiscoveryTitle} id="category-discovery-title">
               Shop by category
             </h2>
           </div>

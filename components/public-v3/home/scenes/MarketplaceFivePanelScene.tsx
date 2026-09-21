@@ -8,7 +8,6 @@ import styles from "../post-hero-scenes.module.css";
 
 export interface MarketplaceCategoryItem {
   id: string;
-  categoryWord?: string;
   title: string;
   tagline: string;
   image: string;
@@ -20,7 +19,6 @@ export interface MarketplaceCategoryItem {
 export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   {
     id: "grocery",
-    categoryWord: "FRESH",
     title: "Fresh produce",
     tagline: "Farm-fresh vegetables, morning market crates, and regional pantry staples.",
     image: ktMediaV3.editorial.grocery.fruitCrates.src,
@@ -28,7 +26,6 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "fashion",
-    categoryWord: "FASHION",
     title: "Local fashion",
     tagline: "South African leathercraft, tailored streetwear, and local retail goods.",
     image: ktMediaV3.editorial.fashion.leatherBags.src,
@@ -36,7 +33,6 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "food",
-    categoryWord: "FOOD",
     title: "Food makers",
     tagline: "Warm prepared meals, independent bakeries, and daily artisan orders.",
     image: ktMediaV3.editorial.food.grainBowl.src,
@@ -44,7 +40,6 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "home",
-    categoryWord: "CRAFT",
     title: "Craft & home",
     tagline: "Handcrafted stoneware, architectural pottery, and residential pieces.",
     image: ktMediaV3.editorial.ceramics.capeTownPlates.src,
@@ -52,7 +47,6 @@ export const FIVE_PANEL_MEDIA: MarketplaceCategoryItem[] = [
   },
   {
     id: "wellness",
-    categoryWord: "CARE",
     title: "Personal care",
     tagline: "Amber glass botanicals, organic skincare, and sealed personal care.",
     image: ktMediaV3.editorial.wellness.apothecaryBottles.src,
@@ -73,7 +67,6 @@ interface MarketplaceFivePanelSceneProps {
  * True lateral journey replacing vertical column expansion:
  * - Active image territory: ~72vw desktop
  * - Next territory visible: ~20vw
- * - Giant active category word (FRESH, FASHION, FOOD, CRAFT, CARE) moves behind media
  * - The homepage director resolves a normalized vertical-scroll rail position
  * - Mobile: native horizontal scroll-snap corridor
  * - Honest storefront status link
@@ -89,9 +82,6 @@ export function MarketplaceFivePanelScene({
   const activeId = displayItems.some(({ id }) => id === selectedMarketplaceId)
     ? selectedMarketplaceId
     : displayItems[0]?.id;
-  const activeItem =
-    displayItems.find((item) => item.id === activeId) || displayItems[0];
-  const activeCategoryWord = activeItem?.categoryWord || "FRESH";
 
   return (
     <section
@@ -105,10 +95,10 @@ export function MarketplaceFivePanelScene({
       <div className={styles.marketplaceStickyStage} data-marketplace-sticky-stage>
       <div className={styles.marketplaceAtmosphere} aria-hidden="true">
         {displayItems.map((item) => (
-          <div key={item.id} data-marketplace-backdrop={item.id} data-marketplace-backdrop-active={item.id === activeId} className={styles.marketplaceBackdrop} style={{ backgroundImage: `url(${item.image})` }} />
+          <div key={item.id} data-marketplace-backdrop={item.id} className={styles.marketplaceBackdrop} style={{ backgroundImage: `url(${item.image})` }} />
         ))}
         <div className={styles.marketplaceSlicePlane}>
-          {Array.from({ length: 8 }, (_, index) => <span key={index} data-marketplace-slice style={{ "--slice": index } as React.CSSProperties} />)}
+          {Array.from({ length: 7 }, (_, index) => <span key={index} data-marketplace-slice style={{ "--slice": index } as React.CSSProperties} />)}
         </div>
       </div>
       <div className={styles.marketplaceHeader}>
@@ -125,15 +115,6 @@ export function MarketplaceFivePanelScene({
             ? "Browse local stores and everyday finds, then let KT take it from there."
             : "Local merchant catalogues are being prepared for public browsing."}
         </p>
-      </div>
-
-      <div className={styles.marketplaceWordPlane} aria-hidden="true">
-        <span
-          data-motion="market-word"
-          className={styles.marketplaceWord}
-        >
-          {activeCategoryWord}
-        </span>
       </div>
 
       <div
@@ -197,26 +178,10 @@ export function MarketplaceFivePanelScene({
         </div>
       </div>
 
-      <div className={styles.marketplaceIndex} role="tablist" aria-label="Marketplace categories">
-        {displayItems.map((cat, index) => (
-          <button
-            type="button"
-            key={cat.id}
-            role="tab"
-            aria-selected={cat.id === activeId}
-            className={styles.marketplaceIndexButton}
-            data-marketplace-index-control={cat.id}
-            onFocus={() => onMarketplaceSelectionChange?.(cat.id)}
-            onClick={() => onMarketplaceSelectionChange?.(cat.id)}
-          >
-            <span>{String(index + 1).padStart(2, "0")}</span>{cat.title}
-          </button>
-        ))}
-      </div>
       <div className={styles.marketplaceShopLink}>
         <Link
           href="/shop"
-          className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-[var(--kt-brand-blue)] hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-[var(--kt-concrete)] hover:text-white transition-colors"
         >
           {isStorefrontExposed ? "Browse all shops" : "Marketplace status"} &rarr;
         </Link>

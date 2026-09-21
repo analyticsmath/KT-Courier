@@ -569,30 +569,6 @@
   max-width: 800px;
 }
 
-.marketplaceWordPlane {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  user-select: none;
-}
-
-.marketplaceWord {
-  font-family: var(--font-display);
-  font-size: clamp(6rem, 24vw, 24rem);
-  font-weight: 900;
-  line-height: 0.8;
-  letter-spacing: -0.05em;
-  color: #16191D;
-  text-transform: uppercase;
-  white-space: nowrap;
-  will-change: transform;
-}
-
 .marketplaceRailWrapper {
   position: relative;
   z-index: 10;

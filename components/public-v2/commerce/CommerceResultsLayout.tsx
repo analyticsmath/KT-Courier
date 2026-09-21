@@ -20,6 +20,7 @@ interface BreadcrumbItem {
 
 interface CommerceResultsLayoutProps {
   title: string;
+  titleAs?: "h1" | "h2";
   description?: string;
   breadcrumbs?: BreadcrumbItem[];
   context?: ReactNode;
@@ -44,6 +45,7 @@ function enumLabel(code: string, value: string) {
 
 export async function CommerceResultsLayout({
   title,
+  titleAs = "h1",
   description,
   breadcrumbs = [{ label: "Shop", href: marketplaceHref() }],
   context,
@@ -54,6 +56,7 @@ export async function CommerceResultsLayout({
   emptyTitle = "No products found",
   emptyDescription = "Try clearing filters or searching for a different keyword.",
 }: CommerceResultsLayoutProps) {
+  const Title = titleAs;
   const brandReferences = [...new Set([
     ...result.facets.filter((facet) => facet.code === "brand").flatMap((facet) => facet.values.map((value) => value.value)),
     ...result.appliedFilters.filter((filter) => filter.code === "brand").map((filter) => filter.value),
@@ -103,12 +106,12 @@ export async function CommerceResultsLayout({
       {breadcrumbs.length > 0 && <CommerceBreadcrumbs items={breadcrumbs} />}
 
       {/* Header & Title Plane */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "clamp(2rem, 3.5vw, 3rem)", fontWeight: 560, letterSpacing: "-0.03em", margin: "0 0 8px" }}>
+      <div className={styles.resultsIntro}>
+        <Title className={styles.resultsTitle}>
           {title}
-        </h1>
+        </Title>
         {description && (
-          <p style={{ color: "var(--kt-muted, #5f6763)", fontSize: "1.05rem", maxWidth: 600, margin: 0 }}>
+          <p className={styles.resultsLead}>
             {description}
           </p>
         )}
@@ -146,13 +149,13 @@ export async function CommerceResultsLayout({
       <div className={styles.plpMainLayout}>
         <DesktopFilterRail facets={facets} filters={filters} route={route} />
 
-        <div style={{ minWidth: 0 }}>
+        <div className={styles.resultsGridPlane}>
           {results.length > 0 ? (
             <ProductGrid label={title} products={results} />
           ) : (
-            <div style={{ padding: "3rem 0" }}>
-              <h2 style={{ fontSize: "1.6rem", fontWeight: 560 }}>{emptyTitle}</h2>
-              <p style={{ color: "var(--kt-muted, #5f6763)", margin: "8px 0 24px" }}>
+            <div className={styles.resultsEmptyState}>
+              <h2>{emptyTitle}</h2>
+              <p>
                 {emptyDescription}
               </p>
               <Link className={styles.sectionDirectLink} href={marketplaceHref()}>

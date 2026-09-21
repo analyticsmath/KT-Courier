@@ -21,12 +21,12 @@ export default async function CategoriesPage() {
       <div className={styles.commerceInner}>
         <CommerceBreadcrumbs items={[{ label: "Shop", href: "/shop" }, { label: "Categories" }]} />
 
-        <div style={{ marginBottom: "2rem" }}>
+        <header className={styles.commercePageIntro}>
           <h1 className={styles.commerceTitle}>Categories</h1>
-          <p style={{ color: "var(--kt-muted, #5f6763)", fontSize: "1.05rem", margin: 0, maxWidth: 600 }}>
+          <p className={styles.commerceLead}>
             Explore the five primary marketplace worlds, then move into their focused subcategories.
           </p>
-        </div>
+        </header>
 
         <CategoryAtlas categories={categories} />
       </div>

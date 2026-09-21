@@ -7,6 +7,7 @@ import { resolveHomeFrame } from "@/components/public-v3/home/director/home-fram
 const root = process.cwd();
 const sourceFiles = [
   "components/public-v3/home/PublicHomeExperience.tsx",
+  "components/public-v3/home/scenes/MarketplaceFivePanelScene.tsx",
   "components/public-v3/actors/CinematicActorStage.tsx",
   "components/public-v3/home/director/useHomeNarrativeDirector.ts",
   "components/public-v3/home/home-scenes.module.css",
@@ -32,5 +33,11 @@ describe("post-Hero V2 contracts", () => {
       "route-overpass-a",
       "route-overpass-b",
     ].forEach((forbidden) => expect(sourceFiles).not.toContain(forbidden));
+  });
+
+  it("removes visible marketplace index and giant category-word machinery", () => {
+    expect(sourceFiles).not.toContain("marketplaceIndex");
+    expect(sourceFiles).not.toContain("market-word");
+    expect(sourceFiles).not.toContain("marketplaceWordPlane");
   });
 });

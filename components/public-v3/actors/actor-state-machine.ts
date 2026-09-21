@@ -343,7 +343,9 @@ export type VanStateId =
   | "sliding-door-open" // 10: Calibrated cargo door aperture (facing left)
   | "rear-doors-open" // 11
   | "all-doors-open" // 12
-  | "motion-transition"; // 13: Arriving transition (facing left)
+  | "motion-transition" // 13: Arriving transition (facing left)
+  | "collection-side-right"
+  | "collection-door-open-right";
 
 export const VAN_STATES: Record<VanStateId, ActorStateDefinition> = {
   "side-right": resolveGeneratedState("van", "side-right", {
@@ -384,6 +386,12 @@ export const VAN_STATES: Record<VanStateId, ActorStateDefinition> = {
   }),
   "motion-transition": resolveGeneratedState("van", "motion-transition", {
     alt: "KT Couriers van arriving in slight motion",
+  }),
+  "collection-side-right": resolveGeneratedState("van", "collection-side-right", {
+    alt: "KT Couriers collection van side view facing right",
+  }),
+  "collection-door-open-right": resolveGeneratedState("van", "collection-door-open-right", {
+    alt: "KT Couriers collection van with sliding door open facing right",
   }),
 };
 

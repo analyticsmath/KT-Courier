@@ -14,7 +14,7 @@ import {
 } from "@/components/public-v3/home/director/home-actor-transitions";
 import { HOME_CHAPTERS, HOME_CHAPTER_BUDGETS_VH, HOME_MOBILE_CHAPTER_BUDGETS_VH, HOME_MOBILE_POLICY } from "@/components/public-v3/home/director/home-chapters";
 import { assertPhysicalCoverage, physicalCoverage } from "@/components/public-v3/home/director/home-occlusion";
-import { resolveHomeFrame } from "@/components/public-v3/home/director/home-frame-resolver";
+import { resolveHomeFrame, routeTruckRotationForTangent } from "@/components/public-v3/home/director/home-frame-resolver";
 import { marketplaceTrackX } from "@/components/public-v3/home/director/home-marketplace-geometry";
 
 const categories = ["grocery", "fashion", "food", "home", "wellness"].map((id) => ({ id }));
@@ -62,12 +62,12 @@ describe("homepage narrative frame resolver", () => {
     expect(() => assertActorTransition("white-truck", HERO_TRUCK_SEQUENCE[1], HERO_TRUCK_SEQUENCE[0], null)).not.toThrow();
   });
 
-  it("holds one visible courier state through collection and custody", () => {
+  it("sequences collection courier approach, lift, then load", () => {
     for (const chapter of ["collection", "custody"] as const) {
       for (const progress of progressSamples) {
         const frame = resolveHomeFrame({ chapter, progress, viewportMode, marketplaceCategories: categories });
         expect(frame.occlusion.id).toBeNull();
-        if (frame.actors.courier.visible) expect(frame.actors.courier.state).toBe("loading-unloading");
+        if (chapter === "custody" && frame.actors.courier.visible) expect(frame.actors.courier.state).toBe("loading-unloading");
       }
     }
   });
@@ -91,11 +91,11 @@ describe("homepage narrative frame resolver", () => {
 
   it("holds each live marketplace category and passes the final visual owner to Fan", () => {
     for (let index = 0; index < categories.length; index += 1) {
-      const progress = (index + 0.4) / categories.length;
+      const progress = index === categories.length - 1 ? 0.98 : (index + 0.1) / (categories.length - 1);
       const frame = resolveHomeFrame({ chapter: "marketplace", progress, viewportMode, marketplaceCategories: categories });
       expect(frame.marketplace.activeIndex).toBe(index);
       expect(frame.marketplace.activeId).toBe(categories[index]?.id);
-      expect(frame.marketplace.holdProgress).toBeGreaterThan(0);
+      expect(frame.marketplace.motionOwner).toBe("none");
       expect(frame.selection.marketplaceId).toBe(frame.marketplace.activeId);
     }
 
@@ -203,9 +203,56 @@ describe("homepage narrative frame resolver", () => {
   });
 
   it("uses a single chapter budget and explicit mobile ownership policy", () => {
-    expect(HOME_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 300, fan: 150, preparation: 125, collection: 205, custody: 170, route: 235, freight: 190, arrival: 150, finale: 145 });
-    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 150, fan: 120, preparation: 115, collection: 185, custody: 155, route: 210, freight: 175, arrival: 145, finale: 130 });
+    expect(HOME_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 225, fan: 115, preparation: 110, collection: 175, custody: 130, route: 180, freight: 160, arrival: 125, finale: 110 });
+    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 100, fan: 102, preparation: 105, collection: 165, custody: 130, route: 170, freight: 150, arrival: 128, finale: 112 });
     expect(HOME_MOBILE_POLICY).toMatchObject({ marketplace: "native-snap", fan: "document", preparation: "document", collection: "sticky", custody: "sticky", route: "sticky", freight: "sticky", arrival: "sticky", finale: "document" });
+  });
+
+  it("enforces one marketplace motion owner at a time", () => {
+    const rail = resolveHomeFrame({ chapter: "marketplace", progress: 0.02, viewportMode, marketplaceCategories: categories });
+    const movingRail = resolveHomeFrame({ chapter: "marketplace", progress: 0.1, viewportMode, marketplaceCategories: categories });
+    const backdrop = resolveHomeFrame({ chapter: "marketplace", progress: 0.19, viewportMode, marketplaceCategories: categories });
+    expect(rail.marketplace.motionOwner).toBe("none");
+    expect(movingRail.marketplace.motionOwner).toBe("market-rail");
+    expect(movingRail.marketplace.backdropProgress).toBe(0);
+    expect(backdrop.marketplace.motionOwner).toBe("market-backdrop");
+    expect(backdrop.marketplace.positionIndex).toBe(1);
+  });
+
+  it("keeps vehicles physically forward and corrects route asset heading", () => {
+    const collection = [0.1, 0.2, 0.3, 0.37].map((progress) => resolveHomeFrame({ chapter: "collection", progress, viewportMode, marketplaceCategories: categories }).actors.van);
+    expect(collection.every((actor) => actor.state === "collection-side-right")).toBe(true);
+    for (let index = 1; index < collection.length; index += 1) expect(collection[index]!.targetX).toBeGreaterThanOrEqual(collection[index - 1]!.targetX);
+    expect(routeTruckRotationForTangent(30)).toBe(210);
+    const freight = [0.14, 0.22, 0.32, 0.4].map((progress) => resolveHomeFrame({ chapter: "freight", progress, viewportMode, marketplaceCategories: categories }).actors.redTruck);
+    for (let index = 1; index < freight.length; index += 1) expect(freight[index]!.targetX).toBeGreaterThanOrEqual(freight[index - 1]!.targetX);
+  });
+
+  it("holds the complete Fan deck before the parcel transfer", () => {
+    [0.35, 0.45, 0.55].forEach((progress) => {
+      const frame = resolveHomeFrame({ chapter: "fan", progress, viewportMode, marketplaceCategories: categories });
+      expect(frame.fan.phase).toBe("spread");
+      expect(frame.motionOwner).toBe("fan-support");
+    });
+  });
+
+  it("does not overlap the collection arrival, door, and courier beats", () => {
+    const at = (progress: number) => resolveHomeFrame({ chapter: "collection", progress, viewportMode, marketplaceCategories: categories }).actors;
+    expect(at(0.45).van).toMatchObject({ visible: true, state: "collection-side-right" });
+    expect(at(0.45).courier.visible).toBe(false);
+    expect(at(0.65).van.state).toBe("collection-door-open-right");
+    expect(at(0.65).courier.visible).toBe(false);
+    expect(at(0.74).courier.state).toBe("look-right-approach");
+    expect(at(0.82).courier.state).toBe("lift-parcel");
+    expect(at(0.91).courier.state).toBe("loading-unloading");
+  });
+
+  it("retains an arrival or finale visual owner through the handoff", () => {
+    [0.85, 0.92, 0.97, 1].forEach((progress) => {
+      const frame = resolveHomeFrame({ chapter: "arrival", progress, viewportMode, marketplaceCategories: categories });
+      expect(["arrival-image", "finale-brand"]).toContain(frame.motionOwner);
+      expect(frame.visual.primaryOwner).toBeTruthy();
+    });
   });
 
   it("resolves the complete mobile V5 hero sequence on the desktop normalized beats", () => {

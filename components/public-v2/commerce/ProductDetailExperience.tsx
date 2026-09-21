@@ -338,9 +338,6 @@ export function ProductDetailExperience({
 
       {/* Main First Viewport Split Layout */}
       <div className={styles.pdpLayout}>
-        {/* Product Media Gallery */}
-        <ProductMediaGallery product={product} mediaGallery={gallery} />
-
         {/* Product Purchase Column */}
         <section aria-label="Purchase product" className={styles.pdpInfoPlane}>
           {/* Identity & Context */}
@@ -561,6 +558,9 @@ export function ProductDetailExperience({
             )}
           </div>
         </section>
+
+        {/* Product media follows the natural document scroll on desktop. */}
+        <ProductMediaGallery product={product} mediaGallery={gallery} />
       </div>
 
       {/* Structured Product Information (Overview + Details) */}

@@ -18,3 +18,26 @@ export function marketplacePositionForProgress(progress: number, count: number):
   if (count <= 1) return 0;
   return clamp01(progress) * (count - 1);
 }
+
+/** Places an actor using its visible pixels, rather than its transparent canvas. */
+export function actorTargetForOffscreenEdge({
+  definition,
+  renderedWidth,
+  viewportWidth,
+  edge,
+  marginPx = 0,
+}: {
+  definition: { visibleBounds: { x: number; width: number }; groundContact: { x: number } };
+  renderedWidth: number;
+  viewportWidth: number;
+  edge: "left" | "right";
+  marginPx?: number;
+}): number {
+  const visibleLeft = definition.visibleBounds.x * renderedWidth;
+  const visibleRight = (definition.visibleBounds.x + definition.visibleBounds.width) * renderedWidth;
+  const contactOffset = definition.groundContact.x * renderedWidth;
+  const targetPx = edge === "left"
+    ? -marginPx - visibleRight + contactOffset
+    : viewportWidth + marginPx - visibleLeft + contactOffset;
+  return targetPx / viewportWidth;
+}

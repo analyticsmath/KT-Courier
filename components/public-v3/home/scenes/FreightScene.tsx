@@ -64,7 +64,7 @@ export function FreightScene({ className = "" }: FreightSceneProps) {
 
       {/* Hero Actor Anchor: Centered Red Freight Truck */}
       <div data-actor-anchor="freight-truck" className={styles.freightActorPlane} />
-      <div className={styles.freightServices} aria-label="Freight services">
+      <div data-motion="freight-services" className={styles.freightServices} aria-label="Freight services">
         {["Palletized cargo", "Line-haul corridors", "Dedicated fleet", "Terminal handling"].map((service) => <div key={service}><strong>{service}</strong><span>Built into the same moving network.</span></div>)}
       </div>
 

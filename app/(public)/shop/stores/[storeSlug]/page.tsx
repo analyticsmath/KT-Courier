@@ -70,6 +70,7 @@ export default async function StorePage({
         retainedFilters={{ store: store.slug }}
         result={result}
         route={{ kind: "store", storeSlug: store.slug }}
+        titleAs="h2"
         title="Store Catalog"
       />
     </main>

@@ -1,6 +1,11 @@
 import type { HomeChapter } from "./home-chapters";
 
 export type VisualOwner =
+  | "none"
+  | "market-rail"
+  | "market-backdrop"
+  | "fan-support"
+  | "fan-transfer"
   | "marketplace-media"
   | "story-media"
   | "preparation"
@@ -17,8 +22,8 @@ export type VisualOwner =
 export function visualOwnership(chapter: HomeChapter): { primaryOwner: VisualOwner; incomingOwner?: VisualOwner } {
   const owners: Record<HomeChapter, VisualOwner> = {
     hero: "white-truck",
-    marketplace: "marketplace-media",
-    fan: "story-media",
+    marketplace: "market-rail",
+    fan: "fan-support",
     preparation: "preparation",
     collection: "collection-environment",
     custody: "custody-media",

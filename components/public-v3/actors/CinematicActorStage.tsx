@@ -99,15 +99,14 @@ export const CinematicActorStage = memo(function CinematicActorStage() {
         <StateBank
           actor="van"
           states={{
-            "motion-transition": VAN_STATES["motion-transition"],
-            "side-left": VAN_STATES["side-left"],
-            "sliding-door-open": VAN_STATES["sliding-door-open"],
+            "collection-side-right": VAN_STATES["collection-side-right"],
+            "collection-door-open-right": VAN_STATES["collection-door-open-right"],
           }}
           preloadStates={[]}
         />
         <div data-van-door-aperture data-home-occluder="van-door-mask" aria-hidden="true">
           <Image
-            src={VAN_STATES["sliding-door-open"].webpSrc}
+            src={VAN_STATES["collection-door-open-right"].webpSrc}
             alt=""
             fill
             sizes="65vw"

@@ -26,7 +26,7 @@ export function MerchantDirectory({ stores, query = "" }: MerchantDirectoryProps
   return (
     <div className={styles.categoryAtlasPage}>
       {/* Search Header */}
-        <div style={{ maxWidth: 540, marginBottom: "2rem" }}>
+        <div className={styles.merchantDirectorySearch}>
         <CommerceSearchCommand
           action={marketplaceStoresHref()}
           placeholder="Search stores..."
@@ -35,9 +35,9 @@ export function MerchantDirectory({ stores, query = "" }: MerchantDirectoryProps
       </div>
 
       {stores.length === 0 ? (
-        <div style={{ padding: "3rem 0" }}>
-          <h2 style={{ fontSize: "1.8rem", fontWeight: 560 }}>No matching storefronts</h2>
-          <p style={{ color: "var(--kt-muted, #5f6763)", margin: "8px 0 24px" }}>
+        <div className={styles.merchantDirectoryEmpty}>
+          <h2>No matching storefronts</h2>
+          <p>
             Try a different search query or clear the filter to browse all storefronts.
           </p>
           <Link className={styles.sectionDirectLink} href={marketplaceStoresHref()}>
