@@ -109,6 +109,7 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
         )}
       </div>
 
+<<<<<<< HEAD
       {/* Desktop media column: images scroll naturally while the purchase plane stays put. */}
       <div className={styles.pdpDesktopGalleryStage}>
         {gallery.length > 0 ? gallery.map((media, index) => (
@@ -127,6 +128,33 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
             />
           </div>
         )) : (
+=======
+      {/* Desktop scroll-gallery: the purchase column stays pinned while every image passes. */}
+      <div className={styles.pdpDesktopGalleryStage}>
+        {gallery.length > 0 ? (
+          gallery.map((media, index) => (
+            <div
+              className={styles.pdpDesktopHeroFrame}
+              data-kt-cart-flight-source={index === 0 ? "product-media" : undefined}
+              key={media.publicReference || index}
+            >
+              <Image
+                alt={media.alt || `${product.title} - View ${index + 1}`}
+                fill
+                priority={index === 0}
+                sizes="(max-width: 991px) 100vw, 58vw"
+                src={`/api/catalog/media/${media.publicReference}`}
+                className={styles.pdpImageContain}
+              />
+              {gallery.length > 1 && (
+                <span className={styles.pdpDesktopMediaIndex} aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+                </span>
+              )}
+            </div>
+          ))
+        ) : (
+>>>>>>> fabfd0af887302863366b8d655229b0f877539bb
           <div className={styles.pdpDesktopHeroFrame} data-kt-cart-flight-source="product-media">
             <div className={styles.pdpGalleryEmpty}>Image unavailable</div>
           </div>
