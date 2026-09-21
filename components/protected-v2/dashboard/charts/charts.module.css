@@ -124,14 +124,27 @@
   height: 188px;
   padding: 4px 2px 2px;
   border-bottom: 1px solid var(--dash-line-strong);
-  background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--dash-line) 100%);
-  background-size: 100% 25%;
-  background-repeat: repeat-y;
   width: 100%;
   min-width: 0;
 }
 
+.barGridLines {
+  position: absolute;
+  inset: 0 0 2px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.barGridLines > span {
+  position: absolute;
+  right: 0;
+  left: 0;
+  border-top: 1px solid var(--dash-line);
+}
+
 .barColumn {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -196,7 +209,6 @@
   .barChartColumns {
     height: 158px;
     gap: 5px;
-    background-size: 100% 25%;
   }
   .barTrack {
     max-width: 30px;

@@ -1503,3 +1503,27 @@ svg {
   @media (min-width: 1024px) { [data-kt-protected-system="editorial-operations-v1"] .eo-content-grid--with-rail { grid-template-columns: minmax(0, 8fr) minmax(280px, 4fr); } [data-kt-protected-system="editorial-operations-v1"] .eo-content-grid__rail { align-self: start; } [data-kt-protected-system="editorial-operations-v1"] .eo-shell__main .eo-action-bar { position: sticky; bottom: 0; padding-bottom: var(--eo-space-4); } }
   @media (max-width: 599px) { [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--priority .eo-table__cell--optional { display: none; } [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack { overflow: visible; border: 0; background: transparent; } [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table, [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table tbody, [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table tr, [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table td { display: block; width: 100%; } [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); } [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table tr { margin-bottom: var(--eo-space-3); border: 1px solid var(--eo-line); border-radius: var(--eo-radius-compact); background: var(--eo-surface); padding: var(--eo-space-2) 0; } [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table td { display: grid; grid-template-columns: minmax(100px, .8fr) minmax(0, 1.2fr); gap: var(--eo-space-3); border: 0; padding: var(--eo-space-2) var(--eo-space-3); text-align: right; } [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table td::before { color: var(--eo-text-muted); content: attr(data-label); font-size: .6875rem; font-weight: 650; letter-spacing: 0; text-align: left; text-transform: none; } [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table td.is-numeric { text-align: right; } }
 }
+
+/* Dashboard-only protected shell palette and instant state changes.
+   Next hashes CSS Module classes, so match its preserved local token too. */
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has(.ktDashboard),
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has([class*="ktDashboard"]) {
+  --eo-operational: #C94135;
+  --eo-operational-hover: #A9342A;
+  --eo-operational-soft: #F8E9E6;
+  --eo-information: #2C736A;
+  --eo-information-soft: #E4EFEC;
+}
+
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has(.ktDashboard),
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has(.ktDashboard) *,
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has(.ktDashboard) *::before,
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has(.ktDashboard) *::after,
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has([class*="ktDashboard"]),
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has([class*="ktDashboard"]) *,
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has([class*="ktDashboard"]) *::before,
+[data-kt-protected-system="editorial-operations-v1"].eo-shell:has([class*="ktDashboard"]) *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

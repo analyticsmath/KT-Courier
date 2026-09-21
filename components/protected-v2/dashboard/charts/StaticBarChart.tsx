@@ -53,6 +53,11 @@ export function StaticBarChart({
       </div>
 
       <div className={styles.barChartColumns} role="img" aria-label={label}>
+        <div className={styles.barGridLines} aria-hidden="true">
+          <span style={{ top: "25%" }} />
+          <span style={{ top: "50%" }} />
+          <span style={{ top: "75%" }} />
+        </div>
         {buckets.map((bucket, index) => {
           const heightPercent = Math.round((bucket.value / max) * 100);
           const showDenseLabel = buckets.length <= 7 || showDenseIndex(index);
