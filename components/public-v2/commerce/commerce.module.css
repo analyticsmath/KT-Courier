@@ -3306,15 +3306,10 @@
 
 .shopViewportRoot .pdpInfoPlane {
   grid-area: info;
-  top: calc(66px + 48px + 22px);
-  max-height: calc(100svh - 158px);
-  overflow-y: auto;
-  padding: 4px 10px 4px 2px;
-  scrollbar-width: none;
-}
-
-.shopViewportRoot .pdpInfoPlane::-webkit-scrollbar {
-  display: none;
+  /* Do not constrain this plane: the gallery owns the document scroll. */
+  max-height: none;
+  overflow: visible;
+  padding: 0;
 }
 
 .shopViewportRoot .pdpGalleryRoot {
@@ -3638,12 +3633,12 @@
 
 @media (max-width: 380px) {
   .shopViewportRoot {
-    padding-top: 62px;
+    padding-top: 66px;
   }
 
   .shopViewportRoot .mobileFilterTriggerBar,
   .shopViewportRoot .pdpMobileTopBar {
-    top: 62px;
+    top: 66px;
   }
 
   .shopViewportRoot .productGrid {

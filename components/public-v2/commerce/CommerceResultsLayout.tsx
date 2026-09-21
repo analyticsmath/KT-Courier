@@ -106,7 +106,6 @@ export async function CommerceResultsLayout({
       {breadcrumbs.length > 0 && <CommerceBreadcrumbs items={breadcrumbs} />}
 
       {/* Header & Title Plane */}
-<<<<<<< HEAD
       <div className={styles.resultsIntro}>
         <Title className={styles.resultsTitle}>
           {title}
@@ -115,12 +114,6 @@ export async function CommerceResultsLayout({
           <p className={styles.resultsLead}>
             {description}
           </p>
-=======
-      <div className={styles.plpHeaderPlane}>
-        <h1 className={styles.plpTitle}>{title}</h1>
-        {description && (
-          <p className={styles.plpDescription}>{description}</p>
->>>>>>> fabfd0af887302863366b8d655229b0f877539bb
         )}
       </div>
 
