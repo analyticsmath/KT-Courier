@@ -10,8 +10,16 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#FFFFFF",
     theme_color: publicSiteMetadata.themeColor,
     icons: [
-      { src: "/icon", sizes: "192x192", type: "image/png" },
-      { src: "/icon", sizes: "512x512", type: "image/png" },
+      {
+        src: "/images/kt-couriers/brand/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        src: "/images/kt-couriers/brand/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
     ],
   };
 }
