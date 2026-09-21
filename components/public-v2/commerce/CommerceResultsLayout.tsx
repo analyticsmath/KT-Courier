@@ -103,14 +103,10 @@ export async function CommerceResultsLayout({
       {breadcrumbs.length > 0 && <CommerceBreadcrumbs items={breadcrumbs} />}
 
       {/* Header & Title Plane */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "clamp(2rem, 3.5vw, 3rem)", fontWeight: 560, letterSpacing: "-0.03em", margin: "0 0 8px" }}>
-          {title}
-        </h1>
+      <div className={styles.plpHeaderPlane}>
+        <h1 className={styles.plpTitle}>{title}</h1>
         {description && (
-          <p style={{ color: "var(--kt-muted, #5f6763)", fontSize: "1.05rem", maxWidth: 600, margin: 0 }}>
-            {description}
-          </p>
+          <p className={styles.plpDescription}>{description}</p>
         )}
       </div>
 

@@ -3,6 +3,7 @@ import { MarketplaceUnavailable } from "@/components/public-v2/marketplace";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
 import { CommerceSubnav } from "@/components/public-v2/commerce/CommerceSubnav";
+import styles from "@/components/public-v2/commerce/commerce.module.css";
 
 export function generateMetadata(): Metadata {
   if (!publicStorefrontPageExposureAllowed()) {
@@ -21,5 +22,10 @@ export function generateMetadata(): Metadata {
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   if (!publicStorefrontPageExposureAllowed()) return <MarketplaceUnavailable routeContext="storefront" />;
-  return <><CommerceSubnav />{children}</>;
+  return (
+    <div className={styles.shopViewportRoot}>
+      <CommerceSubnav />
+      {children}
+    </div>
+  );
 }
