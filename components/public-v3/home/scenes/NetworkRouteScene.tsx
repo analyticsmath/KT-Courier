@@ -17,6 +17,8 @@ export function NetworkRouteScene() {
             <path d="M500 106 L500 385 C500 520 660 545 720 650 C785 765 690 850 430 950" strokeWidth="4" />
           </svg>
           <div className={styles.networkMask} data-route-overpass-mask aria-hidden="true" />
+          <div className={styles.networkOcclusion} data-route-occluder="straight-angled" aria-hidden="true" />
+          <div className={styles.networkOcclusion} data-route-occluder="angled-turning" aria-hidden="true" />
         </div>
       </div>
     </section>

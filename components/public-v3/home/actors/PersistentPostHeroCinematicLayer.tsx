@@ -13,9 +13,10 @@ function ActorBank({ actor }: { actor: PostHeroActorName }) {
   return <div data-posthero-actor-slot={actor} data-posthero-expected-actor={actor} data-posthero-displayed-state="" data-posthero-requested-state="" data-posthero-pending-state="" data-posthero-state-ready="false" data-posthero-visible="false" data-posthero-slot-opacity="0" className={styles.postHeroActorSlot} aria-hidden="true">
     {states.map((key, index) => {
       const asset = POST_HERO_ACTOR_ASSETS[key];
+      const eager = index === 0;
       return (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={key} data-posthero-actor-state={key} data-posthero-actor-status="idle" src={asset.webpSrc} width={asset.width} height={asset.height} decoding="async" loading={index === 0 ? "eager" : "lazy"} alt="" aria-hidden="true" onLoad={(event: SyntheticEvent<HTMLImageElement>) => { if (event.currentTarget.naturalWidth > 0) markPostHeroActorReady(key); }} onError={() => markPostHeroActorError(key)} className={styles.postHeroActorState} />
+        <img key={key} data-posthero-actor-state={key} data-posthero-actor-status={eager ? "loading" : "deferred"} {...(eager ? { src: asset.webpSrc } : { "data-src": asset.webpSrc })} width={asset.width} height={asset.height} decoding="async" loading={eager ? "eager" : "lazy"} alt="" aria-hidden="true" onLoad={(event: SyntheticEvent<HTMLImageElement>) => { if (event.currentTarget.naturalWidth > 0) markPostHeroActorReady(key); }} onError={() => markPostHeroActorError(key)} className={styles.postHeroActorState} />
       );
     })}
   </div>;

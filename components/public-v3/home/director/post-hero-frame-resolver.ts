@@ -52,11 +52,27 @@ export const POST_HERO_RESOLVER_ACTOR_STATES: readonly PostHeroActorKey[] = [
 export const JOURNEY_ROAD_OCCLUSION_THRESHOLD = HOME_BEATS.network.overpassTakeover[0];
 
 export function resolveMarketplaceFrame(progress: number, categoryCount: number, storeCount = 3, productCount = 5): MarketplaceFrame {
-  const p = clamp01(progress); const count = Math.max(1, categoryCount); const stores = Math.max(0, storeCount); const products = Math.max(1, productCount); const positionIndex = p < .08 ? 0 : p < .5 ? ((p - .08) / .42) * Math.max(0, count - 1) : count - 1;
+  const p = clamp01(progress); const count = Math.max(1, categoryCount); const stores = Math.max(0, storeCount); const products = Math.max(1, productCount); const productStart = stores >= 3 ? HOME_BEATS.commerce.fanBuild[0] : .56; const positionIndex = p < .08 ? 0 : p < .5 ? ((p - .08) / .42) * Math.max(0, count - 1) : count - 1;
   const storeIndex = stores >= 3 ? Math.min(stores - 1, Math.max(0, Math.floor(range(p, .6, .73) * stores))) : -1;
-  const productIndex = Math.min(products - 1, Math.max(0, Math.floor(range(p, stores >= 3 ? .76 : .56, .94) * products)));
-  const motionOwner = p < .08 ? "commerce-aperture" : p < .5 ? "category-atlas" : p < .56 ? "none" : stores >= 3 && p < .76 ? "store-index" : p < .94 ? "product-fan" : "selected-product-carry";
+  const productIndex = Math.min(products - 1, Math.max(0, range(p, productStart, .94) * Math.max(0, products - 1)));
+  const motionOwner = p < .08 ? "commerce-aperture" : p < .5 ? "category-atlas" : p < productStart ? (stores >= 3 ? "store-index" : "none") : p < .94 ? "product-fan" : "selected-product-carry";
   return { activeIndex: Math.max(0, Math.min(count - 1, Math.round(positionIndex))), positionIndex, storeIndex, productIndex, exitProgress: range(p, .94, 1), motionOwner };
+}
+
+/** Red Truck is the freight wipe: the generated frame sequence rides this physical viewport path. */
+export function redTruckViewportX(progress: number): number {
+  const p = clamp01(progress);
+  const b = HOME_BEATS.freight;
+  const segment = (start: number, end: number, from: number, to: number) => from + (to - from) * range(p, start, end);
+  if (p < b.redEntry[0]) return 120;
+  if (p < b.redEntry[1]) return segment(...b.redEntry, 120, 95);
+  if (p < b.redSettle[1]) return segment(b.redEntry[1], b.redSettle[1], 95, 65);
+  if (p < b.giantSweepFront[0]) return 65;
+  if (p < b.giantSweepFront[1]) return segment(...b.giantSweepFront, 65, 42);
+  if (p < b.giantSweepMid[1]) return segment(...b.giantSweepMid, 42, 18);
+  if (p < b.giantSweepRear[1]) return segment(...b.giantSweepRear, 18, -8);
+  if (p < b.trailerTakeover[1]) return segment(...b.trailerTakeover, -8, -45);
+  return segment(b.trailerTakeover[1], 1, -45, -75);
 }
 
 export type PostHeroContentCounts = { categoryCount?: number; storeCount?: number; productCount?: number };
@@ -75,7 +91,7 @@ export function resolvePostHeroFrame(chapter: PostHeroChapter, progress: number,
   const p = clamp01(progress); const mobile = viewportMode === "mobile";
   const frame: PostHeroFrame = { chapter, progress: p, motionOwner: "none", actors: actors(), selectedCarryProgress: 0, packageProgress: 0, labelRouteProgress: 0, roadReveal: 0, routeProgress: 0, trailerProgress: 0, handoffProgress: 0, brandProgress: 0, utilityProgress: 0, legalProgress: 0 };
   if (chapter === "commerce") { frame.marketplace = resolveMarketplaceFrame(p, counts.categoryCount ?? 5, counts.storeCount ?? 3, counts.productCount ?? 5); frame.motionOwner = frame.marketplace.motionOwner; return frame; }
-  if (chapter === "parcelization") { frame.selectedCarryProgress = range(p, ...HOME_BEATS.parcelization.selectedCarry); frame.packageProgress = range(p, ...HOME_BEATS.parcelization.packageCover); frame.labelRouteProgress = range(p, ...HOME_BEATS.parcelization.labelToRoute); frame.motionOwner = p < .18 ? "selected-product-carry" : p < .48 ? "packaging" : p < .9 ? "label-route" : "route-camera-seam"; return frame; }
+  if (chapter === "parcelization") { frame.selectedCarryProgress = range(p, ...HOME_BEATS.parcelization.selectedCarry); frame.packageProgress = range(p, HOME_BEATS.parcelization.packageEnter[0], HOME_BEATS.parcelization.packageCover[1]); frame.labelRouteProgress = range(p, ...HOME_BEATS.parcelization.labelToRoute); frame.motionOwner = p < .18 ? "selected-product-carry" : p < .48 ? "packaging" : p < .9 ? "label-route" : "route-camera-seam"; return frame; }
   if (chapter === "network") { resolveNetwork(frame, p, mobile); return frame; }
   if (chapter === "freight") {
     const b = HOME_BEATS.freight;
@@ -98,7 +114,9 @@ export function resolvePostHeroFrame(chapter: PostHeroChapter, progress: number,
                   : p < b.localWorldReveal[0] + .04
                     ? "red-truck:wipe-exit"
                     : "red-truck:wipe-departure-tail";
-      frame.actors["red-truck"] = pose(state, p < b.trailerTakeover[0] ? 52 : 50, 78, { mode: "visible-width", valueVw: mobile ? 190 : p < b.giantSweepFront[0] ? 78 : 140 });
+      const truckX = redTruckViewportX(p);
+      const truckScale = p < b.giantSweepFront[0] ? range(p, b.redEntry[0], b.redSettle[1]) * .12 + .88 : p < b.trailerTakeover[0] ? 1 + range(p, b.giantSweepFront[0], b.trailerTakeover[0]) * .16 : 1.16;
+      frame.actors["red-truck"] = pose(state, truckX, 78, { mode: "visible-width", valueVw: mobile ? 190 * truckScale : (p < b.giantSweepFront[0] ? 78 : 140) * truckScale });
     }
     frame.trailerProgress = range(p, ...b.trailerTakeover); frame.motionOwner = p < b.redEntry[0] ? "route-camera-seam" : p < b.giantSweepRear[1] ? "red-truck" : p < b.localWorldReveal[0] ? "red-trailer-takeover" : "none"; return frame;
   }

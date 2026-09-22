@@ -11,6 +11,7 @@ import { deriveHeroActorPresentation } from "./hero-actor-presentation";
 import { resolveHeroTruckFrame } from "./home-frame-resolver";
 import { clamp01, HOME_BEATS, range } from "./home-beats";
 import { HOME_CHAPTERS, HOME_MOBILE_POLICY, reducedMotionChapterProgress, type HomeChapter, type PostHeroChapter } from "./home-chapters";
+import { marketplaceTrackX } from "./home-marketplace-geometry";
 import { resolvePostHeroFrame, type PostHeroActorKey, type PostHeroActorName, type PostHeroActorPose, type PostHeroFrame } from "./post-hero-frame-resolver";
 import { isPostHeroActorReady, markPostHeroActorReady, POST_HERO_ACTOR_ASSETS, postHeroActorsForChapter, preloadPostHeroActor, preloadPostHeroActorsForChapter } from "../actors/post-hero-actor-preload";
 
@@ -107,9 +108,12 @@ export function useHomeNarrativeDirector({
     const heroCourier = root.querySelector<HTMLElement>("[data-motion='hero-courier']");
     const heroRoad = root.querySelector<HTMLElement>("[data-motion='hero-road']");
     const categoryRail = root.querySelector<HTMLElement>("[data-commerce-category-rail]");
+    const categoryTrack = root.querySelector<HTMLElement>("[data-commerce-category-track]");
     const categoryCards = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-category]"));
     const productRail = root.querySelector<HTMLElement>("[data-commerce-product-fan]");
     const productCards = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-product]"));
+    const commerceWorlds = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-world]"));
+    const routeOccluders = Array.from(root.querySelectorAll<HTMLElement>("[data-route-occluder]"));
 
     const applyHero = (progress: number) => {
       const frame = resolveHeroTruckFrame(progress, window.innerWidth <= 767 ? "mobile" : "desktop");
@@ -159,7 +163,18 @@ export function useHomeNarrativeDirector({
       }
       const actorKeys = Array.from(postLayers.keys()).filter((key) => key.startsWith(`${actor}:`));
       const requestedIndex = actorKeys.indexOf(actorPose.state);
-      const isReadyLayer = (image: HTMLImageElement, key: PostHeroActorKey) => isPostHeroActorReady(key) || (image.complete && image.naturalWidth > 0);
+      const isReadyLayer = (image: HTMLImageElement) => image.complete && image.naturalWidth > 0;
+      const activateLayer = (image: HTMLImageElement, key: PostHeroActorKey) => {
+        if (!image.getAttribute("src")) {
+          const deferredSrc = image.dataset.src;
+          if (deferredSrc) {
+            image.dataset.postheroActorStatus = "loading";
+            image.src = deferredSrc;
+          }
+        }
+        if (isPostHeroActorReady(key)) image.dataset.postheroActorStatus = "ready";
+      };
+      if (requestedLayer) activateLayer(requestedLayer, actorPose.state);
       const readyCandidates = actorKeys.map((key, index) => ({ key, index, image: postLayers.get(key) })).filter((candidate): candidate is { key: PostHeroActorKey; index: number; image: HTMLImageElement } => Boolean(candidate.image && isReadyLayer(candidate.image, candidate.key))).sort((a, b) => Math.abs(a.index - requestedIndex) - Math.abs(b.index - requestedIndex));
       const fallbackKey = displayedPostStates.get(actor);
       const fallbackImage = fallbackKey ? postLayers.get(fallbackKey) : undefined;
@@ -170,10 +185,12 @@ export function useHomeNarrativeDirector({
           : readyCandidates[0]?.key ?? actorPose.state;
       const layer = postLayers.get(shownKey) ?? requestedLayer;
       const definition = POST_HERO_ACTOR_ASSETS[shownKey] ?? requestedDefinition;
-      if (!layer || !definition) {
+      if (!layer || !definition || (!isReadyLayer(layer, shownKey) && !displayedPostStates.has(actor))) {
         gsap.set(slot, { autoAlpha: 0, visibility: "hidden" });
+        slot.dataset.postheroVisible = "false";
         return;
       }
+      activateLayer(layer, shownKey);
       displayedPostStates.set(actor, shownKey);
       const visibleWidthRatio = definition.visibleBounds.width / definition.width;
       const visibleHeightRatio = definition.visibleBounds.height / definition.height;
@@ -185,6 +202,12 @@ export function useHomeNarrativeDirector({
       slot.dataset.postheroDisplayedState = shownKey;
       slot.dataset.postheroRequestedState = actorPose.state;
       slot.dataset.postheroStateReady = String(isPostHeroActorReady(shownKey) || (layer.complete && layer.naturalWidth > 0));
+      slot.dataset.postheroPendingState = shownKey === actorPose.state ? "" : actorPose.state;
+      slot.dataset.postheroVisible = String(actorPose.visible);
+      slot.dataset.postheroSlotOpacity = String(actorPose.visible ? 1 : 0);
+      slot.dataset.postheroX = String(aligned.left);
+      slot.dataset.postheroY = String(aligned.top);
+      slot.dataset.postheroWidth = String(canvasWidth);
     };
 
     const applyPostHero = (chapter: PostHeroChapter, rawProgress: number): PostHeroFrame => {
@@ -192,26 +215,57 @@ export function useHomeNarrativeDirector({
       if (chapter === "commerce" && frame.marketplace) {
         const desktop = window.innerWidth >= 900;
         const categoryFocus = Math.round(frame.marketplace.positionIndex);
+        const hasStoreWorld = stores.length >= 3;
+        const categoryWorldActive = categories.length > 0 && rawProgress < (hasStoreWorld ? HOME_BEATS.commerce.storeReveal[0] : HOME_BEATS.commerce.fanBuild[0]);
+        const storeWorldActive = hasStoreWorld && rawProgress >= HOME_BEATS.commerce.storeReveal[0] && rawProgress < HOME_BEATS.commerce.fanBuild[0];
+        const productWorldActive = products.length > 0 && (categories.length === 0 || rawProgress >= (hasStoreWorld ? HOME_BEATS.commerce.fanBuild[0] : .56));
+        commerceWorlds.forEach((world) => {
+          const worldName = world.dataset.commerceWorld;
+          const active = worldName === "categories" ? categoryWorldActive : worldName === "stores" ? storeWorldActive : worldName === "products" ? productWorldActive : false;
+          world.dataset.commerceActive = String(active);
+        });
         categoryCards.forEach((card, index) => {
           if (!desktop) {
-            gsap.set(card, { clearProps: "flexBasis,transform,opacity" });
+            gsap.set(card, { clearProps: "flexBasis,transform,opacity,zIndex" });
+            card.dataset.marketplaceDistance = String(Math.round(Math.abs(index - frame.marketplace!.positionIndex)));
             return;
           }
           const distance = Math.abs(index - frame.marketplace!.positionIndex);
-          const width = distance < .5 ? 57 : distance < 1.5 ? 12 : 7;
+          const width = distance <= 1 ? 57 - 45 * distance : 12 - 5 * Math.min(1, distance - 1);
           gsap.set(card, { flexBasis: `${width}vw`, transform: `translateY(${Math.min(1.5, distance) * 1.5}px)`, opacity: distance > 2.5 ? .55 : 1, zIndex: index === categoryFocus ? 2 : 1 });
-          card.dataset.marketplaceDistance = String(Math.round(distance));
+          card.dataset.marketplaceDistance = distance.toFixed(2);
+          card.dataset.active = String(index === categoryFocus);
         });
+        if (desktop && categoryRail && categoryTrack) {
+          gsap.set(categoryTrack, { x: 0 });
+          const railRect = categoryRail.getBoundingClientRect();
+          const centers = categoryCards.map((card) => {
+            const rect = card.getBoundingClientRect();
+            return rect.left + rect.width / 2;
+          });
+          const desiredX = marketplaceTrackX(centers, frame.marketplace!.positionIndex, railRect.left + railRect.width / 2);
+          const trackRect = categoryTrack.getBoundingClientRect();
+          const minX = railRect.right - trackRect.right;
+          const maxX = railRect.left - trackRect.left;
+          gsap.set(categoryTrack, { x: Math.min(maxX, Math.max(minX, desiredX)) });
+          categoryTrack.dataset.trackX = String(Math.round(Math.min(maxX, Math.max(minX, desiredX))));
+        }
         productCards.forEach((card, index) => {
           if (!desktop) {
-            gsap.set(card, { clearProps: "transform,zIndex" });
+            gsap.set(card, { clearProps: "transform,zIndex,opacity" });
             return;
           }
           const distance = index - frame.marketplace!.productIndex;
           const absoluteDistance = Math.abs(distance);
-          const scale = absoluteDistance < .5 ? 1 : absoluteDistance < 1.5 ? .86 : .72;
-          const rotateY = absoluteDistance < .5 ? 0 : Math.sign(distance) * (absoluteDistance < 1.5 ? -15 : -24);
-          gsap.set(card, { transform: `translate3d(${distance * 18}vw,0,0) rotateY(${rotateY}deg) scale(${scale})`, zIndex: Math.max(1, 10 - Math.round(absoluteDistance)) });
+          const near = Math.min(absoluteDistance, 1);
+          const far = Math.min(Math.max(absoluteDistance - 1, 0), 1);
+          const x = Math.sign(distance) * (18 * near + 14 * far + Math.max(0, absoluteDistance - 2) * 8);
+          const y = Math.min(5, absoluteDistance * 1.8);
+          const scale = absoluteDistance <= 1 ? 1 - .14 * near : .86 - .14 * far - Math.max(0, absoluteDistance - 2) * .06;
+          const rotateY = -Math.sign(distance) * (16 * near + 10 * far);
+          const rotateZ = Math.sign(distance) * (1.5 * near + .5 * far);
+          const opacity = absoluteDistance <= 2 ? 1 - .12 * Math.max(0, absoluteDistance - 1) : .48;
+          gsap.set(card, { transform: `translate3d(${x}vw,${y}vh,0) rotateY(${rotateY}deg) rotateZ(${rotateZ}deg) scale(${Math.max(.58, scale)})`, opacity, zIndex: Math.max(1, 10 - Math.round(absoluteDistance)) });
         });
       }
       const actorVisible = chapter === "network" || chapter === "freight" || chapter === "last-mile";
@@ -227,6 +281,24 @@ export function useHomeNarrativeDirector({
         frame.actors["white-truck"].anchorYVh = ((svgRect.top + point.y * svgRect.height / box.height) / window.innerHeight) * 100;
         frame.actors["white-truck"].rotation = tangent + 180;
       }
+      if (routePath && routeSvg && routeLength) {
+        const box = routeSvg.viewBox.baseVal;
+        const svgRect = routeSvg.getBoundingClientRect();
+        const seams = [
+          { name: "straight-angled", progress: HOME_BEATS.network.angledTransition[0] + (HOME_BEATS.network.angledTransition[1] - HOME_BEATS.network.angledTransition[0]) / 2, route: .38 },
+          { name: "angled-turning", progress: HOME_BEATS.network.turningTransition[0] + (HOME_BEATS.network.turningTransition[1] - HOME_BEATS.network.turningTransition[0]) / 2, route: .68 },
+        ];
+        routeOccluders.forEach((occluder) => {
+          const seam = seams.find((candidate) => candidate.name === occluder.dataset.routeOccluder);
+          if (!seam) return;
+          const point = routePath.getPointAtLength(routeLength * seam.route);
+          const ahead = routePath.getPointAtLength(Math.min(routeLength, routeLength * seam.route + 2));
+          const tangent = Math.atan2((ahead.y - point.y) * svgRect.height / box.height, (ahead.x - point.x) * svgRect.width / box.width) * 180 / Math.PI;
+          const distance = Math.abs(frame.progress - seam.progress);
+          const seamAlpha = chapter === "network" ? Math.max(0, 1 - distance / .075) : 0;
+          gsap.set(occluder, { left: `${(point.x / box.width) * 100}%`, top: `${(point.y / box.height) * 100}%`, transform: `translate(-50%, -50%) rotate(${tangent}deg)`, autoAlpha: seamAlpha });
+        });
+      }
       (Object.entries(frame.actors) as [PostHeroActorName, PostHeroActorPose][]).forEach(([actor, actorPose]) => placeActor(actor, actorPose));
       root.dataset.homeMotionOwner = frame.motionOwner;
       root.dataset.homeChapter = chapter;
@@ -236,9 +308,11 @@ export function useHomeNarrativeDirector({
       root.dataset.homeRecipientState = frame.actors.recipient.visible ? frame.actors.recipient.state : "hidden";
       root.dataset.homeHandoffState = frame.actors.handoff.visible ? frame.actors.handoff.state : "hidden";
       const packageCover = root.querySelector<HTMLElement>("[data-package-cover]");
-      if (packageCover) gsap.set(packageCover, { scale: .7 + frame.packageProgress * .3, autoAlpha: chapter === "parcelization" ? 1 : 0 });
+      const packageBack = root.querySelector<HTMLElement>("[data-package-back]");
+      if (packageCover) gsap.set(packageCover, { scale: .7 + frame.packageProgress * .3, autoAlpha: chapter === "parcelization" ? 1 : 0, clipPath: `inset(${(1 - frame.packageProgress) * 100}% 0 0)` });
+      if (packageBack) gsap.set(packageBack, { scale: .7 + frame.packageProgress * .3, autoAlpha: chapter === "parcelization" ? .92 : 0 });
       const selectedMedia = root.querySelector<HTMLElement>("[data-selected-product-media]");
-      if (selectedMedia) gsap.set(selectedMedia, { autoAlpha: chapter === "parcelization" ? 1 - frame.packageProgress : 0, scale: 1 + frame.selectedCarryProgress * .2, x: frame.selectedCarryProgress * 4, y: frame.selectedCarryProgress * 6 });
+      if (selectedMedia) gsap.set(selectedMedia, { autoAlpha: chapter === "parcelization" ? 1 - frame.packageProgress * .82 : 0, scale: 1 + frame.selectedCarryProgress * .2, x: frame.selectedCarryProgress * 4, y: frame.selectedCarryProgress * 6 });
       const routeLine = root.querySelector<HTMLElement>("[data-label-route-line]");
       if (routeLine) gsap.set(routeLine, { scaleX: chapter === "parcelization" ? frame.labelRouteProgress : 0 });
       const overpassMask = root.querySelector<HTMLElement>("[data-route-overpass-mask]");
@@ -319,13 +393,14 @@ export function useHomeNarrativeDirector({
       const appliedFrame = current.chapter === "hero" ? undefined : applyPostHero(current.chapter, authoredProgress);
       if (current.chapter === "hero") applyHero(authoredProgress);
       preloadTier(current.chapter, progress);
-      if (current.chapter === "commerce" && categories.length && window.innerWidth >= 900) {
+      const desktopCommerceDirectorOwned = window.innerWidth >= 900;
+      if (current.chapter === "commerce" && categories.length && desktopCommerceDirectorOwned) {
         const index = Math.min(categories.length - 1, Math.round((authoredProgress - .08) / .42 * (categories.length - 1)));
         const id = categories[Math.max(0, index)]?.id;
         if (id && id !== selectedCategory) { selectedCategory = id; onMarketplaceSelectionChange?.(id); }
       }
-      if (current.chapter === "commerce" && appliedFrame?.marketplace && products.length) {
-        const product = products[Math.max(0, Math.min(products.length - 1, appliedFrame.marketplace.productIndex))];
+      if (current.chapter === "commerce" && appliedFrame?.marketplace && products.length && desktopCommerceDirectorOwned) {
+        const product = products[Math.max(0, Math.min(products.length - 1, Math.round(appliedFrame.marketplace.productIndex)))];
         if (authoredProgress < HOME_BEATS.commerce.selectedTakeover[0]) {
           productSelectionFrozen = false;
           selectedProductDuringFan = product?.id ?? selectedProductDuringFan;
@@ -335,10 +410,22 @@ export function useHomeNarrativeDirector({
         }
         if (selectedProductDuringFan) onProductSelectionChange?.(selectedProductDuringFan);
       }
-      if (current.chapter === "commerce" && stores.length >= 3 && onStoreSelectionChange) {
+      if (current.chapter === "commerce" && stores.length >= 3 && onStoreSelectionChange && desktopCommerceDirectorOwned) {
         const storeIndex = Math.min(stores.length - 1, Math.max(0, Math.floor(range(authoredProgress, .6, .73) * stores.length)));
         const storeId = stores[storeIndex]?.id;
         if (storeId) onStoreSelectionChange(storeId);
+      }
+      if (current.chapter === "parcelization" && products.length) {
+        let storedProductId: string | null = null;
+        try {
+          storedProductId = window.sessionStorage.getItem("kt-home-selected-product");
+        } catch {
+          storedProductId = null;
+        }
+        if (!storedProductId) {
+          const finalProduct = products.at(-1)?.id;
+          if (finalProduct) onProductSelectionChange?.(finalProduct);
+        }
       }
       if (debugPanel && debugEnabled) {
         const marketplace = appliedFrame?.marketplace;

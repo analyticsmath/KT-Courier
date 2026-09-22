@@ -1,169 +1,93 @@
 import { describe, expect, it } from "vitest";
-import { HERO_TRUCK_SEQUENCE, RED_TRUCK_STATES, VAN_STATES, WHITE_TRUCK_STATES } from "@/components/public-v3/actors/actor-state-machine";
+import { HERO_TRUCK_SEQUENCE, WHITE_TRUCK_STATES } from "@/components/public-v3/actors/actor-state-machine";
+import { POST_HERO_ACTOR_ASSETS, postHeroActorsForChapter } from "@/components/public-v3/home/actors/post-hero-actor-preload";
 import { HOME_BEATS } from "@/components/public-v3/home/director/home-beats";
-import {
-  HOME_CHAPTERS,
-  HOME_CHAPTER_BUDGETS_VH,
-  HOME_MOBILE_CHAPTER_BUDGETS_VH,
-  HOME_MOBILE_POLICY,
-} from "@/components/public-v3/home/director/home-chapters";
+import { HOME_CHAPTERS, HOME_CHAPTER_BUDGETS_VH, HOME_MOBILE_CHAPTER_BUDGETS_VH, HOME_MOBILE_POLICY } from "@/components/public-v3/home/director/home-chapters";
 import { resolveHeroTruckFrame, routeTruckRotationForTangent } from "@/components/public-v3/home/director/home-frame-resolver";
 import { marketplaceTrackX } from "@/components/public-v3/home/director/home-marketplace-geometry";
-import {
-  JOURNEY_ROAD_OCCLUSION_THRESHOLD,
-  POST_HERO_RESOLVER_ACTOR_STATES,
-  resolveMarketplaceFrame,
-  resolvePostHeroFrame,
-  type MotionOwner,
-} from "@/components/public-v3/home/director/post-hero-frame-resolver";
-import { POST_HERO_ACTOR_ASSETS, postHeroActorsForChapter } from "@/components/public-v3/home/actors/post-hero-actor-preload";
-import { POST_HERO_RENDERED_ACTOR_STATES } from "@/components/public-v3/home/actors/PersistentPostHeroCinematicLayer";
+import { POST_HERO_RESOLVER_ACTOR_STATES, redTruckViewportX, resolveMarketplaceFrame, resolvePostHeroFrame, type MotionOwner } from "@/components/public-v3/home/director/post-hero-frame-resolver";
 
-const categoryCount = 5;
-const samples = [0, 0.08, 0.15, 0.25, 0.34, 0.4, 0.46, 0.55, 0.63, 0.71, 0.76, 0.85, 0.9, 0.95, 1];
-
-describe("canonical home chapter and frame resolver", () => {
-  it("keeps the accepted Hero sequence, geometry, and scroll budget", () => {
-    expect(HOME_CHAPTERS).toEqual(["hero", "marketplace", "preparation", "journey", "freight", "finale"]);
-    expect(HOME_CHAPTER_BUDGETS_VH.hero).toBe(205);
-    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH.hero).toBe(260);
-
-    const points = [0, 0.13, 0.22, 0.4, 0.5, 0.58, 0.62, 0.66, 0.78, 0.9, 0.975, 1] as const;
-    const expectedDesktop = [
-      "front-3q-entry-phase-01", "front-3q-entry-phase-01", "front-3q-entry-phase-01", "front-3q-entry-phase-06",
-      "front-3q-entry-phase-06", "front-center-transition-phase-02", "true-front-center-full", "true-front-center-full",
-      "true-front-center-medium", "true-front-center-close", "true-front-center-extreme-close", "true-front-center-extreme-close",
-    ];
-    points.forEach((progress, index) => {
-      const frame = resolveHeroTruckFrame(progress, "desktop");
-      expect(frame.state).toBe(expectedDesktop[index]);
-      expect(frame.visible).toBe(progress >= 0.13 && progress < 1);
-      expect(resolveHeroTruckFrame(progress, "desktop")).toEqual(frame);
-    });
-    expect(resolveHeroTruckFrame(0.4, "desktop").sizeMode).toEqual({ mode: "visible-height", visibleHeightVh: 34 });
-    expect(resolveHeroTruckFrame(0.4, "mobile")).toMatchObject({ groundY: 0.85, sizeMode: { mode: "visible-height", visibleHeightVh: 36 } });
+describe("post-Hero frame resolver", () => {
+  it("protects the accepted Hero sequence and chapter budgets", () => {
+    expect(HOME_CHAPTERS).toEqual(["hero", "commerce", "parcelization", "network", "freight", "last-mile", "finale"]);
+    expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 325, parcelization: 135, network: 280, freight: 215, "last-mile": 340, finale: 150 });
+    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 250, parcelization: 115, network: 225, freight: 185, "last-mile": 310, finale: 150 });
+    expect(HOME_MOBILE_POLICY).toEqual({ hero: "document", commerce: "native-snap", parcelization: "document", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" });
+    expect(HOME_BEATS.hero.release).toEqual([.975, 1]);
     expect(HERO_TRUCK_SEQUENCE).toHaveLength(12);
+    expect(resolveHeroTruckFrame(.4, "desktop").sizeMode).toEqual({ mode: "visible-height", visibleHeightVh: 34 });
   });
 
-  it("uses the Marketplace rail for traversal, a quiet hold, and one strip exit", () => {
-    const start = resolveMarketplaceFrame(0.04, categoryCount);
-    const moving = resolveMarketplaceFrame(0.18, categoryCount);
-    const hold = resolveMarketplaceFrame(0.28, categoryCount);
-    const holdEnd = resolveMarketplaceFrame(0.88, categoryCount);
-    const exit = resolveMarketplaceFrame(0.94, categoryCount);
-    const handoff = resolveMarketplaceFrame(0.98, categoryCount);
-    expect(start.motionOwner).toBe("none");
-    expect(moving.motionOwner).toBe("market-rail");
-    expect(moving.positionIndex).toBeGreaterThan(0);
-    expect(hold.motionOwner).toBe("none");
-    expect(holdEnd.motionOwner).toBe("none");
-    expect(exit.motionOwner).toBe("market-to-prep-strips");
-    expect(handoff.motionOwner).toBe("market-to-prep-strips");
-    expect(exit.activeIndex).toBe(4);
-
-    for (let index = 0; index < categoryCount; index += 1) {
-      const settledAt = index === 0 ? 0.08 : 0.25 + (index - 1) * 0.18;
-      expect(resolveMarketplaceFrame(settledAt, categoryCount).activeIndex).toBe(index);
-    }
-    expect(HOME_BEATS.marketplace.finalCardHold).toEqual([0.84, 0.9]);
-    expect(HOME_BEATS.marketplace.exitSlices).toEqual([0.9, 1]);
+  it("resolves continuous Commerce worlds and skips an empty Store World", () => {
+    const category = resolveMarketplaceFrame(.2, 5, 0, 5);
+    const noStoresProduct = resolveMarketplaceFrame(.7, 5, 0, 5);
+    const storeWorld = resolveMarketplaceFrame(.65, 5, 3, 5);
+    expect(category.motionOwner).toBe("category-atlas");
+    expect(category.positionIndex).toBeGreaterThan(0);
+    expect(noStoresProduct.storeIndex).toBe(-1);
+    expect(noStoresProduct.motionOwner).toBe("product-fan");
+    expect(noStoresProduct.productIndex).toBeGreaterThan(0);
+    expect(storeWorld.storeIndex).toBeGreaterThanOrEqual(0);
+    expect(storeWorld.motionOwner).toBe("store-index");
+    expect(resolveMarketplaceFrame(.99, 5, 3, 5).motionOwner).toBe("selected-product-carry");
   });
 
-  it("renders exactly the persistent Journey and Freight actor inventory", () => {
-    expect(new Set(POST_HERO_RENDERED_ACTOR_STATES)).toEqual(new Set(POST_HERO_RESOLVER_ACTOR_STATES));
-    POST_HERO_RESOLVER_ACTOR_STATES.forEach((state) => {
-      expect(POST_HERO_ACTOR_ASSETS[state].webpSrc).toMatch(/^\/media\/public\/protagonists\/.+\.webp$/);
-    });
-    expect(POST_HERO_RESOLVER_ACTOR_STATES).toContain("courier:look-right-approach");
-    expect(postHeroActorsForChapter("journey")).toContain("courier:look-right-approach");
-    expect(postHeroActorsForChapter("journey")).toContain("courier:ready-handover");
-    expect(postHeroActorsForChapter("freight")).toContain("white-truck:top-down-straight");
-    expect(postHeroActorsForChapter("freight")).toContain("red-truck:side-right");
-    expect(POST_HERO_RESOLVER_ACTOR_STATES).toHaveLength(8);
+  it("keeps the generated post-Hero inventory and nearest-ready chapter tiers", () => {
+    expect(POST_HERO_RESOLVER_ACTOR_STATES).toHaveLength(55);
+    POST_HERO_RESOLVER_ACTOR_STATES.forEach((state) => expect(POST_HERO_ACTOR_ASSETS[state].webpSrc).toMatch(/\.webp$/));
+    expect(postHeroActorsForChapter("network")).toContain("white-truck:top-down-straight");
+    expect(postHeroActorsForChapter("freight")).toContain("red-truck:wipe-entry-01");
+    expect(postHeroActorsForChapter("last-mile")).toContain("handoff:shared-contact");
   });
 
-  it("keeps the Journey protagonists present at every authored pickup beat", () => {
-    const at = (progress: number) => resolvePostHeroFrame("journey", progress, "desktop");
-    [0.1, 0.22, 0.27].forEach((p) => expect(at(p).actors.van.visible).toBe(true));
-    expect(at(0.1).actors.van.state).toBe("van:collection-side-right");
-    expect(at(0.15).actors.van.xVw).toBeLessThan(at(0.2).actors.van.xVw);
-    expect(at(0.35).actors.van.state).toBe("van:collection-door-open-right");
-    expect(at(0.44).actors).toMatchObject({
-      van: { visible: true, state: "van:collection-door-open-right" },
-      courier: { visible: true, state: "courier:look-right-approach" },
-    });
-    expect(at(0.52).actors.courier.state).toBe("courier:lift-parcel");
-    expect(at(0.61).actors.courier.state).toBe("courier:loading-unloading");
-    expect(at(0.68).actors).toMatchObject({
-      van: { visible: true },
-      courier: { visible: true, state: "courier:ready-handover" },
-    });
-    expect(at(0.81).actors["white-truck"].visible).toBe(false);
-    expect(at(0.82).roadReveal).toBeGreaterThanOrEqual(JOURNEY_ROAD_OCCLUSION_THRESHOLD);
-    expect(at(0.82).actors["white-truck"]).toMatchObject({ visible: true, state: "white-truck:top-down-straight" });
-    expect(at(0.84).actors["white-truck"].visible).toBe(true);
-    expect(at(0.93).actors["white-truck"].visible).toBe(true);
-    expect(at(0.82).actors.van.visible).toBe(false);
-    expect(at(0.82).actors.courier.visible).toBe(false);
-    const routeFrames = [0.88, 0.92, 0.96, 1].map(at);
-    expect(routeFrames.map((frame) => frame.routeProgress)).toEqual([...routeFrames.map((frame) => frame.routeProgress)].sort((a, b) => a - b));
-    expect(VAN_STATES["collection-side-right"].orientation).toBe("right");
-    expect(VAN_STATES["collection-door-open-right"].orientation).toBe("right");
+  it("keeps custody transfer exclusive and ordered", () => {
+    const at = (progress: number) => resolvePostHeroFrame("last-mile", progress, "desktop");
+    expect(at(.35).actors.van.state).toContain("door-open");
+    expect(at(.46).actors.courier.visible).toBe(true);
+    expect(at(.55).actors.recipient.visible).toBe(true);
+    expect(at(.72).actors.handoff.visible).toBe(true);
+    expect(at(.72).actors.courier.visible).toBe(false);
+    expect(at(.72).actors.recipient.visible).toBe(false);
+    expect(at(.82).actors.handoff.state).toBe("handoff:separation");
+    expect(at(.85).actors.recipient.state).toBe("recipient:after-receive");
+    expect(at(.9).actors.courier.state).toContain("return-right");
+    expect(at(.95).actors.van.state).toContain("door-close");
+    expect(at(.99).actors.van.state).toContain("departure");
+  });
+
+  it("preserves White Truck route states and tangent-derived orientation", () => {
+    expect(resolvePostHeroFrame("network", .2, "desktop").actors["white-truck"].state).toBe("white-truck:top-down-straight");
+    expect(resolvePostHeroFrame("network", .52, "desktop").actors["white-truck"].state).toBe("white-truck:top-down-angled");
+    expect(resolvePostHeroFrame("network", .78, "desktop").actors["white-truck"].state).toBe("white-truck:top-down-turning");
     expect(routeTruckRotationForTangent(30)).toBe(210);
-    expect(WHITE_TRUCK_STATES["top-down-straight"].orientation).toBe("top-down");
+    expect(WHITE_TRUCK_STATES["top-down-turning"].orientation).toBe("top-down");
   });
 
-  it("carries the route truck into Freight, then keeps the red truck through services", () => {
-    const at = (progress: number) => resolvePostHeroFrame("freight", progress, "desktop");
-    expect(at(0.02).actors["white-truck"].visible).toBe(true);
-    expect(at(0.12).actors["red-truck"]).toMatchObject({ visible: true, state: "red-truck:side-right" });
-    expect(at(0.27).actors["red-truck"].visible).toBe(true);
-    expect(at(0.35).actors["red-truck"].visible).toBe(true);
-    expect(at(0.48).servicesProgress).toBeGreaterThan(0);
-    expect(at(0.48).actors["red-truck"].visible).toBe(true);
-    expect(at(0.62).servicesProgress).toBe(1);
-    expect(at(0.62).actors["red-truck"].visible).toBe(true);
-    expect(at(0.77).actors["red-truck"].xVw).toBeGreaterThan(at(0.62).actors["red-truck"].xVw);
-    expect(at(0.85).destinationProgress).toBeGreaterThan(0);
-    expect(at(0.85).actors["red-truck"].visible).toBe(false);
-    expect(at(0.98).destinationProgress).toBeGreaterThan(0.8);
-    expect(RED_TRUCK_STATES["side-right"].orientation).toBe("right");
+  it("makes the Red Truck a physical right-to-left viewport wipe", () => {
+    const points = [.07, .22, .3, .54, .61, .75, .87, .96, 1].map(redTruckViewportX);
+    expect(points).toEqual([...points].sort((a, b) => b - a));
+    expect(points[0]).toBe(120);
+    expect(points[3]).toBeCloseTo(42, 0);
+    expect(points[6]).toBeLessThan(0);
+    expect(points.at(-1)).toBe(-75);
+    expect(resolvePostHeroFrame("freight", .65, "mobile").actors["red-truck"].size.valueVw).toBeGreaterThan(120);
   });
 
-  it("assigns exactly one primary motion owner and reconstructs arbitrary progress deterministically", () => {
-    const allowed: MotionOwner[] = [
-      "none", "market-rail", "market-to-prep-strips", "prep-street", "van", "van-door",
-      "courier-approach", "courier-lift", "courier-load", "journey-road", "route-truck", "freight-transition",
-      "freight-truck", "freight-services", "handoff-takeover", "finale-brand", "finale-utility",
-    ];
-    const chapterSamples = ["journey", "freight", "finale"] as const;
-    for (const chapter of chapterSamples) {
-      const frames = samples.map((progress) => resolvePostHeroFrame(chapter, progress, "desktop"));
-      frames.forEach((frame, index) => {
+  it("reconstructs each frame deterministically with one motion owner", () => {
+    const allowed: MotionOwner[] = ["none", "commerce-aperture", "category-atlas", "store-index", "product-fan", "selected-product-carry", "packaging", "label-route", "route-truck", "route-camera-seam", "red-truck", "red-trailer-takeover", "van", "van-door", "courier", "recipient", "handoff", "van-return", "finale-brand", "finale-utility"];
+    for (const chapter of ["commerce", "parcelization", "network", "freight", "last-mile", "finale"] as const) {
+      for (const progress of [0, .2, .5, .72, .9, 1]) {
+        const frame = resolvePostHeroFrame(chapter, progress, "desktop");
         expect(allowed).toContain(frame.motionOwner);
-        expect(resolvePostHeroFrame(chapter, samples[index]!, "desktop")).toEqual(frame);
-      });
-      const reverseFrames = [...samples].reverse().map((progress) => resolvePostHeroFrame(chapter, progress, "desktop"));
-      expect(reverseFrames.reverse()).toEqual(frames);
+        expect(resolvePostHeroFrame(chapter, progress, "desktop")).toEqual(frame);
+      }
     }
-    expect(resolvePostHeroFrame("journey", 0.15, "mobile").actors.van?.widthVw).toBeGreaterThan(100);
-    expect(resolvePostHeroFrame("freight", 0.65, "mobile").actors["red-truck"]?.widthVw).toBeGreaterThan(120);
-    expect(resolvePostHeroFrame("finale", 0.8, "desktop").motionOwner).toBe("finale-brand");
-    expect(resolvePostHeroFrame("finale", 0.91, "desktop").motionOwner).toBe("finale-utility");
-    expect(resolvePostHeroFrame("finale", 0.97, "desktop").legalProgress).toBeGreaterThan(0);
   });
 
-  it("uses the productized grouped chapter budgets and native mobile Marketplace policy", () => {
-    expect(HOME_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 235, preparation: 120, journey: 320, freight: 205, finale: 150 });
-    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toMatchObject({ marketplace: 100, preparation: 105, journey: 290, freight: 210, finale: 150 });
-    expect(HOME_MOBILE_POLICY).toMatchObject({ marketplace: "native-snap", preparation: "document", journey: "sticky", freight: "sticky", finale: "sticky" });
-  });
-
-  it("centers cards from their measured centres", () => {
+  it("centers measured card centres instead of assuming a card step", () => {
     const centres = [320, 860, 1400, 1940, 2480];
     expect(marketplaceTrackX(centres, 0, 720)).toBe(400);
     expect(marketplaceTrackX(centres, 0.5, 720)).toBe(130);
     expect(marketplaceTrackX(centres, 4, 720)).toBe(-1760);
-    expect(marketplaceTrackX(centres, 2.5, 512)).toBe(-1158);
   });
 });

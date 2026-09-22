@@ -18,9 +18,13 @@ export function ParcelizationScene({ product }: { product?: HomepageProductItem 
           </div>
           <div className={styles.parcelObject} data-parcel-object>
             {product ? <img className={styles.selectedImage} data-selected-product-media src={product.image} alt="" aria-hidden="true" /> : null}
-            <div className={styles.package} data-package-cover><div className={styles.packageTape} /></div>
+            <div className={`${styles.package} ${styles.packageBack}`} data-package-back aria-hidden="true" />
+            <div className={`${styles.package} ${styles.packageFront}`} data-package-cover aria-hidden="true">
+              <span className={styles.packageLabel} data-package-label>KT · ADDRESSED</span>
+              <div className={styles.packageTape} />
+            </div>
+            <div className={styles.routeLine} data-label-route-line aria-hidden="true" />
           </div>
-          <div className={styles.routeLine} data-label-route-line aria-hidden="true" />
         </div>
       </div>
     </section>

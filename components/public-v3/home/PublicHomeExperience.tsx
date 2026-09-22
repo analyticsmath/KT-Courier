@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HeroScene } from "./scenes/HeroScene";
 import { CommerceWorldScene } from "./scenes/CommerceWorldScene";
 import { ParcelizationScene } from "./scenes/ParcelizationScene";
@@ -27,7 +27,29 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
   const [selectedCategoryId, setSelectedCategoryId] = useState(presentation.categories[0]?.id);
   const [selectedStoreId, setSelectedStoreId] = useState(presentation.stores[0]?.id);
   const [selectedProductId, setSelectedProductId] = useState(presentation.products[0]?.id);
-  useHomeNarrativeDirector({ rootRef: containerRef, categories: presentation.categories, stores: presentation.stores, products: presentation.products, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId, onStoreSelectionChange: setSelectedStoreId, onProductSelectionChange: setSelectedProductId });
+  const handleProductSelectionChange = useCallback((id: string) => {
+    setSelectedProductId(id);
+    try {
+      window.sessionStorage.setItem("kt-home-selected-product", id);
+    } catch {
+      // Storage can be unavailable in privacy-restricted browser contexts.
+    }
+  }, []);
+  useEffect(() => {
+    let restoreTimer: number | undefined;
+    try {
+      const storedId = window.sessionStorage.getItem("kt-home-selected-product");
+      if (storedId && presentation.products.some((product) => product.id === storedId)) {
+        restoreTimer = window.setTimeout(() => setSelectedProductId(storedId), 0);
+      }
+    } catch {
+      // Storage can be unavailable in privacy-restricted browser contexts.
+    }
+    return () => {
+      if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
+    };
+  }, [presentation.products]);
+  useHomeNarrativeDirector({ rootRef: containerRef, categories: presentation.categories, stores: presentation.stores, products: presentation.products, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId, onStoreSelectionChange: setSelectedStoreId, onProductSelectionChange: handleProductSelectionChange });
   const selectedProduct = presentation.products.find((product) => product.id === selectedProductId) ?? presentation.products[0];
 
   return <div ref={containerRef} data-kt-motion-owned="director" data-storefront-exposed={isStorefrontExposed} className="kt-home-experience flex flex-col w-full relative bg-[var(--kt-freight-paper)]">
@@ -37,7 +59,7 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
     {introResolved ? <PersistentPostHeroCinematicLayer /> : null}
     <div className="kt-chapter-content-layer relative z-10 flex flex-col w-full">
       <HeroScene />
-      <CommerceWorldScene categories={presentation.categories} stores={presentation.stores} products={presentation.products} selectedCategoryId={selectedCategoryId} onCategorySelectionChange={setSelectedCategoryId} selectedStoreId={selectedStoreId} onStoreSelectionChange={setSelectedStoreId} selectedProductId={selectedProductId} onProductSelectionChange={setSelectedProductId} />
+       <CommerceWorldScene categories={presentation.categories} stores={presentation.stores} products={presentation.products} selectedCategoryId={selectedCategoryId} onCategorySelectionChange={setSelectedCategoryId} selectedStoreId={selectedStoreId} onStoreSelectionChange={setSelectedStoreId} selectedProductId={selectedProductId} onProductSelectionChange={handleProductSelectionChange} />
       <ParcelizationScene product={selectedProduct} />
       <NetworkRouteScene />
       <FreightTransitionScene />

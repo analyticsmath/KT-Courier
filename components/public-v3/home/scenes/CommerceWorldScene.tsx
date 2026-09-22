@@ -4,7 +4,17 @@ import Link from "next/link";
 import type { HomepageCategoryItem, HomepageProductItem, HomepageStoreItem } from "../data/home-storefront-presentation";
 import styles from "../post-hero-rebuild.module.css";
 
-export function CommerceWorldScene({ categories, stores, products, selectedCategoryId, onCategorySelectionChange }: {
+export function CommerceWorldScene({
+  categories,
+  stores,
+  products,
+  selectedCategoryId,
+  onCategorySelectionChange,
+  selectedStoreId,
+  onStoreSelectionChange,
+  selectedProductId,
+  onProductSelectionChange,
+}: {
   categories: readonly HomepageCategoryItem[];
   stores: readonly HomepageStoreItem[];
   products: readonly HomepageProductItem[];
@@ -41,38 +51,42 @@ export function CommerceWorldScene({ categories, stores, products, selectedCateg
   return (
     <section className={`${styles.chapter} ${styles.commerce}`} data-kt-scene="commerce" aria-labelledby="commerce-heading" style={{ minHeight: "325svh" }}>
       <div className={styles.sticky} data-home-sticky-stage>
-        <div className={styles.commerceStage}>
-          <header>
+        <div className={styles.commerceViewport}>
+          <header className={styles.commerceHeader}>
             <p className={styles.eyebrow}>Marketplace aperture</p>
             <h2 className={styles.heading} id="commerce-heading">Find something worth sending.</h2>
             <p className={styles.body}>Browse local stores and everyday finds, then let KT take it from there.</p>
           </header>
 
           {categoryItems.length ? (
-            <div className={styles.categoryRail} data-commerce-category-rail tabIndex={0} aria-label="Marketplace categories" onKeyDown={handleCategoryKeyDown}>
-              {categoryItems.map((category) => (
-                <article key={category.id} className={styles.category} data-commerce-category={category.id} data-active={category.id === activeCategory?.id}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className={styles.categoryMedia} src={category.image} alt={category.alt} />
-                  <div className={styles.categoryShade} />
-                  <div className={styles.categoryCopy}>
-                    <span className={styles.eyebrow}>{category.categoryWord}</span>
-                    <h3>{category.title}</h3>
-                    <p>{category.description}</p>
-                    <Link href={category.href}>Explore category <span aria-hidden="true">↗</span></Link>
-                  </div>
-                  <button type="button" aria-label={`Select ${category.title}`} aria-pressed={category.id === activeCategory?.id} data-commerce-category-select={category.id} onClick={() => onCategorySelectionChange?.(category.id)} />
-                </article>
-              ))}
+            <div className={`${styles.commerceWorld} ${styles.categoryWorld}`} data-commerce-world="categories">
+              <div className={styles.categoryRail} data-commerce-category-rail tabIndex={0} aria-label="Marketplace categories" onKeyDown={handleCategoryKeyDown}>
+                <div className={styles.categoryTrack} data-commerce-category-track>
+                  {categoryItems.map((category) => (
+                    <article key={category.id} className={styles.category} data-commerce-category={category.id} data-active={category.id === activeCategory?.id}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img className={styles.categoryMedia} src={category.image} alt={category.alt} />
+                      <div className={styles.categoryShade} />
+                      <div className={styles.categoryCopy}>
+                        <span className={styles.eyebrow}>{category.categoryWord}</span>
+                        <h3>{category.title}</h3>
+                        <p>{category.description}</p>
+                        <Link href={category.href}>Explore category <span aria-hidden="true">↗</span></Link>
+                      </div>
+                      <button type="button" aria-label={`Select ${category.title}`} aria-pressed={category.id === activeCategory?.id} data-commerce-category-select={category.id} onClick={() => onCategorySelectionChange?.(category.id)} />
+                    </article>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : null}
 
           {stores.length >= 3 ? (
-            <div className={styles.storeWorld} data-commerce-stores>
+            <div className={`${styles.commerceWorld} ${styles.storeWorld}`} data-commerce-world="stores" data-commerce-stores>
               <div>
                 <p className={styles.eyebrow}>Independent storefronts.</p>
                 <p className={styles.body}>Local sellers, one delivery network.</p>
-                <div className={styles.storeList} role="listbox" aria-label="Independent storefronts">
+                <div className={styles.storeList} data-commerce-store-list role="listbox" aria-label="Independent storefronts">
                   {stores.map((store) => (
                     <button key={store.id} type="button" className={styles.storeRow} data-commerce-store={store.id} data-active={store.id === activeStore?.id} onClick={() => onStoreSelectionChange?.(store.id)}>
                       <strong>{store.name}</strong>
@@ -90,7 +104,7 @@ export function CommerceWorldScene({ categories, stores, products, selectedCateg
           ) : null}
 
           {products.length ? (
-            <div data-commerce-products>
+            <div className={`${styles.commerceWorld} ${styles.productWorld}`} data-commerce-world="products" data-commerce-products>
               <p className={styles.eyebrow}>Choose it. We’ll move it.</p>
               <div className={styles.fan} data-commerce-product-fan aria-label="New arrivals">
                 {products.map((product) => (
