@@ -2,82 +2,49 @@
 
 import { useCallback, useRef, useState } from "react";
 import { HeroScene } from "./scenes/HeroScene";
-import { MarketplaceExitTransitionLayer, MarketplaceFivePanelScene, FIVE_PANEL_MEDIA, type MarketplaceCategoryItem } from "./scenes/MarketplaceFivePanelScene";
-import { PreparationScene } from "./scenes/PreparationScene";
-import { DeliveryJourneyScene } from "./scenes/DeliveryJourneyScene";
-import { FreightNetworkScene } from "./scenes/FreightNetworkScene";
+import { CommerceWorldScene } from "./scenes/CommerceWorldScene";
+import { ParcelizationScene } from "./scenes/ParcelizationScene";
+import { NetworkRouteScene } from "./scenes/NetworkRouteScene";
+import { FreightTransitionScene } from "./scenes/FreightTransitionScene";
+import { LastMileDeliveryScene } from "./scenes/LastMileDeliveryScene";
 import { ArrivalFinaleScene } from "./scenes/ArrivalFinaleScene";
 import { useHomeNarrativeDirector } from "./director/useHomeNarrativeDirector";
 import { PersistentActorLayer } from "../actors/PersistentActorLayer";
 import { HomeIntroCurtain } from "./HomeIntroCurtain";
 import { PersistentPostHeroCinematicLayer } from "./actors/PersistentPostHeroCinematicLayer";
+import type { HomepageStorefrontPresentation } from "./data/home-storefront-presentation";
 
 interface PublicHomeExperienceProps {
   isStorefrontExposed?: boolean;
-  storefrontCategories?: MarketplaceCategoryItem[];
+  storefrontPresentation?: HomepageStorefrontPresentation | null;
 }
 
-function ChapterContentLayer({ children }: { children: React.ReactNode }) {
-  return <div className="kt-chapter-content-layer relative z-10 flex flex-col w-full">{children}</div>;
-}
-
-/** The accepted Hero followed by the five grouped post-Hero worlds. */
-export function PublicHomeExperience({
-  isStorefrontExposed = false,
-  storefrontCategories = [],
-}: PublicHomeExperienceProps) {
+export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPresentation }: PublicHomeExperienceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [introResolved, setIntroResolved] = useState(false);
   const resolveIntro = useCallback(() => setIntroResolved(true), []);
-  const categories = storefrontCategories.length > 0 ? storefrontCategories : FIVE_PANEL_MEDIA;
-  const [selectedMarketplaceId, setSelectedMarketplaceId] = useState(() => categories[0]?.id ?? FIVE_PANEL_MEDIA[0].id);
+  const presentation = storefrontPresentation ?? { categories: [], stores: [], products: [] };
+  const [selectedCategoryId, setSelectedCategoryId] = useState(presentation.categories[0]?.id);
+  const [selectedStoreId, setSelectedStoreId] = useState(presentation.stores[0]?.id);
+  const [selectedProductId, setSelectedProductId] = useState(presentation.products[0]?.id);
+  useHomeNarrativeDirector({ rootRef: containerRef, categories: presentation.categories, stores: presentation.stores, products: presentation.products, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId, onStoreSelectionChange: setSelectedStoreId, onProductSelectionChange: setSelectedProductId });
+  const selectedProduct = presentation.products.find((product) => product.id === selectedProductId) ?? presentation.products[0];
 
-  useHomeNarrativeDirector({
-    rootRef: containerRef,
-    categories,
-    enabled: introResolved,
-    onMarketplaceSelectionChange: setSelectedMarketplaceId,
-  });
-
-  return (
-    <div
-      ref={containerRef}
-      data-kt-motion-owned="director"
-      className="kt-home-experience flex flex-col w-full relative bg-[var(--kt-freight-paper)]"
-    >
-      <div className="kt-environment-layer pointer-events-none absolute inset-0 z-0 bg-[var(--kt-freight-paper)]" aria-hidden="true" />
-      <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
-      <PersistentActorLayer />
-      {introResolved ? <PersistentPostHeroCinematicLayer /> : null}
-
-      <ChapterContentLayer>
-        <HeroScene />
-        <MarketplaceFivePanelScene
-          isStorefrontExposed={isStorefrontExposed}
-          categories={categories}
-          selectedMarketplaceId={selectedMarketplaceId}
-          onMarketplaceSelectionChange={setSelectedMarketplaceId}
-        />
-        <PreparationScene />
-        <DeliveryJourneyScene />
-        <FreightNetworkScene />
-        <ArrivalFinaleScene />
-      </ChapterContentLayer>
-
-      <MarketplaceExitTransitionLayer categories={categories} selectedMarketplaceId={selectedMarketplaceId} />
-
-      <div data-kt-motion-debug-geometry hidden aria-hidden="true">
-        <div className="kt-home-debug-focus" />
-        <div className="kt-home-debug-ground" />
-        <div className="kt-home-debug-card-band" />
-      </div>
-
-      {process.env.NODE_ENV !== "production" ? (
-        <aside data-kt-motion-debug hidden aria-hidden="true" className="kt-home-motion-debug">
-          KT cinematic director
-        </aside>
-      ) : null}
-      <HomeIntroCurtain onResolved={resolveIntro} />
+  return <div ref={containerRef} data-kt-motion-owned="director" data-storefront-exposed={isStorefrontExposed} className="kt-home-experience flex flex-col w-full relative bg-[var(--kt-freight-paper)]">
+    <div className="kt-environment-layer pointer-events-none absolute inset-0 z-0 bg-[var(--kt-freight-paper)]" aria-hidden="true" />
+    <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
+    <PersistentActorLayer />
+    {introResolved ? <PersistentPostHeroCinematicLayer /> : null}
+    <div className="kt-chapter-content-layer relative z-10 flex flex-col w-full">
+      <HeroScene />
+      <CommerceWorldScene categories={presentation.categories} stores={presentation.stores} products={presentation.products} selectedCategoryId={selectedCategoryId} onCategorySelectionChange={setSelectedCategoryId} selectedStoreId={selectedStoreId} onStoreSelectionChange={setSelectedStoreId} selectedProductId={selectedProductId} onProductSelectionChange={setSelectedProductId} />
+      <ParcelizationScene product={selectedProduct} />
+      <NetworkRouteScene />
+      <FreightTransitionScene />
+      <LastMileDeliveryScene />
+      <ArrivalFinaleScene />
     </div>
-  );
+    {process.env.NODE_ENV !== "production" ? <aside data-kt-motion-debug hidden aria-hidden="true" className="fixed bottom-3 left-3 z-[60] max-w-[min(90vw,32rem)] bg-black/80 px-3 py-2 font-mono text-[11px] leading-tight text-white" /> : null}
+    <HomeIntroCurtain onResolved={resolveIntro} />
+  </div>;
 }

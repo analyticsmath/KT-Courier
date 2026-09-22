@@ -1,57 +1,26 @@
-export const HOME_CHAPTERS = [
-  "hero",
-  "marketplace",
-  "preparation",
-  "journey",
-  "freight",
-  "finale",
-] as const;
-
+export const HOME_CHAPTERS = ["hero", "commerce", "parcelization", "network", "freight", "last-mile", "finale"] as const;
 export type HomeChapter = (typeof HOME_CHAPTERS)[number];
 export type PostHeroChapter = Exclude<HomeChapter, "hero">;
-
-export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
-  hero: 205,
-  marketplace: 235,
-  preparation: 120,
-  journey: 320,
-  freight: 205,
-  finale: 150,
-};
-
-export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = {
-  hero: 260,
-  marketplace: 100,
-  preparation: 105,
-  journey: 290,
-  freight: 210,
-  finale: 150,
-};
-
 export type HomeMobilePolicy = "document" | "native-snap" | "sticky";
-
-export const HOME_MOBILE_POLICY: Record<HomeChapter, HomeMobilePolicy> = {
-  hero: "document",
-  marketplace: "native-snap",
-  preparation: "document",
-  journey: "sticky",
-  freight: "sticky",
-  finale: "sticky",
+export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = { hero: 205, commerce: 325, parcelization: 135, network: 280, freight: 215, "last-mile": 340, finale: 150 };
+export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = { hero: 260, commerce: 250, parcelization: 115, network: 225, freight: 185, "last-mile": 310, finale: 150 };
+export const HOME_MOBILE_POLICY: Record<HomeChapter, HomeMobilePolicy> = { hero: "document", commerce: "native-snap", parcelization: "document", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" };
+/**
+ * Authored still positions used when reduced motion is enabled. These are
+ * deliberately inside reading holds so the page keeps its narrative content
+ * without asking the visitor to watch a long sticky travel sequence.
+ */
+export const HOME_REDUCED_MOTION_PROGRESS: Record<PostHeroChapter, number> = {
+  commerce: .74,
+  parcelization: .6,
+  network: .78,
+  freight: .35,
+  "last-mile": .77,
+  finale: .97,
 };
-
-export function marketplaceBudgetVh(categoryCount: number): number {
-  const visibleCategoryCount = Math.min(6, Math.max(3, categoryCount));
-  return Math.min(245, Math.max(220, 190 + visibleCategoryCount * 9));
+export function reducedMotionChapterProgress(chapter: PostHeroChapter, storeCount = 0): number {
+  if (chapter === "commerce" && storeCount < 3) return .88;
+  return HOME_REDUCED_MOTION_PROGRESS[chapter];
 }
-
-export function chapterBudgetVh(chapter: HomeChapter, categoryCount = 5): number {
-  return chapter === "marketplace"
-    ? marketplaceBudgetVh(categoryCount)
-    : HOME_CHAPTER_BUDGETS_VH[chapter];
-}
-
-export function mobileChapterBudgetVh(chapter: HomeChapter): number {
-  return chapter === "marketplace"
-    ? 100
-    : HOME_MOBILE_CHAPTER_BUDGETS_VH[chapter];
-}
+export function chapterBudgetVh(chapter: HomeChapter): number { return HOME_CHAPTER_BUDGETS_VH[chapter]; }
+export function mobileChapterBudgetVh(chapter: HomeChapter): number { return HOME_MOBILE_CHAPTER_BUDGETS_VH[chapter]; }

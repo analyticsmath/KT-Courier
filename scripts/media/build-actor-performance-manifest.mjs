@@ -8,6 +8,47 @@ const protagonistsWebpDir = path.join(rootDir, "public", "media", "public", "pro
 const artifactsMediaDir = path.join(rootDir, "artifacts", "media");
 const generatedDir = path.join(rootDir, "components", "public-v3", "actors");
 
+// Homepage last-mile roles are selected from the reviewed transparent human
+// candidates. They stay in the same fail-closed registry as the vehicle packs.
+const HOMEPAGE_HUMAN_REGISTRY = [
+  ["courier", "delivery-hold", "courier_just_after_delivery.png", "center", "idle", "last-mile", "courier-delivery-hold"],
+  ["courier", "walk-left-01", "isolated_courier_walking_with_package.png", "left", "travel", "last-mile", "courier-walk-left-01"],
+  ["courier", "walk-left-02", "side_view_courier_carrying_box.png", "left", "travel", "last-mile", "courier-walk-left-02"],
+  ["courier", "approach-hold", "courier_delivering_a_cardboard_parcel.png", "left", "approach", "last-mile", "courier-approach-hold"],
+  ["courier", "present", "profile_courier_offering_a_package.png", "left", "handoff", "last-mile", "courier-present"],
+  ["courier", "offer", "courier_handing_over_a_cardboard_box.png", "left", "handoff", "last-mile", "courier-offer"],
+  ["courier", "release-pre", "courier_releasing_cardboard_package.png", "left", "handoff", "last-mile", "courier-release-pre"],
+  ["courier", "release-post", "courier_just_after_delivery.png", "right", "handoff", "last-mile", "courier-release-post-single"],
+  ["courier", "turn-back", "turning_courier_in_red_cap_and_polo.png", "right", "turn", "last-mile", "courier-turn-back"],
+  ["courier", "return-right-01", "04_walking_one_parcel_facing_right.png", "right", "travel", "last-mile", "courier-return-right-01"],
+  ["courier", "return-right-02", "red_capped_courier_walking_right.png", "right", "depart", "last-mile", "courier-return-right-02"],
+  ["recipient", "neutral", "young_man_in_beige_shirt_and_sneakers.png", "right", "idle", "arrival-customer", "recipient-neutral"],
+  ["recipient", "ready", "man_ready_to_receive_a_package.png", "right", "idle", "arrival-customer", "recipient-ready"],
+  ["recipient", "reach", "reaching_recipient_in_beige_shirt.png", "right", "handoff", "arrival-customer", "recipient-reach"],
+  ["recipient", "receive-contact", "man_receiving_cardboard_package.png", "right", "handoff", "arrival-customer", "recipient-receive-contact"],
+  ["recipient", "hold-parcel", "young_man_holding_cardboard_parcel.png", "right", "carry", "arrival-customer", "recipient-hold-parcel"],
+  ["recipient", "after-receive", "young_man_holding_cardboard_package.png", "right", "carry", "arrival-customer", "recipient-after-receive"],
+  ["recipient", "hold-relaxed", "full_body_portrait_of_a_young_man.png", "right", "idle", "arrival-customer", "recipient-hold-relaxed"],
+  ["handoff", "approach-gap", "delivery_handoff_in_progress.png", "center", "handoff", "custody-transfer", "handoff-approach-gap"],
+  ["handoff", "handoff-start", "delivery_handoff_moment.png", "center", "handoff", "custody-transfer", "handoff-start"],
+  ["handoff", "shared-contact", "parcel_handoff_with_friendly_delivery_duo.png", "center", "handoff", "custody-transfer", "handoff-shared-contact"],
+  ["handoff", "transfer-complete", "package_handoff_complete.png", "center", "handoff", "custody-transfer", "handoff-transfer-complete"],
+  ["handoff", "post-handoff", "completed_delivery_handoff.png", "center", "handoff", "custody-transfer", "handoff-post-handoff"],
+  ["handoff", "separation", "delivery_handoff_complete.png", "center", "handoff", "custody-transfer", "handoff-separation"],
+].map(([actorType, id, sourceFile, direction, action, family, webpStem]) => ({
+  packName: "KT_Courier_20_Transparent_PNG_Assets", actorType, id, sourceFile, direction, action, family,
+  webpFilename: `protagonist-${webpStem}.webp`, convertToWebp: true,
+  validPreviousStates: [], validNextStates: [], requiredOcclusion: actorType === "handoff" ? "custody-seam" : "architectural-mask",
+}));
+
+for (const actorType of ["courier", "recipient", "handoff"]) {
+  const familyStates = HOMEPAGE_HUMAN_REGISTRY.filter((entry) => entry.actorType === actorType);
+  familyStates.forEach((entry, index) => {
+    entry.validPreviousStates = index > 0 ? [familyStates[index - 1].id] : [];
+    entry.validNextStates = index < familyStates.length - 1 ? [familyStates[index + 1].id] : [];
+  });
+}
+
 // Canonical definition table for all 74 master assets
 const CANONICAL_REGISTRY = [
   // ---------------------------------------------------------------------------
@@ -387,7 +428,7 @@ const CANONICAL_REGISTRY = [
   },
 
   // ---------------------------------------------------------------------------
-  // Van (14 States)
+  // Van (14 source states + 2 existing mirrored collection derivatives)
   // ---------------------------------------------------------------------------
   {
     packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
@@ -415,6 +456,38 @@ const CANONICAL_REGISTRY = [
     validPreviousStates: ["motion-transition"],
     validNextStates: ["sliding-door-open"],
     requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "02_full_side_view_facing_left.png (mirrored deterministic derivative)",
+    sourcePath: "02_full_side_view_facing_left.png",
+    metadataFromRuntime: true,
+    id: "collection-side-right",
+    direction: "right",
+    action: "travel",
+    family: "collection-right",
+    webpFilename: "protagonist-van-collection-side-right.webp",
+    humanGroundContact: { x: 0.2003, y: 0.8177 },
+    validPreviousStates: [],
+    validNextStates: ["collection-door-open-right"],
+    requiredOcclusion: "none",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "10_side_sliding_door_open.png (mirrored deterministic derivative)",
+    sourcePath: "10_side_sliding_door_open.png",
+    metadataFromRuntime: true,
+    id: "collection-door-open-right",
+    direction: "right",
+    action: "open",
+    family: "collection-right",
+    webpFilename: "protagonist-van-collection-door-open-right.webp",
+    humanGroundContact: { x: 0.1982, y: 0.825 },
+    validPreviousStates: ["collection-side-right"],
+    validNextStates: ["collection-side-right"],
+    requiredOcclusion: "none",
   },
   {
     packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
@@ -573,6 +646,237 @@ const CANONICAL_REGISTRY = [
     validPreviousStates: [],
     validNextStates: [],
     requiredOcclusion: "scene-boundary",
+  },
+
+  // ---------------------------------------------------------------------------
+  // Van — 16 States (Last-mile delivery sequence)
+  // ---------------------------------------------------------------------------
+  // These masters are a separate pack from the original Van collection. Keep
+  // their canonical IDs namespaced by the delivery narrative so the old Hero
+  // and collection states remain stable.
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_01.png",
+    id: "delivery-entry-01",
+    direction: "left",
+    action: "approach",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-entry-01.webp",
+    convertToWebp: true,
+    validPreviousStates: [],
+    validNextStates: ["delivery-entry-02"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_02.png",
+    id: "delivery-entry-02",
+    direction: "left",
+    action: "approach",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-entry-02.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-entry-01"],
+    validNextStates: ["delivery-entry-03"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_03.png",
+    id: "delivery-entry-03",
+    direction: "left",
+    action: "approach",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-entry-03.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-entry-02"],
+    validNextStates: ["delivery-entry-04"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_04.png",
+    id: "delivery-entry-04",
+    direction: "left",
+    action: "approach",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-entry-04.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-entry-03"],
+    validNextStates: ["delivery-center-approach"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_05.png",
+    id: "delivery-center-approach",
+    direction: "left",
+    action: "approach",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-center-approach.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-entry-04"],
+    validNextStates: ["delivery-center-settle"],
+    requiredOcclusion: "road-geometry",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_06.png",
+    id: "delivery-center-settle",
+    direction: "left",
+    action: "idle",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-center-settle.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-center-approach"],
+    validNextStates: ["delivery-side-hold"],
+    requiredOcclusion: "road-geometry",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_07.png",
+    id: "delivery-side-hold",
+    direction: "left",
+    action: "idle",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-side-hold.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-center-settle"],
+    validNextStates: ["delivery-door-open-15"],
+    requiredOcclusion: "road-geometry",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_08.png",
+    id: "delivery-door-open-15",
+    direction: "left",
+    action: "open",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-door-open-15.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-side-hold"],
+    validNextStates: ["delivery-door-open-35"],
+    requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_09.png",
+    id: "delivery-door-open-35",
+    direction: "left",
+    action: "open",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-door-open-35.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-door-open-15"],
+    validNextStates: ["delivery-door-open-60"],
+    requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_10.png",
+    id: "delivery-door-open-60",
+    direction: "left",
+    action: "open",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-door-open-60.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-door-open-35"],
+    validNextStates: ["delivery-door-open-85"],
+    requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_11.png",
+    id: "delivery-door-open-85",
+    direction: "left",
+    action: "open",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-door-open-85.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-door-open-60"],
+    validNextStates: ["delivery-door-open-full"],
+    requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_12.png",
+    id: "delivery-door-open-full",
+    direction: "left",
+    action: "open",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-door-open-full.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-door-open-85"],
+    validNextStates: ["delivery-door-close-60"],
+    requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_13.png",
+    id: "delivery-door-close-60",
+    direction: "left",
+    action: "close",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-door-close-60.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-door-open-full"],
+    validNextStates: ["delivery-door-close-20"],
+    requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_14.png",
+    id: "delivery-door-close-20",
+    direction: "left",
+    action: "close",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-door-close-20.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-door-close-60"],
+    validNextStates: ["delivery-departure-start"],
+    requiredOcclusion: "door-sequence",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_15.png",
+    id: "delivery-departure-start",
+    direction: "left",
+    action: "depart",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-departure-start.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-door-close-20"],
+    validNextStates: ["delivery-departure-exit"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "KT_Courier_Van_Asset_Pack_14_PNGs",
+    actorType: "van",
+    sourceFile: "KT_Courier_Van_16.png",
+    id: "delivery-departure-exit",
+    direction: "left",
+    action: "depart",
+    family: "last-mile-delivery",
+    webpFilename: "protagonist-van-delivery-departure-exit.webp",
+    convertToWebp: true,
+    validPreviousStates: ["delivery-departure-start"],
+    validNextStates: [],
+    requiredOcclusion: "viewport-edge",
   },
 
   // ---------------------------------------------------------------------------
@@ -1014,6 +1318,179 @@ const CANONICAL_REGISTRY = [
     validNextStates: [],
     requiredOcclusion: "door-sequence",
   },
+
+  // ---------------------------------------------------------------------------
+  // Red Truck — 12 States (Freight wipe / trailer takeover sequence)
+  // ---------------------------------------------------------------------------
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R01_entry_phase_01.png",
+    id: "wipe-entry-01",
+    direction: "left",
+    action: "approach",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-entry-01.webp",
+    convertToWebp: true,
+    validPreviousStates: [],
+    validNextStates: ["wipe-entry-02"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R02_entry_phase_02.png",
+    id: "wipe-entry-02",
+    direction: "left",
+    action: "approach",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-entry-02.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-entry-01"],
+    validNextStates: ["wipe-entry-03"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R03_entry_phase_03.png",
+    id: "wipe-entry-03",
+    direction: "left",
+    action: "approach",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-entry-03.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-entry-02"],
+    validNextStates: ["wipe-side-full"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R04_transition_side_full.png",
+    id: "wipe-side-full",
+    direction: "left",
+    action: "travel",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-side-full.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-entry-03"],
+    validNextStates: ["wipe-giant-full"],
+    requiredOcclusion: "road-geometry",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R05_giant_crossing_full.png",
+    id: "wipe-giant-full",
+    direction: "left",
+    action: "travel",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-giant-full.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-side-full"],
+    validNextStates: ["wipe-giant-front"],
+    requiredOcclusion: "camera-crop",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R06_giant_crossing_crop_front.png",
+    id: "wipe-giant-front",
+    direction: "left",
+    action: "travel",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-giant-front.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-giant-full"],
+    validNextStates: ["wipe-giant-mid"],
+    requiredOcclusion: "camera-crop",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R07_giant_crossing_crop_mid.png",
+    id: "wipe-giant-mid",
+    direction: "left",
+    action: "travel",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-giant-mid.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-giant-front"],
+    validNextStates: ["wipe-giant-rear"],
+    requiredOcclusion: "camera-crop",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R08_giant_crossing_crop_rear.png",
+    id: "wipe-giant-rear",
+    direction: "left",
+    action: "travel",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-giant-rear.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-giant-mid"],
+    validNextStates: ["wipe-rear-transition"],
+    requiredOcclusion: "camera-crop",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R09_rear_transition.png",
+    id: "wipe-rear-transition",
+    direction: "left",
+    action: "travel",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-rear-transition.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-giant-rear"],
+    validNextStates: ["wipe-exit"],
+    requiredOcclusion: "trailer-takeover",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R10_exit_phase.png",
+    id: "wipe-exit",
+    direction: "left",
+    action: "depart",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-exit.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-rear-transition"],
+    validNextStates: ["wipe-trailer-hold"],
+    requiredOcclusion: "viewport-edge",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R11_trailer_surface_hold.png",
+    id: "wipe-trailer-hold",
+    direction: "left",
+    action: "idle",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-trailer-hold.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-exit"],
+    validNextStates: ["wipe-departure-tail"],
+    requiredOcclusion: "trailer-takeover",
+  },
+  {
+    packName: "truck_asset_pack_12_images",
+    actorType: "red-truck",
+    sourceFile: "R12_departure_tail.png",
+    id: "wipe-departure-tail",
+    direction: "left",
+    action: "depart",
+    family: "freight-wipe",
+    webpFilename: "protagonist-truck-red-wipe-departure-tail.webp",
+    convertToWebp: true,
+    validPreviousStates: ["wipe-trailer-hold"],
+    validNextStates: [],
+    requiredOcclusion: "viewport-edge",
+  },
+  ...HOMEPAGE_HUMAN_REGISTRY,
 ];
 
 // Invariant: Verify all WebP paths exist or throw immediately
@@ -1176,21 +1653,144 @@ async function computeAuditedVanDoorCalibration() {
   };
 }
 
+// The delivery pack has a different canvas family from the original Hero Van
+// assets. Calibrate it independently from the closed approach and fully-open
+// delivery masters. This records the actual changed pixel region while keeping
+// the complete source canvas available for full-frame state swaps.
+async function computeDeliveryVanDoorCalibration() {
+  const referenceState = "delivery-center-approach";
+  const fullyOpenState = "delivery-door-open-full";
+  const referenceFile = path.join(
+    imagesDir,
+    "KT_Courier_Van_Asset_Pack_14_PNGs",
+    "KT_Courier_Van_05.png"
+  );
+  const fullyOpenFile = path.join(
+    imagesDir,
+    "KT_Courier_Van_Asset_Pack_14_PNGs",
+    "KT_Courier_Van_12.png"
+  );
+
+  const [referenceRaw, fullyOpenRaw] = await Promise.all([
+    sharp(referenceFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+    sharp(fullyOpenFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+  ]);
+
+  const width = referenceRaw.info.width;
+  const height = referenceRaw.info.height;
+  if (width !== fullyOpenRaw.info.width || height !== fullyOpenRaw.info.height) {
+    throw new Error(
+      `INVARIANT VIOLATION: Delivery Van door calibration canvas mismatch (${width}x${height} vs ${fullyOpenRaw.info.width}x${fullyOpenRaw.info.height})`
+    );
+  }
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  let changedPixelCount = 0;
+  const channels = referenceRaw.info.channels;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = (y * width + x) * channels;
+      const alphaDelta = Math.abs(referenceRaw.data[index + 3] - fullyOpenRaw.data[index + 3]);
+      const rgbDelta =
+        Math.abs(referenceRaw.data[index] - fullyOpenRaw.data[index]) +
+        Math.abs(referenceRaw.data[index + 1] - fullyOpenRaw.data[index + 1]) +
+        Math.abs(referenceRaw.data[index + 2] - fullyOpenRaw.data[index + 2]);
+
+      if (alphaDelta > 24 || rgbDelta > 48) {
+        changedPixelCount++;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    throw new Error("INVARIANT VIOLATION: Delivery Van door calibration found no changed pixels");
+  }
+
+  const changedRegion = {
+    raw: { minX, maxX, minY, maxY },
+    normalized: {
+      x: Number((minX / width).toFixed(4)),
+      y: Number((minY / height).toFixed(4)),
+      width: Number(((maxX - minX + 1) / width).toFixed(4)),
+      height: Number(((maxY - minY + 1) / height).toFixed(4)),
+    },
+  };
+
+  const insetTop = (changedRegion.normalized.y * 100).toFixed(2);
+  const insetRight = ((1 - (changedRegion.normalized.x + changedRegion.normalized.width)) * 100).toFixed(2);
+  const insetBottom = ((1 - (changedRegion.normalized.y + changedRegion.normalized.height)) * 100).toFixed(2);
+  const insetLeft = (changedRegion.normalized.x * 100).toFixed(2);
+
+  return {
+    canvas: { width, height },
+    method: "pixel-delta-density-assisted",
+    geometryCompatibleForRegionReplacement: false,
+    recommendedMode: "full-frame-state-swaps",
+    note: "Changed-pixel density spans the vehicle canvas; do not replace only a door region.",
+    referenceState,
+    fullyOpenState,
+    referenceFile: "KT_Courier_Van_05.png",
+    fullyOpenFile: "KT_Courier_Van_12.png",
+    changedPixelCount,
+    changedRegion,
+    clipPathInset: `inset(${insetTop}% ${insetRight}% ${insetBottom}% ${insetLeft}%)`,
+  };
+}
+
+const RUNTIME_WEBP_OPTIONS = {
+  quality: 90,
+  alphaQuality: 100,
+  effort: 6,
+  smartSubsample: true,
+};
+
+async function convertRuntimeWebp(entry, rawPath, sourceMeta) {
+  const outputPath = path.join(protagonistsWebpDir, entry.webpFilename);
+  await sharp(rawPath).webp(RUNTIME_WEBP_OPTIONS).toFile(outputPath);
+  const outputMeta = await sharp(outputPath).metadata();
+
+  if (outputMeta.width !== sourceMeta.width || outputMeta.height !== sourceMeta.height) {
+    throw new Error(
+      `INVARIANT VIOLATION: Runtime WebP geometry changed for ${entry.actorType}:${entry.id} (${outputMeta.width}x${outputMeta.height} vs ${sourceMeta.width}x${sourceMeta.height})`
+    );
+  }
+  if (sourceMeta.hasAlpha && !outputMeta.hasAlpha) {
+    throw new Error(`INVARIANT VIOLATION: Runtime WebP lost alpha for ${entry.actorType}:${entry.id}`);
+  }
+
+  console.log(
+    `Converted ${entry.actorType}:${entry.id} ${entry.sourceFile} -> ${entry.webpFilename} ` +
+      `(quality=${RUNTIME_WEBP_OPTIONS.quality}, alphaQuality=${RUNTIME_WEBP_OPTIONS.alphaQuality}, effort=${RUNTIME_WEBP_OPTIONS.effort})`
+  );
+}
+
 async function main() {
   console.log("=== Phase 1.1: Authoritative Actor Performance Truth Builder ===");
   await mkdir(artifactsMediaDir, { recursive: true });
   await mkdir(path.join(artifactsMediaDir, "contact-sheets"), { recursive: true });
+  await mkdir(protagonistsWebpDir, { recursive: true });
 
   const doorCalibration = await computeAuditedVanDoorCalibration();
+  const deliveryDoorCalibration = await computeDeliveryVanDoorCalibration();
 
-  // INVARIANT 1: Total canonical definitions must equal exactly 74
-  if (CANONICAL_REGISTRY.length !== 74) {
-    throw new Error(`INVARIANT VIOLATION: Expected 74 registry entries, got ${CANONICAL_REGISTRY.length}`);
+  // INVARIANT 1: Total canonical definitions must equal the existing 76
+  // runtime states (including the two mirrored collection derivatives) plus
+  // the 16 delivery Van and 12 freight wipe states.
+  if (CANONICAL_REGISTRY.length !== 128) {
+    throw new Error(`INVARIANT VIOLATION: Expected 128 registry entries, got ${CANONICAL_REGISTRY.length}`);
   }
 
   // INVARIANT 2: Check actor counts per pack
-  const counts = { "white-truck": 0, van: 0, courier: 0, "red-truck": 0 };
-  const idsPerActor = { "white-truck": new Set(), van: new Set(), courier: new Set(), "red-truck": new Set() };
+  const counts = { "white-truck": 0, van: 0, courier: 0, "red-truck": 0, recipient: 0, handoff: 0 };
+  const idsPerActor = { "white-truck": new Set(), van: new Set(), courier: new Set(), "red-truck": new Set(), recipient: new Set(), handoff: new Set() };
 
   for (const entry of CANONICAL_REGISTRY) {
     counts[entry.actorType]++;
@@ -1200,27 +1800,38 @@ async function main() {
     idsPerActor[entry.actorType].add(entry.id);
   }
 
-  if (counts["white-truck"] !== 28 || counts.van !== 14 || counts.courier !== 20 || counts["red-truck"] !== 12) {
+  if (counts["white-truck"] !== 28 || counts.van !== 32 || counts.courier !== 31 || counts["red-truck"] !== 24 || counts.recipient !== 7 || counts.handoff !== 6) {
     throw new Error(`INVARIANT VIOLATION: Pack count mismatch: ${JSON.stringify(counts)}`);
   }
 
   const processedStates = [];
 
   for (const entry of CANONICAL_REGISTRY) {
-    const rawPath = path.join(imagesDir, entry.packName, entry.sourceFile);
-    const meta = await sharp(rawPath).metadata();
+    const sourcePath = entry.sourcePath ?? entry.sourceFile;
+    const rawPath = path.join(imagesDir, entry.packName, sourcePath);
+    const webpPath = path.join(protagonistsWebpDir, entry.webpFilename);
+    const metadataPath = entry.metadataFromRuntime ? webpPath : rawPath;
+    const meta = await sharp(metadataPath).metadata();
 
     // INVARIANT 3: Real dimensions must exist
     if (!meta.width || !meta.height) {
       throw new Error(`INVARIANT VIOLATION: Zero dimension in master file: ${rawPath}`);
     }
 
+    // New Phase 1 packs are always converted from their ignored PNG masters.
+    // Existing Hero and collection WebPs are left untouched to preserve their
+    // accepted runtime bytes and metadata.
+    if (entry.convertToWebp) {
+      await convertRuntimeWebp(entry, rawPath, meta);
+    }
+
     // INVARIANT 4: Runtime WebP must exist and be valid
     const webpSrc = await verifyWebpExists(entry.webpFilename);
+    console.log(`Mapping ${entry.actorType}:${entry.id} -> ${entry.sourceFile} -> ${entry.webpFilename}`);
     if (entry.family === "hero-sequence" && !meta.hasAlpha) {
       throw new Error(`INVARIANT VIOLATION: Hero sequence master must preserve alpha: ${rawPath}`);
     }
-    const visibleBounds = await computeVisibleBounds(rawPath, meta.width, meta.height);
+    const visibleBounds = await computeVisibleBounds(metadataPath, meta.width, meta.height);
 
     // Compute or apply ground contact
     let groundContact = entry.humanGroundContact;
@@ -1277,6 +1888,7 @@ async function main() {
       allAuditedFamilies: true,
     },
     doorCalibration,
+    deliveryDoorCalibration,
     actors: summaryByActor,
   };
 
@@ -1287,7 +1899,7 @@ async function main() {
 
   // Generate TypeScript code
   const tsContent = `/**
- * AUTOGENERATED ACTOR PERFORMANCE METADATA (v1.2)
+ * AUTOGENERATED ACTOR PERFORMANCE METADATA (v1.3)
  * Generated by scripts/media/build-actor-performance-manifest.mjs
  * Authoritative source: Local raw PNG masters via sharp.metadata() & visual pixel audit.
  * FAIL-CLOSED: Missing states throw compilation errors.
@@ -1311,7 +1923,7 @@ export type ConcealmentStrategy =
 
 export interface GeneratedActorState {
   id: string;
-  actorType: "white-truck" | "van" | "courier" | "red-truck";
+  actorType: "white-truck" | "van" | "courier" | "red-truck" | "recipient" | "handoff";
   sourceFile: string;
   webpSrc: string;
   width: number;
@@ -1320,7 +1932,7 @@ export interface GeneratedActorState {
   hasAlpha: boolean;
   visibleBounds: { x: number; y: number; width: number; height: number };
   direction: "left" | "right" | "front" | "rear" | "top-down" | "turning" | "detail" | "center";
-  action: "idle" | "approach" | "travel" | "accelerate" | "brake" | "open" | "load" | "handoff" | "turn" | "depart" | "carry";
+  action: "idle" | "approach" | "travel" | "accelerate" | "brake" | "open" | "close" | "load" | "handoff" | "turn" | "depart" | "carry";
   family: string;
   groundContact: {
     x: number;
@@ -1333,6 +1945,7 @@ export interface GeneratedActorState {
 }
 
 export const VAN_DOOR_CALIBRATION = ${JSON.stringify(doorCalibration, null, 2)} as const;
+export const VAN_DELIVERY_DOOR_CALIBRATION = ${JSON.stringify(deliveryDoorCalibration, null, 2)} as const;
 
 export const GENERATED_ACTOR_STATES: Record<string, GeneratedActorState> = {
 ${processedStates

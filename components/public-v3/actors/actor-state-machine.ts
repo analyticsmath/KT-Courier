@@ -1,7 +1,7 @@
 /**
  * KT Courier Public Experience — Actor State Machine
  *
- * Strongly typed definitions for all 74 pre-rendered performance states.
+ * Strongly typed definitions for all generated pre-rendered performance states.
  * Authoritative dimensions and ground contact baselines generated from local PNG masters via sharp.
  * Enforces orientation continuity, intrinsic ratios, and concealment rules.
  * Visible crossfades in unobstructed viewports are strictly forbidden.
@@ -10,11 +10,17 @@
 import {
   GENERATED_ACTOR_STATES,
   VAN_DOOR_CALIBRATION,
+  VAN_DELIVERY_DOOR_CALIBRATION,
   type GeneratedActorState,
   type ConcealmentStrategy,
 } from "./generated-actor-media";
 
-export { VAN_DOOR_CALIBRATION, type GeneratedActorState, type ConcealmentStrategy };
+export {
+  VAN_DOOR_CALIBRATION,
+  VAN_DELIVERY_DOOR_CALIBRATION,
+  type GeneratedActorState,
+  type ConcealmentStrategy,
+};
 
 export type ActorDirection =
   | "left"
@@ -33,6 +39,7 @@ export type ActorAction =
   | "accelerate"
   | "brake"
   | "open"
+  | "close"
   | "load"
   | "handoff"
   | "turn"
@@ -83,7 +90,7 @@ export interface ActorStateDefinition {
 }
 
 function resolveGeneratedState(
-  actorType: "white-truck" | "van" | "courier" | "red-truck",
+  actorType: "white-truck" | "van" | "courier" | "red-truck" | "recipient" | "handoff",
   id: string,
   meta: {
     alt: string;
@@ -450,3 +457,40 @@ export const RED_TRUCK_STATES: Record<RedTruckStateId, ActorStateDefinition> = {
     alt: "KT Couriers red freight trailer curtain partially open",
   }),
 };
+
+export const VAN_DELIVERY_STATE_IDS = [
+  "delivery-entry-01", "delivery-entry-02", "delivery-entry-03", "delivery-entry-04", "delivery-center-approach", "delivery-center-settle", "delivery-side-hold", "delivery-door-open-15", "delivery-door-open-35", "delivery-door-open-60", "delivery-door-open-85", "delivery-door-open-full", "delivery-door-close-60", "delivery-door-close-20", "delivery-departure-start", "delivery-departure-exit",
+] as const;
+export const RED_TRUCK_WIPE_STATE_IDS = [
+  "wipe-entry-01", "wipe-entry-02", "wipe-entry-03", "wipe-side-full", "wipe-giant-full", "wipe-giant-front", "wipe-giant-mid", "wipe-giant-rear", "wipe-rear-transition", "wipe-exit", "wipe-trailer-hold", "wipe-departure-tail",
+] as const;
+export const COURIER_LAST_MILE_STATE_IDS = [
+  "delivery-hold", "walk-left-01", "walk-left-02", "approach-hold", "present", "offer", "release-pre", "release-post", "turn-back", "return-right-01", "return-right-02",
+] as const;
+export type VanDeliveryStateId = (typeof VAN_DELIVERY_STATE_IDS)[number];
+export type RedTruckWipeStateId = (typeof RED_TRUCK_WIPE_STATE_IDS)[number];
+export type CourierLastMileStateId = (typeof COURIER_LAST_MILE_STATE_IDS)[number];
+
+function generatedSequenceStates<T extends string>(
+  actorType: "van" | "red-truck" | "courier",
+  ids: readonly T[],
+  alt: string,
+): Record<T, ActorStateDefinition> {
+  return Object.fromEntries(ids.map((id) => [id, resolveGeneratedState(actorType, id, { alt })])) as Record<T, ActorStateDefinition>;
+}
+
+/** Audited last-mile Van sequence, including every progressive door state. */
+export const VAN_DELIVERY_STATES = generatedSequenceStates("van", VAN_DELIVERY_STATE_IDS, "KT Couriers last-mile delivery van sequence");
+/** Audited freight wipe sequence, including trailer takeover and departure. */
+export const RED_TRUCK_WIPE_STATES = generatedSequenceStates("red-truck", RED_TRUCK_WIPE_STATE_IDS, "KT Couriers freight wipe truck sequence");
+/** Audited Courier sequence used by the deterministic Last Mile resolver. */
+export const COURIER_LAST_MILE_STATES = generatedSequenceStates("courier", COURIER_LAST_MILE_STATE_IDS, "KT Couriers last-mile courier sequence");
+export type RecipientStateId = "neutral" | "ready" | "reach" | "receive-contact" | "hold-parcel" | "after-receive" | "hold-relaxed";
+export type HandoffStateId = "approach-gap" | "handoff-start" | "shared-contact" | "transfer-complete" | "post-handoff" | "separation";
+function generatedRoleStates<T extends string>(actorType: "recipient" | "handoff", ids: readonly T[]): Record<T, ActorStateDefinition> {
+  return Object.fromEntries(ids.map((id) => [id, resolveGeneratedState(actorType, id, { alt: actorType === "recipient" ? "KT delivery recipient" : "KT courier and recipient custody handoff" })])) as Record<T, ActorStateDefinition>;
+}
+export const RECIPIENT_STATE_IDS = ["neutral", "ready", "reach", "receive-contact", "hold-parcel", "after-receive", "hold-relaxed"] as const;
+export const HANDOFF_STATE_IDS = ["approach-gap", "handoff-start", "shared-contact", "transfer-complete", "post-handoff", "separation"] as const;
+export const RECIPIENT_STATES = generatedRoleStates("recipient", RECIPIENT_STATE_IDS);
+export const HANDOFF_STATES = generatedRoleStates("handoff", HANDOFF_STATE_IDS);
