@@ -3,12 +3,13 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { ktMediaV3 } from "../../media/kt-media-v3";
+import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
 import styles from "../post-hero-rebuild.module.css";
 
 export function NetworkRouteScene() {
   const route = ktMediaV3.pages.homepage.routePlane;
   return (
-    <section className={`${styles.chapter} ${styles.network}`} data-kt-scene="network" aria-labelledby="network-heading" style={{ minHeight: "250svh" }}>
+    <section className={`${styles.chapter} ${styles.network}`} data-kt-scene="network" aria-labelledby="network-heading" style={{ "--kt-home-budget": `${chapterBudgetVh("network")}svh`, "--kt-home-mobile-budget": `${mobileChapterBudgetVh("network")}svh` } as React.CSSProperties}>
       <div className={styles.sticky} data-home-sticky-stage>
         <div className={styles.networkStage}>
           {/* The route photograph owns the world; the SVG only supplies deterministic travel geometry. */}
@@ -18,12 +19,12 @@ export function NetworkRouteScene() {
           <p className={styles.routeAnnotation} data-route-annotation>Johannesburg · Gauteng · Pretoria<br /><span>Service availability depends on location.</span></p>
           <div className={styles.networkProcess} data-network-process><span>Collection</span><span>Transportation</span><span>Delivery</span><small>Tracking, where available · Order status · Dispatch · Delivery progress</small></div>
           <svg className={styles.networkRoad} viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
-            <path data-network-route-path d="M500 106 L500 385 C500 520 660 545 720 650 C785 765 690 850 430 950" strokeWidth="108" />
+            <path data-network-route-path d="M500 106 L500 385 C500 520 660 545 720 650 C785 765 690 850 430 950" strokeWidth="22" />
             <path d="M500 106 L500 385 C500 520 660 545 720 650 C785 765 690 850 430 950" strokeWidth="3" />
           </svg>
           <div className={styles.networkMask} data-route-overpass-mask aria-hidden="true" />
-          <div className={styles.networkOcclusion} data-route-occluder="straight-angled" aria-hidden="true"><span>ROUTE SEAM</span></div>
-          <div className={styles.networkOcclusion} data-route-occluder="angled-turning" aria-hidden="true"><span>ROUTE SEAM</span></div>
+          <div className={styles.networkOcclusion} data-route-occluder="straight-angled" aria-hidden="true" />
+          <div className={styles.networkOcclusion} data-route-occluder="angled-turning" aria-hidden="true" />
         </div>
       </div>
     </section>

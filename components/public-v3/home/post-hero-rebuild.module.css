@@ -1,4 +1,4 @@
-.chapter { position: relative; width: 100%; overflow: clip; background: var(--kt-freight-paper, #f1ece2); color: #202527; }
+.chapter { position: relative; width: 100%; min-height: var(--kt-home-budget); overflow: clip; background: var(--kt-freight-paper, #f1ece2); color: #202527; }
 .sticky { position: sticky; top: 0; height: 100svh; min-height: 100svh; overflow: hidden; display: grid; align-items: center; }
 :global(.kt-home-experience [data-home-sticky-stage]) { box-sizing: border-box; padding-top: 0; }
 .eyebrow { color: rgba(247,242,233,.66); font: 600 .7rem/1 Instrument Sans, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
@@ -11,14 +11,14 @@
 .commerceViewport { position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; }
 .commerceOpening { position: absolute; z-index: 6; top: clamp(5rem, 10vh, 8rem); left: 6vw; width: min(34rem, 38vw); pointer-events: none; }
 .commerceOpening .heading { max-width: 10ch; }
-.commerceWorld { position: absolute; z-index: 2; inset: 0; display: grid; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .28s ease, visibility .28s step-end; }
-.commerceWorld[data-commerce-active="true"] { opacity: 1; visibility: visible; pointer-events: auto; transition-timing-function: ease, step-start; }
+.commerceWorld { position: absolute; z-index: 2; inset: 0; display: grid; opacity: 0; visibility: hidden; pointer-events: none; }
+.commerceWorld[data-commerce-active="true"] { visibility: visible; }
 .categoryWorld { align-content: center; padding: 15vh 0 8vh; }
 .categoryHeader { position: absolute; top: 9vh; right: 6vw; left: 6vw; display: flex; justify-content: space-between; align-items: baseline; }
 .categoryRail { width: 100%; overflow: hidden; padding: 2rem 0; scrollbar-width: none; }
 .categoryRail::-webkit-scrollbar { display: none; }
 .categoryTrack { display: flex; align-items: stretch; gap: 1.2vw; width: max-content; padding: 0 6vw; will-change: transform; }
-.category { position: relative; flex: 0 0 12vw; min-height: 64svh; overflow: hidden; background: #2a3031; transition: flex-basis .35s ease; }
+.category { position: relative; flex: 0 0 12vw; min-height: 64svh; overflow: hidden; background: #2a3031; }
 .category[data-active="true"] { flex-basis: 60vw; }
 .categoryMedia { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(.94) contrast(1.03); transform: scale(1.05); transition: transform .55s ease; }
 .category[data-active="true"] .categoryMedia { transform: scale(1.01); }
@@ -50,10 +50,10 @@
 .productWorld { align-content: center; padding: 13vh 6vw 8vh; }
 .productHeader { position: absolute; top: 11vh; left: 6vw; }
 .fan { position: relative; width: 72vw; height: min(65svh, 44rem); margin-left: 20vw; overflow: hidden; perspective: 1200px; }
-.product { position: absolute; top: 50%; left: 50%; width: min(14vw, 14rem); color: #f7f2e9; text-decoration: none; transform-origin: center; will-change: transform, opacity; }
-.product[data-active="true"] { width: min(32vw, 31rem); z-index: 10; }
+.product { position: absolute; top: 50%; left: 50%; width: min(32vw, 31rem); color: #f7f2e9; text-decoration: none; transform-origin: center; will-change: transform, opacity; }
+.product[data-active="true"] { z-index: 10; }
 .productMedia { width: 100%; aspect-ratio: .82; overflow: hidden; background: #d7d0c5; }
-.product[data-active="true"] .productMedia { aspect-ratio: .8; box-shadow: 0 1.5rem 3rem rgba(0,0,0,.24); }
+.product[data-active="true"] .productMedia { box-shadow: 0 1.5rem 3rem rgba(0,0,0,.24); }
 .productMedia img { width: 100%; height: 100%; object-fit: cover; }
 .productInfo { position: absolute; z-index: 5; right: 7vw; bottom: 12vh; width: min(25rem, 24vw); padding-top: 1rem; border-top: 1px solid rgba(247,242,233,.35); }
 .productInfo h3 { margin: .45rem 0 .35rem; color: #f7f2e9; font: 500 clamp(1.55rem, 2.2vw, 2.5rem)/.98 Schibsted Grotesk, sans-serif; letter-spacing: -.045em; }
@@ -66,12 +66,14 @@
 .parcelCopy .eyebrow { color: #657174; }
 .parcelCopy .heading { max-width: 8ch; }
 .parcelCopy .body { max-width: 26rem; color: rgba(32,37,39,.68); }
-.preparationFrame { position: relative; z-index: 3; width: min(42vw, 42rem); height: min(70svh, 45rem); overflow: hidden; background: #b7a995; clip-path: inset(0 0 100% 0); }
+.preparationFrame { position: relative; z-index: 3; width: min(42vw, 42rem); height: min(70svh, 45rem); overflow: hidden; background: #b7a995; clip-path: inset(100% 0 0 0); }
 .preparationPhoto { width: 100%; height: 100%; object-fit: cover; }
 .preparationShade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(11,14,15,.32)); }
 .packageLabel { position: absolute; right: 1.3rem; bottom: 1.25rem; z-index: 2; color: #f7f2e9; font: .64rem/1 "IBM Plex Mono", monospace; letter-spacing: .08em; }
 .productCarry { position: absolute; z-index: 2; right: 13vw; width: min(22vw, 18rem); aspect-ratio: .82; overflow: hidden; opacity: 0; transform-origin: center; }
 .productCarry img { width: 100%; height: 100%; object-fit: cover; }
+.persistentProductCarryLayer { position: fixed; z-index: 30; display: block; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; will-change: left, top, width, height, opacity, border-radius; }
+.persistentProductCarryImage { display: block; width: 100%; height: 100%; object-fit: cover; }
 .preparationIndexMark { position: absolute; z-index: 4; right: 7vw; top: 17%; color: rgba(32,37,39,.52); font: .65rem/1 "IBM Plex Mono", monospace; }
 .processLine { position: absolute; z-index: 6; right: 7vw; bottom: 12%; display: flex; align-items: center; gap: .7rem; color: #202527; font: .68rem/1 "IBM Plex Mono", monospace; letter-spacing: .02em; transform-origin: left; }
 .processLine i { display: block; width: 1.8rem; height: 1px; background: #54778a; }
@@ -92,16 +94,16 @@
 .networkProcess { position: absolute; z-index: 8; right: 7vw; bottom: 10vh; display: grid; grid-template-columns: repeat(3, auto); gap: .55rem 1rem; color: #202527; font: .75rem/1 "IBM Plex Mono", monospace; }
 .networkProcess span + span { padding-left: 1rem; border-left: 1px solid rgba(32,37,39,.38); }
 .networkProcess small { grid-column: 1 / -1; margin-top: .5rem; color: rgba(32,37,39,.62); font-size: .62rem; }
-.networkRoad { z-index: 3; width: 100%; height: 100%; opacity: .86; }
+.networkRoad { z-index: 3; width: 100%; height: 100%; opacity: .32; }
 .networkRoad path { fill: none; stroke: #263238; stroke-linecap: round; }
-.networkRoad path:last-child { stroke: rgba(247,242,233,.74); stroke-width: 3; stroke-dasharray: 18 17; }
+.networkRoad path:first-child { stroke-opacity: .28; }
+.networkRoad path:last-child { stroke: rgba(247,242,233,.72); stroke-width: 3; stroke-dasharray: 18 17; }
 .networkMask { z-index: 6; inset: 0 0 auto; height: 17%; background: rgba(21,31,34,.27); transform: skewY(-4deg); transform-origin: left; }
-.networkOcclusion { z-index: 10; inset: auto; width: clamp(10rem, 17vw, 19rem); height: clamp(4rem, 9vh, 8rem); border-radius: 999px; background: rgba(24,34,36,.94); box-shadow: 0 .8rem 1.6rem rgba(20,25,27,.18); opacity: 0; pointer-events: none; }
-.networkOcclusion span { display: grid; height: 100%; place-items: center; color: rgba(247,242,233,.68); font: .58rem/1 "IBM Plex Mono", monospace; letter-spacing: .12em; }
+.networkOcclusion { z-index: 10; inset: auto; width: clamp(10rem, 17vw, 19rem); height: clamp(2rem, 4vh, 3.5rem); border-radius: 0; border-top: 1px solid rgba(230,235,229,.44); background: linear-gradient(180deg, rgba(31,41,42,.9), rgba(14,21,22,.96)); box-shadow: 0 .6rem 1.1rem rgba(10,14,15,.28); opacity: 0; pointer-events: none; }
 
 /* Freight: the red generated truck owns the field, then its trailer becomes the wipe. */
 .freight { background: #f1ece2; color: #202527; }
-.freightWorld { position: absolute; z-index: 0; inset: 0; overflow: hidden; opacity: 0; }
+.freightWorld { position: absolute; z-index: 0; inset: 0; overflow: hidden; opacity: 0; clip-path: inset(0 0 0 100%); }
 .freightWorld img { width: 100%; height: 100%; object-fit: cover; filter: brightness(.72) saturate(.8); }
 .freightWord { position: absolute; z-index: 1; top: 20%; left: 4vw; margin: 0; color: rgba(32,37,39,.09); font: 600 clamp(8rem, 23vw, 28rem)/.75 Schibsted Grotesk, sans-serif; letter-spacing: -.1em; }
 .freightCopy { position: absolute; z-index: 7; top: 12vh; left: 7vw; max-width: 33rem; }
@@ -147,7 +149,13 @@
 }
 
 @media (max-width: 899px) {
-  .sticky { position: relative; height: auto; min-height: 0; align-items: stretch; }
+  .chapter { min-height: var(--kt-home-mobile-budget); }
+  [data-kt-scene="commerce"] [data-home-sticky-stage],
+  [data-kt-scene="parcelization"] [data-home-sticky-stage] { position: relative; height: auto; min-height: 0; align-items: stretch; }
+  [data-kt-scene="network"] [data-home-sticky-stage],
+  [data-kt-scene="freight"] [data-home-sticky-stage],
+  [data-kt-scene="last-mile"] [data-home-sticky-stage],
+  [data-kt-scene="finale"] [data-home-sticky-stage] { position: sticky; top: 0; height: 100svh; min-height: 100svh; }
   .commerce { min-height: 0 !important; overflow: visible; }
   .commerceViewport { height: auto; overflow: visible; }
   .commerceOpening { position: relative; top: auto; left: auto; width: auto; padding: max(6rem, calc(env(safe-area-inset-top) + 5rem)) 8vw 3rem; }
@@ -160,7 +168,9 @@
   .categoryInfo { position: relative; right: auto; bottom: auto; width: auto; margin: 0 8vw; }
   .storeWorld { display: block; padding: 7rem 8vw 5rem; }
   .storeIndex { max-width: none; }
-  .storeVisualField { height: 58svh; margin-top: 2rem; }
+  .storeVisualField { display: flex; height: auto; margin-top: 2rem; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .storeMedia, .storeMedia[data-active="true"], .storeMedia[data-store-distance="1"], .storeMedia[data-store-distance="2"] { position: relative; inset: auto; left: auto; flex: 0 0 84vw; width: 84vw; height: 58svh; opacity: 1; transform: none; scroll-snap-align: center; }
+  .storeInfo { position: absolute; }
   .productWorld { display: block; padding: 7rem 0 5rem; }
   .productHeader { position: relative; top: auto; left: auto; padding: 0 8vw 1rem; }
   .fan { display: flex; width: auto; height: auto; margin: 0; gap: 14px; padding: 0 8vw 2rem; overflow-x: auto; perspective: none; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }

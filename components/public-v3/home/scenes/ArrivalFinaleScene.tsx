@@ -4,11 +4,12 @@
 
 import Link from "next/link";
 import { ktMediaV3 } from "../../media/kt-media-v3";
+import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
 import styles from "../post-hero-rebuild.module.css";
 
 export function ArrivalFinaleScene() {
   const street = ktMediaV3.editorial.market.urbanStreet;
-  return <footer className={`${styles.chapter} ${styles.finale}`} data-kt-scene="finale" aria-labelledby="finale-heading" style={{ minHeight: "135svh" }}>
+  return <footer className={`${styles.chapter} ${styles.finale}`} data-kt-scene="finale" aria-labelledby="finale-heading" style={{ "--kt-home-budget": `${chapterBudgetVh("finale")}svh`, "--kt-home-mobile-budget": `${mobileChapterBudgetVh("finale")}svh` } as React.CSSProperties}>
     <div className={styles.sticky} data-home-sticky-stage><div className={styles.finaleStage}>
       {/* Finale begins on the outgoing Last-Mile environment before the identity rises. */}
       <div className={styles.finaleEnvironment} data-finale-environment data-finale-street><img src={street.src} alt="" /></div>

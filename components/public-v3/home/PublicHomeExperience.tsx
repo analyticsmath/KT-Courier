@@ -12,6 +12,7 @@ import { useHomeNarrativeDirector } from "./director/useHomeNarrativeDirector";
 import { PersistentActorLayer } from "../actors/PersistentActorLayer";
 import { HomeIntroCurtain } from "./HomeIntroCurtain";
 import { PersistentPostHeroCinematicLayer } from "./actors/PersistentPostHeroCinematicLayer";
+import { PersistentProductCarryLayer } from "./actors/PersistentProductCarryLayer";
 import type { HomepageStorefrontPresentation } from "./data/home-storefront-presentation";
 
 interface PublicHomeExperienceProps {
@@ -57,6 +58,7 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
     <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
     <PersistentActorLayer />
     {introResolved ? <PersistentPostHeroCinematicLayer /> : null}
+    <PersistentProductCarryLayer product={selectedProduct} />
     <div className="kt-chapter-content-layer relative z-10 flex flex-col w-full">
       <HeroScene />
        <CommerceWorldScene categories={presentation.categories} stores={presentation.stores} products={presentation.products} selectedCategoryId={selectedCategoryId} onCategorySelectionChange={setSelectedCategoryId} selectedStoreId={selectedStoreId} onStoreSelectionChange={setSelectedStoreId} selectedProductId={selectedProductId} onProductSelectionChange={handleProductSelectionChange} />

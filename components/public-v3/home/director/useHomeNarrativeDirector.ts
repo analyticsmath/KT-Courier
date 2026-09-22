@@ -12,6 +12,7 @@ import { resolveHeroTruckFrame } from "./home-frame-resolver";
 import { clamp01, getCommerceBeats, HOME_BEATS, range } from "./home-beats";
 import { HOME_CHAPTERS, HOME_MOBILE_POLICY, reducedMotionChapterProgress, type HomeChapter, type PostHeroChapter } from "./home-chapters";
 import { marketplaceTrackX } from "./home-marketplace-geometry";
+import { commitSelection } from "./home-selection";
 import { resolvePostHeroFrame, type PostHeroActorKey, type PostHeroActorName, type PostHeroActorPose, type PostHeroFrame } from "./post-hero-frame-resolver";
 import { computePostHeroActorBox } from "./post-hero-actor-geometry";
 import { isPostHeroActorReady, markPostHeroActorReady, POST_HERO_ACTOR_ASSETS, postHeroActorsForChapter, preloadPostHeroActor, preloadPostHeroActorsForChapter } from "../actors/post-hero-actor-preload";
@@ -104,6 +105,9 @@ export function useHomeNarrativeDirector({
     let selectedCategory = categories[0]?.id;
     let selectedProductDuringFan = products[0]?.id;
     let productSelectionFrozen = false;
+    let committedProductId = selectedProductDuringFan;
+    let committedStoreId = stores[0]?.id;
+    let carrySourceRect: DOMRect | null = null;
     const heroActions = root.querySelector<HTMLElement>("[data-motion='hero-actions']");
     const heroKt = root.querySelector<HTMLElement>("[data-motion='hero-kt']");
     const heroCourier = root.querySelector<HTMLElement>("[data-motion='hero-courier']");
@@ -113,6 +117,8 @@ export function useHomeNarrativeDirector({
     const categoryCards = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-category]"));
     const productRail = root.querySelector<HTMLElement>("[data-commerce-product-fan]");
     const productCards = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-product]"));
+    const storeRail = root.querySelector<HTMLElement>("[data-commerce-store-rail]");
+    const storeCards = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-store-media]"));
     const commerceWorlds = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-world]"));
     const routeOccluders = Array.from(root.querySelectorAll<HTMLElement>("[data-route-occluder]"));
 
@@ -176,17 +182,17 @@ export function useHomeNarrativeDirector({
         if (isPostHeroActorReady(key)) image.dataset.postheroActorStatus = "ready";
       };
       if (requestedLayer) activateLayer(requestedLayer, actorPose.state);
-      const readyCandidates = actorKeys.map((key, index) => ({ key, index, image: postLayers.get(key) })).filter((candidate): candidate is { key: PostHeroActorKey; index: number; image: HTMLImageElement } => Boolean(candidate.image && isReadyLayer(candidate.image, candidate.key))).sort((a, b) => Math.abs(a.index - requestedIndex) - Math.abs(b.index - requestedIndex));
+      const readyCandidates = actorKeys.map((key, index) => ({ key, index, image: postLayers.get(key) })).filter((candidate): candidate is { key: PostHeroActorKey; index: number; image: HTMLImageElement } => Boolean(candidate.image && isReadyLayer(candidate.image))).sort((a, b) => Math.abs(a.index - requestedIndex) - Math.abs(b.index - requestedIndex));
       const fallbackKey = displayedPostStates.get(actor);
       const fallbackImage = fallbackKey ? postLayers.get(fallbackKey) : undefined;
-      const shownKey = requestedLayer && isReadyLayer(requestedLayer, actorPose.state)
+      const shownKey = requestedLayer && isReadyLayer(requestedLayer)
         ? actorPose.state
-        : fallbackImage && fallbackKey && isReadyLayer(fallbackImage, fallbackKey)
+        : fallbackImage && fallbackKey && isReadyLayer(fallbackImage)
           ? fallbackKey
           : readyCandidates[0]?.key ?? actorPose.state;
       const layer = postLayers.get(shownKey) ?? requestedLayer;
       const definition = POST_HERO_ACTOR_ASSETS[shownKey] ?? requestedDefinition;
-      if (!layer || !definition || (!isReadyLayer(layer, shownKey) && !displayedPostStates.has(actor))) {
+      if (!layer || !definition || (!isReadyLayer(layer) && !displayedPostStates.has(actor))) {
         gsap.set(slot, { autoAlpha: 0, visibility: "hidden" });
         slot.dataset.postheroVisible = "false";
         return;
@@ -197,7 +203,7 @@ export function useHomeNarrativeDirector({
       const blendLayer = actorPose.blendToState ? postLayers.get(actorPose.blendToState) : undefined;
       const blendDefinition = actorPose.blendToState ? POST_HERO_ACTOR_ASSETS[actorPose.blendToState] : undefined;
       if (blendLayer) activateLayer(blendLayer, actorPose.blendToState!);
-      const canBlend = Boolean(blendLayer && blendDefinition && actorPose.stateBlend && actorPose.stateBlend > 0 && isReadyLayer(blendLayer, actorPose.blendToState!));
+      const canBlend = Boolean(blendLayer && blendDefinition && actorPose.stateBlend && actorPose.stateBlend > 0 && isReadyLayer(blendLayer));
       postLayers.forEach((image) => {
         if (image.parentElement !== slot) return;
         const isCurrent = image === layer;
@@ -225,13 +231,19 @@ export function useHomeNarrativeDirector({
         const commerceBeats = getCommerceBeats(stores.length);
         const categoryFocus = Math.round(frame.marketplace.positionIndex);
         const hasStoreWorld = stores.length >= 3;
-        const categoryWorldActive = categories.length > 0 && rawProgress >= commerceBeats.categoryTraversal[0] && rawProgress < (hasStoreWorld ? commerceBeats.storeReveal[0] : commerceBeats.fanBuild[0]);
-        const storeWorldActive = hasStoreWorld && rawProgress >= commerceBeats.storeReveal[0] && rawProgress < commerceBeats.fanBuild[0];
-        const productWorldActive = products.length > 0 && (categories.length === 0 || rawProgress >= commerceBeats.fanBuild[0]);
+        const categoryOpacity = categories.length === 0 ? 0 : hasStoreWorld
+          ? 1 - range(rawProgress, ...commerceBeats.storeReveal)
+          : 1 - range(rawProgress, ...commerceBeats.fanBuild);
+        const storeOpacity = hasStoreWorld
+          ? Math.min(range(rawProgress, ...commerceBeats.storeReveal), 1 - range(rawProgress, ...commerceBeats.storeExit))
+          : 0;
+        const productOpacity = products.length === 0 ? 0 : range(rawProgress, ...commerceBeats.fanBuild);
         commerceWorlds.forEach((world) => {
           const worldName = world.dataset.commerceWorld;
-          const active = worldName === "categories" ? categoryWorldActive : worldName === "stores" ? storeWorldActive : worldName === "products" ? productWorldActive : false;
+          const opacity = worldName === "categories" ? categoryOpacity : worldName === "stores" ? storeOpacity : worldName === "products" ? productOpacity : 0;
+          const active = opacity > .5;
           world.dataset.commerceActive = String(active);
+          gsap.set(world, { autoAlpha: opacity, x: worldName === "products" ? 16 * (1 - opacity) : worldName === "categories" ? -12 * (1 - opacity) : 0, scale: .98 + opacity * .02, pointerEvents: active ? "auto" : "none" });
         });
         const commerceHeader = root.querySelector<HTMLElement>("[data-commerce-opening]");
         if (commerceHeader) gsap.set(commerceHeader, { autoAlpha: prefersReducedMotion ? 1 : rawProgress < commerceBeats.apertureClear[0] ? 1 : 1 - range(rawProgress, ...commerceBeats.apertureClear), y: prefersReducedMotion ? 0 : -18 * range(rawProgress, ...commerceBeats.apertureClear) });
@@ -268,15 +280,13 @@ export function useHomeNarrativeDirector({
           }
           const distance = index - frame.marketplace!.productIndex;
           const absoluteDistance = Math.abs(distance);
-          const near = Math.min(absoluteDistance, 1);
-          const far = Math.min(Math.max(absoluteDistance - 1, 0), 1);
-          const x = Math.sign(distance) * (18 * near + 14 * far + Math.max(0, absoluteDistance - 2) * 8);
+          const x = Math.sign(distance) * (18 + Math.max(0, absoluteDistance - 1) * 14);
           const y = Math.min(5, absoluteDistance * 1.8);
-          const scale = absoluteDistance <= 1 ? 1 - .1 * near : .9 - .08 * far - Math.max(0, absoluteDistance - 2) * .04;
-          const rotateY = -Math.sign(distance) * (8 * near + 5 * far);
-          const rotateZ = Math.sign(distance) * (.8 * near + .3 * far);
+          const scale = absoluteDistance < .5 ? 1 : absoluteDistance < 1.5 ? .78 : absoluteDistance < 2.5 ? .56 : absoluteDistance < 3.5 ? .4 : .3;
+          const rotateY = -Math.sign(distance) * Math.min(18, 8 + Math.max(0, absoluteDistance - 1) * 5);
+          const rotation = Math.sign(distance) * Math.min(2, .8 + Math.max(0, absoluteDistance - 1) * .3);
           const opacity = absoluteDistance <= 2 ? 1 - .12 * Math.max(0, absoluteDistance - 1) : .48;
-          gsap.set(card, { transform: `translate3d(${x}vw,${y}vh,0) rotateY(${rotateY}deg) rotateZ(${rotateZ}deg) scale(${Math.max(.58, scale)})`, opacity, zIndex: Math.max(1, 10 - Math.round(absoluteDistance)) });
+          gsap.set(card, { xPercent: -50, yPercent: -50, x: x * window.innerWidth / 100, y: y * window.innerHeight / 100, rotationY: rotateY, rotation, scale, opacity, zIndex: Math.max(1, 10 - Math.round(absoluteDistance)) });
         });
       }
       const actorVisible = chapter === "network" || chapter === "freight" || chapter === "last-mile";
@@ -320,10 +330,29 @@ export function useHomeNarrativeDirector({
       root.dataset.homeHandoffState = frame.actors.handoff.visible ? frame.actors.handoff.state : "hidden";
       const packageCover = root.querySelector<HTMLElement>("[data-package-cover]");
       const packageBack = root.querySelector<HTMLElement>("[data-package-back]");
-      if (packageCover) gsap.set(packageCover, { scale: .7 + frame.packageProgress * .3, autoAlpha: chapter === "parcelization" ? 1 : 0, clipPath: `inset(${(1 - frame.packageProgress) * 100}% 0 0)` });
+      if (packageCover) gsap.set(packageCover, { scale: .7 + frame.packageProgress * .3, autoAlpha: chapter === "parcelization" ? 1 : 0, clipPath: `inset(${(1 - frame.packageProgress) * 100}% 0 0 0)` });
       if (packageBack) gsap.set(packageBack, { scale: .7 + frame.packageProgress * .3, autoAlpha: chapter === "parcelization" ? .92 : 0 });
-      const selectedMedia = root.querySelector<HTMLElement>("[data-selected-product-media]");
-      if (selectedMedia) gsap.set(selectedMedia, { autoAlpha: chapter === "parcelization" ? 1 - frame.packageProgress * .82 : 0, scale: 1 + frame.selectedCarryProgress * .2, x: frame.selectedCarryProgress * 4, y: frame.selectedCarryProgress * 6 });
+      const commerceSelectedMedia = root.querySelector<HTMLElement>("[data-commerce-selected-product-media='active']");
+      const parcelSelectedMedia = root.querySelector<HTMLElement>("[data-parcel-selected-product-media]");
+      const carryLayer = root.querySelector<HTMLElement>("[data-product-carry-layer]");
+      const carryImage = root.querySelector<HTMLImageElement>("[data-product-carry-image]");
+      const commerceCarryProgress = chapter === "commerce" ? range(frame.progress, ...getCommerceBeats(stores.length).selectedTakeover) : 0;
+      // Commerce hands ownership to the fixed layer at the source; Parcel then
+      // performs the measured source-to-target travel as its carry beat scrubs.
+      const carryProgress = chapter === "parcelization" ? frame.selectedCarryProgress : 0;
+      if (commerceSelectedMedia && chapter === "commerce") carrySourceRect = commerceSelectedMedia.getBoundingClientRect();
+      const targetRect = parcelSelectedMedia?.getBoundingClientRect();
+      const sourceRect = carrySourceRect ?? commerceSelectedMedia?.getBoundingClientRect();
+      const carryActive = Boolean(carryImage && sourceRect && targetRect && (chapter === "commerce" ? commerceCarryProgress > 0 : chapter === "parcelization" && frame.selectedCarryProgress < 1));
+      if (commerceSelectedMedia) gsap.set(commerceSelectedMedia, { autoAlpha: carryActive && chapter === "commerce" ? 0 : 1 });
+      if (parcelSelectedMedia) gsap.set(parcelSelectedMedia, { autoAlpha: 0 });
+      if (carryLayer && sourceRect && targetRect) {
+        const left = sourceRect.left + (targetRect.left - sourceRect.left) * carryProgress;
+        const top = sourceRect.top + (targetRect.top - sourceRect.top) * carryProgress;
+        const width = sourceRect.width + (targetRect.width - sourceRect.width) * carryProgress;
+        const height = sourceRect.height + (targetRect.height - sourceRect.height) * carryProgress;
+        gsap.set(carryLayer, { left, top, width, height, borderRadius: `${18 * carryProgress}px`, autoAlpha: carryActive ? 1 : 0, zIndex: chapter === "parcelization" && frame.packageProgress > 0 ? 2 : 30 });
+      } else if (carryLayer) gsap.set(carryLayer, { autoAlpha: 0 });
       const routeLine = root.querySelector<HTMLElement>("[data-label-route-line]");
       if (routeLine) gsap.set(routeLine, { scaleX: chapter === "parcelization" ? frame.labelRouteProgress : 0 });
       const overpassMask = root.querySelector<HTMLElement>("[data-route-overpass-mask]");
@@ -332,9 +361,19 @@ export function useHomeNarrativeDirector({
         gsap.set(overpassMask, { autoAlpha: chapter === "network" ? networkMaskProgress : 0 });
       }
       const freightStreet = root.querySelector<HTMLElement>("[data-freight-local-street]");
-      if (freightStreet) gsap.set(freightStreet, { autoAlpha: chapter === "freight" ? frame.trailerProgress : 0, scaleY: chapter === "freight" ? .8 + frame.trailerProgress * .2 : .8, transformOrigin: "bottom" });
+      if (freightStreet) gsap.set(freightStreet, { autoAlpha: chapter === "freight" ? 1 : 0, clipPath: `inset(0 0 0 ${(1 - (chapter === "freight" ? frame.trailerProgress : 0)) * 100}%)` });
       const freightWord = root.querySelector<HTMLElement>("[data-freight-word]");
-      if (freightWord) gsap.set(freightWord, { autoAlpha: chapter === "freight" ? 1 - frame.trailerProgress * .7 : 0 });
+      const freightInfo = root.querySelector<HTMLElement>("[data-freight-info]");
+      const freightCopy = root.querySelector<HTMLElement>("[data-freight-copy]");
+      const freightInformationOpacity = chapter === "freight" ? 1 - range(frame.progress, ...HOME_BEATS.freight.giantSweepFront) : 0;
+      if (freightWord) gsap.set(freightWord, { autoAlpha: freightInformationOpacity });
+      if (freightInfo) gsap.set(freightInfo, { autoAlpha: freightInformationOpacity, y: 18 * (1 - freightInformationOpacity) });
+      if (freightCopy) gsap.set(freightCopy, { autoAlpha: freightInformationOpacity, y: -18 * (1 - freightInformationOpacity) });
+      const lastMileCopy = root.querySelector<HTMLElement>("[data-last-mile-copy]");
+      const handoffCopy = root.querySelector<HTMLElement>("[data-handoff-copy]");
+      const lastMileInformationOpacity = chapter === "last-mile" ? 1 - range(frame.progress, HOME_BEATS.lastMile.vanDoorOpen[0], HOME_BEATS.lastMile.courierReveal[1]) : 0;
+      if (lastMileCopy) gsap.set(lastMileCopy, { autoAlpha: lastMileInformationOpacity, y: -16 * (1 - lastMileInformationOpacity) });
+      if (handoffCopy) gsap.set(handoffCopy, { autoAlpha: lastMileInformationOpacity });
       const finaleDelivered = root.querySelector<HTMLElement>("[data-finale-delivered]");
       const finaleUtility = root.querySelector<HTMLElement>("[data-finale-utility]");
       const finaleLegal = root.querySelector<HTMLElement>("[data-finale-legal]");
@@ -381,7 +420,7 @@ export function useHomeNarrativeDirector({
 
     const syncMobileRailSelection = () => {
       if (window.innerWidth >= 900) return;
-      const sync = (rail: HTMLElement | null, cards: HTMLElement[], onSelect?: (id: string) => void, items: readonly { id: string }[] = []) => {
+      const sync = (rail: HTMLElement | null, cards: HTMLElement[], onSelect: ((id: string) => void) | undefined, items: readonly { id: string }[], committed: "product" | "store" | "category") => {
         if (!rail || !cards.length || !onSelect) return;
         const center = rail.getBoundingClientRect().left + rail.clientWidth / 2;
         const nearest = cards.reduce((best, card, index) => {
@@ -389,11 +428,15 @@ export function useHomeNarrativeDirector({
           const bestCenter = cards[best]!.getBoundingClientRect().left + cards[best]!.getBoundingClientRect().width / 2;
           return Math.abs(cardCenter - center) < Math.abs(bestCenter - center) ? index : best;
         }, 0);
-        const item = items[nearest];
-        if (item) onSelect(item.id);
+        const id = committed === "store" ? cards[nearest]?.dataset.commerceStoreMedia : items[nearest]?.id;
+        if (!id) return;
+        if (committed === "product") committedProductId = commitSelection(committedProductId, id, onSelect);
+        else if (committed === "store") committedStoreId = commitSelection(committedStoreId, id, onSelect);
+        else if (id !== selectedCategory) { selectedCategory = id; onSelect?.(id); }
       };
-      sync(categoryRail, categoryCards, onMarketplaceSelectionChange, categories);
-      sync(productRail, productCards, onProductSelectionChange, products);
+      sync(categoryRail, categoryCards, onMarketplaceSelectionChange, categories, "category");
+      sync(productRail, productCards, onProductSelectionChange, products, "product");
+      sync(storeRail, storeCards, onStoreSelectionChange, stores, "store");
     };
 
     const seek = () => {
@@ -424,25 +467,13 @@ export function useHomeNarrativeDirector({
           selectedProductDuringFan = product?.id ?? selectedProductDuringFan;
           productSelectionFrozen = true;
         }
-        if (selectedProductDuringFan) onProductSelectionChange?.(selectedProductDuringFan);
+        committedProductId = commitSelection(committedProductId, selectedProductDuringFan, onProductSelectionChange);
       }
       if (current.chapter === "commerce" && stores.length >= 3 && onStoreSelectionChange && desktopCommerceDirectorOwned) {
         const commerceBeats = getCommerceBeats(stores.length);
         const storeIndex = Math.min(stores.length - 1, Math.max(0, Math.floor(range(authoredProgress, ...commerceBeats.storeTraversal) * stores.length)));
         const storeId = stores[storeIndex]?.id;
-        if (storeId) onStoreSelectionChange(storeId);
-      }
-      if (current.chapter === "parcelization" && products.length) {
-        let storedProductId: string | null = null;
-        try {
-          storedProductId = window.sessionStorage.getItem("kt-home-selected-product");
-        } catch {
-          storedProductId = null;
-        }
-        if (!storedProductId) {
-          const finalProduct = products.at(-1)?.id;
-          if (finalProduct) onProductSelectionChange?.(finalProduct);
-        }
+        committedStoreId = commitSelection(committedStoreId, storeId, onStoreSelectionChange);
       }
       if (debugPanel && debugEnabled) {
         const marketplace = appliedFrame?.marketplace;
@@ -480,6 +511,7 @@ export function useHomeNarrativeDirector({
     window.addEventListener("kt-posthero-actor-ready", schedule);
     categoryRail?.addEventListener("scroll", syncMobileRailSelection, { passive: true });
     productRail?.addEventListener("scroll", syncMobileRailSelection, { passive: true });
+    storeRail?.addEventListener("scroll", syncMobileRailSelection, { passive: true });
     const trigger = prefersReducedMotion ? null : ScrollTrigger.create({ trigger: root, start: "top top", end: "bottom bottom", scrub: true });
     return () => {
       window.clearTimeout(resizeTimer);
@@ -490,6 +522,7 @@ export function useHomeNarrativeDirector({
       window.removeEventListener("kt-posthero-actor-ready", schedule);
       categoryRail?.removeEventListener("scroll", syncMobileRailSelection);
       productRail?.removeEventListener("scroll", syncMobileRailSelection);
+      storeRail?.removeEventListener("scroll", syncMobileRailSelection);
       trigger?.kill();
     };
   }, [categories, enabled, onMarketplaceSelectionChange, onProductSelectionChange, onStoreSelectionChange, prefersReducedMotion, products, rootRef, setHeaderTone, stores]);

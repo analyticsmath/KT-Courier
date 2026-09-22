@@ -41,7 +41,9 @@ describe("post-Hero implementation contracts", () => {
   it("keeps parcel continuity and route-origin geometry explicit", () => {
     const parcel = read("components/public-v3/home/scenes/ParcelizationScene.tsx");
     const director = read("components/public-v3/home/director/useHomeNarrativeDirector.ts");
-    expect(parcel).toContain("data-selected-product-media");
+    expect(parcel).toContain("data-parcel-selected-product-media");
+    expect(director).toContain("data-commerce-selected-product-media");
+    expect(director).toContain("data-product-carry-layer");
     expect(parcel).toContain("data-package-back");
     expect(parcel).toContain("data-package-cover");
     expect(parcel).toContain("data-package-label");
