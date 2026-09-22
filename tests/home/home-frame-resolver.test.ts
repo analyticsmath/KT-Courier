@@ -10,8 +10,8 @@ import { POST_HERO_RESOLVER_ACTOR_STATES, redTruckViewportX, resolveMarketplaceF
 describe("post-Hero frame resolver", () => {
   it("protects the accepted Hero sequence and chapter budgets", () => {
     expect(HOME_CHAPTERS).toEqual(["hero", "commerce", "parcelization", "network", "freight", "last-mile", "finale"]);
-    expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 325, parcelization: 135, network: 280, freight: 215, "last-mile": 340, finale: 150 });
-    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 250, parcelization: 115, network: 225, freight: 185, "last-mile": 310, finale: 150 });
+    expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 280, parcelization: 160, network: 250, freight: 240, "last-mile": 340, finale: 135 });
+    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 0, parcelization: 135, network: 190, freight: 190, "last-mile": 290, finale: 125 });
     expect(HOME_MOBILE_POLICY).toEqual({ hero: "document", commerce: "native-snap", parcelization: "document", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" });
     expect(HOME_BEATS.hero.release).toEqual([.975, 1]);
     expect(HERO_TRUCK_SEQUENCE).toHaveLength(12);
@@ -70,7 +70,7 @@ describe("post-Hero frame resolver", () => {
     expect(points[3]).toBeCloseTo(42, 0);
     expect(points[6]).toBeLessThan(0);
     expect(points.at(-1)).toBe(-75);
-    expect(resolvePostHeroFrame("freight", .65, "mobile").actors["red-truck"].size.valueVw).toBeGreaterThan(120);
+    expect(resolvePostHeroFrame("freight", .65, "mobile").actors["red-truck"].size).toEqual({ mode: "visible-height", valueVh: 102 });
   });
 
   it("reconstructs each frame deterministically with one motion owner", () => {

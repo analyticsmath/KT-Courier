@@ -9,10 +9,11 @@ import { alignGroundContact } from "./home-grounding";
 import { closestReadyHeroSequenceState, isActorImageReady } from "./home-actor-image-readiness";
 import { deriveHeroActorPresentation } from "./hero-actor-presentation";
 import { resolveHeroTruckFrame } from "./home-frame-resolver";
-import { clamp01, HOME_BEATS, range } from "./home-beats";
+import { clamp01, getCommerceBeats, HOME_BEATS, range } from "./home-beats";
 import { HOME_CHAPTERS, HOME_MOBILE_POLICY, reducedMotionChapterProgress, type HomeChapter, type PostHeroChapter } from "./home-chapters";
 import { marketplaceTrackX } from "./home-marketplace-geometry";
 import { resolvePostHeroFrame, type PostHeroActorKey, type PostHeroActorName, type PostHeroActorPose, type PostHeroFrame } from "./post-hero-frame-resolver";
+import { computePostHeroActorBox } from "./post-hero-actor-geometry";
 import { isPostHeroActorReady, markPostHeroActorReady, POST_HERO_ACTOR_ASSETS, postHeroActorsForChapter, preloadPostHeroActor, preloadPostHeroActorsForChapter } from "../actors/post-hero-actor-preload";
 
 if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
@@ -192,38 +193,48 @@ export function useHomeNarrativeDirector({
       }
       activateLayer(layer, shownKey);
       displayedPostStates.set(actor, shownKey);
-      const visibleWidthRatio = definition.visibleBounds.width / definition.width;
-      const visibleHeightRatio = definition.visibleBounds.height / definition.height;
-      const canvasWidth = actorPose.size.mode === "visible-width" ? window.innerWidth * actorPose.size.valueVw / 100 / Math.max(.01, visibleWidthRatio) : window.innerHeight * actorPose.size.valueVh / 100 / Math.max(.01, visibleHeightRatio);
-      const canvasHeight = canvasWidth / Math.max(.01, definition.aspectRatio);
-      const aligned = alignGroundContact({ width: canvasWidth, height: canvasHeight, groundContact: definition.groundContact, target: { x: window.innerWidth * actorPose.anchorXVw / 100, y: window.innerHeight * actorPose.anchorYVh / 100 } });
-      postLayers.forEach((image) => { if (image.parentElement === slot) gsap.set(image, { autoAlpha: image === layer ? 1 : 0 }); });
-      gsap.set(slot, { autoAlpha: actorPose.visible ? 1 : 0, visibility: actorPose.visible ? "visible" : "hidden", left: aligned.left, top: aligned.top, width: canvasWidth, height: canvasHeight, rotation: actorPose.rotation, transformOrigin: "0 0" });
+      const actorBox = computePostHeroActorBox({ viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, actor: definition, size: actorPose.size, anchor: { xVw: actorPose.anchorXVw, yVh: actorPose.anchorYVh } });
+      const blendLayer = actorPose.blendToState ? postLayers.get(actorPose.blendToState) : undefined;
+      const blendDefinition = actorPose.blendToState ? POST_HERO_ACTOR_ASSETS[actorPose.blendToState] : undefined;
+      if (blendLayer) activateLayer(blendLayer, actorPose.blendToState!);
+      const canBlend = Boolean(blendLayer && blendDefinition && actorPose.stateBlend && actorPose.stateBlend > 0 && isReadyLayer(blendLayer, actorPose.blendToState!));
+      postLayers.forEach((image) => {
+        if (image.parentElement !== slot) return;
+        const isCurrent = image === layer;
+        const isBlend = canBlend && image === blendLayer;
+        gsap.set(image, { autoAlpha: isCurrent ? (canBlend ? 1 - (actorPose.stateBlend ?? 0) : 1) : isBlend ? actorPose.stateBlend : 0 });
+      });
+      gsap.set(slot, { autoAlpha: actorPose.visible ? 1 : 0, visibility: actorPose.visible ? "visible" : "hidden", left: actorBox.left, top: actorBox.top, width: actorBox.width, height: actorBox.height, rotation: actorPose.rotation, transformOrigin: "0 0" });
       slot.dataset.postheroDisplayedState = shownKey;
       slot.dataset.postheroRequestedState = actorPose.state;
       slot.dataset.postheroStateReady = String(isPostHeroActorReady(shownKey) || (layer.complete && layer.naturalWidth > 0));
       slot.dataset.postheroPendingState = shownKey === actorPose.state ? "" : actorPose.state;
       slot.dataset.postheroVisible = String(actorPose.visible);
       slot.dataset.postheroSlotOpacity = String(actorPose.visible ? 1 : 0);
-      slot.dataset.postheroX = String(aligned.left);
-      slot.dataset.postheroY = String(aligned.top);
-      slot.dataset.postheroWidth = String(canvasWidth);
+      slot.dataset.postheroX = String(actorBox.left);
+      slot.dataset.postheroY = String(actorBox.top);
+      slot.dataset.postheroWidth = String(actorBox.width);
+      slot.dataset.postheroBlendState = canBlend ? actorPose.blendToState ?? "" : "";
+      slot.dataset.postheroBlend = canBlend ? String(actorPose.stateBlend ?? 0) : "0";
     };
 
     const applyPostHero = (chapter: PostHeroChapter, rawProgress: number): PostHeroFrame => {
       const frame = resolvePostHeroFrame(chapter, rawProgress, window.innerWidth <= 767 ? "mobile" : "desktop", { categoryCount: categories.length, storeCount: stores.length, productCount: products.length });
       if (chapter === "commerce" && frame.marketplace) {
         const desktop = window.innerWidth >= 900;
+        const commerceBeats = getCommerceBeats(stores.length);
         const categoryFocus = Math.round(frame.marketplace.positionIndex);
         const hasStoreWorld = stores.length >= 3;
-        const categoryWorldActive = categories.length > 0 && rawProgress < (hasStoreWorld ? HOME_BEATS.commerce.storeReveal[0] : HOME_BEATS.commerce.fanBuild[0]);
-        const storeWorldActive = hasStoreWorld && rawProgress >= HOME_BEATS.commerce.storeReveal[0] && rawProgress < HOME_BEATS.commerce.fanBuild[0];
-        const productWorldActive = products.length > 0 && (categories.length === 0 || rawProgress >= (hasStoreWorld ? HOME_BEATS.commerce.fanBuild[0] : .56));
+        const categoryWorldActive = categories.length > 0 && rawProgress >= commerceBeats.categoryTraversal[0] && rawProgress < (hasStoreWorld ? commerceBeats.storeReveal[0] : commerceBeats.fanBuild[0]);
+        const storeWorldActive = hasStoreWorld && rawProgress >= commerceBeats.storeReveal[0] && rawProgress < commerceBeats.fanBuild[0];
+        const productWorldActive = products.length > 0 && (categories.length === 0 || rawProgress >= commerceBeats.fanBuild[0]);
         commerceWorlds.forEach((world) => {
           const worldName = world.dataset.commerceWorld;
           const active = worldName === "categories" ? categoryWorldActive : worldName === "stores" ? storeWorldActive : worldName === "products" ? productWorldActive : false;
           world.dataset.commerceActive = String(active);
         });
+        const commerceHeader = root.querySelector<HTMLElement>("[data-commerce-opening]");
+        if (commerceHeader) gsap.set(commerceHeader, { autoAlpha: prefersReducedMotion ? 1 : rawProgress < commerceBeats.apertureClear[0] ? 1 : 1 - range(rawProgress, ...commerceBeats.apertureClear), y: prefersReducedMotion ? 0 : -18 * range(rawProgress, ...commerceBeats.apertureClear) });
         categoryCards.forEach((card, index) => {
           if (!desktop) {
             gsap.set(card, { clearProps: "flexBasis,transform,opacity,zIndex" });
@@ -231,8 +242,8 @@ export function useHomeNarrativeDirector({
             return;
           }
           const distance = Math.abs(index - frame.marketplace!.positionIndex);
-          const width = distance <= 1 ? 57 - 45 * distance : 12 - 5 * Math.min(1, distance - 1);
-          gsap.set(card, { flexBasis: `${width}vw`, transform: `translateY(${Math.min(1.5, distance) * 1.5}px)`, opacity: distance > 2.5 ? .55 : 1, zIndex: index === categoryFocus ? 2 : 1 });
+          const width = distance <= 1 ? 60 - 48 * distance : 8 - 4 * Math.min(1, distance - 1);
+          gsap.set(card, { flexBasis: `${width}vw`, transform: `translateY(${Math.min(1.5, distance) * 1.5}px)`, opacity: distance > 2.5 ? .48 : 1, zIndex: index === categoryFocus ? 2 : 1 });
           card.dataset.marketplaceDistance = distance.toFixed(2);
           card.dataset.active = String(index === categoryFocus);
         });
@@ -261,9 +272,9 @@ export function useHomeNarrativeDirector({
           const far = Math.min(Math.max(absoluteDistance - 1, 0), 1);
           const x = Math.sign(distance) * (18 * near + 14 * far + Math.max(0, absoluteDistance - 2) * 8);
           const y = Math.min(5, absoluteDistance * 1.8);
-          const scale = absoluteDistance <= 1 ? 1 - .14 * near : .86 - .14 * far - Math.max(0, absoluteDistance - 2) * .06;
-          const rotateY = -Math.sign(distance) * (16 * near + 10 * far);
-          const rotateZ = Math.sign(distance) * (1.5 * near + .5 * far);
+          const scale = absoluteDistance <= 1 ? 1 - .1 * near : .9 - .08 * far - Math.max(0, absoluteDistance - 2) * .04;
+          const rotateY = -Math.sign(distance) * (8 * near + 5 * far);
+          const rotateZ = Math.sign(distance) * (.8 * near + .3 * far);
           const opacity = absoluteDistance <= 2 ? 1 - .12 * Math.max(0, absoluteDistance - 1) : .48;
           gsap.set(card, { transform: `translate3d(${x}vw,${y}vh,0) rotateY(${rotateY}deg) rotateZ(${rotateZ}deg) scale(${Math.max(.58, scale)})`, opacity, zIndex: Math.max(1, 10 - Math.round(absoluteDistance)) });
         });
@@ -327,8 +338,12 @@ export function useHomeNarrativeDirector({
       const finaleDelivered = root.querySelector<HTMLElement>("[data-finale-delivered]");
       const finaleUtility = root.querySelector<HTMLElement>("[data-finale-utility]");
       const finaleLegal = root.querySelector<HTMLElement>("[data-finale-legal]");
+      const finaleIdentity = root.querySelector<HTMLElement>("[data-finale-identity]");
+      const finaleEnvironment = root.querySelector<HTMLElement>("[data-finale-environment]");
       if (chapter === "finale") {
         gsap.set(finaleDelivered, { autoAlpha: 1 - range(frame.progress, .18, .32) });
+        gsap.set(finaleEnvironment, { autoAlpha: 1 - range(frame.progress, ...HOME_BEATS.finale.environmentFalloff), scale: 1 + .04 * range(frame.progress, ...HOME_BEATS.finale.environmentFalloff) });
+        gsap.set(finaleIdentity, { autoAlpha: frame.brandProgress, y: 24 * (1 - frame.brandProgress) });
         gsap.set(finaleUtility, { autoAlpha: frame.utilityProgress });
         gsap.set(finaleLegal, { autoAlpha: frame.legalProgress });
       }
@@ -395,13 +410,14 @@ export function useHomeNarrativeDirector({
       preloadTier(current.chapter, progress);
       const desktopCommerceDirectorOwned = window.innerWidth >= 900;
       if (current.chapter === "commerce" && categories.length && desktopCommerceDirectorOwned) {
-        const index = Math.min(categories.length - 1, Math.round((authoredProgress - .08) / .42 * (categories.length - 1)));
+        const commerceBeats = getCommerceBeats(stores.length);
+        const index = Math.min(categories.length - 1, Math.max(0, Math.round((authoredProgress - commerceBeats.categoryTraversal[0]) / (commerceBeats.categoryTraversal[1] - commerceBeats.categoryTraversal[0]) * (categories.length - 1))));
         const id = categories[Math.max(0, index)]?.id;
         if (id && id !== selectedCategory) { selectedCategory = id; onMarketplaceSelectionChange?.(id); }
       }
       if (current.chapter === "commerce" && appliedFrame?.marketplace && products.length && desktopCommerceDirectorOwned) {
         const product = products[Math.max(0, Math.min(products.length - 1, Math.round(appliedFrame.marketplace.productIndex)))];
-        if (authoredProgress < HOME_BEATS.commerce.selectedTakeover[0]) {
+        if (authoredProgress < getCommerceBeats(stores.length).selectedTakeover[0]) {
           productSelectionFrozen = false;
           selectedProductDuringFan = product?.id ?? selectedProductDuringFan;
         } else if (!productSelectionFrozen) {
@@ -411,7 +427,8 @@ export function useHomeNarrativeDirector({
         if (selectedProductDuringFan) onProductSelectionChange?.(selectedProductDuringFan);
       }
       if (current.chapter === "commerce" && stores.length >= 3 && onStoreSelectionChange && desktopCommerceDirectorOwned) {
-        const storeIndex = Math.min(stores.length - 1, Math.max(0, Math.floor(range(authoredProgress, .6, .73) * stores.length)));
+        const commerceBeats = getCommerceBeats(stores.length);
+        const storeIndex = Math.min(stores.length - 1, Math.max(0, Math.floor(range(authoredProgress, ...commerceBeats.storeTraversal) * stores.length)));
         const storeId = stores[storeIndex]?.id;
         if (storeId) onStoreSelectionChange(storeId);
       }

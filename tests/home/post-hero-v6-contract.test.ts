@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { GENERATED_ACTOR_STATES } from "@/components/public-v3/actors/generated-actor-media";
 import { POST_HERO_RESOLVER_ACTOR_STATES, resolvePostHeroFrame } from "@/components/public-v3/home/director/post-hero-frame-resolver";
-import { HOME_BEATS } from "@/components/public-v3/home/director/home-beats";
+import { getCommerceBeats, HOME_BEATS } from "@/components/public-v3/home/director/home-beats";
 import { HOME_CHAPTERS, HOME_CHAPTER_BUDGETS_VH, HOME_MOBILE_CHAPTER_BUDGETS_VH, HOME_MOBILE_POLICY } from "@/components/public-v3/home/director/home-chapters";
 
 describe("post-Hero homepage rebuild contract", () => {
   it("keeps the accepted Hero and exact post-Hero chapter budgets", () => {
     expect(HOME_CHAPTERS).toEqual(["hero", "commerce", "parcelization", "network", "freight", "last-mile", "finale"]);
-    expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 325, parcelization: 135, network: 280, freight: 215, "last-mile": 340, finale: 150 });
-    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 250, parcelization: 115, network: 225, freight: 185, "last-mile": 310, finale: 150 });
+    expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 280, parcelization: 160, network: 250, freight: 240, "last-mile": 340, finale: 135 });
+    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 0, parcelization: 135, network: 190, freight: 190, "last-mile": 290, finale: 125 });
     expect(HOME_MOBILE_POLICY).toEqual({ hero: "document", commerce: "native-snap", parcelization: "document", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" });
     expect(HOME_BEATS.hero.release).toEqual([.975, 1]);
+  });
+
+  it("uses the authored no-store and Store World commerce timelines", () => {
+    expect(getCommerceBeats(0)).toMatchObject({ categoryTraversal: [.16, .54], fanBuild: [.56, .64], selectedTakeover: [.91, 1] });
+    expect(getCommerceBeats(3)).toMatchObject({ storeReveal: [.46, .52], storeTraversal: [.52, .66], fanBuild: [.68, .75], selectedTakeover: [.92, 1] });
   });
 
   it("registers every canonical post-Hero state as generated WebP metadata", () => {
