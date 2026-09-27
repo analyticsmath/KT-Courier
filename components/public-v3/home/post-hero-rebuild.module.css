@@ -84,7 +84,7 @@
 .networkStage, .lastMileStage, .freightStage, .finaleStage { position: relative; min-height: 100%; overflow: hidden; isolation: isolate; }
 .networkEnvironment, .networkTint, .networkRoad, .networkMask, .networkOcclusion { position: absolute; inset: 0; }
 .networkEnvironment { z-index: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; filter: saturate(.7) contrast(1.06); }
-.networkTint { z-index: 1; /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ background: linear-gradient(90deg, rgba(220,229,230,.85), rgba(220,229,230,.25) 58%, rgba(10,18,20,.18)); }
+.networkTint { z-index: 1; /* kt-color-audit-allow: cinematic Network readability mask anchored to Gallery White and Carbon */ background: linear-gradient(90deg, rgb(247 248 250 / 0.76), rgb(247 248 250 / 0.14) 58%, rgb(11 13 15 / 0.16)); }
 .networkCopy { position: absolute; z-index: 8; top: 12vh; left: 7vw; max-width: 27rem; }
 .networkCopy .eyebrow { color: var(--kt-public-text-muted); }
 .networkCopy .heading { max-width: 9ch; }

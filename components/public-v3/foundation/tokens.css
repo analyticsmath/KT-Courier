@@ -5,13 +5,13 @@
 [data-kt-visual-system="editorial-freight-v1"] {
   /* Raw palette: fixed values; no generated shades. */
   --kt-white-000: #FFFFFF;
-  --kt-white-050: #FAFBFC;
-  --kt-white-100: #F6F7F8;
-  --kt-white-200: #F1F3F5;
-  --kt-neutral-300: #E2E5E9;
+  --kt-white-050: #F7F8FA;
+  --kt-white-100: #F3F5F7;
+  --kt-white-200: #ECEFF2;
+  --kt-neutral-300: #DDE2E7;
   --kt-neutral-400: #C8CDD2;
   --kt-neutral-500: #9AA1A8;
-  --kt-neutral-650: #6D747C;
+  --kt-neutral-650: #687078;
   --kt-neutral-750: #454B52;
   --kt-neutral-850: #24282D;
   --kt-carbon: #0B0D0F;

@@ -653,6 +653,7 @@
 }
 
 .footerLargeLink:hover {
+  /* kt-color-audit-allow: inverse/dark footer link text on Carbon */
   color: var(--kt-public-interactive);
   transform: translateX(4px);
 }
