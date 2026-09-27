@@ -189,7 +189,7 @@ describe("KT Precision White public contract", () => {
     for (const value of values) expect(value).toMatch(/^1px\s+solid\s+var\(\s*--kt-public-border-default\s*\)$/);
   });
 
-  it("separates merchandise media stages while preserving PDP control borders", () => {
+  it("separates merchandise media stages while leaving the PDP photo unframed", () => {
     const css = postcss.parse(source("components/public-v2/commerce/commerce.module.css"));
     for (const selector of [".productTileMediaFrame", ".shopViewportRoot .productTileMediaFrame", ".quickBuyImage", ".cartLineMedia", ".collectionMixedMedia", ".commerceStoreMedia"]) {
       const edges: string[] = [];
@@ -200,7 +200,7 @@ describe("KT Precision White public contract", () => {
     let hero = "", thumb = "";
     css.walkRules(".pdpDesktopHeroFrame", rule => { rule.walkDecls("border", d => { hero = d.value; }); });
     css.walkRules(".pdpDesktopThumbButton", rule => { rule.walkDecls("border", d => { thumb = d.value; }); });
-    expect(hero).toMatch(/^1px\s+solid\s+var\(\s*--commerce-line\s*\)$/);
+    expect(hero).toBe("0");
     expect(thumb).toMatch(/^1\.5px\s+solid\s+var\(\s*--kt-public-border-control\s*\)$/);
     const card = new Map<string, string>();
     css.walkRules(".shopViewportRoot .productTile", rule => { rule.walkDecls(d => { card.set(d.prop, d.value); }); });

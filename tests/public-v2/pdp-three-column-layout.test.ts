@@ -34,7 +34,7 @@ function jsxNodes(source: ts.SourceFile, tagName: string) {
   return matches;
 }
 
-function region(className: string) {
+function elementByClass(className: string) {
   const element = [...jsxNodes(detailAst, "section"), ...jsxNodes(detailAst, "div")].find((node) => {
     if (!ts.isJsxElement(node)) return false;
     return node.openingElement.attributes.properties.some((attribute) =>
@@ -44,7 +44,11 @@ function region(className: string) {
     );
   });
   expect(element, `${className} region exists`).toBeDefined();
-  return element!.getText(detailAst);
+  return element as ts.JsxElement;
+}
+
+function region(className: string) {
+  return elementByClass(className).getText(detailAst);
 }
 
 function declarations(selector: string, media?: string) {
@@ -74,7 +78,19 @@ describe("PDP three-column presentation contract", () => {
     expect(purchase).toContain('data-kt-action="add-to-cart"');
     expect(purchase).toContain('data-kt-action="buy-now"');
     expect(jsxNodes(detailAst, "ProductMediaGallery")).toHaveLength(1);
-    expect(detailSource.indexOf("<ProductMediaGallery")).toBeLessThan(detailSource.indexOf("className={styles.pdpSidePlanes}"));
+    expect(detailSource).not.toContain("pdpSidePlanes");
+    const layout = elementByClass("pdpLayout");
+    const roles = layout.children
+      .filter((child): child is ts.JsxElement | ts.JsxSelfClosingElement =>
+        ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)
+      )
+      .map((child) => ts.isJsxSelfClosingElement(child)
+        ? child.tagName.getText(detailAst)
+        : child.openingElement.attributes.getText(detailAst));
+    expect(roles).toHaveLength(3);
+    expect(roles[0]).toContain("styles.pdpIdentityRail");
+    expect(roles[1]).toBe("ProductMediaGallery");
+    expect(roles[2]).toContain("styles.pdpPurchaseRail");
   });
 
   it("keeps each desktop image in vertical document flow and the mobile snap gallery intact", () => {
@@ -88,35 +104,55 @@ describe("PDP three-column presentation contract", () => {
     expect(declarations(".pdpDesktopGalleryStage").get("flex-direction")).toBe("column");
     expect(declarations(".pdpMobileGalleryScroller", "max-width: 991px").get("scroll-snap-type")).toBe("x mandatory");
     expect(declarations(".pdpMobileStickyBar", "max-width: 768px").get("position")).toBe("fixed");
+    const desktopFigure = jsxNodes(galleryAst, "figure")[0]?.getText(galleryAst);
+    expect(desktopFigure).toContain("width={media.width}");
+    expect(desktopFigure).toContain("height={media.height}");
+    expect(desktopFigure).not.toMatch(/\sfill(?:\s|\n)/);
+    expect(desktopFigure).toContain("className={styles.pdpDesktopImage}");
+    expect(gallerySource).toContain("--pdp-media-ratio");
   });
 
-  it("centers a capped, contained media stage between symmetric sticky rails", () => {
+  it("renders intrinsic, unframed media between symmetric full-height rails", () => {
     const layout = declarations(".pdpLayout");
     const frame = declarations(".pdpDesktopHeroFrame");
     const rail = declarations(".pdpIdentityRail");
-    const mediaHeight = declarations(".pdpExperience").get("--pdp-desktop-media-height");
+    const image = declarations(".pdpDesktopImage");
+    const mediaHeight = declarations(".pdpExperience").get("--pdp-desktop-image-height");
 
     expect(layout.get("grid-template-areas")).toBe('"identity media purchase"');
-    expect(layout.get("grid-template-columns")).toMatch(/^minmax\(0, 1fr\).*minmax\(440px, min\(40vw, 640px\)\).*minmax\(0, 1fr\)$/);
-    expect(declarations(".pdpGalleryRoot").get("max-width")).toBe("640px");
-    expect(mediaHeight).toMatch(/62svh.*640px/);
-    expect(frame.get("height")).toBe("var(--pdp-desktop-media-height)");
-    expect(frame.get("max-height")).toBe("var(--pdp-desktop-media-height)");
-    expect(frame.get("min-height")).toBe("0");
-    expect(frame.get("aspect-ratio")).toBe("auto");
+    expect(layout.get("grid-template-columns")).toMatch(/^minmax\(0, 1fr\).*minmax\(480px, min\(44vw, 720px\)\).*minmax\(0, 1fr\)$/);
+    expect(layout.get("align-items")).toBe("stretch");
+    expect(declarations(".pdpGalleryRoot").get("max-width")).toBe("720px");
+    expect(mediaHeight).toMatch(/72svh.*700px/);
+    expect(frame.get("width")).toContain("--pdp-media-ratio");
+    expect(frame.get("background")).toBe("transparent");
+    expect(frame.get("border")).toBe("0");
+    expect(frame.get("border-radius")).toBe("0");
+    expect(frame.get("margin")).toBe("0 auto");
+    expect(declarations(".shopViewportRoot .pdpDesktopHeroFrame").size).toBe(0);
+    expect(image.get("height")).toBe("auto");
+    expect(image.get("max-height")).toBe("var(--pdp-desktop-image-height)");
+    expect(image.get("object-fit")).toBe("contain");
+    expect(image.get("border-radius")).toBe("0");
     expect(declarations(".pdpImageContain").get("object-fit")).toBe("contain");
-    expect(declarations(".shopViewportRoot .pdpImageContain").get("object-fit")).toBe("contain");
-    expect(rail.get("position")).toBe("sticky");
-    expect(declarations(".pdpPurchaseRail").get("position")).toBe("sticky");
-    expect(declarations(".pdpIdentityRail").get("min-height")).toBe("var(--pdp-desktop-media-height)");
+    expect(rail.get("position")).toBe("relative");
+    expect(rail.get("align-self")).toBe("stretch");
+    expect(declarations(".pdpPurchaseRail").get("position")).toBe("relative");
+    expect(declarations(".pdpIdentityPlane").get("position")).toBe("sticky");
+    expect(declarations(".pdpPurchasePlane").get("position")).toBe("sticky");
+    expect(declarations(".pdpIdentityPlane").get("top")).toBe("var(--pdp-sticky-center-y)");
+    expect(declarations(".pdpPurchasePlane").get("transform")).toBe("translateY(-50%)");
+    expect(declarations(".pdpExperience").get("--pdp-sticky-center-y")).toContain("100svh");
+    expect(detailSource).toContain("ResizeObserver(updateFit)");
+    expect(declarations(".pdpPurchasePlaneTall", "min-width: 1200px").get("position")).toBe("static");
   });
 
-  it("provides a two-column compact fallback and short-height rail release", () => {
-    expect(declarations(".pdpLayout", "min-width: 992px").get("grid-template-areas")).toBe('"media side"');
+  it("provides a two-column compact fallback and a short-height center release", () => {
+    expect(declarations(".pdpLayout", "min-width: 992px").get("grid-template-areas")).toContain('"media identity"');
     expect(declarations(".pdpLayout", "max-width: 991px").get("grid-template-areas")).toContain('"media"');
-    expect(declarations(".pdpPurchaseRail", "max-height: 760px").get("position")).toBe("static");
+    expect(declarations(".pdpIdentityPlane", "max-height: 760px").get("transform")).toBe("none");
     expect(gallerySource).toContain("(max-width: 1199px) 55vw");
-    expect(gallerySource).toContain("(max-width: 1599px) 42vw, 640px");
+    expect(gallerySource).toContain("(max-width: 1635px) 44vw, 720px");
     expect(gallerySource).toContain("preload={index === 0}");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "motion/react";
@@ -77,6 +77,28 @@ export function ProductDetailExperience({
     existingCartItemCount?: number;
   } | null>(null);
   const [cartVersion, setCartVersion] = useState<number | null>(null);
+  const purchasePlaneRef = useRef<HTMLElement>(null);
+  const [purchasePlaneTooTall, setPurchasePlaneTooTall] = useState(false);
+
+  useEffect(() => {
+    const plane = purchasePlaneRef.current;
+    if (!plane) return;
+
+    const updateFit = () => {
+      const headerOffset = parseFloat(getComputedStyle(plane).getPropertyValue("--shop-header-offset")) || 66;
+      setPurchasePlaneTooTall(plane.scrollHeight > window.innerHeight - headerOffset - 32);
+    };
+
+    const observer = new ResizeObserver(updateFit);
+    observer.observe(plane);
+    window.addEventListener("resize", updateFit);
+    updateFit();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateFit);
+    };
+  }, []);
 
   // Multi-seller offer selection
   const [selectedOfferOverride, setSelectedOfferOverride] = useState<string | null>(null);
@@ -338,234 +360,235 @@ export function ProductDetailExperience({
 
       {/* Product identity, vertical media gallery, and purchase decisions */}
       <div className={styles.pdpLayout}>
-        <ProductMediaGallery product={product} mediaGallery={gallery} />
-
-        <div className={styles.pdpSidePlanes}>
-          <div className={styles.pdpIdentityRail}>
-            <section aria-labelledby="pdp-product-title" className={styles.pdpIdentityPlane}>
-              <div>
-                {product.brandName && (
-                  <p className={styles.pdpBrandBadge}>{product.brandName}</p>
-                )}
-                <h1 id="pdp-product-title" className={styles.pdpTitle}>{product.title}</h1>
-              </div>
-
-              {product.shortDescription && (
-                <p className={styles.pdpShortDescription}>{product.shortDescription}</p>
+        <div className={styles.pdpIdentityRail}>
+          <section aria-labelledby="pdp-product-title" className={styles.pdpIdentityPlane}>
+            <div>
+              {product.brandName && (
+                <p className={styles.pdpBrandBadge}>{product.brandName}</p>
               )}
-            </section>
-          </div>
+              <h1 id="pdp-product-title" className={styles.pdpTitle}>{product.title}</h1>
+            </div>
 
-          <div className={styles.pdpPurchaseRail}>
-            <section aria-label="Purchase product" className={styles.pdpPurchasePlane}>
-              {/* Price & VAT Row */}
-              <div className={styles.pdpPriceRow}>
-                <span className={styles.pdpPrice}>
-                  {offers.length > 1 && selectedOfferReference === product.offerReference ? "From " : ""}
-                  {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
-                </span>
-                <span className={styles.pdpVatNote}>VAT included</span>
-              </div>
-
-              {/* Seller / Offer Decision Section */}
-              <SellerSelector
-                offers={offers}
-                selectedOfferReference={activeOffer.offerReference}
-                onSelectOffer={handleSelectOffer}
-                defaultStoreName={store?.name}
-              />
-
-              {/* Variant Selector */}
-              {variants.length > 1 && (
-                <div className={styles.variantSelectorBlock}>
-                  <span className={styles.variantGroupLabel}>Available options</span>
-                  <LayoutGroup id="pdp-variants">
-                    <div className={styles.variantOptionsList}>
-                      {variants.map((v) => {
-                        const isSelected = selectedVariantReference === v.variantReference;
-                        const vHref = marketplaceVariantHref(
-                          product.productSlug,
-                          product.productReference,
-                          v.variantReference
-                        );
-                        if (!vHref) return null;
-
-                        return (
-                          <Link
-                            className={`${styles.variantOptionButton} ${
-                              isSelected ? styles.variantOptionButtonActive : ""
-                            } relative overflow-hidden`}
-                            href={vHref}
-                            key={v.variantReference}
-                          >
-                            <span className="relative z-10">
-                              {Object.values(v.variantOptions).join(" · ") || "Standard"}
-                            </span>
-                            {isSelected && (
-                              <motion.div
-                                layoutId="activeVariantIndicator"
-                                className="absolute inset-0 bg-[var(--kt-public-surface-inverse)]/10 z-0 pointer-events-none rounded-[2px]"
-                                transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                              />
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </LayoutGroup>
-                </div>
-              )}
-
-              {/* Modifiers Selection */}
-              {modifierGroups.length > 0 && (
-                <div className={styles.pdpModifiersContainer}>
-                  <span className={styles.variantGroupLabel}>Customise options</span>
-                  {modifierGroups.map((group) => {
-                    const selected = selectedModifiers[group.groupReference] ?? [];
-                    const isGroupSatisfied = !group.isRequired || selected.length >= group.minimumSelections;
-
-                    return (
-                      <div key={group.groupReference} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div className={styles.pdpModifierGroupHeader}>
-                          <span className={styles.pdpModifierGroupName}>{group.name}</span>
-                          <span
-                            className={
-                              group.isRequired && !isGroupSatisfied
-                                ? styles.pdpModifierBadgeRequired
-                                : styles.pdpModifierBadgeOptional
-                            }
-                          >
-                            {group.isRequired ? (isGroupSatisfied ? "Selected" : "Required") : "Optional"}
-                          </span>
-                        </div>
-
-                        {group.description && (
-                          <p style={{ fontSize: "0.8rem", color: "var(--commerce-muted)", margin: 0 }}>
-                            {group.description}
-                          </p>
-                        )}
-
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {group.options.map((option) => {
-                            const isChecked = selected.includes(option.optionReference);
-                            const isRadio = group.maximumSelections === 1;
-
-                            return (
-                              <label
-                                key={option.optionReference}
-                                className={`${styles.pdpModifierOptionRow} ${
-                                  isChecked ? styles.pdpModifierOptionRowActive : ""
-                                }`}
-                              >
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                  <input
-                                    type={isRadio ? "radio" : "checkbox"}
-                                    name={group.groupReference}
-                                    checked={isChecked}
-                                    onChange={() =>
-                                      toggleModifierOption(
-                                        group.groupReference,
-                                        option.optionReference,
-                                        group.maximumSelections
-                                      )
-                                    }
-                                  />
-                                  <span>{option.name}</span>
-                                </div>
-                                <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
-                                  {Number(option.priceDelta) > 0
-                                    ? `+${formatCommercePrice(option.priceDelta, "ZAR")}`
-                                    : "Included"}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Quantity & Dual Purchase Actions */}
-              <div className={styles.pdpActionsBlock}>
-                <div className={styles.pdpQuantityRow}>
-                  <span className={styles.pdpQuantityLabel}>Quantity</span>
-                  <div className={styles.pdpQuantityStepper}>
-                    <button
-                      type="button"
-                      aria-label="Decrease quantity"
-                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      disabled={quantity <= 1 || addingToCart || buyingNow}
-                      className={styles.pdpQuantityBtn}
-                    >
-                      −
-                    </button>
-                    <span className={styles.pdpQuantityVal}>{quantity}</span>
-                    <button
-                      type="button"
-                      aria-label="Increase quantity"
-                      onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-                      disabled={quantity >= 10 || addingToCart || buyingNow}
-                      className={styles.pdpQuantityBtn}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Action Buttons: Add to cart & Buy now */}
-                <div className={styles.pdpActionButtons}>
-                  <button
-                    type="button"
-                    data-kt-action="add-to-cart"
-                    onClick={handleAddToCart}
-                    disabled={!isPurchasable || addingToCart || buyingNow}
-                    className={styles.pdpBtnAddToCart}
-                  >
-                    {addingToCart ? "Adding..." : "Add to cart"}
-                  </button>
-
-                  <button
-                    type="button"
-                    data-kt-action="buy-now"
-                    onClick={handleBuyNow}
-                    disabled={!isPurchasable || addingToCart || buyingNow}
-                    className={styles.pdpBtnBuyNow}
-                  >
-                    {buyingNow ? "Preparing checkout..." : isPurchasable ? "Buy now" : "Unavailable"}
-                  </button>
-                </div>
-
-                {/* Add to Cart / Buy Now Feedback Toast */}
-                {cartFeedback && (
-                  <div
-                    className={`${styles.pdpFeedbackBox} ${
-                      cartFeedback.type === "success" ? styles.pdpFeedbackSuccess : styles.pdpFeedbackError
-                    }`}
-                    role="status"
-                  >
-                    <span>{cartFeedback.message}</span>
-                    {cartFeedback.type === "success" && (
-                      <div className={styles.pdpFeedbackActions}>
-                        <Link href="/cart" className={styles.pdpFeedbackBtn}>
-                          View cart
-                        </Link>
-                        <Link
-                          href="/checkout"
-                          className={`${styles.pdpFeedbackBtn} ${styles.pdpFeedbackBtnPrimary}`}
-                        >
-                          Checkout
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
+            {product.shortDescription && (
+              <p className={styles.pdpShortDescription}>{product.shortDescription}</p>
+            )}
+          </section>
         </div>
 
+        <ProductMediaGallery product={product} mediaGallery={gallery} />
+
+        <div className={styles.pdpPurchaseRail}>
+          <section
+            aria-label="Purchase product"
+            className={cn(styles.pdpPurchasePlane, purchasePlaneTooTall && styles.pdpPurchasePlaneTall)}
+            ref={purchasePlaneRef}
+          >
+            {/* Price & VAT Row */}
+            <div className={styles.pdpPriceRow}>
+              <span className={styles.pdpPrice}>
+                {offers.length > 1 && selectedOfferReference === product.offerReference ? "From " : ""}
+                {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
+              </span>
+              <span className={styles.pdpVatNote}>VAT included</span>
+            </div>
+
+            {/* Seller / Offer Decision Section */}
+            <SellerSelector
+              offers={offers}
+              selectedOfferReference={activeOffer.offerReference}
+              onSelectOffer={handleSelectOffer}
+              defaultStoreName={store?.name}
+            />
+
+            {/* Variant Selector */}
+            {variants.length > 1 && (
+              <div className={styles.variantSelectorBlock}>
+                <span className={styles.variantGroupLabel}>Available options</span>
+                <LayoutGroup id="pdp-variants">
+                  <div className={styles.variantOptionsList}>
+                    {variants.map((v) => {
+                      const isSelected = selectedVariantReference === v.variantReference;
+                      const vHref = marketplaceVariantHref(
+                        product.productSlug,
+                        product.productReference,
+                        v.variantReference
+                      );
+                      if (!vHref) return null;
+
+                      return (
+                        <Link
+                          className={`${styles.variantOptionButton} ${
+                            isSelected ? styles.variantOptionButtonActive : ""
+                          } relative overflow-hidden`}
+                          href={vHref}
+                          key={v.variantReference}
+                        >
+                          <span className="relative z-10">
+                            {Object.values(v.variantOptions).join(" · ") || "Standard"}
+                          </span>
+                          {isSelected && (
+                            <motion.div
+                              layoutId="activeVariantIndicator"
+                              className="absolute inset-0 bg-[var(--kt-public-surface-inverse)]/10 z-0 pointer-events-none rounded-[2px]"
+                              transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                            />
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </LayoutGroup>
+              </div>
+            )}
+
+            {/* Modifiers Selection */}
+            {modifierGroups.length > 0 && (
+              <div className={styles.pdpModifiersContainer}>
+                <span className={styles.variantGroupLabel}>Customise options</span>
+                {modifierGroups.map((group) => {
+                  const selected = selectedModifiers[group.groupReference] ?? [];
+                  const isGroupSatisfied = !group.isRequired || selected.length >= group.minimumSelections;
+
+                  return (
+                    <div key={group.groupReference} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div className={styles.pdpModifierGroupHeader}>
+                        <span className={styles.pdpModifierGroupName}>{group.name}</span>
+                        <span
+                          className={
+                            group.isRequired && !isGroupSatisfied
+                              ? styles.pdpModifierBadgeRequired
+                              : styles.pdpModifierBadgeOptional
+                          }
+                        >
+                          {group.isRequired ? (isGroupSatisfied ? "Selected" : "Required") : "Optional"}
+                        </span>
+                      </div>
+
+                      {group.description && (
+                        <p style={{ fontSize: "0.8rem", color: "var(--commerce-muted)", margin: 0 }}>
+                          {group.description}
+                        </p>
+                      )}
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {group.options.map((option) => {
+                          const isChecked = selected.includes(option.optionReference);
+                          const isRadio = group.maximumSelections === 1;
+
+                          return (
+                            <label
+                              key={option.optionReference}
+                              className={`${styles.pdpModifierOptionRow} ${
+                                isChecked ? styles.pdpModifierOptionRowActive : ""
+                              }`}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <input
+                                  type={isRadio ? "radio" : "checkbox"}
+                                  name={group.groupReference}
+                                  checked={isChecked}
+                                  onChange={() =>
+                                    toggleModifierOption(
+                                      group.groupReference,
+                                      option.optionReference,
+                                      group.maximumSelections
+                                    )
+                                  }
+                                />
+                                <span>{option.name}</span>
+                              </div>
+                              <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                                {Number(option.priceDelta) > 0
+                                  ? `+${formatCommercePrice(option.priceDelta, "ZAR")}`
+                                  : "Included"}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Quantity & Dual Purchase Actions */}
+            <div className={styles.pdpActionsBlock}>
+              <div className={styles.pdpQuantityRow}>
+                <span className={styles.pdpQuantityLabel}>Quantity</span>
+                <div className={styles.pdpQuantityStepper}>
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    disabled={quantity <= 1 || addingToCart || buyingNow}
+                    className={styles.pdpQuantityBtn}
+                  >
+                    −
+                  </button>
+                  <span className={styles.pdpQuantityVal}>{quantity}</span>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    onClick={() => setQuantity((q) => Math.min(10, q + 1))}
+                    disabled={quantity >= 10 || addingToCart || buyingNow}
+                    className={styles.pdpQuantityBtn}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons: Add to cart & Buy now */}
+              <div className={styles.pdpActionButtons}>
+                <button
+                  type="button"
+                  data-kt-action="add-to-cart"
+                  onClick={handleAddToCart}
+                  disabled={!isPurchasable || addingToCart || buyingNow}
+                  className={styles.pdpBtnAddToCart}
+                >
+                  {addingToCart ? "Adding..." : "Add to cart"}
+                </button>
+
+                <button
+                  type="button"
+                  data-kt-action="buy-now"
+                  onClick={handleBuyNow}
+                  disabled={!isPurchasable || addingToCart || buyingNow}
+                  className={styles.pdpBtnBuyNow}
+                >
+                  {buyingNow ? "Preparing checkout..." : isPurchasable ? "Buy now" : "Unavailable"}
+                </button>
+              </div>
+
+              {/* Add to Cart / Buy Now Feedback Toast */}
+              {cartFeedback && (
+                <div
+                  className={`${styles.pdpFeedbackBox} ${
+                    cartFeedback.type === "success" ? styles.pdpFeedbackSuccess : styles.pdpFeedbackError
+                  }`}
+                  role="status"
+                >
+                  <span>{cartFeedback.message}</span>
+                  {cartFeedback.type === "success" && (
+                    <div className={styles.pdpFeedbackActions}>
+                      <Link href="/cart" className={styles.pdpFeedbackBtn}>
+                        View cart
+                      </Link>
+                      <Link
+                        href="/checkout"
+                        className={`${styles.pdpFeedbackBtn} ${styles.pdpFeedbackBtnPrimary}`}
+                      >
+                        Checkout
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
 
       {/* Structured Product Information (Overview + Details) */}
