@@ -68,7 +68,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
   const { prefersReducedMotion } = usePublicMotionPreference();
   const [activeSharedMedia, setActiveSharedMedia] = useState<SharedMediaData | null>(null);
   const [takeoverActive, setTakeoverActive] = useState(false);
-  const [takeoverColor, setTakeoverColor] = useState("#F3F1EA");
+  const [takeoverColor, setTakeoverColor] = useState("var(--kt-public-text-inverse)");
   const containerRef = useRef<HTMLDivElement>(null);
   const flightProxyRef = useRef<HTMLDivElement>(null);
   const prevPathRef = useRef(pathname);
@@ -93,7 +93,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
   );
 
   const triggerMaterialTakeover = useCallback(
-    (color = "#F3F1EA") => {
+    (color = "var(--kt-public-text-inverse)") => {
       if (prefersReducedMotion) return;
       setTakeoverColor(color);
       setTakeoverActive(true);

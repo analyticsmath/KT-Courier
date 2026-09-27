@@ -112,7 +112,7 @@ export function MarketplaceProductGrid({ products, label = "Products" }: { produ
             <p className={styles.price}>{product.price.from ? "From " : ""}{formatPrice(product.price.amount, product.price.currency)}<small>VAT included</small></p>
             <p className={styles.availability}>{availabilityLabel(product.availability)}</p>
             <p className={styles.storeCount}>Available from {product.storeCount} {product.storeCount === 1 ? "store" : "stores"}</p>
-            {!href ? <p style={{ fontSize: "0.75rem", color: "var(--kt-red, #d83a2e)", marginTop: 4 }}>Temporarily unavailable</p> : null}
+            {!href ? <p style={{ fontSize: "0.75rem", color: "var(--kt-state-warning)", marginTop: 4 }}>Temporarily unavailable</p> : null}
           </div>
         </li>;
       })}

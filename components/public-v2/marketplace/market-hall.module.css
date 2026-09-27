@@ -1,11 +1,11 @@
 .page {
-  --market-ink: var(--kt-carbon, #101210);
-  --market-quiet: var(--kt-muted, #5f6763);
-  --market-line: var(--kt-cool-200, #eceeee);
-  --market-surface: var(--kt-bone, #FBF9F3);
-  --market-red: var(--kt-red, #d83a2e);
+  --market-ink: var(--kt-public-text-primary);
+  --market-quiet: var(--kt-public-text-muted);
+  --market-line: var(--kt-public-border-subtle);
+  --market-surface: var(--kt-public-surface-primary);
+  --market-red: var(--kt-public-interactive-text);
   color: var(--market-ink);
-  background: var(--kt-white, #ffffff);
+  background: var(--kt-public-canvas);
 }
 
 .inner {
@@ -85,7 +85,7 @@
   margin-top: 1.5rem;
   padding: 0.4rem;
   border: 1px solid var(--market-ink);
-  background: var(--kt-white, #ffffff);
+  background: var(--kt-public-surface-primary);
 }
 
 .searchForm input {
@@ -117,7 +117,7 @@
   padding: 0 1.25rem;
   border: 0;
   background: var(--market-ink);
-  color: var(--kt-white, #ffffff);
+  color: var(--kt-public-text-inverse);
   font-weight: 560;
   cursor: pointer;
   display: inline-flex;
@@ -129,7 +129,7 @@
 
 .searchForm button:hover,
 .actionButton:hover {
-  background: var(--kt-graphite, #303532);
+  background: var(--kt-public-text-muted);
 }
 
 .section {
@@ -179,7 +179,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 1.5rem;
-  background: var(--kt-white, #ffffff);
+  background: var(--kt-public-surface-primary);
   border: 1px solid var(--market-line);
   text-decoration: none;
   color: var(--market-ink);
@@ -188,7 +188,8 @@
 
 .categoryCard:hover {
   border-color: var(--market-ink);
-  background-color: var(--kt-cool-100, #f5f6f6);
+  background-color: var(--kt-public-surface-tertiary);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .categoryCard strong {
@@ -212,7 +213,7 @@
 }
 
 .storeCard {
-  background: var(--kt-white, #ffffff);
+  background: var(--kt-public-surface-primary);
   border: 1px solid var(--market-line);
   display: flex;
   flex-direction: column;
@@ -223,7 +224,8 @@
   position: relative;
   width: 100%;
   height: 180px;
-  background: var(--kt-cool-150, #eceeee);
+  background: var(--kt-public-surface-tertiary);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .storeBody {
@@ -273,7 +275,7 @@
 .productCard {
   display: flex;
   flex-direction: column;
-  background: var(--kt-white, #ffffff);
+  background: var(--kt-public-surface-primary);
   border: 1px solid var(--market-line);
   text-decoration: none;
   color: var(--market-ink);
@@ -298,7 +300,8 @@
   position: relative;
   width: 100%;
   height: 240px;
-  background: var(--kt-cool-150, #eceeee);
+  background: var(--kt-public-surface-tertiary);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .productBody {
@@ -327,7 +330,8 @@
 }
 
 .deliverySection {
-  background: var(--kt-cool-100, #f5f6f6);
+  background: var(--kt-public-surface-tertiary);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .deliveryGrid {

@@ -29,7 +29,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
     return (
       <div className={styles.commerceInner} style={{ padding: "4rem 0" }}>
         <h2 style={{ fontSize: "1.8rem", fontWeight: 560 }}>Categories are being prepared</h2>
-        <p style={{ color: "var(--kt-muted, #5f6763)", margin: "8px 0 24px" }}>
+        <p style={{ color: "var(--kt-public-text-muted)", margin: "8px 0 24px" }}>
           Published categories will appear here when items are available.
         </p>
         <Link className={styles.sectionDirectLink} href={marketplaceHref()}>
@@ -76,7 +76,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
                   <div>
                     <span className={styles.categoryStreamTitle}>{cat.name}</span>
                     {cat.description && (
-                      <p style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", margin: "4px 0 0" }}>
+                      <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", margin: "4px 0 0" }}>
                         {cat.description}
                       </p>
                     )}
@@ -87,9 +87,9 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
                             key={child.reference}
                             style={{
                               fontSize: "0.75rem",
-                              backgroundColor: "var(--kt-cool-100, #eceeee)",
+                              backgroundColor: "var(--kt-public-surface-tertiary)",
                               padding: "2px 8px",
-                              color: "var(--kt-graphite, #303532)",
+                              color: "var(--kt-public-text-muted)",
                             }}
                           >
                             {child.name}
@@ -122,7 +122,7 @@ export function CategoryAtlas({ categories }: CategoryAtlasProps) {
               <div>
                 <span className={styles.mediaCategoryName}>{activeCat.name}</span>
                 {Boolean(activeCat.productCount && activeCat.productCount > 0) && (
-                  <p style={{ fontSize: "0.85rem", color: "var(--kt-cool-300, #c9cecc)", margin: "4px 0 0" }}>
+                  <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-inverse-muted)", margin: "4px 0 0" }}>
                     {activeCat.productCount} products listed
                   </p>
                 )}

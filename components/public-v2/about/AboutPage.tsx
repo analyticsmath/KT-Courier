@@ -51,7 +51,7 @@ export function AboutPage() {
         <section aria-labelledby="about-heading" className={styles.aboutHero}>
           <h1 className={styles.aboutTitle} id="about-heading">
             Commerce does not end at the checkout.{" "}
-            <span className="inline-block align-middle mx-1 sm:mx-2 w-12 h-6 sm:w-20 sm:h-9 relative overflow-hidden rounded-full border border-black/15 shadow-inner">
+            <span className="inline-block align-middle mx-1 sm:mx-2 w-12 h-6 sm:w-20 sm:h-9 relative overflow-hidden rounded-full border border-[var(--kt-public-surface-inverse)]/15 shadow-inner">
               <Image
                 src={ktMediaV3.pages.about.photoEssay[3].src}
                 alt={ktMediaV3.pages.about.photoEssay[3].alt}
@@ -96,18 +96,18 @@ export function AboutPage() {
         <FloatingImageGallery />
 
         {/* The People Behind the Network — Unboxed Editorial Portraits */}
-        <section aria-label="People of KT Couriers" className="my-16 pt-12 border-t border-[var(--kt-concrete)]/40">
+        <section aria-label="People of KT Couriers" className="my-16 pt-12 border-t border-[var(--kt-public-border-default)]/40">
           <div className="max-w-2xl mb-8">
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] font-semibold block mb-2">
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-public-text-muted)] font-semibold block mb-2">
               People behind the journey
             </span>
-            <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[var(--kt-asphalt)]">
+            <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[var(--kt-public-text-primary)]">
               The people who build and move the network.
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:divide-x md:divide-[var(--kt-concrete)]/40">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:divide-x md:divide-[var(--kt-public-border-default)]/40">
             <div className="space-y-4 md:pr-6">
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/30">
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
                 <Image
                   src={ktMediaV3.pages.about.portraits[0].src}
                   alt={ktMediaV3.pages.about.portraits[0].alt}
@@ -117,20 +117,20 @@ export function AboutPage() {
                 />
               </div>
               <div className="pt-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-road-grey)] block">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
                   Local Merchants
                 </span>
-                <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)] mt-1">
+                <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
                   Artisans & Independent Shops
                 </h3>
-                <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed mt-2">
+                <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
                   From neighborhood craft markets to established boutiques, independent South African merchants rely on KT for dependable fulfillment.
                 </p>
               </div>
             </div>
 
             <div className="space-y-4 md:pl-6">
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/30">
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
                 <Image
                   src={ktMediaV3.pages.about.portraits[1].src}
                   alt={ktMediaV3.pages.about.portraits[1].alt}
@@ -140,13 +140,13 @@ export function AboutPage() {
                 />
               </div>
               <div className="pt-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-road-grey)] block">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
                   Couriers & Drivers
                 </span>
-                <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)] mt-1">
+                <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
                   Delivery & Route Operators
                 </h3>
-                <p className="text-sm text-[var(--kt-road-grey)] leading-relaxed mt-2">
+                <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
                   Operating across urban corridors and regional roads, bringing packages safely to their destinations.
                 </p>
               </div>

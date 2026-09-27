@@ -59,7 +59,7 @@ export function AtlasViewerClient() {
                         style={{
                           fontFamily: "var(--kt-font-mono, monospace)",
                           fontSize: "0.68rem",
-                          color: service.slug === "freight" ? "var(--kt-signal-red, #cf2930)" : "var(--kt-cobalt, #347cfb)",
+                          color: service.slug === "freight" ? "var(--kt-public-brand-signal)" : "var(--kt-public-interactive-text)",
                           textTransform: "uppercase",
                           letterSpacing: "0.04em",
                         }}
@@ -100,13 +100,14 @@ export function AtlasViewerClient() {
               position: "absolute",
               top: 12,
               left: 12,
+              // kt-color-audit-allow: existing photographic readability overlay
               backgroundColor: "rgba(14, 16, 18, 0.85)",
-              color: "#ffffff",
+              color: "var(--kt-public-text-inverse)",
               padding: "4px 10px",
               fontFamily: "var(--kt-font-mono, monospace)",
               fontSize: "0.7rem",
               letterSpacing: "0.06em",
-              borderLeft: "2px solid var(--kt-signal-red, #cf2930)",
+              borderLeft: "2px solid var(--kt-public-brand-signal)",
             }}
           >
             {protagonist.badge}

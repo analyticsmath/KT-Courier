@@ -63,7 +63,7 @@
 .roleMeta,
 .categoryIndex a,
 .mediaCaption {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-family: var(--kt-public-font-interface);
   font-size: 0.7rem;
   font-weight: 760;
@@ -124,15 +124,15 @@
 }
 
 .primaryAction {
-  background: var(--kt-public-signal);
-  border: 1px solid var(--kt-public-signal);
+  background: var(--kt-public-action-primary);
+  border: 1px solid var(--kt-public-action-primary);
   color: var(--kt-public-signal-contrast);
   padding-inline: 1.15rem;
 }
 
 .primaryAction:hover {
-  background: var(--kt-public-signal-hover);
-  border-color: var(--kt-public-signal-hover);
+  background: var(--kt-public-action-primary-hover);
+  border-color: var(--kt-public-action-primary-hover);
 }
 
 .secondaryAction {
@@ -274,7 +274,7 @@
 
 .ecosystemList span,
 .principleList span {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-family: var(--kt-public-font-editorial);
   font-size: 1.5rem;
   line-height: 1;
@@ -397,13 +397,13 @@
 }
 
 .closingCta > p:not(.eyebrow) {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--kt-public-text-inverse);
   margin: 1rem 0 0;
   max-width: 54ch;
 }
 
 .closingCta .eyebrow {
-  color: #ff8f86;
+  color: var(--kt-public-brand-signal);
 }
 
 .closingCta .primaryAction {
@@ -479,7 +479,7 @@
 }
 
 .categoryIndex a:hover {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
 }
 
 .faqLayout {
@@ -518,7 +518,7 @@
 }
 
 .faqList summary::after {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   content: "+";
   font-size: 1.5rem;
   font-weight: 400;
@@ -574,7 +574,7 @@
 .breadcrumbs a:focus-visible,
 .categoryIndex a:focus-visible,
 .faqList summary:focus-visible {
-  outline: 3px solid var(--kt-public-signal);
+  outline: 3px solid var(--kt-public-focus);
   outline-offset: 3px;
 }
 

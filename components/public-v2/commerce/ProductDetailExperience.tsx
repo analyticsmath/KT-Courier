@@ -399,7 +399,7 @@ export function ProductDetailExperience({
                         {isSelected && (
                           <motion.div
                             layoutId="activeVariantIndicator"
-                            className="absolute inset-0 bg-[#0E1012]/10 z-0 pointer-events-none rounded-[2px]"
+                            className="absolute inset-0 bg-[var(--kt-public-surface-inverse)]/10 z-0 pointer-events-none rounded-[2px]"
                             transition={{ type: "spring", stiffness: 350, damping: 28 }}
                           />
                         )}

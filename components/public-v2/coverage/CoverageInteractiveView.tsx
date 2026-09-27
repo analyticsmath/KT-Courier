@@ -45,24 +45,24 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
               <span className={styles.telemetryTitle}>Region · {selectedRegion.name}</span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem", borderTop: "1px solid var(--kt-concrete, #D1CEC6)/30", paddingTop: "1rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem", borderTop: "1px solid var(--kt-public-border-subtle)", paddingTop: "1rem" }}>
               <div>
-                <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--kt-road-grey, #6B6E6A)", display: "block" }}>Location</span>
-                <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-asphalt, #101210)" }}>
+                <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--kt-public-text-inverse-muted)", display: "block" }}>Location</span>
+                <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-public-text-inverse)" }}>
                   {[selectedRegion.city, selectedRegion.province].filter(Boolean).join(", ") || "Active Region"}
                 </span>
               </div>
               {selectedRegion.coverageRadiusKm && (
                 <div>
-                  <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--kt-road-grey, #6B6E6A)", display: "block" }}>Service Range</span>
-                  <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-asphalt, #101210)" }}>
+                  <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--kt-public-text-inverse-muted)", display: "block" }}>Service Range</span>
+                  <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-public-text-inverse)" }}>
                     ~{selectedRegion.coverageRadiusKm} km Radius
                   </span>
                 </div>
               )}
             </div>
             {selectedRegion.description && (
-              <p style={{ marginTop: "1rem", fontSize: "0.9rem", color: "var(--kt-road-grey, #6B6E6A)", lineHeight: 1.5 }}>
+              <p style={{ marginTop: "1rem", fontSize: "0.9rem", color: "var(--kt-public-text-inverse-muted)", lineHeight: 1.5 }}>
                 {selectedRegion.description}
               </p>
             )}
@@ -102,6 +102,7 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
                       className={`${styles.regionCardButton} ${
                         isSelected ? styles.regionCardButtonActive : ""
                       }`}
+                      aria-pressed={isSelected}
                       onClick={() => setSelectedIdx(idx)}
                       onFocus={() => setSelectedIdx(idx)}
                       type="button"

@@ -70,8 +70,8 @@ export function StickyCursor() {
       }}
       aria-hidden="true"
     >
-      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#0E1012]/95 border border-[#347CFB]/40 shadow-lg text-[10px] font-mono font-semibold tracking-wider text-[#F3F1EA] uppercase select-none rounded-[2px]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#347CFB] animate-pulse" />
+      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kt-public-surface-inverse)]/95 border border-[var(--kt-public-interactive)]/40 shadow-lg text-[10px] font-mono font-semibold tracking-wider text-[var(--kt-public-text-inverse)] uppercase select-none rounded-[2px]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-public-interactive)] animate-pulse" />
         <span>{activeMode}</span>
       </div>
     </div>

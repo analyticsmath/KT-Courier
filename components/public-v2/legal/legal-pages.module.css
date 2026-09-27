@@ -22,7 +22,7 @@
 .eyebrow,
 .statusLabel {
   margin: 0;
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-family: var(--kt-public-font-interface);
   font-size: 0.7rem;
   font-weight: 720;
@@ -170,18 +170,18 @@
   }
 
   .page {
-    background: #fff;
-    color: #000;
+    background: var(--kt-public-canvas);
+    color: var(--kt-public-text-primary);
   }
 
   .header {
-    border-bottom-color: #000;
+    border-bottom-color: var(--kt-public-border-inverse);
     padding-bottom: 18px;
   }
 
   .eyebrow,
   .statusLabel {
-    color: #000;
+    color: var(--kt-public-text-primary);
   }
 
   .title,
@@ -191,7 +191,7 @@
   .section p,
   .section li,
   .footerNote {
-    color: #000;
+    color: var(--kt-public-text-primary);
   }
 
   .toc {

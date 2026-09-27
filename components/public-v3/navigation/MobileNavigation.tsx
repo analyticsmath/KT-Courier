@@ -106,8 +106,8 @@ export function MobileNavigation() {
       aria-label="Mobile app navigation"
       className={`md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t transition-colors duration-200 ${
         isDark
-          ? "bg-[var(--kt-asphalt)] border-[#23272B] text-[var(--kt-freight-paper)]"
-          : "bg-[var(--kt-freight-paper)] border-[var(--kt-concrete)]/40 text-[var(--kt-asphalt)]"
+          ? "bg-[var(--kt-public-surface-inverse)] border-[var(--kt-public-border-inverse)] text-[var(--kt-public-text-inverse)]"
+          : "bg-[var(--kt-public-canvas)] border-[var(--kt-public-border-default)]/40 text-[var(--kt-public-text-primary)]"
       }`}
       data-kt-app-shell="mobile-nav"
       data-commerce-nav={isCommerce ? "true" : undefined}
@@ -130,13 +130,13 @@ export function MobileNavigation() {
             href={item.href}
             className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors ${
               isActive
-                ? "text-[var(--kt-brand-blue)] font-bold"
-                : "opacity-75 hover:opacity-100"
+                ? (isDark ? "text-[var(--kt-public-interactive)] font-bold" : "text-[var(--kt-public-interactive-text)] font-bold")
+                : (isDark ? "text-[var(--kt-public-text-inverse-muted)]" : "text-[var(--kt-public-text-secondary)]")
             }`}
           >
             <span className="relative">
               {item.icon}
-              {isCommerce && item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--kt-brand-blue)] px-1 text-[9px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>}
+              {isCommerce && item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--kt-public-action-primary)] px-1 text-[9px] font-bold text-[var(--kt-public-text-inverse)]">{cartCount > 99 ? "99+" : cartCount}</span>}
             </span>
             <span className="mt-1">{item.label}</span>
           </Link>

@@ -64,7 +64,7 @@ export function HomepageIntroCurtain() {
     <div
       aria-hidden="true"
       onClick={triggerUnseal}
-      className={`fixed inset-0 z-[100] flex items-center justify-center bg-[#0E1012] pointer-events-auto select-none transition-all duration-500 ease-in-out ${
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-[var(--kt-public-surface-inverse)] pointer-events-auto select-none transition-all duration-500 ease-in-out ${
         unsealed
           ? "opacity-0 scale-150 pointer-events-none"
           : "opacity-100 scale-100"
@@ -78,16 +78,16 @@ export function HomepageIntroCurtain() {
       <div className="relative flex flex-col items-center justify-center">
         {/* Simplified KT Mark as Aperture */}
         <div className="relative flex items-center gap-3">
-          <span className="font-sans font-black text-5xl md:text-7xl tracking-tighter text-[#F3F1EA]">
+          <span className="font-sans font-black text-5xl md:text-7xl tracking-tighter text-[var(--kt-public-text-inverse)]">
             KT
           </span>
-          <span className="w-2.5 h-2.5 rounded-full bg-[#347CFB] shadow-[0_0_12px_#347CFB]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--kt-public-interactive)] shadow-[0_0_12px_var(--kt-public-interactive)]" />
         </div>
 
         {/* Asymmetrical seam pressure line */}
-        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-[#347CFB] to-transparent mt-4 opacity-80" />
+        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-[var(--kt-public-interactive)] to-transparent mt-4 opacity-80" />
 
-        <span className="mt-3 text-[10px] font-mono tracking-widest text-[#59626A] uppercase">
+        <span className="mt-3 text-[10px] font-mono tracking-widest text-[var(--kt-public-text-muted)] uppercase">
           SOUTH AFRICAN COMMERCE IN MOTION
         </span>
       </div>

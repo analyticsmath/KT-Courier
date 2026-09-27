@@ -29,16 +29,16 @@
 .breadcrumb li:not(:last-child)::after {
   content: "/";
   margin-left: 8px;
-  color: var(--kt-public-text-tertiary);
+  color: var(--kt-public-text-muted-on-surface);
 }
 
 .breadcrumb a:hover {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
 }
 
 .eyebrow,
 .statusLabel {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-family: var(--kt-public-font-interface);
   font-size: 0.69rem;
   font-weight: 760;
@@ -95,19 +95,19 @@
 }
 
 .primaryAction {
-  border-color: var(--kt-public-signal);
-  background: var(--kt-public-signal);
+  border-color: var(--kt-public-action-primary);
+  background: var(--kt-public-action-primary);
   color: var(--kt-public-text-inverse);
 }
 
 .primaryAction:hover {
-  border-color: var(--kt-public-signal-hover);
-  background: var(--kt-public-signal-hover);
+  border-color: var(--kt-public-action-primary-hover);
+  background: var(--kt-public-action-primary-hover);
 }
 
 .secondaryAction:hover {
   border-color: var(--kt-public-signal);
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
 }
 
 .textAction {
@@ -121,13 +121,13 @@
 }
 
 .textAction:hover {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
 }
 
 .mediaFrame {
   margin: 0;
   border: 1px solid var(--kt-public-line-default);
-  background: var(--kt-public-surface-muted);
+  background: var(--kt-public-surface-secondary);
 }
 
 .mediaFrame img,
@@ -160,7 +160,7 @@
 .editorialFigure figcaption span {
   display: block;
   margin-bottom: 5px;
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-size: 0.62rem;
   font-weight: 760;
   letter-spacing: 0.09em;
@@ -172,7 +172,7 @@
 }
 
 .sectionMuted {
-  background: var(--kt-public-surface-muted);
+  background: var(--kt-public-surface-secondary);
 }
 
 .routeComposition {
@@ -196,7 +196,7 @@
 .routeLine {
   width: 100%;
   max-width: 520px;
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
 }
 
 .conceptGrid {
@@ -279,7 +279,7 @@
   margin-block: 42px 92px;
   padding: clamp(28px, 5vw, 60px);
   border-block: 1px solid var(--kt-public-text-primary);
-  background: var(--kt-public-surface-muted);
+  background: var(--kt-public-surface-secondary);
 }
 
 .unavailablePanel h1 {

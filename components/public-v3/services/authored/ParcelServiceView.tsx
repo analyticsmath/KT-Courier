@@ -45,10 +45,10 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
       {/* 2. Editorial Hero Stage: Sticky Title + Media Transition */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative z-10">
         <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-28">
-          <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-asphalt)] leading-none">
+          <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-[var(--kt-public-text-primary)] leading-none">
             {service.title}
           </h1>
-          <p className="text-lg sm:text-xl text-[var(--kt-road-grey)] leading-relaxed max-w-xl">
+          <p className="text-lg sm:text-xl text-[var(--kt-public-text-muted)] leading-relaxed max-w-xl">
             {service.summary}
           </p>
           <div className="pt-2 flex items-center gap-4 flex-wrap">
@@ -62,7 +62,7 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
             {service.secondaryAction && (
               <Link
                 href={service.secondaryAction.href}
-                className="text-xs font-bold uppercase tracking-wider text-[var(--kt-asphalt)] border-b border-[var(--kt-concrete)] hover:border-[var(--kt-asphalt)] pb-1 transition-colors"
+                className="text-xs font-bold uppercase tracking-wider text-[var(--kt-public-text-primary)] border-b border-[var(--kt-public-border-default)] hover:border-[var(--kt-public-text-primary)] pb-1 transition-colors"
               >
                 {service.secondaryAction.label}
               </Link>
@@ -80,12 +80,12 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
       </section>
 
       {/* 3. Custody Chain & Text Chapters — Process steps drive adjacent media */}
-      <section className="space-y-8 pt-8 border-t border-[var(--kt-concrete)]/40">
+      <section className="space-y-8 pt-8 border-t border-[var(--kt-public-border-default)]/40">
         <div>
-          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-1">
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-public-text-muted)] block mb-1">
             Custody Protocol
           </span>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-public-text-primary)]">
             How custody is maintained
           </h2>
         </div>
@@ -99,8 +99,8 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
             />
           </div>
           <div className="lg:col-span-5 hidden lg:block sticky top-36">
-            <div className="p-4 bg-black/[0.02] border border-[var(--kt-concrete)]/40 text-xs font-mono space-y-2 text-[var(--kt-road-grey)]">
-              <div className="font-bold text-[var(--kt-asphalt)] uppercase">
+            <div className="p-4 bg-[var(--kt-public-surface-inverse)]/[0.02] border border-[var(--kt-public-border-default)]/40 text-xs font-mono space-y-2 text-[var(--kt-public-text-muted)]">
+              <div className="font-bold text-[var(--kt-public-text-primary)] uppercase">
                 Active Chapter &bull; {processChapters[activeChapter]?.badge}
               </div>
               <p>
@@ -112,15 +112,15 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
       </section>
 
       {/* 4. Suitable Items & Packaging Guidelines */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-concrete)]/40 md:divide-x md:divide-[var(--kt-concrete)]/40">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[var(--kt-public-border-default)]/40 md:divide-x md:divide-[var(--kt-public-border-default)]/40">
         <div className="space-y-4 md:pr-6">
-          <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
+          <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)]">
             Suitable Items
           </h3>
-          <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
+          <ul className="space-y-2.5 text-sm text-[var(--kt-public-text-muted)]">
             {service.idealFor.map((item, idx) => (
               <li key={idx} className="flex items-start gap-2">
-                <span className="text-[var(--kt-asphalt)] font-bold mt-0.5">&bull;</span>
+                <span className="text-[var(--kt-public-text-primary)] font-bold mt-0.5">&bull;</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -128,13 +128,13 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
         </div>
 
         <div className="space-y-4 md:pl-6">
-          <h3 className="font-display text-xl font-bold text-[var(--kt-asphalt)]">
+          <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)]">
             Packaging & Handoff Guide
           </h3>
-          <ul className="space-y-2.5 text-sm text-[var(--kt-road-grey)]">
+          <ul className="space-y-2.5 text-sm text-[var(--kt-public-text-muted)]">
             {service.preparation.map((item, idx) => (
               <li key={idx} className="flex items-start gap-2">
-                <span className="text-[var(--kt-asphalt)] font-bold mt-0.5">&bull;</span>
+                <span className="text-[var(--kt-public-text-primary)] font-bold mt-0.5">&bull;</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -144,7 +144,7 @@ export function ParcelServiceView({ service }: AuthoredServiceViewProps) {
 
       {/* 5. Secondary Documentary Media Drift */}
       {detailMediaItems.length > 0 && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-[var(--kt-concrete)]/40">
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-[var(--kt-public-border-default)]/40">
           {detailMediaItems.map((item, idx) => (
             <ServiceImageShift
               key={idx}

@@ -1,8 +1,8 @@
 .joinRoot {
   position: relative;
   width: 100%;
-  background-color: var(--kt-freight-paper, #F1ECE2);
-  color: var(--kt-carbon, #101210);
+  background-color: var(--kt-public-canvas);
+  color: var(--kt-public-text-primary);
   padding: clamp(36px, 6vw, 72px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
 }
 
@@ -28,13 +28,13 @@
   font-weight: 560;
   line-height: 0.96;
   letter-spacing: -0.04em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .joinLead {
   font-size: clamp(1.05rem, 1.6vw, 1.35rem);
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -54,8 +54,8 @@
 
 .roleTabButton {
   position: relative;
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-250, #dde1e0);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-cool-250);
   padding: 14px 24px;
   cursor: pointer;
   white-space: nowrap;
@@ -65,13 +65,13 @@
 }
 
 .roleTabButtonActive {
-  border-color: var(--kt-carbon, #101210);
+  border-color: var(--kt-public-text-primary);
 }
 
 .roleTabIndicator {
   position: absolute;
   inset: 0;
-  background-color: var(--kt-carbon, #101210);
+  background-color: var(--kt-public-surface-inverse);
   z-index: 1;
 }
 
@@ -80,17 +80,17 @@
   z-index: 2;
   font-size: 1rem;
   font-weight: 560;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   transition: color 140ms ease;
 }
 
 .roleTabButtonActive .roleTabTitle {
-  color: var(--kt-white, #ffffff);
+  color: var(--kt-public-text-inverse);
 }
 
 .roleStageCard {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   min-height: 540px;
   overflow: hidden;
 }
@@ -121,13 +121,13 @@
   font-size: clamp(1.8rem, 3.4vw, 2.8rem);
   font-weight: 560;
   letter-spacing: -0.03em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .roleTagline {
   font-size: 1.1rem;
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.5;
   margin: 0;
 }
@@ -137,7 +137,7 @@
   flex-direction: column;
   gap: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--kt-cool-150, #eceeee);
+  border-top: 1px solid var(--kt-public-surface-tertiary);
 }
 
 .requirementsTitle {
@@ -145,7 +145,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
@@ -160,7 +160,7 @@
 
 .requirementsList li {
   font-size: 0.95rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
 }
 
@@ -172,8 +172,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
   padding: 13px 26px;
   font-size: 1rem;
   font-weight: 560;
@@ -182,15 +182,16 @@
 }
 
 .rolePrimaryAction:hover {
-  background-color: var(--kt-graphite, #303532);
+  background-color: var(--kt-public-text-muted);
 }
 
 .roleMediaColumn {
   position: relative;
   width: 100%;
   min-height: 360px;
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 @media (prefers-reduced-motion: reduce) {

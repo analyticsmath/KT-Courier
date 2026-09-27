@@ -24,7 +24,7 @@ export function MembershipPage() {
         <div className="mb-6">
           <Link
             href="/"
-            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-public-text-muted)] hover:text-[var(--kt-public-text-primary)] transition-colors inline-flex items-center gap-1.5"
           >
             ← Home
           </Link>
@@ -77,46 +77,46 @@ export function MembershipPage() {
         </section>
 
         {/* Stepped Editorial Sequence */}
-        <section aria-label="Account Progression" className="mt-16 pt-12 border-t border-[var(--kt-concrete)]/40">
+        <section aria-label="Account Progression" className="mt-16 pt-12 border-t border-[var(--kt-public-border-default)]/40">
           <div className="mb-8">
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-public-text-muted)] block mb-2">
               Progression Pathway
             </span>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--kt-asphalt)]">
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--kt-public-text-primary)]">
               How merchant & volume accounts are activated
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-2">
+            <div className="pt-4 border-t border-[var(--kt-public-border-default)] space-y-2">
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">01</span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+                <span className="font-mono text-xs font-bold text-[var(--kt-public-text-muted)]">01</span>
+                <div className="h-px flex-1 bg-[var(--kt-public-border-default)]/60" />
               </div>
-              <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">Account Registration</h3>
-              <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+              <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">Account Registration</h3>
+              <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
                 Establish an authenticated customer or store profile with confirmed business and pickup credentials.
               </p>
             </div>
 
-            <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-2">
+            <div className="pt-4 border-t border-[var(--kt-public-border-default)] space-y-2">
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">02</span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+                <span className="font-mono text-xs font-bold text-[var(--kt-public-text-muted)]">02</span>
+                <div className="h-px flex-1 bg-[var(--kt-public-border-default)]/60" />
               </div>
-              <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">Volume & Route Confirmation</h3>
-              <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+              <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">Volume & Route Confirmation</h3>
+              <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
                 Operations reviews weekly dispatch volume, parcel types, and scheduled recurring pickup windows.
               </p>
             </div>
 
-            <div className="pt-4 border-t border-[var(--kt-concrete)] space-y-2">
+            <div className="pt-4 border-t border-[var(--kt-public-border-default)] space-y-2">
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">03</span>
-                <div className="h-px flex-1 bg-[var(--kt-concrete)]/60" />
+                <span className="font-mono text-xs font-bold text-[var(--kt-public-text-muted)]">03</span>
+                <div className="h-px flex-1 bg-[var(--kt-public-border-default)]/60" />
               </div>
-              <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">Direct Fleet Coordination</h3>
-              <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+              <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">Direct Fleet Coordination</h3>
+              <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
                 Dedicated driver assigned to your dispatch rhythm with direct portal manifest and tracking.
               </p>
             </div>

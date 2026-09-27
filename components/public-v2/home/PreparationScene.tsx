@@ -50,7 +50,7 @@ export function PreparationScene() {
                 className="object-cover"
               />
               <div className={styles.prepDetailLabel}>
-                <span className="w-2 h-2 rounded-full bg-[#347CFB] animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-[var(--kt-public-interactive)] animate-pulse" />
                 <span>VERIFIED PARCEL #01</span>
               </div>
             </div>

@@ -27,16 +27,22 @@ interface PublicCoverageMapProps {
   showBadge?: boolean;
 }
 
+// Google Maps paints a canvas and requires resolved colors, not CSS var() strings.
+function resolveMapColor(value: string, element: HTMLElement): string {
+  const token = value.match(/^var\((--[\w-]+)\)$/)?.[1];
+  return token ? getComputedStyle(element).getPropertyValue(token).trim() : value;
+}
+
 // Restrained silver/carbon map style
 const KT_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#f5f6f6" }] },
+  { elementType: "geometry", stylers: [{ color: "var(--kt-public-text-inverse)" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#303532" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "var(--kt-public-text-primary)" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "var(--kt-public-text-inverse)" }] },
   {
     featureType: "administrative.land_parcel",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#7d8581" }],
+    stylers: [{ color: "var(--kt-public-text-muted)" }],
   },
   {
     featureType: "poi",
@@ -45,22 +51,22 @@ const KT_MAP_STYLES: google.maps.MapTypeStyle[] = [
   {
     featureType: "road",
     elementType: "geometry",
-    stylers: [{ color: "#ffffff" }],
+    stylers: [{ color: "var(--kt-public-text-inverse)" }],
   },
   {
     featureType: "road.arterial",
     elementType: "geometry",
-    stylers: [{ color: "#e6e9e8" }],
+    stylers: [{ color: "var(--kt-public-text-inverse-muted)" }],
   },
   {
     featureType: "road.highway",
     elementType: "geometry",
-    stylers: [{ color: "#dde1e0" }],
+    stylers: [{ color: "var(--kt-public-text-inverse-muted)" }],
   },
   {
     featureType: "road.highway",
     elementType: "geometry.stroke",
-    stylers: [{ color: "#c2c7c5" }],
+    stylers: [{ color: "var(--kt-public-text-inverse-muted)" }],
   },
   {
     featureType: "transit",
@@ -69,12 +75,12 @@ const KT_MAP_STYLES: google.maps.MapTypeStyle[] = [
   {
     featureType: "water",
     elementType: "geometry",
-    stylers: [{ color: "#dde1e0" }],
+    stylers: [{ color: "var(--kt-public-text-inverse-muted)" }],
   },
   {
     featureType: "water",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#7d8581" }],
+    stylers: [{ color: "var(--kt-public-text-muted)" }],
   },
 ];
 
@@ -116,14 +122,21 @@ export function PublicCoverageMap({
       const map = new google.maps.Map(mapContainerRef.current, {
         center: defaultCenter,
         zoom: 11,
-        styles: KT_MAP_STYLES,
+        styles: KT_MAP_STYLES.map((style) => ({
+          ...style,
+          stylers: style.stylers.map((styler) =>
+            "color" in styler && typeof styler.color === "string"
+              ? { ...styler, color: resolveMapColor(styler.color, mapContainerRef.current!) }
+              : styler
+          ),
+        })),
         disableDefaultUI: !interactive,
         zoomControl: interactive,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: interactive,
         gestureHandling: interactive ? "auto" : "none",
-        backgroundColor: "#eceeee",
+        backgroundColor: resolveMapColor("var(--kt-public-surface-secondary)", mapContainerRef.current!),
       });
 
       mapInstanceRef.current = map;
@@ -166,9 +179,9 @@ export function PublicCoverageMap({
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: isSelected ? 8 : 5,
-          fillColor: isSelected ? "#D83A2E" : "#303532",
+          fillColor: resolveMapColor(isSelected ? "var(--kt-public-interactive)" : "var(--kt-public-text-primary)", mapContainerRef.current!),
           fillOpacity: 1,
-          strokeColor: "#FFFFFF",
+          strokeColor: resolveMapColor("var(--kt-public-text-inverse)", mapContainerRef.current!),
           strokeWeight: 2,
         },
       });
@@ -187,9 +200,9 @@ export function PublicCoverageMap({
           map,
           center: pos,
           radius: region.coverageRadiusKm * 1000,
-          fillColor: isSelected ? "#D83A2E" : "#101210",
+          fillColor: resolveMapColor(isSelected ? "var(--kt-public-interactive)" : "var(--kt-public-text-primary)", mapContainerRef.current!),
           fillOpacity: isSelected ? 0.12 : 0.04,
-          strokeColor: isSelected ? "#D83A2E" : "#7D8581",
+          strokeColor: resolveMapColor(isSelected ? "var(--kt-public-interactive)" : "var(--kt-public-text-muted)", mapContainerRef.current!),
           strokeOpacity: isSelected ? 0.6 : 0.25,
           strokeWeight: isSelected ? 1.5 : 1,
         });

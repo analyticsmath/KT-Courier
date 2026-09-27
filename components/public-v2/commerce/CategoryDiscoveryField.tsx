@@ -83,10 +83,10 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2.5 flex flex-col justify-end">
-                  <strong className="text-white text-[0.9rem] font-semibold leading-snug">
+                  <strong className="text-[var(--kt-public-text-inverse)] text-[0.9rem] font-semibold leading-snug">
                     {cat.name}
                   </strong>
-                  <span className="text-[11px] text-white/80 mt-0.5">
+                  <span className="text-[11px] text-[var(--kt-public-text-inverse-muted)] mt-0.5">
                     {Boolean(cat.productCount && cat.productCount > 0)
                       ? `${cat.productCount} products`
                       : "Explore collection"}
@@ -110,8 +110,8 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                   <Link
                     className={`flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 text-left no-underline ${
                       isActive
-                        ? "bg-white border-[var(--kt-carbon,#101210)] shadow-sm text-[#111318]"
-                        : "bg-transparent border-transparent hover:bg-white/60 text-[#59626A]"
+                        ? "bg-[var(--kt-public-surface-primary)] border-[var(--kt-public-text-primary)] shadow-sm text-[var(--kt-public-interactive-text)]"
+                        : "bg-transparent border-transparent hover:bg-[var(--kt-public-surface-primary)]/60 text-[var(--kt-public-text-muted)]"
                     }`}
                     href={href}
                     onClick={(e) => handleCategoryClick(e, category)}
@@ -123,10 +123,10 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                       0{idx + 1}
                     </span>
                     <div className="flex flex-col">
-                      <span className="font-bold text-[1.05rem] text-[#111318]">
+                      <span className="font-bold text-[1.05rem] text-[var(--kt-public-interactive-text)]">
                         {category.name}
                       </span>
-                      <span className="text-xs text-[#59626A] mt-0.5">
+                      <span className="text-xs text-[var(--kt-public-text-muted)] mt-0.5">
                         {Boolean(category.productCount && category.productCount > 0)
                           ? `${category.productCount} products`
                           : "Explore collection"}
@@ -160,16 +160,16 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent p-6 flex justify-between items-end">
                   <div className="max-w-[70%]">
-                    <span className="text-white text-xl font-bold tracking-tight block">
+                    <span className="text-[var(--kt-public-text-inverse)] text-xl font-bold tracking-tight block">
                       {activeCat.name}
                     </span>
                     {activeCat.description && (
-                      <p className="text-white/80 text-sm mt-1 line-clamp-2">
+                      <p className="text-[var(--kt-public-text-inverse-muted)] text-sm mt-1 line-clamp-2">
                         {activeCat.description}
                       </p>
                     )}
                   </div>
-                  <span className="text-white text-xs font-semibold uppercase tracking-wider py-2 px-4 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 group-hover:bg-white group-hover:text-black transition-colors">
+                  <span className="text-[var(--kt-public-text-inverse)] text-xs font-semibold uppercase tracking-wider py-2 px-4 rounded-full bg-[var(--kt-public-surface-primary)]/20 backdrop-blur-sm border border-[var(--kt-public-surface-primary)]/30 group-hover:bg-[var(--kt-public-surface-primary)] group-hover:text-[var(--kt-public-text-primary)] transition-colors">
                     Explore &rarr;
                   </span>
                 </div>
@@ -185,7 +185,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                     key={cat.reference}
                     type="button"
                     onClick={() => setActiveIdx(idx)}
-                    className="relative h-20 rounded-lg overflow-hidden border border-[var(--commerce-line)] hover:border-[var(--kt-carbon,#101210)] cursor-pointer bg-[#0E1012] p-0"
+                    className="relative h-20 rounded-lg overflow-hidden border border-[var(--commerce-line)] hover:border-[var(--kt-public-text-primary)] cursor-pointer bg-[var(--kt-public-surface-inverse)] p-0"
                     data-kt-sticky-mode="SELECT"
                     aria-label={`Switch to ${cat.name}`}
                   >
@@ -196,7 +196,7 @@ export function CategoryDiscoveryField({ categories }: CategoryDiscoveryFieldPro
                       sizes="160px"
                       className="object-cover opacity-80 hover:opacity-100 transition-opacity"
                     />
-                    <span className="absolute bottom-1.5 left-2 z-10 text-[11px] font-semibold text-white truncate max-w-[90%] drop-shadow">
+                    <span className="absolute bottom-1.5 left-2 z-10 text-[11px] font-semibold text-[var(--kt-public-text-inverse)] truncate max-w-[90%] drop-shadow">
                       {cat.name}
                     </span>
                   </button>

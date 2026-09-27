@@ -72,7 +72,7 @@ export function MerchantWindow({ stores }: MerchantWindowProps) {
                       className={`${styles.merchantNameRow} ${
                         isActive ? styles.merchantNameRowActive : ""
                       }`}
-                      style={{ opacity: 0.8, cursor: "not-allowed" }}
+                      style={{ color: "var(--kt-public-text-disabled)", background: "var(--kt-public-surface-tertiary)", cursor: "not-allowed" }}
                     >
                       <span className={styles.merchantNameTitle}>{store.name}</span>
                       <span className={styles.merchantOfferCount}>Unavailable</span>

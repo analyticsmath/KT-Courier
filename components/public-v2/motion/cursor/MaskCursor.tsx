@@ -109,7 +109,7 @@ export function MaskCursor({
       {/* Subtle indicator ring on fine pointer */}
       {isFinePointer && pos && (
         <div
-          className="absolute z-20 pointer-events-none rounded-full border border-white/60 shadow-[0_0_12px_rgba(52,124,251,0.35)] -translate-x-1/2 -translate-y-1/2 transition-transform duration-75 ease-out"
+          className="absolute z-20 pointer-events-none rounded-full border border-[var(--kt-public-surface-primary)]/60 shadow-[0_0_12px_var(--kt-public-border-default)] -translate-x-1/2 -translate-y-1/2 transition-transform duration-75 ease-out"
           style={{
             left: pos.x,
             top: pos.y,

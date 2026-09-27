@@ -253,7 +253,7 @@ export function CartExperience() {
     <div className={`${styles.commerceInner} ${styles.cartPage}`}>
       <header className={styles.cartPageHeader}>
         <h1 className={styles.commerceTitle}>Shopping bag</h1>
-        <span style={{ fontSize: "1rem", color: "var(--kt-muted, #5f6763)" }}>
+        <span style={{ fontSize: "1rem", color: "var(--kt-public-text-muted)" }}>
           {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"} across {cart.storeGroups.length} {cart.storeGroups.length === 1 ? "store" : "stores"}
         </span>
       </header>
@@ -263,9 +263,9 @@ export function CartExperience() {
           role="alert"
           style={{
             padding: "14px 18px",
-            backgroundColor: "#fdf2f2",
-            border: "1px solid #f8b4b4",
-            color: "#ba1a1a",
+            backgroundColor: "var(--kt-public-surface-secondary)",
+            border: "1px solid var(--kt-public-border-subtle)",
+            color: "var(--kt-state-error)",
             borderRadius: 4,
             marginBottom: "1.5rem",
             fontSize: "0.95rem",
@@ -292,7 +292,7 @@ export function CartExperience() {
                     style={{
                       fontSize: "1.15rem",
                       fontWeight: 600,
-                      color: "var(--kt-carbon, #101210)",
+                      color: "var(--kt-public-text-primary)",
                       textDecoration: "none",
                     }}
                   >
@@ -306,8 +306,8 @@ export function CartExperience() {
                     textTransform: "uppercase",
                     letterSpacing: "0.05em",
                     padding: "4px 10px",
-                    backgroundColor: "var(--kt-cool-200, #dde1e0)",
-                    color: "var(--kt-carbon, #101210)",
+                    backgroundColor: "var(--kt-public-border-subtle)",
+                    color: "var(--kt-public-text-primary)",
                     borderRadius: 4,
                   }}
                 >
@@ -334,12 +334,12 @@ export function CartExperience() {
                         <div className={styles.cartLineInfo}>
                           {line.productSlug && marketplaceProductHref(line.productSlug, line.productReference) ? <Link className={styles.cartProductTitle} href={marketplaceProductHref(line.productSlug, line.productReference)!}>{line.title}</Link> : <strong className={styles.cartProductTitle}>{line.title}</strong>}
                           {line.variantTitle && (
-                            <div style={{ fontSize: "0.875rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
+                            <div style={{ fontSize: "0.875rem", color: "var(--kt-public-text-muted)", marginTop: 2 }}>
                               Variant: {line.variantTitle}
                             </div>
                           )}
                           {line.modifiers.length > 0 && (
-                            <ul style={{ listStyle: "none", padding: 0, margin: "4px 0 0", fontSize: "0.85rem", color: "var(--kt-graphite, #303532)" }}>
+                            <ul style={{ listStyle: "none", padding: 0, margin: "4px 0 0", fontSize: "0.85rem", color: "var(--kt-public-text-muted)" }}>
                               {line.modifiers.map((mod, idx) => (
                                 <li key={idx}>
                                   + {mod.optionName} ({formatMoney(mod.priceDelta)})
@@ -399,8 +399,8 @@ export function CartExperience() {
 
               {/* Store Footer Subtotal */}
               <div className={styles.cartStoreFooter}>
-                <span style={{ color: "var(--kt-muted, #5f6763)" }}>Store Subtotal</span>
-                <span style={{ fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
+                <span style={{ color: "var(--kt-public-text-muted)" }}>Store Subtotal</span>
+                <span style={{ fontWeight: 600, color: "var(--kt-public-text-primary)" }}>
                   {formatMoney(group.totals.subtotal)}
                 </span>
               </div>
@@ -416,27 +416,27 @@ export function CartExperience() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: "0.95rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--kt-muted, #5f6763)" }}>Merchandise Subtotal</span>
+              <span style={{ color: "var(--kt-public-text-muted)" }}>Merchandise Subtotal</span>
               <span style={{ fontWeight: 540 }}>{formatMoney(cart.totals.merchandiseSubtotal)}</span>
             </div>
 
             {Number(cart.totals.modifierSubtotal) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--kt-muted, #5f6763)" }}>Modifiers & Options</span>
+                <span style={{ color: "var(--kt-public-text-muted)" }}>Modifiers & Options</span>
                 <span style={{ fontWeight: 540 }}>{formatMoney(cart.totals.modifierSubtotal)}</span>
               </div>
             )}
 
             <div
               style={{
-                borderTop: "1px solid var(--kt-cool-200, #dde1e0)",
+                borderTop: "1px solid var(--kt-public-border-subtle)",
                 paddingTop: 12,
                 marginTop: 6,
                 display: "flex",
                 justifyContent: "space-between",
                 fontSize: "1.2rem",
                 fontWeight: 600,
-                color: "var(--kt-carbon, #101210)",
+                color: "var(--kt-public-text-primary)",
               }}
             >
               <span>Estimated Subtotal</span>
@@ -447,10 +447,10 @@ export function CartExperience() {
           <p
             style={{
               fontSize: "0.8rem",
-              color: "var(--kt-muted, #5f6763)",
+              color: "var(--kt-public-text-muted)",
               lineHeight: 1.4,
               marginTop: "1.2rem",
-              backgroundColor: "var(--kt-cool-050, #f5f6f6)",
+              backgroundColor: "var(--kt-public-surface-secondary)",
               padding: "10px 12px",
               borderRadius: 4,
             }}
@@ -467,8 +467,8 @@ export function CartExperience() {
               marginTop: "1.5rem",
               width: "100%",
               padding: "14px 20px",
-              backgroundColor: "var(--kt-carbon, #101210)",
-              color: "#ffffff",
+              backgroundColor: "var(--kt-public-surface-inverse)",
+              color: "var(--kt-public-text-inverse)",
               border: "none",
               borderRadius: 4,
               fontSize: "1rem",
@@ -487,7 +487,7 @@ export function CartExperience() {
               style={{
                 background: "none",
                 border: "none",
-                color: "var(--kt-muted, #5f6763)",
+                color: "var(--kt-public-text-muted)",
                 fontSize: "0.85rem",
                 cursor: clearingCart ? "not-allowed" : "pointer",
                 padding: "6px 12px",

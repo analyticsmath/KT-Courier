@@ -42,14 +42,14 @@ export function DeliveryJourneyScene({ className = "" }: { className?: string })
               data-route-path
               d="M -40 610 C 110 680 190 520 330 500 C 470 480 455 360 520 270 C 595 165 730 175 1040 120"
               fill="none"
-              stroke="#252a2e"
+              stroke="var(--kt-public-text-primary)"
               strokeWidth="218"
               strokeLinecap="round"
             />
             <path
               d="M -40 610 C 110 680 190 520 330 500 C 470 480 455 360 520 270 C 595 165 730 175 1040 120"
               fill="none"
-              stroke="rgba(241,236,226,.66)"
+              stroke="var(--kt-public-border-default)"
               strokeWidth="4"
               strokeDasharray="18 18"
               strokeLinecap="round"

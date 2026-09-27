@@ -42,8 +42,8 @@
   min-height: var(--kt-home-budget, 235svh);
   overflow: clip;
   isolation: isolate;
-  color: var(--kt-freight-paper, #f1ece2);
-  background: #090c0e;
+  color: var(--kt-public-text-inverse);
+  background: var(--kt-public-surface-inverse);
 }
 
 .marketplaceStickyStage {
@@ -52,7 +52,7 @@
   height: 100svh;
   min-height: 680px;
   overflow: hidden;
-  background: #090c0e;
+  background: var(--kt-public-surface-inverse);
 }
 
 .marketplaceHeader {
@@ -78,7 +78,7 @@
 .marketplaceHeader p {
   max-width: 35rem;
   margin: 1.25rem 0 0;
-  color: #c0c0bc;
+  color: var(--kt-public-text-inverse-muted);
   font-size: clamp(0.95rem, 1.15vw, 1.2rem);
   line-height: 1.55;
 }
@@ -93,7 +93,7 @@
 }
 
 .marketplaceRailWrapper:focus-visible {
-  outline: 1px solid rgba(241, 236, 226, 0.7);
+  outline: 1px solid var(--kt-public-focus);
   outline-offset: -0.75rem;
 }
 
@@ -118,7 +118,7 @@
   min-height: 25rem;
   overflow: hidden;
   isolation: isolate;
-  background: #191d1f;
+  background: var(--kt-public-surface-inverse-raised);
   opacity: 0.4;
   transform: scale(0.84);
   transform-origin: center center;
@@ -148,6 +148,7 @@
 .marketplaceCardOverlay {
   position: absolute;
   inset: 0;
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
   background: linear-gradient(180deg, rgba(6, 8, 9, 0.02) 25%, rgba(6, 8, 9, 0.76) 100%);
 }
 
@@ -158,13 +159,13 @@
   bottom: clamp(1.4rem, 4vw, 3.6rem);
   left: clamp(1.4rem, 4vw, 3.8rem);
   pointer-events: none;
-  color: white;
+  color: var(--kt-public-text-inverse);
 }
 
 .marketplaceCardContent > span {
   display: block;
   margin-bottom: 0.5rem;
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--kt-public-text-inverse);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -184,7 +185,7 @@
 .marketplaceCardContent p {
   max-width: 35rem;
   margin: 0.8rem 0 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--kt-public-text-inverse);
   font-size: clamp(0.9rem, 1.12vw, 1.1rem);
   line-height: 1.45;
 }
@@ -195,7 +196,7 @@
   display: inline-flex;
   gap: 0.5rem;
   margin-top: 1rem;
-  color: white;
+  color: var(--kt-public-text-inverse);
   font-size: 0.82rem;
   text-decoration: underline;
   text-underline-offset: 0.25rem;
@@ -212,7 +213,7 @@
 }
 
 .marketplaceSelectionButton:focus-visible {
-  outline: 2px solid white;
+  outline: 2px solid var(--kt-public-focus);
   outline-offset: -0.75rem;
 }
 
@@ -226,7 +227,7 @@
 .marketplaceShopLink a {
   display: inline-flex;
   gap: 0.5rem;
-  color: #c0c0bc;
+  color: var(--kt-public-text-inverse-muted);
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.09em;
@@ -234,7 +235,7 @@
   text-decoration: none;
 }
 
-.marketplaceShopLink a:hover { color: white; }
+.marketplaceShopLink a:hover { color: var(--kt-public-text-inverse); }
 
 .marketplaceExitSlices {
   position: fixed;
@@ -251,7 +252,7 @@
   left: 0;
   display: block;
   overflow: hidden;
-  background: #090c0e;
+  background: var(--kt-public-surface-inverse);
   will-change: left, top, width, height;
 }
 
@@ -271,8 +272,8 @@
   z-index: 1;
   min-height: var(--kt-home-budget, 120svh);
   overflow: clip;
-  color: var(--kt-asphalt, #171a1c);
-  background: var(--kt-freight-paper, #f1ece2);
+  color: var(--kt-public-text-primary);
+  background: var(--kt-public-canvas);
 }
 
 .preparationStickyStage {
@@ -281,7 +282,7 @@
   height: 100svh;
   min-height: 660px;
   overflow: hidden;
-  background: var(--kt-freight-paper, #f1ece2);
+  background: var(--kt-public-canvas);
 }
 
 .preparationComposition {
@@ -319,7 +320,7 @@
 .preparationStatement p {
   max-width: 26rem;
   margin: 1.5rem 0 0;
-  color: #565a5b;
+  color: var(--kt-public-text-muted);
   font-size: clamp(1rem, 1.2vw, 1.18rem);
   line-height: 1.55;
 }
@@ -333,7 +334,8 @@
   height: min(68svh, 43rem);
   min-height: 24rem;
   overflow: hidden;
-  background: #d4cec2;
+  background: var(--kt-public-surface-secondary);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .preparationPhoto {
@@ -349,11 +351,11 @@
   justify-content: space-between;
   gap: 2rem;
   padding-top: 1.3rem;
-  border-top: 1px solid rgba(23, 26, 28, 0.24);
+  border-top: 1px solid var(--kt-public-border-inverse);
 }
 
 .preparationDetail span {
-  color: #686b69;
+  color: var(--kt-public-text-muted);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -385,7 +387,7 @@
   position: absolute;
   inset: 0;
   content: "";
-  background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%);
+  background: linear-gradient(90deg, var(--kt-public-surface-inverse), transparent 55%), linear-gradient(0deg, var(--kt-public-surface-inverse), transparent 60%);
 }
 
 .journeySection {
@@ -393,7 +395,7 @@
   z-index: 1;
   min-height: var(--kt-home-budget, 320svh);
   overflow: clip;
-  background: #282c2d;
+  background: var(--kt-public-surface-inverse-raised);
 }
 
 .journeyStickyStage {
@@ -403,7 +405,8 @@
   min-height: 650px;
   overflow: hidden;
   isolation: isolate;
-  background: #5b5952;
+  background: var(--kt-public-surface-secondary);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .journeyStreet,
@@ -426,6 +429,7 @@
 .finaleArrivalImage > div {
   position: absolute;
   inset: 0;
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
   background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%);
 }
 
@@ -436,6 +440,7 @@
   bottom: 0;
   left: 0;
   height: 19%;
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
   background: linear-gradient(180deg, rgba(104, 100, 90, 0.72), #282c2d 78%);
 }
 
@@ -462,7 +467,7 @@
   top: clamp(5.5rem, 11vh, 9rem);
   left: clamp(1.5rem, 7vw, 8rem);
   max-width: 42rem;
-  color: #f1ece2;
+  color: var(--kt-public-text-inverse-muted);
 }
 
 .journeyCopy h2 {
@@ -479,7 +484,7 @@
 .journeyCopy p {
   max-width: 24rem;
   margin: 1rem 0 0;
-  color: rgba(241, 236, 226, 0.82);
+  color: var(--kt-public-text-inverse-muted);
   font-size: clamp(0.9rem, 1.1vw, 1.08rem);
   line-height: 1.5;
 }
@@ -490,7 +495,7 @@
   top: 61%;
   right: clamp(1.5rem, 8vw, 9rem);
   width: clamp(12rem, 20vw, 22rem);
-  color: white;
+  color: var(--kt-public-text-inverse);
   opacity: 0;
   will-change: transform, opacity;
 }
@@ -516,7 +521,7 @@
   top: 15%;
   right: clamp(1.5rem, 8vw, 9rem);
   margin: 0;
-  color: white;
+  color: var(--kt-public-text-inverse);
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   opacity: 0;
@@ -527,8 +532,8 @@
   z-index: 1;
   min-height: var(--kt-home-budget, 205svh);
   overflow: clip;
-  color: #171a1c;
-  background: #f1ece2;
+  color: var(--kt-public-text-primary);
+  background: var(--kt-public-canvas);
 }
 
 .freightStickyStage {
@@ -538,7 +543,7 @@
   min-height: 650px;
   overflow: hidden;
   isolation: isolate;
-  background: #f1ece2;
+  background: var(--kt-public-canvas);
 }
 
 .freightBackdropWord {
@@ -547,7 +552,7 @@
   top: 17%;
   left: 4vw;
   margin: 0;
-  color: rgba(23, 26, 28, 0.1);
+  color: var(--kt-public-text-primary);
   font-family: var(--font-display, var(--font-mona-sans, sans-serif));
   font-size: clamp(8rem, 23vw, 28rem);
   font-weight: 850;
@@ -566,7 +571,7 @@
 
 .freightHeading p {
   margin: 0 0 0.8rem;
-  color: #686b69;
+  color: var(--kt-public-text-muted);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -592,8 +597,8 @@
   left: 0;
   min-height: 36%;
   padding: 2.2rem clamp(1.5rem, 7vw, 8rem) max(2rem, env(safe-area-inset-bottom));
-  color: #f1ece2;
-  background: #101416;
+  color: var(--kt-public-text-inverse-muted);
+  background: var(--kt-public-surface-inverse);
   transform: translateY(100%);
   will-change: transform, opacity;
 }
@@ -609,7 +614,7 @@
 
 .freightServiceIntro > span {
   flex: 0 0 auto;
-  color: rgba(241, 236, 226, 0.72);
+  color: var(--kt-public-text-inverse-muted);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -619,7 +624,7 @@
 .freightServiceIntro p {
   max-width: 32rem;
   margin: 0;
-  color: #c8c8c2;
+  color: var(--kt-public-text-inverse-muted);
   font-size: 0.9rem;
 }
 
@@ -630,7 +635,7 @@
   margin: 0 auto;
   padding: 0;
   list-style: none;
-  border-top: 1px solid rgba(241, 236, 226, 0.28);
+  border-top: 1px solid var(--kt-public-border-subtle);
 }
 
 .freightServicePlane li {
@@ -643,7 +648,7 @@
 
 .freightServicePlane li + li {
   padding-left: 1.25rem;
-  border-left: 1px solid rgba(241, 236, 226, 0.2);
+  border-left: 1px solid var(--kt-public-border-subtle);
 }
 
 .freightServicePlane li strong {
@@ -653,7 +658,7 @@
 }
 
 .freightServicePlane li span {
-  color: #acb0ae;
+  color: var(--kt-public-text-inverse-muted);
   font-size: 0.78rem;
   line-height: 1.4;
 }
@@ -665,15 +670,15 @@
 }
 
 .freightDestination > img { object-position: center 50%; }
-.freightDestination > div { background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%); }
+.freightDestination > div { background: linear-gradient(90deg, var(--kt-public-surface-inverse), transparent 55%), linear-gradient(0deg, var(--kt-public-surface-inverse), transparent 60%); }
 
 .finaleSection {
   position: relative;
   z-index: 1;
   min-height: var(--kt-home-budget, 150svh);
   overflow: clip;
-  color: #f1ece2;
-  background: #090c0e;
+  color: var(--kt-public-text-inverse-muted);
+  background: var(--kt-public-surface-inverse);
 }
 
 .finaleStickyStage {
@@ -683,12 +688,12 @@
   min-height: 640px;
   overflow: hidden;
   isolation: isolate;
-  background: #090c0e;
+  background: var(--kt-public-surface-inverse);
 }
 
 .finaleArrivalImage { z-index: 0; }
 .finaleArrivalImage > img { object-position: center 50%; }
-.finaleArrivalImage > div { background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%); }
+.finaleArrivalImage > div { /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ background: linear-gradient(90deg, rgba(8, 10, 11, 0.35), transparent 55%), linear-gradient(0deg, rgba(9, 12, 14, 0.32), transparent 60%); }
 
 .finaleDelivered {
   position: absolute;
@@ -696,7 +701,7 @@
   top: 15%;
   left: clamp(1.5rem, 7vw, 8rem);
   margin: 0;
-  color: white;
+  color: var(--kt-public-text-inverse);
   font-family: var(--font-display, var(--font-mona-sans, sans-serif));
   font-size: clamp(2.1rem, 3.6vw, 4rem);
   font-weight: 720;
@@ -710,7 +715,7 @@
   bottom: 0;
   left: 0;
   height: 0;
-  background: #090c0e;
+  background: var(--kt-public-surface-inverse);
   will-change: height;
 }
 
@@ -743,7 +748,7 @@
 
 .finaleMotto {
   margin: 1.5rem 0 0;
-  color: #aeb2b0;
+  color: var(--kt-public-text-inverse-muted);
   font-size: clamp(0.7rem, 0.9vw, 0.9rem);
   letter-spacing: 0.08em;
   text-align: center;
@@ -764,12 +769,12 @@
 }
 
 .finaleUtility a {
-  color: #d7d8d4;
+  color: var(--kt-public-text-inverse-muted);
   font-size: 0.78rem;
   text-decoration: none;
 }
 
-.finaleUtility a:hover { color: white; text-decoration: underline; text-underline-offset: 0.2em; }
+.finaleUtility a:hover { color: var(--kt-public-text-inverse); text-decoration: underline; text-underline-offset: 0.2em; }
 
 .finaleLegal {
   position: absolute;
@@ -777,7 +782,7 @@
   right: clamp(1.5rem, 7vw, 8rem);
   bottom: calc(max(0.65rem, env(safe-area-inset-bottom)) + 0.15rem);
   left: clamp(1.5rem, 7vw, 8rem);
-  color: #838987;
+  color: var(--kt-public-text-inverse-muted);
   font-size: 0.65rem;
   text-align: center;
   opacity: 0;
@@ -876,8 +881,8 @@
   .freightServicePlane ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .freightServicePlane li { min-height: 4.6rem; padding: 0.75rem 0.6rem 0.75rem 0; }
   .freightServicePlane li + li { padding-left: 0.7rem; }
-  .freightServicePlane li:nth-child(3) { padding-left: 0; border-left: 0; border-top: 1px solid rgba(241, 236, 226, 0.2); }
-  .freightServicePlane li:nth-child(4) { border-top: 1px solid rgba(241, 236, 226, 0.2); }
+  .freightServicePlane li:nth-child(3) { padding-left: 0; border-left: 0; border-top: 1px solid var(--kt-public-border-subtle); }
+  .freightServicePlane li:nth-child(4) { border-top: 1px solid var(--kt-public-border-subtle); }
   .freightServicePlane li span { font-size: 0.7rem; }
 
   .finaleSection { min-height: var(--kt-home-mobile-budget, 150svh); }

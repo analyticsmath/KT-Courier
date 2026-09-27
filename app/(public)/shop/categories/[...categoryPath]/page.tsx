@@ -92,7 +92,7 @@ export default async function CategoryPage({
 
       {category.children && category.children.length > 0 && (
         <div style={{ marginBottom: "1.5rem" }}>
-          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 12, color: "var(--kt-carbon, #101210)" }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 12, color: "var(--kt-public-text-primary)" }}>
             Subcategories
           </h2>
           <div className={styles.subcategoriesRail}>

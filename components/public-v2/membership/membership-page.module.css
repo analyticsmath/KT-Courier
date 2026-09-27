@@ -1,8 +1,8 @@
 .membershipRoot {
   position: relative;
   width: 100%;
-  background-color: var(--kt-freight-paper, #F1ECE2);
-  color: var(--kt-carbon, #101210);
+  background-color: var(--kt-public-canvas);
+  color: var(--kt-public-text-primary);
   padding: clamp(36px, 6vw, 72px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
 }
 
@@ -28,20 +28,20 @@
   font-weight: 560;
   line-height: 0.96;
   letter-spacing: -0.04em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .membershipLead {
   font-size: clamp(1.05rem, 1.6vw, 1.35rem);
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
 
 .statusSection {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   padding: clamp(32px, 5vw, 60px);
 }
 
@@ -68,13 +68,13 @@
   font-size: clamp(1.6rem, 3vw, 2.4rem);
   font-weight: 560;
   letter-spacing: -0.03em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .statusText {
   font-size: 1rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.55;
   margin: 0;
 }
@@ -91,8 +91,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
   padding: 12px 24px;
   font-size: 0.95rem;
   font-weight: 560;
@@ -101,7 +101,7 @@
 }
 
 .primaryAction:hover {
-  background-color: var(--kt-graphite, #303532);
+  background-color: var(--kt-public-text-muted);
 }
 
 .secondaryAction {
@@ -110,16 +110,17 @@
   gap: 6px;
   font-size: 0.95rem;
   font-weight: 540;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   text-decoration: none;
   padding-bottom: 2px;
-  border-bottom: 1px solid var(--kt-cool-300, #dde1e0);
+  border-bottom: 1px solid var(--kt-public-border-default);
 }
 
 .statusMediaFrame {
   position: relative;
   width: 100%;
   height: clamp(320px, 45vh, 480px);
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }

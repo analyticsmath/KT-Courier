@@ -54,8 +54,8 @@ export function MarketplaceUnavailable({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "var(--kt-cool-100, #eceeee)",
-              color: "var(--kt-carbon, #101210)",
+              backgroundColor: "var(--kt-public-surface-tertiary)",
+              color: "var(--kt-public-text-primary)",
             }}
           >
             <KtIconCart size={24} />
@@ -76,7 +76,7 @@ export function MarketplaceUnavailable({
           <p
             style={{
               fontSize: "1.05rem",
-              color: "var(--kt-graphite, #303532)",
+              color: "var(--kt-public-text-muted)",
               lineHeight: 1.5,
               margin: 0,
             }}

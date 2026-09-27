@@ -34,17 +34,17 @@ export function PublicFinale() {
             data-kt-sticky-mode="MARKETPLACE"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono tracking-widest text-[#347CFB] uppercase font-bold">
+              <span className="text-xs font-mono tracking-widest text-[var(--kt-public-interactive-text)] uppercase font-bold">
                 COMMERCE DISCOVERY
               </span>
               <div className={styles.finaleArrowCircle}>
                 <KtIconArrowRight size={20} />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-[#F3F1EA] mt-3">
+            <h3 className="text-2xl font-bold text-[var(--kt-public-text-inverse)] mt-3">
               Explore the Marketplace
             </h3>
-            <p className="text-sm text-[#D9DEE2]/70 mt-1">
+            <p className="text-sm text-[var(--kt-public-text-inverse-muted)] mt-1">
               Connect with independent stores, local creators, and culinary kitchens.
             </p>
           </Link>
@@ -56,17 +56,17 @@ export function PublicFinale() {
             data-kt-sticky-mode="DISPATCH"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono tracking-widest text-[#347CFB] uppercase font-bold">
+              <span className="text-xs font-mono tracking-widest text-[var(--kt-public-interactive-text)] uppercase font-bold">
                 TRANSIT OPERATIONS
               </span>
               <div className={styles.finaleArrowCircleSend}>
                 <KtIconArrowRight size={20} />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-[#F3F1EA] mt-3">
+            <h3 className="text-2xl font-bold text-[var(--kt-public-text-inverse)] mt-3">
               Book Courier Transit
             </h3>
-            <p className="text-sm text-[#D9DEE2]/70 mt-1">
+            <p className="text-sm text-[var(--kt-public-text-inverse-muted)] mt-1">
               Calculate shipping fees, schedule pickup corridors, and move freight.
             </p>
           </Link>
@@ -83,7 +83,7 @@ export function PublicFinale() {
               className="object-contain"
             />
           </div>
-          <span className="text-[10px] font-mono tracking-wider text-[#59626A] uppercase">
+          <span className="text-[10px] font-mono tracking-wider text-[var(--kt-public-text-muted)] uppercase">
             FLAGSHIP CORRIDOR FLEET · GAUTENG &middot; WESTERN CAPE &middot; KZN
           </span>
         </div>

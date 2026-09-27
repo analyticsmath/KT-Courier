@@ -57,13 +57,13 @@ export function ServiceTypeOcclusion({
   return (
     <div
       ref={wrapperRef}
-      className={`relative overflow-hidden pt-4 pb-2 select-none border-b border-[var(--kt-concrete)]/40 ${className}`}
+      className={`relative overflow-hidden pt-4 pb-2 select-none border-b border-[var(--kt-public-border-default)]/40 ${className}`}
     >
       {/* Background Monumental Type */}
       <div
         ref={typeRef}
         aria-hidden="true"
-        className="font-display text-[clamp(5rem,18vw,15rem)] font-black tracking-tighter leading-none text-[var(--kt-concrete)]/50 uppercase pointer-events-none will-change-transform"
+        className="font-display text-[clamp(5rem,18vw,15rem)] font-black tracking-tighter leading-none text-[var(--kt-public-border-default)]/50 uppercase pointer-events-none will-change-transform"
       >
         {word}
       </div>

@@ -221,7 +221,7 @@ export function QuickBuySheet({
                         {humanStoreName(offer)}{variant ? ` · ${variant}` : ""}
                       </span>
                       <br />
-                      <small style={{ opacity: 0.85 }}>
+                      <small style={{ color: "var(--kt-public-text-secondary)" }}>
                         {money(offer.price.amount)} · {availabilityLabel(offer.availability)}
                       </small>
                     </button>

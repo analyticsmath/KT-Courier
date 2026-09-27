@@ -62,7 +62,7 @@ export function ServiceImageShift({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full ${aspectRatio} bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden ${className}`}
+      className={`relative w-full ${aspectRatio} bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/40 overflow-hidden ${className}`}
     >
       <Image
         ref={imgRef}

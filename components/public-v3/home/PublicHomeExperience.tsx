@@ -53,8 +53,8 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
   useHomeNarrativeDirector({ rootRef: containerRef, categories: presentation.categories, stores: presentation.stores, products: presentation.products, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId, onStoreSelectionChange: setSelectedStoreId, onProductSelectionChange: handleProductSelectionChange });
   const selectedProduct = presentation.products.find((product) => product.id === selectedProductId) ?? presentation.products[0];
 
-  return <div ref={containerRef} data-kt-motion-owned="director" data-storefront-exposed={isStorefrontExposed} className="kt-home-experience flex flex-col w-full relative bg-[var(--kt-freight-paper)]">
-    <div className="kt-environment-layer pointer-events-none absolute inset-0 z-0 bg-[var(--kt-freight-paper)]" aria-hidden="true" />
+  return <div ref={containerRef} data-kt-motion-owned="director" data-storefront-exposed={isStorefrontExposed} className="kt-home-experience flex flex-col w-full relative bg-[var(--kt-public-canvas)]">
+    <div className="kt-environment-layer pointer-events-none absolute inset-0 z-0 bg-[var(--kt-public-canvas)]" aria-hidden="true" />
     <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
     <PersistentActorLayer />
     {introResolved ? <PersistentPostHeroCinematicLayer /> : null}
@@ -68,7 +68,7 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
       <LastMileDeliveryScene />
       <ArrivalFinaleScene />
     </div>
-    {process.env.NODE_ENV !== "production" ? <aside data-kt-motion-debug hidden aria-hidden="true" className="fixed bottom-3 left-3 z-[60] max-w-[min(90vw,32rem)] bg-black/80 px-3 py-2 font-mono text-[11px] leading-tight text-white" /> : null}
+    {process.env.NODE_ENV !== "production" ? <aside data-kt-motion-debug hidden aria-hidden="true" className="fixed bottom-3 left-3 z-[60] max-w-[min(90vw,32rem)] bg-[var(--kt-public-surface-inverse)]/80 px-3 py-2 font-mono text-[11px] leading-tight text-[var(--kt-public-text-inverse)]" /> : null}
     <HomeIntroCurtain onResolved={resolveIntro} />
   </div>;
 }

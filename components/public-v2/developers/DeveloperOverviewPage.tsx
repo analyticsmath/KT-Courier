@@ -51,7 +51,7 @@ export function DeveloperOverviewPage({ signedIn = false }: { signedIn?: boolean
         <div className="mb-6">
           <Link
             href="/"
-            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-public-text-muted)] hover:text-[var(--kt-public-text-primary)] transition-colors inline-flex items-center gap-1.5"
           >
             ← Home
           </Link>

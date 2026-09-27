@@ -40,8 +40,8 @@ export function AuthMediaComposition({
           <div
             style={{
               borderRadius: "var(--kt-radius-media)",
-              backgroundColor: "var(--kt-white)",
-              border: "1px solid var(--kt-cool-200)",
+              backgroundColor: "var(--kt-public-surface-primary)",
+              border: "1px solid var(--kt-public-border-subtle)",
               padding: 20,
               display: "flex",
               flexDirection: "column",
@@ -49,10 +49,10 @@ export function AuthMediaComposition({
               gap: 6,
             }}
           >
-            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--kt-red)", textTransform: "uppercase" }}>
+            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--kt-public-brand-signal)", textTransform: "uppercase" }}>
               Encrypted Session
             </span>
-            <p style={{ fontSize: "0.85rem", color: "var(--kt-graphite)", lineHeight: 1.4 }}>
+            <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", lineHeight: 1.4 }}>
               Direct access to parcel deliveries, scheduled requests and order histories.
             </p>
           </div>

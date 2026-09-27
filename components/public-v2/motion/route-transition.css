@@ -37,7 +37,7 @@
   inset: 0;
   width: 100vw;
   height: 100vh;
-  background-color: var(--kt-carbon, #101210);
+  background-color: var(--kt-public-surface-inverse);
   z-index: 9999;
   pointer-events: none;
   display: flex;
@@ -59,7 +59,7 @@
 .ktTransitionPlaneEdge {
   height: 3px;
   width: 100%;
-  background-color: var(--kt-red, #d83a2e);
+  background-color: var(--kt-public-brand-signal);
 }
 
 @keyframes ktPlaneWipeIn {

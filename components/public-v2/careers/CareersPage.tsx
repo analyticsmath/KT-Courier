@@ -48,13 +48,13 @@ export function CareersPage({ snapshot }: CareersPageProps) {
         <div className="mb-6">
           <Link
             href="/"
-            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-public-text-muted)] hover:text-[var(--kt-public-text-primary)] transition-colors inline-flex items-center gap-1.5"
           >
             ← Home
           </Link>
         </div>
 
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--kt-road-grey)] mb-3">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--kt-public-text-muted)] mb-3">
           Careers at KT Couriers
         </p>
 
@@ -65,14 +65,14 @@ export function CareersPage({ snapshot }: CareersPageProps) {
           <p className={styles.careersLead}>
             Published roles appear here when recruitment makes an opening available. Each position maintains its own verified description and direct application path.
           </p>
-          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-black/[0.03] border border-[var(--kt-concrete)]/60 font-mono text-xs text-[var(--kt-road-grey)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-asphalt)]" />
+          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--kt-public-surface-inverse)]/[0.03] border border-[var(--kt-public-border-default)]/60 font-mono text-xs text-[var(--kt-public-text-muted)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kt-public-surface-inverse)]" />
             <span>Zero Applicant Fees &bull; KT Couriers never charges application or onboarding fees</span>
           </div>
         </section>
 
         {/* Documentary Operations Photo Stage */}
-        <div className="relative aspect-[21/9] sm:aspect-[24/8] w-full mb-12 overflow-hidden border border-[var(--kt-concrete)]/60 bg-[var(--kt-asphalt)]">
+        <div className="relative aspect-[21/9] sm:aspect-[24/8] w-full mb-12 overflow-hidden border border-[var(--kt-public-border-default)]/60 bg-[var(--kt-public-surface-inverse)]">
           <Image
             src={ktMediaV3.pages.join.driverHero.src}
             alt={ktMediaV3.pages.join.driverHero.alt}
@@ -81,12 +81,12 @@ export function CareersPage({ snapshot }: CareersPageProps) {
             sizes="(max-width: 1200px) 100vw, 1200px"
             className="object-cover opacity-90"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/80 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-freight-paper)]">
-            <span className="text-xs font-mono uppercase tracking-widest bg-black/60 px-3 py-1">
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-public-text-primary)]/80 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-public-text-inverse)]">
+            <span className="text-xs font-mono uppercase tracking-widest bg-[var(--kt-public-surface-inverse)]/60 px-3 py-1">
               Fleet & Route Operations
             </span>
-            <span className="text-xs font-mono text-[var(--kt-concrete)] hidden sm:inline">
+            <span className="text-xs font-mono text-[var(--kt-public-border-default)] hidden sm:inline">
               Courier and dispatch operations across South Africa
             </span>
           </div>
@@ -118,7 +118,7 @@ export function CareersPage({ snapshot }: CareersPageProps) {
               <p className={styles.emptyStateText}>
                 When new positions open across operations, dispatch, technology, or regional logistics, they will appear here with complete application instructions.
               </p>
-              <p style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", marginTop: 12 }}>
+              <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", marginTop: 12 }}>
                 No application or screening fees are charged. KT Couriers never charges applicants. Contact us for accessibility accommodations.
               </p>
             </div>

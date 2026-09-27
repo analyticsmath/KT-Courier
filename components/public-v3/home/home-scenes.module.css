@@ -4,8 +4,8 @@
 .heroSection {
   position: relative;
   padding: 0;
-  background-color: var(--kt-freight-paper);
-  color: var(--kt-asphalt);
+  background-color: var(--kt-public-canvas);
+  color: var(--kt-public-text-primary);
   overflow: hidden;
 }
 
@@ -38,7 +38,7 @@
   font-weight: 900;
   line-height: 0.74;
   letter-spacing: -0.055em;
-  color: var(--kt-asphalt);
+  color: var(--kt-public-text-primary);
   opacity: 0.95;
   margin: 0;
 }
@@ -50,7 +50,7 @@
   font-weight: 900;
   line-height: 0.76;
   letter-spacing: -0.047em;
-  color: var(--kt-asphalt);
+  color: var(--kt-public-text-primary);
   opacity: 0.9;
   margin: 0;
 }
@@ -98,13 +98,15 @@
 .heroRoadTexture {
   height: min(42svh, 24rem);
   opacity: 0;
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
   mask-image: linear-gradient(to top, #000 0%, rgb(0 0 0 / 0.78) 32%, transparent 100%);
 }
 
 .heroRoadFade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, var(--kt-freight-paper) 0%, rgb(241 236 226 / 0.26) 46%, transparent 100%);
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
+  background: linear-gradient(to top, var(--kt-public-canvas) 0%, rgb(250 251 252 / 0.26) 46%, transparent 100%);
 }
 
 @media (max-width: 767px) {
@@ -159,7 +161,7 @@
 
 .heroLead {
   font-size: clamp(0.95rem, 1.2vw, 1.05rem);
-  color: var(--kt-road-grey);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
   white-space: nowrap;
@@ -204,20 +206,20 @@
   justify-content: center;
   min-height: 48px;
   padding: 0.75rem 1.75rem;
-  background-color: var(--kt-asphalt);
-  color: var(--kt-freight-paper);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
   font-weight: 700;
   font-size: 0.85rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border: 1.5px solid var(--kt-asphalt);
+  border: 1.5px solid var(--kt-public-text-primary);
   border-radius: var(--kt-radius-none);
   transition: background-color var(--kt-duration-fast) ease, color var(--kt-duration-fast) ease;
   text-decoration: none;
 }
 
 .btnPrimary:hover {
-  background-color: #23272B;
+  background-color: var(--kt-public-surface-inverse-raised);
 }
 
 .btnSecondary {
@@ -227,8 +229,8 @@
   min-height: 48px;
   padding: 0.75rem 1.75rem;
   background-color: transparent;
-  color: var(--kt-asphalt);
-  border: 1.5px solid var(--kt-asphalt);
+  color: var(--kt-public-text-primary);
+  border: 1.5px solid var(--kt-public-text-primary);
   font-weight: 700;
   font-size: 0.85rem;
   letter-spacing: 0.04em;
@@ -239,8 +241,8 @@
 }
 
 .btnSecondary:hover {
-  background-color: var(--kt-asphalt);
-  color: var(--kt-freight-paper);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
 }
 
 /* Horizontal Marketplace Journey (v3) */
@@ -248,8 +250,8 @@
   position: relative;
   min-height: 355vh;
   min-height: 355svh;
-  background-color: var(--kt-asphalt);
-  color: var(--kt-freight-paper);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
   padding: 4.5rem 0 2rem;
   display: flex;
   flex-direction: column;
@@ -372,7 +374,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--kt-freight-paper);
+  color: var(--kt-public-text-inverse);
   font-family: var(--font-display);
   font-size: clamp(6rem, 17vw, 17rem);
   font-weight: 900;
@@ -404,12 +406,14 @@
 }
 
 :global(.kt-collection-ground-plane) {
-  background: linear-gradient(180deg, rgba(163, 158, 148, .2), rgba(79, 83, 82, .2));
-  border-top: 1px solid rgba(43, 47, 47, .22);
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
+  background: linear-gradient(180deg, rgba(250, 251, 252, .2), rgba(79, 83, 82, .2));
+  border-top: 1px solid var(--kt-public-border-inverse);
 }
 
 :global(.kt-collection-ground-line) {
-  border-top: 1px solid rgba(35, 39, 40, .45);
+  border-top: 1px solid var(--kt-public-border-inverse);
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
   box-shadow: 0 -5px 14px rgba(25, 29, 30, .08);
 }
 
@@ -449,23 +453,23 @@
   z-index: 1000;
   max-width: min(360px, 90vw);
   padding: 0.75rem 1rem;
-  color: #f2efe8;
-  background: rgba(11, 13, 15, 0.94);
-  border: 1px solid rgba(242, 239, 232, 0.28);
+  color: var(--kt-public-text-inverse);
+  background: var(--kt-public-surface-inverse);
+  border: 1px solid var(--kt-public-border-subtle);
   font: 11px/1.45 var(--font-mono);
   white-space: pre-line;
 }
 
 :global(.kt-home-experience[data-kt-motion-debug="true"] [data-actor-slot]) {
-  outline: 1px solid rgba(40, 120, 255, .9);
+  outline: 1px solid var(--kt-public-focus);
 }
 
 :global(.kt-home-experience[data-kt-motion-debug="true"] [data-home-occluder]) {
-  outline: 1px dashed rgba(255, 190, 40, .95);
+  outline: 1px dashed var(--kt-public-focus);
 }
 
 :global(.kt-home-experience[data-kt-motion-debug="true"] [data-actor-material-anchor]) {
-  outline: 1px solid rgba(255, 70, 80, .95);
+  outline: 1px solid var(--kt-public-focus);
 }
 
 :global(.kt-home-experience[data-kt-motion-debug="true"] [data-route-path]) {
@@ -485,8 +489,8 @@
   top: 48%;
   width: 28%;
   height: 34%;
-  border: 1px dashed rgba(40, 120, 255, .85);
-  background: rgba(40, 120, 255, .035);
+  border: 1px dashed var(--kt-public-interactive);
+  background: var(--kt-public-interactive);
 }
 
 :global(.kt-home-experience[data-home-focus="left-lower"] .kt-home-debug-focus) { left: 8%; width: 32%; }
@@ -499,7 +503,7 @@
   left: 0;
   right: 0;
   top: 85%;
-  border-top: 1px dashed rgba(255, 40, 70, .85);
+  border-top: 1px dashed var(--kt-public-brand-signal);
 }
 
 :global(.kt-home-debug-card-band) {
@@ -507,7 +511,7 @@
   left: 50%;
   top: 0;
   bottom: 0;
-  border-left: 1px dashed rgba(40, 220, 160, .85);
+  border-left: 1px dashed var(--kt-public-border-control);
 }
 
 @media (max-width: 767px) {
@@ -623,7 +627,7 @@
   width: 100%;
   aspect-ratio: 16 / 10;
   overflow: hidden;
-  background-color: #121518;
+  background-color: var(--kt-public-surface-inverse);
 }
 
 .marketplaceCardImg {
@@ -636,6 +640,7 @@
 .marketplaceCardOverlay {
   position: absolute;
   inset: 0;
+  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
   background: linear-gradient(to top, rgba(11, 13, 15, 0.7) 0%, rgba(11, 13, 15, 0.1) 40%, transparent 100%);
   pointer-events: none;
 }
@@ -657,13 +662,13 @@
   font-weight: 800;
   letter-spacing: -0.03em;
   margin: 0 0 0.5rem;
-  color: var(--kt-white);
+  color: var(--kt-public-text-inverse);
 }
 
 .marketplaceCardTagline {
   font-family: var(--font-body);
   font-size: clamp(0.95rem, 1.1vw, 1.125rem);
-  color: var(--kt-concrete);
+  color: var(--kt-public-border-default);
   line-height: 1.5;
   margin: 0;
 }

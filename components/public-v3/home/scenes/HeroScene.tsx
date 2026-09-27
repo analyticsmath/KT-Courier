@@ -12,7 +12,7 @@ interface HeroSceneProps {
 
 /**
  * Scene 01 — Hero Truck & Brand Establish (Merged Immediate First View).
- * Displays the authoritative campaign frame on warm Freight Paper (#F1ECE2):
+ * Displays the authoritative campaign frame on the Signal White public canvas:
  * Giant KT / COURIER typography, complete white hero truck silhouette on desktop & mobile,
  * subtle road texture entering peripheral depth, concise human copy, and clear Shop & Send actions.
  */

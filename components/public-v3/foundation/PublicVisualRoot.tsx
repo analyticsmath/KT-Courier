@@ -20,7 +20,7 @@ export function PublicVisualRoot({
 }: PublicVisualRootProps) {
   return (
     <div
-      className={`public-v3-root min-h-screen flex flex-col bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] ${className}`}
+      className={`public-v3-root min-h-screen flex flex-col bg-[var(--kt-public-canvas)] text-[var(--kt-public-text-primary)] ${className}`}
       data-kt-version="v3"
       data-kt-theme="light"
     >

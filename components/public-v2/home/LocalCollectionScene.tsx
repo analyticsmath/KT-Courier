@@ -57,8 +57,8 @@ export function LocalCollectionScene() {
         {/* Operational Status Evidence */}
         <div className={styles.collectionTelemetryRow}>
           <span className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#1A8754]" />
-            <span className="text-[11px] font-mono tracking-wider text-[#111318]">
+            <span className="w-2 h-2 rounded-full bg-[var(--kt-state-success)]" />
+            <span className="text-[11px] font-mono tracking-wider text-[var(--kt-public-interactive-text)]">
               COLLECTION CONFIRMED · ROUTE READY
             </span>
           </span>

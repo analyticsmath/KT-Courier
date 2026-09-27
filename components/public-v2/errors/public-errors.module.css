@@ -111,8 +111,8 @@
 }
 
 .primary {
-  border: 1px solid var(--kt-public-signal);
-  background: var(--kt-public-signal);
+  border: 1px solid var(--kt-public-action-primary);
+  background: var(--kt-public-action-primary);
   color: var(--kt-public-text-inverse);
 }
 

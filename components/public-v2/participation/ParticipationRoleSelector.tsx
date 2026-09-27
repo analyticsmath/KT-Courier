@@ -91,7 +91,7 @@ export function ParticipationRoleSelector() {
                     fontSize: "0.75rem",
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
-                    color: "var(--kt-signal-red, #cf2930)",
+                    color: "var(--kt-public-brand-signal)",
                     fontWeight: 600,
                     display: "inline-block",
                     marginBottom: 8,
@@ -103,12 +103,12 @@ export function ParticipationRoleSelector() {
               </div>
 
               <p className={styles.roleTagline}>{activePathway.tagline}</p>
-              <p style={{ fontSize: "0.95rem", color: "var(--kt-road-grey, #6B6E6A)", lineHeight: 1.5, margin: "12px 0 20px" }}>
+              <p style={{ fontSize: "0.95rem", color: "var(--kt-public-text-muted)", lineHeight: 1.5, margin: "12px 0 20px" }}>
                 {activePathway.description}
               </p>
 
               <div className={styles.roleRequirementsBlock}>
-                <p style={{ fontSize: "0.85rem", color: "var(--kt-road-grey, #6B6E6A)", fontStyle: "italic", margin: 0 }}>
+                <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", fontStyle: "italic", margin: 0 }}>
                   Contact KT for current participation requirements.
                 </p>
               </div>

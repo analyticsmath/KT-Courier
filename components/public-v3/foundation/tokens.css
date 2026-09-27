@@ -1,28 +1,169 @@
-/* KT Courier Public Experience — Authoritative Design Tokens (v3) */
+/* KT COURIERS — PRECISION WHITE. Color authority is public-root scoped.
+   Loading public CSS must never change an internal dashboard palette. */
+[data-kt-version="v3"],
+[data-kt-signature="v2"],
+[data-kt-visual-system="editorial-freight-v1"] {
+  /* Raw palette: fixed values; no generated shades. */
+  --kt-white-000: #FFFFFF;
+  --kt-white-050: #FAFBFC;
+  --kt-white-100: #F6F7F8;
+  --kt-white-200: #F1F3F5;
+  --kt-neutral-300: #E2E5E9;
+  --kt-neutral-400: #C8CDD2;
+  --kt-neutral-500: #9AA1A8;
+  --kt-neutral-650: #6D747C;
+  --kt-neutral-750: #454B52;
+  --kt-neutral-850: #24282D;
+  --kt-carbon: #0B0D0F;
+  --kt-carbon-soft: #171A1E;
+  --kt-cobalt: #3479F8;
+  --kt-cobalt-deep: #2A64DD;
+  --kt-cobalt-active: #2356BF;
+  --kt-signal-red: #E10F1B;
+  --kt-signal-red-deep: #B90D16;
+  /* Required inverse structural boundary; this is not a canvas shade. */
+  --kt-neutral-inverse-line: #343A40;
+
+  /* Semantic public roles */
+  --kt-public-canvas: var(--kt-white-050);
+  --kt-public-surface-primary: var(--kt-white-000);
+  --kt-public-surface-secondary: var(--kt-white-100);
+  --kt-public-surface-tertiary: var(--kt-white-200);
+  --kt-public-surface-inverse: var(--kt-carbon);
+  --kt-public-surface-inverse-raised: var(--kt-carbon-soft);
+  --kt-public-text-primary: var(--kt-carbon);
+  --kt-public-text-secondary: var(--kt-neutral-750);
+  --kt-public-text-muted: var(--kt-neutral-650);
+  --kt-public-text-disabled: var(--kt-neutral-500);
+  --kt-public-text-inverse: var(--kt-white-000);
+  --kt-public-text-inverse-muted: var(--kt-neutral-400);
+  --kt-public-border-subtle: var(--kt-neutral-300);
+  --kt-public-border-default: var(--kt-neutral-400);
+  --kt-public-border-control: var(--kt-neutral-650);
+  --kt-public-border-inverse: var(--kt-neutral-inverse-line);
+  --kt-public-action-primary: var(--kt-carbon);
+  --kt-public-action-primary-hover: var(--kt-carbon-soft);
+  --kt-public-action-primary-pressed: var(--kt-neutral-850);
+  --kt-public-action-primary-text: var(--kt-white-000);
+  --kt-public-interactive: var(--kt-cobalt);
+  --kt-public-interactive-text: var(--kt-cobalt-deep);
+  --kt-public-interactive-hover: var(--kt-cobalt-deep);
+  --kt-public-interactive-active: var(--kt-cobalt-active);
+  --kt-public-brand-signal: var(--kt-signal-red);
+  --kt-public-focus: var(--kt-cobalt);
+
+  /* Status is distinct from logo artwork and brand signaling. */
+  --kt-state-success: #167447;
+  --kt-state-warning: #8B5E00;
+  --kt-state-error: #C9362B;
+  --kt-state-info: var(--kt-cobalt-deep);
+  --kt-state-surface: var(--kt-white-000);
+  --kt-state-surface-muted: var(--kt-white-100);
+
+  /* @deprecated: compatibility for shared code; feature CSS uses public/state roles. */
+  --kt-asphalt: var(--kt-public-text-primary);
+  --kt-midnight: var(--kt-public-surface-inverse-raised);
+  --kt-freight-paper: var(--kt-public-canvas);
+  --kt-bone: var(--kt-public-surface-primary);
+  --kt-paper: var(--kt-public-canvas);
+  --kt-concrete: var(--kt-public-border-default);
+  --kt-mist: var(--kt-public-border-default);
+  --kt-graphite: var(--kt-public-text-muted);
+  --kt-road-grey: var(--kt-public-text-muted);
+  --kt-ink: var(--kt-public-text-primary);
+  --kt-white: var(--kt-public-surface-primary);
+  --kt-brand-blue: var(--kt-public-interactive);
+  --kt-brand-blue-accessible: var(--kt-public-interactive-text);
+  --kt-brand-red: var(--kt-public-brand-signal);
+  --kt-red: var(--kt-public-brand-signal);
+  --kt-deep-cobalt: var(--kt-public-interactive-text);
+  --kt-cool-025: var(--kt-public-canvas);
+  --kt-cool-050: var(--kt-public-surface-secondary);
+  --kt-cool-100: var(--kt-public-surface-tertiary);
+  --kt-cool-150: var(--kt-public-surface-tertiary);
+  --kt-cool-200: var(--kt-public-border-subtle);
+  --kt-cool-300: var(--kt-public-border-default);
+  --kt-cool-400: var(--kt-public-text-disabled);
+  --kt-cool-550: var(--kt-public-text-muted);
+  --kt-cool-650: var(--kt-public-text-secondary);
+  --kt-bg-primary: var(--kt-public-canvas);
+  --kt-bg-surface: var(--kt-public-surface-primary);
+  --kt-bg-dark: var(--kt-public-surface-inverse);
+  --kt-text-primary: var(--kt-public-text-primary);
+  --kt-text-secondary: var(--kt-public-text-secondary);
+  --kt-text-inverse: var(--kt-public-text-inverse);
+  --kt-border-subtle: var(--kt-public-border-subtle);
+  --kt-border-dark: var(--kt-public-border-inverse);
+  --kt-surface-canvas: var(--kt-public-canvas);
+  --kt-surface-base: var(--kt-public-surface-primary);
+  --kt-surface-raised: var(--kt-public-surface-primary);
+  --kt-surface-inverse: var(--kt-public-surface-inverse);
+  --kt-text-tertiary: var(--kt-public-text-muted);
+  --kt-line-subtle: var(--kt-public-border-subtle);
+  --kt-line-strong: var(--kt-public-border-control);
+  --kt-action-primary: var(--kt-public-action-primary);
+  --kt-action-primary-hover: var(--kt-public-action-primary-hover);
+  --kt-bg: var(--kt-public-canvas);
+  --kt-canvas: var(--kt-public-canvas);
+  --kt-surface: var(--kt-public-surface-primary);
+  --kt-surface-muted: var(--kt-public-surface-secondary);
+  --kt-text: var(--kt-public-text-primary);
+  --kt-text-soft: var(--kt-public-text-secondary);
+  --kt-text-muted: var(--kt-public-text-muted);
+  --kt-muted: var(--kt-public-text-muted);
+  --kt-border: var(--kt-public-border-subtle);
+  --kt-border-strong: var(--kt-public-border-control);
+  --kt-brand-blue-hover: var(--kt-public-interactive-hover);
+  --kt-brand-blue-soft: var(--kt-public-surface-secondary);
+  --kt-blue-soft: var(--kt-public-surface-secondary);
+  --kt-green: var(--kt-state-success);
+  --kt-green-soft: var(--kt-state-surface-muted);
+  --kt-red-soft: var(--kt-state-surface-muted);
+  --kt-public-canvas-primary: var(--kt-public-canvas);
+  --kt-public-canvas-secondary: var(--kt-public-surface-secondary);
+  --kt-public-canvas-muted: var(--kt-public-surface-secondary);
+  --kt-public-surface-dark: var(--kt-public-surface-inverse);
+  --kt-public-text-on-accent: var(--kt-public-action-primary-text);
+
+  --kt-public-line-subtle: var(--kt-public-border-subtle);
+  --kt-public-line-default: var(--kt-public-border-default);
+  --kt-public-line-strong: var(--kt-public-border-control);
+  --kt-public-line-inverse: var(--kt-public-border-inverse);
+  --kt-public-signal: var(--kt-public-interactive);
+  --kt-public-signal-hover: var(--kt-public-interactive-hover);
+  --kt-public-signal-active: var(--kt-public-interactive-active);
+  --kt-public-signal-soft: var(--kt-public-surface-secondary);
+
+  --kt-public-success-text: var(--kt-state-success);
+  --kt-public-success-surface: var(--kt-state-surface);
+  --kt-public-success-border: var(--kt-state-success);
+  --kt-public-success-strong: var(--kt-state-success);
+  --kt-public-warning-text: var(--kt-state-warning);
+  --kt-public-warning-surface: var(--kt-state-surface);
+  --kt-public-warning-border: var(--kt-state-warning);
+  --kt-public-warning-strong: var(--kt-state-warning);
+  --kt-public-error-text: var(--kt-state-error);
+  --kt-public-error-surface: var(--kt-state-surface);
+  --kt-public-error-border: var(--kt-state-error);
+  --kt-public-error-strong: var(--kt-state-error);
+  --kt-public-information-text: var(--kt-state-info);
+  --kt-public-information-surface: var(--kt-state-surface);
+  --kt-public-information-border: var(--kt-state-info);
+  --kt-public-information-strong: var(--kt-state-info);
+  --kt-public-restricted-text: var(--kt-state-warning);
+  --kt-public-restricted-surface: var(--kt-state-surface);
+  --kt-public-restricted-border: var(--kt-state-warning);
+  --kt-public-restricted-strong: var(--kt-state-warning);
+  --kt-public-locked-text: var(--kt-public-text-secondary);
+  --kt-public-locked-surface: var(--kt-state-surface);
+  --kt-public-locked-border: var(--kt-public-text-secondary);
+  --kt-public-locked-strong: var(--kt-public-text-secondary);
+  --kt-public-signal-contrast: var(--kt-public-text-inverse);
+  --kt-public-text-muted-on-surface: var(--kt-neutral-750);
+}
+
+/* Existing geometry, elevation and motion are unchanged. */
 :root {
-  /* Core Brand Tokens */
-  --kt-asphalt: #0B0D0F;
-  --kt-midnight: #151D33;
-  --kt-freight-paper: #F1ECE2;
-  --kt-bone: #FBF9F3;
-  --kt-concrete: #CDC4B5;
-  --kt-graphite: #5D5A55;
-  --kt-road-grey: #5D5A55;
-  --kt-brand-blue: #3479F8;
-  --kt-brand-blue-accessible: #2A64DD;
-  --kt-brand-red: #E10F1B;
-  --kt-white: #FFFFFF;
-
-  /* Semantic Architecture Mappings */
-  --kt-bg-primary: var(--kt-freight-paper);
-  --kt-bg-surface: var(--kt-bone);
-  --kt-bg-dark: var(--kt-asphalt);
-  --kt-text-primary: var(--kt-asphalt);
-  --kt-text-secondary: var(--kt-graphite);
-  --kt-text-inverse: var(--kt-freight-paper);
-  --kt-border-subtle: var(--kt-concrete);
-  --kt-border-dark: #23272B;
-
   /* Radii */
   --kt-radius-none: 0px;
   --kt-radius-subtle: 4px;
@@ -41,7 +182,9 @@
   --kt-page-gutter: clamp(1.25rem, 4vw, 4.5rem);
 
   /* Elevation (No decorative card shadows) */
+  /* kt-color-audit-allow: existing elevation alpha */
   --kt-shadow-overlay: 0 20px 48px rgba(11, 13, 15, 0.28);
+  /* kt-color-audit-allow: existing elevation alpha */
   --kt-shadow-sheet: -12px 0 36px rgba(11, 13, 15, 0.24);
 
   /* Transitions */
@@ -55,14 +198,14 @@
 /* Public Root Theme Scope */
 [data-kt-theme="light"],
 .public-v3-root {
-  background-color: var(--kt-freight-paper);
-  color: var(--kt-asphalt);
+  background-color: var(--kt-public-canvas);
+  color: var(--kt-public-text-primary);
 }
 
 [data-kt-contrast="dark"],
 [data-kt-scene-theme="dark"] {
-  background-color: var(--kt-asphalt);
-  color: var(--kt-freight-paper);
+  background-color: var(--kt-public-action-primary);
+  color: var(--kt-public-text-inverse);
 }
 
 /* Authoritative Hero Truck Rules: 80vw desktop target, 90-92vw mobile containment without clipping */
@@ -83,18 +226,18 @@
 
 @media (max-width: 767px) {
   .hero-truck-container {
-    width: min(92vw, 430px);
-    margin: 0 auto;
-    position: relative;
-    left: 50%;
-    transform: translateX(-50%);
+  width: min(92vw, 430px);
+  margin: 0 auto;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
   }
 
   .hero-truck-container img {
-    width: min(92vw, 430px) !important;
-    max-width: 92vw !important;
-    height: auto !important;
-    object-fit: contain !important;
+  width: min(92vw, 430px) !important;
+  max-width: 92vw !important;
+  height: auto !important;
+  object-fit: contain !important;
   }
 }
 
@@ -104,9 +247,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--kt-asphalt) !important;
-  color: var(--kt-freight-paper) !important;
-  border: 1.5px solid var(--kt-asphalt) !important;
+  background-color: var(--kt-public-action-primary) !important;
+  color: var(--kt-public-text-inverse) !important;
+  border: 1.5px solid var(--kt-public-action-primary) !important;
   border-radius: var(--kt-radius-none);
   font-weight: 700;
   text-transform: uppercase;
@@ -117,13 +260,13 @@
 
 .kt-action-filled:hover,
 .kt-btn-primary:hover {
-  background-color: #23272B !important;
-  color: var(--kt-freight-paper) !important;
+  background-color: var(--kt-public-action-primary-hover) !important;
+  color: var(--kt-public-text-inverse) !important;
 }
 
 .kt-action-filled:focus-visible,
 .kt-btn-primary:focus-visible {
-  outline: 2px solid var(--kt-brand-blue-accessible) !important;
+  outline: 2px solid var(--kt-public-focus) !important;
   outline-offset: 2px;
 }
 
@@ -133,8 +276,8 @@
   align-items: center;
   justify-content: center;
   background-color: transparent !important;
-  color: var(--kt-asphalt) !important;
-  border: 1.5px solid var(--kt-asphalt) !important;
+  color: var(--kt-public-action-primary) !important;
+  border: 1.5px solid var(--kt-public-action-primary) !important;
   border-radius: var(--kt-radius-none);
   font-weight: 700;
   text-transform: uppercase;
@@ -145,12 +288,30 @@
 
 .kt-action-outline:hover,
 .kt-btn-secondary:hover {
-  background-color: var(--kt-asphalt) !important;
-  color: var(--kt-freight-paper) !important;
+  background-color: var(--kt-public-action-primary) !important;
+  color: var(--kt-public-text-inverse) !important;
 }
 
 .kt-action-outline:focus-visible,
 .kt-btn-secondary:focus-visible {
-  outline: 2px solid var(--kt-brand-blue-accessible) !important;
+  outline: 2px solid var(--kt-public-focus) !important;
   outline-offset: 2px;
+}
+
+/* Consistent focus and legible selection within the public boundary. */
+:is([data-kt-version="v3"], [data-kt-signature="v2"]) :focus-visible {
+  outline: 2px solid var(--kt-public-focus);
+  outline-offset: 2px;
+}
+:is([data-kt-version="v3"], [data-kt-signature="v2"]) ::selection {
+  background-color: var(--kt-public-interactive-hover);
+  color: var(--kt-public-text-inverse);
+}
+.kt-action-filled:active,
+.kt-btn-primary:active {
+  background-color: var(--kt-public-action-primary-pressed) !important;
+}
+/* Brighter Cobalt is accessible for normal text in existing Carbon contexts. */
+[data-kt-contrast="dark"], [data-kt-scene-theme="dark"], [data-tone="dark"] {
+  --kt-public-interactive-text: var(--kt-public-interactive);
 }

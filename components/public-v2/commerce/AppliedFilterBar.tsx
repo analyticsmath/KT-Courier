@@ -74,7 +74,7 @@ export function AppliedFilterBar({
 
   return (
     <div aria-label="Applied filters" className={styles.appliedFilterBar}>
-      <span style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)" }}>
+      <span style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)" }}>
         Filters:
       </span>
 

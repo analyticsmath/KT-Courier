@@ -14,7 +14,7 @@ export default function MarketplaceNotFound() {
         <h1 style={{ fontSize: "clamp(2rem, 3.5vw, 3rem)", fontWeight: 560, margin: "0 0 16px" }}>
           That marketplace item is not available.
         </h1>
-        <p style={{ color: "var(--kt-muted, #5f6763)", fontSize: "1.05rem", maxWidth: 600, margin: "0 0 24px" }}>
+        <p style={{ color: "var(--kt-public-text-muted)", fontSize: "1.05rem", maxWidth: 600, margin: "0 0 24px" }}>
           It may no longer be published or the link may have changed. Explore the marketplace using the links below.
         </p>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>

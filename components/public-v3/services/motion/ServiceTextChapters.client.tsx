@@ -70,24 +70,24 @@ export function ServiceTextChapters({
             onMouseEnter={() => onActiveIndexChange?.(idx)}
             className={`p-6 border-l-2 cursor-pointer transition-all duration-300 ${
               isActive
-                ? "border-l-[var(--kt-asphalt)] bg-black/[0.02] translate-x-1"
-                : "border-l-[var(--kt-concrete)]/60 opacity-60 hover:opacity-90 hover:border-l-[var(--kt-road-grey)]"
+                ? "border-l-[var(--kt-public-text-primary)] bg-[var(--kt-public-surface-inverse)]/[0.02] translate-x-1"
+                : "border-l-[var(--kt-public-border-default)]/60 opacity-60 hover:opacity-90 hover:border-l-[var(--kt-public-text-muted)]"
             }`}
           >
             <div className="flex items-center gap-3 mb-2">
-              <span className="font-mono text-xs font-bold text-[var(--kt-road-grey)]">
+              <span className="font-mono text-xs font-bold text-[var(--kt-public-text-muted)]">
                 {chapter.stepNumber}
               </span>
               {chapter.badge && (
-                <span className="text-[10px] font-mono tracking-widest uppercase bg-black/[0.04] px-2 py-0.5 text-[var(--kt-asphalt)]">
+                <span className="text-[10px] font-mono tracking-widest uppercase bg-[var(--kt-public-surface-inverse)]/[0.04] px-2 py-0.5 text-[var(--kt-public-text-primary)]">
                   {chapter.badge}
                 </span>
               )}
             </div>
-            <h3 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[var(--kt-asphalt)]">
+            <h3 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[var(--kt-public-text-primary)]">
               {chapter.title}
             </h3>
-            <p className="text-sm sm:text-base text-[var(--kt-road-grey)] leading-relaxed mt-2">
+            <p className="text-sm sm:text-base text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
               {chapter.description}
             </p>
           </div>

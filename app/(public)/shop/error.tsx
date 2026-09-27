@@ -20,7 +20,7 @@ export default function StorefrontError({
         <h1 style={{ fontSize: "clamp(2rem, 3.5vw, 3rem)", fontWeight: 560, margin: "0 0 16px" }}>
           The marketplace cannot load right now.
         </h1>
-        <p style={{ color: "var(--kt-muted, #5f6763)", fontSize: "1.05rem", maxWidth: 600, margin: "0 0 24px" }}>
+        <p style={{ color: "var(--kt-public-text-muted)", fontSize: "1.05rem", maxWidth: 600, margin: "0 0 24px" }}>
           Product, price, and store availability information is unavailable until the marketplace source responds.
         </p>
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
@@ -28,8 +28,8 @@ export default function StorefrontError({
             onClick={reset}
             style={{
               padding: "12px 24px",
-              backgroundColor: "var(--kt-carbon, #101210)",
-              color: "var(--kt-white, #ffffff)",
+              backgroundColor: "var(--kt-public-surface-inverse)",
+              color: "var(--kt-public-text-inverse)",
               border: "none",
               fontWeight: 560,
               cursor: "pointer",

@@ -201,10 +201,10 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
         }}
       >
         {/* KT route geometry top banner / curve header */}
-        <div className="w-full flex items-center justify-between px-8 py-3 bg-[#0E1012] border-b border-[#D9DEE2]/15">
+        <div className="w-full flex items-center justify-between px-8 py-3 bg-[var(--kt-public-surface-inverse)] border-b border-[var(--kt-public-border-subtle)]/15">
           <div className="flex items-center gap-3">
             <svg
-              className="w-12 h-4 text-[#347CFB]"
+              className="w-12 h-4 text-[var(--kt-public-interactive-text)]"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -213,14 +213,14 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
             >
               <path d="M2 14 C16 14, 20 2, 46 2" />
             </svg>
-            <span className="text-[11px] font-mono tracking-widest text-[#F3F1EA] uppercase font-semibold">
+            <span className="text-[11px] font-mono tracking-widest text-[var(--kt-public-text-inverse)] uppercase font-semibold">
               KT MOVEMENT ATLAS · 11 CORRIDORS
             </span>
           </div>
           <button
             aria-label="Close Atlas"
             onClick={onClose}
-            className="px-3 py-1 bg-transparent border border-[#D9DEE2]/30 hover:border-[#347CFB] text-[#F3F1EA] text-[11px] font-mono transition-colors cursor-pointer"
+            className="px-3 py-1 bg-transparent border border-[var(--kt-public-border-subtle)]/30 hover:border-[var(--kt-public-interactive)] text-[var(--kt-public-text-inverse)] text-[11px] font-mono transition-colors cursor-pointer"
             type="button"
           >
             CLOSE [ESC]
@@ -252,7 +252,7 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
                       role="tab"
                     >
                       <span className="flex items-center gap-2">
-                        <span className="text-[11px] font-mono text-[#59626A]">
+                        <span className="text-[11px] font-mono text-[var(--kt-public-text-muted)]">
                           {String(idx + 1).padStart(2, "0")}
                         </span>
                         <span>{service.title}</span>
@@ -285,7 +285,7 @@ export function ServicesAtlasMenu({ open, onClose }: ServicesAtlasMenuProps) {
                 src={activeService.image}
                 style={{ objectFit: "cover" }}
               />
-              <div className="absolute top-4 left-4 z-10 px-2 py-0.5 bg-[#0E1012]/80 border border-[#347CFB]/40 text-[10px] font-mono tracking-widest text-[#347CFB] uppercase">
+              <div className="absolute top-4 left-4 z-10 px-2 py-0.5 bg-[var(--kt-public-surface-inverse)]/80 border border-[var(--kt-public-interactive)]/40 text-[10px] font-mono tracking-widest text-[var(--kt-public-interactive-text)] uppercase">
                 {activeService.family}
               </div>
             </div>

@@ -25,9 +25,9 @@
 .field select,
 .field textarea {
   width: 100%;
-  border: 1px solid var(--kt-public-line-strong);
+  border: 1px solid var(--kt-public-border-control);
   border-radius: 0;
-  background: var(--kt-public-canvas-primary);
+  background: var(--kt-public-surface-secondary);
   color: var(--kt-public-text-primary);
   font: inherit;
   font-size: 1rem;
@@ -49,16 +49,16 @@
 .field select:focus,
 .field textarea:focus,
 .form button:focus-visible {
-  outline: 3px solid var(--kt-public-signal);
+  outline: 3px solid var(--kt-public-focus);
   outline-offset: 3px;
 }
 
 .field [aria-invalid="true"] {
-  border-color: var(--kt-public-error-strong);
+  border-color: var(--kt-state-error);
 }
 
 .fieldError {
-  color: var(--kt-public-error-text);
+  color: var(--kt-state-error);
   font-size: 0.84rem;
   font-weight: 650;
   line-height: 1.45;
@@ -66,9 +66,9 @@
 }
 
 .errorSummary {
-  border-inline-start: 3px solid var(--kt-public-error-strong);
-  background: var(--kt-public-error-surface);
-  color: var(--kt-public-error-text);
+  border-inline-start: 3px solid var(--kt-state-error);
+  background: var(--kt-state-surface);
+  color: var(--kt-state-error);
   padding: 0.85rem 1rem;
 }
 
@@ -80,9 +80,9 @@
 
 .form button {
   min-height: 3rem;
-  border: 1px solid var(--kt-public-signal);
-  background: var(--kt-public-signal);
-  color: var(--kt-public-signal-contrast);
+  border: 1px solid var(--kt-public-action-primary);
+  background: var(--kt-public-action-primary);
+  color: var(--kt-public-action-primary-text);
   font-family: var(--kt-public-font-interface);
   font-size: 0.9rem;
   font-weight: 720;
@@ -90,13 +90,15 @@
 }
 
 .form button:hover:not(:disabled) {
-  background: var(--kt-public-signal-hover);
-  border-color: var(--kt-public-signal-hover);
+  background: var(--kt-public-action-primary-hover);
+  border-color: var(--kt-public-action-primary-hover);
 }
 
 .form button:disabled {
   cursor: not-allowed;
-  opacity: 0.7;
+  background: var(--kt-public-surface-tertiary);
+  color: var(--kt-public-text-disabled);
+  border-color: var(--kt-public-text-disabled);
 }
 
 .helpText {
@@ -108,9 +110,9 @@
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  border-inline-start: 3px solid var(--kt-public-success-strong);
-  background: var(--kt-public-success-surface);
-  color: var(--kt-public-success-text);
+  border-inline-start: 3px solid var(--kt-state-success);
+  background: var(--kt-state-surface);
+  color: var(--kt-state-success);
   padding: 1rem;
 }
 

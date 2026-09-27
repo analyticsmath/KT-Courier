@@ -8,7 +8,7 @@ export default function StorefrontLoading() {
           style={{
             height: "40px",
             width: "280px",
-            backgroundColor: "var(--kt-cool-100, #eceeee)",
+            backgroundColor: "var(--kt-public-surface-tertiary)",
             marginBottom: "24px",
           }}
         />
@@ -19,21 +19,21 @@ export default function StorefrontLoading() {
                 style={{
                   width: "100%",
                   aspectRatio: "1 / 1.15",
-                  backgroundColor: "var(--kt-cool-100, #eceeee)",
+                  backgroundColor: "var(--kt-public-surface-tertiary)",
                 }}
               />
               <div
                 style={{
                   height: "16px",
                   width: "70%",
-                  backgroundColor: "var(--kt-cool-100, #eceeee)",
+                  backgroundColor: "var(--kt-public-surface-tertiary)",
                 }}
               />
               <div
                 style={{
                   height: "16px",
                   width: "40%",
-                  backgroundColor: "var(--kt-cool-100, #eceeee)",
+                  backgroundColor: "var(--kt-public-surface-tertiary)",
                 }}
               />
             </div>

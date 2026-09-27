@@ -42,12 +42,12 @@ export function ArrivalScene() {
 
           <div className={styles.arrivalWarmStatusBadge}>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#1A8754]" />
-              <span className="text-xs font-mono font-bold text-[#111318] uppercase tracking-wider">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--kt-state-success)]" />
+              <span className="text-xs font-mono font-bold text-[var(--kt-public-interactive-text)] uppercase tracking-wider">
                 DELIVERY COMPLETE · SIGNATURE RECORDED
               </span>
             </div>
-            <span className="text-[11px] font-mono text-[#59626A] mt-0.5">
+            <span className="text-[11px] font-mono text-[var(--kt-public-text-muted)] mt-0.5">
               Johannesburg &middot; Handoff Confirmed
             </span>
           </div>

@@ -294,13 +294,14 @@ export function AddToCartFlightPortal() {
             height: "48px",
             borderRadius: "8px",
             overflow: "hidden",
+            // kt-color-audit-allow: existing cart-flight elevation alpha
             boxShadow:
-              "0 12px 28px rgba(14, 16, 18, 0.45), 0 0 0 1px rgba(52, 124, 251, 0.4)",
-            backgroundColor: "var(--kt-carbon, #0e1012)",
+              "0 12px 28px rgba(14, 16, 18, 0.45), 0 0 0 1px var(--kt-public-border-subtle)",
+            backgroundColor: "var(--kt-public-surface-inverse)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#ffffff",
+            color: "var(--kt-public-text-inverse)",
           }}
         >
           {flight.imageSrc ? (

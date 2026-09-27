@@ -7,7 +7,7 @@
 .eyebrow,
 .sectionMarker {
   margin: 0;
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-family: var(--kt-public-font-interface);
   font-size: 0.66rem;
   font-weight: 700;
@@ -121,7 +121,7 @@
 }
 
 .trackingNote a:focus-visible {
-  outline: 2px solid var(--kt-public-signal);
+  outline: 2px solid var(--kt-public-focus);
   outline-offset: 3px;
 }
 
@@ -138,7 +138,7 @@
 }
 
 .commandPrimary {
-  background: var(--kt-public-signal);
+  background: var(--kt-public-action-primary);
   color: var(--kt-public-text-inverse);
   transition: background-color 160ms ease;
 }
@@ -399,13 +399,13 @@
 }
 
 .documentaryItem p span {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-size: 0.66rem;
   letter-spacing: 0.08em;
 }
 
 .documentaryItem[data-native-scroller-active="true"] .documentaryImageFrame {
-  outline: 2px solid var(--kt-public-signal);
+  outline: 2px solid var(--kt-public-focus);
   outline-offset: 4px;
 }
 
@@ -431,7 +431,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(16, 18, 16, 0.24);
+  background: var(--kt-public-surface-inverse);
   pointer-events: none;
 }
 
@@ -466,7 +466,7 @@
 }
 
 .servicePanelCopy > span {
-  color: rgba(255, 255, 255, 0.74);
+  color: var(--kt-public-text-inverse);
   font-family: var(--kt-public-font-body);
   font-size: 0.84rem;
   line-height: 1.4;
@@ -515,7 +515,7 @@
   bottom: 13px;
   left: 13px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--kt-public-canvas);
   color: var(--kt-public-text-secondary);
   font-family: var(--kt-public-font-body);
   font-size: 0.77rem;
@@ -585,7 +585,7 @@
 }
 
 .textActionPrimary {
-  border-bottom: 2px solid var(--kt-public-signal);
+  border-bottom: 2px solid var(--kt-public-action-primary);
   padding-bottom: 4px;
 }
 
@@ -594,7 +594,7 @@
 }
 
 .textAction:hover {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
 }
 
 .marketplaceHeading {
@@ -619,7 +619,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(16, 18, 16, 0.16);
+  background: var(--kt-public-surface-inverse);
 }
 
 .marketplaceShelf span,
@@ -649,7 +649,7 @@
 }
 
 .marketplaceShelf li[data-native-scroller-active="true"] {
-  outline: 2px solid var(--kt-public-signal);
+  outline: 2px solid var(--kt-public-focus);
   outline-offset: 4px;
 }
 
@@ -678,7 +678,7 @@
 .controlHeading > p {
   max-width: 500px;
   margin: 17px 0 0;
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--kt-public-text-inverse);
 }
 
 .controlBody {
@@ -690,7 +690,7 @@
 .stateSequence {
   display: grid;
   gap: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  border-top: 1px solid var(--kt-public-border-subtle);
 }
 
 .stateSequence li {
@@ -698,8 +698,8 @@
   gap: 15px;
   align-items: center;
   min-height: 54px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
-  color: rgba(255, 255, 255, 0.84);
+  border-bottom: 1px solid var(--kt-public-border-subtle);
+  color: var(--kt-public-text-inverse);
   font-family: var(--kt-public-font-interface);
   font-size: 0.88rem;
   font-weight: 580;
@@ -720,7 +720,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(16, 18, 16, 0.28);
+  background: var(--kt-public-surface-inverse);
 }
 
 .controlDetail a {
@@ -824,12 +824,12 @@
 }
 
 .faqList summary:focus-visible {
-  outline: 2px solid var(--kt-public-signal);
+  outline: 2px solid var(--kt-public-focus);
   outline-offset: 3px;
 }
 
 .faqList summary span {
-  color: var(--kt-public-signal);
+  color: var(--kt-public-interactive-text);
   font-size: 1.2rem;
   font-weight: 500;
   transition: transform 160ms ease;
@@ -887,7 +887,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--kt-public-surface-primary);
 }
 
 .closingRoute {
@@ -1329,7 +1329,7 @@
   width: min(69vw, 690px);
   height: 34px;
   border-radius: 50%;
-  background: rgba(16, 18, 16, 0.18);
+  background: var(--kt-public-surface-inverse);
   filter: blur(12px);
   pointer-events: none;
   --kt-shadow-x: 0px;

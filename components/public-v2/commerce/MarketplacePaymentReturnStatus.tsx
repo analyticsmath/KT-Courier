@@ -76,27 +76,27 @@ export function MarketplacePaymentReturnStatus({
 
   return (
     <section className="mx-auto max-w-2xl px-6 pb-20 pt-28">
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--kt-brand-blue)]">
+      <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--kt-public-interactive-text)]">
         Payment status
       </p>
       <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">{copy.title}</h1>
-      <p className="mt-5 max-w-xl text-base leading-7 text-[var(--kt-graphite)]">{copy.body}</p>
+      <p className="mt-5 max-w-xl text-base leading-7 text-[var(--kt-public-text-muted)]">{copy.body}</p>
 
-      <div className="mt-8 border border-[var(--kt-concrete)] bg-white p-5">
-        <p className="text-xs uppercase tracking-wider text-[var(--kt-road-grey)]">Checkout reference</p>
+      <div className="mt-8 border border-[var(--kt-public-border-default)] bg-[var(--kt-public-surface-primary)] p-5">
+        <p className="text-xs uppercase tracking-wider text-[var(--kt-public-text-muted)]">Checkout reference</p>
         <p className="mt-1 font-mono text-sm">{checkoutReference}</p>
       </div>
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link
           href={`/checkout?ref=${encodeURIComponent(checkoutReference)}`}
-          className="inline-flex items-center bg-[var(--kt-asphalt)] px-5 py-3 text-sm font-semibold text-white"
+          className="inline-flex items-center bg-[var(--kt-public-surface-inverse)] px-5 py-3 text-sm font-semibold text-[var(--kt-public-text-inverse)]"
         >
           Return to checkout
         </Link>
         <Link
           href="/shop"
-          className="inline-flex items-center border border-[var(--kt-asphalt)] px-5 py-3 text-sm font-semibold"
+          className="inline-flex items-center border border-[var(--kt-public-text-primary)] px-5 py-3 text-sm font-semibold"
         >
           Continue shopping
         </Link>

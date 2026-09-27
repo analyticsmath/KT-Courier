@@ -16,7 +16,7 @@ export default function MembershipCheckoutPage() {
         <h1 className="mt-3 font-display text-3xl font-semibold text-[var(--kt-public-text-primary)]">Online membership checkout is not currently available.</h1>
         <p className="mt-4 leading-7 text-[var(--kt-public-text-secondary)]">No payment has been requested on this route. Contact KT Couriers for current information, or return to delivery services for a quote request.</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link className="inline-flex min-h-11 items-center bg-[var(--kt-public-signal)] px-4 text-sm font-semibold text-white" href="/contact">Contact KT Couriers</Link>
+          <Link className="inline-flex min-h-11 items-center bg-[var(--kt-public-signal)] px-4 text-sm font-semibold text-[var(--kt-public-text-inverse)]" href="/contact">Contact KT Couriers</Link>
           <Link className="inline-flex min-h-11 items-center border border-[var(--kt-public-text-primary)] px-4 text-sm font-semibold" href="/membership">Membership information</Link>
         </div>
       </div>

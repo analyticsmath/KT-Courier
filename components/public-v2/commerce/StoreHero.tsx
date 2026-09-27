@@ -66,7 +66,7 @@ export function StoreHero({ store }: StoreHeroProps) {
               <h1 className={styles.storeHeroName} id="store-title">
                 {store.name}
               </h1>
-              <span style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)" }}>
+              <span style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)" }}>
                 {store.publishedOfferCount} {store.publishedOfferCount === 1 ? "product" : "products"} listed
               </span>
             </div>

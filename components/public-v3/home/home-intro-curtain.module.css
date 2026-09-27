@@ -12,18 +12,18 @@
   position: absolute;
   inset-block: 0;
   width: 50.2%;
-  background: var(--kt-midnight);
+  background: var(--kt-public-surface-inverse-raised);
   will-change: transform;
 }
 
 .panelLeft {
   left: 0;
-  border-right: 1px solid rgb(241 236 226 / 8%);
+  border-right: 1px solid var(--kt-public-border-subtle);
 }
 
 .panelRight {
   right: 0;
-  border-left: 1px solid rgb(241 236 226 / 8%);
+  border-left: 1px solid var(--kt-public-border-subtle);
 }
 
 .seam {
@@ -32,10 +32,11 @@
   left: 50%;
   width: 1.5px;
   height: clamp(13rem, 42svh, 28rem);
-  background: rgb(241 236 226 / 88%);
+  background: var(--kt-public-surface-secondary);
   opacity: 0;
   transform: translate(-50%, -50%) scaleY(0);
   transform-origin: center;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .curtainContent {
@@ -77,40 +78,40 @@
 }
 
 .orbitTrack {
-  stroke: rgb(241 236 226 / 11%);
+  stroke: var(--kt-public-text-inverse-muted);
   stroke-width: 1;
 }
 
 .orbitInnerTrack {
-  stroke: rgb(241 236 226 / 7%);
+  stroke: var(--kt-public-text-inverse-muted);
   stroke-width: 1;
   stroke-dasharray: 1 7;
 }
 
 .orbitArc {
-  stroke: rgb(241 236 226 / 54%);
+  stroke: var(--kt-public-text-inverse-muted);
   stroke-width: 1.15;
   stroke-linecap: round;
 }
 
 .orbitArcSecondary {
-  stroke: rgb(52 121 248 / 62%);
+  stroke: var(--kt-public-interactive-text);
   stroke-width: 1.5;
   stroke-linecap: round;
 }
 
 .orbitRoute {
-  stroke: rgb(241 236 226 / 84%);
+  stroke: var(--kt-public-text-inverse-muted);
   stroke-width: 1.5;
   stroke-linecap: round;
 }
 
 .routeNode {
-  fill: var(--kt-freight-paper);
+  fill: var(--kt-public-text-inverse);
 }
 
 .routeNodeSecondary {
-  fill: var(--kt-brand-blue);
+  fill: var(--kt-public-interactive);
 }
 
 .logo {

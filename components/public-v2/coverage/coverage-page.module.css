@@ -1,8 +1,8 @@
 .coverageRoot {
   position: relative;
   width: 100%;
-  background-color: var(--kt-freight-paper, #F1ECE2);
-  color: var(--kt-carbon, #101210);
+  background-color: var(--kt-public-canvas);
+  color: var(--kt-public-text-primary);
   padding: clamp(32px, 5vw, 64px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
 }
 
@@ -27,13 +27,13 @@
   font-weight: 560;
   line-height: 0.98;
   letter-spacing: -0.035em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .heroLead {
   font-size: clamp(1rem, 1.4vw, 1.25rem);
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -58,9 +58,10 @@
   top: calc(var(--kt-header-h, 72px) + 20px);
   width: 100%;
   height: clamp(440px, 72vh, 760px);
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
-  border: 1px solid var(--kt-cool-250, #dde1e0);
+  border: 1px solid var(--kt-cool-250);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 @media (max-width: 1023px) {
@@ -83,9 +84,9 @@
 }
 
 .productTruthNotice {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
-  border-left: 3px solid var(--kt-carbon, #101210);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
+  border-left: 3px solid var(--kt-public-text-primary);
   padding: 18px 22px;
   display: flex;
   flex-direction: column;
@@ -97,12 +98,12 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
 }
 
 .noticeText {
   font-size: 0.9rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -117,7 +118,7 @@
   font-size: 1.3rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
@@ -133,8 +134,8 @@
 .regionCardButton {
   width: 100%;
   text-align: left;
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   padding: 20px 24px;
   cursor: pointer;
   display: flex;
@@ -145,8 +146,8 @@
 
 .regionCardButton:hover,
 .regionCardButtonActive {
-  border-color: var(--kt-red, #E10F1B);
-  background-color: var(--kt-bone, #FBF9F3);
+  border-color: var(--kt-public-interactive);
+  background-color: var(--kt-public-surface-primary);
 }
 
 .regionCardHeader {
@@ -160,22 +161,22 @@
 .regionCardName {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
 }
 
 .regionCardButtonActive .regionCardName {
-  color: var(--kt-red, #d83a2e);
+  color: var(--kt-public-interactive-text);
 }
 
 .regionCardCoords {
   font-family: var(--kt-font-mono, monospace);
   font-size: 0.8rem;
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
 }
 
 .regionCardDesc {
   font-size: 0.875rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -183,7 +184,7 @@
 .regionRadiusBadge {
   font-size: 0.775rem;
   font-weight: 540;
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   padding-top: 4px;
 }
 
@@ -199,8 +200,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
   padding: 13px 26px;
   font-size: 0.95rem;
   font-weight: 560;
@@ -209,7 +210,7 @@
 }
 
 .primaryActionButton:hover {
-  background-color: var(--kt-graphite, #303532);
+  background-color: var(--kt-public-action-primary-hover);
 }
 
 .secondaryActionButton {
@@ -218,16 +219,16 @@
   gap: 6px;
   font-size: 0.95rem;
   font-weight: 540;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   text-decoration: none;
   padding-bottom: 2px;
-  border-bottom: 1px solid var(--kt-cool-300, #dde1e0);
+  border-bottom: 1px solid var(--kt-public-border-default);
 }
 
 .corridorTelemetryPanel {
-  background-color: var(--kt-carbon, #0e1012);
-  color: var(--kt-paper, #f3f1ea);
-  border: 1px solid var(--kt-graphite, #59626a);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
+  border: 1px solid var(--kt-public-text-muted);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -239,7 +240,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid var(--kt-public-border-subtle);
   padding-bottom: 12px;
 }
 
@@ -248,7 +249,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--kt-signal-red, #cf2930);
+  color: var(--kt-public-text-inverse-muted);
   margin: 0;
 }
 
@@ -256,8 +257,8 @@
   font-family: var(--kt-font-mono, monospace);
   font-size: 0.7rem;
   padding: 3px 8px;
-  background-color: var(--kt-cobalt, #347cfb);
-  color: #ffffff;
+  background-color: var(--kt-state-surface);
+  color: var(--kt-state-info);
   letter-spacing: 0.04em;
 }
 
@@ -265,8 +266,8 @@
   position: relative;
   width: 100%;
   height: 80px;
-  background-color: #16181d;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: var(--kt-public-surface-inverse-raised);
+  border: 1px solid var(--kt-public-border-subtle);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -279,7 +280,7 @@
 }
 
 .routePathDrawn {
-  stroke: var(--kt-cobalt, #347cfb);
+  stroke: var(--kt-public-interactive);
   stroke-width: 2.5;
   stroke-dasharray: 6 4;
   fill: none;
@@ -313,7 +314,7 @@
 .telemetryStatLabel {
   font-family: var(--kt-font-mono, monospace);
   font-size: 0.68rem;
-  color: var(--kt-mist, #d9dee2);
+  color: var(--kt-public-border-default);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -321,6 +322,6 @@
 .telemetryStatValue {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--kt-public-text-inverse);
 }
 

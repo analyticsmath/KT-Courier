@@ -45,10 +45,10 @@ export function NetworkFieldScene() {
               />
             </div>
             <div className={styles.fleetTruckMetaBar}>
-              <span className="text-[10px] font-mono tracking-widest text-[#347CFB] uppercase font-bold">
+              <span className="text-[10px] font-mono tracking-widest text-[var(--kt-public-interactive-text)] uppercase font-bold">
                 FLAGSHIP LONG-HAUL
               </span>
-              <span className="text-sm font-semibold text-[#111318]">
+              <span className="text-sm font-semibold text-[var(--kt-public-interactive-text)]">
                 Daily Linehaul Transit
               </span>
             </div>
@@ -67,10 +67,10 @@ export function NetworkFieldScene() {
               />
             </div>
             <div className={styles.fleetTruckMetaBar}>
-              <span className="text-[10px] font-mono tracking-widest text-[#CF2930] uppercase font-bold">
+              <span className="text-[10px] font-mono tracking-widest text-[var(--kt-public-brand-signal)] uppercase font-bold">
                 HEAVY FREIGHT ESCALATION
               </span>
-              <span className="text-sm font-semibold text-[#111318]">
+              <span className="text-sm font-semibold text-[var(--kt-public-interactive-text)]">
                 Curtainside Pallet Cargo
               </span>
             </div>

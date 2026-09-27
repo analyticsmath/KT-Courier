@@ -50,8 +50,8 @@ export function ServiceHorizontalMedia({
           return (
             <div
               key={idx}
-              className={`relative w-[280px] sm:w-[360px] shrink-0 snap-start bg-[var(--kt-concrete)]/20 border transition-colors duration-300 overflow-hidden ${
-                isActive ? "border-[var(--kt-asphalt)]" : "border-[var(--kt-concrete)]/60"
+              className={`relative w-[280px] sm:w-[360px] shrink-0 snap-start bg-[var(--kt-public-border-default)]/20 border transition-colors duration-300 overflow-hidden ${
+                isActive ? "border-[var(--kt-public-text-primary)]" : "border-[var(--kt-public-border-default)]/60"
               }`}
             >
               <div className="relative aspect-[16/10] w-full overflow-hidden">
@@ -66,17 +66,17 @@ export function ServiceHorizontalMedia({
                   }}
                 />
                 {item.tag && (
-                  <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm text-white px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider">
+                  <div className="absolute top-3 left-3 bg-[var(--kt-public-surface-inverse)]/70 backdrop-blur-sm text-[var(--kt-public-text-inverse)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider">
                     {item.tag}
                   </div>
                 )}
               </div>
-              <div className="p-4 bg-[var(--kt-freight-paper)] border-t border-[var(--kt-concrete)]/40">
-                <h4 className="font-display text-base font-bold text-[var(--kt-asphalt)]">
+              <div className="p-4 bg-[var(--kt-public-canvas)] border-t border-[var(--kt-public-border-default)]/40">
+                <h4 className="font-display text-base font-bold text-[var(--kt-public-text-primary)]">
                   {item.title}
                 </h4>
                 {item.description && (
-                  <p className="text-xs text-[var(--kt-road-grey)] mt-1 line-clamp-2">
+                  <p className="text-xs text-[var(--kt-public-text-muted)] mt-1 line-clamp-2">
                     {item.description}
                   </p>
                 )}

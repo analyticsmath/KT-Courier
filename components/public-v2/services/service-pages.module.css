@@ -4,8 +4,8 @@
 .detailPage {
   position: relative;
   width: 100%;
-  background-color: var(--kt-freight-paper, #F1ECE2);
-  color: var(--kt-carbon, #101210);
+  background-color: var(--kt-public-canvas);
+  color: var(--kt-public-text-primary);
   padding: clamp(36px, 5vw, 64px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px);
 }
 
@@ -34,13 +34,13 @@
   font-weight: 560;
   line-height: 0.96;
   letter-spacing: -0.04em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .atlasHeroLead {
   font-size: clamp(1.05rem, 1.6vw, 1.35rem);
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   max-width: 720px;
   line-height: 1.45;
   margin: 0;
@@ -73,18 +73,19 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   text-decoration: none;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   transition: background-color 160ms ease, border-color 160ms ease;
   cursor: pointer;
 }
 
 .atlasIndexRow:hover,
 .atlasIndexRowActive {
-  background-color: var(--kt-cool-150, #eceeee);
-  border-color: var(--kt-cool-300, #dde1e0);
+  background-color: var(--kt-public-surface-tertiary);
+  border-color: var(--kt-public-border-default);
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .atlasIndexRowContent {
@@ -97,18 +98,18 @@
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
 }
 
 .atlasIndexRowSummary {
   font-size: 0.875rem;
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.4;
 }
 
 .atlasIndexRowArrow {
   font-size: 1.25rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
 }
 
 .atlasPinnedStage {
@@ -117,8 +118,8 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   padding: 28px;
 }
 
@@ -133,8 +134,9 @@
   position: relative;
   width: 100%;
   height: clamp(320px, 45vh, 480px);
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .atlasPinnedBody {
@@ -147,13 +149,13 @@
   font-size: 1.4rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .atlasPinnedText {
   font-size: 0.95rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -165,10 +167,10 @@
   margin-top: 12px;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   text-decoration: none;
   padding-bottom: 2px;
-  border-bottom: 2px solid var(--kt-red, #d83a2e);
+  border-bottom: 2px solid var(--kt-public-interactive);
 }
 
 /* =========================================================================
@@ -186,8 +188,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
   padding: 13px 26px;
   font-size: 0.95rem;
   font-weight: 560;
@@ -196,7 +198,7 @@
 }
 
 .detailPrimaryAction:hover {
-  background-color: var(--kt-graphite, #303532);
+  background-color: var(--kt-public-text-muted);
 }
 
 .detailSecondaryAction {
@@ -205,24 +207,24 @@
   gap: 6px;
   font-size: 0.95rem;
   font-weight: 540;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   text-decoration: none;
   padding-bottom: 2px;
-  border-bottom: 1px solid var(--kt-cool-300, #dde1e0);
+  border-bottom: 1px solid var(--kt-public-border-default);
 }
 
 .worldSectionTitle {
   font-size: clamp(1.8rem, 3.4vw, 2.6rem);
   font-weight: 560;
   letter-spacing: -0.03em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0 0 24px;
 }
 
 .cardHeader {
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0 0 12px;
 }
 
@@ -237,7 +239,7 @@
 
 .bulletList li {
   font-size: 0.95rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
 }
 
@@ -274,13 +276,13 @@
   font-weight: 560;
   line-height: 0.98;
   letter-spacing: -0.035em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .tactileLead {
   font-size: clamp(1.05rem, 1.5vw, 1.25rem);
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -289,8 +291,9 @@
   position: relative;
   width: 100%;
   height: clamp(360px, 55vh, 600px);
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .tactileDetailsSection {
@@ -312,8 +315,8 @@
 }
 
 .tactileCard {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   padding: 28px;
 }
 
@@ -328,8 +331,9 @@
   position: relative;
   flex: 0 0 320px;
   height: 220px;
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 /* =========================================================================
@@ -358,8 +362,9 @@
   position: relative;
   width: 100%;
   height: clamp(360px, 55vh, 580px);
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 .businessTextPlane {
@@ -373,13 +378,13 @@
   font-weight: 560;
   line-height: 0.98;
   letter-spacing: -0.035em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .businessSummary {
   font-size: clamp(1.05rem, 1.5vw, 1.25rem);
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -401,27 +406,27 @@
   align-items: baseline;
   gap: 20px;
   padding: 24px;
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
 }
 
 .workflowIndex {
   font-size: 1.4rem;
   font-weight: 600;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   font-family: var(--kt-font-mono, monospace);
 }
 
 .workflowHeading {
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0 0 4px;
 }
 
 .workflowDesc {
   font-size: 0.9rem;
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   margin: 0;
 }
 
@@ -429,9 +434,10 @@
   position: relative;
   width: 100%;
   height: clamp(280px, 45vh, 440px);
-  background-color: var(--kt-cool-150, #eceeee);
+  background-color: var(--kt-public-surface-tertiary);
   overflow: hidden;
   margin-top: 12px;
+  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
 }
 
 /* =========================================================================
@@ -463,13 +469,13 @@
 .plannedOverlayBox {
   position: relative;
   z-index: 5;
-  background-color: var(--kt-white, #ffffff);
+  background-color: var(--kt-public-surface-primary);
   padding: clamp(28px, 4vw, 48px);
   max-width: 640px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  border: 1px solid var(--kt-public-border-subtle);
 }
 
 .plannedTitle {
@@ -477,13 +483,13 @@
   font-weight: 560;
   line-height: 1;
   letter-spacing: -0.03em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .plannedLead {
   font-size: 1.05rem;
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -507,8 +513,8 @@
 }
 
 .spatialCard {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   padding: 28px;
 }
 
@@ -533,13 +539,13 @@
   font-weight: 560;
   line-height: 0.98;
   letter-spacing: -0.035em;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .pricingLead {
   font-size: clamp(1.05rem, 1.5vw, 1.3rem);
-  color: var(--kt-muted, #5f6763);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
@@ -557,8 +563,8 @@
 }
 
 .pricingStepCard {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   padding: 24px 28px;
   display: flex;
   flex-direction: column;
@@ -568,20 +574,20 @@
 .stepTitle {
   font-size: 1.2rem;
   font-weight: 600;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   margin: 0;
 }
 
 .stepDesc {
   font-size: 0.95rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.45;
   margin: 0;
 }
 
 .pricingActionBlock {
-  background-color: var(--kt-carbon, #101210);
-  color: var(--kt-white, #ffffff);
+  background-color: var(--kt-public-surface-inverse);
+  color: var(--kt-public-text-inverse);
   padding: clamp(36px, 5vw, 56px);
   margin-top: 20px;
   display: flex;
@@ -603,22 +609,22 @@
 }
 
 .serviceFaqDetails {
-  background-color: var(--kt-white, #ffffff);
-  border: 1px solid var(--kt-cool-200, #eceeee);
+  background-color: var(--kt-public-surface-primary);
+  border: 1px solid var(--kt-public-border-subtle);
   padding: 20px 24px;
 }
 
 .serviceFaqSummary {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--kt-carbon, #101210);
+  color: var(--kt-public-text-primary);
   cursor: pointer;
   outline-offset: 4px;
 }
 
 .serviceFaqAnswer {
   font-size: 0.95rem;
-  color: var(--kt-graphite, #303532);
+  color: var(--kt-public-text-muted);
   line-height: 1.5;
   margin: 12px 0 0;
 }

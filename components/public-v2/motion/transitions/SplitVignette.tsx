@@ -55,7 +55,7 @@ export function SplitVignette({
       <div className="absolute inset-0 w-full h-full z-0">
         {rightContent}
         {rightLabel && (
-          <div className="absolute bottom-4 right-4 z-20 px-2.5 py-1 bg-[#0E1012]/80 border border-[#D9DEE2]/20 text-[11px] font-mono tracking-widest text-[#F3F1EA] uppercase">
+          <div className="absolute bottom-4 right-4 z-20 px-2.5 py-1 bg-[var(--kt-public-surface-inverse)]/80 border border-[var(--kt-public-border-subtle)]/20 text-[11px] font-mono tracking-widest text-[var(--kt-public-text-inverse)] uppercase">
             {rightLabel}
           </div>
         )}
@@ -71,7 +71,7 @@ export function SplitVignette({
       >
         {leftContent}
         {leftLabel && (
-          <div className="absolute bottom-4 left-4 z-20 px-2.5 py-1 bg-[#0E1012]/80 border border-[#D9DEE2]/20 text-[11px] font-mono tracking-widest text-[#F3F1EA] uppercase">
+          <div className="absolute bottom-4 left-4 z-20 px-2.5 py-1 bg-[var(--kt-public-surface-inverse)]/80 border border-[var(--kt-public-border-subtle)]/20 text-[11px] font-mono tracking-widest text-[var(--kt-public-text-inverse)] uppercase">
             {leftLabel}
           </div>
         )}
@@ -79,11 +79,11 @@ export function SplitVignette({
 
       {/* Vertical Seam Line */}
       <div
-        className="absolute top-0 bottom-0 z-30 pointer-events-none w-[2px] bg-[#347CFB] shadow-[0_0_8px_#347CFB] transition-[left] duration-75 ease-out"
+        className="absolute top-0 bottom-0 z-30 pointer-events-none w-[2px] bg-[var(--kt-public-interactive)] shadow-[0_0_8px_var(--kt-public-interactive)] transition-[left] duration-75 ease-out"
         style={{ left: `${split}%` }}
       >
-        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#0E1012] border border-[#347CFB] flex items-center justify-center">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#347CFB]" />
+        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[var(--kt-public-surface-inverse)] border border-[var(--kt-public-interactive)] flex items-center justify-center">
+          <div className="w-1.5 h-1.5 rounded-full bg-[var(--kt-public-interactive)]" />
         </div>
       </div>
     </div>

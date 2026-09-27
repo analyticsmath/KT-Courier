@@ -36,7 +36,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
                   style={{
                     fontSize: "1.1rem",
                     fontWeight: 600,
-                    color: "var(--kt-carbon, #101210)",
+                    color: "var(--kt-public-text-primary)",
                     textDecoration: "none",
                   }}
                 >
@@ -47,7 +47,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
                   style={{
                     fontSize: "1.1rem",
                     fontWeight: 600,
-                    color: "var(--kt-carbon, #101210)",
+                    color: "var(--kt-public-text-primary)",
                   }}
                 >
                   {storeName}
@@ -58,7 +58,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
                   display: "flex",
                   gap: 12,
                   fontSize: "0.85rem",
-                  color: "var(--kt-muted, #5f6763)",
+                  color: "var(--kt-public-text-muted)",
                   marginTop: 4,
                 }}
               >
@@ -69,7 +69,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <span style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--kt-carbon, #101210)" }}>
+              <span style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--kt-public-text-primary)" }}>
                 {formatPrice(offer.price.amount, offer.price.currency)}
               </span>
               {onSelectOffer && (
@@ -81,9 +81,9 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
                     fontSize: "0.85rem",
                     fontWeight: 600,
                     borderRadius: 4,
-                    border: isSelected ? "1px solid var(--kt-primary, #047857)" : "1px solid var(--kt-carbon, #101210)",
-                    backgroundColor: isSelected ? "var(--kt-primary, #047857)" : "transparent",
-                    color: isSelected ? "#ffffff" : "var(--kt-carbon, #101210)",
+                    border: isSelected ? "1px solid var(--kt-primary)" : "1px solid var(--kt-public-text-primary)",
+                    backgroundColor: isSelected ? "var(--kt-primary)" : "transparent",
+                    color: isSelected ? "var(--kt-public-text-inverse)" : "var(--kt-public-text-primary)",
                     cursor: isSelected ? "default" : "pointer",
                   }}
                 >
@@ -100,7 +100,7 @@ export function OfferComparison({ offers, selectedOfferReference, onSelectOffer 
               ) : (
                 <span
                   className={styles.sectionDirectLink}
-                  style={{ opacity: 0.5, cursor: "not-allowed" }}
+                  style={{ color: "var(--kt-public-text-muted-on-surface)", cursor: "not-allowed" }}
                 >
                   Store unavailable
                 </span>

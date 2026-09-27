@@ -23,8 +23,8 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
       <header
         className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 lg:px-12 h-[66px] transition-colors duration-[160ms] ease-out ${
           isDark
-            ? "bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)] border-b border-[#23272B]"
-            : "bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)] border-b border-[var(--kt-concrete)]/40"
+            ? "bg-[var(--kt-public-surface-inverse)] text-[var(--kt-public-text-inverse)] border-b border-[var(--kt-public-border-inverse)]"
+            : "bg-[var(--kt-public-canvas)] text-[var(--kt-public-text-primary)] border-b border-[var(--kt-public-border-default)]/40"
         } ${className}`}
         role="banner"
         data-tone={headerTone}
@@ -34,7 +34,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
           <Link
             href="/"
             aria-label="KT Couriers Home"
-            className="flex items-center transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="flex items-center transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             <CanonicalKtLogo size={34} priority />
           </Link>
@@ -47,19 +47,19 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
         >
           <Link
             href="/shop"
-            className="hover:text-[var(--kt-brand-blue)] transition-colors py-1 focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="hover:text-[var(--kt-public-interactive-text)] transition-colors py-1 focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             Shop
           </Link>
           <Link
             href="/services/parcel"
-            className="hover:text-[var(--kt-brand-blue)] transition-colors py-1 focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="hover:text-[var(--kt-public-interactive-text)] transition-colors py-1 focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             Send a parcel
           </Link>
           <Link
             href="/services"
-            className="hover:text-[var(--kt-brand-blue)] transition-colors py-1 focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="hover:text-[var(--kt-public-interactive-text)] transition-colors py-1 focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             Services
           </Link>
@@ -70,7 +70,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
           <Link
             href="/shop/search"
             aria-label="Search marketplace"
-            className="p-1.5 hover:text-[var(--kt-brand-blue)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="p-1.5 hover:text-[var(--kt-public-interactive-text)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             <svg
               className="w-4 h-4"
@@ -88,7 +88,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
             href="/cart"
             aria-label={`Shopping cart containing ${cartCount} items`}
             data-kt-cart-target="header"
-            className="relative p-1.5 hover:text-[var(--kt-brand-blue)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="relative p-1.5 hover:text-[var(--kt-public-interactive-text)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             <svg
               className="w-4 h-4"
@@ -105,7 +105,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
               />
             </svg>
             {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--kt-brand-blue)] text-[10px] font-bold text-white">
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--kt-public-action-primary)] text-[10px] font-bold text-[var(--kt-public-text-inverse)]">
                 {cartCount}
               </span>
             )}
@@ -113,7 +113,11 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
 
           <Link
             href="/login"
-            className="hidden sm:inline-block text-xs font-semibold tracking-wide uppercase px-3 py-1.5 border border-current rounded-none hover:bg-current hover:text-[var(--kt-bg-primary)] transition-colors"
+            className={`hidden sm:inline-block text-xs font-semibold tracking-wide uppercase px-3 py-1.5 border border-current rounded-none transition-colors ${
+              isDark
+                ? "hover:bg-[var(--kt-public-surface-primary)] hover:text-[var(--kt-public-text-primary)]"
+                : "hover:bg-[var(--kt-public-action-primary)] hover:text-[var(--kt-public-text-inverse)]"
+            }`}
           >
             Account
           </Link>
@@ -123,7 +127,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
             onClick={() => setMenuOpen(true)}
             aria-label="Open expanded navigation menu"
             aria-expanded={menuOpen}
-            className="flex items-center gap-2 p-1.5 hover:text-[var(--kt-brand-blue)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="flex items-center gap-2 p-1.5 hover:text-[var(--kt-public-interactive-text)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">
               Menu

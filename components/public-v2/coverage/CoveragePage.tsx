@@ -27,7 +27,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
         <div className="mb-6">
           <Link
             href="/"
-            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-road-grey)] hover:text-[var(--kt-asphalt)] transition-colors inline-flex items-center gap-1.5"
+            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-public-text-muted)] hover:text-[var(--kt-public-text-primary)] transition-colors inline-flex items-center gap-1.5"
           >
             ← Home
           </Link>
@@ -46,7 +46,7 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
         </div>
 
         {/* Transit Corridor Aerial Hero Banner */}
-        <div className="relative aspect-[21/9] sm:aspect-[24/8] w-full mt-8 overflow-hidden border border-[var(--kt-concrete)]/60 bg-[var(--kt-asphalt)]">
+        <div className="relative aspect-[21/9] sm:aspect-[24/8] w-full mt-8 overflow-hidden border border-[var(--kt-public-border-default)]/60 bg-[var(--kt-public-surface-inverse)]">
           <Image
             src={ktMediaV3.pages.coverage.hero.src}
             alt={ktMediaV3.pages.coverage.hero.alt}
@@ -55,12 +55,12 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
             sizes="(max-width: 1200px) 100vw, 1200px"
             className="object-cover opacity-90"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-asphalt)]/80 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-freight-paper)]">
-            <span className="text-xs font-mono uppercase tracking-widest bg-black/60 px-3 py-1">
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-public-text-primary)]/80 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-public-text-inverse)]">
+            <span className="text-xs font-mono uppercase tracking-widest bg-[var(--kt-public-surface-inverse)]/60 px-3 py-1">
               Service Coverage
             </span>
-            <span className="text-xs font-mono text-[var(--kt-concrete)] hidden sm:inline">
+            <span className="text-xs font-mono text-[var(--kt-public-border-default)] hidden sm:inline">
               Connecting roads and regional routes
             </span>
           </div>
@@ -70,18 +70,18 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
       <CoverageInteractiveView snapshot={snapshot} />
 
       {/* Route Environments Photography Strip */}
-      <section aria-label="Route Environments" className="max-w-6xl mx-auto px-6 md:px-12 py-16 border-t border-[var(--kt-concrete)]/40">
+      <section aria-label="Route Environments" className="max-w-6xl mx-auto px-6 md:px-12 py-16 border-t border-[var(--kt-public-border-default)]/40">
         <div className="mb-10">
-          <span className="text-xs font-mono uppercase tracking-widest text-[var(--kt-road-grey)] block mb-2">
+          <span className="text-xs font-mono uppercase tracking-widest text-[var(--kt-public-text-muted)] block mb-2">
             Route Environments
           </span>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--kt-asphalt)]">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--kt-public-text-primary)]">
             Service Areas & Road Networks
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[var(--kt-concrete)]/40">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[var(--kt-public-border-default)]/40">
           <div className="space-y-4 pb-8 md:pb-0 md:pr-8">
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
+            <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20">
               <Image
                 src={ktMediaV3.pages.coverage.skyline.src}
                 alt={ktMediaV3.pages.coverage.skyline.alt}
@@ -90,16 +90,16 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
                 className="object-cover"
               />
             </div>
-            <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">
+            <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">
               Urban routes
             </h3>
-            <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+            <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
               Metropolitan street grids and city distribution.
             </p>
           </div>
 
           <div className="space-y-4 py-8 md:py-0 md:px-8">
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
+            <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20">
               <Image
                 src={ktMediaV3.pages.coverage.capeTown.src}
                 alt={ktMediaV3.pages.coverage.capeTown.alt}
@@ -108,16 +108,16 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
                 className="object-cover"
               />
             </div>
-            <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">
+            <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">
               Long-distance roads
             </h3>
-            <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+            <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
               Connecting transit links between locations.
             </p>
           </div>
 
           <div className="space-y-4 pt-8 md:pt-0 md:pl-8">
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-concrete)]/20">
+            <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20">
               <Image
                 src={ktMediaV3.pages.coverage.interchange.src}
                 alt={ktMediaV3.pages.coverage.interchange.alt}
@@ -126,10 +126,10 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
                 className="object-cover"
               />
             </div>
-            <h3 className="font-display text-lg font-bold text-[var(--kt-asphalt)]">
+            <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">
               Regional movement
             </h3>
-            <p className="text-xs text-[var(--kt-road-grey)] leading-relaxed">
+            <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
               Highway networks and regional transfer points.
             </p>
           </div>

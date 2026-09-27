@@ -63,7 +63,7 @@ export function ServiceMediaHandoff({
   return (
     <div ref={containerRef} className={`w-full space-y-8 ${className}`}>
       {/* Stage Step Progress Indicator */}
-      <div className="flex items-center justify-between border-b border-[var(--kt-concrete)]/60 pb-3">
+      <div className="flex items-center justify-between border-b border-[var(--kt-public-border-default)]/60 pb-3">
         {stages.map((stage, idx) => {
           const isActive = idx === activeStageIdx;
           const isPassed = idx < activeStageIdx;
@@ -78,10 +78,10 @@ export function ServiceMediaHandoff({
               <span
                 className={`font-mono text-xs font-bold px-2 py-0.5 transition-colors ${
                   isActive
-                    ? "bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)]"
+                    ? "bg-[var(--kt-public-surface-inverse)] text-[var(--kt-public-text-inverse)]"
                     : isPassed
-                    ? "bg-black/10 text-[var(--kt-asphalt)]"
-                    : "text-[var(--kt-road-grey)]"
+                    ? "bg-[var(--kt-public-surface-inverse)]/10 text-[var(--kt-public-text-primary)]"
+                    : "text-[var(--kt-public-text-muted)]"
                 }`}
               >
                 0{idx + 1}
@@ -89,8 +89,8 @@ export function ServiceMediaHandoff({
               <span
                 className={`font-display text-sm font-bold tracking-tight uppercase transition-colors hidden sm:inline ${
                   isActive
-                    ? "text-[var(--kt-asphalt)]"
-                    : "text-[var(--kt-road-grey)] group-hover:text-[var(--kt-asphalt)]"
+                    ? "text-[var(--kt-public-text-primary)]"
+                    : "text-[var(--kt-public-text-muted)] group-hover:text-[var(--kt-public-text-primary)]"
                 }`}
               >
                 {stage.stageName}
@@ -102,7 +102,7 @@ export function ServiceMediaHandoff({
 
       {/* Overlapping Media Stage */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-        <div className="lg:col-span-7 relative aspect-[16/10] w-full bg-[var(--kt-concrete)]/20 border border-[var(--kt-concrete)]/40 overflow-hidden">
+        <div className="lg:col-span-7 relative aspect-[16/10] w-full bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/40 overflow-hidden">
           {stages.map((stage, idx) => {
             const isCurrent = idx === activeStageIdx;
             const isPrev = idx === activeStageIdx - 1;
@@ -137,13 +137,13 @@ export function ServiceMediaHandoff({
 
         {/* Narrative Stage Copy */}
         <div className="lg:col-span-5 space-y-3">
-          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-road-grey)] block">
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-public-text-muted)] block">
             Stage 0{activeStageIdx + 1} &bull; {stages[activeStageIdx]?.stageName}
           </span>
-          <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-asphalt)]">
+          <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[var(--kt-public-text-primary)]">
             {stages[activeStageIdx]?.title}
           </h3>
-          <p className="text-sm sm:text-base text-[var(--kt-road-grey)] leading-relaxed">
+          <p className="text-sm sm:text-base text-[var(--kt-public-text-muted)] leading-relaxed">
             {stages[activeStageIdx]?.subtitle}
           </p>
         </div>

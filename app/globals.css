@@ -897,7 +897,7 @@ svg {
 /* Dashboard layout separation */
 .layout-public {
   background:
-    linear-gradient(180deg, var(--kt-polar-white) 0%, var(--kt-studio-white) 42%, var(--kt-polar-white) 100%);
+    var(--kt-public-canvas);
 }
 
 .layout-dashboard {
@@ -1037,24 +1037,9 @@ svg {
 }
 
 @layer base {
-  /* Phase 2 signature public authority. Existing public tokens remain
-     available for unmigrated routes; these aliases are additive. */
+  /* Public colors are owned by public-v3/foundation/tokens.css.
+     Existing typography and geometry stay at their current layer. */
   [data-kt-signature="v2"] {
-    --kt-surface-canvas: #F5F6F7;
-    --kt-surface-base: #FFFFFF;
-    --kt-surface-raised: #ECEEF0;
-    --kt-surface-inverse: #0B0D0F;
-    --kt-text-primary: #15171A;
-    --kt-text-secondary: #62686E;
-    --kt-text-tertiary: #62686E;
-    --kt-text-inverse: #FFFFFF;
-    --kt-line-subtle: #D9DDE1;
-    --kt-line-strong: #D9DDE1;
-    --kt-brand-blue: #3479F8;
-    --kt-brand-red: #E10F1B;
-    --kt-action-primary: var(--kt-surface-inverse);
-    --kt-action-primary-hover: #121519;
-    --kt-focus-ring: var(--kt-brand-blue);
     --kt-font-display: var(--kt-public-font-schibsted-source), ui-sans-serif, system-ui, sans-serif;
     --kt-font-body: var(--kt-public-font-schibsted-source), ui-sans-serif, system-ui, sans-serif;
     --kt-font-mono: var(--kt-public-font-mono-source), ui-monospace, monospace;
@@ -1065,60 +1050,11 @@ svg {
   }
 
   [data-kt-signature="v2"] :focus-visible {
-    outline: 3px solid var(--kt-focus-ring);
+    outline: 3px solid var(--kt-public-focus);
     outline-offset: 3px;
   }
 
   [data-kt-visual-system="editorial-freight-v1"] {
-    --kt-public-canvas-primary: #F5F6F7;
-    --kt-public-canvas-secondary: #ECEEF0;
-    --kt-public-canvas-muted: #ECEEF0;
-    --kt-public-surface-primary: #FFFFFF;
-    --kt-public-surface-raised: #FFFFFF;
-    --kt-public-surface-dark: #0B0D0F;
-
-    --kt-public-text-primary: #15171A;
-    --kt-public-text-secondary: #15171A;
-    --kt-public-text-muted: #62686E;
-    --kt-public-text-inverse: #FFFFFF;
-    --kt-public-text-on-accent: #FFFFFF;
-
-    --kt-public-line-subtle: #ECEEF0;
-    --kt-public-line-default: #D9DDE1;
-    --kt-public-line-strong: #D9DDE1;
-    --kt-public-line-inverse: rgba(255, 255, 255, 0.22);
-
-    --kt-public-signal: #D83A2E;
-    --kt-public-signal-hover: #BD3026;
-    --kt-public-signal-active: #9F281F;
-    --kt-public-signal-soft: #F7E5E2;
-    --kt-public-signal-contrast: #FFFFFF;
-
-    --kt-public-success-text: #176B3A;
-    --kt-public-success-surface: #EAF5ED;
-    --kt-public-success-border: #B8DCC1;
-    --kt-public-success-strong: #237A45;
-    --kt-public-warning-text: #765008;
-    --kt-public-warning-surface: #F2F4F0;
-    --kt-public-warning-border: #D6C390;
-    --kt-public-warning-strong: #A46900;
-    --kt-public-error-text: #B42318;
-    --kt-public-error-surface: #FCEDEC;
-    --kt-public-error-border: #F0B8B4;
-    --kt-public-error-strong: #D92D20;
-    --kt-public-information-text: #155E75;
-    --kt-public-information-surface: #EAF4F6;
-    --kt-public-information-border: #A8D7E1;
-    --kt-public-information-strong: #16728A;
-    --kt-public-restricted-text: #5D481A;
-    --kt-public-restricted-surface: #F1F2F1;
-    --kt-public-restricted-border: #CACDC6;
-    --kt-public-restricted-strong: #72591C;
-    --kt-public-locked-text: #48515A;
-    --kt-public-locked-surface: #EEF0F1;
-    --kt-public-locked-border: #C6CBD1;
-    --kt-public-locked-strong: #58616B;
-
     --kt-public-font-display: var(--kt-public-font-schibsted-source), "Helvetica Neue", Arial, sans-serif;
     --kt-public-font-body: var(--kt-public-font-schibsted-source), "Helvetica Neue", Arial, system-ui, sans-serif;
     --kt-public-font-interface: var(--kt-public-font-schibsted-source), "Helvetica Neue", Arial, system-ui, sans-serif;
@@ -1145,8 +1081,11 @@ svg {
     --kt-public-radius-hero: 28px;
     --kt-public-radius-round: 999px;
 
+    /* kt-color-audit-allow: existing elevation alpha */
     --kt-public-shadow-quiet: 0 1px 2px rgba(0, 0, 0, 0.06);
+    /* kt-color-audit-allow: existing elevation alpha */
     --kt-public-shadow-raised: 0 8px 22px rgba(0, 0, 0, 0.08);
+    /* kt-color-audit-allow: existing elevation alpha */
     --kt-public-shadow-feature: 0 18px 50px rgba(0, 0, 0, 0.1);
 
     --kt-public-content-max: 1360px;
@@ -1163,7 +1102,7 @@ svg {
   }
 
   [data-kt-visual-system="editorial-freight-v1"] :focus-visible {
-    outline-color: var(--kt-public-signal);
+    outline-color: var(--kt-public-focus);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1301,6 +1240,7 @@ svg {
     width: 70%;
     height: 8%;
     border-radius: var(--kt-public-radius-round);
+    /* kt-color-audit-allow: existing photographic readability or backdrop alpha */
     background-color: rgba(0, 0, 0, 0.16);
     filter: blur(8px);
   }
@@ -1324,6 +1264,7 @@ svg {
   }
 
   [data-kt-visual-system="editorial-freight-v1"] .kt-public-dialog::backdrop {
+    /* kt-color-audit-allow: existing photographic readability or backdrop alpha */
     background-color: rgba(12, 13, 12, 0.48);
   }
 

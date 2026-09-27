@@ -23,7 +23,7 @@ export function RouteGeographySequence({ regions }: RouteGeographySequenceProps)
     <section aria-labelledby="route-title" className={styles.routeScene} data-scene="route">
       <div className={styles.routeGrid}>
         <div className={styles.routeInfoSide} data-actor="route-text">
-          <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--kt-red)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--kt-public-brand-signal)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
             Movement
           </span>
           <h2 className={styles.routeHeading} id="route-title">
@@ -34,7 +34,7 @@ export function RouteGeographySequence({ regions }: RouteGeographySequenceProps)
           </p>
 
           <div>
-            <h4 style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--kt-carbon)", marginBottom: 8 }}>
+            <h4 style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--kt-public-text-primary)", marginBottom: 8 }}>
               Active Service & Coverage Regions
             </h4>
             <div className={styles.routeRegionsList}>
@@ -54,7 +54,7 @@ export function RouteGeographySequence({ regions }: RouteGeographySequenceProps)
         <div className={styles.routeVisualSide} data-actor="route-visuals">
           <div className={styles.routeMapCard} data-actor="route-map">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--kt-carbon)" }}>South Africa Network</span>
+              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--kt-public-text-primary)" }}>South Africa Network</span>
               <div style={{ width: 28, height: 28 }}>
                 <KtAnimatedSvg
                   alt={homeMedia.motionRouteLocation.alt}
@@ -65,23 +65,23 @@ export function RouteGeographySequence({ regions }: RouteGeographySequenceProps)
             <svg aria-label="South Africa Route Map" role="img" style={{ width: "100%", height: 180 }} viewBox="0 0 420 310">
               <path
                 d="M80 33 155 17l63 30 23 42 72 31-7 55 49 37-35 44-18 39-85-2-52-29-43 18-54-39 11-73-28-50 39-41z"
-                fill="var(--kt-cool-100)"
-                stroke="var(--kt-cool-300)"
+                fill="var(--kt-public-text-inverse-muted)"
+                stroke="var(--kt-public-text-inverse-muted)"
                 strokeWidth="1.5"
               />
               {/* Route lines */}
               <path
                 d="M210 110 L270 140 L260 210 L190 240 L120 230"
                 fill="none"
-                stroke="var(--kt-carbon)"
+                stroke="var(--kt-public-text-primary)"
                 strokeDasharray="4 4"
                 strokeWidth="2"
               />
               {/* Nodes */}
-              <circle cx="210" cy="110" fill="var(--kt-red)" r="5" />
-              <circle cx="270" cy="140" fill="var(--kt-carbon)" r="4" />
-              <circle cx="260" cy="210" fill="var(--kt-carbon)" r="4" />
-              <circle cx="120" cy="230" fill="var(--kt-red)" r="5" />
+              <circle cx="210" cy="110" fill="var(--kt-public-brand-signal)" r="5" />
+              <circle cx="270" cy="140" fill="var(--kt-public-text-primary)" r="4" />
+              <circle cx="260" cy="210" fill="var(--kt-public-text-primary)" r="4" />
+              <circle cx="120" cy="230" fill="var(--kt-public-brand-signal)" r="5" />
             </svg>
           </div>
 

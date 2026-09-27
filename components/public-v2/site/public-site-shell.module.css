@@ -108,7 +108,7 @@
 
 .trackLink:hover,
 .accountLink:hover {
-  color: var(--kt-brand-blue, var(--kt-public-signal));
+  color: var(--kt-brand-blue, var(--kt-public-interactive-text));
 }
 
 .quoteLink,
@@ -155,7 +155,7 @@
   align-items: end;
   gap: 24px;
   padding-bottom: 42px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom: 1px solid var(--kt-public-border-subtle);
 }
 
 .footerWordmark {
@@ -170,7 +170,7 @@
 .footerLead p {
   max-width: 520px;
   margin-top: 12px;
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--kt-public-text-inverse);
   font-family: var(--kt-public-font-body);
   font-size: 0.96rem;
   line-height: 1.55;
@@ -184,8 +184,8 @@
 }
 
 .footerQuote:hover {
-  border-color: var(--kt-public-signal);
-  background: var(--kt-public-signal);
+  border-color: var(--kt-public-action-primary);
+  background: var(--kt-public-action-primary);
   color: var(--kt-public-text-inverse);
 }
 
@@ -198,7 +198,7 @@
 
 .footerColumns h2 {
   margin-bottom: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--kt-public-text-inverse);
   font-family: var(--kt-public-font-interface);
   font-size: 0.67rem;
   font-weight: 700;
@@ -213,7 +213,7 @@
 
 .footerColumns a,
 .footerMeta {
-  color: rgba(255, 255, 255, 0.74);
+  color: var(--kt-public-text-inverse);
   font-family: var(--kt-public-font-interface);
   font-size: 0.8rem;
   font-weight: 520;
@@ -228,7 +228,7 @@
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: 1px solid var(--kt-public-border-subtle);
   padding-top: 21px;
 }
 

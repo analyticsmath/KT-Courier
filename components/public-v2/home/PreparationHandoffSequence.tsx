@@ -16,10 +16,10 @@ export function PreparationHandoffSequence() {
             From order packaging and verification to secure custody transfer.
           </p>
           <div style={{ marginTop: 24 }}>
-            <h3 style={{ fontSize: "1.75rem", fontWeight: 600, color: "var(--kt-white)", letterSpacing: "-0.025em" }}>
+            <h3 style={{ fontSize: "1.75rem", fontWeight: 600, color: "var(--kt-public-text-inverse)", letterSpacing: "-0.025em" }}>
               RESPONSIBILITY CHANGES HANDS.
             </h3>
-            <p style={{ color: "var(--kt-cool-400)", fontSize: "0.95rem", marginTop: 8, lineHeight: 1.5 }}>
+            <p style={{ color: "var(--kt-public-text-inverse-muted)", fontSize: "0.95rem", marginTop: 8, lineHeight: 1.5 }}>
               Verified pickup and responsible physical handoff between merchant and courier.
             </p>
           </div>
@@ -53,7 +53,7 @@ export function PreparationHandoffSequence() {
                 src={homeMedia.motionOrderState.src}
               />
             </div>
-            <span style={{ fontSize: "0.85rem", fontWeight: 540, color: "var(--kt-white)", letterSpacing: "0.02em" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 540, color: "var(--kt-public-text-inverse)", letterSpacing: "0.02em" }}>
               CUSTODY TRANSFERRED
             </span>
           </div>

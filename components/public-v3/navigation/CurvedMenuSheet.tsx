@@ -50,7 +50,7 @@ export function CurvedMenuSheet({
     >
       {/* Dimmed backdrop */}
       <div
-        className={`absolute inset-0 bg-black/40 backdrop-grayscale-[20%] transition-opacity duration-500 ${
+        className={`absolute inset-0 bg-[var(--kt-public-surface-inverse)]/40 backdrop-grayscale-[20%] transition-opacity duration-500 ${
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0"
         }`}
         onClick={onClose}
@@ -59,12 +59,13 @@ export function CurvedMenuSheet({
       {/* Curved leading edge sheet */}
       <aside
         ref={containerRef}
+        data-tone={isDark ? "dark" : "light"}
         className={`absolute top-0 right-0 bottom-0 w-full max-w-[540px] p-8 sm:p-12 overflow-y-auto transition-transform duration-[580ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? "translate-x-0 pointer-events-auto" : "translate-x-full"
         } ${
           isDark
-            ? "bg-[var(--kt-asphalt)] text-[var(--kt-freight-paper)]"
-            : "bg-[var(--kt-freight-paper)] text-[var(--kt-asphalt)]"
+            ? "bg-[var(--kt-public-surface-inverse)] text-[var(--kt-public-text-inverse)]"
+            : "bg-[var(--kt-public-surface-primary)] text-[var(--kt-public-text-primary)]"
         }`}
         style={{
           boxShadow: "var(--kt-shadow-sheet)",
@@ -84,7 +85,7 @@ export function CurvedMenuSheet({
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="p-2 -mr-2 hover:opacity-70 transition-opacity focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)]"
+            className="p-2 -mr-2 hover:opacity-70 transition-opacity focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >
             <svg
               className="w-6 h-6"
@@ -104,7 +105,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/shop"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 Shop
               </Link>
@@ -113,7 +114,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/services/parcel"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 Send a parcel
               </Link>
@@ -122,7 +123,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/services"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 Delivery services
               </Link>
@@ -131,7 +132,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/about"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 About KT
               </Link>
@@ -140,7 +141,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/coverage-areas"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 Where we deliver
               </Link>
@@ -149,7 +150,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/join"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 Join the network
               </Link>
@@ -158,7 +159,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/careers"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 Careers
               </Link>
@@ -167,7 +168,7 @@ export function CurvedMenuSheet({
               <Link
                 href="/contact"
                 onClick={onClose}
-                className="hover:text-[var(--kt-brand-blue)] transition-colors block"
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
               >
                 Contact
               </Link>
@@ -177,7 +178,7 @@ export function CurvedMenuSheet({
 
         {/* Secondary Links & Utility */}
         <div className="pt-8 border-t border-current/15 flex flex-col gap-6 text-sm">
-          <div className="flex flex-wrap gap-x-6 gap-y-2 font-medium opacity-80">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 font-medium">
             <Link href="/faq" onClick={onClose} className="hover:opacity-100">
               FAQ
             </Link>
@@ -196,7 +197,7 @@ export function CurvedMenuSheet({
             <Link
               href="/login"
               onClick={onClose}
-              className="text-xs font-semibold uppercase tracking-wider px-4 py-2 border border-current hover:bg-current hover:text-[var(--kt-bg-primary)] transition-colors"
+              className="text-xs font-semibold uppercase tracking-wider px-4 py-2 border border-current hover:bg-current hover:text-[var(--kt-public-canvas)] transition-colors"
             >
               Customer / Store Sign In
             </Link>

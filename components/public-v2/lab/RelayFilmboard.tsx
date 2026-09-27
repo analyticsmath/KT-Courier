@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
+import "../foundation/public-tokens.css";
 import styles from "./relay-filmboard.module.css";
 
 type FrameId = "h0" | "h1" | "h2" | "h3" | "h4" | "h5";
@@ -127,7 +128,7 @@ export function RelayFilmboard({ fontVariables, initialFrame }: { fontVariables:
     document.getElementById(`${id}-sheet`)?.scrollIntoView({ behavior: "auto", block: "start" });
   }
 
-  return <main className={`${styles.filmboard} ${fontVariables}`}>
+  return <main data-kt-signature="v2" className={`${styles.filmboard} ${fontVariables}`}>
     <a className={styles.skipLink} href="#h0-sheet">Skip to comparison sheets</a>
     <header className={styles.reviewHeader}>
       <div><p className={styles.reviewKicker}>KT COURIER / PHASE 2D-B2</p><h1>The Relay — static filmboard correction</h1><p className={styles.reviewStatus}>VISUAL OPTIONS READY <span>·</span> PRINCIPAL REVIEW PENDING</p></div>

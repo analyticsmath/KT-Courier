@@ -159,7 +159,7 @@ export function CommerceJourneyCrawler({ categories = [] }: CommerceJourneyCrawl
             >
               <MaskCursor
                 revealContent={
-                  <div className="relative w-full h-full bg-[#0E1012]">
+                  <div className="relative w-full h-full bg-[var(--kt-public-surface-inverse)]">
                     <Image
                       alt={activeCategory.secondaryMedia.alt}
                       src={activeCategory.secondaryMedia.src}
@@ -167,7 +167,7 @@ export function CommerceJourneyCrawler({ categories = [] }: CommerceJourneyCrawl
                       sizes="(max-width: 1023px) 100vw, 60vw"
                       className="object-cover brightness-110"
                     />
-                    <div className="absolute top-4 left-4 z-20 px-2 py-1 bg-[#347CFB] text-white text-[10px] font-mono tracking-widest uppercase">
+                    <div className="absolute top-4 left-4 z-20 px-2 py-1 bg-[var(--kt-public-interactive)] text-[var(--kt-public-text-inverse)] text-[10px] font-mono tracking-widest uppercase">
                       INSPECT PERSPECTIVE
                     </div>
                   </div>
@@ -175,7 +175,7 @@ export function CommerceJourneyCrawler({ categories = [] }: CommerceJourneyCrawl
                 className="w-full h-full rounded-[4px]"
                 maskRadius={130}
               >
-                <div className="relative w-full h-[480px] md:h-[580px] bg-[#111318]">
+                <div className="relative w-full h-[480px] md:h-[580px] bg-[var(--kt-public-interactive)]">
                   <Image
                     alt={activeCategory.media.alt}
                     src={activeCategory.media.src}

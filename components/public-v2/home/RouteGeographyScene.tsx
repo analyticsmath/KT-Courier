@@ -65,7 +65,7 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
             >
               <path
                 d="M 50,350 Q 300,320 500,200 T 950,50"
-                stroke="#347CFB"
+                stroke="var(--kt-public-interactive-text)"
                 strokeWidth="4"
                 strokeDasharray="8 6"
                 className={styles.routeAnimatedSvgPath}
@@ -88,18 +88,18 @@ export function RouteGeographyScene({ regions }: RouteGeographySceneProps) {
           <div className={styles.routeTelemetryPixelBox}>
             <PixelReconstruct pixelSize={6} durationMs={700}>
               <div className={styles.routePixelCard}>
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#D9DEE2]/20">
-                  <span className="text-[10px] font-mono tracking-wider text-[#347CFB] uppercase font-bold">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[var(--kt-public-border-subtle)]/20">
+                  <span className="text-[10px] font-mono tracking-wider text-[var(--kt-public-interactive-text)] uppercase font-bold">
                     ROUTE TELEMETRY
                   </span>
-                  <span className="text-[10px] font-mono text-[#F3F1EA]/80">
+                  <span className="text-[10px] font-mono text-[var(--kt-public-text-inverse-muted)]">
                     LIVE
                   </span>
                 </div>
-                <div className="text-[12px] font-mono text-[#F3F1EA] font-semibold">
+                <div className="text-[12px] font-mono text-[var(--kt-public-text-inverse)] font-semibold">
                   HUB: {activeRegion?.name || "Gauteng Central"}
                 </div>
-                <div className="text-[10px] font-mono text-[#59626A] mt-1">
+                <div className="text-[10px] font-mono text-[var(--kt-public-text-muted)] mt-1">
                   CORRIDOR LAT: -26.1952° S · LONG: 28.0340° E
                 </div>
               </div>

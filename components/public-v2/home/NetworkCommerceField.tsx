@@ -20,13 +20,13 @@ export function NetworkCommerceField() {
       <div className={styles.networkInner}>
         <div className={styles.networkHeader}>
           <div>
-            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--kt-red)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--kt-public-brand-signal)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
               Network Breadth
             </span>
-            <h2 style={{ fontSize: "var(--kt-type-major)", fontWeight: 520, letterSpacing: "-0.03em", color: "var(--kt-carbon)", marginTop: 6 }} id="network-title">
+            <h2 style={{ fontSize: "var(--kt-type-major)", fontWeight: 520, letterSpacing: "-0.03em", color: "var(--kt-public-text-primary)", marginTop: 6 }} id="network-title">
               One network. More ways to move.
             </h2>
-            <p style={{ fontSize: "var(--kt-type-lead)", color: "var(--kt-cool-650)", marginTop: 8, maxWidth: 560 }}>
+            <p style={{ fontSize: "var(--kt-type-lead)", color: "var(--kt-public-text-muted)", marginTop: 8, maxWidth: 560 }}>
               Connecting independent retailers, neighborhood kitchens, essential grocers, and stores with dedicated courier delivery.
             </p>
           </div>
@@ -50,6 +50,7 @@ export function NetworkCommerceField() {
                 style={{
                   position: "absolute",
                   inset: 0,
+                  // kt-color-audit-allow: existing photographic readability overlay
                   backgroundColor: "rgba(16, 18, 16, 0.4)",
                   pointerEvents: "none",
                 }}
@@ -61,7 +62,7 @@ export function NetworkCommerceField() {
                   left: 0,
                   width: "100%",
                   padding: "16px 20px",
-                  color: "var(--kt-white)",
+                  color: "var(--kt-public-text-inverse)",
                   fontSize: "1rem",
                   fontWeight: 560,
                 }}

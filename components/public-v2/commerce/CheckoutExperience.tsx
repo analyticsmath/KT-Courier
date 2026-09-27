@@ -476,7 +476,7 @@ export function CheckoutExperience() {
     return (
       <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center", maxWidth: 600, margin: "0 auto" }}>
         <h1 style={{ fontSize: "2rem", fontWeight: 560, marginBottom: "1rem" }}>Your checkout is not available</h1>
-        <p style={{ color: "var(--kt-muted, #5f6763)", marginBottom: "2rem" }}>
+        <p style={{ color: "var(--kt-public-text-muted)", marginBottom: "2rem" }}>
           Please add items to your shopping cart and click &quot;Proceed to Checkout&quot;.
         </p>
         <Link
@@ -484,8 +484,8 @@ export function CheckoutExperience() {
           style={{
             display: "inline-block",
             padding: "12px 24px",
-            backgroundColor: "var(--kt-carbon, #101210)",
-            color: "#ffffff",
+            backgroundColor: "var(--kt-public-surface-inverse)",
+            color: "var(--kt-public-text-inverse)",
             textDecoration: "none",
             borderRadius: 4,
             fontWeight: 600,
@@ -500,7 +500,7 @@ export function CheckoutExperience() {
   if (loading) {
     return (
       <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center" }}>
-        <p style={{ fontSize: "1.1rem", color: "var(--kt-muted, #5f6763)" }}>Preparing your checkout…</p>
+        <p style={{ fontSize: "1.1rem", color: "var(--kt-public-text-muted)" }}>Preparing your checkout…</p>
       </div>
     );
   }
@@ -508,14 +508,14 @@ export function CheckoutExperience() {
   if (orderComplete) {
     return (
       <div className={styles.commerceInner} style={{ padding: "4rem 0", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-        <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: "#eef8f1", color: "#1e6e38", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.5rem" }}>
+        <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: "var(--kt-public-surface-secondary)", color: "var(--kt-state-success)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.5rem" }}>
           ✓
         </div>
         <h1 style={{ fontSize: "2.2rem", fontWeight: 560, marginBottom: "1rem" }}>Your order is confirmed</h1>
-        <p style={{ fontSize: "1.1rem", color: "var(--kt-graphite, #303532)", marginBottom: "1.5rem" }}>
+        <p style={{ fontSize: "1.1rem", color: "var(--kt-public-text-muted)", marginBottom: "1.5rem" }}>
           Order reference: <strong style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</strong>
         </p>
-        <p style={{ color: "var(--kt-muted, #5f6763)", lineHeight: 1.6, marginBottom: "2rem" }}>
+        <p style={{ color: "var(--kt-public-text-muted)", lineHeight: 1.6, marginBottom: "2rem" }}>
           Your order is being prepared by the stores shown in your order summary. You can follow its progress as fulfilment updates become available.
         </p>
         <Link
@@ -523,8 +523,8 @@ export function CheckoutExperience() {
           style={{
             display: "inline-block",
             padding: "14px 28px",
-            backgroundColor: "var(--kt-carbon, #101210)",
-            color: "#ffffff",
+            backgroundColor: "var(--kt-public-surface-inverse)",
+            color: "var(--kt-public-text-inverse)",
             textDecoration: "none",
             borderRadius: 4,
             fontWeight: 600,
@@ -542,7 +542,7 @@ export function CheckoutExperience() {
         <h1 style={{ fontSize: "2.2rem", fontWeight: 560, margin: "0 0 0.5rem" }}>
           Secure checkout
         </h1>
-        <p style={{ color: "var(--kt-muted, #5f6763)", margin: 0, fontSize: "0.95rem" }}>
+        <p style={{ color: "var(--kt-public-text-muted)", margin: 0, fontSize: "0.95rem" }}>
           Order reference: <span style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</span>
         </p>
       </div>
@@ -552,9 +552,9 @@ export function CheckoutExperience() {
           role="alert"
           style={{
             padding: "14px 18px",
-            backgroundColor: "#fdf2f2",
-            border: "1px solid #f8b4b4",
-            color: "#ba1a1a",
+            backgroundColor: "var(--kt-public-surface-secondary)",
+            border: "1px solid var(--kt-public-border-control)",
+            color: "var(--kt-state-error)",
             borderRadius: 4,
             marginBottom: "1.5rem",
           }}
@@ -569,10 +569,10 @@ export function CheckoutExperience() {
           {/* Step 1: Contact Details */}
           <div
             style={{
-              border: "1px solid var(--kt-cool-200, #dde1e0)",
+              border: "1px solid var(--kt-public-border-control)",
               borderRadius: 6,
               padding: "24px",
-              backgroundColor: "#ffffff",
+              backgroundColor: "var(--kt-public-surface-primary)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -583,7 +583,7 @@ export function CheckoutExperience() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(1)}
-                  style={{ background: "none", border: "none", color: "var(--kt-red, #d83a2e)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}
+                  style={{ background: "none", border: "none", color: "var(--kt-public-interactive-text)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}
                 >
                   Edit
                 </button>
@@ -603,7 +603,7 @@ export function CheckoutExperience() {
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="e.g. Sipho Dlamini"
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                   />
                 </div>
 
@@ -619,7 +619,7 @@ export function CheckoutExperience() {
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                       placeholder="sipho@example.co.za"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>
                   <div>
@@ -633,7 +633,7 @@ export function CheckoutExperience() {
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
                       placeholder="082 123 4567"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>
                 </div>
@@ -646,7 +646,7 @@ export function CheckoutExperience() {
                     id="contactMethod"
                     value={contactMethod}
                     onChange={(e) => setContactMethod(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4, backgroundColor: "#ffffff" }}
+                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4, backgroundColor: "var(--kt-public-surface-primary)" }}
                   >
                     <option value="SMS">SMS</option>
                     <option value="WHATSAPP">WhatsApp</option>
@@ -661,8 +661,8 @@ export function CheckoutExperience() {
                     alignSelf: "flex-start",
                     marginTop: 8,
                     padding: "10px 20px",
-                    backgroundColor: "var(--kt-carbon, #101210)",
-                    color: "#ffffff",
+                    backgroundColor: "var(--kt-public-surface-inverse)",
+                    color: "var(--kt-public-text-inverse)",
                     border: "none",
                     borderRadius: 4,
                     fontWeight: 600,
@@ -673,7 +673,7 @@ export function CheckoutExperience() {
                 </button>
               </form>
             ) : (
-              <div style={{ fontSize: "0.9rem", color: "var(--kt-muted, #5f6763)" }}>
+              <div style={{ fontSize: "0.9rem", color: "var(--kt-public-text-muted)" }}>
                 {contactName} · {contactEmail} · {contactPhone} ({contactMethod})
               </div>
             )}
@@ -682,10 +682,10 @@ export function CheckoutExperience() {
           {/* Step 2: Delivery Address */}
           <div
             style={{
-              border: "1px solid var(--kt-cool-200, #dde1e0)",
+              border: "1px solid var(--kt-public-border-control)",
               borderRadius: 6,
               padding: "24px",
-              backgroundColor: "#ffffff",
+              backgroundColor: "var(--kt-public-surface-primary)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -696,7 +696,7 @@ export function CheckoutExperience() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(2)}
-                  style={{ background: "none", border: "none", color: "var(--kt-red, #d83a2e)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}
+                  style={{ background: "none", border: "none", color: "var(--kt-public-interactive-text)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}
                 >
                   Edit
                 </button>
@@ -716,7 +716,7 @@ export function CheckoutExperience() {
                     value={addrLine1}
                     onChange={(e) => setAddrLine1(e.target.value)}
                     placeholder="124 Main Road"
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                   />
                 </div>
 
@@ -731,7 +731,7 @@ export function CheckoutExperience() {
                       value={addrLine2}
                       onChange={(e) => setAddrLine2(e.target.value)}
                       placeholder="Unit 4B"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>
                   <div>
@@ -744,7 +744,7 @@ export function CheckoutExperience() {
                       value={addrSuburb}
                       onChange={(e) => setAddrSuburb(e.target.value)}
                       placeholder="Rosebank"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>
                 </div>
@@ -760,7 +760,7 @@ export function CheckoutExperience() {
                       required
                       value={addrCity}
                       onChange={(e) => setAddrCity(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>
                   <div>
@@ -771,7 +771,7 @@ export function CheckoutExperience() {
                       id="addrProvince"
                       value={addrProvince}
                       onChange={(e) => setAddrProvince(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     >
                       <option value="Gauteng">Gauteng</option>
                       <option value="Western Cape">Western Cape</option>
@@ -793,7 +793,7 @@ export function CheckoutExperience() {
                       type="text"
                       value={addrPostalCode}
                       onChange={(e) => setAddrPostalCode(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>
                 </div>
@@ -808,7 +808,7 @@ export function CheckoutExperience() {
                     value={addrInstructions}
                     onChange={(e) => setAddrInstructions(e.target.value)}
                     placeholder="Gate code #1234, please phone upon arrival"
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-cool-200, #dde1e0)", borderRadius: 4 }}
+                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                   />
                 </div>
 
@@ -819,8 +819,8 @@ export function CheckoutExperience() {
                     alignSelf: "flex-start",
                     marginTop: 8,
                     padding: "10px 20px",
-                    backgroundColor: "var(--kt-carbon, #101210)",
-                    color: "#ffffff",
+                    backgroundColor: "var(--kt-public-surface-inverse)",
+                    color: "var(--kt-public-text-inverse)",
                     border: "none",
                     borderRadius: 4,
                     fontWeight: 600,
@@ -831,7 +831,7 @@ export function CheckoutExperience() {
                 </button>
               </form>
             ) : currentStep > 2 ? (
-              <div style={{ fontSize: "0.9rem", color: "var(--kt-muted, #5f6763)" }}>
+              <div style={{ fontSize: "0.9rem", color: "var(--kt-public-text-muted)" }}>
                 {addrLine1}, {addrSuburb ? `${addrSuburb}, ` : ""}{addrCity}, {addrProvince} {addrPostalCode}
               </div>
             ) : null}
@@ -841,10 +841,10 @@ export function CheckoutExperience() {
           {currentStep >= 3 && (
             <div
               style={{
-                border: "1px solid var(--kt-cool-200, #dde1e0)",
+                border: "1px solid var(--kt-public-border-control)",
                 borderRadius: 6,
                 padding: "24px",
-                backgroundColor: "#ffffff",
+                backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
@@ -857,8 +857,8 @@ export function CheckoutExperience() {
                     key={idx}
                     style={{
                       padding: "14px 16px",
-                      backgroundColor: "var(--kt-cool-050, #f5f6f6)",
-                      border: "1px solid var(--kt-cool-200, #dde1e0)",
+                      backgroundColor: "var(--kt-public-surface-secondary)",
+                      border: "1px solid var(--kt-public-border-control)",
                       borderRadius: 4,
                       display: "flex",
                       justifyContent: "space-between",
@@ -867,7 +867,7 @@ export function CheckoutExperience() {
                   >
                     <div>
                       <div style={{ fontWeight: 600 }}>{group.storeName ?? "Local store"}</div>
-                      <div style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
+                      <div style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", marginTop: 2 }}>
                         {group.fulfilmentMode === "STORE_PICKUP" ? "Store pickup" : group.fulfilmentMode === "PICKUP_AND_DELIVERY" ? "Pickup and delivery" : "Courier delivery"} · {group.lines.length} {group.lines.length === 1 ? "item" : "items"}
                       </div>
                     </div>
@@ -875,7 +875,7 @@ export function CheckoutExperience() {
                       <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
                         {group.deliveryFee ? formatMoney(group.deliveryFee) : "Calculated"}
                       </div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--kt-muted, #5f6763)" }}>Delivery fee</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--kt-public-text-muted)" }}>Delivery fee</div>
                     </div>
                   </div>
                 ))}
@@ -889,8 +889,8 @@ export function CheckoutExperience() {
                   style={{
                     marginTop: "1.2rem",
                     padding: "12px 24px",
-                    backgroundColor: "var(--kt-carbon, #101210)",
-                    color: "#ffffff",
+                    backgroundColor: "var(--kt-public-surface-inverse)",
+                    color: "var(--kt-public-text-inverse)",
                     border: "none",
                     borderRadius: 4,
                     fontWeight: 600,
@@ -907,18 +907,18 @@ export function CheckoutExperience() {
           {currentStep >= 4 && (
             <div
               style={{
-                border: "1px solid var(--kt-cool-200, #dde1e0)",
+                border: "1px solid var(--kt-public-border-control)",
                 borderRadius: 6,
                 padding: "24px",
-                backgroundColor: "#ffffff",
+                backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
                 4. Review your order
               </h2>
 
-              <div style={{ backgroundColor: "var(--kt-cool-050, #f5f6f6)", padding: "16px", borderRadius: 4, marginBottom: "1rem" }}>
-                <div style={{ fontSize: "0.9rem", color: "var(--kt-carbon, #101210)", lineHeight: 1.5 }}>
+              <div style={{ backgroundColor: "var(--kt-public-surface-secondary)", padding: "16px", borderRadius: 4, marginBottom: "1rem" }}>
+                <div style={{ fontSize: "0.9rem", color: "var(--kt-public-text-primary)", lineHeight: 1.5 }}>
                   Review your items and delivery details, then accept the terms to continue to payment.
                 </div>
               </div>
@@ -944,8 +944,8 @@ export function CheckoutExperience() {
                     style={{
                       alignSelf: "flex-start",
                       padding: "12px 24px",
-                      backgroundColor: termsAgreed ? "var(--kt-carbon, #101210)" : "#8e9591",
-                      color: "#ffffff",
+                      backgroundColor: termsAgreed ? "var(--kt-public-text-primary)" : "var(--kt-public-text-inverse-muted)",
+                      color: "var(--kt-public-text-inverse)",
                       border: "none",
                       borderRadius: 4,
                       fontWeight: 600,
@@ -963,10 +963,10 @@ export function CheckoutExperience() {
           {currentStep >= 5 && (
             <div
               style={{
-                border: "1px solid var(--kt-cool-200, #dde1e0)",
+                border: "1px solid var(--kt-public-border-control)",
                 borderRadius: 6,
                 padding: "24px",
-                backgroundColor: "#ffffff",
+                backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
@@ -977,7 +977,7 @@ export function CheckoutExperience() {
                 <div
                   style={{
                     padding: "16px",
-                    border: "2px solid var(--kt-carbon, #101210)",
+                    border: "2px solid var(--kt-public-text-primary)",
                     borderRadius: 4,
                     display: "flex",
                     justifyContent: "space-between",
@@ -986,14 +986,14 @@ export function CheckoutExperience() {
                 >
                   <div>
                     <div style={{ fontWeight: 600 }}>Paystack</div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", marginTop: 2 }}>
+                    <div style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", marginTop: 2 }}>
                       Available payment methods are shown securely by Paystack.
                     </div>
                   </div>
                   <svg aria-hidden="true" width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M6 10V7a6 6 0 0 1 12 0v3M5 10h14v11H5V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 14v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 </div>
 
-                <p style={{ fontSize: "0.85rem", color: "var(--kt-muted, #5f6763)", lineHeight: 1.4 }}>
+                <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", lineHeight: 1.4 }}>
                   You will be securely redirected to Paystack to complete your card or instant EFT authorization for <strong>{formatMoney(checkout?.totals.grandTotal)}</strong>.
                 </p>
 
@@ -1004,8 +1004,8 @@ export function CheckoutExperience() {
                   style={{
                     marginTop: 8,
                     padding: "14px 24px",
-                    backgroundColor: "var(--kt-carbon, #101210)",
-                    color: "#ffffff",
+                    backgroundColor: "var(--kt-public-surface-inverse)",
+                    color: "var(--kt-public-text-inverse)",
                     border: "none",
                     borderRadius: 4,
                     fontSize: "1rem",
@@ -1028,19 +1028,19 @@ export function CheckoutExperience() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: "0.95rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--kt-muted, #5f6763)" }}>Merchandise Subtotal</span>
+              <span style={{ color: "var(--kt-public-text-muted)" }}>Merchandise Subtotal</span>
               <span style={{ fontWeight: 540 }}>{formatMoney(checkout?.totals.merchandiseSubtotal)}</span>
             </div>
 
             {Number(checkout?.totals.modifierSubtotal ?? 0) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--kt-muted, #5f6763)" }}>Modifiers & Options</span>
+                <span style={{ color: "var(--kt-public-text-muted)" }}>Modifiers & Options</span>
                 <span style={{ fontWeight: 540 }}>{formatMoney(checkout?.totals.modifierSubtotal)}</span>
               </div>
             )}
 
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--kt-muted, #5f6763)" }}>Delivery Fees Total</span>
+              <span style={{ color: "var(--kt-public-text-muted)" }}>Delivery Fees Total</span>
               <span style={{ fontWeight: 540 }}>
                 {Number(checkout?.totals.deliveryFeeTotal ?? 0) > 0 ? formatMoney(checkout?.totals.deliveryFeeTotal) : "Pending address"}
               </span>
@@ -1048,14 +1048,14 @@ export function CheckoutExperience() {
 
             <div
               style={{
-                borderTop: "1px solid var(--kt-cool-200, #dde1e0)",
+                borderTop: "1px solid var(--kt-public-border-subtle)",
                 paddingTop: 12,
                 marginTop: 6,
                 display: "flex",
                 justifyContent: "space-between",
                 fontSize: "1.25rem",
                 fontWeight: 600,
-                color: "var(--kt-carbon, #101210)",
+                color: "var(--kt-public-text-primary)",
               }}
             >
               <span>Total</span>
@@ -1063,15 +1063,15 @@ export function CheckoutExperience() {
             </div>
           </div>
 
-          <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--kt-cool-100, #eceeee)", paddingTop: "1rem" }}>
+          <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--kt-public-surface-tertiary)", paddingTop: "1rem" }}>
             <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 8 }}>
               Stores in this order ({checkout?.storeGroups.length ?? 0})
             </div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "0.8rem", color: "var(--kt-graphite, #303532)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "0.8rem", color: "var(--kt-public-text-muted)", display: "flex", flexDirection: "column", gap: 6 }}>
               {checkout?.storeGroups.map((g, idx) => (
                 <li key={idx} style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>{g.storeName ?? "Local store"}</span>
-                  <span style={{ color: "var(--kt-muted, #5f6763)" }}>{g.fulfilmentMode === "STORE_PICKUP" ? "Store pickup" : g.fulfilmentMode === "PICKUP_AND_DELIVERY" ? "Pickup and delivery" : "Courier delivery"}</span>
+                  <span style={{ color: "var(--kt-public-text-muted)" }}>{g.fulfilmentMode === "STORE_PICKUP" ? "Store pickup" : g.fulfilmentMode === "PICKUP_AND_DELIVERY" ? "Pickup and delivery" : "Courier delivery"}</span>
                 </li>
               ))}
             </ul>
