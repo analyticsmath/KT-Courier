@@ -73,8 +73,8 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
                   <Image
                     alt={media.alt || `${product.title} - View ${index + 1}`}
                     fill
-                    priority={index === 0}
-                    sizes="(max-width: 991px) 100vw, 58vw"
+                    preload={index === 0}
+                    sizes="(max-width: 991px) 100vw, (max-width: 1199px) 55vw, (max-width: 1599px) 42vw, 640px"
                     src={`/api/catalog/media/${media.publicReference}`}
                     className={styles.pdpImageContain}
                   />
@@ -90,7 +90,7 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
 
         {/* Mobile Page Dots & Counter */}
         {gallery.length > 1 && (
-          <div className={styles.pdpMobileGalleryPagination} aria-hidden="true">
+          <div className={styles.pdpMobileGalleryPagination}>
             <div className={styles.pdpMobileGalleryDots}>
               {gallery.map((_, i) => (
                 <button
@@ -109,7 +109,7 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
         )}
       </div>
 
-      {/* Desktop scroll-gallery: the purchase column stays pinned while every image passes. */}
+      {/* Desktop scroll-gallery: every image remains in document flow. */}
       <div className={styles.pdpDesktopGalleryStage}>
         {gallery.length > 0 ? gallery.map((media, index) => (
           <div
@@ -120,8 +120,8 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
             <Image
               alt={media.alt || `${product.title} - View ${index + 1}`}
               fill
-              priority={index === 0}
-              sizes="(max-width: 991px) 100vw, 58vw"
+              preload={index === 0}
+              sizes="(max-width: 991px) 100vw, (max-width: 1199px) 55vw, (max-width: 1599px) 42vw, 640px"
               src={`/api/catalog/media/${media.publicReference}`}
               className={styles.pdpImageContain}
             />
