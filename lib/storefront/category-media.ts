@@ -1,6 +1,8 @@
 const CLOUDINARY_CATEGORY_BASE =
   "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000";
 
+const CURATED_2026_CATEGORY_FOLDER = "kt-courier/category-2026";
+
 type CuratedCategoryMedia = Readonly<
   | {
       publicId: string;
@@ -17,10 +19,12 @@ type CuratedCategoryMedia = Readonly<
 /**
  * Curated category media is deliberately explicit.
  *
- * These references are the visual contract for commerce category surfaces. They
- * point either to the production category-overrides set or to the authored
- * South African editorial photography supplied in the KT Images library.
+ * The five featured marketplace worlds and their direct children use dedicated
+ * Unsplash+ masters stored in Cloudinary under the 2026 category namespace.
+ * Cloudinary keeps each asset's source ID and photographer in asset context,
+ * while this map keeps the storefront contract stable by catalog reference.
  *
+ * Remaining taxonomy entries retain their established production overrides.
  * Do not infer a category image by array position: category IDs are the source
  * of truth, so marketplace ordering can change without photography drifting.
  */
@@ -28,86 +32,94 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
   Object.freeze({
     // Groceries
     "CMA-CAT-GROCERIES": {
-      src: "/media/public/derived/photo-grocery-market-counter-produce-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/groceries`,
+      format: "webp",
     },
     "CMA-CAT-FRESH-PRODUCE": {
-      publicId: "cape-town-market-vegetables",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/fresh-produce`,
       format: "webp",
     },
     "CMA-CAT-DAIRY-EGGS": {
-      publicId: "kt-courier/category-overrides/groceries",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/dairy-eggs`,
+      format: "webp",
     },
     "CMA-CAT-PANTRY": {
-      publicId: "kt-courier/category-overrides/pantry",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/pantry`,
+      format: "webp",
     },
     "CMA-CAT-BEVERAGES": {
-      publicId: "nrd-D6Tu_L3chLE-unsplash",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/beverages`,
+      format: "webp",
     },
     "CMA-CAT-SNACKS": {
-      publicId: "kt-courier/category-overrides/snacks",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/snacks`,
+      format: "webp",
     },
     "CMA-CAT-HOUSEHOLD": {
-      publicId: "kt-courier/category-overrides/household",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/household`,
+      format: "webp",
     },
 
     // Food & dining
     "CMA-CAT-FOOD-DINING": {
-      src: "/media/public/derived/photo-food-prepared-grain-bowl-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/food-dining`,
+      format: "webp",
     },
     "CMA-CAT-BURGERS": {
-      publicId: "kt-courier/category-overrides/burgers",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/burgers`,
+      format: "webp",
     },
     "CMA-CAT-PIZZA": {
-      publicId: "kt-courier/category-overrides/pizza",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/pizza`,
+      format: "webp",
     },
     "CMA-CAT-GRILL": {
-      publicId: "kt-courier/category-overrides/grill",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/grill`,
+      format: "webp",
     },
     "CMA-CAT-TRADITIONAL": {
-      publicId: "kt-courier/category-overrides/traditional",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/traditional`,
+      format: "webp",
     },
 
     // Pharmacy & wellness
     "CMA-CAT-PHARMACY": {
-      src: "/media/public/derived/photo-wellness-licensed-pharmacy-counter-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/pharmacy`,
+      format: "webp",
     },
     "CMA-CAT-OTC-RELIEF": {
-      src: "/media/public/derived/photo-wellness-amber-apothecary-bottles-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/otc-relief`,
+      format: "webp",
     },
     "CMA-CAT-FIRST-AID": {
-      publicId: "kt-courier/category-overrides/first-aid",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/first-aid`,
+      format: "webp",
     },
     "CMA-CAT-VITAMINS": {
-      publicId: "kt-courier/category-overrides/vitamins",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/vitamins`,
+      format: "webp",
     },
     "CMA-CAT-PERSONAL-CARE": {
-      src: "/media/public/derived/photo-wellness-organic-botanical-serum-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/personal-care`,
+      format: "webp",
     },
 
     // Fashion
     "CMA-CAT-FASHION": {
-      src: "/media/public/derived/photo-fashion-jhb-editorial-coat-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/fashion`,
+      format: "webp",
     },
     "CMA-CAT-CLOTHING": {
-      publicId: "kt-courier/category-overrides/clothing",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/clothing`,
+      format: "webp",
     },
     "CMA-CAT-FOOTWEAR": {
-      src: "/media/public/derived/photo-fashion-designer-footwear-leather-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/footwear`,
+      format: "webp",
     },
     "CMA-CAT-ACCESSORIES": {
-      src: "/media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/accessories`,
+      format: "webp",
     },
 
     // Electronics. The authored audio category photograph is also the strongest
@@ -127,14 +139,16 @@ const CATEGORY_MEDIA_OVERRIDES: Readonly<Record<string, CuratedCategoryMedia>> =
 
     // Home & living
     "CMA-CAT-HOME-LIVING": {
-      src: "/media/public/derived/commerce-homeware-natalia-blauth-43i1AK0McxM-unsplash-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/home-living`,
+      format: "webp",
     },
     "CMA-CAT-COOKWARE": {
-      publicId: "kt-courier/category-overrides/cookware",
-      format: "jpg",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/cookware`,
+      format: "webp",
     },
     "CMA-CAT-DECOR": {
-      src: "/media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp",
+      publicId: `${CURATED_2026_CATEGORY_FOLDER}/decor`,
+      format: "webp",
     },
 
     // Remaining top-level marketplace categories
