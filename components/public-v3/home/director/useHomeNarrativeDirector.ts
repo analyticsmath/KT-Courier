@@ -7,8 +7,8 @@ import { useMotionContext } from "../../motion/PublicMotionProvider";
 import { HERO_VAN_BASELINE_Y, HERO_VAN_CANVAS_ASPECT, HERO_VAN_SEQUENCE, HERO_VAN_VISIBLE_CENTER_X, HERO_VAN_VISIBLE_CENTER_Y, HERO_VAN_VISIBLE_HEIGHT_RATIO } from "./hero-van-sequence.generated";
 import { closestReadyHeroSequenceState, decodeHeroVanFrame, decodeHeroVanWindow, isActorImageReady } from "./home-actor-image-readiness";
 import { deriveHeroActorPresentation } from "./hero-actor-presentation";
-import { resolveHeroVanFrame } from "./home-frame-resolver";
-import { clamp01, getCommerceBeats, HOME_BEATS, range } from "./home-beats";
+import { heroVanBlendWeights, resolveHeroVanFrame } from "./home-frame-resolver";
+import { clamp01, getCommerceBeats, HOME_BEATS, range, smooth } from "./home-beats";
 import { HOME_CHAPTERS, HOME_MOBILE_POLICY, reducedMotionChapterProgress, type HomeChapter, type PostHeroChapter } from "./home-chapters";
 import { marketplaceTrackX } from "./home-marketplace-geometry";
 import { commitSelection } from "./home-selection";
@@ -142,13 +142,14 @@ export function useHomeNarrativeDirector({
       if (!activeLayer) return;
       const canBlend = requestedReady && displayedState === frame.state && Boolean(nextLayer && frame.stateBlend && frame.stateBlend > 0 && isActorImageReady(nextLayer));
       const blend = canBlend ? frame.stateBlend ?? 0 : 0;
+      const blendWeights = heroVanBlendWeights(blend);
       const nextActive = new Set([displayedState, ...(canBlend && frame.blendToState ? [frame.blendToState] : [])]);
       for (const state of activeHeroStates) if (!nextActive.has(state)) {
         const image = heroLayers.get(state);
         if (image) gsap.set(image, { opacity: 0 });
       }
-      gsap.set(activeLayer, { opacity: 1 - blend });
-      if (canBlend && nextLayer) gsap.set(nextLayer, { opacity: blend });
+      gsap.set(activeLayer, { opacity: blendWeights.current });
+      if (canBlend && nextLayer) gsap.set(nextLayer, { opacity: blendWeights.next });
       activeHeroStates.clear();
       nextActive.forEach((state) => activeHeroStates.add(state));
       const desiredVisibleHeightPx = heroUsableActorHeight * frame.visibleHeightVh / 100;
@@ -161,8 +162,9 @@ export function useHomeNarrativeDirector({
       const y = groundTop + (centerTop - groundTop) * frame.anchorBlend;
       const presentation = deriveHeroActorPresentation({ actorVisible: frame.visible, imageReady: isActorImageReady(activeLayer), width: scaledWidth, height: scaledHeight });
       gsap.set(heroSlot, { x, y, scale: canvasScale, transformOrigin: "0 0", autoAlpha: presentation.opacity * frame.opacity, visibility: presentation.visibility });
-      if (heroKt) gsap.set(heroKt, { y: prefersReducedMotion ? 0 : -14 * range(progress, .22, .975), autoAlpha: prefersReducedMotion ? 1 : 1 - .7 * range(progress, .13, .9) });
-      if (heroCourier) gsap.set(heroCourier, { y: prefersReducedMotion ? 0 : 10 * range(progress, .22, .975), autoAlpha: prefersReducedMotion ? 1 : 1 - .66 * range(progress, .13, .9) });
+      const typeFalloff = smooth(range(progress, .13, .34));
+      if (heroKt) gsap.set(heroKt, { y: prefersReducedMotion ? 0 : -14 * range(progress, .22, .97), autoAlpha: prefersReducedMotion ? 1 : 1 - .78 * typeFalloff });
+      if (heroCourier) gsap.set(heroCourier, { y: prefersReducedMotion ? 0 : 10 * range(progress, .22, .97), autoAlpha: prefersReducedMotion ? 1 : 1 - .84 * typeFalloff });
       if (heroActions) gsap.set(heroActions, { autoAlpha: prefersReducedMotion ? 1 : 1 - range(progress, ...HOME_BEATS.hero.entryReveal), y: prefersReducedMotion ? 0 : -10 * range(progress, ...HOME_BEATS.hero.entryReveal) });
       if (debugEnabled) {
         root.dataset.homeHeroVanVisible = String(presentation.isVisible);

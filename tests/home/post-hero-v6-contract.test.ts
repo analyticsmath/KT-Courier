@@ -10,7 +10,7 @@ describe("post-Hero homepage rebuild contract", () => {
     expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 280, parcelization: 160, network: 250, freight: 240, "last-mile": 340, finale: 135 });
     expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 0, parcelization: 135, network: 190, freight: 190, "last-mile": 290, finale: 125 });
     expect(HOME_MOBILE_POLICY).toEqual({ hero: "document", commerce: "native-snap", parcelization: "document", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" });
-    expect(HOME_BEATS.hero.release).toEqual([.945, 1]);
+    expect(HOME_BEATS.hero.release).toEqual([.97, 1]);
   });
 
   it("uses the authored no-store and Store World commerce timelines", () => {

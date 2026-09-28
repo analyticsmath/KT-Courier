@@ -26,6 +26,12 @@ export type HeroVanFrame = {
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
 const easedRange = (p: number, start: number, end: number) => smooth(range(p, start, end));
 
+/** Equal-power weights keep the composite vehicle solid during a two-frame blend. */
+export function heroVanBlendWeights(blend: number): { current: number; next: number } {
+  const angle = clamp01(blend) * Math.PI * .5;
+  return { current: Math.cos(angle), next: Math.sin(angle) };
+}
+
 /** One progress-derived pose for forward, reverse, and arbitrary scroll seeks. */
 export function resolveHeroVanFrame(progress: number, viewportMode: "mobile" | "desktop"): HeroVanFrame {
   const p = clamp01(progress);
@@ -53,24 +59,23 @@ export function resolveHeroVanFrame(progress: number, viewportMode: "mobile" | "
 
   let visibleHeightVh = mobile ? 30 : 31;
   if (phase === "entry") visibleHeightVh = lerp(mobile ? 30 : 31, 38, entryT);
-  else if (phase === "turn") visibleHeightVh = lerp(38, mobile ? 50 : 54, turnT);
-  else if (phase === "front-settle") visibleHeightVh = lerp(mobile ? 50 : 54, mobile ? 54 : 56, settleT);
-  else if (phase === "approach") visibleHeightVh = lerp(mobile ? 54 : 56, mobile ? 70 : 72, approachT);
-  else if (phase === "hold") visibleHeightVh = mobile ? 70 : 72;
-  else if (phase === "release") visibleHeightVh = lerp(mobile ? 70 : 72, mobile ? 58 : 60, releaseT);
+  else if (phase === "turn") visibleHeightVh = lerp(38, mobile ? 54 : 56, turnT);
+  else if (phase === "front-settle") visibleHeightVh = lerp(mobile ? 54 : 56, mobile ? 60 : 62, settleT);
+  else if (phase === "approach") visibleHeightVh = lerp(mobile ? 60 : 62, mobile ? 76 : 80, approachT);
+  else if (phase === "hold") visibleHeightVh = mobile ? 76 : 80;
+  else if (phase === "release") visibleHeightVh = lerp(mobile ? 76 : 80, mobile ? 66 : 70, releaseT);
 
   const anchorMode = phase === "front-settle" ? "transition" : phase === "poster" || phase === "entry" || phase === "turn" ? "ground" : "center";
   const anchorBlend = anchorMode === "ground" ? 0 : anchorMode === "center" ? 1 : settleT;
-  const visibleCenterY = phase === "approach" ? lerp(.55, .52, approachT)
-    : phase === "release" ? lerp(.52, .57, releaseT)
-      : phase === "hold" ? .52 : .55;
+  const frontalCenterY = mobile ? .57 : .58;
+  const visibleCenterY = phase === "release" ? lerp(frontalCenterY, frontalCenterY + .01, releaseT) : frontalCenterY;
   const opacity = phase === "poster" ? 0
     : phase === "entry" ? easedRange(p, .13, .17)
-      : phase === "release" ? 1 - easedRange(p, .96, 1) : 1;
+      : phase === "release" ? 1 - releaseT : 1;
   return {
     state: HERO_VAN_SEQUENCE[index],
     blendToState,
-    stateBlend: blendToState ? easedRange(fraction, .78, 1) : 0,
+    stateBlend: blendToState ? easedRange(fraction, .68, 1) : 0,
     visible: opacity > 0,
     opacity,
     phase,
