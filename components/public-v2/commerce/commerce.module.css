@@ -2064,7 +2064,7 @@
    ========================================================================= */
 .pdpLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(480px, min(44vw, 720px)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(520px, min(46vw, 760px)) minmax(0, 1fr);
   grid-template-areas: "identity media purchase";
   column-gap: clamp(28px, 3vw, 52px);
   align-items: stretch;
@@ -2089,8 +2089,8 @@
 .pdpIdentityPlane,
 .pdpPurchasePlane {
   position: sticky;
-  top: var(--pdp-sticky-center-y);
-  transform: translateY(-50%);
+  top: var(--pdp-plane-top, calc(var(--shop-header-offset, 66px) + 20px));
+  transform: none;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -2112,7 +2112,7 @@
   grid-area: media;
   position: relative;
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
   min-width: 0;
   margin-inline: auto;
 }
@@ -2130,13 +2130,22 @@
 
 .pdpDesktopHeroFrame {
   position: relative;
-  width: min(100%, calc(var(--pdp-desktop-image-height) * var(--pdp-media-ratio)));
+  display: flex;
+  justify-content: center;
+  width: 100%;
   max-width: 100%;
   margin: 0 auto;
   background: transparent;
   border: 0;
   border-radius: 0;
   overflow: visible;
+}
+
+.pdpDesktopMediaShell {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
 }
 
 .pdpDesktopHeroEmpty {
@@ -2152,14 +2161,15 @@
 
 .pdpDesktopImage {
   display: block;
-  width: 100%;
-  height: auto;
+  width: auto;
+  height: var(--pdp-desktop-image-height);
   max-width: 100%;
   max-height: var(--pdp-desktop-image-height);
   object-fit: contain;
   object-position: center;
-  margin: 0;
+  margin-inline: auto;
   padding: 0;
+  border: 0;
   border-radius: 0;
 }
 
@@ -3129,8 +3139,7 @@
 }
 
 .pdpExperience {
-  --pdp-desktop-image-height: min(72svh, 700px, calc(100svh - var(--shop-header-offset, 66px) - 128px));
-  --pdp-sticky-center-y: calc(var(--shop-header-offset, 66px) + (100svh - var(--shop-header-offset, 66px)) / 2);
+  --pdp-desktop-image-height: min(76svh, 740px, calc(100svh - var(--shop-header-offset, 66px) - 92px));
   width: min(100%, 100rem);
   padding-bottom: clamp(4rem, 6vw, 6rem);
 }
@@ -3638,6 +3647,7 @@
 }
 
 @media (min-width: 1200px) {
+  .pdpIdentityPlaneTall,
   .pdpPurchasePlaneTall {
     position: static;
     transform: none;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "motion/react";
@@ -25,6 +26,7 @@ import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
 import { cn } from "@/lib/utils/cn";
 import styles from "./commerce.module.css";
+import { computeCenteredStickyTop } from "./pdp-geometry";
 
 interface ProductStoreInfo {
   slug: string;
@@ -77,26 +79,57 @@ export function ProductDetailExperience({
     existingCartItemCount?: number;
   } | null>(null);
   const [cartVersion, setCartVersion] = useState<number | null>(null);
+  const identityPlaneRef = useRef<HTMLElement>(null);
   const purchasePlaneRef = useRef<HTMLElement>(null);
-  const [purchasePlaneTooTall, setPurchasePlaneTooTall] = useState(false);
+  const [planePlacement, setPlanePlacement] = useState<{
+    identity: ReturnType<typeof computeCenteredStickyTop>;
+    purchase: ReturnType<typeof computeCenteredStickyTop>;
+  } | null>(null);
 
-  useEffect(() => {
-    const plane = purchasePlaneRef.current;
-    if (!plane) return;
+  useLayoutEffect(() => {
+    const identity = identityPlaneRef.current;
+    const purchase = purchasePlaneRef.current;
+    if (!identity || !purchase) return;
+    let active = true;
 
-    const updateFit = () => {
-      const headerOffset = parseFloat(getComputedStyle(plane).getPropertyValue("--shop-header-offset")) || 66;
-      setPurchasePlaneTooTall(plane.scrollHeight > window.innerHeight - headerOffset - 32);
+    const updatePlacement = () => {
+      if (!active) return;
+      const headerHeight = parseFloat(getComputedStyle(identity).getPropertyValue("--shop-header-offset")) || 66;
+      const viewportHeight = window.innerHeight;
+      const next = {
+        identity: computeCenteredStickyTop({
+          viewportHeight,
+          headerHeight,
+          planeHeight: identity.getBoundingClientRect().height,
+        }),
+        purchase: computeCenteredStickyTop({
+          viewportHeight,
+          headerHeight,
+          planeHeight: purchase.getBoundingClientRect().height,
+        }),
+      };
+      setPlanePlacement((previous) =>
+        previous &&
+        previous.identity.top === next.identity.top &&
+        previous.identity.tooTall === next.identity.tooTall &&
+        previous.purchase.top === next.purchase.top &&
+        previous.purchase.tooTall === next.purchase.tooTall
+          ? previous
+          : next
+      );
     };
 
-    const observer = new ResizeObserver(updateFit);
-    observer.observe(plane);
-    window.addEventListener("resize", updateFit);
-    updateFit();
+    const observer = new ResizeObserver(updatePlacement);
+    observer.observe(identity);
+    observer.observe(purchase);
+    window.addEventListener("resize", updatePlacement);
+    void document.fonts?.ready.then(updatePlacement);
+    updatePlacement();
 
     return () => {
+      active = false;
       observer.disconnect();
-      window.removeEventListener("resize", updateFit);
+      window.removeEventListener("resize", updatePlacement);
     };
   }, []);
 
@@ -361,7 +394,12 @@ export function ProductDetailExperience({
       {/* Product identity, vertical media gallery, and purchase decisions */}
       <div className={styles.pdpLayout}>
         <div className={styles.pdpIdentityRail}>
-          <section aria-labelledby="pdp-product-title" className={styles.pdpIdentityPlane}>
+          <section
+            aria-labelledby="pdp-product-title"
+            className={cn(styles.pdpIdentityPlane, planePlacement?.identity.tooTall && styles.pdpIdentityPlaneTall)}
+            ref={identityPlaneRef}
+            style={planePlacement ? { "--pdp-plane-top": `${planePlacement.identity.top}px` } as CSSProperties : undefined}
+          >
             <div>
               {product.brandName && (
                 <p className={styles.pdpBrandBadge}>{product.brandName}</p>
@@ -380,8 +418,9 @@ export function ProductDetailExperience({
         <div className={styles.pdpPurchaseRail}>
           <section
             aria-label="Purchase product"
-            className={cn(styles.pdpPurchasePlane, purchasePlaneTooTall && styles.pdpPurchasePlaneTall)}
+            className={cn(styles.pdpPurchasePlane, planePlacement?.purchase.tooTall && styles.pdpPurchasePlaneTall)}
             ref={purchasePlaneRef}
+            style={planePlacement ? { "--pdp-plane-top": `${planePlacement.purchase.top}px` } as CSSProperties : undefined}
           >
             {/* Price & VAT Row */}
             <div className={styles.pdpPriceRow}>

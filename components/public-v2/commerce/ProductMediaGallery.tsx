@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useCallback } from "react";
-import type { CSSProperties } from "react";
 import Image from "next/image";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
 import styles from "./commerce.module.css";
@@ -117,22 +116,23 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
             className={styles.pdpDesktopHeroFrame}
             data-kt-cart-flight-source={index === 0 ? "product-media" : undefined}
             key={media.publicReference || index}
-            style={{ "--pdp-media-ratio": media.width / Math.max(media.height, 1) } as CSSProperties}
           >
-            <Image
-              alt={media.alt || `${product.title} - View ${index + 1}`}
-              width={media.width}
-              height={media.height}
-              preload={index === 0}
-              sizes="(max-width: 1199px) 55vw, (max-width: 1635px) 44vw, 720px"
-              src={`/api/catalog/media/${media.publicReference}`}
-              className={styles.pdpDesktopImage}
-            />
-            {gallery.length > 1 && (
-              <span className={styles.pdpDesktopMediaIndex} aria-hidden="true">
-                {String(index + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
-              </span>
-            )}
+            <div className={styles.pdpDesktopMediaShell}>
+              <Image
+                alt={media.alt || `${product.title} - View ${index + 1}`}
+                width={media.width}
+                height={media.height}
+                preload={index === 0}
+                sizes="(max-width: 1199px) 55vw, (max-width: 1652px) 46vw, 760px"
+                src={`/api/catalog/media/${media.publicReference}`}
+                className={styles.pdpDesktopImage}
+              />
+              {gallery.length > 1 && (
+                <span className={styles.pdpDesktopMediaIndex} aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+                </span>
+              )}
+            </div>
           </figure>
         )) : (
           <div className={`${styles.pdpDesktopHeroFrame} ${styles.pdpDesktopHeroEmpty}`} data-kt-cart-flight-source="product-media">

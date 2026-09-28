@@ -3,6 +3,7 @@ import { join } from "node:path";
 import postcss from "postcss";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { computeCenteredStickyTop } from "@/components/public-v2/commerce/pdp-geometry";
 
 const root = process.cwd();
 const detailSource = readFileSync(
@@ -109,7 +110,8 @@ describe("PDP three-column presentation contract", () => {
     expect(desktopFigure).toContain("height={media.height}");
     expect(desktopFigure).not.toMatch(/\sfill(?:\s|\n)/);
     expect(desktopFigure).toContain("className={styles.pdpDesktopImage}");
-    expect(gallerySource).toContain("--pdp-media-ratio");
+    expect(desktopFigure).toContain("className={styles.pdpDesktopMediaShell}");
+    expect(gallerySource).not.toContain("--pdp-media-ratio");
   });
 
   it("renders intrinsic, unframed media between symmetric full-height rails", () => {
@@ -120,18 +122,24 @@ describe("PDP three-column presentation contract", () => {
     const mediaHeight = declarations(".pdpExperience").get("--pdp-desktop-image-height");
 
     expect(layout.get("grid-template-areas")).toBe('"identity media purchase"');
-    expect(layout.get("grid-template-columns")).toMatch(/^minmax\(0, 1fr\).*minmax\(480px, min\(44vw, 720px\)\).*minmax\(0, 1fr\)$/);
+    expect(layout.get("grid-template-columns")).toMatch(/^minmax\(0, 1fr\).*minmax\(520px, min\(46vw, 760px\)\).*minmax\(0, 1fr\)$/);
     expect(layout.get("align-items")).toBe("stretch");
-    expect(declarations(".pdpGalleryRoot").get("max-width")).toBe("720px");
-    expect(mediaHeight).toMatch(/72svh.*700px/);
-    expect(frame.get("width")).toContain("--pdp-media-ratio");
+    expect(declarations(".pdpGalleryRoot").get("max-width")).toBe("760px");
+    expect(mediaHeight).toMatch(/76svh.*740px/);
+    expect(frame.get("width")).toBe("100%");
+    expect(frame.get("display")).toBe("flex");
+    expect(frame.get("aspect-ratio")).toBeUndefined();
     expect(frame.get("background")).toBe("transparent");
     expect(frame.get("border")).toBe("0");
     expect(frame.get("border-radius")).toBe("0");
     expect(frame.get("margin")).toBe("0 auto");
     expect(declarations(".shopViewportRoot .pdpDesktopHeroFrame").size).toBe(0);
-    expect(image.get("height")).toBe("auto");
+    expect(declarations(".pdpDesktopMediaShell").get("width")).toBe("fit-content");
+    expect(declarations(".pdpDesktopMediaShell").get("position")).toBe("relative");
+    expect(image.get("width")).toBe("auto");
+    expect(image.get("height")).toBe("var(--pdp-desktop-image-height)");
     expect(image.get("max-height")).toBe("var(--pdp-desktop-image-height)");
+    expect(image.get("max-width")).toBe("100%");
     expect(image.get("object-fit")).toBe("contain");
     expect(image.get("border-radius")).toBe("0");
     expect(declarations(".pdpImageContain").get("object-fit")).toBe("contain");
@@ -140,11 +148,29 @@ describe("PDP three-column presentation contract", () => {
     expect(declarations(".pdpPurchaseRail").get("position")).toBe("relative");
     expect(declarations(".pdpIdentityPlane").get("position")).toBe("sticky");
     expect(declarations(".pdpPurchasePlane").get("position")).toBe("sticky");
-    expect(declarations(".pdpIdentityPlane").get("top")).toBe("var(--pdp-sticky-center-y)");
-    expect(declarations(".pdpPurchasePlane").get("transform")).toBe("translateY(-50%)");
-    expect(declarations(".pdpExperience").get("--pdp-sticky-center-y")).toContain("100svh");
-    expect(detailSource).toContain("ResizeObserver(updateFit)");
+    expect(declarations(".pdpIdentityPlane").get("top")).toContain("--pdp-plane-top");
+    expect(declarations(".pdpPurchasePlane").get("transform")).toBe("none");
+    expect(detailSource).toContain("ResizeObserver(updatePlacement)");
+    expect(detailSource).toContain("observer.observe(identity)");
+    expect(detailSource).toContain("observer.observe(purchase)");
+    expect(detailSource).toContain("identity.getBoundingClientRect().height");
+    expect(detailSource).toContain("purchase.getBoundingClientRect().height");
+    expect(declarations(".pdpIdentityPlaneTall", "min-width: 1200px").get("position")).toBe("static");
     expect(declarations(".pdpPurchasePlaneTall", "min-width: 1200px").get("position")).toBe("static");
+  });
+
+  it("centers different plane heights on the same usable viewport axis", () => {
+    const identity = computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 180 });
+    const purchase = computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 320 });
+    expect(identity).toEqual({ top: 393, tooTall: false });
+    expect(purchase).toEqual({ top: 323, tooTall: false });
+    expect(identity.top + 180 / 2).toBe(483);
+    expect(purchase.top + 320 / 2).toBe(483);
+    const longerIdentity = computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 260 });
+    expect(longerIdentity.top).toBe(353);
+    expect(longerIdentity.top + 260 / 2).toBe(483);
+    expect(computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 850 }))
+      .toEqual({ top: 82, tooTall: true });
   });
 
   it("provides a two-column compact fallback and a short-height center release", () => {
@@ -152,7 +178,7 @@ describe("PDP three-column presentation contract", () => {
     expect(declarations(".pdpLayout", "max-width: 991px").get("grid-template-areas")).toContain('"media"');
     expect(declarations(".pdpIdentityPlane", "max-height: 760px").get("transform")).toBe("none");
     expect(gallerySource).toContain("(max-width: 1199px) 55vw");
-    expect(gallerySource).toContain("(max-width: 1635px) 44vw, 720px");
+    expect(gallerySource).toContain("(max-width: 1652px) 46vw, 760px");
     expect(gallerySource).toContain("preload={index === 0}");
   });
 });
