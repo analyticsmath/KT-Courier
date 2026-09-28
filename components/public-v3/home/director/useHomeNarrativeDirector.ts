@@ -4,11 +4,10 @@ import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useMotionContext } from "../../motion/PublicMotionProvider";
-import { WHITE_TRUCK_STATES } from "../../actors/actor-state-machine";
-import { alignGroundContact } from "./home-grounding";
-import { closestReadyHeroSequenceState, isActorImageReady } from "./home-actor-image-readiness";
+import { HERO_VAN_BASELINE_Y, HERO_VAN_SEQUENCE } from "./hero-van-sequence.generated";
+import { closestReadyHeroSequenceState, decodeHeroVanFrame, decodeHeroVanWindow, isActorImageReady } from "./home-actor-image-readiness";
 import { deriveHeroActorPresentation } from "./hero-actor-presentation";
-import { resolveHeroTruckFrame } from "./home-frame-resolver";
+import { resolveHeroVanFrame } from "./home-frame-resolver";
 import { clamp01, getCommerceBeats, HOME_BEATS, range } from "./home-beats";
 import { HOME_CHAPTERS, HOME_MOBILE_POLICY, reducedMotionChapterProgress, type HomeChapter, type PostHeroChapter } from "./home-chapters";
 import { marketplaceTrackX } from "./home-marketplace-geometry";
@@ -56,16 +55,18 @@ export function useHomeNarrativeDirector({
     const root = rootRef.current;
     const sceneRanges: SceneRange[] = [];
     const stage = root.querySelector<HTMLElement>("[data-kt-actor-stage]");
-    const heroSlot = stage?.querySelector<HTMLElement>("[data-actor-slot='white-truck']");
+    const heroSlot = stage?.querySelector<HTMLElement>("[data-actor-slot='hero-van']");
     const heroLayers = new Map<string, HTMLImageElement>();
+    const activeHeroStates = new Set<string>();
     heroSlot?.querySelectorAll<HTMLImageElement>("[data-actor-state-layer]").forEach((image) => {
       const state = image.dataset.actorStateLayer;
       if (state) heroLayers.set(state, image);
-      gsap.set(image, { autoAlpha: 0 });
+      gsap.set(image, { opacity: 0 });
     });
     if (stage) gsap.set(stage, { autoAlpha: 1, visibility: "visible" });
-    stage?.querySelectorAll<HTMLElement>("[data-actor-slot]:not([data-actor-slot='white-truck'])").forEach((slot) => gsap.set(slot, { autoAlpha: 0, visibility: "hidden" }));
+    stage?.querySelectorAll<HTMLElement>("[data-actor-slot]:not([data-actor-slot='hero-van'])").forEach((slot) => gsap.set(slot, { autoAlpha: 0, visibility: "hidden" }));
     if (heroSlot) gsap.set(heroSlot, { autoAlpha: 0, visibility: "visible" });
+    for (const index of [0, 1, 2, 3, 18, ...(prefersReducedMotion ? [10] : [])]) void decodeHeroVanFrame(heroLayers.get(HERO_VAN_SEQUENCE[index]));
 
     const postStage = root.querySelector<HTMLElement>("[data-posthero-cinematic-layer]");
     const postSlots = new Map<PostHeroActorName, HTMLElement>();
@@ -100,8 +101,9 @@ export function useHomeNarrativeDirector({
     let latestChapter: HomeChapter = "hero";
     let latestProgress = 0;
     let heroUsableActorHeight = window.innerHeight;
-    let stageTop = 0;
     let stageWidth = window.innerWidth;
+    let heroBaseWidth = window.innerWidth;
+    let heroBaseHeight = window.innerWidth * .75;
     let selectedCategory = categories[0]?.id;
     let selectedProductDuringFan = products[0]?.id;
     let productSelectionFrozen = false;
@@ -111,7 +113,6 @@ export function useHomeNarrativeDirector({
     const heroActions = root.querySelector<HTMLElement>("[data-motion='hero-actions']");
     const heroKt = root.querySelector<HTMLElement>("[data-motion='hero-kt']");
     const heroCourier = root.querySelector<HTMLElement>("[data-motion='hero-courier']");
-    const heroRoad = root.querySelector<HTMLElement>("[data-motion='hero-road']");
     const categoryRail = root.querySelector<HTMLElement>("[data-commerce-category-rail]");
     const categoryTrack = root.querySelector<HTMLElement>("[data-commerce-category-track]");
     const categoryCards = Array.from(root.querySelectorAll<HTMLElement>("[data-commerce-category]"));
@@ -123,40 +124,48 @@ export function useHomeNarrativeDirector({
     const routeOccluders = Array.from(root.querySelectorAll<HTMLElement>("[data-route-occluder]"));
 
     const applyHero = (progress: number) => {
-      const frame = resolveHeroTruckFrame(progress, window.innerWidth <= 767 ? "mobile" : "desktop");
+      const mobileHero = window.innerWidth <= 767;
+      const frame = prefersReducedMotion
+        ? { ...resolveHeroVanFrame(.5, mobileHero ? "mobile" : "desktop"), state: HERO_VAN_SEQUENCE[10], blendToState: undefined, stateBlend: 0, targetX: .5, canvasScale: mobileHero ? 1.5 : .68 }
+        : resolveHeroVanFrame(progress, mobileHero ? "mobile" : "desktop");
       if (!heroSlot) return;
+      decodeHeroVanWindow(heroLayers, frame.state);
       const requestedLayer = heroLayers.get(frame.state);
       const nextLayer = frame.blendToState ? heroLayers.get(frame.blendToState) : undefined;
       const requestedReady = isActorImageReady(requestedLayer);
       let displayedState = frame.state;
-      if (!requestedReady) {
+      if (!requestedReady && !prefersReducedMotion) {
         const readyStates = new Set(Array.from(heroLayers.entries()).filter(([, image]) => isActorImageReady(image)).map(([state]) => state));
         displayedState = closestReadyHeroSequenceState(frame.state, readyStates) ?? frame.state;
       }
       const activeLayer = heroLayers.get(displayedState);
-      const definition = WHITE_TRUCK_STATES[displayedState as keyof typeof WHITE_TRUCK_STATES];
-      if (!activeLayer || !definition) return;
+      if (!activeLayer) return;
       const canBlend = requestedReady && displayedState === frame.state && Boolean(nextLayer && frame.stateBlend && frame.stateBlend > 0 && isActorImageReady(nextLayer));
       const blend = canBlend ? frame.stateBlend ?? 0 : 0;
-      heroLayers.forEach((image, state) => gsap.set(image, { autoAlpha: state === displayedState ? 1 - blend : canBlend && state === frame.blendToState ? blend : 0, visibility: "visible" }));
-      const mobileHero = window.innerWidth <= 767;
-      const sizingHeight = mobileHero ? heroUsableActorHeight : window.innerHeight;
-      const targetWidthBase = mobileHero ? stageWidth : window.innerWidth;
-      const visibleHeight = sizingHeight * (frame.sizeMode?.mode === "visible-height" ? frame.sizeMode.visibleHeightVh : 0) / 100;
-      const height = visibleHeight / Math.max(.01, definition.visibleBounds.height);
-      const width = height * definition.aspectRatio;
-      const aligned = alignGroundContact({ width, height, groundContact: definition.groundContact, target: { x: targetWidthBase * frame.targetX, y: mobileHero ? heroUsableActorHeight * frame.groundY : window.innerHeight * frame.groundY - stageTop } });
-      const presentation = deriveHeroActorPresentation({ actorVisible: frame.visible, imageReady: isActorImageReady(activeLayer), width, height });
-      gsap.set(heroSlot, { x: aligned.left, y: aligned.top, width, height, rotation: frame.rotation, scale: frame.scale, transformOrigin: "0 0", autoAlpha: presentation.opacity, visibility: presentation.visibility });
-      if (heroKt) gsap.set(heroKt, { y: prefersReducedMotion ? 0 : -14 * range(progress, HOME_BEATS.hero.centreSettle[0], HOME_BEATS.hero.cameraPass[1]), autoAlpha: prefersReducedMotion ? 1 : 1 - .7 * range(progress, HOME_BEATS.hero.entryReveal[0], HOME_BEATS.hero.frontalApproach[1]) });
-      if (heroCourier) gsap.set(heroCourier, { y: prefersReducedMotion ? 0 : 10 * range(progress, HOME_BEATS.hero.centreSettle[0], HOME_BEATS.hero.cameraPass[1]), autoAlpha: prefersReducedMotion ? 1 : 1 - .66 * range(progress, HOME_BEATS.hero.entryReveal[0], HOME_BEATS.hero.frontalApproach[1]) });
-      if (heroRoad) gsap.set(heroRoad, { autoAlpha: prefersReducedMotion ? 0 : .24 * range(progress, HOME_BEATS.hero.entryReveal[0], HOME_BEATS.hero.frontalApproach[1]) });
+      const nextActive = new Set([displayedState, ...(canBlend && frame.blendToState ? [frame.blendToState] : [])]);
+      for (const state of activeHeroStates) if (!nextActive.has(state)) {
+        const image = heroLayers.get(state);
+        if (image) gsap.set(image, { opacity: 0 });
+      }
+      gsap.set(activeLayer, { opacity: 1 - blend });
+      if (canBlend && nextLayer) gsap.set(nextLayer, { opacity: blend });
+      activeHeroStates.clear();
+      nextActive.forEach((state) => activeHeroStates.add(state));
+      const scaledWidth = heroBaseWidth * frame.canvasScale;
+      const scaledHeight = heroBaseHeight * frame.canvasScale;
+      const x = stageWidth * frame.targetX - scaledWidth / 2;
+      const y = heroUsableActorHeight * frame.groundY - HERO_VAN_BASELINE_Y * scaledHeight;
+      const presentation = deriveHeroActorPresentation({ actorVisible: frame.visible, imageReady: isActorImageReady(activeLayer), width: scaledWidth, height: scaledHeight });
+      const entryOpacity = prefersReducedMotion ? 1 : range(progress, .13, .17);
+      gsap.set(heroSlot, { x, y, scale: frame.canvasScale, transformOrigin: "0 0", autoAlpha: presentation.opacity * entryOpacity, visibility: presentation.visibility });
+      if (heroKt) gsap.set(heroKt, { y: prefersReducedMotion ? 0 : -14 * range(progress, .22, .975), autoAlpha: prefersReducedMotion ? 1 : 1 - .7 * range(progress, .13, .9) });
+      if (heroCourier) gsap.set(heroCourier, { y: prefersReducedMotion ? 0 : 10 * range(progress, .22, .975), autoAlpha: prefersReducedMotion ? 1 : 1 - .66 * range(progress, .13, .9) });
       if (heroActions) gsap.set(heroActions, { autoAlpha: prefersReducedMotion ? 1 : 1 - range(progress, ...HOME_BEATS.hero.entryReveal), y: prefersReducedMotion ? 0 : -10 * range(progress, ...HOME_BEATS.hero.entryReveal) });
-      root.dataset.homeWhiteTruckVisible = String(presentation.isVisible);
-      root.dataset.homeWhiteTruckState = displayedState;
-      root.dataset.homeWhiteTruckNextState = frame.blendToState ?? "";
-      root.dataset.homeWhiteTruckReady = String(requestedReady);
-      root.dataset.homeWhiteTruckBlend = blend.toFixed(3);
+      root.dataset.homeHeroVanVisible = String(presentation.isVisible);
+      root.dataset.homeHeroVanState = displayedState;
+      root.dataset.homeHeroVanNextState = frame.blendToState ?? "";
+      root.dataset.homeHeroVanReady = String(requestedReady);
+      root.dataset.homeHeroVanBlend = blend.toFixed(3);
     };
 
     const placeActor = (actor: PostHeroActorName, actorPose: PostHeroActorPose) => {
@@ -403,10 +412,12 @@ export function useHomeNarrativeDirector({
       });
       const actorRect = stage?.getBoundingClientRect();
       if (actorRect) {
-        stageTop = actorRect.top;
         stageWidth = actorRect.width || window.innerWidth;
+        heroBaseWidth = stageWidth;
+        heroBaseHeight = heroBaseWidth * .75;
+        if (heroSlot) gsap.set(heroSlot, { width: heroBaseWidth, height: heroBaseHeight, transformOrigin: "0 0" });
         const mobileNav = document.querySelector<HTMLElement>("[data-kt-app-shell='mobile-nav']");
-        heroUsableActorHeight = Math.max(0, actorRect.height - (mobileNav?.getBoundingClientRect().height ?? 0));
+        heroUsableActorHeight = Math.max(0, actorRect.height - (window.innerWidth <= 767 ? mobileNav?.getBoundingClientRect().height ?? 0 : 0));
       }
       routeLength = 0;
     };
@@ -450,6 +461,7 @@ export function useHomeNarrativeDirector({
       if (tone !== lastTone) { lastTone = tone; setHeaderTone(tone); }
       const appliedFrame = current.chapter === "hero" ? undefined : applyPostHero(current.chapter, authoredProgress);
       if (current.chapter === "hero") applyHero(authoredProgress);
+      else if (heroSlot) gsap.set(heroSlot, { autoAlpha: 0 });
       preloadTier(current.chapter, progress);
       const desktopCommerceDirectorOwned = window.innerWidth >= 900;
       if (current.chapter === "commerce" && categories.length && desktopCommerceDirectorOwned) {
@@ -482,7 +494,7 @@ export function useHomeNarrativeDirector({
           const bounds = slot?.getBoundingClientRect();
           return `${actor} ${slot?.dataset.postheroRequestedState ?? "hidden"} -> ${slot?.dataset.postheroDisplayedState ?? "hidden"} ready=${slot?.dataset.postheroStateReady ?? "false"} anchor=${slot ? `${slot.offsetLeft.toFixed(1)},${slot.offsetTop.toFixed(1)}` : "-"} size=${bounds ? `${bounds.width.toFixed(1)}x${bounds.height.toFixed(1)}` : "-"}`;
         };
-        debugPanel.textContent = `${current.chapter} · ${progress.toFixed(3)} · ${root.dataset.homeMotionOwner ?? "none"}\nviewport ${window.innerWidth <= 767 ? "mobile" : "desktop"}\ncategory ${marketplace?.activeIndex ?? "-"} · store ${marketplace?.storeIndex ?? "-"} · product ${marketplace?.productIndex ?? "-"}\nhero ${root.dataset.homeWhiteTruckState ?? "hidden"} ready=${root.dataset.homeWhiteTruckReady ?? "false"} blend=${root.dataset.homeWhiteTruckBlend ?? "0"}\n${actorDebug("van")}\n${actorDebug("courier")}\n${actorDebug("recipient")}\n${actorDebug("handoff")}\n${actorDebug("white-truck")}\n${actorDebug("red-truck")}`;
+        debugPanel.textContent = `${current.chapter} · ${progress.toFixed(3)} · ${root.dataset.homeMotionOwner ?? "none"}\nviewport ${window.innerWidth <= 767 ? "mobile" : "desktop"}\ncategory ${marketplace?.activeIndex ?? "-"} · store ${marketplace?.storeIndex ?? "-"} · product ${marketplace?.productIndex ?? "-"}\nhero van ${root.dataset.homeHeroVanState ?? "hidden"} ready=${root.dataset.homeHeroVanReady ?? "false"} blend=${root.dataset.homeHeroVanBlend ?? "0"}\n${actorDebug("van")}\n${actorDebug("courier")}\n${actorDebug("recipient")}\n${actorDebug("handoff")}\n${actorDebug("white-truck")}\n${actorDebug("red-truck")}`;
       }
     };
 
@@ -508,6 +520,7 @@ export function useHomeNarrativeDirector({
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", resize, { passive: true });
     window.addEventListener("load", schedule, { once: true });
+    window.addEventListener("kt-hero-van-ready", schedule);
     window.addEventListener("kt-posthero-actor-ready", schedule);
     categoryRail?.addEventListener("scroll", syncMobileRailSelection, { passive: true });
     productRail?.addEventListener("scroll", syncMobileRailSelection, { passive: true });
@@ -519,6 +532,7 @@ export function useHomeNarrativeDirector({
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", resize);
       window.removeEventListener("load", schedule);
+      window.removeEventListener("kt-hero-van-ready", schedule);
       window.removeEventListener("kt-posthero-actor-ready", schedule);
       categoryRail?.removeEventListener("scroll", syncMobileRailSelection);
       productRail?.removeEventListener("scroll", syncMobileRailSelection);

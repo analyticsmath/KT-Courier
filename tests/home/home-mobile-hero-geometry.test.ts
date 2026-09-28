@@ -40,11 +40,11 @@ describe("mobile hero geometry contract", () => {
 
   it("uses measured actor-stage geometry for mobile Hero placement", () => {
     expect(director).toContain("stageWidth = actorRect.width || window.innerWidth");
-    expect(director).toContain("const sizingHeight = mobileHero ? heroUsableActorHeight : window.innerHeight");
-    expect(director).toContain("x: targetWidthBase * frame.targetX");
-    expect(director).toContain("y: mobileHero ? heroUsableActorHeight * frame.groundY");
+    expect(director).toContain("heroBaseWidth = stageWidth");
+    expect(director).toContain("const x = stageWidth * frame.targetX - scaledWidth / 2");
+    expect(director).toContain("const y = heroUsableActorHeight * frame.groundY - HERO_VAN_BASELINE_Y * scaledHeight");
     expect(director).toContain("mobileNav?.getBoundingClientRect().height ?? 0");
-    expect(actorStage).toMatch(/preloadStates=\{\[\.\.\.HERO_TRUCK_SEQUENCE\.slice\(0, 6\)\]\}/);
+    expect(actorStage).toContain("<HeroVanSequenceActor />");
     expect(actorStage).toContain("preloadStates={[]}");
   });
 
@@ -59,7 +59,7 @@ describe("mobile hero geometry contract", () => {
 
   it("uses visible containers and opacity-only Hero frame blending", () => {
     expect(director).toContain("const applyHero = (progress: number)");
-    expect(director).toContain("heroLayers.forEach");
+    expect(director).toContain("activeHeroStates");
     expect(director).toContain('visibility: "visible"');
     expect(director).toContain("blendToState");
     expect(director).toContain("closestReadyHeroSequenceState");

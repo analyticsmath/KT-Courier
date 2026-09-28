@@ -5,7 +5,7 @@ export type HeroActorPresentation = {
 };
 
 /**
- * The Hero truck slot is renderable only when its selected ready frame has
+ * The hero van slot is renderable only when its selected ready frame has
  * usable geometry. Visibility intentionally remains CSS-visible so a ready
  * frame never depends on GSAP reversing an inherited visibility gate.
  */

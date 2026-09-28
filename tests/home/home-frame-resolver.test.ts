@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { HERO_TRUCK_SEQUENCE, WHITE_TRUCK_STATES } from "@/components/public-v3/actors/actor-state-machine";
+import { WHITE_TRUCK_STATES } from "@/components/public-v3/actors/actor-state-machine";
+import { HERO_VAN_SEQUENCE } from "@/components/public-v3/home/director/hero-van-sequence.generated";
 import { POST_HERO_ACTOR_ASSETS, postHeroActorsForChapter } from "@/components/public-v3/home/actors/post-hero-actor-preload";
 import { HOME_BEATS } from "@/components/public-v3/home/director/home-beats";
 import { HOME_CHAPTERS, HOME_CHAPTER_BUDGETS_VH, HOME_MOBILE_CHAPTER_BUDGETS_VH, HOME_MOBILE_POLICY } from "@/components/public-v3/home/director/home-chapters";
-import { resolveHeroTruckFrame, routeTruckRotationForTangent } from "@/components/public-v3/home/director/home-frame-resolver";
+import { resolveHeroVanFrame, routeTruckRotationForTangent } from "@/components/public-v3/home/director/home-frame-resolver";
 import { marketplaceTrackX } from "@/components/public-v3/home/director/home-marketplace-geometry";
 import { POST_HERO_RESOLVER_ACTOR_STATES, redTruckViewportX, resolveMarketplaceFrame, resolvePostHeroFrame, type MotionOwner } from "@/components/public-v3/home/director/post-hero-frame-resolver";
 
@@ -14,8 +15,8 @@ describe("post-Hero frame resolver", () => {
     expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 0, parcelization: 135, network: 190, freight: 190, "last-mile": 290, finale: 125 });
     expect(HOME_MOBILE_POLICY).toEqual({ hero: "document", commerce: "native-snap", parcelization: "document", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" });
     expect(HOME_BEATS.hero.release).toEqual([.975, 1]);
-    expect(HERO_TRUCK_SEQUENCE).toHaveLength(12);
-    expect(resolveHeroTruckFrame(.4, "desktop").sizeMode).toEqual({ mode: "visible-height", visibleHeightVh: 34 });
+    expect(HERO_VAN_SEQUENCE).toHaveLength(19);
+    expect(resolveHeroVanFrame(.4, "desktop").canvasScale).toBeGreaterThan(.54);
   });
 
   it("resolves continuous Commerce worlds and skips an empty Store World", () => {

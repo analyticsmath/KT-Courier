@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { ktMediaV3 } from "../../media/kt-media-v3";
 import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
 import styles from "../home-scenes.module.css";
 
@@ -11,14 +9,11 @@ interface HeroSceneProps {
 }
 
 /**
- * Scene 01 — Hero Truck & Brand Establish (Merged Immediate First View).
+ * Scene 01 — Hero Van & Brand Establish (Merged Immediate First View).
  * Displays the authoritative campaign frame on the Signal White public canvas:
- * Giant KT / COURIER typography, complete white hero truck silhouette on desktop & mobile,
- * subtle road texture entering peripheral depth, concise human copy, and clear Shop & Send actions.
+ * Giant KT / COURIER typography, the hero van, concise human copy, and Shop & Send actions.
  */
 export function HeroScene({ className = "" }: HeroSceneProps) {
-  const roadTexture = ktMediaV3.editorial.route.gautengCorridor;
-
   return (
     <section
       className={`${styles.heroSection} ${className}`}
@@ -32,7 +27,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       } as React.CSSProperties}
     >
       <div className={styles.heroStage} data-home-sticky-stage>
-      {/* One campaign lockup, always behind the persistent truck actor. */}
+      {/* One campaign lockup, always behind the persistent van actor. */}
       <div className={styles.heroTypographyBackground} aria-hidden="true">
         <div className={styles.heroBrandLockup}>
           <span className={styles.heroWordKt} data-motion="hero-kt">KT</span>
@@ -40,23 +35,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
         </div>
       </div>
 
-      {/* Atmospheric Road Texture Plane (Enters under truck ground baseline) */}
-      <div
-        data-motion="hero-road"
-        className={`${styles.heroRoadTexture} kt-hero-road-atmosphere pointer-events-none absolute inset-x-0 bottom-0 overflow-hidden z-0`}
-        aria-hidden="true"
-      >
-        <Image
-          src={roadTexture.src}
-          alt=""
-          fill
-          sizes="100vw"
-          className="object-cover object-bottom filter grayscale contrast-125"
-        />
-        <div className={styles.heroRoadFade} />
-      </div>
-
-      {/* The reading state is complete before the truck enters. */}
+      {/* The reading state is complete before the van enters. */}
       <div className={styles.heroActionsRow} data-motion="hero-actions">
         <div className={styles.heroCopyBlock} data-motion="hero-copy">
           <h1 className={styles.heroTagline}>Shop local. Send with KT.</h1>

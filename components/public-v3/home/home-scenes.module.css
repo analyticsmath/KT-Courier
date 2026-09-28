@@ -95,26 +95,6 @@
   }
 }
 
-.heroRoadTexture {
-  height: min(42svh, 24rem);
-  opacity: 0;
-  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
-  mask-image: linear-gradient(to top, #000 0%, rgb(0 0 0 / 0.78) 32%, transparent 100%);
-}
-
-.heroRoadFade {
-  position: absolute;
-  inset: 0;
-  /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */
-  background: linear-gradient(to top, var(--kt-public-canvas) 0%, rgb(250 251 252 / 0.26) 46%, transparent 100%);
-}
-
-@media (max-width: 767px) {
-  .heroRoadTexture {
-    height: min(34svh, 18rem);
-  }
-}
-
 .heroActionsRow {
   position: absolute;
   left: 50%;
@@ -356,6 +336,14 @@
   opacity: 0;
   visibility: visible;
   pointer-events: none;
+}
+
+:global(.kt-home-experience .kt-hero-van-picture),
+:global(.kt-home-experience [data-actor-slot="hero-van"] .kt-actor-state-layer) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 :global(.kt-home-experience [data-actor-material-anchor]) {
