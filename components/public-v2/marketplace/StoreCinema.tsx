@@ -8,6 +8,7 @@ import { CommerceSearchCommand } from "@/components/public-v2/commerce/CommerceS
 import { homeMedia } from "@/components/public-v2/home/home-media";
 import { marketplaceStoreHref, marketplaceStoresHref } from "@/lib/public-marketplace/routes";
 import type { MarketplaceStore } from "./MarketplaceLanding";
+import { selectCinemaStores } from "./store-cinema-selection";
 import styles from "./store-cinema.module.css";
 
 const mobileQuery = "(max-width: 767px)";
@@ -20,7 +21,7 @@ const getMobile = () => window.matchMedia(mobileQuery).matches;
 const getServerMobile = () => false;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-type StorePose = { x: number; scale: number; opacity: number; shade: number; frame: number; depth: number };
+type StorePose = { x: number; scale: number; opacity: number; shade: number; depth: number };
 const roles = [
   { relative: -3, x: -70, scale: .28, opacity: 0 },
   { relative: -2, x: -42, scale: .35, opacity: .48 },
@@ -41,7 +42,7 @@ function rolePose(relative: number): StorePose {
   const distance = Math.abs(relative);
   return {
     x: interpolate("x"), scale: interpolate("scale"), opacity: distance >= 3 ? 0 : interpolate("opacity"),
-    shade: clamp(distance * .18, 0, .3), frame: .66 * clamp(1 - distance * 2, 0, 1),
+    shade: clamp(distance * .18, 0, .3),
     depth: Math.round(100 - distance * 12),
   };
 }
@@ -50,8 +51,8 @@ function storeImage(store: MarketplaceStore) {
   return store.heroMediaReference ? `/api/catalog/media/${store.heroMediaReference}` : homeMedia.merchantPrepare.src;
 }
 
-function CinemaPanel({ store, index, storeFloat, active, preload }: {
-  store: MarketplaceStore; index: number; storeFloat: MotionValue<number>; active: boolean; preload: boolean;
+function CinemaPanel({ store, index, storeFloat, preload }: {
+  store: MarketplaceStore; index: number; storeFloat: MotionValue<number>; preload: boolean;
 }) {
   const relative = useTransform(storeFloat, (value) => index - value);
   const pose = useTransform(relative, rolePose);
@@ -60,28 +61,16 @@ function CinemaPanel({ store, index, storeFloat, active, preload }: {
   const opacity = useTransform(pose, (value) => value.opacity);
   const zIndex = useTransform(pose, (value) => value.depth);
   const shade = useTransform(pose, (value) => value.shade);
-  const frame = useTransform(pose, (value) => value.frame);
-  const href = marketplaceStoreHref(store.slug);
   return <motion.article className={styles.panel} style={{ x, y: "-50%", scale, opacity, zIndex }} aria-label={store.name}>
     <Image alt="" fill preload={preload} sizes="(max-width: 1199px) 44vw, 600px" src={storeImage(store)} className={styles.panelImage} />
     <motion.span className={styles.panelShade} style={{ opacity: shade }} aria-hidden="true" />
-    <motion.span className={styles.panelOutline} style={{ opacity: frame }} aria-hidden="true" />
-    {href && <Link className={styles.panelLink} href={href} aria-label={`Visit ${store.name}`} tabIndex={active ? 0 : -1} aria-hidden={!active} inert={!active} style={{ pointerEvents: active ? "auto" : "none" }}>
-      <span className={styles.panelInfo}>
-        {store.logoMediaReference && <span className={styles.panelLogo}><Image alt="" fill sizes="40px" src={`/api/catalog/media/${store.logoMediaReference}`} /></span>}
-        <span className={styles.panelDetails}><strong>{store.publishedOfferCount} published products</strong>{store.description && <small>{store.description}</small>}</span>
-        <span className={styles.visit}>Visit store →</span>
-      </span>
-    </Link>}
   </motion.article>;
 }
 
 export function StoreCinema({ stores, mode, query = "" }: {
   stores: readonly MarketplaceStore[]; mode: "featured" | "directory"; query?: string;
 }) {
-  const featured = mode === "featured"
-    ? [...stores].sort((a, b) => b.publishedOfferCount - a.publishedOfferCount || a.name.localeCompare(b.name)).slice(0, 5)
-    : stores;
+  const featured = selectCinemaStores(stores, mode);
   const sceneRef = useRef<HTMLElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const scrollFrame = useRef<number | null>(null);
@@ -98,7 +87,7 @@ export function StoreCinema({ stores, mode, query = "" }: {
   });
   useEffect(() => () => { if (scrollFrame.current !== null) cancelAnimationFrame(scrollFrame.current); }, []);
 
-  const sceneVh = 100 + Math.max(0, featured.length - 1) * 65;
+  const sceneVh = Math.min(mode === "directory" ? 700 : 520, 120 + Math.max(0, featured.length - 1) * 62);
   const activeStore = featured[active] ?? featured[0];
 
   function scrollToStore(index: number) {
@@ -149,13 +138,23 @@ export function StoreCinema({ stores, mode, query = "" }: {
         {mode === "directory" && <div className={styles.cinemaSearch}><CommerceSearchCommand action={marketplaceStoresHref()} appearance="cinema" placeholder="Search storefronts" query={query} /></div>}
         <div className={styles.topRight}><span>{String(active + 1).padStart(2, "0")} / {String(featured.length).padStart(2, "0")}</span>{mode === "featured" && <Link href={marketplaceStoresHref()}>All storefronts →</Link>}</div>
       </div>
-      <div className={styles.editorialTitle} aria-live="polite"><AnimatePresence mode="popLayout" initial={false}>
+      <div className={`${styles.editorialTitle} ${mode === "directory" ? styles.directoryTitle : ""}`} aria-live="polite"><AnimatePresence mode="popLayout" initial={false}>
         <motion.div key={activeStore.reference} initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -24, opacity: 0 }} transition={{ duration: reducedMotion ? 0 : .38, ease: [0.22, 1, .36, 1] }}>
           {mode === "directory" ? <h1>{activeStore.name}</h1> : <h2>{activeStore.name}</h2>}
         </motion.div>
       </AnimatePresence></div>
       <div className={styles.belt} aria-hidden={native} inert={native}>
-        {featured.map((store, index) => <CinemaPanel key={store.reference} store={store} index={index} storeFloat={storeFloat} active={index === active && !native} preload={index < 3 && !native} />)}
+        {featured.map((store, index) => <CinemaPanel key={store.reference} store={store} index={index} storeFloat={storeFloat} preload={index < 3 && !native} />)}
+      </div>
+      <div className={styles.focusAperture}>
+        <span className={styles.focusOutline} aria-hidden="true" />
+        {marketplaceStoreHref(activeStore.slug) && <Link className={styles.focusLink} href={marketplaceStoreHref(activeStore.slug)!} aria-label={`Visit ${activeStore.name}`}>
+          <span className={styles.focusInfo}>
+            {activeStore.logoMediaReference && <span className={styles.focusLogo}><Image alt="" fill sizes="40px" src={`/api/catalog/media/${activeStore.logoMediaReference}`} /></span>}
+            <span className={styles.focusDetails}><strong>{activeStore.publishedOfferCount} published products</strong>{activeStore.description && <small>{activeStore.description}</small>}</span>
+            <span className={styles.visit}>Visit store →</span>
+          </span>
+        </Link>}
       </div>
       <div className={styles.nativeRail} ref={railRef} onScroll={onNativeScroll} aria-label="Storefronts">
         {featured.map((store, index) => {

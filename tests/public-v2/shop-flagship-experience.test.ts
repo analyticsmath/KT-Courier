@@ -57,6 +57,7 @@ describe("Shop flagship contract", () => {
     const landing = source(`${shop}MarketplaceLanding.tsx`);
     const shelf = source(`${shop}ShopProductShelf.tsx`);
     const card = source(`${shop}ShopShelfProductCard.tsx`);
+    const canonicalCard = source("components/public-v2/commerce/MarketplaceProductCard.tsx");
     const stores = source(`${shop}StoreCinema.tsx`);
     expect(landing).toContain('title="New in the Market"');
     expect(landing).toContain("shelves.map");
@@ -69,9 +70,10 @@ describe("Shop flagship contract", () => {
     expect(shelf).toContain("styles.productDeck");
     expect(shelf).toContain("card.getBoundingClientRect().width * 2.1");
     expect(shelf).not.toContain("setInterval");
-    expect(card).toContain("<QuickBuySheet");
-    expect(card).toContain("Quick add ${product.title}");
-    expect(card).toContain("product-${product.productReference}");
+    expect(card).toContain('variant="shelf"');
+    expect(canonicalCard).toContain("<QuickBuySheet");
+    expect(canonicalCard).toContain("Quick add ${product.title}");
+    expect(canonicalCard).toContain("product-${product.productReference}");
     expect(rules(css, ".shelfInner")[0]?.props.width).toContain("calc(100% - 64px)");
     expect(rules(css, ".productDeck")[0]?.props.overflow).toBe("hidden");
     expect(rules(css, ".shelf .productTrack")[0]?.props.padding).toBe("0");
@@ -82,9 +84,10 @@ describe("Shop flagship contract", () => {
     expect(rules(css, ".shelf .productBody")[0]?.props.flex).toBe("1");
     expect(rules(css, ".productBottom")[0]?.props["margin-top"]).toBe("auto");
     expect(rules(css, ".shelfInner").some((rule) => rule.media === "max-width: 767px" && rule.props.width === "calc(100% - 32px)")).toBe(true);
-    expect(rules(css, ".shelf .productCard").some((rule) => rule.media === "max-width: 767px" && rule.props["flex-basis"] === "min(80vw, 310px)")).toBe(true);
-    expect(stores).toContain("b.publishedOfferCount - a.publishedOfferCount");
-    expect(stores).toContain(".slice(0, 5)");
+    expect(rules(css, ".shelf .productCard").some((rule) => rule.media === "max-width: 767px" && rule.props["flex-basis"] === "min(66vw, 250px)")).toBe(true);
+    expect(stores).toContain("selectCinemaStores(stores, mode)");
+    expect(source(`${shop}store-cinema-selection.ts`)).toContain("b.publishedOfferCount - a.publishedOfferCount");
+    expect(source(`${shop}store-cinema-selection.ts`)).toContain(".slice(0, 7)");
     expect(stores).toContain("SCROLL TO CONTINUE");
     expect(stores).not.toContain("setInterval");
     expect(rules(cinemaCss, ".sticky")[0]?.props.position).toBe("sticky");
@@ -115,7 +118,9 @@ describe("Shop flagship contract", () => {
     expect(stores).toContain("index - value");
     expect(stores).toContain("className={styles.belt}");
     expect(stores).toContain('y: "-50%"');
-    expect(stores).toContain("className={styles.panelOutline}");
+    expect(stores).toContain("className={styles.focusAperture}");
+    expect(stores).toContain("className={styles.focusOutline}");
+    expect(stores).not.toContain("styles.panelOutline");
     expect(stores).toContain("activeStore.name");
     expect(stores).toContain("useReducedMotion()");
     expect(stores).toContain("const native = mobile || Boolean(reducedMotion)");
@@ -123,8 +128,8 @@ describe("Shop flagship contract", () => {
     expect(stores).toContain('appearance="cinema"');
     expect(stores).toContain("No matching storefronts");
     expect(stores).toContain("Clear search →");
-    expect(rules(cinemaCss, ".panelOutline")[0]?.props.border).toContain("dashed");
-    expect(rules(cinemaCss, ".panel")[0]?.props.width).toContain("600px");
+    expect(rules(cinemaCss, ".focusOutline")[0]?.props.border).toContain("dashed");
+    expect(rules(cinemaCss, ".panel")[0]?.props.width).toBe("var(--store-focus-width)");
     expect(route).toContain("listStorefrontStores({ query: q || undefined, limit: 48 })");
     expect(route).toContain('<StoreCinema mode="directory" query={q} stores={stores} />');
     expect(route).not.toContain("MerchantDirectory");

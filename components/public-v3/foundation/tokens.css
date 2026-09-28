@@ -172,7 +172,8 @@
 
   /* Spacing and Layout */
   --kt-header-height: clamp(64px, 5vw, 76px);
-  --kt-mobile-nav-height: 64px;
+  --kt-mobile-nav-height: 68px;
+  --kt-commerce-mobile-nav-clearance: calc(var(--kt-mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 18px);
   --kt-mobile-action-safe-bottom: calc(
     var(--kt-mobile-nav-height)
     + env(safe-area-inset-bottom, 0px)

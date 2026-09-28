@@ -2,22 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMotionContext } from "../motion/PublicMotionProvider";
+import { motion, useReducedMotion } from "motion/react";
 import { useMarketplaceCartCount } from "./marketplace-cart-client";
+import styles from "./mobile-navigation.module.css";
 
 export function MobileNavigation() {
   const pathname = usePathname();
-  const { headerTone } = useMotionContext();
-  const isDark = headerTone === "dark";
+  const reducedMotion = useReducedMotion();
   const isCommerce = pathname.startsWith("/shop") || pathname === "/cart";
-  const isProductPage = pathname.startsWith("/shop/products/");
-  const cartCount = useMarketplaceCartCount(isCommerce);
+  const cartCount = useMarketplaceCartCount(!pathname.startsWith("/checkout"));
 
   // Hide mobile nav on checkout and full-screen auth if needed
   if (pathname.startsWith("/checkout")) {
     return null;
   }
-  if (isProductPage) return null;
 
   const items = [
     {
@@ -100,27 +98,21 @@ export function MobileNavigation() {
         items[4]!,
       ]
     : items;
+  const activeIndex = navItems.findIndex((item) => item.href === "/" ? pathname === "/" :
+    item.href === "/shop" ? pathname === "/shop" || (pathname.startsWith("/shop/") && !pathname.startsWith("/shop/categories") && !pathname.startsWith("/shop/search")) :
+    pathname.startsWith(item.href));
 
   return (
     <nav
       aria-label="Mobile app navigation"
-      className={`md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t transition-colors duration-200 ${
-        isDark
-          ? "bg-[var(--kt-public-surface-inverse)] border-[var(--kt-public-border-inverse)] text-[var(--kt-public-text-inverse)]"
-          : "bg-[var(--kt-public-canvas)] border-[var(--kt-public-border-default)]/40 text-[var(--kt-public-text-primary)]"
-      }`}
+      className={styles.nav}
       data-kt-app-shell="mobile-nav"
       data-commerce-nav={isCommerce ? "true" : undefined}
-      style={{
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        height: "calc(var(--kt-mobile-nav-height) + env(safe-area-inset-bottom, 0px))",
-      }}
+      style={{ "--active-center": `${(Math.max(activeIndex, 0) + .5) * 20}%` } as React.CSSProperties}
     >
-      {navItems.map((item) => {
-        const isActive =
-          item.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(item.href);
+      {activeIndex >= 0 && <svg className={styles.cradle} viewBox="0 0 100 44" aria-hidden="true" focusable="false"><path d="M0 44V36C15 36 16 30 23 16C34 -7 66 -7 77 16C84 30 85 36 100 36V44Z" /></svg>}
+      {navItems.map((item, index) => {
+        const isActive = index === activeIndex;
 
         return (
           <Link
@@ -128,17 +120,16 @@ export function MobileNavigation() {
             aria-current={isActive ? "page" : undefined}
             data-kt-cart-target={isCommerce && item.href === "/cart" ? "mobile-bottom-nav" : undefined}
             href={item.href}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors ${
-              isActive
-                ? (isDark ? "text-[var(--kt-public-interactive)] font-bold" : "text-[var(--kt-public-interactive-text)] font-bold")
-                : (isDark ? "text-[var(--kt-public-text-inverse-muted)]" : "text-[var(--kt-public-text-secondary)]")
-            }`}
+            className={`${styles.item} ${isActive ? styles.active : ""}`}
           >
-            <span className="relative">
+            {isActive ? <motion.span className={styles.icon} layoutId="kt-mobile-nav-active-bubble" transition={{ duration: reducedMotion ? 0 : .32, ease: [.22, 1, .36, 1] }}>
               {item.icon}
-              {isCommerce && item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--kt-public-action-primary)] px-1 text-[9px] font-bold text-[var(--kt-public-text-inverse)]">{cartCount > 99 ? "99+" : cartCount}</span>}
-            </span>
-            <span className="mt-1">{item.label}</span>
+              {item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className={styles.badge}>{cartCount > 99 ? "99+" : cartCount}</span>}
+            </motion.span> : <span className={styles.icon}>
+              {item.icon}
+              {item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className={styles.badge}>{cartCount > 99 ? "99+" : cartCount}</span>}
+            </span>}
+            <span className={styles.label}>{item.label}</span>
           </Link>
         );
       })}

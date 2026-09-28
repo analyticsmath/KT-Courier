@@ -18,7 +18,7 @@
    inherits this single geometry source instead of compensating per page. */
 .shopViewportRoot {
   --shop-header-offset: 66px;
-  --shop-bottom-nav-clearance: calc(var(--kt-mobile-nav-height, 68px) + env(safe-area-inset-bottom, 0px));
+  --shop-bottom-nav-clearance: var(--kt-commerce-mobile-nav-clearance);
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
@@ -951,7 +951,7 @@
 @media (max-width: 767px) {
   .productGrid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    gap: 12px;
   }
 }
 
@@ -2222,29 +2222,6 @@
     padding: 10px 4px 0;
   }
 
-  .pdpMobileGalleryDots {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .pdpMobileGalleryDot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--commerce-line);
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    transition: all 160ms ease;
-  }
-
-  .pdpMobileGalleryDotActive {
-    width: 18px;
-    border-radius: 999px;
-    background: var(--kt-public-interactive);
-  }
-
   .pdpMobileGalleryCounter {
     font-size: 0.78rem;
     color: var(--commerce-muted);
@@ -3154,7 +3131,7 @@
   .cartStoreHeader a { font-size: 1rem; }
   .cartSummary { position: static; padding: 18px 0; background: var(--kt-public-surface-primary); border-top: 1px solid var(--commerce-line); }
   .cartSummaryPrimary { display: none; background: var(--kt-public-surface-primary); }
-  .cartMobileCheckout { position: fixed; right: 0; bottom: calc(var(--kt-mobile-nav-height, 68px) + env(safe-area-inset-bottom, 0px)); left: 0; z-index: 38; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--commerce-line); background: var(--kt-public-surface-secondary); --kt-public-text-muted: var(--kt-public-text-muted-on-surface); }
+  .cartMobileCheckout { position: fixed; right: 0; bottom: var(--kt-commerce-mobile-nav-clearance); left: 0; z-index: 38; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--commerce-line); background: var(--kt-public-surface-secondary); --kt-public-text-muted: var(--kt-public-text-muted-on-surface); }
   .cartMobileCheckout > span { display: flex; flex-direction: column; gap: 2px; }
   .cartMobileCheckout small { color: var(--commerce-muted); font-size: .72rem; }
   .cartMobileCheckout strong { font-size: 1rem; }
@@ -3928,6 +3905,14 @@
 
 /* Phone PDP: image-first layout and one persistent purchase location. */
 .pdpRelatedMobileTrack { display: none; }
+.pdpMobileThumbnailRail { display: flex; align-items: center; justify-content: center; gap: 9px; max-width: calc(100% - 38px); min-height: 58px; overflow-x: auto; scrollbar-width: none; pointer-events: auto; }
+.pdpMobileThumbnailRail::-webkit-scrollbar { display: none; }
+.pdpMobileThumbnailRail[data-overflow="true"] { justify-content: flex-start; }
+.pdpMobileThumbnail { position: relative; flex: 0 0 46px; width: 46px; height: 46px; overflow: hidden; padding: 0; border: 2px solid var(--kt-public-surface-primary); border-radius: 50%; background: var(--kt-public-surface-secondary); /* kt-color-audit-allow: Carbon alpha for thumbnail depth */ box-shadow: 0 2px 7px rgb(11 13 15 / .18); cursor: pointer; }
+.pdpMobileThumbnail img { object-fit: cover; }
+.pdpMobileThumbnailActive { flex-basis: 56px; width: 56px; height: 56px; border: 3px solid var(--kt-public-surface-primary); outline: 2px solid var(--kt-cobalt-deep); outline-offset: -1px; /* kt-color-audit-allow: Carbon alpha for active thumbnail depth */ box-shadow: 0 3px 9px rgb(11 13 15 / .20); }
+.pdpMobileThumbnail:focus-visible { outline: 2px solid var(--kt-public-focus); outline-offset: 3px; }
+@media (min-width: 1200px) { .productGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 767px) {
   .shopViewportRoot .pdpExperience { position: relative; padding-bottom: calc(var(--shop-bottom-nav-clearance) + 110px); }
   .pdpExperience > .commerceBreadcrumbs { display: none; }
@@ -3944,20 +3929,17 @@
   .shopViewportRoot .pdpLayout { gap: 0; padding: 0 0 28px; }
   .shopViewportRoot .pdpGalleryRoot { width: 100vw; max-width: none; margin-left: calc(50% - 50vw); margin-right: 0; }
   .shopViewportRoot .pdpMobileGalleryScroller { border-radius: 0 0 26px 26px; }
-  .shopViewportRoot .pdpMobileGalleryFrame { aspect-ratio: 1 / 1; border: 0; border-radius: 0 0 26px 26px; background: var(--kt-public-surface-secondary); }
-  .shopViewportRoot .pdpImageContain { object-fit: cover; object-position: center; }
+  .shopViewportRoot .pdpMobileGalleryFrame { height: clamp(440px, 64svh, 650px); aspect-ratio: auto; border: 0; border-radius: 0; background: var(--kt-public-surface-secondary); }
+  .shopViewportRoot .pdpImageContain { object-fit: contain; object-position: center; }
   .shopViewportRoot .pdpImagePortrait { object-fit: contain; object-position: center; }
   .shopViewportRoot .pdpMobileGalleryPagination {
-    position: absolute; right: 14px; bottom: 14px; left: 14px; z-index: 2;
+    position: absolute; right: 14px; bottom: 22px; left: 14px; z-index: 2;
     justify-content: center; padding: 0; pointer-events: none;
   }
-  .pdpMobileGalleryDots { pointer-events: auto; }
-  .shopViewportRoot .pdpMobileGalleryDot { width: 10px; height: 10px; /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ background: rgb(255 255 255 / .65); border: 1px solid var(--kt-public-border-control); }
-  .shopViewportRoot .pdpMobileGalleryDotActive { width: 22px; background: var(--kt-public-surface-primary); }
-  .shopViewportRoot .pdpMobileGalleryCounter { position: absolute; right: 0; bottom: 0; padding: 5px 8px; /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ background: rgb(11 13 15 / .76); color: var(--kt-public-text-inverse); border-radius: 3px; }
-  .shopViewportRoot .pdpIdentityRail { padding: 18px 0 10px; }
+  .shopViewportRoot .pdpMobileGalleryCounter { position: absolute; right: 0; bottom: 72px; padding: 5px 8px; /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ background: rgb(11 13 15 / .76); color: var(--kt-public-text-inverse); border-radius: 6px; }
+  .shopViewportRoot .pdpIdentityRail { position: relative; z-index: 2; margin: -16px -16px 0; padding: 22px 16px 10px; border-radius: 24px 24px 0 0; background: var(--kt-public-surface-primary); }
   .shopViewportRoot .pdpIdentityPlane { gap: 9px; max-width: none; }
-  .shopViewportRoot .pdpTitle { font-size: clamp(1.75rem, 8vw, 2.15rem); }
+  .shopViewportRoot .pdpTitle { font-size: clamp(1.55rem, 6.2vw, 1.95rem); line-height: 1.06; overflow-wrap: normal; word-break: normal; hyphens: none; }
   .shopViewportRoot .pdpPurchasePlane { gap: 12px; max-width: none; }
   .shopViewportRoot .pdpPriceRow { margin-bottom: 4px; }
   .shopViewportRoot .pdpPrice { font-size: 1.65rem; }
@@ -3965,16 +3947,25 @@
   .variantOptionButton, .pdpModifierOptionRow { min-height: 44px; }
   .pdpActionButtons { display: none; }
   .shopViewportRoot .pdpMobileStickyBar {
-    bottom: var(--shop-bottom-nav-clearance); min-height: 72px; padding: 10px 16px;
-    background: var(--kt-public-surface-primary); border-top: 1px solid var(--kt-public-border-subtle); /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ box-shadow: 0 -4px 18px rgb(11 13 15 / .07);
+    bottom: var(--shop-bottom-nav-clearance); left: 12px; right: 12px; z-index: 90; min-height: 68px; padding: 8px 10px;
+    border: 1px solid var(--kt-public-border-subtle); border-radius: 17px; background: var(--kt-public-surface-primary); /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ box-shadow: 0 5px 20px rgb(11 13 15 / .11);
   }
   .shopViewportRoot .pdpMobileStickyAddBtn,
-  .shopViewportRoot .pdpMobileStickyBuyBtn { border-radius: 2px; }
+  .shopViewportRoot .pdpMobileStickyBuyBtn { border-radius: 10px; }
   .pdpRelatedDesktop { display: none; }
   .pdpRelatedMobileTrack { display: flex; margin-inline: -16px; }
+  .shopViewportRoot .productGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
   .pdpRelatedSection { margin-top: 32px; padding-top: 24px; }
   .pdpRelatedSection:last-of-type { padding-bottom: 20px; }
   .pdpDisclosureTrigger { min-height: 56px; padding-block: 17px; }
+}
+@media (max-width: 360px) {
+  .shopViewportRoot .pdpMobileStickyBar { gap: 5px; padding-inline: 7px; }
+  .shopViewportRoot .pdpMobileStickyPrice { font-size: .91rem; }
+  .shopViewportRoot .pdpMobileStickyVat { font-size: .59rem; }
+  .shopViewportRoot .pdpMobileStickyBtns { gap: 4px; }
+  .shopViewportRoot .pdpMobileStickyAddBtn,
+  .shopViewportRoot .pdpMobileStickyBuyBtn { min-height: 44px; padding: 7px 8px; font-size: .7rem; }
 }
 
 /* Integrated Shop and store-cinema search appearances. Default PLP search stays intact. */

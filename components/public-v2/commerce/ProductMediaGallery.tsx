@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "motion/react";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
@@ -76,7 +76,13 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
 
   const [activeIndex, setActiveIndex] = useState(0);
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
+  const thumbnailRailRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const isScrollingRef = useRef(false);
+  useEffect(() => () => { if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current); }, []);
+  useEffect(() => {
+    if (gallery.length > 5) thumbnailRailRef.current?.children[activeIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeIndex, gallery.length]);
 
   const scrollToSlide = useCallback((index: number) => {
     setActiveIndex(index);
@@ -94,16 +100,16 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
 
   const handleMobileScroll = useCallback(() => {
     if (isScrollingRef.current || !mobileScrollerRef.current) return;
-    const scroller = mobileScrollerRef.current;
-    const scrollLeft = scroller.scrollLeft;
-    const slideWidth = scroller.clientWidth;
-    if (slideWidth > 0) {
-      const newIndex = Math.round(scrollLeft / slideWidth);
-      if (newIndex >= 0 && newIndex < gallery.length && newIndex !== activeIndex) {
-        setActiveIndex(newIndex);
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const scroller = mobileScrollerRef.current;
+      if (scroller && scroller.clientWidth > 0) {
+        const newIndex = Math.round(scroller.scrollLeft / scroller.clientWidth);
+        if (newIndex >= 0 && newIndex < gallery.length) setActiveIndex((current) => current === newIndex ? current : newIndex);
       }
-    }
-  }, [gallery.length, activeIndex]);
+    });
+  }, [gallery.length]);
 
   return (
     <section
@@ -133,7 +139,7 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
                     preload={index === 0}
                     sizes="100vw"
                     src={`/api/catalog/media/${media.publicReference}`}
-                    className={media.width > 0 && media.height > 0 && media.width / media.height < .8 ? styles.pdpImagePortrait : styles.pdpImageContain}
+                    className={media.width > 0 && media.height > 0 && media.width / media.height > 1.2 ? styles.pdpImageCover : styles.pdpImagePortrait}
                   />
                 </div>
               </div>
@@ -145,18 +151,19 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
           )}
         </div>
 
-        {/* Mobile Page Dots & Counter */}
+        {/* Real-image thumbnail navigation and secondary counter. */}
         {gallery.length > 1 && (
           <div className={styles.pdpMobileGalleryPagination}>
-            <div className={styles.pdpMobileGalleryDots}>
-              {gallery.map((_, i) => (
+            <div className={styles.pdpMobileThumbnailRail} data-overflow={gallery.length > 5 ? "true" : undefined} ref={thumbnailRailRef}>
+              {gallery.map((media, i) => (
                 <button
-                  key={i}
+                  key={media.publicReference || i}
                   type="button"
                   onClick={() => scrollToSlide(i)}
-                  className={`${styles.pdpMobileGalleryDot} ${i === activeIndex ? styles.pdpMobileGalleryDotActive : ""}`}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
+                  className={`${styles.pdpMobileThumbnail} ${i === activeIndex ? styles.pdpMobileThumbnailActive : ""}`}
+                  aria-label={`Show product image ${i + 1} of ${gallery.length}`}
+                  aria-current={i === activeIndex ? "true" : undefined}
+                ><Image alt="" fill sizes="58px" src={`/api/catalog/media/${media.publicReference}`} /></button>
               ))}
             </div>
             <span className={styles.pdpMobileGalleryCounter}>

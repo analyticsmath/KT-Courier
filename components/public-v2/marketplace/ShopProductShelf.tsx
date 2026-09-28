@@ -23,7 +23,7 @@ export function ShopProductShelf({ title, href, products, kind, linkLabel = "Vie
         <div className={styles.shelfArrows}><button type="button" aria-label={`Scroll ${title} left`} onClick={() => move(-1)}>←</button><button type="button" aria-label={`Scroll ${title} right`} onClick={() => move(1)}>→</button></div>
       </div></div>
       <div className={styles.productDeck}>
-        <ul className={styles.productTrack} ref={track} aria-label={`${title} products`}>{products.map((product, index) => <ShopShelfProductCard key={`${product.productReference}-${index}`} product={product} priority={priority && index < 3} shelf />)}</ul>
+        <ul className={styles.productTrack} ref={track} aria-label={`${title} products`}>{products.map((product, index) => <ShopShelfProductCard key={`${product.productReference}-${index}`} product={product} priority={priority && index < 3} />)}</ul>
       </div>
     </div>
   </section>;

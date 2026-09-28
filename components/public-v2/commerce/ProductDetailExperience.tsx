@@ -21,7 +21,7 @@ import { ProductMediaGallery } from "./ProductMediaGallery";
 import { SellerSelector } from "./SellerSelector";
 import { ProductInformation } from "./ProductInformation";
 import { ProductGrid } from "./ProductGrid";
-import { ShopShelfProductCard } from "@/components/public-v2/marketplace/ShopShelfProductCard";
+import { MarketplaceProductCard } from "./MarketplaceProductCard";
 import shelfStyles from "@/components/public-v2/marketplace/shop-flagship.module.css";
 import { triggerCartFlight } from "./AddToCartFlightPortal";
 import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
@@ -676,7 +676,7 @@ export function ProductDetailExperience({
             )}
           </div>
           <div className={styles.pdpRelatedDesktop}><ProductGrid label={`More from ${store?.name}`} products={sameStoreProducts} /></div>
-          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label={`More from ${store?.name || "this store"}`}>{sameStoreProducts.map((item) => <ShopShelfProductCard key={item.productReference} product={item} />)}</ul>
+          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label={`More from ${store?.name || "this store"}`}>{sameStoreProducts.map((item) => <MarketplaceProductCard key={item.productReference} variant="related" product={item} />)}</ul>
         </section>
       )}
 
@@ -694,7 +694,7 @@ export function ProductDetailExperience({
             )}
           </div>
           <div className={styles.pdpRelatedDesktop}><ProductGrid label="Related products" products={relatedProducts} /></div>
-          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label="Related products">{relatedProducts.map((item) => <ShopShelfProductCard key={item.productReference} product={item} />)}</ul>
+          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label="Related products">{relatedProducts.map((item) => <MarketplaceProductCard key={item.productReference} variant="related" product={item} />)}</ul>
         </section>
       )}
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Fragment } from "react";
 import Image from "next/image";
 import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
-import { ProductTile } from "./ProductTile";
+import { MarketplaceProductCard } from "./MarketplaceProductCard";
 import { homeMedia } from "@/components/public-v2/home/home-media";
 import styles from "./commerce.module.css";
 
@@ -52,7 +52,7 @@ export function ProductGrid({
                 </div>
               </li>
             )}
-            <ProductTile priority={idx < 4} product={product} />
+            <MarketplaceProductCard variant="grid" priority={idx < 4} product={product} />
           </Fragment>
         );
       })}
