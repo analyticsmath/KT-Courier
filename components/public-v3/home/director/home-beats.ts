@@ -53,7 +53,7 @@ export function getCommerceBeats(storeCount = 0): CommerceBeatMap {
 }
 
 export const HOME_BEATS = {
-  hero: { posterRead: [0, .13], entryReveal: [.13, .24], turnTravel: [.24, .66], frontSettle: [.66, .73], frontApproach: [.73, .92], frontHold: [.92, .97], release: [.97, 1] },
+  hero: { posterRead: [0, .13], entryReveal: [.13, .24], turnTravel: [.24, .66], frontSettle: [.66, .72], fullBodyApproach: [.72, .9], deepApproach: [.9, .965], cameraPass: [.965, .995], finalClear: [.995, 1] },
   // `commerce` is the no-store default. Use getCommerceBeats(storeCount) for
   // the conditional Store World timeline.
   commerce: NO_STORE_COMMERCE_BEATS,
@@ -62,4 +62,12 @@ export const HOME_BEATS = {
   freight: { overpassRelease: [0, .07], redEntry: [.07, .22], redSettle: [.22, .3], freightReadHold: [.3, .4], giantSweepFront: [.4, .54], giantSweepMid: [.54, .68], giantSweepRear: [.68, .81], trailerTakeover: [.81, .93], localWorldReveal: [.93, 1] },
   lastMile: { streetBreath: [0, .06], vanEntry: [.06, .18], vanApproach: [.18, .23], vanSettle: [.23, .29], vanDoorOpen: [.29, .43], courierReveal: [.43, .48], courierWalk: [.48, .6], recipientReveal: [.52, .6], preHandoff: [.6, .68], combinedHandoff: [.68, .8], separation: [.8, .84], courierTurn: [.84, .88], courierReturn: [.88, .93], vanDoorClose: [.93, .97], vanDeparture: [.97, 1] },
   finale: { deliveredHold: [0, .18], environmentFalloff: [.18, .32], brandRise: [.32, .68], brandHold: [.68, .86], utilityReveal: [.86, .95], legalReveal: [.95, 1] },
+} as const;
+
+// The mobile van retains its accepted, whole-vehicle approach and release.
+export const HOME_MOBILE_HERO_BEATS = {
+  frontSettle: [.66, .73],
+  frontApproach: [.73, .92],
+  frontHold: [.92, .97],
+  release: [.97, 1],
 } as const;

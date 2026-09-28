@@ -14,7 +14,10 @@ describe("post-Hero frame resolver", () => {
     expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 280, parcelization: 160, network: 250, freight: 240, "last-mile": 340, finale: 135 });
     expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 0, parcelization: 135, network: 190, freight: 190, "last-mile": 290, finale: 125 });
     expect(HOME_MOBILE_POLICY).toEqual({ hero: "document", commerce: "native-snap", parcelization: "document", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" });
-    expect(HOME_BEATS.hero.release).toEqual([.97, 1]);
+    expect(HOME_BEATS.hero.fullBodyApproach).toEqual([.72, .9]);
+    expect(HOME_BEATS.hero.deepApproach).toEqual([.9, .965]);
+    expect(HOME_BEATS.hero.cameraPass).toEqual([.965, .995]);
+    expect(HOME_BEATS.hero.finalClear).toEqual([.995, 1]);
     expect(HERO_VAN_SEQUENCE).toHaveLength(19);
     expect(resolveHeroVanFrame(.4, "desktop").visibleHeightVh).toBeGreaterThan(38);
   });

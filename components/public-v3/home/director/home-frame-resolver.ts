@@ -1,5 +1,5 @@
 import { HERO_VAN_SEQUENCE } from "./hero-van-sequence.generated";
-import { clamp01, HOME_BEATS, range, smooth } from "./home-beats";
+import { clamp01, HOME_BEATS, HOME_MOBILE_HERO_BEATS, range, smooth } from "./home-beats";
 
 export const ROUTE_TRUCK_ASSET_HEADING_OFFSET_DEG = 180;
 
@@ -7,7 +7,7 @@ export function routeTruckRotationForTangent(tangentDeg: number): number {
   return tangentDeg + ROUTE_TRUCK_ASSET_HEADING_OFFSET_DEG;
 }
 
-export type HeroVanPhase = "poster" | "entry" | "turn" | "front-settle" | "approach" | "hold" | "release";
+export type HeroVanPhase = "poster" | "entry" | "turn" | "front-settle" | "approach" | "deep-approach" | "camera-pass" | "final-clear" | "hold" | "release";
 export type HeroVanFrame = {
   state: string;
   blendToState?: string;
@@ -37,12 +37,18 @@ export function resolveHeroVanFrame(progress: number, viewportMode: "mobile" | "
   const p = clamp01(progress);
   const mobile = viewportMode === "mobile";
   const beats = HOME_BEATS.hero;
+  const mobileBeats = HOME_MOBILE_HERO_BEATS;
   const phase: HeroVanPhase = p < beats.entryReveal[0] ? "poster"
     : p < beats.turnTravel[0] ? "entry"
       : p < beats.frontSettle[0] ? "turn"
-        : p < beats.frontApproach[0] ? "front-settle"
-          : p < beats.frontHold[0] ? "approach"
-            : p < beats.release[0] ? "hold" : "release";
+        : mobile
+          ? p < mobileBeats.frontApproach[0] ? "front-settle"
+            : p < mobileBeats.frontHold[0] ? "approach"
+              : p < mobileBeats.release[0] ? "hold" : "release"
+          : p < beats.fullBodyApproach[0] ? "front-settle"
+            : p < beats.deepApproach[0] ? "approach"
+              : p < beats.cameraPass[0] ? "deep-approach"
+                : p < beats.finalClear[0] ? "camera-pass" : "final-clear";
   const turnPosition = easedRange(p, ...beats.turnTravel) * (HERO_VAN_SEQUENCE.length - 1);
   const index = Math.min(HERO_VAN_SEQUENCE.length - 1, Math.floor(turnPosition));
   const nextIndex = Math.min(HERO_VAN_SEQUENCE.length - 1, index + 1);
@@ -50,9 +56,14 @@ export function resolveHeroVanFrame(progress: number, viewportMode: "mobile" | "
   const blendToState = phase === "turn" && nextIndex !== index ? HERO_VAN_SEQUENCE[nextIndex] : undefined;
   const entryT = easedRange(p, ...beats.entryReveal);
   const turnT = easedRange(p, ...beats.turnTravel);
-  const settleT = easedRange(p, ...beats.frontSettle);
-  const approachT = easedRange(p, ...beats.frontApproach);
-  const releaseT = easedRange(p, ...beats.release);
+  const settleBeats = mobile ? mobileBeats.frontSettle : beats.frontSettle;
+  const settleT = easedRange(p, settleBeats[0], settleBeats[1]);
+  const mobileApproachT = easedRange(p, ...mobileBeats.frontApproach);
+  const mobileReleaseT = easedRange(p, ...mobileBeats.release);
+  const fullBodyT = easedRange(p, ...beats.fullBodyApproach);
+  const deepT = easedRange(p, ...beats.deepApproach);
+  const passT = easedRange(p, ...beats.cameraPass);
+  const clearT = easedRange(p, ...beats.finalClear);
   const targetCenterX = p < beats.turnTravel[0]
     ? lerp(mobile ? -.35 : -.18, mobile ? .18 : .24, entryT)
     : lerp(mobile ? .18 : .24, .5, turnT);
@@ -61,17 +72,29 @@ export function resolveHeroVanFrame(progress: number, viewportMode: "mobile" | "
   if (phase === "entry") visibleHeightVh = lerp(mobile ? 30 : 31, 38, entryT);
   else if (phase === "turn") visibleHeightVh = lerp(38, mobile ? 54 : 56, turnT);
   else if (phase === "front-settle") visibleHeightVh = lerp(mobile ? 54 : 56, mobile ? 60 : 62, settleT);
-  else if (phase === "approach") visibleHeightVh = lerp(mobile ? 60 : 62, mobile ? 76 : 80, approachT);
-  else if (phase === "hold") visibleHeightVh = mobile ? 76 : 80;
-  else if (phase === "release") visibleHeightVh = lerp(mobile ? 76 : 80, mobile ? 66 : 70, releaseT);
+  else if (mobile) {
+    if (phase === "approach") visibleHeightVh = lerp(60, 76, mobileApproachT);
+    else if (phase === "hold") visibleHeightVh = 76;
+    else if (phase === "release") visibleHeightVh = lerp(76, 66, mobileReleaseT);
+  } else {
+    if (phase === "approach") visibleHeightVh = lerp(62, 88, fullBodyT);
+    else if (phase === "deep-approach") visibleHeightVh = lerp(88, 108, deepT);
+    else if (phase === "camera-pass") visibleHeightVh = lerp(108, 132, passT);
+    else if (phase === "final-clear") visibleHeightVh = lerp(132, 138, clearT);
+  }
 
   const anchorMode = phase === "front-settle" ? "transition" : phase === "poster" || phase === "entry" || phase === "turn" ? "ground" : "center";
   const anchorBlend = anchorMode === "ground" ? 0 : anchorMode === "center" ? 1 : settleT;
-  const frontalCenterY = mobile ? .57 : .58;
-  const visibleCenterY = phase === "release" ? lerp(frontalCenterY, frontalCenterY + .01, releaseT) : frontalCenterY;
+  const visibleCenterY = mobile
+    ? phase === "release" ? lerp(.57, .58, mobileReleaseT) : .57
+    : phase === "approach" ? lerp(.58, .585, fullBodyT)
+      : phase === "deep-approach" ? lerp(.585, .59, deepT)
+        : phase === "camera-pass" ? lerp(.59, .62, passT)
+          : phase === "final-clear" ? lerp(.62, .625, clearT) : .58;
   const opacity = phase === "poster" ? 0
     : phase === "entry" ? easedRange(p, .13, .17)
-      : phase === "release" ? 1 - releaseT : 1;
+      : phase === "release" ? 1 - mobileReleaseT
+        : phase === "final-clear" ? 1 - clearT : 1;
   return {
     state: HERO_VAN_SEQUENCE[index],
     blendToState,

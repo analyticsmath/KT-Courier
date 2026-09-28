@@ -17,39 +17,64 @@ describe("hero van motion correction", () => {
     expect([...new Set(frames.map((frame) => frame.state))]).toEqual(HERO_VAN_SEQUENCE);
     const indices = frames.map((frame) => HERO_VAN_SEQUENCE.indexOf(frame.state));
     expect(indices).toEqual([...indices].sort((a, b) => a - b));
-    for (const progress of [.66, .73, .85, .92, .97, .99, 1]) expect(at(progress).state).toBe("yaw-090");
+    for (const progress of [.66, .72, .85, .9, .965, .995, 1]) expect(at(progress).state).toBe("yaw-090");
     expect(HERO_VAN_FRAMES).toHaveLength(19);
   });
 
-  it("caps whole-van size, holds it, then recedes and fades", () => {
-    for (const mode of ["desktop", "mobile"] as const) {
-      const frames = Array.from({ length: 1001 }, (_, index) => at(index / 1000, mode));
-      const cap = mode === "mobile" ? 76 : 80;
-      expect(Math.max(...frames.map((frame) => frame.visibleHeightVh))).toBe(cap);
-      expect(cap).toBeGreaterThan(mode === "mobile" ? 70 : 72);
-      expect(at(.92, mode).visibleHeightVh).toBeGreaterThan(at(.73, mode).visibleHeightVh);
-      expect(at(.92, mode).visibleHeightVh).toBe(at(.96, mode).visibleHeightVh);
-      expect(at(.96, mode).phase).toBe("hold");
-      expect(at(.97, mode).phase).toBe("release");
-      expect(at(1, mode).visibleHeightVh).toBeLessThan(at(.97, mode).visibleHeightVh);
-      expect(at(.96, mode).opacity).toBe(1);
-      expect(at(.985, mode).opacity).toBeLessThan(at(.97, mode).opacity);
-      expect(at(1, mode).opacity).toBe(0);
-      for (const progress of [.73, .82, .92, .96, .97, 1]) {
-        const frame = at(progress, mode);
-        expect(frame.anchorMode).toBe("center");
-        expect(frame.visibleCenterY - frame.visibleHeightVh / 200).toBeGreaterThan(0);
-        expect(frame.visibleCenterY + frame.visibleHeightVh / 200).toBeLessThan(1);
-      }
-      expect(at(.92, mode).visibleCenterY).toBe(mode === "mobile" ? .57 : .58);
-      expect(at(.92, mode).visibleCenterY).toBeGreaterThan(.52);
+  it("keeps advancing through the desktop camera pass and fades only during final clear", () => {
+    const frames = Array.from({ length: 281 }, (_, index) => at(.72 + index / 1000));
+    for (let index = 1; index < frames.length; index++) {
+      expect(frames[index].visibleHeightVh).toBeGreaterThanOrEqual(frames[index - 1].visibleHeightVh);
     }
+    expect(at(.72).visibleHeightVh).toBe(62);
+    expect(at(.9).visibleHeightVh).toBe(88);
+    expect(at(.96).visibleHeightVh).toBeGreaterThan(100);
+    expect(at(.965).visibleHeightVh).toBe(108);
+    expect(at(.995).visibleHeightVh).toBe(132);
+    expect(at(1).visibleHeightVh).toBe(138);
+    expect(at(.9).phase).toBe("deep-approach");
+    expect(at(.965).phase).toBe("camera-pass");
+    expect(at(.995).phase).toBe("final-clear");
+    expect(new Set(frames.map((frame) => frame.phase))).not.toContain("release");
+    for (const progress of [.72, .9, .965, .994, .995]) expect(at(progress).opacity).toBe(1);
+    expect(at(.9975).opacity).toBeCloseTo(.5);
+    expect(at(1).opacity).toBe(0);
+    for (const progress of [.72, .8, .9, .94, .965, .98, .995, 1]) {
+      expect(at(progress).anchorMode).toBe("center");
+      expect(at(progress).anchorBlend).toBe(1);
+    }
+    expect(at(.72).visibleCenterY).toBe(.58);
+    expect(at(.9).visibleCenterY).toBe(.585);
+    expect(at(.965).visibleCenterY).toBe(.59);
+    expect(at(.995).visibleCenterY).toBe(.62);
+    expect(at(1).visibleCenterY).toBe(.625);
+    expect(at(.8).targetCenterX).toBe(.5);
+  });
+
+  it("preserves the mobile whole-van approach and its existing release", () => {
+    const mobile = (progress: number) => at(progress, "mobile");
+    expect(mobile(.73).visibleHeightVh).toBe(60);
+    expect(mobile(.92).visibleHeightVh).toBe(76);
+    expect(mobile(.96).visibleHeightVh).toBe(76);
+    expect(mobile(.96).phase).toBe("hold");
+    expect(mobile(.97).phase).toBe("release");
+    expect(mobile(1).visibleHeightVh).toBe(66);
+    expect(mobile(.985).opacity).toBeLessThan(1);
+    expect(mobile(1).opacity).toBe(0);
+    expect(mobile(.995).visibleHeightVh).toBeLessThan(100);
+    for (const progress of [.73, .82, .92, .96, .97, 1]) {
+      const frame = mobile(progress);
+      expect(frame.anchorMode).toBe("center");
+      expect(frame.visibleCenterY - frame.visibleHeightVh / 200).toBeGreaterThan(0);
+      expect(frame.visibleCenterY + frame.visibleHeightVh / 200).toBeLessThan(1);
+    }
+    expect(mobile(.92).visibleCenterY).toBe(.57);
     expect(at(.2).anchorMode).toBe("ground");
     expect(at(.4).anchorMode).toBe("ground");
     expect(at(.68).anchorMode).toBe("transition");
     expect(at(.66).anchorBlend).toBe(0);
-    expect(at(.73).anchorBlend).toBe(1);
-    expect(at(.8).targetCenterX).toBe(.5);
+    expect(at(.72).anchorBlend).toBe(1);
+    expect(mobile(.73).anchorBlend).toBe(1);
   });
 
   it("uses only a short adjacent boundary blend and reconstructs reverse seeks", () => {
