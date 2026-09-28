@@ -14,6 +14,7 @@ import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import styles from "./commerce.module.css";
 
 interface CommerceSearchCommandProps {
+  appearance?: "default" | "shop" | "cinema";
   action?: string;
   query?: string;
   placeholder?: string;
@@ -49,6 +50,7 @@ type SuggestionEntry = {
 };
 
 export function CommerceSearchCommand({
+  appearance = "default",
   action = marketplaceSearchHref(),
   query = "",
   placeholder = "Search products, stores or categories...",
@@ -67,6 +69,7 @@ export function CommerceSearchCommand({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmed = val.trim();
   const listId = `${id}-suggestions`;
+  const integrated = appearance !== "default";
 
   useEffect(() => {
     // The route query is the canonical value after a search navigation.
@@ -110,7 +113,7 @@ export function CommerceSearchCommand({
     if (!trimmed) return [] as Array<{ label: string; entries: SuggestionEntry[] }>;
     const result: Array<{ label: string; entries: SuggestionEntry[] }> = [{
       label: "Search",
-      entries: [{ key: "query", group: "Search", title: `Search for “${trimmed}”`, detail: "All matching products and stores", href: marketplaceSearchHref({ q: trimmed }) }],
+      entries: [{ key: "query", group: "Search", title: `Search for “${trimmed}”`, detail: "All matching products and stores", href: appearance === "cinema" ? `${action}?q=${encodeURIComponent(trimmed)}` : marketplaceSearchHref({ q: trimmed }) }],
     }];
     const products = (payload?.products ?? []).flatMap((product) => {
       const href = marketplaceProductHref(product.productSlug, product.productReference);
@@ -136,7 +139,7 @@ export function CommerceSearchCommand({
       if (entries.length) result.push({ label, entries });
     }
     return result;
-  }, [payload, trimmed]);
+  }, [action, appearance, payload, trimmed]);
   const entries = groups.flatMap((group) => group.entries);
   const open = focused && trimmed.length >= 2;
 
@@ -165,7 +168,7 @@ export function CommerceSearchCommand({
 
   return (
     <div
-      className={styles.searchCommandShell}
+      className={`${styles.searchCommandShell} ${appearance === "shop" ? styles.shopSearchShell : appearance === "cinema" ? styles.cinemaSearchShell : ""}`}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
           setFocused(false);
@@ -175,7 +178,7 @@ export function CommerceSearchCommand({
     >
       <form action={action} className={`${styles.searchCommandForm} ${className}`} role="search">
         {hidden.map((field) => <input key={`${field.name}:${field.value}`} name={field.name} type="hidden" value={field.value} />)}
-        <div className={styles.searchIconPrefix} aria-hidden="true"><KtIconSearch size={18} /></div>
+        {!integrated && <div className={styles.searchIconPrefix} aria-hidden="true"><KtIconSearch size={18} /></div>}
         <label className="sr-only" htmlFor={`${id}-input`}>Search the marketplace</label>
         <input
           aria-label="Search the marketplace"
@@ -204,7 +207,7 @@ export function CommerceSearchCommand({
             window.dispatchEvent(new CustomEvent(desktop ? "kt:focus-desktop-filters" : "kt:open-filter-sheet"));
           }
         }}><KtIconTune size={18} /></button> : null}
-        <button aria-label="Submit search" className={styles.searchCommandButton} type="submit"><span>Search</span></button>
+        <button aria-label="Submit search" className={`${styles.searchCommandButton} ${integrated ? styles.embeddedSearchSubmit : ""}`} type="submit">{integrated ? <KtIconSearch size={20} /> : <span>Search</span>}</button>
       </form>
       {open ? <div className={styles.searchSuggestionPanel}>
         <div id={listId} role="listbox" aria-label="Search suggestions" aria-busy={loading}>

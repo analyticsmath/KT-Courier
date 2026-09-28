@@ -9,22 +9,24 @@ import { useTransitionContext } from "@/components/public-v2/motion/PublicTransi
 import { QuickBuySheet } from "@/components/public-v2/commerce/QuickBuySheet";
 import styles from "./shop-flagship.module.css";
 
-export function ShopShelfProductCard({ product, priority = false }: { product: StorefrontProductCard; priority?: boolean }) {
+export function ShopShelfProductCard({ product, priority = false, shelf = false }: { product: StorefrontProductCard; priority?: boolean; shelf?: boolean }) {
   const [quickBuyOpen, setQuickBuyOpen] = useState(false);
   const closeQuickBuy = useCallback(() => setQuickBuyOpen(false), []);
   const { captureSourceMedia } = useTransitionContext();
   const href = marketplaceProductHref(product.productSlug, product.productReference);
   const src = product.primaryMedia && `/api/catalog/media/${product.primaryMedia.publicReference}`;
+  const imageSizes = shelf ? "(max-width: 767px) 80vw, 390px" : "(max-width: 767px) 74vw, 320px";
+  const topLine = product.brandName || (shelf ? product.storeCount > 1 ? `Available from ${product.storeCount} stores` : availabilityLabel(product.availability) : undefined);
   const capture = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (src) captureSourceMedia(`product-${product.productReference}`, event.currentTarget, src, product.primaryMedia?.alt || product.title);
   };
   return <li className={styles.productCard}>
     <article>
       {href ? <Link className={styles.productMedia} href={href} onClick={capture} aria-label={`View ${product.title}`}>
-        {src ? <Image alt={product.primaryMedia?.alt || product.title} fill preload={priority} sizes="(max-width: 767px) 74vw, 320px" src={src} /> : <span>Image unavailable</span>}
-      </Link> : <div className={styles.productMedia}>{src ? <Image alt={product.primaryMedia?.alt || product.title} fill sizes="320px" src={src} /> : <span>Image unavailable</span>}</div>}
+        {src ? <Image alt={product.primaryMedia?.alt || product.title} fill preload={priority} sizes={imageSizes} src={src} /> : <span>Image unavailable</span>}
+      </Link> : <div className={styles.productMedia}>{src ? <Image alt={product.primaryMedia?.alt || product.title} fill sizes={shelf ? "390px" : "320px"} src={src} /> : <span>Image unavailable</span>}</div>}
       <div className={styles.productBody}>
-        {product.brandName && <div className={styles.productBrand}>{product.brandName}</div>}
+        {topLine && <div className={styles.productBrand}>{topLine}</div>}
         {href ? <Link className={styles.productTitle} href={href} onClick={capture}>{product.title}</Link> : <strong className={styles.productTitle}>{product.title}</strong>}
         <div className={styles.productMeta}>{availabilityLabel(product.availability)}{product.variantCount > 1 ? ` · ${product.variantCount} options` : ""}</div>
         <div className={styles.productBottom}>

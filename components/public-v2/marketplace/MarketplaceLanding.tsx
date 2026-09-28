@@ -3,7 +3,7 @@ import { marketplaceCategoryHref, marketplaceSearchHref } from "@/lib/public-mar
 import { ShopCategoryFilm } from "./ShopCategoryFilm";
 import { ShopBrowseCommand } from "./ShopBrowseCommand";
 import { ShopProductShelf } from "./ShopProductShelf";
-import { StorefrontStack } from "./StorefrontStack";
+import { StoreCinema } from "./StoreCinema";
 import styles from "./shop-flagship.module.css";
 
 export type MarketplaceCategory = {
@@ -38,6 +38,6 @@ export function MarketplaceLanding({ categories, stores, products, shelves }: {
         return category && href ? <ShopProductShelf key={category.reference} title={category.name} href={href} products={shelf.products} kind="category" /> : null;
       })}
     </div>
-    <StorefrontStack stores={stores} />
+    <StoreCinema mode="featured" stores={stores} />
   </main>;
 }

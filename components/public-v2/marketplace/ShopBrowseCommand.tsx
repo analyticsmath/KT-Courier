@@ -6,7 +6,7 @@ import styles from "./shop-flagship.module.css";
 export function ShopBrowseCommand({ categories }: { categories: readonly MarketplaceCategory[] }) {
   return <section className={styles.command} aria-labelledby="shop-title">
     <h1 id="shop-title">Shop</h1>
-    <div className={styles.search}><CommerceSearchCommand /></div>
+    <div className={styles.search}><CommerceSearchCommand appearance="shop" /></div>
     <ShopCategoryCircleRail categories={categories} />
   </section>;
 }

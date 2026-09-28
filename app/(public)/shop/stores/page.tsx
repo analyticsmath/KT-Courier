@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { MerchantDirectory } from "@/components/public-v2/commerce";
-import { CommerceBreadcrumbs } from "@/components/public-v2/commerce/CommerceBreadcrumbs";
-import styles from "@/components/public-v2/commerce/commerce.module.css";
+import { StoreCinema } from "@/components/public-v2/marketplace/StoreCinema";
 import { listStorefrontStores } from "@/lib/services/storefront-catalog.service";
 
 export const metadata: Metadata = {
@@ -18,18 +16,5 @@ export default async function StoresPage({
   const q = typeof query === "string" ? query.slice(0, 80) : "";
   const stores = await listStorefrontStores({ query: q || undefined, limit: 48 });
 
-  return (
-    <main className={styles.commerceRoot} id="storefront-content">
-      <div className={styles.commerceInner}>
-        <CommerceBreadcrumbs items={[{ label: "Shop", href: "/shop" }, { label: "Stores" }]} />
-
-        <div style={{ marginBottom: "2rem" }}>
-          <h1 className={styles.commerceTitle}>Stores</h1>
-          <p className={styles.commerceLead}>Explore independent local stores and their published products.</p>
-        </div>
-
-        <MerchantDirectory query={q} stores={stores} />
-      </div>
-    </main>
-  );
+  return <main id="storefront-content"><StoreCinema mode="directory" query={q} stores={stores} /></main>;
 }
