@@ -101,7 +101,7 @@ describe("PDP three-column presentation contract", () => {
     expect(desktop).toContain('index === 0 ? "product-media"');
     expect(desktop).toContain("<DesktopPdpMediaCard");
     expect(jsxNodes(galleryAst, "section")).toHaveLength(1);
-    expect(gallerySource).toContain('aria-label="Product image gallery"');
+    expect(gallerySource).toContain('aria-label={`${product.title} image gallery`}');
     expect(declarations(".pdpDesktopGalleryStage").get("flex-direction")).toBe("column");
     expect(declarations(".pdpMobileGalleryScroller", "max-width: 991px").get("scroll-snap-type")).toBe("x mandatory");
     expect(declarations(".pdpMobileStickyBar", "max-width: 768px").get("position")).toBe("fixed");

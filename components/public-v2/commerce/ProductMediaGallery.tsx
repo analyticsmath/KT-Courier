@@ -107,7 +107,7 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
 
   return (
     <section
-      aria-label="Product image gallery"
+      aria-label={`${product.title} image gallery`}
       className={styles.pdpGalleryRoot}
       data-kt-shared-target={`product-${product.productReference}`}
     >
@@ -133,7 +133,7 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
                     preload={index === 0}
                     sizes="100vw"
                     src={`/api/catalog/media/${media.publicReference}`}
-                    className={styles.pdpImageContain}
+                    className={media.width > 0 && media.height > 0 && media.width / media.height < .8 ? styles.pdpImagePortrait : styles.pdpImageContain}
                   />
                 </div>
               </div>

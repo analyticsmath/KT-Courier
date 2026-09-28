@@ -3925,3 +3925,54 @@
 /* Existing selected shapes and explicit labels supplement Cobalt. */
 
 .quickBuyChoice[aria-checked="true"], .filterSortPill[data-selected="true"], .filterPricePill[data-selected="true"] { font-weight: 650; }
+
+/* Phone PDP: image-first layout and one persistent purchase location. */
+.pdpRelatedMobileTrack { display: none; }
+@media (max-width: 767px) {
+  .shopViewportRoot .pdpExperience { position: relative; padding-bottom: calc(var(--shop-bottom-nav-clearance) + 110px); }
+  .pdpExperience > .commerceBreadcrumbs { display: none; }
+  .shopViewportRoot .pdpMobileTopBar {
+    position: absolute; top: 12px; left: 12px; right: 12px; z-index: 40;
+    display: flex; margin: 0; padding: 0; border: 0; background: transparent; backdrop-filter: none;
+  }
+  .shopViewportRoot .pdpMobileTopBar button,
+  .shopViewportRoot .pdpMobileTopBar a {
+    width: 44px; height: 44px; border: 1px solid var(--kt-public-border-default); border-radius: 50%;
+    background: var(--kt-public-surface-primary); color: var(--kt-public-text-primary);
+  }
+  .pdpMobileTopBar svg { width: 22px; height: 22px; }
+  .shopViewportRoot .pdpLayout { gap: 0; padding: 0 0 28px; }
+  .shopViewportRoot .pdpGalleryRoot { width: 100vw; max-width: none; margin-left: calc(50% - 50vw); margin-right: 0; }
+  .shopViewportRoot .pdpMobileGalleryScroller { border-radius: 0 0 26px 26px; }
+  .shopViewportRoot .pdpMobileGalleryFrame { aspect-ratio: 1 / 1; border: 0; border-radius: 0 0 26px 26px; background: var(--kt-public-surface-secondary); }
+  .shopViewportRoot .pdpImageContain { object-fit: cover; object-position: center; }
+  .shopViewportRoot .pdpImagePortrait { object-fit: contain; object-position: center; }
+  .shopViewportRoot .pdpMobileGalleryPagination {
+    position: absolute; right: 14px; bottom: 14px; left: 14px; z-index: 2;
+    justify-content: center; padding: 0; pointer-events: none;
+  }
+  .pdpMobileGalleryDots { pointer-events: auto; }
+  .shopViewportRoot .pdpMobileGalleryDot { width: 10px; height: 10px; /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ background: rgb(255 255 255 / .65); border: 1px solid var(--kt-public-border-control); }
+  .shopViewportRoot .pdpMobileGalleryDotActive { width: 22px; background: var(--kt-public-surface-primary); }
+  .shopViewportRoot .pdpMobileGalleryCounter { position: absolute; right: 0; bottom: 0; padding: 5px 8px; /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ background: rgb(11 13 15 / .76); color: var(--kt-public-text-inverse); border-radius: 3px; }
+  .shopViewportRoot .pdpIdentityRail { padding: 18px 0 10px; }
+  .shopViewportRoot .pdpIdentityPlane { gap: 9px; max-width: none; }
+  .shopViewportRoot .pdpTitle { font-size: clamp(1.75rem, 8vw, 2.15rem); }
+  .shopViewportRoot .pdpPurchasePlane { gap: 12px; max-width: none; }
+  .shopViewportRoot .pdpPriceRow { margin-bottom: 4px; }
+  .shopViewportRoot .pdpPrice { font-size: 1.65rem; }
+  .pdpQuantityBtn { width: 44px; height: 44px; }
+  .variantOptionButton, .pdpModifierOptionRow { min-height: 44px; }
+  .pdpActionButtons { display: none; }
+  .shopViewportRoot .pdpMobileStickyBar {
+    bottom: var(--shop-bottom-nav-clearance); min-height: 72px; padding: 10px 16px;
+    background: var(--kt-public-surface-primary); border-top: 1px solid var(--kt-public-border-subtle); /* kt-color-audit-allow: existing photographic mask, backdrop or elevation alpha */ box-shadow: 0 -4px 18px rgb(11 13 15 / .07);
+  }
+  .shopViewportRoot .pdpMobileStickyAddBtn,
+  .shopViewportRoot .pdpMobileStickyBuyBtn { border-radius: 2px; }
+  .pdpRelatedDesktop { display: none; }
+  .pdpRelatedMobileTrack { display: flex; margin-inline: -16px; }
+  .pdpRelatedSection { margin-top: 32px; padding-top: 24px; }
+  .pdpRelatedSection:last-of-type { padding-bottom: 20px; }
+  .pdpDisclosureTrigger { min-height: 56px; padding-block: 17px; }
+}

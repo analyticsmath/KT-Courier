@@ -195,13 +195,23 @@ export async function getStorefrontVariant(productReference: string, variantRefe
   return { variant: offers[0]!, offers, modifierGroupsByOffer };
 }
 
-export async function getStorefrontHome() {
-  const [categories, stores, search, collections] = await Promise.all([listStorefrontCategories(), listStorefrontStores({ limit: 12 }), new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search({ pageSize: 12 }), listStorefrontCollections()]);
+export async function getStorefrontHome({ includeCollections = true }: { includeCollections?: boolean } = {}) {
+  const [categories, stores, search, collections] = await Promise.all([listStorefrontCategories(), listStorefrontStores({ limit: 12 }), new StorefrontSearchService(new PostgresStorefrontSearchAdapter()).search({ pageSize: 12 }), includeCollections ? listStorefrontCollections() : Promise.resolve([])]);
   const topLevelCategories = categories.filter((category) => {
     const normalizedPath = category.path.replace(/^\/+/, "");
     return normalizedPath.length > 0 && !normalizedPath.includes("/");
   });
   return { categories: topLevelCategories.slice(0, 12), stores, newArrivals: search.results, collections, availabilityNotice: "Choose a service area to see area-specific availability. Browsing is available without one." };
+}
+
+/** One bounded, grouped search per authored Shop category; called only by the server page. */
+export async function getStorefrontShopShelves(categoryPaths: readonly string[]) {
+  const paths = [...new Set(categoryPaths)].slice(0, 5);
+  return Promise.all(paths.map(async (path) => {
+    const result = await new StorefrontSearchService(new PostgresStorefrontSearchAdapter())
+      .search({ category: path, pageSize: 10 });
+    return { path, products: result.results };
+  }));
 }
 
 export async function listStorefrontCollections() {

@@ -21,6 +21,8 @@ import { ProductMediaGallery } from "./ProductMediaGallery";
 import { SellerSelector } from "./SellerSelector";
 import { ProductInformation } from "./ProductInformation";
 import { ProductGrid } from "./ProductGrid";
+import { ShopShelfProductCard } from "@/components/public-v2/marketplace/ShopShelfProductCard";
+import shelfStyles from "@/components/public-v2/marketplace/shop-flagship.module.css";
 import { triggerCartFlight } from "./AddToCartFlightPortal";
 import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
@@ -398,10 +400,10 @@ export function ProductDetailExperience({
       {/* Mobile Top Header */}
       <div className={styles.pdpMobileTopBar}>
         <button aria-label="Go back" onClick={() => window.history.back()} type="button">
-          ‹ <span>Back</span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m14 5-7 7 7 7" /></svg>
         </button>
         <Link aria-label="Cart" data-kt-cart-target="mobile-header" href="/cart">
-          Cart
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h16l-1.3 12H5.3L4 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
         </Link>
       </div>
 
@@ -673,7 +675,8 @@ export function ProductDetailExperience({
               </Link>
             )}
           </div>
-          <ProductGrid label={`More from ${store?.name}`} products={sameStoreProducts} />
+          <div className={styles.pdpRelatedDesktop}><ProductGrid label={`More from ${store?.name}`} products={sameStoreProducts} /></div>
+          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label={`More from ${store?.name || "this store"}`}>{sameStoreProducts.map((item) => <ShopShelfProductCard key={item.productReference} product={item} />)}</ul>
         </section>
       )}
 
@@ -690,7 +693,8 @@ export function ProductDetailExperience({
               </Link>
             )}
           </div>
-          <ProductGrid label="Related products" products={relatedProducts} />
+          <div className={styles.pdpRelatedDesktop}><ProductGrid label="Related products" products={relatedProducts} /></div>
+          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label="Related products">{relatedProducts.map((item) => <ShopShelfProductCard key={item.productReference} product={item} />)}</ul>
         </section>
       )}
 

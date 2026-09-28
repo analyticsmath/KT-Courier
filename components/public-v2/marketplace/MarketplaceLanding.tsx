@@ -1,116 +1,43 @@
-import Link from "next/link";
-import Image from "next/image";
 import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
-import {
-  ShopEntryField,
-  CategoryDiscoveryField,
-  MerchantWindow,
-  ProductGrid,
-} from "@/components/public-v2/commerce";
-import styles from "@/components/public-v2/commerce/commerce.module.css";
-import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
-import {
-  marketplaceCategoriesHref,
-  marketplaceCategoryHref,
-  marketplaceSearchHref,
-} from "@/lib/public-marketplace/routes";
+import { marketplaceCategoryHref, marketplaceSearchHref } from "@/lib/public-marketplace/routes";
+import { ShopCategoryFilm } from "./ShopCategoryFilm";
+import { ShopBrowseCommand } from "./ShopBrowseCommand";
+import { ShopProductShelf } from "./ShopProductShelf";
+import { StorefrontStack } from "./StorefrontStack";
+import styles from "./shop-flagship.module.css";
 
 export type MarketplaceCategory = {
-  reference: string;
-  path: string;
-  name: string;
-  description?: string;
-  imageReference?: string;
-  productCount?: number;
+  reference: string; path: string; name: string; description?: string;
+  imageReference?: string; productCount?: number;
 };
-
 export type MarketplaceStore = {
-  reference: string;
-  slug: string;
-  name: string;
-  description?: string;
-  logoMediaReference?: string;
-  heroMediaReference?: string;
-  publishedOfferCount: number;
+  reference: string; slug: string; name: string; description?: string;
+  logoMediaReference?: string; heroMediaReference?: string; publishedOfferCount: number;
 };
-
 export type MarketplaceCollection = {
-  reference: string;
-  slug: string;
-  name: string;
-  description?: string;
-  itemCount: number;
-  coverMediaReference?: string;
+  reference: string; slug: string; name: string; description?: string;
+  itemCount: number; coverMediaReference?: string;
 };
+export type ShopShelfData = { path: string; products: readonly StorefrontProductCard[] };
 
-export function MarketplaceLanding({
-  categories,
-  stores,
-  products,
-  collections = [],
-}: {
+export function MarketplaceLanding({ categories, stores, products, shelves }: {
   categories: readonly MarketplaceCategory[];
   stores: readonly MarketplaceStore[];
   products: readonly StorefrontProductCard[];
-  collections?: readonly MarketplaceCollection[];
+  shelves: readonly ShopShelfData[];
 }) {
-  return (
-    <main className={styles.commerceRoot} id="storefront-content">
-      {/* 1. Market Entry Field (First Viewport) */}
-      <ShopEntryField categories={categories} />
-
-      {/* 2. Category Discovery Field */}
-      <CategoryDiscoveryField categories={categories} />
-
-      {/* 3. Live Marketplace Products */}
-      <section aria-labelledby="live-products-title" className={styles.productGridSection}>
-        <div className={styles.commerceInner}>
-          <div className={styles.sectionHeaderRow}>
-            <div>
-              <h2 className={styles.sectionTitleMain} id="live-products-title">
-                New in the Market
-              </h2>
-            </div>
-            <Link className={styles.sectionDirectLink} href={marketplaceSearchHref()}>
-              Search all items &rarr;
-            </Link>
-          </div>
-
-          <ProductGrid
-            editorialCategoryHref={
-              categories[0]
-                ? marketplaceCategoryHref(categories[0].path) ?? marketplaceCategoriesHref()
-                : marketplaceCategoriesHref()
-            }
-            editorialCategoryTitle={categories[0]?.name || "Local Food & Kitchens"}
-            label="Marketplace live products"
-            products={products}
-            withEditorialInterruption={products.length >= 6}
-          />
-        </div>
-      </section>
-
-      {/* 4. Independent local stores */}
-      <MerchantWindow stores={stores} />
-
-      {/* 5. Active editorial collections */}
-      {collections.length > 0 && <section aria-labelledby="home-collections-title" className={styles.commerceSection}>
-        <div className={styles.commerceInner}>
-          <div className={styles.commerceSectionHeader}>
-            <div><p className={styles.productTileBrand}>Curated edits</p><h2 id="home-collections-title">Collections</h2></div>
-            <Link className={styles.sectionDirectLink} href="/shop/collections">All collections &rarr;</Link>
-          </div>
-          <ul className={styles.collectionGrid}>
-            {collections.slice(0, 3).map((collection, index) => {
-              const href = `/shop/collections/${encodeURIComponent(collection.slug)}`;
-              return <li key={collection.reference}><Link className={styles.collectionCard} href={href}>
-                {collection.coverMediaReference && <span className={styles.collectionCardImage}><Image alt="" fill priority={index === 0} sizes="(max-width: 767px) 100vw, 40vw" src={storefrontCategoryMediaSrc(collection.coverMediaReference)!} style={{ objectFit: "cover" }} /></span>}
-                <span className={styles.collectionCardCopy}><h2>{collection.name}</h2>{collection.description && <p>{collection.description}</p>}</span>
-              </Link></li>;
-            })}
-          </ul>
-        </div>
-      </section>}
-    </main>
-  );
+  const categoryByPath = new Map(categories.map((category) => [category.path.replace(/^\/+|\/+$/g, ""), category]));
+  return <main className={styles.shop} id="storefront-content">
+    <ShopCategoryFilm categories={categories} />
+    <ShopBrowseCommand categories={categories} />
+    <div className={styles.shelves}>
+      <ShopProductShelf title="New in the Market" href={marketplaceSearchHref()} linkLabel="Search all items" products={products} kind="new" priority />
+      {shelves.map((shelf) => {
+        const category = categoryByPath.get(shelf.path.replace(/^\/+|\/+$/g, ""));
+        const href = category && marketplaceCategoryHref(category.path);
+        return category && href ? <ShopProductShelf key={category.reference} title={category.name} href={href} products={shelf.products} kind="category" /> : null;
+      })}
+    </div>
+    <StorefrontStack stores={stores} />
+  </main>;
 }
