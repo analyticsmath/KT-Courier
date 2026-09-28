@@ -3,7 +3,7 @@ import { join } from "node:path";
 import postcss from "postcss";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { computeCenteredStickyTop } from "@/components/public-v2/commerce/pdp-geometry";
+import { computeCenteredStickyPlacement } from "@/components/public-v2/commerce/pdp-geometry";
 
 const root = process.cwd();
 const detailSource = readFileSync(
@@ -114,71 +114,98 @@ describe("PDP three-column presentation contract", () => {
     expect(gallerySource).not.toContain("--pdp-media-ratio");
   });
 
-  it("renders intrinsic, unframed media between symmetric full-height rails", () => {
+  it("uses a transparent maximum-fit media stage between symmetric full-height rails", () => {
     const layout = declarations(".pdpLayout");
+    const wideLayout = declarations(".pdpLayout", "min-width: 1200px");
     const frame = declarations(".pdpDesktopHeroFrame");
     const rail = declarations(".pdpIdentityRail");
     const image = declarations(".pdpDesktopImage");
-    const mediaHeight = declarations(".pdpExperience").get("--pdp-desktop-image-height");
+    const mediaHeight = declarations(".shopViewportRoot .pdpExperience", "min-width: 1200px").get("--pdp-desktop-media-height");
 
     expect(layout.get("grid-template-areas")).toBe('"identity media purchase"');
-    expect(layout.get("grid-template-columns")).toMatch(/^minmax\(0, 1fr\).*minmax\(520px, min\(46vw, 760px\)\).*minmax\(0, 1fr\)$/);
+    expect(wideLayout.get("grid-template-columns")).toBe("minmax(0, 1fr) minmax(600px, min(48vw, 820px)) minmax(0, 1fr)");
     expect(layout.get("align-items")).toBe("stretch");
-    expect(declarations(".pdpGalleryRoot").get("max-width")).toBe("760px");
-    expect(mediaHeight).toMatch(/76svh.*740px/);
+    expect(declarations(".pdpGalleryRoot", "min-width: 1200px").get("max-width")).toBe("820px");
+    expect(mediaHeight).toMatch(/78svh.*760px.*72px/);
+    expect(declarations(".shopViewportRoot .pdpExperience", "min-width: 1200px").get("width"))
+      .toBe("min(calc(100vw - 64px), 112rem)");
     expect(frame.get("width")).toBe("100%");
-    expect(frame.get("display")).toBe("flex");
+    expect(frame.get("height")).toBe("var(--pdp-desktop-media-height)");
+    expect(frame.get("display")).toBe("grid");
+    expect(frame.get("place-items")).toBe("center");
     expect(frame.get("aspect-ratio")).toBeUndefined();
     expect(frame.get("background")).toBe("transparent");
     expect(frame.get("border")).toBe("0");
     expect(frame.get("border-radius")).toBe("0");
-    expect(frame.get("margin")).toBe("0 auto");
+    expect(frame.get("overflow")).toBe("visible");
     expect(declarations(".shopViewportRoot .pdpDesktopHeroFrame").size).toBe(0);
-    expect(declarations(".pdpDesktopMediaShell").get("width")).toBe("fit-content");
+    expect(declarations(".pdpDesktopMediaShell").get("width")).toBe("100%");
+    expect(declarations(".pdpDesktopMediaShell").get("height")).toBe("100%");
     expect(declarations(".pdpDesktopMediaShell").get("position")).toBe("relative");
-    expect(image.get("width")).toBe("auto");
-    expect(image.get("height")).toBe("var(--pdp-desktop-image-height)");
-    expect(image.get("max-height")).toBe("var(--pdp-desktop-image-height)");
-    expect(image.get("max-width")).toBe("100%");
+    expect(image.get("width")).toBe("100%");
+    expect(image.get("height")).toBe("100%");
     expect(image.get("object-fit")).toBe("contain");
     expect(image.get("border-radius")).toBe("0");
     expect(declarations(".pdpImageContain").get("object-fit")).toBe("contain");
     expect(rail.get("position")).toBe("relative");
     expect(rail.get("align-self")).toBe("stretch");
     expect(declarations(".pdpPurchaseRail").get("position")).toBe("relative");
-    expect(declarations(".pdpIdentityPlane").get("position")).toBe("sticky");
-    expect(declarations(".pdpPurchasePlane").get("position")).toBe("sticky");
-    expect(declarations(".pdpIdentityPlane").get("top")).toContain("--pdp-plane-top");
-    expect(declarations(".pdpPurchasePlane").get("transform")).toBe("none");
-    expect(detailSource).toContain("ResizeObserver(updatePlacement)");
-    expect(detailSource).toContain("observer.observe(identity)");
-    expect(detailSource).toContain("observer.observe(purchase)");
+  });
+
+  it("measures each rail and plane independently and applies both placement values", () => {
+    expect(region("pdpIdentityRail")).toContain("ref={identityRailRef}");
+    expect(region("pdpPurchaseRail")).toContain("ref={purchaseRailRef}");
+    expect(detailSource).toContain("identityRail.getBoundingClientRect().top");
+    expect(detailSource).toContain("purchaseRail.getBoundingClientRect().top");
+    expect(detailSource).toContain("identityRail.getBoundingClientRect().top + window.scrollY");
+    expect(detailSource).toContain("purchaseRail.getBoundingClientRect().top + window.scrollY");
     expect(detailSource).toContain("identity.getBoundingClientRect().height");
     expect(detailSource).toContain("purchase.getBoundingClientRect().height");
-    expect(declarations(".pdpIdentityPlaneTall", "min-width: 1200px").get("position")).toBe("static");
-    expect(declarations(".pdpPurchasePlaneTall", "min-width: 1200px").get("position")).toBe("static");
+    expect(detailSource).toContain("observer.observe(identity)");
+    expect(detailSource).toContain("observer.observe(purchase)");
+    expect(detailSource).toContain("document.fonts?.ready.then(updatePlacement)");
+    expect(detailSource).toContain('window.addEventListener("resize", updatePlacement)');
+    expect(region("pdpIdentityPlane")).toContain("planePlacement.identity.stickyTop");
+    expect(region("pdpIdentityPlane")).toContain("planePlacement.identity.initialOffset");
+    expect(region("pdpPurchasePlane")).toContain("planePlacement.purchase.stickyTop");
+    expect(region("pdpPurchasePlane")).toContain("planePlacement.purchase.initialOffset");
+    expect(declarations(".pdpIdentityPlane").get("position")).toBe("sticky");
+    expect(declarations(".pdpPurchasePlane").get("position")).toBe("sticky");
+    expect(declarations(".pdpIdentityPlane").get("top")).toContain("--pdp-plane-sticky-top");
+    expect(declarations(".pdpIdentityPlane", "min-width: 1200px").get("margin-top"))
+      .toBe("var(--pdp-plane-initial-offset, 0px)");
+    expect(declarations(".pdpPurchasePlane", "min-width: 1200px").get("margin-top"))
+      .toBe("var(--pdp-plane-initial-offset, 0px)");
+    expect(declarations(".pdpIdentityPlaneTall", "min-width: 1200px").get("overflow-y")).toBe("auto");
+    expect(declarations(".pdpPurchasePlaneTall", "min-width: 1200px").get("position")).toBeUndefined();
+    expect(detailSource).not.toContain("translateY(-50%)");
   });
 
-  it("centers different plane heights on the same usable viewport axis", () => {
-    const identity = computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 180 });
-    const purchase = computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 320 });
-    expect(identity).toEqual({ top: 393, tooTall: false });
-    expect(purchase).toEqual({ top: 323, tooTall: false });
-    expect(identity.top + 180 / 2).toBe(483);
-    expect(purchase.top + 320 / 2).toBe(483);
-    const longerIdentity = computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 260 });
-    expect(longerIdentity.top).toBe(353);
-    expect(longerIdentity.top + 260 / 2).toBe(483);
-    expect(computeCenteredStickyTop({ viewportHeight: 900, headerHeight: 66, planeHeight: 850 }))
-      .toEqual({ top: 82, tooTall: true });
+  it("centers independent heights from first placement through symmetric growth", () => {
+    const base = { viewportHeight: 924, headerHeight: 66, railViewportTop: 150 };
+    const identity = computeCenteredStickyPlacement({ ...base, planeHeight: 190 });
+    const purchase = computeCenteredStickyPlacement({ ...base, planeHeight: 380 });
+    const longerIdentity = computeCenteredStickyPlacement({ ...base, planeHeight: 290 });
+    const longerPurchase = computeCenteredStickyPlacement({ ...base, planeHeight: 440 });
+    expect(identity).toEqual({ viewportCenter: 495, stickyTop: 400, initialOffset: 250, tooTall: false });
+    expect(purchase).toEqual({ viewportCenter: 495, stickyTop: 305, initialOffset: 155, tooTall: false });
+    expect(longerIdentity).toEqual({ viewportCenter: 495, stickyTop: 350, initialOffset: 200, tooTall: false });
+    expect(longerPurchase.stickyTop).toBe(275);
+    for (const [placement, height] of [[identity, 190], [purchase, 380], [longerIdentity, 290], [longerPurchase, 440]] as const) {
+      expect(base.railViewportTop + placement.initialOffset).toBe(placement.stickyTop);
+      expect(placement.stickyTop + height / 2).toBe(placement.viewportCenter);
+    }
+    expect(computeCenteredStickyPlacement({ ...base, planeHeight: 850 }))
+      .toEqual({ viewportCenter: 495, stickyTop: 82, initialOffset: 0, tooTall: true });
   });
 
-  it("provides a two-column compact fallback and a short-height center release", () => {
+  it("preserves compact and mobile layouts", () => {
     expect(declarations(".pdpLayout", "min-width: 992px").get("grid-template-areas")).toContain('"media identity"');
     expect(declarations(".pdpLayout", "max-width: 991px").get("grid-template-areas")).toContain('"media"');
-    expect(declarations(".pdpIdentityPlane", "max-height: 760px").get("transform")).toBe("none");
+    expect(declarations(".pdpIdentityPlane", "min-width: 992px").get("position")).toBe("static");
+    expect(declarations(".pdpIdentityPlane", "max-width: 991px").get("position")).toBe("static");
     expect(gallerySource).toContain("(max-width: 1199px) 55vw");
-    expect(gallerySource).toContain("(max-width: 1652px) 46vw, 760px");
+    expect(gallerySource).toContain("(max-width: 1708px) 48vw, 820px");
     expect(gallerySource).toContain("preload={index === 0}");
   });
 });

@@ -26,7 +26,7 @@ import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
 import { cn } from "@/lib/utils/cn";
 import styles from "./commerce.module.css";
-import { computeCenteredStickyTop } from "./pdp-geometry";
+import { computeCenteredStickyPlacement } from "./pdp-geometry";
 
 interface ProductStoreInfo {
   slug: string;
@@ -79,40 +79,51 @@ export function ProductDetailExperience({
     existingCartItemCount?: number;
   } | null>(null);
   const [cartVersion, setCartVersion] = useState<number | null>(null);
+  const identityRailRef = useRef<HTMLDivElement>(null);
+  const purchaseRailRef = useRef<HTMLDivElement>(null);
   const identityPlaneRef = useRef<HTMLElement>(null);
   const purchasePlaneRef = useRef<HTMLElement>(null);
   const [planePlacement, setPlanePlacement] = useState<{
-    identity: ReturnType<typeof computeCenteredStickyTop>;
-    purchase: ReturnType<typeof computeCenteredStickyTop>;
+    identity: ReturnType<typeof computeCenteredStickyPlacement>;
+    purchase: ReturnType<typeof computeCenteredStickyPlacement>;
   } | null>(null);
 
   useLayoutEffect(() => {
+    const identityRail = identityRailRef.current;
+    const purchaseRail = purchaseRailRef.current;
     const identity = identityPlaneRef.current;
     const purchase = purchasePlaneRef.current;
-    if (!identity || !purchase) return;
+    if (!identityRail || !purchaseRail || !identity || !purchase) return;
     let active = true;
 
     const updatePlacement = () => {
       if (!active) return;
       const headerHeight = parseFloat(getComputedStyle(identity).getPropertyValue("--shop-header-offset")) || 66;
       const viewportHeight = window.innerHeight;
+      // Keep the initial offset anchored to the rail's unscrolled position when content changes mid-scroll.
+      const identityRailViewportTop = identityRail.getBoundingClientRect().top + window.scrollY;
+      const purchaseRailViewportTop = purchaseRail.getBoundingClientRect().top + window.scrollY;
       const next = {
-        identity: computeCenteredStickyTop({
+        identity: computeCenteredStickyPlacement({
           viewportHeight,
           headerHeight,
-          planeHeight: identity.getBoundingClientRect().height,
+          planeHeight: Math.max(identity.getBoundingClientRect().height, identity.scrollHeight),
+          railViewportTop: identityRailViewportTop,
         }),
-        purchase: computeCenteredStickyTop({
+        purchase: computeCenteredStickyPlacement({
           viewportHeight,
           headerHeight,
-          planeHeight: purchase.getBoundingClientRect().height,
+          planeHeight: Math.max(purchase.getBoundingClientRect().height, purchase.scrollHeight),
+          railViewportTop: purchaseRailViewportTop,
         }),
       };
       setPlanePlacement((previous) =>
         previous &&
-        previous.identity.top === next.identity.top &&
+        previous.identity.stickyTop === next.identity.stickyTop &&
+        previous.identity.initialOffset === next.identity.initialOffset &&
         previous.identity.tooTall === next.identity.tooTall &&
-        previous.purchase.top === next.purchase.top &&
+        previous.purchase.stickyTop === next.purchase.stickyTop &&
+        previous.purchase.initialOffset === next.purchase.initialOffset &&
         previous.purchase.tooTall === next.purchase.tooTall
           ? previous
           : next
@@ -122,13 +133,19 @@ export function ProductDetailExperience({
     const observer = new ResizeObserver(updatePlacement);
     observer.observe(identity);
     observer.observe(purchase);
+    const contentObserver = new MutationObserver(updatePlacement);
+    contentObserver.observe(identity, { childList: true, characterData: true, subtree: true });
+    contentObserver.observe(purchase, { childList: true, characterData: true, subtree: true });
     window.addEventListener("resize", updatePlacement);
     void document.fonts?.ready.then(updatePlacement);
     updatePlacement();
+    const frame = requestAnimationFrame(updatePlacement);
 
     return () => {
       active = false;
       observer.disconnect();
+      contentObserver.disconnect();
+      cancelAnimationFrame(frame);
       window.removeEventListener("resize", updatePlacement);
     };
   }, []);
@@ -393,12 +410,15 @@ export function ProductDetailExperience({
 
       {/* Product identity, vertical media gallery, and purchase decisions */}
       <div className={styles.pdpLayout}>
-        <div className={styles.pdpIdentityRail}>
+        <div className={styles.pdpIdentityRail} ref={identityRailRef}>
           <section
             aria-labelledby="pdp-product-title"
             className={cn(styles.pdpIdentityPlane, planePlacement?.identity.tooTall && styles.pdpIdentityPlaneTall)}
             ref={identityPlaneRef}
-            style={planePlacement ? { "--pdp-plane-top": `${planePlacement.identity.top}px` } as CSSProperties : undefined}
+            style={planePlacement ? {
+              "--pdp-plane-sticky-top": `${planePlacement.identity.stickyTop}px`,
+              "--pdp-plane-initial-offset": `${planePlacement.identity.initialOffset}px`,
+            } as CSSProperties : undefined}
           >
             <div>
               {product.brandName && (
@@ -415,12 +435,15 @@ export function ProductDetailExperience({
 
         <ProductMediaGallery product={product} mediaGallery={gallery} />
 
-        <div className={styles.pdpPurchaseRail}>
+        <div className={styles.pdpPurchaseRail} ref={purchaseRailRef}>
           <section
             aria-label="Purchase product"
             className={cn(styles.pdpPurchasePlane, planePlacement?.purchase.tooTall && styles.pdpPurchasePlaneTall)}
             ref={purchasePlaneRef}
-            style={planePlacement ? { "--pdp-plane-top": `${planePlacement.purchase.top}px` } as CSSProperties : undefined}
+            style={planePlacement ? {
+              "--pdp-plane-sticky-top": `${planePlacement.purchase.stickyTop}px`,
+              "--pdp-plane-initial-offset": `${planePlacement.purchase.initialOffset}px`,
+            } as CSSProperties : undefined}
           >
             {/* Price & VAT Row */}
             <div className={styles.pdpPriceRow}>

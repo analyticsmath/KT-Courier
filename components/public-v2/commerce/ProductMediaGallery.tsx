@@ -123,7 +123,7 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
                 width={media.width}
                 height={media.height}
                 preload={index === 0}
-                sizes="(max-width: 1199px) 55vw, (max-width: 1652px) 46vw, 760px"
+                sizes="(max-width: 1199px) 55vw, (max-width: 1250px) 600px, (max-width: 1708px) 48vw, 820px"
                 src={`/api/catalog/media/${media.publicReference}`}
                 className={styles.pdpDesktopImage}
               />
