@@ -2115,6 +2115,7 @@
   max-width: 760px;
   min-width: 0;
   margin-inline: auto;
+  overflow: visible;
 }
 
 .pdpMobileGalleryWrap {
@@ -2124,27 +2125,43 @@
 .pdpDesktopGalleryStage {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: clamp(28px, 2vw, 36px);
   width: 100%;
+  overflow: visible;
 }
 
 .pdpDesktopHeroFrame {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
   width: 100%;
-  height: var(--pdp-desktop-media-height);
-  margin: 0 auto;
+  height: auto;
+  margin: 0;
   background: transparent;
   border: 0;
   border-radius: 0;
   overflow: visible;
 }
 
-.pdpDesktopMediaShell {
+.pdpDesktopMediaCard {
   position: relative;
-  width: 100%;
-  height: 100%;
+  box-sizing: border-box;
+  width: min(100%, calc(var(--pdp-desktop-media-height) * var(--pdp-media-ratio-number)));
+  aspect-ratio: var(--pdp-media-ratio-number);
+  margin-inline: auto;
+  overflow: hidden;
+  isolation: isolate;
+  /* kt-color-audit-allow: approved Carbon alpha for the media slab edge */
+  border: 1px solid rgb(11 13 15 / 0.07);
+  border-radius: 12px;
+  background: var(--kt-public-surface-primary);
+  /* kt-color-audit-allow: approved Carbon alpha for static media elevation */
+  box-shadow:
+    0 1px 2px rgb(11 13 15 / 0.06),
+    0 14px 34px -12px rgb(11 13 15 / 0.18),
+    0 34px 70px -28px rgb(11 13 15 / 0.20);
+  transform-origin: center center;
+  will-change: transform;
 }
 
 .pdpDesktopHeroEmpty {
@@ -2159,14 +2176,20 @@
 }
 
 .pdpDesktopImage {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   padding: 0;
   border: 0;
   border-radius: 0;
+}
+
+.pdpDesktopImageUnknownRatio {
+  object-fit: contain;
 }
 
 .pdpDesktopThumbStrip {
@@ -3540,10 +3563,6 @@
   max-width: 100rem;
 }
 
-.shopViewportRoot .pdpDesktopGalleryStage {
-  gap: 16px;
-}
-
 .shopViewportRoot .pdpImageContain {
   object-fit: contain;
   object-position: center;
@@ -3552,21 +3571,22 @@
 
 .pdpDesktopMediaIndex {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   min-height: 30px;
   padding-inline: 10px;
-  border: 1px solid var(--kt-public-border-subtle);
+  /* kt-color-audit-allow: white alpha boundary over variable product imagery */
+  border: 1px solid rgb(255 255 255 / 0.18);
   border-radius: 999px;
-  background: var(--kt-public-surface-inverse);
+  /* kt-color-audit-allow: Carbon alpha readability mask over product imagery */
+  background: rgb(11 13 15 / 0.88);
   color: var(--kt-public-text-inverse);
   font-size: .72rem;
   font-weight: 650;
-  letter-spacing: .05em;
-  backdrop-filter: blur(12px);
+  letter-spacing: .04em;
 }
 
 @media (max-width: 1199px) and (min-width: 1024px) {
@@ -3634,20 +3654,27 @@
   }
 }
 
+@media (max-width: 1199px) {
+  .pdpDesktopMediaCard {
+    transform: none !important;
+    will-change: auto;
+  }
+}
+
 @media (min-width: 1200px) {
   .shopViewportRoot .pdpExperience {
-    --pdp-desktop-media-height: min(78svh, 760px, calc(100svh - var(--shop-header-offset, 66px) - 72px));
+    --pdp-desktop-media-height: min(74svh, 720px, calc(100svh - var(--shop-header-offset, 66px) - 92px));
     width: min(calc(100vw - 64px), 112rem);
     max-width: 112rem;
     margin-inline: auto;
   }
 
   .pdpLayout {
-    grid-template-columns: minmax(0, 1fr) minmax(600px, min(48vw, 820px)) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(560px, min(45vw, 780px)) minmax(0, 1fr);
   }
 
   .pdpGalleryRoot {
-    max-width: 820px;
+    max-width: 780px;
   }
 
   .pdpIdentityPlane,
