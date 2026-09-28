@@ -19,6 +19,7 @@ import { ktMedia } from "@/components/public-v2/media";
 import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import { notFound } from "next/navigation";
 import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
+import { categoryTransitionId } from "@/lib/public-marketplace/category-transition-id";
 
 export async function generateMetadata({
   params,
@@ -79,7 +80,7 @@ export default async function CategoryPage({
   const [categoryHierarchy] = await Promise.all([getCommerceCategoryHierarchy(category.path)]);
   const context = (
     <div style={{ marginBottom: "2rem" }}>
-      <div className={styles.categoryOpeningMediaFrame} style={{ marginBottom: "1.5rem" }}>
+      <div className={styles.categoryOpeningMediaFrame} data-kt-shared-target={categoryTransitionId(category.path)} style={{ marginBottom: "1.5rem" }}>
         <Image
           alt={category.name}
           fill

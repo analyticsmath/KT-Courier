@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { CategoryAtlas } from "@/components/public-v2/commerce";
-import { CommerceBreadcrumbs } from "@/components/public-v2/commerce/CommerceBreadcrumbs";
-import styles from "@/components/public-v2/commerce/commerce.module.css";
 import { listStorefrontCategories } from "@/lib/services/storefront-catalog.service";
-import { selectFeaturedMarketplaceCategories } from "@/lib/public-marketplace/featured-categories";
+import { buildCinematicCategoryNavigation } from "@/lib/public-marketplace/category-navigation-model";
 
 export const metadata: Metadata = {
   title: "Categories | KT Couriers Marketplace",
@@ -14,22 +12,11 @@ export const dynamic = "force-dynamic";
 
 export default async function CategoriesPage() {
   const categoryTaxonomy = await listStorefrontCategories();
-  const categories = selectFeaturedMarketplaceCategories(categoryTaxonomy);
+  const categories = buildCinematicCategoryNavigation(categoryTaxonomy);
 
   return (
-    <main className={styles.commerceRoot} id="storefront-content">
-      <div className={styles.commerceInner}>
-        <CommerceBreadcrumbs items={[{ label: "Shop", href: "/shop" }, { label: "Categories" }]} />
-
-        <header className={styles.commercePageIntro}>
-          <h1 className={styles.commerceTitle}>Categories</h1>
-          <p className={styles.commerceLead}>
-            Explore the five primary marketplace worlds, then move into their focused subcategories.
-          </p>
-        </header>
-
-        <CategoryAtlas categories={categories} />
-      </div>
+    <main id="storefront-content">
+      <CategoryAtlas categories={categories} />
     </main>
   );
 }

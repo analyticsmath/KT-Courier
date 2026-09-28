@@ -760,47 +760,6 @@
   }
 }
 
-.categoryListStream {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.categoryStreamItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  background-color: transparent;
-  border-left: 3px solid transparent;
-  text-decoration: none;
-  color: var(--kt-public-text-primary);
-  transition: background-color 140ms ease, border-color 140ms ease;
-  cursor: pointer;
-}
-
-.categoryStreamItemActive,
-.categoryStreamItem:hover {
-  background-color: var(--kt-public-surface-secondary);
-  border-left-color: var(--kt-public-interactive-text);
-  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
-}
-
-.categoryStreamTitle {
-  font-size: 1.25rem;
-  font-weight: 560;
-  letter-spacing: -0.02em;
-}
-
-.categoryStreamCount {
-  font-size: 0.85rem;
-  color: var(--kt-public-text-muted);
-  font-family: var(--kt-font-mono, monospace);
-}
-
 .categoryActiveMediaStage {
   position: relative;
   width: 100%;
@@ -1141,42 +1100,9 @@
   width: fit-content;
 }
 
-/* =========================================================================
-   6. CATEGORY ATLAS (/shop/categories)
-   ========================================================================= */
+/* Merchant directory still uses the atlas page spacing. */
 .categoryAtlasPage {
   padding-block: clamp(3rem, 5vw, 5rem);
-}
-
-.categoryAtlasLayout {
-  display: grid;
-  grid-template-columns: minmax(340px, 460px) 1fr;
-  gap: clamp(40px, 6vw, 80px);
-  align-items: start;
-}
-
-@media (max-width: 899px) {
-  .categoryAtlasLayout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.categoryAtlasStickyMedia {
-  position: sticky;
-  top: calc(var(--kt-header-h, 72px) + 24px);
-  width: 100%;
-  height: clamp(380px, 60vh, 560px);
-  background-color: var(--kt-public-surface-tertiary);
-  overflow: hidden;
-  --kt-public-text-muted: var(--kt-public-text-muted-on-surface);
-}
-
-@media (max-width: 899px) {
-  .categoryAtlasStickyMedia {
-    position: relative;
-    top: 0;
-    margin-bottom: 32px;
-  }
 }
 
 /* =========================================================================
@@ -3175,7 +3101,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .productTileMediaFrame img,
-  .categoryStreamItem,
   .merchantNameRow,
   .searchCommandForm,
   .variantOptionButton {
