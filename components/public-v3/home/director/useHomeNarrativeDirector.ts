@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useMotionContext } from "../../motion/PublicMotionProvider";
-import { HERO_VAN_BASELINE_Y, HERO_VAN_SEQUENCE } from "./hero-van-sequence.generated";
+import { HERO_VAN_BASELINE_Y, HERO_VAN_CANVAS_ASPECT, HERO_VAN_SEQUENCE, HERO_VAN_VISIBLE_CENTER_X, HERO_VAN_VISIBLE_CENTER_Y, HERO_VAN_VISIBLE_HEIGHT_RATIO } from "./hero-van-sequence.generated";
 import { closestReadyHeroSequenceState, decodeHeroVanFrame, decodeHeroVanWindow, isActorImageReady } from "./home-actor-image-readiness";
 import { deriveHeroActorPresentation } from "./hero-actor-presentation";
 import { resolveHeroVanFrame } from "./home-frame-resolver";
@@ -103,7 +103,7 @@ export function useHomeNarrativeDirector({
     let heroUsableActorHeight = window.innerHeight;
     let stageWidth = window.innerWidth;
     let heroBaseWidth = window.innerWidth;
-    let heroBaseHeight = window.innerWidth * .75;
+    let heroBaseHeight = window.innerWidth / HERO_VAN_CANVAS_ASPECT;
     let selectedCategory = categories[0]?.id;
     let selectedProductDuringFan = products[0]?.id;
     let productSelectionFrozen = false;
@@ -126,7 +126,7 @@ export function useHomeNarrativeDirector({
     const applyHero = (progress: number) => {
       const mobileHero = window.innerWidth <= 767;
       const frame = prefersReducedMotion
-        ? { ...resolveHeroVanFrame(.5, mobileHero ? "mobile" : "desktop"), state: HERO_VAN_SEQUENCE[10], blendToState: undefined, stateBlend: 0, targetX: .5, canvasScale: mobileHero ? 1.5 : .68 }
+        ? { ...resolveHeroVanFrame(.5, mobileHero ? "mobile" : "desktop"), state: HERO_VAN_SEQUENCE[10], blendToState: undefined, stateBlend: 0, phase: "hold" as const, anchorMode: "center" as const, anchorBlend: 1, targetCenterX: .5, visibleCenterY: .55, visibleHeightVh: mobileHero ? 54 : 56, opacity: 1, visible: true }
         : resolveHeroVanFrame(progress, mobileHero ? "mobile" : "desktop");
       if (!heroSlot) return;
       decodeHeroVanWindow(heroLayers, frame.state);
@@ -151,21 +151,30 @@ export function useHomeNarrativeDirector({
       if (canBlend && nextLayer) gsap.set(nextLayer, { opacity: blend });
       activeHeroStates.clear();
       nextActive.forEach((state) => activeHeroStates.add(state));
-      const scaledWidth = heroBaseWidth * frame.canvasScale;
-      const scaledHeight = heroBaseHeight * frame.canvasScale;
-      const x = stageWidth * frame.targetX - scaledWidth / 2;
-      const y = heroUsableActorHeight * frame.groundY - HERO_VAN_BASELINE_Y * scaledHeight;
+      const desiredVisibleHeightPx = heroUsableActorHeight * frame.visibleHeightVh / 100;
+      const scaledHeight = desiredVisibleHeightPx / HERO_VAN_VISIBLE_HEIGHT_RATIO;
+      const canvasScale = scaledHeight / heroBaseHeight;
+      const scaledWidth = heroBaseWidth * canvasScale;
+      const x = stageWidth * frame.targetCenterX - HERO_VAN_VISIBLE_CENTER_X * scaledWidth;
+      const groundTop = heroUsableActorHeight * frame.groundY - HERO_VAN_BASELINE_Y * scaledHeight;
+      const centerTop = heroUsableActorHeight * frame.visibleCenterY - HERO_VAN_VISIBLE_CENTER_Y * scaledHeight;
+      const y = groundTop + (centerTop - groundTop) * frame.anchorBlend;
       const presentation = deriveHeroActorPresentation({ actorVisible: frame.visible, imageReady: isActorImageReady(activeLayer), width: scaledWidth, height: scaledHeight });
-      const entryOpacity = prefersReducedMotion ? 1 : range(progress, .13, .17);
-      gsap.set(heroSlot, { x, y, scale: frame.canvasScale, transformOrigin: "0 0", autoAlpha: presentation.opacity * entryOpacity, visibility: presentation.visibility });
+      gsap.set(heroSlot, { x, y, scale: canvasScale, transformOrigin: "0 0", autoAlpha: presentation.opacity * frame.opacity, visibility: presentation.visibility });
       if (heroKt) gsap.set(heroKt, { y: prefersReducedMotion ? 0 : -14 * range(progress, .22, .975), autoAlpha: prefersReducedMotion ? 1 : 1 - .7 * range(progress, .13, .9) });
       if (heroCourier) gsap.set(heroCourier, { y: prefersReducedMotion ? 0 : 10 * range(progress, .22, .975), autoAlpha: prefersReducedMotion ? 1 : 1 - .66 * range(progress, .13, .9) });
       if (heroActions) gsap.set(heroActions, { autoAlpha: prefersReducedMotion ? 1 : 1 - range(progress, ...HOME_BEATS.hero.entryReveal), y: prefersReducedMotion ? 0 : -10 * range(progress, ...HOME_BEATS.hero.entryReveal) });
-      root.dataset.homeHeroVanVisible = String(presentation.isVisible);
-      root.dataset.homeHeroVanState = displayedState;
-      root.dataset.homeHeroVanNextState = frame.blendToState ?? "";
-      root.dataset.homeHeroVanReady = String(requestedReady);
-      root.dataset.homeHeroVanBlend = blend.toFixed(3);
+      if (debugEnabled) {
+        root.dataset.homeHeroVanVisible = String(presentation.isVisible);
+        root.dataset.homeHeroVanState = displayedState;
+        root.dataset.homeHeroVanNextState = frame.blendToState ?? "";
+        root.dataset.homeHeroVanReady = String(requestedReady);
+        root.dataset.homeHeroVanBlend = blend.toFixed(3);
+        root.dataset.homeHeroVanVisibleHeightVh = frame.visibleHeightVh.toFixed(2);
+        root.dataset.homeHeroVanCenterX = frame.targetCenterX.toFixed(3);
+        root.dataset.homeHeroVanCenterY = ((y + HERO_VAN_VISIBLE_CENTER_Y * scaledHeight) / Math.max(1, heroUsableActorHeight)).toFixed(3);
+        root.dataset.homeHeroVanPhase = frame.phase;
+      }
     };
 
     const placeActor = (actor: PostHeroActorName, actorPose: PostHeroActorPose) => {
@@ -414,7 +423,7 @@ export function useHomeNarrativeDirector({
       if (actorRect) {
         stageWidth = actorRect.width || window.innerWidth;
         heroBaseWidth = stageWidth;
-        heroBaseHeight = heroBaseWidth * .75;
+        heroBaseHeight = heroBaseWidth / HERO_VAN_CANVAS_ASPECT;
         if (heroSlot) gsap.set(heroSlot, { width: heroBaseWidth, height: heroBaseHeight, transformOrigin: "0 0" });
         const mobileNav = document.querySelector<HTMLElement>("[data-kt-app-shell='mobile-nav']");
         heroUsableActorHeight = Math.max(0, actorRect.height - (window.innerWidth <= 767 ? mobileNav?.getBoundingClientRect().height ?? 0 : 0));
@@ -494,7 +503,7 @@ export function useHomeNarrativeDirector({
           const bounds = slot?.getBoundingClientRect();
           return `${actor} ${slot?.dataset.postheroRequestedState ?? "hidden"} -> ${slot?.dataset.postheroDisplayedState ?? "hidden"} ready=${slot?.dataset.postheroStateReady ?? "false"} anchor=${slot ? `${slot.offsetLeft.toFixed(1)},${slot.offsetTop.toFixed(1)}` : "-"} size=${bounds ? `${bounds.width.toFixed(1)}x${bounds.height.toFixed(1)}` : "-"}`;
         };
-        debugPanel.textContent = `${current.chapter} · ${progress.toFixed(3)} · ${root.dataset.homeMotionOwner ?? "none"}\nviewport ${window.innerWidth <= 767 ? "mobile" : "desktop"}\ncategory ${marketplace?.activeIndex ?? "-"} · store ${marketplace?.storeIndex ?? "-"} · product ${marketplace?.productIndex ?? "-"}\nhero van ${root.dataset.homeHeroVanState ?? "hidden"} ready=${root.dataset.homeHeroVanReady ?? "false"} blend=${root.dataset.homeHeroVanBlend ?? "0"}\n${actorDebug("van")}\n${actorDebug("courier")}\n${actorDebug("recipient")}\n${actorDebug("handoff")}\n${actorDebug("white-truck")}\n${actorDebug("red-truck")}`;
+        debugPanel.textContent = `${current.chapter} · ${progress.toFixed(3)} · ${root.dataset.homeMotionOwner ?? "none"}\nviewport ${window.innerWidth <= 767 ? "mobile" : "desktop"}\ncategory ${marketplace?.activeIndex ?? "-"} · store ${marketplace?.storeIndex ?? "-"} · product ${marketplace?.productIndex ?? "-"}\nhero van ${root.dataset.homeHeroVanPhase ?? "poster"} ${root.dataset.homeHeroVanState ?? "hidden"} ready=${root.dataset.homeHeroVanReady ?? "false"} blend=${root.dataset.homeHeroVanBlend ?? "0"} height=${root.dataset.homeHeroVanVisibleHeightVh ?? "0"}vh center=${root.dataset.homeHeroVanCenterX ?? "-"},${root.dataset.homeHeroVanCenterY ?? "-"}\n${actorDebug("van")}\n${actorDebug("courier")}\n${actorDebug("recipient")}\n${actorDebug("handoff")}\n${actorDebug("white-truck")}\n${actorDebug("red-truck")}`;
       }
     };
 

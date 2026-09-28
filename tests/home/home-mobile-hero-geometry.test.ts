@@ -41,8 +41,9 @@ describe("mobile hero geometry contract", () => {
   it("uses measured actor-stage geometry for mobile Hero placement", () => {
     expect(director).toContain("stageWidth = actorRect.width || window.innerWidth");
     expect(director).toContain("heroBaseWidth = stageWidth");
-    expect(director).toContain("const x = stageWidth * frame.targetX - scaledWidth / 2");
-    expect(director).toContain("const y = heroUsableActorHeight * frame.groundY - HERO_VAN_BASELINE_Y * scaledHeight");
+    expect(director).toContain("const x = stageWidth * frame.targetCenterX - HERO_VAN_VISIBLE_CENTER_X * scaledWidth");
+    expect(director).toContain("const centerTop = heroUsableActorHeight * frame.visibleCenterY - HERO_VAN_VISIBLE_CENTER_Y * scaledHeight");
+    expect(director).toContain("const y = groundTop + (centerTop - groundTop) * frame.anchorBlend");
     expect(director).toContain("mobileNav?.getBoundingClientRect().height ?? 0");
     expect(actorStage).toContain("<HeroVanSequenceActor />");
     expect(actorStage).toContain("preloadStates={[]}");

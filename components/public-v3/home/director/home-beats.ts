@@ -53,7 +53,7 @@ export function getCommerceBeats(storeCount = 0): CommerceBeatMap {
 }
 
 export const HOME_BEATS = {
-  hero: { posterRead: [0, .13], entryReveal: [.13, .22], turnTravel: [.22, .66], frontSettle: [.66, .7], frontApproach: [.7, .9], cameraPass: [.9, .975], release: [.975, 1] },
+  hero: { posterRead: [0, .13], entryReveal: [.13, .24], turnTravel: [.24, .66], frontSettle: [.66, .72], frontApproach: [.72, .9], frontHold: [.9, .945], release: [.945, 1] },
   // `commerce` is the no-store default. Use getCommerceBeats(storeCount) for
   // the conditional Store World timeline.
   commerce: NO_STORE_COMMERCE_BEATS,
