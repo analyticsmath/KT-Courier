@@ -14,7 +14,7 @@ export function PublicFooter() {
 
   return (
     <footer
-      className="bg-[var(--kt-public-surface-inverse)] text-[var(--kt-public-text-inverse)] pt-16 pb-24 md:pb-16 px-6 md:px-12 border-t border-[var(--kt-public-border-inverse)]"
+      className="bg-[var(--kt-public-surface-inverse)] text-[var(--kt-public-text-inverse)] pt-16 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-16 px-6 md:px-12 border-t border-[var(--kt-public-border-inverse)]"
       role="contentinfo"
     >
       <div className="max-w-[var(--kt-container-max)] mx-auto">

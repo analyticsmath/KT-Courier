@@ -26,7 +26,10 @@ export default async function SearchPage({
 }: {
   searchParams: Promise<MarketplaceSearchParams>;
 }) {
-  const filters = parseMarketplaceSearchParams(await searchParams);
+  const rawSearchParams = await searchParams;
+  const filters = parseMarketplaceSearchParams(rawSearchParams);
+  const openMobileFilters = rawSearchParams.openFilters === "1" ||
+    (Array.isArray(rawSearchParams.openFilters) && rawSearchParams.openFilters.includes("1"));
   const service = new StorefrontSearchService(new PostgresStorefrontSearchAdapter());
   const [result, suggestions] = await Promise.all([
     service.search(filters),
@@ -127,6 +130,7 @@ export default async function SearchPage({
         emptyDescription="We couldn’t find products matching your search. Try searching for a broader term or browse all categories."
         emptyTitle="No results found"
         filters={filters}
+        initialMobileFiltersOpen={openMobileFilters}
         result={result}
         route={{ kind: "search" }}
         title={title}

@@ -4024,8 +4024,12 @@
 .searchCommandShell.cinemaSearchShell .embeddedSearchSubmit {
   flex: none; width: 44px; height: 44px; margin: 5px 6px 5px 0; padding: 0;
   background: transparent; border: 0; border-radius: 10px;
-  color: inherit; cursor: pointer;
+  cursor: pointer;
 }
+.searchCommandShell.shopSearchShell .embeddedSearchSubmit { color: var(--kt-public-text-primary); }
+.searchCommandShell.cinemaSearchShell .embeddedSearchSubmit { color: var(--kt-public-text-inverse); }
+.searchCommandShell.shopSearchShell .searchFilterButton,
+.searchCommandShell.heroSearchShell .searchFilterButton { flex: none; width: 44px; min-height: 44px; padding: 0; color: var(--kt-public-text-primary); }
 .searchCommandShell.shopSearchShell .embeddedSearchSubmit:hover {
   background: var(--kt-public-surface-tertiary);
 }
@@ -4052,6 +4056,7 @@
 .searchCommandShell.heroSearchShell .searchCommandInput { background: transparent; }
 .searchCommandShell.heroSearchShell .embeddedSearchSubmit { flex: none; width: 46px; height: 46px; margin: 6px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--kt-public-text-primary); }
 .searchCommandShell.heroSearchShell .embeddedSearchSubmit:hover { background: var(--kt-public-surface-secondary); }
+.searchCommandShell.heroSearchShell .searchFilterButton { display: none; }
 @media (max-width: 767px) {
   .searchMarketplaceHero { min-height: clamp(300px, 48svh, 360px); background-position: 58% 56%; }
   .searchMarketplaceHeroContent { padding: 24px 16px 30px; }
@@ -4060,6 +4065,7 @@
   .searchMarketplaceHeroField { margin-top: 16px; }
   .searchCommandShell.heroSearchShell .searchCommandForm { height: 52px; }
   .searchCommandShell.heroSearchShell .embeddedSearchSubmit { width: 40px; height: 40px; }
+  .searchCommandShell.heroSearchShell .searchFilterButton { display: inline-flex; }
   .recommendationDeck { margin-inline: -16px; }
 }
 @media (max-width: 767px) {

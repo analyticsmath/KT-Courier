@@ -32,6 +32,7 @@ interface CommerceResultsLayoutProps {
   retainedFilters?: Partial<StorefrontFilterInput>;
   emptyTitle?: string;
   emptyDescription?: string;
+  initialMobileFiltersOpen?: boolean;
 }
 
 function titleCase(value: string) {
@@ -59,6 +60,7 @@ export async function CommerceResultsLayout({
   retainedFilters = {},
   emptyTitle = "No products found",
   emptyDescription = "Try clearing filters or searching for a different keyword.",
+  initialMobileFiltersOpen = false,
 }: CommerceResultsLayoutProps) {
   const Title = titleAs;
   const brandReferences = [...new Set([
@@ -139,6 +141,7 @@ export async function CommerceResultsLayout({
       <MobileFilterSheet
         facets={facets}
         filters={filters}
+        initialOpen={initialMobileFiltersOpen}
         resultCount={resultCount}
         route={route}
       />

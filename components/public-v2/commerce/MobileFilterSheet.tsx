@@ -13,6 +13,7 @@ interface MobileFilterSheetProps {
   filters: StorefrontFilterInput;
   route: MarketplaceListingRoute;
   resultCount: number;
+  initialOpen?: boolean;
 }
 
 function copyFilters(filters: StorefrontFilterInput): StorefrontFilterInput {
@@ -96,9 +97,9 @@ const PRICE_PRESETS: Array<{ label: string; min?: string; max?: string }> = [
   { label: "R1000+", min: "1000", max: undefined },
 ];
 
-export function MobileFilterSheet({ facets, filters, route, resultCount }: MobileFilterSheetProps) {
+export function MobileFilterSheet({ facets, filters, route, resultCount, initialOpen = false }: MobileFilterSheetProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [compactViewport, setCompactViewport] = useState(false);
   const [draft, setDraft] = useState(() => copyFilters(filters));
   const [expandedFacets, setExpandedFacets] = useState<Record<string, boolean>>(() => {

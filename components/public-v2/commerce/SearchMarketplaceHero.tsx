@@ -11,7 +11,7 @@ export function SearchMarketplaceHero({ query }: { query: string }) {
         <p>Find products from independent local storefronts.</p>
       </div>
       <div className={styles.searchMarketplaceHeroField}>
-        <CommerceSearchCommand appearance="hero" query={query} placeholder="Search products, stores or categories..." />
+        <CommerceSearchCommand appearance="hero" query={query} placeholder="Search products, stores or categories..." showFilterButton />
       </div>
     </div>
   </section>;

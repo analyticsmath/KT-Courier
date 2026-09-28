@@ -22,6 +22,7 @@ interface CommerceSearchCommandProps {
   className?: string;
   onToggleFilter?: () => void;
   showFilterButton?: boolean;
+  filterHref?: string;
 }
 
 type SuggestionPayload = {
@@ -58,6 +59,7 @@ export function CommerceSearchCommand({
   className = "",
   onToggleFilter,
   showFilterButton = false,
+  filterHref,
 }: CommerceSearchCommandProps) {
   const router = useRouter();
   const id = useId();
@@ -200,8 +202,9 @@ export function CommerceSearchCommand({
           value={val}
         />
         {val ? <button type="button" aria-label="Clear search" className={styles.searchClearButton} onClick={() => { setVal(""); setActiveIndex(-1); }}><KtIconClose size={16} /></button> : null}
-        {showFilterButton ? <button type="button" aria-label="Focus filters" className={styles.searchFilterButton} onClick={() => {
+        {showFilterButton ? <button type="button" aria-label={filterHref || appearance === "hero" ? "Open filters" : "Focus filters"} className={styles.searchFilterButton} onClick={() => {
           if (onToggleFilter) onToggleFilter();
+          else if (filterHref) router.push(filterHref);
           else if (typeof window !== "undefined") {
             const desktop = window.matchMedia("(min-width: 1024px)").matches;
             window.dispatchEvent(new CustomEvent(desktop ? "kt:focus-desktop-filters" : "kt:open-filter-sheet"));

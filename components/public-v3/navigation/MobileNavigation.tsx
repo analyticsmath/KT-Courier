@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, useReducedMotion } from "motion/react";
 import { useMarketplaceCartCount } from "./marketplace-cart-client";
 import styles from "./mobile-navigation.module.css";
 
 export function MobileNavigation() {
   const pathname = usePathname();
-  const reducedMotion = useReducedMotion();
   const isCommerce = pathname.startsWith("/shop") || pathname === "/cart";
   const cartCount = useMarketplaceCartCount(!pathname.startsWith("/checkout"));
 
@@ -108,9 +106,7 @@ export function MobileNavigation() {
       className={styles.nav}
       data-kt-app-shell="mobile-nav"
       data-commerce-nav={isCommerce ? "true" : undefined}
-      style={{ "--active-center": `${(Math.max(activeIndex, 0) + .5) * 20}%` } as React.CSSProperties}
     >
-      {activeIndex >= 0 && <svg className={styles.cradle} viewBox="0 0 100 44" aria-hidden="true" focusable="false"><path d="M0 44V36C15 36 16 30 23 16C34 -7 66 -7 77 16C84 30 85 36 100 36V44Z" /></svg>}
       {navItems.map((item, index) => {
         const isActive = index === activeIndex;
 
@@ -122,13 +118,10 @@ export function MobileNavigation() {
             href={item.href}
             className={`${styles.item} ${isActive ? styles.active : ""}`}
           >
-            {isActive ? <motion.span className={styles.icon} layoutId="kt-mobile-nav-active-bubble" transition={{ duration: reducedMotion ? 0 : .32, ease: [.22, 1, .36, 1] }}>
+            <span className={styles.icon}>
               {item.icon}
               {item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className={styles.badge}>{cartCount > 99 ? "99+" : cartCount}</span>}
-            </motion.span> : <span className={styles.icon}>
-              {item.icon}
-              {item.href === "/cart" && cartCount > 0 && <span aria-label={`${cartCount} items in cart`} className={styles.badge}>{cartCount > 99 ? "99+" : cartCount}</span>}
-            </span>}
+            </span>
             <span className={styles.label}>{item.label}</span>
           </Link>
         );
