@@ -10,10 +10,11 @@ import { usePublicMotionPreference } from "@/components/public-v2/motion/usePubl
 import { CategoryOrbitSpinner } from "./CategoryOrbitSpinner";
 import { CategoryFanDeck } from "./CategoryFanDeck";
 import { SubcategoryAccordion } from "./SubcategoryAccordion";
+import { CATEGORY_SPINNER_TIMING } from "./category-navigator-timing";
 import styles from "./category-navigator.module.css";
 
 export type CategoryNavigatorPhase = "intro-spin" | "major-categories" | "category-transition" | "subcategories" | "return-transition";
-type TransitionStep = "centering" | "orbit";
+type TransitionStep = "centering" | "orbit" | "resolving";
 
 export function CategoryAtlas({ categories }: { categories: readonly CinematicCategoryNode[] }) {
   const router = useRouter();
@@ -21,7 +22,7 @@ export function CategoryAtlas({ categories }: { categories: readonly CinematicCa
   const [phase, setPhase] = useState<CategoryNavigatorPhase>("intro-spin");
   const [introStep, setIntroStep] = useState<"spinning" | "resolving">("spinning");
   const [transitionStep, setTransitionStep] = useState<TransitionStep>("centering");
-  const [returnStep, setReturnStep] = useState<"folding" | "orbit">("folding");
+  const [returnStep, setReturnStep] = useState<"folding" | "orbit" | "resolving">("folding");
   const [activeMajorIndex, setActiveMajorIndex] = useState(0);
   const [selectedMajorIndex, setSelectedMajorIndex] = useState<number | null>(null);
   const [activeSubcategoryIndex, setActiveSubcategoryIndex] = useState(0);
@@ -55,27 +56,33 @@ export function CategoryAtlas({ categories }: { categories: readonly CinematicCa
       return () => window.clearTimeout(id);
     }
     if (phase === "intro-spin") {
-      const resolve = window.setTimeout(() => setIntroStep("resolving"), isCompact ? 600 : 1950);
-      const finish = window.setTimeout(() => setPhase("major-categories"), isCompact ? 750 : 2300);
+      const resolve = window.setTimeout(() => setIntroStep("resolving"), isCompact ? CATEGORY_SPINNER_TIMING.compactIntroResolveMs : CATEGORY_SPINNER_TIMING.introSpinMs);
+      const finish = window.setTimeout(() => setPhase("major-categories"), isCompact ? CATEGORY_SPINNER_TIMING.compactIntroFinishMs : CATEGORY_SPINNER_TIMING.introSpinMs + CATEGORY_SPINNER_TIMING.introResolveMs);
       return () => { window.clearTimeout(resolve); window.clearTimeout(finish); };
     }
     if (phase === "category-transition") {
-      const orbit = window.setTimeout(() => setTransitionStep("orbit"), prefersReducedMotion ? 0 : isCompact ? 90 : 220);
+      const orbit = window.setTimeout(() => setTransitionStep("orbit"), prefersReducedMotion ? 0 : isCompact ? CATEGORY_SPINNER_TIMING.compactSelectionCenterMs : CATEGORY_SPINNER_TIMING.selectionCenterMs);
+      const resolve = !prefersReducedMotion && !isCompact
+        ? window.setTimeout(() => setTransitionStep("resolving"), CATEGORY_SPINNER_TIMING.selectionCenterMs + CATEGORY_SPINNER_TIMING.selectionSpinMs)
+        : null;
       const finish = window.setTimeout(() => {
         const parent = selectedMajorIndex === null ? null : categories[selectedMajorIndex];
         if (parent && parent.children.length === 0) router.push(marketplaceCategoryHref(parent.path) ?? marketplaceHref());
         else { setActiveSubcategoryIndex(0); setPhase("subcategories"); }
-      }, prefersReducedMotion ? 150 : isCompact ? 570 : 1350);
-      return () => { window.clearTimeout(orbit); window.clearTimeout(finish); };
+      }, prefersReducedMotion ? CATEGORY_SPINNER_TIMING.reducedSelectionFinishMs : isCompact ? CATEGORY_SPINNER_TIMING.compactSelectionFinishMs : CATEGORY_SPINNER_TIMING.selectionCenterMs + CATEGORY_SPINNER_TIMING.selectionSpinMs + CATEGORY_SPINNER_TIMING.selectionResolveMs);
+      return () => { window.clearTimeout(orbit); if (resolve !== null) window.clearTimeout(resolve); window.clearTimeout(finish); };
     }
     if (phase === "return-transition") {
-      const orbit = window.setTimeout(() => setReturnStep("orbit"), prefersReducedMotion ? 0 : isCompact ? 100 : 200);
+      const orbit = window.setTimeout(() => setReturnStep("orbit"), prefersReducedMotion ? 0 : isCompact ? CATEGORY_SPINNER_TIMING.compactReturnFoldMs : CATEGORY_SPINNER_TIMING.returnFoldMs);
+      const resolve = !prefersReducedMotion && !isCompact
+        ? window.setTimeout(() => setReturnStep("resolving"), CATEGORY_SPINNER_TIMING.returnFoldMs + CATEGORY_SPINNER_TIMING.returnSpinMs)
+        : null;
       const finish = window.setTimeout(() => {
         restoreFocus.current = true;
         setSelectedMajorIndex(null);
         setPhase("major-categories");
-      }, prefersReducedMotion ? 150 : isCompact ? 470 : 960);
-      return () => { window.clearTimeout(orbit); window.clearTimeout(finish); };
+      }, prefersReducedMotion ? CATEGORY_SPINNER_TIMING.reducedReturnFinishMs : isCompact ? CATEGORY_SPINNER_TIMING.compactReturnFinishMs : CATEGORY_SPINNER_TIMING.returnFoldMs + CATEGORY_SPINNER_TIMING.returnSpinMs + CATEGORY_SPINNER_TIMING.returnResolveMs);
+      return () => { window.clearTimeout(orbit); if (resolve !== null) window.clearTimeout(resolve); window.clearTimeout(finish); };
     }
   }, [phase, prefersReducedMotion, isCompact, selectedMajorIndex, categories, router]);
 
@@ -93,9 +100,9 @@ export function CategoryAtlas({ categories }: { categories: readonly CinematicCa
 
   const interactive = phase === "major-categories" || (isCompact && phase === "intro-spin");
   const selectedMajor = selectedMajorIndex === null ? null : categories[selectedMajorIndex];
-  const showOrbit = !prefersReducedMotion && !isCompact && (phase === "intro-spin" || (phase === "category-transition" && transitionStep === "orbit") || (phase === "return-transition" && returnStep === "orbit"));
+  const showOrbit = !prefersReducedMotion && !isCompact && (phase === "intro-spin" || (phase === "category-transition" && transitionStep !== "centering") || (phase === "return-transition" && returnStep !== "folding"));
   const darkScene = phase === "major-categories" || phase === "subcategories" || (phase === "intro-spin" && (isCompact || introStep === "resolving")) || (phase === "category-transition" && transitionStep === "centering");
-  const showFan = phase === "major-categories" || phase === "category-transition" || (phase === "return-transition" && returnStep === "orbit") || (phase === "intro-spin" && (isCompact || introStep === "resolving"));
+  const showFan = phase === "major-categories" || phase === "category-transition" || (phase === "return-transition" && returnStep !== "folding") || (phase === "intro-spin" && (isCompact || introStep === "resolving"));
 
   function rotate(direction: number) {
     if (!interactive) return;
@@ -151,11 +158,11 @@ export function CategoryAtlas({ categories }: { categories: readonly CinematicCa
           <span className={styles.eyebrow}>CATEGORIES / {String(activeMajorIndex + 1).padStart(2, "0")}—{String(categories.length).padStart(2, "0")}</span>
           <h1>Shop by category</h1>
         </div>
-        {showOrbit && <CategoryOrbitSpinner key={`${phase}-${selectedMajorIndex}`} categories={categories} destinationIndex={selectedMajorIndex ?? 0} kind={phase === "intro-spin" ? "intro" : phase === "return-transition" ? "return" : "selection"} resolving={phase === "intro-spin" && introStep === "resolving"} />}
+        {showOrbit && <CategoryOrbitSpinner key={`${phase}-${selectedMajorIndex}`} categories={categories} destinationIndex={selectedMajorIndex ?? 0} kind={phase === "intro-spin" ? "intro" : phase === "return-transition" ? "return" : "selection"} resolving={(phase === "intro-spin" && introStep === "resolving") || (phase === "category-transition" && transitionStep === "resolving") || (phase === "return-transition" && returnStep === "resolving")} />}
         {phase === "intro-spin" && !isCompact && !prefersReducedMotion && <button type="button" className={styles.skipIntro} onClick={() => { setHasUserInteracted(true); setPhase("major-categories"); }}>Skip animation →</button>}
         {showFan && (
           <div className={styles.majorScene} aria-hidden={!interactive}>
-            <CategoryFanDeck categories={categories} activeIndex={activeMajorIndex} interactive={interactive} collapsed={(phase === "category-transition" && transitionStep === "orbit") || phase === "return-transition"} entering={phase === "intro-spin" && introStep === "resolving"} reducedMotion={prefersReducedMotion} cardRefs={cardRefs} mobileCardRefs={mobileCardRefs} onSelect={selectMajor} onActiveChange={setActiveMajorIndex} onDragEnd={handleDragEnd} />
+            <CategoryFanDeck categories={categories} activeIndex={activeMajorIndex} interactive={interactive} collapsed={(phase === "category-transition" && transitionStep !== "centering") || phase === "return-transition"} entering={phase === "intro-spin" && introStep === "resolving"} reducedMotion={prefersReducedMotion} cardRefs={cardRefs} mobileCardRefs={mobileCardRefs} onSelect={selectMajor} onActiveChange={setActiveMajorIndex} onDragEnd={handleDragEnd} />
             <div className={styles.deckControls}>
               <button type="button" onClick={() => rotate(-1)} disabled={!interactive} aria-label="Previous category">←</button>
               <span aria-live="polite">{String(activeMajorIndex + 1).padStart(2, "0")} / {String(categories.length).padStart(2, "0")}</span>

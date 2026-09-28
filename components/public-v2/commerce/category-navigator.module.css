@@ -1,6 +1,6 @@
 .stage {
   --fan-step: clamp(185px, 14.5vw, 285px);
-  --orbit-radius: clamp(280px, 23vw, 420px);
+  --orbit-radius: clamp(260px, 20vw, 360px);
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -16,9 +16,15 @@
 .eyebrow { display: block; font-size: .7rem; font-weight: 650; letter-spacing: .2em; text-transform: uppercase; color: var(--kt-public-text-inverse-muted); }
 .majorHeading h1 { margin: 12px 0 0; font-size: clamp(2.3rem, 4.8vw, 5rem); font-weight: 540; letter-spacing: -.055em; line-height: 1; }
 
-.orbitStage { position: absolute; inset: 0; display: grid; place-items: center; perspective: 1400px; pointer-events: none; }
-.orbitRing { position: relative; width: clamp(180px, 15vw, 260px); aspect-ratio: .74; transform-style: preserve-3d; }
-.orbitCard { position: absolute; inset: 0; overflow: hidden; border-radius: 12px; backface-visibility: hidden; border: 1px solid var(--kt-public-border-inverse); }
+.orbitStage { position: absolute; inset: 0; display: grid; place-items: center; overflow: visible; pointer-events: none; }
+.orbitViewport { position: relative; width: min(92vw, 1180px); height: min(70svh, 700px); display: grid; place-items: center; perspective: 1700px; perspective-origin: 50% 46%; overflow: visible; }
+.orbitRig { transform-style: preserve-3d; transform: rotateX(-10deg); }
+.orbitRing { position: relative; width: clamp(176px, 12vw, 220px); aspect-ratio: .74; transform-style: preserve-3d; }
+.orbitCard { position: absolute; inset: 0; transform-style: preserve-3d; overflow: visible; border: 0; background: transparent; }
+.orbitFace { position: absolute; inset: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--kt-public-border-subtle); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.orbitFaceFront { transform: rotateY(0deg) translateZ(.5px); }
+.orbitFaceBack { transform: rotateY(180deg) translateZ(.5px); }
+.orbitRearShade { position: absolute; inset: 0; pointer-events: none; /* kt-color-audit-allow: static photographic Carbon alpha shade on rear orbit faces */ background: rgba(11, 13, 15, .20); }
 .skipIntro { position: absolute; z-index: 6; right: clamp(20px, 4vw, 70px); bottom: 32px; padding: 10px 0; border: 0; background: transparent; color: var(--kt-public-text-primary); font-size: .85rem; font-weight: 600; cursor: pointer; }
 .image { object-fit: cover; object-position: center; }
 .imageShade, .stripShade { position: absolute; inset: 0; pointer-events: none; /* kt-color-audit-allow: photographic Carbon alpha readability mask over source media */ background: linear-gradient(180deg, transparent 35%, rgba(11, 13, 15, .28) 55%, rgba(11, 13, 15, .88) 100%); }

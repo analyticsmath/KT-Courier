@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import postcss from "postcss";
 import { FEATURED_MARKETPLACE_CATEGORY_PATHS } from "@/lib/public-marketplace/featured-categories";
 import { buildCinematicCategoryNavigation } from "@/lib/public-marketplace/category-navigation-model";
 import { categoryTransitionId } from "@/lib/public-marketplace/category-transition-id";
 import { categoryFanPose, wrappedCategoryDelta } from "@/components/public-v2/commerce/category-navigator-geometry";
+import { CATEGORY_SPINNER_TIMING } from "@/components/public-v2/commerce/category-navigator-timing";
 
 const source = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
 const page = source("app/(public)/shop/categories/page.tsx");
@@ -15,6 +17,15 @@ const orbit = source("components/public-v2/commerce/CategoryOrbitSpinner.tsx");
 const accordion = source("components/public-v2/commerce/SubcategoryAccordion.tsx");
 const css = source("components/public-v2/commerce/category-navigator.module.css");
 const model = source("lib/public-marketplace/category-navigation-model.ts");
+const timing = source("components/public-v2/commerce/category-navigator-timing.ts");
+
+function orbitStyle(selector: string): Map<string, string> {
+  const declarations = new Map<string, string>();
+  postcss.parse(css).walkRules(selector, (rule) => rule.walkDecls((declaration) => {
+    declarations.set(declaration.prop, declaration.value);
+  }));
+  return declarations;
+}
 
 describe("cinematic category navigation", () => {
   it("keeps authored ordering and enriches children from one full taxonomy", () => {
@@ -45,13 +56,50 @@ describe("cinematic category navigation", () => {
     expect(navigator).not.toContain("setInterval");
   });
 
-  it("uses finite count-derived 3D orbit geometry", () => {
+  it("uses one readable revolution for each count-derived 3D orbit", () => {
     expect(orbit).toContain("360 / categories.length");
     expect(orbit).toMatch(/rotateY\(\$\{index \* angleStep\}deg\) translateZ/);
-    expect(css).toContain("perspective: 1400px");
-    expect(css).toContain("transform-style: preserve-3d");
-    expect(css).toContain("backface-visibility: hidden");
-    expect(orbit).toContain("resolving ? 0.4 : 1.95");
+    expect(orbit).toContain('kind === "intro" ? 360');
+    expect(orbit).toContain("selectedFrontRotation + 360");
+    expect(orbit).toContain("selectedFrontRotation - 360");
+    expect(orbit).toContain("const selectedFrontRotation = -destinationIndex * angleStep");
+    expect(orbit).not.toMatch(/720(?:deg)?/);
+    expect(orbit).not.toMatch(/\bopacity\s*:/);
+    expect(orbit).toContain("CATEGORY_SPINNER_TIMING");
+    expect(navigator).toContain("CATEGORY_SPINNER_TIMING");
+    expect(timing).toContain("CATEGORY_SPINNER_TIMING");
+    expect(CATEGORY_SPINNER_TIMING.introSpinMs).toBeGreaterThanOrEqual(3200);
+    expect(CATEGORY_SPINNER_TIMING.selectionSpinMs).toBeGreaterThanOrEqual(2000);
+    expect(CATEGORY_SPINNER_TIMING.returnSpinMs).toBeGreaterThanOrEqual(1500);
+    expect(CATEGORY_SPINNER_TIMING.introSpinMs + CATEGORY_SPINNER_TIMING.introResolveMs).toBe(4050);
+    expect(CATEGORY_SPINNER_TIMING.selectionCenterMs + CATEGORY_SPINNER_TIMING.selectionSpinMs + CATEGORY_SPINNER_TIMING.selectionResolveMs).toBe(2900);
+    expect(CATEGORY_SPINNER_TIMING.returnFoldMs + CATEGORY_SPINNER_TIMING.returnSpinMs + CATEGORY_SPINNER_TIMING.returnResolveMs).toBe(2350);
+    expect([CATEGORY_SPINNER_TIMING.compactIntroResolveMs, CATEGORY_SPINNER_TIMING.compactIntroFinishMs, CATEGORY_SPINNER_TIMING.compactSelectionCenterMs, CATEGORY_SPINNER_TIMING.compactSelectionFinishMs, CATEGORY_SPINNER_TIMING.compactReturnFoldMs, CATEGORY_SPINNER_TIMING.compactReturnFinishMs]).toEqual([600, 750, 90, 570, 100, 470]);
+  });
+
+  it("keeps the pitched, two-sided orbit spatially intact", () => {
+    expect(orbitStyle(".orbitViewport").get("perspective")).toBe("1700px");
+    expect(orbitStyle(".orbitViewport").get("perspective-origin")).toBe("50% 46%");
+    expect(orbitStyle(".orbitStage").get("overflow")).toBe("visible");
+    expect(orbitStyle(".orbitViewport").get("overflow")).toBe("visible");
+    expect(orbitStyle(".orbitRig").get("transform")).toBe("rotateX(-10deg)");
+    expect(orbitStyle(".stage").get("--orbit-radius")).toBe("clamp(260px, 20vw, 360px)");
+    expect(orbitStyle(".orbitRing").get("width")).toBe("clamp(176px, 12vw, 220px)");
+    for (const selector of [".orbitRig", ".orbitRing", ".orbitCard"]) {
+      const style = orbitStyle(selector);
+      expect(style.get("transform-style")).toBe("preserve-3d");
+      expect(style.get("overflow")).not.toBe("hidden");
+      for (const flattening of ["opacity", "filter", "clip-path", "mask", "mix-blend-mode", "contain"]) expect(style.has(flattening)).toBe(false);
+    }
+    expect(orbitStyle(".orbitCard").get("overflow")).toBe("visible");
+    expect(orbitStyle(".orbitFace").get("backface-visibility")).toBe("hidden");
+    expect(orbitStyle(".orbitFace").get("overflow")).toBe("hidden");
+    expect(orbitStyle(".orbitFace").get("-webkit-backface-visibility")).toBe("hidden");
+    expect(orbitStyle(".orbitFaceBack").get("transform")).toBe("rotateY(180deg) translateZ(.5px)");
+    expect(orbitStyle(".orbitRearShade").get("background")).toBe("rgba(11, 13, 15, .20)");
+    expect(orbit).toContain("styles.orbitFaceFront");
+    expect(orbit).toContain("styles.orbitFaceBack");
+    expect(orbit.match(/<Image\b/g)).toHaveLength(2);
   });
 
   it("distinguishes center, neighbors and outer cards with safe wrapping", () => {
@@ -97,7 +145,7 @@ describe("cinematic category navigation", () => {
 
   it("keeps reduced motion and touch layouts navigable without autoplay", () => {
     expect(navigator).toContain('prefersReducedMotion && phase === "intro-spin"');
-    expect(navigator).toContain("prefersReducedMotion ? 150");
+    expect(navigator).toContain("CATEGORY_SPINNER_TIMING.reducedSelectionFinishMs");
     expect(navigator).toContain("!prefersReducedMotion && !isCompact");
     expect(css).toContain(".reduced .strip");
     expect(css).toContain("scroll-snap-type: x mandatory");
