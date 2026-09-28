@@ -8,7 +8,7 @@ import { CommerceSearchCommand } from "@/components/public-v2/commerce/CommerceS
 import { homeMedia } from "@/components/public-v2/home/home-media";
 import { marketplaceStoreHref, marketplaceStoresHref } from "@/lib/public-marketplace/routes";
 import type { MarketplaceStore } from "./MarketplaceLanding";
-import { selectCinemaStores } from "./store-cinema-selection";
+import { circularRelative, selectCinemaStores } from "./store-cinema-selection";
 import styles from "./store-cinema.module.css";
 
 const mobileQuery = "(max-width: 767px)";
@@ -23,17 +23,19 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 type StorePose = { x: number; scale: number; opacity: number; shade: number; depth: number };
 const roles = [
-  { relative: -3, x: -70, scale: .28, opacity: 0 },
-  { relative: -2, x: -42, scale: .35, opacity: .48 },
-  { relative: -1, x: -24, scale: .44, opacity: .78 },
+  { relative: -3.5, x: -45, scale: .25, opacity: 0 },
+  { relative: -3, x: -39, scale: .28, opacity: .48 },
+  { relative: -2, x: -30, scale: .35, opacity: .72 },
+  { relative: -1, x: -20, scale: .46, opacity: .9 },
   { relative: 0, x: 0, scale: 1, opacity: 1 },
-  { relative: 1, x: 26, scale: .44, opacity: .78 },
-  { relative: 2, x: 43, scale: .35, opacity: .48 },
-  { relative: 3, x: 70, scale: .28, opacity: 0 },
+  { relative: 1, x: 20, scale: .46, opacity: .9 },
+  { relative: 2, x: 30, scale: .35, opacity: .72 },
+  { relative: 3, x: 39, scale: .28, opacity: .48 },
+  { relative: 3.5, x: 45, scale: .25, opacity: 0 },
 ] as const;
 
 function rolePose(relative: number): StorePose {
-  const r = clamp(relative, -3, 3);
+  const r = clamp(relative, -3.5, 3.5);
   const right = Math.min(roles.length - 1, Math.max(1, roles.findIndex((role) => role.relative >= r)));
   const before = roles[right - 1]!;
   const after = roles[right]!;
@@ -41,7 +43,7 @@ function rolePose(relative: number): StorePose {
   const interpolate = (key: "x" | "scale" | "opacity") => before[key] + (after[key] - before[key]) * mix;
   const distance = Math.abs(relative);
   return {
-    x: interpolate("x"), scale: interpolate("scale"), opacity: distance >= 3 ? 0 : interpolate("opacity"),
+    x: interpolate("x"), scale: interpolate("scale"), opacity: interpolate("opacity"),
     shade: clamp(distance * .18, 0, .3),
     depth: Math.round(100 - distance * 12),
   };
@@ -51,17 +53,17 @@ function storeImage(store: MarketplaceStore) {
   return store.heroMediaReference ? `/api/catalog/media/${store.heroMediaReference}` : homeMedia.merchantPrepare.src;
 }
 
-function CinemaPanel({ store, index, storeFloat, preload }: {
-  store: MarketplaceStore; index: number; storeFloat: MotionValue<number>; preload: boolean;
+function CinemaPanel({ store, index, count, storeFloat, preload }: {
+  store: MarketplaceStore; index: number; count: number; storeFloat: MotionValue<number>; preload: boolean;
 }) {
-  const relative = useTransform(storeFloat, (value) => index - value);
+  const relative = useTransform(storeFloat, (value) => circularRelative(index, value, count));
   const pose = useTransform(relative, rolePose);
   const x = useTransform(pose, (value) => `calc(${value.x}vw - 50%)`);
   const scale = useTransform(pose, (value) => value.scale);
   const opacity = useTransform(pose, (value) => value.opacity);
   const zIndex = useTransform(pose, (value) => value.depth);
   const shade = useTransform(pose, (value) => value.shade);
-  return <motion.article className={styles.panel} style={{ x, y: "-50%", scale, opacity, zIndex }} aria-label={store.name}>
+  return <motion.article className={styles.panel} style={{ x, y: "-50%", scale, opacity, zIndex }} aria-hidden="true">
     <Image alt="" fill preload={preload} sizes="(max-width: 1199px) 44vw, 600px" src={storeImage(store)} className={styles.panelImage} />
     <motion.span className={styles.panelShade} style={{ opacity: shade }} aria-hidden="true" />
   </motion.article>;
@@ -144,7 +146,7 @@ export function StoreCinema({ stores, mode, query = "" }: {
         </motion.div>
       </AnimatePresence></div>
       <div className={styles.belt} aria-hidden={native} inert={native}>
-        {featured.map((store, index) => <CinemaPanel key={store.reference} store={store} index={index} storeFloat={storeFloat} preload={index < 3 && !native} />)}
+        {featured.map((store, index) => <CinemaPanel key={store.reference} store={store} index={index} count={featured.length} storeFloat={storeFloat} preload={index < 3 && !native} />)}
       </div>
       <div className={styles.focusAperture}>
         <span className={styles.focusOutline} aria-hidden="true" />

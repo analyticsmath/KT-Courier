@@ -40,7 +40,7 @@ describe("Commerce precision III", () => {
     expect(cinema).toContain("className={styles.focusOutline}");
     expect(cinema).toContain("className={styles.focusLink}");
     expect(cinema).not.toContain("styles.panelOutline");
-    expect(cinema).toContain("index - value");
+    expect(cinema).toContain("circularRelative(index, value, count)");
     expect(declarations(`${shop}store-cinema.module.css`, ".focusAperture")[0]?.transform).toBe("translate(-50%, -50%)");
     expect(declarations(`${shop}store-cinema.module.css`, ".directoryTitle")[0]?.["text-align"]).toBe("right");
     expect(declarations(`${shop}store-cinema.module.css`, ".bottomRow")[0]?.top).toContain("var(--store-focus-height) / 2");
@@ -58,10 +58,11 @@ describe("Commerce precision III", () => {
     expect(card).not.toContain("View item");
     expect(grid).toContain('<MarketplaceProductCard variant="grid"');
     expect(shelf).toContain('variant="shelf"');
-    expect(pdp).toContain('variant="related"');
+    expect(pdp).toContain("<MarketplaceProductRail");
+    expect(source(`${commerce}MarketplaceProductRail.tsx`)).toContain('variant="related"');
     expect(declarations(`${commerce}commerce.module.css`, ".productGrid")[0]?.["grid-template-columns"]).toContain("repeat(4");
     expect(declarations(`${commerce}commerce.module.css`, ".shopViewportRoot .productGrid").at(-1)?.["grid-template-columns"]).toBe("repeat(2, minmax(0, 1fr))");
-    expect(declarations(`${commerce}marketplace-product-card.module.css`, ".related").at(-1)?.flex).toBe("0 0 min(44vw, 190px)");
+    expect(declarations(`${commerce}marketplace-product-card.module.css`, ".related").at(-1)?.flex).toBe("0 0 calc((100vw - 44px) / 2)");
   });
 
   it("shows real circular PDP thumbnails and keeps navigation above the purchase dock", () => {
@@ -86,15 +87,16 @@ describe("Commerce precision III", () => {
     expect(pdpCss).toContain("height: clamp(440px, 64svh, 650px)");
   });
 
-  it("builds mobile discovery from live marketplace content", () => {
+  it("builds mobile discovery from market photography and live category circles", () => {
     const discovery = source(`${shop}ShopMobileDiscovery.tsx`);
     const landing = source(`${shop}MarketplaceLanding.tsx`);
     const css = source(`${shop}shop-flagship.module.css`);
-    expect(landing).toContain("<ShopMobileDiscovery categories={categories} products={products} />");
-    expect(discovery).toContain("products.find((product) => product.primaryMedia");
+    expect(landing).toContain("<ShopMobileDiscovery categories={categories} />");
+    expect(discovery).not.toContain("products.find(");
+    expect(discovery).toContain("/media/public/home/kt-home-01-world-market.webp");
     expect(discovery).toContain("<CommerceSearchCommand appearance=\"shop\" />");
     expect(discovery).toContain("<ShopCategoryCircleRail categories={categories} />");
     expect(css).toContain("background: var(--kt-cobalt-deep)");
-    expect(css).toContain("min(66vw, 250px)");
+    expect(css).toContain("min(66vw, 245px)");
   });
 });

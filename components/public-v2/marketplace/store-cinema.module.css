@@ -1,15 +1,15 @@
 .scene, .emptyScene { background: var(--kt-public-surface-inverse); color: var(--kt-public-text-inverse); }
 .scene { position: relative; height: var(--scene-scroll-height); }
 .scene:focus-visible { outline: 2px solid var(--kt-public-focus); outline-offset: -4px; }
-.sticky { --store-focus-width: clamp(470px, 31vw, 610px); --store-focus-height: min(64svh, 650px); position: sticky; top: calc(var(--shop-header-offset, 66px) + 48px); height: calc(100svh - var(--shop-header-offset, 66px) - 48px); min-height: 590px; overflow: hidden; isolation: isolate; }
+.sticky { --store-focus-width: clamp(520px, 31vw, 610px); --store-focus-height: clamp(600px, 64svh, 650px); position: sticky; top: calc(var(--shop-header-offset, 66px) + 48px); height: calc(100svh - var(--shop-header-offset, 66px) - 48px); min-height: 590px; overflow: hidden; isolation: isolate; }
 .topRow { position: absolute; z-index: 150; top: clamp(24px, 3.2vw, 52px); right: clamp(24px, 3.5vw, 72px); left: clamp(24px, 3.5vw, 72px); display: flex; align-items: center; justify-content: space-between; gap: 28px; }
 .marker { flex: 1; font: 650 .72rem/1.2 monospace; letter-spacing: .15em; }
 .topRight { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 24px; white-space: nowrap; font: 600 .78rem/1.2 monospace; }
 .topRight a { color: var(--kt-public-text-inverse); text-underline-offset: 5px; }
-.cinemaSearch { position: absolute; top: 52px; left: 0; width: min(25vw, 390px); min-width: 300px; }
-.editorialTitle { position: absolute; z-index: 110; top: 27%; left: clamp(24px, 5vw, 96px); width: min(28vw, 420px); pointer-events: none; }
-.editorialTitle h1, .editorialTitle h2 { margin: 0; color: var(--kt-public-text-inverse); font-size: clamp(2.3rem, 3.5vw, 4.4rem); font-weight: 630; line-height: .98; letter-spacing: -.05em; overflow-wrap: normal; word-break: normal; hyphens: none; text-wrap: balance; }
-.directoryTitle { top: 96px; right: clamp(48px, 6vw, 110px); left: auto; width: min(31vw, 520px); text-align: right; }
+.cinemaSearch { position: absolute; top: 52px; left: 0; width: clamp(330px, 25vw, 390px); }
+.editorialTitle { position: absolute; z-index: 110; top: 27%; left: clamp(24px, 5vw, 96px); width: clamp(340px, 28vw, 460px); pointer-events: none; }
+.editorialTitle h1, .editorialTitle h2 { margin: 0; color: var(--kt-public-text-inverse); font-size: clamp(2rem, 3vw, 3.8rem); font-weight: 630; line-height: .96; letter-spacing: -.05em; overflow-wrap: normal; word-break: normal; hyphens: none; text-wrap: balance; }
+.directoryTitle { top: 112px; right: clamp(56px, 5vw, 90px); left: auto; width: clamp(360px, 28vw, 480px); text-align: right; }
 .belt { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .panel { position: absolute; left: 50%; top: 51%; width: var(--store-focus-width); height: var(--store-focus-height); transform-origin: center; background: var(--kt-public-surface-secondary); pointer-events: none; }
 .panelImage { object-fit: cover; }
@@ -45,6 +45,7 @@
   .sticky { --store-focus-width: clamp(390px, 38vw, 520px); --store-focus-height: min(60svh, 540px); }
   .directoryTitle { top: 120px; }
 }
+@media (max-height: 840px) and (min-width: 1200px) { .sticky { --store-focus-height: min(64svh, 560px); } }
 @media (max-width: 767px), (prefers-reduced-motion: reduce) {
   .scene { height: auto; }
   .sticky { position: relative; top: auto; height: auto; min-height: 0; padding: 24px 0 28px; overflow: hidden; }
@@ -58,7 +59,7 @@
   .focusAperture { display: none; }
   .nativeRail { display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 12px 16px 18px; }
   .nativeRail::-webkit-scrollbar { display: none; }
-  .nativeCard { position: relative; flex: 0 0 min(86vw, 420px); height: min(66svh, 520px); scroll-snap-align: center; background: var(--kt-public-surface-secondary); }
+  .nativeCard { position: relative; flex: 0 0 min(86vw, 420px); height: min(60svh, 520px); scroll-snap-align: center; background: var(--kt-public-surface-secondary); }
   .nativeCardActive { outline: 1px dashed var(--kt-public-text-inverse); outline-offset: 8px; }
   .nativeCard a { position: absolute; inset: 0; display: flex; align-items: flex-end; color: var(--kt-public-text-inverse); text-decoration: none; }
   .nativeCard img { object-fit: cover; }
@@ -71,6 +72,7 @@
   .emptyTop { flex-wrap: wrap; }
   .emptyTop .cinemaSearch { order: 2; }
 }
+@media (max-width: 767px) { .sticky { padding-bottom: calc(var(--shop-bottom-nav-clearance, 0px) + 28px); } }
 @media (prefers-reduced-motion: reduce) and (min-width: 768px) {
   .sticky { padding-block: 35px; }
   .nativeCard { flex-basis: min(45vw, 420px); }

@@ -30,7 +30,7 @@ export function MarketplaceLanding({ categories, stores, products, shelves }: {
   const categoryByPath = new Map(categories.map((category) => [category.path.replace(/^\/+|\/+$/g, ""), category]));
   return <main className={styles.shop} id="storefront-content">
     <ShopCategoryFilm categories={categories} />
-    <ShopMobileDiscovery categories={categories} products={products} />
+    <ShopMobileDiscovery categories={categories} />
     <ShopBrowseCommand categories={categories} />
     <div className={styles.shelves}>
       <ShopProductShelf title="New in the Market" href={marketplaceSearchHref()} linkLabel="Search all items" products={products} kind="new" priority />

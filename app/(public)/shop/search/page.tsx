@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  CommerceResultsLayout,
-  CommerceSearchCommand,
-} from "@/components/public-v2/commerce";
+import { CommerceResultsLayout } from "@/components/public-v2/commerce";
+import { SearchMarketplaceHero } from "@/components/public-v2/commerce/SearchMarketplaceHero";
 import { MarketplaceSearchDiscovery } from "@/components/public-v2/marketplace/MarketplaceResults";
 import styles from "@/components/public-v2/commerce/commerce.module.css";
 import {
@@ -48,13 +46,8 @@ export default async function SearchPage({
 
   const title = filters.q ? `Results for “${filters.q}”` : "Search the Marketplace";
 
-  const context = (
+  const context = result.correction || categories.length > 0 || stores.length > 0 ? (
     <div className={styles.searchResultsContext}>
-      {/* Search Input Command */}
-      <div className={styles.searchResultsField}>
-        <CommerceSearchCommand query={filters.q || ""} showFilterButton />
-      </div>
-
       {/* Did you mean suggestion */}
       {result.correction && (
         <p className={styles.searchCorrection}>
@@ -118,7 +111,7 @@ export default async function SearchPage({
         <MarketplaceSearchDiscovery categories={categories} stores={stores} />
       </div>
     </div>
-  );
+  ) : null;
 
   return (
     <main className={styles.commerceRoot} id="storefront-content">
@@ -128,6 +121,8 @@ export default async function SearchPage({
           { label: "Search" },
         ]}
         context={context}
+        hero={<SearchMarketplaceHero query={filters.q || ""} />}
+        hideDefaultIntro
         description="Search results across local independent stores and marketplace categories."
         emptyDescription="We couldn’t find products matching your search. Try searching for a broader term or browse all categories."
         emptyTitle="No results found"

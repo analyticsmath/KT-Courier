@@ -14,7 +14,7 @@ import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 import styles from "./commerce.module.css";
 
 interface CommerceSearchCommandProps {
-  appearance?: "default" | "shop" | "cinema";
+  appearance?: "default" | "shop" | "cinema" | "hero";
   action?: string;
   query?: string;
   placeholder?: string;
@@ -168,7 +168,7 @@ export function CommerceSearchCommand({
 
   return (
     <div
-      className={`${styles.searchCommandShell} ${appearance === "shop" ? styles.shopSearchShell : appearance === "cinema" ? styles.cinemaSearchShell : ""}`}
+      className={`${styles.searchCommandShell} ${appearance === "shop" ? styles.shopSearchShell : appearance === "cinema" ? styles.cinemaSearchShell : appearance === "hero" ? styles.heroSearchShell : ""}`}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
           setFocused(false);

@@ -24,6 +24,8 @@ interface CommerceResultsLayoutProps {
   description?: string;
   breadcrumbs?: BreadcrumbItem[];
   context?: ReactNode;
+  hero?: ReactNode;
+  hideDefaultIntro?: boolean;
   result: StorefrontSearchResponse;
   filters: StorefrontFilterInput;
   route: MarketplaceListingRoute;
@@ -49,6 +51,8 @@ export async function CommerceResultsLayout({
   description,
   breadcrumbs = [{ label: "Shop", href: marketplaceHref() }],
   context,
+  hero,
+  hideDefaultIntro = false,
   result,
   filters,
   route,
@@ -101,12 +105,14 @@ export async function CommerceResultsLayout({
   const { results, resultCount } = result;
 
   return (
-    <div className={styles.commerceInner}>
+    <>
+    {hero}
+    <div className={`${styles.commerceInner} ${hero ? styles.resultsAfterHero : ""}`}>
       {/* Breadcrumb Bar */}
-      {breadcrumbs.length > 0 && <CommerceBreadcrumbs items={breadcrumbs} />}
+      {!hideDefaultIntro && breadcrumbs.length > 0 && <CommerceBreadcrumbs items={breadcrumbs} />}
 
       {/* Header & Title Plane */}
-      <div className={styles.resultsIntro}>
+      {!hideDefaultIntro && <div className={styles.resultsIntro}>
         <Title className={styles.resultsTitle}>
           {title}
         </Title>
@@ -115,7 +121,7 @@ export async function CommerceResultsLayout({
             {description}
           </p>
         )}
-      </div>
+      </div>}
 
       {/* Optional Context (e.g. Search Suggestions or Category Media) */}
       {context}
@@ -166,5 +172,6 @@ export async function CommerceResultsLayout({
         </div>
       </div>
     </div>
+    </>
   );
 }

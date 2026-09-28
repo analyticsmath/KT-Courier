@@ -20,9 +20,7 @@ import { formatCommercePrice } from "@/lib/public-marketplace/commerce-presentat
 import { ProductMediaGallery } from "./ProductMediaGallery";
 import { SellerSelector } from "./SellerSelector";
 import { ProductInformation } from "./ProductInformation";
-import { ProductGrid } from "./ProductGrid";
-import { MarketplaceProductCard } from "./MarketplaceProductCard";
-import shelfStyles from "@/components/public-v2/marketplace/shop-flagship.module.css";
+import { MarketplaceProductRail } from "./MarketplaceProductRail";
 import { triggerCartFlight } from "./AddToCartFlightPortal";
 import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
@@ -665,36 +663,14 @@ export function ProductDetailExperience({
       {/* Same Store Products */}
       {sameStoreProducts.length > 0 && (
         <section aria-labelledby="pdp-same-store-heading" className={styles.pdpRelatedSection}>
-          <div className={styles.commerceSectionHeader}>
-            <h2 id="pdp-same-store-heading">
-              More from {store?.name || "this store"}
-            </h2>
-            {storeHref && (
-              <Link className={styles.sectionDirectLink} href={storeHref}>
-                All store items &rarr;
-              </Link>
-            )}
-          </div>
-          <div className={styles.pdpRelatedDesktop}><ProductGrid label={`More from ${store?.name}`} products={sameStoreProducts} /></div>
-          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label={`More from ${store?.name || "this store"}`}>{sameStoreProducts.map((item) => <MarketplaceProductCard key={item.productReference} variant="related" product={item} />)}</ul>
+          <MarketplaceProductRail headingId="pdp-same-store-heading" title={`More from ${store?.name || "this store"}`} href={storeHref} linkLabel="All store items" products={sameStoreProducts} />
         </section>
       )}
 
       {/* Related Category Products */}
       {relatedProducts.length > 0 && (
         <section aria-labelledby="pdp-related-heading" className={styles.pdpRelatedSection}>
-          <div className={styles.commerceSectionHeader}>
-            <h2 id="pdp-related-heading">
-              You may also like
-            </h2>
-            {categoryHref && (
-              <Link className={styles.sectionDirectLink} href={categoryHref}>
-                Explore category &rarr;
-              </Link>
-            )}
-          </div>
-          <div className={styles.pdpRelatedDesktop}><ProductGrid label="Related products" products={relatedProducts} /></div>
-          <ul className={`${styles.pdpRelatedMobileTrack} ${shelfStyles.productTrack}`} aria-label="Related products">{relatedProducts.map((item) => <MarketplaceProductCard key={item.productReference} variant="related" product={item} />)}</ul>
+          <MarketplaceProductRail headingId="pdp-related-heading" title="You may also like" href={categoryHref} linkLabel="Explore category" products={relatedProducts} />
         </section>
       )}
 

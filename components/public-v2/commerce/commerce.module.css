@@ -134,7 +134,14 @@
 .merchantDirectoryEmpty p { margin: 8px 0 24px; color: var(--commerce-muted); }
 .desktopFilterRailHeader { margin: 0 0 14px; color: var(--commerce-muted); font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .searchResultsContext { margin-bottom: 2rem; }
-.searchResultsField { max-width: 540px; margin-bottom: 1.5rem; }
+.resultsAfterHero { padding-top: clamp(48px, 4vw, 64px); }
+.searchMarketplaceHero { min-height: clamp(330px, 38vw, 470px); background-image: linear-gradient(90deg, rgb(11 13 15 / .86) 0%, rgb(11 13 15 / .5) 52%, rgb(11 13 15 / .23) 100%), url("/media/public/home/kt-home-01-world-market.webp"); background-size: cover; background-position: center 56%; color: var(--kt-public-text-inverse); }
+.searchMarketplaceHeroContent { box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; width: min(100%, 88rem); min-height: inherit; margin-inline: auto; padding: 20px var(--kt-grid-inset, 2rem) 44px; }
+.searchMarketplaceHero .commerceBreadcrumbs { padding: 0; color: var(--kt-public-text-inverse); }
+.searchMarketplaceHero .commerceBreadcrumbs [aria-current="page"] { color: var(--kt-public-text-inverse); }
+.searchMarketplaceHeroCopy h1 { max-width: 12ch; margin: 0; font-size: clamp(3rem, 5.4vw, 6rem); font-weight: 600; line-height: .96; letter-spacing: -.055em; text-transform: uppercase; }
+.searchMarketplaceHeroCopy p { max-width: 42ch; margin: 14px 0 0; font-size: clamp(.95rem, 1.25vw, 1.15rem); line-height: 1.45; }
+.searchMarketplaceHeroField { width: min(100%, 570px); margin-top: 24px; }
 .searchCorrection { margin: 0 0 1rem; color: var(--commerce-ink); font-size: 1rem; }
 .searchDiscoveryGroups { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--commerce-line); }
 .searchDiscoveryGroup { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
@@ -935,8 +942,10 @@
 
 .productGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(20px, 2.5vw, 32px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: clamp(18px, 1.6vw, 24px);
+  row-gap: clamp(36px, 3vw, 48px);
+  align-items: stretch;
   list-style: none;
   padding: 0;
   margin: 0;
@@ -944,14 +953,15 @@
 
 @media (max-width: 1199px) {
   .productGrid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 767px) {
   .productGrid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 11px;
+    row-gap: 24px;
   }
 }
 
@@ -3076,6 +3086,28 @@
   padding-bottom: clamp(4rem, 6vw, 6rem);
 }
 
+.recommendationRail { min-width: 0; }
+.recommendationHeader { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.recommendationHeader h2 { margin: 0; font-size: clamp(1.35rem, 2.2vw, 2rem); letter-spacing: -.035em; }
+.recommendationActions { display: flex; align-items: center; gap: 9px; flex: none; }
+.recommendationActions a { margin-right: 12px; white-space: nowrap; }
+.recommendationActions button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--kt-public-border-subtle); border-radius: 50%; background: var(--kt-public-surface-primary); color: var(--kt-public-text-primary); font-size: 1.2rem; cursor: pointer; }
+.recommendationActions button:focus-visible { outline: 2px solid var(--kt-public-focus); outline-offset: 2px; }
+.recommendationDeck { box-sizing: border-box; min-width: 0; overflow: hidden; border: 1px solid var(--kt-public-border-subtle); border-radius: 14px; background: var(--kt-public-surface-secondary); }
+.recommendationTrack { display: flex; align-items: stretch; gap: 18px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; scrollbar-width: none; margin: 0; padding: 16px; list-style: none; }
+.recommendationTrack::-webkit-scrollbar { display: none; }
+.recommendationTrack > li { flex: 0 0 calc((100% - 54px) / 4); scroll-snap-align: start; }
+@media (min-width: 1024px) and (max-width: 1279px) { .recommendationTrack > li { flex-basis: calc((100% - 36px) / 3); } }
+@media (max-width: 1023px) and (min-width: 768px) { .recommendationTrack > li { flex-basis: calc((100% - 18px) / 2); } }
+@media (max-width: 767px) {
+  .recommendationHeader { align-items: start; }
+  .recommendationActions { gap: 6px; }
+  .recommendationActions a { display: none; }
+  .recommendationActions button { width: 34px; height: 34px; }
+  .recommendationTrack { gap: 10px; padding: 10px; }
+  .recommendationTrack > li { flex-basis: calc((100vw - 44px) / 2); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .productTileMediaFrame img,
   .merchantNameRow,
@@ -3904,7 +3936,6 @@
 .quickBuyChoice[aria-checked="true"], .filterSortPill[data-selected="true"], .filterPricePill[data-selected="true"] { font-weight: 650; }
 
 /* Phone PDP: image-first layout and one persistent purchase location. */
-.pdpRelatedMobileTrack { display: none; }
 .pdpMobileThumbnailRail { display: flex; align-items: center; justify-content: center; gap: 9px; max-width: calc(100% - 38px); min-height: 58px; overflow-x: auto; scrollbar-width: none; pointer-events: auto; }
 .pdpMobileThumbnailRail::-webkit-scrollbar { display: none; }
 .pdpMobileThumbnailRail[data-overflow="true"] { justify-content: flex-start; }
@@ -3952,9 +3983,7 @@
   }
   .shopViewportRoot .pdpMobileStickyAddBtn,
   .shopViewportRoot .pdpMobileStickyBuyBtn { border-radius: 10px; }
-  .pdpRelatedDesktop { display: none; }
-  .pdpRelatedMobileTrack { display: flex; margin-inline: -16px; }
-  .shopViewportRoot .productGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+  .shopViewportRoot .productGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 11px; row-gap: 24px; }
   .pdpRelatedSection { margin-top: 32px; padding-top: 24px; }
   .pdpRelatedSection:last-of-type { padding-bottom: 20px; }
   .pdpDisclosureTrigger { min-height: 56px; padding-block: 17px; }
@@ -3971,6 +4000,7 @@
 /* Integrated Shop and store-cinema search appearances. Default PLP search stays intact. */
 .searchCommandShell.shopSearchShell { width: 100%; max-width: none; }
 .searchCommandShell.cinemaSearchShell { width: 100%; max-width: none; }
+.searchCommandShell.heroSearchShell { width: 100%; max-width: none; }
 .searchCommandShell.shopSearchShell .searchCommandForm,
 .searchCommandShell.cinemaSearchShell .searchCommandForm {
   box-sizing: border-box; width: 100%; max-width: none; height: 56px; border-radius: 14px;
@@ -4017,6 +4047,20 @@
 .searchCommandShell.cinemaSearchShell .searchSuggestionPanel {
   box-sizing: border-box; width: 100%; border-radius: 14px; background: var(--kt-public-surface-primary);
   color: var(--kt-public-text-primary);
+}
+.searchCommandShell.heroSearchShell .searchCommandForm { box-sizing: border-box; width: 100%; max-width: none; height: 58px; border: 0; border-radius: 12px; background: var(--kt-public-surface-primary); }
+.searchCommandShell.heroSearchShell .searchCommandInput { background: transparent; }
+.searchCommandShell.heroSearchShell .embeddedSearchSubmit { flex: none; width: 46px; height: 46px; margin: 6px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--kt-public-text-primary); }
+.searchCommandShell.heroSearchShell .embeddedSearchSubmit:hover { background: var(--kt-public-surface-secondary); }
+@media (max-width: 767px) {
+  .searchMarketplaceHero { min-height: clamp(300px, 48svh, 360px); background-position: 58% 56%; }
+  .searchMarketplaceHeroContent { padding: 24px 16px 30px; }
+  .searchMarketplaceHeroCopy h1 { max-width: 11ch; font-size: clamp(2.45rem, 10vw, 3.5rem); }
+  .searchMarketplaceHeroCopy p { max-width: 28ch; font-size: .88rem; }
+  .searchMarketplaceHeroField { margin-top: 16px; }
+  .searchCommandShell.heroSearchShell .searchCommandForm { height: 52px; }
+  .searchCommandShell.heroSearchShell .embeddedSearchSubmit { width: 40px; height: 40px; }
+  .recommendationDeck { margin-inline: -16px; }
 }
 @media (max-width: 767px) {
   .searchCommandShell.shopSearchShell .searchCommandForm,

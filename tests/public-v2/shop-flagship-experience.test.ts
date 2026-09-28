@@ -84,7 +84,7 @@ describe("Shop flagship contract", () => {
     expect(rules(css, ".shelf .productBody")[0]?.props.flex).toBe("1");
     expect(rules(css, ".productBottom")[0]?.props["margin-top"]).toBe("auto");
     expect(rules(css, ".shelfInner").some((rule) => rule.media === "max-width: 767px" && rule.props.width === "calc(100% - 32px)")).toBe(true);
-    expect(rules(css, ".shelf .productCard").some((rule) => rule.media === "max-width: 767px" && rule.props["flex-basis"] === "min(66vw, 250px)")).toBe(true);
+    expect(rules(css, ".shelf .productCard").some((rule) => rule.media === "max-width: 767px" && rule.props["flex-basis"] === "min(66vw, 245px)")).toBe(true);
     expect(stores).toContain("selectCinemaStores(stores, mode)");
     expect(source(`${shop}store-cinema-selection.ts`)).toContain("b.publishedOfferCount - a.publishedOfferCount");
     expect(source(`${shop}store-cinema-selection.ts`)).toContain(".slice(0, 7)");
@@ -94,7 +94,7 @@ describe("Shop flagship contract", () => {
     expect(rules(cinemaCss, ".nativeRail").some((rule) => rule.media.includes("max-width: 767px") && rule.props["scroll-snap-type"] === "x mandatory")).toBe(true);
   });
 
-  it("keeps Shop search integrated without changing the default Search route", () => {
+  it("keeps integrated Shop and marketplace hero search with suggestions", () => {
     const search = source("components/public-v2/commerce/CommerceSearchCommand.tsx");
     const searchCss = source("components/public-v2/commerce/commerce.module.css");
     const searchPage = source("app/(public)/shop/search/page.tsx");
@@ -106,7 +106,8 @@ describe("Shop flagship contract", () => {
     expect(search).toContain('role="listbox"');
     expect(search).toContain('event.key === "ArrowDown"');
     expect(searchCss).toContain(".searchCommandShell.shopSearchShell .embeddedSearchSubmit");
-    expect(searchPage).toContain("<CommerceSearchCommand query={filters.q || \"\"} showFilterButton />");
+    expect(searchPage).toContain('hero={<SearchMarketplaceHero query={filters.q || ""} />}');
+    expect(searchPage).toContain("hideDefaultIntro");
   });
 
   it("uses one continuous store media belt on both routes, with native fallback", () => {
@@ -115,7 +116,7 @@ describe("Shop flagship contract", () => {
     expect(stores).toContain('from "motion/react"');
     expect(stores).toContain("useScroll({ target: sceneRef");
     expect(stores).toContain("progress * Math.max(0, featured.length - 1)");
-    expect(stores).toContain("index - value");
+    expect(stores).toContain("circularRelative(index, value, count)");
     expect(stores).toContain("className={styles.belt}");
     expect(stores).toContain('y: "-50%"');
     expect(stores).toContain("className={styles.focusAperture}");
@@ -153,7 +154,7 @@ describe("phone PDP contract", () => {
     expect(rules(pdpCss, ".pdpActionButtons").some((rule) => rule.media === "max-width: 767px" && rule.props.display === "none")).toBe(true);
     expect(rules(pdpCss, ".shopViewportRoot .pdpMobileStickyBar").some((rule) => rule.media === "max-width: 767px" && rule.props.bottom === "var(--shop-bottom-nav-clearance)")).toBe(true);
     expect(rules(pdpCss, ".pdpActionButtons").some((rule) => rule.media === "" && rule.props.display === "grid")).toBe(true);
-    expect(detail).toContain("pdpRelatedMobileTrack");
+    expect(detail).toContain("<MarketplaceProductRail");
     expect(info).toContain("Product details & specifications");
     expect(info).toContain("Delivery & fulfilment");
     expect(info).toContain("Seller information");

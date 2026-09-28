@@ -1,5 +1,5 @@
-.card { min-width: 0; list-style: none; color: var(--kt-public-text-primary); }
-.card article { display: flex; flex-direction: column; height: 100%; min-width: 0; }
+.card { box-sizing: border-box; min-width: 0; height: 100%; overflow: hidden; list-style: none; color: var(--kt-public-text-primary); }
+.card article { box-sizing: border-box; display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: hidden; }
 .media { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; overflow: hidden; background: var(--kt-public-surface-secondary); color: var(--kt-public-text-muted-on-surface); text-decoration: none; }
 .media img { object-fit: cover; transition: transform .26s ease; }
 .media:hover img { transform: scale(1.025); }
@@ -22,18 +22,22 @@
 .shelf .body { padding: 15px 18px 18px; }
 .shelf .title { font-size: 1rem; }
 .shelf .price { font-size: 1.2rem; }
+.grid, .related { padding: 11px; border: 1px solid var(--kt-public-border-subtle); border-radius: 13px; background: var(--kt-public-surface-primary); }
+.grid .media, .related .media { border-radius: 9px; }
+.grid .body, .related .body { padding: 11px 2px 2px; }
 .related .availability { display: none; }
 @media (max-width: 767px) {
-  .grid .body { padding: 8px 1px 1px; }
+  .grid, .related { padding: 9px; }
+  .grid .body, .related .body { padding: 9px 1px 1px; }
   .grid .brand, .related .brand { font-size: .63rem; }
   .grid .title, .related .title { font-size: .79rem; }
   .grid .availability { font-size: .64rem; }
   .grid .price, .related .price { font-size: .88rem; }
   .grid .basket, .related .basket { width: 34px; height: 34px; border-radius: 7px; }
   .grid .basket svg, .related .basket svg { width: 18px; height: 18px; }
-  .shelf { flex-basis: min(66vw, 250px); }
+  .shelf { flex-basis: min(66vw, 245px); }
   .shelf article { min-height: 0; }
   .shelf .body { padding: 12px 14px 14px; }
-  .related { flex: 0 0 min(44vw, 190px); scroll-snap-align: start; }
+  .related { flex: 0 0 calc((100vw - 44px) / 2); scroll-snap-align: start; }
 }
 @media (prefers-reduced-motion: reduce) { .media img { transition: none; } }
