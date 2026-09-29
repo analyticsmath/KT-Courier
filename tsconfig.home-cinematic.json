@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "next-env.d.ts",
+    "components/public-v3/home/PublicHomeExperience.tsx",
+    "components/public-v3/home/scenes/HomeCinematicScenes.tsx",
+    "components/public-v3/home/scenes/CollectionPickupScene.tsx",
+    "components/public-v3/home/director/useHomeCinematicDirector.ts",
+    "components/public-v3/home/director/home-cinematic-frame-resolver.ts",
+    "app/(public)/page.tsx"
+  ],
+  "exclude": ["node_modules", ".next", "tests"]
+}

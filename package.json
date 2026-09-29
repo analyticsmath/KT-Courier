@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
+    "typecheck:home": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.home-cinematic.json",
+    "media:home:cinematic": "node scripts/media/prepare-home-cinematic-assets.mjs",
     "db:preflight": "node scripts/db-preflight.mjs",
     "db:gate4:preflight": "node scripts/run-gate4-integration.mjs --preflight-only",
     "db:phase-b:proof-source:preflight": "node scripts/phase-b-proof-source-preflight.mjs",

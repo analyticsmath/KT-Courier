@@ -21,7 +21,7 @@ describe("hero van motion correction", () => {
     expect(HERO_VAN_FRAMES).toHaveLength(19);
   });
 
-  it("keeps advancing through the desktop camera pass and fades only during final clear", () => {
+  it("keeps advancing through the desktop camera pass and holds the terminal van", () => {
     const frames = Array.from({ length: 281 }, (_, index) => at(.72 + index / 1000));
     for (let index = 1; index < frames.length; index++) {
       expect(frames[index].visibleHeightVh).toBeGreaterThanOrEqual(frames[index - 1].visibleHeightVh);
@@ -31,14 +31,15 @@ describe("hero van motion correction", () => {
     expect(at(.96).visibleHeightVh).toBeGreaterThan(100);
     expect(at(.965).visibleHeightVh).toBe(108);
     expect(at(.995).visibleHeightVh).toBe(132);
-    expect(at(1).visibleHeightVh).toBe(138);
+    expect(at(1).visibleHeightVh).toBe(132);
     expect(at(.9).phase).toBe("deep-approach");
     expect(at(.965).phase).toBe("camera-pass");
     expect(at(.995).phase).toBe("final-clear");
     expect(new Set(frames.map((frame) => frame.phase))).not.toContain("release");
     for (const progress of [.72, .9, .965, .994, .995]) expect(at(progress).opacity).toBe(1);
-    expect(at(.9975).opacity).toBeCloseTo(.5);
-    expect(at(1).opacity).toBe(0);
+    expect(at(.9975).opacity).toBe(1);
+    expect(at(1).opacity).toBe(1);
+    expect(at(1).visible).toBe(true);
     for (const progress of [.72, .8, .9, .94, .965, .98, .995, 1]) {
       expect(at(progress).anchorMode).toBe("center");
       expect(at(progress).anchorBlend).toBe(1);
@@ -47,20 +48,21 @@ describe("hero van motion correction", () => {
     expect(at(.9).visibleCenterY).toBe(.585);
     expect(at(.965).visibleCenterY).toBe(.59);
     expect(at(.995).visibleCenterY).toBe(.62);
-    expect(at(1).visibleCenterY).toBe(.625);
+    expect(at(1).visibleCenterY).toBe(.62);
     expect(at(.8).targetCenterX).toBe(.5);
   });
 
-  it("preserves the mobile whole-van approach and its existing release", () => {
+  it("preserves the mobile whole-van approach and holds it through takeover", () => {
     const mobile = (progress: number) => at(progress, "mobile");
     expect(mobile(.73).visibleHeightVh).toBe(60);
     expect(mobile(.92).visibleHeightVh).toBe(76);
     expect(mobile(.96).visibleHeightVh).toBe(76);
     expect(mobile(.96).phase).toBe("hold");
     expect(mobile(.97).phase).toBe("release");
-    expect(mobile(1).visibleHeightVh).toBe(66);
-    expect(mobile(.985).opacity).toBeLessThan(1);
-    expect(mobile(1).opacity).toBe(0);
+    expect(mobile(1).visibleHeightVh).toBe(76);
+    expect(mobile(.985).opacity).toBe(1);
+    expect(mobile(1).opacity).toBe(1);
+    expect(mobile(1).visible).toBe(true);
     expect(mobile(.995).visibleHeightVh).toBeLessThan(100);
     for (const progress of [.73, .82, .92, .96, .97, 1]) {
       const frame = mobile(progress);

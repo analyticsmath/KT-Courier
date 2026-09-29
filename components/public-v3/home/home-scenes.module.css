@@ -503,7 +503,7 @@
 }
 
 @media (max-width: 767px) {
-  :global(.kt-home-experience [data-kt-scene]:not([data-kt-scene="hero"])) {
+  :global(.kt-home-experience [data-kt-scene]:not([data-kt-scene="hero"]):not([data-home-film])) {
     min-height: auto !important;
     height: auto;
   }
@@ -662,7 +662,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :global(.kt-home-experience [data-kt-scene]),
+  :global(.kt-home-experience [data-kt-scene]:not([data-home-film])),
   :global(.kt-home-experience [data-kt-scene][style*="--kt-home-budget"]) {
     min-height: auto !important;
     height: auto;

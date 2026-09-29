@@ -6,7 +6,7 @@ import { chapterBudgetVh, mobileChapterBudgetVh } from "@/components/public-v3/h
 const root = process.cwd();
 const styles = readFileSync(join(root, "components/public-v3/home/home-scenes.module.css"), "utf8");
 const heroScene = readFileSync(join(root, "components/public-v3/home/scenes/HeroScene.tsx"), "utf8");
-const director = readFileSync(join(root, "components/public-v3/home/director/useHomeNarrativeDirector.ts"), "utf8");
+const director = readFileSync(join(root, "components/public-v3/home/director/useHomeCinematicDirector.ts"), "utf8");
 const actorStage = readFileSync(join(root, "components/public-v3/actors/CinematicActorStage.tsx"), "utf8");
 
 describe("mobile hero geometry contract", () => {
@@ -17,7 +17,7 @@ describe("mobile hero geometry contract", () => {
 
   it("excludes hero from generic mobile scene normalization and reapplies its budget", () => {
     expect(styles).toMatch(
-      /@media \(max-width: 767px\) \{\s*:global\(\.kt-home-experience \[data-kt-scene\]:not\(\[data-kt-scene="hero"\]\)\) \{\s*min-height: auto !important;\s*height: auto;\s*\}\s*:global\(\.kt-home-experience \[data-kt-scene="hero"\]\) \{\s*min-height: calc\(var\(--kt-home-mobile-budget, 260\) \* 1svh\) !important;\s*height: auto;/,
+      /@media \(max-width: 767px\) \{\s*:global\(\.kt-home-experience \[data-kt-scene\]:not\(\[data-kt-scene="hero"\]\):not\(\[data-home-film\]\)\) \{\s*min-height: auto !important;\s*height: auto;\s*\}\s*:global\(\.kt-home-experience \[data-kt-scene="hero"\]\) \{\s*min-height: calc\(var\(--kt-home-mobile-budget, 260\) \* 1svh\) !important;\s*height: auto;/,
     );
     expect(styles).not.toMatch(
       /@media \(max-width: 767px\) \{\s*:global\(\.kt-home-experience \[data-kt-scene\]\) \{\s*min-height: auto !important;/,
@@ -39,12 +39,12 @@ describe("mobile hero geometry contract", () => {
   });
 
   it("uses measured actor-stage geometry for mobile Hero placement", () => {
-    expect(director).toContain("stageWidth = actorRect.width || window.innerWidth");
+    expect(director).toContain("stageWidth = stageRect.width");
     expect(director).toContain("heroBaseWidth = stageWidth");
     expect(director).toContain("const x = stageWidth * frame.targetCenterX - HERO_VAN_VISIBLE_CENTER_X * scaledWidth");
-    expect(director).toContain("const centerTop = heroUsableActorHeight * frame.visibleCenterY - HERO_VAN_VISIBLE_CENTER_Y * scaledHeight");
+    expect(director).toContain("const centerTop = heroUsableHeight * frame.visibleCenterY - HERO_VAN_VISIBLE_CENTER_Y * scaledHeight");
     expect(director).toContain("const y = groundTop + (centerTop - groundTop) * frame.anchorBlend");
-    expect(director).toContain("mobileNav?.getBoundingClientRect().height ?? 0");
+    expect(director).toContain("nav?.getBoundingClientRect().height ?? 0");
     expect(actorStage).toContain("<HeroVanSequenceActor />");
     expect(actorStage).toContain("preloadStates={[]}");
   });
@@ -59,7 +59,7 @@ describe("mobile hero geometry contract", () => {
   });
 
   it("uses visible containers and opacity-only Hero frame blending", () => {
-    expect(director).toContain("const applyHero = (progress: number)");
+    expect(director).toContain("const applyHero = (progress: number, covered: boolean)");
     expect(director).toContain("activeHeroStates");
     expect(director).toContain('visibility: "visible"');
     expect(director).toContain("blendToState");

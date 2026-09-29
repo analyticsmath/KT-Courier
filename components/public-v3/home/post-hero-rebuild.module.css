@@ -72,7 +72,7 @@
 .packageLabel { position: absolute; right: 1.3rem; bottom: 1.25rem; z-index: 2; color: var(--kt-public-text-inverse); font: .64rem/1 "IBM Plex Mono", monospace; letter-spacing: .08em; }
 .productCarry { position: absolute; z-index: 2; right: 13vw; width: min(22vw, 18rem); aspect-ratio: .82; overflow: hidden; opacity: 0; transform-origin: center; }
 .productCarry img { width: 100%; height: 100%; object-fit: cover; }
-.persistentProductCarryLayer { position: fixed; z-index: 30; display: block; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; will-change: left, top, width, height, opacity, border-radius; }
+.persistentProductCarryLayer { position: fixed; z-index: 45; display: block; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; }
 .persistentProductCarryImage { display: block; width: 100%; height: 100%; object-fit: cover; }
 .preparationIndexMark { position: absolute; z-index: 4; right: 7vw; top: 17%; color: var(--kt-public-text-primary); font: .65rem/1 "IBM Plex Mono", monospace; }
 .processLine { position: absolute; z-index: 6; right: 7vw; bottom: 12%; display: flex; align-items: center; gap: .7rem; color: var(--kt-public-text-primary); font: .68rem/1 "IBM Plex Mono", monospace; letter-spacing: .02em; transform-origin: left; }
@@ -203,18 +203,18 @@
   .category, .product { opacity: 1 !important; }
   .preparationFrame { clip-path: none !important; }
   .productCarry { opacity: 0 !important; }
-  :global(.kt-home-experience [data-kt-scene="commerce"]),
-  :global(.kt-home-experience [data-kt-scene="parcelization"]),
-  :global(.kt-home-experience [data-kt-scene="network"]),
-  :global(.kt-home-experience [data-kt-scene="freight"]),
-  :global(.kt-home-experience [data-kt-scene="last-mile"]),
-  :global(.kt-home-experience [data-kt-scene="finale"]) { min-height: auto !important; height: auto !important; }
-  :global(.kt-home-experience [data-kt-scene="commerce"] [data-home-sticky-stage]),
-  :global(.kt-home-experience [data-kt-scene="parcelization"] [data-home-sticky-stage]),
-  :global(.kt-home-experience [data-kt-scene="network"] [data-home-sticky-stage]),
-  :global(.kt-home-experience [data-kt-scene="freight"] [data-home-sticky-stage]),
-  :global(.kt-home-experience [data-kt-scene="last-mile"] [data-home-sticky-stage]),
-  :global(.kt-home-experience [data-kt-scene="finale"] [data-home-sticky-stage]) { position: relative !important; height: auto !important; min-height: 80svh !important; }
+  :global(.kt-home-experience [data-kt-scene="commerce"]:not([data-home-film])),
+  :global(.kt-home-experience [data-kt-scene="parcelization"]:not([data-home-film])),
+  :global(.kt-home-experience [data-kt-scene="network"]:not([data-home-film])),
+  :global(.kt-home-experience [data-kt-scene="freight"]:not([data-home-film])),
+  :global(.kt-home-experience [data-kt-scene="last-mile"]:not([data-home-film])),
+  :global(.kt-home-experience [data-kt-scene="finale"]:not([data-home-film])) { min-height: auto !important; height: auto !important; }
+  :global(.kt-home-experience [data-kt-scene="commerce"]:not([data-home-film]) [data-home-sticky-stage]),
+  :global(.kt-home-experience [data-kt-scene="parcelization"]:not([data-home-film]) [data-home-sticky-stage]),
+  :global(.kt-home-experience [data-kt-scene="network"]:not([data-home-film]) [data-home-sticky-stage]),
+  :global(.kt-home-experience [data-kt-scene="freight"]:not([data-home-film]) [data-home-sticky-stage]),
+  :global(.kt-home-experience [data-kt-scene="last-mile"]:not([data-home-film]) [data-home-sticky-stage]),
+  :global(.kt-home-experience [data-kt-scene="finale"]:not([data-home-film]) [data-home-sticky-stage]) { position: relative !important; height: auto !important; min-height: 80svh !important; }
 }
 
 .lastMile .eyebrow, .lastMile .body, .finale .eyebrow, .finale .body { color: var(--kt-public-text-inverse-muted); }

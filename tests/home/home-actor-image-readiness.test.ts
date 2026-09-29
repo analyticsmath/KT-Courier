@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { closestReadyHeroSequenceState, isActorImageReady } from "@/components/public-v3/home/director/home-actor-image-readiness";
+import { HERO_VAN_SEQUENCE } from "@/components/public-v3/home/director/hero-van-sequence.generated";
 
 function imageState({ complete, naturalWidth, ready = false }: { complete: boolean; naturalWidth: number; ready?: boolean }): HTMLImageElement {
   return {
@@ -10,8 +11,8 @@ function imageState({ complete, naturalWidth, ready = false }: { complete: boole
 }
 
 describe("actor image readiness", () => {
-  it("accepts a fully loaded image without a decode marker", () => {
-    expect(isActorImageReady(imageState({ complete: true, naturalWidth: 960 }))).toBe(true);
+  it("waits for an explicit decode marker even when image bytes have loaded", () => {
+    expect(isActorImageReady(imageState({ complete: true, naturalWidth: 960 }))).toBe(false);
   });
 
   it("accepts the explicit actor load-ready marker", () => {
@@ -22,13 +23,11 @@ describe("actor image readiness", () => {
     expect(isActorImageReady(imageState({ complete: false, naturalWidth: 0 }))).toBe(false);
   });
 
-  it("holds the closest ready frame in the same white-truck sequence", () => {
-    expect(closestReadyHeroSequenceState("true-front-center-medium", new Set(["true-front-center-full"])))
-      .toBe("true-front-center-full");
-    expect(closestReadyHeroSequenceState("front-3q-entry-phase-04", new Set([
-      "front-3q-entry-phase-03",
-      "front-3q-entry-phase-05",
-    ]))).toBe("front-3q-entry-phase-03");
-    expect(closestReadyHeroSequenceState("front-3q-entry-phase-04", new Set())).toBeNull();
+  it("holds the closest ready state in the authored Hero sequence", () => {
+    expect(closestReadyHeroSequenceState(HERO_VAN_SEQUENCE[10], new Set([HERO_VAN_SEQUENCE[11]])))
+      .toBe(HERO_VAN_SEQUENCE[11]);
+    expect(closestReadyHeroSequenceState(HERO_VAN_SEQUENCE[10], new Set([HERO_VAN_SEQUENCE[9], HERO_VAN_SEQUENCE[11]])))
+      .toBe(HERO_VAN_SEQUENCE[9]);
+    expect(closestReadyHeroSequenceState(HERO_VAN_SEQUENCE[10], new Set())).toBeNull();
   });
 });

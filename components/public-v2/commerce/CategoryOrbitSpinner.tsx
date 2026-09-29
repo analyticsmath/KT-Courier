@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import type { CinematicCategoryNode } from "@/lib/public-marketplace/category-navigation-model";
 import { majorCategoryMedia } from "./category-navigator-media";
 import { CATEGORY_SPINNER_TIMING } from "./category-navigator-timing";
+import { categoryOrbitAngle } from "./category-orbit-geometry";
 import styles from "./category-navigator.module.css";
 
 export function CategoryOrbitSpinner({ categories, destinationIndex, kind, resolving = false }: {
@@ -33,7 +34,7 @@ export function CategoryOrbitSpinner({ categories, destinationIndex, kind, resol
                 <div
                   className={styles.orbitCard}
                   key={category.reference}
-                  style={{ transform: `rotateY(${index * angleStep}deg) translateZ(var(--orbit-radius))` }}
+                  style={{ transform: `rotateY(${categoryOrbitAngle(index, categories.length)}deg) translateZ(var(--orbit-radius))` }}
                 >
                   <div className={`${styles.orbitFace} ${styles.orbitFaceFront}`}>
                     <Image alt="" fill priority sizes="(min-width: 1024px) 220px, 176px" src={media} className={styles.image} />

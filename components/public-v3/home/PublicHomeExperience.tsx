@@ -2,16 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HeroScene } from "./scenes/HeroScene";
-import { CommerceWorldScene } from "./scenes/CommerceWorldScene";
-import { ParcelizationScene } from "./scenes/ParcelizationScene";
-import { NetworkRouteScene } from "./scenes/NetworkRouteScene";
-import { FreightTransitionScene } from "./scenes/FreightTransitionScene";
-import { LastMileDeliveryScene } from "./scenes/LastMileDeliveryScene";
-import { ArrivalFinaleScene } from "./scenes/ArrivalFinaleScene";
-import { useHomeNarrativeDirector } from "./director/useHomeNarrativeDirector";
+import { CommerceWorldScene, ParcelizationScene, NetworkRouteScene, FreightTransitionScene, LastMileDeliveryScene, ArrivalFinaleScene } from "./scenes/HomeCinematicScenes";
+import { CollectionPickupScene } from "./scenes/CollectionPickupScene";
+import { useHomeCinematicDirector } from "./director/useHomeCinematicDirector";
 import { PersistentActorLayer } from "../actors/PersistentActorLayer";
 import { HomeIntroCurtain } from "./HomeIntroCurtain";
-import { PersistentPostHeroCinematicLayer } from "./actors/PersistentPostHeroCinematicLayer";
+import { PersistentHomeCinematicLayer } from "./actors/PersistentHomeCinematicLayer";
 import { PersistentProductCarryLayer } from "./actors/PersistentProductCarryLayer";
 import type { HomepageStorefrontPresentation } from "./data/home-storefront-presentation";
 
@@ -26,7 +22,6 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
   const resolveIntro = useCallback(() => setIntroResolved(true), []);
   const presentation = storefrontPresentation ?? { categories: [], stores: [], products: [] };
   const [selectedCategoryId, setSelectedCategoryId] = useState(presentation.categories[0]?.id);
-  const [selectedStoreId, setSelectedStoreId] = useState(presentation.stores[0]?.id);
   const [selectedProductId, setSelectedProductId] = useState(presentation.products[0]?.id);
   const handleProductSelectionChange = useCallback((id: string) => {
     setSelectedProductId(id);
@@ -50,19 +45,20 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
       if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
     };
   }, [presentation.products]);
-  useHomeNarrativeDirector({ rootRef: containerRef, categories: presentation.categories, stores: presentation.stores, products: presentation.products, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId, onStoreSelectionChange: setSelectedStoreId, onProductSelectionChange: handleProductSelectionChange });
+  useHomeCinematicDirector({ rootRef: containerRef, categories: presentation.categories, products: presentation.products, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId, onProductSelectionChange: handleProductSelectionChange });
   const selectedProduct = presentation.products.find((product) => product.id === selectedProductId) ?? presentation.products[0];
 
   return <div ref={containerRef} data-kt-motion-owned="director" data-storefront-exposed={isStorefrontExposed} className="kt-home-experience flex flex-col w-full relative bg-[var(--kt-public-canvas)]">
     <div className="kt-environment-layer pointer-events-none absolute inset-0 z-0 bg-[var(--kt-public-canvas)]" aria-hidden="true" />
     <div className="kt-typography-layer pointer-events-none absolute inset-0 z-1 overflow-hidden" aria-hidden="true" />
     <PersistentActorLayer />
-    {introResolved ? <PersistentPostHeroCinematicLayer /> : null}
+    {introResolved ? <PersistentHomeCinematicLayer /> : null}
     <PersistentProductCarryLayer product={selectedProduct} />
-    <div className="kt-chapter-content-layer relative z-10 flex flex-col w-full">
+    <div className="kt-chapter-content-layer relative flex flex-col w-full">
       <HeroScene />
-       <CommerceWorldScene categories={presentation.categories} stores={presentation.stores} products={presentation.products} selectedCategoryId={selectedCategoryId} onCategorySelectionChange={setSelectedCategoryId} selectedStoreId={selectedStoreId} onStoreSelectionChange={setSelectedStoreId} selectedProductId={selectedProductId} onProductSelectionChange={handleProductSelectionChange} />
+      <CommerceWorldScene categories={presentation.categories} products={presentation.products} selectedCategoryId={selectedCategoryId} onCategorySelectionChange={setSelectedCategoryId} selectedProductId={selectedProductId} onProductSelectionChange={handleProductSelectionChange} />
       <ParcelizationScene product={selectedProduct} />
+      <CollectionPickupScene />
       <NetworkRouteScene />
       <FreightTransitionScene />
       <LastMileDeliveryScene />

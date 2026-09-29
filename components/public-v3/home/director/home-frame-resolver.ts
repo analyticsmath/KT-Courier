@@ -59,11 +59,9 @@ export function resolveHeroVanFrame(progress: number, viewportMode: "mobile" | "
   const settleBeats = mobile ? mobileBeats.frontSettle : beats.frontSettle;
   const settleT = easedRange(p, settleBeats[0], settleBeats[1]);
   const mobileApproachT = easedRange(p, ...mobileBeats.frontApproach);
-  const mobileReleaseT = easedRange(p, ...mobileBeats.release);
   const fullBodyT = easedRange(p, ...beats.fullBodyApproach);
   const deepT = easedRange(p, ...beats.deepApproach);
   const passT = easedRange(p, ...beats.cameraPass);
-  const clearT = easedRange(p, ...beats.finalClear);
   const targetCenterX = p < beats.turnTravel[0]
     ? lerp(mobile ? -.35 : -.18, mobile ? .18 : .24, entryT)
     : lerp(mobile ? .18 : .24, .5, turnT);
@@ -75,26 +73,25 @@ export function resolveHeroVanFrame(progress: number, viewportMode: "mobile" | "
   else if (mobile) {
     if (phase === "approach") visibleHeightVh = lerp(60, 76, mobileApproachT);
     else if (phase === "hold") visibleHeightVh = 76;
-    else if (phase === "release") visibleHeightVh = lerp(76, 66, mobileReleaseT);
+    else if (phase === "release") visibleHeightVh = 76;
   } else {
     if (phase === "approach") visibleHeightVh = lerp(62, 88, fullBodyT);
     else if (phase === "deep-approach") visibleHeightVh = lerp(88, 108, deepT);
     else if (phase === "camera-pass") visibleHeightVh = lerp(108, 132, passT);
-    else if (phase === "final-clear") visibleHeightVh = lerp(132, 138, clearT);
+    else if (phase === "final-clear") visibleHeightVh = 132;
   }
 
   const anchorMode = phase === "front-settle" ? "transition" : phase === "poster" || phase === "entry" || phase === "turn" ? "ground" : "center";
   const anchorBlend = anchorMode === "ground" ? 0 : anchorMode === "center" ? 1 : settleT;
   const visibleCenterY = mobile
-    ? phase === "release" ? lerp(.57, .58, mobileReleaseT) : .57
+    ? .57
     : phase === "approach" ? lerp(.58, .585, fullBodyT)
       : phase === "deep-approach" ? lerp(.585, .59, deepT)
         : phase === "camera-pass" ? lerp(.59, .62, passT)
-          : phase === "final-clear" ? lerp(.62, .625, clearT) : .58;
+          : phase === "final-clear" ? .62 : .58;
   const opacity = phase === "poster" ? 0
     : phase === "entry" ? easedRange(p, .13, .17)
-      : phase === "release" ? 1 - mobileReleaseT
-        : phase === "final-clear" ? 1 - clearT : 1;
+      : 1;
   return {
     state: HERO_VAN_SEQUENCE[index],
     blendToState,
