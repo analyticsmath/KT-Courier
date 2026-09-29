@@ -1,12 +1,15 @@
 import { HOME_CINEMATIC_ASSET_BY_ID } from "../data/home-cinematic-assets.generated";
+import { HOME_COMPOSED_ACTOR_BY_ID } from "../data/home-composed-actors.generated";
 
 const decoded = new Set<string>();
 const pending = new Map<string, Promise<void>>();
 
 export function cinematicAssetUrl(id: string, mobile: boolean): string {
   const asset = HOME_CINEMATIC_ASSET_BY_ID[id];
-  if (!asset) throw new Error(`Unknown home cinematic asset: ${id}`);
-  return mobile ? asset.mobileSrc : asset.desktopSrc;
+  if (asset) return mobile ? asset.mobileSrc : asset.desktopSrc;
+  const actor = HOME_COMPOSED_ACTOR_BY_ID[id];
+  if (actor) return mobile ? actor.mobile : actor.desktop;
+  throw new Error(`Unknown home cinematic asset: ${id}`);
 }
 
 export function preloadCinematicAsset(id: string, mobile: boolean): Promise<void> {

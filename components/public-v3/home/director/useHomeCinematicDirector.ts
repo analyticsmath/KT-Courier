@@ -9,10 +9,11 @@ import { deriveHeroActorPresentation } from "./hero-actor-presentation";
 import { heroVanBlendWeights, resolveHeroVanFrame } from "./home-frame-resolver";
 import { clamp01, HOME_BEATS, HOME_CINEMATIC_BEATS as B, range, smooth } from "./home-beats";
 import { HOME_CHAPTERS, reducedMotionChapterProgress, type HomeChapter } from "./home-chapters";
-import { categoryOrbitPose, heroVisibleUnderMarketplace, resolveHomeCinematicFrame, routeCamera, selectedProductIndex } from "./home-cinematic-frame-resolver";
-import { HOME_BOX_SEQUENCE, HOME_DELIVERY_SEQUENCE, HOME_HANDOFF_SEQUENCE, HOME_PICKUP_SEQUENCE, HOME_RETURN_SEQUENCE, HOME_ROUTE_VAN_SEQUENCE } from "../data/home-cinematic-assets.generated";
+import { heroVisibleUnderMarketplace, resolveHomeCinematicFrame, routeCamera } from "./home-cinematic-frame-resolver";
+import { HOME_CINEMATIC_ASSET_BY_ID, HOME_ROUTE_VAN_SEQUENCE } from "../data/home-cinematic-assets.generated";
 import { preloadCinematicTier, preloadCinematicWindow } from "../actors/home-cinematic-preload";
-import { showCinematicFrame } from "../actors/home-cinematic-runtime";
+import { preloadCinematicAsset, showCinematicFrame } from "../actors/home-cinematic-runtime";
+import { selectedProductForTakeover, truckTrailingEdgeReveal, uniformProductPose } from "./home-cinematic-mechanics";
 
 type SceneRange = { chapter: HomeChapter; start: number; end: number; progressEnd: number };
 type Item = { id: string };
@@ -21,13 +22,13 @@ const visible = (element: HTMLElement | null, opacity: number) => { if (element)
 const img = (root: Element, selector: string) => root.querySelector<HTMLImageElement>(selector);
 const el = (root: Element, selector: string) => root.querySelector<HTMLElement>(selector);
 
-export function useHomeCinematicDirector({ rootRef, categories, products, enabled, onMarketplaceSelectionChange, onProductSelectionChange }: {
+export function useHomeCinematicDirector({ rootRef, categories, products, selectedProductId, enabled, onMarketplaceSelectionChange }: {
   rootRef: React.RefObject<HTMLDivElement | null>;
   categories: readonly Item[];
   products: readonly Item[];
+  selectedProductId?: string;
   enabled: boolean;
   onMarketplaceSelectionChange?: (id: string) => void;
-  onProductSelectionChange?: (id: string) => void;
 }) {
   const { prefersReducedMotion, setHeaderTone } = useMotionContext();
   useEffect(() => {
@@ -43,6 +44,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
     actorStage?.querySelectorAll<HTMLElement>("[data-actor-slot]:not([data-actor-slot='hero-van'])").forEach((slot) => visible(slot, 0));
     if (actorStage) gsap.set(actorStage, { autoAlpha: 1, visibility: "visible" });
     for (const index of [0, 1, 2, 3, 18, ...(prefersReducedMotion ? [10] : [])]) void decodeHeroVanFrame(heroLayers.get(HERO_VAN_SEQUENCE[index]));
+    void preloadCinematicAsset(HOME_ROUTE_VAN_SEQUENCE[0], window.innerWidth <= 767);
     const activeHeroStates = new Set<string>();
     const heroKt = el(root, "[data-motion='hero-kt']");
     const heroCourier = el(root, "[data-motion='hero-courier']");
@@ -51,8 +53,6 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
     const opening = el(root, "[data-cinematic-commerce-opening]");
     const categoryField = el(root, "[data-cinematic-category-field]");
     const categoryPlanes = Array.from(root.querySelectorAll<HTMLElement>("[data-cinematic-category-plane]"));
-    const mobileOrbit = el(root, "[data-cinematic-mobile-orbit]");
-    const mobileOrbitCards = Array.from(root.querySelectorAll<HTMLElement>("[data-cinematic-mobile-orbit-card]"));
     const mobileTerritory = el(root, "[data-cinematic-mobile-category-territory]");
     const mobileRail = el(root, "[data-cinematic-mobile-category-rail]");
     const productWorld = el(root, "[data-cinematic-product-world]");
@@ -63,26 +63,29 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
     const carry = el(root, "[data-product-carry-layer]");
     const carryImage = img(root, "[data-product-carry-image]");
     const box = el(root, "[data-cinematic-box]");
-    const boxImage = img(root, "[data-cinematic-box-image]");
-    const boxForeground = el(root, "[data-cinematic-box-foreground]");
-    const boxForegroundImage = img(root, "[data-cinematic-box-foreground-image]");
-    const pickup = el(root, "[data-cinematic-pickup]");
-    const pickupImage = img(root, "[data-cinematic-pickup-image]");
+    const flaps = Object.fromEntries(["left", "right", "rear", "front"].map((side) => [side, el(root, `[data-box-flap='${side}']`)])) as Record<"left" | "right" | "rear" | "front", HTMLElement | null>;
+    const vehicle = (kind: "pickup" | "delivery") => ({
+      stage: el(root, `[data-cinematic-vehicle='${kind}']`),
+      base: img(root, `[data-vehicle-base='${kind}']`),
+      door: img(root, `[data-vehicle-door='${kind}']`),
+      foreground: img(root, `[data-vehicle-foreground='${kind}']`),
+      courier: img(root, `[data-vehicle-courier='${kind}']`),
+    });
+    const pickup = vehicle("pickup");
+    const delivery = vehicle("delivery");
     const packedWord = el(root, "[data-pickup-word='packed']");
     const collectedWord = el(root, "[data-pickup-word='collected']");
     const routeStage = el(root, "[data-cinematic-route-camera]");
     const routeWorld = el(root, "[data-cinematic-route-world]");
-    const roadImage = img(root, "[data-cinematic-road]");
     const routeVan = el(root, "[data-cinematic-route-van]");
-    const routeVanImage = img(root, "[data-cinematic-route-van-image]");
-    const routeCopies = ["collected", "way", "moving"].map((name) => el(root, `[data-route-copy='${name}']`));
+    const routeVanLower = img(root, "[data-cinematic-route-van-lower]");
+    const routeVanUpper = img(root, "[data-cinematic-route-van-upper]");
+    const routeCopy = el(root, "[data-route-copy='moving']");
     const truck = el(root, "[data-cinematic-red-truck]");
     const truckImage = img(root, "[data-cinematic-red-truck-image]");
     const freightReveal = el(root, "[data-cinematic-freight-reveal]");
-    const delivery = el(root, "[data-cinematic-delivery]");
-    const deliveryImage = img(root, "[data-cinematic-delivery-image]");
-    const handoff = el(root, "[data-cinematic-handoff]");
-    const handoffImage = img(root, "[data-cinematic-handoff-image]");
+    const recipient = img(root, "[data-cinematic-recipient]");
+    const parcelActor = el(root, "[data-cinematic-parcel]");
     const lastMileCopy = el(root, "[data-cinematic-last-mile-copy]");
     const delivered = el(root, "[data-cinematic-delivered]");
     const brand = el(root, "[data-cinematic-finale-brand]");
@@ -98,11 +101,14 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
     let heroUsableHeight = window.innerHeight;
     let worldWidth = window.innerWidth;
     let worldHeight = window.innerHeight;
+    let truckWidth = 0;
+    let pickupStageWidth = 0;
+    let parcelWidth = 1;
     let boxRect = new DOMRect(window.innerWidth * .3, window.innerHeight * .3, window.innerWidth * .4, window.innerWidth * .4);
     let lastTone: "light" | "dark" | null = null;
-    let selectedProduct = products[0]?.id;
+    const selectedProduct = selectedProductId && products.slice(0, 5).some((product) => product.id === selectedProductId) ? selectedProductId : products[0]?.id;
     let selectedCategory = categories[0]?.id;
-    let frozenProductIndex: number | undefined;
+    let frozenProductId: string | undefined;
     let carrySource: DOMRect | undefined;
     let raf = 0;
     let resizeTimer = 0;
@@ -132,7 +138,15 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
       }
       worldWidth = routeWorld?.offsetWidth || window.innerWidth;
       worldHeight = routeWorld?.offsetHeight || window.innerHeight;
+      truckWidth = truck?.offsetWidth ?? 0;
+      pickupStageWidth = pickup.stage?.offsetWidth ?? 0;
+      parcelWidth = parcelActor?.offsetWidth || 1;
       boxRect = box?.getBoundingClientRect() ?? boxRect;
+      for (const [kind, stage] of [["pickup", pickup], ["delivery", delivery]] as const) {
+        showCinematicFrame(stage.base, `van-open-${kind === "pickup" ? "right" : "left"}`, window.innerWidth <= 767);
+        showCinematicFrame(stage.door, `van-door-${kind === "pickup" ? "right" : "left"}`, window.innerWidth <= 767);
+        showCinematicFrame(stage.foreground, `van-open-${kind === "pickup" ? "right" : "left"}`, window.innerWidth <= 767);
+      }
     };
 
     const applyHero = (progress: number, covered: boolean) => {
@@ -194,48 +208,34 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
       if (opening && isCommerce) gsap.set(opening, { clipPath: `inset(0 0 ${range(p, .16, .26) * 100}% 0)` });
       const categoryOpacity = isCommerce && p >= .08 && p < .69 ? 1 : 0;
       visible(categoryField, !mobile ? categoryOpacity : 0);
-      visible(mobileOrbit, mobile && isCommerce && p >= .08 && p < .30 ? 1 : 0);
-      visible(mobileTerritory, mobile && isCommerce && p >= .30 && p < .64 ? 1 : 0);
+      visible(mobileTerritory, mobile && isCommerce && p >= .10 && p < .60 ? 1 : 0);
       if (isCommerce && !mobile) {
-        const resolve = f.orbitResolve;
-        const exit = range(p, .62, .69);
         categoryPlanes.forEach((plane, index) => {
-          const orbit = categoryOrbitPose(index, categoryPlanes.length, f.orbit, false);
           const targetX = (index - f.categoryPosition) * viewportWidth * .67;
-          const x = orbit.x * (1 - resolve) + targetX * resolve;
-          const z = orbit.z * (1 - resolve);
-          const scale = (.27 * orbit.scale) * (1 - resolve) + (1 - .14 * exit) * resolve;
-          gsap.set(plane, { transform: `translate3d(-50%,-50%,0) translate3d(${x}px,${-exit * viewportHeight * .18}px,${z}px) rotateY(${orbit.rotationY * (1 - resolve)}deg) scale(${scale})`, zIndex: Math.round(1000 + z), pointerEvents: p < .30 || Math.abs(index - f.categoryPosition) <= .6 ? "auto" : "none" });
+          gsap.set(plane, { transform: `translate3d(calc(-50% + ${targetX}px),-50%,0)`, zIndex: categoryPlanes.length - index, pointerEvents: Math.abs(index - f.categoryPosition) <= 1 ? "auto" : "none" });
         });
         const index = Math.min(categories.length - 1, Math.max(0, Math.round(f.categoryPosition)));
         const id = categories[index]?.id;
         if (id && id !== selectedCategory) { selectedCategory = id; onMarketplaceSelectionChange?.(id); }
       }
-      if (isCommerce && mobile) mobileOrbitCards.forEach((card, index) => {
-        const pose = categoryOrbitPose(index, mobileOrbitCards.length, f.orbit, true);
-        gsap.set(card, { transform: `translate3d(-50%,-50%,0) translate3d(${pose.x}px,0,${pose.z}px) rotateY(${pose.rotationY}deg) scale(${pose.scale * .88})`, zIndex: Math.round(1000 + pose.z) });
-      });
       const fanVisible = isCommerce && p >= .60;
       visible(productWorld, fanVisible ? 1 : 0);
-      const selectedIndex = selectedProductIndex(products.length, f.fanPosition, f.selectedTakeover, frozenProductIndex);
-      if (isCommerce && p < B.commerce.selectedTakeover[0]) frozenProductIndex = undefined;
-      if (isCommerce && p >= B.commerce.selectedTakeover[0] && frozenProductIndex === undefined) frozenProductIndex = Math.max(0, selectedIndex);
+      if (isCommerce && p < B.commerce.selectedTakeover[0]) frozenProductId = undefined;
+      if (isCommerce) frozenProductId = selectedProductForTakeover(selectedProduct, frozenProductId, p, B.commerce.selectedTakeover[0]);
       if (fanVisible) {
-        const center = frozenProductIndex ?? selectedIndex;
+        const center = Math.max(0, productPlanes.findIndex((plane) => plane.dataset.productId === (frozenProductId ?? selectedProduct)));
         productPlanes.forEach((plane, index) => {
-          const offset = index - f.fanPosition;
+          const offset = index - (productPlanes.length - 1) / 2;
           const distance = Math.abs(offset);
           const spread = f.fanSpread;
           const exit = f.selectedTakeover;
-          const x = Math.sign(offset) * Math.min(distance, 3.5) * viewportWidth * (mobile ? .20 : .125) * spread + (index === center ? 0 : Math.sign(offset || 1) * exit * viewportWidth);
+          const x = offset * viewportWidth * (mobile ? .20 : .125) * spread + (index === center ? 0 : Math.sign(index - center || 1) * exit * viewportWidth);
           const y = -viewportHeight * .02 + distance * viewportHeight * .025 * spread + (index === center ? 0 : exit * viewportHeight * .08);
-          const scale = (1 - Math.min(distance, 4) * (mobile ? .08 : .10) * spread) * (index === center ? 1 : 1 - exit * .15);
+          const scale = (1 - Math.min(distance, 2) * (mobile ? .08 : .10) * spread) * (index === center ? 1.04 : 1 - exit * .15);
           const rotation = offset * (mobile ? 4 : 6) * spread;
-          gsap.set(plane, { transform: `translate3d(-50%,-50%,0) translate3d(${x}px,${y}px,0) rotate(${rotation}deg) scale(${scale})`, zIndex: 50 - Math.round(distance * 6), autoAlpha: distance > (mobile ? 2.5 : 4.5) && spread > .1 ? 0 : 1, pointerEvents: exit > .1 && index !== center ? "none" : "auto" });
+          gsap.set(plane, { transform: `translate3d(-50%,-50%,0) translate3d(${x}px,${y}px,0) rotate(${rotation}deg) scale(${scale})`, zIndex: index === center ? 60 : 50 - Math.round(distance * 6), autoAlpha: exit > .1 && index !== center ? 1 - exit : 1, pointerEvents: exit > .1 && index !== center ? "none" : "auto" });
           plane.tabIndex = exit > .1 && index !== center ? -1 : 0;
         });
-        const nextId = products[center]?.id;
-        if (nextId && nextId !== selectedProduct) { selectedProduct = nextId; onProductSelectionChange?.(nextId); }
       }
       visible(productInfo, fanVisible && p < .93 ? 1 : 0);
 
@@ -259,31 +259,39 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
         if (media) visible(media, commerceCarry && carryActive && index === selectedPlaneIndex ? 0 : 1);
       });
       if (carry) {
-        const x = source.left + (productTarget.x - source.left) * descend;
-        const y = source.top + (productTarget.y - source.top) * descend;
-        const scaleX = 1 + (productTarget.width / source.width - 1) * descend;
-        const scaleY = 1 + (productTarget.height / source.height - 1) * descend;
-        gsap.set(carry, { left: 0, top: 0, width: source.width, height: source.height, transformOrigin: "0 0", transform: `translate3d(${x}px,${y}px,0) scale(${scaleX},${scaleY})`, clipPath: `inset(0 0 ${(isParcel ? f.productOcclusion : 0) * 100}% 0)`, autoAlpha: carryActive ? 1 : 0 });
+        const pose = uniformProductPose({ x: source.left, y: source.top, width: source.width, height: source.height }, productTarget, descend);
+        gsap.set(carry, { left: 0, top: 0, width: pose.width, height: pose.height, transformOrigin: "0 0", transform: `translate3d(${pose.x}px,${pose.y}px,0) scale(${pose.scale})`, clipPath: `inset(0 0 ${(isParcel ? f.productOcclusion : 0) * 100}% 0)`, autoAlpha: carryActive ? 1 : 0 });
       }
-      const boxVisible = isParcel || (isPickup && p < .16);
-      if (boxVisible) {
-        const id = HOME_BOX_SEQUENCE[isParcel ? f.boxIndex : HOME_BOX_SEQUENCE.length - 1];
-        preloadCinematicWindow(HOME_BOX_SEQUENCE, isParcel ? f.boxIndex : HOME_BOX_SEQUENCE.length - 1, mobile);
-        visible(box, showCinematicFrame(boxImage, id, mobile) ? 1 : 0);
-        if (isParcel && p < .36) visible(boxForeground, showCinematicFrame(boxForegroundImage, HOME_BOX_SEQUENCE[0], mobile) ? 1 : 0);
-        else visible(boxForeground, 0);
-      } else { visible(box, 0); visible(boxForeground, 0); }
+      const boxVisible = isParcel || (isPickup && p < B.pickup.courierApproach[0] + .03);
+      visible(box, boxVisible ? 1 : 0);
+      const flapPose = isParcel ? f.boxFlaps : { left: 0, right: 0, rear: 0, front: 0, settle: 1 };
+      if (box) {
+        const handoff = isPickup ? smooth(range(p, 0, B.pickup.courierApproach[0])) : 0;
+        gsap.set(box, { x: viewportWidth * .15 * handoff, y: flapPose.settle * 3 + viewportHeight * .06 * handoff, scale: 1 - .82 * handoff });
+      }
+      for (const side of ["left", "right", "rear", "front"] as const) if (flaps[side]) gsap.set(flaps[side], { rotationX: side === "rear" || side === "front" ? flapPose[side] : 0, rotationY: side === "left" || side === "right" ? flapPose[side] : 0 });
       if (isPickup) {
-        preloadCinematicWindow(HOME_PICKUP_SEQUENCE, f.pickupIndex, mobile);
-        visible(pickup, showCinematicFrame(pickupImage, HOME_PICKUP_SEQUENCE[f.pickupIndex], mobile) ? 1 : 0);
-        if (pickup) gsap.set(pickup, { xPercent: -50, yPercent: -50, x: viewportWidth * f.pickupX / 100 });
-      } else visible(pickup, 0);
+        const b = B.pickup;
+        visible(pickup.stage, 1);
+        if (pickup.stage) gsap.set(pickup.stage, { xPercent: -50, yPercent: -50, x: viewportWidth * f.pickupX / 100 });
+        if (pickup.door) gsap.set(pickup.door, { xPercent: -22 * f.pickupDoor });
+        const pose = p < b.courierApproach[0] ? "courier-carry-right" : p < b.withdraw[0] ? "courier-load" : "courier-empty";
+        visible(pickup.courier, showCinematicFrame(pickup.courier, pose, mobile) && p >= b.doorOpen[0] && p < b.doorClose[1] ? 1 : 0);
+        if (pickup.courier) gsap.set(pickup.courier, { x: viewportWidth * f.pickupCourierX / 100 });
+        visible(parcelActor, p >= b.courierApproach[0] && p < b.withdraw[0] ? 1 : 0);
+        if (parcelActor) {
+          const parcelLeft = viewportWidth * ((mobile ? .80 : .69) - (mobile ? .22 : .19) * range(p, ...b.loadParcel));
+          const apertureRight = viewportWidth * (.5 + f.pickupX / 100) + pickupStageWidth * .15;
+          const occluded = clamp01((apertureRight - parcelLeft) / parcelWidth);
+          gsap.set(parcelActor, { x: parcelLeft, y: viewportHeight * (mobile ? .64 : .60), clipPath: `inset(0 0 0 ${occluded * 100}%)` });
+        }
+      } else visible(pickup.stage, 0);
       visible(packedWord, isPickup && p < .5 ? 1 : 0);
       visible(collectedWord, isPickup && p >= .5 ? 1 : 0);
 
       const routeVisible = isNetwork || (isFreight && p < B.freight.redSweepContinue[1]);
       visible(routeStage, routeVisible ? 1 : 0);
-      if (routeStage) gsap.set(routeStage, { zIndex: isFreight ? 25 : 35 });
+      if (routeStage) gsap.set(routeStage, { zIndex: isFreight ? 25 : 29 });
       if (routeVisible && routeWorld) {
         const route = isNetwork ? f.route : resolveHomeCinematicFrame("network", 1, mobile, categories.length, products.length).route;
         const scale = isNetwork ? f.cameraScale : mobile ? 1.1 : .95;
@@ -291,41 +299,42 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
         const anchorY = viewportHeight * .54;
         const camera = routeCamera(route.point, { width: worldWidth, height: worldHeight }, { x: anchorX, y: anchorY }, scale);
         gsap.set(routeWorld, { transform: `translate3d(${camera.x}px,${camera.y}px,0) scale(${scale})` });
-        if (roadImage) visible(roadImage, showCinematicFrame(roadImage, "road-00", mobile) ? 1 : 0);
-        preloadCinematicWindow(HOME_ROUTE_VAN_SEQUENCE, route.index, mobile);
-        visible(routeVan, showCinematicFrame(routeVanImage, HOME_ROUTE_VAN_SEQUENCE[route.index], mobile) ? 1 : 0);
+        preloadCinematicWindow(HOME_ROUTE_VAN_SEQUENCE, route.lowerIndex, mobile);
+        visible(routeVan, 1);
+        const lowerReady = showCinematicFrame(routeVanLower, HOME_ROUTE_VAN_SEQUENCE[route.lowerIndex], mobile);
+        const upperReady = showCinematicFrame(routeVanUpper, HOME_ROUTE_VAN_SEQUENCE[route.upperIndex], mobile);
+        visible(routeVanLower, lowerReady ? upperReady ? 1 - route.yawBlend : 1 : 0);
+        visible(routeVanUpper, upperReady ? lowerReady ? route.yawBlend : 1 : 0);
         if (routeVan) gsap.set(routeVan, { left: `${route.point.x * 100}%`, top: `${route.point.y * 100}%`, rotation: route.residual, xPercent: -50, yPercent: -50 });
       }
-      routeCopies.forEach((copy, index) => {
-        const start = [0, .28, .56][index];
-        const end = [.34, .64, .9][index];
-        const inT = range(p, start, start + .06);
-        const outT = range(p, end - .06, end);
-        visible(copy, isNetwork ? inT * (1 - outT) : 0);
-        if (copy && isNetwork) gsap.set(copy, { x: (1 - inT) * -viewportWidth * .12 + outT * viewportWidth * .08, clipPath: `inset(0 ${outT * 100}% 0 ${(1 - inT) * 100}%)` });
-      });
+      visible(routeCopy, isNetwork ? range(p, .18, .30) * (1 - range(p, .78, .90)) : 0);
+      if (routeCopy && isNetwork) gsap.set(routeCopy, { x: -viewportWidth * .025 * (1 - range(p, .18, .6)) });
       const truckVisible = (isNetwork && p >= B.network.redSweepStart[0]) || (isFreight && p <= B.freight.redSweepContinue[1]);
       if (truckVisible) {
         visible(truck, showCinematicFrame(truckImage, "red-truck-top-00", mobile) ? 1 : 0);
         if (truck) gsap.set(truck, { xPercent: -50, yPercent: -50, x: (f.truckX - 50) * viewportWidth / 100 });
       } else visible(truck, 0);
-      if (freightReveal) gsap.set(freightReveal, { clipPath: `inset(0 ${(1 - (isFreight ? f.freightReveal : 0)) * 100}% 0 0)` });
+      if (freightReveal) {
+        const metadata = HOME_CINEMATIC_ASSET_BY_ID["red-truck-top-00"];
+        const reveal = isFreight && metadata?.visibleBounds ? truckTrailingEdgeReveal(f.truckX * viewportWidth / 100, truckWidth, metadata.width, metadata.visibleBounds, viewportWidth).reveal : 0;
+        gsap.set(freightReveal, { clipPath: `inset(0 ${(1 - reveal) * 100}% 0 0)` });
+      }
 
       if (isLastMile) {
         const b = B.lastMile;
-        const isHandoff = p >= b.handoff[0] && p < b.courierReturn[0];
-        const isReturn = p >= b.courierReturn[0];
-        const index = isReturn ? f.returnIndex : isHandoff ? 5 : f.deliveryIndex;
-        const ids = isReturn ? HOME_RETURN_SEQUENCE : HOME_DELIVERY_SEQUENCE;
-        preloadCinematicWindow(ids, index, mobile);
-        visible(delivery, showCinematicFrame(deliveryImage, ids[index], mobile) ? 1 : 0);
-        if (delivery) gsap.set(delivery, { xPercent: -50, yPercent: -50, x: viewportWidth * f.deliveryX / 100 });
-        if (isHandoff) {
-          preloadCinematicWindow(HOME_HANDOFF_SEQUENCE, f.handoffIndex, mobile);
-          visible(handoff, showCinematicFrame(handoffImage, HOME_HANDOFF_SEQUENCE[f.handoffIndex], mobile) ? 1 : 0);
-          if (handoff) gsap.set(handoff, { xPercent: -50, yPercent: -50, x: viewportWidth * range(p, .76, .82) * .23, clipPath: `inset(0 0 0 ${range(p, .79, .82) * 100}%)` });
-        } else visible(handoff, 0);
-      } else { visible(delivery, 0); visible(handoff, 0); }
+        visible(delivery.stage, 1);
+        if (delivery.stage) gsap.set(delivery.stage, { xPercent: -50, yPercent: -50, x: viewportWidth * f.deliveryX / 100 });
+        if (delivery.door) gsap.set(delivery.door, { xPercent: 22 * f.deliveryDoor });
+        const returning = p >= b.courierReturn[0];
+        const courierPose = returning ? "courier-walk-left" : p < b.courierWalkRight[0] ? "courier-carry-left" : p < b.handoff[1] ? "courier-walk-right" : "courier-empty";
+        visible(delivery.courier, showCinematicFrame(delivery.courier, courierPose, mobile) && p >= b.doorOpen[0] && p < b.doorClose[1] ? 1 : 0);
+        if (delivery.courier) gsap.set(delivery.courier, { x: viewportWidth * (returning ? f.returnCourierX : f.deliveryCourierX) / 100 });
+        visible(parcelActor, p >= b.courierEmerge[0] ? 1 : 0);
+        if (parcelActor) gsap.set(parcelActor, { x: viewportWidth * ((mobile ? .33 : .43) + .22 * range(p, ...b.courierWalkRight) + .16 * f.parcelTransfer + f.recipientX / 100), y: viewportHeight * (mobile ? .62 : .60), clipPath: `inset(0 0 0 ${100 * (1 - range(p, ...b.courierEmerge))}%)` });
+        const recipientPose = p < b.handoff[0] ? "recipient-ready" : p < b.separation[0] ? "recipient-reach" : "recipient-carry";
+        visible(recipient, p >= b.courierWalkRight[0] && showCinematicFrame(recipient, recipientPose, mobile) ? 1 : 0);
+        if (recipient) gsap.set(recipient, { x: viewportWidth * f.recipientX / 100 });
+      } else { visible(delivery.stage, 0); visible(recipient, 0); if (!isPickup) visible(parcelActor, 0); }
       visible(lastMileCopy, isLastMile ? 1 - range(p, .18, .40) : 0);
       visible(delivered, isFinale ? 1 - range(p, .18, .32) : 0);
       visible(brand, isFinale ? f.brand : 0);
@@ -337,8 +346,8 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
         root.dataset.homeChapter = chapter;
         root.dataset.homeProgress = p.toFixed(3);
         root.dataset.homeMotionOwner = f.motionOwner;
-        const family = isParcel ? "box" : isPickup ? "pickup" : isNetwork ? "route-van" : isLastMile ? p >= B.lastMile.courierReturn[0] ? "return" : p >= B.lastMile.handoff[0] ? "handoff" : "delivery" : "";
-        const index = isParcel ? f.boxIndex : isPickup ? f.pickupIndex : isNetwork ? f.route.index : isLastMile ? family === "return" ? f.returnIndex : family === "handoff" ? f.handoffIndex : f.deliveryIndex : -1;
+        const family = isParcel ? "mechanical-box" : isPickup ? "composed-pickup" : isNetwork ? "route-van" : isLastMile ? "composed-last-mile" : "";
+        const index = isNetwork ? f.route.lowerIndex : -1;
         root.dataset.homeSequenceFamily = family;
         root.dataset.homeSequenceIndex = String(index);
         root.dataset.homeRouteProgress = f.routeProgress.toFixed(3);
@@ -390,5 +399,5 @@ export function useHomeCinematicDirector({ rootRef, categories, products, enable
       window.removeEventListener("kt-hero-van-ready", schedule); window.removeEventListener("kt-home-cinematic-ready", schedule);
       mobileRail?.removeEventListener("scroll", railScroll);
     };
-  }, [rootRef, categories, products, enabled, onMarketplaceSelectionChange, onProductSelectionChange, prefersReducedMotion, setHeaderTone]);
+  }, [rootRef, categories, products, selectedProductId, enabled, onMarketplaceSelectionChange, prefersReducedMotion, setHeaderTone]);
 }

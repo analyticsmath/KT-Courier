@@ -2,19 +2,16 @@ import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import { cleanCinematicAlpha } from "./home-cinematic-alpha.mjs";
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceRoot = path.join(repository, "public/media/public/images");
 const publicRoot = path.join(repository, "public/media/public/home-cinematic");
 const manifestPath = path.join(repository, "components/public-v3/home/data/home-cinematic-assets.generated.ts");
+const qcPath = path.join(repository, "components/public-v3/home/data/home-cinematic-assets.qc.json");
 const supported = /\.(png|webp|jpe?g)$/i;
 const sequences = [
-  { family: "box", directory: "KT_BOX_SEQUENCE_8_FRAMES", prefix: "box_", expected: 8 },
   { family: "route-van", directory: "KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE", prefix: "van_road_", expected: 7 },
-  { family: "handoff", directory: "KT_COURIER_HANDOFF_12_PNGS", prefix: "handoff_", expected: 12 },
-  { family: "pickup", directory: "KT_Courier_White_Van_Courier_Performance_Pack", prefix: "pickup_A", expected: 17, output: "performance" },
-  { family: "delivery", directory: "KT_Courier_White_Van_Courier_Performance_Pack", prefix: "delivery_B", expected: 12, output: "performance" },
-  { family: "return", directory: "KT_Courier_White_Van_Courier_Performance_Pack", prefix: "return_C", expected: 7, output: "performance" },
 ];
 
 async function walk(folder) {
@@ -34,32 +31,17 @@ function sequenceNumber(file) {
   return Number(match[1]);
 }
 
-async function alphaBounds(source, width, height) {
-  const { data, info } = await sharp(source).extractChannel("alpha").raw().toBuffer({ resolveWithObject: true });
-  let left = width, top = height, right = -1, bottom = -1;
-  for (let y = 0; y < info.height; y++) {
-    for (let x = 0; x < info.width; x++) {
-      if (data[y * info.width + x] <= 8) continue;
-      if (x < left) left = x;
-      if (x > right) right = x;
-      if (y < top) top = y;
-      if (y > bottom) bottom = y;
-    }
-  }
-  if (right < left) throw new Error(`Transparent image has no visible pixels: ${source}`);
-  return { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
-}
-
 const records = [];
 const ordered = {};
 const byteTotals = {};
+const qc = [];
 
 async function derive(source, family, index, requireAlpha, desktopCap, mobileCap, commonCanvas) {
   const metadata = await sharp(source).metadata();
   if (!metadata.width || !metadata.height) throw new Error(`Cannot read image dimensions: ${source}`);
   if (requireAlpha && !metadata.hasAlpha) throw new Error(`Required alpha channel missing: ${source}`);
   const name = path.basename(source, path.extname(source)).toLowerCase().replace(/[^a-z0-9-]/g, "-");
-  const outputFamily = ["pickup", "delivery", "return"].includes(family) ? "performance" : family === "road" ? "environment" : family === "red-truck-top" ? "freight" : family;
+  const outputFamily = family === "red-truck-top" ? "freight" : family;
   const directory = path.join(publicRoot, outputFamily);
   await mkdir(directory, { recursive: true });
   const base = `${family}-${name}`;
@@ -72,15 +54,32 @@ async function derive(source, family, index, requireAlpha, desktopCap, mobileCap
   const rightPad = canvasWidth - metadata.width - leftPad;
   const topPad = Math.floor((canvasHeight - metadata.height) / 2);
   const bottomPad = canvasHeight - metadata.height - topPad;
-  for (let i = 0; i < 2; i++) {
-    let pipeline = sharp(source);
-    if (leftPad || rightPad || topPad || bottomPad) pipeline = pipeline.extend({ left: leftPad, right: rightPad, top: topPad, bottom: bottomPad, background: { r: 0, g: 0, b: 0, alpha: 0 } });
-    await pipeline.resize({ width: caps[i], withoutEnlargement: true }).webp({ quality: 91, alphaQuality: 100, effort: 6 }).toFile(paths[i]);
-    byteTotals[family] = (byteTotals[family] || 0) + (await stat(paths[i])).size;
-  }
+  const cleaned = await cleanCinematicAlpha(source, family);
+  const sourceBounds = cleaned.visibleBounds;
   const relativeSource = path.relative(repository, source).replaceAll("\\", "/");
   const toPublicUrl = (file) => `/${path.relative(path.join(repository, "public"), file).replaceAll("\\", "/")}`;
-  const sourceBounds = metadata.hasAlpha ? await alphaBounds(source, metadata.width, metadata.height) : undefined;
+  for (let i = 0; i < 2; i++) {
+    let pipeline = sharp(cleaned.buffer, { raw: { width: metadata.width, height: metadata.height, channels: 4 } });
+    if (leftPad || rightPad || topPad || bottomPad) pipeline = pipeline.extend({ left: leftPad, right: rightPad, top: topPad, bottom: bottomPad, background: { r: 0, g: 0, b: 0, alpha: 0 } });
+    await pipeline.resize({ width: caps[i], withoutEnlargement: true }).webp({ quality: 91, alphaQuality: 100, effort: 6 }).toFile(paths[i]);
+    const outputBytes = (await stat(paths[i])).size;
+    const outputMeta = await sharp(paths[i]).metadata();
+    const scale = outputMeta.width / canvasWidth;
+    const canvasBounds = { ...sourceBounds, x: sourceBounds.x + leftPad, y: sourceBounds.y + topPad };
+    byteTotals[family] = (byteTotals[family] || 0) + outputBytes;
+    qc.push({
+      sourcePath: relativeSource, outputPath: path.relative(repository, paths[i]).replaceAll("\\", "/"),
+      sourceWidth: metadata.width, sourceHeight: metadata.height,
+      outputWidth: outputMeta.width, outputHeight: outputMeta.height,
+      sourceVisibleBounds: canvasBounds,
+      visibleBounds: Object.fromEntries(Object.entries(canvasBounds).map(([key, value]) => [key, Math.round(value * scale)])),
+      visibleAreaPercentage: cleaned.visibleAreaPercentage,
+      disconnectedAlphaComponents: cleaned.disconnectedComponents,
+      removedIslands: cleaned.removedIslands, removedIslandPixels: cleaned.removedIslandPixels,
+      removedLowAlphaPixels: cleaned.removedLowAlpha, removedColorFringePixels: cleaned.removedColorFringe,
+      outputBytes, deviceVariant: i ? "mobile" : "desktop", edgeCleanupApplied: cleaned.edgeCleanupApplied,
+    });
+  }
   const record = {
     id: `${family}-${String(index).padStart(2, "0")}`,
     family,
@@ -93,7 +92,7 @@ async function derive(source, family, index, requireAlpha, desktopCap, mobileCap
     sourceHeight: metadata.height,
     aspectRatio: canvasWidth / canvasHeight,
     hasAlpha: Boolean(metadata.hasAlpha),
-    ...(sourceBounds ? { visibleBounds: { ...sourceBounds, x: sourceBounds.x + leftPad, y: sourceBounds.y + topPad } } : {}),
+    visibleBounds: { ...sourceBounds, x: sourceBounds.x + leftPad, y: sourceBounds.y + topPad },
     index,
   };
   records.push(record);
@@ -125,7 +124,7 @@ for (const sequence of sequences) {
 }
 
 const topLevel = await walk(sourceRoot);
-for (const [stem, family, desktopCap, mobileCap] of [["road", "road", 2400, 1440], ["red_truck_top", "red-truck-top", 1800, 1100]]) {
+for (const [stem, family, desktopCap, mobileCap] of [["red_truck_top", "red-truck-top", 1800, 1100]]) {
   const matches = topLevel.filter((file) => path.basename(file, path.extname(file)).toLowerCase() === stem);
   if (matches.length !== 1) throw new Error(`${stem}: expected exactly one supported image, found ${matches.length}: ${matches.join(", ")}`);
   await derive(matches[0], family, 0, true, desktopCap, mobileCap);
@@ -139,4 +138,18 @@ const source = `/* Generated by scripts/media/prepare-home-cinematic-assets.mjs.
   `export const HOME_CINEMATIC_ASSET_BY_ID: Readonly<Record<string, HomeCinematicAsset>> = Object.fromEntries(HOME_CINEMATIC_ASSETS.map((asset) => [asset.id, asset]));\n`;
 await mkdir(path.dirname(manifestPath), { recursive: true });
 await writeFile(manifestPath, source);
+const sourceInventory = [];
+for (const group of ["KT_BOX_SEQUENCE_8_FRAMES", "KT_COURIER_HANDOFF_12_PNGS", "KT_Courier_White_Van_Courier_Performance_Pack", "KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE", "KT_Courier_20_Transparent_PNG_Assets"]) {
+  for (const file of await walk(path.join(sourceRoot, group))) {
+    const meta = await sharp(file).metadata();
+    sourceInventory.push({ path: path.relative(repository, file).replaceAll("\\", "/"), width: meta.width, height: meta.height, hasAlpha: meta.hasAlpha });
+  }
+}
+for (const stem of ["road", "red_truck_top"]) {
+  for (const file of topLevel.filter((item) => path.basename(item, path.extname(item)).toLowerCase() === stem)) {
+    const meta = await sharp(file).metadata();
+    sourceInventory.push({ path: path.relative(repository, file).replaceAll("\\", "/"), width: meta.width, height: meta.height, hasAlpha: meta.hasAlpha });
+  }
+}
+await writeFile(qcPath, JSON.stringify({ generatedAt: new Date().toISOString(), sourceInventory, assets: qc }, null, 2) + "\n");
 console.log(JSON.stringify({ count: records.length, byteTotals, manifestPath }, null, 2));

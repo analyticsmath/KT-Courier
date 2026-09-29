@@ -1,0 +1,1909 @@
+{
+  "generatedAt": "2026-09-29T20:51:59.849Z",
+  "sourceInventory": [
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_00_open_master.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_01_side_flaps_early.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_02_side_flaps_mid.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_03_side_flaps_closed.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_04_rear_flap_early.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_05_rear_flap_near_closed.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_06_front_flap_mid.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_BOX_SEQUENCE_8_FRAMES/box_07_closed.png",
+      "width": 512,
+      "height": 512,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_01_approach.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_02_arrival.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_03_recipient_reach.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_04_first_contact.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_05_shared_parcel.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_06_weight_transfer.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_07_release.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_08_withdrawal.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_09_separation_begin.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_10_departure_step.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_11_walking_apart.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_12_final_separation.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B00_van_closed_left.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B01_door_15.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B02_door_35.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B03_door_60.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B04_door_85.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B05_door_open.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B06_courier_emerging.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B07_courier_threshold_box.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B08_courier_out_box.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B09_walk_right_01.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B10_walk_right_02.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B11_handoff_entry_match.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A00_van_closed_right.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A01_door_15.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A02_door_35.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A03_door_60.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A04_door_85.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A05_door_open.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A06_courier_approach_box.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A07_courier_at_door.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A08_load_start.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A09_load_half.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A10_load_near_inside.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A11_parcel_released.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A12_courier_withdraw.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A13_courier_clear.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A14_door_closing_60.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A15_door_closing_25.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A16_ready_depart.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/return_C01_walk_left.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/return_C02_approach_van.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/return_C03_enter_van.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/return_C04_inside.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/return_C05_door_closing_60.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/return_C06_door_closing_25.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/return_C07_departure_ready.png",
+      "width": 2048,
+      "height": 2048,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_01_right.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_02_turn_15.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_03_turn_30.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_04_turn_45.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_05_turn_60.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_06_turn_75.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_07_down.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/01_original_pose_refined.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/02_full_body_one_parcel.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/03_full_body_two_parcels.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/04_walking_one_parcel_facing_right.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/05_walking_one_parcel_facing_left.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/06_walking_two_parcels.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/07_ready_to_handover_parcel.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/08_extending_parcel_for_handoff.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/09_looking_toward_viewer_with_parcel.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/10_looking_right_approaching_vehicle.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/11_looking_left_approaching_vehicle.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/12_placing_parcel_down.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/13_lifting_parcel_up.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/14_small_parcel_one_hand.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/15_medium_box_under_arm.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/16_empty_hands_courier_hero.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/17_forward_gesture_with_parcel.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/18_loading_unloading_parcel.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/19_half_body_holding_parcel.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/20_close_crop_upper_body_portrait.png",
+      "width": 1122,
+      "height": 1402,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/bearded_courier_walking_in_red_uniform.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/completed_delivery_handoff.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/courier_delivering_a_cardboard_parcel.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/courier_handing_over_a_cardboard_box.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/courier_just_after_delivery.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/courier_releasing_cardboard_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/delivery_handoff_complete.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/delivery_handoff_courier_walking_away.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/delivery_handoff_in_progress.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/delivery_handoff_moment.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/full_body_portrait_of_a_young_man.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/isolated_courier_walking_with_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/man_ready_to_receive_a_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/man_receiving_cardboard_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/package_handoff_complete.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/parcel_handoff_with_friendly_delivery_duo.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/profile_courier_offering_a_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/reaching_recipient_in_beige_shirt.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/red_capped_courier_walking_right.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/red_cap_courier_holding_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/red_clad_courier_delivering_a_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/red_clad_courier_holding_cardboard_box.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/side_view_courier_carrying_box.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/turning_courier_in_red_cap_and_polo.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/two_men_exchanging_a_package.png",
+      "width": 1448,
+      "height": 1086,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/young_courier_holding_cardboard_box.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/young_man_holding_cardboard_package.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/young_man_holding_cardboard_parcel.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/young_man_in_beige_shirt_and_sneakers.png",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/road.png",
+      "width": 1671,
+      "height": 941,
+      "hasAlpha": true
+    },
+    {
+      "path": "public/media/public/images/red_truck_top.png",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    }
+  ],
+  "assets": [
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_01_right.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-01-right-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 26,
+        "y": 376,
+        "width": 1204,
+        "height": 528
+      },
+      "visibleBounds": {
+        "x": 26,
+        "y": 376,
+        "width": 1204,
+        "height": 528
+      },
+      "visibleAreaPercentage": 32.043,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 11538,
+      "removedColorFringePixels": 0,
+      "outputBytes": 60220,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_01_right.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-01-right-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 960,
+      "outputHeight": 960,
+      "sourceVisibleBounds": {
+        "x": 26,
+        "y": 376,
+        "width": 1204,
+        "height": 528
+      },
+      "visibleBounds": {
+        "x": 20,
+        "y": 288,
+        "width": 922,
+        "height": 404
+      },
+      "visibleAreaPercentage": 32.043,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 11538,
+      "removedColorFringePixels": 0,
+      "outputBytes": 45128,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_02_turn_15.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-02-turn-15-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 21,
+        "y": 362,
+        "width": 1208,
+        "height": 637
+      },
+      "visibleBounds": {
+        "x": 21,
+        "y": 362,
+        "width": 1208,
+        "height": 637
+      },
+      "visibleAreaPercentage": 31.921,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 7809,
+      "removedColorFringePixels": 0,
+      "outputBytes": 85162,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_02_turn_15.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-02-turn-15-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 960,
+      "outputHeight": 960,
+      "sourceVisibleBounds": {
+        "x": 21,
+        "y": 362,
+        "width": 1208,
+        "height": 637
+      },
+      "visibleBounds": {
+        "x": 16,
+        "y": 277,
+        "width": 925,
+        "height": 488
+      },
+      "visibleAreaPercentage": 31.921,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 7809,
+      "removedColorFringePixels": 0,
+      "outputBytes": 67846,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_03_turn_30.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-03-turn-30-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 19,
+        "y": 168,
+        "width": 1170,
+        "height": 957
+      },
+      "visibleBounds": {
+        "x": 19,
+        "y": 168,
+        "width": 1170,
+        "height": 957
+      },
+      "visibleAreaPercentage": 34.503,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 10020,
+      "removedColorFringePixels": 0,
+      "outputBytes": 95606,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_03_turn_30.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-03-turn-30-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 960,
+      "outputHeight": 960,
+      "sourceVisibleBounds": {
+        "x": 19,
+        "y": 168,
+        "width": 1170,
+        "height": 957
+      },
+      "visibleBounds": {
+        "x": 15,
+        "y": 129,
+        "width": 896,
+        "height": 733
+      },
+      "visibleAreaPercentage": 34.503,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 10020,
+      "removedColorFringePixels": 0,
+      "outputBytes": 76706,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_04_turn_45.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-04-turn-45-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 21,
+        "y": 65,
+        "width": 1175,
+        "height": 1150
+      },
+      "visibleBounds": {
+        "x": 21,
+        "y": 65,
+        "width": 1175,
+        "height": 1150
+      },
+      "visibleAreaPercentage": 40.419,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 9253,
+      "removedColorFringePixels": 0,
+      "outputBytes": 108410,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_04_turn_45.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-04-turn-45-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 960,
+      "outputHeight": 960,
+      "sourceVisibleBounds": {
+        "x": 21,
+        "y": 65,
+        "width": 1175,
+        "height": 1150
+      },
+      "visibleBounds": {
+        "x": 16,
+        "y": 50,
+        "width": 900,
+        "height": 880
+      },
+      "visibleAreaPercentage": 40.419,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 9253,
+      "removedColorFringePixels": 0,
+      "outputBytes": 84836,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_05_turn_60.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-05-turn-60-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 69,
+        "y": 78,
+        "width": 1098,
+        "height": 1113
+      },
+      "visibleBounds": {
+        "x": 69,
+        "y": 78,
+        "width": 1098,
+        "height": 1113
+      },
+      "visibleAreaPercentage": 36.691,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 8628,
+      "removedColorFringePixels": 0,
+      "outputBytes": 94892,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_05_turn_60.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-05-turn-60-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 960,
+      "outputHeight": 960,
+      "sourceVisibleBounds": {
+        "x": 69,
+        "y": 78,
+        "width": 1098,
+        "height": 1113
+      },
+      "visibleBounds": {
+        "x": 53,
+        "y": 60,
+        "width": 841,
+        "height": 852
+      },
+      "visibleAreaPercentage": 36.691,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 8628,
+      "removedColorFringePixels": 0,
+      "outputBytes": 74736,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_06_turn_75.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-06-turn-75-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 391,
+        "y": 31,
+        "width": 535,
+        "height": 1173
+      },
+      "visibleBounds": {
+        "x": 391,
+        "y": 31,
+        "width": 535,
+        "height": 1173
+      },
+      "visibleAreaPercentage": 29.389,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 9299,
+      "removedColorFringePixels": 0,
+      "outputBytes": 75618,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_06_turn_75.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-06-turn-75-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 960,
+      "outputHeight": 960,
+      "sourceVisibleBounds": {
+        "x": 391,
+        "y": 31,
+        "width": 535,
+        "height": 1173
+      },
+      "visibleBounds": {
+        "x": 299,
+        "y": 24,
+        "width": 410,
+        "height": 898
+      },
+      "visibleAreaPercentage": 29.389,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 9299,
+      "removedColorFringePixels": 0,
+      "outputBytes": 59316,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_07_down.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-07-down-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 353,
+        "y": 22,
+        "width": 542,
+        "height": 1204
+      },
+      "visibleBounds": {
+        "x": 353,
+        "y": 22,
+        "width": 542,
+        "height": 1204
+      },
+      "visibleAreaPercentage": 32.547,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 13199,
+      "removedColorFringePixels": 0,
+      "outputBytes": 64194,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_WHITE_VAN_TOP_DOWN_SEQUENCE/van_road_07_down.png",
+      "outputPath": "public/media/public/home-cinematic/route-van/route-van-van-road-07-down-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 960,
+      "outputHeight": 960,
+      "sourceVisibleBounds": {
+        "x": 353,
+        "y": 22,
+        "width": 542,
+        "height": 1204
+      },
+      "visibleBounds": {
+        "x": 270,
+        "y": 17,
+        "width": 415,
+        "height": 922
+      },
+      "visibleAreaPercentage": 32.547,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 13199,
+      "removedColorFringePixels": 0,
+      "outputBytes": 49116,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/red_truck_top.png",
+      "outputPath": "public/media/public/home-cinematic/freight/red-truck-top-red-truck-top-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1254,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 20,
+        "y": 484,
+        "width": 1222,
+        "height": 298
+      },
+      "visibleBounds": {
+        "x": 20,
+        "y": 484,
+        "width": 1222,
+        "height": 298
+      },
+      "visibleAreaPercentage": 20.797,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 18785,
+      "removedColorFringePixels": 0,
+      "outputBytes": 78218,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/red_truck_top.png",
+      "outputPath": "public/media/public/home-cinematic/freight/red-truck-top-red-truck-top-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 1100,
+      "outputHeight": 1100,
+      "sourceVisibleBounds": {
+        "x": 20,
+        "y": 484,
+        "width": 1222,
+        "height": 298
+      },
+      "visibleBounds": {
+        "x": 18,
+        "y": 425,
+        "width": 1072,
+        "height": 261
+      },
+      "visibleAreaPercentage": 20.797,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 18785,
+      "removedColorFringePixels": 0,
+      "outputBytes": 71928,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A05_door_open.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-open-right-desktop.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 1400,
+      "outputHeight": 838,
+      "sourceVisibleBounds": {
+        "x": 96,
+        "y": 199,
+        "width": 1399,
+        "height": 653
+      },
+      "visibleBounds": {
+        "x": 88,
+        "y": 183,
+        "width": 1289,
+        "height": 601
+      },
+      "visibleAreaPercentage": 50.246,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17217,
+      "removedColorFringePixels": 0,
+      "outputBytes": 85432,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A05_door_open.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-open-right-mobile.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 960,
+      "outputHeight": 575,
+      "sourceVisibleBounds": {
+        "x": 96,
+        "y": 199,
+        "width": 1399,
+        "height": 653
+      },
+      "visibleBounds": {
+        "x": 61,
+        "y": 126,
+        "width": 884,
+        "height": 412
+      },
+      "visibleAreaPercentage": 50.246,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17217,
+      "removedColorFringePixels": 0,
+      "outputBytes": 51626,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A00_van_closed_right.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-door-right-desktop.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 1400,
+      "outputHeight": 838,
+      "sourceVisibleBounds": {
+        "x": 575,
+        "y": 199,
+        "width": 360,
+        "height": 569
+      },
+      "visibleBounds": {
+        "x": 530,
+        "y": 183,
+        "width": 332,
+        "height": 524
+      },
+      "visibleAreaPercentage": 14.764,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17330,
+      "removedColorFringePixels": 0,
+      "outputBytes": 13800,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/pickup_A00_van_closed_right.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-door-right-mobile.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 960,
+      "outputHeight": 575,
+      "sourceVisibleBounds": {
+        "x": 575,
+        "y": 199,
+        "width": 360,
+        "height": 569
+      },
+      "visibleBounds": {
+        "x": 363,
+        "y": 126,
+        "width": 227,
+        "height": 359
+      },
+      "visibleAreaPercentage": 14.764,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17330,
+      "removedColorFringePixels": 0,
+      "outputBytes": 8348,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B05_door_open.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-open-left-desktop.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 1400,
+      "outputHeight": 838,
+      "sourceVisibleBounds": {
+        "x": 93,
+        "y": 199,
+        "width": 1399,
+        "height": 653
+      },
+      "visibleBounds": {
+        "x": 86,
+        "y": 183,
+        "width": 1289,
+        "height": 601
+      },
+      "visibleAreaPercentage": 50.246,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17217,
+      "removedColorFringePixels": 0,
+      "outputBytes": 86756,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B05_door_open.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-open-left-mobile.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 960,
+      "outputHeight": 575,
+      "sourceVisibleBounds": {
+        "x": 93,
+        "y": 199,
+        "width": 1399,
+        "height": 653
+      },
+      "visibleBounds": {
+        "x": 59,
+        "y": 126,
+        "width": 884,
+        "height": 412
+      },
+      "visibleAreaPercentage": 50.246,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17217,
+      "removedColorFringePixels": 0,
+      "outputBytes": 52562,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B00_van_closed_left.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-door-left-desktop.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 1400,
+      "outputHeight": 838,
+      "sourceVisibleBounds": {
+        "x": 650,
+        "y": 199,
+        "width": 360,
+        "height": 569
+      },
+      "visibleBounds": {
+        "x": 599,
+        "y": 183,
+        "width": 332,
+        "height": 524
+      },
+      "visibleAreaPercentage": 14.764,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17330,
+      "removedColorFringePixels": 0,
+      "outputBytes": 13928,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_White_Van_Courier_Performance_Pack/delivery_B00_van_closed_left.png",
+      "outputPath": "public/media/public/home-cinematic/composed/van-door-left-mobile.webp",
+      "sourceWidth": 2048,
+      "sourceHeight": 2048,
+      "outputWidth": 960,
+      "outputHeight": 575,
+      "sourceVisibleBounds": {
+        "x": 650,
+        "y": 199,
+        "width": 360,
+        "height": 569
+      },
+      "visibleBounds": {
+        "x": 411,
+        "y": 126,
+        "width": 227,
+        "height": 359
+      },
+      "visibleAreaPercentage": 14.764,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 17330,
+      "removedColorFringePixels": 0,
+      "outputBytes": 8002,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/10_looking_right_approaching_vehicle.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-carry-right-desktop.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 800,
+      "outputHeight": 1000,
+      "sourceVisibleBounds": {
+        "x": 243,
+        "y": 25,
+        "width": 660,
+        "height": 1334
+      },
+      "visibleBounds": {
+        "x": 173,
+        "y": 18,
+        "width": 471,
+        "height": 951
+      },
+      "visibleAreaPercentage": 21.254,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 15977,
+      "removedColorFringePixels": 0,
+      "outputBytes": 73368,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/10_looking_right_approaching_vehicle.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-carry-right-mobile.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 560,
+      "outputHeight": 700,
+      "sourceVisibleBounds": {
+        "x": 243,
+        "y": 25,
+        "width": 660,
+        "height": 1334
+      },
+      "visibleBounds": {
+        "x": 121,
+        "y": 12,
+        "width": 329,
+        "height": 666
+      },
+      "visibleAreaPercentage": 21.254,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 15977,
+      "removedColorFringePixels": 0,
+      "outputBytes": 43462,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/18_loading_unloading_parcel.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-load-desktop.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 800,
+      "outputHeight": 1000,
+      "sourceVisibleBounds": {
+        "x": 177,
+        "y": 26,
+        "width": 843,
+        "height": 1343
+      },
+      "visibleBounds": {
+        "x": 126,
+        "y": 19,
+        "width": 601,
+        "height": 958
+      },
+      "visibleAreaPercentage": 30.979,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 21724,
+      "removedColorFringePixels": 0,
+      "outputBytes": 99072,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/18_loading_unloading_parcel.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-load-mobile.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 560,
+      "outputHeight": 700,
+      "sourceVisibleBounds": {
+        "x": 177,
+        "y": 26,
+        "width": 843,
+        "height": 1343
+      },
+      "visibleBounds": {
+        "x": 88,
+        "y": 13,
+        "width": 421,
+        "height": 670
+      },
+      "visibleAreaPercentage": 30.979,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 21724,
+      "removedColorFringePixels": 0,
+      "outputBytes": 56466,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/16_empty_hands_courier_hero.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-empty-desktop.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 800,
+      "outputHeight": 1000,
+      "sourceVisibleBounds": {
+        "x": 360,
+        "y": 9,
+        "width": 429,
+        "height": 1371
+      },
+      "visibleBounds": {
+        "x": 257,
+        "y": 6,
+        "width": 306,
+        "height": 978
+      },
+      "visibleAreaPercentage": 19.467,
+      "disconnectedAlphaComponents": 2,
+      "removedIslands": 1,
+      "removedIslandPixels": 6,
+      "removedLowAlphaPixels": 14614,
+      "removedColorFringePixels": 0,
+      "outputBytes": 67636,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/16_empty_hands_courier_hero.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-empty-mobile.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 560,
+      "outputHeight": 700,
+      "sourceVisibleBounds": {
+        "x": 360,
+        "y": 9,
+        "width": 429,
+        "height": 1371
+      },
+      "visibleBounds": {
+        "x": 180,
+        "y": 4,
+        "width": 214,
+        "height": 684
+      },
+      "visibleAreaPercentage": 19.467,
+      "disconnectedAlphaComponents": 2,
+      "removedIslands": 1,
+      "removedIslandPixels": 6,
+      "removedLowAlphaPixels": 14614,
+      "removedColorFringePixels": 0,
+      "outputBytes": 40774,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/11_looking_left_approaching_vehicle.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-carry-left-desktop.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 800,
+      "outputHeight": 1000,
+      "sourceVisibleBounds": {
+        "x": 258,
+        "y": 22,
+        "width": 664,
+        "height": 1350
+      },
+      "visibleBounds": {
+        "x": 184,
+        "y": 16,
+        "width": 473,
+        "height": 963
+      },
+      "visibleAreaPercentage": 22.142,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 15687,
+      "removedColorFringePixels": 0,
+      "outputBytes": 76204,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/11_looking_left_approaching_vehicle.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-carry-left-mobile.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 560,
+      "outputHeight": 700,
+      "sourceVisibleBounds": {
+        "x": 258,
+        "y": 22,
+        "width": 664,
+        "height": 1350
+      },
+      "visibleBounds": {
+        "x": 129,
+        "y": 11,
+        "width": 331,
+        "height": 674
+      },
+      "visibleAreaPercentage": 22.142,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 15687,
+      "removedColorFringePixels": 0,
+      "outputBytes": 44136,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/04_walking_one_parcel_facing_right.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-walk-right-desktop.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 800,
+      "outputHeight": 1000,
+      "sourceVisibleBounds": {
+        "x": 222,
+        "y": 31,
+        "width": 742,
+        "height": 1307
+      },
+      "visibleBounds": {
+        "x": 158,
+        "y": 22,
+        "width": 529,
+        "height": 932
+      },
+      "visibleAreaPercentage": 20.798,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 19362,
+      "removedColorFringePixels": 0,
+      "outputBytes": 73770,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/04_walking_one_parcel_facing_right.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-walk-right-mobile.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 560,
+      "outputHeight": 700,
+      "sourceVisibleBounds": {
+        "x": 222,
+        "y": 31,
+        "width": 742,
+        "height": 1307
+      },
+      "visibleBounds": {
+        "x": 111,
+        "y": 15,
+        "width": 370,
+        "height": 652
+      },
+      "visibleAreaPercentage": 20.798,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 19362,
+      "removedColorFringePixels": 0,
+      "outputBytes": 43820,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/05_walking_one_parcel_facing_left.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-walk-left-desktop.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 800,
+      "outputHeight": 1000,
+      "sourceVisibleBounds": {
+        "x": 216,
+        "y": 18,
+        "width": 775,
+        "height": 1324
+      },
+      "visibleBounds": {
+        "x": 154,
+        "y": 13,
+        "width": 553,
+        "height": 944
+      },
+      "visibleAreaPercentage": 22.263,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 16966,
+      "removedColorFringePixels": 0,
+      "outputBytes": 76626,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_Courier_20_Transparent_PNG_Assets/05_walking_one_parcel_facing_left.png",
+      "outputPath": "public/media/public/home-cinematic/composed/courier-walk-left-mobile.webp",
+      "sourceWidth": 1122,
+      "sourceHeight": 1402,
+      "outputWidth": 560,
+      "outputHeight": 700,
+      "sourceVisibleBounds": {
+        "x": 216,
+        "y": 18,
+        "width": 775,
+        "height": 1324
+      },
+      "visibleBounds": {
+        "x": 108,
+        "y": 9,
+        "width": 387,
+        "height": 661
+      },
+      "visibleAreaPercentage": 22.263,
+      "disconnectedAlphaComponents": 1,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 16966,
+      "removedColorFringePixels": 0,
+      "outputBytes": 45106,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_01_approach.png",
+      "outputPath": "public/media/public/home-cinematic/composed/recipient-ready-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 604,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 148,
+        "y": 75,
+        "width": 382,
+        "height": 1107
+      },
+      "visibleBounds": {
+        "x": 148,
+        "y": 75,
+        "width": 382,
+        "height": 1107
+      },
+      "visibleAreaPercentage": 30.581,
+      "disconnectedAlphaComponents": 7,
+      "removedIslands": 5,
+      "removedIslandPixels": 10,
+      "removedLowAlphaPixels": 32765,
+      "removedColorFringePixels": 0,
+      "outputBytes": 55690,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_01_approach.png",
+      "outputPath": "public/media/public/home-cinematic/composed/recipient-ready-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 560,
+      "outputHeight": 1163,
+      "sourceVisibleBounds": {
+        "x": 148,
+        "y": 75,
+        "width": 382,
+        "height": 1107
+      },
+      "visibleBounds": {
+        "x": 137,
+        "y": 70,
+        "width": 354,
+        "height": 1026
+      },
+      "visibleAreaPercentage": 30.581,
+      "disconnectedAlphaComponents": 7,
+      "removedIslands": 5,
+      "removedIslandPixels": 10,
+      "removedLowAlphaPixels": 32765,
+      "removedColorFringePixels": 0,
+      "outputBytes": 62458,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_03_recipient_reach.png",
+      "outputPath": "public/media/public/home-cinematic/composed/recipient-reach-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 604,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 0,
+        "y": 75,
+        "width": 447,
+        "height": 1123
+      },
+      "visibleBounds": {
+        "x": 0,
+        "y": 75,
+        "width": 447,
+        "height": 1123
+      },
+      "visibleAreaPercentage": 31.712,
+      "disconnectedAlphaComponents": 5,
+      "removedIslands": 3,
+      "removedIslandPixels": 5,
+      "removedLowAlphaPixels": 32925,
+      "removedColorFringePixels": 0,
+      "outputBytes": 58404,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_03_recipient_reach.png",
+      "outputPath": "public/media/public/home-cinematic/composed/recipient-reach-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 560,
+      "outputHeight": 1163,
+      "sourceVisibleBounds": {
+        "x": 0,
+        "y": 75,
+        "width": 447,
+        "height": 1123
+      },
+      "visibleBounds": {
+        "x": 0,
+        "y": 70,
+        "width": 414,
+        "height": 1041
+      },
+      "visibleAreaPercentage": 31.712,
+      "disconnectedAlphaComponents": 5,
+      "removedIslands": 3,
+      "removedIslandPixels": 5,
+      "removedLowAlphaPixels": 32925,
+      "removedColorFringePixels": 0,
+      "outputBytes": 65440,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_12_final_separation.png",
+      "outputPath": "public/media/public/home-cinematic/composed/recipient-carry-desktop.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 604,
+      "outputHeight": 1254,
+      "sourceVisibleBounds": {
+        "x": 143,
+        "y": 211,
+        "width": 461,
+        "height": 946
+      },
+      "visibleBounds": {
+        "x": 143,
+        "y": 211,
+        "width": 461,
+        "height": 946
+      },
+      "visibleAreaPercentage": 24.826,
+      "disconnectedAlphaComponents": 2,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 30183,
+      "removedColorFringePixels": 0,
+      "outputBytes": 50214,
+      "deviceVariant": "desktop",
+      "edgeCleanupApplied": true
+    },
+    {
+      "sourcePath": "public/media/public/images/KT_COURIER_HANDOFF_12_PNGS/handoff_12_final_separation.png",
+      "outputPath": "public/media/public/home-cinematic/composed/recipient-carry-mobile.webp",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "outputWidth": 560,
+      "outputHeight": 1163,
+      "sourceVisibleBounds": {
+        "x": 143,
+        "y": 211,
+        "width": 461,
+        "height": 946
+      },
+      "visibleBounds": {
+        "x": 133,
+        "y": 196,
+        "width": 427,
+        "height": 877
+      },
+      "visibleAreaPercentage": 24.826,
+      "disconnectedAlphaComponents": 2,
+      "removedIslands": 0,
+      "removedIslandPixels": 0,
+      "removedLowAlphaPixels": 30183,
+      "removedColorFringePixels": 0,
+      "outputBytes": 57408,
+      "deviceVariant": "mobile",
+      "edgeCleanupApplied": true
+    }
+  ]
+}

@@ -35,7 +35,7 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
     let restoreTimer: number | undefined;
     try {
       const storedId = window.sessionStorage.getItem("kt-home-selected-product");
-      if (storedId && presentation.products.some((product) => product.id === storedId)) {
+      if (storedId && presentation.products.slice(0, 5).some((product) => product.id === storedId)) {
         restoreTimer = window.setTimeout(() => setSelectedProductId(storedId), 0);
       }
     } catch {
@@ -45,7 +45,7 @@ export function PublicHomeExperience({ isStorefrontExposed = false, storefrontPr
       if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
     };
   }, [presentation.products]);
-  useHomeCinematicDirector({ rootRef: containerRef, categories: presentation.categories, products: presentation.products, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId, onProductSelectionChange: handleProductSelectionChange });
+  useHomeCinematicDirector({ rootRef: containerRef, categories: presentation.categories, products: presentation.products, selectedProductId, enabled: introResolved, onMarketplaceSelectionChange: setSelectedCategoryId });
   const selectedProduct = presentation.products.find((product) => product.id === selectedProductId) ?? presentation.products[0];
 
   return <div ref={containerRef} data-kt-motion-owned="director" data-storefront-exposed={isStorefrontExposed} className="kt-home-experience flex flex-col w-full relative bg-[var(--kt-public-canvas)]">

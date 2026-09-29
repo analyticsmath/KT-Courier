@@ -74,11 +74,11 @@ export const HOME_MOBILE_HERO_BEATS = {
 
 /** Canonical post-Hero film timing. Kept separate from the retired actor bank. */
 export const HOME_CINEMATIC_BEATS = {
-  commerce: { takeoverCover: [0, .08], spinnerEnter: [.08, .12], spinnerTurn: [.12, .24], spinnerResolve: [.24, .30], categoryTraversal: [.30, .58], categoryFinalHold: [.58, .62], fanStackIn: [.62, .68], fanSpread: [.68, .76], fanTraversal: [.76, .92], selectedTakeover: [.92, 1] },
-  parcelization: { selectedCarry: [0, .14], productDescend: [.14, .30], productOcclusion: [.26, .36], boxClose: [.36, .64], closedHold: [.64, .78], pickupPreload: [.72, .90], collectionTakeover: [.86, 1] },
-  pickup: { vanEntry: [0, .14], vanSettle: [.14, .20], doorOpen: [.20, .34], courierApproach: [.34, .44], loadParcel: [.44, .66], withdraw: [.66, .74], doorClose: [.74, .86], vanDeparture: [.86, 1] },
-  network: { routeTakeover: [0, .08], closeCamera: [0, .14], horizontalTravel: [.08, .32], cameraPullback: [.14, .38], curveTurn: [.32, .52], verticalTravel: [.52, .76], milestoneReframe: [.66, .84], redPrepare: [.82, .90], redSweepStart: [.90, 1] },
-  freight: { redSweepContinue: [0, .18], headlineReveal: [.12, .30], readHold: [.30, .60], detailReveal: [.46, .70], lastMilePrepare: [.72, 1] },
-  lastMile: { vanEntry: [0, .12], vanSettle: [.12, .18], doorOpen: [.18, .30], courierEmerge: [.30, .42], courierWalkRight: [.42, .52], handoff: [.52, .78], separation: [.76, .82], courierReturn: [.82, .90], doorClose: [.90, .96], vanDeparture: [.96, 1] },
+  commerce: { takeoverCover: [0, .10], galleryEnter: [.10, .15], categoryTraversal: [.15, .55], galleryHold: [.55, .60], fanStackIn: [.60, .66], fanSpread: [.66, .74], fanHold: [.74, .91], selectedTakeover: [.91, 1] },
+  parcelization: { selectedCarry: [0, .15], productDescend: [.15, .34], productOcclusion: [.30, .40], boxClose: [.40, .78], closedHold: [.78, .90], collectionTakeover: [.90, 1] },
+  pickup: { vanEntry: [0, .16], vanSettle: [.16, .20], doorOpen: [.20, .38], courierApproach: [.38, .50], loadParcel: [.50, .65], withdraw: [.65, .72], doorClose: [.72, .88], vanDeparture: [.88, 1] },
+  network: { routeTakeover: [0, .08], closeCamera: [0, .16], horizontalTravel: [.08, .33], cameraPullback: [.16, .46], curveTurn: [.33, .56], verticalTravel: [.56, .83], milestoneReframe: [.66, .87], redPrepare: [.83, .92], redSweepStart: [.92, 1] },
+  freight: { redSweepContinue: [0, .24], headlineReveal: [.18, .34], readHold: [.34, .76], detailReveal: [.34, .52], lastMilePrepare: [.76, 1] },
+  lastMile: { vanEntry: [0, .13], vanSettle: [.13, .18], doorOpen: [.18, .33], courierEmerge: [.33, .43], courierWalkRight: [.43, .53], handoff: [.53, .71], separation: [.71, .77], courierReturn: [.77, .85], doorClose: [.85, .93], vanDeparture: [.93, 1] },
   finale: { deliveredHold: [0, .22], environmentClear: [.18, .30], brandRise: [.28, .62], brandHold: [.62, .82], utilityReveal: [.82, .94], legalReveal: [.94, 1] },
 } as const;

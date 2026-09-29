@@ -22,7 +22,7 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
       <div className={styles.marketplaceTakeover} data-marketplace-takeover aria-hidden="true" />
       <div className={styles.commerceOpening} data-cinematic-commerce-opening>
         <p className={styles.eyebrow}>Marketplace / Discover</p>
-        <h2 id="cinematic-commerce-heading" className={styles.giant}>Shop local.<br />Send with KT.</h2>
+        <h2 id="cinematic-commerce-heading" className={styles.giant}>Find your next thing.</h2>
       </div>
       {categories.length ? <>
         <div className={styles.categoryField} data-cinematic-category-field>
@@ -32,9 +32,6 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
             <span className={styles.categoryShade} />
             <span className={styles.categoryText}><small>{category.categoryWord}</small><strong>{category.title}</strong><span>{category.description}</span><em>Explore category ↗</em></span>
           </Link>)}
-        </div>
-        <div className={styles.mobileOrbit} data-cinematic-mobile-orbit aria-hidden="true">
-          {categories.map((category, index) => <div key={category.id} className={styles.mobileOrbitCard} data-cinematic-mobile-orbit-card={index}><img src={category.image} alt="" /><span>{category.title}</span></div>)}
         </div>
         <div className={styles.mobileCategoryTerritory} data-cinematic-mobile-category-territory>
           <p className={styles.eyebrow}>Categories / Swipe to explore</p>
@@ -46,7 +43,7 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
       {products.length ? <div className={styles.productWorld} data-cinematic-product-world>
         <div className={styles.productHeading}><p className={styles.eyebrow}>New arrivals</p><h3 className={styles.giant}>Choose it.<br />We&apos;ll move it.</h3></div>
         <div className={styles.productFan} data-cinematic-product-fan aria-label="New arrivals">
-          {products.map((product, index) => <Link key={product.id} href={product.href} className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`View ${product.title}`} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img src={product.image} alt={product.imageAlt} /></span></Link>)}
+          {products.slice(0, 5).map((product, index) => <button key={product.id} type="button" className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`Select ${product.title}`} aria-pressed={product.id === active?.id} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img src={product.image} alt={product.imageAlt} /></span></button>)}
         </div>
         {active ? <div className={styles.productInfo} data-cinematic-product-info><span>{active.brandName ?? "Marketplace selection"}</span><strong>{active.title}</strong><Link href={active.href}>View product ↗</Link></div> : null}
       </div> : <div className={styles.emptyProducts}><Link href="/shop">Browse products in the marketplace ↗</Link></div>}
@@ -66,10 +63,8 @@ export function ParcelizationScene({ product }: { product?: HomepageProductItem 
 export function NetworkRouteScene() {
   return <section className={`${styles.chapter} ${styles.network}`} data-kt-scene="network" data-home-film aria-labelledby="cinematic-network-heading" style={chapterStyle("network")}>
     <div className={styles.sticky} data-home-sticky-stage>
-      <div className={styles.routeCopy} data-route-copy="collected"><p className={styles.eyebrow}>Collection / 04</p><h2 id="cinematic-network-heading" className={styles.giant}>Collected.</h2></div>
-      <div className={styles.routeCopy} data-route-copy="way"><p className={styles.eyebrow}>Transportation / 05</p><p className={styles.giant}>On the way.</p></div>
-      <div className={styles.routeCopy} data-route-copy="moving"><p className={styles.eyebrow}>The journey continues</p><p className={styles.giant}>The parcel<br />keeps moving.</p></div>
-      <p className={styles.routeMicro}>Collection / Transportation / Delivery</p>
+      <div className={styles.routeCopy} data-route-copy="moving"><p className={styles.eyebrow}>Transportation / 04</p><h2 id="cinematic-network-heading" className={styles.giant}>The parcel<br />keeps moving.</h2></div>
+      <p className={styles.routeMicro}>Collection → Delivery</p>
     </div>
   </section>;
 }
