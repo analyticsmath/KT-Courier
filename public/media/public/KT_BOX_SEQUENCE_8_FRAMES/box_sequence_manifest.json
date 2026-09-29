@@ -1,0 +1,19 @@
+{
+  "source": "image(20260929-075224).png",
+  "canvas": {
+    "width": 512,
+    "height": 512
+  },
+  "background": "transparent alpha",
+  "sequence_order": [
+    "box_00_open_master.png",
+    "box_01_side_flaps_early.png",
+    "box_02_side_flaps_mid.png",
+    "box_03_side_flaps_closed.png",
+    "box_04_rear_flap_early.png",
+    "box_05_rear_flap_near_closed.png",
+    "box_06_front_flap_mid.png",
+    "box_07_closed.png"
+  ],
+  "note": "Frames extracted from the supplied 8-state contact sheet; source pixels preserved and placed on consistent 512x512 transparent canvases with a common bottom baseline."
+}

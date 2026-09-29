@@ -40,21 +40,21 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
           </div>
         </div>
       </> : <div className={styles.emptyCommerce}><p>Explore the KT marketplace.</p><Link href="/shop">Browse the shop ↗</Link></div>}
-      {products.length ? <div className={styles.productWorld} data-cinematic-product-world>
-        <div className={styles.productHeading}><p className={styles.eyebrow}>From the marketplace</p><h3 className={styles.giant}>Find it here.<br />Get it there.</h3></div>
+      {products.length ? <section className={styles.productWorld} data-cinematic-product-world aria-labelledby="cinematic-products-heading">
+        <div className={styles.productHeading} data-cinematic-product-heading><p className={styles.eyebrow}>From the marketplace</p><h3 id="cinematic-products-heading" className={styles.giant}>New from<br />local stores.</h3></div>
         <div className={styles.productFan} data-cinematic-product-fan aria-label="Featured local products">
           {products.slice(0, 5).map((product, index) => <button key={product.id} type="button" className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`Select ${product.title}`} aria-pressed={product.id === active?.id} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img src={product.image} alt={product.imageAlt} /></span></button>)}
         </div>
         {active ? <div className={styles.productInfo} data-cinematic-product-info><span>{active.brandName ?? "Marketplace selection"}</span><strong>{active.title}</strong><Link href={active.href}>View product ↗</Link></div> : null}
-      </div> : <div className={styles.emptyProducts}><Link href="/shop">Browse products in the marketplace ↗</Link></div>}
+      </section> : <div className={styles.emptyProducts}><Link href="/shop">Browse products in the marketplace ↗</Link></div>}
     </div>
   </section>;
 }
 
 export function ParcelizationScene({ product }: { product?: HomepageProductItem }) {
   return <section className={`${styles.chapter} ${styles.parcel}`} data-kt-scene="parcelization" data-home-film aria-labelledby="cinematic-parcel-heading" style={chapterStyle("parcelization")}>
-    <div className={styles.sticky} data-home-sticky-stage><div className={styles.parcelRead}>
-      <p className={styles.eyebrow}>Your order</p><h2 id="cinematic-parcel-heading" className={styles.giant}>From the shop<br />to your door.</h2>
+    <div className={styles.sticky} data-home-sticky-stage><div className={styles.parcelRead} data-cinematic-parcel-read>
+      <p className={styles.eyebrow}>Your order</p><h2 id="cinematic-parcel-heading" className={styles.giant}>Packed for<br />the road.</h2>
       {product ? <p className={styles.parcelProduct}>{product.title}</p> : <p className={styles.parcelProduct}>From the marketplace to the move.</p>}
     </div><span className={styles.boxTarget} data-cinematic-box-target aria-hidden="true" /></div>
   </section>;
@@ -63,7 +63,7 @@ export function ParcelizationScene({ product }: { product?: HomepageProductItem 
 export function NetworkRouteScene() {
   return <section className={`${styles.chapter} ${styles.network}`} data-kt-scene="network" data-home-film aria-labelledby="cinematic-network-heading" style={chapterStyle("network")}>
     <div className={styles.sticky} data-home-sticky-stage>
-      <div className={styles.routeCopy} data-route-copy="moving"><p className={styles.eyebrow}>On the move</p><h2 id="cinematic-network-heading" className={styles.giant}>Every mile<br />accounted for.</h2></div>
+      <div className={styles.routeCopy} data-route-copy="moving"><p className={styles.eyebrow}>On the move</p><h2 id="cinematic-network-heading" className={styles.giant}>Across town.<br />On its way.</h2></div>
       <p className={styles.routeMicro}>Collection → Delivery</p>
     </div>
   </section>;
@@ -72,7 +72,7 @@ export function NetworkRouteScene() {
 export function FreightTransitionScene() {
   return <section className={`${styles.chapter} ${styles.freight}`} data-kt-scene="freight" data-home-film aria-labelledby="cinematic-freight-heading" style={chapterStyle("freight")}>
     <div className={styles.sticky} data-home-sticky-stage><div className={styles.freightReveal} data-cinematic-freight-reveal>
-      <div className={styles.freightRead}><p className={styles.eyebrow}>KT for business</p><h2 id="cinematic-freight-heading" className={styles.giant}>More to move?<br />We&apos;re with you.</h2><p>From a single parcel to your larger loads.</p><div className={styles.freightLinks}><Link href="/services/freight">Explore freight ↗</Link><Link href="/services/business">Business services ↗</Link></div></div>
+      <div className={styles.freightRead} data-cinematic-freight-read><p className={styles.eyebrow}>KT for business</p><h2 id="cinematic-freight-heading" className={styles.giant}>A bigger load.<br />The same care.</h2><p>Freight and business deliveries, managed by KT.</p><div className={styles.freightLinks}><Link href="/services/freight">Explore freight ↗</Link><Link href="/services/business">Business services ↗</Link></div></div>
     </div></div>
   </section>;
 }

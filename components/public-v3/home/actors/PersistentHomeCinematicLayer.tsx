@@ -3,18 +3,12 @@
 /* eslint-disable @next/next/no-img-element -- decoded local derivatives are director-owned */
 
 import styles from "../home-cinematic.module.css";
+import { BOX_PLATES, DELIVERY_PLATES, HANDOFF_PLATES, PICKUP_PLATES } from "../director/home-performance-sequences";
 
 function VehicleStage({ kind }: { kind: "pickup" | "delivery" }) {
   return <div className={styles.vehicleStage} data-cinematic-vehicle={kind}>
     <span className={styles.vehicleShadow} />
-    <img className={styles.vehicleBody} data-vehicle-base={kind} alt="" />
-    <img className={styles.vehicleDoor} data-vehicle-door={kind} alt="" />
-    <img className={styles.vehicleBodyForeground} data-vehicle-foreground={kind} alt="" />
-    <img className={styles.vehicleBodyRoof} data-vehicle-shell={kind} alt="" />
-    <img className={styles.vehicleBodyLeft} data-vehicle-shell={kind} alt="" />
-    <img className={styles.vehicleBodyRight} data-vehicle-shell={kind} alt="" />
-    <div className={styles.vehicleCargoMask} data-vehicle-cargo-mask={kind} />
-    <img className={styles.vehicleCourier} data-vehicle-courier={kind} alt="" />
+    <img className={styles.vehiclePlate} data-vehicle-plate={kind} src={kind === "pickup" ? PICKUP_PLATES[0] : DELIVERY_PLATES[0]} alt="" />
   </div>;
 }
 
@@ -36,18 +30,7 @@ function RouteRoad() {
 /** One post-Hero stage; every physical object keeps its own transform. */
 export function PersistentHomeCinematicLayer() {
   return <div className={styles.persistentActors} data-home-cinematic-layer aria-hidden="true">
-    <div className={styles.mechanicalBox} data-cinematic-box>
-      <span className={styles.boxShadow} />
-      <span className={styles.boxRearWall} />
-      <span className={styles.boxInterior} />
-      <span className={styles.boxLeftWall} />
-      <span className={styles.boxRightWall} />
-      <span className={styles.boxFrontWall} />
-      <span className={`${styles.boxFlap} ${styles.boxFlapRear}`} data-box-flap="rear" />
-      <span className={`${styles.boxFlap} ${styles.boxFlapLeft}`} data-box-flap="left" />
-      <span className={`${styles.boxFlap} ${styles.boxFlapRight}`} data-box-flap="right" />
-      <span className={`${styles.boxFlap} ${styles.boxFlapFront}`} data-box-flap="front" />
-    </div>
+    <div className={styles.mechanicalBox} data-cinematic-box><img data-box-plate src={BOX_PLATES[0]} alt="" /></div>
     <VehicleStage kind="pickup" />
     <div className={styles.routeCamera} data-cinematic-route-camera>
       <div className={styles.routeWorld} data-cinematic-route-world>
@@ -59,8 +42,7 @@ export function PersistentHomeCinematicLayer() {
       </div>
     </div>
     <VehicleStage kind="delivery" />
-    <img className={styles.recipientActor} data-cinematic-recipient alt="" />
-    <div className={styles.parcelActor} data-cinematic-parcel />
+    <div className={styles.handoffStage} data-cinematic-handoff><img data-handoff-plate src={HANDOFF_PLATES[0]} alt="" /></div>
     <div className={styles.freightTruckActor} data-cinematic-red-truck><img data-cinematic-red-truck-image alt="" /></div>
   </div>;
 }
