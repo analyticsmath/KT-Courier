@@ -13,7 +13,7 @@ import { heroVisibleUnderMarketplace, resolveHomeCinematicFrame, routeCamera } f
 import { HOME_CINEMATIC_ASSET_BY_ID, HOME_ROUTE_VAN_SEQUENCE } from "../data/home-cinematic-assets.generated";
 import { preloadCinematicTier, preloadCinematicWindow } from "../actors/home-cinematic-preload";
 import { preloadCinematicAsset, showCinematicFrame } from "../actors/home-cinematic-runtime";
-import { selectedProductForTakeover, truckTrailingEdgeReveal, uniformProductPose } from "./home-cinematic-mechanics";
+import { centeredFanOffset, selectedProductForTakeover, truckTrailingEdgeReveal, uniformProductPose } from "./home-cinematic-mechanics";
 
 type SceneRange = { chapter: HomeChapter; start: number; end: number; progressEnd: number };
 type Item = { id: string };
@@ -231,8 +231,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         const center = Math.max(0, productPlanes.findIndex((plane) => plane.dataset.productId === (frozenProductId ?? selectedProduct)));
         productPlanes.forEach((plane, index) => {
           // The selected product is the actual central plane, including on restoration.
-          const rawOffset = index - center;
-          const offset = rawOffset > productPlanes.length / 2 ? rawOffset - productPlanes.length : rawOffset < -productPlanes.length / 2 ? rawOffset + productPlanes.length : rawOffset;
+          const offset = centeredFanOffset(index, center, productPlanes.length);
           const distance = Math.abs(offset);
           const spread = f.fanSpread;
           const exit = f.selectedTakeover;

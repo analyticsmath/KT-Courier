@@ -24,6 +24,15 @@ export default async function HomePage() {
     return <HomepageV2 isStorefrontExposed={false} storefrontPresentation={null} />;
   }
 
-  const home = await getStorefrontHome();
+  // Preview builds have no database: render this branch's homepage with the
+  // same public catalogue response the production edge already exposes.
+  const previewWithoutDatabase = process.env.VERCEL_ENV === "preview" && !process.env.DATABASE_URL?.trim();
+  const home = previewWithoutDatabase
+    ? await fetch("https://web-production-9f8bb.up.railway.app/api/storefront/home", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Preview storefront feed returned ${response.status}`);
+        return response.json() as Promise<Awaited<ReturnType<typeof getStorefrontHome>>>;
+      })
+    : await getStorefrontHome();
   return <HomepageV2 isStorefrontExposed={true} storefrontPresentation={mapStorefrontHomePresentation(home)} />;
 }
