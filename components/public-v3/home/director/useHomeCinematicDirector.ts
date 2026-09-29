@@ -69,6 +69,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       base: img(root, `[data-vehicle-base='${kind}']`),
       door: img(root, `[data-vehicle-door='${kind}']`),
       foreground: img(root, `[data-vehicle-foreground='${kind}']`),
+      shell: Array.from(root.querySelectorAll<HTMLImageElement>(`[data-vehicle-shell='${kind}']`)),
       courier: img(root, `[data-vehicle-courier='${kind}']`),
     });
     const pickup = vehicle("pickup");
@@ -146,6 +147,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         showCinematicFrame(stage.base, `van-open-${kind === "pickup" ? "right" : "left"}`, window.innerWidth <= 767);
         showCinematicFrame(stage.door, `van-door-${kind === "pickup" ? "right" : "left"}`, window.innerWidth <= 767);
         showCinematicFrame(stage.foreground, `van-open-${kind === "pickup" ? "right" : "left"}`, window.innerWidth <= 767);
+        stage.shell.forEach((layer) => showCinematicFrame(layer, `van-open-${kind === "pickup" ? "right" : "left"}`, window.innerWidth <= 767));
       }
     };
 
@@ -211,7 +213,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       visible(mobileTerritory, mobile && isCommerce && p >= .10 && p < .60 ? 1 : 0);
       if (isCommerce && !mobile) {
         categoryPlanes.forEach((plane, index) => {
-          const targetX = (index - f.categoryPosition) * viewportWidth * .67;
+          const targetX = (index - f.categoryPosition) * viewportWidth * .52;
           gsap.set(plane, { transform: `translate3d(calc(-50% + ${targetX}px),-50%,0)`, zIndex: categoryPlanes.length - index, pointerEvents: Math.abs(index - f.categoryPosition) <= 1 ? "auto" : "none" });
         });
         const index = Math.min(categories.length - 1, Math.max(0, Math.round(f.categoryPosition)));
@@ -219,19 +221,24 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         if (id && id !== selectedCategory) { selectedCategory = id; onMarketplaceSelectionChange?.(id); }
       }
       const fanVisible = isCommerce && p >= .60;
-      visible(productWorld, fanVisible ? 1 : 0);
+      visible(productWorld, fanVisible ? smooth(range(p, .60, .68)) : 0);
+      // Let the gallery leave the screen before the product room takes over.
+      if (categoryField && isCommerce) gsap.set(categoryField, { y: -viewportHeight * .12 * range(p, .55, .64), autoAlpha: mobile ? 0 : categoryOpacity * (1 - range(p, .55, .64)) });
+      if (mobileTerritory && isCommerce) gsap.set(mobileTerritory, { y: -viewportHeight * .12 * range(p, .55, .64), autoAlpha: mobile ? (p >= .10 && p < .60 ? 1 - range(p, .55, .64) : 0) : 0 });
       if (isCommerce && p < B.commerce.selectedTakeover[0]) frozenProductId = undefined;
       if (isCommerce) frozenProductId = selectedProductForTakeover(selectedProduct, frozenProductId, p, B.commerce.selectedTakeover[0]);
       if (fanVisible) {
         const center = Math.max(0, productPlanes.findIndex((plane) => plane.dataset.productId === (frozenProductId ?? selectedProduct)));
         productPlanes.forEach((plane, index) => {
-          const offset = index - (productPlanes.length - 1) / 2;
+          // The selected product is the actual central plane, including on restoration.
+          const rawOffset = index - center;
+          const offset = rawOffset > productPlanes.length / 2 ? rawOffset - productPlanes.length : rawOffset < -productPlanes.length / 2 ? rawOffset + productPlanes.length : rawOffset;
           const distance = Math.abs(offset);
           const spread = f.fanSpread;
           const exit = f.selectedTakeover;
-          const x = offset * viewportWidth * (mobile ? .20 : .125) * spread + (index === center ? 0 : Math.sign(index - center || 1) * exit * viewportWidth);
+          const x = offset * viewportWidth * (mobile ? .19 : .115) * spread + (index === center ? 0 : Math.sign(offset || 1) * exit * viewportWidth);
           const y = -viewportHeight * .02 + distance * viewportHeight * .025 * spread + (index === center ? 0 : exit * viewportHeight * .08);
-          const scale = (1 - Math.min(distance, 2) * (mobile ? .08 : .10) * spread) * (index === center ? 1.04 : 1 - exit * .15);
+          const scale = (1 - Math.min(distance, 2) * (mobile ? .10 : .12) * spread) * (index === center ? 1.04 : 1 - exit * .15);
           const rotation = offset * (mobile ? 4 : 6) * spread;
           gsap.set(plane, { transform: `translate3d(-50%,-50%,0) translate3d(${x}px,${y}px,0) rotate(${rotation}deg) scale(${scale})`, zIndex: index === center ? 60 : 50 - Math.round(distance * 6), autoAlpha: exit > .1 && index !== center ? 1 - exit : 1, pointerEvents: exit > .1 && index !== center ? "none" : "auto" });
           plane.tabIndex = exit > .1 && index !== center ? -1 : 0;
@@ -262,11 +269,11 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         const pose = uniformProductPose({ x: source.left, y: source.top, width: source.width, height: source.height }, productTarget, descend);
         gsap.set(carry, { left: 0, top: 0, width: pose.width, height: pose.height, transformOrigin: "0 0", transform: `translate3d(${pose.x}px,${pose.y}px,0) scale(${pose.scale})`, clipPath: `inset(0 0 ${(isParcel ? f.productOcclusion : 0) * 100}% 0)`, autoAlpha: carryActive ? 1 : 0 });
       }
-      const boxVisible = isParcel || (isPickup && p < B.pickup.courierApproach[0] + .03);
+      const boxVisible = isParcel || (isPickup && p < B.pickup.doorOpen[0]);
       visible(box, boxVisible ? 1 : 0);
       const flapPose = isParcel ? f.boxFlaps : { left: 0, right: 0, rear: 0, front: 0, settle: 1 };
       if (box) {
-        const handoff = isPickup ? smooth(range(p, 0, B.pickup.courierApproach[0])) : 0;
+        const handoff = isPickup ? smooth(range(p, 0, B.pickup.doorOpen[0])) : 0;
         gsap.set(box, { x: viewportWidth * .15 * handoff, y: flapPose.settle * 3 + viewportHeight * .06 * handoff, scale: 1 - .82 * handoff });
       }
       for (const side of ["left", "right", "rear", "front"] as const) if (flaps[side]) gsap.set(flaps[side], { rotationX: side === "rear" || side === "front" ? flapPose[side] : 0, rotationY: side === "left" || side === "right" ? flapPose[side] : 0 });
@@ -278,7 +285,8 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         const pose = p < b.courierApproach[0] ? "courier-carry-right" : p < b.withdraw[0] ? "courier-load" : "courier-empty";
         visible(pickup.courier, showCinematicFrame(pickup.courier, pose, mobile) && p >= b.doorOpen[0] && p < b.doorClose[1] ? 1 : 0);
         if (pickup.courier) gsap.set(pickup.courier, { x: viewportWidth * f.pickupCourierX / 100 });
-        visible(parcelActor, p >= b.courierApproach[0] && p < b.withdraw[0] ? 1 : 0);
+        // These source poses contain the parcel. Never draw a second box over them.
+        visible(parcelActor, 0);
         if (parcelActor) {
           const parcelLeft = viewportWidth * ((mobile ? .80 : .69) - (mobile ? .22 : .19) * range(p, ...b.loadParcel));
           const apertureRight = viewportWidth * (.5 + f.pickupX / 100) + pickupStageWidth * .15;
@@ -326,10 +334,12 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         if (delivery.stage) gsap.set(delivery.stage, { xPercent: -50, yPercent: -50, x: viewportWidth * f.deliveryX / 100 });
         if (delivery.door) gsap.set(delivery.door, { xPercent: 22 * f.deliveryDoor });
         const returning = p >= b.courierReturn[0];
-        const courierPose = returning ? "courier-walk-left" : p < b.courierWalkRight[0] ? "courier-carry-left" : p < b.handoff[1] ? "courier-walk-right" : "courier-empty";
+        const courierPose = p >= b.handoff[0] ? "courier-empty" : p < b.courierWalkRight[0] ? "courier-carry-left" : "courier-walk-right";
         visible(delivery.courier, showCinematicFrame(delivery.courier, courierPose, mobile) && p >= b.doorOpen[0] && p < b.doorClose[1] ? 1 : 0);
         if (delivery.courier) gsap.set(delivery.courier, { x: viewportWidth * (returning ? f.returnCourierX : f.deliveryCourierX) / 100 });
-        visible(parcelActor, p >= b.courierEmerge[0] ? 1 : 0);
+        // Courier carry and recipient carry plates include the same physical box.
+        // Only the reach pose needs the independent transfer actor.
+        visible(parcelActor, p >= b.handoff[0] && p < b.separation[0] ? 1 : 0);
         if (parcelActor) gsap.set(parcelActor, { x: viewportWidth * ((mobile ? .33 : .43) + .22 * range(p, ...b.courierWalkRight) + .16 * f.parcelTransfer + f.recipientX / 100), y: viewportHeight * (mobile ? .62 : .60), clipPath: `inset(0 0 0 ${100 * (1 - range(p, ...b.courierEmerge))}%)` });
         const recipientPose = p < b.handoff[0] ? "recipient-ready" : p < b.separation[0] ? "recipient-reach" : "recipient-carry";
         visible(recipient, p >= b.courierWalkRight[0] && showCinematicFrame(recipient, recipientPose, mobile) ? 1 : 0);

@@ -21,12 +21,12 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
     <div className={styles.sticky} data-home-sticky-stage>
       <div className={styles.marketplaceTakeover} data-marketplace-takeover aria-hidden="true" />
       <div className={styles.commerceOpening} data-cinematic-commerce-opening>
-        <p className={styles.eyebrow}>Marketplace / Discover</p>
-        <h2 id="cinematic-commerce-heading" className={styles.giant}>Find your next thing.</h2>
+        <p className={styles.eyebrow}>KT Marketplace</p>
+        <h2 id="cinematic-commerce-heading" className={styles.giant}>Made nearby.<br />Moved by KT.</h2>
       </div>
       {categories.length ? <>
         <div className={styles.categoryField} data-cinematic-category-field>
-          <p className={styles.categoryFieldLabel}>01 / Discover your next order</p>
+          <p className={styles.categoryFieldLabel}>Explore local categories</p>
           {categories.map((category, index) => <Link key={category.id} href={category.href} className={styles.categoryPlane} data-cinematic-category-plane={index} data-category-id={category.id} data-active={category.id === selectedCategoryId} onFocus={() => onCategorySelectionChange?.(category.id)}>
             <img src={category.image} alt={category.alt} />
             <span className={styles.categoryShade} />
@@ -34,15 +34,15 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
           </Link>)}
         </div>
         <div className={styles.mobileCategoryTerritory} data-cinematic-mobile-category-territory>
-          <p className={styles.eyebrow}>Categories / Swipe to explore</p>
+          <p className={styles.eyebrow}>Explore local categories</p>
           <div className={styles.mobileCategoryRail} data-cinematic-mobile-category-rail tabIndex={0} aria-label="Marketplace categories">
             {categories.map((category) => <Link key={category.id} href={category.href} className={styles.mobileCategoryCard} data-mobile-category-id={category.id} onFocus={() => onCategorySelectionChange?.(category.id)}><img src={category.image} alt={category.alt} /><span className={styles.categoryShade} /><span className={styles.categoryText}><small>{category.categoryWord}</small><strong>{category.title}</strong><span>{category.description}</span><em>Explore category ↗</em></span></Link>)}
           </div>
         </div>
       </> : <div className={styles.emptyCommerce}><p>Explore the KT marketplace.</p><Link href="/shop">Browse the shop ↗</Link></div>}
       {products.length ? <div className={styles.productWorld} data-cinematic-product-world>
-        <div className={styles.productHeading}><p className={styles.eyebrow}>New arrivals</p><h3 className={styles.giant}>Choose it.<br />We&apos;ll move it.</h3></div>
-        <div className={styles.productFan} data-cinematic-product-fan aria-label="New arrivals">
+        <div className={styles.productHeading}><p className={styles.eyebrow}>From the marketplace</p><h3 className={styles.giant}>Find it here.<br />Get it there.</h3></div>
+        <div className={styles.productFan} data-cinematic-product-fan aria-label="Featured local products">
           {products.slice(0, 5).map((product, index) => <button key={product.id} type="button" className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`Select ${product.title}`} aria-pressed={product.id === active?.id} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img src={product.image} alt={product.imageAlt} /></span></button>)}
         </div>
         {active ? <div className={styles.productInfo} data-cinematic-product-info><span>{active.brandName ?? "Marketplace selection"}</span><strong>{active.title}</strong><Link href={active.href}>View product ↗</Link></div> : null}
@@ -54,7 +54,7 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
 export function ParcelizationScene({ product }: { product?: HomepageProductItem }) {
   return <section className={`${styles.chapter} ${styles.parcel}`} data-kt-scene="parcelization" data-home-film aria-labelledby="cinematic-parcel-heading" style={chapterStyle("parcelization")}>
     <div className={styles.sticky} data-home-sticky-stage><div className={styles.parcelRead}>
-      <p className={styles.eyebrow}>Preparation / 02</p><h2 id="cinematic-parcel-heading" className={styles.giant}>The order<br />becomes a parcel.</h2>
+      <p className={styles.eyebrow}>Your order</p><h2 id="cinematic-parcel-heading" className={styles.giant}>From the shop<br />to your door.</h2>
       {product ? <p className={styles.parcelProduct}>{product.title}</p> : <p className={styles.parcelProduct}>From the marketplace to the move.</p>}
     </div><span className={styles.boxTarget} data-cinematic-box-target aria-hidden="true" /></div>
   </section>;
@@ -63,7 +63,7 @@ export function ParcelizationScene({ product }: { product?: HomepageProductItem 
 export function NetworkRouteScene() {
   return <section className={`${styles.chapter} ${styles.network}`} data-kt-scene="network" data-home-film aria-labelledby="cinematic-network-heading" style={chapterStyle("network")}>
     <div className={styles.sticky} data-home-sticky-stage>
-      <div className={styles.routeCopy} data-route-copy="moving"><p className={styles.eyebrow}>Transportation / 04</p><h2 id="cinematic-network-heading" className={styles.giant}>The parcel<br />keeps moving.</h2></div>
+      <div className={styles.routeCopy} data-route-copy="moving"><p className={styles.eyebrow}>On the move</p><h2 id="cinematic-network-heading" className={styles.giant}>Every mile<br />accounted for.</h2></div>
       <p className={styles.routeMicro}>Collection → Delivery</p>
     </div>
   </section>;
@@ -72,15 +72,14 @@ export function NetworkRouteScene() {
 export function FreightTransitionScene() {
   return <section className={`${styles.chapter} ${styles.freight}`} data-kt-scene="freight" data-home-film aria-labelledby="cinematic-freight-heading" style={chapterStyle("freight")}>
     <div className={styles.sticky} data-home-sticky-stage><div className={styles.freightReveal} data-cinematic-freight-reveal>
-      <p className={styles.freightBackdrop} aria-hidden="true">KT / BUSINESS</p>
-      <div className={styles.freightRead}><p className={styles.eyebrow}>Freight / Business</p><h2 id="cinematic-freight-heading" className={styles.giant}>From parcels<br />to business<br />movement.</h2><p>Larger loads, coordinated clearly.</p><div className={styles.freightLinks}><Link href="/services/freight">Freight ↗</Link><Link href="/services/business">Business ↗</Link></div></div>
+      <div className={styles.freightRead}><p className={styles.eyebrow}>KT for business</p><h2 id="cinematic-freight-heading" className={styles.giant}>More to move?<br />We&apos;re with you.</h2><p>From a single parcel to your larger loads.</p><div className={styles.freightLinks}><Link href="/services/freight">Explore freight ↗</Link><Link href="/services/business">Business services ↗</Link></div></div>
     </div></div>
   </section>;
 }
 
 export function LastMileDeliveryScene() {
   return <section className={`${styles.chapter} ${styles.lastMile}`} data-kt-scene="last-mile" data-home-film aria-labelledby="cinematic-last-mile-heading" style={chapterStyle("last-mile")}>
-    <div className={styles.sticky} data-home-sticky-stage><div className={styles.lastMileCopy} data-cinematic-last-mile-copy><p className={styles.eyebrow}>Delivery / 06</p><h2 id="cinematic-last-mile-heading" className={styles.giant}>Almost there.</h2><p>The final distance is a human handoff.</p></div><span className={styles.deliveryGround} aria-hidden="true" /></div>
+      <div className={styles.sticky} data-home-sticky-stage><div className={styles.lastMileCopy} data-cinematic-last-mile-copy><p className={styles.eyebrow}>At your door</p><h2 id="cinematic-last-mile-heading" className={styles.giant}>In good hands.</h2><p>One journey, right through to the handoff.</p></div><span className={styles.deliveryGround} aria-hidden="true" /></div>
   </section>;
 }
 

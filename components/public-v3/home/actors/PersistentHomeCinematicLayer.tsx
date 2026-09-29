@@ -10,6 +10,9 @@ function VehicleStage({ kind }: { kind: "pickup" | "delivery" }) {
     <img className={styles.vehicleBody} data-vehicle-base={kind} alt="" />
     <img className={styles.vehicleDoor} data-vehicle-door={kind} alt="" />
     <img className={styles.vehicleBodyForeground} data-vehicle-foreground={kind} alt="" />
+    <img className={styles.vehicleBodyRoof} data-vehicle-shell={kind} alt="" />
+    <img className={styles.vehicleBodyLeft} data-vehicle-shell={kind} alt="" />
+    <img className={styles.vehicleBodyRight} data-vehicle-shell={kind} alt="" />
     <div className={styles.vehicleCargoMask} data-vehicle-cargo-mask={kind} />
     <img className={styles.vehicleCourier} data-vehicle-courier={kind} alt="" />
   </div>;
@@ -19,13 +22,14 @@ function RouteRoad() {
   const main = "M -70 190 H 665 C 706 190 730 252 730 360 V 1080";
   const branch = "M 665 190 C 760 190 792 135 860 45 L 930 -55";
   return <svg className={styles.routeRoad} data-cinematic-road viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
-    <rect width="1000" height="1000" fill="#e9ece9" />
-    <path d={main} fill="none" stroke="#cbd1cc" strokeWidth="132" strokeLinejoin="round" />
-    <path d={branch} fill="none" stroke="#cbd1cc" strokeWidth="112" strokeLinejoin="round" />
-    <path d={main} fill="none" stroke="#363e42" strokeWidth="112" strokeLinejoin="round" />
-    <path d={branch} fill="none" stroke="#3d4549" strokeWidth="92" strokeLinejoin="round" />
-    <path d={main} fill="none" stroke="#edf0e9" strokeWidth="2" strokeDasharray="14 18" />
-    <path d={branch} fill="none" stroke="#edf0e9" strokeWidth="2" strokeDasharray="14 18" />
+    <defs><pattern id="road-grain" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="1" cy="2" r=".35" fill="#a6adae" opacity=".35" /><circle cx="6" cy="5" r=".35" fill="#a6adae" opacity=".35" /></pattern></defs>
+    <rect width="1000" height="1000" fill="#dfe3e3" />
+    <path d={main} fill="none" stroke="#b7bfc0" strokeWidth="138" strokeLinejoin="round" />
+    <path d={branch} fill="none" stroke="#b7bfc0" strokeWidth="118" strokeLinejoin="round" />
+    <path d={main} fill="none" stroke="#454c4d" strokeWidth="116" strokeLinejoin="round" />
+    <path d={branch} fill="none" stroke="#454c4d" strokeWidth="96" strokeLinejoin="round" />
+    <path d={main} fill="none" stroke="url(#road-grain)" strokeWidth="116" strokeLinejoin="round" />
+    <path d={branch} fill="none" stroke="url(#road-grain)" strokeWidth="96" strokeLinejoin="round" />
   </svg>;
 }
 

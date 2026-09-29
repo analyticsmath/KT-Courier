@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { CatalogFulfilmentMode, CatalogProductCondition, Prisma, StorefrontAvailabilityState } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { normalizeStorefrontQuery } from "@/lib/storefront/search/storefront-query-normalization";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
@@ -161,13 +161,19 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
       if (Number.isFinite(max)) clauses.push(Prisma.sql`"priceAmount" <= ${max}`);
     }
     if (input.availability?.length) {
-      clauses.push(Prisma.sql`"availabilityState" IN (${Prisma.join(input.availability.map((v) => Prisma.sql`${v}`))})`);
+      const values = input.availability.filter((value) => Object.values(StorefrontAvailabilityState).includes(value as StorefrontAvailabilityState));
+      if (!values.length) return [];
+      clauses.push(Prisma.sql`"availabilityState" IN (${Prisma.join(values.map((value) => Prisma.sql`${value}::"StorefrontAvailabilityState"`))})`);
     }
     if (input.condition?.length) {
-      clauses.push(Prisma.sql`"condition" IN (${Prisma.join(input.condition.map((v) => Prisma.sql`${v}`))})`);
+      const values = input.condition.filter((value) => Object.values(CatalogProductCondition).includes(value as CatalogProductCondition));
+      if (!values.length) return [];
+      clauses.push(Prisma.sql`"condition" IN (${Prisma.join(values.map((value) => Prisma.sql`${value}::"CatalogProductCondition"`))})`);
     }
     if (input.fulfilment?.length) {
-      clauses.push(Prisma.sql`"fulfilmentMode" IN (${Prisma.join(input.fulfilment.map((v) => Prisma.sql`${v}`))})`);
+      const values = input.fulfilment.filter((value) => Object.values(CatalogFulfilmentMode).includes(value as CatalogFulfilmentMode));
+      if (!values.length) return [];
+      clauses.push(Prisma.sql`"fulfilmentMode" IN (${Prisma.join(values.map((value) => Prisma.sql`${value}::"CatalogFulfilmentMode"`))})`);
     }
     if (normalized) {
       clauses.push(Prisma.sql`("normalizedTitle" LIKE ${`${normalized}%`} OR "searchText" ILIKE ${`%${normalized}%`})`);
