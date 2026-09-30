@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "echo \"KT Couriers: no dependency install required for the Vercel edge proxy\"",
-  "buildCommand": "node -e \"const fs=require('fs');fs.mkdirSync('vercel-proxy-output',{recursive:true});fs.writeFileSync('vercel-proxy-output/health.txt','KT Couriers Vercel edge proxy');\"",
-  "outputDirectory": "vercel-proxy-output",
   "rewrites": [
     {
       "source": "/:path*",
