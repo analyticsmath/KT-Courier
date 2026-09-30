@@ -223,14 +223,14 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       // sticky-release viewport after its own section has already finished.
       if (chapter === "hero" || (isCommerce && heroVisibleUnderMarketplace(cover))) applyHero(chapter === "hero" ? p * .965 : .965 + .035 * range(p, ...B.commerce.takeoverCover), false);
       else if (heroSlot) visible(heroSlot, 0);
-      visible(opening, isCommerce ? (1 - range(p, .14, .25)) * cover : 0);
-      if (opening && isCommerce) gsap.set(opening, { clipPath: `inset(0 0 ${range(p, .16, .26) * 100}% 0)` });
+      visible(opening, isCommerce ? (1 - smooth(range(p, .16, .21))) * cover : 0);
+      if (opening && isCommerce) gsap.set(opening, { clipPath: `inset(0 0 ${range(p, .16, .21) * 100}% 0)` });
       const categoryOpacity = isCommerce ? smooth(range(p, ...B.commerce.galleryEnter)) * (1 - smooth(range(p, ...B.commerce.fanStackIn))) : 0;
       visible(categoryField, !mobile ? categoryOpacity : 0);
       visible(mobileTerritory, mobile ? categoryOpacity : 0);
       if (isCommerce && !mobile) {
         categoryPlanes.forEach((plane, index) => {
-          const targetX = (index - f.categoryPosition) * viewportWidth * .43;
+          const targetX = (index - f.categoryPosition) * viewportWidth * .35;
           gsap.set(plane, { transform: `translate3d(calc(-50% + ${targetX}px),-50%,0)`, zIndex: categoryPlanes.length - index, pointerEvents: Math.abs(index - f.categoryPosition) <= 1 ? "auto" : "none" });
         });
         const index = Math.min(categories.length - 1, Math.max(0, Math.round(f.categoryPosition)));
@@ -372,8 +372,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         else if (p < handoffStart) showPlate(delivery.plate, DELIVERY_PLATES, deliveryPlateIndex(p));
         else showPlate(delivery.plate, RETURN_PLATES, plateIndex(p, returnStart, B.lastMile.doorClose[1], 0, 6));
       } else { visible(delivery.stage, 0); visible(handoff, 0); }
-      visible(lastMileCopy, isLastMile ? smooth(range(p, .015, .10)) * (1 - range(p, .38, .49)) : 0);
-      if (lastMileCopy && isLastMile) gsap.set(lastMileCopy, { y: 28 * (1 - smooth(range(p, .015, .10))) - 20 * range(p, .38, .49) });
+      // Let the street headline read before the van occupies the same space.
+      visible(lastMileCopy, isLastMile ? smooth(range(p, .015, .07)) * (1 - smooth(range(p, .13, .20))) : 0);
+      if (lastMileCopy && isLastMile) gsap.set(lastMileCopy, { y: 28 * (1 - smooth(range(p, .015, .07))) - 20 * smooth(range(p, .13, .20)) });
       visible(delivered, isFinale ? 1 - range(p, .18, .32) : 0);
       visible(deliveryBridge, isLastMile ? smooth(range(p, .94, .99)) : 0);
       visible(brand, isFinale ? f.brand : 0);
