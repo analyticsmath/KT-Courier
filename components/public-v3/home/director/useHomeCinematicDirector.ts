@@ -301,7 +301,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       const parcelReadOpacity = isParcel ? smooth(range(p, 0, .13)) * (1 - range(p, .82, .98)) : 0;
       visible(parcelRead, parcelReadOpacity);
       if (parcelRead && isParcel) gsap.set(parcelRead, { y: 24 * (1 - smooth(range(p, 0, .13))) - 18 * range(p, .82, .98) });
-      visible(parcelBridge, isParcel ? smooth(range(p, .91, .99)) : isPickup ? 1 - smooth(range(p, 0, .16)) : 0);
+      visible(parcelBridge, isParcel ? smooth(range(p, .91, .99)) : 0);
       visible(box, boxVisible ? 1 : 0);
       showPlate(boxPlate, BOX_PLATES, isParcel ? plateIndex(p, ...B.parcelization.boxClose, 0, 7) : 7);
       if (box) {
@@ -320,7 +320,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       visible(collectedWord, isPickup ? smooth(range(p, .45, .55)) : 0);
       if (packedWord && isPickup) gsap.set(packedWord, { y: -18 * range(p, .45, .55) });
       if (collectedWord && isPickup) gsap.set(collectedWord, { y: 18 * (1 - range(p, .45, .55)) });
-      visible(pickupBridge, isPickup ? smooth(range(p, .88, .98)) : isNetwork ? 1 - smooth(range(p, 0, .12)) : 0);
+      visible(pickupBridge, isPickup ? smooth(range(p, .88, .98)) : 0);
 
       const routeVisible = isNetwork || (isFreight && p < B.freight.redSweepContinue[1]);
       visible(routeStage, routeVisible ? 1 : 0);
@@ -342,7 +342,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       }
       visible(routeCopy, isNetwork ? smooth(range(p, .04, .14)) * (1 - range(p, .78, .90)) : 0);
       if (routeCopy && isNetwork) gsap.set(routeCopy, { x: -viewportWidth * .025 * (1 - smooth(range(p, .04, .14))) });
-      visible(routeBridge, isNetwork ? smooth(range(p, .85, .96)) : isFreight ? 1 - smooth(range(p, 0, .22)) : 0);
+      visible(routeBridge, isNetwork ? smooth(range(p, .85, .96)) : 0);
       const truckVisible = (isNetwork && p >= B.network.redSweepStart[0]) || (isFreight && p <= B.freight.redSweepContinue[1]);
       if (truckVisible) {
         visible(truck, showCinematicFrame(truckImage, "red-truck-top-00", mobile) ? 1 : 0);
@@ -422,7 +422,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       }
       // Hold the freight message through the physical sticky release. Its
       // chapter is still on screen for one viewport after the film reaches 1.
-      visible(freightBridge, current.chapter === "freight" && window.scrollY >= current.progressEnd ? 1 : current.chapter === "last-mile" ? 1 - smooth(range(progress, 0, .08)) : 0);
+      visible(freightBridge, current.chapter === "freight" && window.scrollY >= current.progressEnd ? 1 : 0);
     };
     const schedule = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; seek(); }); };
     const resize = () => { window.clearTimeout(resizeTimer); resizeTimer = window.setTimeout(() => {
