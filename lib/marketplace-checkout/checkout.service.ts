@@ -14,6 +14,7 @@ import { settleAndFinalizeLocalDemoPayment } from "@/lib/marketplace-checkout/lo
 import { withSerializableRetry } from "@/lib/db/serializable-retry";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import { ownerWhere, resolveMarketplaceCartLine } from "@/lib/marketplace-checkout/cart.service";
+import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
 
 type Delegate = { findFirst: (args: unknown) => Promise<any>; findUnique: (args: unknown) => Promise<any>; create: (args: unknown) => Promise<any>; update: (args: unknown) => Promise<any> };
 type Database = Record<string, Delegate>;
@@ -150,7 +151,18 @@ export async function updateMarketplaceCheckoutContact(input: { reference: strin
 }
 
 export async function updateMarketplaceCheckoutAddress(input: { reference: string; owner: CheckoutOwner; operation: CheckoutOperation; address: { recipientName: string; line1: string; line2?: string; suburb?: string; city: string; province: string; postalCode?: string; deliveryInstructions?: string; serviceAreaReference?: string } }, db = database): Promise<any> {
-  validateAddress(input.address); return updateCheckoutSnapshot(input, "address", db);
+  validateAddress(input.address);
+  const protectedCoordinates = await geocodeSouthAfricanAddress(input.address);
+  if (!protectedCoordinates) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Delivery address could not be located. Check the street address and try again.");
+  }
+  return updateCheckoutSnapshot({
+    ...input,
+    address: {
+      ...input.address,
+      protectedCoordinates,
+    },
+  }, "address", db);
 }
 
 async function updateCheckoutSnapshot(input: any, kind: "contact" | "address", db: Database): Promise<any> {
@@ -165,7 +177,7 @@ async function updateCheckoutSnapshot(input: any, kind: "contact" | "address", d
         ...input.address,
         country: "South Africa",
         serviceAreaReference: input.address.serviceAreaReference || (input.address.city?.toLowerCase().includes("pretoria") ? "cmu057lek0003wj4xz888aeag" : "cmu057leb0002wj4xl77v5twc"),
-        protectedCoordinates: input.address.protectedCoordinates ?? { latitude: -26.2041, longitude: 28.0473 },
+        protectedCoordinates: input.address.protectedCoordinates,
       };
   const snapshot = await snapshots.create({ data: snapshotData });
   const updated = await checkouts.update({ where: { id: checkout.id }, data: { [kind === "contact" ? "contactSnapshotId" : "addressSnapshotId"]: snapshot.id, status: "VALIDATING", reviewAcceptedAt: null, changesAcknowledgedAt: null, version: { increment: 1 } } });
