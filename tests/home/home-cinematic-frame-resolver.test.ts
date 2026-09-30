@@ -6,7 +6,7 @@ import { HOME_CHAPTERS, HOME_CHAPTER_BUDGETS_VH, HOME_MOBILE_CHAPTER_BUDGETS_VH,
 import { HOME_CINEMATIC_ASSETS, HOME_ROUTE_VAN_SEQUENCE } from "@/components/public-v3/home/data/home-cinematic-assets.generated";
 import { HOME_COMPOSED_ACTORS } from "@/components/public-v3/home/data/home-composed-actors.generated";
 import { heroVisibleUnderMarketplace, resolveHomeCinematicFrame, routeCamera, routePoint, routePose } from "@/components/public-v3/home/director/home-cinematic-frame-resolver";
-import { boxFlapPose, effectiveScrollPixels, rollingPreloadIds, routeYawBlend, selectedProductForTakeover, truckTrailingEdgeReveal, uniformProductPose } from "@/components/public-v3/home/director/home-cinematic-mechanics";
+import { boxFlapPose, centeredFanOffset, effectiveScrollPixels, rollingPreloadIds, routeYawBlend, selectedProductForTakeover, truckTrailingEdgeReveal, uniformProductPose } from "@/components/public-v3/home/director/home-cinematic-mechanics";
 import { resolveHeroVanFrame } from "@/components/public-v3/home/director/home-frame-resolver";
 
 describe("post-Hero cinematic mechanics", () => {
@@ -99,6 +99,14 @@ describe("post-Hero cinematic mechanics", () => {
     expect(selectedProductForTakeover("a", undefined, .8, .91)).toBeUndefined();
     expect(selectedProductForTakeover("b", undefined, .92, .91)).toBe("b");
     expect(selectedProductForTakeover("c", "b", .95, .91)).toBe("b");
+  });
+
+  it("places every selected product at the central dominant position", () => {
+    for (let selected = 0; selected < 5; selected++) {
+      const offsets = Array.from({ length: 5 }, (_, index) => centeredFanOffset(index, selected, 5));
+      expect(offsets[selected]).toBe(0);
+      expect([...offsets].sort((a, b) => a - b)).toEqual([-2, -1, 0, 1, 2]);
+    }
   });
 
   it("ships only active route/truck plates and composed actors with QC entries", async () => {

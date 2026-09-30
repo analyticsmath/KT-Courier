@@ -9,8 +9,8 @@
 .commerceOpening .giant { max-width: 11ch; }
 .categoryField,.mobileCategoryTerritory,.productWorld { position: absolute; inset: 0; visibility: hidden; opacity: 0; }
 .categoryField { z-index: 4; overflow: visible; }
-.categoryFieldLabel { position: absolute; z-index: 10; top: 10svh; left: 6vw; margin: 0; color: var(--kt-public-text-muted); font: .7rem/1.3 "IBM Plex Mono",monospace; text-transform: uppercase; }
-.categoryPlane { position: absolute; top: 50%; left: 50%; display: block; width: 62vw; height: 68svh; max-width: 1120px; overflow: hidden; border-radius: clamp(24px,2.3vw,36px); color: white; text-decoration: none; transform-origin: center; background: var(--kt-public-surface-inverse); box-shadow: 0 1.5rem 5rem rgb(0 0 0 / .16); }
+.categoryFieldLabel { position: absolute; z-index: 10; top: 12svh; left: 7vw; margin: 0; color: var(--kt-public-text-muted); font: 600 .75rem/1.3 "Instrument Sans",sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.categoryPlane { position: absolute; top: 53%; left: 50%; display: block; width: min(37vw,550px); height: min(66svh,620px); overflow: hidden; border-radius: clamp(12px,1.1vw,20px); color: white; text-decoration: none; transform-origin: center; background: var(--kt-public-surface-inverse); box-shadow: 0 1rem 3rem rgb(0 0 0 / .12); }
 .categoryPlane img,.mobileCategoryCard img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .categoryShade { position: absolute; inset: 0; background: linear-gradient(180deg,transparent 35%,rgb(4 6 8 / .76) 100%); pointer-events: none; }
 .categoryText { position: absolute; right: 5%; bottom: 6%; left: 5%; display: grid; gap: .35rem; max-width: 36rem; color: white; }
@@ -18,18 +18,19 @@
 .categoryText strong { font: 620 clamp(2.2rem,4.4vw,5.2rem)/.9 "Schibsted Grotesk",sans-serif; letter-spacing: -.055em; }
 .categoryText span { max-width: 29ch; font: .92rem/1.35 "Instrument Sans",sans-serif; }
 .categoryText em { padding-top: .8rem; font: 650 .86rem/1 "Instrument Sans",sans-serif; font-style: normal; }
-.productWorld { z-index: 6; }
-.productHeading { position: absolute; top: 10svh; left: 6vw; z-index: 12; pointer-events: none; }
-.productHeading .giant { font-size: clamp(3rem,6vw,7rem); }
+.productWorld { z-index: 6; background: var(--kt-public-surface-tertiary); }
+.productHeading { position: absolute; top: 10svh; left: 7vw; z-index: 12; pointer-events: none; }
+.productHeading .giant { font-size: clamp(2.7rem,5vw,6rem); }
 .productFan { position: absolute; inset: 0; perspective: 1400px; }
-.productPlane { position: absolute; top: 52%; left: 50%; width: clamp(260px,23vw,420px); height: min(59svh,680px); display: block; padding: 0; border: 0; overflow: hidden; border-radius: clamp(24px,2vw,34px); background: var(--kt-public-surface-secondary); color: var(--kt-public-text-primary); box-shadow: 0 1.2rem 3.5rem rgb(0 0 0 / .16); transform-origin: center center; cursor: pointer; }
-.productPlane[data-active="true"] { outline: 3px solid var(--kt-public-interactive); outline-offset: 5px; }
+.productPlane { position: absolute; top: 55%; left: 50%; width: min(24vw,330px); aspect-ratio: 1; display: block; padding: 0; border: 0; overflow: hidden; border-radius: clamp(12px,1.1vw,18px); background: var(--kt-public-surface-secondary); color: var(--kt-public-text-primary); box-shadow: 0 1rem 2.7rem rgb(0 0 0 / .13); transform-origin: center center; cursor: pointer; }
+.productPlane[data-active="true"] { box-shadow: 0 1.4rem 3rem rgb(0 0 0 / .2); }
+.productPlane:focus-visible { outline: 2px solid var(--kt-public-focus); outline-offset: 5px; }
 .productPlane span { display: block; width: 100%; height: 100%; }
 .productPlane img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .productInfo { position: absolute; z-index: 20; right: 5vw; bottom: 9svh; display: grid; gap: .35rem; width: min(24vw,22rem); padding-top: 1rem; border-top: 1px solid var(--kt-public-border-subtle); font-family: "Instrument Sans",sans-serif; }
 .productInfo span { color: var(--kt-public-text-muted); font-size: .78rem; }
 .productInfo strong { font-size: clamp(1.2rem,1.7vw,2rem); line-height: 1.06; }
-.productInfo a { min-height: 44px; display: inline-flex; align-items: center; width: fit-content; color: var(--kt-public-interactive-text); font-weight: 650; text-decoration: underline; text-underline-offset: .22em; }
+.productInfo a { min-height: 44px; display: inline-flex; align-items: center; width: fit-content; color: var(--kt-public-text-primary); font-weight: 650; text-decoration: underline; text-underline-offset: .22em; }
 .emptyCommerce,.emptyProducts { position: absolute; top: 40%; left: 7vw; z-index: 5; font: 1.25rem/1.3 "Instrument Sans",sans-serif; }
 .emptyProducts { top: 57%; }
 .emptyCommerce a,.emptyProducts a { display: inline-flex; min-height: 44px; align-items: center; }
@@ -42,19 +43,19 @@
 .pickupCopy { position: absolute; top: 12svh; left: 7vw; z-index: 1; }
 .pickupCopy .giant { display: grid; }
 .pickupCopy .giant span + span { position: absolute; visibility: hidden; }
-.pickupGround,.deliveryGround { position: absolute; right: 0; bottom: 19svh; left: 0; height: 1px; background: var(--kt-public-border-subtle); }
+.pickupGround,.deliveryGround { display: none; }
 .network { background: transparent; }
 .routeCopy { position: absolute; top: 24svh; left: 6vw; z-index: 1; max-width: 60vw; visibility: hidden; opacity: 0; }
 .routeCopy .giant { max-width: 11ch; }
 .routeMicro { position: absolute; z-index: 1; right: 5vw; bottom: 8svh; margin: 0; color: var(--kt-public-text-secondary); font: .67rem/1.3 "IBM Plex Mono",monospace; letter-spacing: .08em; text-transform: uppercase; }
 .freight { background: transparent; }
 .freightReveal { position: absolute; inset: 0; overflow: hidden; background: var(--kt-public-canvas); clip-path: inset(0 100% 0 0); }
-.freightBackdrop { position: absolute; top: 18svh; right: -2vw; margin: 0; color: var(--kt-public-surface-secondary); font: 700 clamp(8rem,24vw,32rem)/.8 "Schibsted Grotesk",sans-serif; letter-spacing: -.09em; white-space: nowrap; }
+.freightBackdrop { display: none; }
 .freightRead { position: absolute; z-index: 2; top: 14svh; left: 7vw; max-width: 62vw; }
 .freightRead .giant { font-size: clamp(3rem,6.3vw,8rem); }
 .freightRead > p:last-of-type { color: var(--kt-public-text-secondary); font: 1.1rem/1.4 "Instrument Sans",sans-serif; }
 .freightLinks { display: flex; gap: 2rem; margin-top: 2rem; }
-.freightLinks a { display: inline-flex; align-items: center; min-height: 44px; color: var(--kt-public-interactive-text); font: 650 .9rem/1 "Instrument Sans",sans-serif; }
+.freightLinks a { display: inline-flex; align-items: center; min-height: 44px; color: var(--kt-public-text-primary); font: 650 .9rem/1 "Instrument Sans",sans-serif; text-decoration: underline; text-underline-offset: .25em; }
 .lastMileCopy { position: absolute; top: 12svh; left: 7vw; max-width: 48vw; }
 .lastMileCopy > p:last-child { color: var(--kt-public-text-secondary); font: 1.1rem/1.4 "Instrument Sans",sans-serif; }
 .finale { padding-bottom: env(safe-area-inset-bottom); }
@@ -68,43 +69,33 @@
 
 /* One post-Hero physical stage; scene copy remains in chapter layers. */
 .persistentActors { pointer-events: none; }
-.persistentActors > div,.recipientActor { position: fixed; visibility: hidden; opacity: 0; pointer-events: none; }
+.persistentActors > div { position: fixed; visibility: hidden; opacity: 0; pointer-events: none; }
 .persistentActors img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.mechanicalBox { z-index: 39; top: 54%; left: 54%; width: min(38vw,52svh); height: min(30vw,41svh); perspective: 900px; transform: translate(-50%,-50%) rotateX(48deg) rotateZ(-22deg); transform-style: preserve-3d; }
-.mechanicalBox > span { position: absolute; display: block; box-sizing: border-box; }
-.boxShadow { inset: 14% 10% 0; border-radius: 35%; background: rgb(27 23 18 / .16); filter: blur(17px); transform: translate3d(20px,28px,-50px); }
-.boxInterior { inset: 16% 15% 18%; background: #74543a; box-shadow: inset 0 0 35px rgb(26 17 9 / .38); transform: translateZ(4px); }
-.boxRearWall { top: 8%; right: 15%; left: 15%; height: 17%; background: #c3915b; transform: rotateX(-45deg); transform-origin: bottom; }
-.boxLeftWall { top: 16%; bottom: 18%; left: 12%; width: 17%; background: #a87342; transform: rotateY(40deg); transform-origin: right; }
-.boxRightWall { top: 16%; right: 12%; bottom: 18%; width: 17%; background: #bd8954; transform: rotateY(-40deg); transform-origin: left; }
-.boxFrontWall { right: 15%; bottom: 10%; left: 15%; height: 18%; background: #ad7948; transform: rotateX(35deg); transform-origin: top; }
-.boxFlap { z-index: 2; border: 1px solid rgb(87 53 27 / .23); backface-visibility: visible; transform-style: preserve-3d; }
-.boxFlapRear { top: -22%; right: 15%; left: 15%; height: 39%; background: #ca9860; transform-origin: bottom; }
-.boxFlapFront { right: 15%; bottom: -21%; left: 15%; height: 39%; background: #b98450; transform-origin: top; }
-.boxFlapLeft { top: 16%; bottom: 18%; left: -19%; width: 34%; background: #c08c55; transform-origin: right; }
-.boxFlapRight { top: 16%; right: -19%; bottom: 18%; width: 34%; background: #cd9a62; transform-origin: left; }
-.vehicleStage { z-index: 40; top: 56%; left: 50%; width: min(86vw,1130px); aspect-ratio: 1520 / 910; }
-.vehicleStage > img { position: absolute; inset: 0; }
+.mechanicalBox { z-index: 46; top: 53%; left: 54%; width: min(42vw,57svh); aspect-ratio: 1; filter: drop-shadow(0 1.4rem 1.6rem rgb(34 26 18 / .14)); }
+.vehicleStage { z-index: 40; top: 53%; left: 50%; width: min(106vw,1280px); aspect-ratio: 1; }
+.vehiclePlate { position: absolute; inset: 0; }
+.vehiclePlate[data-plate-format="tight"] { top: 7.5%; left: 12.5%; width: 70%; height: 70%; }
 .vehicleShadow { position: absolute; right: 9%; bottom: 7%; left: 7%; height: 12%; border-radius: 50%; background: rgb(34 44 44 / .13); filter: blur(13px); }
-.vehicleBody { z-index: 2; }
-.vehicleDoor { z-index: 4; }
-.vehicleBodyForeground { z-index: 7; clip-path: inset(76% 0 0); }
-.vehicleCargoMask { position: absolute; z-index: 5; top: 22%; left: 37%; width: 28%; height: 46%; overflow: hidden; box-shadow: inset 5px 0 14px rgb(28 30 30 / .08); }
-.vehicleStage[data-cinematic-vehicle="delivery"] .vehicleCargoMask { left: 43%; width: 24%; }
-.vehicleCourier { z-index: 6; top: 28% !important; left: 54% !important; width: 27% !important; height: 74% !important; object-position: bottom; }
-.vehicleStage[data-cinematic-vehicle="delivery"] .vehicleCourier { left: 24% !important; }
-.routeCamera { z-index: 29; inset: 0; overflow: hidden; }
+.handoffStage { z-index: 42; top: 55%; left: 50%; width: min(68vw,760px); aspect-ratio: 1; }
+.routeCamera { z-index: 29; inset: 0; overflow: hidden; background: #dfe3e3; }
 .routeWorld { position: absolute; top: 0; left: 0; width: max(100vw,177.6svh); aspect-ratio: 1671 / 941; transform-origin: 0 0; }
 .routeRoad { position: absolute; inset: 0; width: 100%; height: 100%; }
 .routeVan { position: absolute; width: clamp(180px,16vw,330px); aspect-ratio: 1; }
 .routeVan img { position: absolute; inset: 0; }
-.recipientActor { z-index: 42; top: 34%; left: 67%; width: clamp(180px,21vw,330px) !important; height: 56svh !important; object-position: bottom; }
-.parcelActor { position: fixed; z-index: 43; top: 0; left: 0; width: clamp(44px,5vw,78px); aspect-ratio: 1.05; visibility: hidden; opacity: 0; background: #bd8b55; border: 1px solid #9c6a3b; box-shadow: 3px 5px 8px rgb(29 22 17 / .14); }
 .freightTruckActor { z-index: 45; top: 50%; left: 50%; width: 140vw; aspect-ratio: 1; }
+.parcelBridge,.routeBridge,.freightBridge { z-index: 44; top: 14svh; left: 7vw; max-width: 62vw; text-transform: uppercase; }
+.parcelBridge { top: 16svh; max-width: 36vw; }
+.routeBridge { top: 24svh; left: 6vw; max-width: 60vw; }
+.parcelBridge p,.routeBridge p,.freightBridge p { margin: 0 0 .5rem; color: var(--kt-public-text-muted); font: 600 .72rem/1.2 "Instrument Sans",sans-serif; letter-spacing: .15em; }
+.parcelBridge strong,.routeBridge strong,.freightBridge strong { display: block; font: 650 clamp(3rem,6.3vw,8rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; }
+.parcelBridge strong { font-size: clamp(3rem,5.6vw,7rem); }
+.pickupBridge,.deliveryBridge { z-index: 44; left: 7vw; font: 650 clamp(3.5rem,7.5vw,9.5rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; text-transform: uppercase; }
+.pickupBridge { top: 12svh; }
+.deliveryBridge { top: 37svh; font-size: clamp(4rem,10vw,13rem); letter-spacing: -.07em; }
 
 @media (max-width: 899px) {
   .giant { font-size: clamp(3.2rem,9vw,7rem); }
-  .categoryPlane { width: 72vw; }
+  .categoryPlane { width: 55vw; }
   .productPlane { width: 32vw; }
 }
 @media (max-width: 767px) {
@@ -119,19 +110,19 @@
   .mobileCategoryTerritory > .eyebrow { margin-left: 7vw; }
   .mobileCategoryRail { display: flex; gap: 3vw; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 3svh 7vw; }
   .mobileCategoryRail::-webkit-scrollbar { display: none; }
-  .mobileCategoryCard { position: relative; flex: 0 0 84vw; height: 65svh; overflow: hidden; border-radius: 26px; scroll-snap-align: center; color: white; }
+  .mobileCategoryCard { position: relative; flex: 0 0 76vw; height: 55svh; overflow: hidden; border-radius: 18px; scroll-snap-align: center; color: white; }
   .mobileCategoryCard .categoryText strong { font-size: clamp(2.4rem,9vw,4rem); }
   .mobileCategoryCard .categoryText span { font-size: .88rem; }
   .productHeading { top: 11svh; left: 7vw; }
   .productHeading .giant { font-size: clamp(2.8rem,11vw,4.8rem); }
-  .productPlane { top: 54%; width: 76vw; height: 52svh; border-radius: 25px; }
+  .productPlane { top: 55%; width: 58vw; height: auto; border-radius: 16px; }
   .productInfo { right: 7vw; bottom: 4svh; left: 7vw; width: auto; padding-top: .55rem; }
   .productInfo strong { font-size: 1.15rem; }
   .productInfo a { margin-top: -.2rem; }
   .parcelRead { top: 12svh; left: 7vw; max-width: 86vw; }
   .parcelRead .giant { font-size: clamp(2.8rem,11vw,4.8rem); }
   .parcelProduct { margin-top: 1rem; font-size: .9rem; }
-  .boxTarget,.mechanicalBox { top: 62%; left: 50%; width: 72vw; height: 52vw; }
+  .boxTarget,.mechanicalBox { top: 59%; left: 50%; width: 78vw; height: auto; }
   .pickupCopy { top: 11svh; left: 7vw; }
   .pickupGround,.deliveryGround { bottom: 26svh; }
   .routeCopy { top: 13svh; left: 7vw; max-width: 86vw; }
@@ -150,13 +141,19 @@
   .finaleUtility { right: 7vw; bottom: calc(var(--kt-mobile-nav-height,68px) + 6svh + env(safe-area-inset-bottom)); left: 7vw; display: grid; grid-template-columns: repeat(2,1fr); gap: .1rem .8rem; }
   .finaleUtility a { font-size: .86rem; }
   .legal { right: 7vw; bottom: calc(var(--kt-mobile-nav-height,68px) + 1.5svh + env(safe-area-inset-bottom)); left: 7vw; font-size: .61rem; }
-  .vehicleStage { top: 59%; width: 165vw; }
-  .vehicleCourier { width: 29% !important; }
-  .recipientActor { top: 38%; left: 62%; width: 42vw !important; height: 45svh !important; }
-  .parcelActor { width: 10vw; }
+  .vehicleStage { top: 56%; width: 165vw; }
+  .handoffStage { top: 55%; width: 96vw; }
   .routeWorld { width: 185svh; }
   .routeVan { width: 34vw; }
   .freightTruckActor { width: 185vw; }
+  .pickupBridge { top: 11svh; font-size: clamp(2.8rem,13vw,5.5rem); }
+  .deliveryBridge { font-size: clamp(4rem,15vw,7rem); }
+  .freightBridge { top: 13svh; max-width: 87vw; }
+  .freightBridge strong { font-size: clamp(2.8rem,10.5vw,4.8rem); }
+  .parcelBridge { top: 12svh; max-width: 86vw; }
+  .parcelBridge strong { font-size: clamp(2.8rem,11vw,4.8rem); }
+  .routeBridge { top: 13svh; left: 7vw; max-width: 86vw; }
+  .routeBridge strong { font-size: clamp(3rem,12vw,5.3rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   .chapter { min-height: 100svh; }

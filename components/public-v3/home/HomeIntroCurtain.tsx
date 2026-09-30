@@ -60,11 +60,6 @@ export function HomeIntroCurtain({ onResolved }: { onResolved: () => void }) {
       const leftPanel = curtain.querySelector<HTMLElement>("[data-curtain-panel='left']");
       const rightPanel = curtain.querySelector<HTMLElement>("[data-curtain-panel='right']");
       const seam = curtain.querySelector<HTMLElement>("[data-curtain-seam]");
-      const routeOrbit = curtain.querySelector<HTMLElement>("[data-route-orbit]");
-      const outerRing = curtain.querySelector<SVGElement>("[data-orbit-outer]");
-      const innerRing = curtain.querySelector<SVGElement>("[data-orbit-inner]");
-      const routeArc = curtain.querySelector<SVGElement>("[data-orbit-draw]");
-      const routeNodes = curtain.querySelector<SVGGElement>("[data-orbit-nodes]");
 
       if (reducedMotion) {
         gsap.timeline({ onComplete: complete }).to(curtain, {
@@ -75,7 +70,7 @@ export function HomeIntroCurtain({ onResolved }: { onResolved: () => void }) {
         return;
       }
 
-      if (!content || !leftPanel || !rightPanel || !seam || !outerRing || !innerRing || !routeArc || !routeNodes) {
+      if (!content || !leftPanel || !rightPanel || !seam) {
         complete();
         return;
       }
@@ -89,34 +84,6 @@ export function HomeIntroCurtain({ onResolved }: { onResolved: () => void }) {
         duration: 0.3,
         ease: "power2.out",
       }, 0.15);
-      timeline.fromTo(routeArc, { strokeDashoffset: 520 }, {
-        strokeDashoffset: 0,
-        duration: 0.7,
-        ease: "power1.inOut",
-      }, 0.25);
-      timeline.fromTo(outerRing, { rotation: -18, scale: 1 }, {
-        rotation: 122,
-        scale: 1,
-        duration: 0.83,
-        ease: "none",
-      }, 0.25);
-      timeline.fromTo(innerRing, { rotation: 20, scale: 0.98 }, {
-        rotation: -86,
-        scale: 1.02,
-        duration: 0.83,
-        ease: "none",
-      }, 0.25);
-      timeline.fromTo(routeNodes, { rotation: 0 }, {
-        rotation: 118,
-        duration: 0.83,
-        ease: "none",
-      }, 0.25);
-      timeline.to([outerRing, innerRing, routeNodes], {
-        rotation: 0,
-        duration: 0.2,
-        ease: "power2.inOut",
-      }, 0.9);
-      if (routeOrbit) timeline.to(routeOrbit, { scale: 0.9, duration: 0.2, ease: "power2.inOut" }, 0.9);
       timeline.fromTo(seam, { autoAlpha: 0, scaleY: 0 }, {
         autoAlpha: 0.66,
         scaleY: 1,
@@ -157,30 +124,6 @@ export function HomeIntroCurtain({ onResolved }: { onResolved: () => void }) {
       <div className={`${styles.panel} ${styles.panelRight}`} data-curtain-panel="right" />
       <div className={styles.seam} data-curtain-seam />
       <div className={styles.curtainContent} data-curtain-content>
-        <div className={styles.routeOrbit} data-route-orbit aria-hidden="true">
-          <svg className={styles.orbitSvg} viewBox="0 0 520 520" fill="none">
-            <circle className={styles.orbitTrack} cx="260" cy="260" r="208" />
-            <circle className={styles.orbitInnerTrack} cx="260" cy="260" r="178" />
-            <g data-orbit-outer>
-              <path className={styles.orbitArc} d="M 85 351 A 208 208 0 0 1 418 133" />
-            </g>
-            <g data-orbit-inner>
-              <path className={styles.orbitArcSecondary} d="M 120 120 A 178 178 0 0 1 420 310" />
-            </g>
-            <path
-              data-orbit-draw
-              className={styles.orbitRoute}
-              d="M 107 260 A 153 153 0 0 1 260 107 C 345 107 414 176 414 260"
-              strokeDasharray="520"
-              strokeDashoffset="520"
-            />
-            <g data-orbit-nodes>
-              <circle className={styles.routeNode} cx="260" cy="52" r="4.5" />
-              <circle className={styles.routeNodeSecondary} cx="407" cy="347" r="3.5" />
-              <circle className={styles.routeNodeSecondary} cx="114" cy="356" r="3" />
-            </g>
-          </svg>
-        </div>
         <div className={styles.logo}>
           <CanonicalKtLogo size="fill" priority alt="" />
         </div>

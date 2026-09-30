@@ -78,7 +78,7 @@ export const HOME_CINEMATIC_BEATS = {
   parcelization: { selectedCarry: [0, .15], productDescend: [.15, .34], productOcclusion: [.30, .40], boxClose: [.40, .78], closedHold: [.78, .90], collectionTakeover: [.90, 1] },
   pickup: { vanEntry: [0, .16], vanSettle: [.16, .20], doorOpen: [.20, .38], courierApproach: [.38, .50], loadParcel: [.50, .65], withdraw: [.65, .72], doorClose: [.72, .88], vanDeparture: [.88, 1] },
   network: { routeTakeover: [0, .08], closeCamera: [0, .16], horizontalTravel: [.08, .33], cameraPullback: [.16, .46], curveTurn: [.33, .56], verticalTravel: [.56, .83], milestoneReframe: [.66, .87], redPrepare: [.83, .92], redSweepStart: [.92, 1] },
-  freight: { redSweepContinue: [0, .24], headlineReveal: [.18, .34], readHold: [.34, .76], detailReveal: [.34, .52], lastMilePrepare: [.76, 1] },
+  freight: { redSweepContinue: [0, .42], headlineReveal: [.39, .54], readHold: [.54, .86], detailReveal: [.51, .66], lastMilePrepare: [.86, 1] },
   lastMile: { vanEntry: [0, .13], vanSettle: [.13, .18], doorOpen: [.18, .33], courierEmerge: [.33, .43], courierWalkRight: [.43, .53], handoff: [.53, .71], separation: [.71, .77], courierReturn: [.77, .85], doorClose: [.85, .93], vanDeparture: [.93, 1] },
   finale: { deliveredHold: [0, .22], environmentClear: [.18, .30], brandRise: [.28, .62], brandHold: [.62, .82], utilityReveal: [.82, .94], legalReveal: [.94, 1] },
 } as const;

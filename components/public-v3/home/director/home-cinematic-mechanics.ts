@@ -2,6 +2,13 @@ import { clamp01, range, smooth } from "./home-beats";
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
+/** Arrange neighbors around the actual selection without moving the selected plane. */
+export function centeredFanOffset(index: number, selectedIndex: number, count: number): number {
+  if (count <= 1) return 0;
+  const raw = index - selectedIndex;
+  return raw > count / 2 ? raw - count : raw < -count / 2 ? raw + count : raw;
+}
+
 /** One uniform scale preserves the selected product's image geometry. */
 export function uniformProductPose(source: Rect, target: Rect, progress: number) {
   const p = smooth(clamp01(progress));

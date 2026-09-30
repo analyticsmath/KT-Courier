@@ -57,9 +57,10 @@ export function proxy(request: NextRequest): NextResponse {
   // Vercel deployment is intentionally used as the public edge while the
   // production runtime and stateful dependencies live on Railway.
   // The Vercel project currently has no production DATABASE_URL by design,
-  // so proxy every request to the healthy Railway runtime instead of invoking
-  // database-backed Vercel functions with incomplete configuration.
-  if (process.env.VERCEL && !process.env.DATABASE_URL?.trim()) {
+  // so production routes use the healthy Railway runtime. Preview homepage
+  // assets and rendering stay on the branch for visual review.
+  const previewHome = process.env.VERCEL_ENV === "preview" && (pathname === "/" || pathname.startsWith("/_next/") || pathname.startsWith("/media/") || pathname.startsWith("/images/"));
+  if (process.env.VERCEL && !process.env.DATABASE_URL?.trim() && !previewHome) {
     const upstream = new URL(pathname + request.nextUrl.search, RAILWAY_PRODUCTION_ORIGIN);
     return NextResponse.rewrite(upstream);
   }
