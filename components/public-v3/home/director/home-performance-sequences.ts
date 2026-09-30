@@ -1,4 +1,4 @@
-import { clamp01, range } from "./home-beats";
+import { clamp01, HOME_CINEMATIC_BEATS, range } from "./home-beats";
 
 const boxRoot = "/media/public/KT_BOX_SEQUENCE_8_FRAMES/";
 const vanRoot = "/media/public/KT_Courier_White_Van_Courier_Performance_Pack/";
@@ -56,10 +56,11 @@ export function pickupPlateIndex(p: number): number {
 }
 
 export function deliveryPlateIndex(p: number): number {
-  if (p < .18) return 0;
-  if (p < .33) return plateIndex(p, .18, .33, 1, 5);
-  if (p < .43) return plateIndex(p, .33, .43, 6, 8);
-  return plateIndex(p, .43, .53, 9, 11);
+  const b = HOME_CINEMATIC_BEATS.lastMile;
+  if (p < b.doorOpen[0]) return 0;
+  if (p < b.courierEmerge[0]) return plateIndex(p, ...b.doorOpen, 1, 5);
+  if (p < b.courierWalkRight[0]) return plateIndex(p, ...b.courierEmerge, 6, 8);
+  return plateIndex(p, ...b.courierWalkRight, 9, 11);
 }
 
 export function isTightVanPlate(src: string): boolean {

@@ -18,7 +18,7 @@ import {
 //
 // Limitations / Phase 2 hardening items:
 // - In-memory check only — no CSRF token rotation.
-// - Sub-domain cookies (e.g., app.ktcouriers.co.za → ktcouriers.co.za) are not
+// - Sub-domain cookies (e.g., app.ktcouriers.com → ktcouriers.com) are not
 //   protected by SameSite=Lax; full CSP + CSRF token is recommended when a CDN
 //   subdomain or embedded widget is introduced.
 // - Programmatic API clients (mobile app, integrations) must send the correct

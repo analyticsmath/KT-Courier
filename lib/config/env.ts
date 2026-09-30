@@ -53,7 +53,7 @@ export function getRuntimeConfigStatus(): RuntimeConfigStatus {
   }
   if (isProduction && !emailFrom) {
     warnings.push(
-      "EMAIL_FROM is not configured. Emails will use the default fallback address (noreply@ktcouriers.co.za)."
+      "EMAIL_FROM is not configured. Emails will use the default fallback address (noreply@ktcouriers.com)."
     );
   }
   if (!appUrl) {

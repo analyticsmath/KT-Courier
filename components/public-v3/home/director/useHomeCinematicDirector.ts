@@ -218,33 +218,35 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       const isFinale = chapter === "finale";
       const cover = isCommerce ? f.cover : chapter === "hero" ? 0 : 1;
       if (takeover) gsap.set(takeover, { yPercent: 100 * (1 - cover), visibility: isCommerce ? "visible" : "hidden" });
-      if (chapter === "hero" || (isCommerce && heroVisibleUnderMarketplace(cover))) applyHero(chapter === "hero" ? p : 1, false);
+      // The incoming room takes the viewport as the van finishes its camera pass.
+      // The hero's last frames belong to this overlap, rather than an empty
+      // sticky-release viewport after its own section has already finished.
+      if (chapter === "hero" || (isCommerce && heroVisibleUnderMarketplace(cover))) applyHero(chapter === "hero" ? p * .965 : .965 + .035 * range(p, ...B.commerce.takeoverCover), false);
       else if (heroSlot) visible(heroSlot, 0);
-      visible(opening, isCommerce ? (1 - range(p, .14, .25)) * cover : 0);
-      if (opening && isCommerce) gsap.set(opening, { clipPath: `inset(0 0 ${range(p, .16, .26) * 100}% 0)` });
-      const categoryOpacity = isCommerce && p >= .08 && p < .69 ? 1 : 0;
+      visible(opening, isCommerce ? (1 - smooth(range(p, .16, .21))) * cover : 0);
+      if (opening && isCommerce) gsap.set(opening, { clipPath: `inset(0 0 ${range(p, .16, .21) * 100}% 0)` });
+      const categoryOpacity = isCommerce ? smooth(range(p, ...B.commerce.galleryEnter)) * (1 - smooth(range(p, ...B.commerce.fanStackIn))) : 0;
       visible(categoryField, !mobile ? categoryOpacity : 0);
-      visible(mobileTerritory, mobile && isCommerce && p >= .10 && p < .69 ? 1 : 0);
+      visible(mobileTerritory, mobile ? categoryOpacity : 0);
       if (isCommerce && !mobile) {
         categoryPlanes.forEach((plane, index) => {
-          const targetX = (index - f.categoryPosition) * viewportWidth * .52;
+          const targetX = (index - f.categoryPosition) * viewportWidth * .35;
           gsap.set(plane, { transform: `translate3d(calc(-50% + ${targetX}px),-50%,0)`, zIndex: categoryPlanes.length - index, pointerEvents: Math.abs(index - f.categoryPosition) <= 1 ? "auto" : "none" });
         });
         const index = Math.min(categories.length - 1, Math.max(0, Math.round(f.categoryPosition)));
         const id = categories[index]?.id;
         if (id && id !== selectedCategory) { selectedCategory = id; onMarketplaceSelectionChange?.(id); }
       }
-      const fanVisible = isCommerce && p >= .60;
-      // A solid room rises into place. Crossfading two full-screen galleries
-      // leaves both card systems visible and makes the transition feel stacked.
+      const fanVisible = isCommerce && p >= B.commerce.fanStackIn[0];
+      // Finish the category hold, lift one opaque product room, then let the
+      // cards separate only after the room has settled.
       visible(productWorld, fanVisible ? 1 : 0);
-      if (productWorld && isCommerce) gsap.set(productWorld, { yPercent: 100 * (1 - smooth(range(p, .60, .68))) });
-      const productRead = isCommerce ? smooth(range(p, .60, .69)) * (1 - range(p, .91, .98)) : 0;
+      if (productWorld && isCommerce) gsap.set(productWorld, { yPercent: 100 * (1 - smooth(range(p, ...B.commerce.fanStackIn))) });
+      const productRead = isCommerce ? smooth(range(p, .65, .73)) * (1 - range(p, .92, .98)) : 0;
       visible(productHeading, productRead);
-      if (productHeading && isCommerce) gsap.set(productHeading, { y: 28 * (1 - smooth(range(p, .60, .69))) - 22 * range(p, .91, .98) });
-      // The gallery remains solid as the new room rises over it.
-      if (categoryField && isCommerce) gsap.set(categoryField, { y: -viewportHeight * .12 * range(p, .60, .68), autoAlpha: mobile ? 0 : categoryOpacity });
-      if (mobileTerritory && isCommerce) gsap.set(mobileTerritory, { y: -viewportHeight * .12 * range(p, .60, .68), autoAlpha: mobile && p >= .10 && p < .69 ? 1 : 0 });
+      if (productHeading && isCommerce) gsap.set(productHeading, { y: 28 * (1 - smooth(range(p, .65, .73))) - 22 * range(p, .92, .98) });
+      if (categoryField && isCommerce) gsap.set(categoryField, { y: -viewportHeight * .12 * range(p, ...B.commerce.fanStackIn), autoAlpha: mobile ? 0 : categoryOpacity });
+      if (mobileTerritory && isCommerce) gsap.set(mobileTerritory, { y: -viewportHeight * .12 * range(p, ...B.commerce.fanStackIn), autoAlpha: mobile ? categoryOpacity : 0 });
       if (isCommerce && p < B.commerce.selectedTakeover[0]) frozenProductId = undefined;
       if (isCommerce) frozenProductId = selectedProductForTakeover(selectedProduct, frozenProductId, p, B.commerce.selectedTakeover[0]);
       if (fanVisible) {
@@ -256,14 +258,14 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
           const spread = f.fanSpread;
           const exit = f.selectedTakeover;
           const x = offset * viewportWidth * (mobile ? .44 : .20) * spread + (index === center ? 0 : Math.sign(offset || 1) * exit * viewportWidth);
-          const y = -viewportHeight * .02 + distance * viewportHeight * .014 * spread + (index === center ? 0 : exit * viewportHeight * .08);
+          const y = -viewportHeight * .02 + (distance % 2 ? -1 : 1) * distance * viewportHeight * .029 * spread + (index === center ? 0 : exit * viewportHeight * .08);
           const scale = (1 - Math.min(distance, 2) * .075 * spread) * (index === center ? 1.025 : 1 - exit * .15);
-          const rotation = offset * (mobile ? 3 : 4) * spread;
+          const rotation = offset * (mobile ? 2 : 2.5) * spread;
           gsap.set(plane, { transform: `translate3d(-50%,-50%,0) translate3d(${x}px,${y}px,0) rotate(${rotation}deg) scale(${scale})`, zIndex: index === center ? 60 : 50 - Math.round(distance * 6), autoAlpha: exit > .1 && index !== center ? 1 - exit : 1, pointerEvents: exit > .1 && index !== center ? "none" : "auto" });
           plane.tabIndex = exit > .1 && index !== center ? -1 : 0;
         });
       }
-      visible(productInfo, fanVisible && p < .93 ? 1 : 0);
+      visible(productInfo, fanVisible ? smooth(range(p, .72, .79)) * (1 - range(p, .92, .98)) : 0);
 
       // The selected source yields its exact viewport rectangle to one fixed carry.
       const selectedPlaneIndex = Math.max(0, productPlanes.findIndex((plane) => plane.dataset.productId === selectedProduct));
@@ -299,7 +301,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       const parcelReadOpacity = isParcel ? smooth(range(p, 0, .13)) * (1 - range(p, .82, .98)) : 0;
       visible(parcelRead, parcelReadOpacity);
       if (parcelRead && isParcel) gsap.set(parcelRead, { y: 24 * (1 - smooth(range(p, 0, .13))) - 18 * range(p, .82, .98) });
-      visible(parcelBridge, isParcel ? smooth(range(p, .91, .99)) : isPickup ? 1 - smooth(range(p, 0, .16)) : 0);
+      visible(parcelBridge, isParcel ? smooth(range(p, .91, .99)) : 0);
       visible(box, boxVisible ? 1 : 0);
       showPlate(boxPlate, BOX_PLATES, isParcel ? plateIndex(p, ...B.parcelization.boxClose, 0, 7) : 7);
       if (box) {
@@ -318,7 +320,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       visible(collectedWord, isPickup ? smooth(range(p, .45, .55)) : 0);
       if (packedWord && isPickup) gsap.set(packedWord, { y: -18 * range(p, .45, .55) });
       if (collectedWord && isPickup) gsap.set(collectedWord, { y: 18 * (1 - range(p, .45, .55)) });
-      visible(pickupBridge, isPickup ? smooth(range(p, .88, .98)) : isNetwork ? 1 - smooth(range(p, 0, .12)) : 0);
+      visible(pickupBridge, isPickup ? smooth(range(p, .88, .98)) : 0);
 
       const routeVisible = isNetwork || (isFreight && p < B.freight.redSweepContinue[1]);
       visible(routeStage, routeVisible ? 1 : 0);
@@ -338,9 +340,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         visible(routeVanUpper, upperReady ? lowerReady ? route.yawBlend : 1 : 0);
         if (routeVan) gsap.set(routeVan, { left: `${route.point.x * 100}%`, top: `${route.point.y * 100}%`, rotation: route.residual, xPercent: -50, yPercent: -50 });
       }
-      visible(routeCopy, isNetwork ? range(p, .18, .30) * (1 - range(p, .78, .90)) : 0);
-      if (routeCopy && isNetwork) gsap.set(routeCopy, { x: -viewportWidth * .025 * (1 - range(p, .18, .6)) });
-      visible(routeBridge, isNetwork ? smooth(range(p, .85, .96)) : isFreight ? 1 - smooth(range(p, 0, .22)) : 0);
+      visible(routeCopy, isNetwork ? smooth(range(p, .04, .14)) * (1 - range(p, .78, .90)) : 0);
+      if (routeCopy && isNetwork) gsap.set(routeCopy, { x: -viewportWidth * .025 * (1 - smooth(range(p, .04, .14))) });
+      visible(routeBridge, isNetwork ? smooth(range(p, .85, .96)) : 0);
       const truckVisible = (isNetwork && p >= B.network.redSweepStart[0]) || (isFreight && p <= B.freight.redSweepContinue[1]);
       if (truckVisible) {
         visible(truck, showCinematicFrame(truckImage, "red-truck-top-00", mobile) ? 1 : 0);
@@ -370,8 +372,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         else if (p < handoffStart) showPlate(delivery.plate, DELIVERY_PLATES, deliveryPlateIndex(p));
         else showPlate(delivery.plate, RETURN_PLATES, plateIndex(p, returnStart, B.lastMile.doorClose[1], 0, 6));
       } else { visible(delivery.stage, 0); visible(handoff, 0); }
-      visible(lastMileCopy, isLastMile ? smooth(range(p, .03, .13)) * (1 - range(p, .39, .53)) : 0);
-      if (lastMileCopy && isLastMile) gsap.set(lastMileCopy, { y: 28 * (1 - smooth(range(p, .03, .13))) - 20 * range(p, .39, .53) });
+      // Let the street headline read before the van occupies the same space.
+      visible(lastMileCopy, isLastMile ? smooth(range(p, .015, .07)) * (1 - smooth(range(p, .13, .20))) : 0);
+      if (lastMileCopy && isLastMile) gsap.set(lastMileCopy, { y: 28 * (1 - smooth(range(p, .015, .07))) - 20 * smooth(range(p, .13, .20)) });
       visible(delivered, isFinale ? 1 - range(p, .18, .32) : 0);
       visible(deliveryBridge, isLastMile ? smooth(range(p, .94, .99)) : 0);
       visible(brand, isFinale ? f.brand : 0);
@@ -397,7 +400,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
     };
 
     const seek = () => {
-      const current = ranges.find((item) => window.scrollY >= item.start && window.scrollY < item.end) ?? ranges.at(-1);
+      // During an overlap the later chapter owns the film, so its opaque
+      // incoming world can take the screen as the prior sticky stage releases.
+      const current = ranges.findLast((item) => window.scrollY >= item.start && window.scrollY < item.end) ?? ranges.at(-1);
       if (!current) return;
       const progress = clamp01((window.scrollY - current.start) / Math.max(1, current.progressEnd - current.start));
       const authored = prefersReducedMotion && current.chapter !== "hero" ? reducedMotionChapterProgress(current.chapter) : progress;
@@ -417,7 +422,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       }
       // Hold the freight message through the physical sticky release. Its
       // chapter is still on screen for one viewport after the film reaches 1.
-      visible(freightBridge, current.chapter === "freight" && window.scrollY >= current.progressEnd ? 1 : current.chapter === "last-mile" ? 1 - smooth(range(progress, 0, .08)) : 0);
+      visible(freightBridge, current.chapter === "freight" && window.scrollY >= current.progressEnd ? 1 : 0);
     };
     const schedule = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; seek(); }); };
     const resize = () => { window.clearTimeout(resizeTimer); resizeTimer = window.setTimeout(() => {

@@ -51,7 +51,7 @@ export class ResendEmailProvider implements NotificationProvider {
   private readonly client: Resend;
   private readonly fromAddress: string;
 
-  constructor(apiKey = process.env.RESEND_API_KEY, fromAddress = process.env.EMAIL_FROM ?? "KT Couriers <noreply@ktcouriers.co.za>") {
+  constructor(apiKey = process.env.RESEND_API_KEY, fromAddress = process.env.EMAIL_FROM ?? "KT Couriers <noreply@ktcouriers.com>") {
     if (!apiKey) {
       throw new Error("Resend API key is required to initialize ResendEmailProvider.");
     }

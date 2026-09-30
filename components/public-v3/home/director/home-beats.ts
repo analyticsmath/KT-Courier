@@ -74,11 +74,11 @@ export const HOME_MOBILE_HERO_BEATS = {
 
 /** Canonical post-Hero film timing. Kept separate from the retired actor bank. */
 export const HOME_CINEMATIC_BEATS = {
-  commerce: { takeoverCover: [0, .10], galleryEnter: [.10, .15], categoryTraversal: [.15, .55], galleryHold: [.55, .60], fanStackIn: [.60, .66], fanSpread: [.66, .74], fanHold: [.74, .91], selectedTakeover: [.91, 1] },
+  commerce: { takeoverCover: [0, .10], galleryEnter: [.21, .27], categoryTraversal: [.27, .57], galleryHold: [.57, .62], fanStackIn: [.62, .70], fanSpread: [.71, .81], fanHold: [.81, .92], selectedTakeover: [.92, 1] },
   parcelization: { selectedCarry: [0, .15], productDescend: [.15, .34], productOcclusion: [.30, .40], boxClose: [.40, .78], closedHold: [.78, .90], collectionTakeover: [.90, 1] },
   pickup: { vanEntry: [0, .16], vanSettle: [.16, .20], doorOpen: [.20, .38], courierApproach: [.38, .50], loadParcel: [.50, .65], withdraw: [.65, .72], doorClose: [.72, .88], vanDeparture: [.88, 1] },
   network: { routeTakeover: [0, .08], closeCamera: [0, .16], horizontalTravel: [.08, .33], cameraPullback: [.16, .46], curveTurn: [.33, .56], verticalTravel: [.56, .83], milestoneReframe: [.66, .87], redPrepare: [.83, .92], redSweepStart: [.92, 1] },
-  freight: { redSweepContinue: [0, .42], headlineReveal: [.39, .54], readHold: [.54, .86], detailReveal: [.51, .66], lastMilePrepare: [.86, 1] },
-  lastMile: { vanEntry: [0, .13], vanSettle: [.13, .18], doorOpen: [.18, .33], courierEmerge: [.33, .43], courierWalkRight: [.43, .53], handoff: [.53, .71], separation: [.71, .77], courierReturn: [.77, .85], doorClose: [.85, .93], vanDeparture: [.93, 1] },
+  freight: { redSweepContinue: [0, .42], headlineReveal: [.28, .46], readHold: [.46, .86], detailReveal: [.44, .62], lastMilePrepare: [.86, 1] },
+  lastMile: { vanEntry: [0, .18], vanSettle: [.18, .21], doorOpen: [.21, .32], courierEmerge: [.32, .40], courierWalkRight: [.40, .49], handoff: [.49, .76], separation: [.76, .82], courierReturn: [.82, .89], doorClose: [.89, .95], vanDeparture: [.95, 1] },
   finale: { deliveredHold: [0, .22], environmentClear: [.18, .30], brandRise: [.28, .62], brandHold: [.62, .82], utilityReveal: [.82, .94], legalReveal: [.94, 1] },
 } as const;

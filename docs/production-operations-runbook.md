@@ -36,7 +36,7 @@ All background tasks are registered in `lib/processors/processor-registry.ts` an
 Internal cron triggers require a Bearer token matching the `CRON_SECRET` environment variable:
 
 ```bash
-curl -X POST https://api.ktcouriers.co.za/api/jobs/process-data-retention \
+curl -X POST https://api.ktcouriers.com/api/jobs/process-data-retention \
   -H "Authorization: Bearer <CRON_SECRET>" \
   -H "Content-Type: application/json" \
   -d '{"mode": "DRY_RUN", "batchSize": 100}'

@@ -131,7 +131,7 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   console.log("  [Bootstrap] Ensuring platform settings...");
   const settings = [
     { key: "platform.name", label: "Platform Name", type: "STRING", value: "KT Couriers" },
-    { key: "platform.contact_email", label: "Contact Email", type: "STRING", value: "support@ktcouriers.co.za" },
+    { key: "platform.contact_email", label: "Contact Email", type: "STRING", value: "support@ktcouriers.com" },
     { key: "platform.contact_phone", label: "Contact Phone", type: "STRING", value: "+27 11 403 1000" },
     { key: "platform.country", label: "Country Code", type: "STRING", value: "ZA" },
     { key: "platform.currency", label: "Platform Currency", type: "STRING", value: "ZAR" },
