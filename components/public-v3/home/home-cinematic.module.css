@@ -4,7 +4,7 @@
 .giant { margin: .5rem 0 0; font: 650 clamp(3.5rem,7.5vw,9.5rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; text-transform: uppercase; }
 .chapter a:focus-visible { outline: 3px solid var(--kt-public-focus); outline-offset: 5px; }
 .commerce { background: transparent; margin-top: -100svh; }
-.marketplaceTakeover { position: absolute; z-index: 0; inset: 0; background: var(--kt-public-canvas); transform: translate3d(0,100%,0); }
+.marketplaceTakeover { position: absolute; z-index: 0; inset: 0; background: var(--kt-public-canvas); visibility: hidden; }
 .commerceOpening { position: absolute; z-index: 5; top: 18svh; left: 7vw; max-width: 72vw; pointer-events: none; }
 .commerceOpening .giant { max-width: 11ch; }
 .categoryField,.mobileCategoryTerritory,.productWorld { position: absolute; inset: 0; visibility: hidden; opacity: 0; }

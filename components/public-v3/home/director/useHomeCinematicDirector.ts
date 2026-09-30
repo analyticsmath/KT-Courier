@@ -225,9 +225,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       else if (heroSlot) visible(heroSlot, 0);
       visible(opening, isCommerce ? (1 - range(p, .14, .25)) * cover : 0);
       if (opening && isCommerce) gsap.set(opening, { clipPath: `inset(0 0 ${range(p, .16, .26) * 100}% 0)` });
-      const categoryOpacity = isCommerce && p >= .08 && p < .69 ? 1 : 0;
+      const categoryOpacity = isCommerce ? smooth(range(p, ...B.commerce.galleryEnter)) * (1 - smooth(range(p, ...B.commerce.fanStackIn))) : 0;
       visible(categoryField, !mobile ? categoryOpacity : 0);
-      visible(mobileTerritory, mobile && isCommerce && p >= .10 && p < .69 ? 1 : 0);
+      visible(mobileTerritory, mobile ? categoryOpacity : 0);
       if (isCommerce && !mobile) {
         categoryPlanes.forEach((plane, index) => {
           const targetX = (index - f.categoryPosition) * viewportWidth * .43;
@@ -246,7 +246,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       visible(productHeading, productRead);
       if (productHeading && isCommerce) gsap.set(productHeading, { y: 28 * (1 - smooth(range(p, .65, .73))) - 22 * range(p, .92, .98) });
       if (categoryField && isCommerce) gsap.set(categoryField, { y: -viewportHeight * .12 * range(p, ...B.commerce.fanStackIn), autoAlpha: mobile ? 0 : categoryOpacity });
-      if (mobileTerritory && isCommerce) gsap.set(mobileTerritory, { y: -viewportHeight * .12 * range(p, ...B.commerce.fanStackIn), autoAlpha: mobile && p >= .10 && p < .69 ? 1 : 0 });
+      if (mobileTerritory && isCommerce) gsap.set(mobileTerritory, { y: -viewportHeight * .12 * range(p, ...B.commerce.fanStackIn), autoAlpha: mobile ? categoryOpacity : 0 });
       if (isCommerce && p < B.commerce.selectedTakeover[0]) frozenProductId = undefined;
       if (isCommerce) frozenProductId = selectedProductForTakeover(selectedProduct, frozenProductId, p, B.commerce.selectedTakeover[0]);
       if (fanVisible) {
