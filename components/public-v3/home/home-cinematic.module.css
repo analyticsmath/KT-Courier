@@ -18,7 +18,7 @@
 .categoryText strong { font: 620 clamp(2.2rem,4.4vw,5.2rem)/.9 "Schibsted Grotesk",sans-serif; letter-spacing: -.055em; }
 .categoryText span { max-width: 29ch; font: .92rem/1.35 "Instrument Sans",sans-serif; }
 .categoryText em { padding-top: .8rem; font: 650 .86rem/1 "Instrument Sans",sans-serif; font-style: normal; }
-.productWorld { z-index: 6; background: var(--kt-public-canvas); }
+.productWorld { z-index: 6; background: var(--kt-public-surface-tertiary); }
 .productHeading { position: absolute; top: 10svh; left: 7vw; z-index: 12; pointer-events: none; }
 .productHeading .giant { font-size: clamp(2.7rem,5vw,6rem); }
 .productFan { position: absolute; inset: 0; perspective: 1400px; }
@@ -83,9 +83,12 @@
 .routeVan { position: absolute; width: clamp(180px,16vw,330px); aspect-ratio: 1; }
 .routeVan img { position: absolute; inset: 0; }
 .freightTruckActor { z-index: 45; top: 50%; left: 50%; width: 140vw; aspect-ratio: 1; }
-.freightBridge { z-index: 44; top: 14svh; left: 7vw; max-width: 62vw; text-transform: uppercase; }
-.freightBridge p { margin: 0 0 .5rem; color: var(--kt-public-text-muted); font: 600 .72rem/1.2 "Instrument Sans",sans-serif; letter-spacing: .15em; }
-.freightBridge strong { display: block; font: 650 clamp(3rem,6.3vw,8rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; }
+.parcelBridge,.routeBridge,.freightBridge { z-index: 44; top: 14svh; left: 7vw; max-width: 62vw; text-transform: uppercase; }
+.parcelBridge { top: 16svh; max-width: 36vw; }
+.routeBridge { top: 24svh; left: 6vw; max-width: 60vw; }
+.parcelBridge p,.routeBridge p,.freightBridge p { margin: 0 0 .5rem; color: var(--kt-public-text-muted); font: 600 .72rem/1.2 "Instrument Sans",sans-serif; letter-spacing: .15em; }
+.parcelBridge strong,.routeBridge strong,.freightBridge strong { display: block; font: 650 clamp(3rem,6.3vw,8rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; }
+.parcelBridge strong { font-size: clamp(3rem,5.6vw,7rem); }
 .pickupBridge,.deliveryBridge { z-index: 44; left: 7vw; font: 650 clamp(3.5rem,7.5vw,9.5rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; text-transform: uppercase; }
 .pickupBridge { top: 12svh; }
 .deliveryBridge { top: 37svh; font-size: clamp(4rem,10vw,13rem); letter-spacing: -.07em; }
@@ -147,6 +150,10 @@
   .deliveryBridge { font-size: clamp(4rem,15vw,7rem); }
   .freightBridge { top: 13svh; max-width: 87vw; }
   .freightBridge strong { font-size: clamp(2.8rem,10.5vw,4.8rem); }
+  .parcelBridge { top: 12svh; max-width: 86vw; }
+  .parcelBridge strong { font-size: clamp(2.8rem,11vw,4.8rem); }
+  .routeBridge { top: 13svh; left: 7vw; max-width: 86vw; }
+  .routeBridge strong { font-size: clamp(3rem,12vw,5.3rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   .chapter { min-height: 100svh; }

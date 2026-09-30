@@ -67,6 +67,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
     const carryImage = img(root, "[data-product-carry-image]");
     const box = el(root, "[data-cinematic-box]");
     const parcelRead = el(root, "[data-cinematic-parcel-read]");
+    const parcelBridge = el(root, "[data-cinematic-parcel-bridge]");
     const pickupCopy = el(root, "[data-cinematic-pickup-copy]");
     const freightRead = el(root, "[data-cinematic-freight-read]");
     const freightBridge = el(root, "[data-cinematic-freight-bridge]");
@@ -85,6 +86,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
     const routeVanLower = img(root, "[data-cinematic-route-van-lower]");
     const routeVanUpper = img(root, "[data-cinematic-route-van-upper]");
     const routeCopy = el(root, "[data-route-copy='moving']");
+    const routeBridge = el(root, "[data-cinematic-route-bridge]");
     const truck = el(root, "[data-cinematic-red-truck]");
     const truckImage = img(root, "[data-cinematic-red-truck-image]");
     const freightReveal = el(root, "[data-cinematic-freight-reveal]");
@@ -297,6 +299,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       const parcelReadOpacity = isParcel ? smooth(range(p, 0, .13)) * (1 - range(p, .82, .98)) : 0;
       visible(parcelRead, parcelReadOpacity);
       if (parcelRead && isParcel) gsap.set(parcelRead, { y: 24 * (1 - smooth(range(p, 0, .13))) - 18 * range(p, .82, .98) });
+      visible(parcelBridge, isParcel ? smooth(range(p, .91, .99)) : isPickup ? 1 - smooth(range(p, 0, .16)) : 0);
       visible(box, boxVisible ? 1 : 0);
       showPlate(boxPlate, BOX_PLATES, isParcel ? plateIndex(p, ...B.parcelization.boxClose, 0, 7) : 7);
       if (box) {
@@ -337,6 +340,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       }
       visible(routeCopy, isNetwork ? range(p, .18, .30) * (1 - range(p, .78, .90)) : 0);
       if (routeCopy && isNetwork) gsap.set(routeCopy, { x: -viewportWidth * .025 * (1 - range(p, .18, .6)) });
+      visible(routeBridge, isNetwork ? smooth(range(p, .85, .96)) : isFreight ? 1 - smooth(range(p, 0, .22)) : 0);
       const truckVisible = (isNetwork && p >= B.network.redSweepStart[0]) || (isFreight && p <= B.freight.redSweepContinue[1]);
       if (truckVisible) {
         visible(truck, showCinematicFrame(truckImage, "red-truck-top-00", mobile) ? 1 : 0);
@@ -406,7 +410,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       if (stage) gsap.set(stage, { opacity: 1 });
       applyFilm(current.chapter, authored);
       if (prefersReducedMotion && window.scrollY >= current.progressEnd) {
+        if (current.chapter === "parcelization") visible(parcelBridge, 1);
         if (current.chapter === "pickup") visible(pickupBridge, 1);
+        if (current.chapter === "network") visible(routeBridge, 1);
         if (current.chapter === "last-mile") visible(deliveryBridge, 1);
       }
       // Hold the freight message through the physical sticky release. Its

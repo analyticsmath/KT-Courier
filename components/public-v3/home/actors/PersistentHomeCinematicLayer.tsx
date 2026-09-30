@@ -44,6 +44,8 @@ export function PersistentHomeCinematicLayer() {
     <VehicleStage kind="delivery" />
     <div className={styles.handoffStage} data-cinematic-handoff><img data-handoff-plate src={HANDOFF_PLATES[0]} alt="" /></div>
     <div className={styles.freightTruckActor} data-cinematic-red-truck><img data-cinematic-red-truck-image alt="" /></div>
+    <div className={styles.parcelBridge} data-cinematic-parcel-bridge><p>Your order</p><strong>Packed for<br />the road.</strong></div>
+    <div className={styles.routeBridge} data-cinematic-route-bridge><p>On the move</p><strong>Across town.<br />On its way.</strong></div>
     <div className={styles.freightBridge} data-cinematic-freight-bridge><p>KT for business</p><strong>A bigger load.<br />The same care.</strong></div>
     <div className={styles.pickupBridge} data-cinematic-pickup-bridge>Collected.</div>
     <div className={styles.deliveryBridge} data-cinematic-delivery-bridge>Delivered.</div>
