@@ -8,6 +8,8 @@ import { HOME_COMPOSED_ACTORS } from "@/components/public-v3/home/data/home-comp
 import { heroVisibleUnderMarketplace, resolveHomeCinematicFrame, routeCamera, routePoint, routePose } from "@/components/public-v3/home/director/home-cinematic-frame-resolver";
 import { boxFlapPose, centeredFanOffset, effectiveScrollPixels, rollingPreloadIds, routeYawBlend, selectedProductForTakeover, truckTrailingEdgeReveal, uniformProductPose } from "@/components/public-v3/home/director/home-cinematic-mechanics";
 import { resolveHeroVanFrame } from "@/components/public-v3/home/director/home-frame-resolver";
+import { HOME_CINEMATIC_BEATS } from "@/components/public-v3/home/director/home-beats";
+import { deliveryPlateIndex } from "@/components/public-v3/home/director/home-performance-sequences";
 
 describe("post-Hero cinematic mechanics", () => {
   it("keeps the approved Hero visible until the Marketplace covers it", () => {
@@ -32,6 +34,10 @@ describe("post-Hero cinematic mechanics", () => {
     expect(parcelScroll * .38).toBeGreaterThan(180);
     expect(pickupScroll * .19).toBeGreaterThan(180);
     expect(HOME_MOBILE_CHAPTER_BUDGETS_VH.commerce).toBeGreaterThan(100);
+    const handoff = HOME_CINEMATIC_BEATS.lastMile.handoff;
+    const handoffScroll = effectiveScrollPixels(HOME_MOBILE_CHAPTER_BUDGETS_VH["last-mile"] / 100 * viewport, viewport) * (handoff[1] - handoff[0]);
+    expect(handoffScroll).toBeGreaterThan(viewport * .8);
+    expect(deliveryPlateIndex(HOME_CINEMATIC_BEATS.lastMile.courierWalkRight[1])).toBe(11);
   });
 
   it("uses settled reduced-motion snapshots in narrative order", () => {
