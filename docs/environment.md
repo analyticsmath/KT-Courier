@@ -40,17 +40,17 @@ RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxx"
 Sender address for outbound emails. Must be a verified sender in your Resend account.
 
 ```
-EMAIL_FROM="KT Couriers <noreply@ktcouriers.co.za>"
+EMAIL_FROM="KT Couriers <noreply@ktcouriers.com>"
 ```
 
-Falls back to `"KT Couriers <noreply@ktcouriers.co.za>"` if not set.
+Falls back to `"KT Couriers <noreply@ktcouriers.com>"` if not set.
 
 ### `EMAIL_REPLY_TO` *(optional)*
 
 Reply-to address for outbound emails. Also used as the admin/support notification recipient for contact form and new order alerts.
 
 ```
-EMAIL_REPLY_TO="support@ktcouriers.co.za"
+EMAIL_REPLY_TO="support@ktcouriers.com"
 ```
 
 If not set and `RESEND_API_KEY` is absent, admin notification emails are skipped.
@@ -69,10 +69,10 @@ EMAIL_PROVIDER="resend"     # force Resend (requires RESEND_API_KEY)
 Base URL used in email links (password reset, order detail URLs, admin links).
 
 ```
-NEXT_PUBLIC_APP_URL="https://ktcouriers.co.za"
+NEXT_PUBLIC_APP_URL="https://ktcouriers.com"
 ```
 
-Falls back to `"http://localhost:3000"` in development or `"https://ktcouriers.co.za"` in production.
+Falls back to `"http://localhost:3000"` in development or `"https://ktcouriers.com"` in production.
 
 ---
 
@@ -134,7 +134,7 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 | Variable | Development default | Notes |
 |---|---|---|
 | `RESEND_API_KEY` | *(unset)* | Console provider used; emails logged, not delivered |
-| `EMAIL_FROM` | `KT Couriers <noreply@ktcouriers.co.za>` | Safe fallback |
+| `EMAIL_FROM` | `KT Couriers <noreply@ktcouriers.com>` | Safe fallback |
 | `EMAIL_REPLY_TO` | *(unset)* | Admin notification emails skipped |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Used in password reset links |
 

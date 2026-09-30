@@ -11,15 +11,15 @@ Phase 1.10. For internal use during initial deployment and client review setup.
 | Variable | Description | Example |
 |---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/kt_courier` |
-| `NEXT_PUBLIC_APP_URL` | Publicly accessible app base URL — used for password reset links | `https://ktcouriers.co.za` |
+| `NEXT_PUBLIC_APP_URL` | Publicly accessible app base URL — used for password reset links | `https://ktcouriers.com` |
 
 ### Required for Email Delivery
 
 | Variable | Description | Example |
 |---|---|---|
 | `RESEND_API_KEY` | Resend API key — required for production email delivery | `re_xxxxxxxxxxxxxxxx` |
-| `EMAIL_FROM` | Sender address (verified in Resend) | `KT Couriers <noreply@ktcouriers.co.za>` |
-| `EMAIL_REPLY_TO` | Address for admin notifications (contact/order alerts) | `support@ktcouriers.co.za` |
+| `EMAIL_FROM` | Sender address (verified in Resend) | `KT Couriers <noreply@ktcouriers.com>` |
+| `EMAIL_REPLY_TO` | Address for admin notifications (contact/order alerts) | `support@ktcouriers.com` |
 
 ### Optional
 
@@ -64,8 +64,8 @@ npm run dev
 ```
 
 The seed script creates:
-- Super admin: `superadmin@ktcouriers.co.za`
-- Admin: `admin@ktcouriers.co.za`
+- Super admin: `superadmin@ktcouriers.com`
+- Admin: `admin@ktcouriers.com`
 - Customer: `customer@example.com`
 - Store: `store@example.com`
 
@@ -150,7 +150,7 @@ Phase 2.3 adds saved-address ownership and store default pickup support.
 
 After every production deployment, run these quick checks:
 
-1. Load `https://ktcouriers.co.za` → homepage renders correctly
+1. Load `https://ktcouriers.com` → homepage renders correctly
 2. Load `/services`, `/contact`, `/about` → no 500 errors
 3. Attempt signup → account created, OTP email received (check email delivery)
 4. Attempt login → session cookie set, redirected to dashboard
@@ -209,12 +209,12 @@ These items require client decisions before production sign-off:
 ## Resend Configuration
 
 1. Create a Resend account at resend.com.
-2. Add your domain (e.g., `ktcouriers.co.za`) under **Domains**.
+2. Add your domain (e.g., `ktcouriers.com`) under **Domains**.
 3. Add the provided DNS records (SPF, DKIM, DMARC) to your DNS provider.
 4. Wait for verification (usually < 30 minutes).
 5. Create an API key under **API Keys** with **Full Access** scope.
 6. Set `RESEND_API_KEY` in your hosting environment.
-7. Set `EMAIL_FROM` to a verified address on the domain: `KT Couriers <noreply@ktcouriers.co.za>`.
+7. Set `EMAIL_FROM` to a verified address on the domain: `KT Couriers <noreply@ktcouriers.com>`.
 
 Without domain verification, Resend will reject sends. The application will mark EmailLog records FAILED and log the error server-side, without crashing any other operation.
 
@@ -226,7 +226,7 @@ The Next.js `metadata` configuration in `app/layout.tsx` should include:
 
 ```typescript
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://ktcouriers.co.za"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://ktcouriers.com"),
   // ...
 };
 ```
