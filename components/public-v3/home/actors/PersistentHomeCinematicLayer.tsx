@@ -13,7 +13,9 @@ function VehicleStage({ kind }: { kind: "pickup" | "delivery" }) {
 }
 
 function RouteRoad() {
-  const main = "M -70 190 H 665 C 706 190 730 252 730 360 V 1080";
+  // The camera follows beyond the SVG's nominal viewBox at the route exit.
+  // Keep the road painting below that edge so the truck sweep has no seam.
+  const main = "M -70 190 H 665 C 706 190 730 252 730 360 V 2200";
   const branch = "M 665 190 C 760 190 792 135 860 45 L 930 -55";
   return <svg className={styles.routeRoad} data-cinematic-road viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
     <defs><pattern id="road-grain" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="1" cy="2" r=".35" fill="#a6adae" opacity=".35" /><circle cx="6" cy="5" r=".35" fill="#a6adae" opacity=".35" /></pattern></defs>

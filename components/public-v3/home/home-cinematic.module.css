@@ -79,7 +79,7 @@
 .handoffStage { z-index: 42; top: 55%; left: 50%; width: min(68vw,760px); aspect-ratio: 1; }
 .routeCamera { z-index: 29; inset: 0; overflow: hidden; background: #dfe3e3; }
 .routeWorld { position: absolute; top: 0; left: 0; width: max(100vw,177.6svh); aspect-ratio: 1671 / 941; transform-origin: 0 0; }
-.routeRoad { position: absolute; inset: 0; width: 100%; height: 100%; }
+.routeRoad { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .routeVan { position: absolute; width: clamp(180px,16vw,330px); aspect-ratio: 1; }
 .routeVan img { position: absolute; inset: 0; }
 .freightTruckActor { z-index: 45; top: 50%; left: 50%; width: 140vw; aspect-ratio: 1; }
