@@ -55,7 +55,7 @@
 .freightRead .giant { font-size: clamp(3rem,6.3vw,8rem); }
 .freightRead > p:last-of-type { color: var(--kt-public-text-secondary); font: 1.1rem/1.4 "Instrument Sans",sans-serif; }
 .freightLinks { display: flex; gap: 2rem; margin-top: 2rem; }
-.freightLinks a { display: inline-flex; align-items: center; min-height: 44px; color: var(--kt-public-interactive-text); font: 650 .9rem/1 "Instrument Sans",sans-serif; }
+.freightLinks a { display: inline-flex; align-items: center; min-height: 44px; color: var(--kt-public-text-primary); font: 650 .9rem/1 "Instrument Sans",sans-serif; text-decoration: underline; text-underline-offset: .25em; }
 .lastMileCopy { position: absolute; top: 12svh; left: 7vw; max-width: 48vw; }
 .lastMileCopy > p:last-child { color: var(--kt-public-text-secondary); font: 1.1rem/1.4 "Instrument Sans",sans-serif; }
 .finale { padding-bottom: env(safe-area-inset-bottom); }
@@ -83,6 +83,12 @@
 .routeVan { position: absolute; width: clamp(180px,16vw,330px); aspect-ratio: 1; }
 .routeVan img { position: absolute; inset: 0; }
 .freightTruckActor { z-index: 45; top: 50%; left: 50%; width: 140vw; aspect-ratio: 1; }
+.freightBridge { z-index: 44; top: 14svh; left: 7vw; max-width: 62vw; text-transform: uppercase; }
+.freightBridge p { margin: 0 0 .5rem; color: var(--kt-public-text-muted); font: 600 .72rem/1.2 "Instrument Sans",sans-serif; letter-spacing: .15em; }
+.freightBridge strong { display: block; font: 650 clamp(3rem,6.3vw,8rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; }
+.pickupBridge,.deliveryBridge { z-index: 44; left: 7vw; font: 650 clamp(3.5rem,7.5vw,9.5rem)/.86 "Schibsted Grotesk",sans-serif; letter-spacing: -.072em; text-transform: uppercase; }
+.pickupBridge { top: 12svh; }
+.deliveryBridge { top: 37svh; font-size: clamp(4rem,10vw,13rem); letter-spacing: -.07em; }
 
 @media (max-width: 899px) {
   .giant { font-size: clamp(3.2rem,9vw,7rem); }
@@ -137,6 +143,10 @@
   .routeWorld { width: 185svh; }
   .routeVan { width: 34vw; }
   .freightTruckActor { width: 185vw; }
+  .pickupBridge { top: 11svh; font-size: clamp(2.8rem,13vw,5.5rem); }
+  .deliveryBridge { font-size: clamp(4rem,15vw,7rem); }
+  .freightBridge { top: 13svh; max-width: 87vw; }
+  .freightBridge strong { font-size: clamp(2.8rem,10.5vw,4.8rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   .chapter { min-height: 100svh; }
