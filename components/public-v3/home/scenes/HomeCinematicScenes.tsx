@@ -45,7 +45,7 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
         <div className={styles.productFan} data-cinematic-product-fan aria-label="Featured local products">
           {products.slice(0, 5).map((product, index) => <button key={product.id} type="button" className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`Select ${product.title}`} aria-pressed={product.id === active?.id} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img src={product.image} alt={product.imageAlt} /></span></button>)}
         </div>
-        {active ? <div className={styles.productInfo} data-cinematic-product-info><span>{active.brandName ?? "Marketplace selection"}</span><strong>{active.title}</strong><Link href={active.href}>View product ↗</Link></div> : null}
+        {active ? <div className={styles.productInfo} data-cinematic-product-info>{active.brandName ? <span>{active.brandName}</span> : null}<strong>{active.title}</strong><Link href={active.href}>View product ↗</Link></div> : null}
       </section> : <div className={styles.emptyProducts}><Link href="/shop">Browse products in the marketplace ↗</Link></div>}
     </div>
   </section>;
