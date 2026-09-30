@@ -337,9 +337,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
         const reveal = isFreight && metadata?.visibleBounds ? truckTrailingEdgeReveal(f.truckX * viewportWidth / 100, truckWidth, metadata.width, metadata.visibleBounds, viewportWidth).reveal : 0;
         gsap.set(freightReveal, { clipPath: `inset(0 ${(1 - reveal) * 100}% 0 0)` });
       }
-      const freightReadOpacity = isFreight ? smooth(range(p, .24, .36)) * (1 - range(p, .82, .96)) : 0;
+      const freightReadOpacity = isFreight ? smooth(range(p, ...B.freight.headlineReveal)) : 0;
       visible(freightRead, freightReadOpacity);
-      if (freightRead && isFreight) gsap.set(freightRead, { y: 32 * (1 - smooth(range(p, .24, .36))) - 24 * range(p, .82, .96) });
+      if (freightRead && isFreight) gsap.set(freightRead, { y: 32 * (1 - freightReadOpacity) });
 
       if (isLastMile) {
         const handoffStart = B.lastMile.handoff[0];
@@ -390,7 +390,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       const tone = (["commerce", "parcelization", "pickup", "network", "freight", "last-mile", "finale"] as HomeChapter[]).includes(current.chapter) ? "dark" : "light";
       if (tone !== lastTone) { lastTone = tone; setHeaderTone(tone); }
       const stage = el(root, `[data-kt-scene='${current.chapter}'] [data-home-sticky-stage]`);
-      if (stage) gsap.set(stage, { opacity: 1 - smooth(range(window.scrollY, current.progressEnd, current.end)) });
+      // The sticky stage scrolls out with its chapter; fading it during that
+      // release leaves an empty viewport before the next chapter enters.
+      if (stage) gsap.set(stage, { opacity: 1 });
       applyFilm(current.chapter, authored);
     };
     const schedule = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; seek(); }); };

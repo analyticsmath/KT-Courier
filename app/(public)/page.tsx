@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { PublicHomeExperience } from "@/components/public-v3/home";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 import { publicStorefrontPageExposureAllowed } from "@/lib/storefront/storefront-page-access";
-import { getStorefrontHome } from "@/lib/services/storefront-catalog.service";
+import { getStorefrontHome, getStorefrontShopShelves } from "@/lib/services/storefront-catalog.service";
 import { mapStorefrontHomePresentation } from "@/components/public-v3/home/data/home-storefront-presentation";
+import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,5 +35,16 @@ export default async function HomePage() {
         return response.json() as Promise<Awaited<ReturnType<typeof getStorefrontHome>>>;
       })
     : await getStorefrontHome();
-  return <HomepageV2 isStorefrontExposed={true} storefrontPresentation={mapStorefrontHomePresentation(home)} />;
+  // Use already-published products with distinctive existing photos for the
+  // five-card film. The normal new-arrivals feed remains the fallback.
+  const editorialCategories = ["groceries", "fashion", "food-dining", "home-living"];
+  const shelves = previewWithoutDatabase
+    ? await Promise.all(editorialCategories.map(async (category) => {
+      const response = await fetch(`https://web-production-9f8bb.up.railway.app/api/storefront/search?category=${category}&pageSize=10`, { cache: "no-store" });
+      if (!response.ok) return { products: [] as StorefrontProductCard[] };
+      return response.json() as Promise<{ products?: StorefrontProductCard[]; results?: StorefrontProductCard[] }>;
+    }))
+    : await getStorefrontShopShelves(editorialCategories);
+  const editorialProducts = shelves.flatMap((shelf) => "results" in shelf ? shelf.results ?? [] : shelf.products ?? []);
+  return <HomepageV2 isStorefrontExposed={true} storefrontPresentation={mapStorefrontHomePresentation(home, editorialProducts)} />;
 }

@@ -76,8 +76,8 @@
 .vehiclePlate { position: absolute; inset: 0; }
 .vehiclePlate[data-plate-format="tight"] { top: 7.5%; left: 12.5%; width: 70%; height: 70%; }
 .vehicleShadow { position: absolute; right: 9%; bottom: 7%; left: 7%; height: 12%; border-radius: 50%; background: rgb(34 44 44 / .13); filter: blur(13px); }
-.handoffStage { z-index: 42; top: 53%; left: 50%; width: min(78vw,920px); aspect-ratio: 1; }
-.routeCamera { z-index: 29; inset: 0; overflow: hidden; }
+.handoffStage { z-index: 42; top: 55%; left: 50%; width: min(68vw,760px); aspect-ratio: 1; }
+.routeCamera { z-index: 29; inset: 0; overflow: hidden; background: #dfe3e3; }
 .routeWorld { position: absolute; top: 0; left: 0; width: max(100vw,177.6svh); aspect-ratio: 1671 / 941; transform-origin: 0 0; }
 .routeRoad { position: absolute; inset: 0; width: 100%; height: 100%; }
 .routeVan { position: absolute; width: clamp(180px,16vw,330px); aspect-ratio: 1; }
@@ -133,7 +133,7 @@
   .finaleUtility a { font-size: .86rem; }
   .legal { right: 7vw; bottom: calc(var(--kt-mobile-nav-height,68px) + 1.5svh + env(safe-area-inset-bottom)); left: 7vw; font-size: .61rem; }
   .vehicleStage { top: 56%; width: 165vw; }
-  .handoffStage { top: 55%; width: 106vw; }
+  .handoffStage { top: 55%; width: 96vw; }
   .routeWorld { width: 185svh; }
   .routeVan { width: 34vw; }
   .freightTruckActor { width: 185vw; }

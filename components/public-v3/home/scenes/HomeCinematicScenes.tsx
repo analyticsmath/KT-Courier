@@ -41,7 +41,7 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
         </div>
       </> : <div className={styles.emptyCommerce}><p>Explore the KT marketplace.</p><Link href="/shop">Browse the shop ↗</Link></div>}
       {products.length ? <section className={styles.productWorld} data-cinematic-product-world aria-labelledby="cinematic-products-heading">
-        <div className={styles.productHeading} data-cinematic-product-heading><p className={styles.eyebrow}>From the marketplace</p><h3 id="cinematic-products-heading" className={styles.giant}>New from<br />local stores.</h3></div>
+        <div className={styles.productHeading} data-cinematic-product-heading><p className={styles.eyebrow}>From the marketplace</p><h3 id="cinematic-products-heading" className={styles.giant}>Local stores.<br />Real finds.</h3></div>
         <div className={styles.productFan} data-cinematic-product-fan aria-label="Featured local products">
           {products.slice(0, 5).map((product, index) => <button key={product.id} type="button" className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`Select ${product.title}`} aria-pressed={product.id === active?.id} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img src={product.image} alt={product.imageAlt} /></span></button>)}
         </div>

@@ -115,7 +115,18 @@ function productPresentation(product: StorefrontProductCard): HomepageProductIte
   };
 }
 
-export function mapStorefrontHomePresentation(home: Awaited<ReturnType<typeof import("@/lib/services/storefront-catalog.service").getStorefrontHome>>): HomepageStorefrontPresentation {
+const CINEMATIC_PRODUCT_REFERENCES = [
+  "CP-PROD-POWERBANK-20000MAH",
+  "CP-PROD-GALA-APPLES-15KG",
+  "CP-PROD-POLARIZED-SUNGLASSES",
+  "CP-PROD-PERI-CHICKEN-MEAL",
+  "CP-PROD-CHEF-KNIFE-20CM",
+] as const;
+
+export function mapStorefrontHomePresentation(
+  home: Awaited<ReturnType<typeof import("@/lib/services/storefront-catalog.service").getStorefrontHome>>,
+  editorialCandidates: readonly StorefrontProductCard[] = [],
+): HomepageStorefrontPresentation {
   const categories = AUTHORITATIVE_CATEGORY_ORDER.flatMap(({ path }) => {
     const category = home.categories.find((candidate) => candidate.path.replace(/^\/+/, "") === path);
     const item = category ? categoryPresentation(category) : null;
@@ -139,7 +150,13 @@ export function mapStorefrontHomePresentation(home: Awaited<ReturnType<typeof im
       }];
     });
 
-  const products = home.newArrivals
+  const candidates = [...home.newArrivals, ...editorialCandidates];
+  const cinematicProducts = CINEMATIC_PRODUCT_REFERENCES.flatMap((reference) => {
+    const found = candidates.find((product) => product.productReference === reference);
+    return found ? [found] : [];
+  });
+  const selectedReferences = new Set(cinematicProducts.map((product) => product.productReference));
+  const products = [...cinematicProducts, ...candidates.filter((product) => !selectedReferences.has(product.productReference))]
     .flatMap((product) => {
       const item = productPresentation(product);
       return item ? [item] : [];
