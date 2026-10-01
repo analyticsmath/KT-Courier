@@ -1,3 +1,4 @@
+import { MarketingArtworkUpload } from "@/components/forms/MarketingArtworkUpload";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -6,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
+import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import {
   StoreAdvertisingWorkbench,
   MarketingPackageItem,
@@ -250,6 +252,7 @@ export default async function StoreAdvertisingPage() {
         title="Store advertising & campaigns"
         description="Launch governed promotional campaigns, schedule cross-channel placements, and analyze reach and engagement."
       />
+      <OperationalPanel title="Campaign artwork"><MarketingArtworkUpload/></OperationalPanel>
       <StoreAdvertisingWorkbench
         initialPackages={initialPackages}
         initialRequests={initialRequests}

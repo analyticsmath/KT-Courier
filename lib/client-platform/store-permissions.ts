@@ -50,6 +50,7 @@ export function moduleForStorePath(path: string): StoreModule | null {
     return "marketing";
   if (/^\/(earnings|wallet|subscription|expense|reports|payout)/.test(p))
     return "finance";
+  if (/^\/support-history/.test(p)) return "settings";
   if (/^\/reviews/.test(p)) return "reviews";
   if (/^\/(chat|support|notifications)/.test(p)) return "chat";
   if (/^\/(profile|pickup-address)/.test(p)) return "settings";

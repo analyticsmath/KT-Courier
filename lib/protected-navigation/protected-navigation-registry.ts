@@ -58,9 +58,11 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "store-orders", label: "Orders", href: "/store/orders", icon: "clipboard", group: "Workspace", mobilePriority: 2, contexts: C.STORE },
   { id: "store-delivery", label: "New delivery", href: "/store/new-delivery", icon: "plus", group: "Workspace", mobilePriority: 3, contexts: C.STORE },
   { id: "store-catalog", label: "Product catalog", href: "/store/catalog", icon: "archive", group: "Commerce", contexts: C.STORE },
+  { id: "store-expenses", label:"Expenses", href:"/store/expenses", icon:"clipboard", group:"Finance", contexts:C.STORE },
   { id: "store-earnings", label: "Earnings", href: "/store/earnings", icon: "wallet", group: "Finance", mobilePriority: 4, contexts: C.STORE },
   { id: "store-advertising", label: "Advertising", href: "/store/advertising", icon: "chart", group: "Growth", contexts: C.STORE },
   { id: "store-notifications", label: "Notifications", href: "/store/notifications", icon: "bell", group: "Account", mobilePriority: 5, contexts: C.STORE },
+  { id: "store-support-history", label:"Support access history", href:"/store/support-history", icon:"shield", group:"Account", contexts:C.STORE },
   { id: "store-profile", label: "Store settings", href: "/store/profile", icon: "store", group: "Account", contexts: C.STORE },
   { id: "store-support", label: "Support", href: "/store/support", icon: "support", group: "Account", contexts: C.STORE },
 

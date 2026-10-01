@@ -17,11 +17,11 @@ The cash increment adds:
 
 Validation of the cash increment: 89 tests in nine files passed; affected ESLint checks reported zero errors/warnings; full TypeScript check passed after correcting the deposit relation name to `driver`.
 
-## Latest local work awaiting recovery and remote persistence
+## Recovered COD increment — persisted 2026-10-01
 
-The workspace went offline immediately after the COD/payment-policy full TypeScript command returned exit code 0. A subsequent shell invocation failed to reconnect. Repeated attempts finally returned `409 Conflict, environment_offline: Environment is not connected`.
+Historical context: the workspace went offline immediately after the COD/payment-policy full TypeScript command returned exit code 0. A subsequent shell invocation failed to reconnect. Repeated attempts finally returned `409 Conflict, environment_offline: Environment is not connected`.
 
-The following changes were written locally and tested before the connection loss, but were NOT uploaded or committed. Recover the existing checkout before reconstructing them. Do not assume they are in this branch.
+The work listed below was reconstructed after the workspace reset and is now committed remotely as 9b48587ce051f74d1f0c302776183b438bdebba7. All follow-up review fixes below are included. Fresh verification: 111 tests in 12 files passed, affected lint passed and full TypeScript check passed.
 
 New files:
 - `lib/client-platform/payment-configuration.service.ts`
@@ -92,3 +92,9 @@ Business order detail has a payment link only for owners/Finance access. Payment
 Preserve the accepted van hero and existing design standards. Do not implement arbitrary colored categories or client art-direction changes.
 
 No Express size fees, Marketplace pricing formula, legal merchant facts, external provider wallet contract or bank account details were invented. These remain configuration/business inputs where the documents do not provide them. Keep unrelated production financial gates locked until their actual workflows are validated.
+
+## Business reporting and oversight increment
+
+Implemented exact-money business expense projections with date/type/status filters, bounded complete totals, paid/unpaid/deducted/refund states and CSV formula protection; marketing artwork upload controls; corrected destination URL defaults; real-identity SUPER_ADMIN read-only support dashboard with required reason, 15-minute grant, permission rechecks and business-visible access history. Finance, marketing and settings employee modules are enforced separately. No owner-session impersonation.
+
+Verification: 123 tests in 14 files passed; full Next type generation and TypeScript check passed. Production deployment is still pending.

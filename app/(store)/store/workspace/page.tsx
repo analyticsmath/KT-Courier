@@ -12,6 +12,8 @@ const sections: ReadonlyArray<[StoreModule, string, string]> = [
   ["products", "Products", "/store/catalog"],
   ["marketing", "Marketing", "/store/advertising"],
   ["finance", "Earnings", "/store/earnings"],
+  ["finance", "Expenses", "/store/expenses"],
+  ["settings", "Support access history", "/store/support-history"],
   ["reviews", "Reviews", "/store/reviews"],
   ["chat", "Support", "/store/support"],
   ["settings", "Business settings", "/store/profile"],
