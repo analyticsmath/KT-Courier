@@ -1,33 +1,24 @@
-import { requireBusinessApi } from "@/lib/client-platform/business-auth";
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStoreForUser } from "@/lib/auth/store-context";
-
-import { ok, unauthorized, forbidden, serverError } from "@/lib/api/response";
-import { getCampaignBudget } from "@/lib/promotions/store-promotions.service";
-
-/**
- * View budget status for store's campaign
- */
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
+import { json, failure } from "@/lib/client-platform/api";
+import { businessPromotionFinancialView } from "@/lib/client-platform/promotion-authoring.service";
 export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ reference: string }> },
+  _req: NextRequest,
+  ctx: RouteContext<"/api/store/promotions/[reference]/budget">,
 ) {
-  const workspaceDenied = await requireBusinessApi(
+  const denied = await requireBusinessApi(
     "/api/store/promotions/[reference]/budget",
   );
-  if (workspaceDenied) return workspaceDenied;
-  const session = await getCurrentUser();
-  if (!session) return unauthorized();
-
-  const store = await getStoreForUser(session.id, undefined, "marketing");
-  if (!store) return forbidden("No store found for this account.");
-
+  if (denied) return denied;
+  const u = await getCurrentUser();
+  if (!u) return json({ error: "Authentication required." }, 401);
   try {
-    const params = await context.params;
-    const budget = await getCampaignBudget(store.id, params.reference);
-    return ok(budget);
-  } catch {
-    return serverError();
+    return json(
+      (await businessPromotionFinancialView(u.id, (await ctx.params).reference))
+        .budget,
+    );
+  } catch (e) {
+    return failure(e);
   }
 }

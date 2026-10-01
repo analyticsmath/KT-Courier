@@ -63,6 +63,7 @@ function toCampaignVersionCandidate(
   return {
     id: version.id,
     campaignId: version.campaignId,
+    ownerStoreId: version.campaign.ownerType === "STORE" ? version.campaign.ownerStoreId : null,
     publicReference: version.publicReference,
     applicationMethod: version.applicationMethod,
     discountScope: version.discountScope,

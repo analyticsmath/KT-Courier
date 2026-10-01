@@ -1,7 +1,23 @@
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
-import { StoreCommercialUnavailablePage } from "@/components/protected-v2/store/StoreCommercialUnavailablePage";
-
-export default async function StoreNewPromotionPage() {
-  await requireBusinessPage("/store/promotions/new");
-  return <StoreCommercialUnavailablePage eyebrow="Promotions" title="New promotion" description="Promotion creation retains its existing production controls." stateTitle="Promotion creation is not currently available" stateDescription="No promotion draft, discount, audience, budget, or review action can be created from this route." backHref="/store/promotions" backLabel="Back to promotions" />;
+import {
+  ProtectedPageFrame,
+  ProtectedPageHeader,
+  OperationalPanel,
+} from "@/components/protected-v2";
+import { businessPromotionTargets } from "@/lib/client-platform/promotion-authoring.service";
+import { PromotionDraftForm } from "@/components/forms/PromotionDraftForm";
+export default async function Page() {
+  const a = await requireBusinessPage("/store/promotions/new"),
+    targets = await businessPromotionTargets(a.user.id);
+  return (
+    <ProtectedPageFrame>
+      <ProtectedPageHeader
+        title="New promotion"
+        description="Prepare a coupon or automatic discount for review."
+      />
+      <OperationalPanel title="Campaign details">
+        <PromotionDraftForm {...targets} />
+      </OperationalPanel>
+    </ProtectedPageFrame>
+  );
 }

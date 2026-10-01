@@ -2,23 +2,31 @@ import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
-import { listAdminPromotions, createPlatformCampaign } from "@/lib/promotions/admin-promotions.service";
+import { createPlatformCampaign } from "@/lib/promotions/admin-promotions.service";
+
+import { listAdminPromotionRecords } from "@/lib/client-platform/promotion-authoring.service";
 
 function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store, max-age=0" } });
+  return NextResponse.json(
+    { error: message },
+    { status, headers: { "Cache-Control": "private, no-store, max-age=0" } },
+  );
 }
 
 /**
  * List all promotion campaigns (platform + store)
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_READ, { request });
+  const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_READ, {
+    request,
+  });
   if (auth.response) return auth.response;
 
   try {
-    const searchParams = Object.fromEntries(request.nextUrl.searchParams);
-    const campaigns = await listAdminPromotions(searchParams);
-    return NextResponse.json(campaigns, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+    const campaigns = await listAdminPromotionRecords(auth.user);
+    return NextResponse.json(campaigns, {
+      headers: { "Cache-Control": "private, no-store, max-age=0" },
+    });
   } catch {
     return errorResponse("Could not load campaigns", 500);
   }
@@ -28,7 +36,9 @@ export async function GET(request: NextRequest) {
  * Create platform campaign
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_MANAGE, { request });
+  const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_MANAGE, {
+    request,
+  });
   if (auth.response) return auth.response;
 
   try {
@@ -36,7 +46,9 @@ export async function POST(request: NextRequest) {
     assertPromotionsProductionReady("CAMPAIGN_CREATE");
 
     const campaign = await createPlatformCampaign(body);
-    return NextResponse.json(campaign, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+    return NextResponse.json(campaign, {
+      headers: { "Cache-Control": "private, no-store, max-age=0" },
+    });
   } catch {
     return errorResponse("Could not create campaign", 422);
   }

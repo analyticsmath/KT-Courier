@@ -1,4 +1,5 @@
 import { PaymentPolicyError } from "@/lib/payments/payment-policy.service";
+import { ZodError } from "zod";
 import { NextResponse, type NextRequest } from "next/server";
 import { PlatformError } from "./contracts";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
@@ -14,6 +15,8 @@ export function json(body: unknown, status = 200) {
   });
 }
 export function failure(error: unknown) {
+  if (error instanceof ZodError)
+    return json({ error: error.issues[0]?.message ?? "Invalid request." }, 422);
   if (error instanceof PaymentPolicyError)
     return json(
       { error: error.message, code: error.code },
