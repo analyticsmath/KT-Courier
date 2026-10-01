@@ -1,0 +1,45 @@
+name: Client financial concurrency diagnosis
+on:
+  push:
+    branches: [infra/client-production-probe]
+    paths: [.github/workflows/client-financial-race-probe.yml]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kt_courier_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: kt_courier_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U kt_courier_test -d kt_courier_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
+      DIRECT_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 78fced6d34f51707039e1b3f530eaa62ccc082a4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Repeat real PostgreSQL invariants and preserve original race failures
+        run: |
+          for attempt in 1 2 3 4 5; do
+            echo "Concurrency sample $attempt"
+            npm run test:integration:webhook-concurrency
+          done
