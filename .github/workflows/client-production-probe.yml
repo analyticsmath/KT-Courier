@@ -1,0 +1,52 @@
+name: Client production HTTP probe
+on:
+  push:
+    branches: [infra/client-production-probe]
+    paths: [.github/workflows/client-production-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify public and Railway HTTP behavior without account or payment writes
+        run: |
+          node --input-type=module <<'JS'
+          const bases = ["https://www.ktcouriers.com", "https://web-production-9f8bb.up.railway.app"];
+          const rows = [];
+          let failure = false;
+          async function call(base, path, options = {}) {
+            try {
+              const response = await fetch(base + path, { ...options, signal: AbortSignal.timeout(20000) });
+              const text = await response.text();
+              let body;
+              try { body = JSON.parse(text); } catch {}
+              return { path, status: response.status, bytes: text.length, body };
+            } catch (error) { return { path, status: 0, error: error.message }; }
+          }
+          for (const base of bases) {
+            const paths = ["/api/ready", "/api/public/delivery-quotes", "/quote", "/login", "/api/store/employees", "/api/platform/conversations"];
+            const checks = await Promise.all(paths.map(path => call(base, path)));
+            for (const check of checks) {
+              const expected = check.path.startsWith("/api/store/") || check.path.startsWith("/api/platform/") ? 401 : 200;
+              if (check.status !== expected) failure = true;
+              if (Array.isArray(check.body)) check.body = check.body.map(service => ({ name: service.displayName, turnaround: service.turnaround, tariffs: service.tariffs }));
+            }
+            const input = { serviceKey: "CLIENT_ECONOMY", parcelSize: "SMALL", weightKg: "1", pickupAddress: { line1: "50 Bath Avenue, Rosebank", city: "Johannesburg", province: "Gauteng", postalCode: "2196" }, dropoffAddress: { line1: "1 Sandton Drive, Sandton", city: "Johannesburg", province: "Gauteng", postalCode: "2196" } };
+            for (const origin of [base, "https://unrelated.invalid"]) {
+              const check = await call(base, "/api/public/delivery-quotes", { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify(input) });
+              check.originClass = origin === base ? "website" : "unrelated";
+              if (origin !== base && check.status !== 403) failure = true;
+              if (origin === base && !(check.status === 201 || (check.status === 409 && check.body?.code === "COVERAGE_UNAVAILABLE"))) failure = true;
+              if (check.status === 201) check.body = { quoteCreated: true, total: check.body.total, currency: check.body.currency };
+              checks.push(check);
+            }
+            rows.push({ base, checks });
+          }
+          console.log(JSON.stringify({ checkedAt: new Date().toISOString(), results: rows, infrastructurePassed: !failure, customerReady: false, remaining: ["Approved delivery coverage", "Transactional email", "Promotion/subscription financial integration", "Approved commercial configuration"] }, null, 2));
+          if (failure) process.exitCode = 1;
+          JS
