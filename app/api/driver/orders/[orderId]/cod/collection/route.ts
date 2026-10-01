@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const user = await getCurrentUser(); if (!user) return unauthorized(); if (user.role !== "DRIVER" || user.status !== "ACTIVE") return forbidden();
   const limit = await checkIpRateLimit(request, `cod-collection:${user.id}`, RATE_LIMITS.COD_COLLECTION); if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
   const parsed = CodCollectionSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return unprocessable("Validation failed.", formatZodErrors(parsed.error.issues));
-  const driver = await prisma.driverProfile.findUnique({ where: { userId: user.id }, select: { id: true } }); if (!driver) return forbidden();
+  const driver = await prisma.driverProfile.findUnique({ where: { userId: user.id }, select: { id: true, status: true } }); if (!driver || driver.status !== "ACTIVE") return forbidden();
   try { return ok(await recordCashCollection({ orderId: (await params).orderId, collectorDriverId: driver.id, actorUserId: user.id, ...parsed.data })); }
-  catch (error) { if (error instanceof CashOnDeliveryError) return badRequest(error.code); return serverError(); }
+  catch (error) { if (error instanceof CashOnDeliveryError) return badRequest(error.message); return serverError(); }
 }

@@ -105,10 +105,10 @@ export function useHomeNarrativeDirector({
     let heroBaseWidth = window.innerWidth;
     let heroBaseHeight = window.innerWidth / HERO_VAN_CANVAS_ASPECT;
     let selectedCategory = categories[0]?.id;
-    let selectedProductDuringFan = products[0]?.id;
+    let selectedProductDuringFan: string | undefined = products[0]?.id;
     let productSelectionFrozen = false;
-    let committedProductId = selectedProductDuringFan;
-    let committedStoreId = stores[0]?.id;
+    let committedProductId: string | undefined = selectedProductDuringFan;
+    let committedStoreId: string | undefined = stores[0]?.id;
     let carrySourceRect: DOMRect | null = null;
     const heroActions = root.querySelector<HTMLElement>("[data-motion='hero-actions']");
     const heroKt = root.querySelector<HTMLElement>("[data-motion='hero-kt']");

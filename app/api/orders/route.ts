@@ -27,10 +27,15 @@ export async function POST(req: NextRequest) {
 
   const user = await getCurrentUser();
   if (!user) return unauthorized();
-  if (!ALLOWED_ROLES.includes(user.role as (typeof ALLOWED_ROLES)[number])) return forbidden();
+  if (!ALLOWED_ROLES.includes(user.role as (typeof ALLOWED_ROLES)[number]))
+    return forbidden();
 
   // Rate limit by user ID to prevent order flooding from authenticated users
-  const rl = await checkIpRateLimit(req, `order-create:${user.id}`, RATE_LIMITS.ORDER_CREATE);
+  const rl = await checkIpRateLimit(
+    req,
+    `order-create:${user.id}`,
+    RATE_LIMITS.ORDER_CREATE,
+  );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;
@@ -42,16 +47,25 @@ export async function POST(req: NextRequest) {
 
   const parsed = CreateOrderSchema.safeParse(body);
   if (!parsed.success) {
-    return unprocessable("Validation failed.", formatZodErrors(parsed.error.issues));
+    return unprocessable(
+      "Validation failed.",
+      formatZodErrors(parsed.error.issues),
+    );
   }
 
   try {
-    const order = await createOrder(user, parsed.data);
+    const order = await createOrder(
+      user,
+      parsed.data,
+      user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE",
+    );
     return created(order);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     if (msg === "No store found for this account.") {
-      return forbidden("No store account found. Please complete your store profile.");
+      return forbidden(
+        "No store account found. Please complete your store profile.",
+      );
     }
     if (err instanceof PricingError) {
       if (err.status === 403) return forbidden(err.message);
@@ -65,17 +79,22 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
-  if (!ALLOWED_ROLES.includes(user.role as (typeof ALLOWED_ROLES)[number])) return forbidden();
+  if (!ALLOWED_ROLES.includes(user.role as (typeof ALLOWED_ROLES)[number]))
+    return forbidden();
 
   const sp = req.nextUrl.searchParams;
   const { page, pageSize } = parsePagination(sp);
   const statusParam = sp.get("status") as OrderStatus | null;
 
-  const { data, total } = await listOrders(user, {
-    status: statusParam ?? undefined,
-    page,
-    pageSize,
-  });
+  const { data, total } = await listOrders(
+    user,
+    {
+      status: statusParam ?? undefined,
+      page,
+      pageSize,
+    },
+    user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE",
+  );
 
   return paginated(data, total, page, pageSize);
 }

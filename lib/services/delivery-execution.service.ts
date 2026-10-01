@@ -1,3 +1,4 @@
+import { assertCashReadyForDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { prisma } from "@/lib/db/prisma";
 import {
   OrderAssignmentStatus,
@@ -379,6 +380,7 @@ export async function completeDelivery(
     await prisma.$transaction(async (tx) => {
       await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "DELIVERY_COMPLETE" });
       await assertDriverDeliveryResponsibilitiesInTx(tx, { assignmentId });
+      await assertCashReadyForDeliveryWithinTransaction(tx, order.id, driverProfileId);
       const otpResult = await verifyDeliveryOtpInTx(tx, order.id, input.otpCode, assignmentId);
       if (!otpResult.ok) {
         throw new OrderTransitionError(otpResult.error ?? "OTP verification failed.", "INVALID_TRANSITION");

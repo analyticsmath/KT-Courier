@@ -49,7 +49,7 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
           </p>
           <div className="pt-2">
             <Link
-              href="/account/request-delivery"
+              href="/quote"
               className="kt-action-filled px-6 py-3.5 inline-flex items-center gap-2"
             >
               <span>Request a delivery quote</span>

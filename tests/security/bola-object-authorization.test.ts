@@ -7,10 +7,14 @@ import {
   getCustomerAddress,
   deleteCustomerAddress,
 } from "@/lib/services/customer-addresses.service";
-import { PrivateMediaService, PrivateMediaPolicyError } from "@/lib/private-media/private-media.service";
+import {
+  PrivateMediaService,
+  PrivateMediaPolicyError,
+} from "@/lib/private-media/private-media.service";
 import type { PrivateMediaStorageAdapter } from "@/lib/private-media/private-media-storage";
 
 const prismaMock = vi.hoisted(() => ({
+  storeEmployeeMembership: { findMany: vi.fn() },
   permission: {
     count: vi.fn(),
     findUnique: vi.fn(),
@@ -68,6 +72,7 @@ describe("Workstream C / P1R-008: BOLA & Object-Level Authorization Adversarial 
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.storeEmployeeMembership.findMany.mockResolvedValue([]);
     prismaMock.permission.count.mockResolvedValue(1);
     prismaMock.rolePermission.findMany.mockResolvedValue([]);
     prismaMock.userPermission.findMany.mockResolvedValue([]);
@@ -92,7 +97,7 @@ describe("Workstream C / P1R-008: BOLA & Object-Level Authorization Adversarial 
     it("proves Customer A querying Customer B address returns null due to userId scoping", async () => {
       const customerAId = "cust-user-a";
       const customerBAddressId = "addr-b-123";
-      
+
       prismaMock.address.findFirst.mockResolvedValue(null);
 
       const result = await getCustomerAddress(customerAId, customerBAddressId);
@@ -110,7 +115,10 @@ describe("Workstream C / P1R-008: BOLA & Object-Level Authorization Adversarial 
       // findFirst returns null because customerA does not own customerB address
       prismaMock.address.findFirst.mockResolvedValue(null);
 
-      const deleted = await deleteCustomerAddress(customerAId, customerBAddressId);
+      const deleted = await deleteCustomerAddress(
+        customerAId,
+        customerBAddressId,
+      );
 
       expect(deleted.ok).toBe(false);
       expect(prismaMock.address.findFirst).toHaveBeenCalledWith({
@@ -129,7 +137,7 @@ describe("Workstream C / P1R-008: BOLA & Object-Level Authorization Adversarial 
         privateMediaService.read({
           actor: { userId: "user-123", role: UserRole.CUSTOMER },
           reference: "PMO-nonexistent",
-        })
+        }),
       ).rejects.toThrowError(PrivateMediaPolicyError);
     });
 
@@ -150,14 +158,18 @@ describe("Workstream C / P1R-008: BOLA & Object-Level Authorization Adversarial 
         originalFileName: "driver_a.pdf",
       });
 
-      prismaMock.driverProfile.findUnique.mockResolvedValue({ id: "driver-prof-b" });
-      prismaMock.privateMediaAccessLog.create.mockResolvedValue({ id: "log-1" });
+      prismaMock.driverProfile.findUnique.mockResolvedValue({
+        id: "driver-prof-b",
+      });
+      prismaMock.privateMediaAccessLog.create.mockResolvedValue({
+        id: "log-1",
+      });
 
       await expect(
         privateMediaService.read({
           actor: { userId: driverBUserId, role: UserRole.DRIVER },
           reference: mediaRef,
-        })
+        }),
       ).rejects.toThrowError("You cannot access this private media.");
 
       expect(prismaMock.privateMediaAccessLog.create).toHaveBeenCalledWith({
@@ -186,13 +198,15 @@ describe("Workstream C / P1R-008: BOLA & Object-Level Authorization Adversarial 
       });
 
       prismaMock.driverProfile.findUnique.mockResolvedValue(null);
-      prismaMock.privateMediaAccessLog.create.mockResolvedValue({ id: "log-2" });
+      prismaMock.privateMediaAccessLog.create.mockResolvedValue({
+        id: "log-2",
+      });
 
       await expect(
         privateMediaService.read({
           actor: { userId: customerAUserId, role: UserRole.CUSTOMER },
           reference: mediaRef,
-        })
+        }),
       ).rejects.toThrowError("You cannot access this private media.");
     });
   });

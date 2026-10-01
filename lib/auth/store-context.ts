@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { Store, PrismaClient, Prisma } from "@prisma/client";
 import type { AuthenticatedUser } from "@/types/domain";
 
-export type StoreActorRelationship = "OWNER";
+export type StoreActorRelationship = "OWNER" | "EMPLOYEE";
 
 export interface StoreActorContext {
   storeId: string;
@@ -10,7 +10,7 @@ export interface StoreActorContext {
   permissions: readonly string[];
   storeStatus: string;
   ownerUserId: string;
-  staffAuthorizationStatus: "NOT_IMPLEMENTED_IN_CURRENT_SCHEMA";
+  staffAuthorizationStatus: "ENFORCED";
 }
 
 /**
@@ -19,12 +19,26 @@ export interface StoreActorContext {
  */
 export async function getStoreForUser(
   userId: string,
-  db: PrismaClient | Prisma.TransactionClient = prisma
+  db: PrismaClient | Prisma.TransactionClient = prisma,
+  section?: import("@/lib/client-platform/store-permissions").StoreModule,
 ): Promise<Store | null> {
   try {
-    return await db.store.findFirst({
+    const owned = await db.store.findMany({
       where: { ownerUserId: userId },
+      take: 2,
     });
+    if (owned.length) return owned.length === 1 ? owned[0] : null;
+    if (!section) return null;
+    const rows = await db.storeEmployeeMembership.findMany({
+      where: { userId, status: "ACTIVE", store: { status: "ACTIVE" } },
+      include: { store: true },
+      take: 2,
+    });
+    return rows.length === 1 &&
+      Array.isArray(rows[0].permissions) &&
+      rows[0].permissions.includes(section)
+      ? rows[0].store
+      : null;
   } catch {
     return null;
   }
@@ -36,7 +50,7 @@ export async function getStoreForUser(
  */
 export async function resolveStoreContext(
   user: AuthenticatedUser | null,
-  db: PrismaClient | Prisma.TransactionClient = prisma
+  db: PrismaClient | Prisma.TransactionClient = prisma,
 ): Promise<Store | null> {
   if (!user || user.role !== "STORE" || user.status !== "ACTIVE") return null;
   return getStoreForUser(user.id, db);
@@ -44,23 +58,49 @@ export async function resolveStoreContext(
 
 /**
  * Resolves canonical store actor context containing store ID, relationship, permissions, and status.
- * Explicitly documents that store staff authorization is NOT_IMPLEMENTED_IN_CURRENT_SCHEMA (deferred to Phase 2).
+ * Staff authorization uses the active membership without changing the actor identity.
  */
 export async function resolveStoreActorContext(
   user: AuthenticatedUser | null,
-  db: PrismaClient | Prisma.TransactionClient = prisma
+  db: PrismaClient | Prisma.TransactionClient = prisma,
 ): Promise<StoreActorContext | null> {
-  if (!user || user.status !== "ACTIVE") return null;
+  if (
+    !user ||
+    user.status !== "ACTIVE" ||
+    !["CUSTOMER", "STORE"].includes(user.role)
+  )
+    return null;
 
-  const store = await getStoreForUser(user.id, db);
+  const owned = await getStoreForUser(user.id, db);
+  const memberships = owned
+    ? []
+    : await db.storeEmployeeMembership.findMany({
+        where: {
+          userId: user.id,
+          status: "ACTIVE",
+          store: { status: "ACTIVE" },
+        },
+        include: { store: true },
+        take: 2,
+      });
+  const store =
+    owned ?? (memberships.length === 1 ? memberships[0].store : null);
   if (!store || !store.ownerUserId) return null;
 
   return {
     storeId: store.id,
-    relationship: "OWNER",
-    permissions: ["*"],
+    relationship: store.ownerUserId === user.id ? "OWNER" : "EMPLOYEE",
+    permissions:
+      store.ownerUserId === user.id
+        ? ["*"]
+        : (((
+            await db.storeEmployeeMembership.findFirst({
+              where: { storeId: store.id, userId: user.id, status: "ACTIVE" },
+              select: { permissions: true },
+            })
+          )?.permissions as string[]) ?? []),
     storeStatus: store.status,
     ownerUserId: store.ownerUserId,
-    staffAuthorizationStatus: "NOT_IMPLEMENTED_IN_CURRENT_SCHEMA",
+    staffAuthorizationStatus: "ENFORCED",
   };
 }

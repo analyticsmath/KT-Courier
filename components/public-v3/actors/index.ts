@@ -5,5 +5,8 @@ export * from "./VanActor";
 export * from "./CourierActor";
 export * from "./RedTruckActor";
 export * from "./PersistentActorLayer";
-export * from "./CinematicActorStage";
+export {
+  CinematicActorStage,
+  CINEMATIC_LAYER_Z as CINEMATIC_STAGE_LAYER_Z,
+} from "./CinematicActorStage";
 export * from "./useActorPredecode";

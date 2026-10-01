@@ -1,4 +1,8 @@
 "use client";
+import {
+  safeAuthReturnUrl,
+  verificationReturnUrl,
+} from "@/lib/auth/return-url";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,7 +21,7 @@ interface FieldErrors {
   _root?: string;
 }
 
-export function LoginForm() {
+export function LoginForm({ returnUrl }: { returnUrl?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -45,7 +49,7 @@ export function LoginForm() {
         if (data.fields) {
           setFieldErrors(data.fields as FieldErrors);
         } else if (data.requiresVerification) {
-          router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+          router.push(verificationReturnUrl(data.email, returnUrl));
           return;
         } else {
           setRootError(data.error ?? "Login failed. Please try again.");
@@ -53,7 +57,7 @@ export function LoginForm() {
         return;
       }
 
-      router.push(data.redirect ?? "/account");
+      router.push(safeAuthReturnUrl(returnUrl) ?? data.redirect ?? "/account");
     } catch {
       setRootError("Something went wrong. Please try again.");
     } finally {
@@ -62,7 +66,11 @@ export function LoginForm() {
   }
 
   return (
-    <form className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
+    <form
+      className={`${styles.formCard} ${styles.formStack}`}
+      noValidate
+      onSubmit={handleSubmit}
+    >
       <AuthErrorSummary message={rootError} fieldErrors={fieldErrors} />
       <AuthTextField
         id="email"
@@ -86,7 +94,9 @@ export function LoginForm() {
           autoComplete="current-password"
           error={fieldErrors.password}
         />
-        <Link className={styles.textLink} href="/forgot-password">Forgot password?</Link>
+        <Link className={styles.textLink} href="/forgot-password">
+          Forgot password?
+        </Link>
       </div>
       <button className={styles.primaryAction} type="submit" disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}

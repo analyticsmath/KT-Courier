@@ -134,7 +134,7 @@ export function StoreAdvertisingWorkbench({
   const [objective, setObjective] = useState("");
   const [message, setMessage] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [destinationLink, setDestinationLink] = useState("https://ktcourier.co.za");
+  const [destinationLink, setDestinationLink] = useState("https://ktcouriers.com");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -196,7 +196,7 @@ export function StoreAdvertisingWorkbench({
         executionMode: "MANUAL",
         objective: objective.trim(),
         message: message.trim(),
-        destinationLink: destinationLink.trim() || "https://ktcourier.co.za",
+        destinationLink: destinationLink.trim() || "https://ktcouriers.com",
         instructions: instructions.trim() || null,
         startsAt: startDate.toISOString(),
         endsAt: endDate.toISOString(),
@@ -583,7 +583,7 @@ export function StoreAdvertisingWorkbench({
                 type="url"
                 value={destinationLink}
                 onChange={(e) => setDestinationLink(e.target.value)}
-                placeholder="https://ktcourier.co.za/shop/stores/your-store"
+                placeholder="https://ktcouriers.com/shop/stores/your-store"
                 required
                 style={{
                   width: "100%",

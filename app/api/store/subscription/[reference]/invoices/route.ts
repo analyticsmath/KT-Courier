@@ -1,2 +1,43 @@
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { NextRequest } from "next/server"; import { prisma } from "@/lib/db/prisma"; import { requireSubscriptionStoreReference, subscriptionApiError, subscriptionJson } from "@/lib/subscriptions/api-policy"; export async function GET(request: NextRequest, context: { params: Promise<{ reference: string }> }) { const { reference } = await context.params; const auth = await requireSubscriptionStoreReference(request, reference); if (auth.response) return auth.response; try { return subscriptionJson({ invoices: await (prisma as any).subscriptionInvoice.findMany({ where: { contract: { publicReference: reference } }, select: { publicReference: true, invoiceNumber: true, status: true, subtotal: true, taxAmount: true, total: true, currency: true, issuedAt: true, dueAt: true, paidAt: true }, orderBy: { issuedAt: "desc" } }) }); } catch (error) { return subscriptionApiError(error); } }
+import type { NextRequest } from "next/server";
+import { prisma } from "@/lib/db/prisma";
+import {
+  requireSubscriptionStoreReference,
+  subscriptionApiError,
+  subscriptionJson,
+} from "@/lib/subscriptions/api-policy";
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ reference: string }> },
+) {
+  const workspaceDenied = await requireBusinessApi(
+    "/api/store/subscription/[reference]/invoices",
+  );
+  if (workspaceDenied) return workspaceDenied;
+  const { reference } = await context.params;
+  const auth = await requireSubscriptionStoreReference(request, reference);
+  if (auth.response) return auth.response;
+  try {
+    return subscriptionJson({
+      invoices: await (prisma as any).subscriptionInvoice.findMany({
+        where: { contract: { publicReference: reference } },
+        select: {
+          publicReference: true,
+          invoiceNumber: true,
+          status: true,
+          subtotal: true,
+          taxAmount: true,
+          total: true,
+          currency: true,
+          issuedAt: true,
+          dueAt: true,
+          paidAt: true,
+        },
+        orderBy: { issuedAt: "desc" },
+      }),
+    });
+  } catch (error) {
+    return subscriptionApiError(error);
+  }
+}

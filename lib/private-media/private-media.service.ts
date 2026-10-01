@@ -1,3 +1,4 @@
+import { storeAccess } from "@/lib/client-platform/store-access";
 import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -73,7 +74,7 @@ export class PrivateMediaService {
   async upload(input: PrivateMediaUploadInput) {
     const fileName = assertUpload(input);
     assertPurposeOwner(input.ownerType, input.purpose);
-    await this.assertCanManageOwner(input.actor, input.ownerType, input.ownerId);
+    await this.assertCanManageOwner(input.actor, input.ownerType, input.ownerId, input.purpose);
     const checksum = createHash("sha256").update(input.bytes).digest("hex");
     const duplicate = await prisma.privateMediaObject.findFirst({
       where: { ownerType: input.ownerType, ownerId: input.ownerId, purpose: input.purpose, checksum, status: PrivateMediaStatus.READY },
@@ -125,7 +126,7 @@ export class PrivateMediaService {
   async read(input: Readonly<{ actor: PrivateMediaActor; reference: string; requestReference?: string }>) {
     const record = await prisma.privateMediaObject.findUnique({ where: { publicReference: input.reference } });
     if (!record) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_NOT_FOUND", 404, "Private media was not found.");
-    const allowed = await this.canAccess(input.actor, record.ownerType, record.ownerId);
+    const allowed = await this.canAccess(input.actor, record.ownerType, record.ownerId, record.purpose);
     await prisma.privateMediaAccessLog.create({ data: { privateMediaObjectId: record.id, actorUserId: input.actor.userId, action: "READ", outcome: allowed ? "ALLOWED" : "DENIED", requestReference: input.requestReference } });
     if (!allowed) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "You cannot access this private media.");
     if (record.status !== PrivateMediaStatus.READY && record.status !== PrivateMediaStatus.RETAINED) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_UNAVAILABLE", 409, "Private media is not available.");
@@ -139,7 +140,7 @@ export class PrivateMediaService {
   async requestDeletion(input: Readonly<{ actor: PrivateMediaActor; reference: string }>) {
     const record = await prisma.privateMediaObject.findUnique({ where: { publicReference: input.reference } });
     if (!record) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_NOT_FOUND", 404, "Private media was not found.");
-    const ownsRecord = await this.canAccess(input.actor, record.ownerType, record.ownerId);
+    const ownsRecord = await this.canAccess(input.actor, record.ownerType, record.ownerId, record.purpose);
     const canDelete = ownsRecord || await hasPermission({ userId: input.actor.userId, role: input.actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_DELETE });
     if (!canDelete) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "You cannot delete this private media.");
     if (record.status === PrivateMediaStatus.DELETED) return this.safeMetadata(record);
@@ -155,7 +156,7 @@ export class PrivateMediaService {
   async getMetadata(input: Readonly<{ actor: PrivateMediaActor; reference: string }>) {
     const record = await prisma.privateMediaObject.findUnique({ where: { publicReference: input.reference } });
     if (!record) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_NOT_FOUND", 404, "Private media was not found.");
-    if (!await this.canAccess(input.actor, record.ownerType, record.ownerId)) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "You cannot access this private media.");
+    if (!await this.canAccess(input.actor, record.ownerType, record.ownerId, record.purpose)) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "You cannot access this private media.");
     return this.safeMetadata(record);
   }
 
@@ -167,7 +168,7 @@ export class PrivateMediaService {
     const allowed = record.ownerType === PrivateMediaOwnerType.INCIDENT
       && record.ownerId === input.incidentId
       && record.purpose === PrivateMediaPurpose.INCIDENT_EVIDENCE
-      && await this.canAccess(input.actor, record.ownerType, record.ownerId);
+      && await this.canAccess(input.actor, record.ownerType, record.ownerId, record.purpose);
     await prisma.privateMediaAccessLog.create({ data: { privateMediaObjectId: record.id, actorUserId: input.actor.userId, action: "INCIDENT_EVIDENCE_ATTACH", outcome: allowed ? "ALLOWED" : "DENIED" } });
     if (!allowed) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "Private media is not authorized as incident evidence.");
     if (record.status !== PrivateMediaStatus.READY && record.status !== PrivateMediaStatus.RETAINED) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_UNAVAILABLE", 409, "Private media is not available.");
@@ -178,12 +179,12 @@ export class PrivateMediaService {
     return { publicReference: record.publicReference, ownerType: record.ownerType, purpose: record.purpose, status: record.status, mimeType: record.detectedMimeType, byteSize: record.byteSize, retentionUntil: record.retentionUntil?.toISOString() ?? null, createdAt: record.createdAt.toISOString() };
   }
 
-  private async assertCanManageOwner(actor: PrivateMediaActor, ownerType: PrivateMediaOwnerType, ownerId: string): Promise<void> {
-    if (await this.canAccess(actor, ownerType, ownerId)) return;
+  private async assertCanManageOwner(actor: PrivateMediaActor, ownerType: PrivateMediaOwnerType, ownerId: string, purpose?: PrivateMediaPurpose): Promise<void> {
+    if (await this.canAccess(actor, ownerType, ownerId, purpose)) return;
     throw new PrivateMediaPolicyError("PRIVATE_MEDIA_OWNER_FORBIDDEN", 403, "You cannot upload private media for this owner.");
   }
 
-  private async canAccess(actor: PrivateMediaActor, ownerType: PrivateMediaOwnerType, ownerId: string): Promise<boolean> {
+  private async canAccess(actor: PrivateMediaActor, ownerType: PrivateMediaOwnerType, ownerId: string, purpose?: PrivateMediaPurpose): Promise<boolean> {
     // Claim assets are case-scoped. A broad media permission never bypasses
     // ownership or the separate claims investigation/decision authority.
     if (ownerType === PrivateMediaOwnerType.CLAIM) {
@@ -200,6 +201,7 @@ export class PrivateMediaService {
       return await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.CLAIMS_INVESTIGATE })
         || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.CLAIMS_DECIDE });
     }
+    if (ownerType === PrivateMediaOwnerType.USER) return ownerId === actor.userId;
     if (actor.role === UserRole.SUPER_ADMIN || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ })) return true;
     if (ownerType === PrivateMediaOwnerType.DRIVER) {
       const owner = await prisma.driverProfile.findUnique({ where: { id: ownerId }, select: { userId: true } });
@@ -211,7 +213,9 @@ export class PrivateMediaService {
     }
     if (ownerType === PrivateMediaOwnerType.STORE) {
       const owner = await prisma.store.findUnique({ where: { id: ownerId }, select: { ownerUserId: true } });
-      return owner?.ownerUserId === actor.userId;
+      if(owner?.ownerUserId === actor.userId)return true;
+      if(purpose!==PrivateMediaPurpose.OTHER)return false;
+      try{return (await storeAccess(actor.userId,"marketing")).store.id===ownerId;}catch{return false;}
     }
     if (ownerType === PrivateMediaOwnerType.INCIDENT) {
       // Incident evidence is restricted to the established private-media read

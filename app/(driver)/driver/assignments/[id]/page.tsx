@@ -1,4 +1,5 @@
 "use client";
+import { Conversations } from "@/components/forms/Conversations";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -1178,6 +1179,8 @@ export default function DriverAssignmentDetailPage() {
           </ol>
         </Card>
       )}
+
+      <Card><h2 className="font-semibold mb-4">Delivery chat</h2><Conversations deliveryOrderId={assignment.orderId}/></Card>
 
       {/* Assignment events */}
       {assignment.events.length > 0 && (

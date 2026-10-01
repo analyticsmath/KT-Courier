@@ -6,7 +6,7 @@ import styles from "./homepage-v2.module.css";
 export function HeroCommandDock() {
   return (
     <div className={styles.commandDock} data-kt-motion-layer="command">
-      <Link className={styles.commandPrimary} href="/account/request-delivery">
+      <Link className={styles.commandPrimary} href="/quote">
         <span>Get a quote</span>
         <span aria-hidden="true">→</span>
       </Link>

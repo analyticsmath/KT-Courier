@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
 
 const mockPrisma = vi.hoisted(() => ({
+  store: { findUnique: vi.fn() },
   paymentMethodPolicy: {
     findMany: vi.fn(),
   },
@@ -22,13 +23,17 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
     effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
     effectiveTo: null,
     businessModuleId: null,
-    storeId: null,
+    storeId: "approved-store",
     deliveryServiceId: null,
     orderType: null,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.store.findUnique.mockResolvedValue({
+      status: "ACTIVE",
+      ownerUser: { status: "ACTIVE", emailVerifiedAt: new Date() },
+    });
   });
 
   describe("FULL_COD Mode", () => {
@@ -44,6 +49,7 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
       ]);
 
       const result = await resolvePaymentBreakdown({
+        storeId: "approved-store",
         authoritativeTotal: "450.00",
       });
 
@@ -68,6 +74,7 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
       ]);
 
       const result = await resolvePaymentBreakdown({
+        storeId: "approved-store",
         authoritativeTotal: "500.00",
       });
 
@@ -90,6 +97,7 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
       ]);
 
       const result = await resolvePaymentBreakdown({
+        storeId: "approved-store",
         authoritativeTotal: "350.00",
       });
 
@@ -114,6 +122,7 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
 
       await expect(
         resolvePaymentBreakdown({
+          storeId: "approved-store",
           authoritativeTotal: "500.01", // Exceeds 500 limit
         }),
       ).rejects.toMatchObject({ code: "COD_LIMIT_EXCEEDED" });
@@ -133,6 +142,7 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
       ]);
 
       const result = await resolvePaymentBreakdown({
+        storeId: "approved-store",
         authoritativeTotal: "899.99",
       });
 
@@ -148,12 +158,14 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
     it("rejects negative totals or already-paid exceeding total", async () => {
       await expect(
         resolvePaymentBreakdown({
+          storeId: "approved-store",
           authoritativeTotal: "-10.00",
         }),
       ).rejects.toThrow(PaymentPolicyError);
 
       await expect(
         resolvePaymentBreakdown({
+          storeId: "approved-store",
           authoritativeTotal: "100.00",
           digitalAlreadyPaid: "150.00", // Exceeds total
         }),

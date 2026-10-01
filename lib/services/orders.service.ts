@@ -1,3 +1,4 @@
+import { storeAccess } from "@/lib/client-platform/store-access";
 import { prisma } from "@/lib/db/prisma";
 import { OrderSource, OrderStatus } from "@/types/db";
 import type { AuthenticatedUser } from "@/types/domain";
@@ -9,9 +10,18 @@ import {
   type OrderDetailDto,
   type UserOrderCountsDto,
 } from "@/lib/dto/order.dto";
-import type { CreateOrderInput, CustomerCancelOrderInput } from "@/lib/validation/order";
-import { notifyOrderConfirmed, notifyOrderStatusChanged } from "./notification-events.service";
-import { hashPricingInput, pricingInputSnapshot } from "@/lib/pricing/input-hash";
+import type {
+  CreateOrderInput,
+  CustomerCancelOrderInput,
+} from "@/lib/validation/order";
+import {
+  notifyOrderConfirmed,
+  notifyOrderStatusChanged,
+} from "./notification-events.service";
+import {
+  hashPricingInput,
+  pricingInputSnapshot,
+} from "@/lib/pricing/input-hash";
 import { ownedActiveQuoteForOrder } from "@/lib/services/pricing-quote.service";
 import { canTransitionOrderStatus } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
@@ -40,27 +50,19 @@ const ORDER_LIST_INCLUDE = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function getOwnedStoreId(userId: string): Promise<string | null> {
-  const store = await prisma.store.findFirst({
-    where: { ownerUserId: userId },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-  return store?.id ?? null;
-}
-
 // ─── Create ───────────────────────────────────────────────────────────────────
 
 export async function createOrder(
   user: AuthenticatedUser,
-  input: CreateOrderInput
+  input: CreateOrderInput,
+  business = user.role === "STORE",
 ): Promise<OrderDetailDto> {
   let storeId: string | null = null;
   let customerId: string | null = null;
   let source: OrderSource;
 
-  if (user.role === OrderSource.STORE) {
-    storeId = await getOwnedStoreId(user.id);
+  if (business) {
+    storeId = (await storeAccess(user.id, "deliveries")).store.id;
     if (!storeId) throw new Error("No store found for this account.");
     source = OrderSource.STORE;
   } else if (user.role === "CUSTOMER") {
@@ -76,9 +78,37 @@ export async function createOrder(
   const quoteInputHash = hashPricingInput(pricingInputSnapshot(input));
 
   const result = await prisma.$transaction(async (tx) => {
-    const quote = await ownedActiveQuoteForOrder(tx, user, input.pricingQuoteId, quoteInputHash);
-    const committedPayment = input.paymentMethod ? await resolvePaymentBreakdown({ storeId, orderType: input.deliveryType, authoritativeTotal: quote.total.toFixed(2) }) : null;
-    if (input.paymentMethod && committedPayment!.mode !== input.paymentMethod) throw new Error("PAYMENT_METHOD_NOT_ALLOWED");
+    const quote = await ownedActiveQuoteForOrder(
+      tx,
+      user,
+      input.pricingQuoteId,
+      quoteInputHash,
+      storeId,
+    );
+    const ruleSnapshot = quote.ruleSnapshot as {
+      serviceKey?: string;
+      configurationId?: string;
+    };
+    const committedPayment =
+      input.paymentMethod && input.paymentMethod !== "DIGITAL_ONLY"
+        ? await resolvePaymentBreakdown(
+            {
+              storeId,
+              orderType: input.deliveryType,
+              deliveryServiceId: ruleSnapshot.configurationId,
+              deliveryServiceKey: ruleSnapshot.serviceKey,
+              provinces: [
+                input.pickupAddress.province,
+                input.dropoffAddress.province,
+              ].filter((v): v is string => !!v),
+              regionId: quote.destinationRegionId,
+              authoritativeTotal: quote.total.toFixed(2),
+            },
+            tx,
+          )
+        : null;
+    if (committedPayment && committedPayment.mode !== input.paymentMethod)
+      throw new Error("PAYMENT_METHOD_NOT_ALLOWED");
     const pickup = await tx.address.create({
       data: {
         type: "PICKUP",
@@ -145,13 +175,28 @@ export async function createOrder(
           rule: quote.ruleSnapshot,
           regions: quote.regionSnapshot,
           tax: quote.taxSnapshot,
-          lineItems: quote.lineItems.map((item) => ({ code: item.code, label: item.label, quantity: item.quantity?.toString() ?? null, unitRate: item.unitRate?.toString() ?? null, amount: item.amount.toFixed(2), currency: item.currency })),
-          paymentPolicy: committedPayment ? { ...committedPayment.policyEvidence, digitalRequired: committedPayment.digitalRequired, cashRequired: committedPayment.cashRequired } : null,
+          lineItems: quote.lineItems.map((item) => ({
+            code: item.code,
+            label: item.label,
+            quantity: item.quantity?.toString() ?? null,
+            unitRate: item.unitRate?.toString() ?? null,
+            amount: item.amount.toFixed(2),
+            currency: item.currency,
+          })),
+          paymentPolicy: committedPayment
+            ? {
+                ...committedPayment.policyEvidence,
+                digitalRequired: committedPayment.digitalRequired,
+                cashRequired: committedPayment.cashRequired,
+              }
+            : null,
         },
         customerNote: input.customerNote ?? null,
         distanceMeters: quote.distanceMeters,
         durationSeconds: quote.durationSeconds,
-        routeSummary: (quote.metadata as { routeSummary?: string } | null)?.routeSummary ?? null,
+        routeSummary:
+          (quote.metadata as { routeSummary?: string } | null)?.routeSummary ??
+          null,
         routeProvider: quote.routeProvider,
         routeCalculatedAt: quote.createdAt,
         deliveryRegionId: quote.destinationRegionId,
@@ -168,7 +213,13 @@ export async function createOrder(
       },
     });
     if (committedPayment && committedPayment.mode !== "DIGITAL_ONLY") {
-      await createCashOnDeliveryObligationWithinTransaction(tx, { orderId: order.id, policyMode: committedPayment.mode, authoritativePayable: committedPayment.authoritativeTotal, digitalRequired: committedPayment.digitalRequired, policyEvidence: committedPayment.policyEvidence });
+      await createCashOnDeliveryObligationWithinTransaction(tx, {
+        orderId: order.id,
+        policyMode: committedPayment.mode,
+        authoritativePayable: committedPayment.authoritativeTotal,
+        digitalRequired: committedPayment.digitalRequired,
+        policyEvidence: committedPayment.policyEvidence,
+      });
     }
 
     return order;
@@ -203,12 +254,14 @@ export interface OrderListFilters {
 
 export async function listOrders(
   user: AuthenticatedUser,
-  filters: OrderListFilters
+  filters: OrderListFilters,
+  business = user.role === "STORE",
 ): Promise<{ data: OrderSummaryDto[]; total: number }> {
   const skip = (filters.page - 1) * filters.pageSize;
 
-  const where = await buildOwnerWhere(user);
-  if (filters.status) (where as Record<string, unknown>).status = filters.status;
+  const where = await buildOwnerWhere(user, business);
+  if (filters.status)
+    (where as Record<string, unknown>).status = filters.status;
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
@@ -228,9 +281,10 @@ export async function listOrders(
 
 export async function getOrder(
   user: AuthenticatedUser,
-  orderId: string
+  orderId: string,
+  business = user.role === "STORE",
 ): Promise<OrderDetailDto | null> {
-  const where = await buildOwnerWhere(user);
+  const where = await buildOwnerWhere(user, business);
   (where as Record<string, unknown>).id = orderId;
 
   const order = await prisma.order.findFirst({
@@ -272,13 +326,19 @@ export interface RepeatDeliveryPrefillDto {
 }
 
 function toRepeatAddressPrefill(
-  address: OrderDetailDto["pickupAddress"] | OrderDetailDto["dropoffAddress"]
+  address: OrderDetailDto["pickupAddress"] | OrderDetailDto["dropoffAddress"],
 ): RepeatDeliveryAddressPrefill | null {
   if (!address) return null;
   return {
     formattedAddress:
       address.formattedAddress ??
-      [address.line1, address.city, address.province, address.postalCode, address.country]
+      [
+        address.line1,
+        address.city,
+        address.province,
+        address.postalCode,
+        address.country,
+      ]
         .filter(Boolean)
         .join(", "),
     placeId: address.placeId,
@@ -298,9 +358,10 @@ function toRepeatAddressPrefill(
 
 export async function getRepeatDeliveryPrefill(
   user: AuthenticatedUser,
-  orderId: string
+  orderId: string,
+  business = user.role === "STORE",
 ): Promise<RepeatDeliveryPrefillDto | null> {
-  const order = await getOrder(user, orderId);
+  const order = await getOrder(user, orderId, business);
   if (!order) return null;
 
   return {
@@ -308,8 +369,10 @@ export async function getRepeatDeliveryPrefill(
     deliveryType: order.deliveryType,
     pickupAddress: toRepeatAddressPrefill(order.pickupAddress),
     dropoffAddress: toRepeatAddressPrefill(order.dropoffAddress),
-    recipientName: order.recipientName ?? order.dropoffAddress?.contactName ?? "",
-    recipientPhone: order.recipientPhone ?? order.dropoffAddress?.contactPhone ?? "",
+    recipientName:
+      order.recipientName ?? order.dropoffAddress?.contactName ?? "",
+    recipientPhone:
+      order.recipientPhone ?? order.dropoffAddress?.contactPhone ?? "",
     parcelCount: order.parcelCount,
     parcelDescription: order.parcelDescription ?? "",
     customerNote: order.customerNote ?? "",
@@ -321,9 +384,10 @@ export async function getRepeatDeliveryPrefill(
 export async function cancelOrder(
   user: AuthenticatedUser,
   orderId: string,
-  input: CustomerCancelOrderInput
+  input: CustomerCancelOrderInput,
+  business = user.role === "STORE",
 ): Promise<{ order: OrderDetailDto } | { error: string }> {
-  const where = await buildOwnerWhere(user);
+  const where = await buildOwnerWhere(user, business);
   (where as Record<string, unknown>).id = orderId;
 
   const existing = await prisma.order.findFirst({
@@ -334,8 +398,8 @@ export async function cancelOrder(
   if (!existing) return { error: "Order not found." };
 
   const context = {
-    actorOwnsOrder: user.role === "CUSTOMER",
-    actorOwnsStore: user.role === "STORE",
+    actorOwnsOrder: !business && user.role === "CUSTOMER",
+    actorOwnsStore: business,
     cancellationWindowOpen: true,
   };
 
@@ -363,7 +427,8 @@ export async function cancelOrder(
       note: input.reason?.trim()
         ? `Cancelled by ${user.role === "STORE" ? "store" : "customer"}: ${input.reason.trim()}`
         : `Cancelled by ${user.role === "STORE" ? "store" : "customer"}`,
-      source: user.role === "STORE" ? "store_cancel_order" : "customer_cancel_order",
+      source:
+        user.role === "STORE" ? "store_cancel_order" : "customer_cancel_order",
       context,
     });
 
@@ -389,33 +454,50 @@ export async function cancelOrder(
 
 // ─── Order counts (for dashboard) ────────────────────────────────────────────
 
-export async function getOrderCounts(user: AuthenticatedUser): Promise<UserOrderCountsDto> {
+export async function getOrderCounts(
+  user: AuthenticatedUser,
+): Promise<UserOrderCountsDto> {
   const base = await buildOwnerWhere(user);
 
-  const [total, pending, confirmed, inProgress, completed, cancelled] = await Promise.all([
-    prisma.order.count({ where: base }),
-    prisma.order.count({ where: { ...base, status: OrderStatus.PENDING } }),
-    prisma.order.count({ where: { ...base, status: OrderStatus.CONFIRMED } }),
-    prisma.order.count({ where: { ...base, status: { in: [OrderStatus.IN_PROGRESS, OrderStatus.PICKUP_SCHEDULED, OrderStatus.PICKED_UP, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERY_ATTEMPTED] } } }),
-    prisma.order.count({ where: { ...base, status: { in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED] } } }),
-    prisma.order.count({ where: { ...base, status: OrderStatus.CANCELLED } }),
-  ]);
+  const [total, pending, confirmed, inProgress, completed, cancelled] =
+    await Promise.all([
+      prisma.order.count({ where: base }),
+      prisma.order.count({ where: { ...base, status: OrderStatus.PENDING } }),
+      prisma.order.count({ where: { ...base, status: OrderStatus.CONFIRMED } }),
+      prisma.order.count({
+        where: {
+          ...base,
+          status: {
+            in: [
+              OrderStatus.IN_PROGRESS,
+              OrderStatus.PICKUP_SCHEDULED,
+              OrderStatus.PICKED_UP,
+              OrderStatus.IN_TRANSIT,
+              OrderStatus.DELIVERY_ATTEMPTED,
+            ],
+          },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          ...base,
+          status: { in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED] },
+        },
+      }),
+      prisma.order.count({ where: { ...base, status: OrderStatus.CANCELLED } }),
+    ]);
 
   return { total, pending, confirmed, inProgress, completed, cancelled };
 }
 
 // ─── Private: build ownership where clause ───────────────────────────────────
 
-async function buildOwnerWhere(user: AuthenticatedUser): Promise<Record<string, unknown>> {
-  if (user.role === "CUSTOMER") {
-    return { customerId: user.id };
-  }
-
-  if (user.role === "STORE") {
-    const storeId = await getOwnedStoreId(user.id);
-    if (!storeId) return { storeId: "__no_store__" };
-    return { storeId };
-  }
-
-  return {};
+async function buildOwnerWhere(
+  user: AuthenticatedUser,
+  business = user.role === "STORE",
+): Promise<Record<string, unknown>> {
+  if (business)
+    return { storeId: (await storeAccess(user.id, "orders")).store.id };
+  if (user.role === "CUSTOMER") return { customerId: user.id };
+  throw new Error("Order access is unavailable for this account.");
 }

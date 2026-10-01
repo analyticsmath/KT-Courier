@@ -6,9 +6,16 @@ import {
 } from "../../lib/security/distributed-rate-limit";
 import { calculateRoute } from "../../lib/maps/routes.service";
 import { checkDeliveryZone } from "../../lib/maps/delivery-zone.service";
-import { getStoreForUser, resolveStoreContext, resolveStoreActorContext } from "../../lib/auth/store-context";
+import {
+  getStoreForUser,
+  resolveStoreContext,
+  resolveStoreActorContext,
+} from "../../lib/auth/store-context";
 import { isUserStatusAllowedForSession } from "../../lib/auth/session";
-import { assertSeedExecutionAllowed, SeedSafetyError } from "../../lib/security/seed-safety";
+import {
+  assertSeedExecutionAllowed,
+  SeedSafetyError,
+} from "../../lib/security/seed-safety";
 
 describe("Phase 1B-F — Executable Proof Closure Suite", () => {
   afterEach(() => {
@@ -28,7 +35,9 @@ describe("Phase 1B-F — Executable Proof Closure Suite", () => {
 
       expect(decision.accepted).toBe(false);
       expect(decision.backendUsed).toBe("FAIL_CLOSED");
-      expect(decision.errorResponse?.code).toBe("SERVICE_TEMPORARILY_UNAVAILABLE");
+      expect(decision.errorResponse?.code).toBe(
+        "SERVICE_TEMPORARILY_UNAVAILABLE",
+      );
     });
 
     it("should accept requests when a concrete shared test adapter is injected", async () => {
@@ -103,14 +112,20 @@ describe("Phase 1B-F — Executable Proof Closure Suite", () => {
       expect(customerStore).toBeNull();
     });
 
-    it("should explicitly declare staff authorization status as NOT_IMPLEMENTED_IN_CURRENT_SCHEMA", async () => {
-      const ctx = await resolveStoreActorContext({
-        id: "usr_owner_1",
-        email: "owner@example.com",
-        name: "Owner",
-        role: UserRole.STORE,
-        status: UserStatus.ACTIVE,
-      });
+    it("returns no actor context for an absent owner or employee", async () => {
+      const ctx = await resolveStoreActorContext(
+        {
+          id: "usr_owner_1",
+          email: "owner@example.com",
+          name: "Owner",
+          role: UserRole.STORE,
+          status: UserStatus.ACTIVE,
+        },
+        {
+          store: { findMany: async () => [] },
+          storeEmployeeMembership: { findMany: async () => [] },
+        } as unknown as Parameters<typeof resolveStoreActorContext>[1],
+      );
       expect(ctx).toBeNull(); // Null because user does not exist in offline test DB
     });
   });
@@ -126,17 +141,29 @@ describe("Phase 1B-F — Executable Proof Closure Suite", () => {
   describe("Workstream 6 — Seed Safety Edge Cases", () => {
     it("should reject production environment and staging classification", () => {
       expect(() =>
-        assertSeedExecutionAllowed({ nodeEnv: "production", classification: "development", allowDemoSeed: "true" })
+        assertSeedExecutionAllowed({
+          nodeEnv: "production",
+          classification: "development",
+          allowDemoSeed: "true",
+        }),
       ).toThrowError(SeedSafetyError);
 
       expect(() =>
-        assertSeedExecutionAllowed({ nodeEnv: "development", classification: "staging", allowDemoSeed: "true" })
+        assertSeedExecutionAllowed({
+          nodeEnv: "development",
+          classification: "staging",
+          allowDemoSeed: "true",
+        }),
       ).toThrowError(SeedSafetyError);
     });
 
     it("should ensure SeedSafetyError never exposes database connection URLs or passwords", () => {
       try {
-        assertSeedExecutionAllowed({ nodeEnv: "production", classification: "production", allowDemoSeed: "true" });
+        assertSeedExecutionAllowed({
+          nodeEnv: "production",
+          classification: "production",
+          allowDemoSeed: "true",
+        });
       } catch (err) {
         expect(err).toBeInstanceOf(SeedSafetyError);
         const msg = (err as Error).message;

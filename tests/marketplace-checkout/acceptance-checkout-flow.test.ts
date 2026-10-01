@@ -33,7 +33,13 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
         modifierSubtotal: 30.0,
         deliveryFeeTotal: 45.0,
         grandTotal: 325.0,
-        changes: [{ type: "DELIVERY_FEE_CHANGED", lineReference: "line-1", acknowledgedAt: new Date() }],
+        changes: [
+          {
+            type: "DELIVERY_FEE_CHANGED",
+            lineReference: "line-1",
+            acknowledgedAt: new Date(),
+          },
+        ],
         storeGroups: [
           {
             id: "group-1",
@@ -120,12 +126,26 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
         },
       };
 
+      Object.assign(mockDb, {
+        $queryRaw: vi.fn().mockResolvedValue([{ id: mockCheckout.id }]),
+        $transaction: async (work: (tx: typeof mockDb) => Promise<unknown>) =>
+          work(mockDb),
+      });
+
       const result = await updateMarketplaceCheckoutContact(
         {
           reference: "chk_pub_123",
           owner: customerOwner,
-          operation: { operationId: "op-contact-1", requestHash: "hash-1", expectedVersion: 1 },
-          contact: { recipientName: "Jane Doe", email: "jane@example.com", phone: "+27821234567" },
+          operation: {
+            operationId: "op-contact-1",
+            requestHash: "hash-1",
+            expectedVersion: 1,
+          },
+          contact: {
+            recipientName: "Jane Doe",
+            email: "jane@example.com",
+            phone: "+27821234567",
+          },
         },
         mockDb as never,
       );
@@ -136,8 +156,14 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
       expect(result.status).toBe("VALIDATING");
       expect(result.checkout).not.toBeNull();
       expect(result.checkout.reference).toBe("chk_pub_123");
-      expect(mockDb.marketplaceCheckoutContactSnapshot.create).toHaveBeenCalledWith({
-        data: { recipientName: "Jane Doe", email: "jane@example.com", phone: "+27821234567" },
+      expect(
+        mockDb.marketplaceCheckoutContactSnapshot.create,
+      ).toHaveBeenCalledWith({
+        data: {
+          recipientName: "Jane Doe",
+          email: "jane@example.com",
+          phone: "+27821234567",
+        },
       });
     });
 
@@ -160,8 +186,16 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
           {
             reference: "chk_pub_123",
             owner: customerOwner,
-            operation: { operationId: "op-contact-1", requestHash: "hash-1", expectedVersion: 1 }, // Stale version
-            contact: { recipientName: "Jane Doe", email: "jane@example.com", phone: "+27821234567" },
+            operation: {
+              operationId: "op-contact-1",
+              requestHash: "hash-1",
+              expectedVersion: 1,
+            }, // Stale version
+            contact: {
+              recipientName: "Jane Doe",
+              email: "jane@example.com",
+              phone: "+27821234567",
+            },
           },
           mockDb as never,
         ),
@@ -190,8 +224,17 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
           {
             reference: "chk_pub_123",
             owner: customerOwner,
-            operation: { operationId: "op-addr-1", requestHash: "hash-1", expectedVersion: 2 },
-            address: { recipientName: "Jane Doe", line1: "123 Main Rd", city: "Cape Town", province: "Western Cape" },
+            operation: {
+              operationId: "op-addr-1",
+              requestHash: "hash-1",
+              expectedVersion: 2,
+            },
+            address: {
+              recipientName: "Jane Doe",
+              line1: "123 Main Rd",
+              city: "Cape Town",
+              province: "Western Cape",
+            },
           },
           mockDb as never,
         ),
@@ -221,19 +264,22 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
         createAcknowledgement: vi.fn().mockResolvedValue({ id: "ack-1" }),
       };
 
-      const ackResult = await acknowledgeMarketplaceCheckoutReviewPersisted(repository as never, {
-        reference: "chk_pub_rev",
-        owner: customerOwner,
-        operationId: "ack-op-001",
-        requestHash: "req-hash-ack",
-        expectedVersion: initialVersion,
-        reviewVersion: 2,
-        commercialFingerprint: "fingerprint-valid",
-        acknowledgedTotalReference: "150.00",
-        termsVersion: "terms-v1",
-        privacyVersion: "privacy-v1",
-        refundPolicyReferences: ["refund-v1"],
-      });
+      const ackResult = await acknowledgeMarketplaceCheckoutReviewPersisted(
+        repository as never,
+        {
+          reference: "chk_pub_rev",
+          owner: customerOwner,
+          operationId: "ack-op-001",
+          requestHash: "req-hash-ack",
+          expectedVersion: initialVersion,
+          reviewVersion: 2,
+          commercialFingerprint: "fingerprint-valid",
+          acknowledgedTotalReference: "150.00",
+          termsVersion: "terms-v1",
+          privacyVersion: "privacy-v1",
+          refundPolicyReferences: ["refund-v1"],
+        },
+      );
 
       expect(ackResult.acknowledged).toBe(true);
       expect(ackResult.reviewVersion).toBe(2);

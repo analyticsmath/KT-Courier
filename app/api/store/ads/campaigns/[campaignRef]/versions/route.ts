@@ -1,23 +1,31 @@
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStoreForUser } from "@/lib/auth/store-context";
-import { UserRole } from "@/types/db";
+
 import { ok, unauthorized, forbidden, unprocessable } from "@/lib/api/response";
 import { AdvertisingCampaignService } from "@/lib/advertising/campaign.service";
 import { campaignVersionInputSchema } from "@/lib/advertising/route-input";
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ campaignRef: string }> }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ campaignRef: string }> },
+) {
+  const workspaceDenied = await requireBusinessApi(
+    "/api/store/ads/campaigns/[campaignRef]/versions",
+  );
+  if (workspaceDenied) return workspaceDenied;
   const session = await getCurrentUser();
   if (!session) return unauthorized();
-  if (session.role !== UserRole.STORE) return forbidden("This endpoint is for store accounts.");
 
-  const store = await getStoreForUser(session.id);
+  const store = await getStoreForUser(session.id, undefined, "marketing");
   if (!store) return forbidden("No store found for this account.");
 
   try {
     const { campaignRef } = await params;
     const parsed = campaignVersionInputSchema.safeParse(await request.json());
-    if (!parsed.success) return unprocessable("Campaign version input is invalid.");
+    if (!parsed.success)
+      return unprocessable("Campaign version input is invalid.");
     const body = parsed.data;
     const service = new AdvertisingCampaignService();
     const version = await service.createCampaignVersion(store.id, campaignRef, {
@@ -39,10 +47,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       attributionPolicyVersion: body.attributionPolicyVersion,
       legalTermsVersion: body.legalTermsVersion,
       targets: body.targets,
-      creative: body.creative
+      creative: body.creative,
     });
     return ok(version);
   } catch (error: unknown) {
-    return unprocessable(error instanceof Error ? error.message : "Could not create campaign version.");
+    return unprocessable(
+      error instanceof Error
+        ? error.message
+        : "Could not create campaign version.",
+    );
   }
 }

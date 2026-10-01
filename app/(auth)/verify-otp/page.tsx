@@ -1,15 +1,17 @@
+import { safeAuthReturnUrl } from "@/lib/auth/return-url";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { VerifyOtpForm } from "./VerifyOtpForm";
 
 export const metadata: Metadata = {
   title: "Check your email",
-  description: "Enter your verification code to access your KT Couriers account.",
+  description:
+    "Enter your verification code to access your KT Couriers account.",
   robots: { index: false, follow: false },
 };
 
 interface Props {
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; returnUrl?: string }>;
 }
 
 function maskEmail(email: string): string {
@@ -19,9 +21,15 @@ function maskEmail(email: string): string {
 }
 
 export default async function VerifyOtpPage({ searchParams }: Props) {
-  const { email } = await searchParams;
+  const { email, returnUrl } = await searchParams;
   if (!email) redirect("/signup");
 
-  const verifiedEmail = decodeURIComponent(email);
-  return <VerifyOtpForm email={verifiedEmail} maskedEmail={maskEmail(verifiedEmail)} />;
+  const verifiedEmail = email;
+  return (
+    <VerifyOtpForm
+      email={verifiedEmail}
+      maskedEmail={maskEmail(verifiedEmail)}
+      returnUrl={safeAuthReturnUrl(returnUrl)}
+    />
+  );
 }

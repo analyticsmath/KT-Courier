@@ -3,16 +3,23 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import { ktMediaV3 } from "../../media/kt-media-v3";
-import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
+import {
+  chapterBudgetVh,
+  mobileChapterBudgetVh,
+} from "../director/home-chapters";
 import styles from "../post-hero-scenes.module.css";
 
-export function DeliveryJourneyScene({ className = "" }: { className?: string }) {
+export function DeliveryJourneyScene({
+  className = "",
+}: {
+  className?: string;
+}) {
   const street = ktMediaV3.editorial.merchant.mabonengDepot;
   const routePlane = ktMediaV3.pages.homepage.routePlane;
   const custodyEvidence = ktMediaV3.pages.homepage.custodySplit.merchantSide;
   const style = {
-    "--kt-home-budget": `${chapterBudgetVh("journey")}svh`,
-    "--kt-home-mobile-budget": `${mobileChapterBudgetVh("journey")}svh`,
+    "--kt-home-budget": `${chapterBudgetVh("network")}svh`,
+    "--kt-home-mobile-budget": `${mobileChapterBudgetVh("network")}svh`,
   } as CSSProperties;
 
   return (
@@ -25,7 +32,13 @@ export function DeliveryJourneyScene({ className = "" }: { className?: string })
     >
       <div className={styles.journeyStickyStage} data-home-sticky-stage>
         <div className={styles.journeyStreet}>
-          <Image src={street.src} alt="" fill sizes="100vw" className="object-cover object-top" />
+          <Image
+            src={street.src}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover object-top"
+          />
           <div className={styles.journeyStreetShade} />
         </div>
         <div className={styles.journeyGround} aria-hidden="true" />
@@ -35,8 +48,18 @@ export function DeliveryJourneyScene({ className = "" }: { className?: string })
           <p>From the merchant counter into KT custody.</p>
         </div>
 
-        <div className={styles.journeyRoad} data-journey-road aria-hidden="true">
-          <Image src={routePlane.src} alt="" fill sizes="100vw" className="object-cover object-center" />
+        <div
+          className={styles.journeyRoad}
+          data-journey-road
+          aria-hidden="true"
+        >
+          <Image
+            src={routePlane.src}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover object-center"
+          />
           <svg viewBox="0 0 1000 800" preserveAspectRatio="none">
             <path
               data-route-path
@@ -57,13 +80,28 @@ export function DeliveryJourneyScene({ className = "" }: { className?: string })
           </svg>
         </div>
 
-        <aside className={styles.journeyCustody} data-journey-custody aria-label="Merchant pickup evidence">
+        <aside
+          className={styles.journeyCustody}
+          data-journey-custody
+          aria-label="Merchant pickup evidence"
+        >
           <div>
-            <Image src={custodyEvidence.src} alt={custodyEvidence.alt} fill sizes="(max-width: 767px) 72vw, 32vw" className="object-cover" />
+            <Image
+              src={custodyEvidence.src}
+              alt={custodyEvidence.alt}
+              fill
+              sizes="(max-width: 767px) 72vw, 32vw"
+              className="object-cover"
+            />
           </div>
           <p>In KT custody.</p>
         </aside>
-        <p className={styles.journeyRouteAnnotation} data-journey-route-annotation>On the way.</p>
+        <p
+          className={styles.journeyRouteAnnotation}
+          data-journey-route-annotation
+        >
+          On the way.
+        </p>
       </div>
     </section>
   );

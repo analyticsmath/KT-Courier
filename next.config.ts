@@ -23,17 +23,24 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Prevents this page from being embedded in any frame (clickjacking protection)
   { key: "X-Frame-Options", value: "DENY" },
-  // Disables browser features not used by this app
+  // Driver GPS and proof capture require same-origin access and browser consent.
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=()",
+    value: "camera=(self), microphone=(), geolocation=(self), payment=()",
   },
   ...(process.env.NODE_ENV === "production"
-    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=31536000; includeSubDomains",
+        },
+      ]
     : []),
 ];
 
-export function parseBuildCpuOverride(raw: string | undefined): number | undefined {
+export function parseBuildCpuOverride(
+  raw: string | undefined,
+): number | undefined {
   if (raw === undefined || raw.trim() === "") {
     return undefined;
   }
@@ -54,9 +61,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
   typescript: {
-    // Typechecking is verified independently with dedicated memory via npm run typecheck.
-    // Disabling in-process build typecheck prevents worker OOM under bounded Docker build heaps.
-    ignoreBuildErrors: true,
+    // Keep build-time checking enabled alongside the dedicated typecheck.
+    ignoreBuildErrors: false,
   },
   images: {
     formats: ["image/avif", "image/webp"],
@@ -101,11 +107,21 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/admin/:path*",
-        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" }],
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, max-age=0, must-revalidate",
+          },
+        ],
       },
       {
         source: "/api/admin/:path*",
-        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" }],
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, max-age=0, must-revalidate",
+          },
+        ],
       },
     ];
   },

@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { OperationalPanel, ProtectedPageFrame, ProtectedPageHeader, ProtectedStatus } from "@/components/protected-v2";
+import {
+  OperationalPanel,
+  ProtectedPageFrame,
+  ProtectedPageHeader,
+  ProtectedStatus,
+} from "@/components/protected-v2";
 import { PaymentCheckoutClient } from "@/components/payments/PaymentCheckoutClient";
 import { requireAuth } from "@/lib/auth/guards";
 import { listPaymentProviders } from "@/lib/services/payment-query.service";
@@ -23,7 +28,9 @@ export default async function OrderPaymentPage({
   if (!parsed.success) notFound();
   const page = await getCustomerPaymentPage(user, parsed.data.orderReference);
   if (!page) notFound();
-  const providerConfig = listPaymentProviders().data.find((entry) => entry.code === "PAYSTACK");
+  const providerConfig = listPaymentProviders().data.find(
+    (entry) => entry.code === "PAYSTACK",
+  );
   if (!providerConfig) notFound();
 
   return (
@@ -35,17 +42,53 @@ export default async function OrderPaymentPage({
       />
       <OperationalPanel className="space-y-5">
         <dl className="grid gap-4 sm:grid-cols-2">
-          <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Order reference</dt><dd className="mt-1 font-bold">{page.orderReference}</dd></div>
-          <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Amount</dt><dd className="mt-1 font-mono text-xl font-black">ZAR {page.amount}</dd></div>
-          <div><dt className="text-xs font-bold uppercase text-[var(--eo-text-muted)]">Payment status</dt><dd className="mt-1"><ProtectedStatus {...getCustomerPaymentStatusPresentation(page.payment?.status)} /></dd></div>
-          <div><dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">Provider</dt><dd className="mt-1">Paystack</dd></div>
+          <div>
+            <dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">
+              Order reference
+            </dt>
+            <dd className="mt-1 font-bold">{page.orderReference}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">
+              Amount
+            </dt>
+            <dd className="mt-1 font-mono text-xl font-black">
+              ZAR {page.amount}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase text-[var(--eo-text-muted)]">
+              Payment status
+            </dt>
+            <dd className="mt-1">
+              <ProtectedStatus
+                {...getCustomerPaymentStatusPresentation(page.payment?.status)}
+              />
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold uppercase text-[var(--kt-text-muted)]">
+              Provider
+            </dt>
+            <dd className="mt-1">Paystack</dd>
+          </div>
         </dl>
-        <PaymentCheckoutClient
-          orderId={page.orderId}
-          orderReference={page.orderReference}
-          initialPayment={page.payment}
-          provider={{ active: providerConfig.active, environment: providerConfig.environment, blockReason: providerConfig.blockReason }}
-        />
+        {page.canCheckout === false ? (
+          <p role="status" className="text-sm">
+            {page.checkoutBlockReason}
+          </p>
+        ) : (
+          <PaymentCheckoutClient
+            orderId={page.orderId}
+            orderReference={page.orderReference}
+            initialPayment={page.payment}
+            provider={{
+              active: providerConfig.active,
+              environment: providerConfig.environment,
+              blockReason: providerConfig.blockReason,
+            }}
+          />
+        )}
       </OperationalPanel>
     </ProtectedPageFrame>
   );

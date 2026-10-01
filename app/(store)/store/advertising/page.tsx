@@ -1,11 +1,13 @@
+import { MarketingArtworkUpload } from "@/components/forms/MarketingArtworkUpload";
+import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStoreForUser } from "@/lib/auth/store-context";
 import { prisma } from "@/lib/db/prisma";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
+import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import {
   StoreAdvertisingWorkbench,
   MarketingPackageItem,
@@ -15,16 +17,18 @@ import {
 
 export const metadata: Metadata = {
   title: "Store advertising & campaigns",
-  description: "Request, schedule, and track on-platform marketing and partner advertising campaigns.",
+  description:
+    "Request, schedule, and track on-platform marketing and partner advertising campaigns.",
 };
 
 const service = new ManagedMarketingService();
 
 export default async function StoreAdvertisingPage() {
+  const access=await requireBusinessPage("/store/advertising");
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
 
-  const store = await getStoreForUser(user.id);
+  const store=access.store;
   const storeName = store?.name || "Merchant Store";
 
   let initialPackages: MarketingPackageItem[] = [];
@@ -96,18 +100,20 @@ export default async function StoreAdvertisingPage() {
       })),
     }));
   } catch (err: unknown) {
-    backendError = err instanceof Error ? err.message : "Failed to load marketing packages";
+    backendError =
+      err instanceof Error ? err.message : "Failed to load marketing packages";
     initialPackages = [];
   }
 
   try {
     if (store) {
-      // Query entitled store private media (must belong to store, active, and uploaded by requesting actor)
+      // Business marketing staff share available artwork; verification evidence is excluded.
       const rawMedia = await prisma.privateMediaObject.findMany({
         where: {
           ownerType: "STORE",
           ownerId: store.id,
-          createdByUserId: user.id,
+          purpose:"OTHER",
+          detectedMimeType:{in:["image/jpeg","image/png","image/webp"]},
           status: { in: ["READY", "RETAINED"] },
           deletedAt: null,
         },
@@ -172,7 +178,9 @@ export default async function StoreAdvertisingPage() {
 
       initialRequests = (rawRequests || []).map((r) => {
         const perf = r.performanceRecords?.[0];
-        const baseAmount = r.commercial?.baseAmount || (r.priceSnapshot != null ? String(r.priceSnapshot) : "0.00");
+        const baseAmount =
+          r.commercial?.baseAmount ||
+          (r.priceSnapshot != null ? String(r.priceSnapshot) : "0.00");
         const taxAmount = r.commercial?.taxAmount || "0.00";
         const grossAmount = r.commercial?.grossAmount || baseAmount;
         const currency = r.commercial?.currency || r.currency || "ZAR";
@@ -189,28 +197,50 @@ export default async function StoreAdvertisingPage() {
           taxAmount: taxAmount,
           totalAmount: grossAmount,
           currency,
-          startAt: r.startsAt ? (typeof r.startsAt === "string" ? r.startsAt : r.startsAt.toISOString()) : null,
-          endAt: r.endsAt ? (typeof r.endsAt === "string" ? r.endsAt : r.endsAt.toISOString()) : null,
-          createdAt: typeof r.createdAt === "string" ? r.createdAt : r.createdAt.toISOString(),
-          packageVersion: r.packageVersion ? { name: r.packageVersion.name, code: r.packageVersion.code } : null,
+          startAt: r.startsAt
+            ? typeof r.startsAt === "string"
+              ? r.startsAt
+              : r.startsAt.toISOString()
+            : null,
+          endAt: r.endsAt
+            ? typeof r.endsAt === "string"
+              ? r.endsAt
+              : r.endsAt.toISOString()
+            : null,
+          createdAt:
+            typeof r.createdAt === "string"
+              ? r.createdAt
+              : r.createdAt.toISOString(),
+          packageVersion: r.packageVersion
+            ? { name: r.packageVersion.name, code: r.packageVersion.code }
+            : null,
           creatives: (r.creatives || []).map((c) => ({
             id: c.id,
             publicReference: c.publicReference,
             source: c.source,
             role: c.role || "CREATIVE",
-            mediaReference: c.privateMediaObject?.publicReference || c.catalogMediaAsset?.publicReference || c.publicReference,
-            createdAt: typeof c.createdAt === "string" ? c.createdAt : (c.createdAt?.toISOString?.() || new Date().toISOString()),
+            mediaReference:
+              c.privateMediaObject?.publicReference ||
+              c.catalogMediaAsset?.publicReference ||
+              c.publicReference,
+            createdAt:
+              typeof c.createdAt === "string"
+                ? c.createdAt
+                : c.createdAt?.toISOString?.() || new Date().toISOString(),
           })),
-          performanceRecord: perf ? {
-            impressions: perf.impressions,
-            clicks: perf.clicks,
-          } : null,
+          performanceRecord: perf
+            ? {
+                impressions: perf.impressions,
+                clicks: perf.clicks,
+              }
+            : null,
         };
       });
     }
   } catch (err: unknown) {
     if (!backendError) {
-      backendError = err instanceof Error ? err.message : "Failed to load store requests";
+      backendError =
+        err instanceof Error ? err.message : "Failed to load store requests";
     }
     initialRequests = [];
   }
@@ -222,6 +252,7 @@ export default async function StoreAdvertisingPage() {
         title="Store advertising & campaigns"
         description="Launch governed promotional campaigns, schedule cross-channel placements, and analyze reach and engagement."
       />
+      <OperationalPanel title="Campaign artwork"><MarketingArtworkUpload/></OperationalPanel>
       <StoreAdvertisingWorkbench
         initialPackages={initialPackages}
         initialRequests={initialRequests}

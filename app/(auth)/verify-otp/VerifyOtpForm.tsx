@@ -1,4 +1,5 @@
 "use client";
+import { safeAuthReturnUrl } from "@/lib/auth/return-url";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -10,7 +11,15 @@ import {
 } from "@/components/public-v2/auth";
 import styles from "@/components/public-v2/auth/auth-pages.module.css";
 
-export function VerifyOtpForm({ email, maskedEmail }: { email: string; maskedEmail: string }) {
+export function VerifyOtpForm({
+  email,
+  maskedEmail,
+  returnUrl,
+}: {
+  email: string;
+  maskedEmail: string;
+  returnUrl?: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -43,7 +52,7 @@ export function VerifyOtpForm({ email, maskedEmail }: { email: string; maskedEma
         return;
       }
 
-      router.push(data.redirect ?? "/account");
+      router.push(safeAuthReturnUrl(returnUrl) ?? data.redirect ?? "/account");
     } catch {
       setRootError("Something went wrong. Please try again.");
     } finally {
@@ -80,8 +89,15 @@ export function VerifyOtpForm({ email, maskedEmail }: { email: string; maskedEma
       <AuthRouteIntro title="Check your email">
         Enter the verification code sent to <strong>{maskedEmail}</strong>.
       </AuthRouteIntro>
-      <form className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
-        <AuthErrorSummary fieldErrors={{ code: codeError }} message={rootError} />
+      <form
+        className={`${styles.formCard} ${styles.formStack}`}
+        noValidate
+        onSubmit={handleSubmit}
+      >
+        <AuthErrorSummary
+          fieldErrors={{ code: codeError }}
+          message={rootError}
+        />
         {successMessage ? (
           <div className={styles.successSummary} role="status">
             <p>{successMessage}</p>
@@ -95,10 +111,19 @@ export function VerifyOtpForm({ email, maskedEmail }: { email: string; maskedEma
           placeholder="123456"
           required
         />
-        <button className={styles.primaryAction} disabled={loading} type="submit">
+        <button
+          className={styles.primaryAction}
+          disabled={loading}
+          type="submit"
+        >
           {loading ? "Verifying code…" : "Verify code"}
         </button>
-        <button className={styles.secondaryAction} disabled={resending} onClick={handleResend} type="button">
+        <button
+          className={styles.secondaryAction}
+          disabled={resending}
+          onClick={handleResend}
+          type="button"
+        >
           {resending ? "Sending another code…" : "Resend verification code"}
         </button>
         <AuthSecurityNote />

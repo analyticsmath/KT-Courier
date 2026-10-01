@@ -1,56 +1,46 @@
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStoreForUser } from "@/lib/auth/store-context";
-import { UserRole } from "@/types/db";
-import { ok, unauthorized, forbidden, unprocessable, serverError } from "@/lib/api/response";
-import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
-import { getStoreCampaign, updateStoreCampaign } from "@/lib/promotions/store-promotions.service";
-
-/**
- * View store campaign detail
- */
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
+import { json, failure, mutation } from "@/lib/client-platform/api";
+import {
+  getBusinessPromotion,
+  updateBusinessPromotion,
+} from "@/lib/client-platform/promotion-authoring.service";
 export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ reference: string }> }
+  _req: NextRequest,
+  ctx: RouteContext<"/api/store/promotions/[reference]">,
 ) {
-  const session = await getCurrentUser();
-  if (!session) return unauthorized();
-  if (session.role !== UserRole.STORE) return forbidden();
-
-  const store = await getStoreForUser(session.id);
-  if (!store) return forbidden("No store found for this account.");
-
+  const denied = await requireBusinessApi("/api/store/promotions/[reference]");
+  if (denied) return denied;
+  const user = await getCurrentUser();
+  if (!user) return json({ error: "Authentication required." }, 401);
   try {
-    const params = await context.params;
-    const campaign = await getStoreCampaign(store.id, params.reference);
-    return ok(campaign);
-  } catch {
-    return serverError();
+    return json(
+      await getBusinessPromotion(user.id, (await ctx.params).reference),
+    );
+  } catch (e) {
+    return failure(e);
   }
 }
-
-/**
- * Update draft campaign version
- */
 export async function PATCH(
-  request: NextRequest,
-  context: { params: Promise<{ reference: string }> }
+  req: NextRequest,
+  ctx: RouteContext<"/api/store/promotions/[reference]">,
 ) {
-  const session = await getCurrentUser();
-  if (!session) return unauthorized();
-  if (session.role !== UserRole.STORE) return forbidden();
-
-  const store = await getStoreForUser(session.id);
-  if (!store) return forbidden("No store found for this account.");
-
+  const denied = await requireBusinessApi("/api/store/promotions/[reference]");
+  if (denied) return denied;
+  const user = await getCurrentUser();
+  if (!user) return json({ error: "Authentication required." }, 401);
+  const body = await mutation(req, "promotion-draft-update");
+  if ("response" in body) return body.response;
   try {
-    const params = await context.params;
-    const body = await request.json();
-    assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-
-    const campaign = await updateStoreCampaign(store.id, params.reference, body);
-    return ok(campaign);
-  } catch {
-    return unprocessable("Update failed");
+    return json(
+      await updateBusinessPromotion(
+        user.id,
+        (await ctx.params).reference,
+        body.body,
+      ),
+    );
+  } catch (e) {
+    return failure(e);
   }
 }

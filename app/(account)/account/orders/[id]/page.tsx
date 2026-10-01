@@ -1,6 +1,13 @@
+import { prisma } from "@/lib/db/prisma";
+import { Conversations } from "@/components/forms/Conversations";
+import { DeliveryReviewForm } from "@/components/forms/DeliveryReviews";
+import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { CustomerAction, CustomerOrderDetail } from "@/components/protected-v2/customer/CustomerPresentation";
+import {
+  CustomerAction,
+  CustomerOrderDetail,
+} from "@/components/protected-v2/customer/CustomerPresentation";
 import { CancelOrderButton } from "@/components/orders/CancelOrderButton";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { CUSTOMER_CANCELLABLE_STATUSES } from "@/lib/constants/order-status";
@@ -9,22 +16,55 @@ import { getOrder } from "@/lib/services/orders.service";
 
 export const metadata: Metadata = { title: "Delivery details" };
 
-export default async function AccountOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AccountOrderDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
   const order = await getOrder(user, id);
   if (!order) notFound();
 
-  const pod = order.status === "DELIVERED" ? await getPublicPodForOrder(order.id) : null;
+  const pod =
+    order.status === "DELIVERED" ? await getPublicPodForOrder(order.id) : null;
   const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(order.status);
 
+  const review = await prisma.deliveryReview.findFirst({
+    where: { orderId: order.id, authorUserId: user.id },
+    select: { rating: true, body: true },
+  });
   return (
-    <CustomerOrderDetail
-      cancelAction={canCancel ? <CancelOrderButton orderId={order.id} redirectTo="/account/orders" /> : undefined}
-      order={order}
-      paymentAction={<CustomerAction href={`/orders/${encodeURIComponent(order.orderNumber)}/payment`} tone="primary">Payment</CustomerAction>}
-      proof={pod}
-    />
+    <>
+      <CustomerOrderDetail
+        cancelAction={
+          canCancel ? (
+            <CancelOrderButton
+              orderId={order.id}
+              redirectTo="/account/orders"
+            />
+          ) : undefined
+        }
+        order={order}
+        paymentAction={
+          <CustomerAction
+            href={`/orders/${encodeURIComponent(order.orderNumber)}/payment`}
+            tone="primary"
+          >
+            Payment
+          </CustomerAction>
+        }
+        proof={pod}
+      />
+      <OperationalPanel title="Delivery chat">
+        <Conversations deliveryOrderId={order.id} />
+      </OperationalPanel>
+      {["DELIVERED", "COMPLETED"].includes(order.status) && (
+        <OperationalPanel title="Review this delivery">
+          <DeliveryReviewForm orderId={order.id} existing={review} />
+        </OperationalPanel>
+      )}
+    </>
   );
 }

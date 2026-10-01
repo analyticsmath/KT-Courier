@@ -287,7 +287,6 @@ export function isCheckoutExposureAllowed(
   source: EnvironmentSource = process.env,
   productionApproved = false,
 ): boolean {
-  if (productionApproved) return true;
   const classification = classifyRuntimeEnvironment(source);
   if (!classification.isValid) return false;
 

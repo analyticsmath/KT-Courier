@@ -10,9 +10,9 @@
 .categoryField,.mobileCategoryTerritory,.productWorld { position: absolute; inset: 0; visibility: hidden; opacity: 0; }
 .categoryField { z-index: 4; overflow: visible; }
 .categoryFieldLabel { position: absolute; z-index: 10; top: 12svh; left: 7vw; margin: 0; color: var(--kt-public-text-muted); font: 600 .75rem/1.3 "Instrument Sans",sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-.categoryPlane { position: absolute; top: 53%; left: 50%; display: block; width: min(29vw,420px); height: min(56svh,520px); overflow: hidden; border-radius: clamp(12px,1.1vw,20px); color: white; text-decoration: none; transform-origin: center; background: var(--kt-public-surface-inverse); box-shadow: 0 1rem 3rem rgb(0 0 0 / .12); }
+.categoryPlane { position: absolute; top: 53%; left: 50%; display: block; width: min(29vw,420px); height: min(56svh,520px); overflow: hidden; border-radius: clamp(12px,1.1vw,20px); color: white; text-decoration: none; transform-origin: center; background: var(--kt-public-surface-inverse); /* kt-color-audit-allow: elevation shadow alpha */ box-shadow: 0 1rem 3rem rgb(0 0 0 / .12); }
 .categoryPlane img,.mobileCategoryCard img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.categoryShade { position: absolute; inset: 0; background: linear-gradient(180deg,transparent 35%,rgb(4 6 8 / .76) 100%); pointer-events: none; }
+.categoryShade { position: absolute; inset: 0; /* kt-color-audit-allow: photographic contrast mask alpha */ background: linear-gradient(180deg,transparent 35%,rgb(4 6 8 / .76) 100%); pointer-events: none; }
 .categoryText { position: absolute; right: 5%; bottom: 6%; left: 5%; display: grid; gap: .35rem; max-width: 36rem; color: white; }
 .categoryText small { font: .72rem/1.2 "IBM Plex Mono",monospace; letter-spacing: .12em; }
 .categoryText strong { font: 620 clamp(2.2rem,4.4vw,5.2rem)/.9 "Schibsted Grotesk",sans-serif; letter-spacing: -.055em; }
@@ -22,8 +22,8 @@
 .productHeading { position: absolute; top: 10svh; left: 7vw; z-index: 12; pointer-events: none; }
 .productHeading .giant { font-size: clamp(2.7rem,5vw,6rem); }
 .productFan { position: absolute; inset: 0; perspective: 1400px; }
-.productPlane { position: absolute; top: 55%; left: 50%; width: min(22vw,300px); aspect-ratio: .88; display: block; padding: 0; border: 0; overflow: hidden; border-radius: clamp(12px,1.1vw,18px); background: var(--kt-public-surface-secondary); color: var(--kt-public-text-primary); box-shadow: 0 1rem 2.7rem rgb(0 0 0 / .13); transform-origin: center center; cursor: pointer; }
-.productPlane[data-active="true"] { box-shadow: 0 1.4rem 3rem rgb(0 0 0 / .2); }
+.productPlane { position: absolute; top: 55%; left: 50%; width: min(22vw,300px); aspect-ratio: .88; display: block; padding: 0; border: 0; overflow: hidden; border-radius: clamp(12px,1.1vw,18px); background: var(--kt-public-surface-secondary); color: var(--kt-public-text-primary); /* kt-color-audit-allow: elevation shadow alpha */ box-shadow: 0 1rem 2.7rem rgb(0 0 0 / .13); transform-origin: center center; cursor: pointer; }
+.productPlane[data-active="true"] { /* kt-color-audit-allow: elevation shadow alpha */ box-shadow: 0 1.4rem 3rem rgb(0 0 0 / .2); }
 .productPlane:focus-visible { outline: 2px solid var(--kt-public-focus); outline-offset: 5px; }
 .productPlane span { display: block; width: 100%; height: 100%; }
 .productPlane img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -71,13 +71,13 @@
 .persistentActors { pointer-events: none; }
 .persistentActors > div { position: fixed; visibility: hidden; opacity: 0; pointer-events: none; }
 .persistentActors img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.mechanicalBox { z-index: 46; top: 53%; left: 54%; width: min(42vw,57svh); aspect-ratio: 1; filter: drop-shadow(0 1.4rem 1.6rem rgb(34 26 18 / .14)); }
+.mechanicalBox { z-index: 46; top: 53%; left: 54%; width: min(42vw,57svh); aspect-ratio: 1; /* kt-color-audit-allow: physical parcel contact shadow alpha */ filter: drop-shadow(0 1.4rem 1.6rem rgb(34 26 18 / .14)); }
 .vehicleStage { z-index: 40; top: 53%; left: 50%; width: min(106vw,1280px); aspect-ratio: 1; }
 .vehiclePlate { position: absolute; inset: 0; }
 .vehiclePlate[data-plate-format="tight"] { top: 7.5%; left: 12.5%; width: 70%; height: 70%; }
-.vehicleShadow { position: absolute; right: 9%; bottom: 7%; left: 7%; height: 12%; border-radius: 50%; background: rgb(34 44 44 / .13); filter: blur(13px); }
+.vehicleShadow { position: absolute; right: 9%; bottom: 7%; left: 7%; height: 12%; border-radius: 50%; /* kt-color-audit-allow: physical vehicle contact shadow alpha */ background: rgb(34 44 44 / .13); filter: blur(13px); }
 .handoffStage { z-index: 42; top: 55%; left: 50%; width: min(68vw,760px); aspect-ratio: 1; }
-.routeCamera { z-index: 29; inset: 0; overflow: hidden; background: #dfe3e3; }
+.routeCamera { z-index: 29; inset: 0; overflow: hidden; /* kt-color-audit-allow: illustrated road artwork canvas continuity */ background: #dfe3e3; }
 .routeWorld { position: absolute; top: 0; left: 0; width: max(100vw,177.6svh); aspect-ratio: 1671 / 941; transform-origin: 0 0; }
 .routeRoad { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .routeVan { position: absolute; width: clamp(180px,16vw,330px); aspect-ratio: 1; }

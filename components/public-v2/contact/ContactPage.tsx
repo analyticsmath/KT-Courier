@@ -33,7 +33,9 @@ export function ContactPage() {
             Start with the right conversation.
           </h1>
           <p className={styles.contactLead}>
-            Direct your message to our logistics and account support coordinators.
+            KT Couriers operates online and has no public walk-in office.
+            Contact our logistics and account support team at{" "}
+            <a href="mailto:info@ktcouriers.com">info@ktcouriers.com</a>.
           </p>
         </section>
 
@@ -43,7 +45,8 @@ export function ContactPage() {
             <div className={styles.formContainer}>
               <ContactForm />
               <p className={styles.privacyNotice}>
-                Please provide only the necessary dispatch or account information. Read our{" "}
+                Please provide only the necessary dispatch or account
+                information. Read our{" "}
                 <Link className={styles.privacyLink} href="/privacy-policy">
                   Privacy Policy
                 </Link>{" "}
@@ -65,9 +68,12 @@ export function ContactPage() {
               />
             </div>
             <div className={styles.contactAccountBox}>
-              <h3 className={styles.accountBoxTitle}>Already have an active order?</h3>
+              <h3 className={styles.accountBoxTitle}>
+                Already have an active order?
+              </h3>
               <p className={styles.accountBoxText}>
-                You can review verified status updates directly inside your account orders dashboard without waiting for email support.
+                You can review verified status updates directly inside your
+                account orders dashboard without waiting for email support.
               </p>
               <Link className={styles.accountBoxLink} href="/account/orders">
                 View Account Orders &rarr;

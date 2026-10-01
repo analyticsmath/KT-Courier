@@ -3,21 +3,64 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const tsxCli = path.join(root, "node_modules", "tsx", "dist", "cli.mjs");
 const runner = path.join(root, "scripts", "phase26-processor-runner.ts");
 
 export const PHASE26_PROCESSORS = Object.freeze({
-  preflight: { handler: "verifyPhase26Preflight", repository: "composition root", service: "production readiness" },
-  "close-expired-openings": { handler: "processOpeningLifecycle", repository: "openingVersion", service: "OpeningService" },
-  "expire-draft-applications": { handler: "processApplicationCompleteness", repository: "application", service: "ApplicationService" },
-  "process-screening-flags": { handler: "processAutomatedScreening", repository: "application", service: "ScreeningService" },
-  "expire-offers": { handler: "processOfferExpiry", repository: "offerVersion", service: "OfferService" },
-  "process-onboarding-handoffs": { handler: "processOnboardingHandoffs", repository: "handoff", service: "OnboardingHandoffService" },
-  "process-retention": { handler: "processRetentionSchedule", repository: "application", service: "PrivacyRetentionService" },
-  "scan-fraud": { handler: "scanRecruitmentFraud", repository: "application", service: "RecruitmentFraudService" },
-  "scan-reconciliation": { handler: "processRecruitmentReconciliation", repository: "reconciliationCase", service: "RecruitmentReconciliationService" },
-  "verify-invariants": { handler: "verifyRecruitmentInvariants", repository: "composition root", service: "production readiness" },
-  "launch-integration-suite": { handler: "launchDisposableIntegrationValidation", repository: "none", service: "Phase 26.5 deferred validation gate" },
+  preflight: {
+    handler: "verifyPhase26Preflight",
+    repository: "composition root",
+    service: "production readiness",
+  },
+  "close-expired-openings": {
+    handler: "processOpeningLifecycle",
+    repository: "openingVersion",
+    service: "OpeningService",
+  },
+  "expire-draft-applications": {
+    handler: "processApplicationCompleteness",
+    repository: "application",
+    service: "ApplicationService",
+  },
+  "process-screening-flags": {
+    handler: "processAutomatedScreening",
+    repository: "application",
+    service: "ScreeningService",
+  },
+  "expire-offers": {
+    handler: "processOfferExpiry",
+    repository: "offerVersion",
+    service: "OfferService",
+  },
+  "process-onboarding-handoffs": {
+    handler: "processOnboardingHandoffs",
+    repository: "handoff",
+    service: "OnboardingHandoffService",
+  },
+  "process-retention": {
+    handler: "processRetentionSchedule",
+    repository: "application",
+    service: "PrivacyRetentionService",
+  },
+  "scan-fraud": {
+    handler: "scanRecruitmentFraud",
+    repository: "application",
+    service: "RecruitmentFraudService",
+  },
+  "scan-reconciliation": {
+    handler: "processRecruitmentReconciliation",
+    repository: "reconciliationCase",
+    service: "RecruitmentReconciliationService",
+  },
+  "verify-invariants": {
+    handler: "verifyRecruitmentInvariants",
+    repository: "composition root",
+    service: "production readiness",
+  },
+  "launch-integration-suite": {
+    handler: "launchDisposableIntegrationValidation",
+    repository: "none",
+    service: "Phase 26.5 deferred validation gate",
+  },
 });
 
 function parseOptions(argv) {
@@ -41,12 +84,25 @@ function parseOptions(argv) {
 }
 
 export function runPhase26Processor(operation, argv = process.argv.slice(2)) {
-  if (!PHASE26_PROCESSORS[operation]) throw new Error(`Unknown Phase 26 processor: ${operation}`);
+  if (!PHASE26_PROCESSORS[operation])
+    throw new Error(`Unknown Phase 26 processor: ${operation}`);
   const options = parseOptions(argv);
-  const result = spawnSync(process.execPath, [tsxCli, runner, operation, options.apply ? "--apply" : "--dry-run", "--limit", String(options.limit)], {
-    cwd: root,
-    stdio: "inherit",
-  });
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      runner,
+      operation,
+      options.apply ? "--apply" : "--dry-run",
+      "--limit",
+      String(options.limit),
+    ],
+    {
+      cwd: root,
+      stdio: "inherit",
+    },
+  );
   if (result.error) throw result.error;
   if (result.status !== 0) process.exitCode = result.status ?? 1;
 }

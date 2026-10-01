@@ -18,7 +18,7 @@ const ALLOWED_ROLES: UserRole[] = [UserRole.CUSTOMER, UserRole.STORE];
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
@@ -38,10 +38,18 @@ export async function POST(
 
   const parsed = CustomerCancelOrderSchema.safeParse(body);
   if (!parsed.success) {
-    return unprocessable("Validation failed.", formatZodErrors(parsed.error.issues));
+    return unprocessable(
+      "Validation failed.",
+      formatZodErrors(parsed.error.issues),
+    );
   }
 
-  const result = await cancelOrder(user, id, parsed.data);
+  const result = await cancelOrder(
+    user,
+    id,
+    parsed.data,
+    user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE",
+  );
 
   if ("error" in result) {
     if (result.error === "Order not found.") return notFound(result.error);

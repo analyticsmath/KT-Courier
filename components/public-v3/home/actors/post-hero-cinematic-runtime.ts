@@ -38,7 +38,11 @@ export function resolvePostHeroActorLifecycle({
   }
 
   const isFirstVisibleState = !previous?.visible || !previous.displayedState;
-  if (isFirstVisibleState || requestedState === previous.displayedState || requestedReady) {
+  if (
+    isFirstVisibleState ||
+    requestedState === previous.displayedState ||
+    requestedReady
+  ) {
     return {
       requestedState,
       displayedState: requestedState,
@@ -50,7 +54,7 @@ export function resolvePostHeroActorLifecycle({
 
   return {
     requestedState,
-    displayedState: previous.displayedState,
+    displayedState: previous.displayedState ?? requestedState,
     pendingState: requestedState,
     visible: true,
     stateReady: false,

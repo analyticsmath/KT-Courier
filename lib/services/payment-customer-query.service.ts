@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
-import type { CustomerPaymentPageDto, CustomerPaymentStatusDto } from "@/lib/dto/payment.dto";
+import type {
+  CustomerPaymentPageDto,
+  CustomerPaymentStatusDto,
+} from "@/lib/dto/payment.dto";
 import { PaymentError } from "@/lib/payments/errors";
 import { resolveOrderPaymentSubject } from "./payment-subject.service";
 
@@ -12,14 +15,20 @@ function toCustomerStatus(payment: {
   order: { orderNumber: string } | null;
 }): CustomerPaymentStatusDto {
   if (!payment.order) {
-    throw new PaymentError("PAYMENT_ORDER_NOT_FOUND", "Payment order relationship is incomplete.");
+    throw new PaymentError(
+      "PAYMENT_ORDER_NOT_FOUND",
+      "Payment order relationship is incomplete.",
+    );
   }
   return Object.freeze({
     publicReference: payment.publicReference,
     orderReference: payment.order.orderNumber,
     amount: payment.amount.toFixed(2),
     currency: "ZAR",
-    provider: (payment.provider === "PAYSTACK" || payment.provider === "PAYFAST") ? payment.provider : null,
+    provider:
+      payment.provider === "PAYSTACK" || payment.provider === "PAYFAST"
+        ? payment.provider
+        : null,
     status: payment.status as CustomerPaymentStatusDto["status"],
     updatedAt: payment.updatedAt.toISOString(),
   });
@@ -56,18 +65,24 @@ export async function getOwnedPaymentIdentity(
       attempts: {
         orderBy: { attemptNumber: "desc" },
         take: 1,
-        select: { publicReference: true, checkoutActionType: true, redirectUrl: true },
+        select: {
+          publicReference: true,
+          checkoutActionType: true,
+          redirectUrl: true,
+        },
       },
     },
   });
-  return payment ? Object.freeze({
-    id: payment.id,
-    publicReference: payment.publicReference,
-    status: payment.status,
-    currentAttemptReference: payment.attempts[0]?.publicReference ?? null,
-    currentActionType: payment.attempts[0]?.checkoutActionType ?? null,
-    currentRedirectUrl: payment.attempts[0]?.redirectUrl ?? null,
-  }) : null;
+  return payment
+    ? Object.freeze({
+        id: payment.id,
+        publicReference: payment.publicReference,
+        status: payment.status,
+        currentAttemptReference: payment.attempts[0]?.publicReference ?? null,
+        currentActionType: payment.attempts[0]?.checkoutActionType ?? null,
+        currentRedirectUrl: payment.attempts[0]?.redirectUrl ?? null,
+      })
+    : null;
 }
 
 export async function getCustomerPaymentPage(
@@ -80,9 +95,32 @@ export async function getCustomerPaymentPage(
       OR: [
         { customerId: payer.id },
         { store: { ownerUserId: payer.id } },
+        {
+          store: {
+            status: "ACTIVE",
+            employeeMemberships: {
+              some: {
+                userId: payer.id,
+                status: "ACTIVE",
+                permissions: { array_contains: ["finance"] },
+              },
+            },
+          },
+        },
       ],
     },
-    select: { id: true, orderNumber: true },
+    select: {
+      id: true,
+      orderNumber: true,
+      priceEstimate: true,
+      cashOnDelivery: {
+        select: {
+          policyMode: true,
+          cashObligation: true,
+          digitalRequired: true,
+        },
+      },
+    },
   });
   if (!order) return null;
   const payment = await prisma.payment.findUnique({
@@ -94,13 +132,52 @@ export async function getCustomerPaymentPage(
       orderId: order.id,
       orderReference: order.orderNumber,
       amount: payment.amount.toFixed(2),
+      canCheckout: payment.userId === payer.id,
+      checkoutBlockReason:
+        payment.userId !== payer.id
+          ? "This payment was prepared by another authorized payer. They can continue checkout from their own account."
+          : undefined,
       currency: "ZAR",
       payment: toCustomerStatus(payment),
     });
   }
-  const subject = await resolveOrderPaymentSubject(order.id, payer.id);
+  if (order.cashOnDelivery?.policyMode === "FULL_COD")
+    return Object.freeze({
+      orderId: order.id,
+      orderReference: order.orderNumber,
+      amount: "0.00",
+      currency: "ZAR",
+      payment: null,
+      canCheckout: false,
+      checkoutBlockReason: `This delivery requires R ${order.cashOnDelivery.cashObligation.toFixed(2)} cash on delivery. No online payment is required.`,
+    });
+  let subject;
+  try {
+    subject = await resolveOrderPaymentSubject(order.id, payer.id);
+  } catch (error) {
+    if (
+      error instanceof PaymentError &&
+      ["PAYMENT_ORDER_NOT_PAYABLE", "PAYMENT_ORDER_ALREADY_PAID"].includes(
+        error.code,
+      )
+    )
+      return Object.freeze({
+        orderId: order.id,
+        orderReference: order.orderNumber,
+        amount: order.priceEstimate?.toFixed(2) ?? "0.00",
+        currency: "ZAR",
+        payment: null,
+        canCheckout: false,
+        checkoutBlockReason:
+          "This delivery is not currently available for online payment. Contact KT support if you need help.",
+      });
+    throw error;
+  }
   if (!payer.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payer.email)) {
-    throw new PaymentError("PAYFAST_PAYER_EMAIL_REQUIRED", "A valid payer email is required for Payfast checkout.");
+    throw new PaymentError(
+      "PAYFAST_PAYER_EMAIL_REQUIRED",
+      "A valid payer email is required for Payfast checkout.",
+    );
   }
   return Object.freeze({
     orderId: order.id,

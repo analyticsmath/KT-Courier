@@ -1,3 +1,4 @@
+import { storeAccess } from "@/lib/client-platform/store-access";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { StoreEarningError } from "@/lib/store-earnings/errors";
@@ -6,9 +7,9 @@ import { formatStoreEarningMoney } from "@/lib/store-earnings/store-earning-mone
 const zero = () => new Prisma.Decimal(0);
 
 export async function getStoreEarningSummaryForOwner(userId: string) {
-  const [user, stores] = await Promise.all([prisma.user.findUnique({ where: { id: userId }, select: { role: true, status: true } }), prisma.store.findMany({ where: { ownerUserId: userId }, select: { id: true, status: true }, take: 2 })]);
-  if (!user || user.role !== "STORE" || user.status !== "ACTIVE" || stores.length !== 1 || stores[0]!.status !== "ACTIVE") throw new StoreEarningError("STORE_EARNING_FORBIDDEN", "An active uniquely-owned store is required to read earning totals.");
-  return summarizeStoreEarnings(stores[0]!.id);
+  let access;try { access=await storeAccess(userId,"finance"); }catch{throw new StoreEarningError("STORE_EARNING_FORBIDDEN","Finance access is required.");}
+  if(access.store.status!=="ACTIVE")throw new StoreEarningError("STORE_EARNING_FORBIDDEN","An active business is required.");
+  return summarizeStoreEarnings(access.store.id);
 }
 
 export async function summarizeStoreEarnings(storeId?: string) {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { OperationalPanel } from "@/components/protected-v2";
 import { CustomerPage } from "@/components/protected-v2/customer/CustomerPresentation";
-import { DeliveryRequestForm } from "@/components/forms/DeliveryRequestForm";
+import { PublicDeliveryQuoteForm } from "@/components/forms/PublicDeliveryQuoteForm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listCustomerAddresses } from "@/lib/services/customer-addresses.service";
 import { getRepeatDeliveryPrefill } from "@/lib/services/orders.service";
@@ -32,10 +32,9 @@ export default async function RequestDeliveryPage({
       description={repeatPrefill ? "Review the copied details before requesting a new delivery." : "Enter the delivery details, then review the server-issued quote before you submit."}
     >
       <OperationalPanel title="Delivery request" description="Pricing, delivery-region checks, and submission remain server-authoritative.">
-      <DeliveryRequestForm
+      <PublicDeliveryQuoteForm signedIn
         savedAddresses={savedAddresses}
-        repeatPrefill={repeatPrefill}
-        ordersHref="/account/orders"
+        prefill={repeatPrefill}
       />
       </OperationalPanel>
     </CustomerPage>

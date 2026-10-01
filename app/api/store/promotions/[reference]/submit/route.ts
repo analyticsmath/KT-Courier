@@ -1,31 +1,29 @@
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStoreForUser } from "@/lib/auth/store-context";
-import { UserRole } from "@/types/db";
-import { ok, unauthorized, forbidden, unprocessable } from "@/lib/api/response";
-import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
-import { submitStoreCampaign } from "@/lib/promotions/store-promotions.service";
-
-/**
- * Submit campaign for platform review
- */
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
+import { json, failure, mutation } from "@/lib/client-platform/api";
+import { submitBusinessPromotion } from "@/lib/client-platform/promotion-authoring.service";
 export async function POST(
-  request: NextRequest,
-  context: { params: Promise<{ reference: string }> }
+  req: NextRequest,
+  ctx: RouteContext<"/api/store/promotions/[reference]/submit">,
 ) {
-  const session = await getCurrentUser();
-  if (!session) return unauthorized();
-  if (session.role !== UserRole.STORE) return forbidden();
-
-  const store = await getStoreForUser(session.id);
-  if (!store) return forbidden("No store found for this account.");
-
+  const denied = await requireBusinessApi(
+    "/api/store/promotions/[reference]/submit",
+  );
+  if (denied) return denied;
+  const user = await getCurrentUser();
+  if (!user) return json({ error: "Authentication required." }, 401);
+  const body = await mutation(req, "promotion-draft-submit");
+  if ("response" in body) return body.response;
   try {
-    const params = await context.params;
-    assertPromotionsProductionReady("CAMPAIGN_SUBMIT");
-    const campaign = await submitStoreCampaign(store.id, params.reference);
-    return ok(campaign);
-  } catch {
-    return unprocessable("Submit failed");
+    return json(
+      await submitBusinessPromotion(
+        user.id,
+        (await ctx.params).reference,
+        body.body,
+      ),
+    );
+  } catch (e) {
+    return failure(e);
   }
 }

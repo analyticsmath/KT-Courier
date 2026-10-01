@@ -1,3 +1,7 @@
+import {
+  membershipAllows,
+  moduleForPermission,
+} from "@/lib/client-platform/store-permissions";
 import { prisma } from "@/lib/db/prisma";
 import {
   DEFAULT_ADMIN_PERMISSION_KEYS,
@@ -27,12 +31,43 @@ function isAdminRole(role: UserRole): boolean {
 }
 
 function isPermissionBearingRole(role: UserRole): boolean {
-  return role === UserRole.CUSTOMER || role === UserRole.STORE || role === UserRole.DRIVER || isAdminRole(role) || role === UserRole.PROMOTER;
+  return (
+    role === UserRole.CUSTOMER ||
+    role === UserRole.STORE ||
+    role === UserRole.DRIVER ||
+    isAdminRole(role) ||
+    role === UserRole.PROMOTER
+  );
 }
 
 async function permissionTableIsEmpty(): Promise<boolean> {
   const count = await prisma.permission.count();
   return count === 0;
+}
+
+async function delegatedStoreKeys(
+  args: PermissionActor,
+): Promise<string[] | null> {
+  if (
+    ![UserRole.CUSTOMER, UserRole.STORE].includes(
+      args.role as "CUSTOMER" | "STORE",
+    )
+  )
+    return null;
+  const rows = await prisma.storeEmployeeMembership.findMany({
+    where: {
+      userId: args.userId,
+      status: "ACTIVE",
+      store: { status: "ACTIVE" },
+    },
+    select: { permissions: true },
+    take: 2,
+  });
+  if (!rows.length) return null;
+  if (rows.length !== 1) return [];
+  return (ROLE_DEFAULT_PERMISSION_KEYS[UserRole.STORE] ?? []).filter((key) =>
+    membershipAllows(rows[0].permissions, moduleForPermission(key)),
+  );
 }
 
 export async function hasPermission(args: HasPermissionArgs): Promise<boolean> {
@@ -43,10 +78,16 @@ export async function hasPermission(args: HasPermissionArgs): Promise<boolean> {
     if (await permissionTableIsEmpty()) {
       return args.role === UserRole.ADMIN
         ? true
-        : (ROLE_DEFAULT_PERMISSION_KEYS[args.role] ?? []).includes(args.permissionKey as never);
+        : (ROLE_DEFAULT_PERMISSION_KEYS[args.role] ?? []).includes(
+            args.permissionKey as never,
+          );
     }
   }
 
+  const delegated = await delegatedStoreKeys(args);
+  const section = moduleForPermission(args.permissionKey);
+  if (delegated && section && !delegated.includes(args.permissionKey))
+    return false;
   const permission = await prisma.permission.findUnique({
     where: { key: args.permissionKey },
     include: {
@@ -64,22 +105,27 @@ export async function hasPermission(args: HasPermissionArgs): Promise<boolean> {
     },
   });
 
-  if (!permission) return false;
+  if (!permission) return !!delegated?.includes(args.permissionKey);
 
   const override = permission.userPermissions[0];
   if (override?.effect === PermissionEffect.DENY) return false;
   if (override?.effect === PermissionEffect.ALLOW) return true;
 
-  return permission.rolePermissions.length > 0;
+  return (
+    permission.rolePermissions.length > 0 ||
+    !!delegated?.includes(args.permissionKey)
+  );
 }
 
-export async function requirePermission(args: HasPermissionArgs): Promise<void> {
+export async function requirePermission(
+  args: HasPermissionArgs,
+): Promise<void> {
   const allowed = await hasPermission(args);
   if (!allowed) throw new PermissionDeniedError();
 }
 
 export async function getEffectivePermissionKeysForUser(
-  args: PermissionActor
+  args: PermissionActor,
 ): Promise<string[]> {
   if (args.role === UserRole.SUPER_ADMIN) {
     const dbPermissions = await prisma.permission.findMany({
@@ -90,16 +136,23 @@ export async function getEffectivePermissionKeysForUser(
       new Set([
         ...SYSTEM_PERMISSION_DEFINITIONS.map((permission) => permission.key),
         ...dbPermissions.map((permission) => permission.key),
-      ])
+      ]),
     ).sort();
   }
 
   if (!isPermissionBearingRole(args.role)) return [];
 
   if (await permissionTableIsEmpty()) {
-    return (args.role === UserRole.ADMIN ? SYSTEM_PERMISSION_DEFINITIONS.map((permission) => permission.key) : ROLE_DEFAULT_PERMISSION_KEYS[args.role] ?? []).slice().sort();
+    return (
+      args.role === UserRole.ADMIN
+        ? SYSTEM_PERMISSION_DEFINITIONS.map((permission) => permission.key)
+        : (ROLE_DEFAULT_PERMISSION_KEYS[args.role] ?? [])
+    )
+      .slice()
+      .sort();
   }
 
+  const delegated = await delegatedStoreKeys(args);
   const [rolePermissions, overrides] = await Promise.all([
     prisma.rolePermission.findMany({
       where: {
@@ -118,9 +171,10 @@ export async function getEffectivePermissionKeysForUser(
     }),
   ]);
 
-  const effective = new Set(
-    rolePermissions.map((rolePermission) => rolePermission.permission.key)
-  );
+  const effective = new Set([
+    ...rolePermissions.map((rolePermission) => rolePermission.permission.key),
+    ...(delegated ?? []),
+  ]);
 
   for (const override of overrides) {
     if (override.effect === PermissionEffect.DENY) {
@@ -130,7 +184,12 @@ export async function getEffectivePermissionKeysForUser(
     }
   }
 
-  return Array.from(effective).sort();
+  return Array.from(effective)
+    .filter(
+      (key) =>
+        !delegated || !moduleForPermission(key) || delegated.includes(key),
+    )
+    .sort();
 }
 
 export async function syncSystemPermissions(args: {
@@ -168,10 +227,9 @@ export async function syncSystemPermissions(args: {
     }
 
     let rolePermissionsUpserted = 0;
-    for (const [role, permissionKeys] of Object.entries(ROLE_DEFAULT_PERMISSION_KEYS) as [
-      UserRole,
-      typeof DEFAULT_ADMIN_PERMISSION_KEYS,
-    ][]) {
+    for (const [role, permissionKeys] of Object.entries(
+      ROLE_DEFAULT_PERMISSION_KEYS,
+    ) as [UserRole, typeof DEFAULT_ADMIN_PERMISSION_KEYS][]) {
       for (const permissionKey of permissionKeys) {
         const permissionId = permissionIdsByKey.get(permissionKey);
         if (!permissionId) continue;

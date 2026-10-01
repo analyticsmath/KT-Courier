@@ -84,6 +84,9 @@ const SUCCEEDED_STATUS = "SUCCEEDED" as const;
       });
       if (succeeded) throw new PaymentError("PAYMENT_ORDER_ALREADY_PAID", "Order already has a successful payment.");
 
+      await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${subject.subjectId} FOR UPDATE`;
+      const freshSubject = await resolveOrderPaymentSubject(subject.subjectId, payer.id, tx);
+      if (!freshSubject.amount.equals(subject.amount) || freshSubject.currency !== subject.currency) throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment policy changed. Reload before preparing payment.");
       const payment = await tx.payment.create({
         data: {
           publicReference: newPublicPaymentReference(),

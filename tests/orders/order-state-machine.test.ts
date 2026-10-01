@@ -24,7 +24,7 @@ describe("order state machine", () => {
         from: OrderStatus.PENDING,
         to: OrderStatus.PENDING,
         actorRole: UserRole.CUSTOMER,
-      })
+      }),
     ).toBe(true);
 
     expect(() =>
@@ -32,7 +32,7 @@ describe("order state machine", () => {
         from: OrderStatus.PENDING,
         to: OrderStatus.PENDING,
         actorRole: UserRole.CUSTOMER,
-      })
+      }),
     ).not.toThrow();
   });
 
@@ -43,7 +43,7 @@ describe("order state machine", () => {
         to: OrderStatus.CANCELLED,
         actorRole: UserRole.CUSTOMER,
         context: { actorOwnsOrder: true },
-      })
+      }),
     ).toBe(true);
 
     expect(
@@ -52,7 +52,7 @@ describe("order state machine", () => {
         to: OrderStatus.CANCELLED,
         actorRole: UserRole.CUSTOMER,
         context: { actorOwnsOrder: false },
-      })
+      }),
     ).toBe(false);
   });
 
@@ -63,7 +63,7 @@ describe("order state machine", () => {
         to: OrderStatus.CANCELLED,
         actorRole: UserRole.CUSTOMER,
         context: { actorOwnsOrder: true },
-      })
+      }),
     ).toBe(false);
   });
 
@@ -74,7 +74,7 @@ describe("order state machine", () => {
         to: OrderStatus.CANCELLED,
         actorRole: UserRole.STORE,
         context: { actorOwnsStore: true },
-      })
+      }),
     ).toBe(false);
   });
 
@@ -88,7 +88,7 @@ describe("order state machine", () => {
           actorIsAssignedDriver: true,
           hasAcceptedAssignment: true,
         },
-      })
+      }),
     ).toBe(true);
   });
 
@@ -102,7 +102,7 @@ describe("order state machine", () => {
           actorIsAssignedDriver: false,
           hasAcceptedAssignment: true,
         },
-      })
+      }),
     ).toBe(false);
   });
 
@@ -116,7 +116,7 @@ describe("order state machine", () => {
           actorIsAssignedDriver: true,
           hasAcceptedAssignment: true,
         },
-      })
+      }),
     ).toBe(false);
   });
 
@@ -126,7 +126,7 @@ describe("order state machine", () => {
         from: OrderStatus.PENDING,
         to: OrderStatus.CONFIRMED,
         actorRole: UserRole.ADMIN,
-      })
+      }),
     ).toBe(true);
 
     expect(
@@ -134,7 +134,7 @@ describe("order state machine", () => {
         from: OrderStatus.CONFIRMED,
         to: OrderStatus.CANCELLED,
         actorRole: UserRole.ADMIN,
-      })
+      }),
     ).toBe(false);
 
     expect(
@@ -143,7 +143,7 @@ describe("order state machine", () => {
         to: OrderStatus.CANCELLED,
         actorRole: UserRole.ADMIN,
         context: { reason: "Customer requested admin cancellation." },
-      })
+      }),
     ).toBe(true);
   });
 
@@ -153,7 +153,7 @@ describe("order state machine", () => {
         from: OrderStatus.IN_TRANSIT,
         to: OrderStatus.FAILED,
         actorRole: UserRole.ADMIN,
-      })
+      }),
     ).toThrow(OrderTransitionError);
 
     expect(() =>
@@ -162,7 +162,7 @@ describe("order state machine", () => {
         to: OrderStatus.FAILED,
         actorRole: UserRole.ADMIN,
         context: { reason: "Recipient unreachable after escalation." },
-      })
+      }),
     ).not.toThrow();
   });
 
@@ -173,7 +173,7 @@ describe("order state machine", () => {
         to: OrderStatus.IN_TRANSIT,
         actorRole: UserRole.SUPER_ADMIN,
         context: { allowAdminOverride: true, reason: "Correction" },
-      })
+      }),
     ).toBe(false);
   });
 
@@ -184,7 +184,7 @@ describe("order state machine", () => {
         to: OrderStatus.CONFIRMED,
         actorRole: UserRole.CUSTOMER,
         context: { actorOwnsOrder: true },
-      })
+      }),
     ).toBe(false);
   });
 
@@ -198,7 +198,7 @@ describe("order state machine", () => {
           hasAcceptedAssignment: true,
           hasValidDeliveryOtp: true,
         },
-      })
+      }),
     ).toEqual([
       OrderStatus.DELIVERY_ATTEMPTED,
       OrderStatus.DELIVERED,
@@ -219,7 +219,38 @@ describe("order state machine", () => {
           allowAdminOverride: true,
           reason: "Should not matter.",
         },
-      })
+      }),
     ).toEqual([]);
   });
+});
+
+it("permits a verified business employee's cancellation while retaining the CUSTOMER role", () => {
+  expect(
+    canTransitionOrderStatus({
+      from: OrderStatus.CONFIRMED,
+      to: OrderStatus.CANCELLED,
+      actorRole: UserRole.CUSTOMER,
+      context: {
+        actorOwnsOrder: false,
+        actorOwnsStore: true,
+        cancellationWindowOpen: true,
+      },
+    }),
+  ).toBe(true);
+  expect(
+    canTransitionOrderStatus({
+      from: OrderStatus.CONFIRMED,
+      to: OrderStatus.CANCELLED,
+      actorRole: UserRole.CUSTOMER,
+      context: { actorOwnsOrder: false, actorOwnsStore: false },
+    }),
+  ).toBe(false);
+  expect(
+    canTransitionOrderStatus({
+      from: OrderStatus.PICKED_UP,
+      to: OrderStatus.CANCELLED,
+      actorRole: UserRole.CUSTOMER,
+      context: { actorOwnsOrder: false, actorOwnsStore: true },
+    }),
+  ).toBe(false);
 });

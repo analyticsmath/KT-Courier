@@ -29,6 +29,7 @@ export interface DeliveryQuoteInput {
 export interface CampaignVersionCandidate {
   id: string;
   campaignId: string;
+  ownerStoreId?: string | null;
   publicReference: string;
   applicationMethod: 'AUTOMATIC' | 'COUPON_CODE';
   discountScope: DiscountScope;
@@ -182,6 +183,7 @@ export async function evaluateMarketplacePromotions(
     if (candidate.discountScope === 'DELIVERY') {
       let deliveryMatches = false;
       for (const quote of input.deliveryQuotes) {
+        if (candidate.ownerStoreId && quote.storeReference !== candidate.ownerStoreId) continue;
         const lineCtx: LineContext = {
           storeId: quote.storeReference,
           categoryId: 'delivery',
@@ -203,6 +205,7 @@ export async function evaluateMarketplacePromotions(
     } else {
       let hasMatches = false;
       for (const group of input.storeGroups) {
+        if (candidate.ownerStoreId && group.storeReference !== candidate.ownerStoreId) continue;
         const deliveryQuote = input.deliveryQuotes.find((q) => q.storeReference === group.storeReference);
         for (const line of group.lines) {
           const lineCtx: LineContext = {
