@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isVercelProxyRuntime } from "@/lib/config/runtime-surface";
 
 export const SESSION_COOKIE_NAME = "kt_session";
 export const HOST_SESSION_COOKIE_NAME = "__Host-kt_session";
@@ -60,7 +61,7 @@ export function proxy(request: NextRequest): NextResponse {
   // so production routes use the healthy Railway runtime. Preview homepage
   // assets and rendering stay on the branch for visual review.
   const previewHome = process.env.VERCEL_ENV === "preview" && (pathname === "/" || pathname.startsWith("/_next/") || pathname.startsWith("/media/") || pathname.startsWith("/images/"));
-  if (process.env.VERCEL && !process.env.DATABASE_URL?.trim() && !previewHome) {
+  if (isVercelProxyRuntime() && !previewHome) {
     const upstream = new URL(pathname + request.nextUrl.search, RAILWAY_PRODUCTION_ORIGIN);
     return NextResponse.rewrite(upstream);
   }
