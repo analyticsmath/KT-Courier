@@ -72,6 +72,7 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
     }
     if (cod.status === "COLLECTED" || cod.status === "RECONCILED") throw new CashOnDeliveryError("COD_ALREADY_COLLECTED", "Cash is already collected.");
     if (cod.status !== "READY_FOR_COLLECTION" || cod.order.currentDriverProfileId !== input.collectorDriverId) throw new CashOnDeliveryError("COD_COLLECTOR_NOT_AUTHORIZED", "Collector is not assigned to this COD order.");
+    if (!["IN_TRANSIT", "DELIVERY_ATTEMPTED", "DELIVERED", "COMPLETED"].includes(cod.order.status)) throw new CashOnDeliveryError("COD_DELIVERY_NOT_READY", "Cash can only be collected after pickup during delivery.");
     if (cod.policyMode === "DEPOSIT_PLUS_COD") {
       const deposit = cod.paymentId ? await tx.payment.findUnique({ where: { id: cod.paymentId } }) : null;
       if (!deposit || deposit.status !== "SUCCEEDED" || !deposit.amount.equals(cod.digitalRequired) || !cod.digitalPaid.equals(cod.digitalRequired)) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Verified digital deposit is required before cash collection.");
@@ -258,4 +259,14 @@ export async function recordCashCollectionFailure(input: { orderId: string; coll
     if (prior) { if (prior.requestHash !== requestHash) throw new CashOnDeliveryError("COD_COLLECTION_CONFLICT", "Failure operation conflicts with existing evidence."); return cod; }
     return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { status: "COLLECTION_FAILED", failureReasonCode: input.reasonCode, version: { increment: 1 }, events: { create: { operationId: input.operationId, requestHash, eventType: "COLLECTION_FAILED", actorUserId: input.actorUserId, safeReasonCode: input.reasonCode } } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+/** The delivery transaction must check money before consuming the OTP or proof. */
+export async function assertCashReadyForDeliveryWithinTransaction(tx: Prisma.TransactionClient, orderId: string, driverProfileId: string) {
+  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "orderId" = ${orderId} FOR UPDATE`);
+  if (!rows.length) return;
+  const cod = await tx.cashOnDelivery.findUnique({ where: { orderId } });
+  if (!cod || !cod.digitalPaid.equals(cod.digitalRequired) || !cod.cashCollected.equals(cod.cashObligation) || cod.collectorDriverId !== driverProfileId || !["COLLECTED", "RECONCILED", "UNDER_RECONCILIATION"].includes(cod.status)) {
+    throw new CashOnDeliveryError("COD_COLLECTION_REQUIRED", "Record the exact required cash and verified online deposit before completing this delivery.");
+  }
 }

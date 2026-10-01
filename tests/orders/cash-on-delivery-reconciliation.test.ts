@@ -188,7 +188,7 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
         policyMode: "FULL_COD",
         cashObligation: new Prisma.Decimal("500.00"),
         cashCollected: new Prisma.Decimal("0.00"),
-        order: { currentDriverProfileId: "drv_001" },
+        order: { currentDriverProfileId: "drv_001", status: "IN_TRANSIT" },
       };
 
       (prisma.cashOnDelivery.findUnique as any).mockResolvedValue(mockCod);
