@@ -31,6 +31,8 @@ export default async function StoreOrderDetailPage({
   const order = await getOrder(user, id, true);
   if (!order) notFound();
   const access = await storeAccess(user.id);
+  const canPay =
+    access.owner || membershipAllows(access.permissions, "finance");
   const canChat = access.owner || membershipAllows(access.permissions, "chat");
   const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(
     order.status as (typeof CUSTOMER_CANCELLABLE_STATUSES)[number],
@@ -129,6 +131,16 @@ export default async function StoreOrderDetailPage({
           ) : null}
         </dl>
       </OperationalPanel>
+      {canPay && (
+        <OperationalPanel title="Payment">
+          <Link
+            className="inline-flex min-h-11 items-center border rounded-[var(--eo-radius-control)] px-4"
+            href={`/orders/${encodeURIComponent(order.orderNumber)}/payment`}
+          >
+            Review payment
+          </Link>
+        </OperationalPanel>
+      )}
       {canChat && (
         <OperationalPanel title="Delivery chat">
           <Conversations scope="STORE" deliveryOrderId={order.id} />

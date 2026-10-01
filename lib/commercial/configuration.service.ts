@@ -1,3 +1,4 @@
+import { resolvePaymentPolicy, PaymentPolicyError, type PaymentPolicyContext } from "@/lib/payments/payment-policy.service";
 import { CommercialSurchargeCalculationType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
@@ -295,35 +296,9 @@ export interface ActivePaymentMethodPolicy {
   policyEvidence: unknown;
 }
 
-export async function getActivePaymentMethodPolicy(input: {
-  businessModuleId?: string | null;
-  storeId?: string | null;
-  deliveryServiceId?: string | null;
-  orderType?: string | null;
-  now?: Date;
-} = {}): Promise<ActivePaymentMethodPolicy | null> {
-  const at = input.now ?? new Date();
-  const policy = await prisma.paymentMethodPolicy.findFirst({
-    where: {
-      status: "ACTIVE",
-      effectiveFrom: { lte: at },
-      OR: [{ effectiveTo: null }, { effectiveTo: { gt: at } }],
-      ...(input.businessModuleId ? { OR: [{ businessModuleId: null }, { businessModuleId: input.businessModuleId }] } : {}),
-      ...(input.storeId ? { OR: [{ storeId: null }, { storeId: input.storeId }] } : {}),
-      ...(input.deliveryServiceId ? { OR: [{ deliveryServiceId: null }, { deliveryServiceId: input.deliveryServiceId }] } : {}),
-      ...(input.orderType ? { OR: [{ orderType: null }, { orderType: input.orderType }] } : {}),
-    },
-    orderBy: [{ versionNumber: "desc" }],
-  });
-  if (!policy) return null;
-
-  return Object.freeze({
-    id: policy.id,
-    versionNumber: policy.versionNumber,
-    mode: policy.mode,
-    depositAmount: policy.depositAmount,
-    depositPercent: policy.depositPercent,
-    maximumCodAmount: policy.maximumCodAmount,
-    policyEvidence: policy.policyEvidence,
-  });
+export async function getActivePaymentMethodPolicy(input: PaymentPolicyContext & { now?: Date } = {}): Promise<ActivePaymentMethodPolicy | null> {
+  let policy;
+  try { policy = await resolvePaymentPolicy(input, input.now); }
+  catch (error) { if (error instanceof PaymentPolicyError && error.code === "PAYMENT_POLICY_NOT_CONFIGURED") return null; throw error; }
+  return Object.freeze({ id: policy.id, versionNumber: policy.versionNumber, mode: policy.mode, depositAmount: policy.depositAmount, depositPercent: policy.depositPercent, maximumCodAmount: policy.maximumCodAmount, policyEvidence: policy.policyEvidence });
 }

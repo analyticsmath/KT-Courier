@@ -48,6 +48,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "store-chat", label: "Messages", href: "/store/chat", icon: "support", group: "Account", contexts: C.STORE },
   { id: "store-reviews", label: "Reviews", href: "/store/reviews", icon: "clipboard", group: "Account", contexts: C.STORE },
   { id: "driver-cash", label: "Cash collections", href: "/driver/cash", icon: "wallet", group: "Finance", contexts: C.DRIVER },
+  { id: "admin-payment-policies", label:"Payment policies", href:"/admin/payment-policies", icon:"card", group:"Finance", requiredPermissions:["cod_operations.manage"], contexts:C.ADMIN },
   { id: "admin-cash-deposits", label: "Cash deposits", href: "/admin/cash-deposits", icon: "wallet", group: "Finance", requiredPermissions: ["cod_operations.manage"], contexts: C.ADMIN },
   { id: "driver-messages", label: "Messages", href: "/driver/messages", icon: "support", group: "Account", contexts: C.DRIVER },
   { id: "admin-support-chat", label: "Support inbox", href: "/admin/support-chat", icon: "support", group: "Operations", requiredPermissions:[PERMISSIONS.CLAIMS_INVESTIGATE],contexts:C.ADMIN },

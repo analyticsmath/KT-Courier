@@ -49,6 +49,34 @@ export function PublicDeliveryQuoteForm({
   const router = useRouter();
   const [services, setServices] = useState<DeliveryConfiguration[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [methods, setMethods] = useState<{
+    quoteId: string;
+    items: { mode: string; digitalRequired: string; cashRequired: string }[];
+  } | null>(null);
+  const [methodError, setMethodError] = useState("");
+  useEffect(() => {
+    if (!quote || !signedIn) return;
+    const controller = new AbortController();
+    fetch(`/api/public/delivery-quotes/${quote.id}/payment-methods`, {
+      headers: business ? { "X-KT-Workspace": "STORE" } : {},
+      signal: controller.signal,
+    })
+      .then(async (r) => {
+        const b = await r.json();
+        if (!r.ok) throw Error(b.error);
+        if (!controller.signal.aborted) {
+          setMethods({ quoteId: quote.id, items: b.methods });
+          setMethodError("");
+        }
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted)
+          setMethodError(
+            e instanceof Error ? e.message : "Payment methods unavailable.",
+          );
+      });
+    return () => controller.abort();
+  }, [quote, signedIn, business]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pickup, setPickup] = useState<Address>(
@@ -298,6 +326,7 @@ export function PublicDeliveryQuoteForm({
                         recipientName: f.get("recipientName"),
                         recipientPhone: f.get("recipientPhone"),
                         parcelDescription: f.get("parcelDescription"),
+                        paymentMethod: f.get("paymentMethod") || "DIGITAL_ONLY",
                         ...(scheduled
                           ? {
                               scheduledFor: new Date(
@@ -367,6 +396,31 @@ export function PublicDeliveryQuoteForm({
                 <p className="text-sm">
                   Scheduling keeps this service&apos;s quoted tariff.
                 </p>
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="booking-payment-method">Payment method</Label>
+                <select
+                  id="booking-payment-method"
+                  name="paymentMethod"
+                  className="w-full min-h-12 border-b"
+                  defaultValue="DIGITAL_ONLY"
+                >
+                  <option value="DIGITAL_ONLY">
+                    Full online payment · R {quote.total}
+                  </option>
+                  {(methods?.quoteId === quote.id ? methods.items : [])
+                    .filter((m) => m.mode !== "DIGITAL_ONLY")
+                    .map((m) => (
+                      <option key={m.mode} value={m.mode}>
+                        Online R {m.digitalRequired} + cash R {m.cashRequired}
+                      </option>
+                    ))}
+                </select>
+                {methodError && (
+                  <p role="alert" className="text-sm">
+                    {methodError}
+                  </p>
+                )}
               </div>
               <Button type="submit" loading={busy}>
                 Book this delivery

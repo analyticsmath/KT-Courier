@@ -1,3 +1,4 @@
+import { PaymentPolicyError } from "@/lib/payments/payment-policy.service";
 import { NextResponse, type NextRequest } from "next/server";
 import { PlatformError } from "./contracts";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
@@ -13,6 +14,11 @@ export function json(body: unknown, status = 200) {
   });
 }
 export function failure(error: unknown) {
+  if (error instanceof PaymentPolicyError)
+    return json(
+      { error: error.message, code: error.code },
+      error.code === "PAYMENT_POLICY_CONFLICT" ? 409 : 422,
+    );
   if (error instanceof PlatformError)
     return json({ error: error.message, code: error.code }, error.status);
   if (

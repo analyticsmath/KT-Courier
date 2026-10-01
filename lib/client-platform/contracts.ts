@@ -101,6 +101,9 @@ export const QuoteBookingSchema = z
     pickupContactPhone: z.string().trim().min(7).max(30),
     recipientName: z.string().trim().min(2).max(150),
     recipientPhone: z.string().trim().min(7).max(30),
+    paymentMethod: z
+      .enum(["DIGITAL_ONLY", "FULL_COD", "DEPOSIT_PLUS_COD"])
+      .optional(),
     parcelDescription: z.string().trim().max(500).optional(),
     scheduledFor: z.iso
       .datetime()

@@ -85,14 +85,29 @@ export async function createOrder(
       quoteInputHash,
       storeId,
     );
-    const committedPayment = input.paymentMethod
-      ? await resolvePaymentBreakdown({
-          storeId,
-          orderType: input.deliveryType,
-          authoritativeTotal: quote.total.toFixed(2),
-        })
-      : null;
-    if (input.paymentMethod && committedPayment!.mode !== input.paymentMethod)
+    const ruleSnapshot = quote.ruleSnapshot as {
+      serviceKey?: string;
+      configurationId?: string;
+    };
+    const committedPayment =
+      input.paymentMethod && input.paymentMethod !== "DIGITAL_ONLY"
+        ? await resolvePaymentBreakdown(
+            {
+              storeId,
+              orderType: input.deliveryType,
+              deliveryServiceId: ruleSnapshot.configurationId,
+              deliveryServiceKey: ruleSnapshot.serviceKey,
+              provinces: [
+                input.pickupAddress.province,
+                input.dropoffAddress.province,
+              ].filter((v): v is string => !!v),
+              regionId: quote.destinationRegionId,
+              authoritativeTotal: quote.total.toFixed(2),
+            },
+            tx,
+          )
+        : null;
+    if (committedPayment && committedPayment.mode !== input.paymentMethod)
       throw new Error("PAYMENT_METHOD_NOT_ALLOWED");
     const pickup = await tx.address.create({
       data: {

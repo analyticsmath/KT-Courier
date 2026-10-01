@@ -116,6 +116,8 @@ export type CustomerPaymentStatusDto = Readonly<{
 }>;
 
 export type CustomerPaymentPageDto = Readonly<{
+  canCheckout?: boolean;
+  checkoutBlockReason?: string;
   orderId: string;
   orderReference: string;
   amount: string;
