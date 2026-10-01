@@ -74,6 +74,34 @@ describe("request origin validation", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts explicit production website origins behind the Railway proxy", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ALLOWED_ORIGINS", "https://www.ktcouriers.com,https://ktcouriers.com");
+    for (const origin of ["https://www.ktcouriers.com", "https://ktcouriers.com"]) {
+      expect(validateSameOriginRequest(request(
+        { origin, host: "web-production-9f8bb.up.railway.app" },
+        "https://web-production-9f8bb.up.railway.app/api/public/delivery-quotes",
+      )).ok).toBe(true);
+    }
+  });
+
+  it("does not trust spoofed proxy headers or website lookalikes in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ALLOWED_ORIGINS", "https://www.ktcouriers.com,https://ktcouriers.com");
+    for (const origin of [
+      "https://www.ktcouriers.com.attacker.invalid",
+      "https://attacker.invalid",
+      "http://www.ktcouriers.com",
+    ]) {
+      expect(validateSameOriginRequest(request({
+        origin,
+        host: "attacker.invalid",
+        "x-forwarded-host": "attacker.invalid",
+        "x-forwarded-proto": "https",
+      }, "https://attacker.invalid/api/test"))).toMatchObject({ ok: false, status: 403 });
+    }
+  });
+
   it("allows missing Origin and Referer for Phase 1 compatibility", () => {
     const result = validateSameOriginRequest(request());
 
