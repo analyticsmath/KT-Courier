@@ -44,6 +44,11 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "customer-profile", label: "Account settings", href: "/account/profile", icon: "people", group: "Account", contexts: C.CUSTOMER },
   { id: "customer-support", label: "Support", href: "/account/support", icon: "support", group: "Account", contexts: C.CUSTOMER },
 
+  { id: "customer-reviews", label: "My reviews", href: "/account/reviews", icon: "clipboard", group: "Account", contexts: C.CUSTOMER },
+  { id: "store-chat", label: "Messages", href: "/store/chat", icon: "support", group: "Account", contexts: C.STORE },
+  { id: "store-reviews", label: "Reviews", href: "/store/reviews", icon: "clipboard", group: "Account", contexts: C.STORE },
+  { id: "driver-messages", label: "Messages", href: "/driver/messages", icon: "support", group: "Account", contexts: C.DRIVER },
+  { id: "admin-support-chat", label: "Support inbox", href: "/admin/support-chat", icon: "support", group: "Operations", requiredPermissions:[PERMISSIONS.CLAIMS_INVESTIGATE],contexts:C.ADMIN },
   { id: "store-workspace", label: "Workspace", href: "/store/workspace", icon: "home", group: "Workspace", contexts: C.STORE },
   { id: "store-employees", label: "Employees", href: "/store/employees", icon: "people", group: "Account", contexts: C.STORE },
   { id: "store-overview", label: "Overview", href: "/store", icon: "home", group: "Workspace", exact: true, mobilePriority: 1, contexts: C.STORE },

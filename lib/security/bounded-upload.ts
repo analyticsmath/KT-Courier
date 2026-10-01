@@ -50,7 +50,7 @@ export async function parseBoundedMultipartRequest(
   const declaredLength = request.headers.get("content-length");
   if (declaredLength) {
     const parsed = parseInt(declaredLength, 10);
-    if (isNaN(parsed) || parsed > options.maxSizeBytes) {
+    if (!/^\d+$/.test(declaredLength) || !Number.isSafeInteger(parsed) || parsed > options.maxSizeBytes) {
       return {
         errorResponse: NextResponse.json(
           { error: "Upload request body exceeds maximum allowed size.", code: "PAYLOAD_TOO_LARGE" },
@@ -72,8 +72,16 @@ export async function parseBoundedMultipartRequest(
 
   let formData: FormData;
   try {
-    formData = await request.formData();
-  } catch {
+    if(!request.body)throw new BoundedUploadError("EMPTY_PAYLOAD","An upload body is required.",422);
+    const reader=request.body.getReader();
+    const chunks:Uint8Array[]=[];
+    let consumed=0;
+    try{for(;;){const chunk=await reader.read();if(chunk.done)break;consumed+=chunk.value.byteLength;if(consumed>options.maxSizeBytes){await reader.cancel().catch(()=>undefined);throw new BoundedUploadError("PAYLOAD_TOO_LARGE","Upload request body exceeds maximum allowed size.",413);}chunks.push(chunk.value);}}
+    finally{reader.releaseLock();}
+    const bounded=new Request(request.url,{method:"POST",headers:{"content-type":contentType},body:Buffer.concat(chunks)});
+    formData = await bounded.formData();
+  } catch(error) {
+    if(error instanceof BoundedUploadError)return {errorResponse:NextResponse.json({error:error.message,code:error.code},{status:error.status})};
     return {
       errorResponse: NextResponse.json(
         { error: "Multipart form data could not be parsed.", code: "INVALID_MULTIPART" },

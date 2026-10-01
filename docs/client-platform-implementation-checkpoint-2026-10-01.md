@@ -18,7 +18,9 @@ Rebuilt in the current checkout: database foundations, verified-email employee i
 
 Validation at this checkpoint: 65 focused tests passed (quotes, employee authorization and invitations, delegated permissions, existing security foundations). The previous full TypeScript run passed before final UI and formatting edits; it is being rerun. Production deployment and the new migration have **not** been applied.
 
-Still to rebuild/finish: persistent delivery/support chat, avatars and reviews, driver deposit workflow, scoped COD admin configuration, expense export, promotion drafts/artwork, superuser oversight, launch blockers, integration verification and deployment. No claim of customer readiness is made.
+Rebuilt next: persistent separate delivery/support conversations, current-assignment driver checks, per-message idempotency, bounded history pagination, completed-delivery reviews and business replies, private profile images, browser-session image access, metadata-stripping raster normalization, marketing artwork upload and safe sharing, and quote/invitation continuation through login/signup/email verification. Actual stream size is checked before multipart parsing. Business courier cancellation retains the employee's real role and identity. The affected suite now passes 150 tests; the latest full TypeScript and lint checks pass.
+
+Still to rebuild/finish: driver deposit workflow, scoped COD admin configuration, expense export, promotion drafts and full activation, superuser oversight, launch blockers, integration verification and deployment. No claim of customer readiness is made.
 
 ## Historical local implementation (lost checkout)
 

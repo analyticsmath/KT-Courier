@@ -48,6 +48,16 @@ export const DeliveryConfigurationSchema = z
   })
   .strict()
   .superRefine((v, c) => {
+    if (
+      v.active &&
+      v.stableKey === "CLIENT_EXPRESS" &&
+      SIZES.some((s) => Number(v.tariffs[s].baseFee) <= 0)
+    )
+      c.addIssue({
+        code: "custom",
+        path: ["tariffs"],
+        message: "Express requires a confirmed fee for every parcel size.",
+      });
     if (v.active)
       for (const s of SIZES)
         if (

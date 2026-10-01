@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db/prisma";
 import { getEffectivePermissionKeysForUser } from "@/lib/auth/permissions";
 import type { UserRole } from "@/types/db";
 import {
@@ -25,5 +26,36 @@ export async function getProtectedNavigationForUser(args: {
     role: args.role,
   });
 
-  return projectProtectedNavigation(args.context, new Set(effectivePermissionKeys));
+  const projection = projectProtectedNavigation(
+    args.context,
+    new Set(effectivePermissionKeys),
+  );
+  if (
+    args.context === "CUSTOMER" &&
+    (await prisma.storeEmployeeMembership.count({
+      where: {
+        userId: args.userId,
+        status: "ACTIVE",
+        store: { status: "ACTIVE" },
+      },
+    }))
+  )
+    projection.groups = [
+      ...projection.groups,
+      {
+        id: "business",
+        label: "Business",
+        items: [
+          {
+            id: "employee-workspace",
+            label: "Business workspace",
+            href: "/store/workspace",
+            icon: "store",
+            group: "Business",
+            contexts: ["CUSTOMER"],
+          },
+        ],
+      },
+    ];
+  return projection;
 }

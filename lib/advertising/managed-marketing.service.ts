@@ -395,11 +395,11 @@ export class ManagedMarketingService {
     return { pack, resolved };
   }
 
-  private async validateCreativeEntitlement(storeId: string, actorUserId: string, input: { source: "PRIVATE_MEDIA" | "CATALOG_MEDIA"; mediaReference: string }) {
+  private async validateCreativeEntitlement(storeId: string, input: { source: "PRIVATE_MEDIA" | "CATALOG_MEDIA"; mediaReference: string }) {
     if (input.source === "PRIVATE_MEDIA") {
       const asset = await (prisma as any).privateMediaObject.findUnique({ where: { publicReference: input.mediaReference } });
-      if (!asset || asset.ownerType !== "STORE" || asset.ownerId !== storeId || !["READY", "RETAINED"].includes(asset.status) || asset.deletedAt) throw new ManagedMarketingRequestError("MANAGED_MARKETING_CREATIVE_FORBIDDEN", "Private creative is not an entitled available store asset.");
-      if (asset.createdByUserId !== actorUserId) throw new ManagedMarketingRequestError("MANAGED_MARKETING_CREATIVE_FORBIDDEN", "Private creative must have been uploaded by the requesting store actor.");
+      if (!asset || asset.ownerType !== "STORE" || asset.ownerId !== storeId || asset.purpose !== "OTHER" || !["image/jpeg","image/png","image/webp"].includes(asset.detectedMimeType) || !["READY", "RETAINED"].includes(asset.status) || asset.deletedAt) throw new ManagedMarketingRequestError("MANAGED_MARKETING_CREATIVE_FORBIDDEN", "Private creative is not an entitled available store asset.");
+
       return { privateMediaObjectId: asset.id, catalogMediaAssetId: null };
     }
     const asset = await (prisma as any).catalogMediaAsset.findUnique({ where: { publicReference: input.mediaReference } });
@@ -494,7 +494,7 @@ export class ManagedMarketingService {
   async attachCreative(actor: ManagedMarketingRequestActor, reference: string, input: { source: "PRIVATE_MEDIA" | "CATALOG_MEDIA"; mediaReference: string; role?: string }) {
     const { store, request } = await this.getOwnedRequest(actor, reference, PERMISSIONS.MANAGED_MARKETING_REQUESTS_MANAGE_OWN);
     this.assertEditable(request);
-    const target = await this.validateCreativeEntitlement(store.id, actor.actorUserId, input);
+    const target = await this.validateCreativeEntitlement(store.id, input);
     const duplicate = await (prisma as any).managedMarketingRequestCreative.findFirst({ where: { managedMarketingRequestId: request.id, ...(target.privateMediaObjectId ? { privateMediaObjectId: target.privateMediaObjectId } : { catalogMediaAssetId: target.catalogMediaAssetId }) } });
     if (duplicate) throw new ManagedMarketingRequestError("MANAGED_MARKETING_CREATIVE_ALREADY_ATTACHED", "Creative is already attached to this request.");
     const creative = await (prisma as any).managedMarketingRequestCreative.create({ data: { publicReference: ref("MMRC"), managedMarketingRequestId: request.id, source: input.source, ...target, role: input.role?.trim() || "CREATIVE", createdByUserId: actor.actorUserId } });
@@ -546,7 +546,7 @@ export class ManagedMarketingService {
         },
         creatives: {
           include: {
-            privateMediaObject: { select: { id: true, publicReference: true, ownerType: true, ownerId: true, status: true, deletedAt: true } },
+            privateMediaObject: { select: { id: true, publicReference: true, ownerType: true, ownerId: true, purpose: true, detectedMimeType: true, status: true, deletedAt: true } },
             catalogMediaAsset: { select: { id: true, publicReference: true, ownerStoreId: true, purpose: true, status: true } },
           },
           orderBy: { createdAt: "asc" },
@@ -569,7 +569,7 @@ export class ManagedMarketingService {
     for (const creative of request.creatives) {
       const privateAsset = creative.privateMediaObject;
       const publicAsset = creative.catalogMediaAsset;
-      const privateValid = privateAsset && privateAsset.ownerType === "STORE" && privateAsset.ownerId === request.storeId && ["READY", "RETAINED"].includes(privateAsset.status) && !privateAsset.deletedAt;
+      const privateValid = privateAsset && privateAsset.ownerType === "STORE" && privateAsset.ownerId === request.storeId && privateAsset.purpose === "OTHER" && ["image/jpeg","image/png","image/webp"].includes(privateAsset.detectedMimeType) && ["READY", "RETAINED"].includes(privateAsset.status) && !privateAsset.deletedAt;
       const publicValid = publicAsset && publicAsset.ownerStoreId === request.storeId && publicAsset.status === "READY" && ["PRODUCT_IMAGE", "VARIANT_IMAGE", "BRAND_LOGO"].includes(publicAsset.purpose);
       if (!privateValid && !publicValid) throw new ManagedMarketingRequestError("MANAGED_MARKETING_REVIEW_PREREQUISITE_INVALID", "Committed creative evidence is unavailable or no longer entitled to the requesting store.");
     }

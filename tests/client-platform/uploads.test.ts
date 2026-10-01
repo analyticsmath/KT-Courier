@@ -1,0 +1,9 @@
+import { describe,it,expect } from "vitest";
+import { NextRequest } from "next/server";
+import { parseBoundedMultipartRequest } from "@/lib/security/bounded-upload";
+describe("bounded upload stream",()=>{
+ it("parses a valid single-file form",async()=>{const form=new FormData();form.append("file",new Blob([new Uint8Array([1,2,3])],{type:"image/png"}),"image.png");const req=new NextRequest("https://example.test/upload",{method:"POST",body:form});const result=await parseBoundedMultipartRequest(req,{maxSizeBytes:4096,maxFiles:1,allowedMimeTypes:["image/png"]});expect(result.errorResponse).toBeUndefined();expect(result.result?.files.file.size).toBe(3);});
+ it("rejects oversized actual streams without a declared content length",async()=>{const req=new NextRequest("https://example.test/upload",{method:"POST",headers:{"Content-Type":"multipart/form-data; boundary=boundary"},body:Buffer.alloc(4097)});const result=await parseBoundedMultipartRequest(req,{maxSizeBytes:4096});expect(result.errorResponse?.status).toBe(413);});
+ it("rejects actual overflow even with a false small content length",async()=>{const req=new NextRequest("https://example.test/upload",{method:"POST",headers:{"Content-Type":"multipart/form-data; boundary=boundary","Content-Length":"1"},body:Buffer.alloc(4097)});const result=await parseBoundedMultipartRequest(req,{maxSizeBytes:4096});expect(result.errorResponse?.status).toBe(413);});
+ it("rejects a second file and unsupported document types",async()=>{const form=new FormData();form.append("file",new Blob(["file"],{type:"application/pdf"}),"document.pdf");const result=await parseBoundedMultipartRequest(new NextRequest("https://example.test/upload",{method:"POST",body:form}),{maxSizeBytes:4096,maxFiles:1,allowedMimeTypes:["image/png"]});expect(result.errorResponse?.status).toBe(415);});
+});

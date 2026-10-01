@@ -1,4 +1,8 @@
 "use client";
+import {
+  safeAuthReturnUrl,
+  verificationReturnUrl,
+} from "@/lib/auth/return-url";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -27,13 +31,14 @@ interface FieldErrors {
 export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const returnUrl = safeAuthReturnUrl(searchParams.get("returnUrl"));
   const roleParam = searchParams.get("role")?.toLowerCase();
   const [accountType, setAccountType] = useState<AccountType>(
     roleParam === "driver"
       ? "driver"
       : roleParam === "store" || roleParam === "business"
-      ? "store"
-      : "customer"
+        ? "store"
+        : "customer",
   );
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -57,24 +62,24 @@ export function SignupForm() {
             confirmPassword: form.get("confirm_password") as string,
           }
         : accountType === "driver"
-        ? {
-            accountType: "DRIVER",
-            fullName: form.get("full_name") as string,
-            email: form.get("email") as string,
-            phone: form.get("phone") as string,
-            password: form.get("password") as string,
-            confirmPassword: form.get("confirm_password") as string,
-          }
-        : {
-            accountType: "STORE",
-            storeName: form.get("business_name") as string,
-            contactPerson: form.get("contact_person") as string,
-            email: form.get("email") as string,
-            phone: form.get("phone") as string,
-            businessAddress: form.get("business_address") as string,
-            password: form.get("password") as string,
-            confirmPassword: form.get("confirm_password") as string,
-          };
+          ? {
+              accountType: "DRIVER",
+              fullName: form.get("full_name") as string,
+              email: form.get("email") as string,
+              phone: form.get("phone") as string,
+              password: form.get("password") as string,
+              confirmPassword: form.get("confirm_password") as string,
+            }
+          : {
+              accountType: "STORE",
+              storeName: form.get("business_name") as string,
+              contactPerson: form.get("contact_person") as string,
+              email: form.get("email") as string,
+              phone: form.get("phone") as string,
+              businessAddress: form.get("business_address") as string,
+              password: form.get("password") as string,
+              confirmPassword: form.get("confirm_password") as string,
+            };
 
     try {
       const res = await fetch("/api/auth/signup", {
@@ -93,7 +98,7 @@ export function SignupForm() {
         return;
       }
 
-      router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+      router.push(verificationReturnUrl(data.email, returnUrl));
     } catch {
       setRootError("Something went wrong. Please try again.");
     } finally {
@@ -111,7 +116,9 @@ export function SignupForm() {
           type="button"
         >
           <span className={styles.accountChoiceTitle}>Customer</span>
-          <span className={styles.accountChoiceText}>Send deliveries and manage your account.</span>
+          <span className={styles.accountChoiceText}>
+            Send deliveries and manage your account.
+          </span>
         </button>
         <button
           aria-pressed={accountType === "store"}
@@ -120,7 +127,9 @@ export function SignupForm() {
           type="button"
         >
           <span className={styles.accountChoiceTitle}>Business</span>
-          <span className={styles.accountChoiceText}>Manage delivery requests for your store or business.</span>
+          <span className={styles.accountChoiceText}>
+            Manage delivery requests for your store or business.
+          </span>
         </button>
         <button
           aria-pressed={accountType === "driver"}
@@ -129,11 +138,17 @@ export function SignupForm() {
           type="button"
         >
           <span className={styles.accountChoiceTitle}>Courier Driver</span>
-          <span className={styles.accountChoiceText}>Drive and deliver with the KT courier fleet.</span>
+          <span className={styles.accountChoiceText}>
+            Drive and deliver with the KT courier fleet.
+          </span>
         </button>
       </div>
 
-      <form className={`${styles.formCard} ${styles.formStack}`} noValidate onSubmit={handleSubmit}>
+      <form
+        className={`${styles.formCard} ${styles.formStack}`}
+        noValidate
+        onSubmit={handleSubmit}
+      >
         <AuthErrorSummary fieldErrors={fieldErrors} message={rootError} />
         {accountType === "customer" || accountType === "driver" ? (
           <>
@@ -239,7 +254,11 @@ export function SignupForm() {
           placeholder="Repeat your password"
           required
         />
-        <button className={styles.primaryAction} disabled={loading} type="submit">
+        <button
+          className={styles.primaryAction}
+          disabled={loading}
+          type="submit"
+        >
           {loading ? "Creating account…" : "Create account"}
         </button>
         <AuthSecurityNote />

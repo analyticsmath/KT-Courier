@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db/prisma";
+import { ProfileAvatar } from "@/components/forms/ProfileAvatar";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -20,6 +22,10 @@ export default async function StoreProfilePage() {
     getStoreProfile(user.id),
     getStorePickupAddress(user.id, "settings"),
   ]);
+  const avatar = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarMediaReference: true },
+  });
   const defaultValues = {
     storeName: profile?.storeProfile?.storeName ?? profile?.store?.name ?? "",
     contactPerson:
@@ -39,6 +45,9 @@ export default async function StoreProfilePage() {
         title="Store settings"
         description="Manage canonical store identity, contact, and collection-address records."
       />
+      <OperationalPanel title="Your profile image">
+        <ProfileAvatar hasAvatar={!!avatar?.avatarMediaReference} />
+      </OperationalPanel>
       <OperationalPanel
         title="Store identity"
         description="Existing validation and save authority remain inside this form."

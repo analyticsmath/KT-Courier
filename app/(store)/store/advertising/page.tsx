@@ -2,7 +2,6 @@ import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStoreForUser } from "@/lib/auth/store-context";
 import { prisma } from "@/lib/db/prisma";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
@@ -23,11 +22,11 @@ export const metadata: Metadata = {
 const service = new ManagedMarketingService();
 
 export default async function StoreAdvertisingPage() {
-  await requireBusinessPage("/store/advertising");
+  const access=await requireBusinessPage("/store/advertising");
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
 
-  const store = await getStoreForUser(user.id);
+  const store=access.store;
   const storeName = store?.name || "Merchant Store";
 
   let initialPackages: MarketingPackageItem[] = [];
@@ -106,12 +105,13 @@ export default async function StoreAdvertisingPage() {
 
   try {
     if (store) {
-      // Query entitled store private media (must belong to store, active, and uploaded by requesting actor)
+      // Business marketing staff share available artwork; verification evidence is excluded.
       const rawMedia = await prisma.privateMediaObject.findMany({
         where: {
           ownerType: "STORE",
           ownerId: store.id,
-          createdByUserId: user.id,
+          purpose:"OTHER",
+          detectedMimeType:{in:["image/jpeg","image/png","image/webp"]},
           status: { in: ["READY", "RETAINED"] },
           deletedAt: null,
         },

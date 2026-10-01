@@ -6,12 +6,24 @@ import { prisma } from "@/lib/db/prisma";
 import { getProtectedNavigationForUser } from "@/lib/protected-navigation";
 import { getProtectedNotificationProjection } from "@/lib/protected-presentation";
 
-export default async function DriverLayout({ children }: { children: React.ReactNode }) {
+export default async function DriverLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const user = await requireRole(UserRole.DRIVER);
+  const avatar = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarMediaReference: true },
+  });
 
   const [profile, navigation, notifications] = await Promise.all([
     prisma.driverProfile.findUnique({ where: { userId: user.id } }),
-    getProtectedNavigationForUser({ userId: user.id, role: user.role, context: "DRIVER" }),
+    getProtectedNavigationForUser({
+      userId: user.id,
+      role: user.role,
+      context: "DRIVER",
+    }),
     getProtectedNotificationProjection(user.id, "/driver/notifications"),
   ]);
   const displayName = profile?.displayName ?? user.name ?? user.email;
@@ -24,7 +36,13 @@ export default async function DriverLayout({ children }: { children: React.React
       navigation={navigation.groups}
       navigationFooter={<SignOutButton />}
       notifications={notifications}
-      user={{ displayName, roleLabel: "Courier partner" }}
+      user={{
+        avatarUrl: avatar?.avatarMediaReference
+          ? "/api/platform/avatar"
+          : undefined,
+        displayName,
+        roleLabel: "Courier partner",
+      }}
     >
       {children}
     </EditorialOperationsShell>

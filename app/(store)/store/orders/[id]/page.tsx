@@ -1,3 +1,6 @@
+import { Conversations } from "@/components/forms/Conversations";
+import { storeAccess } from "@/lib/client-platform/store-access";
+import { membershipAllows } from "@/lib/client-platform/store-permissions";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -27,6 +30,8 @@ export default async function StoreOrderDetailPage({
   if (!user) redirect("/auth/login");
   const order = await getOrder(user, id, true);
   if (!order) notFound();
+  const access = await storeAccess(user.id);
+  const canChat = access.owner || membershipAllows(access.permissions, "chat");
   const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(
     order.status as (typeof CUSTOMER_CANCELLABLE_STATUSES)[number],
   );
@@ -66,7 +71,11 @@ export default async function StoreOrderDetailPage({
         </div>
         {canCancel ? (
           <div className="mt-4 border-t border-[var(--eo-line-soft)] pt-4">
-            <CancelOrderButton orderId={order.id} redirectTo="/store/orders" />
+            <CancelOrderButton
+              business
+              orderId={order.id}
+              redirectTo="/store/orders"
+            />
           </div>
         ) : null}
       </OperationalPanel>
@@ -120,6 +129,11 @@ export default async function StoreOrderDetailPage({
           ) : null}
         </dl>
       </OperationalPanel>
+      {canChat && (
+        <OperationalPanel title="Delivery chat">
+          <Conversations scope="STORE" deliveryOrderId={order.id} />
+        </OperationalPanel>
+      )}
       <OperationalPanel title="Status activity" padding="compact">
         {order.statusHistory.length ? (
           <ActivityTimeline

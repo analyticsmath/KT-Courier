@@ -26,7 +26,7 @@ export type OrderTransitionErrorCode =
 export class OrderTransitionError extends Error {
   constructor(
     message: string,
-    public readonly code: OrderTransitionErrorCode = "INVALID_TRANSITION"
+    public readonly code: OrderTransitionErrorCode = "INVALID_TRANSITION",
   ) {
     super(message);
     this.name = "OrderTransitionError";
@@ -120,7 +120,9 @@ function isAdminOrSystem(role: OrderTransitionActorRole): boolean {
 }
 
 function hasReason(context?: OrderTransitionContext): boolean {
-  return typeof context?.reason === "string" && context.reason.trim().length > 0;
+  return (
+    typeof context?.reason === "string" && context.reason.trim().length > 0
+  );
 }
 
 function isReasonRequiredStatus(status: OrderStatus): boolean {
@@ -133,7 +135,7 @@ function uniqueStatuses(statuses: OrderStatus[]): OrderStatus[] {
 
 export function isTerminalOrderStatus(status: OrderStatus): boolean {
   return TERMINAL_ORDER_STATUSES.includes(
-    status as (typeof TERMINAL_ORDER_STATUSES)[number]
+    status as (typeof TERMINAL_ORDER_STATUSES)[number],
   );
 }
 
@@ -143,7 +145,7 @@ function baseAllows(from: OrderStatus, to: OrderStatus): boolean {
 
 function customerAllowedTransitions(
   from: OrderStatus,
-  context?: OrderTransitionContext
+  context?: OrderTransitionContext,
 ): OrderStatus[] {
   if (context?.actorOwnsOrder !== true) return [];
   if (context?.cancellationWindowOpen === false) return [];
@@ -153,7 +155,7 @@ function customerAllowedTransitions(
 
 function storeAllowedTransitions(
   from: OrderStatus,
-  context?: OrderTransitionContext
+  context?: OrderTransitionContext,
 ): OrderStatus[] {
   if (context?.actorOwnsStore !== true) return [];
   if (context?.cancellationWindowOpen === false) return [];
@@ -163,7 +165,7 @@ function storeAllowedTransitions(
 
 function driverAllowedTransitions(
   from: OrderStatus,
-  context?: OrderTransitionContext
+  context?: OrderTransitionContext,
 ): OrderStatus[] {
   if (
     context?.actorIsAssignedDriver !== true ||
@@ -205,7 +207,7 @@ function driverAllowedTransitions(
 
 function adminAllowedTransitions(
   from: OrderStatus,
-  context?: OrderTransitionContext
+  context?: OrderTransitionContext,
 ): OrderStatus[] {
   const transitions = [...(ORDER_STATUS_TRANSITIONS[from] ?? [])];
 
@@ -229,7 +231,9 @@ export function getAllowedOrderTransitions(args: {
 
   switch (args.actorRole) {
     case UserRole.CUSTOMER:
-      return customerAllowedTransitions(args.from, args.context);
+      return args.context?.actorOwnsStore === true
+        ? storeAllowedTransitions(args.from, args.context)
+        : customerAllowedTransitions(args.from, args.context);
     case UserRole.STORE:
       return storeAllowedTransitions(args.from, args.context);
     case UserRole.DRIVER:
@@ -301,7 +305,7 @@ export function assertOrderStatusTransition(args: {
   if (isTerminalOrderStatus(args.from)) {
     throw new OrderTransitionError(
       `Order is terminal in status ${args.from} and cannot transition to ${args.to}.`,
-      "TERMINAL_STATUS"
+      "TERMINAL_STATUS",
     );
   }
 
@@ -314,7 +318,7 @@ export function assertOrderStatusTransition(args: {
   if (!allowed.includes(args.to)) {
     throw new OrderTransitionError(
       `Cannot change order status from ${args.from} to ${args.to} as ${args.actorRole}.`,
-      "INVALID_TRANSITION"
+      "INVALID_TRANSITION",
     );
   }
 
@@ -326,14 +330,14 @@ export function assertOrderStatusTransition(args: {
   ) {
     throw new OrderTransitionError(
       `A reason is required to change order status to ${args.to}.`,
-      "REASON_REQUIRED"
+      "REASON_REQUIRED",
     );
   }
 
   if (isAdminOverrideTransition(args) && !hasReason(args.context)) {
     throw new OrderTransitionError(
       "A reason is required for admin override transitions.",
-      "REASON_REQUIRED"
+      "REASON_REQUIRED",
     );
   }
 }

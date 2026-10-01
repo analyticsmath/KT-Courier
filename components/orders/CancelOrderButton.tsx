@@ -7,9 +7,14 @@ import { Button } from "@/components/ui/Button";
 interface CancelOrderButtonProps {
   orderId: string;
   redirectTo: string;
+  business?: boolean;
 }
 
-export function CancelOrderButton({ orderId, redirectTo }: CancelOrderButtonProps) {
+export function CancelOrderButton({
+  orderId,
+  redirectTo,
+  business = false,
+}: CancelOrderButtonProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,14 +27,20 @@ export function CancelOrderButton({ orderId, redirectTo }: CancelOrderButtonProp
     try {
       const res = await fetch(`/api/orders/${orderId}/cancel`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(business ? { "X-KT-Workspace": "STORE" } : {}),
+        },
         body: JSON.stringify({}),
       });
 
-      const data = await res.json() as { error?: string };
+      const data = (await res.json()) as { error?: string };
 
       if (!res.ok || data.error) {
-        setError(data.error ?? "Could not cancel this order. Please try again or contact support.");
+        setError(
+          data.error ??
+            "Could not cancel this order. Please try again or contact support.",
+        );
         setConfirming(false);
         return;
       }
@@ -37,7 +48,9 @@ export function CancelOrderButton({ orderId, redirectTo }: CancelOrderButtonProp
       router.push(redirectTo);
       router.refresh();
     } catch {
-      setError("An unexpected error occurred. Please contact KT Couriers for assistance.");
+      setError(
+        "An unexpected error occurred. Please contact KT Couriers for assistance.",
+      );
       setConfirming(false);
     } finally {
       setLoading(false);
@@ -50,9 +63,7 @@ export function CancelOrderButton({ orderId, redirectTo }: CancelOrderButtonProp
         <p className="text-sm text-[var(--kt-ink-navy)] font-medium">
           Are you sure you want to cancel this delivery request?
         </p>
-        {error && (
-          <p className="text-sm text-red-600">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2">
           <Button
             variant="danger"
@@ -65,7 +76,10 @@ export function CancelOrderButton({ orderId, redirectTo }: CancelOrderButtonProp
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setConfirming(false); setError(null); }}
+            onClick={() => {
+              setConfirming(false);
+              setError(null);
+            }}
             disabled={loading}
           >
             No, keep it

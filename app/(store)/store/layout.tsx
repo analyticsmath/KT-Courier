@@ -18,6 +18,10 @@ export default async function StoreLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAuth();
+  const avatar = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarMediaReference: true },
+  });
   let access;
   try {
     access = await storeAccess(user.id);
@@ -65,6 +69,9 @@ export default async function StoreLayout({
           : undefined
       }
       user={{
+        avatarUrl: avatar?.avatarMediaReference
+          ? "/api/platform/avatar"
+          : undefined,
         displayName,
         roleLabel: access.owner ? "Business owner" : "Business employee",
       }}
