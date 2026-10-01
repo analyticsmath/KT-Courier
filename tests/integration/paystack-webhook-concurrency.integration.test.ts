@@ -778,6 +778,8 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
     ]);
 
     // Both operations must resolve cleanly (zero deadlock, zero unhandled errors)
+    if (payoutResult.status === "rejected") throw payoutResult.reason;
+    if (disputeResult.status === "rejected") throw disputeResult.reason;
     expect(payoutResult.status).toBe("fulfilled");
     expect(disputeResult.status).toBe("fulfilled");
 
