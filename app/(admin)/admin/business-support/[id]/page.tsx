@@ -2,11 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { readBusinessSupportDashboard } from "@/lib/client-platform/support-access.service";
 import { BusinessSupportAccess } from "@/components/forms/BusinessSupportAccess";
-import {
-  ProtectedPageFrame,
-  ProtectedPageHeader,
-  OperationalPanel,
-} from "@/components/protected-v2";
+import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
+import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
+import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 export const metadata = { title: "Business support dashboard" };
 export default async function Page({
   params,

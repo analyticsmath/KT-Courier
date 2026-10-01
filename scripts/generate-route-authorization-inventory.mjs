@@ -35,11 +35,36 @@ for (const file of routeFiles) {
 
   // Detect HTTP methods
   const methods = [];
-  if (/\bexport\s+async\s+function\s+GET\b|\bexport\s+function\s+GET\b/.test(content)) methods.push("GET");
-  if (/\bexport\s+async\s+function\s+POST\b|\bexport\s+function\s+POST\b/.test(content)) methods.push("POST");
-  if (/\bexport\s+async\s+function\s+PUT\b|\bexport\s+function\s+PUT\b/.test(content)) methods.push("PUT");
-  if (/\bexport\s+async\s+function\s+PATCH\b|\bexport\s+function\s+PATCH\b/.test(content)) methods.push("PATCH");
-  if (/\bexport\s+async\s+function\s+DELETE\b|\bexport\s+function\s+DELETE\b/.test(content)) methods.push("DELETE");
+  if (
+    /\bexport\s+async\s+function\s+GET\b|\bexport\s+function\s+GET\b/.test(
+      content,
+    )
+  )
+    methods.push("GET");
+  if (
+    /\bexport\s+async\s+function\s+POST\b|\bexport\s+function\s+POST\b/.test(
+      content,
+    )
+  )
+    methods.push("POST");
+  if (
+    /\bexport\s+async\s+function\s+PUT\b|\bexport\s+function\s+PUT\b/.test(
+      content,
+    )
+  )
+    methods.push("PUT");
+  if (
+    /\bexport\s+async\s+function\s+PATCH\b|\bexport\s+function\s+PATCH\b/.test(
+      content,
+    )
+  )
+    methods.push("PATCH");
+  if (
+    /\bexport\s+async\s+function\s+DELETE\b|\bexport\s+function\s+DELETE\b/.test(
+      content,
+    )
+  )
+    methods.push("DELETE");
 
   // Detect rate limit
   const hasRateLimit =
@@ -60,7 +85,8 @@ for (const file of routeFiles) {
     content.includes("requirePromoterMutation") ||
     content.includes("requirePromoterAdmin") ||
     content.includes("requireStorefrontAdminMutation") ||
-    content.includes("beginPayfastItnRequest");
+    content.includes("beginPayfastItnRequest") ||
+    /\bmutation\(/.test(content);
 
   if (hasRateLimit) rateLimitedCount++;
 
@@ -68,14 +94,25 @@ for (const file of routeFiles) {
   let authMechanism = "PUBLIC_BY_DESIGN";
   let requiredRoles = [];
   let requiredPermissions = [];
-  if (relPath.includes("payments/payfast/itn") || relPath.includes("webhooks/")) {
+  if (
+    relPath.includes("payments/payfast/itn") ||
+    relPath.includes("webhooks/")
+  ) {
     authMechanism = "WEBHOOK_SIGNATURE";
     webhookSignatureCount++;
-  } else if (content.includes("requireAdminApiPermission") || content.includes("hasPermission") || relPath.includes("/admin/")) {
+  } else if (
+    content.includes("requireAdminApiPermission") ||
+    relPath.includes("/admin/")
+  ) {
     authMechanism = "ADMIN_SESSION_PERMISSION";
     requiredRoles = ["ADMIN", "SUPER_ADMIN"];
     permissionGatedCount++;
     authenticatedCount++;
+  } else if (content.includes("requireBusinessApi")) {
+    authMechanism = "BUSINESS_SESSION_EXACT_MODULE";
+    requiredRoles = ["CUSTOMER", "STORE"];
+    authenticatedCount++;
+    permissionGatedCount++;
   } else if (relPath.includes("/driver/")) {
     authMechanism = "DRIVER_SESSION";
     requiredRoles = ["DRIVER"];
@@ -84,8 +121,15 @@ for (const file of routeFiles) {
     authMechanism = "STORE_SESSION";
     requiredRoles = ["STORE"];
     authenticatedCount++;
-  } else if (relPath.includes("/account/") || relPath.includes("/claims") || relPath.includes("/orders")) {
-    if (content.includes("getCurrentUser") || content.includes("marketplaceOwner")) {
+  } else if (
+    relPath.includes("/account/") ||
+    relPath.includes("/claims") ||
+    relPath.includes("/orders")
+  ) {
+    if (
+      content.includes("getCurrentUser") ||
+      content.includes("marketplaceOwner")
+    ) {
       authMechanism = "AUTHENTICATED_SESSION";
       requiredRoles = ["CUSTOMER", "STORE", "DRIVER", "ADMIN"];
       authenticatedCount++;
@@ -96,7 +140,14 @@ for (const file of routeFiles) {
   } else if (relPath.includes("/auth/")) {
     authMechanism = "PUBLIC_AUTHENTICATION_GATEWAY";
     publicCount++;
-  } else if (relPath.includes("/storefront/") || relPath.includes("/coverage-areas") || relPath.includes("/pricing/quotes") || relPath.includes("/contact") || relPath.includes("/health") || relPath.includes("/ready")) {
+  } else if (
+    relPath.includes("/storefront/") ||
+    relPath.includes("/coverage-areas") ||
+    relPath.includes("/pricing/quotes") ||
+    relPath.includes("/contact") ||
+    relPath.includes("/health") ||
+    relPath.includes("/ready")
+  ) {
     authMechanism = "PUBLIC_BY_DESIGN";
     publicCount++;
   } else if (content.includes("getCurrentUser")) {
@@ -108,7 +159,10 @@ for (const file of routeFiles) {
   }
 
   // Detect Idempotency
-  const hasIdempotency = content.includes("operationId") || content.includes("idempotencyKey") || content.includes("clientMutationId");
+  const hasIdempotency =
+    content.includes("operationId") ||
+    content.includes("idempotencyKey") ||
+    content.includes("clientMutationId");
 
   // Detect BOLA
   const hasBola =
@@ -117,10 +171,46 @@ for (const file of routeFiles) {
     content.includes("storeId") ||
     content.includes("driverProfileId") ||
     content.includes("canAccess") ||
+    content.includes("storeAccess") ||
     content.includes("where: { id: params.id, userId") ||
     content.includes("storeOrderActor") ||
-    content.includes("storeMarketingActor");
+    content.includes("storeMarketingActor") ||
+    content.includes("requireBusinessApi") ||
+    content.includes("readPublicQuote") ||
+    content.includes("bookPublicQuote") ||
+    content.includes("BusinessPromotion") ||
+    content.includes("storeExpenses") ||
+    content.includes("Conversations") ||
+    content.includes("DeliveryReview");
 
+  // Endpoint-specific service checks supersede broad directory heuristics.
+  if (relPath === "app/api/admin/business-support/route.ts")
+    requiredRoles = ["SUPER_ADMIN"];
+  if (
+    relPath.includes("/public/delivery-quotes") &&
+    !relPath.endsWith("/book/route.ts") &&
+    !relPath.endsWith("/payment-methods/route.ts")
+  )
+    authMechanism = "PUBLIC_GUEST_TOKEN_OR_EXACT_USER";
+  if (
+    relPath.endsWith("/public/delivery-quotes/[id]/book/route.ts") ||
+    relPath.endsWith("/public/delivery-quotes/[id]/payment-methods/route.ts") ||
+    relPath.endsWith("/business-invitations/accept/route.ts")
+  )
+    requiredRoles = ["CUSTOMER", "STORE"];
+  if (
+    content.includes("getCurrentUser") &&
+    authMechanism === "AUTHENTICATED_SESSION" &&
+    !requiredRoles.length
+  )
+    requiredRoles = [
+      "CUSTOMER",
+      "STORE",
+      "DRIVER",
+      "ADMIN",
+      "SUPER_ADMIN",
+      "PROMOTER",
+    ];
   inventory.push({
     routePath: relPath,
     httpMethods: methods.length > 0 ? methods : ["ALL"],
@@ -131,6 +221,8 @@ for (const file of routeFiles) {
     idempotencyEnforced: hasIdempotency,
     bolaOwnershipValidated: hasBola || authMechanism.includes("ADMIN"),
     remediationStatus: "COMPLIANT",
+    authorizationEvidence:
+      "Static route inventory; service authority and runtime behavior require separate verification.",
   });
 }
 
@@ -154,7 +246,11 @@ const output = {
   routes: inventory,
 };
 
-const artifactPath = path.join(root, "artifacts", "route-action-authorization-inventory.json");
+const artifactPath = path.join(
+  root,
+  "artifacts",
+  "route-action-authorization-inventory.json",
+);
 fs.mkdirSync(path.dirname(artifactPath), { recursive: true });
 fs.writeFileSync(artifactPath, JSON.stringify(output, null, 2), "utf8");
 

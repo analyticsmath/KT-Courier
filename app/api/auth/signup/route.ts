@@ -14,6 +14,7 @@ import { queueSecurityNotification } from "@/lib/notifications/security-delivery
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
+import { securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
 
 const OTP_EXPIRES_MINUTES = 15;
 
@@ -28,16 +29,23 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body." },
+      { status: 400 },
+    );
   }
 
   const raw = body as Record<string, unknown>;
   const accountType = raw?.accountType;
 
-  if (accountType !== "CUSTOMER" && accountType !== "STORE" && accountType !== "DRIVER") {
+  if (
+    accountType !== "CUSTOMER" &&
+    accountType !== "STORE" &&
+    accountType !== "DRIVER"
+  ) {
     return NextResponse.json(
       { error: "Account type must be CUSTOMER, STORE, or DRIVER." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -45,23 +53,31 @@ export async function POST(req: NextRequest) {
     accountType === "CUSTOMER"
       ? CustomerSignupSchema
       : accountType === "STORE"
-      ? StoreSignupSchema
-      : DriverSignupSchema;
+        ? StoreSignupSchema
+        : DriverSignupSchema;
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Validation failed.", fields: formatZodErrors(parsed.error.issues) },
-      { status: 422 }
+      {
+        error: "Validation failed.",
+        fields: formatZodErrors(parsed.error.issues),
+      },
+      { status: 422 },
     );
   }
 
   const data = parsed.data;
 
-  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  const emailUnavailable = securityEmailUnavailableResponse();
+  if (emailUnavailable) return emailUnavailable;
+
+  const existing = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
   if (existing) {
     return NextResponse.json(
       { error: "An account with this email already exists." },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
@@ -70,14 +86,14 @@ export async function POST(req: NextRequest) {
     accountType === "CUSTOMER"
       ? UserRole.CUSTOMER
       : accountType === "STORE"
-      ? UserRole.STORE
-      : UserRole.DRIVER;
+        ? UserRole.STORE
+        : UserRole.DRIVER;
 
   let storeSlug: string | undefined;
   if (accountType === "STORE") {
     const d = data as { storeName: string };
     storeSlug = await generateUniqueSlug(d.storeName, (slug) =>
-      prisma.store.findUnique({ where: { slug } }).then(Boolean)
+      prisma.store.findUnique({ where: { slug } }).then(Boolean),
     );
   }
 
@@ -173,7 +189,18 @@ export async function POST(req: NextRequest) {
   });
 
   // Phase 27 is the sole delivery authority; auth retains only code generation.
-  queueSecurityNotification({ eventType: "EMAIL_VERIFICATION_OTP", operationId: `email-verification:${result.otpId}`, subjectUserId: result.userId, aggregateReference: result.userId, values: { name: result.userName, otp: result.otpCode, expiresMinutes: OTP_EXPIRES_MINUTES }, allowUnverifiedBootstrapEmail: true }).catch(() => {});
+  queueSecurityNotification({
+    eventType: "EMAIL_VERIFICATION_OTP",
+    operationId: `email-verification:${result.otpId}`,
+    subjectUserId: result.userId,
+    aggregateReference: result.userId,
+    values: {
+      name: result.userName,
+      otp: result.otpCode,
+      expiresMinutes: OTP_EXPIRES_MINUTES,
+    },
+    allowUnverifiedBootstrapEmail: true,
+  }).catch(() => {});
 
   return NextResponse.json(
     {
@@ -184,6 +211,6 @@ export async function POST(req: NextRequest) {
         _dev_note: "OTP visible in development only.",
       }),
     },
-    { status: 201 }
+    { status: 201 },
   );
 }

@@ -5,7 +5,10 @@ import { getIntegrationRegistry } from "../../lib/security/integration-registry"
 import { calculateRoute } from "../../lib/maps/routes.service";
 import { resolveStoreActorContext } from "../../lib/auth/store-context";
 import { isUserStatusAllowedForSession } from "../../lib/auth/session";
-import { assertSeedExecutionAllowed, SeedSafetyError } from "../../lib/security/seed-safety";
+import {
+  assertSeedExecutionAllowed,
+  SeedSafetyError,
+} from "../../lib/security/seed-safety";
 
 describe("Phase 1B-D — Final Security Corrections & Evidence Closure", () => {
   afterEach(() => {
@@ -25,8 +28,12 @@ describe("Phase 1B-D — Final Security Corrections & Evidence Closure", () => {
 
       expect(decision.accepted).toBe(false);
       expect(decision.backendUsed).toBe("FAIL_CLOSED");
-      expect(decision.errorResponse?.code).toBe("SERVICE_TEMPORARILY_UNAVAILABLE");
-      expect(decision.errorResponse?.message).toBe("This operation is temporarily unavailable.");
+      expect(decision.errorResponse?.code).toBe(
+        "SERVICE_TEMPORARILY_UNAVAILABLE",
+      );
+      expect(decision.errorResponse?.message).toBe(
+        "This operation is temporarily unavailable.",
+      );
     });
 
     it("should allow in-memory execution in development environment", async () => {
@@ -50,7 +57,9 @@ describe("Phase 1B-D — Final Security Corrections & Evidence Closure", () => {
       registry.forEach((item) => {
         if (item.adapterStatus === "PARTIAL") {
           expect(item.readiness).not.toBe("CREDENTIAL_PENDING");
-          expect(["PARTIAL", "DISABLED", "NOT_IMPLEMENTED"]).toContain(item.readiness);
+          expect(["PARTIAL", "DISABLED", "NOT_IMPLEMENTED"]).toContain(
+            item.readiness,
+          );
         }
       });
     });
@@ -71,16 +80,22 @@ describe("Phase 1B-D — Final Security Corrections & Evidence Closure", () => {
   });
 
   describe("Workstream 4 — Store Actor Context Semantics", () => {
-    it("should explicitly document that staff authorization is NOT_IMPLEMENTED_IN_CURRENT_SCHEMA", async () => {
-      const ctx = await resolveStoreActorContext({
-        id: "user_owner_1",
-        email: "owner@example.com",
-        name: "Store Owner",
-        role: UserRole.STORE,
-        status: UserStatus.ACTIVE,
-      });
+    it("returns no actor context for an absent owner or employee", async () => {
+      const ctx = await resolveStoreActorContext(
+        {
+          id: "user_owner_1",
+          email: "owner@example.com",
+          name: "Store Owner",
+          role: UserRole.STORE,
+          status: UserStatus.ACTIVE,
+        },
+        {
+          store: { findMany: async () => [] },
+          storeEmployeeMembership: { findMany: async () => [] },
+        } as unknown as Parameters<typeof resolveStoreActorContext>[1],
+      );
 
-      // Returns null because user_owner_1 does not exist in offline DB during unit test
+      // The explicit fixture has no owner or employee membership
       expect(ctx).toBeNull();
     });
   });
@@ -96,17 +111,29 @@ describe("Phase 1B-D — Final Security Corrections & Evidence Closure", () => {
   describe("Workstream 8 — Seed Safety Edge Cases", () => {
     it("should reject production environment and staging classification", () => {
       expect(() =>
-        assertSeedExecutionAllowed({ nodeEnv: "production", classification: "development", allowDemoSeed: "true" })
+        assertSeedExecutionAllowed({
+          nodeEnv: "production",
+          classification: "development",
+          allowDemoSeed: "true",
+        }),
       ).toThrowError(SeedSafetyError);
 
       expect(() =>
-        assertSeedExecutionAllowed({ nodeEnv: "development", classification: "staging", allowDemoSeed: "true" })
+        assertSeedExecutionAllowed({
+          nodeEnv: "development",
+          classification: "staging",
+          allowDemoSeed: "true",
+        }),
       ).toThrowError(SeedSafetyError);
     });
 
     it("should exclude raw database connection URLs or passwords from SeedSafetyError", () => {
       try {
-        assertSeedExecutionAllowed({ nodeEnv: "production", classification: "production", allowDemoSeed: "true" });
+        assertSeedExecutionAllowed({
+          nodeEnv: "production",
+          classification: "production",
+          allowDemoSeed: "true",
+        });
       } catch (err) {
         expect(err).toBeInstanceOf(SeedSafetyError);
         const msg = (err as Error).message;

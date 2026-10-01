@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { generateToken, hashToken, generateResetTokenExpiresAt } from "@/lib/auth/tokens";
+import {
+  generateToken,
+  hashToken,
+  generateResetTokenExpiresAt,
+} from "@/lib/auth/tokens";
 import { ForgotPasswordSchema, formatZodErrors } from "@/lib/validation/auth";
 import { UserStatus } from "@/types/db";
 import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
+import { securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
 
 const GENERIC_RESPONSE = {
   message:
@@ -32,21 +37,35 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body." },
+      { status: 400 },
+    );
   }
 
   const parsed = ForgotPasswordSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Validation failed.", fields: formatZodErrors(parsed.error.issues) },
-      { status: 422 }
+      {
+        error: "Validation failed.",
+        fields: formatZodErrors(parsed.error.issues),
+      },
+      { status: 422 },
     );
   }
 
   const { email } = parsed.data;
 
-  const rl = await checkAuthRateLimit(req, "forgot-password", email, RATE_LIMITS.FORGOT_PASSWORD);
+  const rl = await checkAuthRateLimit(
+    req,
+    "forgot-password",
+    email,
+    RATE_LIMITS.FORGOT_PASSWORD,
+  );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
+
+  const emailUnavailable = securityEmailUnavailableResponse();
+  if (emailUnavailable) return emailUnavailable;
 
   const user = await prisma.user.findUnique({ where: { email } });
 
@@ -68,13 +87,25 @@ export async function POST(req: NextRequest) {
 
   const resetUrl = buildResetUrl(rawToken);
 
-  queueSecurityNotification({ eventType: "PASSWORD_RESET", operationId: `password-reset:${resetRecord.id}`, subjectUserId: user.id, aggregateReference: resetRecord.id, expiresAt: resetRecord.expiresAt, values: { name: user.name ?? "there", resetUrl, expiresMinutes: RESET_EXPIRES_MINUTES } }).catch(() => {});
+  queueSecurityNotification({
+    eventType: "PASSWORD_RESET",
+    operationId: `password-reset:${resetRecord.id}`,
+    subjectUserId: user.id,
+    aggregateReference: resetRecord.id,
+    expiresAt: resetRecord.expiresAt,
+    values: {
+      name: user.name ?? "there",
+      resetUrl,
+      expiresMinutes: RESET_EXPIRES_MINUTES,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({
     ...GENERIC_RESPONSE,
     ...(process.env.NODE_ENV !== "production" && {
       _dev_token: rawToken,
-      _dev_note: "Reset token visible in development only. Remove in production.",
+      _dev_note:
+        "Reset token visible in development only. Remove in production.",
     }),
   });
 }

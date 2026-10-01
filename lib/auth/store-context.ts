@@ -64,7 +64,12 @@ export async function resolveStoreActorContext(
   user: AuthenticatedUser | null,
   db: PrismaClient | Prisma.TransactionClient = prisma,
 ): Promise<StoreActorContext | null> {
-  if (!user || user.status !== "ACTIVE") return null;
+  if (
+    !user ||
+    user.status !== "ACTIVE" ||
+    !["CUSTOMER", "STORE"].includes(user.role)
+  )
+    return null;
 
   const owned = await getStoreForUser(user.id, db);
   const memberships = owned

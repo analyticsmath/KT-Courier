@@ -7,6 +7,8 @@ import { PlatformError } from "./contracts";
 export async function requireBusinessApi(path: string) {
   const user = await getCurrentUser();
   if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.status !== "ACTIVE" || !["CUSTOMER", "STORE"].includes(user.role))
+    return json({ error: "An active business account is required." }, 403);
   try {
     const a = await storeAccess(user.id);
     if (!a.owner && !membershipAllows(a.permissions, moduleForStorePath(path)))

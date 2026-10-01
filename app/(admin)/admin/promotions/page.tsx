@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import {
-  ProtectedPageFrame,
-  ProtectedPageHeader,
-  OperationalPanel,
-} from "@/components/protected-v2";
+import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
+import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
+import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { listAdminPromotionRecords } from "@/lib/client-platform/promotion-authoring.service";
 export default async function Page() {
   const user = await requireAdminPagePermission(PERMISSIONS.PROMOTIONS_READ),

@@ -7,6 +7,7 @@ import { queueSecurityNotification } from "@/lib/notifications/security-delivery
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
+import { securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
 
 const OTP_EXPIRES_MINUTES = 15;
 
@@ -18,28 +19,43 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body." },
+      { status: 400 },
+    );
   }
 
   const parsed = ResendOtpSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Validation failed.", fields: formatZodErrors(parsed.error.issues) },
-      { status: 422 }
+      {
+        error: "Validation failed.",
+        fields: formatZodErrors(parsed.error.issues),
+      },
+      { status: 422 },
     );
   }
 
   const { email } = parsed.data;
 
-  const rl = await checkAuthRateLimit(req, "resend-otp", email, RATE_LIMITS.RESEND_OTP);
+  const rl = await checkAuthRateLimit(
+    req,
+    "resend-otp",
+    email,
+    RATE_LIMITS.RESEND_OTP,
+  );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
+
+  const emailUnavailable = securityEmailUnavailableResponse();
+  if (emailUnavailable) return emailUnavailable;
 
   const user = await prisma.user.findUnique({ where: { email } });
 
   // Always return success to avoid user enumeration
   if (!user || user.status !== UserStatus.PENDING_VERIFICATION) {
     return NextResponse.json({
-      message: "If your account exists and is unverified, a new code has been sent.",
+      message:
+        "If your account exists and is unverified, a new code has been sent.",
     });
   }
 
@@ -64,7 +80,19 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  queueSecurityNotification({ eventType: "EMAIL_VERIFICATION_OTP", operationId: `email-verification:${otp.id}`, subjectUserId: user.id, aggregateReference: user.id, expiresAt: otp.expiresAt, values: { name: user.name ?? "there", otp: code, expiresMinutes: OTP_EXPIRES_MINUTES }, allowUnverifiedBootstrapEmail: true }).catch(() => {});
+  queueSecurityNotification({
+    eventType: "EMAIL_VERIFICATION_OTP",
+    operationId: `email-verification:${otp.id}`,
+    subjectUserId: user.id,
+    aggregateReference: user.id,
+    expiresAt: otp.expiresAt,
+    values: {
+      name: user.name ?? "there",
+      otp: code,
+      expiresMinutes: OTP_EXPIRES_MINUTES,
+    },
+    allowUnverifiedBootstrapEmail: true,
+  }).catch(() => {});
 
   return NextResponse.json({
     message: "A new verification code has been sent to your email.",
