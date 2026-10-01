@@ -34,6 +34,7 @@ export type PublicRouteDefinition = {
 };
 
 const marketingRoutes = [
+  { id: "quote", route: "/quote", title: "Delivery quote", family: "SERVICE", status: "READY", indexable: true, sitemap: true },
   { id: "home", route: "/", title: "Courier services", family: "MARKETING", status: "READY_PROVISIONAL_MEDIA", indexable: true, sitemap: true },
   { id: "services", route: "/services", title: "Courier services", family: "SERVICE", status: "READY_PROVISIONAL_MEDIA", indexable: true, sitemap: true },
   { id: "about", route: "/about", title: "About", family: "MARKETING", status: "READY_PROVISIONAL_MEDIA", indexable: true, sitemap: true },

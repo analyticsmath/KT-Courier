@@ -85,7 +85,7 @@ export const serviceFaqs: Record<ServiceFaqId, { question: string; answer: strin
   },
 };
 
-const quoteAction: ServiceAction = { label: "Get a quote", href: "/account/request-delivery" };
+const quoteAction: ServiceAction = { label: "Get a quote", href: "/quote" };
 const accountOrdersAction: ServiceAction = { label: "View order updates", href: "/account/orders" };
 const contactAction: ServiceAction = { label: "Contact support", href: "/contact" };
 

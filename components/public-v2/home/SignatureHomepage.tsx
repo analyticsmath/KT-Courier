@@ -51,7 +51,7 @@ export async function SignatureHomepage({ faqItems }: { faqItems: readonly Homep
         <StoryImage className={styles.aMerchant} media={signatureMedia.merchant} sizes="(max-width: 767px) 100vw, 58vw" />
         <div className={styles.editorialBand} data-a-band>
           <h1 id="home-title">Move what matters.</h1>
-          <div><p>Local commerce, fulfilment and delivery connected through one network.</p><nav aria-label="Homepage actions" className={styles.actions}><Link className={styles.primaryAction} href={marketplaceHref()}>Explore marketplace <span aria-hidden="true">→</span></Link><Link className={styles.secondaryAction} href="/account/request-delivery">Move something <span aria-hidden="true">↗</span></Link></nav></div>
+          <div><p>Local commerce, fulfilment and delivery connected through one network.</p><nav aria-label="Homepage actions" className={styles.actions}><Link className={styles.primaryAction} href={marketplaceHref()}>Explore marketplace <span aria-hidden="true">→</span></Link><Link className={styles.secondaryAction} href="/quote">Move something <span aria-hidden="true">↗</span></Link></nav></div>
         </div>
         <p className={styles.aChoice} data-actor="a-choice">It starts with a choice.</p>
         <p className={styles.aMerchantCopy} data-actor="a-merchant-copy">Someone gets it ready.</p>
@@ -86,6 +86,6 @@ export async function SignatureHomepage({ faqItems }: { faqItems: readonly Homep
 
     <section aria-labelledby="participation-title" className={styles.participation}><div><p className={styles.contextLabel}>Participation</p><h2 id="participation-title">A network is made by people.</h2></div><div className={styles.participationPaths}>{participation.map((item) => <Link href={item.href} key={item.label}><strong>{item.label}</strong><p>{item.copy}</p><span aria-hidden="true">↗</span></Link>)}</div></section>
     <section aria-labelledby="questions-title" className={styles.questions}><div><p className={styles.contextLabel}>Useful answers</p><h2 id="questions-title">A clear next step.</h2></div><div>{faqItems.slice(0, 4).map((item) => <details key={item.question}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div></section>
-    <section aria-labelledby="resolve-title" className={styles.resolve}><StoryImage className={styles.resolveImage} media={signatureMedia.handoff} sizes="100vw" /><div className={styles.resolveScrim} /><div className={styles.resolveAction}><p className={styles.contextLabel}>Start here</p><h2 id="resolve-title">Make the next handoff clear.</h2><Link className={styles.primaryAction} href="/account/request-delivery">Get a quote <span aria-hidden="true">↗</span></Link></div></section>
+    <section aria-labelledby="resolve-title" className={styles.resolve}><StoryImage className={styles.resolveImage} media={signatureMedia.handoff} sizes="100vw" /><div className={styles.resolveScrim} /><div className={styles.resolveAction}><p className={styles.contextLabel}>Start here</p><h2 id="resolve-title">Make the next handoff clear.</h2><Link className={styles.primaryAction} href="/quote">Get a quote <span aria-hidden="true">↗</span></Link></div></section>
   </main>;
 }

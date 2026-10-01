@@ -43,7 +43,7 @@ export function BusinessServiceView({ service }: AuthoredServiceViewProps) {
           </p>
           <div className="pt-2 flex items-center gap-4 flex-wrap">
             <Link
-              href={service.primaryAction.href || "/account/request-delivery"}
+              href={service.primaryAction.href || "/quote"}
               className="kt-action-filled px-6 py-3.5 inline-flex items-center gap-2"
             >
               <span>{service.primaryAction.label}</span>

@@ -32,13 +32,13 @@ export function PublicHeaderV2() {
             <Link className={styles.accountLink} href="/login">
               Sign in
             </Link>
-            <Link className={styles.quoteLink} href="/account/request-delivery">
+            <Link className={styles.quoteLink} href="/quote">
               Get a quote
             </Link>
           </div>
 
           <div className={styles.mobileActions}>
-            <Link aria-label="Get a quote" className={styles.mobileQuote} href="/account/request-delivery">
+            <Link aria-label="Get a quote" className={styles.mobileQuote} href="/quote">
               Quote
             </Link>
             <button
@@ -74,7 +74,7 @@ export function PublicHeaderV2() {
             <Link href="/login" onClick={() => setMenuOpen(false)}>
               Sign in
             </Link>
-            <Link className={styles.quoteLink} href="/account/request-delivery" onClick={() => setMenuOpen(false)}>
+            <Link className={styles.quoteLink} href="/quote" onClick={() => setMenuOpen(false)}>
               Get a quote
             </Link>
           </div>

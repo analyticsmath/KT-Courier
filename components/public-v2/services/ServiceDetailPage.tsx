@@ -22,7 +22,7 @@ import {
 import styles from "./service-pages.module.css";
 
 // Canonical public quote path for delivery requests
-export const CANONICAL_QUOTE_PATH = "/account/request-delivery";
+export const CANONICAL_QUOTE_PATH = "/quote";
 
 interface ServiceWorldProps {
   service: PublicServicePageDefinition;

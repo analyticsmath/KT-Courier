@@ -55,7 +55,7 @@ export function PublicFooterV2() {
             </Link>
             <p>Courier delivery, fulfilment and account-based order updates for customers, stores and businesses.</p>
           </div>
-          <Link className={styles.footerQuote} href="/account/request-delivery">
+          <Link className={styles.footerQuote} href="/quote">
             Get a quote
           </Link>
         </div>
