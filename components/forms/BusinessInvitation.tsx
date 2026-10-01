@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 export function BusinessInvitation({
   token,
@@ -8,6 +9,7 @@ export function BusinessInvitation({
   token: string;
   signedIn: boolean;
 }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const returnUrl = `/business-invitation?token=${encodeURIComponent(token)}`;
@@ -21,7 +23,8 @@ export function BusinessInvitation({
       });
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
-      window.location.assign("/store/workspace");
+      router.push("/store/workspace");
+      router.refresh();
     } catch (e) {
       setError(
         e instanceof Error

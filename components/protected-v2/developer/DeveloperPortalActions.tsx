@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type OneTimeSecret = Readonly<{ label: string; value: string }>;
 type RequestOptions = Readonly<{ method: "POST" | "PATCH"; body?: Record<string, unknown>; etag?: number }>;
@@ -59,6 +60,7 @@ function ActionFeedback({ message }: { message: string }) {
 }
 
 export function DeveloperApplicationCreateForm() {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   async function submit(form: HTMLFormElement) {
@@ -66,7 +68,7 @@ export function DeveloperApplicationCreateForm() {
     const values = new FormData(form);
     try {
       const body = await requestDeveloperAction("/api/developer/applications", { method: "POST", body: { name: values.get("name"), businessPurpose: values.get("businessPurpose"), environment: values.get("environment"), storeBound: values.get("storeBound") === "on" } });
-      if (typeof body.reference === "string") window.location.assign(`/developers/applications/${body.reference}`);
+      if (typeof body.reference === "string") router.push(`/developers/applications/${encodeURIComponent(body.reference)}`);
       else setMessage("The application was created. Refresh the application list to review its canonical state.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "The application could not be created."); }
     finally { setSaving(false); }

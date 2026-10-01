@@ -52,6 +52,6 @@ export const INITIAL_DELIVERY: DeliveryConfiguration[] = [
     regionIds: [],
     tariffs: tariffs(["0.00", "0.00", "0.00"], "5.50"),
     expectedVersion: 0,
-    reason: "Draft only: awaiting client parcel-size fees",
+    reason: "Draft only: awaiting confirmation of Express fee interpretation",
   },
 ];
