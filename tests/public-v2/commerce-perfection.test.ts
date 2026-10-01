@@ -14,9 +14,13 @@ import { storefrontCategoryMediaSrc } from "@/lib/storefront/category-media";
 describe("Commerce Perfection Pass: Presentation & Utilities", () => {
   describe("humanizeFulfilmentMode", () => {
     it("humanizes fulfilment modes correctly", () => {
-      expect(humanizeFulfilmentMode("COURIER_DELIVERY")).toBe("Courier delivery");
+      expect(humanizeFulfilmentMode("COURIER_DELIVERY")).toBe(
+        "Courier delivery",
+      );
       expect(humanizeFulfilmentMode("STORE_PICKUP")).toBe("Store pickup");
-      expect(humanizeFulfilmentMode("PICKUP_AND_DELIVERY")).toBe("Pickup & delivery");
+      expect(humanizeFulfilmentMode("PICKUP_AND_DELIVERY")).toBe(
+        "Pickup & delivery",
+      );
       expect(humanizeFulfilmentMode(null)).toBe("Standard delivery");
     });
   });
@@ -65,7 +69,9 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
 
   describe("humanizeAttributeName", () => {
     it("converts snake_case and kebab-case to Title Case", () => {
-      expect(humanizeAttributeName("organic_certified")).toBe("Organic Certified");
+      expect(humanizeAttributeName("organic_certified")).toBe(
+        "Organic Certified",
+      );
       expect(humanizeAttributeName("pack-size")).toBe("Pack Size");
       expect(humanizeAttributeName("brandName")).toBe("Brand Name");
     });
@@ -83,6 +89,16 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
       expect(count).toBe(20);
     });
 
+    it("does not count neighboring category names as descendants", () => {
+      expect(
+        aggregateCategoryCount("food", [
+          { path: "food", productCount: 1 },
+          { path: "food/tea", productCount: 2 },
+          { path: "food-dining", productCount: 20 },
+        ]),
+      ).toBe(3);
+    });
+
     it("handles trailing and leading slash variants and direct count", () => {
       const categories = [
         { path: "groceries", productCount: 5 },
@@ -94,40 +110,60 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
   });
 
   describe("Category Media Curated Derivatives", () => {
-    it("resolves the 5 Featured Marketplace Worlds to verified umbrella WebP assets", () => {
+    it("resolves the 5 Featured Marketplace Worlds to their authoritative curated Cloudinary assets", () => {
       const grocerySrc = storefrontCategoryMediaSrc("CMA-CAT-GROCERIES");
       expect(grocerySrc).toBeDefined();
-      expect(grocerySrc).toBe("/media/public/derived/photo-grocery-market-counter-produce-1440w.webp");
+      expect(grocerySrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/groceries.webp",
+      );
 
       const fashionSrc = storefrontCategoryMediaSrc("CMA-CAT-FASHION");
       expect(fashionSrc).toBeDefined();
-      expect(fashionSrc).toBe("/media/public/derived/photo-fashion-jhb-editorial-coat-1440w.webp");
+      expect(fashionSrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/fashion.webp",
+      );
 
       const diningSrc = storefrontCategoryMediaSrc("CMA-CAT-FOOD-DINING");
       expect(diningSrc).toBeDefined();
-      expect(diningSrc).toBe("/media/public/derived/photo-food-prepared-grain-bowl-1440w.webp");
+      expect(diningSrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/food-dining.webp",
+      );
 
       const homeSrc = storefrontCategoryMediaSrc("CMA-CAT-HOME-LIVING");
       expect(homeSrc).toBeDefined();
-      expect(homeSrc).toBe("/media/public/derived/commerce-homeware-natalia-blauth-43i1AK0McxM-unsplash-1440w.webp");
+      expect(homeSrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/home-living.webp",
+      );
 
       const pharmacySrc = storefrontCategoryMediaSrc("CMA-CAT-PHARMACY");
       expect(pharmacySrc).toBeDefined();
-      expect(pharmacySrc).toBe("/media/public/derived/photo-wellness-licensed-pharmacy-counter-1440w.webp");
+      expect(pharmacySrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/pharmacy.webp",
+      );
     });
 
-    it("resolves subcategories to curated umbrella photography", () => {
+    it("resolves subcategories to their dedicated curated photography", () => {
       const accessoriesSrc = storefrontCategoryMediaSrc("CMA-CAT-ACCESSORIES");
-      expect(accessoriesSrc).toBe("/media/public/derived/photo-fashion-rosebank-leather-bags-1440w.webp");
+      expect(accessoriesSrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/accessories.webp",
+      );
 
       const footwearSrc = storefrontCategoryMediaSrc("CMA-CAT-FOOTWEAR");
-      expect(footwearSrc).toBe("/media/public/derived/photo-fashion-designer-footwear-leather-1440w.webp");
+      expect(footwearSrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/footwear.webp",
+      );
 
       const decorSrc = storefrontCategoryMediaSrc("CMA-CAT-DECOR");
-      expect(decorSrc).toBe("/media/public/derived/photo-commerce-cape-town-market-ceramics-1440w.webp");
+      expect(decorSrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/decor.webp",
+      );
 
-      const personalCareSrc = storefrontCategoryMediaSrc("CMA-CAT-PERSONAL-CARE");
-      expect(personalCareSrc).toBe("/media/public/derived/photo-wellness-organic-botanical-serum-1440w.webp");
+      const personalCareSrc = storefrontCategoryMediaSrc(
+        "CMA-CAT-PERSONAL-CARE",
+      );
+      expect(personalCareSrc).toBe(
+        "https://res.cloudinary.com/q8gbzml2/image/upload/f_auto,q_auto,c_fill,g_auto,w_1600,h_1000/kt-courier/category-2026/personal-care.webp",
+      );
     });
   });
 
@@ -135,7 +171,7 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
     const root = process.cwd();
     const cssContent = readFileSync(
       join(root, "components/public-v2/commerce/commerce.module.css"),
-      "utf8"
+      "utf8",
     );
 
     it("enforces line-clamp 3, line-height 1.34, and min-height 0 for productTileTitle", () => {
@@ -146,7 +182,9 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
 
     it("strictly forbids hover underline in commerce CSS", () => {
       // Must not have text-decoration: underline or :hover { text-decoration: underline }
-      expect(cssContent).not.toMatch(/:hover[^{]*\{[^}]*text-decoration:\s*underline/);
+      expect(cssContent).not.toMatch(
+        /:hover[^{]*\{[^}]*text-decoration:\s*underline/,
+      );
       expect(cssContent).not.toMatch(/text-decoration:\s*underline/);
     });
   });
@@ -155,22 +193,26 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
     const root = process.cwd();
     const cssContent = readFileSync(
       join(root, "components/public-v2/commerce/commerce.module.css"),
-      "utf8"
+      "utf8",
     );
     const categoryFieldContent = readFileSync(
       join(root, "components/public-v2/commerce/CategoryDiscoveryField.tsx"),
-      "utf8"
+      "utf8",
     );
     const mobileSheetContent = readFileSync(
       join(root, "components/public-v2/commerce/MobileFilterSheet.tsx"),
-      "utf8"
+      "utf8",
     );
     const desktopRailContent = readFileSync(
       join(root, "components/public-v2/commerce/DesktopFilterRail.tsx"),
-      "utf8"
+      "utf8",
     );
-    const manifestJson = JSON.parse(
-      readFileSync(join(root, "scripts/demo/media/manifest.json"), "utf8")
+    const manifestJson: Array<{
+      publicReference: string;
+      provider: string;
+      assetUrl: string;
+    }> = JSON.parse(
+      readFileSync(join(root, "scripts/demo/media/manifest.json"), "utf8"),
     );
 
     it("verifies CategoryDiscoveryField eyebrow has been completely removed", () => {
@@ -178,7 +220,7 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
     });
 
     it("verifies MobileFilterSheet guards against desktop viewports and omits description", () => {
-      expect(mobileSheetContent).toContain("min-width: 1024px");
+      expect(mobileSheetContent).toContain("max-width: 1023px");
       expect(mobileSheetContent).not.toMatch(/description="Choose filters/);
     });
 
@@ -191,7 +233,9 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
     });
 
     it("verifies filterMobileSheetDialog is strictly hidden on desktop (>= 1024px)", () => {
-      expect(cssContent).toMatch(/@media\s*\(\s*min-width:\s*1024px\s*\)\s*\{[^{}]*\.filterMobileSheetDialog\s*\{[^}]*display:\s*none\s*!important;/);
+      expect(cssContent).toMatch(
+        /@media\s*\(\s*min-width:\s*1024px\s*\)\s*\{[^{}]*\.filterMobileSheetDialog\s*\{[^}]*display:\s*none\s*!important;/,
+      );
     });
 
     it("verifies commerce CSS has eliminated duplicate legacy filterSheetBody and filterSheetFooter", () => {
@@ -202,31 +246,43 @@ describe("Commerce Perfection Pass: Presentation & Utilities", () => {
     });
 
     it("verifies plpFilterSidebar has overflow visible and no max-height constraint", () => {
-      expect(cssContent).toMatch(/\.plpFilterSidebar\s*\{[^}]*overflow:\s*visible;[^}]*max-height:\s*none;/);
+      expect(cssContent).toMatch(
+        /\.plpFilterSidebar\s*\{[^}]*overflow:\s*visible;[^}]*max-height:\s*none;/,
+      );
     });
 
     it("verifies PDP bottom breathing room and mobile purchase dock clearance", () => {
       expect(cssContent).toContain(".pdpExperience");
-      expect(cssContent).toMatch(/\.pdpRelatedSection:last-of-type\s*\{[^}]*padding-bottom:\s*clamp\(/);
-      expect(cssContent).toMatch(/\.pdpExperience\s*\{[^}]*padding-bottom:\s*calc\(7\.5rem/);
+      expect(cssContent).toMatch(
+        /\.pdpRelatedSection:last-of-type\s*\{[^}]*padding-bottom:\s*clamp\(/,
+      );
+      expect(cssContent).toMatch(
+        /\.pdpExperience\s*\{[^}]*padding-bottom:\s*calc\(7\.5rem/,
+      );
     });
 
     it("verifies product media remediation for Stand, Headphones, and Car Mats", () => {
-      const stand = manifestJson.find((e: any) => e.publicReference === "CMA-PROD-STAND-1");
-      const headphones = manifestJson.find((e: any) => e.publicReference === "CMA-PROD-HEADPHONES-1");
-      const carmats = manifestJson.find((e: any) => e.publicReference === "CMA-PROD-CARMATS-1");
+      const stand = manifestJson.find(
+        (e) => e.publicReference === "CMA-PROD-STAND-1-R2",
+      );
+      const headphones = manifestJson.find(
+        (e) => e.publicReference === "CMA-PROD-HEADPHONES-1-R2",
+      );
+      const carmats = manifestJson.find(
+        (e) => e.publicReference === "CMA-PROD-CARMATS-1-R2",
+      );
 
       expect(stand).toBeDefined();
-      expect(stand.provider).toBe("unsplash");
-      expect(stand.assetUrl).toContain("unsplash.com");
+      expect(stand?.provider).toBe("unsplash");
+      expect(stand?.assetUrl).toContain("unsplash.com");
 
       expect(headphones).toBeDefined();
-      expect(headphones.provider).toBe("unsplash");
-      expect(headphones.assetUrl).toContain("unsplash.com");
+      expect(headphones?.provider).toBe("unsplash");
+      expect(headphones?.assetUrl).toContain("unsplash.com");
 
       expect(carmats).toBeDefined();
-      expect(carmats.provider).toBe("unsplash");
-      expect(carmats.assetUrl).toContain("unsplash.com");
+      expect(carmats?.provider).toBe("unsplash");
+      expect(carmats?.assetUrl).toContain("unsplash.com");
     });
   });
 });

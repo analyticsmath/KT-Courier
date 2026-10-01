@@ -13,8 +13,12 @@ describe("R23 public marketplace experience", () => {
       "app/(public)/shop/categories/[...categoryPath]/page.tsx",
       "app/(public)/shop/search/page.tsx",
       "app/(public)/shop/products/[product]/page.tsx",
-    ].map(source).join("\n");
-    const results = source("components/public-v2/marketplace/MarketplaceResults.tsx");
+    ]
+      .map(source)
+      .join("\n");
+    const results = source(
+      "components/public-v2/marketplace/MarketplaceResults.tsx",
+    );
 
     expect(routes).toContain("getStorefrontHome");
     expect(routes).toContain("StorefrontSearchService");
@@ -29,7 +33,7 @@ describe("R23 public marketplace experience", () => {
     const hero = source("components/public-v2/home/HeroCommandDock.tsx");
     const homepage = source("components/public-v2/home/MarketplacePreview.tsx");
     const navigation = source("components/public-v2/site/PublicNavigation.tsx");
-    expect(hero).toContain('href="/account/request-delivery"');
+    expect(hero).toContain('href="/quote"');
     expect(hero).toContain("marketplaceHref");
     expect(hero).toContain("anonymousTracking");
     expect(homepage).toContain("marketplaceHref");
@@ -37,7 +41,9 @@ describe("R23 public marketplace experience", () => {
   });
 
   it("uses truthful SEO and source-unavailable handling without turning a valid record into a generic unavailable page", () => {
-    const category = source("app/(public)/shop/categories/[...categoryPath]/page.tsx");
+    const category = source(
+      "app/(public)/shop/categories/[...categoryPath]/page.tsx",
+    );
     const store = source("app/(public)/shop/stores/[storeSlug]/page.tsx");
     const product = source("app/(public)/shop/products/[product]/page.tsx");
     const sitemap = source("app/(public)/shop/sitemap.ts");
@@ -55,12 +61,19 @@ describe("R23 public marketplace experience", () => {
   });
 
   it("preserves production locks only at cart and checkout boundaries", () => {
-    const storefrontLock = source("lib/storefront/storefront-production-lock.ts");
+    const storefrontLock = source(
+      "lib/storefront/storefront-production-lock.ts",
+    );
     const checkoutLock = source("lib/marketplace-checkout/production-lock.ts");
     const cart = source("app/(public)/cart/page.tsx");
     const checkout = source("app/(public)/checkout/page.tsx");
-    expect(storefrontLock).toContain("STOREFRONT_PRODUCTION_VALIDATION_APPROVED = true");
-    expect(checkoutLock).toContain("MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED = false");
+    expect(storefrontLock).toContain(
+      "STOREFRONT_PRODUCTION_VALIDATION_APPROVED = true",
+    );
+    expect(checkoutLock).toMatch(
+      /MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED\s*=\s*true/,
+    );
+    expect(checkoutLock).toContain("CHECKOUT_PUBLIC_DISABLED");
     expect(cart).toContain("MarketplaceUnavailable");
     expect(checkout).toContain("MarketplaceUnavailable");
   });

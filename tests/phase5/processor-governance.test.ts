@@ -1,20 +1,70 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { getRegisteredProcessor } from "@/lib/processors/processor-registry";
-import { acquireProcessorLease, completeProcessorRun } from "@/lib/processors/lease-authority";
-import { executeRegisteredProcessor, getProcessorInventory } from "@/lib/processors/processor-service";
+import {
+  acquireProcessorLease,
+  completeProcessorRun,
+} from "@/lib/processors/lease-authority";
+import {
+  executeRegisteredProcessor,
+  getProcessorInventory,
+} from "@/lib/processors/processor-service";
+
+const leaseDb = vi.hoisted(() => {
+  const rows = new Map<string, Record<string, unknown>>();
+  const operationalProcessorRun = {
+    findMany: vi.fn(
+      async ({ where }: { where: { jobName: string; partition: string } }) =>
+        [...rows.values()].filter(
+          (row) =>
+            row.jobName === where.jobName &&
+            row.partition === where.partition &&
+            ["LEASE_ACQUIRED", "RUNNING"].includes(String(row.status)),
+        ),
+    ),
+    findUnique: vi.fn(
+      async ({ where }: { where: { operationId: string } }) =>
+        rows.get(where.operationId) ?? null,
+    ),
+    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+      const row = { id: String(data.operationId), ...data };
+      rows.set(String(data.operationId), row);
+      return row;
+    }),
+    update: vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: Record<string, unknown>;
+      }) => {
+        const row = [...rows.values()].find((row) => row.id === where.id);
+        if (!row) throw new Error("Run unavailable");
+        Object.assign(row, data);
+        return row;
+      },
+    ),
+  };
+  const tx = {
+    $queryRaw: vi.fn(async () => [{ locked: true }]),
+    operationalProcessorRun,
+  };
+  return {
+    rows,
+    client: {
+      ...tx,
+      $transaction: vi.fn(async (work: (client: typeof tx) => Promise<unknown>) =>
+        work(tx),
+      ),
+    },
+  };
+});
+vi.mock("@/lib/db/prisma", () => ({ prisma: leaseDb.client }));
 
 describe("Phase 5: Processor Inventory & Lease Governance", () => {
-  const originalUseMem = process.env.PHASE5_REPOSITORY_USE_MEMORY;
-  const originalTestMem = process.env.PHASE5_REPOSITORY_TEST_MEMORY;
-
   beforeEach(() => {
-    process.env.PHASE5_REPOSITORY_USE_MEMORY = "true";
-    process.env.PHASE5_REPOSITORY_TEST_MEMORY = "true";
-  });
-
-  afterEach(() => {
-    process.env.PHASE5_REPOSITORY_USE_MEMORY = originalUseMem;
-    process.env.PHASE5_REPOSITORY_TEST_MEMORY = originalTestMem;
+    leaseDb.rows.clear();
+    vi.clearAllMocks();
   });
   it("registers all operational processors with required metadata", () => {
     const requiredProcessors = [
@@ -115,7 +165,9 @@ describe("Phase 5: Processor Inventory & Lease Governance", () => {
         leaseOwner: "worker-B", // Wrong owner!
         status: "APPLY_COMPLETED",
       }),
-    ).rejects.toThrow(/Stale lease owner 'worker-B' cannot complete run owned by 'worker-A'/);
+    ).rejects.toThrow(
+      /Stale lease owner 'worker-B' cannot complete run owned by 'worker-A'/,
+    );
 
     // Clean up with correct owner
     await completeProcessorRun({

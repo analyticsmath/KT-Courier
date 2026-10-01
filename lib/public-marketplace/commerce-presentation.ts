@@ -5,7 +5,9 @@ import type { StorefrontAvailabilityState } from "@/lib/storefront/storefront-av
  * Prevents raw snake_case or technical identifiers from leaking into public UI.
  */
 
-export function humanizeFulfilmentMode(mode: string | undefined | null): string {
+export function humanizeFulfilmentMode(
+  mode: string | undefined | null,
+): string {
   if (!mode) return "Standard delivery";
   switch (mode.toUpperCase()) {
     case "COURIER_DELIVERY":
@@ -23,7 +25,9 @@ export function humanizeFulfilmentMode(mode: string | undefined | null): string 
   }
 }
 
-export function humanizeCondition(condition: string | undefined | null): string {
+export function humanizeCondition(
+  condition: string | undefined | null,
+): string {
   if (!condition) return "New";
   switch (condition.toUpperCase()) {
     case "NEW":
@@ -43,7 +47,9 @@ export function humanizeCondition(condition: string | undefined | null): string 
   }
 }
 
-export function humanizeAvailability(availability: StorefrontAvailabilityState | string | undefined | null): {
+export function humanizeAvailability(
+  availability: StorefrontAvailabilityState | string | undefined | null,
+): {
   label: string;
   isAvailable: boolean;
   isLowStock: boolean;
@@ -63,17 +69,32 @@ export function humanizeAvailability(availability: StorefrontAvailabilityState |
     case "UNTRACKED":
       return { label: "In stock", isAvailable: true, isLowStock: false };
     case "CONFIRM_AT_CHECKOUT":
-      return { label: "Confirm at checkout", isAvailable: true, isLowStock: false };
+      return {
+        label: "Confirm at checkout",
+        isAvailable: true,
+        isLowStock: false,
+      };
     case "NOT_AVAILABLE_IN_AREA":
-      return { label: "Not available in area", isAvailable: false, isLowStock: false };
+      return {
+        label: "Not available in area",
+        isAvailable: false,
+        isLowStock: false,
+      };
     case "DISCONTINUED":
       return { label: "Discontinued", isAvailable: false, isLowStock: false };
     default:
-      return { label: "Temporarily unavailable", isAvailable: false, isLowStock: false };
+      return {
+        label: "Temporarily unavailable",
+        isAvailable: false,
+        isLowStock: false,
+      };
   }
 }
 
-export function formatCommercePrice(amount: string | number, currency: string = "ZAR"): string {
+export function formatCommercePrice(
+  amount: string | number,
+  currency: string = "ZAR",
+): string {
   const numeric = typeof amount === "string" ? Number(amount) : amount;
   if (Number.isNaN(numeric)) return "R 0.00";
   return new Intl.NumberFormat("en-ZA", {
@@ -101,23 +122,22 @@ export function humanizeAttributeName(name: string): string {
  */
 export function aggregateCategoryCount(
   categoryPath: string,
-  categories: readonly { path: string; productCount?: number }[]
+  categories: readonly { path: string; productCount?: number }[],
 ): number {
   const normalizedParent = categoryPath.replace(/^\/+|\/+$/g, "");
   let total = 0;
-  let hasChildren = false;
 
   for (const cat of categories) {
     const normalizedChild = cat.path.replace(/^\/+|\/+$/g, "");
-    if (normalizedChild.startsWith(normalizedParent) && normalizedChild !== normalizedParent) {
-      hasChildren = true;
+    if (normalizedChild.startsWith(`${normalizedParent}/`)) {
       total += cat.productCount ?? 0;
     }
   }
 
-  const directCount = categories.find(
-    (c) => c.path.replace(/^\/+|\/+$/g, "") === normalizedParent
-  )?.productCount ?? 0;
+  const directCount =
+    categories.find(
+      (c) => c.path.replace(/^\/+|\/+$/g, "") === normalizedParent,
+    )?.productCount ?? 0;
 
   return directCount + total;
 }

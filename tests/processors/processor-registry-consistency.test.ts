@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   PROCESSOR_REGISTRY,
   type ProcessorName,
@@ -9,9 +9,29 @@ import {
   executeRegisteredProcessor,
 } from "@/lib/processors/processor-service";
 
+const dryRunDb = vi.hoisted(() => ({
+  storeEarning: { findMany: vi.fn(async () => []), update: vi.fn() },
+  paymentVerifiedEventIntent: {
+    findMany: vi.fn(async () => []),
+    update: vi.fn(),
+  },
+  $transaction: vi.fn(),
+}));
+vi.mock("@/lib/db/prisma", () => ({ prisma: dryRunDb }));
+vi.mock("@/lib/processors/lease-authority", () => ({
+  acquireProcessorLease: vi.fn(async () => ({
+    acquired: true,
+    operationId: "dry-run-operation",
+  })),
+  completeProcessorRun: vi.fn(async () => true),
+  listProcessorRuns: vi.fn(async () => []),
+}));
+
 describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
   it("enforces all registered processors have required metadata and status", () => {
-    const entries = Object.entries(PROCESSOR_REGISTRY) as Array<[ProcessorName, (typeof PROCESSOR_REGISTRY)[ProcessorName]]>;
+    const entries = Object.entries(PROCESSOR_REGISTRY) as Array<
+      [ProcessorName, (typeof PROCESSOR_REGISTRY)[ProcessorName]]
+    >;
     expect(entries.length).toBeGreaterThanOrEqual(19);
 
     for (const [key, proc] of entries) {
@@ -34,7 +54,9 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
   });
 
   it("satisfies compile-time closure: every IMPLEMENTED processor has a concrete handler", () => {
-    const allProcessors = Object.values(PROCESSOR_REGISTRY) as Array<(typeof PROCESSOR_REGISTRY)[ProcessorName]>;
+    const allProcessors = Object.values(PROCESSOR_REGISTRY) as Array<
+      (typeof PROCESSOR_REGISTRY)[ProcessorName]
+    >;
     const implementedNames = allProcessors
       .filter((p) => p.status === "IMPLEMENTED")
       .map((p) => p.name as ImplementedProcessorName);
@@ -48,7 +70,9 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
   });
 
   it("throws PROCESSOR_HANDLER_NOT_IMPLEMENTED when executing a disabled processor", async () => {
-    const allProcessors = Object.values(PROCESSOR_REGISTRY) as Array<(typeof PROCESSOR_REGISTRY)[ProcessorName]>;
+    const allProcessors = Object.values(PROCESSOR_REGISTRY) as Array<
+      (typeof PROCESSOR_REGISTRY)[ProcessorName]
+    >;
     const disabledNames = allProcessors
       .filter((p) => p.status === "DISABLED")
       .map((p) => p.name as ProcessorName);
@@ -65,7 +89,7 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
     }
   });
 
-  it("enforces strict DRY_RUN guarantee: 0 mutations and zero side-effects", async () => {
+  it("keeps DRY_RUN business records and financial effects unchanged while retaining operational lease authority", async () => {
     const result = await executeRegisteredProcessor({
       name: "release-mature-store-earnings",
       mode: "DRY_RUN",
@@ -90,5 +114,8 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
     expect(paymentResult.itemsClaimed).toBe(0);
     expect(paymentResult.itemsCompleted).toBe(0);
     expect(paymentResult.safeSummary).toContain("[DRY_RUN]");
+    expect(dryRunDb.storeEarning.update).not.toHaveBeenCalled();
+    expect(dryRunDb.paymentVerifiedEventIntent.update).not.toHaveBeenCalled();
+    expect(dryRunDb.$transaction).not.toHaveBeenCalled();
   });
 });

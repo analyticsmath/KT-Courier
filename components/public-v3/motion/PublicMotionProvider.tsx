@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -56,11 +57,20 @@ export function PublicMotionProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const prefersReducedMotion = useReducedMotionMode();
   const isFinePointer = useFinePointer();
-  const [headerTone, setHeaderTone] = useState<"light" | "dark">("light");
+  const [headerState, setHeaderState] = useState<{
+    pathname: string;
+    tone: "light" | "dark";
+  }>({ pathname, tone: "light" });
+  const headerTone =
+    headerState.pathname === pathname ? headerState.tone : "light";
+  const setHeaderTone = useCallback(
+    (tone: "light" | "dark") => setHeaderState({ pathname, tone }),
+    [pathname],
+  );
   const lenisRef = useRef<Lenis | null>(null);
 
   const isExcludedRoute = EXCLUDED_LENIS_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 
   // Initialize Lenis temporal smoothing strictly on desktop fine-pointer non-transactional routes
@@ -102,20 +112,19 @@ export function PublicMotionProvider({ children }: { children: ReactNode }) {
     };
   }, [pathname, prefersReducedMotion, isFinePointer, isExcludedRoute]);
 
-  // Header contrast detection between Freight Paper (#F2EFE8) and Asphalt (#0B0D0F) scenes
+  // Header contrast follows the active scene and resets through the route-scoped state.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     // The homepage director resolves header tone from the same frame as its actors.
     // A second geometry scanner would compete with that chapter ownership.
     if (pathname === "/") {
-      setHeaderTone("light");
       return;
     }
 
     const evaluateTone = () => {
       const darkSections = document.querySelectorAll(
-        "[data-kt-contrast='dark'], [data-kt-scene-theme='dark']"
+        "[data-kt-contrast='dark'], [data-kt-scene-theme='dark']",
       );
       let isDarkUnderHeader = false;
       const headerThreshold = 72;
