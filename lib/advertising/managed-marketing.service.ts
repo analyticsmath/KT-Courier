@@ -311,8 +311,8 @@ export class ManagedMarketingService {
   async selectActivePackageVersion(input: { code?: string; reference?: string; channelReference?: string; at?: Date }) { if (!input.code && !input.reference) throw new ManagedMarketingRequestError("MANAGED_MARKETING_PACKAGE_INVALID", "Package selection is required."); const pack = await (prisma as any).managedMarketingPackageVersion.findFirst({ where: { ...(input.code ? { code: input.code } : {}), ...(input.reference ? { publicReference: input.reference } : {}), status: "ACTIVE", effectiveAt: { lte: input.at ?? new Date() }, ...(input.channelReference ? { channels: { some: { channelDefinition: { publicReference: input.channelReference, active: true } } } } : {}) }, include: { channels: { include: { channelDefinition: true } } }, orderBy: [{ effectiveAt: "desc" }, { versionNumber: "desc" }] }); if (!pack) throw new ManagedMarketingRequestError("MANAGED_MARKETING_PACKAGE_UNAVAILABLE", "Package version is not available."); return pack; }
 
   private async requireStoreRequestPermission(actor: ManagedMarketingRequestActor, permission: string) {
-    if (actor.actorRole !== UserRole.STORE || !(await hasPermission({ userId: actor.actorUserId, role: actor.actorRole, permissionKey: permission }))) throw new ManagedMarketingRequestError("MANAGED_MARKETING_REQUEST_FORBIDDEN", "You are not permitted to manage this marketing request.");
-    const store = await getStoreForUser(actor.actorUserId);
+    if (!(await hasPermission({ userId: actor.actorUserId, role: actor.actorRole, permissionKey: permission }))) throw new ManagedMarketingRequestError("MANAGED_MARKETING_REQUEST_FORBIDDEN", "You are not permitted to manage this marketing request.");
+    const store = await getStoreForUser(actor.actorUserId, undefined, "marketing");
     if (!store) throw new ManagedMarketingRequestError("MANAGED_MARKETING_STORE_NOT_FOUND", "No owned store is available for this account.");
     return store;
   }

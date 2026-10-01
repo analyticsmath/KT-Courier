@@ -178,6 +178,12 @@ enum NotificationReconciliationStatus {
 }
 
 model User {
+  avatarMediaReference                 String?
+  businessMemberships                  StoreEmployeeMembership[]
+  conversationMemberships              PlatformConversationMember[]
+  conversationMessages                 PlatformConversationMessage[]
+  deliveryReviews                      DeliveryReview[]
+  businessSupportAccesses              BusinessSupportAccess[]
   id                                   String                              @id @default(cuid())
   email                                String                              @unique
   passwordHash                         String?
@@ -381,6 +387,7 @@ model UserPermission {
 }
 
 model DriverProfile {
+  cashDeposits                DriverCashDeposit[]
   id                          String                      @id @default(cuid())
   userId                      String                      @unique
   displayName                 String?
@@ -532,6 +539,10 @@ model PasswordResetToken {
 }
 
 model Store {
+  employeeMemberships            StoreEmployeeMembership[]
+  platformConversations          PlatformConversation[]
+  deliveryReviews                DeliveryReview[]
+  supportAccesses                BusinessSupportAccess[]
   id                             String                              @id @default(cuid())
   ownerUserId                    String?
   name                           String
@@ -662,6 +673,9 @@ model Address {
 }
 
 model Order {
+  platformConversations        PlatformConversation[]
+  driverCashDeposits           DriverCashDeposit[]
+  deliveryReview               DeliveryReview?
   id                           String                               @id @default(cuid())
   orderNumber                  String                               @unique
   source                       OrderSource
@@ -1572,6 +1586,7 @@ enum PrivateMediaStatus {
 }
 
 enum PrivateMediaOwnerType {
+  USER
   DRIVER
   VEHICLE
   CLAIM
@@ -2391,29 +2406,29 @@ enum PaymentDisputeHoldingState {
 }
 
 model PaymentDispute {
-  id                     String                @id @default(cuid())
-  publicReference        String                @unique
-  providerDisputeId      String?               @unique
+  id                     String               @id @default(cuid())
+  publicReference        String               @unique
+  providerDisputeId      String?              @unique
   paymentId              String
-  provider               PaymentProvider       @default(PAYSTACK)
-  amount                 Decimal               @db.Decimal(18, 2)
-  currency               LedgerCurrency        @default(ZAR)
-  status                 PaymentDisputeStatus  @default(OPEN)
-  reason                 PaymentDisputeReason  @default(OTHER)
+  provider               PaymentProvider      @default(PAYSTACK)
+  amount                 Decimal              @db.Decimal(18, 2)
+  currency               LedgerCurrency       @default(ZAR)
+  status                 PaymentDisputeStatus @default(OPEN)
+  reason                 PaymentDisputeReason @default(OTHER)
   providerStatus         String?
   evidenceDueBy          DateTime?
   resolvedAt             DateTime?
   lastSynchronizedAt     DateTime?
-  reconciliationRequired Boolean               @default(false)
+  reconciliationRequired Boolean              @default(false)
   safeEvidenceSnapshot   Json?
-  holdLedgerJournalId    String?               @unique
-  lossLedgerJournalId    String?               @unique
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  holdLedgerJournalId    String?              @unique
+  lossLedgerJournalId    String?              @unique
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
-  payment                Payment               @relation(fields: [paymentId], references: [id], onDelete: Restrict)
-  history                PaymentDisputeHistory[]
-  allocations            PaymentDisputeAllocation[]
+  payment     Payment                    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  history     PaymentDisputeHistory[]
+  allocations PaymentDisputeAllocation[]
 
   @@index([paymentId, status])
   @@index([status, evidenceDueBy])
@@ -2431,36 +2446,36 @@ model PaymentDisputeHistory {
   safeMetadata Json?
   createdAt    DateTime              @default(now())
 
-  dispute      PaymentDispute        @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  dispute PaymentDispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
 
   @@index([disputeId, createdAt])
 }
 
 model PaymentDisputeAllocation {
-  id                            String                      @id @default(cuid())
-  publicReference               String                      @unique
+  id                            String                     @id @default(cuid())
+  publicReference               String                     @unique
   disputeId                     String
-  participantType               String                      // "STORE" | "DRIVER" | "PLATFORM"
-  participantId                 String?                     // storeId, driverId, or "platform"
+  participantType               String // "STORE" | "DRIVER" | "PLATFORM"
+  participantId                 String? // storeId, driverId, or "platform"
   storeEarningId                String?
   driverEarningId               String?
   withdrawalEarningAllocationId String?
-  allocatedAmount               Decimal                     @db.Decimal(18, 2)
-  heldAmount                    Decimal                     @default(0) @db.Decimal(18, 2)
-  recoveryReceivableAmount      Decimal                     @default(0) @db.Decimal(18, 2)
-  currency                      LedgerCurrency              @default(ZAR)
+  allocatedAmount               Decimal                    @db.Decimal(18, 2)
+  heldAmount                    Decimal                    @default(0) @db.Decimal(18, 2)
+  recoveryReceivableAmount      Decimal                    @default(0) @db.Decimal(18, 2)
+  currency                      LedgerCurrency             @default(ZAR)
   holdingState                  PaymentDisputeHoldingState
   ledgerAccountId               String?
   holdJournalId                 String?
   settledAt                     DateTime?
   settlementJournalId           String?
-  createdAt                     DateTime                    @default(now())
-  updatedAt                     DateTime                    @updatedAt
+  createdAt                     DateTime                   @default(now())
+  updatedAt                     DateTime                   @updatedAt
 
-  dispute                       PaymentDispute              @relation(fields: [disputeId], references: [id], onDelete: Cascade)
-  storeEarning                  StoreEarning?               @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
-  driverEarning                 DriverEarning?              @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
-  withdrawalEarningAllocation   WithdrawalEarningAllocation? @relation(fields: [withdrawalEarningAllocationId], references: [id], onDelete: SetNull)
+  dispute                     PaymentDispute               @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  storeEarning                StoreEarning?                @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
+  driverEarning               DriverEarning?               @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
+  withdrawalEarningAllocation WithdrawalEarningAllocation? @relation(fields: [withdrawalEarningAllocationId], references: [id], onDelete: SetNull)
 
   @@index([disputeId])
   @@index([participantType, participantId])
@@ -3546,10 +3561,10 @@ model WithdrawalEarningAllocation {
   createdAt           DateTime                          @default(now())
   updatedAt           DateTime                          @updatedAt
 
-  withdrawal          WithdrawalRequest                 @relation(fields: [withdrawalRequestId], references: [id], onDelete: Restrict)
-  storeEarning        StoreEarning?                     @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
-  driverEarning       DriverEarning?                    @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
-  disputeAllocations  PaymentDisputeAllocation[]
+  withdrawal         WithdrawalRequest          @relation(fields: [withdrawalRequestId], references: [id], onDelete: Restrict)
+  storeEarning       StoreEarning?              @relation(fields: [storeEarningId], references: [id], onDelete: Restrict)
+  driverEarning      DriverEarning?             @relation(fields: [driverEarningId], references: [id], onDelete: Restrict)
+  disputeAllocations PaymentDisputeAllocation[]
 
   @@unique([withdrawalRequestId, storeEarningId], map: "WithdrawalEarningAllocation_withdrawal_store_earning_key")
   @@unique([withdrawalRequestId, driverEarningId], map: "WithdrawalEarningAllocation_withdrawal_driver_earning_key")
@@ -5880,6 +5895,8 @@ model PromotionCampaign {
 }
 
 model PromotionCampaignVersion {
+  proposedBudgetAmount          Decimal?                       @db.Decimal(18, 2)
+  clientDraftRevision           Int                            @default(0)
   id                            String                         @id @default(cuid())
   publicReference               String                         @unique
   campaignId                    String
@@ -13409,8 +13426,8 @@ model OperationalIncident {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  timeline OperationalIncidentTimeline[]
-  evidence OperationalIncidentEvidence[]
+  timeline   OperationalIncidentTimeline[]
+  evidence   OperationalIncidentEvidence[]
   operations OperationalIncidentOperation[]
 
   @@index([status, severity, openedAt])
@@ -14301,6 +14318,9 @@ model CommercialSurcharge {
 }
 
 model PaymentMethodPolicy {
+  provinceScope     Json?
+  regionId          String?
+  orderId           String?
   id                String                  @id @default(cuid())
   versionNumber     Int
   status            String                  @default("DRAFT")
@@ -14333,4 +14353,121 @@ model StoreSellingTerritory {
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
   store       Store                      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model StoreEmployeeMembership {
+  id              String    @id @default(cuid())
+  storeId         String
+  userId          String?
+  email           String
+  roleLabel       String
+  permissions     Json
+  status          String    @default("INVITED")
+  inviteTokenHash String?   @unique
+  inviteExpiresAt DateTime?
+  invitedByUserId String
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  user            User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, email])
+  @@index([userId, status])
+}
+
+model PlatformConversation {
+  id              String                        @id @default(cuid())
+  subject         String
+  kind            String
+  orderId         String?
+  storeId         String?
+  createdByUserId String
+  closedAt        DateTime?
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+  members         PlatformConversationMember[]
+  messages        PlatformConversationMessage[]
+  order           Order?                        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  store           Store?                        @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, kind])
+  @@index([storeId, kind])
+}
+
+model PlatformConversationMember {
+  id             String               @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  conversation   PlatformConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model PlatformConversationMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  senderUserId   String
+  body           String
+  operationId    String
+  createdAt      DateTime             @default(now())
+  conversation   PlatformConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  sender         User                 @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationId, senderUserId, operationId])
+  @@index([conversationId, createdAt, id])
+}
+
+model DeliveryReview {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  authorUserId      String
+  storeId           String?
+  rating            Int
+  body              String
+  response          String?
+  respondedByUserId String?
+  respondedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  author            User      @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  store             Store?    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@index([authorUserId, createdAt])
+  @@index([storeId, createdAt])
+}
+
+model DriverCashDeposit {
+  id               String        @id @default(cuid())
+  driverProfileId  String
+  orderId          String
+  amount           Decimal       @db.Decimal(18, 2)
+  bankReference    String
+  operationId      String        @unique
+  status           String        @default("PENDING")
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  reviewNote       String?
+  createdAt        DateTime      @default(now())
+  driver           DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Restrict)
+  order            Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([driverProfileId, status, createdAt])
+  @@index([orderId, status])
+}
+
+model BusinessSupportAccess {
+  id          String   @id @default(cuid())
+  storeId     String
+  actorUserId String
+  reason      String
+  createdAt   DateTime @default(now())
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, createdAt])
+  @@index([actorUserId, createdAt])
 }

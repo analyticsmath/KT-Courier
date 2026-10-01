@@ -1,3 +1,4 @@
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
@@ -6,25 +7,16 @@ import {
 } from "@/lib/services/store-addresses.service";
 import { StorePickupAddressSchema } from "@/lib/validation/address-book";
 import { formatZodErrors } from "@/lib/validation/auth";
-import {
-  forbidden,
-  notFound,
-  ok,
-  serverError,
-  tooManyRequests,
-  unauthorized,
-  unprocessable,
-} from "@/lib/api/response";
+import { notFound, ok, serverError, tooManyRequests, unauthorized, unprocessable } from "@/lib/api/response";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
-import { UserRole } from "@/types/db";
+
 
 export async function GET() {
+  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address");
+  if (workspaceDenied) return workspaceDenied;
   const user = await getCurrentUser();
   if (!user) return unauthorized();
-  if (user.role !== UserRole.STORE) {
-    return forbidden("This endpoint is for store accounts.");
-  }
 
   try {
     const state = await getStorePickupAddress(user.id);
@@ -36,16 +28,19 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address");
+  if (workspaceDenied) return workspaceDenied;
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
 
   const user = await getCurrentUser();
   if (!user) return unauthorized();
-  if (user.role !== UserRole.STORE) {
-    return forbidden("This endpoint is for store accounts.");
-  }
 
-  const rl = await checkIpRateLimit(req, `store-pickup-address:${user.id}`, RATE_LIMITS.ADDRESS_MUTATION);
+  const rl = await checkIpRateLimit(
+    req,
+    `store-pickup-address:${user.id}`,
+    RATE_LIMITS.ADDRESS_MUTATION,
+  );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: unknown;
@@ -57,7 +52,10 @@ export async function PATCH(req: NextRequest) {
 
   const parsed = StorePickupAddressSchema.safeParse(body);
   if (!parsed.success) {
-    return unprocessable("Validation failed.", formatZodErrors(parsed.error.issues));
+    return unprocessable(
+      "Validation failed.",
+      formatZodErrors(parsed.error.issues),
+    );
   }
 
   try {
@@ -70,5 +68,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address");
+  if (workspaceDenied) return workspaceDenied;
   return PATCH(req);
 }

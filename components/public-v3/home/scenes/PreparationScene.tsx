@@ -3,15 +3,18 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import { ktMediaV3 } from "../../media/kt-media-v3";
-import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
+import {
+  chapterBudgetVh,
+  mobileChapterBudgetVh,
+} from "../director/home-chapters";
 import styles from "../post-hero-scenes.module.css";
 
 export function PreparationScene({ className = "" }: { className?: string }) {
   const prepPhoto = ktMediaV3.pages.homepage.preparation;
   const street = ktMediaV3.editorial.merchant.mabonengDepot;
   const style = {
-    "--kt-home-budget": `${chapterBudgetVh("preparation")}svh`,
-    "--kt-home-mobile-budget": `${mobileChapterBudgetVh("preparation")}svh`,
+    "--kt-home-budget": `${chapterBudgetVh("parcelization")}svh`,
+    "--kt-home-mobile-budget": `${mobileChapterBudgetVh("parcelization")}svh`,
   } as CSSProperties;
 
   return (
@@ -26,7 +29,10 @@ export function PreparationScene({ className = "" }: { className?: string }) {
         <div className={styles.preparationComposition}>
           <div className={styles.preparationStatement}>
             <h2 id="prep-heading">The order becomes a parcel.</h2>
-            <p>Each delivery leaves the counter labelled, sealed and ready for the road.</p>
+            <p>
+              Each delivery leaves the counter labelled, sealed and ready for
+              the road.
+            </p>
           </div>
           <div data-preparation-target className={styles.preparationMainImage}>
             <Image
@@ -43,8 +49,18 @@ export function PreparationScene({ className = "" }: { className?: string }) {
             <strong>Addressed. Sealed. Ready.</strong>
           </div>
         </div>
-        <div className={styles.preparationStreetTransition} data-preparation-street aria-hidden="true">
-          <Image src={street.src} alt="" fill sizes="100vw" className="object-cover" />
+        <div
+          className={styles.preparationStreetTransition}
+          data-preparation-street
+          aria-hidden="true"
+        >
+          <Image
+            src={street.src}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
         </div>
       </div>
     </section>

@@ -1,6 +1,7 @@
+import { storeAccess } from "@/lib/client-platform/store-access";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStoreForUser } from "@/lib/auth/store-context";
+
 import { readPublicQuote } from "@/lib/client-platform/delivery.service";
 import {
   QuoteBookingSchema,
@@ -32,9 +33,22 @@ export async function POST(
   try {
     const id = (await c.params).id;
     const quote = await readPublicQuote(id, user.id);
-    const store = user.role === "STORE" ? await getStoreForUser(user.id) : null;
-    if (user.role === "STORE" && !store)
+    const business =
+      user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE";
+    const store = business
+      ? (await storeAccess(user.id, "deliveries")).store
+      : null;
+    if (business && !store)
       throw new PlatformError("STORE_NOT_FOUND", "Business not found.", 403);
+    if (
+      quote.ownerId === user.id &&
+      (quote.storeId ?? null) !== (store?.id ?? null)
+    )
+      throw new PlatformError(
+        "QUOTE_WORKSPACE_MISMATCH",
+        "Request a new quote in this workspace.",
+        409,
+      );
     const claimed = await prisma.pricingQuote.updateMany({
       where: {
         id,
@@ -45,7 +59,7 @@ export async function POST(
       },
       data: {
         ownerId: user.id,
-        ownerType: user.role === "STORE" ? "STORE" : "CUSTOMER",
+        ownerType: business ? "STORE" : "CUSTOMER",
         storeId: store?.id ?? null,
       },
     });
@@ -76,7 +90,7 @@ export async function POST(
       parcelCount: 1,
     });
     // Strict order schema excludes sender helper fields rather than accepting extra client facts.
-    return json(await createOrder(user, input), 201);
+    return json(await createOrder(user, input, business), 201);
   } catch (e) {
     return failure(e);
   }

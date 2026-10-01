@@ -8,9 +8,21 @@ Both supplied documents were read in full: “KT COURIERS — Delivery and Acces
 
 The accepted hero van is preserved. No requested category-color scheme or arbitrary changes to shape, rounding, or visual direction were applied. Existing public and protected components remain the design foundation.
 
-## Local implementation prepared
+## Recovery status (latest, 2026-10-01)
 
-These changes exist in the working checkout but have NOT been committed or pushed as implementation:
+The earlier uncommitted checkout was lost when the execution workspace reset. The feature table below records that earlier work; it is **historical and does not establish that the implementation currently exists**.
+
+Rebuilt and remotely committed: anonymous public quotes, versioned Economy/Standard service tariffs, inactive Express draft, quote-to-booking flows, public quote navigation and initial configuration script (commit ec6b924).
+
+Rebuilt in the current checkout: database foundations, verified-email employee invitations and custom grants, owner-only team administration, module checks at all existing business HTTP handlers and pages, scoped catalog/order/finance/marketing/settings integration, online-only contact copy, and strict TypeScript build settings. No owner identity substitution is used. New tables remain additive; no historical migrations were modified.
+
+Validation at this checkpoint: 65 focused tests passed (quotes, employee authorization and invitations, delegated permissions, existing security foundations). The previous full TypeScript run passed before final UI and formatting edits; it is being rerun. Production deployment and the new migration have **not** been applied.
+
+Still to rebuild/finish: persistent delivery/support chat, avatars and reviews, driver deposit workflow, scoped COD admin configuration, expense export, promotion drafts/artwork, superuser oversight, launch blockers, integration verification and deployment. No claim of customer readiness is made.
+
+## Historical local implementation (lost checkout)
+
+The following records the earlier lost checkout. Consult the recovery status above for the implementation that currently exists:
 
 | Capability | Implementation and authority |
 |---|---|

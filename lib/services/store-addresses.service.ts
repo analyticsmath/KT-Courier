@@ -1,3 +1,4 @@
+import { storeAccess } from "@/lib/client-platform/store-access";
 import { prisma } from "@/lib/db/prisma";
 import type { Address, Store } from "@/types/db";
 import type { StorePickupAddressInput } from "@/lib/validation/address-book";
@@ -7,17 +8,31 @@ import {
 } from "@/lib/services/customer-addresses.service";
 
 export interface StorePickupAddressState {
-  store: Pick<Store, "id" | "name" | "contactName" | "contactPhone" | "addressLine1" | "addressLine2" | "city" | "province" | "postalCode" | "country" | "defaultPickupAddressId">;
+  store: Pick<
+    Store,
+    | "id"
+    | "name"
+    | "contactName"
+    | "contactPhone"
+    | "addressLine1"
+    | "addressLine2"
+    | "city"
+    | "province"
+    | "postalCode"
+    | "country"
+    | "defaultPickupAddressId"
+  >;
   pickupAddress: SavedAddressDto | null;
 }
 
 export async function getStorePickupAddress(
-  userId: string
+  userId: string,
+  section: "settings" | "deliveries" = "settings",
 ): Promise<StorePickupAddressState | null> {
-  const store = await prisma.store.findFirst({
-    where: { ownerUserId: userId },
+  const access = await storeAccess(userId, section);
+  const store = await prisma.store.findUnique({
+    where: { id: access.store.id },
     include: { defaultPickupAddress: true },
-    orderBy: { createdAt: "asc" },
   });
 
   if (!store) return null;
@@ -88,13 +103,9 @@ function storeAddressData(input: StorePickupAddressInput) {
 
 export async function upsertStorePickupAddress(
   userId: string,
-  input: StorePickupAddressInput
+  input: StorePickupAddressInput,
 ): Promise<SavedAddressDto | null> {
-  const store = await prisma.store.findFirst({
-    where: { ownerUserId: userId },
-    select: { id: true, defaultPickupAddressId: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const store = (await storeAccess(userId, "settings")).store;
 
   if (!store) return null;
 
@@ -133,6 +144,16 @@ export async function upsertStorePickupAddress(
       },
     });
 
+    await tx.adminActivityLog.create({
+      data: {
+        actorUserId: userId,
+        action: "UPDATE",
+        entityType: "Store",
+        entityId: store.id,
+        message: "Business collection address updated",
+        metadata: { addressId: address.id },
+      },
+    });
     return address;
   });
 

@@ -14,6 +14,11 @@ import type {
   RepeatDeliveryPrefillDto,
   RepeatDeliveryAddressPrefill,
 } from "@/lib/services/orders.service";
+type Address = {
+  [K in keyof Omit<RepeatDeliveryAddressPrefill, "formattedAddress">]?:
+    | RepeatDeliveryAddressPrefill[K]
+    | null;
+} & { formattedAddress?: string | null };
 type Quote = {
   id: string;
   total: string;
@@ -39,17 +44,17 @@ export function PublicDeliveryQuoteForm({
   reference?: string;
   savedAddresses?: SavedAddressDto[];
   prefill?: RepeatDeliveryPrefillDto | null;
-  defaultPickup?: Partial<RepeatDeliveryAddressPrefill>;
+  defaultPickup?: Address;
 }) {
   const router = useRouter();
   const [services, setServices] = useState<DeliveryConfiguration[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [pickup, setPickup] = useState<Partial<RepeatDeliveryAddressPrefill>>(
+  const [pickup, setPickup] = useState<Address>(
     prefill?.pickupAddress ?? defaultPickup ?? {},
   );
-  const [dropoff, setDropoff] = useState<Partial<RepeatDeliveryAddressPrefill>>(
+  const [dropoff, setDropoff] = useState<Address>(
     prefill?.dropoffAddress ?? {},
   );
   useEffect(() => {
@@ -116,8 +121,8 @@ export function PublicDeliveryQuoteForm({
   function addressFields(
     prefix: string,
     title: string,
-    value: Partial<RepeatDeliveryAddressPrefill>,
-    setValue: (v: Partial<RepeatDeliveryAddressPrefill>) => void,
+    value: Address,
+    setValue: (v: Address) => void,
   ) {
     return (
       <fieldset className="space-y-4">

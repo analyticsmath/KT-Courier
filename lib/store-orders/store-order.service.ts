@@ -1,3 +1,4 @@
+import { storeAccess } from "@/lib/client-platform/store-access";
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 21 Prisma delegates are intentionally dynamic until Phase 26.5 permits generation. */
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -105,8 +106,8 @@ async function updateOrder(tx: Phase21Database, order: any, patch: Record<string
 
 async function authorize(tx: Phase21Database, publicReference: string, actorUserId: string, permission: StoreOrderPermission) {
   const actor = await prisma.user.findUnique({ where: { id: actorUserId }, select: { id: true, role: true, status: true } });
-  if (!actor || actor.role !== "STORE" || actor.status !== "ACTIVE") throw new StoreOrderError("STORE_ORDER_ACCESS_DENIED", "An active store actor is required.");
-  const store = await prisma.store.findFirst({ where: { ownerUserId: actor.id, status: "ACTIVE" }, select: { id: true } });
+  if (!actor || actor.status !== "ACTIVE") throw new StoreOrderError("STORE_ORDER_ACCESS_DENIED", "An active store actor is required.");
+  const store = (await storeAccess(actor.id,"orders")).store;
   if (!store) throw new StoreOrderError("STORE_ORDER_ACCESS_DENIED", "Store order permission is required.");
   const order = await lockOrder(tx, publicReference, store.id);
   await requireStoreOrderActor({ actorUserId, storeId: order.storeId, permission });

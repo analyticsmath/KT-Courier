@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  storeEmployeeMembership: { findMany: vi.fn() },
   permission: {
     count: vi.fn(),
     findUnique: vi.fn(),
@@ -44,6 +45,7 @@ function permissionRecord(args?: {
 
 describe("permission evaluation", () => {
   beforeEach(() => {
+    prismaMock.storeEmployeeMembership.findMany.mockResolvedValue([]);
     prismaMock.permission.count.mockReset();
     prismaMock.permission.findUnique.mockReset();
     prismaMock.permission.findMany.mockReset();
@@ -59,7 +61,7 @@ describe("permission evaluation", () => {
         userId: "super-admin",
         role: UserRole.SUPER_ADMIN,
         permissionKey: "unknown.permission",
-      })
+      }),
     ).resolves.toBe(true);
 
     expect(prismaMock.permission.count).not.toHaveBeenCalled();
@@ -72,7 +74,7 @@ describe("permission evaluation", () => {
           userId: `user-${role}`,
           role,
           permissionKey: PERMISSIONS.ADMIN_DASHBOARD_READ,
-        })
+        }),
       ).resolves.toBe(false);
     }
 
@@ -87,7 +89,7 @@ describe("permission evaluation", () => {
         userId: "admin",
         role: UserRole.ADMIN,
         permissionKey: PERMISSIONS.SETTINGS_UPDATE,
-      })
+      }),
     ).resolves.toBe(true);
   });
 
@@ -100,14 +102,14 @@ describe("permission evaluation", () => {
         userId: "admin",
         role: UserRole.ADMIN,
         permissionKey: PERMISSIONS.USERS_READ,
-      })
+      }),
     ).resolves.toBe(false);
   });
 
   it("allows enabled role permission grants", async () => {
     prismaMock.permission.count.mockResolvedValue(1);
     prismaMock.permission.findUnique.mockResolvedValue(
-      permissionRecord({ rolePermissions: [{ id: "role-grant" }] })
+      permissionRecord({ rolePermissions: [{ id: "role-grant" }] }),
     );
 
     await expect(
@@ -115,7 +117,7 @@ describe("permission evaluation", () => {
         userId: "admin",
         role: UserRole.ADMIN,
         permissionKey: PERMISSIONS.USERS_READ,
-      })
+      }),
     ).resolves.toBe(true);
   });
 
@@ -124,7 +126,7 @@ describe("permission evaluation", () => {
     prismaMock.permission.findUnique.mockResolvedValue(
       permissionRecord({
         userPermissions: [{ effect: PermissionEffect.ALLOW }],
-      })
+      }),
     );
 
     await expect(
@@ -132,7 +134,7 @@ describe("permission evaluation", () => {
         userId: "admin",
         role: UserRole.ADMIN,
         permissionKey: PERMISSIONS.USERS_READ,
-      })
+      }),
     ).resolves.toBe(true);
   });
 
@@ -142,7 +144,7 @@ describe("permission evaluation", () => {
       permissionRecord({
         rolePermissions: [{ id: "role-grant" }],
         userPermissions: [{ effect: PermissionEffect.DENY }],
-      })
+      }),
     );
 
     await expect(
@@ -150,7 +152,7 @@ describe("permission evaluation", () => {
         userId: "admin",
         role: UserRole.ADMIN,
         permissionKey: PERMISSIONS.USERS_READ,
-      })
+      }),
     ).resolves.toBe(false);
   });
 
@@ -163,7 +165,7 @@ describe("permission evaluation", () => {
         userId: "admin",
         role: UserRole.ADMIN,
         permissionKey: "unknown.permission",
-      })
+      }),
     ).resolves.toBe(false);
   });
 
@@ -188,11 +190,8 @@ describe("permission evaluation", () => {
       getEffectivePermissionKeysForUser({
         userId: "admin",
         role: UserRole.ADMIN,
-      })
-    ).resolves.toEqual([
-      PERMISSIONS.ORDERS_READ,
-      PERMISSIONS.USERS_READ,
-    ]);
+      }),
+    ).resolves.toEqual([PERMISSIONS.ORDERS_READ, PERMISSIONS.USERS_READ]);
   });
 
   it("returns all system and database permissions for SUPER_ADMIN", async () => {
@@ -215,19 +214,23 @@ describe("permission evaluation", () => {
     const tx = {
       permission: {
         upsert: vi.fn(({ where }: { where: { key: string } }) =>
-          Promise.resolve({ id: `id:${where.key}`, key: where.key })
+          Promise.resolve({ id: `id:${where.key}`, key: where.key }),
         ),
       },
       rolePermission: {
         upsert: vi.fn(() => Promise.resolve({ id: "role-permission-id" })),
       },
     };
-    prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
+    prismaMock.$transaction.mockImplementation(async (callback) =>
+      callback(tx),
+    );
 
-    const totalRolePermissions = Object.values(ROLE_DEFAULT_PERMISSION_KEYS).flat().length;
+    const totalRolePermissions = Object.values(
+      ROLE_DEFAULT_PERMISSION_KEYS,
+    ).flat().length;
 
     await expect(
-      syncSystemPermissions({ actorUserId: "super-admin" })
+      syncSystemPermissions({ actorUserId: "super-admin" }),
     ).resolves.toEqual({
       permissionsUpserted: SYSTEM_PERMISSION_DEFINITIONS.length,
       rolePermissionsUpserted: totalRolePermissions,
@@ -236,10 +239,18 @@ describe("permission evaluation", () => {
     await syncSystemPermissions({ actorUserId: "super-admin" });
 
     expect(tx.permission.upsert).toHaveBeenCalledTimes(
-      SYSTEM_PERMISSION_DEFINITIONS.length * 2
+      SYSTEM_PERMISSION_DEFINITIONS.length * 2,
     );
     expect(tx.rolePermission.upsert).toHaveBeenCalledTimes(
-      totalRolePermissions * 2
+      totalRolePermissions * 2,
     );
   });
+});
+
+describe("delegated business permissions",()=>{
+ beforeEach(()=>{prismaMock.storeEmployeeMembership.findMany.mockResolvedValue([{permissions:["products"]}]);prismaMock.permission.findUnique.mockResolvedValue(null);prismaMock.permission.count.mockResolvedValue(1);});
+ it("allows an assigned employee's default business module permission",async()=>{await expect(hasPermission({userId:"employee",role:UserRole.CUSTOMER,permissionKey:PERMISSIONS.CATALOG_MANAGE})).resolves.toBe(true);});
+ it("does not grant catalog moderation or admin permissions",async()=>{for(const key of [PERMISSIONS.CATALOG_MODERATION_READ,PERMISSIONS.ADMIN_DASHBOARD_READ])await expect(hasPermission({userId:"employee",role:UserRole.CUSTOMER,permissionKey:key})).resolves.toBe(false);});
+ it("respects explicit DENY even inside an assigned module",async()=>{prismaMock.permission.findUnique.mockResolvedValue(permissionRecord({userPermissions:[{effect:PermissionEffect.DENY}]}));await expect(hasPermission({userId:"employee",role:UserRole.CUSTOMER,permissionKey:PERMISSIONS.CATALOG_MANAGE})).resolves.toBe(false);});
+ it("does not grant an unassigned module even with a role grant",async()=>{prismaMock.permission.findUnique.mockResolvedValue(permissionRecord({rolePermissions:[{id:"store-role-grant"}]}));await expect(hasPermission({userId:"employee",role:UserRole.STORE,permissionKey:PERMISSIONS.STORE_SUBSCRIPTIONS_MANAGE})).resolves.toBe(false);});
 });

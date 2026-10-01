@@ -1,3 +1,4 @@
+import { storeAccess } from "@/lib/client-platform/store-access";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { FinanceStoreEarningListItemDto, StoreEarningDetailDto, StoreEarningListItemDto } from "@/lib/dto/store-earning.dto";
@@ -49,9 +50,9 @@ function financeDetail(row: Row) {
 }
 
 async function resolveOwnedActiveStore(userId: string) {
-  const [user, stores] = await Promise.all([prisma.user.findUnique({ where: { id: userId }, select: { role: true, status: true } }), prisma.store.findMany({ where: { ownerUserId: userId }, select: { id: true, slug: true, status: true }, orderBy: { createdAt: "asc" }, take: 2 })]);
-  if (!user || user.role !== "STORE" || user.status !== "ACTIVE" || stores.length !== 1 || stores[0]!.status !== "ACTIVE") throw new StoreEarningError("STORE_EARNING_FORBIDDEN", "An active uniquely-owned store is required to read earnings.");
-  return stores[0]!;
+  let access;try { access=await storeAccess(userId,"finance"); }catch{throw new StoreEarningError("STORE_EARNING_FORBIDDEN","Finance access is required.");}
+  if(access.store.status!=="ACTIVE")throw new StoreEarningError("STORE_EARNING_FORBIDDEN","An active business is required.");
+  return access.store;
 }
 
 function dateWhere(query: StoreEarningListQuery): Prisma.DateTimeFilter | undefined {

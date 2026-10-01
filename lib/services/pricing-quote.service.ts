@@ -71,8 +71,8 @@ export function toQuoteDto(quote: { id: string; currency: string; expiresAt: Dat
   return { id: quote.id, currency: quote.currency, expiresAt: quote.expiresAt, distanceMeters: quote.distanceMeters, durationSeconds: quote.durationSeconds, subtotal: quote.subtotal.toFixed(2), taxRate: quote.taxRate.toFixed(4), taxAmount: quote.taxAmount.toFixed(2), total: quote.total.toFixed(2), lineItems: quote.lineItems.map((item) => ({ code: item.code, label: item.label, quantity: item.quantity?.toString() ?? null, unitRate: item.unitRate?.toString() ?? null, amount: item.amount.toFixed(2) })) };
 }
 
-export async function ownedActiveQuoteForOrder(tx: Prisma.TransactionClient, user: AuthenticatedUser, quoteId: string, inputHash: string) {
-  const owner = user.role === "CUSTOMER" ? { ownerType: PricingQuoteOwnerType.CUSTOMER, ownerId: user.id } : { ownerType: PricingQuoteOwnerType.STORE, ownerId: user.id };
+export async function ownedActiveQuoteForOrder(tx: Prisma.TransactionClient, user: AuthenticatedUser, quoteId: string, inputHash: string, storeId: string | null = null) {
+  const owner = storeId ? { ownerType: PricingQuoteOwnerType.STORE, ownerId: user.id, storeId } : { ownerType: PricingQuoteOwnerType.CUSTOMER, ownerId: user.id, storeId: null };
   const quote = await tx.pricingQuote.findFirst({ where: { id: quoteId, ...owner }, include: { lineItems: true } });
   if (!quote) throw pricingError.quoteOwner();
   if (quote.status === PricingQuoteStatus.USED) throw pricingError.quoteUsed();

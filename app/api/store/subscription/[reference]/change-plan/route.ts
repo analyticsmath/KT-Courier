@@ -1,1 +1,25 @@
-import type { NextRequest } from "next/server"; import { enforceSubscriptionMutation, requireSubscriptionStoreReference } from "@/lib/subscriptions/api-policy"; import { subscriptionMutationSourceLocked } from "@/lib/subscriptions/locked-mutation-route"; export async function POST(request: NextRequest, context: { params: Promise<{ reference: string }> }) { const limited = await enforceSubscriptionMutation(request); if (limited) return limited; const { reference } = await context.params; const auth = await requireSubscriptionStoreReference(request, reference, "store_subscriptions.billing"); return auth.response ?? subscriptionMutationSourceLocked(); }
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
+import type { NextRequest } from "next/server";
+import {
+  enforceSubscriptionMutation,
+  requireSubscriptionStoreReference,
+} from "@/lib/subscriptions/api-policy";
+import { subscriptionMutationSourceLocked } from "@/lib/subscriptions/locked-mutation-route";
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ reference: string }> },
+) {
+  const workspaceDenied = await requireBusinessApi(
+    "/api/store/subscription/[reference]/change-plan",
+  );
+  if (workspaceDenied) return workspaceDenied;
+  const limited = await enforceSubscriptionMutation(request);
+  if (limited) return limited;
+  const { reference } = await context.params;
+  const auth = await requireSubscriptionStoreReference(
+    request,
+    reference,
+    "store_subscriptions.billing",
+  );
+  return auth.response ?? subscriptionMutationSourceLocked();
+}

@@ -44,6 +44,8 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "customer-profile", label: "Account settings", href: "/account/profile", icon: "people", group: "Account", contexts: C.CUSTOMER },
   { id: "customer-support", label: "Support", href: "/account/support", icon: "support", group: "Account", contexts: C.CUSTOMER },
 
+  { id: "store-workspace", label: "Workspace", href: "/store/workspace", icon: "home", group: "Workspace", contexts: C.STORE },
+  { id: "store-employees", label: "Employees", href: "/store/employees", icon: "people", group: "Account", contexts: C.STORE },
   { id: "store-overview", label: "Overview", href: "/store", icon: "home", group: "Workspace", exact: true, mobilePriority: 1, contexts: C.STORE },
   { id: "store-orders", label: "Orders", href: "/store/orders", icon: "clipboard", group: "Workspace", mobilePriority: 2, contexts: C.STORE },
   { id: "store-delivery", label: "New delivery", href: "/store/new-delivery", icon: "plus", group: "Workspace", mobilePriority: 3, contexts: C.STORE },

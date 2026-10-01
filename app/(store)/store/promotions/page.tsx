@@ -1,5 +1,7 @@
+import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import { StoreCommercialUnavailablePage } from "@/components/protected-v2/store/StoreCommercialUnavailablePage";
 
-export default function StorePromotionsPage() {
+export default async function StorePromotionsPage() {
+  await requireBusinessPage("/store/promotions");
   return <StoreCommercialUnavailablePage eyebrow="Growth" title="Promotions" description="Store promotion administration is separate from marketplace orders and catalog publishing." stateTitle="Store promotions are not currently available" stateDescription="This workspace does not create campaigns, coupon values, redemption records, budgets, or settlement activity while the promotion capability is unavailable." />;
 }

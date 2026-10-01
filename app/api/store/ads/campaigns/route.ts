@@ -1,18 +1,26 @@
+import { requireBusinessApi } from "@/lib/client-platform/business-auth";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStoreForUser } from "@/lib/auth/store-context";
-import { UserRole } from "@/types/db";
-import { ok, unauthorized, forbidden, unprocessable, serverError } from "@/lib/api/response";
+
+import {
+  ok,
+  unauthorized,
+  forbidden,
+  unprocessable,
+  serverError,
+} from "@/lib/api/response";
 import { AdvertisingCampaignService } from "@/lib/advertising/campaign.service";
 import { campaignCreateInputSchema } from "@/lib/advertising/route-input";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET() {
+  const workspaceDenied = await requireBusinessApi("/api/store/ads/campaigns");
+  if (workspaceDenied) return workspaceDenied;
   const session = await getCurrentUser();
   if (!session) return unauthorized();
-  if (session.role !== UserRole.STORE) return forbidden("This endpoint is for store accounts.");
 
-  const store = await getStoreForUser(session.id);
+  const store = await getStoreForUser(session.id, undefined, "marketing");
   if (!store) return forbidden("No store found for this account.");
 
   try {
@@ -20,9 +28,9 @@ export async function GET() {
       where: { storeId: store.id },
       include: {
         versions: {
-          orderBy: { versionNumber: "desc" }
-        }
-      }
+          orderBy: { versionNumber: "desc" },
+        },
+      },
     });
     return ok(campaigns);
   } catch {
@@ -31,11 +39,12 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const workspaceDenied = await requireBusinessApi("/api/store/ads/campaigns");
+  if (workspaceDenied) return workspaceDenied;
   const session = await getCurrentUser();
   if (!session) return unauthorized();
-  if (session.role !== UserRole.STORE) return forbidden("This endpoint is for store accounts.");
 
-  const store = await getStoreForUser(session.id);
+  const store = await getStoreForUser(session.id, undefined, "marketing");
   if (!store) return forbidden("No store found for this account.");
 
   try {
@@ -45,6 +54,8 @@ export async function POST(request: NextRequest) {
     const campaign = await service.createCampaign(store.id, parsed.data);
     return ok(campaign);
   } catch (error: unknown) {
-    return unprocessable(error instanceof Error ? error.message : "Could not create campaign.");
+    return unprocessable(
+      error instanceof Error ? error.message : "Could not create campaign.",
+    );
   }
 }

@@ -44,9 +44,9 @@ const actors = (): PostHeroActorFrames => ({
   van: hidden("van:delivery-side-hold"), courier: hidden("courier:delivery-hold"), recipient: hidden("recipient:neutral"), handoff: hidden("handoff:approach-gap"),
   "white-truck": hidden("white-truck:top-down-straight"), "red-truck": hidden("red-truck:wipe-entry-01"),
 });
-const stateAt = (progress: number, start: number, end: number, states: readonly string[]): string => {
+const stateAt = (progress: number, start: number, end: number, states: readonly PostHeroActorKey[]): PostHeroActorKey => {
   const index = Math.min(states.length - 1, Math.floor(range(progress, start, end) * states.length));
-  return states[index] || states[states.length - 1] || "";
+  return states[index] || states[states.length - 1] || "van:delivery-side-hold";
 };
 
 function sequenceState(progress: number, start: number, end: number, states: readonly string[], prefix: PostHeroActorName, blend = true): Pick<PostHeroActorPose, "state" | "blendToState" | "stateBlend"> {
