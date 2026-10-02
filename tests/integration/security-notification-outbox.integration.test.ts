@@ -71,11 +71,16 @@ describe("real PostgreSQL security notification outbox", () => {
 
   it("rejects changing a token, event or aggregate on replay", async () => {
     const original = input("conflict");
-    await queueSecurityNotification(original);
-    for (const alteration of [{ values: { otp: "654321" } }, { eventType: "PASSWORD_CHANGED" as const }, { aggregateReference: "another-aggregate" }]) {
-      await expect(queueSecurityNotification({ ...original, ...alteration })).rejects.toMatchObject({ code: "NOTIFICATION_SOURCE_EVENT_PAYLOAD_CONFLICT" });
+    await prisma.user.update({ where: { id: userId }, data: { status: "ACTIVE", emailVerifiedAt: new Date() } });
+    try {
+      await queueSecurityNotification(original);
+      for (const alteration of [{ values: { otp: "654321" } }, { eventType: "PASSWORD_CHANGED" as const }, { aggregateReference: "another-aggregate" }]) {
+        await expect(queueSecurityNotification({ ...original, ...alteration })).rejects.toMatchObject({ code: "NOTIFICATION_SOURCE_EVENT_PAYLOAD_CONFLICT" });
+      }
+      expect(await prisma.notificationEventIntent.count({ where: { operationId: original.operationId } })).toBe(1);
+    } finally {
+      await prisma.user.update({ where: { id: userId }, data: { status: "PENDING_VERIFICATION", emailVerifiedAt: null } });
     }
-    expect(await prisma.notificationEventIntent.count({ where: { operationId: original.operationId } })).toBe(1);
   });
 
   it("rolls back token replacement and the intent when payload persistence fails", async () => {
