@@ -32,7 +32,7 @@ export function resolveNotificationProductionComposition() {
   const repositories = createPrismaNotificationRepositories(database);
 
   const emailProvider =
-    process.env.EMAIL_PROVIDER === "resend" && process.env.RESEND_API_KEY
+    process.env.EMAIL_PROVIDER === "resend" && process.env.RESEND_API_KEY?.trim() && process.env.EMAIL_FROM?.trim()
       ? new ResendEmailProvider(process.env.RESEND_API_KEY)
       : new NotConfiguredEmailProvider();
 

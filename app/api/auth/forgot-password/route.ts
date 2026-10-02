@@ -11,7 +11,7 @@ import { queueSecurityNotification } from "@/lib/notifications/security-delivery
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
-import { securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
+import { accountEmailQueueFailureResponse, shouldQueueSecurityEmail, securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
 
 const GENERIC_RESPONSE = {
   message:
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user || user.status === UserStatus.DISABLED) {
+  if (!user || user.status !== UserStatus.ACTIVE || !user.emailVerifiedAt) {
     // Generic response to avoid user enumeration
     return NextResponse.json(GENERIC_RESPONSE);
   }
@@ -77,28 +77,24 @@ export async function POST(req: NextRequest) {
   const rawToken = generateToken(32);
   const tokenHash = hashToken(rawToken);
 
-  const resetRecord = await prisma.passwordResetToken.create({
-    data: {
-      userId: user.id,
-      tokenHash,
-      expiresAt: generateResetTokenExpiresAt(),
-    },
-  });
-
   const resetUrl = buildResetUrl(rawToken);
-
-  queueSecurityNotification({
-    eventType: "PASSWORD_RESET",
-    operationId: `password-reset:${resetRecord.id}`,
-    subjectUserId: user.id,
-    aggregateReference: resetRecord.id,
-    expiresAt: resetRecord.expiresAt,
-    values: {
-      name: user.name ?? "there",
-      resetUrl,
-      expiresMinutes: RESET_EXPIRES_MINUTES,
-    },
-  }).catch(() => {});
+  const queued = await prisma.$transaction(async (tx) => {
+    const resetRecord = await tx.passwordResetToken.create({
+      data: { userId: user.id, tokenHash, expiresAt: generateResetTokenExpiresAt() },
+    });
+    if (shouldQueueSecurityEmail()) {
+      await queueSecurityNotification({
+        eventType: "PASSWORD_RESET",
+        operationId: `password-reset:${resetRecord.id}`,
+        subjectUserId: user.id,
+        aggregateReference: resetRecord.id,
+        expiresAt: resetRecord.expiresAt,
+        values: { name: user.name ?? "there", resetUrl, expiresMinutes: RESET_EXPIRES_MINUTES },
+      }, tx);
+    }
+    return true;
+  }).catch(() => false);
+  if (!queued) return accountEmailQueueFailureResponse();
 
   return NextResponse.json({
     ...GENERIC_RESPONSE,
