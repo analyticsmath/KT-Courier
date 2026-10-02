@@ -9,7 +9,7 @@ import { queueLegacyEmailIntent } from "@/lib/notifications/security-delivery";
 export async function sendTransactionalEmail(input: SendEmailInput): Promise<EmailSendResult> {
   try {
     const result = await queueLegacyEmailIntent({ templateType: input.templateType, to: input.to, relatedUserId: input.relatedUserId, relatedOrderId: input.relatedOrderId, context: input.context });
-    return { ok: true, logId: result.intent.publicReference };
+    return { ok: true, logId: result.intent.id };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? "Notification delivery intent could not be queued." : "Notification delivery intent could not be queued." };
   }

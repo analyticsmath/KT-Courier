@@ -51,9 +51,9 @@ export class ResendEmailProvider implements NotificationProvider {
   private readonly client: Resend;
   private readonly fromAddress: string;
 
-  constructor(apiKey = process.env.RESEND_API_KEY, fromAddress = process.env.EMAIL_FROM ?? "KT Couriers <noreply@ktcouriers.com>") {
-    if (!apiKey) {
-      throw new Error("Resend API key is required to initialize ResendEmailProvider.");
+  constructor(apiKey = process.env.RESEND_API_KEY, fromAddress = process.env.EMAIL_FROM) {
+    if (!apiKey?.trim() || !fromAddress?.trim() || /[\r\n]/.test(fromAddress)) {
+      throw new Error("An email provider credential and explicit sender are required.");
     }
     this.client = new Resend(apiKey);
     this.fromAddress = fromAddress;
@@ -68,27 +68,30 @@ export class ResendEmailProvider implements NotificationProvider {
           subject: input.subject ?? "KT Couriers Notification",
           text: input.body,
           html: input.htmlBody,
-          headers: {
-            "Idempotency-Key": input.idempotencyKey,
-          },
         },
+        { idempotencyKey: input.idempotencyKey },
       );
 
       if (response.error) {
         const errorName = response.error.name?.toLowerCase() || "";
-        const errorMessage = response.error.message?.toLowerCase() || "";
+        const status = response.error.statusCode;
 
         let failureClass: FailureClass = "UNKNOWN_PROVIDER_FAILURE";
         let retryAfterSeconds: number | undefined;
 
-        if (errorName.includes("rate_limit") || errorMessage.includes("rate limit")) {
+        if (status === 401 || ["invalid_api_key", "missing_api_key", "restricted_api_key"].includes(errorName)) {
+          failureClass = "AUTHENTICATION_FAILURE";
+        } else if (status === 403 || ["invalid_from_address", "monthly_quota_exceeded", "daily_quota_exceeded"].includes(errorName)) {
+          failureClass = "CONFIGURATION_FAILURE";
+        } else if (status === 429 || errorName === "rate_limit_exceeded") {
           failureClass = "PROVIDER_RATE_LIMIT";
           retryAfterSeconds = 60;
-        } else if (errorName.includes("validation") || errorMessage.includes("invalid")) {
-          failureClass = "INVALID_DESTINATION";
-        } else if (errorName.includes("suppression") || errorMessage.includes("suppressed")) {
-          failureClass = "SUPPRESSED_DESTINATION";
-        } else if (errorName.includes("internal") || errorName.includes("service")) {
+        } else if (status === 409 && errorName === "concurrent_idempotent_requests") {
+          failureClass = "PROVIDER_UNAVAILABLE";
+          retryAfterSeconds = 30;
+        } else if (status === 422 || ["validation_error", "invalid_idempotency_key", "invalid_idempotent_request"].includes(errorName)) {
+          failureClass = "CONTENT_REJECTED";
+        } else if ((status !== null && status !== undefined && status >= 500) || errorName === "internal_server_error" || errorName === "application_error") {
           failureClass = "PROVIDER_UNAVAILABLE";
           retryAfterSeconds = 30;
         }
@@ -96,20 +99,21 @@ export class ResendEmailProvider implements NotificationProvider {
         return {
           accepted: false,
           failureClass,
-          safeCode: `RESEND_${response.error.name?.toUpperCase() || "ERROR"}`,
+          safeCode: `RESEND_${failureClass}`,
           retryAfterSeconds,
         };
       }
 
+      if (!response.data?.id?.trim()) return { accepted: false, failureClass: "UNKNOWN_PROVIDER_FAILURE", safeCode: "RESEND_RESPONSE_UNCONFIRMED", retryAfterSeconds: 30 };
       return {
         accepted: true,
         providerMessageReference: response.data?.id,
       };
-    } catch (err) {
+    } catch {
       return {
         accepted: false,
         failureClass: "TRANSIENT_NETWORK",
-        safeCode: err instanceof Error ? err.name : "RESEND_NETWORK_ERROR",
+        safeCode: "RESEND_NETWORK_ERROR",
         retryAfterSeconds: 30,
       };
     }

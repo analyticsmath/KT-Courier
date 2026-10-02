@@ -14,7 +14,7 @@ import { queueSecurityNotification } from "@/lib/notifications/security-delivery
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
-import { securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
+import { accountEmailQueueFailureResponse, shouldQueueSecurityEmail, securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
 
 const OTP_EXPIRES_MINUTES = 15;
 
@@ -179,28 +179,22 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return {
-      userId: newUser.id,
-      userName: newUser.name ?? "there",
-      otpId: otp.id,
-      devOtp: process.env.NODE_ENV !== "production" ? code : undefined,
-      otpCode: code,
-    };
-  });
+    // The account, token and encrypted intent either all commit or all roll back.
+    if (shouldQueueSecurityEmail()) {
+      await queueSecurityNotification({
+        eventType: "EMAIL_VERIFICATION_OTP",
+        operationId: `email-verification:${otp.id}`,
+        subjectUserId: newUser.id,
+        aggregateReference: newUser.id,
+        expiresAt: otp.expiresAt,
+        values: { name: newUser.name ?? "there", otp: code, expiresMinutes: OTP_EXPIRES_MINUTES },
+        allowUnverifiedBootstrapEmail: true,
+      }, tx);
+    }
+    return { devOtp: process.env.NODE_ENV !== "production" ? code : undefined };
 
-  // Phase 27 is the sole delivery authority; auth retains only code generation.
-  queueSecurityNotification({
-    eventType: "EMAIL_VERIFICATION_OTP",
-    operationId: `email-verification:${result.otpId}`,
-    subjectUserId: result.userId,
-    aggregateReference: result.userId,
-    values: {
-      name: result.userName,
-      otp: result.otpCode,
-      expiresMinutes: OTP_EXPIRES_MINUTES,
-    },
-    allowUnverifiedBootstrapEmail: true,
-  }).catch(() => {});
+  }).catch(() => null);
+  if (!result) return accountEmailQueueFailureResponse();
 
   return NextResponse.json(
     {

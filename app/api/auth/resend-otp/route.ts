@@ -7,7 +7,7 @@ import { queueSecurityNotification } from "@/lib/notifications/security-delivery
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
-import { securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
+import { accountEmailQueueFailureResponse, shouldQueueSecurityEmail, securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
 
 const OTP_EXPIRES_MINUTES = 15;
 
@@ -59,40 +59,29 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Consume all active verification OTPs for this email
-  await prisma.otpCode.updateMany({
-    where: {
-      email,
-      purpose: OtpPurpose.EMAIL_VERIFICATION,
-      consumedAt: null,
-    },
-    data: { consumedAt: new Date() },
-  });
-
   const code = generateOtpCode();
-  const otp = await prisma.otpCode.create({
-    data: {
-      userId: user.id,
-      email,
-      codeHash: hashOtp(code),
-      purpose: OtpPurpose.EMAIL_VERIFICATION,
-      expiresAt: otpExpiresAt(),
-    },
-  });
-
-  queueSecurityNotification({
-    eventType: "EMAIL_VERIFICATION_OTP",
-    operationId: `email-verification:${otp.id}`,
-    subjectUserId: user.id,
-    aggregateReference: user.id,
-    expiresAt: otp.expiresAt,
-    values: {
-      name: user.name ?? "there",
-      otp: code,
-      expiresMinutes: OTP_EXPIRES_MINUTES,
-    },
-    allowUnverifiedBootstrapEmail: true,
-  }).catch(() => {});
+  const queued = await prisma.$transaction(async (tx) => {
+    await tx.otpCode.updateMany({
+      where: { email, purpose: OtpPurpose.EMAIL_VERIFICATION, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    const otp = await tx.otpCode.create({
+      data: { userId: user.id, email, codeHash: hashOtp(code), purpose: OtpPurpose.EMAIL_VERIFICATION, expiresAt: otpExpiresAt() },
+    });
+    if (shouldQueueSecurityEmail()) {
+      await queueSecurityNotification({
+        eventType: "EMAIL_VERIFICATION_OTP",
+        operationId: `email-verification:${otp.id}`,
+        subjectUserId: user.id,
+        aggregateReference: user.id,
+        expiresAt: otp.expiresAt,
+        values: { name: user.name ?? "there", otp: code, expiresMinutes: OTP_EXPIRES_MINUTES },
+        allowUnverifiedBootstrapEmail: true,
+      }, tx);
+    }
+    return true;
+  }).catch(() => false);
+  if (!queued) return accountEmailQueueFailureResponse();
 
   return NextResponse.json({
     message: "A new verification code has been sent to your email.",

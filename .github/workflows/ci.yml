@@ -70,6 +70,9 @@ jobs:
       - name: Unit and API tests with coverage
         run: npm run test:coverage
 
+      - name: Security notification atomicity on real PostgreSQL
+        run: npx vitest run --config vitest.integration.config.ts tests/integration/security-notification-outbox.integration.test.ts
+
       - name: Check migration safety
         run: npm run migrations:check
 

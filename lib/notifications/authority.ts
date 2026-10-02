@@ -274,8 +274,15 @@ export class NotificationEndpointService {
 
 export class NotificationSuppressionService {
   constructor(private readonly db: any) {}
-  async isSuppressed(input: { userId?: string; endpointFingerprint?: string; channel: NotificationChannel; purpose: NotificationPurpose }) { return Boolean(await this.db.notificationSuppression.findFirst({ where: { active: true, channel: input.channel, OR: [{ userId: input.userId ?? undefined }, { endpointFingerprint: input.endpointFingerprint ?? undefined }], AND: [{ OR: [{ purpose: null }, { purpose: input.purpose }] }] } })); }
-  async suppress(input: { userId?: string; endpointFingerprint?: string; channel?: NotificationChannel; purpose?: NotificationPurpose; reason: string; evidence?: Record<string, unknown> }) { return this.db.notificationSuppression.create({ data: { publicReference: reference("nsup", digest(input)), ...input, evidence: input.evidence ?? {} } }); }
+  async isSuppressed(input: { userId?: string; endpointFingerprint?: string; channel: NotificationChannel; purpose: NotificationPurpose }) {
+    const subjects = [...(input.userId ? [{ userId: input.userId }] : []), ...(input.endpointFingerprint ? [{ endpointFingerprint: input.endpointFingerprint }] : [])];
+    if (!subjects.length) return false;
+    return Boolean(await this.db.notificationSuppression.findFirst({ where: { active: true, OR: subjects, AND: [{ OR: [{ channel: null }, { channel: input.channel }] }, { OR: [{ purpose: null }, { purpose: input.purpose }] }] } }));
+  }
+  async suppress(input: { userId?: string; endpointFingerprint?: string; channel?: NotificationChannel; purpose?: NotificationPurpose; reason: string; evidence?: Record<string, unknown> }) {
+    if (!input.userId && !input.endpointFingerprint) throw new NotificationPolicyError("NOTIFICATION_SUPPRESSION_SUBJECT_REQUIRED");
+    return this.db.notificationSuppression.create({ data: { publicReference: reference("nsup", digest(input)), ...input, evidence: input.evidence ?? {} } });
+  }
 }
 
 export class NotificationDigestService {
@@ -349,17 +356,18 @@ export class NotificationDeliveryService {
     const delivery = await this.db.notificationDelivery.findUnique({ where: { id: input.deliveryId } });
     if (!delivery || !["QUEUED", "FAILED_RETRYABLE"].includes(delivery.status)) return delivery;
     if (delivery.expiresAt && delivery.expiresAt <= now()) return this.db.notificationDelivery.update({ where: { id: delivery.id }, data: { status: "EXPIRED" } });
-    const claim = await this.db.notificationDelivery.updateMany({ where: { id: delivery.id, status: delivery.status }, data: { status: "SENDING" } });
-    if (!claim.count) return this.db.notificationDelivery.findUnique({ where: { id: delivery.id } });
+    if (delivery.nextAttemptAt && delivery.nextAttemptAt > now()) return delivery;
     const provider = this.providers.get(delivery.channel);
     if (!provider) throw new NotificationPolicyError("NOTIFICATION_PROVIDER_NOT_CONFIGURED");
+    const claim = await this.db.notificationDelivery.updateMany({ where: { id: delivery.id, status: delivery.status }, data: { status: "SENDING" } });
+    if (!claim.count) return this.db.notificationDelivery.findUnique({ where: { id: delivery.id } });
     const attemptNumber = (await this.db.notificationDeliveryAttempt.count({ where: { deliveryId: delivery.id } })) + 1;
-    const attempt = await this.db.notificationDeliveryAttempt.create({ data: { publicReference: reference("nattempt", `${delivery.id}:${attemptNumber}`), deliveryId: delivery.id, attemptNumber, operationId: input.operationId, provider: provider.name, status: "STARTED" } });
-    const result = await provider.send({ destination: input.destination, subject: delivery.renderedTitle ?? undefined, body: delivery.renderedBody, idempotencyKey: attempt.publicReference });
+    const attempt = await this.db.notificationDeliveryAttempt.create({ data: { publicReference: reference("nattempt", `${delivery.id}:${attemptNumber}`), deliveryId: delivery.id, attemptNumber, operationId: `${input.operationId}:${attemptNumber}`, provider: provider.name, status: "STARTED" } });
+    const result = await provider.send({ destination: input.destination, subject: delivery.renderedTitle ?? undefined, body: delivery.renderedBody, idempotencyKey: delivery.publicReference });
     const failure = result.failureClass ?? "UNKNOWN_PROVIDER_FAILURE";
     const retryAt = result.accepted ? null : nextRetryAt({ failure, attemptNumber, retryAfterSeconds: result.retryAfterSeconds, expiresAt: delivery.expiresAt });
     await this.db.notificationDeliveryAttempt.update({ where: { id: attempt.id }, data: { status: result.accepted ? "PROVIDER_ACCEPTED" : "FAILED", completedAt: now(), providerMessageReference: result.providerMessageReference ?? null, failureClass: result.accepted ? null : result.failureClass ?? "UNKNOWN_PROVIDER_FAILURE", safeProviderCode: result.safeCode ?? null, nextAttemptAt: retryAt } });
-    if (!result.accepted && ["INVALID_DESTINATION", "SUPPRESSED_DESTINATION"].includes(failure)) await this.suppressions.suppress({ channel: delivery.channel, reason: failure === "INVALID_DESTINATION" ? "REPEATED_PERMANENT_FAILURE" : "USER_REVOCATION", evidence: { deliveryReference: delivery.publicReference } });
+    if (!result.accepted && ["INVALID_DESTINATION", "SUPPRESSED_DESTINATION"].includes(failure)) await this.suppressions.suppress({ userId: delivery.recipientUserId, channel: delivery.channel, reason: failure === "INVALID_DESTINATION" ? "REPEATED_PERMANENT_FAILURE" : "USER_REVOCATION", evidence: { deliveryReference: delivery.publicReference } });
     return this.db.notificationDelivery.update({ where: { id: delivery.id }, data: { status: result.accepted ? "PROVIDER_ACCEPTED" : retryAt ? "FAILED_RETRYABLE" : "FAILED_PERMANENT", nextAttemptAt: retryAt, provider: provider.name, providerMessageReference: result.providerMessageReference ?? null } });
   }
   async expire(deliveryId: string) {
