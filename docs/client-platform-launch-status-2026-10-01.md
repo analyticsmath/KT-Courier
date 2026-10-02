@@ -69,3 +69,12 @@ The 2 October continuation closes a concrete email durability gap. Signup, OTP r
 The Resend adapter uses the SDK's API idempotency option instead of email headers, requires an explicit sender and an actual provider message reference, and reports safe normalized failure codes. Delivery retries keep one provider key while recording distinct attempts, honor retry due times, check provider availability before claiming, and scope suppression to the actual recipient. These changes do not claim completed receipt ingestion or unlock the notification runtime.
 
 Local checks before the build workspace reset passed all 3089 tests across 714 files, full lint and TypeScript. The local build was interrupted and is not reported as passing. The committed source is independently checked in GitHub CI, including eight real PostgreSQL outbox/API scenarios: concurrency, replay conflicts, encryption failure, bootstrap authority, atomic rollback, failed signup, failed OTP resend and failed password recovery. Production email credentials/sender and consolidated runtime validation remain required. Promotion funding/redemption/reversal and recurring subscription/provider authorization remain unfinished and disabled.
+
+
+### Further account and CI verification corrections
+
+Password reset consumption now serializes per user and commits the password update, single-use token consumption, invalidation of sibling reset links, session revocation and encrypted password-change intent together. The PostgreSQL suite includes rollback on encrypted-payload write failure plus concurrent resets with the same and different links. These scenarios require CI verification before release.
+
+The previously intermittent payout/dispute test failure was diagnosed from its preserved rejection: a random hexadecimal fixture nonce sometimes contained six consecutive digits, which the existing opaque bank-reference policy correctly rejects. The test nonce is now encoded using letters, preserving entropy and leaving the production reference policy and financial assertions unchanged. This corrects the fixture; it does not establish complete production financial readiness.
+
+The owner selected defined service zones for launch. Exact approved region centers and radii remain outstanding; province-wide coverage and invented geometry have not been enabled.

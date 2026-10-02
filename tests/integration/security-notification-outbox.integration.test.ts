@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { hashToken } from "@/lib/auth/tokens";
+import { verifyPassword } from "@/lib/auth/password";
+import { POST as resetPassword } from "@/app/api/auth/reset-password/route";
 import { hashOtp } from "@/lib/auth/otp";
 import { queueSecurityNotification, type SecurityNotificationInput } from "@/lib/notifications/security-delivery";
 import { openSecurityPayload } from "@/lib/notifications/security-payload-vault";
@@ -53,6 +56,7 @@ describe("real PostgreSQL security notification outbox", () => {
     await prisma.notificationEventIntent.deleteMany({ where: { id: { in: intentIds } } });
     await prisma.otpCode.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.passwordResetToken.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.securityEvent.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.customerProfile.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.$disconnect();
@@ -136,5 +140,43 @@ describe("real PostgreSQL security notification outbox", () => {
     const response = await forgotPassword(request("forgot-password", { email: `${emailPrefix}@example.test` }));
     expect(response.status).toBe(503);
     expect(await prisma.passwordResetToken.count({ where: { userId } })).toBe(0);
+  });
+  async function resetFixture(suffix: string) {
+    const user = await prisma.user.create({ data: { email: `${emailPrefix}-${suffix}@example.test`, passwordHash: "unchanged-password", name: "Reset recipient", role: "CUSTOMER", status: "ACTIVE", emailVerifiedAt: new Date() } });
+    const rawToken = `reset-${nonce}-${suffix}`;
+    const token = await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash: hashToken(rawToken), expiresAt: expiry } });
+    const siblingRawToken = `sibling-${nonce}-${suffix}`;
+    const sibling = await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash: hashToken(siblingRawToken), expiresAt: expiry } });
+    const session = await prisma.session.create({ data: { userId: user.id, tokenHash: hashToken(`session-${nonce}-${suffix}`), expiresAt: expiry } });
+    return { user, rawToken, token, siblingRawToken, sibling, session };
+  }
+  const resetRequest = (token: string, password: string) => request("reset-password", { token, password, confirmPassword: password });
+
+  it("rolls back password, links and session revocation if the password-change email cannot be persisted", async () => {
+    const fixture = await resetFixture("rollback-reset");
+    await rejectSecureInserts();
+    const response = await resetPassword(resetRequest(fixture.rawToken, "ResetOnly-SecurePassword42!"));
+    expect(response.status).toBe(503);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: fixture.user.id } })).passwordHash).toBe("unchanged-password");
+    expect(await prisma.passwordResetToken.count({ where: { userId: fixture.user.id, usedAt: null } })).toBe(2);
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: fixture.session.id } })).revokedAt).toBeNull();
+    expect(await prisma.notificationEventIntent.count({ where: { operationId: `password-changed:${fixture.token.id}` } })).toBe(0);
+  });
+
+  for (const separateLinks of [false, true]) it(`allows one concurrent password reset using ${separateLinks ? "different" : "the same"} links and revokes sessions atomically`, async () => {
+    const fixture = await resetFixture(separateLinks ? "different-links" : "same-link");
+    const passwords = ["ResetWinner-OnePassword42!", "ResetWinner-TwoPassword42!"];
+    const responses = await Promise.all([
+      resetPassword(resetRequest(fixture.rawToken, passwords[0])),
+      resetPassword(resetRequest(separateLinks ? fixture.siblingRawToken : fixture.rawToken, passwords[1])),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 400]);
+    const saved = await prisma.user.findUniqueOrThrow({ where: { id: fixture.user.id } });
+    expect(await verifyPassword(passwords[responses.findIndex((response) => response.status === 200)], saved.passwordHash)).toBe(true);
+    expect(await prisma.passwordResetToken.count({ where: { userId: fixture.user.id, usedAt: null } })).toBe(0);
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: fixture.session.id } })).revokedReason).toBe("PASSWORD_RESET");
+    const intents = await prisma.notificationEventIntent.findMany({ where: { operationId: { in: [`password-changed:${fixture.token.id}`, `password-changed:${fixture.sibling.id}`] } } });
+    expect(intents).toHaveLength(1);
+    expect(await resetPassword(resetRequest(fixture.siblingRawToken, passwords[1]))).toMatchObject({ status: 400 });
   });
 });

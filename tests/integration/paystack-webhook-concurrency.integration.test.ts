@@ -24,7 +24,8 @@ const describeReal = hasDatabase ? describe : describe.skip;
 
 describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integration", () => {
   const hex64 = (s: string) => createHash("sha256").update(s).digest("hex");
-  const testNonce = randomBytes(8).toString("hex");
+  // Alphabetic entropy keeps synthetic bank references within the opaque-reference policy.
+  const testNonce = randomBytes(8).toString("hex").replace(/[0-9a-f]/g, (digit) => String.fromCharCode(97 + parseInt(digit, 16)));
   const trackedPublicRefs: string[] = [];
 
   const drainPendingEvents = async () => {
