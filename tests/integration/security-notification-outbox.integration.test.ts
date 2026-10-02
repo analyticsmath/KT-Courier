@@ -172,6 +172,7 @@ describe("real PostgreSQL security notification outbox", () => {
     ]);
     expect(responses.map((response) => response.status).sort()).toEqual([200, 400]);
     const saved = await prisma.user.findUniqueOrThrow({ where: { id: fixture.user.id } });
+    if (!saved.passwordHash) throw new Error("Password reset did not persist a password hash.");
     expect(await verifyPassword(passwords[responses.findIndex((response) => response.status === 200)], saved.passwordHash)).toBe(true);
     expect(await prisma.passwordResetToken.count({ where: { userId: fixture.user.id, usedAt: null } })).toBe(0);
     expect((await prisma.session.findUniqueOrThrow({ where: { id: fixture.session.id } })).revokedReason).toBe("PASSWORD_RESET");
