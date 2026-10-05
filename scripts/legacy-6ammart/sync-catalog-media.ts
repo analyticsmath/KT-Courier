@@ -11,7 +11,7 @@ import { createProductionCatalogMediaStorageAdapter } from "../../lib/catalog/me
 import { legacyReferences } from "../../lib/migrations/legacy-6ammart/catalog-policy";
 
 type NormalizedAsset = Readonly<{
-  kind: "product" | "store_logo" | "store_hero" | "category" | "brand";
+  kind: "product" | "store-logo" | "store-hero" | "category" | "brand";
   source_id: number;
   source_store_id?: number | null;
   filename: string;
@@ -197,7 +197,7 @@ async function main() {
       }
       ownerStoreId = product.sourceStoreId;
       ownerType = "STORE";
-    } else if (asset.kind === "store_logo" || asset.kind === "store_hero") {
+    } else if (asset.kind === "store-logo" || asset.kind === "store-hero") {
       ownerStoreId = target.targetId;
       ownerType = "STORE";
     }
