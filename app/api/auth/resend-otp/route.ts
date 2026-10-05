@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
   if (!queued) return accountEmailQueueFailureResponse();
 
-  if (queued.deliveryId) {
+  if (process.env.NODE_ENV === "production" && queued.deliveryId) {
     const delivered = await deliverSecurityEmail(queued.deliveryId).catch(
       () => null,
     );
