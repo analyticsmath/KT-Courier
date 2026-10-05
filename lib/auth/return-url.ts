@@ -22,9 +22,14 @@ export function safeAuthReturnUrl(
     return undefined;
   }
 }
-export function verificationReturnUrl(email: string, returnUrl?: string) {
+export function verificationReturnUrl(
+  email: string,
+  returnUrl?: string,
+  deliveryPending = false,
+) {
   const params = new URLSearchParams({ email });
   const safe = safeAuthReturnUrl(returnUrl);
   if (safe) params.set("returnUrl", safe);
+  if (deliveryPending) params.set("delivery", "pending");
   return `/verify-otp?${params}`;
 }

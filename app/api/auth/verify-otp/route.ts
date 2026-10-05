@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
-import { hashOtp } from "@/lib/auth/otp";
+import { otpHashCandidates } from "@/lib/auth/otp";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
 import { VerifyOtpSchema, formatZodErrors } from "@/lib/validation/auth";
 import { OtpPurpose, UserStatus } from "@/types/db";
@@ -24,22 +24,28 @@ export async function POST(req: NextRequest) {
   const parsed = VerifyOtpSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Validation failed.", fields: formatZodErrors(parsed.error.issues) },
-      { status: 422 }
+      {
+        error: "Validation failed.",
+        fields: formatZodErrors(parsed.error.issues),
+      },
+      { status: 422 },
     );
   }
 
   const { email, code } = parsed.data;
 
-  const rl = await checkAuthRateLimit(req, "verify-otp", email, RATE_LIMITS.VERIFY_OTP);
+  const rl = await checkAuthRateLimit(
+    req,
+    "verify-otp",
+    email,
+    RATE_LIMITS.VERIFY_OTP,
+  );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
-
-  const codeHash = hashOtp(code);
 
   const otp = await prisma.otpCode.findFirst({
     where: {
       email,
-      codeHash,
+      codeHash: { in: otpHashCandidates(code) },
       purpose: OtpPurpose.EMAIL_VERIFICATION,
       consumedAt: null,
     },
@@ -49,14 +55,14 @@ export async function POST(req: NextRequest) {
   if (!otp) {
     return NextResponse.json(
       { error: "Invalid or already used verification code." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (otp.expiresAt < new Date()) {
     return NextResponse.json(
       { error: "Verification code has expired. Please request a new one." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -65,7 +71,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Account not found." }, { status: 404 });
   }
 
-  // Mark OTP consumed and activate user
+  // Mark OTP consumed and activate user atomically.
   await prisma.$transaction([
     prisma.otpCode.update({
       where: { id: otp.id },
@@ -80,7 +86,7 @@ export async function POST(req: NextRequest) {
     }),
   ]);
 
-  // Create a session so the user is logged in immediately after verification
+  // Create a session so the user is logged in immediately after verification.
   const rawToken = await createSession(user.id);
   const cookieStore = await cookies();
   setSessionCookie(cookieStore, rawToken);

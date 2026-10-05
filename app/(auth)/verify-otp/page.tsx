@@ -11,7 +11,11 @@ export const metadata: Metadata = {
 };
 
 interface Props {
-  searchParams: Promise<{ email?: string; returnUrl?: string }>;
+  searchParams: Promise<{
+    email?: string;
+    returnUrl?: string;
+    delivery?: string;
+  }>;
 }
 
 function maskEmail(email: string): string {
@@ -21,7 +25,7 @@ function maskEmail(email: string): string {
 }
 
 export default async function VerifyOtpPage({ searchParams }: Props) {
-  const { email, returnUrl } = await searchParams;
+  const { email, returnUrl, delivery } = await searchParams;
   if (!email) redirect("/signup");
 
   const verifiedEmail = email;
@@ -30,6 +34,7 @@ export default async function VerifyOtpPage({ searchParams }: Props) {
       email={verifiedEmail}
       maskedEmail={maskEmail(verifiedEmail)}
       returnUrl={safeAuthReturnUrl(returnUrl)}
+      deliveryPending={delivery === "pending"}
     />
   );
 }

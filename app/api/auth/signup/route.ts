@@ -11,10 +11,15 @@ import {
 } from "@/lib/validation/auth";
 import { UserRole, OtpPurpose } from "@/types/db";
 import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
+import { deliverSecurityEmail } from "@/lib/notifications/security-email-delivery";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
-import { accountEmailQueueFailureResponse, shouldQueueSecurityEmail, securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
+import {
+  accountEmailQueueFailureResponse,
+  shouldQueueSecurityEmail,
+  securityEmailUnavailableResponse,
+} from "@/lib/auth/security-email-readiness";
 
 const OTP_EXPIRES_MINUTES = 15;
 
@@ -97,114 +102,139 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const newUser = await tx.user.create({
-      data: {
-        email: data.email,
-        passwordHash,
-        role,
-        name:
-          accountType === "CUSTOMER" || accountType === "DRIVER"
-            ? (data as { fullName: string }).fullName
-            : (data as { contactPerson: string }).contactPerson,
-        phone: data.phone ?? null,
-      },
-    });
-
-    if (accountType === "CUSTOMER") {
-      const d = data as { fullName: string };
-      await tx.customerProfile.create({
+  const result = await prisma
+    .$transaction(async (tx) => {
+      const newUser = await tx.user.create({
         data: {
-          userId: newUser.id,
-          displayName: d.fullName,
-          defaultPhone: data.phone ?? null,
-        },
-      });
-    } else if (accountType === "STORE") {
-      const d = data as {
-        storeName: string;
-        contactPerson: string;
-        businessAddress?: string;
-      };
-
-      await tx.storeProfile.create({
-        data: {
-          userId: newUser.id,
-          storeName: d.storeName,
-          contactPerson: d.contactPerson,
-          businessPhone: data.phone ?? null,
-          businessEmail: data.email,
-        },
-      });
-
-      await tx.store.create({
-        data: {
-          ownerUserId: newUser.id,
-          name: d.storeName,
-          slug: storeSlug!,
-          status: "PENDING",
-          contactName: d.contactPerson,
-          contactEmail: data.email,
-          contactPhone: data.phone ?? null,
-          addressLine1: d.businessAddress?.trim() || null,
-          country: "South Africa",
-          featured: false,
-        },
-      });
-    } else {
-      const count = await tx.driverProfile.count();
-      const driverCode = `DRV-${1000 + count + 1}`;
-      await tx.driverProfile.create({
-        data: {
-          userId: newUser.id,
-          driverCode,
-          displayName: (data as { fullName: string }).fullName,
+          email: data.email,
+          passwordHash,
+          role,
+          name:
+            accountType === "CUSTOMER" || accountType === "DRIVER"
+              ? (data as { fullName: string }).fullName
+              : (data as { contactPerson: string }).contactPerson,
           phone: data.phone ?? null,
-          status: "PENDING_REVIEW",
-          availability: "OFFLINE",
-          onboardingStatus: "PROFILE_INCOMPLETE",
-          vehicleComplianceRequiredAt: new Date(),
         },
       });
-    }
 
-    const code = generateOtpCode();
-    const otp = await tx.otpCode.create({
-      data: {
-        userId: newUser.id,
-        email: newUser.email,
-        codeHash: hashOtp(code),
-        purpose: OtpPurpose.EMAIL_VERIFICATION,
-        expiresAt: otpExpiresAt(),
-      },
-    });
+      if (accountType === "CUSTOMER") {
+        const d = data as { fullName: string };
+        await tx.customerProfile.create({
+          data: {
+            userId: newUser.id,
+            displayName: d.fullName,
+            defaultPhone: data.phone ?? null,
+          },
+        });
+      } else if (accountType === "STORE") {
+        const d = data as {
+          storeName: string;
+          contactPerson: string;
+          businessAddress?: string;
+        };
 
-    // The account, token and encrypted intent either all commit or all roll back.
-    if (shouldQueueSecurityEmail()) {
-      await queueSecurityNotification({
-        eventType: "EMAIL_VERIFICATION_OTP",
-        operationId: `email-verification:${otp.id}`,
-        subjectUserId: newUser.id,
-        aggregateReference: newUser.id,
-        expiresAt: otp.expiresAt,
-        values: { name: newUser.name ?? "there", otp: code, expiresMinutes: OTP_EXPIRES_MINUTES },
-        allowUnverifiedBootstrapEmail: true,
-      }, tx);
-    }
-    return { devOtp: process.env.NODE_ENV !== "production" ? code : undefined };
+        await tx.storeProfile.create({
+          data: {
+            userId: newUser.id,
+            storeName: d.storeName,
+            contactPerson: d.contactPerson,
+            businessPhone: data.phone ?? null,
+            businessEmail: data.email,
+          },
+        });
 
-  }).catch(() => null);
+        await tx.store.create({
+          data: {
+            ownerUserId: newUser.id,
+            name: d.storeName,
+            slug: storeSlug!,
+            status: "PENDING",
+            contactName: d.contactPerson,
+            contactEmail: data.email,
+            contactPhone: data.phone ?? null,
+            addressLine1: d.businessAddress?.trim() || null,
+            country: "South Africa",
+            featured: false,
+          },
+        });
+      } else {
+        const count = await tx.driverProfile.count();
+        const driverCode = `DRV-${1000 + count + 1}`;
+        await tx.driverProfile.create({
+          data: {
+            userId: newUser.id,
+            driverCode,
+            displayName: (data as { fullName: string }).fullName,
+            phone: data.phone ?? null,
+            status: "PENDING_REVIEW",
+            availability: "OFFLINE",
+            onboardingStatus: "PROFILE_INCOMPLETE",
+            vehicleComplianceRequiredAt: new Date(),
+          },
+        });
+      }
+
+      const code = generateOtpCode();
+      const otp = await tx.otpCode.create({
+        data: {
+          userId: newUser.id,
+          email: newUser.email,
+          codeHash: hashOtp(code),
+          purpose: OtpPurpose.EMAIL_VERIFICATION,
+          expiresAt: otpExpiresAt(),
+        },
+      });
+
+      let deliveryId: string | undefined;
+      if (shouldQueueSecurityEmail()) {
+        const queued = await queueSecurityNotification(
+          {
+            eventType: "EMAIL_VERIFICATION_OTP",
+            operationId: `email-verification:${otp.id}`,
+            subjectUserId: newUser.id,
+            aggregateReference: newUser.id,
+            expiresAt: otp.expiresAt,
+            values: {
+              name: newUser.name ?? "there",
+              otp: code,
+              expiresMinutes: OTP_EXPIRES_MINUTES,
+            },
+            allowUnverifiedBootstrapEmail: true,
+          },
+          tx,
+        );
+        deliveryId = queued.delivery.id;
+      }
+
+      return {
+        devOtp: process.env.NODE_ENV !== "production" ? code : undefined,
+        deliveryId,
+      };
+    })
+    .catch(() => null);
+
   if (!result) return accountEmailQueueFailureResponse();
+
+  let deliveryPending = false;
+  if (process.env.NODE_ENV === "production" && result.deliveryId) {
+    const delivered = await deliverSecurityEmail(result.deliveryId).catch(
+      () => null,
+    );
+    deliveryPending = !delivered?.accepted;
+  }
 
   return NextResponse.json(
     {
-      message: "Account created. Please verify your email.",
+      message: deliveryPending
+        ? "Account created. Verification email delivery is pending; request another code on the verification screen."
+        : "Account created. Please verify your email.",
       email: data.email,
+      deliveryPending,
       ...(process.env.NODE_ENV !== "production" && {
         _dev_otp: result.devOtp,
         _dev_note: "OTP visible in development only.",
       }),
     },
-    { status: 201 },
+    { status: deliveryPending ? 202 : 201 },
   );
 }

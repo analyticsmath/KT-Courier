@@ -15,16 +15,22 @@ export function VerifyOtpForm({
   email,
   maskedEmail,
   returnUrl,
+  deliveryPending = false,
 }: {
   email: string;
   maskedEmail: string;
   returnUrl?: string;
+  deliveryPending?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [codeError, setCodeError] = useState("");
-  const [rootError, setRootError] = useState("");
+  const [rootError, setRootError] = useState(
+    deliveryPending
+      ? "Your account was created, but the verification email was not accepted by the mail provider. Request another code below."
+      : "",
+  );
   const [successMessage, setSuccessMessage] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

@@ -98,7 +98,13 @@ export function SignupForm() {
         return;
       }
 
-      router.push(verificationReturnUrl(data.email, returnUrl));
+      router.push(
+        verificationReturnUrl(
+          data.email,
+          returnUrl,
+          data.deliveryPending === true,
+        ),
+      );
     } catch {
       setRootError("Something went wrong. Please try again.");
     } finally {
