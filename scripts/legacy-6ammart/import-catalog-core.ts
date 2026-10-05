@@ -189,7 +189,7 @@ async function mapSource(input: {
 }) {
   await prisma.legacyMigrationMap.upsert({
     where: {
-      LegacyMigrationMap_source_target_key: {
+      sourceSystem_sourceDatabase_sourceTable_sourceId_targetModel: {
         sourceSystem: input.pkg.source.system,
         sourceDatabase: input.pkg.source.database,
         sourceTable: input.table,
@@ -619,7 +619,7 @@ async function main() {
           name,
           normalizedName: normalizedName(name),
           slug: legacySlug(name, sourceId),
-          status: "APPROVED",
+          status: "ACTIVE",
           approvedByUserId: bootstrap.superAdminId,
         },
         create: {
@@ -627,7 +627,7 @@ async function main() {
           name,
           normalizedName: normalizedName(name),
           slug: legacySlug(name, sourceId),
-          status: "APPROVED",
+          status: "ACTIVE",
           createdByUserId: bootstrap.superAdminId,
           approvedByUserId: bootstrap.superAdminId,
           createdAt: dateValue(sourceBrand.created_at),
