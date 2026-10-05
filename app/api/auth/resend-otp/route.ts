@@ -4,10 +4,15 @@ import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
 import { ResendOtpSchema, formatZodErrors } from "@/lib/validation/auth";
 import { OtpPurpose, UserStatus } from "@/types/db";
 import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
+import { deliverSecurityEmail } from "@/lib/notifications/security-email-delivery";
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
-import { accountEmailQueueFailureResponse, shouldQueueSecurityEmail, securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
+import {
+  accountEmailQueueFailureResponse,
+  shouldQueueSecurityEmail,
+  securityEmailUnavailableResponse,
+} from "@/lib/auth/security-email-readiness";
 
 const OTP_EXPIRES_MINUTES = 15;
 
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  // Always return success to avoid user enumeration
+  // Always return success to avoid user enumeration.
   if (!user || user.status !== UserStatus.PENDING_VERIFICATION) {
     return NextResponse.json({
       message:
@@ -60,34 +65,66 @@ export async function POST(req: NextRequest) {
   }
 
   const code = generateOtpCode();
-  const queued = await prisma.$transaction(async (tx) => {
-    await tx.otpCode.updateMany({
-      where: { email, purpose: OtpPurpose.EMAIL_VERIFICATION, consumedAt: null },
-      data: { consumedAt: new Date() },
-    });
-    const otp = await tx.otpCode.create({
-      data: { userId: user.id, email, codeHash: hashOtp(code), purpose: OtpPurpose.EMAIL_VERIFICATION, expiresAt: otpExpiresAt() },
-    });
-    if (shouldQueueSecurityEmail()) {
-      await queueSecurityNotification({
-        eventType: "EMAIL_VERIFICATION_OTP",
-        operationId: `email-verification:${otp.id}`,
-        subjectUserId: user.id,
-        aggregateReference: user.id,
-        expiresAt: otp.expiresAt,
-        values: { name: user.name ?? "there", otp: code, expiresMinutes: OTP_EXPIRES_MINUTES },
-        allowUnverifiedBootstrapEmail: true,
-      }, tx);
-    }
-    return true;
-  }).catch(() => false);
+  const queued = await prisma
+    .$transaction(async (tx) => {
+      await tx.otpCode.updateMany({
+        where: {
+          email,
+          purpose: OtpPurpose.EMAIL_VERIFICATION,
+          consumedAt: null,
+        },
+        data: { consumedAt: new Date() },
+      });
+
+      const otp = await tx.otpCode.create({
+        data: {
+          userId: user.id,
+          email,
+          codeHash: hashOtp(code),
+          purpose: OtpPurpose.EMAIL_VERIFICATION,
+          expiresAt: otpExpiresAt(),
+        },
+      });
+
+      let deliveryId: string | undefined;
+      if (shouldQueueSecurityEmail()) {
+        const notification = await queueSecurityNotification(
+          {
+            eventType: "EMAIL_VERIFICATION_OTP",
+            operationId: `email-verification:${otp.id}`,
+            subjectUserId: user.id,
+            aggregateReference: user.id,
+            expiresAt: otp.expiresAt,
+            values: {
+              name: user.name ?? "there",
+              otp: code,
+              expiresMinutes: OTP_EXPIRES_MINUTES,
+            },
+            allowUnverifiedBootstrapEmail: true,
+          },
+          tx,
+        );
+        deliveryId = notification.delivery.id;
+      }
+
+      return { deliveryId };
+    })
+    .catch(() => null);
+
   if (!queued) return accountEmailQueueFailureResponse();
+
+  if (queued.deliveryId) {
+    const delivered = await deliverSecurityEmail(queued.deliveryId).catch(
+      () => null,
+    );
+    if (!delivered?.accepted) return accountEmailQueueFailureResponse();
+  }
 
   return NextResponse.json({
     message: "A new verification code has been sent to your email.",
     ...(process.env.NODE_ENV !== "production" && {
       _dev_otp: code,
-      _dev_note: "OTP visible in development only. Remove in production.",
+      _dev_note: "OTP visible in development only.",
     }),
   });
 }
