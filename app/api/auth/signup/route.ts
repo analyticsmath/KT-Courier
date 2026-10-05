@@ -186,8 +186,6 @@ export async function POST(req: NextRequest) {
       });
 
       let deliveryId: string | undefined;
-      // The account, token, encrypted secret and redacted delivery record either
-      // all commit or all roll back.
       if (shouldQueueSecurityEmail()) {
         const queued = await queueSecurityNotification(
           {
@@ -218,7 +216,7 @@ export async function POST(req: NextRequest) {
   if (!result) return accountEmailQueueFailureResponse();
 
   let deliveryPending = false;
-  if (result.deliveryId) {
+  if (process.env.NODE_ENV === "production" && result.deliveryId) {
     const delivered = await deliverSecurityEmail(result.deliveryId).catch(
       () => null,
     );
