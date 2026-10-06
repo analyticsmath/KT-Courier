@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
 import { cookies } from "next/headers";
 import { CommerceBreadcrumbs } from "@/components/public-v2/commerce/CommerceBreadcrumbs";
 import styles from "@/components/public-v2/commerce/commerce.module.css";
@@ -61,6 +62,7 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
             : "Courier location is not available at this stage."}</p>
         </article>)}
       </section>
+      <section aria-label="Delivery map" className={styles.orderStoreCard}><h2>Delivery map</h2><CourierTrackingMap scope="MARKETPLACE" reference={tracking.marketplaceOrderReference} /></section>
       <div className={styles.orderStatusActions}><Link className={`${styles.productActionButton} ${styles.productActionButtonPrimary}`} href="/shop">Continue shopping</Link></div>
     </div>
   </main>;

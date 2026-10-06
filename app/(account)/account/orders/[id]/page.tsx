@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
 import { Conversations } from "@/components/forms/Conversations";
 import { DeliveryReviewForm } from "@/components/forms/DeliveryReviews";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
@@ -57,6 +58,7 @@ export default async function AccountOrderDetailPage({
         }
         proof={pod}
       />
+      <OperationalPanel title="Delivery map"><CourierTrackingMap scope="PARCEL" reference={order.id} /></OperationalPanel>
       <OperationalPanel title="Delivery chat">
         <Conversations deliveryOrderId={order.id} />
       </OperationalPanel>
