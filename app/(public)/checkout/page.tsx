@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { CheckoutExperience } from "@/components/public-v2/commerce/CheckoutExperience";
 import { MarketplaceUnavailable } from "@/components/public-v2/marketplace";
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default function MarketplaceCheckoutPage() {
+export default async function MarketplaceCheckoutPage() {
+  await connection();
   const gate = evaluateMarketplaceCheckoutPublicGate();
   if (!gate.enabled) {
     return <MarketplaceUnavailable routeContext="checkout" />;
