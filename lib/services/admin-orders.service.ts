@@ -9,7 +9,6 @@ import {
   type AdminOrderCountsDto,
 } from "@/lib/dto/order.dto";
 import { recordAdminActivity } from "./admin-activity.service";
-import { notifyOrderStatusChanged } from "./notification-events.service";
 import {
   OrderTransitionError,
 } from "@/lib/orders/order-state-machine";
@@ -176,26 +175,6 @@ export async function updateAdminOrderStatus(
     message: `Updated order ${existing.orderNumber} status from ${existing.status} to ${input.status}.`,
     metadata: { from: existing.status, to: input.status, note: input.note },
   });
-
-  const customerEmail = updated.customer?.email ?? null;
-  const storeOwnerEmail = updated.store && "ownerUser" in updated.store
-    ? (updated.store as { ownerUser?: { email: string; name: string | null } | null }).ownerUser?.email ?? null
-    : null;
-  const recipientEmail = customerEmail ?? storeOwnerEmail;
-  const recipientName = updated.customer?.name ?? updated.customer?.email ?? storeOwnerEmail ?? "there";
-
-  if (recipientEmail) {
-    // Only send public note in email — never internalNote
-    notifyOrderStatusChanged({
-      recipientEmail,
-      recipientName,
-      orderNumber: existing.orderNumber,
-      newStatus: input.status,
-      statusNote: input.note,
-      orderId,
-      source: updated.source,
-    });
-  }
 
   return { order: toAdminOrderDetailDto(updated) };
 }

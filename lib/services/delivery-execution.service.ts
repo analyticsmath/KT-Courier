@@ -14,7 +14,6 @@ import type { StartDeliveryInput, CompleteDeliveryInput, DeliveryAttemptedInput,
 import { toDeliveryAssignmentDto, type DeliveryAssignmentDto, type DeliveryWorkbenchSummary } from "@/lib/dto/delivery.dto";
 import { isDeliveryEligible, isDeliveryAttemptEligible } from "@/lib/constants/delivery";
 import { verifyDeliveryOtpInTx } from "./delivery-otp.service";
-import { notifyOrderStatusChanged } from "./notification-events.service";
 import { recordAdminActivity } from "./admin-activity.service";
 import type { AdminManualDeliveryInput } from "@/lib/validation/delivery";
 import { OrderTransitionError } from "@/lib/orders/order-state-machine";
@@ -177,37 +176,6 @@ async function createAssignEvent(
       note: params.note ?? null,
     },
   });
-}
-
-// ─── Helper: fetch order email recipients ────────────────────────────────────
-
-async function getOrderRecipientInfo(orderId: string) {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: {
-      customer: { select: { email: true, name: true } },
-      store: { include: { ownerUser: { select: { email: true, name: true } } } },
-    },
-  });
-  if (!order) return null;
-
-  let recipientEmail: string | null = null;
-  let recipientName: string | null = null;
-
-  if (order.customer?.email) {
-    recipientEmail = order.customer.email;
-    recipientName = order.customer.name;
-  } else if (order.store?.ownerUser?.email) {
-    recipientEmail = order.store.ownerUser.email;
-    recipientName = order.store.ownerUser.name;
-  }
-
-  return {
-    recipientEmail,
-    recipientName,
-    orderNumber: order.orderNumber,
-    source: order.source,
-  };
 }
 
 // ─── START DELIVERY ───────────────────────────────────────────────────────────
@@ -536,20 +504,6 @@ export async function completeDelivery(
       return { ok: false, error: error.code };
     }
     throw error;
-  }
-
-  // Non-blocking status email
-  const info = await getOrderRecipientInfo(order.id);
-  if (info?.recipientEmail) {
-    notifyOrderStatusChanged({
-      recipientEmail: info.recipientEmail,
-      recipientName: info.recipientName ?? info.recipientEmail,
-      orderNumber: info.orderNumber,
-      newStatus: statusAfter,
-      statusNote: input.publicNote ?? `Your parcel has been delivered to ${input.recipientName}.`,
-      orderId: order.id,
-      source: info.source,
-    });
   }
 
   const updated = await prisma.orderAssignment.findFirst({
@@ -922,19 +876,6 @@ export async function adminManualDeliveryComplete(
     message: `Manually confirmed delivery for order ${order.orderNumber}.`,
     metadata: { reason: input.reason, recipientName: input.recipientName },
   });
-
-  const info = await getOrderRecipientInfo(orderId);
-  if (info?.recipientEmail) {
-    notifyOrderStatusChanged({
-      recipientEmail: info.recipientEmail,
-      recipientName: info.recipientName ?? info.recipientEmail,
-      orderNumber: info.orderNumber,
-      newStatus: statusAfter,
-      statusNote: input.publicNote ?? "Your delivery has been confirmed by KT Couriers.",
-      orderId,
-      source: info.source,
-    });
-  }
 
   return { ok: true };
 }

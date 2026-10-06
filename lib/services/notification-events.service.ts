@@ -5,14 +5,23 @@
  * It intentionally never receives or persists a destination address.
  */
 import { prisma } from "@/lib/db/prisma";
+import type { Prisma } from "@/types/db";
 import { toInputJsonObject } from "@/lib/json/input-json";
 
-async function append(eventType: string, aggregateReference: string, operationId: string, safePayload: Record<string, unknown>) {
-  return prisma.notificationEventIntent.upsert({
+async function append(eventType: string, aggregateReference: string, operationId: string, safePayload: Record<string, unknown>, db: Pick<Prisma.TransactionClient, "notificationEventIntent"> = prisma) {
+  return db.notificationEventIntent.upsert({
     where: { operationId },
     update: {},
     create: { sourceAuthority: "LEGACY_ORDER", eventType, aggregateReference, operationId, safePayload: toInputJsonObject(safePayload) },
   });
+}
+
+export async function appendOrderConfirmedInTx(db: Pick<Prisma.TransactionClient, "notificationEventIntent">, order: { id: string; orderNumber: string; deliveryType: string; source: string }) {
+  await append("ORDER_CONFIRMED", order.id, `legacy-order-confirmed:${order.id}`, { orderNumber: order.orderNumber, deliveryType: order.deliveryType, source: order.source }, db);
+}
+
+export async function appendOrderStatusChangedInTx(db: Pick<Prisma.TransactionClient, "notificationEventIntent">, order: { id: string; orderNumber: string; status: string; source: string }, historyId: string) {
+  await append("ORDER_STATUS_CHANGED", order.id, `legacy-order-status-history:${historyId}`, { orderNumber: order.orderNumber, status: order.status, source: order.source }, db);
 }
 
 export interface OrderConfirmedEvent {

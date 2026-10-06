@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { appendOrderStatusChangedInTx } from "./notification-events.service";
 import {
   OrderOperationalEventType,
   OrderStatus,
@@ -103,7 +104,7 @@ export async function transitionOrderStatusInTx(
     );
   }
 
-  await tx.orderStatusHistory.create({
+  const history = await tx.orderStatusHistory.create({
     data: {
       orderId: args.orderId,
       status: args.toStatus,
@@ -139,7 +140,9 @@ export async function transitionOrderStatusInTx(
     });
   }
 
-  return tx.order.findUniqueOrThrow({ where: { id: args.orderId } });
+  const updated = await tx.order.findUniqueOrThrow({ where: { id: args.orderId } });
+  await appendOrderStatusChangedInTx(tx, updated, history.id);
+  return updated;
 }
 
 export async function transitionOrderStatus(

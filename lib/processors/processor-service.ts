@@ -469,20 +469,32 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
   },
 
   "deliver-notifications": async ({ mode, batchSize }) => {
+    const { consumeCustomerOrderNotifications, listPendingCustomerOrderIntents } = await import("@/lib/notifications/customer-order-publication");
     const queuedCount = await prisma.notificationDelivery.count({ where: { status: "QUEUED" } });
+    const sourceCount = (await listPendingCustomerOrderIntents(batchSize)).length;
     if (mode === "DRY_RUN") {
       return {
-        itemsExamined: queuedCount,
+        itemsExamined: queuedCount + sourceCount,
         itemsClaimed: 0,
         itemsCompleted: 0,
-        itemsSkipped: queuedCount,
+        itemsSkipped: queuedCount + sourceCount,
         itemsRetried: 0,
         itemsReconciled: 0,
-        safeSummary: `[DRY_RUN] Evaluated ${queuedCount} queued notification deliveries; 0 dispatched.`,
+        safeSummary: `[DRY_RUN] Evaluated ${sourceCount} eligible customer events and ${queuedCount} queued deliveries; 0 dispatched.`,
       };
     }
+    const publication = await consumeCustomerOrderNotifications(batchSize);
     const { deliverQueuedEmails } = await import("@/lib/notifications/queued-email-delivery");
-    return deliverQueuedEmails(batchSize);
+    const delivery = await deliverQueuedEmails(batchSize);
+    return {
+      itemsExamined: publication.itemsExamined + delivery.itemsExamined,
+      itemsClaimed: publication.itemsClaimed + delivery.itemsClaimed,
+      itemsCompleted: publication.itemsCompleted + delivery.itemsCompleted,
+      itemsSkipped: publication.itemsSkipped + delivery.itemsSkipped,
+      itemsRetried: publication.itemsRetried + delivery.itemsRetried,
+      itemsReconciled: publication.itemsReconciled,
+      safeSummary: `Customer notifications: ${publication.itemsCompleted} published; ${delivery.itemsCompleted} emails accepted; ${publication.itemsReconciled} require review.`,
+    };
   },
 };
 

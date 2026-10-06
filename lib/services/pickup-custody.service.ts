@@ -13,7 +13,6 @@ import {
   isPickupEligible,
   isPickupBlocked,
 } from "@/lib/constants/pickup";
-import { notifyOrderStatusChanged } from "./notification-events.service";
 import { OrderTransitionError } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
@@ -340,32 +339,6 @@ export async function completePickup(
   const targetStatus = OrderStatus.PICKED_UP;
   if (statusBefore === OrderStatus.CONFIRMED) intermediateStatus = OrderStatus.PICKUP_SCHEDULED;
 
-  let recipientEmail: string | null = null;
-  let recipientName: string | null = null;
-  let orderNumber: string = order.orderNumber;
-  let orderSource: string = "CUSTOMER";
-
-  // Fetch customer/store email for notification
-  const orderFull = await prisma.order.findUnique({
-    where: { id: order.id },
-    include: {
-      customer: { select: { email: true, name: true } },
-      store: { include: { ownerUser: { select: { email: true, name: true } } } },
-    },
-  });
-
-  if (orderFull) {
-    orderNumber = orderFull.orderNumber;
-    orderSource = orderFull.source;
-    if (orderFull.customer?.email) {
-      recipientEmail = orderFull.customer.email;
-      recipientName = orderFull.customer.name;
-    } else if (orderFull.store?.ownerUser?.email) {
-      recipientEmail = orderFull.store.ownerUser.email;
-      recipientName = orderFull.store.ownerUser.name;
-    }
-  }
-
   try {
     await prisma.$transaction(async (tx) => {
       await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "PICKUP_CONFIRM" });
@@ -445,19 +418,6 @@ export async function completePickup(
       return { ok: false, error: error.message };
     }
     throw error;
-  }
-
-  // Non-blocking status email
-  if (recipientEmail) {
-    notifyOrderStatusChanged({
-      recipientEmail,
-      recipientName: recipientName ?? recipientEmail,
-      orderNumber,
-      newStatus: targetStatus,
-      statusNote: input.publicNote ?? "Your parcel has been collected and is in driver custody.",
-      orderId: order.id,
-      source: orderSource,
-    });
   }
 
   const updated = await prisma.orderAssignment.findFirst({

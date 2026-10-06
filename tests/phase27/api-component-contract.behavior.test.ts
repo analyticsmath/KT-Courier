@@ -37,7 +37,7 @@ describe("Phase 27 authenticated API contract audit", () => {
 describe("Phase 27 admin and shared-component contract audit", () => {
   it("puts every admin notification route behind an exact permission, same-origin, rate-limit, and canonical service boundary", () => {
     const files = routes(join(root, "app", "api", "admin", "notifications"));
-    expect(files).toHaveLength(23);
+    expect(files).toHaveLength(24);
     for (const file of files) {
       const source = text(file);
       expect(source).toContain("notificationAdminAccess");

@@ -22,6 +22,11 @@ async function main() {
       counts[name] = rows[0].count;
     }
     report.pendingConfigurationCounts = counts;
+    report.customerNotificationConfiguration = {
+      templates: await tx.notificationTemplateVersion.findMany({ select: { status: true, versionNumber: true } }),
+      recipientPolicies: await tx.notificationRecipientPolicyVersion.findMany({ select: { key: true, status: true, versionNumber: true } }),
+      routes: await tx.notificationEventRouteVersion.findMany({ select: { status: true, versionNumber: true, activatedAt: true } }),
+    };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60_000 });
   console.log(JSON.stringify(report));
 }

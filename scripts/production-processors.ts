@@ -4,6 +4,7 @@ import { executeRegisteredProcessor } from "../lib/processors/processor-service"
 import { productionProcessors, runProductionCycle } from "../lib/processors/production-loop";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
+import { listPendingCustomerOrderIntents } from "../lib/notifications/customer-order-publication";
 
 let stopping = false;
 let lastCycleAt = 0;
@@ -25,7 +26,7 @@ async function main() {
   async function hasWork(name: ProductionProcessor) {
     if (name === "consume-verified-payment-events") return (await createPrismaVerifiedPaymentEventRepository(prisma).listCandidates(1)).length > 0;
     if (name === "apply-paystack-webhook-events") return !!await prisma.paymentWebhookEvent.findFirst({ where: { provider: "PAYSTACK", OR: [{ processingStatus: "RECEIVED" }, { processingStatus: "PROCESSING", leaseExpiresAt: { lt: new Date() } }] }, select: { id: true } });
-    return !!await prisma.notificationDelivery.findFirst({ where: { channel: "EMAIL", status: { in: ["QUEUED", "FAILED_RETRYABLE"] }, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] }, select: { id: true } });
+    return (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: { channel: "EMAIL", status: { in: ["QUEUED", "FAILED_RETRYABLE"] }, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] }, select: { id: true } });
   }
   while (!stopping) {
     const results = await runProductionCycle(executeRegisteredProcessor, () => stopping, firstCycle ? undefined : hasWork);

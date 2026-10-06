@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { deliverQueuedEmails } from "@/lib/notifications/queued-email-delivery";
-const mocks = vi.hoisted(() => ({ findMany: vi.fn(), intent: vi.fn(), user: vi.fn(), message: vi.fn(), category: vi.fn(), suppressed: vi.fn(), evaluate: vi.fn(), security: vi.fn(), deliver: vi.fn(), ready: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { notificationDelivery: { findMany: mocks.findMany }, notificationEventIntent: { findUnique: mocks.intent }, user: { findUnique: mocks.user }, notificationMessage: { findUnique: mocks.message }, notificationCategory: { findUnique: mocks.category } } }));
+const mocks = vi.hoisted(() => ({ findMany: vi.fn(), update: vi.fn(), intent: vi.fn(), user: vi.fn(), message: vi.fn(), category: vi.fn(), route: vi.fn(), suppressed: vi.fn(), evaluate: vi.fn(), security: vi.fn(), deliver: vi.fn(), ready: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { notificationDelivery: { findMany: mocks.findMany, updateMany: mocks.update }, notificationEventIntent: { findUnique: mocks.intent }, user: { findUnique: mocks.user }, notificationMessage: { findUnique: mocks.message }, notificationCategory: { findUnique: mocks.category }, notificationEventRouteVersion: { findUnique: mocks.route } } }));
 vi.mock("@/lib/notifications/production-readiness", () => ({ assertNotificationProductionReady: mocks.ready }));
 vi.mock("@/lib/notifications/security-email-delivery", () => ({ deliverSecurityEmail: mocks.security }));
 vi.mock("@/lib/notifications/composition-root", () => ({ resolveNotificationProductionComposition: () => ({ services: { delivery: { deliver: mocks.deliver }, suppressions: { isSuppressed: mocks.suppressed }, preferences: { evaluate: mocks.evaluate } } }) }));
@@ -19,6 +19,7 @@ describe("real queued email processor adapter", () => {
     expect((await deliverQueuedEmails(50)).itemsSkipped).toBe(1);
     expect(mocks.evaluate).toHaveBeenCalledWith(expect.objectContaining({ suppressed: true, verifiedDestination: true }));
     expect(mocks.deliver).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: { status: "ELIGIBILITY_BLOCKED", eligibilityReason: "SUPPRESSED_DESTINATION", nextAttemptAt: null } }));
   });
   it("uses the encrypted security path for authentication instead of rendering a generic message", async () => {
     mocks.intent.mockResolvedValue({ sourceAuthority: "AUTHENTICATION_SECURITY" });
@@ -42,5 +43,23 @@ describe("real queued email processor adapter", () => {
     mocks.ready.mockImplementation(() => { throw new Error("locked"); });
     await expect(deliverQueuedEmails(50)).rejects.toThrow("locked");
     expect(mocks.findMany).not.toHaveBeenCalled();
+  });
+  it("defers quiet-hours email so later eligible messages are not starved", async () => {
+    mocks.intent.mockResolvedValue(null); mocks.user.mockResolvedValue({ email: "verified@example.test", emailVerifiedAt: new Date(), status: "ACTIVE" });
+    mocks.evaluate.mockResolvedValue({ state: "QUEUED", reason: "QUIET_HOURS" });
+    await deliverQueuedEmails(50);
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: { nextAttemptAt: expect.any(Date) } }));
+    expect(mocks.deliver).not.toHaveBeenCalled();
+  });
+  it("blocks a retired route and expires old deliveries before a provider call", async () => {
+    mocks.intent.mockResolvedValue(null); mocks.user.mockResolvedValue({ email: "verified@example.test", emailVerifiedAt: new Date(), status: "ACTIVE" });
+    mocks.message.mockResolvedValue({ recipientUserId: "user", categoryKey: "orders", purpose: "TRANSACTIONAL", routeVersionId: "retired" });
+    mocks.route.mockResolvedValue({ status: "RETIRED" });
+    await deliverQueuedEmails(50);
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "ELIGIBILITY_BLOCKED", eligibilityReason: "ROUTE_NOT_ACTIVE" }) }));
+    mocks.findMany.mockResolvedValue([{ id: "expired", expiresAt: new Date(0) }]);
+    await deliverQueuedEmails(50);
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: { status: "EXPIRED", nextAttemptAt: null } }));
+    expect(mocks.deliver).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ const txMock = vi.hoisted(() => ({
   orderOperationalEvent: {
     create: vi.fn(),
   },
+  notificationEventIntent: { upsert: vi.fn() },
 }));
 
 const prismaMock = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ function order(status: OrderStatus) {
   return {
     id: "order-1",
     orderNumber: "KT-0001",
+    source: "CUSTOMER",
     status,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -40,7 +42,8 @@ describe("order status service", () => {
     txMock.order.findUnique.mockReset();
     txMock.order.findUniqueOrThrow.mockReset();
     txMock.order.updateMany.mockReset();
-    txMock.orderStatusHistory.create.mockReset();
+    txMock.orderStatusHistory.create.mockReset().mockResolvedValue({ id: "history-1" });
+    txMock.notificationEventIntent.upsert.mockReset().mockResolvedValue({});
     txMock.orderOperationalEvent.create.mockReset();
 
     prismaMock.$transaction.mockImplementation(async (callback) => callback(txMock));
@@ -77,6 +80,7 @@ describe("order status service", () => {
     ).resolves.toMatchObject({ status: OrderStatus.CONFIRMED });
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(txMock.notificationEventIntent.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ aggregateReference: "order-1", eventType: "ORDER_STATUS_CHANGED", operationId: "legacy-order-status-history:history-1", safePayload: { orderNumber: "KT-0001", status: "CONFIRMED", source: "CUSTOMER" } }) }));
     expect(txMock.order.updateMany).toHaveBeenCalledWith({
       where: { id: "order-1", status: OrderStatus.PENDING },
       data: { status: OrderStatus.CONFIRMED },
@@ -107,6 +111,7 @@ describe("order status service", () => {
 
     expect(txMock.order.updateMany).not.toHaveBeenCalled();
     expect(txMock.orderStatusHistory.create).not.toHaveBeenCalled();
+    expect(txMock.notificationEventIntent.upsert).not.toHaveBeenCalled();
   });
 
   it("rejects invalid transitions before updating the order", async () => {

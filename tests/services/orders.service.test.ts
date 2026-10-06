@@ -40,7 +40,7 @@ vi.mock("@/lib/services/order-status.service", () => ({
   transitionOrderStatusInTx: transitionOrderStatusInTxMock,
 }));
 vi.mock("@/lib/services/notification-events.service", () => ({
-  notifyOrderConfirmed: notifyOrderConfirmedMock,
+  appendOrderConfirmedInTx: notifyOrderConfirmedMock,
   notifyOrderStatusChanged: notifyOrderStatusChangedMock,
 }));
 vi.mock("@/lib/services/pricing.service", () => ({
@@ -151,9 +151,7 @@ describe("orders service status flows", () => {
         source: "customer_cancel_order",
       })
     );
-    expect(notifyOrderStatusChangedMock).toHaveBeenCalledWith(
-      expect.objectContaining({ newStatus: OrderStatus.CANCELLED })
-    );
+    expect(notifyOrderStatusChangedMock).not.toHaveBeenCalled();
   });
 
   it("rejects customer cancellation after pickup without calling transition service", async () => {

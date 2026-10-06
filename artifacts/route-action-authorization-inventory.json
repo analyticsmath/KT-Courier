@@ -1,12 +1,12 @@
 {
   "summary": {
-    "totalRoutes": 734,
+    "totalRoutes": 735,
     "totalServerActions": 0,
     "publicRoutes": 116,
-    "authenticatedRoutes": 615,
-    "permissionGatedRoutes": 499,
+    "authenticatedRoutes": 616,
+    "permissionGatedRoutes": 500,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 191,
+    "rateLimitedRoutes": 192,
     "generatedAt": "2026-10-06T11:10:00.000Z"
   },
   "serverActions": [],
@@ -2562,6 +2562,26 @@
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/notifications/customer-orders/[eventType]/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "notification_template.read",
+        "action-specific:notification_template.approve|notification_template.publish|notification_route.manage|notification_route.approve|notification_route.activate"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Same-origin notificationAdminAccess and authenticated actor; finite action-specific permissions; serialized canonical review transitions preserve approver/publisher separation. Runtime access tests included."
     },
     {
       "routePath": "app/api/admin/notifications/deliveries/[reference]/retry/route.ts",

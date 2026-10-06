@@ -14,10 +14,7 @@ import type {
   CreateOrderInput,
   CustomerCancelOrderInput,
 } from "@/lib/validation/order";
-import {
-  notifyOrderConfirmed,
-  notifyOrderStatusChanged,
-} from "./notification-events.service";
+import { appendOrderConfirmedInTx } from "./notification-events.service";
 import {
   hashPricingInput,
   pricingInputSnapshot,
@@ -222,24 +219,11 @@ export async function createOrder(
       });
     }
 
+    await appendOrderConfirmedInTx(tx, order);
     return order;
   });
 
   const dto = toOrderDetailDto(result);
-
-  notifyOrderConfirmed({
-    recipientEmail: user.email,
-    recipientName: user.name ?? user.email,
-    orderNumber: dto.orderNumber,
-    deliveryType: dto.deliveryType,
-    pickupSummary: dto.pickupSummary,
-    dropoffSummary: dto.dropoffSummary,
-    priceEstimate: dto.priceEstimate,
-    currency: dto.currency,
-    orderId: dto.id,
-    source: dto.source,
-    submittedByEmail: user.email,
-  });
 
   return dto;
 }
@@ -436,17 +420,6 @@ export async function cancelOrder(
       where: { id: orderId },
       include: ORDER_FULL_INCLUDE,
     });
-  });
-
-  // Notify admin (non-blocking — reuse status-changed event)
-  notifyOrderStatusChanged({
-    recipientEmail: user.email,
-    recipientName: user.name ?? user.email,
-    orderNumber: existing.orderNumber,
-    newStatus: OrderStatus.CANCELLED,
-    statusNote: input.reason ?? undefined,
-    orderId,
-    source: existing.source,
   });
 
   return { order: toOrderDetailDto(updated) };
