@@ -261,7 +261,7 @@ describe("R23 Category and Storefront Data-Binding Closure", () => {
       },
     ];
 
-    vi.spyOn(prisma, "$queryRaw").mockResolvedValueOnce(fixtureRows);
+    vi.spyOn(prisma, "$queryRaw").mockResolvedValueOnce(fixtureRows).mockResolvedValueOnce(Array.from({ length: 42 }, (_, index) => ({ productPublicReference: `P-${index}`, categoryPath: "/groceries/fresh-produce", title: "Produce" })));
 
     const categories = await listStorefrontCategories();
 

@@ -1,3 +1,4 @@
+import { matchesStorefrontCategory } from "@/lib/storefront/storefront-category-discovery";
 import { findStorefrontCorrection, rankStorefrontDocuments } from "@/lib/storefront/search/storefront-ranking-policy";
 import { type StorefrontFilterInput, type StorefrontSort } from "@/lib/storefront/search/storefront-filter-url";
 import { normalizeStorefrontQuery } from "@/lib/storefront/search/storefront-query-normalization";
@@ -25,8 +26,7 @@ function safePrice(value: string): number { const parsed = Number(value); return
 
 function matchesFilters(document: StorefrontDocument, filters: StorefrontFilterInput): boolean {
   if (filters.category) {
-    const normCategory = filters.category.startsWith("/") ? filters.category : `/${filters.category}`;
-    if (document.categoryPath !== normCategory && !document.categoryPath.startsWith(`${normCategory}/`)) return false;
+    if (!matchesStorefrontCategory(document, filters.category)) return false;
   }
   if (filters.store && document.storeSlug !== filters.store) return false;
   if (filters.brand && document.brandReference !== filters.brand && document.brandName?.toLocaleLowerCase("en-ZA").replace(/\s+/g, "-") !== filters.brand) return false;

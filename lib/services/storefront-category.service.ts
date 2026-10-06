@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { storefrontCategoryPredicate } from "@/lib/storefront/storefront-category-discovery";
 import { prisma } from "@/lib/db/prisma";
 
 type StorefrontCategoryClient = { storefrontCategoryDocument: { upsert(args: unknown): Promise<unknown> } };
@@ -7,7 +9,7 @@ const storefrontClient = prisma as unknown as StorefrontCategoryClient;
 export async function rebuildStorefrontCategoryDocument(categoryId: string): Promise<void> {
   const category = await prisma.catalogCategory.findUnique({ where: { id: categoryId }, include: { imageAsset: true, parent: true, children: { where: { status: "ACTIVE" }, select: { publicReference: true, path: true, name: true }, orderBy: [{ displayOrder: "asc" }, { name: "asc" }] }, productTypeMappings: { include: { productTypeDefinition: { select: { code: true, searchFacetSchema: true, status: true } } } } } });
   if (!category || category.status !== "ACTIVE") return;
-  const countRows = await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "StorefrontProductDocument" WHERE "categoryId" = ${category.id} AND "status" = 'ACTIVE'`;
+  const countRows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`SELECT COUNT(DISTINCT "productPublicReference")::bigint AS count FROM "StorefrontProductDocument" WHERE ${storefrontCategoryPredicate(category.path)} AND "status" = 'ACTIVE' AND "searchable" = true`);
   const productCount = Number(countRows[0]?.count ?? 0);
   const publicImageReference = category.imageAsset?.status === "READY" && category.imageAsset.privacyInspectionPassed ? category.imageAsset.publicReference : null;
   const facetDefinitions = Object.fromEntries(category.productTypeMappings.filter((mapping) => mapping.productTypeDefinition.status === "ACTIVE").map((mapping) => [mapping.productTypeDefinition.code, mapping.productTypeDefinition.searchFacetSchema]));

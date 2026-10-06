@@ -1,3 +1,4 @@
+import { matchesStorefrontCategory, storefrontCategoryPredicate } from "@/lib/storefront/storefront-category-discovery";
 import { CatalogFulfilmentMode, CatalogProductCondition, Prisma, StorefrontAvailabilityState } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { normalizeStorefrontQuery } from "@/lib/storefront/search/storefront-query-normalization";
@@ -47,7 +48,6 @@ export class InMemoryStorefrontSearchAdapter implements StorefrontSearchAdapter 
     offset?: number;
   }) {
     const query = input.query ? normalizeStorefrontQuery(input.query).value : "";
-    const normCategoryPath = input.categoryPath ? (input.categoryPath.startsWith("/") ? input.categoryPath : `/${input.categoryPath}`) : "";
     const minPrice = input.minPrice ? Number(input.minPrice) : null;
     const maxPrice = input.maxPrice ? Number(input.maxPrice) : null;
     const offset = input.offset ?? 0;
@@ -56,7 +56,7 @@ export class InMemoryStorefrontSearchAdapter implements StorefrontSearchAdapter 
     const filtered = [...this.documents.values()]
       .filter((document) => !query || document.searchText.toLocaleLowerCase("en-ZA").includes(query) || document.normalizedTitle.includes(query))
       .filter((document) => !input.storeSlug || document.storeSlug === input.storeSlug)
-      .filter((document) => !normCategoryPath || document.categoryPath === normCategoryPath || document.categoryPath.startsWith(`${normCategoryPath}/`))
+      .filter((document) => !input.categoryPath || matchesStorefrontCategory(document, input.categoryPath))
       .filter((document) => !input.brand || document.brandReference === input.brand || document.brandName?.toLocaleLowerCase("en-ZA").replace(/\s+/g, "-") === input.brand)
       .filter((document) => minPrice === null || Number(document.price.amount) >= minPrice)
       .filter((document) => maxPrice === null || Number(document.price.amount) <= maxPrice)
@@ -146,8 +146,7 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
     const clauses = [Prisma.sql`"status" = 'ACTIVE'`, Prisma.sql`"searchable" = true`];
     if (input.storeSlug) clauses.push(Prisma.sql`"storeSlug" = ${input.storeSlug}`);
     if (input.categoryPath) {
-      const normPath = input.categoryPath.startsWith("/") ? input.categoryPath : `/${input.categoryPath}`;
-      clauses.push(Prisma.sql`("categoryPath" = ${normPath} OR "categoryPath" LIKE ${`${normPath}/%`})`);
+      clauses.push(storefrontCategoryPredicate(input.categoryPath));
     }
     if (input.brand) {
       clauses.push(Prisma.sql`("brandPublicReference" = ${input.brand} OR "brandName" ILIKE ${input.brand.replace(/-/g, " ")})`);
@@ -209,8 +208,7 @@ export async function loadStorefrontDocuments(input: { productReference?: string
   if (referenceClauses.length) clauses.push(Prisma.sql`(${Prisma.join(referenceClauses, " OR ")})`);
   if (input.storeSlug) clauses.push(Prisma.sql`"storeSlug" = ${input.storeSlug}`);
   if (input.categoryPath) {
-    const normPath = input.categoryPath.startsWith("/") ? input.categoryPath : `/${input.categoryPath}`;
-    clauses.push(Prisma.sql`("categoryPath" = ${normPath} OR "categoryPath" LIKE ${`${normPath}/%`})`);
+    clauses.push(storefrontCategoryPredicate(input.categoryPath));
   }
   const limit = input.limit ?? 100000;
   const rows = await prisma.$queryRaw<StorefrontDocumentRow[]>(Prisma.sql`${SELECT_DOCUMENT} WHERE ${Prisma.join(clauses, " AND ")} ORDER BY "priceAmount" ASC, "publicReference" ASC LIMIT ${Math.max(1, limit)}`);

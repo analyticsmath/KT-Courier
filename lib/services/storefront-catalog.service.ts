@@ -1,3 +1,4 @@
+import { matchesStorefrontCategory } from "@/lib/storefront/storefront-category-discovery";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { loadStorefrontDocuments, PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
@@ -15,7 +16,8 @@ function publicChildren(value: unknown): Array<{ reference: string; path: string
 
 export async function listStorefrontCategories() {
   const rows = await prisma.$queryRaw<CategoryRow[]>`SELECT "categoryPublicReference", "canonicalPath", "name", "description", "publicImageReference", "parentPublicReference", "childNavigation", "productCount", "seoTitle", "seoDescription", "sourceUpdatedAt" FROM "StorefrontCategoryDocument" ORDER BY "canonicalPath" ASC LIMIT 200`;
-  return rows.map((row) => ({ reference: row.categoryPublicReference, path: row.canonicalPath, name: row.name, ...(row.description ? { description: row.description } : {}), ...(row.publicImageReference ? { imageReference: row.publicImageReference } : {}), ...(row.parentPublicReference ? { parentReference: row.parentPublicReference } : {}), children: publicChildren(row.childNavigation), productCount: row.productCount, ...(row.seoTitle ? { seoTitle: row.seoTitle } : {}), ...(row.seoDescription ? { seoDescription: row.seoDescription } : {}), updatedAt: row.sourceUpdatedAt.toISOString() }));
+  const products = await prisma.$queryRaw<Array<{ productPublicReference: string; categoryPath: string; title: string }>>`SELECT DISTINCT "productPublicReference", "categoryPath", "title" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "searchable" = true`;
+  return rows.map((row) => ({ reference: row.categoryPublicReference, path: row.canonicalPath, name: row.name, ...(row.description ? { description: row.description } : {}), ...(row.publicImageReference ? { imageReference: row.publicImageReference } : {}), ...(row.parentPublicReference ? { parentReference: row.parentPublicReference } : {}), children: publicChildren(row.childNavigation), productCount: new Set(products.filter(product => matchesStorefrontCategory(product, row.canonicalPath)).map(product => product.productPublicReference)).size, ...(row.seoTitle ? { seoTitle: row.seoTitle } : {}), ...(row.seoDescription ? { seoDescription: row.seoDescription } : {}), updatedAt: row.sourceUpdatedAt.toISOString() }));
 }
 
 export async function getStorefrontCategory(path: string) {
@@ -23,8 +25,8 @@ export async function getStorefrontCategory(path: string) {
   const rows = await prisma.$queryRaw<CategoryRow[]>(Prisma.sql`SELECT "categoryPublicReference", "canonicalPath", "name", "description", "publicImageReference", "parentPublicReference", "childNavigation", "productCount", "seoTitle", "seoDescription", "sourceUpdatedAt" FROM "StorefrontCategoryDocument" WHERE ("canonicalPath" = ${path} OR "canonicalPath" = ${normPath}) LIMIT 1`);
   const row = rows[0];
   if (!row) return null;
-  const products = await loadStorefrontDocuments({ categoryPath: row.canonicalPath, limit: 200 });
-  return { reference: row.categoryPublicReference, path: row.canonicalPath, name: row.name, ...(row.description ? { description: row.description } : {}), ...(row.publicImageReference ? { imageReference: row.publicImageReference } : {}), children: publicChildren(row.childNavigation), productCount: row.productCount, products };
+  const products = await loadStorefrontDocuments({ categoryPath: row.canonicalPath, limit: 100000 });
+  return { reference: row.categoryPublicReference, path: row.canonicalPath, name: row.name, ...(row.description ? { description: row.description } : {}), ...(row.publicImageReference ? { imageReference: row.publicImageReference } : {}), children: publicChildren(row.childNavigation), productCount: new Set(products.map(product => product.productReference)).size, products };
 }
 
 export async function listStorefrontStores(input: { query?: string; category?: string; fulfilment?: string; limit?: number }) {
@@ -34,7 +36,7 @@ export async function listStorefrontStores(input: { query?: string; category?: s
 }
 
 export async function getStorefrontStoreCategories(storeSlug: string) {
-  const rows = await prisma.$queryRaw<Array<{ categoryPublicReference: string; categoryPath: string; productCount: bigint }>>(Prisma.sql`SELECT "categoryPublicReference", "categoryPath", COUNT(*) as "productCount" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "searchable" = true AND "storeSlug" = ${storeSlug} GROUP BY "categoryPublicReference", "categoryPath" ORDER BY "categoryPath" ASC`);
+  const rows = await prisma.$queryRaw<Array<{ categoryPublicReference: string; categoryPath: string; productCount: bigint }>>(Prisma.sql`SELECT "categoryPublicReference", "categoryPath", COUNT(DISTINCT "productPublicReference") as "productCount" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "searchable" = true AND "storeSlug" = ${storeSlug} GROUP BY "categoryPublicReference", "categoryPath" ORDER BY "categoryPath" ASC`);
   if (!rows.length) return [];
   const allCategories = await listStorefrontCategories();
   const catMap = new Map(allCategories.map((c) => [c.path, c]));
