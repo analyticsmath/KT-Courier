@@ -6,7 +6,7 @@ async function main() {
   await prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
     const protectedRows: Record<string, unknown> = {};
-    for (const name of ["User", "Store", "Order", "Payment", "MarketplaceOrder", "MarketplaceStoreOrder", "CashOnDelivery", "PrivateMediaObject", "StoreEarning", "DriverProfile", "LedgerAccount", "CatalogProduct", "CatalogProductVariant", "CatalogCategory", "CatalogMediaAsset", "StorefrontProductDocument"]) {
+    for (const name of ["User", "Store", "Address", "Order", "Payment", "MarketplaceOrder", "MarketplaceStoreOrder", "CashOnDelivery", "PrivateMediaObject", "StoreEarning", "DriverProfile", "LedgerAccount", "CatalogProduct", "CatalogProductVariant", "CatalogCategory", "CatalogMediaAsset", "StorefrontProductDocument"]) {
       const rows = await tx.$queryRawUnsafe<Record<string, unknown>[]>('SELECT count(*)::int AS count,encode(sha256(convert_to(COALESCE(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),\'\'),\'UTF8\')),\'hex\') AS hash FROM "' + name + '" t');
       protectedRows[name] = rows[0];
     }

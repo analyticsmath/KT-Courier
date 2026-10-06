@@ -820,6 +820,9 @@ body {
   color: #ffffff;
 }
 
+/* Generic resets belong below component/utility layers. Unlayered defaults
+   erase button surfaces and make inverse link labels inherit dark text. */
+@layer base {
 /* Focus ring */
 :focus-visible {
   outline: 2px solid var(--kt-brand-blue);
@@ -847,6 +850,7 @@ ol[class] {
   list-style: none;
   margin: 0;
   padding: 0;
+}
 }
 
 img,

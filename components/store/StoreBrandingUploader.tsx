@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { FileInput } from "@/components/ui/FileInput";
 export function StoreBrandingUploader() {
   const [images, setImages] = useState<{ logo: string | null; cover: string | null }>({ logo: null, cover: null });
   const [busy, setBusy] = useState(false);
@@ -32,7 +33,7 @@ export function StoreBrandingUploader() {
     <div className="grid gap-6 sm:grid-cols-2">{(["logo", "cover"] as const).map(kind => <div key={kind} className="space-y-3">
       <label htmlFor={`store-${kind}-upload`} className="block text-sm font-bold">{kind === "logo" ? "Store logo" : "Store cover photo"}</label>
       {images[kind] && <Image unoptimized src={`/api/store/profile-media?reference=${encodeURIComponent(images[kind])}`} alt={kind === "logo" ? "Your store logo" : "Your store cover photo"} width={640} height={300} className="h-40 w-full rounded-xl border object-contain" />}
-      <input id={`store-${kind}-upload`} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} className="block w-full text-sm" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file, kind === "logo" ? "STORE_LOGO" : "STORE_HERO"); event.currentTarget.value = ""; }} />
+      <FileInput id={`store-${kind}-upload`} accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file, kind === "logo" ? "STORE_LOGO" : "STORE_HERO"); event.currentTarget.value = ""; }} />
     </div>)}</div>
     <p role="status" className="text-sm">{message}</p>
   </div>;

@@ -144,6 +144,9 @@ export async function updateCustomerAddress(
 
   const nextType = input.type ?? existing.type;
   const nextDefault = input.isDefault ?? existing.isDefault;
+  const locationFields = ["line1", "line2", "city", "province", "postalCode", "country", "formattedAddress", "placeId"] as const;
+  const textLocationChanged = locationFields.some((field) => input[field] !== undefined && input[field] !== existing[field]);
+  const clearOldPoint = textLocationChanged && input.latitude === undefined && input.longitude === undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
     if (nextDefault) {
@@ -161,7 +164,7 @@ export async function updateCustomerAddress(
 
     return tx.address.update({
       where: { id: addressId },
-      data: updateData(input),
+      data: { ...updateData(input), ...(clearOldPoint ? { latitude: null, longitude: null, placeId: input.placeId ?? null } : {}) },
     });
   });
 

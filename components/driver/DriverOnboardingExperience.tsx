@@ -6,6 +6,7 @@ import { DriverSelfDto } from "@/lib/dto/driver.dto";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import styles from "@/components/protected-v2/driver/driver-pages.module.css";
+import { FileInput } from "@/components/ui/FileInput";
 
 interface DocumentRow {
   id: string;
@@ -714,15 +715,16 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div className="md:col-span-2 pt-3 border-t border-[var(--kt-soft-border)]">
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="driver-profile-photo" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Driver Profile Photo (Headshot for Customer & Fleet Verification)
                   </label>
                   <p className="text-[11px] text-[var(--kt-text-muted)] mb-2">
                     Clear portrait photo of your face, matching your official identity document.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                    <input
-                      type="file"
+                    <FileInput
+                      id="driver-profile-photo"
+                      disabled={uploadingProfilePhoto}
                       accept="image/jpeg,image/png,image/webp"
                       onChange={(e) => setProfilePhotoFile(e.target.files?.[0] ?? null)}
                       className="text-xs rounded-xl border border-[var(--kt-soft-border)] px-3 py-1.5 bg-white text-[var(--kt-text)]"
@@ -795,11 +797,12 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="driver-document-file" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       File (PDF, JPEG, PNG, WEBP, max 10MB) *
                     </label>
-                    <input
-                      type="file"
+                    <FileInput
+                      id="driver-document-file"
+                      disabled={uploadingDoc}
                       required
                       accept=".pdf,image/jpeg,image/png,image/webp"
                       onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
@@ -1062,11 +1065,12 @@ export function DriverOnboardingExperience({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      <label htmlFor="vehicle-document-file" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                         File (PDF or Image) *
                       </label>
-                      <input
-                        type="file"
+                      <FileInput
+                        id="vehicle-document-file"
+                        disabled={uploadingVehDoc}
                         required
                         accept=".pdf,image/jpeg,image/png,image/webp"
                         onChange={(e) => setVehDocFile(e.target.files?.[0] ?? null)}
@@ -1126,11 +1130,12 @@ export function DriverOnboardingExperience({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      <label htmlFor="vehicle-photo-file" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                         Photo File (JPEG, PNG, WEBP) *
                       </label>
-                      <input
-                        type="file"
+                      <FileInput
+                        id="vehicle-photo-file"
+                        disabled={uploadingVehMedia}
                         required
                         accept="image/jpeg,image/png,image/webp"
                         onChange={(e) => setVehMediaFile(e.target.files?.[0] ?? null)}

@@ -41,7 +41,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl font-extrabold transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)] focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none select-none";
+    "inline-flex items-center justify-center gap-2 rounded-xl font-extrabold transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--kt-brand-blue)] focus-visible:outline-offset-2 disabled:bg-[var(--kt-surface-muted)] disabled:text-[var(--kt-text-muted)] disabled:border disabled:border-[var(--kt-border-strong)] disabled:shadow-none disabled:cursor-not-allowed select-none";
 
   const classes = cn(
     base,
@@ -60,7 +60,7 @@ export function Button({
   }
 
   return (
-    <button className={classes} disabled={disabled || loading} {...props}>
+    <button className={classes} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
       {loading && (
         <svg
           className="animate-spin -ml-1 mr-1 h-4 w-4"

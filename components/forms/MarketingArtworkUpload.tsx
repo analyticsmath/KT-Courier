@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Label";
+import { FileInput } from "@/components/ui/FileInput";
 export function MarketingArtworkUpload() {
   const router = useRouter();
   const [busy, setBusy] = useState(false),
@@ -46,12 +47,12 @@ export function MarketingArtworkUpload() {
       className="space-y-4"
     >
       <Label htmlFor="marketing-artwork">Upload campaign artwork</Label>
-      <input
+      <FileInput
         id="marketing-artwork"
         name="file"
-        type="file"
         accept="image/jpeg,image/png,image/webp"
         required
+        disabled={busy}
         className="block w-full text-sm"
       />
       <p className="text-sm">

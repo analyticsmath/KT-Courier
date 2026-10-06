@@ -162,6 +162,7 @@ export function AddressAutocomplete({
   const handleInputChange = useCallback(
     (text: string) => {
       selectionVersion.current++;
+      setSelecting(false);
       setSelectionError("");
       setInputValue(text);
       onChange(null);
@@ -344,7 +345,16 @@ export function AddressAutocomplete({
       )}
 
       {selectionError && <p role="alert" className="text-sm text-red-600">{selectionError}</p>}
-      {hasBrowserKey && <AddressLocationMap value={value} onChange={onChange} label={label} />}
+      {hasBrowserKey && <AddressLocationMap value={value} onChange={(selected) => {
+        // Map gestures supersede pending Places predictions/details as well.
+        selectionVersion.current++;
+        setSelecting(false);
+        setSelectionError("");
+        setShowDropdown(false);
+        clearPredictions();
+        setInputValue(selected?.formattedAddress ?? "");
+        onChange(selected);
+      }} label={label} />}
 
       {/* Access notes */}
       {showNotesField && (

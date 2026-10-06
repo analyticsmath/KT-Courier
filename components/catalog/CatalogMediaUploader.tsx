@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { FileInput } from "@/components/ui/FileInput";
 
 export type CatalogMediaDraft = {
   assetPublicReference: string;
@@ -88,7 +89,7 @@ export function CatalogMediaUploader({ value, onChange }: { value: CatalogMediaD
     <div className="rounded-xl border border-dashed border-[var(--kt-soft-border)] p-4">
       <label htmlFor="catalog-media-file" className="block text-sm font-extrabold">Upload product image</label>
       <label htmlFor="catalog-media-purpose" className="mt-3 block text-sm font-bold">Image purpose</label><Select id="catalog-media-purpose" value={purpose} onChange={(event) => setPurpose(event.target.value as "PRODUCT_IMAGE" | "VARIANT_IMAGE")} options={[{ value: "PRODUCT_IMAGE", label: "Product gallery image" }, { value: "VARIANT_IMAGE", label: "Variant or swatch image" }]} />
-      <input id="catalog-media-file" type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block min-h-11 w-full text-sm" disabled={phase !== "IDLE"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.currentTarget.value = ""; }} />
+      <FileInput id="catalog-media-file" accept="image/jpeg,image/png,image/webp" className="mt-2" disabled={phase !== "IDLE"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.currentTarget.value = ""; }} />
       <p className="mt-2 text-xs text-[var(--kt-text-muted)]">JPEG, PNG or WebP; 8 MiB maximum; 300 × 300 minimum. The server verifies bytes, dimensions, privacy metadata and checksum.</p>
       {phase !== "IDLE" ? <div className="mt-3" role="status" aria-live="polite"><p className="text-sm font-bold">{phase === "CREATING_INTENT" ? "Creating secure upload…" : phase === "UPLOADING" ? "Uploading bytes…" : "Validating image…"}</p><progress className="mt-2 w-full" max={100} value={progress}>{progress}%</progress></div> : null}
       {error ? <div className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm" role="alert"><p>{error}</p>{retryFile.current && phase === "IDLE" ? <Button type="button" variant="secondary" className="mt-2" onClick={() => { const file = retryFile.current; if (file) void upload(file); }}>Retry selected file</Button> : null}</div> : null}

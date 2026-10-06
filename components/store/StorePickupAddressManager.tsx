@@ -132,9 +132,9 @@ export function StorePickupAddressManager({
       country: form.address.country ?? "South Africa",
       accessNotes: form.accessNotes.trim() || undefined,
       formattedAddress: form.address.formattedAddress || undefined,
-      placeId: form.address.placeId ?? undefined,
-      latitude: form.address.latitude ?? undefined,
-      longitude: form.address.longitude ?? undefined,
+      placeId: form.address.placeId,
+      latitude: form.address.latitude,
+      longitude: form.address.longitude,
     };
 
     try {
