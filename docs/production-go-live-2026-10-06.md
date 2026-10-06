@@ -5,6 +5,7 @@ The user approved production deployment and requested the full platform. All cha
 ## Activated in this release
 
 - Record catalogue production approval in source. Product-type activation, approved price activation, and publication snapshot rebuilding no longer fail solely on the historical release lock.
+- Accept the imported LEG6-PROD numeric namespace in the shared product route builder and parser. Previously the CP-only rule rendered imported product cards without links and disabled quick-add. Product pages, variant navigation, canonical metadata and sitemap links now retain the imported identity, with non-product namespaces and path injection still rejected.
 - Require active, moderated catalogue evidence and the offer's current effective active price for a public snapshot. A newer draft price cannot replace that price. READY primary media and immutable database evidence remain required.
 - Set CHECKOUT_PUBLIC_ENABLED=true on the production web service. Paystack live credentials passed a read-only authenticated provider settings request (HTTP 200). This enables checkout access and the live payment adapter; coverage, quote, inventory and seller settlement checks still determine whether an order can proceed.
 - Derive Paystack integration readiness from the actual payment configuration resolver. Configured credentials alone no longer advertise live readiness while checkout is disabled or the key/origin/runtime is invalid.

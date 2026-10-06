@@ -2,6 +2,11 @@ import { canonicalStorefrontQuery, type StorefrontFilterInput } from "@/lib/stor
 
 const SLUG_SEGMENT = /^[a-z0-9]+(?:-+[a-z0-9]+)*$/;
 const PUBLIC_REFERENCE = /^[A-Z][A-Z0-9]{0,15}(?:-[A-Z0-9]+){1,16}$/;
+const LEGACY_PRODUCT_REFERENCE = /^LEG6-PROD-[1-9]\d*$/;
+
+function isProductReference(reference: string): boolean {
+  return reference.startsWith("CP-") || LEGACY_PRODUCT_REFERENCE.test(reference);
+}
 
 export type MarketplaceListingRoute =
   | { kind: "search" }
@@ -33,15 +38,15 @@ export function marketplaceCategoryPath(value: string | readonly string[]): stri
 export function marketplaceProductParameter(productSlug: string, productReference: string): string | null {
   const slug = marketplaceSlug(productSlug);
   const reference = marketplacePublicReference(productReference);
-  return slug && reference?.startsWith("CP-") ? `${slug}-${reference}` : null;
+  return slug && reference && isProductReference(reference) ? `${slug}-${reference}` : null;
 }
 
 export function parseMarketplaceProductParameter(value: string): { slug: string; reference: string } | null {
-  const match = value.match(/^(.*)-(CP-[A-Z0-9]+(?:-[A-Z0-9]+)*)$/);
+  const match = value.match(/^(.*)-((?:CP|LEG6-PROD)-[A-Z0-9]+(?:-[A-Z0-9]+)*)$/);
   if (!match?.[1] || !match[2]) return null;
   const slug = marketplaceSlug(match[1]);
   const reference = marketplacePublicReference(match[2]);
-  return slug && reference?.startsWith("CP-") ? { slug, reference } : null;
+  return slug && reference && isProductReference(reference) ? { slug, reference } : null;
 }
 
 export function marketplaceHref(): string {

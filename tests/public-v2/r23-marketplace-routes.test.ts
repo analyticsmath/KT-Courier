@@ -27,6 +27,24 @@ const routeFiles = {
 } as const;
 
 describe("R23 marketplace route activation", () => {
+  it("opens imported product and variant references without replacing their migration identity", () => {
+    expect(marketplaceProductHref("sea-moss-532", "LEG6-PROD-532")).toBe(
+      "/shop/products/sea-moss-532-LEG6-PROD-532",
+    );
+    expect(parseMarketplaceProductParameter("sea-moss-532-LEG6-PROD-532")).toEqual({
+      slug: "sea-moss-532", reference: "LEG6-PROD-532",
+    });
+    expect(marketplaceVariantHref("sea-moss-532", "LEG6-PROD-532", "LEG6-VAR-532-1")).toBe(
+      "/shop/products/sea-moss-532-LEG6-PROD-532/LEG6-VAR-532-1",
+    );
+  });
+
+  it.each(["LEG6-STORE-532", "LEG6-PROD-INVALID", "LEG6-PROD-0", "LEG6-PROD-532/../../private", "LEG6-PROD-532%2Fprivate"])(
+    "rejects non-product or unsafe migration references: %s", (reference) => {
+      expect(marketplaceProductHref("sea-moss", reference)).toBeNull();
+      expect(parseMarketplaceProductParameter(`sea-moss-${reference}`)).toBeNull();
+    },
+  );
   it("builds source-backed category, store, product, store-category, and variant links to mounted public routes", () => {
     expect(marketplaceCategoryHref("food/tea")).toBe(
       "/shop/categories/food/tea",
