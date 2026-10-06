@@ -8,11 +8,11 @@ import { notificationAdminAccess, notificationFailure, parseNotificationBody } f
 import { customerOrderReviewPermissions, reviewCustomerOrderNotification } from "@/lib/notifications/customer-order-review";
 
 const schema = z.object({ action: z.enum(["APPROVE_TEMPLATE", "PUBLISH_TEMPLATE", "APPROVE_RECIPIENT_POLICY", "PREPARE_ROUTE", "APPROVE_ROUTE", "ACTIVATE_ROUTE"]) }).strict();
-export async function POST(request: Request, context: { params: Promise<{ eventType: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ eventType: string }> }): Promise<Response> {
   const access = await notificationAdminAccess(request, PERMISSIONS.NOTIFICATION_TEMPLATE_READ, true);
   if ("response" in access) return access.response ?? NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const parsed = await parseNotificationBody(request, schema);
-  if ("response" in parsed) return parsed.response;
+  if ("response" in parsed) return parsed.response ?? NextResponse.json({ error: "Invalid notification request." }, { status: 422 });
   if (!await hasPermission({ userId: access.user.id, role: access.user.role, permissionKey: customerOrderReviewPermissions[parsed.data.action] })) return NextResponse.json({ error: "Missing required permission." }, { status: 403 });
   const { eventType } = await context.params;
   try {
