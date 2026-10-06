@@ -1,0 +1,28 @@
+{
+  "authority": "Live Railway service configuration applied through update_service; this file records the reviewed settings and is not an automatic deployment override.",
+  "projectId": "e9554aaa-1b53-4595-8731-e8c2885ac594",
+  "environmentId": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+  "services": {
+    "web": {
+      "id": "55254aaf-3719-4da9-a5b6-9214417101c6",
+      "dockerfilePath": "Dockerfile",
+      "startCommand": "node server.js",
+      "preDeployCommand": ["sh -lc './node_modules/.bin/prisma migrate deploy && node node_modules/tsx/dist/cli.mjs scripts/initialize-client-delivery.ts && node node_modules/tsx/dist/cli.mjs scripts/initialize-reviewed-client-launch.ts && node node_modules/tsx/dist/cli.mjs scripts/audit-reviewed-production.ts'"],
+      "preDeployTimeoutSeconds": 300,
+      "healthcheckPath": "/api/ready"
+    },
+    "processors": {
+      "id": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+      "existingServiceName": "query-storefront-categories",
+      "dockerfilePath": "Dockerfile.operations",
+      "startCommand": "sh -lc 'node node_modules/tsx/dist/cli.mjs scripts/audit-reviewed-production.ts && exec node node_modules/tsx/dist/cli.mjs scripts/production-processors.ts'",
+      "preDeployCommand": ["node scripts/validate-isolated-production-processors.mjs"],
+      "preDeployTimeoutSeconds": 1800,
+      "healthcheckPath": "/health",
+      "scope": ["apply-paystack-webhook-events", "consume-verified-payment-events", "deliver-notifications"]
+    }
+  },
+  "source": { "repo": "analyticsmath/KT-Courier", "branch": "main" },
+  "automaticRetentionEnabled": false,
+  "unapprovedCommercialRulesActivated": false
+}
