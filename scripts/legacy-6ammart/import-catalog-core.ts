@@ -339,7 +339,7 @@ async function main() {
   try {
     await rootClient.$transaction(async (tx) => {
       prisma = tx;
-      await prisma.$queryRaw`SELECT pg_advisory_xact_lock(6142026)`;
+      await prisma.$queryRaw`SELECT 1 AS acquired FROM pg_advisory_xact_lock(6142026)`;
       await assertTargetAllowed(true, pkg, preserved?.inventory);
       const protectedRows = preserved ? await captureRetainedRows(prisma) : null;
   // Reconcile identities before the first target write, including phone-only matches.
