@@ -1,8 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCustomerAsset, fundAsset, ledgerPrisma } from "./ledger-fixtures";
 import { reverseLedgerJournal } from "@/lib/services/ledger-reversal.service";
+import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
 
 beforeAll(async () => {
+  // Empty disposable databases need their own zero-balance platform accounts;
+  // do not depend on the demo seeder or on another suite's execution order.
+  const wallet = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
+  await ensureLedgerAccount({ walletId: wallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
+  await ensureLedgerAccount({ walletId: wallet.id, code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY", currency: "ZAR" });
   // Ensure protect_ledger_entry_insert function and LedgerEntry_insert_protection trigger exist
   await ledgerPrisma.$executeRawUnsafe(`
     CREATE OR REPLACE FUNCTION protect_ledger_entry_insert()
