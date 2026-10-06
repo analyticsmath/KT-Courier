@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -21,18 +22,24 @@ async function main() {
     await check("invalid product-type JSON shape", `SELECT COUNT(*)::int count FROM "ProductTypeDefinition" WHERE jsonb_typeof("attributeSchema")<>'object' OR jsonb_typeof("variantSchema")<>'object' OR jsonb_typeof("complianceSchema")<>'object' OR jsonb_typeof("searchFacetSchema")<>'object'`);
     await check("overlapping scheduled or active prices", `SELECT COUNT(*)::int count FROM "StoreOfferPriceVersion" a JOIN "StoreOfferPriceVersion" b ON a."offerId"=b."offerId" AND a."id"<b."id" AND a."status"::text IN ('SCHEDULED','ACTIVE') AND b."status"::text IN ('SCHEDULED','ACTIVE') AND tsrange(a."effectiveFrom",COALESCE(a."effectiveUntil",'infinity'),'[)') && tsrange(b."effectiveFrom",COALESCE(b."effectiveUntil",'infinity'),'[)')`);
     await check("invalid inventory projections", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" WHERE "onHand"<0 OR "reserved"<0 OR "reserved">"onHand" OR "available"<>"onHand"-"reserved"`);
-    await check("fabricated Phase 18 reservations", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" WHERE "reserved"<>0`);
+    if (await table("MarketplaceInventoryReservationItem")) {
+      await check("inventory reservations without checkout evidence", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" l WHERE l."reserved" <> COALESCE((SELECT SUM(i."quantity") FROM "MarketplaceInventoryReservationItem" i JOIN "MarketplaceInventoryReservation" r ON r."id"=i."reservationId" WHERE i."inventoryLevelId"=l."id" AND r."status"::text IN ('ACTIVE','PAYMENT_PENDING_HOLD','PAYMENT_UNCERTAIN','RECONCILIATION_REQUIRED')),0)`);
+    } else {
+      await check("inventory reservations before checkout schema", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" WHERE "reserved"<>0`);
+    }
     await check("tracked stock without movement evidence", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" l JOIN "CatalogInventoryItem" i ON i."id"=l."inventoryItemId" WHERE i."trackingMode"::text='TRACKED' AND l."onHand"<>0 AND NOT EXISTS (SELECT 1 FROM "CatalogInventoryMovement" m WHERE m."inventoryItemId"=l."inventoryItemId" AND m."locationId"=l."locationId")`);
     await check("active products missing moderation", `SELECT COUNT(*)::int count FROM "CatalogProduct" WHERE "status"::text='ACTIVE' AND "moderationStatus"::text<>'APPROVED'`);
     await check("active offers missing current prices", `SELECT COUNT(*)::int count FROM "StoreCatalogOffer" WHERE "status"::text='ACTIVE' AND "currentPriceVersionId" IS NULL`);
     const published = await scalar(`SELECT ((SELECT COUNT(*) FROM "CatalogProduct" WHERE "publicationStatus"::text='PUBLISHED') + (SELECT COUNT(*) FROM "StoreCatalogOffer" WHERE "publicationStatus"::text='PUBLISHED') + (SELECT COUNT(*) FROM "CatalogPublicationSnapshot" WHERE "status"::text='PUBLISHED'))::int count`);
-    if (published && process.env.NODE_ENV === "production") {
+    const lock = await readFile(new URL("../lib/catalog/catalog-production-lock.ts", import.meta.url), "utf8");
+    const releaseApproved = /CATALOG_PRODUCTION_VALIDATION_APPROVED\s*=\s*true/.test(lock) && !/process\.env/.test(lock);
+    if (published && process.env.NODE_ENV === "production" && !releaseApproved) {
       console.log(`BLOCK: publication before consolidated validation (${published})`);
       blockers.push("publication before consolidated validation");
-    } else if (published) {
+    } else if (published && !releaseApproved) {
       console.log(`CLASSIFIED: existing local-demo publication projections (${published}); production publication remains source-locked.`);
     } else {
-      console.log("CLEAR: publication before consolidated validation");
+      console.log(`CLEAR: approved production publication (${published} projections).`);
     }
   }
   if (blockers.length) throw new Error(`Phase 18 catalog preflight blocked: ${blockers.join("; ")}.`);

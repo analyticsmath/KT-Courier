@@ -1,4 +1,6 @@
-export const CATALOG_PRODUCTION_VALIDATION_APPROVED = false as const;
+// KT Courier Production release approval, 2026-10-06. Publication still requires
+// moderation, valid prices, READY media, and the database readiness guards.
+export const CATALOG_PRODUCTION_VALIDATION_APPROVED = true as const;
 export const CATALOG_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
 
 export type CatalogActivationKind = "PRODUCT_TYPE" | "PRODUCT" | "OFFER" | "PRICE" | "PUBLICATION";
@@ -19,4 +21,3 @@ export function assertCatalogProductionActivationAllowed(
   if (CATALOG_PRODUCTION_VALIDATION_APPROVED || testApproval?.approved === true) return;
   throw new CatalogProductionLockedError(activationKind);
 }
-

@@ -1,3 +1,5 @@
+import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
+
 export type IntegrationMode = "disabled" | "mock" | "sandbox" | "live";
 
 export type IntegrationReadiness =
@@ -77,22 +79,23 @@ export function getIntegrationRegistry(): IntegrationRecord[] {
 
   // 1. Paystack (Active Payment Gateway)
   const paystackModeRaw = (process.env.PAYSTACK_MODE || "disabled").toLowerCase();
-  const paystackHasKey = Boolean(process.env.PAYSTACK_SECRET_KEY && !process.env.PAYSTACK_SECRET_KEY.includes("replace-with"));
+  const paystack = resolvePaystackConfiguration().state;
   const paystackMode: IntegrationMode =
     paystackModeRaw === "test" ? "sandbox" :
     (paystackModeRaw === "live" || paystackModeRaw === "mock" || paystackModeRaw === "sandbox" || paystackModeRaw === "disabled"
       ? (isProd && paystackModeRaw === "mock" ? "disabled" : paystackModeRaw as IntegrationMode)
       : "disabled");
   const paystackMissing = [
-    ...(!paystackHasKey && paystackMode !== "disabled" ? ["PAYSTACK_API_KEY"] : []),
+    ...(!process.env.PAYSTACK_SECRET_KEY?.trim() && paystackMode !== "disabled" ? ["PAYSTACK_SECRET_KEY"] : []),
+    ...(!process.env.PAYMENT_APP_ORIGIN?.trim() && paystackMode !== "disabled" ? ["PAYMENT_APP_ORIGIN"] : []),
   ];
 
 
   let paystackReadiness: IntegrationReadiness = "DISABLED";
   if (paystackMode === "disabled") paystackReadiness = "DISABLED";
-  else if (paystackMode === "mock") paystackReadiness = isProd ? "DISABLED" : "MOCK_READY";
-  else if (paystackMode === "sandbox") paystackReadiness = paystackHasKey ? "SANDBOX_READY" : "CREDENTIAL_PENDING";
-  else if (paystackMode === "live") paystackReadiness = paystackHasKey ? "LIVE_READY" : "CREDENTIAL_PENDING";
+  else if (!paystack.configured) paystackReadiness = "CREDENTIAL_PENDING";
+  else if (!paystack.active) paystackReadiness = "ACTIVATION_PENDING";
+  else paystackReadiness = paystack.environment === "production" ? "LIVE_READY" : "SANDBOX_READY";
 
   // 1b. PayFast (Retired & Tombstoned)
   const payfastMode: IntegrationMode = "disabled";

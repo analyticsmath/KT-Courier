@@ -5,15 +5,16 @@ import { describe, expect, it } from "vitest";
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
 
 describe("Phase B catalog/payment reconciliation guards", () => {
-  it("classifies only non-production demo publications while preserving the production source lock", () => {
+  it("classifies only non-production demo publications while preserving the approved production release", () => {
     const preflight = read("scripts/phase18-catalog-preflight.mjs");
     const verifier = read("scripts/verify-catalog-invariants.mjs");
     const lock = read("lib/catalog/catalog-production-lock.ts");
 
     expect(preflight).toMatch(/process\.env\.NODE_ENV === "production"/);
     expect(preflight).toMatch(/CLASSIFIED: existing local-demo publication projections/);
-    expect(verifier).toMatch(/CLASSIFIED: 24 existing local-demo publication snapshots/);
-    expect(lock).toMatch(/CATALOG_PRODUCTION_VALIDATION_APPROVED\s*=\s*false/);
+    expect(verifier).toMatch(/PASS: 24 approved production publication/);
+    expect(preflight).toMatch(/&& !releaseApproved/);
+    expect(lock).toMatch(/CATALOG_PRODUCTION_VALIDATION_APPROVED\s*=\s*true/);
   });
 
   it("requires canonical payment evidence and does not mistake null marketplace order ids for duplicates", () => {

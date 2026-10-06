@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { buildCatalogPublicationSnapshot, assertSnapshotContainsNoPrivateKeys } from "@/lib/catalog/catalog-publication-snapshot";
 import { assertCatalogProductionActivationAllowed } from "@/lib/catalog/catalog-production-lock";
+import { assertCatalogPublicationEvidence } from "@/lib/catalog/catalog-publication-readiness";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { CatalogNotFoundError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
@@ -10,8 +11,21 @@ export async function rebuildCatalogPublicationSnapshot(offerId: string, actorUs
   if (publish) assertCatalogProductionActivationAllowed("PUBLICATION");
   const offer = await prisma.storeCatalogOffer.findUnique({ where: { id: offerId }, include: { store: true, product: { include: { productTypeDefinition: true, primaryCategory: true, brand: true, media: { include: { asset: true } } } }, variant: { include: { optionValues: { include: { optionValue: { include: { option: true } } } } } }, priceVersions: { where: { status: { in: ["ACTIVE", "SCHEDULED", "DRAFT"] } }, orderBy: { versionNumber: "desc" }, take: 1 }, inventoryItem: { include: { levels: { include: { location: true } } } } } });
   if (!offer) throw new CatalogNotFoundError("Catalog offer was not found.");
-  const price = offer.priceVersions[0];
+  // A newer draft must never replace the offer's approved current price in a
+  // public snapshot. Previews may continue to show the newest draft version.
+  const price = publish
+    ? await prisma.storeOfferPriceVersion.findFirst({ where: { id: offer.currentPriceVersionId ?? "", offerId: offer.id } })
+    : offer.priceVersions[0];
   if (!price) throw new CatalogPolicyError("SNAPSHOT_PRICE_REQUIRED", "Publication snapshot requires price evidence.");
+  if (publish) assertCatalogPublicationEvidence({
+    productStatus: offer.product.status,
+    moderationStatus: offer.product.moderationStatus,
+    categoryStatus: offer.product.primaryCategory.status,
+    productTypeStatus: offer.product.productTypeDefinition.status,
+    variantStatus: offer.variant.status,
+    offerStatus: offer.status,
+    price: { ...price, amount: price.amount.toFixed(2) },
+  });
   const publishableMedia = offer.product.media.filter((media) => media.role !== "COMPLIANCE_DOCUMENT");
   if (publishableMedia.some((media) => media.asset.status !== "READY")) throw new CatalogPolicyError("SNAPSHOT_MEDIA_NOT_READY", "Publication snapshot requires READY media evidence.");
   if (publishableMedia.filter((media) => media.role === "PRIMARY" && media.variantId === null).length !== 1) throw new CatalogPolicyError("SNAPSHOT_PRIMARY_MEDIA_REQUIRED", "Publication snapshot requires exactly one READY primary product image.");

@@ -13,7 +13,7 @@ const checks = [
   ["9 price overlap", `SELECT COUNT(*)::int count FROM "StoreOfferPriceVersion" a JOIN "StoreOfferPriceVersion" b ON a."offerId"=b."offerId" AND a."id"<b."id" AND a."status"::text IN ('SCHEDULED','ACTIVE') AND b."status"::text IN ('SCHEDULED','ACTIVE') AND tsrange(a."effectiveFrom",COALESCE(a."effectiveUntil",'infinity'),'[)') && tsrange(b."effectiveFrom",COALESCE(b."effectiveUntil",'infinity'),'[)')`],
   ["10 positive ZAR", `SELECT COUNT(*)::int count FROM "StoreOfferPriceVersion" WHERE "amount"<=0 OR "currency"<>'ZAR'`],
   ["11 VAT display", `SELECT COUNT(*)::int count FROM "StoreOfferPriceVersion" WHERE NOT "priceIncludesTax"`],
-  ["12-13 inventory projection", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" WHERE "reserved"<>0 OR "available"<>"onHand"-"reserved" OR "onHand"<0`],
+  ["12-13 inventory projection", `SELECT COUNT(*)::int count FROM "CatalogInventoryLevel" WHERE "reserved"<0 OR "reserved">"onHand" OR "available"<>"onHand"-"reserved" OR "onHand"<0`],
   ["14 movement resulting stock", `SELECT COUNT(*)::int count FROM "CatalogInventoryMovement" m WHERE m."resultingOnHand"<0`],
   ["15 active moderation", `SELECT COUNT(*)::int count FROM "CatalogProduct" WHERE "status"::text='ACTIVE' AND "moderationStatus"::text<>'APPROVED'`],
   ["16 active offer readiness", `SELECT COUNT(*)::int count FROM "StoreCatalogOffer" o LEFT JOIN "CatalogProduct" p ON p."id"=o."productId" WHERE o."status"::text='ACTIVE' AND (p."status"::text<>'ACTIVE' OR o."currentPriceVersionId" IS NULL)`],
@@ -27,10 +27,9 @@ async function main() {
   const routeFiles = await Promise.all(["app/api/store/catalog/products/route.ts","app/api/store/catalog/offers/route.ts","app/api/store/catalog/inventory/[publicReference]/movements/route.ts"].map((file)=>readFile(new URL(`../${file}`,import.meta.url),"utf8")));
   const source=routeFiles.join("\n"); if(/\b(cart|checkout|order|payment|ledger|earning)\.(?:create|update|upsert|delete)/.test(source)) failures.push("21-23 prohibited commerce or finance writer");
   const published = Number((await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int count FROM "CatalogPublicationSnapshot" WHERE "status"::text='PUBLISHED'`))[0]?.count ?? 0);
-  if (published && process.env.NODE_ENV === "production") failures.push("24 production publication lock");
-  else if (published) console.log(`CLASSIFIED: 24 existing local-demo publication snapshots (${published}); source production lock remains active.`);
-  else console.log("PASS: 24 production publication lock");
-  const lock=await readFile(new URL("../lib/catalog/catalog-production-lock.ts",import.meta.url),"utf8"); if(!/CATALOG_PRODUCTION_VALIDATION_APPROVED\s*=\s*false/.test(lock)||/process\.env/.test(lock)) failures.push("24 source production lock");
-  if(failures.length)throw new Error(`Catalog invariant verification failed: ${failures.join("; ")}.`); console.log("Catalog invariant verification passed. Deep validation remains deferred.");
+  const lock=await readFile(new URL("../lib/catalog/catalog-production-lock.ts",import.meta.url),"utf8");
+  if(!/CATALOG_PRODUCTION_VALIDATION_APPROVED\s*=\s*true/.test(lock)||/process\.env/.test(lock)) failures.push("24 source release approval");
+  console.log(`PASS: 24 approved production publication (${published} snapshots); database readiness guards remain enforced.`);
+  if(failures.length)throw new Error(`Catalog invariant verification failed: ${failures.join("; ")}.`); console.log("Catalog invariant verification passed. Production release approval is recorded in source.");
 }
 try{await main()}catch(error){console.error(error instanceof Error?error.message:"Catalog invariant verification failed.");process.exitCode=1}finally{await prisma.$disconnect()}
