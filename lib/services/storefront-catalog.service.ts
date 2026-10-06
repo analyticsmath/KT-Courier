@@ -1,3 +1,4 @@
+import { selectFeaturedMarketplaceCategories } from "@/lib/public-marketplace/featured-categories";
 import { matchesStorefrontCategory } from "@/lib/storefront/storefront-category-discovery";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -203,7 +204,10 @@ export async function getStorefrontHome({ includeCollections = true }: { include
     const normalizedPath = category.path.replace(/^\/+/, "");
     return normalizedPath.length > 0 && !normalizedPath.includes("/");
   });
-  return { categories: topLevelCategories.slice(0, 12), stores, newArrivals: search.results, collections, availabilityNotice: "Choose a service area to see area-specific availability. Browsing is available without one." };
+  const featuredCategories = selectFeaturedMarketplaceCategories(topLevelCategories);
+  const featuredReferences = new Set(featuredCategories.map(category => category.reference));
+  const entryCategories = [...featuredCategories, ...topLevelCategories.filter(category => !featuredReferences.has(category.reference))].slice(0, 12);
+  return { categories: entryCategories, stores, newArrivals: search.results, collections, availabilityNotice: "Choose a service area to see area-specific availability. Browsing is available without one." };
 }
 
 /** One bounded, grouped search per authored Shop category; called only by the server page. */
