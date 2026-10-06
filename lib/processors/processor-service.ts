@@ -492,8 +492,8 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
       itemsCompleted: publication.itemsCompleted + delivery.itemsCompleted,
       itemsSkipped: publication.itemsSkipped + delivery.itemsSkipped,
       itemsRetried: publication.itemsRetried + delivery.itemsRetried,
-      itemsReconciled: publication.itemsReconciled,
-      safeSummary: `Customer notifications: ${publication.itemsCompleted} published; ${delivery.itemsCompleted} emails accepted; ${publication.itemsReconciled} require review.`,
+      itemsReconciled: publication.itemsReconciled + delivery.itemsReconciled,
+      safeSummary: `Customer notifications: ${publication.itemsCompleted} published; ${delivery.itemsCompleted} emails accepted; ${publication.itemsReconciled + delivery.itemsReconciled} require review.`,
     };
   },
 };

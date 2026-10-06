@@ -1,15 +1,14 @@
-import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { renderTemplate } from "@/lib/email/email-templates";
 import { EmailTemplateType } from "@/types/db";
 import {
-  nextRetryAt,
   NotificationPolicyError,
-  type FailureClass,
 } from "./contracts";
 import { assertNotificationProductionReady } from "./production-readiness";
 import { ResendEmailProvider } from "./providers";
 import { openSecurityPayload } from "./security-payload-vault";
+import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
+import type { ProviderSendResult } from "./providers";
 
 const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
   EMAIL_VERIFICATION_OTP: EmailTemplateType.EMAIL_VERIFICATION_OTP,
@@ -17,13 +16,6 @@ const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
   PASSWORD_CHANGED: EmailTemplateType.PASSWORD_CHANGED,
   DELIVERY_OTP: EmailTemplateType.DELIVERY_OTP,
 };
-
-function attemptReference(deliveryId: string, attemptNumber: number): string {
-  return `nattempt_${createHash("sha256")
-    .update(`${deliveryId}:${attemptNumber}`)
-    .digest("hex")
-    .slice(0, 24)}`;
-}
 
 function acceptedStatus(status: string): boolean {
   return status === "PROVIDER_ACCEPTED" || status === "DELIVERED";
@@ -67,11 +59,12 @@ export async function deliverSecurityEmail(deliveryId: string) {
 
   const expiresAt = secure.expiresAt ?? delivery.expiresAt;
   if (expiresAt && expiresAt <= new Date()) {
-    delivery = await prisma.notificationDelivery.update({
-      where: { id: delivery.id },
+    await prisma.notificationDelivery.updateMany({
+      where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } },
       data: { status: "EXPIRED", nextAttemptAt: null },
     });
-    return { accepted: false, status: delivery.status, deliveryId: delivery.id };
+    delivery = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
+    return { accepted: acceptedStatus(delivery.status), status: delivery.status, deliveryId: delivery.id };
   }
 
   if (delivery.nextAttemptAt && delivery.nextAttemptAt > new Date()) {
@@ -100,53 +93,12 @@ export async function deliverSecurityEmail(deliveryId: string) {
     throw new NotificationPolicyError("SECURITY_EMAIL_TEMPLATE_NOT_SUPPORTED");
   }
 
-  const claim = await prisma.notificationDelivery.updateMany({
-    where: {
-      id: delivery.id,
-      status: { in: ["QUEUED", "FAILED_RETRYABLE"] },
-    },
-    data: { status: "SENDING" },
-  });
-
-  if (!claim.count) {
-    const current = await prisma.notificationDelivery.findUnique({
-      where: { id: delivery.id },
-    });
-    if (!current) {
-      throw new NotificationPolicyError("SECURITY_EMAIL_DELIVERY_NOT_FOUND");
-    }
-    return {
-      accepted: acceptedStatus(current.status),
-      status: current.status,
-      deliveryId: current.id,
-    };
+  const claim = await claimEmailAttempt(prisma, { deliveryId: delivery.id, provider: "RESEND_EMAIL", operationId: `${intent.operationId}:email-attempt` });
+  if (!claim) {
+    const current = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
+    return { accepted: acceptedStatus(current.status), status: current.status, deliveryId: current.id };
   }
-
-  const attemptNumber =
-    (await prisma.notificationDeliveryAttempt.count({
-      where: { deliveryId: delivery.id },
-    })) + 1;
-
-  const attempt = await prisma.notificationDeliveryAttempt.create({
-    data: {
-      publicReference: attemptReference(delivery.id, attemptNumber),
-      deliveryId: delivery.id,
-      attemptNumber,
-      operationId: `${intent.operationId}:email-attempt:${attemptNumber}`,
-      provider: "RESEND_EMAIL",
-      status: "STARTED",
-    },
-  });
-
-  let result:
-    | {
-        accepted: boolean;
-        providerMessageReference?: string;
-        failureClass?: FailureClass;
-        safeCode?: string;
-        retryAfterSeconds?: number;
-      }
-    | undefined;
+  let result: ProviderSendResult;
 
   try {
     const values = openSecurityPayload(
@@ -174,50 +126,6 @@ export async function deliverSecurityEmail(deliveryId: string) {
     };
   }
 
-  const failure = result.failureClass ?? "UNKNOWN_PROVIDER_FAILURE";
-  const retryAt = result.accepted
-    ? null
-    : nextRetryAt({
-        failure,
-        attemptNumber,
-        retryAfterSeconds: result.retryAfterSeconds,
-        expiresAt,
-      });
-
-  await prisma.$transaction([
-    prisma.notificationDeliveryAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        status: result.accepted ? "PROVIDER_ACCEPTED" : "FAILED",
-        completedAt: new Date(),
-        providerMessageReference: result.providerMessageReference ?? null,
-        failureClass: result.accepted ? null : failure,
-        safeProviderCode: result.safeCode ?? null,
-        nextAttemptAt: retryAt,
-      },
-    }),
-    prisma.notificationDelivery.update({
-      where: { id: delivery.id },
-      data: {
-        status: result.accepted
-          ? "PROVIDER_ACCEPTED"
-          : retryAt
-            ? "FAILED_RETRYABLE"
-            : "FAILED_PERMANENT",
-        provider: "RESEND_EMAIL",
-        providerMessageReference: result.providerMessageReference ?? null,
-        nextAttemptAt: retryAt,
-      },
-    }),
-  ]);
-
-  return {
-    accepted: result.accepted,
-    status: result.accepted
-      ? "PROVIDER_ACCEPTED"
-      : retryAt
-        ? "FAILED_RETRYABLE"
-        : "FAILED_PERMANENT",
-    deliveryId: delivery.id,
-  };
+  const { delivery: finished } = await finishEmailAttempt(prisma, claim, result);
+  return { accepted: acceptedStatus(finished.status), status: finished.status, deliveryId: finished.id };
 }

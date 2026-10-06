@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({ findMany: vi.fn(), update: vi.fn(), intent: vi
 vi.mock("@/lib/db/prisma", () => ({ prisma: { notificationDelivery: { findMany: mocks.findMany, updateMany: mocks.update }, notificationEventIntent: { findUnique: mocks.intent }, user: { findUnique: mocks.user }, notificationMessage: { findUnique: mocks.message }, notificationCategory: { findUnique: mocks.category }, notificationEventRouteVersion: { findUnique: mocks.route } } }));
 vi.mock("@/lib/notifications/production-readiness", () => ({ assertNotificationProductionReady: mocks.ready }));
 vi.mock("@/lib/notifications/security-email-delivery", () => ({ deliverSecurityEmail: mocks.security }));
+vi.mock("@/lib/notifications/email-delivery-recovery", () => ({ recoverStalledEmailDeliveries: async () => ({ examined: 0, recovered: 0, reconciled: 0 }) }));
 vi.mock("@/lib/notifications/composition-root", () => ({ resolveNotificationProductionComposition: () => ({ services: { delivery: { deliver: mocks.deliver }, suppressions: { isSuppressed: mocks.suppressed }, preferences: { evaluate: mocks.evaluate } } }) }));
 beforeEach(() => {
   vi.resetAllMocks();

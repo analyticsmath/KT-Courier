@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 27 is intentionally insulated from deferred Prisma generation. */
 import { createHash } from "node:crypto";
-import { NotificationPolicyError, assertSafeActionRoute, deliveryEligible, nextRetryAt, type NotificationChannel, type NotificationPurpose, type NotificationSensitivity } from "./contracts";
+import { NotificationPolicyError, assertSafeActionRoute, deliveryEligible, type NotificationChannel, type NotificationPurpose, type NotificationSensitivity } from "./contracts";
 import { renderNotificationTemplate, type TemplateVariable } from "./template-renderer";
 import { assertNotificationProductionReady } from "./production-readiness";
 import { KNOWN_NOTIFICATION_SOURCE_AUTHORITIES } from "./event-registry";
+import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
+import type { ProviderSendResult } from "./providers";
 
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const reference = (prefix: string, value: string) => `${prefix}_${createHash("sha256").update(value).digest("hex").slice(0, 24)}`;
@@ -355,20 +357,25 @@ export class NotificationDeliveryService {
     assertNotificationProductionReady();
     const delivery = await this.db.notificationDelivery.findUnique({ where: { id: input.deliveryId } });
     if (!delivery || !["QUEUED", "FAILED_RETRYABLE"].includes(delivery.status)) return delivery;
-    if (delivery.expiresAt && delivery.expiresAt <= now()) return this.db.notificationDelivery.update({ where: { id: delivery.id }, data: { status: "EXPIRED" } });
+    if (delivery.expiresAt && delivery.expiresAt <= now()) {
+      await this.db.notificationDelivery.updateMany({ where: { id: delivery.id, status: delivery.status, updatedAt: delivery.updatedAt }, data: { status: "EXPIRED", nextAttemptAt: null } });
+      return this.db.notificationDelivery.findUnique({ where: { id: delivery.id } });
+    }
     if (delivery.nextAttemptAt && delivery.nextAttemptAt > now()) return delivery;
     const provider = this.providers.get(delivery.channel);
     if (!provider) throw new NotificationPolicyError("NOTIFICATION_PROVIDER_NOT_CONFIGURED");
-    const claim = await this.db.notificationDelivery.updateMany({ where: { id: delivery.id, status: delivery.status }, data: { status: "SENDING" } });
-    if (!claim.count) return this.db.notificationDelivery.findUnique({ where: { id: delivery.id } });
-    const attemptNumber = (await this.db.notificationDeliveryAttempt.count({ where: { deliveryId: delivery.id } })) + 1;
-    const attempt = await this.db.notificationDeliveryAttempt.create({ data: { publicReference: reference("nattempt", `${delivery.id}:${attemptNumber}`), deliveryId: delivery.id, attemptNumber, operationId: `${input.operationId}:${attemptNumber}`, provider: provider.name, status: "STARTED" } });
-    const result = await provider.send({ destination: input.destination, subject: delivery.renderedTitle ?? undefined, body: delivery.renderedBody, idempotencyKey: delivery.publicReference });
-    const failure = result.failureClass ?? "UNKNOWN_PROVIDER_FAILURE";
-    const retryAt = result.accepted ? null : nextRetryAt({ failure, attemptNumber, retryAfterSeconds: result.retryAfterSeconds, expiresAt: delivery.expiresAt });
-    await this.db.notificationDeliveryAttempt.update({ where: { id: attempt.id }, data: { status: result.accepted ? "PROVIDER_ACCEPTED" : "FAILED", completedAt: now(), providerMessageReference: result.providerMessageReference ?? null, failureClass: result.accepted ? null : result.failureClass ?? "UNKNOWN_PROVIDER_FAILURE", safeProviderCode: result.safeCode ?? null, nextAttemptAt: retryAt } });
-    if (!result.accepted && ["INVALID_DESTINATION", "SUPPRESSED_DESTINATION"].includes(failure)) await this.suppressions.suppress({ userId: delivery.recipientUserId, channel: delivery.channel, reason: failure === "INVALID_DESTINATION" ? "REPEATED_PERMANENT_FAILURE" : "USER_REVOCATION", evidence: { deliveryReference: delivery.publicReference } });
-    return this.db.notificationDelivery.update({ where: { id: delivery.id }, data: { status: result.accepted ? "PROVIDER_ACCEPTED" : retryAt ? "FAILED_RETRYABLE" : "FAILED_PERMANENT", nextAttemptAt: retryAt, provider: provider.name, providerMessageReference: result.providerMessageReference ?? null } });
+    const claim = await claimEmailAttempt(this.db, { deliveryId: delivery.id, provider: provider.name, operationId: input.operationId });
+    if (!claim) return this.db.notificationDelivery.findUnique({ where: { id: delivery.id } });
+    let result: ProviderSendResult;
+    try {
+      result = await provider.send({ destination: input.destination, subject: delivery.renderedTitle ?? undefined, body: delivery.renderedBody, idempotencyKey: delivery.publicReference });
+    } catch {
+      result = { accepted: false, failureClass: "TRANSIENT_NETWORK", safeCode: "EMAIL_PROVIDER_INTERRUPTED" };
+    }
+    const { delivery: finished, applied } = await finishEmailAttempt(this.db, claim, result);
+    const failure = result.failureClass;
+    if (applied && finished.status === "FAILED_PERMANENT" && !result.accepted && failure && ["INVALID_DESTINATION", "SUPPRESSED_DESTINATION"].includes(failure)) await this.suppressions.suppress({ userId: delivery.recipientUserId, channel: delivery.channel, reason: failure === "INVALID_DESTINATION" ? "REPEATED_PERMANENT_FAILURE" : "USER_REVOCATION", evidence: { deliveryReference: delivery.publicReference } });
+    return finished;
   }
   async expire(deliveryId: string) {
     const delivery = await this.db.notificationDelivery.findUnique({ where: { id: deliveryId } });

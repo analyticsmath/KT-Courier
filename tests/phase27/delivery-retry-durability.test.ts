@@ -8,6 +8,15 @@ vi.mock("@/lib/notifications/production-readiness", () => ({ assertNotificationP
 const delivery = { id: "delivery-1", publicReference: "delivery-one", messageId: "message-1", recipientUserId: "u1", channel: "EMAIL", status: "QUEUED", renderedBody: "body", expiresAt: null };
 
 describe("notification retry and suppression boundaries", () => {
+  it("persists a retryable result when the provider throws instead of stranding a sending delivery", async () => {
+    const db = createNotificationMemoryDb({ notificationDelivery: [delivery] });
+    const send = vi.fn().mockRejectedValue(new Error("Transport interrupted"));
+    const service = new NotificationDeliveryService(db, new Map([["EMAIL", { name: "RESEND_EMAIL", send }]]), new NotificationSuppressionService(db));
+    const result = await service.deliver({ deliveryId: delivery.id, destination: "user@example.test", operationId: "worker:delivery-one" });
+    expect(result.status).toBe("FAILED_RETRYABLE");
+    expect(db.__state.notificationDeliveryAttempt[0]).toMatchObject({ status: "FAILED", failureClass: "TRANSIENT_NETWORK" });
+    expect(JSON.stringify(db.__state)).not.toContain("Transport interrupted");
+  });
   it("reuses one provider key across distinct durable attempts", async () => {
     const db = createNotificationMemoryDb({ notificationDelivery: [delivery] });
     const send = vi.fn().mockResolvedValueOnce({ accepted: false, failureClass: "TRANSIENT_NETWORK", retryAfterSeconds: 1 }).mockResolvedValueOnce({ accepted: true, providerMessageReference: "provider-1" });

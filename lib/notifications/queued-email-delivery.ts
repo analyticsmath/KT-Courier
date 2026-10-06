@@ -2,10 +2,12 @@ import { prisma } from "@/lib/db/prisma";
 import { resolveNotificationProductionComposition } from "./composition-root";
 import { deliverSecurityEmail } from "./security-email-delivery";
 import { assertNotificationProductionReady } from "./production-readiness";
+import { recoverStalledEmailDeliveries } from "./email-delivery-recovery";
 
 /** Process due email only, through the canonical atomic claim/provider boundary. */
 export async function deliverQueuedEmails(limit: number) {
   assertNotificationProductionReady();
+  const recovery = await recoverStalledEmailDeliveries(prisma, limit);
   const candidates = await prisma.notificationDelivery.findMany({
     where: { channel: "EMAIL", status: { in: ["QUEUED", "FAILED_RETRYABLE"] }, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] },
     orderBy: { createdAt: "asc" }, take: Math.max(1, Math.min(limit, 200)),
@@ -46,5 +48,5 @@ export async function deliverQueuedEmails(limit: number) {
       else skipped++;
     } catch { retried++; }
   }
-  return { itemsExamined: candidates.length, itemsClaimed: completed + retried, itemsCompleted: completed, itemsSkipped: skipped, itemsRetried: retried, itemsReconciled: 0, safeSummary: `Email deliveries: ${completed} accepted, ${retried} retryable, ${skipped} skipped.` };
+  return { itemsExamined: candidates.length + recovery.examined, itemsClaimed: completed + retried, itemsCompleted: completed, itemsSkipped: skipped, itemsRetried: retried, itemsReconciled: recovery.reconciled, safeSummary: `Email deliveries: ${completed} accepted, ${retried} retryable, ${skipped} skipped; ${recovery.recovered} interrupted claims recovered, ${recovery.reconciled} require review.` };
 }
