@@ -138,7 +138,7 @@ describe.skipIf(!enabled)("customer order notification publication on isolated P
   });
   it("commits status and notification together, including rollback and same-status replay", async () => {
     const { user, order } = await event();
-    const args = { orderId: order.id, toStatus: "CANCELLED" as const, actorRole: "CUSTOMER" as const, actorUserId: user.id };
+    const args = { orderId: order.id, toStatus: "CANCELLED" as const, actorRole: "CUSTOMER" as const, actorUserId: user.id, context: { actorOwnsOrder: true, cancellationWindowOpen: true } };
     await expect(prisma.$transaction((tx) => transitionOrderStatusInTx(new Proxy(tx, { get(target, property) { if (property === "notificationEventIntent") return { upsert: async () => { throw new Error("simulated event write failure"); } }; return Reflect.get(target, property); } }), args))).rejects.toThrow("simulated event write failure");
     expect(await prisma.order.findUnique({ where: { id: order.id } })).toMatchObject({ status: "PENDING" });
     expect(await prisma.orderStatusHistory.count({ where: { orderId: order.id } })).toBe(0);
