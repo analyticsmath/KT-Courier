@@ -1,4 +1,5 @@
 import { createCloudinaryCatalogWriteAdapter } from "./cloudinary-catalog-media-storage";
+import { cloudinaryImageConfig } from "@/lib/media/cloudinary-image-storage";
 import { createHash, createHmac } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -543,10 +544,13 @@ export function createProductionCatalogMediaDeliveryStorageAdapter(
     return canonical;
   }
 
-  return new CloudinaryFirstCatalogMediaStorageAdapter(
-    new CloudinaryCatalogMediaReadAdapter(cloudinary),
-    canonical,
-  );
+  const legacyOrigin = new CloudinaryCatalogMediaReadAdapter(cloudinary);
+  // Original storage declarations are immutable. Prefer verified authenticated
+  // mirrors without rewriting READY records or making private originals public.
+  const mirroredOrigin = cloudinaryImageConfig(env)
+    ? new CloudinaryFirstCatalogMediaStorageAdapter(createCloudinaryCatalogWriteAdapter(env), legacyOrigin)
+    : legacyOrigin;
+  return new CloudinaryFirstCatalogMediaStorageAdapter(mirroredOrigin, canonical);
 }
 
 export function isLocalCatalogMediaStorageEnabled(env: Record<string, string | undefined> = process["env"]): boolean {
@@ -569,5 +573,4 @@ export function createProductionCatalogMediaStorageAdapter(env: Record<string, s
 export function createCatalogMediaStorageAdapter(): CatalogMediaStorageAdapter {
   return createProductionCatalogMediaStorageAdapter();
 }
-
 
