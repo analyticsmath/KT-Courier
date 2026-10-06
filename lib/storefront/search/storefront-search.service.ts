@@ -71,14 +71,24 @@ function groupProductResults(documents: readonly StorefrontDocument[]): Storefro
 
 function buildFacets(documents: readonly StorefrontDocument[], filters: StorefrontFilterInput): StorefrontFacet[] {
   const counts = (code: string, label: string, valuesFor: (document: StorefrontDocument) => string[]): StorefrontFacet => {
-    const tally = new Map<string, number>();
-    for (const document of documents) for (const value of valuesFor(document)) tally.set(value, (tally.get(value) ?? 0) + 1);
+    const tally = new Map<string, Set<string>>();
+    for (const document of documents) {
+      const product = document.productScope === "STORE_PRIVATE" ? `${document.productReference}:${document.storeReference}` : document.productReference;
+      for (const value of valuesFor(document)) {
+        const products = tally.get(value) ?? new Set<string>();
+        products.add(product);
+        tally.set(value, products);
+      }
+    }
     const selected = code === "category" ? filters.category ? [filters.category] : [] : code === "brand" ? filters.brand ? [filters.brand] : [] : code === "store" ? filters.store ? [filters.store] : [] : code === "availability" ? filters.availability ?? [] : code === "condition" ? filters.condition ?? [] : code === "fulfilment" ? filters.fulfilment ?? [] : filters.facets?.[code] ?? [];
-    for (const value of selected) if (!tally.has(value)) tally.set(value, 0);
-    return { code, label, values: [...tally].map(([value, count]) => ({ value, label: value.replace(/_/g, " "), count, selected: selected.includes(value) })).sort((a, b) => a.label.localeCompare(b.label, "en-ZA")).slice(0, 40) };
+    for (const value of selected) if (!tally.has(value)) tally.set(value, new Set());
+    return { code, label, values: [...tally].map(([value, products]) => ({ value, label: value.replace(/_/g, " "), count: products.size, selected: selected.includes(value) })).sort((a, b) => a.label.localeCompare(b.label, "en-ZA")).slice(0, 40) };
   };
   const universal = [
-    counts("category", "Category", (document) => [document.categoryPath]),
+    counts("category", "Category", (document) => {
+      if (!filters.category || !matchesStorefrontCategory(document, filters.category)) return [document.categoryPath];
+      return document.categoryPath.replace(/^\/+|\/+$/g, "") === filters.category.replace(/^\/+|\/+$/g, "") ? [filters.category] : [document.categoryPath, filters.category];
+    }),
     counts("brand", "Brand", (document) => document.brandReference ? [document.brandReference] : []),
     counts("store", "Store", (document) => [document.storeSlug]),
     counts("availability", "Availability", (document) => [document.availability]),

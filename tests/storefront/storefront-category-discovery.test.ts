@@ -37,6 +37,9 @@ describe("reviewed legacy browse taxonomy", () => {
     const service = new StorefrontSearchService(new InMemoryStorefrontSearchAdapter(docs));
     expect((await service.search({ category: "food-dining" })).resultCount).toBe(2);
     expect((await service.search({ category: "food-dining", store: "vendor-a" })).resultCount).toBe(1);
+    const facets = (await service.search({ category: "food-dining", store: "vendor-a" })).facets;
+    expect(facets.find(facet => facet.code === "category")?.values.find(value => value.value === "food-dining")?.count).toBe(1);
+    expect(facets.find(facet => facet.code === "store")?.values[0]?.count).toBe(1);
     expect((await service.search({ category: "food-dining/burgers" })).results[0].variantCount).toBe(2);
   });
 });

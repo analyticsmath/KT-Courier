@@ -4,6 +4,7 @@ import {
   verificationReturnUrl,
 } from "@/lib/auth/return-url";
 
+import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -40,6 +41,7 @@ export function SignupForm() {
         ? "store"
         : "customer",
   );
+  const [businessLocation, setBusinessLocation] = useState<AddressAutocompleteValue | null>(null);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [rootError, setRootError] = useState("");
@@ -76,7 +78,8 @@ export function SignupForm() {
               contactPerson: form.get("contact_person") as string,
               email: form.get("email") as string,
               phone: form.get("phone") as string,
-              businessAddress: form.get("business_address") as string,
+              businessAddress: businessLocation?.line1 ?? form.get("business_address") as string,
+              ...(businessLocation ? { businessLocation: Object.fromEntries(Object.entries(businessLocation).filter(([, value]) => value !== null)) } : {}),
               password: form.get("password") as string,
               confirmPassword: form.get("confirm_password") as string,
             };
@@ -232,13 +235,9 @@ export function SignupForm() {
               required
               type="tel"
             />
-            <AuthTextField
-              autoComplete="street-address"
-              id="business_address"
-              label="Business address"
-              name="business_address"
-              placeholder="Street address, city"
-            />
+            {process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ? <AddressAutocomplete id="business_address" label="Business pickup address" value={businessLocation} onChange={setBusinessLocation} showContactFields={false} showNotesField={false} /> : <AuthTextField
+              autoComplete="street-address" id="business_address" label="Business address" name="business_address" placeholder="Street address, city"
+            />}
           </>
         )}
         <PasswordField

@@ -60,6 +60,8 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "store-catalog", label: "Product catalog", href: "/store/catalog", icon: "archive", group: "Commerce", contexts: C.STORE },
   { id: "store-expenses", label:"Expenses", href:"/store/expenses", icon:"clipboard", group:"Finance", contexts:C.STORE },
   { id: "store-earnings", label: "Earnings", href: "/store/earnings", icon: "wallet", group: "Finance", mobilePriority: 4, contexts: C.STORE },
+  { id: "store-subscription", label: "Business plan", href: "/store/subscription", icon: "briefcase", group: "Finance", contexts: C.STORE },
+  { id: "store-promotions", label: "Coupons and promotions", href: "/store/promotions", icon: "chart", group: "Growth", contexts: C.STORE },
   { id: "store-advertising", label: "Advertising", href: "/store/advertising", icon: "chart", group: "Growth", contexts: C.STORE },
   { id: "store-notifications", label: "Notifications", href: "/store/notifications", icon: "bell", group: "Account", mobilePriority: 5, contexts: C.STORE },
   { id: "store-support-history", label:"Support access history", href:"/store/support-history", icon:"shield", group:"Account", contexts:C.STORE },

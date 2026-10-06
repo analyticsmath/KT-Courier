@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
+import type { AddressDto } from "@/lib/maps/google-maps.types";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -179,6 +181,12 @@ export function PublicDeliveryQuoteForm({
             </select>
           </>
         )}
+        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY && <AddressAutocomplete
+          id={`${prefix}-mapped-address`} label={`Find ${title.toLowerCase()}`}
+          showContactFields={false} showNotesField={false}
+          value={value.line1 ? { formattedAddress: value.formattedAddress ?? value.line1, placeId: value.placeId ?? null, line1: value.line1, line2: value.line2 ?? null, city: value.city ?? null, province: value.province ?? null, postalCode: value.postalCode ?? null, country: value.country ?? "South Africa", latitude: value.latitude ?? null, longitude: value.longitude ?? null } as AddressDto : null}
+          onChange={address => { setValue(address ?? {}); setQuote(null); }}
+        />}
         {(
           [
             ["line1", "Street address"],
@@ -195,7 +203,7 @@ export function PublicDeliveryQuoteForm({
               required={key !== "postalCode"}
               maxLength={key === "line1" ? 250 : 100}
               onChange={(e) => {
-                setValue({ ...value, [key]: e.target.value });
+                setValue({ ...value, [key]: e.target.value, latitude: null, longitude: null, placeId: null, formattedAddress: null });
                 setQuote(null);
               }}
             />
@@ -209,7 +217,7 @@ export function PublicDeliveryQuoteForm({
           value={value.province ?? ""}
           required
           onChange={(e) => {
-            setValue({ ...value, province: e.target.value });
+            setValue({ ...value, province: e.target.value, latitude: null, longitude: null, placeId: null, formattedAddress: null });
             setQuote(null);
           }}
         >

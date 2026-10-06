@@ -6,6 +6,7 @@ import { generateUniqueSlug } from "@/lib/utils/slug";
 import {
   CustomerSignupSchema,
   StoreSignupSchema,
+  type StoreSignupInput,
   DriverSignupSchema,
   formatZodErrors,
 } from "@/lib/validation/auth";
@@ -127,11 +128,7 @@ export async function POST(req: NextRequest) {
           },
         });
       } else if (accountType === "STORE") {
-        const d = data as {
-          storeName: string;
-          contactPerson: string;
-          businessAddress?: string;
-        };
+        const d = data as StoreSignupInput;
 
         await tx.storeProfile.create({
           data: {
@@ -143,7 +140,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        await tx.store.create({
+        const store = await tx.store.create({
           data: {
             ownerUserId: newUser.id,
             name: d.storeName,
@@ -152,11 +149,22 @@ export async function POST(req: NextRequest) {
             contactName: d.contactPerson,
             contactEmail: data.email,
             contactPhone: data.phone ?? null,
-            addressLine1: d.businessAddress?.trim() || null,
-            country: "South Africa",
+            addressLine1: d.businessLocation?.line1 ?? d.businessAddress?.trim() ?? null,
+            addressLine2: d.businessLocation?.line2 ?? null,
+            city: d.businessLocation?.city ?? null,
+            province: d.businessLocation?.province ?? null,
+            postalCode: d.businessLocation?.postalCode ?? null,
+            country: d.businessLocation?.country ?? "South Africa",
             featured: false,
           },
         });
+        if (d.businessLocation) {
+          const pickup = await tx.address.create({ data: {
+            ...d.businessLocation, storeId: store.id, type: "PICKUP", isDefault: true,
+            label: "Default pickup", contactName: d.contactPerson, contactPhone: data.phone ?? null,
+          } });
+          await tx.store.update({ where: { id: store.id }, data: { defaultPickupAddressId: pickup.id } });
+        }
       } else {
         const count = await tx.driverProfile.count();
         const driverCode = `DRV-${1000 + count + 1}`;

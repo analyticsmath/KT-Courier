@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useCallback, useId } from "react";
+import { useState, useRef, useCallback, useId, useMemo } from "react";
 import { usePlacesAutocomplete } from "@/lib/maps/use-places-autocomplete";
+import { AddressLocationMap } from "./AddressLocationMap";
 import { Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import type { AddressDto } from "@/lib/maps/google-maps.types";
@@ -131,11 +132,7 @@ export function AddressAutocomplete({
   const autoId = useId();
   const inputId = externalId ?? `addr_${autoId}`;
 
-  const hasBrowserKey = !!(
-    typeof window !== "undefined"
-      ? process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
-      : null
-  );
+  const hasBrowserKey = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
 
   const { apiReady, apiError, predictions, loading, search, selectPrediction, clearPredictions } =
     usePlacesAutocomplete({
@@ -153,6 +150,10 @@ export function AddressAutocomplete({
     postalCode: value?.postalCode ?? "",
   });
 
+  const manualValue = useMemo(() => value ? { line1: value.line1, city: value.city ?? "", province: value.province ?? "", postalCode: value.postalCode ?? "" } : manual, [value, manual]);
+  const selectionVersion = useRef(0);
+  const [selectionError, setSelectionError] = useState("");
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -160,6 +161,8 @@ export function AddressAutocomplete({
 
   const handleInputChange = useCallback(
     (text: string) => {
+      selectionVersion.current++;
+      setSelectionError("");
       setInputValue(text);
       onChange(null);
       if (text.length >= 3) {
@@ -175,30 +178,22 @@ export function AddressAutocomplete({
 
   const handleSelect = useCallback(
     async (placeId: string, description: string) => {
+      const version = ++selectionVersion.current;
       setSelecting(true);
       setShowDropdown(false);
       clearPredictions();
       setInputValue(description);
 
       const detail = await selectPrediction(placeId);
+      if (selectionVersion.current !== version) return;
       setSelecting(false);
 
       if (detail) {
         setInputValue(detail.formattedAddress);
         onChange(detail);
       } else {
-        onChange({
-          formattedAddress: description,
-          placeId,
-          line1: description,
-          line2: null,
-          city: null,
-          province: null,
-          postalCode: null,
-          country: "South Africa",
-          latitude: null,
-          longitude: null,
-        });
+        setSelectionError("This address could not be confirmed. Select it again or choose a location on the map.");
+        onChange(null);
       }
     },
     [selectPrediction, onChange, clearPredictions]
@@ -206,7 +201,7 @@ export function AddressAutocomplete({
 
   const handleManualChange = useCallback(
     (key: keyof ManualAddressState, val: string) => {
-      const next = { ...manual, [key]: val };
+      const next = { ...manualValue, [key]: val };
       setManual(next);
       const addr: AddressAutocompleteValue = {
         formattedAddress: [next.line1, next.city, next.province, next.postalCode, "South Africa"]
@@ -226,7 +221,7 @@ export function AddressAutocomplete({
       };
       onChange(next.line1.trim().length >= 3 ? addr : null);
     },
-    [manual, onChange]
+    [manualValue, onChange]
   );
 
   const handleBlur = useCallback(() => {
@@ -281,7 +276,7 @@ export function AddressAutocomplete({
               type="text"
               autoComplete="off"
               placeholder="Start typing an address…"
-              value={inputValue}
+              value={value?.formattedAddress ?? inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
               onFocus={() => predictions.length > 0 && setShowDropdown(true)}
               aria-label={label}
@@ -339,7 +334,7 @@ export function AddressAutocomplete({
             Address suggestions are unavailable. Use text entry; a quote cannot be generated until an address provider confirms mapped coordinates.
           </div>
           <ManualAddressFields
-            value={manual}
+            value={manualValue}
             onChange={handleManualChange}
             idPrefix={inputId}
             required={required}
@@ -347,6 +342,9 @@ export function AddressAutocomplete({
           />
         </div>
       )}
+
+      {selectionError && <p role="alert" className="text-sm text-red-600">{selectionError}</p>}
+      {hasBrowserKey && <AddressLocationMap value={value} onChange={onChange} label={label} />}
 
       {/* Access notes */}
       {showNotesField && (
