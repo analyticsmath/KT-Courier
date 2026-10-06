@@ -1,3 +1,4 @@
+import { legacyProductTypeCode as typeCode, legacyItemTaxonomyNames } from "../../lib/migrations/legacy-6ammart/catalog-taxonomy.mjs";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -18,14 +19,6 @@ function sha256File(filePath) {
   return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
-function normalized(value) {
-  return String(value ?? "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
 function storeIsCandidate(store) {
   return (
     Number(store.status) === 1 &&
@@ -33,23 +26,6 @@ function storeIsCandidate(store) {
     store.name?.trim().length > 1 &&
     !/(^|\b)(test|demo|sample|do not use)(\b|$)/i.test(store.name)
   );
-}
-
-function typeCode(moduleId, names = []) {
-  if (Number(moduleId) === 2) return "GROCERIES";
-  if (Number(moduleId) === 3) return "HEALTH_WELLNESS";
-  if (Number(moduleId) === 6) return "FOOD_DINING";
-
-  const haystack = normalized(names.join(" "));
-  if (/automotive|vehicle|car\b|motor|cv joint/.test(haystack)) return "AUTOMOTIVE";
-  if (/fashion|apparel|clothing|shoe|footwear|accessor|jewellery|jewelry/.test(haystack)) return "FASHION_APPAREL";
-  if (/electronic|printer|ink|cartridge|computer|phone|tech|gadget/.test(haystack)) return "ELECTRONICS";
-  if (/health|beauty|skin|makeup|cosmetic|wellness|clinical|body butter|body wash/.test(haystack)) return "HEALTH_WELLNESS";
-  if (/book|stationery|school|office supply/.test(haystack)) return "BOOKS_STATIONERY";
-  if (/cake|bakery|bread|pastr/.test(haystack)) return "CAKES_BAKERY";
-  if (/flower|plant|floral/.test(haystack)) return "FLOWERS_PLANTS";
-  if (/pet|animal/.test(haystack)) return "PET_CARE";
-  return "HOME_LIVING";
 }
 
 const args = parseArgs(process.argv);
@@ -108,24 +84,6 @@ for (const asset of mediaAssets.filter(
   storeMediaKinds.get(id).add(asset.kind);
 }
 
-const categoryNames = (item) => {
-  const out = [];
-  const direct = categories.get(Number(item.category_id));
-  if (direct?.name) out.push(direct.name);
-
-  for (const link of Array.isArray(item.category_ids)
-    ? item.category_ids
-    : []) {
-    const raw =
-      typeof link === "object" && link
-        ? (link.id ?? link.category_id)
-        : link;
-    const row = categories.get(Number(raw));
-    if (row?.name) out.push(row.name);
-  }
-  return out;
-};
-
 const products = [];
 const orphan = [];
 const pending = [];
@@ -160,10 +118,7 @@ for (const item of items) {
   const variants = variationRows.length > 0 ? variationRows.length : 1;
   variantCount += variants;
 
-  const productType = typeCode(item.module_id, [
-    item.name,
-    ...categoryNames(item),
-  ]);
+  const productType = typeCode(item.module_id, legacyItemTaxonomyNames(item, categories));
   productTypeCounts[productType] =
     (productTypeCounts[productType] ?? 0) + 1;
 

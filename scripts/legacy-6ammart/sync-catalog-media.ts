@@ -1,8 +1,9 @@
+import { assertLegacyApplyAllowed } from "../../lib/migrations/legacy-6ammart/target-policy";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import {
   assertCatalogMediaDimensions,
   CATALOG_MEDIA_MAX_UPLOAD_BYTES,
@@ -38,7 +39,8 @@ type NormalizedManifest = Readonly<{
   assets: readonly NormalizedAsset[];
 }>;
 
-const prisma = new PrismaClient();
+const rootClient = new PrismaClient();
+let prisma: Prisma.TransactionClient = rootClient;
 
 function arg(name: string): string | null {
   const index = process.argv.indexOf(name);
@@ -76,9 +78,10 @@ function sourceTargetModel(asset: NormalizedAsset): string {
   return "Store";
 }
 
-async function findTarget(asset: NormalizedAsset) {
+async function findTarget(asset: NormalizedAsset, runId: string) {
   const mapping = await prisma.legacyMigrationMap.findFirst({
     where: {
+      runId,
       sourceSystem: "LEGACY_6AMMART",
       sourceDatabase: "wwwktcouriers_ktcouaielidb",
       sourceTable: sourceTable(asset),
@@ -100,20 +103,11 @@ async function main() {
   const mediaDir = required(arg("--media-dir"), "--media-dir");
   const apply = hasFlag("--apply");
 
-  if (
-    apply &&
-    process.env.KT_DATABASE_CLASSIFICATION?.trim().toLowerCase() ===
-      "production" &&
-    process.env.KT_LEGACY_6AMMART_PRODUCTION_APPROVED !== "true"
-  ) {
-    throw new Error(
-      "Production legacy media sync requires KT_LEGACY_6AMMART_PRODUCTION_APPROVED=true.",
-    );
-  }
+  if (apply) assertLegacyApplyAllowed();
 
-  const manifest = JSON.parse(
-    await readFile(manifestPath, "utf8"),
-  ) as NormalizedManifest;
+  const manifestBytes = await readFile(manifestPath, "utf8");
+  const manifestFingerprint = createHash("sha256").update(manifestBytes).digest("hex");
+  const manifest = JSON.parse(manifestBytes) as NormalizedManifest;
   if (
     manifest.version !== 1 ||
     !/^[a-f0-9]{64}$/.test(manifest.sourceDumpSha256) ||
@@ -131,11 +125,13 @@ async function main() {
     },
     orderBy: { createdAt: "desc" },
   });
-  if (!run || !["VALIDATED", "APPLYING", "APPLIED"].includes(run.status)) {
+  if (!run || !["VALIDATED", "APPLIED"].includes(run.status)) {
     throw new Error(
       "Catalogue core migration must be validated before media synchronization.",
     );
   }
+
+  if (run.sourceMediaFingerprint && run.sourceMediaFingerprint !== manifestFingerprint) throw new Error("Migration media manifest changed after synchronization.");
 
   const storage = createProductionCatalogMediaStorageAdapter();
   if (!storage.productionReady) {
@@ -153,6 +149,8 @@ async function main() {
 
   for (const asset of manifest.assets) {
     const filePath = path.resolve(mediaDir, asset.normalized_relpath);
+    const relative = path.relative(path.resolve(mediaDir), filePath);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Media path escapes migration root.");
     const bytes = new Uint8Array(await readFile(filePath));
     if (
       bytes.byteLength < 1 ||
@@ -180,8 +178,9 @@ async function main() {
       );
     }
     assertCatalogMediaDimensions(width, height);
+    await sharp(Buffer.from(bytes), { limitInputPixels: 25_000_000 }).raw().toBuffer();
 
-    const target = await findTarget(asset);
+    const target = await findTarget(asset, run.id);
     let ownerStoreId: string | null = null;
     let ownerType: "PLATFORM" | "STORE" = "PLATFORM";
 
@@ -222,165 +221,178 @@ async function main() {
   }
 
   for (const row of planned) {
-    const { asset, bytes } = row;
-    const publicReference = mediaReference(asset);
+    await rootClient.$transaction(async (tx) => {
+      prisma = tx;
+      const { asset, bytes } = row;
+      const publicReference = mediaReference(asset);
 
-    const existing = await prisma.catalogMediaAsset.findUnique({
-      where: { publicReference },
-    });
-    if (existing) {
-      const drift = [
-        existing.storageKey !== asset.storage_key ? "storageKey" : null,
-        existing.checksum !== asset.checksum ? "checksum" : null,
-        existing.byteSize !== asset.normalized_bytes ? "byteSize" : null,
-        existing.width !== asset.normalized_width ? "width" : null,
-        existing.height !== asset.normalized_height ? "height" : null,
-        existing.purpose !== asset.purpose ? "purpose" : null,
-      ].filter(Boolean);
-      if (drift.length > 0) {
-        throw new Error(
-          `Immutable legacy media drift for ${publicReference}: ${drift.join(", ")}`,
-        );
-      }
-    } else {
-      await storage.confirmUpload({
-        storageKey: asset.storage_key,
-        bytes,
-        maximumBytes: asset.normalized_bytes,
+      const existing = await prisma.catalogMediaAsset.findUnique({
+        where: { publicReference },
       });
-
-      const roundTrip = await storage.openForValidation({
-        storageKey: asset.storage_key,
-        maximumBytes: asset.normalized_bytes,
-      });
-      const roundTripChecksum = createHash("sha256")
-        .update(roundTrip)
-        .digest("hex");
-      if (
-        roundTrip.byteLength !== asset.normalized_bytes ||
-        roundTripChecksum !== asset.checksum
-      ) {
-        throw new Error(
-          `Canonical storage round-trip failed for ${publicReference}.`,
-        );
-      }
-
-      await prisma.catalogMediaAsset.create({
-        data: {
-          publicReference,
-          ownerType: row.ownerType,
-          ownerStoreId: row.ownerStoreId,
-          purpose: asset.purpose,
+      if (existing) {
+        const drift = [
+          existing.storageKey !== asset.storage_key ? "storageKey" : null,
+          existing.checksum !== asset.checksum ? "checksum" : null,
+          existing.byteSize !== asset.normalized_bytes ? "byteSize" : null,
+          existing.width !== asset.normalized_width ? "width" : null,
+          existing.height !== asset.normalized_height ? "height" : null,
+          existing.purpose !== asset.purpose ? "purpose" : null,
+          existing.ownerStoreId !== row.ownerStoreId ? "ownerStoreId" : null,
+          existing.status !== "READY" ? "status" : null,
+          !existing.privacyInspectionPassed ? "privacy" : null,
+        ].filter(Boolean);
+        if (drift.length > 0) {
+          throw new Error(
+            `Immutable legacy media drift for ${publicReference}: ${drift.join(", ")}`,
+          );
+        }
+      } else {
+        await storage.confirmUpload({
           storageKey: asset.storage_key,
-          storageProvider: "S3_COMPATIBLE",
-          declaredMimeType: "image/webp",
-          mimeType: "image/webp",
-          declaredByteSize: asset.normalized_bytes,
-          byteSize: asset.normalized_bytes,
-          width: asset.normalized_width,
-          height: asset.normalized_height,
-          checksum: asset.checksum,
-          privacyInspectionPassed: true,
-          validationSummary: {
+          bytes,
+          maximumBytes: asset.normalized_bytes,
+        });
+
+        const roundTrip = await storage.openForValidation({
+          storageKey: asset.storage_key,
+          maximumBytes: asset.normalized_bytes,
+        });
+        const roundTripChecksum = createHash("sha256")
+          .update(roundTrip)
+          .digest("hex");
+        if (
+          roundTrip.byteLength !== asset.normalized_bytes ||
+          roundTripChecksum !== asset.checksum
+        ) {
+          throw new Error(
+            `Canonical storage round-trip failed for ${publicReference}.`,
+          );
+        }
+
+        await prisma.catalogMediaAsset.create({
+          data: {
+            publicReference,
+            ownerType: row.ownerType,
+            ownerStoreId: row.ownerStoreId,
+            purpose: asset.purpose,
+            storageKey: asset.storage_key,
+            storageProvider: "S3_COMPATIBLE",
+            declaredMimeType: "image/webp",
+            mimeType: "image/webp",
+            declaredByteSize: asset.normalized_bytes,
+            byteSize: asset.normalized_bytes,
+            width: asset.normalized_width,
+            height: asset.normalized_height,
+            checksum: asset.checksum,
+            privacyInspectionPassed: true,
+            validationSummary: {
+              sourceSystem: "LEGACY_6AMMART",
+              sourceFilename: asset.filename,
+              normalized: true,
+              cloudinaryPublicId: asset.cloudinary_public_id,
+            },
+            status: "READY",
+            storageConfirmedAt: new Date(),
+            validatedAt: new Date(),
+            createdByUserId: run.createdByUserId ?? "legacy-migration",
+            updatedByUserId: run.createdByUserId ?? "legacy-migration",
+          },
+        });
+      }
+
+      // Verify canonical bytes on reruns as well as on initial upload.
+      const canonical = await storage.openForValidation({ storageKey: asset.storage_key, maximumBytes: asset.normalized_bytes });
+      if (canonical.byteLength !== asset.normalized_bytes || createHash("sha256").update(canonical).digest("hex") !== asset.checksum) {
+        throw new Error("Canonical media integrity failed: " + publicReference);
+      }
+      const media = await prisma.catalogMediaAsset.findUniqueOrThrow({
+        where: { publicReference },
+      });
+
+      if (asset.kind === "product") {
+        const currentPrimary = await prisma.catalogProductMedia.findFirst({
+          where: { productId: row.targetId, role: "PRIMARY" },
+        });
+        if (currentPrimary && currentPrimary.assetId !== media.id) {
+          throw new Error(
+            `Product ${asset.source_id} already has a different PRIMARY asset.`,
+          );
+        }
+        if (!currentPrimary) {
+          const product = await prisma.catalogProduct.findUniqueOrThrow({
+            where: { id: row.targetId },
+            select: { title: true },
+          });
+          await prisma.catalogProductMedia.create({
+            data: {
+              productId: row.targetId,
+              assetId: media.id,
+              role: "PRIMARY",
+              altText: product.title,
+              displayOrder: 1,
+            },
+          });
+        }
+      } else if (asset.kind === "category") {
+        await prisma.catalogCategory.update({
+          where: { id: row.targetId },
+          data: { imageAssetId: media.id },
+        });
+      } else if (asset.kind === "brand") {
+        await prisma.catalogBrand.update({
+          where: { id: row.targetId },
+          data: { logoAssetId: media.id },
+        });
+      }
+
+      await prisma.legacyMigrationMap.upsert({
+        where: {
+          sourceSystem_sourceDatabase_sourceTable_sourceId_targetModel: {
             sourceSystem: "LEGACY_6AMMART",
+            sourceDatabase: "wwwktcouriers_ktcouaielidb",
+            sourceTable: "media:" + asset.kind,
+            sourceId: String(asset.source_id),
+            targetModel: "CatalogMediaAsset",
+          },
+        },
+        update: {
+          runId: run.id,
+          sourceHash: asset.checksum,
+          disposition: "READY",
+          targetId: media.id,
+          targetPublicReference: publicReference,
+          safeMetadata: {
             sourceFilename: asset.filename,
-            normalized: true,
             cloudinaryPublicId: asset.cloudinary_public_id,
           },
-          status: "READY",
-          storageConfirmedAt: new Date(),
-          validatedAt: new Date(),
-          createdByUserId: run.createdByUserId ?? "legacy-migration",
-          updatedByUserId: run.createdByUserId ?? "legacy-migration",
         },
-      });
-    }
-
-    const media = await prisma.catalogMediaAsset.findUniqueOrThrow({
-      where: { publicReference },
-    });
-
-    if (asset.kind === "product") {
-      const currentPrimary = await prisma.catalogProductMedia.findFirst({
-        where: { productId: row.targetId, role: "PRIMARY" },
-      });
-      if (currentPrimary && currentPrimary.assetId !== media.id) {
-        throw new Error(
-          `Product ${asset.source_id} already has a different PRIMARY asset.`,
-        );
-      }
-      if (!currentPrimary) {
-        const product = await prisma.catalogProduct.findUniqueOrThrow({
-          where: { id: row.targetId },
-          select: { title: true },
-        });
-        await prisma.catalogProductMedia.create({
-          data: {
-            productId: row.targetId,
-            assetId: media.id,
-            role: "PRIMARY",
-            altText: product.title,
-            displayOrder: 1,
-          },
-        });
-      }
-    } else if (asset.kind === "category") {
-      await prisma.catalogCategory.update({
-        where: { id: row.targetId },
-        data: { imageAssetId: media.id },
-      });
-    } else if (asset.kind === "brand") {
-      await prisma.catalogBrand.update({
-        where: { id: row.targetId },
-        data: { logoAssetId: media.id },
-      });
-    }
-
-    await prisma.legacyMigrationMap.upsert({
-      where: {
-        sourceSystem_sourceDatabase_sourceTable_sourceId_targetModel: {
+        create: {
+          runId: run.id,
           sourceSystem: "LEGACY_6AMMART",
           sourceDatabase: "wwwktcouriers_ktcouaielidb",
           sourceTable: "media:" + asset.kind,
           sourceId: String(asset.source_id),
+          sourceHash: asset.checksum,
+          disposition: "READY",
           targetModel: "CatalogMediaAsset",
+          targetId: media.id,
+          targetPublicReference: publicReference,
+          safeMetadata: {
+            sourceFilename: asset.filename,
+            cloudinaryPublicId: asset.cloudinary_public_id,
+          },
         },
-      },
-      update: {
-        runId: run.id,
-        sourceHash: asset.checksum,
-        disposition: "READY",
-        targetId: media.id,
-        targetPublicReference: publicReference,
-        safeMetadata: {
-          sourceFilename: asset.filename,
-          cloudinaryPublicId: asset.cloudinary_public_id,
-        },
-      },
-      create: {
-        runId: run.id,
-        sourceSystem: "LEGACY_6AMMART",
-        sourceDatabase: "wwwktcouriers_ktcouaielidb",
-        sourceTable: "media:" + asset.kind,
-        sourceId: String(asset.source_id),
-        sourceHash: asset.checksum,
-        disposition: "READY",
-        targetModel: "CatalogMediaAsset",
-        targetId: media.id,
-        targetPublicReference: publicReference,
-        safeMetadata: {
-          sourceFilename: asset.filename,
-          cloudinaryPublicId: asset.cloudinary_public_id,
-        },
-      },
-    });
+      });
 
-    verified += 1;
+      verified += 1;
+    }, { timeout: 60_000, maxWait: 10_000 });
+    prisma = rootClient;
   }
 
   await prisma.legacyMigrationRun.update({
     where: { id: run.id },
     data: {
+      sourceMediaFingerprint: manifestFingerprint,
       summary: {
         ...(run.summary && typeof run.summary === "object" ? run.summary : {}),
         mediaReady: verified,
@@ -408,4 +420,4 @@ main()
     );
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => rootClient.$disconnect());

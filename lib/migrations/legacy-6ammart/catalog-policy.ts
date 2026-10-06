@@ -87,25 +87,7 @@ export function legacyItemDisposition(input: {
     : "PRESERVE_PENDING";
 }
 
-export function legacyProductTypeCode(
-  moduleId: number,
-  categoryPath: readonly string[] = [],
-): string {
-  if (moduleId === 2) return "GROCERIES";
-  if (moduleId === 3) return "HEALTH_WELLNESS";
-  if (moduleId === 6) return "FOOD_DINING";
-
-  const haystack = categoryPath.join(" ").toLowerCase();
-  if (/automotive|vehicle|car\b|motor/.test(haystack)) return "AUTOMOTIVE";
-  if (/fashion|apparel|clothing|shoe|footwear|accessor/.test(haystack)) return "FASHION_APPAREL";
-  if (/electronic|printer|ink|cartridge|computer|phone|tech/.test(haystack)) return "ELECTRONICS";
-  if (/health|beauty|skin|makeup|cosmetic|wellness|clinical/.test(haystack)) return "HEALTH_WELLNESS";
-  if (/book|stationery|school|office supply/.test(haystack)) return "BOOKS_STATIONERY";
-  if (/cake|bakery|bread|pastr/.test(haystack)) return "CAKES_BAKERY";
-  if (/flower|plant|floral/.test(haystack)) return "FLOWERS_PLANTS";
-  if (/pet|animal/.test(haystack)) return "PET_CARE";
-  return "HOME_LIVING";
-}
+export { legacyProductTypeCode } from "./catalog-taxonomy.mjs";
 
 function refPart(value: string | number): string {
   return String(value).trim().replace(/[^A-Za-z0-9_-]/g, "-").toUpperCase();

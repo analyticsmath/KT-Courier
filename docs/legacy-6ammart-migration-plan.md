@@ -407,3 +407,29 @@ Minimum historical-order gates:
 ## Rollback rule
 
 Do not destructively overwrite either source. The source MariaDB dump, source media archive, and pre-cutover Railway PostgreSQL snapshot must remain available until client acceptance and post-cutover reconciliation are complete.
+
+## Verified continuation — 6 October 2026
+
+The regenerated sanitized source package matches the committed encrypted package's plaintext fingerprint (`ea46982342584e05fe48766c55c95841547d3a09ee708409e327f3538675cba0`). The planner reproduces 14 source-enabled stores, 277 initial publication candidates, 117 source-pending items, and 141 orphan items. One pending item belongs to the excluded Test Store: preservation in source evidence does not mean admission into the target catalogue.
+
+Fresh full decoding of recovered media confirms 693 readable images, nine zero-byte files, and three absent filenames. The reviewed 341-asset admission set contains 277 primary product images, 14 store logos, 14 store covers, 30 category images, and six brand images. The reproducible Sharp normalizer keeps this admission set and source composition, removes metadata, and creates new content-addressed WebP objects. Its generated manifest replaces the old byte checksums for this normalization run; use the generated manifest and media package together. Do not mix old and new manifests or treat the new normalized bytes as the old object identities.
+
+The importer now shares product taxonomy with the planner, rejects unclassified targets and production signals without cutover approval, checks exact ownership of nonempty targets, rejects unreconciled email/phone collisions, and preserves existing identity activation and inventory reservations. Core catalogue writes commit in one database transaction; per-asset database evidence and linkage commit together. A disabled, passwordless audit actor replaces the dependency on demo bootstrap accounts/settings/prices/ledger initialization. A completed publication run makes a later core import a no-op. Media synchronization verifies canonical bytes on reruns and publication requires an explicit source fingerprint and zero unresolved candidate blockers.
+
+### Isolated staging rehearsal
+
+A private Railway project named `KT Legacy Migration Staging` was created with environment `migration-staging`. Railway rejected PostgreSQL/service provisioning with `Free plan resource provision limit exceeded`, and object storage provisioning with a bucket-limit error. The project is empty. No PostgreSQL import, canonical storage upload, Cloudinary mirror upload, or production cutover has been executed in this continuation. Current production demo bootstrap remains enabled.
+
+After staging capacity is available, provision a dedicated database named `kt_legacy_staging`, apply the existing Prisma migration chain with `prisma migrate deploy`, and configure staging S3 catalogue storage. Do not use the production database URL. Set `KT_DATABASE_CLASSIFICATION=staging`.
+
+Use the sanitized `source-package.json`, normalized media manifest, and media directory generated from the recovered sources. The checked-in encrypted source can be opened with its existing authorized key via `KT_LEGACY_SOURCE_KEY` and `source-envelope.mjs decrypt`; this key is never committed. Rebuilding the sanitized package from the preserved SQL/media extraction evidence reproduces the same source bytes without requiring that key.
+
+```bash
+node --import tsx scripts/legacy-6ammart/rehearse-staging.ts \
+  --source /secure/source-package.json \
+  --manifest /secure/KT_LEGACY_VERIFIED_MEDIA_MANIFEST.json \
+  --media-dir /secure/media \
+  --out /secure/staging-rehearsal-result.json
+```
+
+This command requires a fresh migrated staging database. It exercises a persisted identity collision, core import twice, media synchronization twice, publication twice, and a core rerun after publication. It verifies stable target IDs, stable snapshot counts, expected publication/media counts, and absence of imported passwords. It exits with failure if a stage fails. It has been type-checked; real PostgreSQL execution remains blocked by provisioning capacity. Existing `db:verify:catalog` and `db:verify:storefront` checks and Cloudinary/S3 delivery checks remain mandatory after this rehearsal passes and before cutover.

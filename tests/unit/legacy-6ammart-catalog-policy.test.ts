@@ -116,6 +116,9 @@ describe("legacy 6amMart catalogue migration policy", () => {
     expect(legacyProductTypeCode(4, ["Printer Ink & Cartridges"])).toBe("ELECTRONICS");
     expect(legacyProductTypeCode(4, ["Skin Care"])).toBe("HEALTH_WELLNESS");
     expect(legacyProductTypeCode(4, ["Shipping Boxes"])).toBe("HOME_LIVING");
+    expect(legacyProductTypeCode(4, ["CV Joint", "Parts"])).toBe("AUTOMOTIVE");
+    expect(legacyProductTypeCode(4, ["Jewellery", "Gifts"])).toBe("FASHION_APPAREL");
+    expect(legacyProductTypeCode(4, ["Body Butter", "Personal Care"])).toBe("HEALTH_WELLNESS");
   });
 
   it("normalizes South African phone numbers without inventing malformed values", () => {

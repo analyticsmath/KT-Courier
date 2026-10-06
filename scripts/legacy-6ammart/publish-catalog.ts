@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { assertLegacyApplyAllowed } from "../../lib/migrations/legacy-6ammart/target-policy";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { buildCatalogPublicationSnapshot } from "../../lib/catalog/catalog-publication-snapshot";
 import { deriveStorefrontAvailability } from "../../lib/storefront/storefront-availability-policy";
 import { StorefrontProjectionService } from "../../lib/services/storefront-projection.service";
@@ -15,23 +16,18 @@ function hasFlag(name: string): boolean {
 async function main() {
   const apply = hasFlag("--apply");
 
-  if (
-    apply &&
-    process.env.KT_DATABASE_CLASSIFICATION?.trim().toLowerCase() ===
-      "production" &&
-    process.env.KT_LEGACY_6AMMART_PRODUCTION_APPROVED !== "true"
-  ) {
-    throw new Error(
-      "Production legacy publication requires KT_LEGACY_6AMMART_PRODUCTION_APPROVED=true.",
-    );
-  }
+  if (apply) assertLegacyApplyAllowed();
 
+  const fingerprintIndex = process.argv.indexOf("--source-fingerprint");
+  const fingerprint = fingerprintIndex >= 0 ? process.argv[fingerprintIndex + 1] : undefined;
+  if (!/^[a-f0-9]{64}$/.test(fingerprint ?? "")) throw new Error("--source-fingerprint is required.");
   const run = await prisma.legacyMigrationRun.findFirst({
     where: {
       sourceSystem: "LEGACY_6AMMART",
       sourceDatabase: "wwwktcouriers_ktcouaielidb",
       phase: "CATALOG_CORE",
-      status: { in: ["VALIDATED", "APPLYING", "APPLIED"] },
+      sourceFingerprint: fingerprint,
+      status: { in: ["VALIDATED", "APPLIED"] },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -148,6 +144,8 @@ async function main() {
     console.log(JSON.stringify(dryRun, null, 2));
     return;
   }
+
+  if (blocked.length > 0) throw new Error("Publication blocked for " + blocked.length + " candidate products; resolve all blockers before applying.");
 
   const touchedStoreIds = new Set<string>();
   const touchedCategoryIds = new Set<string>();
@@ -309,7 +307,7 @@ async function main() {
             offerId: offer.id,
             versionNumber: nextVersion,
             publicationVersion: snapshotValue.publicationVersion,
-            snapshot: snapshotValue,
+            snapshot: JSON.parse(JSON.stringify(snapshotValue)) as Prisma.InputJsonValue,
             status: "PUBLISHED",
             createdByUserId: run.createdByUserId ?? offer.createdByUserId,
             createdAt: new Date(),
