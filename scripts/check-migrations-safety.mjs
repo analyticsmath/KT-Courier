@@ -31,6 +31,12 @@ const dangerousPatterns = [
 ];
 const approvedDestructiveOperations = [
   {
+    migration: "20261006012000_cloudinary_legacy_catalog_media",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"CatalogMediaAsset"\s+DROP\s+CONSTRAINT\s+"CatalogMediaAsset_declared_shape_check"\s*;\s*$/i,
+    reason: "Atomically replaces only the media key shape check with a validated superset for approved legacy Cloudinary keys; no rows or other guards are removed.",
+  },
+  {
     migration: "20260814101000_phase_b_drop_redundant_payment_managed_marketing_index",
     label: "DROP INDEX",
     statement: /^\s*DROP\s+INDEX\s+IF\s+EXISTS\s+"Payment_subjectType_managedMarketingRequestId_idx"\s*;\s*$/i,

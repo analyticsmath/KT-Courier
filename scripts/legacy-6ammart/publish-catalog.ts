@@ -100,7 +100,7 @@ async function main() {
         const price = offer.currentPriceVersion;
         if (
           offer.store.status !== "ACTIVE" ||
-          offer.status !== "ACTIVE" ||
+          !["DRAFT", "ACTIVE"].includes(offer.status) ||
           variant.status !== "ACTIVE" ||
           !price ||
           price.status !== "ACTIVE" ||

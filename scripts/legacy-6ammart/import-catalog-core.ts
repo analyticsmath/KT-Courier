@@ -214,10 +214,17 @@ async function mapSource(input: {
 
 const PROTECTED_TABLES = ["User", "Store", "StoreProfile", "Order", "MarketplaceOrder", "MarketplaceStoreOrder", "MarketplaceOrderLine", "MarketplaceCheckout", "MarketplaceCheckoutLineSnapshot", "Payment", "LedgerEntry", "LedgerAccount", "PrivateMediaObject", "DriverProfile", "CatalogMediaAsset", "ProductTypeDefinition"] as const;
 type RetainedRow = { id: string; fingerprint: string };
-async function captureRetainedRows(db: Prisma.TransactionClient) {
+async function captureRetainedRows(db: Prisma.TransactionClient, runReference: string) {
+  const run = await db.legacyMigrationRun.findUnique({ where: { publicReference: runReference } });
+  const ownMaps = run ? await db.legacyMigrationMap.findMany({ where: { runId: run.id }, select: { targetModel: true, targetId: true } }) : [];
+  const owned = (model: string) => new Set(ownMaps.filter((map) => map.targetModel === model).map((map) => map.targetId));
+  const ownerIds = owned("User");
+  if (run?.createdByUserId) ownerIds.add(run.createdByUserId);
+  const ownProfiles = ownerIds.size ? await db.storeProfile.findMany({ where: { userId: { in: [...ownerIds] } }, select: { id: true } }) : [];
+  const exclusions: Record<string, Set<string>> = { User: ownerIds, Store: owned("Store"), CatalogMediaAsset: owned("CatalogMediaAsset"), StoreProfile: new Set(ownProfiles.map((profile) => profile.id)) };
   const rows: Record<string, RetainedRow[]> = {};
   for (const table of PROTECTED_TABLES) {
-    rows[table] = await db.$queryRawUnsafe<RetainedRow[]>('SELECT id, md5(row_to_json(t)::text) AS fingerprint FROM "' + table + '" t ORDER BY id');
+    rows[table] = (await db.$queryRawUnsafe<RetainedRow[]>('SELECT id, md5(row_to_json(t)::text) AS fingerprint FROM "' + table + '" t ORDER BY id')).filter((row) => !exclusions[table]?.has(row.id));
   }
   return rows;
 }
@@ -300,7 +307,11 @@ async function main() {
         : null,
       primaryMedia: mediaEvidence(pkg, item.image),
     });
-    return { item, store, path, disposition };
+    const pricesReady = parseLegacyVariants({
+      baseTitle: String(item.name ?? "Legacy Product"), basePrice: numberValue(item.price),
+      baseStock: item.stock == null ? null : intValue(item.stock), variations: item.variations,
+    }).every((variant) => Number(discountedPrice(variant.price, numberValue(item.discount), item.discount_type).toFixed(2)) > 0);
+    return { item, store, path, pricesReady, disposition: disposition === "PUBLISH" && !pricesReady ? "PRESERVE_PENDING" : disposition };
   });
 
   const summary = {
@@ -326,6 +337,7 @@ async function main() {
       orphan: decisions.filter(
         (row) => row.disposition === "REJECT_ORPHAN",
       ).length,
+      invalidPrice: decisions.filter((row) => row.disposition !== "REJECT_ORPHAN" && !row.pricesReady).length,
     },
   };
 
@@ -341,7 +353,7 @@ async function main() {
       prisma = tx;
       await prisma.$queryRaw`SELECT 1 AS acquired FROM pg_advisory_xact_lock(6142026)`;
       await assertTargetAllowed(true, pkg, preserved?.inventory);
-      const protectedRows = preserved ? await captureRetainedRows(prisma) : null;
+      const protectedRows = preserved ? await captureRetainedRows(prisma, runReference) : null;
   // Reconcile identities before the first target write, including phone-only matches.
   for (const sourceStore of pkg.tables.stores) {
     if (!sourceStore.name || /(^|\b)(test|demo|sample|do not use)(\b|$)/i.test(sourceStore.name)) continue;
@@ -743,11 +755,11 @@ async function main() {
               typeof sourceItem.description === "string"
                 ? sourceItem.description
                 : null,
-            status: publishable ? "ACTIVE" : "DRAFT",
+            status: "DRAFT",
             moderationStatus: publishable ? "APPROVED" : "NOT_SUBMITTED",
             publicationStatus: "DRAFT",
             approvedByUserId: publishable ? bootstrap.superAdminId : null,
-            qualityIssues: publishable ? [] : ["LEGACY_REVIEW_REQUIRED"],
+            qualityIssues: publishable ? [] : [decision.pricesReady ? "LEGACY_REVIEW_REQUIRED" : "LEGACY_PRICE_REVIEW_REQUIRED"],
           },
           create: {
             publicReference: legacyReferences.product(sourceId),
@@ -770,12 +782,12 @@ async function main() {
               legacyHalal: intValue(sourceItem.is_halal) === 1,
             },
             complianceValues: {},
-            status: publishable ? "ACTIVE" : "DRAFT",
+            status: "DRAFT",
             moderationStatus: publishable ? "APPROVED" : "NOT_SUBMITTED",
             publicationStatus: "DRAFT",
             slug: legacySlug(title, sourceId),
             qualityScore: publishable ? 80 : 40,
-            qualityIssues: publishable ? [] : ["LEGACY_REVIEW_REQUIRED"],
+            qualityIssues: publishable ? [] : [decision.pricesReady ? "LEGACY_REVIEW_REQUIRED" : "LEGACY_PRICE_REVIEW_REQUIRED"],
             createdByUserId: targetStore.ownerUserId,
             approvedByUserId: publishable ? bootstrap.superAdminId : null,
             createdAt: dateValue(sourceItem.created_at),
@@ -850,7 +862,7 @@ async function main() {
           const offer = await prisma.storeCatalogOffer.upsert({
             where: { publicReference: legacyReferences.offer(sourceId, index) },
             update: {
-              status: publishable ? "ACTIVE" : "DRAFT",
+              status: "DRAFT",
               publicationStatus: "DRAFT",
               primaryInventoryLocationId: inventoryLocation.id,
             },
@@ -866,7 +878,7 @@ async function main() {
                 typeof sourceItem.description === "string"
                   ? sourceItem.description
                   : null,
-              status: publishable ? "ACTIVE" : "DRAFT",
+              status: "DRAFT",
               publicationStatus: "DRAFT",
               inventoryTrackingMode: trackingMode,
               fulfilmentMode: "COURIER_DELIVERY",
@@ -883,6 +895,7 @@ async function main() {
             itemDiscount,
             sourceItem.discount_type,
           );
+          if (Number(finalPrice.toFixed(2)) > 0) {
           const existingPrice = await prisma.storeOfferPriceVersion.findUnique({
             where: { publicReference: legacyReferences.price(sourceId, index) },
           });
@@ -911,6 +924,7 @@ async function main() {
             data: { currentPriceVersionId: price.id },
           });
 
+          }
           const inventory = await prisma.catalogInventoryItem.upsert({
             where: { offerId: offer.id },
             update: { trackingMode },
@@ -924,6 +938,17 @@ async function main() {
 
           if (trackingMode === "TRACKED") {
             const quantity = Math.max(0, sourceVariant.stock ?? 0);
+            if (quantity > 0) {
+              const movementReference = "LEG6-MOVE-" + sourceId + "-" + (index + 1);
+              const existingMovement = await prisma.catalogInventoryMovement.findUnique({ where: { publicReference: movementReference } });
+              if (!existingMovement) await prisma.catalogInventoryMovement.create({ data: {
+                publicReference: movementReference, inventoryItemId: inventory.id, locationId: inventoryLocation.id,
+                type: "INITIAL_STOCK", quantityDelta: quantity, resultingOnHand: quantity,
+                operationId: "legacy-initial-stock:" + sourceId + ":" + (index + 1),
+                requestHash: sourceHash({ sourceId, index, quantity, sourceFingerprint: pkg.source.dumpSha256 }),
+                reasonCode: "LEGACY_6AMMART_INITIAL_STOCK", actorUserId: bootstrap.superAdminId,
+              } });
+            }
             await prisma.catalogInventoryLevel.upsert({
               where: {
                 inventoryItemId_locationId: {
@@ -1025,6 +1050,7 @@ async function main() {
         },
       });
 
+      await prisma.$executeRaw`SET CONSTRAINTS ALL IMMEDIATE`;
       if (protectedRows) await assertRetainedRows(prisma, protectedRows);
       if (rehearse) throw rollback;
     }, { timeout: 600_000, maxWait: 10_000, isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
