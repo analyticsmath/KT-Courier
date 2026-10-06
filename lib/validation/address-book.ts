@@ -10,9 +10,17 @@ const SavedAddressTypeSchema = z.enum([
 
 const labelField = z.string().trim().min(2, "Label must be at least 2 characters").max(80, "Label is too long").optional();
 
-// Explicit null clears stale map authority when a saved address is edited to
-// text-only entry. Booking schemas still require real mapped coordinates.
-const savedLocationFields = {
+// Explicit null clears removed optional details and stale map authority on
+// saved addresses. Booking schemas still require real mapped coordinates.
+const savedNullableFields = {
+  contactName: AddressInputSchema.shape.contactName.nullable(),
+  contactPhone: AddressInputSchema.shape.contactPhone.nullable(),
+  line2: AddressInputSchema.shape.line2.nullable(),
+  city: AddressInputSchema.shape.city.nullable(),
+  province: AddressInputSchema.shape.province.nullable(),
+  postalCode: AddressInputSchema.shape.postalCode.nullable(),
+  accessNotes: AddressInputSchema.shape.accessNotes.nullable(),
+  formattedAddress: AddressInputSchema.shape.formattedAddress.nullable(),
   placeId: AddressInputSchema.shape.placeId.nullable(),
   latitude: AddressInputSchema.shape.latitude.nullable(),
   longitude: AddressInputSchema.shape.longitude.nullable(),
@@ -34,7 +42,7 @@ function validateCoordinatePair(
 }
 
 export const SavedAddressCreateSchema = AddressInputSchema.extend({
-  ...savedLocationFields,
+  ...savedNullableFields,
   type: SavedAddressTypeSchema.default(AddressType.CUSTOMER),
   label: labelField,
   isDefault: z.boolean().optional(),
@@ -42,7 +50,7 @@ export const SavedAddressCreateSchema = AddressInputSchema.extend({
 
 export const SavedAddressUpdateSchema = AddressInputSchema.partial()
   .extend({
-    ...savedLocationFields,
+    ...savedNullableFields,
     country: AddressInputSchema.shape.country.removeDefault().optional(),
     type: SavedAddressTypeSchema.optional(),
     label: labelField.nullable().optional(),
@@ -51,7 +59,7 @@ export const SavedAddressUpdateSchema = AddressInputSchema.partial()
   .superRefine(validateCoordinatePair);
 
 export const StorePickupAddressSchema = AddressInputSchema.extend({
-  ...savedLocationFields,
+  ...savedNullableFields,
   label: labelField,
 }).superRefine(validateCoordinatePair);
 

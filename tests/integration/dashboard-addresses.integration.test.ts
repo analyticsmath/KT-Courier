@@ -35,6 +35,13 @@ describe.skipIf(!enabled)("dashboard address persistence in isolated PostgreSQL"
     const owner = await user(), outsider = await user(); const saved = await createCustomerAddress(owner.id, SavedAddressCreateSchema.parse(pin));
     expect(await getCustomerAddress(outsider.id, saved.id)).toBeNull(); expect(await updateCustomerAddress(outsider.id, saved.id, SavedAddressUpdateSchema.parse({ latitude: -26.5, longitude: 28.5 }))).toBeNull(); expect(await getCustomerAddress(owner.id, saved.id)).toMatchObject({ latitude: pin.latitude, longitude: pin.longitude });
   });
+  it("removes old optional details when replacing an address with a newly selected pin", async () => {
+    const owner = await user(); const saved = await createCustomerAddress(owner.id, SavedAddressCreateSchema.parse({ ...pin, label: "Original home", line2: "Unit 2", city: "Johannesburg", province: "Gauteng", postalCode: "2001", contactName: "Old recipient", contactPhone: "+27710373490", accessNotes: "Old entrance" }));
+    const clear = { label: null, line2: null, city: null, province: null, postalCode: null, contactName: null, contactPhone: null, accessNotes: null };
+    const replacement = { line1: "24 New Road", formattedAddress: "24 New Road, South Africa", latitude: -26.55, longitude: 28.55, placeId: "new-selected-place", ...clear };
+    expect(await updateCustomerAddress(owner.id, saved.id, SavedAddressUpdateSchema.parse(replacement))).toMatchObject(replacement);
+    expect(await getCustomerAddress(owner.id, saved.id)).toMatchObject(replacement);
+  });
   it("persists the store pickup point and clears it when changed to an unmapped address", async () => {
     const owner = await user("STORE"); await prisma.store.create({ data: { ownerUserId: owner.id, name: "Isolated pin store", slug: `pin-store-${randomUUID()}`, status: "ACTIVE" } });
     const saved = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse(pin));

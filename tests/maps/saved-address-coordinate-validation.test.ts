@@ -12,4 +12,9 @@ describe("saved address coordinate clearing", () => {
     for (const latitude of [91, -91, NaN, Infinity]) expect(SavedAddressUpdateSchema.safeParse({ latitude, longitude: 28 }).success).toBe(false);
     expect(SavedAddressUpdateSchema.parse({ isDefault: true })).toEqual({ isDefault: true });
   });
+  it("allows optional saved-address details to be explicitly removed", () => {
+    const empty = { contactName: null, contactPhone: null, line2: null, city: null, province: null, postalCode: null, accessNotes: null, formattedAddress: null };
+    for (const schema of [SavedAddressCreateSchema, SavedAddressUpdateSchema, StorePickupAddressSchema]) expect(schema.parse({ ...body, ...empty })).toMatchObject(empty);
+    expect(SavedAddressUpdateSchema.parse({ label: null })).toEqual({ label: null });
+  });
 });
