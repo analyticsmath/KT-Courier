@@ -13,9 +13,9 @@ export class CloudinaryPrivateImageStorageAdapter implements PrivateMediaStorage
   }
   async write(input: { key: string; bytes: Uint8Array; mimeType: string }) {
     if (!["image/jpeg", "image/png", "image/webp"].includes(input.mimeType)) throw new PrivateMediaStorageError("PRIVATE_MEDIA_STORAGE_FAILURE", "Cloudinary profile storage accepts raster images only.");
-    await this.operation(() => this.storage.write(input.key, input.bytes, 5 * 1024 * 1024));
+    await this.operation(() => this.storage.write(input.key, input.bytes, 10 * 1024 * 1024));
   }
-  read(key: string) { return this.operation(() => this.storage.read(key, 5 * 1024 * 1024)); }
+  read(key: string) { return this.operation(() => this.storage.read(key, 10 * 1024 * 1024)); }
   async delete(key: string) { await this.operation(() => this.storage.delete(key)); }
 }
 export function createCloudinaryPrivateImageStorageAdapter(): PrivateMediaStorageAdapter {
