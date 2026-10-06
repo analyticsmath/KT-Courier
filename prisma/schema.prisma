@@ -14471,3 +14471,63 @@ model BusinessSupportAccess {
   @@index([storeId, createdAt])
   @@index([actorUserId, createdAt])
 }
+
+
+// ─── Legacy migration provenance ─────────────────────────────────────────────
+// These tables preserve source-to-target traceability for controlled predecessor
+// system migrations. They contain identifiers and safe metadata only; legacy
+// credentials, tokens, secrets and raw dumps never belong here.
+
+enum LegacyMigrationRunStatus {
+  PLANNED
+  DRY_RUN
+  VALIDATED
+  APPLYING
+  APPLIED
+  FAILED
+  ROLLED_BACK
+}
+
+model LegacyMigrationRun {
+  id                     String                   @id @default(cuid())
+  publicReference        String                   @unique
+  sourceSystem           String
+  sourceDatabase         String
+  sourceFingerprint      String
+  sourceMediaFingerprint String?
+  phase                  String
+  status                 LegacyMigrationRunStatus @default(PLANNED)
+  summary                Json?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  createdByUserId        String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  mappings               LegacyMigrationMap[]
+
+  @@unique([sourceSystem, sourceDatabase, sourceFingerprint, phase], map: "LegacyMigrationRun_source_phase_key")
+  @@index([status, createdAt])
+}
+
+model LegacyMigrationMap {
+  id                    String             @id @default(cuid())
+  runId                 String
+  sourceSystem          String
+  sourceDatabase        String
+  sourceTable           String
+  sourceId              String
+  sourceHash            String
+  disposition           String
+  targetModel           String
+  targetId              String
+  targetPublicReference String?
+  safeMetadata          Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  run                   LegacyMigrationRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+  @@unique([sourceSystem, sourceDatabase, sourceTable, sourceId, targetModel], map: "LegacyMigrationMap_source_target_key")
+  @@index([runId, disposition])
+  @@index([targetModel, targetId])
+  @@index([sourceTable, sourceId])
+}
