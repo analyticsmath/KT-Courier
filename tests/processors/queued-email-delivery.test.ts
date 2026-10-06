@@ -1,12 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { deliverQueuedEmails } from "@/lib/notifications/queued-email-delivery";
-const mocks = vi.hoisted(() => ({ findMany: vi.fn(), intent: vi.fn(), user: vi.fn(), security: vi.fn(), deliver: vi.fn(), ready: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { notificationDelivery: { findMany: mocks.findMany }, notificationEventIntent: { findUnique: mocks.intent }, user: { findUnique: mocks.user } } }));
+const mocks = vi.hoisted(() => ({ findMany: vi.fn(), intent: vi.fn(), user: vi.fn(), message: vi.fn(), category: vi.fn(), suppressed: vi.fn(), evaluate: vi.fn(), security: vi.fn(), deliver: vi.fn(), ready: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { notificationDelivery: { findMany: mocks.findMany }, notificationEventIntent: { findUnique: mocks.intent }, user: { findUnique: mocks.user }, notificationMessage: { findUnique: mocks.message }, notificationCategory: { findUnique: mocks.category } } }));
 vi.mock("@/lib/notifications/production-readiness", () => ({ assertNotificationProductionReady: mocks.ready }));
 vi.mock("@/lib/notifications/security-email-delivery", () => ({ deliverSecurityEmail: mocks.security }));
-vi.mock("@/lib/notifications/composition-root", () => ({ resolveNotificationProductionComposition: () => ({ services: { delivery: { deliver: mocks.deliver } } }) }));
-beforeEach(() => { vi.resetAllMocks(); mocks.findMany.mockResolvedValue([{ id: "email", messageId: "message", recipientUserId: "user", publicReference: "public-email" }]); });
+vi.mock("@/lib/notifications/composition-root", () => ({ resolveNotificationProductionComposition: () => ({ services: { delivery: { deliver: mocks.deliver }, suppressions: { isSuppressed: mocks.suppressed }, preferences: { evaluate: mocks.evaluate } } }) }));
+beforeEach(() => {
+  vi.resetAllMocks();
+  mocks.findMany.mockResolvedValue([{ id: "email", messageId: "message", recipientUserId: "user", publicReference: "public-email" }]);
+  mocks.message.mockResolvedValue({ recipientUserId: "user", categoryKey: "orders", purpose: "TRANSACTIONAL" });
+  mocks.category.mockResolvedValue({ key: "orders", status: "ACTIVE", purpose: "TRANSACTIONAL" });
+  mocks.suppressed.mockResolvedValue(false); mocks.evaluate.mockResolvedValue({ state: "IMMEDIATE" });
+});
 describe("real queued email processor adapter", () => {
+  it("honours current suppression and preference decisions before sending a previously queued message", async () => {
+    mocks.intent.mockResolvedValue(null); mocks.user.mockResolvedValue({ email: "verified@example.test", emailVerifiedAt: new Date(), status: "ACTIVE" });
+    mocks.suppressed.mockResolvedValue(true); mocks.evaluate.mockResolvedValue({ state: "BLOCKED", reason: "SUPPRESSED_DESTINATION" });
+    expect((await deliverQueuedEmails(50)).itemsSkipped).toBe(1);
+    expect(mocks.evaluate).toHaveBeenCalledWith(expect.objectContaining({ suppressed: true, verifiedDestination: true }));
+    expect(mocks.deliver).not.toHaveBeenCalled();
+  });
   it("uses the encrypted security path for authentication instead of rendering a generic message", async () => {
     mocks.intent.mockResolvedValue({ sourceAuthority: "AUTHENTICATION_SECURITY" });
     mocks.security.mockResolvedValue({ status: "PROVIDER_ACCEPTED" });

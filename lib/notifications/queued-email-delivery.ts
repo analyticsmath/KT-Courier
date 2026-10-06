@@ -20,7 +20,14 @@ export async function deliverQueuedEmails(limit: number) {
       } else {
         const user = await prisma.user.findUnique({ where: { id: delivery.recipientUserId }, select: { email: true, emailVerifiedAt: true, status: true } });
         if (!user?.email || !user.emailVerifiedAt || user.status !== "ACTIVE") { skipped++; continue; }
+        const message = await prisma.notificationMessage.findUnique({ where: { id: delivery.messageId } });
+        if (!message || message.recipientUserId !== delivery.recipientUserId) { skipped++; continue; }
+        const category = await prisma.notificationCategory.findUnique({ where: { key: message.categoryKey } });
+        if (!category || category.status !== "ACTIVE" || category.purpose !== message.purpose) { skipped++; continue; }
         const composition = resolveNotificationProductionComposition();
+        const suppressed = await composition.services.suppressions.isSuppressed({ userId: delivery.recipientUserId, channel: "EMAIL", purpose: message.purpose });
+        const eligibility = await composition.services.preferences.evaluate({ userId: delivery.recipientUserId, category, channel: "EMAIL", suppressed, verifiedDestination: true });
+        if (eligibility.state !== "IMMEDIATE") { skipped++; continue; }
         result = await composition.services.delivery.deliver({ deliveryId: delivery.id, destination: user.email, operationId: `production-email:${delivery.publicReference}` });
       }
       if (result?.status === "PROVIDER_ACCEPTED" || result?.status === "DELIVERED") completed++;
