@@ -1,8 +1,7 @@
-import { LegalDocumentPage } from "@/components/public-v2/legal";
-import { legalDocumentMetadata } from "@/lib/public-legal/legal-document-registry";
+import { PublishedPolicyPage, publishedPolicyMetadata } from "@/components/public-v2/legal/PublishedPolicyPage";
 
-export const metadata = legalDocumentMetadata("privacy-notice");
+export async function generateMetadata() { return publishedPolicyMetadata("privacy-notice"); }
 
 export default function PrivacyPolicyPage() {
-  return <LegalDocumentPage documentId="privacy-notice" />;
+  return <PublishedPolicyPage documentId="privacy-notice" />;
 }

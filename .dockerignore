@@ -13,7 +13,10 @@ tmp
 Dockerfile*
 docker-compose*.yml
 compose*.yml
-docs
+docs/*
+!docs/client-authority/
+!docs/client-authority/2026-10/
+!docs/client-authority/2026-10/**
 tests
 .vscode
 .idea

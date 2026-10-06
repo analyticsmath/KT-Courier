@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import aboutMetadata from "@/app/(public)/about/page";
 import { metadata as aboutPageMetadata } from "@/app/(public)/about/page";
 import { metadata as careersPageMetadata } from "@/app/(public)/careers/page";
@@ -12,6 +12,12 @@ import sitemap from "@/app/sitemap";
 import { allSupportingPageMedia } from "@/lib/public-assets/supporting-page-media";
 import { publicFaqJsonLd, publicFaqSections } from "@/lib/public-faq/faqs";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
+
+vi.mock("next/server", () => ({ connection: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/public-legal/published-policy", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/public-legal/published-policy")>(),
+  loadPublishedPolicy: vi.fn().mockResolvedValue(null),
+}));
 
 const workspaceRoot = process.cwd();
 const publicRoot = path.join(workspaceRoot, "public");
@@ -80,7 +86,7 @@ describe("R7 supporting public pages", () => {
     ]);
   });
 
-  it("keeps breadcrumbs and sitemap entries limited to canonical public routes", () => {
+  it("keeps breadcrumbs and sitemap entries limited to canonical public routes", async () => {
     const breadcrumb = JSON.parse(
       publicBreadcrumbJsonLd([
         { label: "Home", href: "/" },
@@ -94,7 +100,7 @@ describe("R7 supporting public pages", () => {
       "https://ktcouriers.com/coverage-areas",
     ]);
 
-    const urls = sitemap().map((entry) => entry.url);
+    const urls = (await sitemap()).map((entry) => entry.url);
     for (const route of [
       "/about",
       "/coverage-areas",

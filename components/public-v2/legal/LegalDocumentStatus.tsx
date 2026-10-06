@@ -2,6 +2,10 @@ import type { LegalDocumentStatus } from "@/lib/public-legal/legal-document-regi
 import styles from "./legal-pages.module.css";
 
 const statusCopy: Record<LegalDocumentStatus, { label: string; description: string }> = {
+  DATABASE_MANAGED: {
+    label: "Versioned publication",
+    description: "The current published version is resolved from the document record.",
+  },
   MISSING: {
     label: "Publication not available",
     description: "This document has not been supplied for public publication.",

@@ -1,8 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import sitemap from "@/app/sitemap";
 import { authMedia } from "@/lib/public-assets/auth-media";
+
+vi.mock("next/server", () => ({ connection: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/public-legal/published-policy", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/public-legal/published-policy")>(),
+  loadPublishedPolicy: vi.fn().mockResolvedValue(null),
+}));
 
 const workspaceRoot = process.cwd();
 const publicRoot = path.join(workspaceRoot, "public");
@@ -24,7 +30,7 @@ const routeFiles = routes.map((route) => `app/(auth)/${route}/page.tsx`);
 const routeSource = routeFiles.map(readSource).join("\n");
 
 describe("R8 public authentication experience", () => {
-  it("preserves exactly the verified auth route inventory with private metadata", () => {
+  it("preserves exactly the verified auth route inventory with private metadata", async () => {
     expect(routeFiles).toHaveLength(10);
     for (const file of routeFiles) {
       expect(existsSync(path.join(workspaceRoot, file))).toBe(true);
@@ -33,7 +39,7 @@ describe("R8 public authentication experience", () => {
       expect(source).toMatch(/AuthRouteIntro|AuthStatusPage|Form/);
     }
     expect(routeSource).not.toMatch(/alternates:\s*\{[^}]*token/i);
-    expect(sitemap().some((entry) => /\/(login|signup|forgot-password|reset-password|verify-otp|security-verification|account-locked|session-expired|accept-invitation)/.test(entry.url))).toBe(false);
+    expect((await sitemap()).some((entry) => /\/(login|signup|forgot-password|reset-password|verify-otp|security-verification|account-locked|session-expired|accept-invitation)/.test(entry.url))).toBe(false);
   });
 
   it("keeps live forms on their canonical authorities and leaves unsupported routes non-actionable", () => {

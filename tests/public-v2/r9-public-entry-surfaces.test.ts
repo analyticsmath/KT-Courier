@@ -1,9 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import sitemap from "@/app/sitemap";
 import { allR9EntryMedia } from "@/lib/public-assets/r9-entry-media";
 import { participationRegistry } from "@/lib/public-participation/participation-registry";
+
+vi.mock("next/server", () => ({ connection: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/public-legal/published-policy", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/public-legal/published-policy")>(),
+  loadPublishedPolicy: vi.fn().mockResolvedValue(null),
+}));
 
 const root = process.cwd();
 const read = (file: string) => readFileSync(path.join(root, file), "utf8");
@@ -136,8 +142,8 @@ describe("R9 public marketplace, participation, and developer entry surfaces", (
     }
   });
 
-  it("indexes only approved public R9 entry pages", () => {
-    const urls = sitemap().map((entry) => entry.url);
+  it("indexes only approved public R9 entry pages", async () => {
+    const urls = (await sitemap()).map((entry) => entry.url);
     for (const route of ["/shop", "/join", "/developers"])
       expect(urls).toContain(`https://ktcouriers.com${route}`);
     expect(

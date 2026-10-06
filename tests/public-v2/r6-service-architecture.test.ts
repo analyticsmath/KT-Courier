@@ -1,10 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { allServiceMedia } from "@/lib/public-assets/service-media";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import { publicServicePages } from "@/lib/public-services/service-page-registry";
 import sitemap from "@/app/sitemap";
+
+vi.mock("next/server", () => ({ connection: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/public-legal/published-policy", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/public-legal/published-policy")>(),
+  loadPublishedPolicy: vi.fn().mockResolvedValue(null),
+}));
 
 const workspaceRoot = process.cwd();
 const publicRoot = path.join(workspaceRoot, "public");
@@ -143,7 +149,7 @@ describe("R6 public service architecture", () => {
     expect(cssSource).not.toMatch(/gradient|purple|box-shadow/i);
   });
 
-  it("keeps breadcrumb JSON-LD limited to the canonical hierarchy and sitemap limited to public services", () => {
+  it("keeps breadcrumb JSON-LD limited to the canonical hierarchy and sitemap limited to public services", async () => {
     const jsonLd = JSON.parse(
       publicBreadcrumbJsonLd([
         { label: "Home", href: "/" },
@@ -161,7 +167,7 @@ describe("R6 public service architecture", () => {
     ]);
 
     expect(sitemapSource).toContain("indexablePublicServicePages");
-    const sitemapEntries = sitemap();
+    const sitemapEntries = await sitemap();
     const serviceUrls = sitemapEntries
       .filter((entry) => entry.url.includes("/services"))
       .map((entry) => entry.url);

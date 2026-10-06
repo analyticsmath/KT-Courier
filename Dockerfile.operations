@@ -1,0 +1,18 @@
+FROM node:24-bookworm-slim
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl postgresql-15 redis-server && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts --fetch-retries=5 --fetch-timeout=120000
+COPY prisma ./prisma
+RUN node node_modules/prisma/build/index.js generate
+COPY --chown=node:node lib ./lib
+COPY --chown=node:node types ./types
+COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node tests ./tests
+COPY --chown=node:node docs/client-authority/2026-10 ./docs/client-authority/2026-10
+COPY --chown=node:node tsconfig.json vitest*.ts ./
+USER node
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "node_modules/tsx/dist/cli.mjs", "scripts/production-processors.ts"]

@@ -468,7 +468,7 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     };
   },
 
-  "deliver-notifications": async ({ mode }) => {
+  "deliver-notifications": async ({ mode, batchSize }) => {
     const queuedCount = await prisma.notificationDelivery.count({ where: { status: "QUEUED" } });
     if (mode === "DRY_RUN") {
       return {
@@ -481,17 +481,8 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
         safeSummary: `[DRY_RUN] Evaluated ${queuedCount} queued notification deliveries; 0 dispatched.`,
       };
     }
-    const { assertNotificationProductionReady } = await import("@/lib/notifications/production-readiness");
-    assertNotificationProductionReady();
-    return {
-      itemsExamined: queuedCount,
-      itemsClaimed: 0,
-      itemsCompleted: 0,
-      itemsSkipped: queuedCount,
-      itemsRetried: 0,
-      itemsReconciled: 0,
-      safeSummary: `Delivered 0 notifications.`,
-    };
+    const { deliverQueuedEmails } = await import("@/lib/notifications/queued-email-delivery");
+    return deliverQueuedEmails(batchSize);
   },
 };
 
@@ -634,4 +625,3 @@ export async function executeRegisteredProcessor(
     throw err;
   }
 }
-

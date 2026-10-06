@@ -6,11 +6,14 @@ export type LegalDocumentStatus =
   | "DRAFT_UNAPPROVED"
   | "COUNSEL_REVIEW_REQUIRED"
   | "APPROVED_FOR_PUBLICATION"
+  | "DATABASE_MANAGED"
   | "SUPERSEDED";
 
 export type LegalDocumentId =
   | "privacy-notice"
   | "website-terms"
+  | "refund-policy"
+  | "shipping-policy"
   | "cookie-notice"
   | "accessibility-statement"
   | "paia-manual";
@@ -32,40 +35,40 @@ export type LegalDocumentDefinition = {
 
 /**
  * Publication status is deliberately separate from product records and from
- * operational agreements. None of these entries has been approved by counsel
- * in the repository, so no effective date, version, approver, or legal clause
- * is manufactured here.
+ * operational agreements. Supplied client policies resolve publication from
+ * immutable database versions. Remaining documents retain their review gates;
+ * this static registry does not manufacture counsel approval or effective dates.
  */
 export const legalDocumentRegistry: readonly LegalDocumentDefinition[] = [
   {
     id: "privacy-notice",
     route: "/privacy-policy",
     title: "Privacy Notice",
-    status: "COUNSEL_REVIEW_REQUIRED",
-    contentSource: "No approved public Privacy Notice source was found in the repository.",
+    status: "DATABASE_MANAGED",
+    contentSource: "Client Privacy Policy; effective immutable version resolved from LegalDocumentVersion.",
     indexable: false,
     sitemap: false,
-    requiredInputs: [
-      "Approved Privacy Notice text",
-      "Responsible legal entity identity",
-      "Privacy contact authority",
-      "Retention, legal-basis, recipient, and international-processing decisions",
-    ],
+    requiredInputs: [],
   },
   {
     id: "website-terms",
     route: "/terms",
     title: "Website Terms",
-    status: "COUNSEL_REVIEW_REQUIRED",
-    contentSource: "No approved Website Terms source was found in the repository.",
+    status: "DATABASE_MANAGED",
+    contentSource: "Client Terms reconciled against later instructions; effective immutable version resolved from LegalDocumentVersion.",
     indexable: false,
     sitemap: false,
-    requiredInputs: [
-      "Approved Website Terms text and scope",
-      "Responsible legal entity identity",
-      "Approved contact route where one is required",
-      "Confirmed separation from delivery, marketplace, participation, developer, payment, and refund agreements",
-    ],
+    requiredInputs: [],
+  },
+  {
+    id: "refund-policy", route: "/refund-policy", title: "Refund and Cancellation Policy",
+    status: "DATABASE_MANAGED", contentSource: "Client Refund Policy; effective immutable version resolved from LegalDocumentVersion.",
+    indexable: false, sitemap: false, requiredInputs: [],
+  },
+  {
+    id: "shipping-policy", route: "/shipping-policy", title: "Shipping and Delivery Policy",
+    status: "DATABASE_MANAGED", contentSource: "Client Shipping Policy; effective immutable version resolved from LegalDocumentVersion.",
+    indexable: false, sitemap: false, requiredInputs: [],
   },
   {
     id: "cookie-notice",

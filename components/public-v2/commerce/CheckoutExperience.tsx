@@ -89,7 +89,7 @@ export function CheckoutExperience() {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [contactMethod, setContactMethod] = useState("SMS");
+  const [contactMethod, setContactMethod] = useState("EMAIL");
 
   // Step 2: Address
   const [addrLine1, setAddrLine1] = useState("");
@@ -650,8 +650,6 @@ export function CheckoutExperience() {
                     onChange={(e) => setContactMethod(e.target.value)}
                     style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4, backgroundColor: "var(--kt-public-surface-primary)" }}
                   >
-                    <option value="SMS">SMS</option>
-                    <option value="WHATSAPP">WhatsApp</option>
                     <option value="EMAIL">Email</option>
                   </select>
                 </div>

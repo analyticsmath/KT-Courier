@@ -74,6 +74,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/types ./types
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/var/catalog-media ./var/catalog-media
+COPY --from=builder --chown=nextjs:nodejs /app/docs/client-authority/2026-10 ./docs/client-authority/2026-10
 
 USER nextjs
 

@@ -146,6 +146,16 @@ export function PublicFooter() {
                   Privacy policy
                 </Link>
               </li>
+              <li>
+                <Link href="/refund-policy" className="hover:text-[var(--kt-public-text-inverse)] hover:underline transition-colors">
+                  Refunds and cancellations
+                </Link>
+              </li>
+              <li>
+                <Link href="/shipping-policy" className="hover:text-[var(--kt-public-text-inverse)] hover:underline transition-colors">
+                  Shipping and delivery
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

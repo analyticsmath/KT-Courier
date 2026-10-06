@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import { brandAssets } from "@/lib/public-assets/brand-assets";
@@ -17,6 +17,12 @@ import {
   publicPageMetadata,
   publicSiteMetadata,
 } from "@/lib/public-site/site-metadata";
+
+vi.mock("next/server", () => ({ connection: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/public-legal/published-policy", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/public-legal/published-policy")>(),
+  loadPublishedPolicy: vi.fn().mockResolvedValue(null),
+}));
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -74,7 +80,7 @@ describe("R10 legal publication gate", () => {
       "accessibility",
     ]) {
       const source = read(`app/(public)/${route}/page.tsx`);
-      expect(source).toContain("LegalDocumentPage");
+      expect(source).toContain(["terms", "privacy-policy"].includes(route) ? "PublishedPolicyPage" : "LegalDocumentPage");
       expect(source).not.toMatch(
         /lastUpdated|placeholder|retention period|liability cap|refund period/i,
       );
@@ -122,8 +128,8 @@ describe("R10 metadata and sitemap contracts", () => {
     expect(sources).not.toMatch(/title:\s*["`][^"`]*\|\s*KT Couriers/);
   });
 
-  it("keeps the root sitemap aligned with the typed indexable route policy", () => {
-    const urls = sitemap().map((entry) => entry.url);
+  it("keeps the root sitemap aligned with the typed indexable route policy", async () => {
+    const urls = (await sitemap()).map((entry) => entry.url);
     expect(urls).toEqual(
       sitemapPublicRoutes.map((route) => canonicalUrl(route.route)),
     );

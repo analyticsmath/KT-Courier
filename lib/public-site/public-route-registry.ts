@@ -65,10 +65,10 @@ const legalRoutes = legalDocumentRegistry.flatMap((document) => {
     route: document.route,
     title: document.title,
     family: "LEGAL" as const,
-    status: document.status === "DRAFT_UNAPPROVED" ? "LEGAL_DRAFT" as const : "LEGAL_REVIEW_REQUIRED" as const,
+    status: document.status === "DATABASE_MANAGED" ? "NOINDEX_FUNCTIONAL" as const : document.status === "DRAFT_UNAPPROVED" ? "LEGAL_DRAFT" as const : "LEGAL_REVIEW_REQUIRED" as const,
     indexable: document.indexable,
     sitemap: document.sitemap,
-    notes: ["Publication state is controlled by the legal-document registry."],
+    notes: [document.status === "DATABASE_MANAGED" ? "Effective database publication controls metadata and sitemap inclusion at request time." : "Publication state is controlled by the legal-document registry."],
   }];
 });
 
