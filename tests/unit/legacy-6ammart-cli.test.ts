@@ -10,9 +10,10 @@ writeFileSync(source, JSON.stringify({ packageVersion: 1,
   source: { system: "LEGACY_6AMMART", database: "wwwktcouriers_ktcouaielidb", dumpSha256: "a".repeat(64) },
   tables: { vendors: [], categories: [], stores: [{ id: 21, name: "Real merchant", status: 1, active: 1 }],
     items: [
-      { id: 1, store_id: 21, status: 1, is_approved: 1, image: "valid.png" },
-      { id: 2, store_id: 21, status: 1, is_approved: 1, image: "empty.png" },
-      { id: 3, store_id: 999, status: 1, is_approved: 1, image: "valid.png" },
+      { id: 1, store_id: 21, status: 1, is_approved: 1, price: 100, image: "valid.png" },
+      { id: 2, store_id: 21, status: 1, is_approved: 1, price: 100, image: "empty.png" },
+      { id: 3, store_id: 999, status: 1, is_approved: 1, price: 100, image: "valid.png" },
+      { id: 4, store_id: 21, status: 1, is_approved: 1, price: 9995, image: "valid.png", variations: [{ type: "METAL", price: 0, stock: 0 }] },
     ] },
   media: { "valid.png": { exists: true, byteSize: 50, zeroByte: false }, "empty.png": { exists: true, byteSize: 0, zeroByte: true } },
 }));
@@ -27,7 +28,7 @@ describe("legacy importer command boundary", () => {
   it("defaults to a database-free dry run with independent admission counts", () => {
     const result = run();
     expect(result.status, result.stderr).toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({ mode: "dry-run", stores: { total: 1, publish: 1 }, products: { total: 3, publish: 1, pending: 1, orphan: 1 } });
+    expect(JSON.parse(result.stdout)).toMatchObject({ mode: "dry-run", stores: { total: 1, publish: 1 }, products: { total: 4, publish: 1, pending: 2, orphan: 1, invalidPrice: 1 } });
   });
   it("rejects an unclassified apply before any database connection", () => {
     const result = run(["--apply"]);
