@@ -475,6 +475,15 @@ export class CloudinaryCatalogMediaReadAdapter implements CatalogMediaStorageAda
   }
 }
 
+/** Public catalogue origins only; this never grants upload or deletion access. */
+export function createCloudinaryCatalogMediaReadAdapter(
+  env: Record<string, string | undefined> = process["env"],
+): CatalogMediaStorageAdapter {
+  const config = configuredCatalogCloudinary(env);
+  if (!config) throw new CatalogMediaStorageError("CATALOG_MEDIA_STORAGE_NOT_READY", "Cloudinary catalogue origin is not configured.");
+  return new CloudinaryCatalogMediaReadAdapter(config);
+}
+
 /**
  * Cloudinary-first delivery with canonical S3 fallback. This preserves public
  * availability during migration while keeping S3 as the authoritative write
@@ -488,7 +497,7 @@ export class CloudinaryFirstCatalogMediaStorageAdapter implements CatalogMediaSt
     private readonly cloudinary: CatalogMediaStorageAdapter,
     private readonly canonical: CatalogMediaStorageAdapter,
   ) {
-    this.productionReady = canonical.productionReady;
+    this.productionReady = cloudinary.productionReady || canonical.productionReady;
   }
 
   createUploadTarget(input: Readonly<{ intentReference: string; storageKey: string; maximumBytes: number; expiresAt: Date }>) {
@@ -529,7 +538,7 @@ export function createProductionCatalogMediaDeliveryStorageAdapter(
   }
 
   const cloudinary = configuredCatalogCloudinary(env);
-  if (!cloudinary || !canonical.productionReady) {
+  if (!cloudinary) {
     return canonical;
   }
 

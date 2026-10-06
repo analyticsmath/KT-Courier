@@ -149,7 +149,7 @@ function assertPackage(pkg: SourcePackage): void {
   }
 }
 
-async function assertTargetAllowed(apply: boolean, pkg: SourcePackage): Promise<void> {
+async function assertTargetAllowed(apply: boolean, pkg: SourcePackage, preserved: Partial<Record<"Store" | "CatalogProduct" | "CatalogMediaAsset", string[]>> = {}): Promise<void> {
   if (!apply) return;
   assertLegacyApplyAllowed();
   const run = await prisma.legacyMigrationRun.findUnique({
@@ -162,7 +162,7 @@ async function assertTargetAllowed(apply: boolean, pkg: SourcePackage): Promise<
     const mappings = run ? await prisma.legacyMigrationMap.findMany({
       where: { runId: run.id, targetModel: model }, select: { targetId: true },
     }) : [];
-    assertLegacyTargetOwnership(records.map((record) => record.id), mappings.map((mapping) => mapping.targetId), model);
+    assertLegacyTargetOwnership(records.map((record) => record.id), mappings.map((mapping) => mapping.targetId), model, preserved[model]);
   }
 }
 
@@ -212,6 +212,22 @@ async function mapSource(input: {
   });
 }
 
+const PROTECTED_TABLES = ["User", "Store", "StoreProfile", "Order", "MarketplaceOrder", "MarketplaceStoreOrder", "MarketplaceOrderLine", "MarketplaceCheckout", "MarketplaceCheckoutLineSnapshot", "Payment", "LedgerEntry", "LedgerAccount", "PrivateMediaObject", "DriverProfile", "CatalogMediaAsset", "ProductTypeDefinition"] as const;
+type RetainedRow = { id: string; fingerprint: string };
+async function captureRetainedRows(db: Prisma.TransactionClient) {
+  const rows: Record<string, RetainedRow[]> = {};
+  for (const table of PROTECTED_TABLES) {
+    rows[table] = await db.$queryRawUnsafe<RetainedRow[]>('SELECT id, md5(row_to_json(t)::text) AS fingerprint FROM "' + table + '" t ORDER BY id');
+  }
+  return rows;
+}
+async function assertRetainedRows(db: Prisma.TransactionClient, baseline: Record<string, RetainedRow[]>) {
+  for (const table of PROTECTED_TABLES) {
+    const current = new Map((await db.$queryRawUnsafe<RetainedRow[]>('SELECT id, md5(row_to_json(t)::text) AS fingerprint FROM "' + table + '" t')).map((row) => [row.id, row.fingerprint]));
+    if (baseline[table].some((row) => current.get(row.id) !== row.fingerprint)) throw new Error("Retained production rows changed: " + table);
+  }
+}
+
 const PRODUCT_TYPES = [
   ["GROCERIES", "Groceries and Fresh Produce"],
   ["FOOD_DINING", "Restaurant and Prepared Meals"],
@@ -228,11 +244,21 @@ const PRODUCT_TYPES = [
 
 async function main() {
   const packagePath = requiredString(arg("--source"), "--source");
-  const apply = hasFlag("--apply");
+  const rehearse = hasFlag("--rehearse");
+  const apply = hasFlag("--apply") || rehearse;
   const raw = await readFile(packagePath, "utf8");
   const pkg = JSON.parse(raw) as SourcePackage;
   assertPackage(pkg);
-  await assertTargetAllowed(apply, pkg);
+  const baselinePath = arg("--preserve-target");
+  const preserved = baselinePath ? JSON.parse(await readFile(baselinePath, "utf8")) as {
+    sourceFingerprint: string; projectId: string; environmentId: string;
+    inventory: Partial<Record<"Store" | "CatalogProduct" | "CatalogMediaAsset", string[]>>;
+  } : null;
+  if (preserved && (preserved.sourceFingerprint !== pkg.source.dumpSha256 ||
+    preserved.projectId !== process.env.RAILWAY_PROJECT_ID || preserved.environmentId !== process.env.RAILWAY_ENVIRONMENT_ID)) {
+    throw new Error("Preserved target manifest does not match the source and Railway environment.");
+  }
+  await assertTargetAllowed(apply, pkg, preserved?.inventory);
 
   const vendorsById = new Map(
     pkg.tables.vendors.map((row) => [intValue(row.id), row]),
@@ -308,6 +334,14 @@ async function main() {
     return;
   }
 
+  const rollback = new Error("LEGACY_REHEARSAL_ROLLBACK");
+  let runReference = legacyReferences.run(pkg.source.dumpSha256);
+  try {
+    await rootClient.$transaction(async (tx) => {
+      prisma = tx;
+      await prisma.$queryRaw`SELECT pg_advisory_xact_lock(6142026)`;
+      await assertTargetAllowed(true, pkg, preserved?.inventory);
+      const protectedRows = preserved ? await captureRetainedRows(prisma) : null;
   // Reconcile identities before the first target write, including phone-only matches.
   for (const sourceStore of pkg.tables.stores) {
     if (!sourceStore.name || /(^|\b)(test|demo|sample|do not use)(\b|$)/i.test(sourceStore.name)) continue;
@@ -316,6 +350,11 @@ async function main() {
     if (!vendor) throw new Error("Missing legacy vendor " + vendorId);
     const email = normalizeLegacyEmail(vendor.email) ?? normalizeLegacyEmail(sourceStore.email) ?? "legacy.store." + intValue(sourceStore.id) + "@migration.invalid";
     const phone = normalizeLegacyPhone(vendor.phone) ?? normalizeLegacyPhone(sourceStore.phone);
+    const storeCollision = await prisma.store.findUnique({ where: { slug: legacySlug(String(sourceStore.name), intValue(sourceStore.id)) }, select: { id: true } });
+    if (storeCollision) {
+      const ownStore = await prisma.legacyMigrationMap.findFirst({ where: { sourceSystem: pkg.source.system, sourceDatabase: pkg.source.database, sourceTable: "stores", sourceId: String(sourceStore.id), targetModel: "Store", targetId: storeCollision.id } });
+      if (!ownStore) throw new Error("Unreconciled store slug collision for legacy store " + sourceStore.id);
+    }
     const mapping = await prisma.legacyMigrationMap.findUnique({
       where: { sourceSystem_sourceDatabase_sourceTable_sourceId_targetModel: {
         sourceSystem: pkg.source.system, sourceDatabase: pkg.source.database,
@@ -345,7 +384,7 @@ async function main() {
   });
   const bootstrap = { superAdminId: actor.id };
 
-  const runReference = legacyReferences.run(pkg.source.dumpSha256);
+  runReference = legacyReferences.run(pkg.source.dumpSha256);
   const run = await prisma.legacyMigrationRun.upsert({
     where: { publicReference: runReference },
     update: {
@@ -368,14 +407,11 @@ async function main() {
     },
   });
 
-  try {
-    await rootClient.$transaction(async (tx) => {
-      prisma = tx;
       const productTypes = new Map<string, { id: string; versionNumber: number }>();
       for (const [code, name] of PRODUCT_TYPES) {
         const record = await prisma.productTypeDefinition.upsert({
           where: { code_versionNumber: { code, versionNumber: 1 } },
-          update: { name, status: "ACTIVE" },
+          update: {},
           create: {
             publicReference: "PTD-" + code,
             code,
@@ -989,7 +1025,9 @@ async function main() {
         },
       });
 
-    }, { timeout: 600_000, maxWait: 10_000 });
+      if (protectedRows) await assertRetainedRows(prisma, protectedRows);
+      if (rehearse) throw rollback;
+    }, { timeout: 600_000, maxWait: 10_000, isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     prisma = rootClient;
     console.log(
       JSON.stringify(
@@ -1006,13 +1044,10 @@ async function main() {
     );
   } catch (error) {
     prisma = rootClient;
-    await prisma.legacyMigrationRun.update({
-      where: { id: run.id },
-      data: {
-        status: "FAILED",
-        completedAt: new Date(),
-      },
-    });
+    if (error === rollback) {
+      console.log(JSON.stringify({ mode: "rehearsed-rolled-back", ...summary, preservedRowsUnchanged: true }));
+      return;
+    }
     throw error;
   }
 }

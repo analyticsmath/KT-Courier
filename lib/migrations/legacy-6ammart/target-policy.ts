@@ -23,8 +23,11 @@ export function assertLegacyApplyAllowed(
 /** Counts alone cannot prove ownership when a mapped row was deleted. */
 export function assertLegacyTargetOwnership(
   targetIds: readonly string[], mappedIds: readonly string[], model: string,
+  preservedIds: readonly string[] = [],
 ): void {
   const mapped = new Set(mappedIds);
+  if (preservedIds.some((id) => mapped.has(id))) throw new Error("Preserved and imported target identities overlap: " + model);
+  for (const id of preservedIds) mapped.add(id);
   if (targetIds.length !== mapped.size || targetIds.some((id) => !mapped.has(id))) {
     throw new Error("Target contains unrelated or missing " + model + " records; reconcile in a separate clean target.");
   }

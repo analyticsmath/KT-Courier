@@ -8,7 +8,7 @@ import {
   assertCatalogMediaDimensions,
   CATALOG_MEDIA_MAX_UPLOAD_BYTES,
 } from "../../lib/catalog/media/catalog-media-policy";
-import { createProductionCatalogMediaStorageAdapter } from "../../lib/catalog/media/catalog-media-storage-adapter";
+import { createProductionCatalogMediaStorageAdapter, createCloudinaryCatalogMediaReadAdapter } from "../../lib/catalog/media/catalog-media-storage-adapter";
 import { legacyReferences } from "../../lib/migrations/legacy-6ammart/catalog-policy";
 
 type NormalizedAsset = Readonly<{
@@ -30,12 +30,15 @@ type NormalizedAsset = Readonly<{
   storage_key: string;
   cloudinary_public_id: string;
   normalized_relpath: string;
+  cloudinary_secure_url?: string;
+  full_decode_verified?: boolean;
 }>;
 
 type NormalizedManifest = Readonly<{
   version: number;
   sourceDumpSha256: string;
   assetCount: number;
+  storageOrigin?: string;
   assets: readonly NormalizedAsset[];
 }>;
 
@@ -100,7 +103,8 @@ async function findTarget(asset: NormalizedAsset, runId: string) {
 
 async function main() {
   const manifestPath = required(arg("--manifest"), "--manifest");
-  const mediaDir = required(arg("--media-dir"), "--media-dir");
+  const cloudinaryOrigin = hasFlag("--cloudinary-existing");
+  const mediaDir = cloudinaryOrigin ? "" : required(arg("--media-dir"), "--media-dir");
   const apply = hasFlag("--apply");
 
   if (apply) assertLegacyApplyAllowed();
@@ -133,7 +137,8 @@ async function main() {
 
   if (run.sourceMediaFingerprint && run.sourceMediaFingerprint !== manifestFingerprint) throw new Error("Migration media manifest changed after synchronization.");
 
-  const storage = createProductionCatalogMediaStorageAdapter();
+  if (cloudinaryOrigin && manifest.storageOrigin !== "Cloudinary") throw new Error("Cloudinary import requires the verified Cloudinary manifest.");
+  const storage = cloudinaryOrigin ? createCloudinaryCatalogMediaReadAdapter() : createProductionCatalogMediaStorageAdapter();
   if (!storage.productionReady) {
     throw new Error("Canonical production catalogue storage is not configured.");
   }
@@ -150,8 +155,20 @@ async function main() {
   for (const asset of manifest.assets) {
     const filePath = path.resolve(mediaDir, asset.normalized_relpath);
     const relative = path.relative(path.resolve(mediaDir), filePath);
-    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Media path escapes migration root.");
-    const bytes = new Uint8Array(await readFile(filePath));
+    if (!cloudinaryOrigin && (!relative || relative.startsWith("..") || path.isAbsolute(relative))) throw new Error("Media path escapes migration root.");
+    if (cloudinaryOrigin) {
+      const url = new URL(asset.cloudinary_secure_url ?? "");
+      const prefix = process.env.CLOUDINARY_CATALOG_PREFIX?.trim() || "kt-courier/catalog";
+      const expected = `/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`;
+      if (url.protocol !== "https:" || url.hostname !== "res.cloudinary.com" || url.search || url.hash ||
+        !url.pathname.startsWith(expected) || !/^v[0-9]+\//.test(url.pathname.slice(expected.length)) ||
+        url.pathname.slice(expected.length).replace(/^v[0-9]+\//, "") !== asset.cloudinary_public_id + ".webp" ||
+        asset.cloudinary_public_id !== prefix + "/" + asset.storage_key.replace(/^catalog-media\//, "").replace(/\.webp$/, "") ||
+        asset.full_decode_verified !== true) throw new Error("Invalid verified Cloudinary asset identity.");
+    }
+    const response = cloudinaryOrigin ? await fetch(asset.cloudinary_secure_url!, { signal: AbortSignal.timeout(20_000), redirect: "error" }) : null;
+    if (response && !response.ok) throw new Error("Verified Cloudinary media is unavailable.");
+    const bytes = response ? new Uint8Array(await response.arrayBuffer()) : new Uint8Array(await readFile(filePath));
     if (
       bytes.byteLength < 1 ||
       bytes.byteLength > CATALOG_MEDIA_MAX_UPLOAD_BYTES ||
@@ -232,6 +249,7 @@ async function main() {
       if (existing) {
         const drift = [
           existing.storageKey !== asset.storage_key ? "storageKey" : null,
+          existing.storageProvider !== (cloudinaryOrigin ? "CLOUDINARY" : "S3_COMPATIBLE") ? "storageProvider" : null,
           existing.checksum !== asset.checksum ? "checksum" : null,
           existing.byteSize !== asset.normalized_bytes ? "byteSize" : null,
           existing.width !== asset.normalized_width ? "width" : null,
@@ -247,7 +265,7 @@ async function main() {
           );
         }
       } else {
-        await storage.confirmUpload({
+        if (!cloudinaryOrigin) await storage.confirmUpload({
           storageKey: asset.storage_key,
           bytes,
           maximumBytes: asset.normalized_bytes,
@@ -276,7 +294,7 @@ async function main() {
             ownerStoreId: row.ownerStoreId,
             purpose: asset.purpose,
             storageKey: asset.storage_key,
-            storageProvider: "S3_COMPATIBLE",
+            storageProvider: cloudinaryOrigin ? "CLOUDINARY" : "S3_COMPATIBLE",
             declaredMimeType: "image/webp",
             mimeType: "image/webp",
             declaredByteSize: asset.normalized_bytes,

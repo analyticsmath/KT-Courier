@@ -437,3 +437,13 @@ node --import tsx scripts/legacy-6ammart/rehearse-staging.ts \
 ```
 
 This command requires a fresh migrated staging database. It exercises a persisted identity collision, core import twice, media synchronization twice, publication twice, and a core rerun after publication. It verifies stable target IDs, stable snapshot counts, expected publication/media counts, and absence of imported passwords. It exits with failure if a stage fails. It has been type-checked; real PostgreSQL execution remains blocked by provisioning capacity. Existing `db:verify:catalog` and `db:verify:storefront` checks and Cloudinary/S3 delivery checks remain mandatory after this rehearsal passes and before cutover.
+
+### Approved in-place production import (2026-10-06)
+
+The user explicitly selected **KT Courier Production** for implementation. No additional Railway project or database is required. Use `--preserve-target` with a reviewed manifest bound to the production project, environment, and source fingerprint. Its exact retained Store/Product/Media IDs remain separate from importer-owned IDs; missing identities, unreviewed additions, namespace collisions, and identity collisions fail closed. The core transaction compares complete row hashes for pre-existing users, stores, media, product types, and business/financial records before commit. Existing product type definitions are reused without modification.
+
+Run the same core command with `--rehearse` first: audit actor, migration evidence, and catalogue writes are all inside the transaction and deliberately rolled back. Then run `--apply` against the same production target. This is an additive catalogue import, with no database reset or DATABASE_URL switch. Existing accounts and history remain present.
+
+Use `sync-catalog-media.ts --cloudinary-existing --manifest <verified-cloudinary-manifest> --apply`. This mode requires the separately verified Cloudinary manifest and checks the origin host, account, versioned URL, public ID, storage key, exact bytes/hash, dimensions, full decoding, and delivery round-trip. It creates media declarations and associations without uploading another copy to S3. Set `CATALOG_MEDIA_DELIVERY=cloudinary`, `CLOUDINARY_CLOUD_NAME=q8gbzml2`, and `CLOUDINARY_CATALOG_PREFIX=kt-courier/catalog` on the web service. Existing upload storage configuration is retained.
+
+Publication remains source-qualified: only admitted active legacy products with verified media and eligible ZAR prices publish. Pending records and excluded orphan/Test Store evidence retain their planned disposition. Temporary migration source payloads and runner configuration must be removed after production verification.
