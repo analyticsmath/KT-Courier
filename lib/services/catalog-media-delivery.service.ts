@@ -32,6 +32,7 @@ export class PrismaCatalogMediaDeliveryRepository implements CatalogMediaDeliver
         return {
           publicReference: asset.publicReference,
           storageKey: asset.storageKey,
+          storageProvider: asset.storageProvider,
           status: asset.status,
           mimeType: asset.mimeType,
           byteSize: asset.byteSize,
@@ -51,6 +52,7 @@ export class PrismaCatalogMediaDeliveryRepository implements CatalogMediaDeliver
         return {
           publicReference: asset.publicReference,
           storageKey: asset.storageKey,
+          storageProvider: asset.storageProvider,
           status: asset.status,
           mimeType: asset.mimeType,
           byteSize: asset.byteSize,
@@ -68,18 +70,19 @@ export class PrismaCatalogMediaDeliveryRepository implements CatalogMediaDeliver
       const storeDoc = await prisma.storefrontStoreDocument.findFirst({
         where: {
           publicStatus: "ACTIVE",
+          ...(asset.ownerStoreId ? { storeId: asset.ownerStoreId } : {}),
           OR: [
             { logoMediaReference: publicReference },
             { heroMediaReference: publicReference },
-            ...(asset.ownerStoreId ? [{ storeId: asset.ownerStoreId }] : []),
           ],
         },
       });
 
-      if (storeDoc || (asset.ownerStore && asset.ownerStore.status === "ACTIVE")) {
+      if (storeDoc && (!asset.ownerStoreId || asset.ownerStore?.status === "ACTIVE")) {
         return {
           publicReference: asset.publicReference,
           storageKey: asset.storageKey,
+          storageProvider: asset.storageProvider,
           status: asset.status,
           mimeType: asset.mimeType,
           byteSize: asset.byteSize,

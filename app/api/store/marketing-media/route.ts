@@ -1,3 +1,4 @@
+import { createCloudinaryPrivateImageStorageAdapter } from "@/lib/private-media/cloudinary-private-image-storage";
 import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { storeAccess } from "@/lib/client-platform/store-access";
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     if (!file) return json({ error: "Select an image." }, 422);
     const bytes = await normalizeProfileImage(file.bytes, false);
     return json(
-      await new PrivateMediaService().upload({
+      await new PrivateMediaService(createCloudinaryPrivateImageStorageAdapter()).upload({
         actor: { userId: u.id, role: u.role },
         ownerType: "STORE",
         ownerId: store.id,

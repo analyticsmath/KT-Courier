@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import sharp from "sharp";
-import { normalizeProfileImage } from "@/lib/client-platform/images.service";
+import { normalizeProfileImage, normalizeCatalogImage } from "@/lib/client-platform/images.service";
 describe("private image normalization", () => {
   it("bounds avatar dimensions and strips embedded metadata", async () => {
     const source = await sharp({
@@ -33,4 +33,14 @@ describe("private image normalization", () => {
       normalizeProfileImage(new Uint8Array(5 * 1024 * 1024 + 1)),
     ).rejects.toMatchObject({ status: 413 });
   });
+});
+
+it("fully decodes catalogue phone images, strips metadata and rejects tiny or truncated images", async () => {
+  const source = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: "#dddddd" } }).jpeg().withMetadata({ exif: { IFD0: { Artist: "Private artist" } } }).toBuffer();
+  const normalized = await normalizeCatalogImage(source);
+  const metadata = await sharp(normalized).metadata();
+  expect(metadata.width).toBe(2400); expect(metadata.height).toBe(1600); expect(metadata.exif).toBeUndefined();
+  const tiny = await sharp({ create: { width: 100, height: 100, channels: 3, background: "#dddddd" } }).png().toBuffer();
+  await expect(normalizeCatalogImage(tiny)).rejects.toMatchObject({ code: "IMAGE_CONTENT_INVALID" });
+  await expect(normalizeCatalogImage(source.subarray(0, 500))).rejects.toMatchObject({ code: "IMAGE_CONTENT_INVALID" });
 });

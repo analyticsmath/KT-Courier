@@ -1,3 +1,4 @@
+import { CLOUDINARY_CATALOG_STORAGE_CODE, createCloudinaryCatalogWriteAdapter } from "./cloudinary-catalog-media-storage";
 import { createHash } from "node:crypto";
 import { CatalogNotFoundError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { assertCatalogMediaProductionActionAllowed, type InjectedCatalogMediaTestApproval } from "@/lib/catalog/media/catalog-media-production-lock";
@@ -6,6 +7,7 @@ import { type CatalogMediaStorageAdapter } from "@/lib/catalog/media/catalog-med
 export type CatalogMediaDeliveryEvidence = Readonly<{
   publicReference: string;
   storageKey: string;
+  storageProvider?: string;
   status: string;
   mimeType: string | null;
   byteSize: number | null;
@@ -35,7 +37,8 @@ export class CatalogMediaDeliveryService {
     const evidence = await this.repository.findPublicEvidence(publicReference);
     if (!evidence) throw new CatalogNotFoundError("Public catalog media is unavailable.");
     assertCatalogMediaPublicDeliveryEvidence(evidence);
-    const target = await this.storage.createReadTarget({ storageKey: evidence.storageKey, maximumBytes: evidence.byteSize ?? 0 });
+    const storage = evidence.storageProvider === CLOUDINARY_CATALOG_STORAGE_CODE ? createCloudinaryCatalogWriteAdapter() : this.storage;
+    const target = await storage.createReadTarget({ storageKey: evidence.storageKey, maximumBytes: evidence.byteSize ?? 0 });
     if (target.byteSize !== evidence.byteSize) throw new CatalogPolicyError("CATALOG_MEDIA_DELIVERY_SIZE_MISMATCH", "Stored media no longer matches publication evidence.", 409);
     if (createHash("sha256").update(target.body).digest("hex") !== evidence.checksum) throw new CatalogPolicyError("CATALOG_MEDIA_DELIVERY_CHECKSUM_MISMATCH", "Stored media no longer matches its immutable checksum evidence.", 409);
     const extension = evidence.mimeType === "image/jpeg" ? "jpg" : evidence.mimeType === "image/png" ? "png" : "webp";

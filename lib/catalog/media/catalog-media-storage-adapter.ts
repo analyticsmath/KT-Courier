@@ -1,3 +1,4 @@
+import { createCloudinaryCatalogWriteAdapter } from "./cloudinary-catalog-media-storage";
 import { createHash, createHmac } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -532,7 +533,7 @@ export class CloudinaryFirstCatalogMediaStorageAdapter implements CatalogMediaSt
 export function createProductionCatalogMediaDeliveryStorageAdapter(
   env: Record<string, string | undefined> = process["env"],
 ): CatalogMediaStorageAdapter {
-  const canonical = createProductionCatalogMediaStorageAdapter(env);
+  const canonical = createProductionCatalogMediaStorageAdapter({ ...env, CATALOG_MEDIA_STORAGE: env.CATALOG_MEDIA_STORAGE?.toLowerCase() === "cloudinary" ? "s3" : env.CATALOG_MEDIA_STORAGE });
   if (env.CATALOG_MEDIA_DELIVERY?.trim().toLowerCase() !== "cloudinary") {
     return canonical;
   }
@@ -554,6 +555,7 @@ export function isLocalCatalogMediaStorageEnabled(env: Record<string, string | u
 
 export function createProductionCatalogMediaStorageAdapter(env: Record<string, string | undefined> = process["env"]): CatalogMediaStorageAdapter {
   const mode = env.CATALOG_MEDIA_STORAGE?.trim().toLowerCase();
+  if (mode === "cloudinary") return createCloudinaryCatalogWriteAdapter(env);
   const s3 = configuredCatalogS3(env);
   if ((mode === "s3" || mode === "s3-compatible") && s3) {
     return new S3CatalogMediaStorageAdapter(s3);

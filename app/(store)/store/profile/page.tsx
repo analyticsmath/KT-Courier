@@ -1,3 +1,4 @@
+import { StoreBrandingUploader } from "@/components/store/StoreBrandingUploader";
 import { prisma } from "@/lib/db/prisma";
 import { ProfileAvatar } from "@/components/forms/ProfileAvatar";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
@@ -48,6 +49,7 @@ export default async function StoreProfilePage() {
       <OperationalPanel title="Your profile image">
         <ProfileAvatar hasAvatar={!!avatar?.avatarMediaReference} />
       </OperationalPanel>
+      <OperationalPanel title="Store photos"><StoreBrandingUploader /></OperationalPanel>
       <OperationalPanel
         title="Store identity"
         description="Existing validation and save authority remain inside this form."
