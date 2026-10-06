@@ -142,6 +142,7 @@ export function AddressAutocomplete({
   const [inputValue, setInputValue] = useState(value?.formattedAddress ?? "");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selecting, setSelecting] = useState(false);
+  const [editRevision, setEditRevision] = useState(0);
 
   const [manual, setManual] = useState<ManualAddressState>({
     line1: value?.line1 ?? "",
@@ -162,6 +163,7 @@ export function AddressAutocomplete({
   const handleInputChange = useCallback(
     (text: string) => {
       selectionVersion.current++;
+      setEditRevision(previous => previous + 1);
       setSelecting(false);
       setSelectionError("");
       setInputValue(text);
@@ -180,7 +182,10 @@ export function AddressAutocomplete({
   const handleSelect = useCallback(
     async (placeId: string, description: string) => {
       const version = ++selectionVersion.current;
+      setEditRevision(previous => previous + 1);
       setSelecting(true);
+      setSelectionError("");
+      onChange(null);
       setShowDropdown(false);
       clearPredictions();
       setInputValue(description);
@@ -345,7 +350,7 @@ export function AddressAutocomplete({
       )}
 
       {selectionError && <p role="alert" className="text-sm text-red-600">{selectionError}</p>}
-      {hasBrowserKey && <AddressLocationMap value={value} onChange={(selected) => {
+      {hasBrowserKey && <AddressLocationMap value={value} editRevision={editRevision} onChange={(selected) => {
         // Map gestures supersede pending Places predictions/details as well.
         selectionVersion.current++;
         setSelecting(false);

@@ -25,10 +25,13 @@ const place = (country = "ZA") => ({ formatted_address: "12 Main Road, Johannesb
 const selected: AddressDto = { formattedAddress: "18 Oak Street, Johannesburg", line1: "18 Oak Street", line2: null, city: "Johannesburg", province: null, postalCode: null, country: "South Africa", placeId: "oak", latitude: -26.3, longitude: 28.2 };
 let host: HTMLDivElement, root: Root, mounted: boolean;
 let setAddress: React.Dispatch<React.SetStateAction<AddressDto | null>>;
+let editAddress: () => void;
 function ControlledMap({ initial }: { initial: AddressDto | null }) {
   const [address, update] = React.useState(initial);
+  const [editRevision, revise] = React.useState(0);
   React.useEffect(() => { setAddress = update; }, [update]);
-  return React.createElement(AddressLocationMap, { value: address, onChange: (next) => { change(next); update(next); }, label: "Dropoff address" });
+  React.useEffect(() => { editAddress = () => { update(null); revise(previous => previous + 1); }; }, []);
+  return React.createElement(AddressLocationMap, { value: address, onChange: (next) => { change(next); update(next); }, label: "Dropoff address", editRevision });
 }
 async function render(value: AddressDto | null = null) { await act(async () => { if (mounted) setAddress(value); else { root.render(React.createElement(ControlledMap, { initial: value })); mounted = true; } }); }
 async function drop(location = { lat: -26.213456, lng: 28.052345 }) { await act(async () => { pins[0].position = location; pins[0].dispatchEvent(new Event("gmp-dragend")); }); }
@@ -76,6 +79,14 @@ describe("address pin interaction", () => {
   it("does not overwrite a later Places/text selection with a pending pin result", async () => {
     let resolve!: (result: unknown) => void; provider.geocode.mockReturnValue(new Promise(done => { resolve = done; }));
     await render(); await drop(); await render(selected); await act(async () => resolve({ results: [place()] })); expect(change.mock.calls).toEqual([[null]]); expect(pins[0].position).toEqual({ lat: -26.3, lng: 28.2 });
+  });
+  it("cancels a pending pin when text editing starts while the address is already null", async () => {
+    let resolve!: (result: unknown) => void; provider.geocode.mockReturnValue(new Promise(done => { resolve = done; }));
+    await render(); await drop();
+    await act(async () => editAddress());
+    await act(async () => resolve({ results: [place()] }));
+    expect(change.mock.calls).toEqual([[null]]);
+    expect(button("Confirm pin location").disabled).toBe(false);
   });
   it("falls back safely when the map provider cannot load", async () => {
     provider.load.mockRejectedValue(new Error("not configured")); await render(); expect(pins).toHaveLength(0); expect(button("Confirm pin location").disabled).toBe(true); expect(host.textContent).toContain("still enter your address");

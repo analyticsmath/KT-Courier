@@ -22,28 +22,31 @@ function markerPosition(position: google.maps.marker.AdvancedMarkerElement["posi
 }
 
 /** A draft pin is always visible, but never supplies address authority until confirmed. */
-export function AddressLocationMap({ value, onChange, label }: { value: AddressDto | null; onChange: (value: AddressDto | null) => void; label: string }) {
+export function AddressLocationMap({ value, onChange, label, editRevision = 0 }: { value: AddressDto | null; onChange: (value: AddressDto | null) => void; label: string; editRevision?: number }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<google.maps.Map | null>(null);
   const marker = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const change = useRef(onChange);
   const currentValue = useRef(value);
   const expectedValue = useRef(value);
+  const expectedRevision = useRef(editRevision);
   const generation = useRef(0);
   const resolvePin = useRef<(position: google.maps.LatLngLiteral) => Promise<void>>(async () => {});
-  const [feedback, setFeedback] = useState({ value, text: "Loading map…", confirming: false });
+  const [feedback, setFeedback] = useState({ value, revision: editRevision, text: "Loading map…", confirming: false });
   const [ready, setReady] = useState(false);
   const [locating, setLocating] = useState(false);
-  const confirming = feedback.value === value && feedback.confirming;
-  const status = feedback.value === value ? feedback.text : mappedPosition(value) ? "Location selected. Drag the pin to adjust it." : PIN_HELP;
-  function setStatus(text: string) { setFeedback(previous => ({ ...previous, value: expectedValue.current, text })); }
-  function setConfirming(pending: boolean) { setFeedback(previous => ({ ...previous, value: expectedValue.current, confirming: pending })); }
+  const currentFeedback = feedback.value === value && feedback.revision === editRevision;
+  const confirming = currentFeedback && feedback.confirming;
+  const status = currentFeedback ? feedback.text : mappedPosition(value) ? "Location selected. Drag the pin to adjust it." : PIN_HELP;
+  function setStatus(text: string) { setFeedback(previous => ({ ...previous, value: expectedValue.current, revision: expectedRevision.current, text })); }
+  function setConfirming(pending: boolean) { setFeedback(previous => ({ ...previous, value: expectedValue.current, revision: expectedRevision.current, confirming: pending })); }
   useEffect(() => { change.current = onChange; currentValue.current = value; }, [onChange, value]);
   useEffect(() => {
     // A typed address or Places selection cancels an older reverse-geocode result.
-    if (value !== expectedValue.current) {
+    if (value !== expectedValue.current || editRevision !== expectedRevision.current) {
       generation.current++;
       expectedValue.current = value;
+      expectedRevision.current = editRevision;
     }
     if (!ready || !map.current || !marker.current) return;
     marker.current.title = `${label} pin. Drag to choose the exact location.`;
@@ -53,7 +56,7 @@ export function AddressLocationMap({ value, onChange, label }: { value: AddressD
       map.current.panTo(position);
       map.current.setZoom(16);
     }
-  }, [ready, value, label]);
+  }, [ready, value, label, editRevision]);
   useEffect(() => {
     let active = true;
     const listeners: google.maps.MapsEventListener[] = [];
