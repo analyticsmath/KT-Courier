@@ -5,7 +5,7 @@
   },
   "deploy": {
     "startCommand": "npm start",
-    "preDeployCommand": "sh -lc './node_modules/.bin/prisma migrate deploy && node node_modules/tsx/dist/cli.mjs scripts/seed-production-demo-universe.ts && node node_modules/tsx/dist/cli.mjs scripts/sync-production-demo-auth.ts && node node_modules/tsx/dist/cli.mjs scripts/seed-production-showcase-catalog.ts && node node_modules/tsx/dist/cli.mjs scripts/sync-production-showcase-media.ts && node node_modules/tsx/dist/cli.mjs scripts/initialize-client-delivery.ts'",
+    "preDeployCommand": "sh -lc './node_modules/.bin/prisma migrate deploy && node node_modules/tsx/dist/cli.mjs scripts/initialize-client-delivery.ts'",
     "healthcheckPath": "/api/ready",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
