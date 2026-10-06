@@ -3,7 +3,7 @@
  * 
  * Verifies 100% offline:
  * 1. ZERO gated catalog media in public/ (enforces storage gate isolation).
- * 2. All assets in DEMO_MEDIA_MANIFEST exist in var/catalog-media/ with exact SHA-256 checksum and byteSize.
+ * 2. Retained assets match their SHA-256 checksum and byteSize; retired seeded product files stay absent.
  * 3. Sharp decodes every file as WebP with matching dimensions.
  * 4. Dynamic entity coverage:
  *    - All published products have >= 3 distinct photos (distinct URLs, distinct SHA-256 hashes).
@@ -22,11 +22,14 @@ import { DEMO_CATEGORIES } from "../fixtures/categories";
 import { DEMO_STORES } from "../fixtures/stores";
 import { DEMO_PRODUCT_TEMPLATES } from "../fixtures/products";
 import { DEMO_DRIVERS } from "../fixtures/drivers";
+import retirement from "./retired-product-media.json";
 
-export async function verifyCatalogMediaIntegrity(): Promise<{ verifiedCount: number; errors: string[] }> {
+export async function verifyCatalogMediaIntegrity(): Promise<{ verifiedCount: number; retiredCount: number; errors: string[] }> {
   console.log(`[MediaVerify] Verifying ${DEMO_MEDIA_MANIFEST.length} catalog media assets offline...`);
   const errors: string[] = [];
   let count = 0;
+  let retiredCount = 0;
+  const retiredReferences = new Set(retirement.publicReferences);
 
   // 1. Enforce that NO gated catalog media exists in public/
   const publicDemoMedia = path.join(process.cwd(), "public", "demo-media");
@@ -41,7 +44,7 @@ export async function verifyCatalogMediaIntegrity(): Promise<{ verifiedCount: nu
   const storageDir = path.join(process.cwd(), "var", "catalog-media");
   if (!fs.existsSync(storageDir)) {
     errors.push(`Storage directory missing: ${storageDir}`);
-    return { verifiedCount: 0, errors };
+    return { verifiedCount: 0, retiredCount: 0, errors };
   }
 
   const manifestMap = new Map<string, typeof DEMO_MEDIA_MANIFEST[0]>();
@@ -53,6 +56,15 @@ export async function verifyCatalogMediaIntegrity(): Promise<{ verifiedCount: nu
     const keyHash = crypto.createHash("sha256").update(entry.publicReference).digest("hex");
     const storagePathKeyHash = path.join(storageDir, `${keyHash}.webp`);
     const storagePathDirect = path.join(storageDir, keyHash);
+
+    if (retiredReferences.has(entry.publicReference)) {
+      const retiredPaths = [storagePathChecksum, storagePathKeyHash, storagePathDirect, path.join(storageDir, entry.checksum)];
+      if (retiredPaths.some(candidate => fs.existsSync(candidate))) {
+        errors.push(`Retired seeded product media is bundled again: ${entry.publicReference}`);
+      }
+      retiredCount++;
+      continue;
+    }
 
     const candidate = [storagePathChecksum, storagePathKeyHash, storagePathDirect].find(p => fs.existsSync(p));
     if (!candidate) {
@@ -81,8 +93,8 @@ export async function verifyCatalogMediaIntegrity(): Promise<{ verifiedCount: nu
       if (meta.width !== entry.width || meta.height !== entry.height) {
         errors.push(`Dimension mismatch for ${entry.publicReference}: expected ${entry.width}x${entry.height}, got ${meta.width}x${meta.height}`);
       }
-    } catch (e: any) {
-      errors.push(`Sharp decode failed for ${entry.publicReference}: ${e?.message || e}`);
+    } catch (e: unknown) {
+      errors.push(`Sharp decode failed for ${entry.publicReference}: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     count++;
@@ -180,14 +192,14 @@ export async function verifyCatalogMediaIntegrity(): Promise<{ verifiedCount: nu
           errors.push(`Invalid assetUrl for ${p.publicReference}: must be absolute https URL (got ${p.assetUrl})`);
         }
       }
-    } catch (e: any) {
-      errors.push(`Provenance manifest parse error: ${e.message}`);
+    } catch (e: unknown) {
+      errors.push(`Provenance manifest parse error: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
   if (errors.length === 0) {
     console.log(`[MediaVerify] SUCCESS: All ${count} media assets verified byte-for-byte with Sharp.`);
-    console.log(`[MediaVerify] SUCCESS: Dynamic entity coverage and distinct photography verified across all products, categories, stores, vehicles, and drivers.`);
+    console.log(`[MediaVerify] SUCCESS: ${retiredCount} retired seeded product assets are absent. Historical fixture declarations retain entity coverage and distinct source photography.`);
     console.log(`[MediaVerify] SUCCESS: Provenance manifest complete with 100% absolute HTTPS URLs.`);
   } else {
     console.error(`[MediaVerify] FAILED with ${errors.length} errors.`);
@@ -199,7 +211,7 @@ export async function verifyCatalogMediaIntegrity(): Promise<{ verifiedCount: nu
     }
   }
 
-  return { verifiedCount: count, errors };
+  return { verifiedCount: count, retiredCount, errors };
 }
 
 if (require.main === module || process.argv[1]?.endsWith("verify.ts")) {

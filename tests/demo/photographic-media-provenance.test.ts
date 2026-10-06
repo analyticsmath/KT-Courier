@@ -9,10 +9,11 @@ import { DEMO_STORES } from "@/scripts/demo/fixtures/stores";
 import { DEMO_DRIVERS } from "@/scripts/demo/fixtures/drivers";
 
 describe("Photographic Media Integrity, Provenance & Dynamic Entity Coverage", () => {
-  it("verifies all 640 catalog media assets 100% offline via verifyCatalogMediaIntegrity()", async () => {
+  it("verifies retained media and confirms retired seeded product images stay absent", async () => {
     const result = await verifyCatalogMediaIntegrity();
     expect(result.errors).toEqual([]);
-    expect(result.verifiedCount).toBe(640);
+    expect(result.verifiedCount).toBe(100);
+    expect(result.retiredCount).toBe(540);
   });
 
   it("verifies zero gated catalog media exists in public/demo-media/", () => {

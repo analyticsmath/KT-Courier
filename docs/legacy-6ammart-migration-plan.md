@@ -348,14 +348,14 @@ Current post-OTP-launch accounts must never be lost during clean-database cutove
 
 ## Production demo bootstrap removal
 
-Current Railway pre-deploy executes demo initialization scripts. Before final cutover, production must stop running:
+The user explicitly approved demo catalogue cleanup on 6 October 2026. Railway pre-deploy and the checked-in configuration now omit:
 
 - scripts/seed-production-demo-universe.ts
 - scripts/sync-production-demo-auth.ts
 - scripts/seed-production-showcase-catalog.ts
 - scripts/sync-production-showcase-media.ts
 
-Do not remove them before staging migration verification and rollback preparation are complete.
+The demo seed flags are disabled. The 180 seeded products and their media were removed under an exact identity allowlist after a rolled-back database rehearsal. This approved cleanup precedes the still-blocked legacy staging rehearsal; it does not establish cutover readiness.
 
 ## Clean-target cutover
 
@@ -418,7 +418,11 @@ The importer now shares product taxonomy with the planner, rejects unclassified 
 
 ### Isolated staging rehearsal
 
-A private Railway project named `KT Legacy Migration Staging` was created with environment `migration-staging`. Railway rejected PostgreSQL/service provisioning with `Free plan resource provision limit exceeded`, and object storage provisioning with a bucket-limit error. The project is empty. No PostgreSQL import, canonical storage upload, Cloudinary mirror upload, or production cutover has been executed in this continuation. Current production demo bootstrap remains enabled.
+A private Railway project named `KT Legacy Migration Staging` was created with environment `migration-staging`. Railway rejected PostgreSQL/service provisioning with `Free plan resource provision limit exceeded`, and object storage provisioning with a bucket-limit error. The project is empty, and a provisioning retry after demo cleanup still failed. The legacy PostgreSQL rehearsal and production cutover have not run.
+
+Cloudinary now contains all 341 admitted legacy assets: 303 previous uploads were preserved and 38 missing assets uploaded. Every versioned URL passed HTTP retrieval, exact byte-size checking, SHA-256 recording, and full Sharp decoding. The previous Cloudinary uploads differ from the old normalization checksums, so use the separately saved Cloudinary verified manifest for those objects.
+
+Production cleanup removed 180 seeded products, 180 variants, 296 offers, 257 publication snapshots/documents, and their dependent catalogue evidence under transactional locks. Account, store, order, checkout, payment, ledger, and driver records retained identical row fingerprints. All 540 detached seeded product images were verified against their original checksums, deleted from S3, and confirmed absent; 42 matching Cloudinary mirrors were also removed. Their 540 database declarations were deleted after object cleanup. The 2,142 byte-identical bundled copies were removed from both branches, reducing future build inputs by 152,589,812 bytes. Four catalogue maintenance guards were restored before commit; the diagnostic service source was restored and temporary credential references cleared.
 
 After staging capacity is available, provision a dedicated database named `kt_legacy_staging`, apply the existing Prisma migration chain with `prisma migrate deploy`, and configure staging S3 catalogue storage. Do not use the production database URL. Set `KT_DATABASE_CLASSIFICATION=staging`.
 

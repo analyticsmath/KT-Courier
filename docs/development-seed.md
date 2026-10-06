@@ -1,5 +1,7 @@
 # Development Seed Data
 
+The production demo product catalogue was retired on 6 October 2026. Its 540 product images and all verified bundled copies were removed. Historical fixture and provenance declarations are retained for audit, but these images must not be bundled again. `scripts/demo/media/retired-product-media.json` records the exact retired references; the media verifier checks that they stay absent and continues validating the 100 retained fixture assets. Production deployment runs schema migrations and client delivery initialization only, with all demo seed flags disabled.
+
 The seed script (`prisma/seed.ts`) populates a local development database with safe, non-production data. It is idempotent — safe to run multiple times.
 
 **Never run the seed against a production or staging database.**
