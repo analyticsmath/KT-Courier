@@ -36,7 +36,7 @@ export function matchesStorefrontCategory(document: Readonly<{ categoryPath: str
 export function storefrontCategoryPredicate(requested: string): Prisma.Sql {
   return Prisma.sql`(${Prisma.join(categoryRules(requested).map(rule => {
     const prefix = `${rule.path}/`;
-    const path = Prisma.sql`("categoryPath" = ${rule.path} OR LEFT("categoryPath", ${prefix.length}) = ${prefix})`;
+    const path = Prisma.sql`("categoryPath" = ${rule.path} OR LEFT("categoryPath", ${prefix.length}::integer) = ${prefix})`;
     return rule.title ? Prisma.sql`(${path} AND "title" ~* ${rule.title})` : path;
   }), " OR ")})`;
 }

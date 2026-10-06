@@ -29,6 +29,8 @@ describe("reviewed legacy browse taxonomy", () => {
     const sql = storefrontCategoryPredicate("/food-dining/%'; DROP TABLE test;--");
     expect(sql.text).not.toContain("DROP TABLE");
     expect(sql.values).toContain("/food-dining/%'; DROP TABLE test;--");
+    // Prisma sends numeric parameters as PostgreSQL bigint; LEFT requires integer.
+    expect(sql.text).toMatch(/LEFT\("categoryPath", \$\d+::integer\)/);
   });
   it("retains aliases through final filters, counts products once and isolates stores", async () => {
     const docs = [document({ categoryPath: "/burger-373/meal-types-380", title: "Beef Burger", productReference: "LEG6-PROD-1", storeSlug: "vendor-a" }), document({ publicReference: "SFD-2", variantReference: "V-2", categoryPath: "/burger-373/meal-types-380", title: "Beef Burger", productReference: "LEG6-PROD-1", storeSlug: "vendor-a" }), document({ publicReference: "SFD-3", categoryPath: "/wings-374/meal-types-379", title: "Wings", productReference: "LEG6-PROD-2", storeSlug: "vendor-b" })];
