@@ -29,6 +29,7 @@ export function CatalogMediaUploader({ value, onChange }: { value: CatalogMediaD
   const [error, setError] = useState<string | null>(null);
   const [purpose, setPurpose] = useState<"PRODUCT_IMAGE" | "VARIANT_IMAGE">("PRODUCT_IMAGE");
   const retryFile = useRef<File | null>(null);
+  const retryOperation = useRef<{ file: File; purpose: string; id: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -45,22 +46,20 @@ export function CatalogMediaUploader({ value, onChange }: { value: CatalogMediaD
     setError(null);
     if (!ALLOWED_TYPES.includes(file.type)) { setError("Choose a JPEG, PNG or WebP image. SVG, GIF, HTML and documents are prohibited."); return; }
     if (file.size < 1 || file.size > MAX_BYTES) { setError("The image must be no larger than 8 MiB."); return; }
+    if (retryOperation.current?.file !== file || retryOperation.current.purpose !== purpose) retryOperation.current = { file, purpose, id: crypto.randomUUID() };
     try {
       setPhase("CREATING_INTENT"); setProgress(10);
-      const intentResponse = await fetch("/api/store/catalog/media/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ purpose, declaredMimeType: file.type, declaredByteSize: file.size, operationId: crypto.randomUUID() }) });
-      const intentBody = await intentResponse.json() as { upload?: { publicReference: string; target: { uploadPath: string } }; error?: string; code?: string };
-      if (!intentResponse.ok || !intentBody.upload) throw new Error(intentBody.code === "CONSOLIDATED_VALIDATION_NOT_APPROVED" ? "Catalog media uploads remain locked pending Phase 26.5 validation." : intentBody.error ?? "Upload intent could not be created.");
+      const form = new FormData();
+      form.set("file", file);
+      form.set("purpose", purpose);
       setPhase("UPLOADING"); setProgress(35);
-      const bytesResponse = await fetch(intentBody.upload.target.uploadPath, { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Catalog-Operation-Id": crypto.randomUUID() }, body: file });
-      const bytesBody = await bytesResponse.json() as { error?: string };
-      if (!bytesResponse.ok) throw new Error(bytesBody.error ?? "Image bytes were rejected.");
+      const completeResponse = await fetch("/api/store/catalog/media/normalized", { method: "POST", headers: { "X-Catalog-Operation-Id": retryOperation.current.id }, body: form });
       setPhase("VALIDATING"); setProgress(75);
-      const completeResponse = await fetch(`/api/store/catalog/media/uploads/${encodeURIComponent(intentBody.upload.publicReference)}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operationId: crypto.randomUUID() }) });
       const completeBody = await completeResponse.json() as { asset?: SafeAsset; error?: string };
       if (!completeResponse.ok || completeBody.asset?.status !== "READY" || !completeBody.asset.mimeType || !completeBody.asset.byteSize || !completeBody.asset.width || !completeBody.asset.height) throw new Error(completeBody.error ?? "Image did not reach READY validation state.");
       addReadyAsset(completeBody.asset);
       setAvailable((current) => [completeBody.asset as SafeAsset, ...current.filter((item) => item.publicReference !== completeBody.asset?.publicReference)]);
-      retryFile.current = null; setProgress(100);
+      retryFile.current = null; retryOperation.current = null; setProgress(100);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Image upload failed safely.");
     } finally {

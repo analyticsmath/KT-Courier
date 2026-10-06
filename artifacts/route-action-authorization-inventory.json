@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 732,
+    "totalRoutes": 734,
     "totalServerActions": 0,
     "publicRoutes": 116,
-    "authenticatedRoutes": 613,
-    "permissionGatedRoutes": 497,
+    "authenticatedRoutes": 615,
+    "permissionGatedRoutes": 499,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 189,
-    "generatedAt": "2026-10-01T20:40:56.839Z"
+    "rateLimitedRoutes": 191,
+    "generatedAt": "2026-10-06T11:10:00.000Z"
   },
   "serverActions": [],
   "routes": [
@@ -228,7 +228,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/admin/advertising/reconciliation/[caseRef]/retry-funding/route.ts",
+      "routePath": "app/api/admin/advertising/reconciliation/[caseRef]/retry-funding-return/route.ts",
       "httpMethods": [
         "POST"
       ],
@@ -245,7 +245,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/admin/advertising/reconciliation/[caseRef]/retry-funding-return/route.ts",
+      "routePath": "app/api/admin/advertising/reconciliation/[caseRef]/retry-funding/route.ts",
       "httpMethods": [
         "POST"
       ],
@@ -2393,23 +2393,6 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/admin/marketplace-checkout/route.ts",
-      "httpMethods": [
-        "GET"
-      ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
-      "requiredRoles": [
-        "ADMIN",
-        "SUPER_ADMIN"
-      ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
-      "bolaOwnershipValidated": true,
-      "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
-    },
-    {
       "routePath": "app/api/admin/marketplace-checkout-reconciliation/[reference]/rescan/route.ts",
       "httpMethods": [
         "POST"
@@ -2430,6 +2413,23 @@
       "routePath": "app/api/admin/marketplace-checkout-reconciliation/route.ts",
       "httpMethods": [
         "ALL"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/marketplace-checkout/route.ts",
+      "httpMethods": [
+        "GET"
       ],
       "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
       "requiredRoles": [
@@ -8955,10 +8955,9 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/driver/profile/route.ts",
+      "routePath": "app/api/driver/profile-photo/route.ts",
       "httpMethods": [
-        "GET",
-        "PATCH"
+        "POST"
       ],
       "authorizationMechanism": "DRIVER_SESSION",
       "requiredRoles": [
@@ -8972,9 +8971,10 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/driver/profile-photo/route.ts",
+      "routePath": "app/api/driver/profile/route.ts",
       "httpMethods": [
-        "POST"
+        "GET",
+        "PATCH"
       ],
       "authorizationMechanism": "DRIVER_SESSION",
       "requiredRoles": [
@@ -10852,6 +10852,25 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/store/catalog/media/normalized/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "AUTHENTICATED_SESSION_AND_STORE_PERMISSION",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [
+        "products"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Active business account and scoped storeAccess; catalogue image uploads additionally require CATALOG_MANAGE. Same-origin mutation, bounded multipart, per-user rate limit and owner-scoped media evidence."
+    },
+    {
       "routePath": "app/api/store/catalog/media/route.ts",
       "httpMethods": [
         "GET"
@@ -11540,6 +11559,26 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/store/profile-media/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "AUTHENTICATED_SESSION_AND_STORE_PERMISSION",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [
+        "settings"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Active business account and scoped storeAccess; catalogue image uploads additionally require CATALOG_MANAGE. Same-origin mutation, bounded multipart, per-user rate limit and owner-scoped media evidence."
+    },
+    {
       "routePath": "app/api/store/profile/route.ts",
       "httpMethods": [
         "GET",
@@ -11689,6 +11728,23 @@
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/store/subscription-plans/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
@@ -11883,23 +11939,6 @@
     },
     {
       "routePath": "app/api/store/subscription/route.ts",
-      "httpMethods": [
-        "GET"
-      ],
-      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
-      "requiredRoles": [
-        "CUSTOMER",
-        "STORE"
-      ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
-      "bolaOwnershipValidated": true,
-      "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
-    },
-    {
-      "routePath": "app/api/store/subscription-plans/route.ts",
       "httpMethods": [
         "GET"
       ],

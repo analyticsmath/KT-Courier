@@ -116,6 +116,7 @@ export class CatalogMediaIntakeService {
     const requestHash = catalogRequestHash(request);
     const existing = await this.repository.findIntentByActorOperation(input.actorUserId, input.operationId);
     if (existing) {
+      if (existing.asset.storageProvider !== this.storage.code) throw new CatalogConflictError("CATALOG_MEDIA_STORAGE_CHANGED", "Start a new upload after the image storage provider changes.");
       if (existing.requestHash !== requestHash) throw new CatalogConflictError("CATALOG_MEDIA_IDEMPOTENCY_CONFLICT", "Upload operation ID was already used with different input.");
       const uploadTarget = await this.storage.createUploadTarget({ intentReference: existing.publicReference, storageKey: existing.storageKey, maximumBytes: existing.maximumBytes, expiresAt: existing.expiresAt });
       return { upload: this.uploadDto(existing, uploadTarget), replayed: true };
@@ -123,11 +124,13 @@ export class CatalogMediaIntakeService {
     const createdAt = this.now();
     const expiresAt = new Date(createdAt.getTime() + CATALOG_MEDIA_UPLOAD_TTL_MS);
     const intentReference = catalogPublicReference("CMU");
+    const storageKey = `catalog-media/${randomBytes(32).toString("hex")}`;
+    const uploadTarget = await this.storage.createUploadTarget({ intentReference, storageKey, maximumBytes: CATALOG_MEDIA_MAX_UPLOAD_BYTES, expiresAt });
     const created = await this.repository.createIntent({
       owner,
       assetReference: catalogPublicReference("CMA"),
       intentReference,
-      storageKey: `catalog-media/${randomBytes(32).toString("hex")}`,
+      storageKey,
       storageProvider: this.storage.code,
       purpose: input.purpose,
       expectedMimeType: input.declaredMimeType,
@@ -138,7 +141,6 @@ export class CatalogMediaIntakeService {
       expiresAt,
       actorUserId: input.actorUserId,
     });
-    const uploadTarget = await this.storage.createUploadTarget({ intentReference, storageKey: created.storageKey, maximumBytes: created.maximumBytes, expiresAt });
     return { upload: this.uploadDto(created, uploadTarget), replayed: false };
   }
 
@@ -146,6 +148,7 @@ export class CatalogMediaIntakeService {
     assertCatalogMediaProductionActionAllowed("UPLOAD", this.testApproval);
     const intent = await this.requiredIntent(input.uploadReference);
     assertIntentActor(intent, input.actorUserId, input.storeId);
+    if (intent.asset.storageProvider !== this.storage.code) throw new CatalogConflictError("CATALOG_MEDIA_STORAGE_CHANGED", "Start a new upload after the image storage provider changes.");
     const contentHash = createHash("sha256").update(input.bytes).digest("hex");
     const receipt = operation("MEDIA_UPLOAD_BYTES", input.actorUserId, input.operationId, { uploadReference: input.uploadReference, contentHash });
     const replay = await this.repository.findOperation(receipt);
@@ -172,6 +175,7 @@ export class CatalogMediaIntakeService {
     assertCatalogMediaProductionActionAllowed("UPLOAD", this.testApproval);
     let intent = await this.requiredIntent(input.uploadReference);
     assertIntentActor(intent, input.actorUserId, input.storeId);
+    if (intent.asset.storageProvider !== this.storage.code) throw new CatalogConflictError("CATALOG_MEDIA_STORAGE_CHANGED", "Start a new upload after the image storage provider changes.");
     const receipt = operation("MEDIA_UPLOAD_COMPLETE", input.actorUserId, input.operationId, { uploadReference: input.uploadReference });
     const replay = await this.repository.findOperation(receipt);
     if (replay) {
@@ -353,6 +357,6 @@ export class PrismaCatalogMediaRepository implements CatalogMediaRepository {
   }
 }
 
-export function createProductionCatalogMediaIntakeService(): CatalogMediaIntakeService {
-  return new CatalogMediaIntakeService(new PrismaCatalogMediaRepository(), createProductionCatalogMediaStorageAdapter());
+export function createProductionCatalogMediaIntakeService(storage?: CatalogMediaStorageAdapter): CatalogMediaIntakeService {
+  return new CatalogMediaIntakeService(new PrismaCatalogMediaRepository(), storage ?? createProductionCatalogMediaStorageAdapter());
 }

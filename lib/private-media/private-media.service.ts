@@ -1,3 +1,4 @@
+import { CLOUDINARY_PRIVATE_IMAGE_CODE, createCloudinaryPrivateImageStorageAdapter } from "./cloudinary-private-image-storage";
 import { storeAccess } from "@/lib/client-platform/store-access";
 import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
@@ -69,15 +70,21 @@ function storageError(error: unknown): never {
 }
 
 export class PrivateMediaService {
-  constructor(private readonly storage: PrivateMediaStorageAdapter = createPrivateMediaStorageAdapter()) {}
+  private readonly storage: PrivateMediaStorageAdapter;
+  constructor(private readonly storageOverride?: PrivateMediaStorageAdapter) { this.storage = storageOverride ?? createPrivateMediaStorageAdapter(); }
 
   async upload(input: PrivateMediaUploadInput) {
     const fileName = assertUpload(input);
     assertPurposeOwner(input.ownerType, input.purpose);
     await this.assertCanManageOwner(input.actor, input.ownerType, input.ownerId, input.purpose);
+    // New raster evidence uses Cloudinary too; retain original bytes for evidence integrity.
+    // Injected adapters remain explicit test/operation boundaries, and PDFs retain document storage.
+    let storage: PrivateMediaStorageAdapter;
+    try { storage = !this.storageOverride && input.mimeType.startsWith("image/") ? createCloudinaryPrivateImageStorageAdapter() : this.storage; }
+    catch (error) { storageError(error); }
     const checksum = createHash("sha256").update(input.bytes).digest("hex");
     const duplicate = await prisma.privateMediaObject.findFirst({
-      where: { ownerType: input.ownerType, ownerId: input.ownerId, purpose: input.purpose, checksum, status: PrivateMediaStatus.READY },
+      where: { ownerType: input.ownerType, ownerId: input.ownerId, purpose: input.purpose, checksum, storageProvider: storage.code, status: PrivateMediaStatus.READY },
       orderBy: { createdAt: "asc" },
     });
     if (duplicate) return this.safeMetadata(duplicate);
@@ -91,7 +98,7 @@ export class PrivateMediaService {
         ownerType: input.ownerType,
         ownerId: input.ownerId,
         purpose: input.purpose,
-        storageProvider: this.storage.code,
+        storageProvider: storage.code,
         storageKey,
         originalFileName: fileName,
         declaredMimeType: input.mimeType,
@@ -100,7 +107,7 @@ export class PrivateMediaService {
       },
     });
     try {
-      await this.storage.write({ key: storageKey, bytes: input.bytes, mimeType: input.mimeType });
+      await storage.write({ key: storageKey, bytes: input.bytes, mimeType: input.mimeType });
       const ready = await prisma.privateMediaObject.update({
         where: { id: record.id },
         data: { status: PrivateMediaStatus.READY, detectedMimeType: input.mimeType, byteSize: input.bytes.byteLength, checksum },
@@ -131,7 +138,7 @@ export class PrivateMediaService {
     if (!allowed) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "You cannot access this private media.");
     if (record.status !== PrivateMediaStatus.READY && record.status !== PrivateMediaStatus.RETAINED) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_UNAVAILABLE", 409, "Private media is not available.");
     try {
-      return { bytes: await this.storage.read(record.storageKey), mimeType: record.detectedMimeType ?? record.declaredMimeType, fileName: record.originalFileName };
+      return { bytes: await (record.storageProvider === CLOUDINARY_PRIVATE_IMAGE_CODE ? createCloudinaryPrivateImageStorageAdapter() : this.storage).read(record.storageKey), mimeType: record.detectedMimeType ?? record.declaredMimeType, fileName: record.originalFileName };
     } catch (error) {
       storageError(error);
     }
@@ -146,7 +153,7 @@ export class PrivateMediaService {
     if (record.status === PrivateMediaStatus.DELETED) return this.safeMetadata(record);
     await prisma.privateMediaObject.update({ where: { id: record.id }, data: { status: PrivateMediaStatus.DELETE_REQUESTED, deleteRequestedAt: new Date(), version: { increment: 1 } } });
     try {
-      await this.storage.delete(record.storageKey);
+      await (record.storageProvider === CLOUDINARY_PRIVATE_IMAGE_CODE ? createCloudinaryPrivateImageStorageAdapter() : this.storage).delete(record.storageKey);
       return this.safeMetadata(await prisma.privateMediaObject.update({ where: { id: record.id }, data: { status: PrivateMediaStatus.DELETED, deletedAt: new Date(), version: { increment: 1 } } }));
     } catch (error) {
       storageError(error);

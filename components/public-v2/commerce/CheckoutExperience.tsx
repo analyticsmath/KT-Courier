@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useSearchParams } from "next/navigation";
 import styles from "./commerce.module.css";
 
@@ -94,9 +95,10 @@ export function CheckoutExperience() {
   const [addrLine1, setAddrLine1] = useState("");
   const [addrLine2, setAddrLine2] = useState("");
   const [addrSuburb, setAddrSuburb] = useState("");
-  const [addrCity, setAddrCity] = useState("Johannesburg");
+  const [addrCity, setAddrCity] = useState("");
   const [addrProvince, setAddrProvince] = useState("Gauteng");
-  const [addrPostalCode, setAddrPostalCode] = useState("2000");
+  const [addrPostalCode, setAddrPostalCode] = useState("");
+  const [mappedAddress, setMappedAddress] = useState<AddressAutocompleteValue | null>(null);
   const [addrInstructions, setAddrInstructions] = useState("");
 
   // Step 4 & 5: Review & Acknowledgement
@@ -705,6 +707,21 @@ export function CheckoutExperience() {
 
             {currentStep === 2 ? (
               <form onSubmit={handleSaveAddress} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY && <AddressAutocomplete
+                  label="Find your delivery address on the map"
+                  value={mappedAddress}
+                  onChange={(address) => {
+                    setMappedAddress(address);
+                    if (!address) return;
+                    setAddrLine1(address.line1);
+                    setAddrCity(address.city ?? "");
+                    setAddrProvince(address.province ?? "");
+                    setAddrPostalCode(address.postalCode ?? "");
+                    setAddrSuburb("");
+                  }}
+                  showContactFields={false}
+                  showNotesField={false}
+                />}
                 <div>
                   <label htmlFor="addrLine1" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
                     Street Address (Line 1)
@@ -714,7 +731,7 @@ export function CheckoutExperience() {
                     type="text"
                     required
                     value={addrLine1}
-                    onChange={(e) => setAddrLine1(e.target.value)}
+                    onChange={(e) => { setAddrLine1(e.target.value); setMappedAddress(null); }}
                     placeholder="124 Main Road"
                     style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                   />
@@ -742,7 +759,7 @@ export function CheckoutExperience() {
                       id="addrSuburb"
                       type="text"
                       value={addrSuburb}
-                      onChange={(e) => setAddrSuburb(e.target.value)}
+                      onChange={(e) => { setAddrSuburb(e.target.value); setMappedAddress(null); }}
                       placeholder="Rosebank"
                       style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
@@ -759,7 +776,7 @@ export function CheckoutExperience() {
                       type="text"
                       required
                       value={addrCity}
-                      onChange={(e) => setAddrCity(e.target.value)}
+                      onChange={(e) => { setAddrCity(e.target.value); setMappedAddress(null); }}
                       style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>
@@ -770,9 +787,10 @@ export function CheckoutExperience() {
                     <select
                       id="addrProvince"
                       value={addrProvince}
-                      onChange={(e) => setAddrProvince(e.target.value)}
+                      onChange={(e) => { setAddrProvince(e.target.value); setMappedAddress(null); }}
                       style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     >
+                      <option value="">Select province</option>
                       <option value="Gauteng">Gauteng</option>
                       <option value="Western Cape">Western Cape</option>
                       <option value="KwaZulu-Natal">KwaZulu-Natal</option>
@@ -792,7 +810,7 @@ export function CheckoutExperience() {
                       id="addrPostalCode"
                       type="text"
                       value={addrPostalCode}
-                      onChange={(e) => setAddrPostalCode(e.target.value)}
+                      onChange={(e) => { setAddrPostalCode(e.target.value); setMappedAddress(null); }}
                       style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                     />
                   </div>

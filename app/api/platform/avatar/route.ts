@@ -1,3 +1,4 @@
+import { createCloudinaryPrivateImageStorageAdapter } from "@/lib/private-media/cloudinary-private-image-storage";
 import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
     return json({ error: "Select one profile image." }, 422);
   try {
     const bytes = await normalizeProfileImage(file.bytes);
-    const media = await new PrivateMediaService().upload({
+    const media = await new PrivateMediaService(createCloudinaryPrivateImageStorageAdapter()).upload({
       actor: { userId: u.id, role: u.role },
       ownerType: "USER",
       ownerId: u.id,

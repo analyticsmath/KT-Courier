@@ -22,11 +22,12 @@ export async function rebuildStorefrontStoreDocument(storeId: string): Promise<v
             purpose: { in: ["STORE_LOGO", "STORE_HERO", "BRAND_LOGO"] },
           },
           select: { publicReference: true, purpose: true },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         })
       : Promise.resolve([]),
   ]);
 
-  const logoAsset = storeMedia.find((m) => m.purpose === "STORE_LOGO" || m.purpose === "BRAND_LOGO");
+  const logoAsset = storeMedia.find((m) => m.purpose === "STORE_LOGO") ?? storeMedia.find((m) => m.purpose === "BRAND_LOGO");
   const heroAsset = storeMedia.find((m) => m.purpose === "STORE_HERO");
 
   const active = store.status === "ACTIVE" && store.name.trim().length > 0 && documents.length > 0;
