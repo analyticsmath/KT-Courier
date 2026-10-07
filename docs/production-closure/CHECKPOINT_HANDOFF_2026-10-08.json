@@ -1,0 +1,3369 @@
+{
+  "branch": "production-closure-2026-10-07",
+  "headSha": "2a7dc51d6752ac1d200e46068e888119c673c7bd",
+  "headShaScope": "Verified pushed code checkpoint immediately before this handoff commit. A Git commit cannot contain its own hash. Resolve the final report-inclusive tip with git rev-parse origin/production-closure-2026-10-07; final chat response records that exact SHA.",
+  "originMainSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+  "pushed": true,
+  "worktreeClean": true,
+  "productionDeployed": false,
+  "classification": "NOT_READY",
+  "domains": {
+    "ci": "PARTIAL",
+    "publicQuote": "PARTIAL",
+    "readiness": "PARTIAL",
+    "coverage": "PARTIAL",
+    "parcelProfiles": "PARTIAL",
+    "marketplaceDelivery": "PARTIAL",
+    "cod": "PARTIAL",
+    "commissions": "PARTIAL",
+    "subscriptions": "PARTIAL",
+    "promoters": "PARTIAL",
+    "advertising": "PARTIAL",
+    "notifications": "PARTIAL",
+    "customer": "PARTIAL",
+    "vendor": "PARTIAL",
+    "driver": "PARTIAL",
+    "admin": "PARTIAL",
+    "payments": "PARTIAL",
+    "ledger": "PARTIAL",
+    "refunds": "PARTIAL",
+    "earnings": "PARTIAL",
+    "media": "PARTIAL",
+    "security": "PARTIAL",
+    "accessibility": "PARTIAL",
+    "observability": "PARTIAL",
+    "disasterRecovery": "PARTIAL",
+    "infrastructure": "PARTIAL",
+    "automatedTests": "PARTIAL",
+    "documentation": "PARTIAL",
+    "deployment": "BLOCKED"
+  },
+  "domainDetails": [
+    {
+      "key": "ci",
+      "name": "Git/CI",
+      "status": "PARTIAL",
+      "implemented": "Safe non-main branch, draft PR #17, strict certification wrapper, disposable PostgreSQL/Redis/browser/recovery jobs, skipped/flaky rejection. Code checkpoint push verified.",
+      "stillMissing": "Green exact-checkpoint certification, closure of all engineering gates, final PR description/evidence refresh and release approval.",
+      "primaryFiles": [
+        ".github/workflows/production-certification.yml",
+        "scripts/certification-command.mjs",
+        "scripts/certification-output.mjs",
+        "scripts/check-closure-engineering-gates.mjs",
+        "docs/production-closure/engineering-gates.json"
+      ],
+      "testsAlreadyRun": "909f5f14 main CI 37681988667 PASS; certification 37681988666 FAIL. WIP-triggered runs canceled under stop directive.",
+      "knownRiskOrBlocker": "23 certification component jobs pass, browser fails, final certified job skipped. No branch protection or Actions variable change recorded.",
+      "externalInputRequired": "No for Git engineering; release approvals remain separate.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "publicQuote",
+      "name": "Public quote/content",
+      "status": "PARTIAL",
+      "implemented": "Corrected public quote/account copy in service registry, pricing and FAQ; dynamic operator-defined parcel choices and fail-closed booking; anonymous quote assertions.",
+      "stillMissing": "Production verification of corrected pages and broader SEO/metadata/contact/unsupported-claim audit.",
+      "primaryFiles": [
+        "lib/public-services/service-page-registry.ts",
+        "components/public-v3/services/authored/PricingServiceView.tsx",
+        "components/public-v2/faq/FaqPage.tsx",
+        "components/forms/PublicDeliveryQuoteForm.tsx",
+        "tests/client-platform/public-quote-copy.test.ts"
+      ],
+      "testsAlreadyRun": "Saved public-copy/quote-serviceability logs and unit suite pass; historical browser quote assertions pass.",
+      "knownRiskOrBlocker": "Candidate copy is pushed, not deployed; configured coverage is still needed for a usable quote.",
+      "externalInputRequired": "Yes: real operating boundaries and parcel limits; legally required disclosures if applicable.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "readiness",
+      "name": "Production readiness matrix",
+      "status": "PARTIAL",
+      "implemented": "Protected matrix distinguishes configuration, engineering, approval and live acceptance; safe diagnostics; versioned, independent, SHA-bound expiring evidence.",
+      "stillMissing": "Full engineering certification and live data review; audit completeness of all capability decisions; remove blockers only after real proof.",
+      "primaryFiles": [
+        "lib/production-readiness/service.ts",
+        "lib/production-readiness/contracts.ts",
+        "lib/production-readiness/evidence.ts",
+        "app/api/admin/production-readiness/route.ts",
+        "components/admin/ProductionAcceptanceEvidence.tsx"
+      ],
+      "testsAlreadyRun": "API/evidence unit assertions pass in full suite; closure configuration/evidence assertions pass at 909f5f14.",
+      "knownRiskOrBlocker": "Notification engineering deliberately stays blocked; financial/source locks remain. Manifest contains stale incremental narratives, superseded by this report.",
+      "externalInputRequired": "Yes: independent human evidence reviews and genuine acceptance records.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "coverage",
+      "name": "Coverage/regions",
+      "status": "PARTIAL",
+      "implemented": "Activation validates complete region boundaries; explicit null clearing and stale-write conflict; geocoding/routing and quote paths fail closed.",
+      "stillMissing": "Real boundaries/service/high-risk decisions, production configuration and actual route acceptance.",
+      "primaryFiles": [
+        "lib/maps/region-boundaries.ts",
+        "lib/services/admin-regions.service.ts",
+        "lib/maps/delivery-zone.service.ts",
+        "lib/maps/routes.service.ts",
+        "components/admin/DeliveryRegionsManager.tsx",
+        "app/api/admin/regions/[id]/route.ts"
+      ],
+      "testsAlreadyRun": "Region/config unit regressions and disposable closure assertions pass; pricing CI job passes.",
+      "knownRiskOrBlocker": "No coordinates or coverage were invented. Active seed examples are not approved operating areas.",
+      "externalInputRequired": "Yes: centre, radius, road distance, province, active services, risk rules, effective dates.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "parcelProfiles",
+      "name": "Parcel profiles",
+      "status": "PARTIAL",
+      "implemented": "Versioned operator authoring and validated usable SMALL/MEDIUM/LARGE profiles; public API and quote gates; conflicting effective profiles refused.",
+      "stillMissing": "Approved dimensions/weight limits, full profile lifecycle acceptance and live quote verification.",
+      "primaryFiles": [
+        "lib/commercial/parcel-profiles.ts",
+        "components/admin/ParcelProfilesManager.tsx",
+        "app/api/admin/parcel-profiles/route.ts",
+        "app/api/public/parcel-profiles/route.ts",
+        "tests/client-platform/parcel-profiles.test.ts"
+      ],
+      "testsAlreadyRun": "Unit/config/closure assertions pass in earlier candidates and 909f5f14 components.",
+      "knownRiskOrBlocker": "Existing draft examples do not imply operational approval; express-specific acceptance remains inactive.",
+      "externalInputRequired": "Yes: approved dimensions, weight and effective windows for each class.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "marketplaceDelivery",
+      "name": "Marketplace delivery policy",
+      "status": "PARTIAL",
+      "implemented": "Independent draft/approve/activate tariff matrix with exact bands, scope, limits and VAT; canonical checkout policy/legal snapshot evidence; explicit ANY-size authority.",
+      "stillMissing": "Trusted per-package physical size/weight classification and size-specific tariff integration; paid-order delivery acceptance.",
+      "primaryFiles": [
+        "lib/marketplace-checkout/delivery-policy.ts",
+        "lib/marketplace-checkout/delivery-policy-configuration.ts",
+        "lib/marketplace-checkout/matrix-quote.service.ts",
+        "lib/marketplace-checkout/legal-evidence.ts",
+        "components/admin/MarketplaceDeliveryPolicyManager.tsx"
+      ],
+      "testsAlreadyRun": "Unit policy/route tests, actual stock/checkout concurrency and dedicated marketplace checkout PostgreSQL CI pass.",
+      "knownRiskOrBlocker": "No trusted item dimensions/weight are inferred from count; only an expressly authored ANY-size rule works without classification.",
+      "externalInputRequired": "Yes: actual fee bands, scope, risk adjustment, overrides, effective date and tax approval.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "cod",
+      "name": "COD",
+      "status": "PARTIAL",
+      "implemented": "Scoped COD policy draft/review/activation, separate finance/bank author, approved remittance version binding, 50/50 initial split, explicit effective windows and scheduled successor preservation.",
+      "stillMissing": "Full collect/remit/reconcile/refund/settle functional acceptance and reviewed production activation.",
+      "primaryFiles": [
+        "lib/payments/payment-policy.service.ts",
+        "components/forms/PaymentPolicyConfiguration.tsx",
+        "app/api/admin/payment-policies/route.ts",
+        "tests/client-platform/payment-policy.test.ts",
+        "tests/integration/production-closure.integration.test.ts"
+      ],
+      "testsAlreadyRun": "COD effective-date unit assertions and real PostgreSQL window checks pass; existing cross-module/financial CI passes.",
+      "knownRiskOrBlocker": "FULL_COD/amended split not activated; no cash limit or bank details guessed. Policy existence does not prove cash operations.",
+      "externalInputRequired": "Yes: approved store/service/region scope, maximum amount, secure bank/remittance instructions, custody and settlement timing.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "commissions",
+      "name": "Commissions",
+      "status": "PARTIAL",
+      "implemented": "Existing canonical draft/editor extended for store scope; explicit rate and valid basis; initial revision repair; distinct review; immutable scope and no draft accrual.",
+      "stillMissing": "Consolidated full financial/browser acceptance and reviewed activation; complete driver/platform/store/promoter schedules.",
+      "primaryFiles": [
+        "lib/services/commission-plan.service.ts",
+        "lib/services/commission-plan-query.service.ts",
+        "lib/validation/commissions.ts",
+        "components/admin/CommissionPlanEditor.tsx",
+        "lib/commissions/commission-production-readiness.ts"
+      ],
+      "testsAlreadyRun": "Commission unit and actual PostgreSQL scope/revision/review assertions pass; selected finance browser checks pass historically.",
+      "knownRiskOrBlocker": "COMMISSION_PRODUCTION_VALIDATION_APPROVED remains false. Test-only service options cannot represent production approval.",
+      "externalInputRequired": "Yes: exact beneficiary rates, fixed/percentage basis, scope and effective windows.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "subscriptions",
+      "name": "Subscriptions",
+      "status": "PARTIAL",
+      "implemented": "Existing versioned subscription subsystem retained; readiness identifies absent commercial authority; source lock and inactive processor policy preserved.",
+      "stillMissing": "Closure-specific billing/renewal/dunning/provider, entitlement, cancellation/refund acceptance and reviewed plans.",
+      "primaryFiles": [
+        "lib/subscriptions/production-lock.ts",
+        "lib/production-readiness/service.ts",
+        "docs/production-closure/CLIENT_INPUTS_REQUIRED.md",
+        "docs/production-closure/TEST_DEFERRALS.md"
+      ],
+      "testsAlreadyRun": "Existing unit coverage included; optional subscription browser suites excluded, not passed.",
+      "knownRiskOrBlocker": "No new full subscription acceptance performed; do not enable renewals solely because a plan exists.",
+      "externalInputRequired": "Yes: prices, benefits, limits, fee relationship, effective dates and provider billing authority.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "promoters",
+      "name": "Promoter programme",
+      "status": "PARTIAL",
+      "implemented": "Existing programme/rank/version subsystem retained; readiness and source lock preserved; optional scope documented.",
+      "stillMissing": "Full programme qualification/disqualification, referral/earnings/payment acceptance and reviewed activation.",
+      "primaryFiles": [
+        "lib/promoters/production-readiness.ts",
+        "lib/production-readiness/service.ts",
+        "docs/production-closure/TEST_DEFERRALS.md"
+      ],
+      "testsAlreadyRun": "Existing unit assertions included; optional promoter browser suites excluded.",
+      "knownRiskOrBlocker": "No production programme, invented rank/rate or payout approval. Optional exclusion is not active-launch certification.",
+      "externalInputRequired": "Yes: ranks/thresholds, rules/windows, exclusions, payout timing and approval.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "advertising",
+      "name": "Advertising",
+      "status": "PARTIAL",
+      "implemented": "Existing advertising governance preserved; consolidated readiness reports approved rate-card/engine activation review requirement.",
+      "stillMissing": "Complete vendor request/campaign/banner/funding/billing/placement acceptance and approved rate cards.",
+      "primaryFiles": [
+        "lib/advertising/production-lock.ts",
+        "lib/production-readiness/service.ts",
+        "docs/production-closure/CLIENT_INPUTS_REQUIRED.md"
+      ],
+      "testsAlreadyRun": "Existing unit assertions included; no full new advertising browser acceptance.",
+      "knownRiskOrBlocker": "Billing processors remain inactive. Foundation ad-placement examples are not final commercial pricing.",
+      "externalInputRequired": "Yes: packages, pricing, channels, duration, budget/billing and placements.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "notifications",
+      "name": "Notifications",
+      "status": "PARTIAL",
+      "implemented": "Canonical required-domain definitions, payload/intake authority, serialized publication; real courier history verification; guest contact-scoped encrypted challenge, revocation-aware delivery, preferences/suppression; courier review UI.",
+      "stillMissing": "Complete success/refund/store-event financial/browser acceptance and broad domain governance UI/workflows; real independent publication/activation.",
+      "primaryFiles": [
+        "lib/notifications/required-domain-intake.ts",
+        "lib/notifications/required-domain-definitions.ts",
+        "lib/notifications/customer-order-publication.ts",
+        "lib/notifications/queued-email-delivery.ts",
+        "lib/marketplace-checkout/guest-contact-verification.service.ts",
+        "components/protected-v2/notification-admin/CustomerOrderNotificationReview.tsx"
+      ],
+      "testsAlreadyRun": "Actual closure PostgreSQL notification/concurrency/challenge/recovery assertions pass in 148-test runner; security outbox and unit tests pass.",
+      "knownRiskOrBlocker": "Registered events and synthetic recipients do not prove paid-order/refund end-to-end delivery. No second fake production admin or approval was created.",
+      "externalInputRequired": "Yes: final template text and separate authorized human approval/publish/activation.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "customer",
+      "name": "Customer",
+      "status": "PARTIAL",
+      "implemented": "Canonical cart/checkout resume, owner address corrections, legal/coverage snapshots, guest verification, safe admin projections; account/cart/keyboard/browser defects repaired.",
+      "stillMissing": "Full signup/verification/password reset/profile/avatar/saved address, paid order/tracking/inbox/refund/chat/review directed journey.",
+      "primaryFiles": [
+        "components/public-v2/commerce/CheckoutExperience.tsx",
+        "lib/marketplace-checkout/checkout.service.ts",
+        "app/api/checkout/[reference]/delivery-address/route.ts",
+        "tests/e2e/marketplace-checkout-customer.spec.ts",
+        "tests/e2e/customer-wallet-refunds.spec.ts"
+      ],
+      "testsAlreadyRun": "Customer/guest/cart/accessibility selected browser cases passed historically and among latest 82; five owner-resume PostgreSQL checks pass.",
+      "knownRiskOrBlocker": "Paid checkout and customer wallet/refunds remain release-critical placeholders. Partial browser success is not the full customer journey.",
+      "externalInputRequired": "Yes: real-money acceptance authorization and applicable provider/config inputs.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "vendor",
+      "name": "Vendor/store",
+      "status": "PARTIAL",
+      "implemented": "Owner-scoped browser drafts; atomic complete listing composition via canonical product/variant/offer/price/inventory/modifier/media services; safe media projections; replay-safe moderation; latest native draft editing/submission and receipt/CAS work checkpointed; employee page authority aligned with APIs.",
+      "stillMissing": "Fix missing STORE bootstrap role grants without weakening DENY; execute new edit/submit/archive and employee assertions; imports/native attributes/variants/modifiers, media review/quarantine, offer/publication and complete registration/catalog/order/vendor operations journey.",
+      "primaryFiles": [
+        "lib/services/catalog-listing-draft.service.ts",
+        "lib/services/catalog-product.service.ts",
+        "lib/services/catalog-moderation.service.ts",
+        "lib/services/catalog-page.service.ts",
+        "components/catalog/StoreCatalogWizard.tsx",
+        "components/catalog/StoreCatalogProductActions.tsx",
+        "prisma/seed.ts",
+        "tests/e2e/store-product-catalog.spec.ts",
+        "tests/e2e/business-employee-access.spec.ts"
+      ],
+      "testsAlreadyRun": "Six listing + six moderation actual PostgreSQL cases pass at 909f5f14 among 148; latest four catalog browser cases fail. 17 existing employee unit cases pass. Four new employee and five new product PostgreSQL cases unexecuted.",
+      "knownRiskOrBlocker": "Normalized upload 403 is canonical permission refusal; bootstrap creates permissions but only ADMIN/SUPER_ADMIN role grants. Price label fix and latest product UI are unverified in browser. Variants/modifiers remain JSON-oriented.",
+      "externalInputRequired": "Yes for commercial data, stock/authenticity and eventual live media; bootstrap/UI defects are engineering, not external.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "driver",
+      "name": "Driver",
+      "status": "PARTIAL",
+      "implemented": "Atomic profile/onboarding; truthful incomplete-document guidance; canonical earnings/restricted pages and finance reads; normalized private documents with serialized attachment and safe read/download; owner withdrawal context.",
+      "stillMissing": "Complete eligibility/vehicle/compliance approvals, assignment/accept/reject/navigation/live GPS/pickup OTP/POD/delivery/notifications/cash and reversal/refund journey.",
+      "primaryFiles": [
+        "lib/services/driver-profile.service.ts",
+        "components/driver/DriverOnboardingExperience.tsx",
+        "app/api/driver/documents/route.ts",
+        "lib/services/driver-earning-account.service.ts",
+        "tests/e2e/driver-documents.spec.ts",
+        "tests/e2e/driver-profile-onboarding.spec.ts",
+        "tests/e2e/driver-earnings.spec.ts"
+      ],
+      "testsAlreadyRun": "Actual profile, six canonical driver earnings and document PostgreSQL checks pass; owner/finance/document browser cases pass among prior clean 82.",
+      "knownRiskOrBlocker": "Synthetic approval/POD/location is only a test prerequisite. Production earning/reversal/source locks remain.",
+      "externalInputRequired": "Yes: real device GPS/POD/OTP acceptance and authentic operational approvals.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "admin",
+      "name": "Admin/Superuser",
+      "status": "PARTIAL",
+      "implemented": "Protected readiness/configuration authoring, commission editor, masked finance/checkout review, catalog review controls and authorization denials.",
+      "stillMissing": "Complete independent governance acceptance, all requested admin journeys and Superuser audited support/impersonation/ownership checks.",
+      "primaryFiles": [
+        "app/(admin)/admin/production-readiness/page.tsx",
+        "app/api/admin/production-readiness/route.ts",
+        "components/admin/CommissionPlanEditor.tsx",
+        "components/protected-v2/commerce-admin/CommerceAdminActions.tsx",
+        "tests/e2e/catalog-administration.spec.ts"
+      ],
+      "testsAlreadyRun": "Scoped admin/role/explicit-DENY/anonymous browser checks and API unit tests pass; two catalog moderation browser checks fail.",
+      "knownRiskOrBlocker": "No broad Superuser support-audit acceptance claimed. Authentication/page visibility alone cannot prove mutation authority.",
+      "externalInputRequired": "Yes for genuine independent approvals; remaining support/admin acceptance is engineering.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "payments",
+      "name": "Paystack/payments",
+      "status": "PARTIAL",
+      "implemented": "Mature signed webhook/inbox/payment processor and invariants preserved; provider authority disabled in isolated fixtures; synthetic source facts explicitly labeled; prior transfer retries covered.",
+      "stillMissing": "Complete controlled test-mode browser payment/finalization/inbox/retry/ledger sequence and live low-value acceptance after authorization.",
+      "primaryFiles": [
+        "tests/payments/paystack-financial-invariants.test.ts",
+        "tests/integration/paystack-webhook-concurrency.integration.test.ts",
+        "tests/e2e/marketplace-checkout-payment.spec.ts",
+        "scripts/production-processors.ts"
+      ],
+      "testsAlreadyRun": "Local payment suite 333 tests/54 files PASS (6.75s); 909f5f14 payment-foundation, webhook/closure and quality payments commands PASS.",
+      "knownRiskOrBlocker": "Synthetic succeeded-payment/webhook fields in settlement fixtures do not verify actual provider signatures or paid-order finalization. Payment E2E placeholder remains.",
+      "externalInputRequired": "Yes: approved test/live provider authority and controlled real-money charge authorization.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "ledger",
+      "name": "Ledger",
+      "status": "PARTIAL",
+      "implemented": "Canonical balanced posting/reversal/reserve/release retained; withdrawal account identities reconciled without rename or credit; finance rejection atomic with allocations/holds; rollback/concurrency assertions.",
+      "stillMissing": "Full integrated paid/refund/COD/settlement sequence and release-wide financial certification.",
+      "primaryFiles": [
+        "lib/services/withdrawal-account.service.ts",
+        "lib/services/withdrawal-finance-review.service.ts",
+        "lib/services/withdrawal-payout.service.ts",
+        "lib/services/driver-earning-account.service.ts",
+        "tests/integration/owner-withdrawal-canonical-postgres.integration.test.ts"
+      ],
+      "testsAlreadyRun": "Dedicated ledger and Gate4 jobs PASS at 909f5f14; actual owner withdrawal/finance rollback/replay and earning checks PASS.",
+      "knownRiskOrBlocker": "Account compatibility accepts only issued canonical identities and refuses arbitrary definitions; senior review required before activating money movement.",
+      "externalInputRequired": "No for invariants; real-money financial acceptance requires authorization.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "refunds",
+      "name": "Refunds",
+      "status": "PARTIAL",
+      "implemented": "Existing mature request/review/provider/reconciliation/wallet/ledger/refund services retained; source lock preserved; isolated unit/integration evidence exists.",
+      "stillMissing": "Customer/admin native refund acceptance, signed paid source through actual test provider, concurrent reserve/execution/unknown/reconcile/commission/earning/refund propagation.",
+      "primaryFiles": [
+        "lib/refunds/refund-production-readiness.ts",
+        "lib/services/refund-provider-execution.service.ts",
+        "lib/services/refund-request.service.ts",
+        "tests/e2e/refund-finance-admin.spec.ts",
+        "tests/e2e/customer-wallet-refunds.spec.ts"
+      ],
+      "testsAlreadyRun": "Local refund suite 101 tests/25 files PASS (3.57s); 909f5f14 dedicated refund PostgreSQL and quality commands PASS.",
+      "knownRiskOrBlocker": "REFUND_PRODUCTION_VALIDATION_APPROVED=false and activation always throws. Unit/integration success does not authorize lifting it; two browser placeholders remain.",
+      "externalInputRequired": "Yes: later explicit refund authorization; current browser/integrated engineering remains incomplete.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "earnings",
+      "name": "Earnings/settlement",
+      "status": "PARTIAL",
+      "implemented": "Canonical store/driver accrual/release projections; guarded balanced synthetic source fixtures; owner and finance browser reads/refusal/recovery; reservation cancellation releases allocations/holds; unknown payout preserves reserve and reconciliation.",
+      "stillMissing": "Full commercial/hold/provider/processor/settlement/refund/dispute acceptance and genuine payout authority; source locks review.",
+      "primaryFiles": [
+        "lib/services/withdrawal-finance-review.service.ts",
+        "lib/services/withdrawal-payout.service.ts",
+        "lib/withdrawals/withdrawal-production-readiness.ts",
+        "scripts/e2e-store-settlement-fixture.ts",
+        "scripts/e2e-driver-settlement-fixture.ts",
+        "docs/production-closure/WITHDRAWAL_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "8 store canonical, 6 driver canonical, 8 owner withdrawal and 4 finance cases PASS in prior real PostgreSQL; selected owner/finance browser assertions PASS among e63a1f35 clean 82.",
+      "knownRiskOrBlocker": "Synthetic maturity, zero commissions and provider-success flags are prerequisites; no payout performed. Production withdrawals remain source-locked despite environment flags.",
+      "externalInputRequired": "Yes: commissions, settlement policy, destination/remittance verification and controlled payout authorization.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "media",
+      "name": "Media/Cloudinary",
+      "status": "PARTIAL",
+      "implemented": "Decode/re-encode private JPEG/PNG/WebP, metadata removal and checksums; cleanup/quarantine on failed finalization; safe catalog reads; exact isolated local adapters; serialized document attachment/replay/read.",
+      "stillMissing": "Full avatar/store logo/cover/product/campaign/banner/headshot/vehicle/document operations, idempotency and live provider-aware cleanup/delivery acceptance.",
+      "primaryFiles": [
+        "lib/private-media/normalize-private-raster.ts",
+        "lib/private-media/private-media.service.ts",
+        "lib/catalog/media/disposable-catalog-media-policy.ts",
+        "lib/private-media/disposable-private-media-policy.ts",
+        "lib/services/catalog-media-intake.service.ts",
+        "lib/services/catalog-product.service.ts"
+      ],
+      "testsAlreadyRun": "Native decoder/guard/storage-focused suites PASS; actual private media and catalog projection PostgreSQL PASS; driver uploads PASS historically. New catalog native upload currently 403.",
+      "knownRiskOrBlocker": "Production Cloudinary path retained. No production upload/delete/rename/remigration performed. Raw source is not separately retained for new normalized private raster intake.",
+      "externalInputRequired": "Yes for genuine live media acceptance; upload permission root cause is engineering.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "security",
+      "name": "Security",
+      "status": "PARTIAL",
+      "implemented": "Same-origin checks retained; explicit ephemeral loopback origins supplied only to isolated E2E; BOLA/permission/owner isolation checks, masked finance reads, safe media DTOs and failure redaction.",
+      "stillMissing": "Exact-checkpoint employee/product authorization verification and complete support/financial/media flow security acceptance; senior review of remaining origin and fixture boundaries.",
+      "primaryFiles": [
+        "lib/security/request-origin.ts",
+        "scripts/e2e-environment.mjs",
+        "lib/catalog/catalog-auth.ts",
+        "lib/services/catalog-page.service.ts",
+        "tests/security/request-origin.test.ts",
+        "tests/security/bola-database-authority.integration.test.ts"
+      ],
+      "testsAlreadyRun": "Local BOLA unit 23 tests/2 files PASS; 909f5f14 strict BOLA/Redis/auth/permission jobs PASS; fresh code secret-pattern/filename review found none.",
+      "knownRiskOrBlocker": "Do not fix catalog 403 by bypassing authorization or granting blanket fixture ALLOW. Legacy zero-permission fallback in catalog auth predates this change and requires review.",
+      "externalInputRequired": "No for implementation; permission grants and human approval must use audited authority.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "accessibility",
+      "name": "Accessibility/mobile",
+      "status": "PARTIAL",
+      "implemented": "Native keyboard/focus/scroll checks, checkout alert scoping and purchase landmark, gallery frames, readable finance money/status/references; price label trim association repair checkpointed.",
+      "stillMissing": "Actual browser review across 1440/1366/768/390 for all changed role surfaces and full critical WCAG-oriented flow audit; browser verification of latest price label.",
+      "primaryFiles": [
+        "components/catalog/StoreCatalogWizard.tsx",
+        "components/public-v2/commerce/commerce.module.css",
+        "components/protected-v2/driver/driver-pages.module.css",
+        "components/protected-v2/store/store-pages.module.css",
+        "tests/e2e/production-visual-review.spec.ts",
+        "tests/e2e/store-order-accessibility.spec.ts"
+      ],
+      "testsAlreadyRun": "Selected keyboard/mobile/checkout/storefront assertions PASS; historical captures inspected with limitations. Last catalog runs FAIL; full native acceptance OPEN.",
+      "knownRiskOrBlocker": "Automated images or selector success do not constitute visual approval. Successful-run screenshots were removed late; historic local evidence retained.",
+      "externalInputRequired": "No for browser audit; real device GPS/POD is a separate human/live gate.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "observability",
+      "name": "Observability",
+      "status": "PARTIAL",
+      "implemented": "Readiness includes safe durable processor status, recent heartbeat/retry/reconciliation counts; processor loop health retained; health and safe provider snapshots recorded.",
+      "stillMissing": "Deployed operational view, full stale/payment/notification/log correlation diagnostics review; safe tracing enablement after patch removal.",
+      "primaryFiles": [
+        "lib/production-readiness/service.ts",
+        "scripts/production-processors.ts",
+        "app/(admin)/admin/production-readiness/page.tsx",
+        "docs/production-closure/RAILWAY_CONFIGURATION_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "Unit/processor suite 22 tests/4 files PASS; readiness and CI component assertions PASS; prior live health observations only.",
+      "knownRiskOrBlocker": "Tracing disabled and deliberately not enabled while destructive patch is staged. Current provider summary is not an exhaustive application-log audit.",
+      "externalInputRequired": "Yes: supported operator discard/access path for tracing and live diagnostics.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "disasterRecovery",
+      "name": "Backup/recovery",
+      "status": "PARTIAL",
+      "implemented": "Disposable dump/restore + historical upgrade runner with row counts/full hashes and ledger invariants; rollback, database, Redis, media and processor procedures documented.",
+      "stillMissing": "Production backup retention/freshness, permissions, RPO/RTO and operator rehearsal approval; reconcile stale initial NOT_RUN wording in runbook.",
+      "primaryFiles": [
+        "scripts/recovery-drill.mjs",
+        "docs/production-closure/DISASTER_RECOVERY_RUNBOOK.md",
+        "docs/production-closure/engineering-gates.json"
+      ],
+      "testsAlreadyRun": "Local initial drill FAIL before tests; completed CI recovery at c60b196a and 909f5f14 PASS.",
+      "knownRiskOrBlocker": "Local recovery.json retains failed initial attempt and runbook opening is stale; actual CI proof supersedes disposable NOT_RUN claim, not production-backup proof.",
+      "externalInputRequired": "Yes: production backup/access/retention and recovery objectives confirmation.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "infrastructure",
+      "name": "Vercel/Railway/proxy",
+      "status": "PARTIAL",
+      "implemented": "Server-only validated HTTPS Railway origin replaces source constant; path/query preservation and preview homepage behavior; prior read-only baseline retained.",
+      "stillMissing": "Configure Vercel origin before promoting; safely discard stale patch; exact-release Vercel/web/operations SHA parity and health verification.",
+      "primaryFiles": [
+        "proxy.ts",
+        "lib/config/railway-origin.ts",
+        ".env.example",
+        "tests/security/railway-origin.test.ts",
+        "docs/production-closure/RAILWAY_CONFIGURATION_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "Proxy/origin unit assertions PASS and 909f5f14 quality/CI PASS; prior production observations unchanged.",
+      "knownRiskOrBlocker": "Missing/invalid RAILWAY_PRODUCTION_ORIGIN yields 503 on edge runtime. No Vercel variable mutation was made; do not deploy without explicit verified configuration.",
+      "externalInputRequired": "Yes: operator configuration, patch discard and read-only parity/audit access.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "automatedTests",
+      "name": "Automated tests",
+      "status": "PARTIAL",
+      "implemented": "Strict isolated runners, many actual PostgreSQL and native browser journeys, failure-only retention in selected suites, critical-skip and flaky detection.",
+      "stillMissing": "Nine critical browser placeholders, newly added employee/product assertions, complete directed role journeys and final exact-checkpoint validation.",
+      "primaryFiles": [
+        "playwright.config.ts",
+        "scripts/disposable-closure-tests.mjs",
+        "scripts/audit-release-tests.mjs",
+        "docs/production-closure/TEST_DEFERRALS.md",
+        "tests/e2e/store-product-catalog.spec.ts",
+        "tests/integration/business-employee-postgres.integration.test.ts"
+      ],
+      "testsAlreadyRun": "Latest local full unit 3480/766 PASS, no skips, 84.61s; prior 909 PostgreSQL 148/18 PASS; browser82 PASS/4 FAIL; latest checkpoint no full rerun.",
+      "knownRiskOrBlocker": "The next closure source selects 19 files, with 9 additional PostgreSQL cases unexecuted (expected 157 total only if all run); discovery88/25 is not acceptance.",
+      "externalInputRequired": "No for test engineering; local Docker host broken, isolated CI is viable after review.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "documentation",
+      "name": "Documentation/runbooks",
+      "status": "PARTIAL",
+      "implemented": "18 closure documents/manifest before handoff; baseline, client blanks, operator approvals, migration/recovery/real-money and scoped evidence; checkpoint Markdown+JSON.",
+      "stillMissing": "Final production closure report after actual readiness/deployment; update stale incremental counts/pending/capture wording and PR body after authorized continuation.",
+      "primaryFiles": [
+        "docs/production-closure/BASELINE.md",
+        "docs/production-closure/CLIENT_INPUTS_REQUIRED.md",
+        "docs/production-closure/OPERATOR_ACTIONS_REQUIRED.md",
+        "docs/production-closure/engineering-gates.json",
+        "docs/production-closure/CATALOG_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "Evidence reconstructed from actual 34 prior commits, 337-file code diff, 390 local logs and completed GitHub jobs. JSON syntax checked during report creation.",
+      "knownRiskOrBlocker": "Historical narrative has contradictory pending/NOT_RUN statements and old image requests. This checkpoint states the newest known boundary; it does not alter historical evidence.",
+      "externalInputRequired": "Yes for eventual signoffs and inputs; documentation reconciliation remains engineering.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "deployment",
+      "name": "Deployment/production verification",
+      "status": "BLOCKED",
+      "implemented": "Non-main source pushed; live baseline and repeated read-only infrastructure health retained; deployment deliberately withheld.",
+      "stillMissing": "Green exact-release certification, stale patch neutralization, approved protected-table baseline, parity, deployment/smoke and post-release count/hash comparison.",
+      "primaryFiles": [
+        "docs/production-closure/BASELINE.md",
+        "docs/production-closure/OPERATOR_ACTIONS_REQUIRED.md",
+        "scripts/audit-reviewed-production.ts",
+        "docs/production-closure/RAILWAY_CONFIGURATION_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "Last health at 2026-10-07 19:39 UTC: HTTP200 health/ready; four Railway services online/SUCCESS; no deployment verification performed by checkpoint.",
+      "knownRiskOrBlocker": "NOT_READY. No current protected-row audit or candidate parity. main 83a4d63 remains production baseline; no candidate deployment.",
+      "externalInputRequired": "Yes: approved read-only audit path/operator artifact and later authorized release after engineering passes.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    }
+  ],
+  "failingChecks": [
+    {
+      "check": "909f5f14 browser",
+      "result": "FAIL",
+      "details": "82 passed,4 failed:two listing timeouts on unassociated VAT-inclusive price label;two moderation normalized-upload403 responses with Catalog permission is required. Final certified job skipped.",
+      "files": [
+        "tests/e2e/store-product-catalog.spec.ts",
+        "tests/e2e/catalog-administration.spec.ts"
+      ],
+      "fixed": "Price Field ID trim is checkpointed but not rerun. Bootstrap missing STORE role grants diagnosed in source, not fixed."
+    },
+    {
+      "check": "New employee/product acceptance",
+      "result": "UNKNOWN",
+      "details": "Four employee and five product PostgreSQL cases plus two employee browser cases have not executed. Product browser journeys were extended but not executed at this checkpoint.",
+      "fixed": "No; source preserved as WIP."
+    },
+    {
+      "check": "Full current validation",
+      "result": "UNKNOWN",
+      "details": "Round36 TypeScript and changed-file lint passed before final label trim; no round36 full unit/lint/build/PostgreSQL/browser run. Stop directive forbids rerun.",
+      "fixed": "No rerun authorized by this checkpoint."
+    },
+    {
+      "check": "Local Docker Desktop",
+      "result": "FAIL",
+      "details": "Backend inference IPC initialization fails; engine unavailable. Prior owned local runs failed before browser/DB assertions. No shared Docker/WSL reset or factory reset performed.",
+      "fixed": "No. CI disposable infrastructure has passed older revisions."
+    },
+    {
+      "check": "Release-critical placeholders",
+      "result": "FAIL",
+      "details": "Nine OPEN_ENGINEERING placeholders remain; optional excluded suites are not passes.",
+      "files": [
+        "tests/e2e/customer-wallet-refunds.spec.ts",
+        "tests/e2e/marketplace-checkout-payment.spec.ts",
+        "tests/e2e/refund-finance-admin.spec.ts",
+        "tests/e2e/store-order-accessibility.spec.ts",
+        "tests/e2e/store-order-admin.spec.ts",
+        "tests/e2e/store-order-customer.spec.ts",
+        "tests/e2e/store-order-handoff.spec.ts",
+        "tests/e2e/store-order-merchant.spec.ts",
+        "tests/e2e/store-order-substitution.spec.ts"
+      ],
+      "fixed": "No."
+    },
+    {
+      "check": "Engineering/release gates",
+      "result": "FAIL",
+      "details": "marketplace_parcel_classification, notification_required_domains, commercial_financial_certification, customer_vendor_driver_full_functional_acceptance, visual_acceptance, media_full_functional_acceptance, critical_skip_closure, fresh_production_protected_row_audit, github_certification_and_deployment",
+      "fixed": "No."
+    },
+    {
+      "check": "Checkpoint automatic CI",
+      "result": "INTERRUPTED",
+      "details": "37688784212 CI and 37688784283 Production Certification automatically triggered by checkpoint push; cancellation confirmed under immediate stop directive. No manual workflow dispatch.",
+      "fixed": "Not a validation pass."
+    },
+    {
+      "check": "Handoff audit command buffer",
+      "result": "FAIL",
+      "details": "A read-only Node git diff marker inventory exceeded default child-process buffer(ENOBUFS); rerun with bounded16 MB buffer passed. No code/database change or data loss.",
+      "fixed": "Yes for audit command only."
+    }
+  ],
+  "blockedExternalInputs": [
+    {
+      "dependency": "Coverage boundaries",
+      "engineeringAroundIt": "READY FAIL-CLOSED",
+      "remainingExternalAction": "Supply true region/province/centre/radius/road-distance/service/risk/effective records and approve in regions admin."
+    },
+    {
+      "dependency": "Parcel limits",
+      "engineeringAroundIt": "READY FAIL-CLOSED",
+      "remainingExternalAction": "Approve real SMALL/MEDIUM/LARGE dimensions, weights and effective windows; drafts are examples."
+    },
+    {
+      "dependency": "Marketplace fees",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Supply approved bands/region/risk/min/max/override/tax data; engineering still must integrate trusted size-specific package classification."
+    },
+    {
+      "dependency": "COD store/service/region scope and maximum amount",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Approve actual scope, maximum cash, initial50/50 split and per-order restrictions; engineering still owes complete cash lifecycle acceptance."
+    },
+    {
+      "dependency": "Cash bank/remittance/settlement",
+      "engineeringAroundIt": "READY FAIL-CLOSED",
+      "remainingExternalAction": "Use protected banking configuration, approve its exact version independently and document custody/deposit/settlement timing."
+    },
+    {
+      "dependency": "Commissions",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Provide actual driver/platform/store/promoter rate, basis, scope and dates; preserve source lock until engineering financial certification."
+    },
+    {
+      "dependency": "Subscription plans",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Approve names, prices, benefits, limits and provider billing authority; no renewal activation yet."
+    },
+    {
+      "dependency": "Promoter programme",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Approve ranks, thresholds, qualification/disqualification, commission and payout timing."
+    },
+    {
+      "dependency": "Advertising rate cards",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Approve package, price, duration, placement/channels and billing/budget terms."
+    },
+    {
+      "dependency": "Legal address/review",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Supply registered address only for required disclosures/provider use and obtain counsel review when required."
+    },
+    {
+      "dependency": "Notification independent approval",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Authorized separate humans review text/recipient policy and publish/activate; engineering still owes broad-domain functional proof."
+    },
+    {
+      "dependency": "Real-money payment/refund/payout",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Explicitly authorize bounded amount, actor, scope and limits separately for charge, refund and any payout after technical readiness."
+    },
+    {
+      "dependency": "Real mobile GPS/OTP/POD",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Perform authentic device and driver/customer acceptance with permissions/interruption/provenance/ownership checks."
+    },
+    {
+      "dependency": "Vendor stock/authenticity",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Each vendor confirms actual current stock/authenticity for the catalog scope; synthetic fixtures cannot certify it."
+    },
+    {
+      "dependency": "Protected production row audit",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Provide approved read-only execution path or redacted before/after counts and complete-row hashes. OAuth variable values are unavailable."
+    },
+    {
+      "dependency": "Railway stale patch discard",
+      "engineeringAroundIt": "READY FAIL-CLOSED",
+      "remainingExternalAction": "Operator safely discards exactly9a3370a3-8d07-4ef9-9e8d-a57ff488fccb using supported dashboard; verify it cannot delete operations."
+    },
+    {
+      "dependency": "Vercel server origin and production backup",
+      "engineeringAroundIt": "PARTIAL",
+      "remainingExternalAction": "Configure verified HTTPS RAILWAY_PRODUCTION_ORIGIN before promotion; verify backup retention/freshness/RPO/RTO/access."
+    }
+  ],
+  "partiallyImplemented": [
+    {
+      "key": "ci",
+      "name": "Git/CI",
+      "status": "PARTIAL",
+      "implemented": "Safe non-main branch, draft PR #17, strict certification wrapper, disposable PostgreSQL/Redis/browser/recovery jobs, skipped/flaky rejection. Code checkpoint push verified.",
+      "stillMissing": "Green exact-checkpoint certification, closure of all engineering gates, final PR description/evidence refresh and release approval.",
+      "primaryFiles": [
+        ".github/workflows/production-certification.yml",
+        "scripts/certification-command.mjs",
+        "scripts/certification-output.mjs",
+        "scripts/check-closure-engineering-gates.mjs",
+        "docs/production-closure/engineering-gates.json"
+      ],
+      "testsAlreadyRun": "909f5f14 main CI 37681988667 PASS; certification 37681988666 FAIL. WIP-triggered runs canceled under stop directive.",
+      "knownRiskOrBlocker": "23 certification component jobs pass, browser fails, final certified job skipped. No branch protection or Actions variable change recorded.",
+      "externalInputRequired": "No for Git engineering; release approvals remain separate.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "publicQuote",
+      "name": "Public quote/content",
+      "status": "PARTIAL",
+      "implemented": "Corrected public quote/account copy in service registry, pricing and FAQ; dynamic operator-defined parcel choices and fail-closed booking; anonymous quote assertions.",
+      "stillMissing": "Production verification of corrected pages and broader SEO/metadata/contact/unsupported-claim audit.",
+      "primaryFiles": [
+        "lib/public-services/service-page-registry.ts",
+        "components/public-v3/services/authored/PricingServiceView.tsx",
+        "components/public-v2/faq/FaqPage.tsx",
+        "components/forms/PublicDeliveryQuoteForm.tsx",
+        "tests/client-platform/public-quote-copy.test.ts"
+      ],
+      "testsAlreadyRun": "Saved public-copy/quote-serviceability logs and unit suite pass; historical browser quote assertions pass.",
+      "knownRiskOrBlocker": "Candidate copy is pushed, not deployed; configured coverage is still needed for a usable quote.",
+      "externalInputRequired": "Yes: real operating boundaries and parcel limits; legally required disclosures if applicable.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "readiness",
+      "name": "Production readiness matrix",
+      "status": "PARTIAL",
+      "implemented": "Protected matrix distinguishes configuration, engineering, approval and live acceptance; safe diagnostics; versioned, independent, SHA-bound expiring evidence.",
+      "stillMissing": "Full engineering certification and live data review; audit completeness of all capability decisions; remove blockers only after real proof.",
+      "primaryFiles": [
+        "lib/production-readiness/service.ts",
+        "lib/production-readiness/contracts.ts",
+        "lib/production-readiness/evidence.ts",
+        "app/api/admin/production-readiness/route.ts",
+        "components/admin/ProductionAcceptanceEvidence.tsx"
+      ],
+      "testsAlreadyRun": "API/evidence unit assertions pass in full suite; closure configuration/evidence assertions pass at 909f5f14.",
+      "knownRiskOrBlocker": "Notification engineering deliberately stays blocked; financial/source locks remain. Manifest contains stale incremental narratives, superseded by this report.",
+      "externalInputRequired": "Yes: independent human evidence reviews and genuine acceptance records.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "coverage",
+      "name": "Coverage/regions",
+      "status": "PARTIAL",
+      "implemented": "Activation validates complete region boundaries; explicit null clearing and stale-write conflict; geocoding/routing and quote paths fail closed.",
+      "stillMissing": "Real boundaries/service/high-risk decisions, production configuration and actual route acceptance.",
+      "primaryFiles": [
+        "lib/maps/region-boundaries.ts",
+        "lib/services/admin-regions.service.ts",
+        "lib/maps/delivery-zone.service.ts",
+        "lib/maps/routes.service.ts",
+        "components/admin/DeliveryRegionsManager.tsx",
+        "app/api/admin/regions/[id]/route.ts"
+      ],
+      "testsAlreadyRun": "Region/config unit regressions and disposable closure assertions pass; pricing CI job passes.",
+      "knownRiskOrBlocker": "No coordinates or coverage were invented. Active seed examples are not approved operating areas.",
+      "externalInputRequired": "Yes: centre, radius, road distance, province, active services, risk rules, effective dates.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "parcelProfiles",
+      "name": "Parcel profiles",
+      "status": "PARTIAL",
+      "implemented": "Versioned operator authoring and validated usable SMALL/MEDIUM/LARGE profiles; public API and quote gates; conflicting effective profiles refused.",
+      "stillMissing": "Approved dimensions/weight limits, full profile lifecycle acceptance and live quote verification.",
+      "primaryFiles": [
+        "lib/commercial/parcel-profiles.ts",
+        "components/admin/ParcelProfilesManager.tsx",
+        "app/api/admin/parcel-profiles/route.ts",
+        "app/api/public/parcel-profiles/route.ts",
+        "tests/client-platform/parcel-profiles.test.ts"
+      ],
+      "testsAlreadyRun": "Unit/config/closure assertions pass in earlier candidates and 909f5f14 components.",
+      "knownRiskOrBlocker": "Existing draft examples do not imply operational approval; express-specific acceptance remains inactive.",
+      "externalInputRequired": "Yes: approved dimensions, weight and effective windows for each class.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "marketplaceDelivery",
+      "name": "Marketplace delivery policy",
+      "status": "PARTIAL",
+      "implemented": "Independent draft/approve/activate tariff matrix with exact bands, scope, limits and VAT; canonical checkout policy/legal snapshot evidence; explicit ANY-size authority.",
+      "stillMissing": "Trusted per-package physical size/weight classification and size-specific tariff integration; paid-order delivery acceptance.",
+      "primaryFiles": [
+        "lib/marketplace-checkout/delivery-policy.ts",
+        "lib/marketplace-checkout/delivery-policy-configuration.ts",
+        "lib/marketplace-checkout/matrix-quote.service.ts",
+        "lib/marketplace-checkout/legal-evidence.ts",
+        "components/admin/MarketplaceDeliveryPolicyManager.tsx"
+      ],
+      "testsAlreadyRun": "Unit policy/route tests, actual stock/checkout concurrency and dedicated marketplace checkout PostgreSQL CI pass.",
+      "knownRiskOrBlocker": "No trusted item dimensions/weight are inferred from count; only an expressly authored ANY-size rule works without classification.",
+      "externalInputRequired": "Yes: actual fee bands, scope, risk adjustment, overrides, effective date and tax approval.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "cod",
+      "name": "COD",
+      "status": "PARTIAL",
+      "implemented": "Scoped COD policy draft/review/activation, separate finance/bank author, approved remittance version binding, 50/50 initial split, explicit effective windows and scheduled successor preservation.",
+      "stillMissing": "Full collect/remit/reconcile/refund/settle functional acceptance and reviewed production activation.",
+      "primaryFiles": [
+        "lib/payments/payment-policy.service.ts",
+        "components/forms/PaymentPolicyConfiguration.tsx",
+        "app/api/admin/payment-policies/route.ts",
+        "tests/client-platform/payment-policy.test.ts",
+        "tests/integration/production-closure.integration.test.ts"
+      ],
+      "testsAlreadyRun": "COD effective-date unit assertions and real PostgreSQL window checks pass; existing cross-module/financial CI passes.",
+      "knownRiskOrBlocker": "FULL_COD/amended split not activated; no cash limit or bank details guessed. Policy existence does not prove cash operations.",
+      "externalInputRequired": "Yes: approved store/service/region scope, maximum amount, secure bank/remittance instructions, custody and settlement timing.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "commissions",
+      "name": "Commissions",
+      "status": "PARTIAL",
+      "implemented": "Existing canonical draft/editor extended for store scope; explicit rate and valid basis; initial revision repair; distinct review; immutable scope and no draft accrual.",
+      "stillMissing": "Consolidated full financial/browser acceptance and reviewed activation; complete driver/platform/store/promoter schedules.",
+      "primaryFiles": [
+        "lib/services/commission-plan.service.ts",
+        "lib/services/commission-plan-query.service.ts",
+        "lib/validation/commissions.ts",
+        "components/admin/CommissionPlanEditor.tsx",
+        "lib/commissions/commission-production-readiness.ts"
+      ],
+      "testsAlreadyRun": "Commission unit and actual PostgreSQL scope/revision/review assertions pass; selected finance browser checks pass historically.",
+      "knownRiskOrBlocker": "COMMISSION_PRODUCTION_VALIDATION_APPROVED remains false. Test-only service options cannot represent production approval.",
+      "externalInputRequired": "Yes: exact beneficiary rates, fixed/percentage basis, scope and effective windows.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "subscriptions",
+      "name": "Subscriptions",
+      "status": "PARTIAL",
+      "implemented": "Existing versioned subscription subsystem retained; readiness identifies absent commercial authority; source lock and inactive processor policy preserved.",
+      "stillMissing": "Closure-specific billing/renewal/dunning/provider, entitlement, cancellation/refund acceptance and reviewed plans.",
+      "primaryFiles": [
+        "lib/subscriptions/production-lock.ts",
+        "lib/production-readiness/service.ts",
+        "docs/production-closure/CLIENT_INPUTS_REQUIRED.md",
+        "docs/production-closure/TEST_DEFERRALS.md"
+      ],
+      "testsAlreadyRun": "Existing unit coverage included; optional subscription browser suites excluded, not passed.",
+      "knownRiskOrBlocker": "No new full subscription acceptance performed; do not enable renewals solely because a plan exists.",
+      "externalInputRequired": "Yes: prices, benefits, limits, fee relationship, effective dates and provider billing authority.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "promoters",
+      "name": "Promoter programme",
+      "status": "PARTIAL",
+      "implemented": "Existing programme/rank/version subsystem retained; readiness and source lock preserved; optional scope documented.",
+      "stillMissing": "Full programme qualification/disqualification, referral/earnings/payment acceptance and reviewed activation.",
+      "primaryFiles": [
+        "lib/promoters/production-readiness.ts",
+        "lib/production-readiness/service.ts",
+        "docs/production-closure/TEST_DEFERRALS.md"
+      ],
+      "testsAlreadyRun": "Existing unit assertions included; optional promoter browser suites excluded.",
+      "knownRiskOrBlocker": "No production programme, invented rank/rate or payout approval. Optional exclusion is not active-launch certification.",
+      "externalInputRequired": "Yes: ranks/thresholds, rules/windows, exclusions, payout timing and approval.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "advertising",
+      "name": "Advertising",
+      "status": "PARTIAL",
+      "implemented": "Existing advertising governance preserved; consolidated readiness reports approved rate-card/engine activation review requirement.",
+      "stillMissing": "Complete vendor request/campaign/banner/funding/billing/placement acceptance and approved rate cards.",
+      "primaryFiles": [
+        "lib/advertising/production-lock.ts",
+        "lib/production-readiness/service.ts",
+        "docs/production-closure/CLIENT_INPUTS_REQUIRED.md"
+      ],
+      "testsAlreadyRun": "Existing unit assertions included; no full new advertising browser acceptance.",
+      "knownRiskOrBlocker": "Billing processors remain inactive. Foundation ad-placement examples are not final commercial pricing.",
+      "externalInputRequired": "Yes: packages, pricing, channels, duration, budget/billing and placements.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "notifications",
+      "name": "Notifications",
+      "status": "PARTIAL",
+      "implemented": "Canonical required-domain definitions, payload/intake authority, serialized publication; real courier history verification; guest contact-scoped encrypted challenge, revocation-aware delivery, preferences/suppression; courier review UI.",
+      "stillMissing": "Complete success/refund/store-event financial/browser acceptance and broad domain governance UI/workflows; real independent publication/activation.",
+      "primaryFiles": [
+        "lib/notifications/required-domain-intake.ts",
+        "lib/notifications/required-domain-definitions.ts",
+        "lib/notifications/customer-order-publication.ts",
+        "lib/notifications/queued-email-delivery.ts",
+        "lib/marketplace-checkout/guest-contact-verification.service.ts",
+        "components/protected-v2/notification-admin/CustomerOrderNotificationReview.tsx"
+      ],
+      "testsAlreadyRun": "Actual closure PostgreSQL notification/concurrency/challenge/recovery assertions pass in 148-test runner; security outbox and unit tests pass.",
+      "knownRiskOrBlocker": "Registered events and synthetic recipients do not prove paid-order/refund end-to-end delivery. No second fake production admin or approval was created.",
+      "externalInputRequired": "Yes: final template text and separate authorized human approval/publish/activation.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "customer",
+      "name": "Customer",
+      "status": "PARTIAL",
+      "implemented": "Canonical cart/checkout resume, owner address corrections, legal/coverage snapshots, guest verification, safe admin projections; account/cart/keyboard/browser defects repaired.",
+      "stillMissing": "Full signup/verification/password reset/profile/avatar/saved address, paid order/tracking/inbox/refund/chat/review directed journey.",
+      "primaryFiles": [
+        "components/public-v2/commerce/CheckoutExperience.tsx",
+        "lib/marketplace-checkout/checkout.service.ts",
+        "app/api/checkout/[reference]/delivery-address/route.ts",
+        "tests/e2e/marketplace-checkout-customer.spec.ts",
+        "tests/e2e/customer-wallet-refunds.spec.ts"
+      ],
+      "testsAlreadyRun": "Customer/guest/cart/accessibility selected browser cases passed historically and among latest 82; five owner-resume PostgreSQL checks pass.",
+      "knownRiskOrBlocker": "Paid checkout and customer wallet/refunds remain release-critical placeholders. Partial browser success is not the full customer journey.",
+      "externalInputRequired": "Yes: real-money acceptance authorization and applicable provider/config inputs.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "vendor",
+      "name": "Vendor/store",
+      "status": "PARTIAL",
+      "implemented": "Owner-scoped browser drafts; atomic complete listing composition via canonical product/variant/offer/price/inventory/modifier/media services; safe media projections; replay-safe moderation; latest native draft editing/submission and receipt/CAS work checkpointed; employee page authority aligned with APIs.",
+      "stillMissing": "Fix missing STORE bootstrap role grants without weakening DENY; execute new edit/submit/archive and employee assertions; imports/native attributes/variants/modifiers, media review/quarantine, offer/publication and complete registration/catalog/order/vendor operations journey.",
+      "primaryFiles": [
+        "lib/services/catalog-listing-draft.service.ts",
+        "lib/services/catalog-product.service.ts",
+        "lib/services/catalog-moderation.service.ts",
+        "lib/services/catalog-page.service.ts",
+        "components/catalog/StoreCatalogWizard.tsx",
+        "components/catalog/StoreCatalogProductActions.tsx",
+        "prisma/seed.ts",
+        "tests/e2e/store-product-catalog.spec.ts",
+        "tests/e2e/business-employee-access.spec.ts"
+      ],
+      "testsAlreadyRun": "Six listing + six moderation actual PostgreSQL cases pass at 909f5f14 among 148; latest four catalog browser cases fail. 17 existing employee unit cases pass. Four new employee and five new product PostgreSQL cases unexecuted.",
+      "knownRiskOrBlocker": "Normalized upload 403 is canonical permission refusal; bootstrap creates permissions but only ADMIN/SUPER_ADMIN role grants. Price label fix and latest product UI are unverified in browser. Variants/modifiers remain JSON-oriented.",
+      "externalInputRequired": "Yes for commercial data, stock/authenticity and eventual live media; bootstrap/UI defects are engineering, not external.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "driver",
+      "name": "Driver",
+      "status": "PARTIAL",
+      "implemented": "Atomic profile/onboarding; truthful incomplete-document guidance; canonical earnings/restricted pages and finance reads; normalized private documents with serialized attachment and safe read/download; owner withdrawal context.",
+      "stillMissing": "Complete eligibility/vehicle/compliance approvals, assignment/accept/reject/navigation/live GPS/pickup OTP/POD/delivery/notifications/cash and reversal/refund journey.",
+      "primaryFiles": [
+        "lib/services/driver-profile.service.ts",
+        "components/driver/DriverOnboardingExperience.tsx",
+        "app/api/driver/documents/route.ts",
+        "lib/services/driver-earning-account.service.ts",
+        "tests/e2e/driver-documents.spec.ts",
+        "tests/e2e/driver-profile-onboarding.spec.ts",
+        "tests/e2e/driver-earnings.spec.ts"
+      ],
+      "testsAlreadyRun": "Actual profile, six canonical driver earnings and document PostgreSQL checks pass; owner/finance/document browser cases pass among prior clean 82.",
+      "knownRiskOrBlocker": "Synthetic approval/POD/location is only a test prerequisite. Production earning/reversal/source locks remain.",
+      "externalInputRequired": "Yes: real device GPS/POD/OTP acceptance and authentic operational approvals.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "admin",
+      "name": "Admin/Superuser",
+      "status": "PARTIAL",
+      "implemented": "Protected readiness/configuration authoring, commission editor, masked finance/checkout review, catalog review controls and authorization denials.",
+      "stillMissing": "Complete independent governance acceptance, all requested admin journeys and Superuser audited support/impersonation/ownership checks.",
+      "primaryFiles": [
+        "app/(admin)/admin/production-readiness/page.tsx",
+        "app/api/admin/production-readiness/route.ts",
+        "components/admin/CommissionPlanEditor.tsx",
+        "components/protected-v2/commerce-admin/CommerceAdminActions.tsx",
+        "tests/e2e/catalog-administration.spec.ts"
+      ],
+      "testsAlreadyRun": "Scoped admin/role/explicit-DENY/anonymous browser checks and API unit tests pass; two catalog moderation browser checks fail.",
+      "knownRiskOrBlocker": "No broad Superuser support-audit acceptance claimed. Authentication/page visibility alone cannot prove mutation authority.",
+      "externalInputRequired": "Yes for genuine independent approvals; remaining support/admin acceptance is engineering.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "payments",
+      "name": "Paystack/payments",
+      "status": "PARTIAL",
+      "implemented": "Mature signed webhook/inbox/payment processor and invariants preserved; provider authority disabled in isolated fixtures; synthetic source facts explicitly labeled; prior transfer retries covered.",
+      "stillMissing": "Complete controlled test-mode browser payment/finalization/inbox/retry/ledger sequence and live low-value acceptance after authorization.",
+      "primaryFiles": [
+        "tests/payments/paystack-financial-invariants.test.ts",
+        "tests/integration/paystack-webhook-concurrency.integration.test.ts",
+        "tests/e2e/marketplace-checkout-payment.spec.ts",
+        "scripts/production-processors.ts"
+      ],
+      "testsAlreadyRun": "Local payment suite 333 tests/54 files PASS (6.75s); 909f5f14 payment-foundation, webhook/closure and quality payments commands PASS.",
+      "knownRiskOrBlocker": "Synthetic succeeded-payment/webhook fields in settlement fixtures do not verify actual provider signatures or paid-order finalization. Payment E2E placeholder remains.",
+      "externalInputRequired": "Yes: approved test/live provider authority and controlled real-money charge authorization.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "ledger",
+      "name": "Ledger",
+      "status": "PARTIAL",
+      "implemented": "Canonical balanced posting/reversal/reserve/release retained; withdrawal account identities reconciled without rename or credit; finance rejection atomic with allocations/holds; rollback/concurrency assertions.",
+      "stillMissing": "Full integrated paid/refund/COD/settlement sequence and release-wide financial certification.",
+      "primaryFiles": [
+        "lib/services/withdrawal-account.service.ts",
+        "lib/services/withdrawal-finance-review.service.ts",
+        "lib/services/withdrawal-payout.service.ts",
+        "lib/services/driver-earning-account.service.ts",
+        "tests/integration/owner-withdrawal-canonical-postgres.integration.test.ts"
+      ],
+      "testsAlreadyRun": "Dedicated ledger and Gate4 jobs PASS at 909f5f14; actual owner withdrawal/finance rollback/replay and earning checks PASS.",
+      "knownRiskOrBlocker": "Account compatibility accepts only issued canonical identities and refuses arbitrary definitions; senior review required before activating money movement.",
+      "externalInputRequired": "No for invariants; real-money financial acceptance requires authorization.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "refunds",
+      "name": "Refunds",
+      "status": "PARTIAL",
+      "implemented": "Existing mature request/review/provider/reconciliation/wallet/ledger/refund services retained; source lock preserved; isolated unit/integration evidence exists.",
+      "stillMissing": "Customer/admin native refund acceptance, signed paid source through actual test provider, concurrent reserve/execution/unknown/reconcile/commission/earning/refund propagation.",
+      "primaryFiles": [
+        "lib/refunds/refund-production-readiness.ts",
+        "lib/services/refund-provider-execution.service.ts",
+        "lib/services/refund-request.service.ts",
+        "tests/e2e/refund-finance-admin.spec.ts",
+        "tests/e2e/customer-wallet-refunds.spec.ts"
+      ],
+      "testsAlreadyRun": "Local refund suite 101 tests/25 files PASS (3.57s); 909f5f14 dedicated refund PostgreSQL and quality commands PASS.",
+      "knownRiskOrBlocker": "REFUND_PRODUCTION_VALIDATION_APPROVED=false and activation always throws. Unit/integration success does not authorize lifting it; two browser placeholders remain.",
+      "externalInputRequired": "Yes: later explicit refund authorization; current browser/integrated engineering remains incomplete.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "earnings",
+      "name": "Earnings/settlement",
+      "status": "PARTIAL",
+      "implemented": "Canonical store/driver accrual/release projections; guarded balanced synthetic source fixtures; owner and finance browser reads/refusal/recovery; reservation cancellation releases allocations/holds; unknown payout preserves reserve and reconciliation.",
+      "stillMissing": "Full commercial/hold/provider/processor/settlement/refund/dispute acceptance and genuine payout authority; source locks review.",
+      "primaryFiles": [
+        "lib/services/withdrawal-finance-review.service.ts",
+        "lib/services/withdrawal-payout.service.ts",
+        "lib/withdrawals/withdrawal-production-readiness.ts",
+        "scripts/e2e-store-settlement-fixture.ts",
+        "scripts/e2e-driver-settlement-fixture.ts",
+        "docs/production-closure/WITHDRAWAL_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "8 store canonical, 6 driver canonical, 8 owner withdrawal and 4 finance cases PASS in prior real PostgreSQL; selected owner/finance browser assertions PASS among e63a1f35 clean 82.",
+      "knownRiskOrBlocker": "Synthetic maturity, zero commissions and provider-success flags are prerequisites; no payout performed. Production withdrawals remain source-locked despite environment flags.",
+      "externalInputRequired": "Yes: commissions, settlement policy, destination/remittance verification and controlled payout authorization.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "media",
+      "name": "Media/Cloudinary",
+      "status": "PARTIAL",
+      "implemented": "Decode/re-encode private JPEG/PNG/WebP, metadata removal and checksums; cleanup/quarantine on failed finalization; safe catalog reads; exact isolated local adapters; serialized document attachment/replay/read.",
+      "stillMissing": "Full avatar/store logo/cover/product/campaign/banner/headshot/vehicle/document operations, idempotency and live provider-aware cleanup/delivery acceptance.",
+      "primaryFiles": [
+        "lib/private-media/normalize-private-raster.ts",
+        "lib/private-media/private-media.service.ts",
+        "lib/catalog/media/disposable-catalog-media-policy.ts",
+        "lib/private-media/disposable-private-media-policy.ts",
+        "lib/services/catalog-media-intake.service.ts",
+        "lib/services/catalog-product.service.ts"
+      ],
+      "testsAlreadyRun": "Native decoder/guard/storage-focused suites PASS; actual private media and catalog projection PostgreSQL PASS; driver uploads PASS historically. New catalog native upload currently 403.",
+      "knownRiskOrBlocker": "Production Cloudinary path retained. No production upload/delete/rename/remigration performed. Raw source is not separately retained for new normalized private raster intake.",
+      "externalInputRequired": "Yes for genuine live media acceptance; upload permission root cause is engineering.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "security",
+      "name": "Security",
+      "status": "PARTIAL",
+      "implemented": "Same-origin checks retained; explicit ephemeral loopback origins supplied only to isolated E2E; BOLA/permission/owner isolation checks, masked finance reads, safe media DTOs and failure redaction.",
+      "stillMissing": "Exact-checkpoint employee/product authorization verification and complete support/financial/media flow security acceptance; senior review of remaining origin and fixture boundaries.",
+      "primaryFiles": [
+        "lib/security/request-origin.ts",
+        "scripts/e2e-environment.mjs",
+        "lib/catalog/catalog-auth.ts",
+        "lib/services/catalog-page.service.ts",
+        "tests/security/request-origin.test.ts",
+        "tests/security/bola-database-authority.integration.test.ts"
+      ],
+      "testsAlreadyRun": "Local BOLA unit 23 tests/2 files PASS; 909f5f14 strict BOLA/Redis/auth/permission jobs PASS; fresh code secret-pattern/filename review found none.",
+      "knownRiskOrBlocker": "Do not fix catalog 403 by bypassing authorization or granting blanket fixture ALLOW. Legacy zero-permission fallback in catalog auth predates this change and requires review.",
+      "externalInputRequired": "No for implementation; permission grants and human approval must use audited authority.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "accessibility",
+      "name": "Accessibility/mobile",
+      "status": "PARTIAL",
+      "implemented": "Native keyboard/focus/scroll checks, checkout alert scoping and purchase landmark, gallery frames, readable finance money/status/references; price label trim association repair checkpointed.",
+      "stillMissing": "Actual browser review across 1440/1366/768/390 for all changed role surfaces and full critical WCAG-oriented flow audit; browser verification of latest price label.",
+      "primaryFiles": [
+        "components/catalog/StoreCatalogWizard.tsx",
+        "components/public-v2/commerce/commerce.module.css",
+        "components/protected-v2/driver/driver-pages.module.css",
+        "components/protected-v2/store/store-pages.module.css",
+        "tests/e2e/production-visual-review.spec.ts",
+        "tests/e2e/store-order-accessibility.spec.ts"
+      ],
+      "testsAlreadyRun": "Selected keyboard/mobile/checkout/storefront assertions PASS; historical captures inspected with limitations. Last catalog runs FAIL; full native acceptance OPEN.",
+      "knownRiskOrBlocker": "Automated images or selector success do not constitute visual approval. Successful-run screenshots were removed late; historic local evidence retained.",
+      "externalInputRequired": "No for browser audit; real device GPS/POD is a separate human/live gate.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "observability",
+      "name": "Observability",
+      "status": "PARTIAL",
+      "implemented": "Readiness includes safe durable processor status, recent heartbeat/retry/reconciliation counts; processor loop health retained; health and safe provider snapshots recorded.",
+      "stillMissing": "Deployed operational view, full stale/payment/notification/log correlation diagnostics review; safe tracing enablement after patch removal.",
+      "primaryFiles": [
+        "lib/production-readiness/service.ts",
+        "scripts/production-processors.ts",
+        "app/(admin)/admin/production-readiness/page.tsx",
+        "docs/production-closure/RAILWAY_CONFIGURATION_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "Unit/processor suite 22 tests/4 files PASS; readiness and CI component assertions PASS; prior live health observations only.",
+      "knownRiskOrBlocker": "Tracing disabled and deliberately not enabled while destructive patch is staged. Current provider summary is not an exhaustive application-log audit.",
+      "externalInputRequired": "Yes: supported operator discard/access path for tracing and live diagnostics.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "disasterRecovery",
+      "name": "Backup/recovery",
+      "status": "PARTIAL",
+      "implemented": "Disposable dump/restore + historical upgrade runner with row counts/full hashes and ledger invariants; rollback, database, Redis, media and processor procedures documented.",
+      "stillMissing": "Production backup retention/freshness, permissions, RPO/RTO and operator rehearsal approval; reconcile stale initial NOT_RUN wording in runbook.",
+      "primaryFiles": [
+        "scripts/recovery-drill.mjs",
+        "docs/production-closure/DISASTER_RECOVERY_RUNBOOK.md",
+        "docs/production-closure/engineering-gates.json"
+      ],
+      "testsAlreadyRun": "Local initial drill FAIL before tests; completed CI recovery at c60b196a and 909f5f14 PASS.",
+      "knownRiskOrBlocker": "Local recovery.json retains failed initial attempt and runbook opening is stale; actual CI proof supersedes disposable NOT_RUN claim, not production-backup proof.",
+      "externalInputRequired": "Yes: production backup/access/retention and recovery objectives confirmation.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "infrastructure",
+      "name": "Vercel/Railway/proxy",
+      "status": "PARTIAL",
+      "implemented": "Server-only validated HTTPS Railway origin replaces source constant; path/query preservation and preview homepage behavior; prior read-only baseline retained.",
+      "stillMissing": "Configure Vercel origin before promoting; safely discard stale patch; exact-release Vercel/web/operations SHA parity and health verification.",
+      "primaryFiles": [
+        "proxy.ts",
+        "lib/config/railway-origin.ts",
+        ".env.example",
+        "tests/security/railway-origin.test.ts",
+        "docs/production-closure/RAILWAY_CONFIGURATION_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "Proxy/origin unit assertions PASS and 909f5f14 quality/CI PASS; prior production observations unchanged.",
+      "knownRiskOrBlocker": "Missing/invalid RAILWAY_PRODUCTION_ORIGIN yields 503 on edge runtime. No Vercel variable mutation was made; do not deploy without explicit verified configuration.",
+      "externalInputRequired": "Yes: operator configuration, patch discard and read-only parity/audit access.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "automatedTests",
+      "name": "Automated tests",
+      "status": "PARTIAL",
+      "implemented": "Strict isolated runners, many actual PostgreSQL and native browser journeys, failure-only retention in selected suites, critical-skip and flaky detection.",
+      "stillMissing": "Nine critical browser placeholders, newly added employee/product assertions, complete directed role journeys and final exact-checkpoint validation.",
+      "primaryFiles": [
+        "playwright.config.ts",
+        "scripts/disposable-closure-tests.mjs",
+        "scripts/audit-release-tests.mjs",
+        "docs/production-closure/TEST_DEFERRALS.md",
+        "tests/e2e/store-product-catalog.spec.ts",
+        "tests/integration/business-employee-postgres.integration.test.ts"
+      ],
+      "testsAlreadyRun": "Latest local full unit 3480/766 PASS, no skips, 84.61s; prior 909 PostgreSQL 148/18 PASS; browser82 PASS/4 FAIL; latest checkpoint no full rerun.",
+      "knownRiskOrBlocker": "The next closure source selects 19 files, with 9 additional PostgreSQL cases unexecuted (expected 157 total only if all run); discovery88/25 is not acceptance.",
+      "externalInputRequired": "No for test engineering; local Docker host broken, isolated CI is viable after review.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    },
+    {
+      "key": "documentation",
+      "name": "Documentation/runbooks",
+      "status": "PARTIAL",
+      "implemented": "18 closure documents/manifest before handoff; baseline, client blanks, operator approvals, migration/recovery/real-money and scoped evidence; checkpoint Markdown+JSON.",
+      "stillMissing": "Final production closure report after actual readiness/deployment; update stale incremental counts/pending/capture wording and PR body after authorized continuation.",
+      "primaryFiles": [
+        "docs/production-closure/BASELINE.md",
+        "docs/production-closure/CLIENT_INPUTS_REQUIRED.md",
+        "docs/production-closure/OPERATOR_ACTIONS_REQUIRED.md",
+        "docs/production-closure/engineering-gates.json",
+        "docs/production-closure/CATALOG_EVIDENCE.md"
+      ],
+      "testsAlreadyRun": "Evidence reconstructed from actual 34 prior commits, 337-file code diff, 390 local logs and completed GitHub jobs. JSON syntax checked during report creation.",
+      "knownRiskOrBlocker": "Historical narrative has contradictory pending/NOT_RUN statements and old image requests. This checkpoint states the newest known boundary; it does not alter historical evidence.",
+      "externalInputRequired": "Yes for eventual signoffs and inputs; documentation reconciliation remains engineering.",
+      "safeToContinue": "Yes, as reviewable WIP on this branch; preserve authorization and production source locks. No merge or deployment until the exact candidate is certified."
+    }
+  ],
+  "notStarted": [
+    "Trusted per-product/package physical dimensions/weight classification integrated with size-specific marketplace tariffs.",
+    "New executable paid marketplace-checkout payment browser journey replacing its critical placeholder.",
+    "New executable customer-wallet/refund and finance-admin refund browser journeys replacing their critical placeholders.",
+    "New executable store-order merchant/customer/admin/handoff/substitution/accessibility acceptance replacing six critical placeholders.",
+    "Complete closure-specific vendor onboarding/logo/cover/hours/stock/price/category/coupon/campaign/ad/expense/chat/review/publication journey beyond current scoped catalog/finance work.",
+    "Complete closure-specific customer signup/reset/profile/avatar/tracking/refund/chat/review journey beyond selected cart/checkout/address checks.",
+    "Complete closure-specific driver assignment/acceptance/rejection/navigation/GPS/pickup OTP/POD/cash journey; no genuine mobile-device acceptance.",
+    "Complete closure-specific Superuser audited support acceptance.",
+    "Complete closure-specific subscription/promoter/advertising commercial activation and end-to-end acceptance; mature existing subsystems retained.",
+    "Independent human production notification publication/activation for all required domains.",
+    "Controlled real-money charge/refund/payout acceptance; no authorization or execution.",
+    "Fresh protected production row baseline/post-deployment comparison, release merge/deployment and final production smoke/evidence report.",
+    "Production tracing enablement, production backup freshness/RPO/RTO proof and supported stale-patch discard."
+  ],
+  "importantFiles": [
+    {
+      "path": "prisma/schema.prisma",
+      "purpose": "Adds contact-scoped guest verification evidence; no financial model rewrite."
+    },
+    {
+      "path": "prisma/migrations/20261007000000_guest_contact_notification_authority/migration.sql",
+      "purpose": "Additive restricted-FK guest challenge table and indexes."
+    },
+    {
+      "path": "prisma/migrations/20261007010000_inventory_reservation_evidence/migration.sql",
+      "purpose": "Narrowly permits zero physical delta for reserve/release evidence; keeps physical correction bounds."
+    },
+    {
+      "path": "lib/production-readiness/service.ts",
+      "purpose": "Protected consolidated capability diagnostics; inspect financial/notification/approval semantics."
+    },
+    {
+      "path": "lib/production-readiness/evidence.ts",
+      "purpose": "Independent, audited, expiring exact-release acceptance evidence."
+    },
+    {
+      "path": "lib/payments/payment-policy.service.ts",
+      "purpose": "Scoped COD dual control/remittance/effective-window authoring."
+    },
+    {
+      "path": "lib/services/commission-plan.service.ts",
+      "purpose": "Store-scope commercial authoring and canonical revision/review lifecycle."
+    },
+    {
+      "path": "lib/notifications/required-domain-intake.ts",
+      "purpose": "Canonical, serialized required-domain notification intake."
+    },
+    {
+      "path": "lib/marketplace-checkout/guest-contact-verification.service.ts",
+      "purpose": "Contact-bound verification without creating a user; reviewer must inspect revocation/encryption boundaries."
+    },
+    {
+      "path": "lib/marketplace-checkout/delivery-policy.ts",
+      "purpose": "Approved explicit marketplace tariff resolution, including ANY-size limitation."
+    },
+    {
+      "path": "lib/services/catalog-listing-draft.service.ts",
+      "purpose": "Atomic composition of canonical full listing draft rather than product-only wizard save."
+    },
+    {
+      "path": "lib/services/catalog-product.service.ts",
+      "purpose": "Safe media DTOs and latest operation/subject lock, receipt hash, CAS update/submit/archive WIP."
+    },
+    {
+      "path": "lib/services/catalog-moderation.service.ts",
+      "purpose": "Retry identity, current canonical response, append-only case history and concurrent review integrity."
+    },
+    {
+      "path": "lib/services/catalog-page.service.ts",
+      "purpose": "Canonical active employee/store/explicit-deny authority replaces owner-only page lookup."
+    },
+    {
+      "path": "components/catalog/StoreCatalogWizard.tsx",
+      "purpose": "Owner-scoped draft, complete save and final unverified price label ID trim."
+    },
+    {
+      "path": "components/catalog/StoreCatalogProductActions.tsx",
+      "purpose": "New native editable draft title/description and submission with lost-response retry identity."
+    },
+    {
+      "path": "lib/catalog/catalog-auth.ts",
+      "purpose": "Existing STORE role grant and explicit user DENY authority implicated in native upload403."
+    },
+    {
+      "path": "prisma/seed.ts",
+      "purpose": "Unchanged bootstrap initializes only ADMIN/SUPER_ADMIN grants; diagnosed unresolved defect for disposable store catalog flows."
+    },
+    {
+      "path": "lib/services/withdrawal-finance-review.service.ts",
+      "purpose": "Atomic rejection release with earning-allocation cancellation/dispute hold restoration."
+    },
+    {
+      "path": "lib/services/withdrawal-payout.service.ts",
+      "purpose": "Payout-start replay and unknown-outcome reserve/reconciliation integrity."
+    },
+    {
+      "path": "lib/services/driver-earning-account.service.ts",
+      "purpose": "One validated provisioner preserves both historically issued canonical account identities."
+    },
+    {
+      "path": "lib/withdrawals/withdrawal-production-readiness.ts",
+      "purpose": "Production approval is source-bound, not an environment escape hatch."
+    },
+    {
+      "path": "lib/private-media/normalize-private-raster.ts",
+      "purpose": "Real raster decoding/orientation/re-encode with metadata removal."
+    },
+    {
+      "path": "lib/private-media/private-media.service.ts",
+      "purpose": "Storage/finalization cleanup and quarantine, checksum provenance."
+    },
+    {
+      "path": "proxy.ts",
+      "purpose": "Vercel edge routing fail-closed through validated server config with preview exception."
+    },
+    {
+      "path": "lib/config/railway-origin.ts",
+      "purpose": "HTTPS-only upstream configuration validation, no query/hash/userinfo."
+    },
+    {
+      "path": "scripts/e2e-test.mjs",
+      "purpose": "Exact loopback browser origin/isolation and optimized application launch."
+    },
+    {
+      "path": "scripts/e2e-store-settlement-fixture.ts",
+      "purpose": "Guarded synthetic source facts invoking actual canonical balances, not provider acceptance."
+    },
+    {
+      "path": "scripts/e2e-driver-settlement-fixture.ts",
+      "purpose": "Synthetic driver financial prerequisites isolated from production."
+    },
+    {
+      "path": "scripts/certification-command.mjs",
+      "purpose": "Rejects actual critical skips/early returns/flaky evidence."
+    },
+    {
+      "path": "scripts/recovery-drill.mjs",
+      "purpose": "Disposable restore and historical upgrade with hash/invariant checks."
+    },
+    {
+      "path": ".github/workflows/production-certification.yml",
+      "purpose": "Required isolated component jobs plus manifest gate; final gate currently red/skipped."
+    },
+    {
+      "path": "tests/integration/catalog-listing-draft-postgres.integration.test.ts",
+      "purpose": "12 earlier proven listing/moderation checks plus five latest unexecuted command integrity checks."
+    },
+    {
+      "path": "tests/integration/business-employee-postgres.integration.test.ts",
+      "purpose": "Four new unexecuted real-DB invitation/disable/reactivate/remove/identity checks."
+    },
+    {
+      "path": "tests/e2e/business-employee-access.spec.ts",
+      "purpose": "Two unexecuted native owner/employee lifecycle cases; assess fixture retry stability."
+    },
+    {
+      "path": "docs/production-closure/TEST_DEFERRALS.md",
+      "purpose": "Nine critical placeholders plus explicit optional inactive/legacy exclusions."
+    }
+  ],
+  "productionMutations": [
+    {
+      "system": "GitHub",
+      "whatChanged": "34 prior work commits and existing production-closure-2026-10-07 branch pushed incrementally; OPEN DRAFT PR17; added production-certification.yml in source; previous Actions runs inspected/dispatched and some superseded by concurrency. Checkpoint adds WIP/report commits and cancels its automatic runs.",
+      "why": "Preserve/review isolated closure implementation and evidence.",
+      "reversible": "Yes, branch/PR/workflow actions; no history rewrite performed.",
+      "currentState": "main unchanged83a4d63078efa20d4e234fe081c10e15746387d1; no merge. No Actions variables or branch-protection mutation recorded."
+    },
+    {
+      "system": "Vercel",
+      "whatChanged": "No intentional production env/project/domain/deployment-setting mutation, promotion or production deployment during prior session or checkpoint.",
+      "why": "Certification remains NOT_READY.",
+      "reversible": "Not applicable; source proxy change is reviewable Git work.",
+      "currentState": "Last verified production dpl_dfSzQgjXdqSXzNhUNBXMzFcKTTUj READY at 83a4d63. Automatic branch previews from Git integration may exist; preview list was not audited here. RAILWAY_PRODUCTION_ORIGIN still requires operator configuration before source promotion."
+    },
+    {
+      "system": "Railway",
+      "whatChanged": "None. Read-only snapshots only; no service/env/tracing/deployment/processor setting changed and no staged patch applied.",
+      "why": "Destructive pre-existing patch and incomplete release gates prevent safe mutation.",
+      "reversible": "Not applicable.",
+      "currentState": "Same web/operations/PostgreSQL/Redis SUCCESS deployments; tracing disabled. Patch9a3370a3-8d07-4ef9-9e8d-a57ff488fccb STILL STAGED — NOT APPLIED."
+    },
+    {
+      "system": "PostgreSQL",
+      "whatChanged": "No intentional production migrations/configuration or customer/order/payment/ledger mutation. Disposable test databases contain reviewed synthetic fixtures and actual journals.",
+      "why": "Integration proof with production protected data preserved by policy.",
+      "reversible": "Disposable project cleanup only; no production reversal needed.",
+      "currentState": "Candidate two migrations are source only for production. Fresh protected-production full-row count/hash comparison unavailable, so absence of intentional writes is not a verified integrity pass."
+    },
+    {
+      "system": "Redis",
+      "whatChanged": "No production changes. Disposable integration Redis only.",
+      "why": "Strict rate/lease/security validation.",
+      "reversible": "Disposable resources only.",
+      "currentState": "Production last reported HEALTHY/online; no flush/reset/config change."
+    },
+    {
+      "system": "Cloudinary",
+      "whatChanged": "No production uploads/deletes/renames/folder/settings changes or wholesale remigration recorded.",
+      "why": "Provider paths preserved while proving isolated private/catalog media boundaries.",
+      "reversible": "Not applicable.",
+      "currentState": "Existing production media/mirrors unchanged; local guarded adapters used in isolated tests only."
+    }
+  ],
+  "codeCheckpointDiff": {
+    "files": 337,
+    "insertions": 10593,
+    "deletions": 1603,
+    "counts": {
+      "other": 12,
+      "workflows": 1,
+      "pagesComponents": 66,
+      "apiRoutes": 18,
+      "docs": 18,
+      "servicesLibraries": 84,
+      "migrations": 2,
+      "schema": 1,
+      "scripts": 33,
+      "tests": 102
+    },
+    "entries": [
+      {
+        "path": ".dockerignore",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": ".env.example",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": ".github/workflows/production-certification.yml",
+        "insertions": 134,
+        "deletions": 0
+      },
+      {
+        "path": "Dockerfile",
+        "insertions": 3,
+        "deletions": 2
+      },
+      {
+        "path": "app/(account)/account/payout-destinations/page.tsx",
+        "insertions": 4,
+        "deletions": 10
+      },
+      {
+        "path": "app/(account)/account/withdrawals/[publicReference]/page.tsx",
+        "insertions": 1,
+        "deletions": 15
+      },
+      {
+        "path": "app/(account)/account/withdrawals/page.tsx",
+        "insertions": 4,
+        "deletions": 28
+      },
+      {
+        "path": "app/(admin)/admin/commission-plans/[id]/page.tsx",
+        "insertions": 21,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/commission-plans/page.tsx",
+        "insertions": 3,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/driver-earning-reconciliation/page.tsx",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/driver-earnings/page.tsx",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/marketplace-checkout/page.tsx",
+        "insertions": 42,
+        "deletions": 3
+      },
+      {
+        "path": "app/(admin)/admin/marketplace-delivery-policy/page.tsx",
+        "insertions": 13,
+        "deletions": 0
+      },
+      {
+        "path": "app/(admin)/admin/notifications/customer-orders/page.tsx",
+        "insertions": 8,
+        "deletions": 8
+      },
+      {
+        "path": "app/(admin)/admin/parcel-profiles/page.tsx",
+        "insertions": 14,
+        "deletions": 0
+      },
+      {
+        "path": "app/(admin)/admin/payout-destinations/[id]/page.tsx",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/payout-destinations/page.tsx",
+        "insertions": 10,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/production-readiness/page.tsx",
+        "insertions": 23,
+        "deletions": 0
+      },
+      {
+        "path": "app/(admin)/admin/store-earning-reconciliation/[id]/page.tsx",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/store-earning-reconciliation/page.tsx",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/store-earnings/[id]/page.tsx",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/store-earnings/page.tsx",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/withdrawal-reconciliation/[id]/page.tsx",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/(admin)/admin/withdrawal-reconciliation/page.tsx",
+        "insertions": 10,
+        "deletions": 1
+      },
+      {
+        "path": "app/(driver)/driver/earnings/[publicReference]/page.tsx",
+        "insertions": 8,
+        "deletions": 1
+      },
+      {
+        "path": "app/(driver)/driver/earnings/page.tsx",
+        "insertions": 8,
+        "deletions": 1
+      },
+      {
+        "path": "app/(driver)/driver/withdrawals/[publicReference]/page.tsx",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "app/(driver)/driver/withdrawals/destinations/page.tsx",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "app/(driver)/driver/withdrawals/page.tsx",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "app/(store)/store/catalog/imports/page.tsx",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "app/(store)/store/catalog/inventory/page.tsx",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "app/(store)/store/catalog/products/[publicReference]/page.tsx",
+        "insertions": 13,
+        "deletions": 0
+      },
+      {
+        "path": "app/(store)/store/catalog/products/new/page.tsx",
+        "insertions": 6,
+        "deletions": 2
+      },
+      {
+        "path": "app/(store)/store/withdrawals/[publicReference]/page.tsx",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "app/(store)/store/withdrawals/destinations/page.tsx",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "app/(store)/store/withdrawals/page.tsx",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/admin/marketplace-checkout/route.ts",
+        "insertions": 6,
+        "deletions": 2
+      },
+      {
+        "path": "app/api/admin/marketplace-delivery-policy/route.ts",
+        "insertions": 21,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/admin/notifications/customer-orders/[eventType]/route.ts",
+        "insertions": 3,
+        "deletions": 2
+      },
+      {
+        "path": "app/api/admin/parcel-profiles/route.ts",
+        "insertions": 19,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/admin/payment-policies/route.ts",
+        "insertions": 12,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/admin/production-readiness/route.ts",
+        "insertions": 29,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/admin/regions/[id]/route.ts",
+        "insertions": 14,
+        "deletions": 24
+      },
+      {
+        "path": "app/api/admin/regions/route.ts",
+        "insertions": 9,
+        "deletions": 14
+      },
+      {
+        "path": "app/api/checkout/[reference]/contact-notifications/route.ts",
+        "insertions": 17,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/checkout/[reference]/contact-verification/route.ts",
+        "insertions": 38,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/checkout/[reference]/delivery-address/route.ts",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "app/api/checkout/[reference]/review/route.ts",
+        "insertions": 8,
+        "deletions": 1
+      },
+      {
+        "path": "app/api/checkout/route.ts",
+        "insertions": 2,
+        "deletions": 2
+      },
+      {
+        "path": "app/api/driver/documents/route.ts",
+        "insertions": 25,
+        "deletions": 15
+      },
+      {
+        "path": "app/api/payout-destinations/route.ts",
+        "insertions": 3,
+        "deletions": 2
+      },
+      {
+        "path": "app/api/public/delivery-quotes/[id]/book/route.ts",
+        "insertions": 4,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/public/parcel-profiles/route.ts",
+        "insertions": 5,
+        "deletions": 0
+      },
+      {
+        "path": "app/api/store/catalog/listing-drafts/route.ts",
+        "insertions": 25,
+        "deletions": 0
+      },
+      {
+        "path": "artifacts/route-action-authorization-inventory.json",
+        "insertions": 262,
+        "deletions": 87
+      },
+      {
+        "path": "components/admin/CommissionPlanDraftForm.tsx",
+        "insertions": 19,
+        "deletions": 3
+      },
+      {
+        "path": "components/admin/CommissionPlanEditor.tsx",
+        "insertions": 79,
+        "deletions": 0
+      },
+      {
+        "path": "components/admin/DeliveryRegionsManager.tsx",
+        "insertions": 19,
+        "deletions": 7
+      },
+      {
+        "path": "components/admin/MarketplaceDeliveryPolicyManager.tsx",
+        "insertions": 37,
+        "deletions": 0
+      },
+      {
+        "path": "components/admin/ParcelProfilesManager.tsx",
+        "insertions": 33,
+        "deletions": 0
+      },
+      {
+        "path": "components/admin/ProductionAcceptanceEvidence.tsx",
+        "insertions": 30,
+        "deletions": 0
+      },
+      {
+        "path": "components/catalog/StoreCatalogProductActions.tsx",
+        "insertions": 60,
+        "deletions": 0
+      },
+      {
+        "path": "components/catalog/StoreCatalogWizard.tsx",
+        "insertions": 106,
+        "deletions": 54
+      },
+      {
+        "path": "components/driver-earnings/DriverEarningReversalForm.tsx",
+        "insertions": 20,
+        "deletions": 3
+      },
+      {
+        "path": "components/driver/DriverEarningsUnavailable.tsx",
+        "insertions": 12,
+        "deletions": 0
+      },
+      {
+        "path": "components/driver/DriverOnboardingExperience.tsx",
+        "insertions": 41,
+        "deletions": 23
+      },
+      {
+        "path": "components/driver/DriverProfileForm.tsx",
+        "insertions": 2,
+        "deletions": 2
+      },
+      {
+        "path": "components/forms/PaymentPolicyConfiguration.tsx",
+        "insertions": 34,
+        "deletions": 5
+      },
+      {
+        "path": "components/forms/PublicDeliveryQuoteForm.tsx",
+        "insertions": 29,
+        "deletions": 10
+      },
+      {
+        "path": "components/protected-v2/commerce-admin/CommerceAdminActions.tsx",
+        "insertions": 21,
+        "deletions": 10
+      },
+      {
+        "path": "components/protected-v2/driver/driver-pages.module.css",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "components/protected-v2/notification-admin/CustomerOrderNotificationReview.tsx",
+        "insertions": 2,
+        "deletions": 2
+      },
+      {
+        "path": "components/protected-v2/store/StoreCatalogNavigation.tsx",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "components/protected-v2/store/store-pages.module.css",
+        "insertions": 7,
+        "deletions": 0
+      },
+      {
+        "path": "components/public-v2/commerce/CheckoutExperience.tsx",
+        "insertions": 70,
+        "deletions": 19
+      },
+      {
+        "path": "components/public-v2/commerce/GuestCheckoutEmailUpdates.tsx",
+        "insertions": 62,
+        "deletions": 0
+      },
+      {
+        "path": "components/public-v2/commerce/ProductDetailExperience.tsx",
+        "insertions": 2,
+        "deletions": 2
+      },
+      {
+        "path": "components/public-v2/commerce/ProductMediaGallery.tsx",
+        "insertions": 3,
+        "deletions": 1
+      },
+      {
+        "path": "components/public-v2/commerce/commerce.module.css",
+        "insertions": 5,
+        "deletions": 0
+      },
+      {
+        "path": "components/public-v2/faq/FaqInteractiveView.tsx",
+        "insertions": 4,
+        "deletions": 1
+      },
+      {
+        "path": "components/public-v2/faq/FaqPage.tsx",
+        "insertions": 2,
+        "deletions": 20
+      },
+      {
+        "path": "components/public-v2/faq/faq-page.module.css",
+        "insertions": 13,
+        "deletions": 0
+      },
+      {
+        "path": "components/public-v3/services/authored/PricingServiceView.tsx",
+        "insertions": 5,
+        "deletions": 5
+      },
+      {
+        "path": "components/store-earnings/StoreEarningReversalForm.tsx",
+        "insertions": 15,
+        "deletions": 7
+      },
+      {
+        "path": "components/withdrawals/FinanceWithdrawalActions.tsx",
+        "insertions": 16,
+        "deletions": 2
+      },
+      {
+        "path": "components/withdrawals/OwnerPayoutDestinationsPage.tsx",
+        "insertions": 20,
+        "deletions": 0
+      },
+      {
+        "path": "components/withdrawals/OwnerWithdrawalDetailPage.tsx",
+        "insertions": 25,
+        "deletions": 0
+      },
+      {
+        "path": "components/withdrawals/OwnerWithdrawalsPage.tsx",
+        "insertions": 38,
+        "deletions": 0
+      },
+      {
+        "path": "components/withdrawals/WithdrawalRequestForm.tsx",
+        "insertions": 11,
+        "deletions": 5
+      },
+      {
+        "path": "compose.e2e.yml",
+        "insertions": 33,
+        "deletions": 0
+      },
+      {
+        "path": "compose.yml",
+        "insertions": 7,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/BASELINE.md",
+        "insertions": 26,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/CATALOG_EVIDENCE.md",
+        "insertions": 113,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/CLIENT_INPUTS_REQUIRED.md",
+        "insertions": 110,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/DISASTER_RECOVERY_RUNBOOK.md",
+        "insertions": 56,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/DISPOSABLE_CHECKOUT_EVIDENCE.md",
+        "insertions": 298,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/DRIVER_DOCUMENTS_EVIDENCE.md",
+        "insertions": 103,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/DRIVER_EARNINGS_EVIDENCE.md",
+        "insertions": 155,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/EMPLOYEE_ACCESS_EVIDENCE.md",
+        "insertions": 35,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/MIGRATION_REVIEW.md",
+        "insertions": 43,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/OPERATOR_ACTIONS_REQUIRED.md",
+        "insertions": 21,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/OPTIONAL_RECRUITMENT_EXCLUSION.md",
+        "insertions": 35,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/RAILWAY_CONFIGURATION_EVIDENCE.md",
+        "insertions": 27,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/REAL_MONEY_ACCEPTANCE_RUNBOOK.md",
+        "insertions": 31,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/STORE_EARNINGS_EVIDENCE.md",
+        "insertions": 92,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/TEST_DEFERRALS.md",
+        "insertions": 82,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/VISUAL_REVIEW.md",
+        "insertions": 167,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/WITHDRAWAL_EVIDENCE.md",
+        "insertions": 115,
+        "deletions": 0
+      },
+      {
+        "path": "docs/production-closure/engineering-gates.json",
+        "insertions": 33,
+        "deletions": 0
+      },
+      {
+        "path": "lib/auth/permission-keys.ts",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "lib/catalog/catalog-route-handlers.ts",
+        "insertions": 3,
+        "deletions": 2
+      },
+      {
+        "path": "lib/catalog/media/disposable-catalog-media-policy.ts",
+        "insertions": 9,
+        "deletions": 0
+      },
+      {
+        "path": "lib/client-platform/catalog-image-upload.ts",
+        "insertions": 4,
+        "deletions": 1
+      },
+      {
+        "path": "lib/client-platform/delivery.service.ts",
+        "insertions": 9,
+        "deletions": 2
+      },
+      {
+        "path": "lib/client-platform/payment-configuration.service.ts",
+        "insertions": 79,
+        "deletions": 12
+      },
+      {
+        "path": "lib/commercial/parcel-profiles.ts",
+        "insertions": 57,
+        "deletions": 0
+      },
+      {
+        "path": "lib/config/railway-origin.ts",
+        "insertions": 9,
+        "deletions": 0
+      },
+      {
+        "path": "lib/driver-documents/errors.ts",
+        "insertions": 14,
+        "deletions": 0
+      },
+      {
+        "path": "lib/dto/driver.dto.ts",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "lib/maps/delivery-zone.service.ts",
+        "insertions": 5,
+        "deletions": 3
+      },
+      {
+        "path": "lib/maps/geocode.service.ts",
+        "insertions": 6,
+        "deletions": 9
+      },
+      {
+        "path": "lib/maps/region-boundaries.ts",
+        "insertions": 33,
+        "deletions": 0
+      },
+      {
+        "path": "lib/maps/routes.service.ts",
+        "insertions": 2,
+        "deletions": 2
+      },
+      {
+        "path": "lib/marketplace-checkout/admin-query.service.ts",
+        "insertions": 19,
+        "deletions": 0
+      },
+      {
+        "path": "lib/marketplace-checkout/cart-mutation.service.ts",
+        "insertions": 6,
+        "deletions": 1
+      },
+      {
+        "path": "lib/marketplace-checkout/checkout-review-persistence.service.ts",
+        "insertions": 6,
+        "deletions": 2
+      },
+      {
+        "path": "lib/marketplace-checkout/checkout.service.ts",
+        "insertions": 28,
+        "deletions": 22
+      },
+      {
+        "path": "lib/marketplace-checkout/composition-root.ts",
+        "insertions": 3,
+        "deletions": 2
+      },
+      {
+        "path": "lib/marketplace-checkout/delivery-policy-configuration.ts",
+        "insertions": 48,
+        "deletions": 0
+      },
+      {
+        "path": "lib/marketplace-checkout/delivery-policy.ts",
+        "insertions": 48,
+        "deletions": 0
+      },
+      {
+        "path": "lib/marketplace-checkout/errors.ts",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "lib/marketplace-checkout/guest-contact-verification.service.ts",
+        "insertions": 88,
+        "deletions": 0
+      },
+      {
+        "path": "lib/marketplace-checkout/legal-evidence.ts",
+        "insertions": 21,
+        "deletions": 0
+      },
+      {
+        "path": "lib/marketplace-checkout/matrix-quote.service.ts",
+        "insertions": 48,
+        "deletions": 0
+      },
+      {
+        "path": "lib/marketplace-checkout/phase6-marketplace-quote-authority.ts",
+        "insertions": 10,
+        "deletions": 19
+      },
+      {
+        "path": "lib/marketplace-checkout/prisma-cart-repository.ts",
+        "insertions": 9,
+        "deletions": 2
+      },
+      {
+        "path": "lib/marketplace-checkout/prisma-marketplace-reservation.repository.ts",
+        "insertions": 22,
+        "deletions": 19
+      },
+      {
+        "path": "lib/marketplace-checkout/prisma-review-composition.repository.ts",
+        "insertions": 6,
+        "deletions": 2
+      },
+      {
+        "path": "lib/notifications/authority.ts",
+        "insertions": 9,
+        "deletions": 1
+      },
+      {
+        "path": "lib/notifications/customer-order-publication.ts",
+        "insertions": 23,
+        "deletions": 9
+      },
+      {
+        "path": "lib/notifications/event-registry.ts",
+        "insertions": 8,
+        "deletions": 1
+      },
+      {
+        "path": "lib/notifications/guest-recipient.ts",
+        "insertions": 12,
+        "deletions": 0
+      },
+      {
+        "path": "lib/notifications/queued-email-delivery.ts",
+        "insertions": 14,
+        "deletions": 3
+      },
+      {
+        "path": "lib/notifications/required-domain-configuration.ts",
+        "insertions": 59,
+        "deletions": 0
+      },
+      {
+        "path": "lib/notifications/required-domain-definitions.ts",
+        "insertions": 13,
+        "deletions": 0
+      },
+      {
+        "path": "lib/notifications/required-domain-intake.ts",
+        "insertions": 36,
+        "deletions": 0
+      },
+      {
+        "path": "lib/notifications/required-domain-payload.ts",
+        "insertions": 78,
+        "deletions": 0
+      },
+      {
+        "path": "lib/notifications/security-email-delivery.ts",
+        "insertions": 25,
+        "deletions": 9
+      },
+      {
+        "path": "lib/payments/payment-policy.service.ts",
+        "insertions": 11,
+        "deletions": 1
+      },
+      {
+        "path": "lib/pricing/config.ts",
+        "insertions": 18,
+        "deletions": 7
+      },
+      {
+        "path": "lib/private-media/cloudinary-private-image-storage.ts",
+        "insertions": 3,
+        "deletions": 1
+      },
+      {
+        "path": "lib/private-media/disposable-private-media-policy.ts",
+        "insertions": 13,
+        "deletions": 0
+      },
+      {
+        "path": "lib/private-media/normalize-private-raster.ts",
+        "insertions": 19,
+        "deletions": 0
+      },
+      {
+        "path": "lib/private-media/private-media-storage.ts",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "lib/private-media/private-media.service.ts",
+        "insertions": 18,
+        "deletions": 5
+      },
+      {
+        "path": "lib/production-readiness/contracts.ts",
+        "insertions": 18,
+        "deletions": 0
+      },
+      {
+        "path": "lib/production-readiness/evidence.ts",
+        "insertions": 55,
+        "deletions": 0
+      },
+      {
+        "path": "lib/production-readiness/service.ts",
+        "insertions": 113,
+        "deletions": 0
+      },
+      {
+        "path": "lib/protected-navigation/protected-navigation-registry.ts",
+        "insertions": 5,
+        "deletions": 0
+      },
+      {
+        "path": "lib/public-services/service-page-registry.ts",
+        "insertions": 12,
+        "deletions": 12
+      },
+      {
+        "path": "lib/services/admin-regions.service.ts",
+        "insertions": 43,
+        "deletions": 17
+      },
+      {
+        "path": "lib/services/catalog-duplicate.service.ts",
+        "insertions": 10,
+        "deletions": 3
+      },
+      {
+        "path": "lib/services/catalog-inventory.service.ts",
+        "insertions": 3,
+        "deletions": 4
+      },
+      {
+        "path": "lib/services/catalog-listing-draft.service.ts",
+        "insertions": 81,
+        "deletions": 0
+      },
+      {
+        "path": "lib/services/catalog-media-attachment.service.ts",
+        "insertions": 8,
+        "deletions": 7
+      },
+      {
+        "path": "lib/services/catalog-media-intake.service.ts",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "lib/services/catalog-moderation.service.ts",
+        "insertions": 50,
+        "deletions": 24
+      },
+      {
+        "path": "lib/services/catalog-modifier.service.ts",
+        "insertions": 8,
+        "deletions": 6
+      },
+      {
+        "path": "lib/services/catalog-page.service.ts",
+        "insertions": 7,
+        "deletions": 9
+      },
+      {
+        "path": "lib/services/catalog-product.service.ts",
+        "insertions": 55,
+        "deletions": 33
+      },
+      {
+        "path": "lib/services/catalog-service-support.ts",
+        "insertions": 10,
+        "deletions": 0
+      },
+      {
+        "path": "lib/services/catalog-variant.service.ts",
+        "insertions": 5,
+        "deletions": 4
+      },
+      {
+        "path": "lib/services/commission-plan-query.service.ts",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "lib/services/commission-plan.service.ts",
+        "insertions": 21,
+        "deletions": 7
+      },
+      {
+        "path": "lib/services/driver-earning-account.service.ts",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "lib/services/driver-profile.service.ts",
+        "insertions": 110,
+        "deletions": 130
+      },
+      {
+        "path": "lib/services/notification-events.service.ts",
+        "insertions": 7,
+        "deletions": 1
+      },
+      {
+        "path": "lib/services/pricing-quote.service.ts",
+        "insertions": 8,
+        "deletions": 7
+      },
+      {
+        "path": "lib/services/store-offer.service.ts",
+        "insertions": 8,
+        "deletions": 6
+      },
+      {
+        "path": "lib/services/store-price.service.ts",
+        "insertions": 7,
+        "deletions": 5
+      },
+      {
+        "path": "lib/services/storefront-collection.service.ts",
+        "insertions": 12,
+        "deletions": 9
+      },
+      {
+        "path": "lib/services/storefront-synonym.service.ts",
+        "insertions": 3,
+        "deletions": 3
+      },
+      {
+        "path": "lib/services/withdrawal-account.service.ts",
+        "insertions": 15,
+        "deletions": 2
+      },
+      {
+        "path": "lib/services/withdrawal-finance-review.service.ts",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "lib/services/withdrawal-payout.service.ts",
+        "insertions": 5,
+        "deletions": 5
+      },
+      {
+        "path": "lib/services/withdrawal-query.service.ts",
+        "insertions": 11,
+        "deletions": 27
+      },
+      {
+        "path": "lib/storefront/storefront-admin-api.ts",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "lib/testing/disposable-geocoding.ts",
+        "insertions": 20,
+        "deletions": 0
+      },
+      {
+        "path": "lib/testing/safe-postgres-validator.ts",
+        "insertions": 7,
+        "deletions": 0
+      },
+      {
+        "path": "lib/validation/catalog-listing-draft.ts",
+        "insertions": 24,
+        "deletions": 0
+      },
+      {
+        "path": "lib/validation/commissions.ts",
+        "insertions": 5,
+        "deletions": 2
+      },
+      {
+        "path": "lib/validation/driver.ts",
+        "insertions": 2,
+        "deletions": 2
+      },
+      {
+        "path": "lib/withdrawals/withdrawal-production-readiness.ts",
+        "insertions": 2,
+        "deletions": 3
+      },
+      {
+        "path": "package.json",
+        "insertions": 3,
+        "deletions": 1
+      },
+      {
+        "path": "playwright.config.ts",
+        "insertions": 21,
+        "deletions": 0
+      },
+      {
+        "path": "prisma/migrations/20261007000000_guest_contact_notification_authority/migration.sql",
+        "insertions": 21,
+        "deletions": 0
+      },
+      {
+        "path": "prisma/migrations/20261007010000_inventory_reservation_evidence/migration.sql",
+        "insertions": 11,
+        "deletions": 0
+      },
+      {
+        "path": "prisma/schema.prisma",
+        "insertions": 23,
+        "deletions": 0
+      },
+      {
+        "path": "proxy.ts",
+        "insertions": 4,
+        "deletions": 3
+      },
+      {
+        "path": "scripts/audit-release-tests.mjs",
+        "insertions": 20,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/build-next.mjs",
+        "insertions": 13,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/certification-command.mjs",
+        "insertions": 20,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/certification-output.mjs",
+        "insertions": 15,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/certification-output.test.mjs",
+        "insertions": 25,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/check-closure-engineering-gates.mjs",
+        "insertions": 7,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/check-migrations-safety.mjs",
+        "insertions": 6,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/create-e2e-fixtures.ts",
+        "insertions": 116,
+        "deletions": 33
+      },
+      {
+        "path": "scripts/disposable-closure-tests.mjs",
+        "insertions": 33,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/disposable-driver-settlement-guard.ts",
+        "insertions": 19,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/disposable-store-settlement-guard.ts",
+        "insertions": 18,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/docker-common.mjs",
+        "insertions": 5,
+        "deletions": 2
+      },
+      {
+        "path": "scripts/driver-earning-integration-test.mjs",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-checkout-authorities.ts",
+        "insertions": 37,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-driver-settlement-fixture.ts",
+        "insertions": 45,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-environment.d.mts",
+        "insertions": 1,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-environment.mjs",
+        "insertions": 7,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-ingress.mjs",
+        "insertions": 29,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-ingress.test.mjs",
+        "insertions": 54,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-owner-withdrawal-fixture.ts",
+        "insertions": 38,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-standalone-app.mjs",
+        "insertions": 24,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-standalone-app.test.mjs",
+        "insertions": 12,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-store-settlement-fixture.ts",
+        "insertions": 48,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/e2e-test.mjs",
+        "insertions": 21,
+        "deletions": 3
+      },
+      {
+        "path": "scripts/generate-route-authorization-inventory.mjs",
+        "insertions": 7,
+        "deletions": 1
+      },
+      {
+        "path": "scripts/initialize-reviewed-client-launch.ts",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/production-processors.ts",
+        "insertions": 4,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/recovery-drill.mjs",
+        "insertions": 63,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/release-test-deferrals.mjs",
+        "insertions": 34,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/release-test-deferrals.test.mjs",
+        "insertions": 26,
+        "deletions": 0
+      },
+      {
+        "path": "scripts/run-strict-bola-integration.mjs",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "scripts/run-strict-redis-integration.mjs",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "scripts/store-earning-integration-test.mjs",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "tests/api/admin-commission-plans.test.ts",
+        "insertions": 67,
+        "deletions": 7
+      },
+      {
+        "path": "tests/api/driver-documents.test.ts",
+        "insertions": 52,
+        "deletions": 0
+      },
+      {
+        "path": "tests/api/production-readiness.test.ts",
+        "insertions": 32,
+        "deletions": 0
+      },
+      {
+        "path": "tests/api/storefront-admin-error-policy.test.ts",
+        "insertions": 19,
+        "deletions": 0
+      },
+      {
+        "path": "tests/catalog/disposable-catalog-media-policy.test.ts",
+        "insertions": 11,
+        "deletions": 0
+      },
+      {
+        "path": "tests/client-platform/parcel-profiles.test.ts",
+        "insertions": 35,
+        "deletions": 0
+      },
+      {
+        "path": "tests/client-platform/payment-policy.test.ts",
+        "insertions": 34,
+        "deletions": 3
+      },
+      {
+        "path": "tests/client-platform/public-quote-copy.test.ts",
+        "insertions": 26,
+        "deletions": 0
+      },
+      {
+        "path": "tests/client-platform/quotes.test.ts",
+        "insertions": 21,
+        "deletions": 0
+      },
+      {
+        "path": "tests/commissions/draft-initial-revision.test.ts",
+        "insertions": 9,
+        "deletions": 0
+      },
+      {
+        "path": "tests/driver-compliance/driver-vehicle-media.test.ts",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "tests/e2e/business-employee-access.spec.ts",
+        "insertions": 120,
+        "deletions": 0
+      },
+      {
+        "path": "tests/e2e/catalog-administration.spec.ts",
+        "insertions": 74,
+        "deletions": 12
+      },
+      {
+        "path": "tests/e2e/commission-finance-admin.spec.ts",
+        "insertions": 53,
+        "deletions": 4
+      },
+      {
+        "path": "tests/e2e/driver-documents.spec.ts",
+        "insertions": 75,
+        "deletions": 0
+      },
+      {
+        "path": "tests/e2e/driver-earnings-finance-admin.spec.ts",
+        "insertions": 105,
+        "deletions": 4
+      },
+      {
+        "path": "tests/e2e/driver-earnings.spec.ts",
+        "insertions": 79,
+        "deletions": 4
+      },
+      {
+        "path": "tests/e2e/driver-profile-onboarding.spec.ts",
+        "insertions": 81,
+        "deletions": 0
+      },
+      {
+        "path": "tests/e2e/fixtures/auth.ts",
+        "insertions": 3,
+        "deletions": 1
+      },
+      {
+        "path": "tests/e2e/marketplace-cart.spec.ts",
+        "insertions": 88,
+        "deletions": 331
+      },
+      {
+        "path": "tests/e2e/marketplace-checkout-accessibility.spec.ts",
+        "insertions": 72,
+        "deletions": 2
+      },
+      {
+        "path": "tests/e2e/marketplace-checkout-admin.spec.ts",
+        "insertions": 59,
+        "deletions": 2
+      },
+      {
+        "path": "tests/e2e/marketplace-checkout-customer.spec.ts",
+        "insertions": 84,
+        "deletions": 2
+      },
+      {
+        "path": "tests/e2e/marketplace-checkout-guest.spec.ts",
+        "insertions": 103,
+        "deletions": 71
+      },
+      {
+        "path": "tests/e2e/production-closure.spec.ts",
+        "insertions": 29,
+        "deletions": 0
+      },
+      {
+        "path": "tests/e2e/production-visual-review.spec.ts",
+        "insertions": 33,
+        "deletions": 0
+      },
+      {
+        "path": "tests/e2e/store-catalog-draft-isolation.spec.ts",
+        "insertions": 70,
+        "deletions": 0
+      },
+      {
+        "path": "tests/e2e/store-earnings-finance-admin.spec.ts",
+        "insertions": 81,
+        "deletions": 8
+      },
+      {
+        "path": "tests/e2e/store-earnings.spec.ts",
+        "insertions": 48,
+        "deletions": 6
+      },
+      {
+        "path": "tests/e2e/store-product-catalog.spec.ts",
+        "insertions": 119,
+        "deletions": 14
+      },
+      {
+        "path": "tests/e2e/storefront-accessibility.spec.ts",
+        "insertions": 26,
+        "deletions": 1
+      },
+      {
+        "path": "tests/e2e/storefront-admin.spec.ts",
+        "insertions": 122,
+        "deletions": 1
+      },
+      {
+        "path": "tests/e2e/storefront-browsing.spec.ts",
+        "insertions": 22,
+        "deletions": 40
+      },
+      {
+        "path": "tests/e2e/storefront-product-detail.spec.ts",
+        "insertions": 61,
+        "deletions": 1
+      },
+      {
+        "path": "tests/e2e/withdrawal-finance-admin.spec.ts",
+        "insertions": 122,
+        "deletions": 2
+      },
+      {
+        "path": "tests/e2e/withdrawal-owner.spec.ts",
+        "insertions": 120,
+        "deletions": 2
+      },
+      {
+        "path": "tests/infrastructure/disposable-smoke-seed.test.ts",
+        "insertions": 3,
+        "deletions": 2
+      },
+      {
+        "path": "tests/integration/business-employee-postgres.integration.test.ts",
+        "insertions": 75,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/catalog-listing-draft-postgres.integration.test.ts",
+        "insertions": 235,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/checkout-legal-evidence.integration.test.ts",
+        "insertions": 43,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/checkout-owner-resume.integration.test.ts",
+        "insertions": 65,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/commission-system.integration.test.ts",
+        "insertions": 48,
+        "deletions": 10
+      },
+      {
+        "path": "tests/integration/customer-order-notifications.integration.test.ts",
+        "insertions": 44,
+        "deletions": 6
+      },
+      {
+        "path": "tests/integration/driver-earning-canonical-postgres.integration.test.ts",
+        "insertions": 85,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/driver-profile-atomicity.integration.test.ts",
+        "insertions": 143,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/guest-contact-verification.integration.test.ts",
+        "insertions": 108,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/marketplace-checkout-postgres-real.integration.test.ts",
+        "insertions": 72,
+        "deletions": 72
+      },
+      {
+        "path": "tests/integration/owner-withdrawal-canonical-postgres.integration.test.ts",
+        "insertions": 158,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/paystack-webhook-concurrency.integration.test.ts",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "tests/integration/phase7-5-fixtures.ts",
+        "insertions": 15,
+        "deletions": 5
+      },
+      {
+        "path": "tests/integration/production-closure.integration.test.ts",
+        "insertions": 74,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/required-domain-notifications.integration.test.ts",
+        "insertions": 171,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/security-notification-outbox.integration.test.ts",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "tests/integration/store-earning-canonical-postgres.integration.test.ts",
+        "insertions": 113,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/storefront-cache-events.integration.test.ts",
+        "insertions": 14,
+        "deletions": 4
+      },
+      {
+        "path": "tests/integration/storefront-editorial-atomicity.integration.test.ts",
+        "insertions": 83,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/storefront-fixtures.ts",
+        "insertions": 38,
+        "deletions": 0
+      },
+      {
+        "path": "tests/integration/storefront-invariants.integration.test.ts",
+        "insertions": 15,
+        "deletions": 4
+      },
+      {
+        "path": "tests/integration/storefront-projection.integration.test.ts",
+        "insertions": 11,
+        "deletions": 4
+      },
+      {
+        "path": "tests/integration/storefront-publication-withdrawal.integration.test.ts",
+        "insertions": 14,
+        "deletions": 4
+      },
+      {
+        "path": "tests/integration/storefront-search.integration.test.ts",
+        "insertions": 14,
+        "deletions": 4
+      },
+      {
+        "path": "tests/integration/storefront-seo.integration.test.ts",
+        "insertions": 15,
+        "deletions": 4
+      },
+      {
+        "path": "tests/maps/disposable-geocoding.test.ts",
+        "insertions": 39,
+        "deletions": 0
+      },
+      {
+        "path": "tests/maps/disposable-routing.test.ts",
+        "insertions": 31,
+        "deletions": 0
+      },
+      {
+        "path": "tests/maps/region-boundaries.test.ts",
+        "insertions": 22,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/acceptance-checkout-flow.test.ts",
+        "insertions": 8,
+        "deletions": 8
+      },
+      {
+        "path": "tests/marketplace-checkout/address-route.test.ts",
+        "insertions": 24,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/api-contract.test.ts",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "tests/marketplace-checkout/cart-mutation.service.test.ts",
+        "insertions": 11,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/contact-verification-routes.test.ts",
+        "insertions": 46,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/create-checkout-route.test.ts",
+        "insertions": 18,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/delivery-policy.test.ts",
+        "insertions": 32,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/legal-evidence.test.ts",
+        "insertions": 45,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/public-checkout-projection.test.ts",
+        "insertions": 25,
+        "deletions": 0
+      },
+      {
+        "path": "tests/marketplace-checkout/review-acknowledgement-persistence.test.ts",
+        "insertions": 12,
+        "deletions": 1
+      },
+      {
+        "path": "tests/marketplace-checkout/review-route.test.ts",
+        "insertions": 36,
+        "deletions": 0
+      },
+      {
+        "path": "tests/payments/paystack-financial-invariants.test.ts",
+        "insertions": 3,
+        "deletions": 2
+      },
+      {
+        "path": "tests/payments/paystack-transfers.test.ts",
+        "insertions": 5,
+        "deletions": 0
+      },
+      {
+        "path": "tests/phase-b/private-media-vehicle-postgres.test.ts",
+        "insertions": 20,
+        "deletions": 6
+      },
+      {
+        "path": "tests/phase27/guest-recipient.test.ts",
+        "insertions": 20,
+        "deletions": 0
+      },
+      {
+        "path": "tests/phase27/recipient-preference-inbox.behavior.test.ts",
+        "insertions": 2,
+        "deletions": 1
+      },
+      {
+        "path": "tests/phase27/required-domain-payload.test.ts",
+        "insertions": 83,
+        "deletions": 0
+      },
+      {
+        "path": "tests/pricing/config.test.ts",
+        "insertions": 34,
+        "deletions": 0
+      },
+      {
+        "path": "tests/private-media/cloudinary-upload-routing.test.ts",
+        "insertions": 25,
+        "deletions": 4
+      },
+      {
+        "path": "tests/private-media/disposable-private-media-policy.test.ts",
+        "insertions": 34,
+        "deletions": 0
+      },
+      {
+        "path": "tests/private-media/normalize-private-raster.test.ts",
+        "insertions": 29,
+        "deletions": 0
+      },
+      {
+        "path": "tests/production-readiness/evidence.test.ts",
+        "insertions": 26,
+        "deletions": 0
+      },
+      {
+        "path": "tests/public-v2/r7-supporting-pages.test.ts",
+        "insertions": 7,
+        "deletions": 2
+      },
+      {
+        "path": "tests/r22/protected-cross-role-qa.test.ts",
+        "insertions": 9,
+        "deletions": 1
+      },
+      {
+        "path": "tests/security/bola-database-authority.integration.test.ts",
+        "insertions": 3,
+        "deletions": 0
+      },
+      {
+        "path": "tests/security/driver-settlement-fixture-guard.test.ts",
+        "insertions": 46,
+        "deletions": 0
+      },
+      {
+        "path": "tests/security/e2e-checkout-authorities.test.ts",
+        "insertions": 23,
+        "deletions": 0
+      },
+      {
+        "path": "tests/security/e2e-environment.test.ts",
+        "insertions": 18,
+        "deletions": 0
+      },
+      {
+        "path": "tests/security/railway-origin.test.ts",
+        "insertions": 31,
+        "deletions": 0
+      },
+      {
+        "path": "tests/security/request-origin.test.ts",
+        "insertions": 21,
+        "deletions": 1
+      },
+      {
+        "path": "tests/security/store-settlement-fixture-guard.test.ts",
+        "insertions": 33,
+        "deletions": 0
+      },
+      {
+        "path": "tests/services/catalog-media-intake.service.test.ts",
+        "insertions": 11,
+        "deletions": 1
+      },
+      {
+        "path": "tests/services/catalog-service-source-test-helper.ts",
+        "insertions": 7,
+        "deletions": 2
+      },
+      {
+        "path": "tests/services/commission-plan.service.test.ts",
+        "insertions": 30,
+        "deletions": 3
+      },
+      {
+        "path": "tests/services/withdrawal-account.service.test.ts",
+        "insertions": 18,
+        "deletions": 1
+      },
+      {
+        "path": "tests/services/withdrawal-finance-review.service.test.ts",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "tests/withdrawals/withdrawal-production-readiness.test.ts",
+        "insertions": 5,
+        "deletions": 0
+      },
+      {
+        "path": "vitest.bola-integration.config.ts",
+        "insertions": 14,
+        "deletions": 0
+      },
+      {
+        "path": "vitest.integration.config.ts",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "vitest.redis-integration.config.ts",
+        "insertions": 14,
+        "deletions": 0
+      }
+    ]
+  },
+  "finalDiff": {
+    "files": 339,
+    "insertions": 15773,
+    "deletions": 1603,
+    "counts": {
+      "other": 12,
+      "workflows": 1,
+      "pagesComponents": 66,
+      "apiRoutes": 18,
+      "docs": 20,
+      "servicesLibraries": 84,
+      "migrations": 2,
+      "schema": 1,
+      "scripts": 33,
+      "tests": 102
+    }
+  },
+  "migrations": [
+    "20261007000000_guest_contact_notification_authority",
+    "20261007010000_inventory_reservation_evidence"
+  ],
+  "ci": {
+    "lastCompletedCertification": {
+      "runId": 37681988666,
+      "commit": "909f5f1400a46c963f4cd23e07c0efbab4dfcb3c",
+      "status": "completed",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "name": "recovery",
+          "id": 113000366002,
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-and-recovery",
+          "id": 113000366181,
+          "conclusion": "success"
+        },
+        {
+          "name": "browser",
+          "id": 113000366392,
+          "conclusion": "failure"
+        },
+        {
+          "name": "postgres (test:integration:payment-foundation)",
+          "id": 113000366433,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:dispatch)",
+          "id": 113000366461,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (docker:gate4)",
+          "id": 113000366462,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (docker:migration-smoke)",
+          "id": 113000366471,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:permissions)",
+          "id": 113000366492,
+          "conclusion": "success"
+        },
+        {
+          "name": "quality",
+          "id": 113000366520,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:orders)",
+          "id": 113000366544,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:withdrawals)",
+          "id": 113000366556,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:storefront)",
+          "id": 113000366557,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:pricing)",
+          "id": 113000366560,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:driver-operations)",
+          "id": 113000366566,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:auth)",
+          "id": 113000366578,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:cross-module)",
+          "id": 113000366595,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:refunds)",
+          "id": 113000366653,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:closure)",
+          "id": 113000366657,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:store-orders)",
+          "id": 113000366666,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:catalog)",
+          "id": 113000366668,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:driver-earnings)",
+          "id": 113000366669,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:ledger)",
+          "id": 113000366677,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:store-earnings)",
+          "id": 113000366690,
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres (test:integration:marketplace-checkout)",
+          "id": 113000366825,
+          "conclusion": "success"
+        },
+        {
+          "name": "certified",
+          "id": 113007407921,
+          "conclusion": "skipped"
+        }
+      ]
+    },
+    "lastCompletedMain": {
+      "runId": 37681988667,
+      "commit": "909f5f1400a46c963f4cd23e07c0efbab4dfcb3c",
+      "result": "PASS"
+    },
+    "checkpointAutomaticRuns": {
+      "main": 37688784212,
+      "certification": 37688784283,
+      "status": "CANCELLED_UNDER_STOP_DIRECTIVE"
+    },
+    "finalReportRuns": "Inspect Actions for final report-inclusive tip; automatic runs will be canceled to honor stop. No manual dispatch or workload wait."
+  },
+  "localOnly": {
+    "roots": [
+      ".env",
+      "node_modules/",
+      ".next/",
+      "coverage/",
+      "output/",
+      "test-results/",
+      ".tsconfig-app-check.tsbuildinfo",
+      "tsconfig.tsbuildinfo",
+      "next-env.d.ts",
+      ".claude/",
+      ".gemini/",
+      ".playwright-cli/ console logs",
+      "ignored artifacts/ audit/design/seed reports",
+      "public/media/public/images/"
+    ],
+    "reason": "Credentials/local config, dependencies, generated builds, caches, restricted or synthetic runtime evidence; intentionally excluded by existing ignore rules.",
+    "artifactInventory": {
+      "count": 1664,
+      "totalBytes": 358647333,
+      "kinds": {
+        ".log": 390,
+        ".zip": 103,
+        ".md": 102,
+        ".png": 925,
+        ".webm": 101,
+        ".jsonl": 1,
+        ".txt": 12,
+        ".exit": 1,
+        ".json": 27,
+        ".tsv": 1,
+        ".mjs": 1
+      },
+      "large": [
+        {
+          "path": "output/production-closure/browser-9fcb-bounded.zip",
+          "bytes": 24111943
+        },
+        {
+          "path": "output/production-closure/browser-9fcb.zip",
+          "bytes": 24111943
+        }
+      ]
+    }
+  },
+  "interruptedProcesses": [
+    {
+      "command": "No local command/process active at receipt of directive",
+      "result": "NONE",
+      "details": "All tracked exec sessions had already finished. Earlier local Docker/browser interruptions occurred before this directive and are historical failures."
+    },
+    {
+      "command": "Automatic GitHub CI37688784212 and certification37688784283",
+      "result": "CANCELLED",
+      "details": "Triggered by checkpoint Git push; stopped under immediate stop, no validation claimed."
+    }
+  ],
+  "fastChecks": {
+    "diffCheck": "PASS",
+    "prismaValidate": "PASS",
+    "secrets": "None found in filename and credential-pattern review of27 changed/unpushed files and recent two-commit diff; no formal secret scanner certificate claimed."
+  }
+}
