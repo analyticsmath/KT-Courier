@@ -18,7 +18,7 @@ and Railway patch actions are outside scope. The original handoff is preserved.
   `fix: align disposable store catalog role grants and fail-closed authority`.
   Its SHA and actual CI evidence will be appended after the push. This report
   cannot contain its own commit hash; final tip is resolved from the remote ref.
-- Stage B: pending. Stage C: pending.
+- Stage B candidate and acceptance results are recorded below. Stage C: pending.
 
 ## Stage A root cause and authority changes
 
@@ -90,6 +90,41 @@ An existing checkpoint product test created two distinct listings with the same
 unique store modifier name; the second fixture now uses a distinct name. Catalog
 integration independently reproduced those same two failures (63 passed / 2 failed,
 12 files, 8.70 s, exit 1). These failures remain recorded; corrected fixtures await CI.
+
+At follow-up `c8f5e51d9437a1c07236212a76c0a5221484cd72`,
+[run 37696115895](https://github.com/analyticsmath/KT-Courier/actions/runs/37696115895)
+passed all three actual PostgreSQL authority cases. Catalog integration returned
+64 passed / 1 failed / 0 skipped, 12 files, 11.27 s, exit 1. The remaining checkpoint
+fixture set GLOBAL_CANONICAL but retained sourceStoreId, violating the existing
+scope check constraint. It now clears sourceStoreId for a valid synthetic negative
+source; no migration, runtime policy or constraint is changed.
+
+## Stage B native acceptance candidate
+
+The existing wizard label normalizer already trims the punctuation-derived trailing
+hyphen so its `htmlFor` matches `vat-inclusive-price-zar`. A new DOM unit test mounts
+the real wizard, navigates to Price, resolves `label.control`, verifies one unique
+control/label and keyboard focus. It passes. Native acceptance additionally uses
+the exact label, checks visibility/uniqueness, and enters 19.25 by keyboard.
+
+| File | Bounded Stage B change |
+|---|---|
+| `tests/ui/store-catalog-wizard-label.test.ts` | One actual rendered DOM regression; no selector bypass or duplicated label implementation. |
+| `tests/e2e/store-product-catalog.spec.ts` | Unique modifier names allow repeated acceptance on the same disposable store; assert safe normalized DTO fields; real price-label keyboard entry; restrict lost-response interception to PATCH. |
+| `tests/e2e/business-employee-access.spec.ts` | Assert granular inventory/import/pricing API denial and inventory/import page denial for products-only employees. |
+| `tests/integration/catalog-listing-draft-postgres.integration.test.ts` | Correct distinct-subject modifier and valid GLOBAL_CANONICAL negative fixtures, preserving existing constraints. |
+| `scripts/phase1-browser-plan.mjs` | Fixed catalog 1440 (2), catalog both (4), employee 1440 (1), employee both (2), then full Chromium (88), only advancing on exact passing counts with zero failures/skips/flaky and retries 0; records SHA/command/exit/duration per stage. |
+| `scripts/phase1-browser-plan.test.mjs` | Test ordered required selections and refusal of missing/count-mismatched/skipped/flaky/failed evidence. |
+| `scripts/e2e-test.mjs` | Optional Phase 1 sequence reuses the existing isolated database, built application, safety gates and cleanup. |
+| `.github/workflows/production-certification.yml` | Browser job invokes the bounded sequence and retains structured reports separately from failure-only media; unit job includes runner regression. Trigger changes remain Stage C. |
+
+Before Stage B checkpoint: scoped unit/API/DOM command (the Stage A seven files plus
+`tests/ui/store-catalog-wizard-label.test.ts`) passed 56 tests / 8 files / 0 skips,
+2.82 s, exit 0. `node --test scripts/phase1-browser-plan.test.mjs` passed 2 / 0 skips,
+0.158 s, exit 0. Changed-file explicit ESLint and diff whitespace checks passed.
+`node node_modules/playwright/cli.js test --project=chromium --list` discovered exactly
+88 cases in 25 files. Discovery is not execution proof. Native execution is pending
+the Stage B exact commit CI; no browser flow is declared complete yet.
 
 ## Completed and pending commands
 

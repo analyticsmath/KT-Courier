@@ -57,6 +57,12 @@ for (const width of [1440, 390]) {
       expect((await employee.request.post("/api/business-invitations/accept", { headers: { Origin: origin }, data: { token } })).status()).toBe(403);
       expect((await employee.request.get("/api/store/employees")).status()).toBe(403);
       expect((await employee.request.get("/api/store/earnings")).status()).toBe(403);
+      for (const path of ["/api/store/catalog/inventory", "/api/store/catalog/imports"]) expect((await employee.request.get(path)).status()).toBe(403);
+      expect((await employee.request.post("/api/store/catalog/prices", { headers: { Origin: origin }, data: {} })).status()).toBe(403);
+      for (const path of ["/store/catalog/inventory", "/store/catalog/imports"]) {
+        await employee.goto(path);
+        await expect(employee).toHaveURL(/\/store\/workspace$/);
+      }
       await employee.goto("/store/catalog/products/new");
       await expect(employee.getByRole("heading", { name: "New product", exact: true })).toBeVisible();
       await employee.getByRole("button", { name: /Type and category/ }).click();

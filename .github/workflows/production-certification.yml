@@ -33,7 +33,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run typecheck
-      - run: node --test scripts/certification-output.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
+      - run: node --test scripts/certification-output.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
       - run: node scripts/certification-command.mjs test:coverage
       - run: node scripts/certification-command.mjs test:payments
       - run: node scripts/certification-command.mjs test:refunds
@@ -121,10 +121,13 @@ jobs:
         with: {node-version: 24, cache: npm}
       - run: npm ci
       - run: node node_modules/playwright/cli.js install --with-deps chromium
-      - run: node scripts/certification-command.mjs test:e2e -- --project=chromium
+      - run: node scripts/certification-command.mjs test:e2e -- --project=chromium --phase1-catalog
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: browser-evidence, path: 'test-results'}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: certification-browser-reports, path: 'output/production-closure'}
   certified:
     runs-on: ubuntu-latest
     needs: [quality, postgres, redis-and-recovery, recovery, browser]

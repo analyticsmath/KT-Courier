@@ -86,7 +86,7 @@ describe("canonical store product commands on isolated PostgreSQL", { timeout: 2
     const foreign = await foundation();
     await expect(updateStoreCatalogProduct(foreign.store.id, other.publicReference, foreign.user.id, { ...command, operationId: randomUUID(), version: other.version })).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
     // Synthetic negative source only; it does not approve or publish this product.
-    await prisma.catalogProduct.update({ where: { publicReference: other.publicReference }, data: { scope: "GLOBAL_CANONICAL" } });
+    await prisma.catalogProduct.update({ where: { publicReference: other.publicReference }, data: { scope: "GLOBAL_CANONICAL", sourceStoreId: null } });
     for (const action of [submitStoreCatalogProduct, archiveStoreCatalogProduct]) await expect(action(source.store.id, other.publicReference, source.user.id, { operationId: randomUUID(), version: other.version })).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
   });
   it("rolls back submission, case, audit and event when the operation receipt cannot commit", async () => {

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { disposableBrowserOrigins } from "./e2e-environment.mjs";
+import { runPhase1BrowserPlan } from "./phase1-browser-plan.mjs";
 import {
   assertSuccess,
   findAvailableLoopbackPort,
@@ -20,6 +21,8 @@ const projectName = `kt-couriers-e2e-${nonce}`;
 const database = "kt_phase75_e2e";
 const password = "phase75_e2e_disposable_only";
 const playwrightArgs = process.argv.slice(2);
+const phase1Acceptance = playwrightArgs.includes("--phase1-catalog");
+if (phase1Acceptance && playwrightArgs.some(arg => !["--phase1-catalog", "--project=chromium"].includes(arg))) throw new Error("Phase 1 acceptance uses its fixed required selections.");
 
 function runCompose(args, options) {
   return runBaseCompose(args, { ...options, extraComposeFiles: ["compose.e2e.yml"] });
@@ -145,10 +148,13 @@ try {
   const baseUrl = `http://localhost:${currentAppPort}`;
   if (!(await waitForHttp(`${baseUrl}/api/health`, { timeoutMs: 60_000 })).ok) throw new Error("E2E health endpoint did not return 200.");
   if (!(await waitForHttp(`${baseUrl}/api/ready`, { timeoutMs: 60_000 })).ok) throw new Error("E2E readiness endpoint did not return 200.");
-  const projectsToRun = playwrightArgs.some((arg) => arg.startsWith("--project")) ? playwrightArgs : ["--project=chromium", "--project=mobile", "--project=keyboard", ...playwrightArgs];
-  const result = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", ...projectsToRun], { cwd: process.cwd(), env, stdio: "inherit", shell: false });
-  if (result.status !== 0) throw new Error("Phase 2 Playwright E2E tests failed.");
-  safeLog("Phase 2 Playwright E2E tests passed.");
+  if (phase1Acceptance) runPhase1BrowserPlan(env);
+  else {
+    const projectsToRun = playwrightArgs.some((arg) => arg.startsWith("--project")) ? playwrightArgs : ["--project=chromium", "--project=mobile", "--project=keyboard", ...playwrightArgs];
+    const result = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", ...projectsToRun], { cwd: process.cwd(), env, stdio: "inherit", shell: false });
+    if (result.status !== 0) throw new Error("Playwright E2E tests failed.");
+  }
+  safeLog("Disposable Playwright E2E tests passed.");
 } catch (error) {
   failed = true;
   safeError(error instanceof Error ? error.message : String(error));
