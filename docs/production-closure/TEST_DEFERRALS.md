@@ -6,7 +6,6 @@ Generated from the current test tree. This inventory does not make an exclusion 
 |---|---|---|---|
 | tests/e2e/admin-promoter-programs.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/admin-promoters.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
-| tests/e2e/catalog-administration.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/customer-subscription.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/customer-wallet-refunds.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/home-cinematic-regression.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
@@ -80,4 +79,4 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/phase26/integration/retention-schedules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 | tests/phase26/integration/screening-rules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 
-Audited files with skip/deferral markers: 75. Release-critical open placeholders: 10.
+Audited files with skip/deferral markers: 74. Release-critical open placeholders: 9.

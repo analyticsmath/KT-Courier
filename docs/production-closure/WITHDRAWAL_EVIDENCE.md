@@ -108,3 +108,8 @@ Full-page driver captures still retain fixed navigation at the captured viewport
 position and do not prove every scroll/focus state. A phone finance destination's
 withdrawal-reference row splits its amount; the next candidate separates reference,
 state and an unbroken amount. Its new capture remains required.
+At f45c3186084cc90b1a841f648137aba282d941a3, the updated phone payout-destination
+capture was actually inspected. Withdrawal references wrap independently, both
+status badges remain intact, and each ZAR 5.10 amount stays on one line. The three
+finance browser assertions pass among 82 existing browser cases; two new catalog
+cases fail, so this run does not certify the entire browser suite.

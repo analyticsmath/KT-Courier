@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./commerce-admin.module.css";
 
@@ -49,15 +49,22 @@ export function CatalogModerationActions({
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const moderationInFlight = useRef(false);
+  const moderationOperation = useRef<{ identity: string; operationId: string } | null>(null);
+
   async function act(action: typeof actions[number]) {
+    if (moderationInFlight.current) return;
+    moderationInFlight.current = true;
+    const identity = JSON.stringify({ productId, version, action, reasonCode });
+    if (moderationOperation.current?.identity !== identity) moderationOperation.current = { identity, operationId: operationId("catalog-moderation") };
     setBusy(true); setFailed(false); setMessage("Recording canonical moderation evidence…");
     try {
-      await submit(`/api/admin/catalog/products/${encodeURIComponent(productId)}/${action}`, { version, operationId: operationId("catalog-moderation"), reasonCode });
+      await submit(`/api/admin/catalog/products/${encodeURIComponent(productId)}/${action}`, { version, operationId: moderationOperation.current.operationId, reasonCode });
       setMessage("Moderation evidence was recorded. Refreshing the source-backed record…");
       router.refresh();
     } catch (error) {
-      setFailed(true); setMessage(error instanceof Error ? error.message : "The moderation request failed.");
-    } finally { setBusy(false); }
+      setFailed(true); setMessage(error instanceof TypeError ? "The moderation result could not be confirmed. Retry unchanged fields to check the saved operation." : error instanceof Error ? error.message : "The moderation request failed.");
+    } finally { moderationInFlight.current = false; setBusy(false); }
   }
 
   if (!actions.length) return <p className={styles.note}>This record is read-only for the current administrator or has no eligible moderation transition.</p>;

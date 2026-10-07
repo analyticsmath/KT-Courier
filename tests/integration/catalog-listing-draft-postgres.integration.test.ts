@@ -6,6 +6,9 @@ import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { createStoreCatalogListingDraft } from "@/lib/services/catalog-listing-draft.service";
 import { searchCatalogDuplicates } from "@/lib/services/catalog-duplicate.service";
 import { type CatalogListingDraftInput } from "@/lib/validation/catalog-listing-draft";
+import { submitStoreCatalogProduct } from "@/lib/services/catalog-product.service";
+import { transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
+import { moderateCatalogOffer, moderateCatalogProduct } from "@/lib/services/catalog-moderation.service";
 
 async function foundation() {
   requireDisposableStoreSettlementDatabase();
@@ -29,6 +32,82 @@ async function foundation() {
 async function counts(storeId: string) {
   return { products: await prisma.catalogProduct.count({ where: { sourceStoreId: storeId } }), offers: await prisma.storeCatalogOffer.count({ where: { storeId } }), groups: await prisma.storeModifierGroup.count({ where: { storeId } }), receipts: await prisma.catalogOperationReceipt.count({ where: { storeId } }) };
 }
+async function submittedListing() {
+  const source = await foundation();
+  const draft = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+  const product = await submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, { version: draft.version, operationId: randomUUID() });
+  return { ...source, draft, product };
+}
+
+describe("canonical catalog moderation transactions on isolated PostgreSQL", { timeout: 20_000 }, () => {
+  beforeAll(() => requireDisposableStoreSettlementDatabase());
+  it("replays concurrent product decisions with one history, event and receipt", async () => {
+    const source = await submittedListing();
+    const command = { version: source.product.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_CHANGES", safeNote: "Synthetic review facts; no human approval represented." };
+    const results = await Promise.all([moderateCatalogProduct(source.product.id, source.user.id, "REQUEST_CHANGES", command), moderateCatalogProduct(source.product.id, source.user.id, "REQUEST_CHANGES", command)]);
+    expect(results[0]).toEqual(results[1]); expect(results[0]).toMatchObject({ status: "NEEDS_CHANGES", version: command.version + 1 });
+    expect(await prisma.catalogModerationHistory.count({ where: { moderationCase: { productId: source.product.id } } })).toBe(1);
+    expect(await prisma.catalogChangeEvent.count({ where: { aggregateType: "MODERATION", aggregateReference: source.product.publicReference } })).toBe(1);
+    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: source.user.id, operationId: command.operationId } })).toBe(1);
+  });
+  it("retains suspension history and returns current state when an earlier approval is retried", async () => {
+    const source = await submittedListing(); const command = { version: source.product.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_APPROVAL", safeNote: "Synthetic transaction only." };
+    const approved = await moderateCatalogProduct(source.product.id, source.user.id, "APPROVE", command);
+    const firstHistory = await prisma.catalogModerationHistory.findFirstOrThrow({ where: { moderationCase: { productId: source.product.id } } });
+    const suspended = await moderateCatalogProduct(source.product.id, source.user.id, "SUSPEND", { version: approved.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_SUSPENSION" });
+    expect(await moderateCatalogProduct(source.product.id, source.user.id, "APPROVE", command)).toEqual(suspended);
+    await expect(moderateCatalogProduct(source.product.id, source.user.id, "APPROVE", { ...command, safeNote: "Changed note" })).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
+    await expect(moderateCatalogProduct(source.product.id, source.user.id, "REQUEST_CHANGES", { ...command, operationId: randomUUID() })).rejects.toMatchObject({ code: "CATALOG_VERSION_CONFLICT" });
+    expect(await prisma.catalogModerationHistory.findUniqueOrThrow({ where: { id: firstHistory.id } })).toEqual(firstHistory);
+    expect(await prisma.catalogModerationHistory.count({ where: { moderationCase: { productId: source.product.id } } })).toBe(2);
+    expect(suspended.publicationStatus).toBe("DRAFT");
+  });
+  it("commits one of two competing decisions against the same product version", async () => {
+    const source = await submittedListing(); const command = { version: source.product.version, reasonCode: "DISPOSABLE_COMPETING" };
+    const results = await Promise.allSettled([moderateCatalogProduct(source.product.id, source.user.id, "APPROVE", { ...command, operationId: randomUUID() }), moderateCatalogProduct(source.product.id, source.user.id, "REQUEST_CHANGES", { ...command, operationId: randomUUID() })]);
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find(result => result.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason).toMatchObject({ code: "CATALOG_VERSION_CONFLICT" });
+    expect(await prisma.catalogModerationHistory.count({ where: { moderationCase: { productId: source.product.id } } })).toBe(1);
+    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: source.user.id, action: { startsWith: "MODERATION:" } } })).toBe(1);
+  });
+  it("rolls back product, case, audit and receipt when history insertion fails", async () => {
+    const source = await submittedListing();
+    const before = await prisma.catalogProduct.findUniqueOrThrow({ where: { id: source.product.id }, include: { moderationCases: true } });
+    const identifier = `closure_catalog_${randomUUID().replaceAll("-", "")}`;
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION "${identifier}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."caseId" = '${before.moderationCases[0].id}' THEN RAISE EXCEPTION 'DISPOSABLE_CATALOG_HISTORY_FAILURE'; END IF; RETURN NEW; END $$`);
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TRIGGER "${identifier}" BEFORE INSERT ON "CatalogModerationHistory" FOR EACH ROW EXECUTE FUNCTION "${identifier}"()`);
+      const command = { version: source.product.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_ROLLBACK" };
+      await expect(moderateCatalogProduct(source.product.id, source.user.id, "REQUEST_CHANGES", command)).rejects.toThrow("DISPOSABLE_CATALOG_HISTORY_FAILURE");
+      expect(await prisma.catalogProduct.findUniqueOrThrow({ where: { id: source.product.id }, include: { moderationCases: true } })).toEqual(before);
+      expect(await prisma.catalogAuditHistory.count({ where: { aggregateType: "MODERATION", aggregateReference: source.product.publicReference } })).toBe(0);
+      expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: source.user.id, operationId: command.operationId } })).toBe(0);
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${identifier}" ON "CatalogModerationHistory"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION "${identifier}"()`);
+    }
+  });
+  it("replays offer approval without activating prices or public snapshots", async () => {
+    const source = await submittedListing(); const offer = source.draft.offers[0];
+    const submitted = await transitionStoreCatalogOffer(source.store.id, offer.publicReference, source.user.id, "SUBMITTED", { version: offer.version, operationId: randomUUID() });
+    const command = { version: submitted.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_OFFER_REVIEW" };
+    const results = await Promise.all([moderateCatalogOffer(submitted.id, source.user.id, "APPROVE", command), moderateCatalogOffer(submitted.id, source.user.id, "APPROVE", command)]);
+    expect(results[0]).toEqual(results[1]); expect(results[0].status).toBe("SUBMITTED"); expect(results[0].approvedByUserId).toBe(source.user.id);
+    expect(await prisma.storeOfferPriceVersion.count({ where: { offerId: submitted.id, status: "ACTIVE" } })).toBe(0);
+    expect(await prisma.catalogPublicationSnapshot.count({ where: { offerId: submitted.id } })).toBe(0);
+    expect(await prisma.catalogModerationHistory.count({ where: { moderationCase: { offerId: submitted.id } } })).toBe(1);
+    await expect(moderateCatalogOffer(submitted.id, source.user.id, "APPROVE", { ...command, reasonCode: "DISPOSABLE_CHANGED" })).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
+  });
+  it("rejects operation identity reuse on a different catalog subject", async () => {
+    const first = await submittedListing(); const second = await submittedListing();
+    const command = { version: first.product.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_IDENTITY" };
+    await moderateCatalogProduct(first.product.id, first.user.id, "REQUEST_CHANGES", command);
+    await expect(moderateCatalogProduct(second.product.id, first.user.id, "REQUEST_CHANGES", { ...command, version: second.product.version })).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
+    expect((await prisma.catalogProduct.findUniqueOrThrow({ where: { id: second.product.id } })).status).toBe("SUBMITTED");
+    expect(await prisma.catalogModerationHistory.count({ where: { moderationCase: { productId: second.product.id } } })).toBe(0);
+  });
+});
 describe("atomic canonical catalog listing drafts on isolated PostgreSQL", { timeout: 20_000 }, () => {
   beforeAll(() => requireDisposableStoreSettlementDatabase());
   it("persists each listing fact through canonical commands without publishing or reserving stock", async () => {

@@ -143,3 +143,9 @@ are readable. Fixed navigation retained in full-page captures limits scroll/focu
 claims. The phone destination withdrawal-reference row wraps its amount; the
 next candidate separates it into an unbroken money span and requires new capture
 review. Complete visual acceptance remains open.
+At f45c3186084cc90b1a841f648137aba282d941a3, the phone payout-destination capture
+was inspected: public references wrap and both ZAR 5.10 amounts stay intact beside
+their status badges. Both first-failure catalog captures were also inspected;
+they show the real validation summary and native type/category fields, but the
+tests stop at an ambiguous alert selector before upload/save. These three inspected
+captures do not establish full catalog, focus/scroll or overall visual acceptance.

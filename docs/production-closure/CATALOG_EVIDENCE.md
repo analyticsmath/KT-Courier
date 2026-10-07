@@ -46,3 +46,30 @@ production build pass. Exact-commit CI is still required.
 Ten critical placeholders remain in 75 marked files. Complete catalog
 moderation/publication, imports, paid order/refund/media and directed visual
 acceptance remain open; this partial engineering evidence does not certify them.
+
+At f45c3186084cc90b1a841f648137aba282d941a3, certification run 37676487379
+passes twenty PostgreSQL jobs, quality, Redis/security and recovery. Its closure
+runner executes 142 assertions in eighteen files, zero skipped (23.89 seconds). The browser
+job passes 82 existing assertions and fails both new listing assertions at the
+first validation check: Next's route announcer and the listing error summary both
+have the alert role. The final certified job is skipped after browser failure.
+The next candidate scopes those assertions to the actual listing errors. Upload,
+save and replay acceptance remain unproven by this failed run.
+
+The moderation follow-up reads source state and operation receipts inside its
+transaction after operation and subject locks. Matching retries return current
+canonical state without repeating review; changed notes/reasons/subjects conflict.
+Suspension appends history to the latest case, including a resolved approval case,
+and reopening for changes clears the case's resolution timestamp. Native product
+review controls prevent duplicate clicks and preserve operation identity after an
+uncertain response. Six new PostgreSQL cases cover replay, competing decisions,
+rollback, immutable history, offer approval without activation and subject reuse;
+their execution is pending because local Docker Desktop crashes during inference
+socket initialization. The isolated CI runner remains required.
+
+Eleven focused moderation/state/media-policy assertions pass, as do TypeScript,
+full lint, explicit ignored-fixture lint and the optimized build. Two
+desktop/phone moderation journeys bring discovery to 86 in 24 files;
+four moderation captures require execution and inspection. Source inventory now
+contains nine critical placeholders in 74 marked files. Full catalog imports,
+publication, media review/quarantine and vendor acceptance remain open.

@@ -16,7 +16,7 @@ for (const width of [1440, 390]) {
     const tag = randomUUID(); const title = "Disposable catalog product " + tag; const sku = "DISPOSABLE-" + tag.toUpperCase();
     await page.goto("/store/catalog/products/new"); await expect(page.getByRole("heading", { name: "New product", exact: true })).toBeVisible();
     await step(page, "Submit"); await page.getByRole("button", { name: "Save product draft", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("Select a product type.");
+    await expect(page.locator("#catalog-error-summary").getByRole("alert")).toContainText("Select a product type.");
     await step(page, "Type and category"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
     await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics · electronics" });
     await step(page, "Core information"); await page.getByLabel("Product title", { exact: true }).fill(title);
@@ -29,7 +29,7 @@ for (const width of [1440, 390]) {
     await step(page, "Modifiers"); await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: "Gift wrap", minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }]));
     await step(page, "Media"); const file = page.getByLabel("Upload product image", { exact: true });
     await file.setInputFiles({ name: "invalid.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
-    await expect(page.getByRole("alert")).toContainText("Choose a JPEG, PNG or WebP image.");
+    await expect(page.getByRole("alert").filter({ hasText: "Choose a JPEG, PNG or WebP image." })).toBeVisible();
     const png = await sharp(randomBytes(400 * 400 * 3), { raw: { width: 400, height: 400, channels: 3 } }).png().toBuffer();
     const uploadPromise = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/media/normalized") && response.request().method() === "POST");
     await file.setInputFiles({ name: "disposable-product.png", mimeType: "image/png", buffer: png });
@@ -45,7 +45,7 @@ for (const width of [1440, 390]) {
     const path = "**/api/store/catalog/listing-drafts"; let attempts = 0; let command: Record<string, unknown> = {}; let saved: { publicReference: string; offers: { publicReference: string }[] };
     await page.route(path, async route => { attempts++; command = route.request().postDataJSON(); const response = await route.fetch(); expect(response.status()).toBe(201); saved = (await response.json()).product; await route.abort("failed"); });
     await save.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
-    await expect(page.getByRole("alert")).toContainText("The save could not be confirmed."); await expect(save).toBeEnabled(); expect(attempts).toBe(1);
+    await expect(page.locator("#catalog-error-summary").getByRole("alert")).toContainText("The save could not be confirmed."); await expect(save).toBeEnabled(); expect(attempts).toBe(1);
     await page.screenshot({ path: testInfo.outputPath("catalog-listing-lost-confirmation.png"), fullPage: true, animations: "disabled" });
     await page.unroute(path); const retryPromise = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/listing-drafts") && response.request().method() === "POST");
     await save.focus(); await save.press("Enter"); const retry = await retryPromise; expect(retry.status()).toBe(201); expect(retry.request().postDataJSON()).toEqual(command);
