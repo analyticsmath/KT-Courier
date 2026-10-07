@@ -13,6 +13,15 @@ function isolated(url: string) {
   vi.stubEnv("KT_SMOKE_PROJECT_NAME", "kt-couriers-driver-earning-456-123");
 }
 describe("synthetic driver settlement database boundary", () => {
+  it("a malformed URL never exposes the rejected database value", () => {
+    isolated("PRIVATE_DATABASE_SECRET_MARKER");
+    let caught: unknown;
+    try { requireDisposableDriverSettlementDatabase(); } catch (error) { caught = error; }
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toMatchObject({ message: "Named network-isolated disposable driver settlement database required." });
+    expect(caught).not.toHaveProperty("input");
+    expect(JSON.stringify(caught)).not.toContain("PRIVATE_DATABASE_SECRET_MARKER");
+  });
   it.each([
     "postgresql://disposable:local@127.0.0.1:5432/kt_launch_test",
     "postgresql://disposable:local@db:5432/kt_phase75_e2e",
@@ -24,6 +33,7 @@ describe("synthetic driver settlement database boundary", () => {
     ["DATABASE_URL", "postgresql://disposable:local@production.example/kt_launch_test"],
     ["DATABASE_URL", "postgresql://disposable:local@localhost/production"],
     ["DATABASE_URL", "postgresql://wrong:local@localhost/kt_driver_earning_123_456"],
+    ["DATABASE_URL", "https://kt_driver_earning_123_456:local@localhost/kt_driver_earning_123_456"],
     ["NODE_ENV", "production"], ["KT_RUNTIME_ENV", "production"],
     ["KT_NETWORK_DISABLED", "false"], ["KT_ALLOW_ISOLATED_POSTGRES_TESTS", "0"],
     ["KT_DRIVER_EARNING_INTEGRATION_APPROVED", "false"],

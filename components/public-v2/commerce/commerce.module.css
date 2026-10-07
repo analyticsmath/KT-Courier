@@ -3623,6 +3623,8 @@
   .pdpPurchasePlaneTall {
     max-height: calc(100svh - var(--shop-header-offset, 66px) - 32px);
     overflow-y: auto;
+    /* Keep native keyboard scrolling clear of the panel edge and focus outline. */
+    scroll-padding-block: 12px;
   }
 }
 

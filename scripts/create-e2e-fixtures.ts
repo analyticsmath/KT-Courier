@@ -5,6 +5,7 @@ import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { reverseLedgerJournal } from "@/lib/services/ledger-reversal.service";
 import { createDisposableCheckoutAuthorities } from "./e2e-checkout-authorities";
 import { createDisposableDriverSettlement } from "./e2e-driver-settlement-fixture";
+import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-settlement-guard";
 import { accrueDriverEarning } from "@/lib/services/driver-earning-accrual.service";
 import { releaseDriverEarning } from "@/lib/services/driver-earning-release.service";
 import { createDriverEarningReconciliation } from "@/lib/services/driver-earning-reconciliation.service";
@@ -494,6 +495,7 @@ async function seedPhase2Fixtures(passwordHash: string) {
 }
 
 async function main() {
+  requireDisposableDriverSettlementDatabase();
   const fixtureDatabase = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
   if (!["localhost", "127.0.0.1", "db"].includes(fixtureDatabase.hostname) || fixtureDatabase.pathname !== "/kt_phase75_e2e") throw new Error("E2E fixtures require the named disposable browser database.");
   // The search adapter uses pg_trgm's similarity() for fuzzy matching.

@@ -49,11 +49,16 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await submit.press("Enter");
     await expect(page.getByRole("status").filter({ hasText: "Identity and contact details submitted successfully." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Step 2: Upload Driver Identity & Licence Documents", exact: true })).toBeVisible();
+    await expect(page.getByText("Your profile is awaiting administrator review. Check the document and vehicle sections below for any outstanding requirements.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Your profile and documents have been submitted. An administrator will verify your credentials shortly.", { exact: true })).toHaveCount(0);
+    const documents = await page.request.get("/api/driver/documents"); expect(documents.status()).toBe(200);
+    expect(await documents.json()).toEqual([]);
     const submitted = await profile(page);
     expect(submitted).toMatchObject({ idType: "PASSPORT", idNumber: "DISPOSABLE-PASSPORT", onboardingStatus: "PENDING_REVIEW", status: "PENDING_REVIEW", availability: "OFFLINE" });
     expect(submitted).not.toHaveProperty("internalNotes"); expect(submitted.user).not.toHaveProperty("passwordHash");
     await page.reload();
     await expect(identity.getByLabel("ID or Passport Number *", { exact: true })).toHaveValue("DISPOSABLE-PASSPORT");
+    await expect(page.getByText("Your profile is awaiting administrator review. Check the document and vehicle sections below for any outstanding requirements.", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     // No document approval, dispatch eligibility or actual device acceptance is claimed.
   });

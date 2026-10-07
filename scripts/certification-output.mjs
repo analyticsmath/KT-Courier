@@ -8,3 +8,8 @@ export function hasSkippedCriticalTests(output) {
     return /\[SKIP_(?:DB_EXECUTION|TEST)\]/.test(line);
   });
 }
+
+export function hasFlakyCriticalTests(output) {
+  const plain = output.replace(/\u001b\[[0-9;]*m/g, "");
+  return /\b[1-9]\d*\s+flaky\b/i.test(plain);
+}

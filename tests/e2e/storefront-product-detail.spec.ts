@@ -45,6 +45,9 @@ test("short desktop purchase rail reveals keyboard-focused cart actions", async 
   const purchase = page.getByRole("region", { name: "Purchase product", exact: true });
   const add = purchase.getByRole("button", { name: "Add to cart", exact: true });
   await add.focus(); await expect(add).toBeFocused();
+  await expect.poll(async () => {
+    const box = await add.boundingBox(); return box ? box.y + box.height : Infinity;
+  }).toBeLessThanOrEqual(768);
   const bounds = await add.boundingBox(); expect(bounds).not.toBeNull();
   expect(bounds!.y).toBeGreaterThanOrEqual(66); expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(768);
   expect(await add.evaluate(element => {

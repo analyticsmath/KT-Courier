@@ -29,6 +29,7 @@ for (const width of [1440, 390]) {
       await table.focus(); await table.press("ArrowRight");
       await expect.poll(() => table.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
     }
+    await page.screenshot({ path: testInfo.outputPath("driver-finance-earnings-list.png"), fullPage: true, animations: "disabled" });
     const link = page.getByRole("link", { name: record.publicReference, exact: true });
     await link.focus(); await link.press("Enter"); await expect(page).toHaveURL(`/admin/driver-earnings/${record.id}`);
     await expect(page.getByText(before.journals.accrual, { exact: false })).toBeVisible();
@@ -42,6 +43,19 @@ for (const width of [1440, 390]) {
     expect(await refused.json()).toMatchObject({ blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" });
     await expect(page.getByRole("status").filter({ hasText: "Driver earning operations are inactive pending consolidated validation approval." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Request exact reversal", exact: true })).toBeEnabled();
+    await expect(page.getByRole("combobox", { name: "Approved reason", exact: true })).toHaveValue("OTHER_REVIEWED");
+    await expect(page.getByRole("textbox", { name: "Opaque evidence reference", exact: true })).toHaveValue(`fixture:driver-finance-review-${width}`);
+    await page.screenshot({ path: testInfo.outputPath("driver-finance-locked-reversal.png"), fullPage: true, animations: "disabled" });
+    const reversePath = `**${base}/${record.id}/reverse`;
+    await page.route(reversePath, route => route.abort("failed"));
+    try {
+      await page.getByRole("button", { name: "Request exact reversal", exact: true }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Reversal request could not be sent. Check your connection and try again." })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Request exact reversal", exact: true })).toBeEnabled();
+      await expect(page.getByRole("textbox", { name: "Opaque evidence reference", exact: true })).toHaveValue(`fixture:driver-finance-review-${width}`);
+    } finally {
+      await page.unroute(reversePath);
+    }
     expect((await read(page, `${base}/${record.id}`)).earning).toEqual(before);
     const spoofed = await page.evaluate(async ({ path }) => {
       const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operationId: crypto.randomUUID(), reasonCode: "OTHER_REVIEWED", reversalEvidenceReference: "fixture:forged-reversal", amount: "1.00", accountId: "forged" }) });
@@ -49,7 +63,7 @@ for (const width of [1440, 390]) {
     }, { path: `${base}/${record.id}/reverse` }); expect(spoofed).toBe(422);
     expect((await read(page, `${base}/${record.id}`)).earning).toEqual(before);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("driver-finance-locked-reversal.png"), fullPage: true, animations: "disabled" });
+    await page.screenshot({ path: testInfo.outputPath("driver-finance-network-failure.png"), fullPage: true, animations: "disabled" });
     const caseBase = "/api/admin/driver-earning-reconciliation";
     const cases = (await read(page, `${caseBase}?pageSize=100`)).data.filter((row: { earningReference: string }) => row.earningReference === record.publicReference);
     expect(cases).toHaveLength(1); const reference = cases[0].publicReference;
@@ -61,6 +75,7 @@ for (const width of [1440, 390]) {
       await caseTable.focus(); await caseTable.press("ArrowRight");
       await expect.poll(() => caseTable.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
     }
+    await page.screenshot({ path: testInfo.outputPath("driver-finance-reconciliation-list.png"), fullPage: true, animations: "disabled" });
     const caseLink = page.getByRole("link", { name: reference, exact: true }); await caseLink.focus(); await caseLink.press("Enter");
     await expect(page).toHaveURL(`/admin/driver-earning-reconciliation/${reference}`);
     await expect(page.getByText(caseBefore.safeSummary, { exact: true })).toBeVisible();

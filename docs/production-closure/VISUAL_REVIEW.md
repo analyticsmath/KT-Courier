@@ -26,7 +26,8 @@ panel. All four capture walks pass the one-readable-line assertion.
 The short desktop product purchase panel uses its existing internal scroller.
 A new 1366x768 browser assertion focuses the cart button, checks its viewport
 bounds and hit target, submits with Enter and verifies the actual cart line.
-It passes; a full-page capture alone cannot prove access.
+It passed the earlier runs; a full-page capture alone cannot prove access. A
+later first-attempt failure described below requires a fresh clean rerun.
 
 At `caa8ca9ef01eb39f574fe3b96bf83fd203591f6d`, certification
 `37625334615` executed all three new product assertions and all four responsive
@@ -56,5 +57,25 @@ captures were inspected: desktop/phone released records preserve the exact
 amounts and readable history, and both restricted routes display clear eligibility
 guidance with an unobscured onboarding focus ring. Real browser hit-target and
 Enter navigation assertions pass for that onboarding link. These captures do not
-certify every scroll position or history target. The next finance-admin table
-patch and its new browser assertions still require execution and inspection.
+certify every scroll position or history target.
+
+At `4c928abfdd04673a4ea695d5cea4ea0ddccfe2ba`, certification `37638296003`
+completed all three new driver finance-admin assertions on their first attempts.
+Four desktop/phone detail and reconciliation captures were actually viewed:
+amounts, history and safe reconciliation text were readable without document
+overflow. Phone table keyboard scrolling passed, but list-table images were not
+captured in that run. New list captures are added for the follow-up run.
+
+The locked-reversal capture revealed that reviewer fields reset after a rejected
+request. The follow-up changes the client form submission handler to retain input
+and recover after network failure. Browser assertions now require both behaviors
+and unchanged canonical records; fresh execution and visual review are pending.
+
+That browser job had 65 clean passes and one cart-focus test that passed on retry,
+zero skipped. Its actual failure image showed a clipped focus outline, and the
+button bottom measured 768.609375px in a 768px viewport. The follow-up adds native
+scroll padding and waits for scroll settlement while retaining strict viewport
+and hit-target assertions. This run does not establish clean full acceptance.
+Certification now rejects a nonzero flaky summary even when Playwright exits
+zero. The local focused round-26 run failed during Docker image compilation with
+a BuildKit RPC/EOF error before any browser assertions; it adds no browser proof.

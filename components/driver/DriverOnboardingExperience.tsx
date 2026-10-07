@@ -505,7 +505,7 @@ export function DriverOnboardingExperience({
                   : isProfileApproved && !hasApprovedVehicle
                   ? "Your personal profile and identity credentials are approved. However, you do not have an approved, compliant vehicle. Vehicle registration and document approval (registration, licence disc, insurance) are mandatory before dispatch activation."
                   : driver.onboardingStatus === "PENDING_REVIEW"
-                  ? "Your profile and documents have been submitted. An administrator will verify your credentials shortly."
+                  ? "Your profile is awaiting administrator review. Check the document and vehicle sections below for any outstanding requirements."
                   : driver.onboardingStatus === "REJECTED"
                   ? "Your onboarding profile requires corrections. Please review the details below and resubmit."
                   : "Complete all required steps to activate your courier delivery profile."}

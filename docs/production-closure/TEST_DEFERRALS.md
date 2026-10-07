@@ -1,6 +1,6 @@
 # Test deferral audit
 
-Generated from the current test tree. This inventory does not make an exclusion or placeholder a pass. Optional features stay inactive until independently certified. The production certification wrapper rejects non-zero skipped/todo/pending counts and safety early-return markers.
+Generated from the current test tree. This inventory does not make an exclusion or placeholder a pass. Optional features stay inactive until independently certified. The production certification wrapper rejects non-zero skipped/todo/pending/flaky counts and safety early-return markers.
 
 | File | Classification | Status | Reason |
 |---|---|---|---|

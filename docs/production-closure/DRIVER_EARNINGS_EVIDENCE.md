@@ -53,9 +53,12 @@ The separate local browser run was stopped during application build after Docker
 Desktop returned HTTP 500 to read-only container listings. Only the verified
 task-owned Docker build client and its Compose/buildx descendants were stopped.
 The runner exited nonzero; its owned-project cleanup also returned HTTP 500, so
-cleanup is unverified. The affected disposable project is
-`kt-couriers-e2e-1791381996001-4852`. The shared local database and Redis were not
-reset or restarted. This local infrastructure failure is not browser proof.
+initial cleanup could not be verified. The affected disposable project is
+`kt-couriers-e2e-1791381996001-4852`. After Docker recovered, a project-label
+inspection confirmed zero remaining containers, volumes or networks for that
+exact project. Cleanup state is now verified empty; no delete or reset was needed.
+The shared local database and Redis were not reset or restarted. This local
+infrastructure failure is not browser proof.
 
 The next candidate replaces the driver finance-admin placeholder with three
 executable assertions: desktop/phone evidence inspection and locked reversal,
@@ -64,7 +67,55 @@ an actual canonical accrual and reconciliation case. The browser checks exact
 amounts, history and journal references, immutable evidence after locked and
 forged reversal requests, safe reconciliation rendering, and phone table keyboard
 scrolling. The two list tables use the existing bounded scroll region. Discovery
-now selects 66 assertions in seventeen files. These new assertions have not run;
-fifteen active critical placeholders remain. Full finance administration,
+now selects 66 assertions in seventeen files. At
+`4c928abfdd04673a4ea695d5cea4ea0ddccfe2ba`, main CI `37638296067` passed.
+Certification `37638296003` passed all twenty PostgreSQL jobs, quality,
+Redis/security and recovery. All three finance assertions passed on their first
+attempts. The browser job succeeded with 65 clean passes and one cart-focus retry
+(2.0 minutes), zero skipped; the final gate failed on open engineering work. Four
+finance captures were inspected. The refusal capture exposed reset reviewer
+fields, so draft retention and network recovery require the follow-up correction.
+This is not clean full browser certification. Fifteen active critical
+placeholders remain. Full finance administration,
 provider verification, physical delivery and complete financial acceptance
 remain open.
+
+The next onboarding copy correction removes the identity-only claim that
+documents have been submitted and the unsupported promise of imminent review.
+Pending review now directs the driver to outstanding document/vehicle
+requirements. Existing desktop/phone onboarding assertions additionally require
+an actually empty document API list and truthful pending guidance before/after
+reload. This correction passes targeted lint; its exact-commit browser execution
+is pending and does not certify document upload, approval or dispatch eligibility.
+
+The follow-up reversal form retains reason/evidence/note input through rejected
+and disconnected requests and clears pending state in `finally`. Actual browser
+assertions now require input retention after the source lock refusal and an
+intentionally aborted request, plus unchanged canonical records. They still
+cannot execute a production reversal. These enhanced assertions require fresh
+execution.
+
+The cart retry measured a focused button bottom at 768.609375px in a 768px
+viewport. The candidate adds scroll padding to tall desktop planes so native
+scrolling has room for focus outlines; the test waits for scrolling to settle
+and retains its exact viewport bound and hit-target checks. The certification
+wrapper now rejects nonzero flaky results even when the runner exits zero.
+Fourteen native helper assertions pass, and the predicate detects the historical
+retry while reporting no skipped tests. New browser execution is required.
+
+Generated output, browser results and Playwright reports are excluded from the
+Docker build context. The shared isolation guard now runs before any browser
+fixture writes and safely rejects malformed/unsupported database URLs without
+echoing their input. These changes preserve the existing production locks.
+
+The focused local round-26 rerun requested three repetitions with retries disabled
+for finance inspection, driver contact/onboarding and short-desktop cart focus.
+Its migrate image built successfully, but the application image failed during
+Next compilation with a BuildKit RPC `Unavailable`/EOF connection error. The
+runner exited nonzero before browser execution. This establishes no acceptance
+result for the follow-up fixes; exact-commit CI execution is still required.
+Label-scoped inspection confirmed zero containers, volumes and networks for
+`kt-couriers-e2e-1791386332451-14484`; no shared service was reset. Targeted lint
+(including explicit checks of ignored runner scripts), TypeScript, seventeen
+focused guard/admin-UI assertions and fourteen native certification/isolation/
+deferral assertions pass, zero skipped. This is source/helper validation only.
