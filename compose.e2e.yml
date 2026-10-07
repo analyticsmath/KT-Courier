@@ -1,0 +1,25 @@
+# Used only by the disposable browser runner. Application/provider traffic stays
+# on the internal network; browsers enter through a fixed-upstream proxy.
+services:
+  app:
+    ports: !reset []
+  e2e-ingress:
+    image: ${MIGRATE_IMAGE:-kt-couriers-migrate:latest}
+    restart: "no"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      KT_RUNTIME_ENV: e2e
+    command: ["node", "scripts/e2e-ingress.mjs"]
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - kt_couriers_internal
+      - e2e_browser_ingress
+networks:
+  e2e_browser_ingress:
+    driver: bridge

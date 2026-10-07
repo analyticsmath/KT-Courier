@@ -7,7 +7,7 @@ import {
   findAvailableLoopbackPort,
   isHostPortBindingConflict,
   normalComposeProject,
-  runCompose,
+  runCompose as runBaseCompose,
   runDocker,
   safeError,
   safeLog,
@@ -20,6 +20,10 @@ const projectName = `kt-couriers-e2e-${nonce}`;
 const database = "kt_phase75_e2e";
 const password = "phase75_e2e_disposable_only";
 const playwrightArgs = process.argv.slice(2);
+
+function runCompose(args, options) {
+  return runBaseCompose(args, { ...options, extraComposeFiles: ["compose.e2e.yml"] });
+}
 
 function buildEnv(port, appPort) {
   return {
@@ -104,7 +108,7 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
     assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env }), "E2E seed");
     assertSuccess(runCompose(["run", "--rm", "-e", "NODE_ENV=test", "-e", "KT_RUNTIME_ENV=e2e", "migrate", "npx", "tsx", "scripts/create-e2e-fixtures.ts"], { projectName, env }), "E2E fixture creation");
 
-    const appUp = runCompose(["up", "-d", "app"], { projectName, env });
+    const appUp = runCompose(["up", "-d", "e2e-ingress"], { projectName, env });
     if (appUp.status !== 0) {
       const output = (appUp.stderr || "") + "\n" + (appUp.stdout || "");
       if (isHostPortBindingConflict(output) && attempt < maxAttempts) {
@@ -133,6 +137,10 @@ try {
   assertDisposableProject();
   assertSuccess(runDocker(["info"]), "docker info");
   await startE2EServicesWithRetry(3);
+
+  // Prove provider isolation before any browser can submit a payment command.
+  // A literal public address avoids treating a DNS outage as isolation proof.
+  assertSuccess(runCompose(["exec", "-T", "app", "node", "-e", "const net=require('node:net'); const s=net.connect({host:'1.1.1.1',port:443}); s.setTimeout(3000); s.once('connect',()=>{s.destroy();process.exit(1)}); s.once('error',()=>process.exit(0)); s.once('timeout',()=>{s.destroy();process.exit(0)});"], { projectName, env }), "E2E application outbound isolation");
 
   const baseUrl = `http://localhost:${currentAppPort}`;
   if (!(await waitForHttp(`${baseUrl}/api/health`, { timeoutMs: 60_000 })).ok) throw new Error("E2E health endpoint did not return 200.");

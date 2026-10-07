@@ -120,7 +120,9 @@ export function composeArgs(args = [], options = {}) {
   if (existsSync(".env.docker")) {
     result.push("--env-file", ".env.docker");
   }
-  result.push(...composeFileArgs, ...args);
+  result.push(...composeFileArgs);
+  for (const file of options.extraComposeFiles ?? []) result.push("-f", file);
+  result.push(...args);
   return result;
 }
 
