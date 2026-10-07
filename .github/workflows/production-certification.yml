@@ -45,11 +45,24 @@ jobs:
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: disposable
+          POSTGRES_PASSWORD: disposable_only
+          POSTGRES_DB: kt_launch_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U disposable -d kt_launch_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     strategy:
       fail-fast: false
       matrix:
         command: [docker:migration-smoke, test:integration:auth, test:integration:permissions, test:integration:orders, test:integration:pricing, test:integration:dispatch, test:integration:cross-module, test:integration:driver-operations, test:integration:ledger, test:integration:payment-foundation, test:integration:refunds, test:integration:withdrawals, test:integration:store-earnings, test:integration:driver-earnings, test:integration:marketplace-checkout, test:integration:store-orders, test:integration:storefront, test:integration:catalog, test:integration:closure, docker:gate4]
     env:
+      KT_ALLOW_ISOLATED_POSTGRES_TESTS: 'true'
+      KT_WITHDRAWAL_INTEGRATION_APPROVED: 'true'
       KT_REFUND_INTEGRATION_APPROVED: 'true'
       KT_STORE_EARNING_INTEGRATION_APPROVED: 'true'
       KT_DRIVER_EARNING_INTEGRATION_APPROVED: 'true'
@@ -63,6 +76,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
       - run: node scripts/certification-command.mjs ${{ matrix.command }}
       - uses: actions/upload-artifact@v4
         if: always()
@@ -75,6 +90,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci
+      - run: npx prisma generate
       - run: node scripts/certification-command.mjs test:integration:redis-rate-limit
       - run: node scripts/certification-command.mjs test:integration:bola-authority
       - run: npm run recovery:drill
