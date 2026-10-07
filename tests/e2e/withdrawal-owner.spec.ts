@@ -13,7 +13,7 @@ function requireDisposableRunner() {
 }
 
 for (const owner of ["store", "driver"] as const) for (const width of [1440, 390]) {
-  test(`${owner} owner reserves, retries a lost response, cancels and inspects masked destinations at ${width}px`, async ({ page }, testInfo) => {
+  test(`${owner} owner reserves, retries a lost response, cancels and inspects masked destinations at ${width}px`, async ({ page }) => {
     requireDisposableRunner();
     await page.setViewportSize({ width, height: 900 });
     await login(page, `e2e-withdrawal-${owner}-${width}@ktcouriers.local`);
@@ -65,7 +65,7 @@ for (const owner of ["store", "driver"] as const) for (const width of [1440, 390
     await page.reload();
     await expect(page.getByText(/ZAR 20\.30/).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath(`${owner}-withdrawal-reserved.png`), fullPage: true, animations: "disabled" });
+
     const record = page.getByRole("link", { name: committedReference, exact: true });
     await record.focus(); await record.press("Enter");
     await expect(page).toHaveURL(`${base}/${committedReference}`);
@@ -79,7 +79,7 @@ for (const owner of ["store", "driver"] as const) for (const width of [1440, 390
     expect((await read(page, `/api/withdrawals/${committedReference}`)).withdrawal).toMatchObject({ status: "CANCELLED", canCancel: false });
     await expect(page.getByRole("button", { name: "Cancel withdrawal", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath(`${owner}-withdrawal-cancelled.png`), fullPage: true, animations: "disabled" });
+
     await page.getByRole("link", { name: "Back to withdrawals", exact: true }).click();
     await expect(page.getByText(/ZAR 25\.40/).first()).toBeVisible();
     await page.getByRole("link", { name: "Payout destinations", exact: true }).click();
@@ -87,7 +87,7 @@ for (const owner of ["store", "driver"] as const) for (const width of [1440, 390
     await expect(page.getByText("Disposable destination ****1234", { exact: true })).toBeVisible();
     await expect(page.getByLabel(/bank account|external reference|credential/i)).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath(`${owner}-withdrawal-destinations.png`), fullPage: true, animations: "disabled" });
+
   });
 }
 

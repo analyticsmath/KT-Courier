@@ -99,3 +99,15 @@ fresh exact-commit execution is still required for this projection change.
 The full local unit/API suite for the projection candidate passes all 3,480
 assertions in 766 files, zero skipped (80.32 seconds). It does not substitute for
 the extended actual PostgreSQL assertions or owner/admin browser reads.
+
+The current candidate removes successful-run screenshots from the selected
+catalog functional suites. Planned capture language above describes historical
+candidates, not a future retention requirement. The shared Playwright policy
+retains screenshots/traces/videos on failure only; complete native browser visual
+review remains independently OPEN.
+
+At 909f5f1400a46c963f4cd23e07c0efbab4dfcb3c, the downloaded isolated closure
+artifacts report 148 passed assertions in eighteen files, zero failed, skipped or
+flaky. This includes the extended canonical store-product media projection check
+and all twelve listing/moderation cases. Native owner/admin reads still require
+the browser result; employee lifecycle cases belong to the next candidate.

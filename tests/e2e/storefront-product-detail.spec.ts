@@ -18,7 +18,7 @@ test("keyboard variant navigation changes the canonical price without mutating t
 });
 
 for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }]) {
-  test(`missing product media retains a visible gallery frame at ${viewport.width}px`, async ({ page }, testInfo) => {
+  test(`missing product media retains a visible gallery frame at ${viewport.width}px`, async ({ page }) => {
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize(viewport);
     const before = await page.request.get("/api/cart"); expect(before.status()).toBe(200);
@@ -32,13 +32,13 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 
     expect(bounds!.width).toBeGreaterThanOrEqual(300); expect(bounds!.width).toBeLessThanOrEqual(viewport.width);
     await expect(frame.locator("img")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("missing-media-frame.png"), fullPage: true, animations: "disabled" });
+
     const after = await page.request.get("/api/cart"); expect(after.status()).toBe(200);
     expect((await after.json()).cart).toEqual(cart);
   });
 }
 
-test("short desktop purchase rail reveals keyboard-focused cart actions", async ({ page }, testInfo) => {
+test("short desktop purchase rail reveals keyboard-focused cart actions", async ({ page }) => {
   if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
@@ -57,5 +57,5 @@ test("short desktop purchase rail reveals keyboard-focused cart actions", async 
   await add.press("Enter"); await expect(purchase.getByRole("status")).toContainText(/added|cart/i);
   const response = await page.request.get("/api/cart"); expect(response.status()).toBe(200);
   expect((await response.json()).cart.storeGroups[0].lines[0]).toMatchObject({ variantReference: "CV-E2E64GB", quantity: 1, lineTotal: "1500.00" });
-  await page.screenshot({ path: testInfo.outputPath("short-desktop-focused-purchase.png"), fullPage: true, animations: "disabled" });
+
 });

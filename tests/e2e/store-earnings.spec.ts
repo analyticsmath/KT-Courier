@@ -5,7 +5,7 @@ async function read(page: Page, path: string) {
   expect(response.headers()["cache-control"]).toContain("no-store"); return response.json();
 }
 for (const width of [1440, 390]) {
-  test(`store owner inspects exact accrued/released evidence and denies foreign records at ${width}px`, async ({ page }, testInfo) => {
+  test(`store owner inspects exact accrued/released evidence and denies foreign records at ${width}px`, async ({ page }) => {
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 }); await login(page, "e2e-store-earning-other@ktcouriers.local");
     const foreign = (await read(page, "/api/store/earnings")).data[0].publicReference;
@@ -20,7 +20,7 @@ for (const width of [1440, 390]) {
     await page.goto("/store/earnings"); await expect(page.getByRole("heading", { name: "Earnings", exact: true })).toBeVisible();
     await expect(page.getByText("ZAR 100.25", { exact: true }).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("store-owner-earnings.png"), fullPage: true, animations: "disabled" });
+
     const link = page.getByRole("link", { name: released.publicReference, exact: true }); await link.focus(); await link.press("Enter");
     await expect(page).toHaveURL(`/store/earnings/${released.publicReference}`);
     const detail = (await read(page, `/api/store/earnings/${released.publicReference}`)).earning;
@@ -31,7 +31,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: /reverse|adjust|create earning|mark released/i })).toHaveCount(0);
     await expect(page.getByLabel(/amount editor|account selector/i)).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("store-owner-released-earning.png"), fullPage: true, animations: "disabled" });
+
     const missing = "SE-00000000000000000000000000000000";
     const denied = await page.request.get(`/api/store/earnings/${foreign}`); const absent = await page.request.get(`/api/store/earnings/${missing}`);
     expect(denied.status()).toBe(404); expect(absent.status()).toBe(404); expect(await denied.json()).toEqual(await absent.json());

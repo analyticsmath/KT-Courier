@@ -8,7 +8,7 @@ async function documents(page: Page) {
   expect(response.headers()["cache-control"]).toContain("no-store"); return response.json();
 }
 for (const width of [1440, 390]) {
-  test(`driver uploads private licence evidence, replaces it and rejects foreign access at ${width}px`, async ({ page }, testInfo) => {
+  test(`driver uploads private licence evidence, replaces it and rejects foreign access at ${width}px`, async ({ page }) => {
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 });
     await login(page, `e2e-documents-${width}@ktcouriers.local`);
@@ -57,7 +57,7 @@ for (const width of [1440, 390]) {
     await page.reload(); await page.getByRole("button", { name: /^2\. Driver Licence & Identity Documents/ }).click();
     await expect(page.getByText(`disposable-licence-${uploadTag}-1.png`, { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("driver-private-document-replacement.png"), fullPage: true, animations: "disabled" });
+
     await login(page, `e2e-onboarding-${width}@ktcouriers.local`);
     expect((await page.request.get(`/api/private-media/${reference}`)).status()).toBe(403);
     const denied = await page.request.post("/api/driver/documents", { headers, data: command }); expect(denied.status()).toBe(422);

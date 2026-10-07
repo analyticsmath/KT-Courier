@@ -7,7 +7,7 @@ async function read(page: Page, path: string) {
   return response.json();
 }
 for (const width of [1440, 390]) {
-  test(`finance inspects canonical driver evidence and reversal stays locked at ${width}px`, async ({ page }, testInfo) => {
+  test(`finance inspects canonical driver evidence and reversal stays locked at ${width}px`, async ({ page }) => {
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 });
     await login(page, `e2e-earning-finance-${width}@ktcouriers.local`);
@@ -32,7 +32,7 @@ for (const width of [1440, 390]) {
       await table.focus(); await table.press("ArrowRight");
       await expect.poll(() => table.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
     }
-    await page.screenshot({ path: testInfo.outputPath("driver-finance-earnings-list.png"), fullPage: true, animations: "disabled" });
+
     const link = page.getByRole("link", { name: record.publicReference, exact: true });
     await link.focus(); await link.press("Enter"); await expect(page).toHaveURL(`/admin/driver-earnings/${record.id}`);
     await expect(page.getByText(before.journals.accrual, { exact: false })).toBeVisible();
@@ -48,7 +48,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Request exact reversal", exact: true })).toBeEnabled();
     await expect(page.getByRole("combobox", { name: "Approved reason", exact: true })).toHaveValue("OTHER_REVIEWED");
     await expect(page.getByRole("textbox", { name: "Opaque evidence reference", exact: true })).toHaveValue(`fixture:driver-finance-review-${width}`);
-    await page.screenshot({ path: testInfo.outputPath("driver-finance-locked-reversal.png"), fullPage: true, animations: "disabled" });
+
     const reversePath = `**${base}/${record.id}/reverse`;
     await page.route(reversePath, route => route.abort("failed"));
     try {
@@ -66,7 +66,7 @@ for (const width of [1440, 390]) {
     }, { path: `${base}/${record.id}/reverse` }); expect(spoofed).toBe(422);
     expect((await read(page, `${base}/${record.id}`)).earning).toEqual(before);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("driver-finance-network-failure.png"), fullPage: true, animations: "disabled" });
+
     const caseBase = "/api/admin/driver-earning-reconciliation";
     const cases = (await read(page, `${caseBase}?pageSize=100`)).data.filter((row: { earningReference: string }) => row.earningReference === record.publicReference);
     expect(cases).toHaveLength(1); const reference = cases[0].publicReference;
@@ -78,7 +78,7 @@ for (const width of [1440, 390]) {
       await caseTable.focus(); await caseTable.press("ArrowRight");
       await expect.poll(() => caseTable.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
     }
-    await page.screenshot({ path: testInfo.outputPath("driver-finance-reconciliation-list.png"), fullPage: true, animations: "disabled" });
+
     const caseLink = page.getByRole("link", { name: reference, exact: true }); await caseLink.focus(); await caseLink.press("Enter");
     await expect(page).toHaveURL(`/admin/driver-earning-reconciliation/${reference}`);
     await expect(page.getByText(caseBefore.safeSummary, { exact: true })).toBeVisible();
@@ -86,7 +86,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByText("PRIVATE_INTERNAL_DRIVER_FINANCE_EVIDENCE", { exact: false })).toHaveCount(0);
     expect((await read(page, `${caseBase}/${reference}`)).reconciliation).toEqual(caseBefore);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("driver-finance-reconciliation.png"), fullPage: true, animations: "disabled" });
+
   });
 }
 test("driver finance endpoints deny wrong roles, explicit DENY and anonymous access", async ({ page }) => {

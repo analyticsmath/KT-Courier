@@ -1,13 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { getStoreByOwner } from "@/lib/services/stores.service";
-import { CatalogOwnershipError } from "@/lib/catalog/errors";
+import { redirect } from "next/navigation";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { requireStoreCatalogPermission } from "@/lib/catalog/catalog-auth";
 
-export async function getCurrentStoreForCatalogPage() {
-  const user = await getCurrentUser();
-  const store = user ? await getStoreByOwner(user.id) : null;
-  if (!user || !store || store.status !== "ACTIVE") throw new CatalogOwnershipError();
-  return { user, store };
+export async function getCurrentStoreForCatalogPage(permissionKey: string = PERMISSIONS.CATALOG_READ) {
+  const access = await requireStoreCatalogPermission(permissionKey);
+  if ("response" in access) redirect(access.response.status === 401 ? "/login" : "/store/workspace");
+  return access;
 }
 
 export async function getStoreCatalogPageSummary(storeId: string) {
@@ -20,4 +19,3 @@ export async function getStoreCatalogPageSummary(storeId: string) {
   ]);
   return { products, offers, locations, imports, moderation };
 }
-

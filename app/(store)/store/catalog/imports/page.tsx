@@ -8,10 +8,11 @@ import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/Protecte
 import { StoreCatalogNavigation } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { listStoreCatalogImports } from "@/lib/services/catalog-import.service";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
 export default async function StoreCatalogImportsPage() {
   await requireBusinessPage("/store/catalog/imports");
-  const { store } = await getCurrentStoreForCatalogPage();
+  const { store } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_IMPORTS_READ);
   const imports = await listStoreCatalogImports(store.id);
   return (
     <ProtectedPageFrame>

@@ -29,13 +29,13 @@ async function action(page: Page, id: string, path: string, buttonName: string) 
   await page.reload();
 }
 for (const width of [1440, 390]) {
-  test(`finance reviews, rejects with released capacity and investigates an uncertain payout at ${width}px`, async ({ page }, testInfo) => {
+  test(`finance reviews, rejects with released capacity and investigates an uncertain payout at ${width}px`, async ({ page }) => {
     requireDisposableRunner(); await page.setViewportSize({ width, height: 900 });
     const first = await ownerRequest(page, width);
     await page.goto("/admin/withdrawals");
     await expect(page.getByRole("heading", { name: "Withdrawals", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("withdrawal-finance-queue.png"), fullPage: true, animations: "disabled" });
+
     const recordLink = page.getByRole("link", { name: first.record.publicReference, exact: true });
     await recordLink.focus(); await recordLink.press("Enter");
     await expect(page).toHaveURL(`/admin/withdrawals/${first.record.id}`);
@@ -46,7 +46,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("status").filter({ hasText: "Action could not be sent. Check your connection and try again." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start review", exact: true })).toBeEnabled();
     expect((await read(page, `/api/admin/withdrawals/${first.record.id}`)).withdrawal).toEqual(before);
-    await page.screenshot({ path: testInfo.outputPath("withdrawal-finance-network-failure.png"), fullPage: true, animations: "disabled" });
+
     await page.unroute(`**/api/admin/withdrawals/${first.record.id}/review`);
     await action(page, first.record.id, "review", "Start review");
     expect((await read(page, `/api/admin/withdrawals/${first.record.id}`)).withdrawal.status).toBe("UNDER_REVIEW");
@@ -55,7 +55,7 @@ for (const width of [1440, 390]) {
     expect(rejected).toMatchObject({ status: "REJECTED", journals: { payout: null } }); expect(rejected.journals.release).toBeTruthy();
     expect(rejected.history.map((row: { reasonCode: string }) => row.reasonCode)).toContain("RESERVATION_RELEASED");
     await expect(page.getByRole("button", { name: /start review|approve|reject and release|start payout processing/i })).toHaveCount(0);
-    await page.screenshot({ path: testInfo.outputPath("withdrawal-finance-rejected.png"), fullPage: true, animations: "disabled" });
+
     const second = await ownerRequest(page, width);
     await page.goto(`/admin/withdrawals/${second.record.id}`);
     await action(page, second.record.id, "approve", "Approve");
@@ -85,7 +85,7 @@ for (const width of [1440, 390]) {
     expect(uncertain.payoutAttempts[0].status).toBe("UNKNOWN"); expect(uncertain.reconciliation).toHaveLength(1);
     await expect(page.getByRole("button", { name: /record verified payout|start payout processing|reject and release/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("withdrawal-finance-uncertain.png"), fullPage: true, animations: "disabled" });
+
     await page.goto("/admin/withdrawal-reconciliation");
     const caseReference = uncertain.reconciliation[0].publicReference;
     const caseLink = page.getByRole("link", { name: caseReference, exact: true }); await caseLink.focus(); await caseLink.press("Enter");
@@ -93,7 +93,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByText("UNKNOWN_PAYOUT_OUTCOME", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /resolve|mark paid|close case/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("withdrawal-finance-reconciliation.png"), fullPage: true, animations: "disabled" });
+
     await page.goto("/admin/payout-destinations");
     await page.getByRole("link", { name: second.destination.publicReference, exact: true }).click();
     const masked = (await read(page, `/api/admin/payout-destinations/${second.destination.publicReference}`)).payoutDestination;
@@ -101,7 +101,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByText(second.destination.maskedLabel, { exact: true })).toBeVisible();
     await expect(page.getByRole("textbox")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("withdrawal-finance-destination.png"), fullPage: true, animations: "disabled" });
+
   });
 }
 

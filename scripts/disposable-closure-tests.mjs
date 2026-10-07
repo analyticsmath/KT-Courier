@@ -12,6 +12,7 @@ files.push("tests/integration/driver-earning-canonical-postgres.integration.test
 files.push("tests/integration/store-earning-canonical-postgres.integration.test.ts");
 files.push("tests/integration/owner-withdrawal-canonical-postgres.integration.test.ts");
 files.push("tests/integration/catalog-listing-draft-postgres.integration.test.ts");
+files.push("tests/integration/business-employee-postgres.integration.test.ts");
 let failed = false; let started = false;
 try {
   // The database URL is constructed here; a supplied production URL is never used.

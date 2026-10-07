@@ -11,7 +11,7 @@ function assertSafeOwnerRecord(row: Record<string, unknown>) {
   expect(JSON.stringify(row)).not.toMatch(/PRIVATE_CUSTOMER|PRIVATE_RECIPIENT|PRIVATE_POD/);
 }
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-  test(`driver reads exact accrual/release history and rejects foreign earnings at ${viewport.width}px`, async ({ page }, testInfo) => {
+  test(`driver reads exact accrual/release history and rejects foreign earnings at ${viewport.width}px`, async ({ page }) => {
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize(viewport);
     await login(page, "e2e-earning-other@ktcouriers.local");
@@ -39,7 +39,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(page.getByText("RELEASE_COMPLETED", { exact: false })).toBeVisible();
     for (const role of ["button", "link"] as const) await expect(page.getByRole(role, { name: /^(release|payout|reverse|withdraw|edit balance|create earning)$/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("driver-released-earning.png"), fullPage: true, animations: "disabled" });
+
     const denied = await page.request.get(`/api/driver/earnings/${foreign}`);
     const missing = await page.request.get("/api/driver/earnings/DE-00000000000000000000000000000000");
     expect(denied.status()).toBe(404); expect(missing.status()).toBe(404); expect(await denied.json()).toEqual(await missing.json());
@@ -48,7 +48,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     expect(await read(page, "/api/driver/earnings")).toEqual(before);
   });
 }
-test("driver financial reads deny inactive eligibility, wrong roles and anonymous requests", async ({ page }, testInfo) => {
+test("driver financial reads deny inactive eligibility, wrong roles and anonymous requests", async ({ page }) => {
   if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
   const paths = ["/api/driver/earnings", "/api/driver/earnings/summary", "/api/driver/earnings/DE-00000000000000000000000000000000"];
   for (const email of ["customer@ktcouriers.local", "e2e-store@ktcouriers.local", "superadmin@ktcouriers.local", "e2e-onboarding-1440@ktcouriers.local"]) {
@@ -70,7 +70,7 @@ test("driver financial reads deny inactive eligibility, wrong roles and anonymou
         const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
         return rect.top >= 0 && rect.bottom <= innerHeight && target !== null && element.contains(target);
       })).toBe(true);
-      await page.screenshot({ path: testInfo.outputPath(`driver-earnings-restricted-${width}-${path.split("/").length}.png`), fullPage: true, animations: "disabled" });
+
       await onboarding.press("Enter"); await expect(page).toHaveURL("/driver/onboarding");
     }
     for (const path of paths) expect((await page.request.get(path)).status()).toBe(403);

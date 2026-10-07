@@ -149,3 +149,19 @@ their status badges. Both first-failure catalog captures were also inspected;
 they show the real validation summary and native type/category fields, but the
 tests stop at an ambiguous alert selector before upload/save. These three inspected
 captures do not establish full catalog, focus/scroll or overall visual acceptance.
+
+At 42a0ecdfe7de8d749b86bc08177368628e01c6a2, the phone catalog category failure
+capture was inspected. The downloaded accessibility snapshots expose the actual
+`Electronics · /electronics` option; all four new catalog journeys stop before
+writes because their expected option lacks the slash. None of the twelve planned
+successful listing/review captures is established by this run. The phone capture
+shows bounded native navigation and listing steps, but does not certify lower
+form content or focus/scroll acceptance.
+
+The current candidate removes successful-run screenshots from the selected
+functional suites to follow the directive's failure-only evidence retention rule.
+Automatic screenshot, trace and video retention remains limited to failures.
+The viewport suite checks concrete heading/navigation/overflow semantics without
+capturing passing runs. Historical artifact inspections recorded above remain
+limited observations, not visual approval. Future full visual acceptance requires
+actual native browser review at all four directed widths; it is still OPEN.

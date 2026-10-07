@@ -7,10 +7,11 @@ import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/Protecte
 import { StoreCatalogNavigation } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { listStoreInventory } from "@/lib/services/catalog-inventory.service";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
 export default async function StoreCatalogInventoryPage() {
   await requireBusinessPage("/store/catalog/inventory");
-  const { store } = await getCurrentStoreForCatalogPage();
+  const { store } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_INVENTORY_READ);
   const inventory = await listStoreInventory(store.id);
   return (
     <ProtectedPageFrame>

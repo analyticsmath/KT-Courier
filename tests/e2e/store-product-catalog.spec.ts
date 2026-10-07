@@ -9,7 +9,7 @@ async function read(page: Page, path: string) {
 }
 async function step(page: Page, name: string) { await page.getByRole("button", { name: new RegExp(name) }).click(); }
 for (const width of [1440, 390]) {
-  test("store saves a complete listing atomically and replays a lost confirmation at " + width + "px", async ({ page }, testInfo) => {
+  test("store saves a complete listing atomically and replays a lost confirmation at " + width + "px", async ({ page }) => {
     test.setTimeout(60_000);
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 }); await login(page, "e2e-store@ktcouriers.local");
@@ -39,20 +39,20 @@ for (const width of [1440, 390]) {
     await page.getByLabel("Alt text", { exact: true }).fill("Disposable synthetic product image");
     await expect(page.getByRole("radio", { name: "Primary image", exact: true })).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("catalog-ready-media.png"), fullPage: true, animations: "disabled" });
+
     await step(page, "Preview"); await expect(page.getByRole("region", { name: "Exact draft preview" })).toContainText("19.25");
     await step(page, "Submit"); const save = page.getByRole("button", { name: "Save product draft", exact: true });
     const path = "**/api/store/catalog/listing-drafts"; let attempts = 0; let command: Record<string, unknown> = {}; let saved: { publicReference: string; offers: { publicReference: string }[] };
     await page.route(path, async route => { attempts++; command = route.request().postDataJSON(); const response = await route.fetch(); expect(response.status()).toBe(201); saved = (await response.json()).product; await route.abort("failed"); });
     await save.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
     await expect(page.locator("#catalog-error-summary").getByRole("alert")).toContainText("The save could not be confirmed."); await expect(save).toBeEnabled(); expect(attempts).toBe(1);
-    await page.screenshot({ path: testInfo.outputPath("catalog-listing-lost-confirmation.png"), fullPage: true, animations: "disabled" });
+
     await page.unroute(path); const retryPromise = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/listing-drafts") && response.request().method() === "POST");
     await save.focus(); await save.press("Enter"); const retry = await retryPromise; expect(retry.status()).toBe(201); expect(retry.request().postDataJSON()).toEqual(command);
     const confirmed = (await retry.json()).product; expect(confirmed).toEqual(saved!);
     await expect(page.getByRole("heading", { name: "Listing draft saved", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("catalog-listing-saved.png"), fullPage: true, animations: "disabled" });
+
     const canonical = (await read(page, "/api/store/catalog/products/" + confirmed.publicReference)).product;
     expect(JSON.stringify(canonical)).not.toContain('"storageKey"'); expect(JSON.stringify(canonical)).not.toContain('"storageProvider"');
     expect(canonical).toMatchObject({ title, status: "DRAFT", publicationStatus: "DRAFT", media: [{ altText: "Disposable synthetic product image", role: "PRIMARY" }] });
@@ -65,7 +65,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("link", { name: "View saved offer", exact: true }).click(); await expect(page.getByRole("heading", { name: sku, exact: true })).toBeVisible();
     await expect(page.getByText("ZAR 19.25", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("catalog-offer-facts.png"), fullPage: true, animations: "disabled" });
+
     await page.goto("/store/catalog/products/new"); await step(page, "Find existing product"); await page.getByLabel("Find an existing product", { exact: true }).fill(title);
     await page.getByRole("button", { name: "Search matching products", exact: true }).click();
     await expect(page.getByRole("region", { name: "Duplicate suggestions" })).toContainText(confirmed.publicReference);

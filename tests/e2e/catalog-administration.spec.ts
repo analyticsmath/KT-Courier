@@ -29,7 +29,7 @@ async function submittedProduct(page: Page) {
 }
 
 for (const width of [1440, 390]) {
-  test("catalog moderation preserves history and replays uncertain native actions at " + width + "px", async ({ page }, testInfo) => {
+  test("catalog moderation preserves history and replays uncertain native actions at " + width + "px", async ({ page }) => {
     test.setTimeout(90_000);
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 }); const { source, title } = await submittedProduct(page);
@@ -41,7 +41,7 @@ for (const width of [1440, 390]) {
     await page.route(path, async route => { attempts++; command = route.request().postDataJSON(); const response = await route.fetch(); expect(response.status()).toBe(200); await route.abort("failed"); });
     await action.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
     await expect(page.getByRole("alert").filter({ hasText: "The moderation result could not be confirmed." })).toBeVisible(); expect(attempts).toBe(1); await expect(action).toBeEnabled();
-    await page.screenshot({ path: testInfo.outputPath("catalog-moderation-uncertain.png"), fullPage: true, animations: "disabled" });
+
     await page.unroute(path); const retryPromise = page.waitForResponse(response => response.url().endsWith(`/products/${source.id}/request-changes`) && response.request().method() === "POST");
     await action.focus(); await action.press("Enter"); const retry = await retryPromise; expect(retry.status()).toBe(200); expect(retry.request().postDataJSON()).toEqual(command);
     await expect(page.getByRole("button", { name: "Request changes", exact: true })).toHaveCount(0);
@@ -56,7 +56,7 @@ for (const width of [1440, 390]) {
     canonical = await product(page, source.id); expect(canonical.publicationStatus).toBe("DRAFT");
     expect(canonical.moderationCases.flatMap((row: { history: unknown[] }) => row.history)).toHaveLength(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath("catalog-moderation-suspended.png"), fullPage: true, animations: "disabled" });
+
     await login(page, "e2e-ledger-denied@ktcouriers.local"); expect((await page.request.get(`/api/admin/catalog/products/${source.id}`)).status()).toBe(403);
     for (const name of ["approve", "request-changes", "reject", "suspend"]) expect((await post(page, `/api/admin/catalog/products/${source.id}/${name}`, { version: canonical.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_DENIED" })).status()).toBe(403);
     for (const email of ["customer@ktcouriers.local", "e2e-store@ktcouriers.local", "e2e-withdrawal-driver-1440@ktcouriers.local"]) {
