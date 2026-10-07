@@ -276,6 +276,9 @@ describe("marketplace cart mutation service", () => {
     });
     expect(repo.transactions).toBe(1);
     expect(result.cart.lines[0]?.selection.unitPrice).toBe("11.00");
+    expect(result.cart.lines[0]?.publicReference).not.toBe("guest-line");
+    expect(guestCart.lines[0].publicReference).toBe("guest-line");
+    expect(result.cart.lines[0]?.quantity).toBe(1);
     expect(repo.receipts.get("operation-merge-1")?.type).toBe("MERGE");
   });
   it("rejects cross-owner cart access attempts", async () => {

@@ -9380,6 +9380,7 @@ model MarketplaceCheckout {
   settlementSnapshots MarketplaceSettlementSnapshot[]
   marketplaceOrder    MarketplaceOrder?
   reconciliationCases MarketplaceCheckoutReconciliationCase[]
+  guestContactVerifications MarketplaceGuestContactVerification[]
 
   @@index([cartId, status])
   @@index([customerUserId, createdAt])
@@ -9397,6 +9398,28 @@ model MarketplaceCheckoutContactSnapshot {
   createdAt                 DateTime @default(now())
 
   checkout MarketplaceCheckout? @relation("MarketplaceCheckoutContactSnapshot")
+  guestEmailVerifications MarketplaceGuestContactVerification[]
+}
+
+// Guest notification authority is contact-scoped; it never creates a platform user.
+model MarketplaceGuestContactVerification {
+  id                String   @id @default(cuid())
+  publicReference   String   @unique
+  contactSnapshotId String
+  checkoutId        String
+  operationId       String
+  codeHash          String
+  attempts          Int      @default(0)
+  expiresAt         DateTime
+  verifiedAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  contactSnapshot MarketplaceCheckoutContactSnapshot @relation(fields: [contactSnapshotId], references: [id], onDelete: Restrict)
+  checkout MarketplaceCheckout @relation(fields: [checkoutId], references: [id], onDelete: Restrict)
+
+  @@unique([contactSnapshotId, operationId])
+  @@index([contactSnapshotId, createdAt])
+  @@index([checkoutId, createdAt])
 }
 
 model MarketplaceCheckoutAddressSnapshot {

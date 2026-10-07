@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useSearchParams } from "next/navigation";
 import styles from "./commerce.module.css";
+import { GuestCheckoutEmailUpdates } from "./GuestCheckoutEmailUpdates";
 
 function formatMoney(amount: string | number | undefined | null) {
   if (amount === undefined || amount === null) return "R 0.00";
@@ -90,6 +91,7 @@ export function CheckoutExperience() {
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactMethod, setContactMethod] = useState("EMAIL");
+  const [contactRevision, setContactRevision] = useState(0);
 
   // Step 2: Address
   const [addrLine1, setAddrLine1] = useState("");
@@ -184,6 +186,7 @@ export function CheckoutExperience() {
           setCheckout(retainCheckoutPresentation(freshData.checkout, checkout));
         }
       }
+      setContactRevision((revision) => revision + 1);
       setCurrentStep(2);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to save contact.");
@@ -675,6 +678,7 @@ export function CheckoutExperience() {
             ) : (
               <div style={{ fontSize: "0.9rem", color: "var(--kt-public-text-muted)" }}>
                 {contactName} · {contactEmail} · {contactPhone} ({contactMethod})
+                {checkout && <GuestCheckoutEmailUpdates key={contactRevision} checkoutReference={checkoutRef || checkout.reference} />}
               </div>
             )}
           </div>

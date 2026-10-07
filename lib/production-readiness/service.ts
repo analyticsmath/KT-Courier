@@ -9,7 +9,7 @@ import { readBankInstructions } from "@/lib/client-platform/driver-cash.service"
 import { capability, configurationCapability, type Capability } from "./contracts";
 import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evidence";
-import { PHASE27_EVENT_REGISTRY } from "@/lib/notifications/event-registry";
+import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
 
 const processorJobs = ["apply-paystack-webhook-events", "consume-verified-payment-events"] as const;
 
@@ -85,7 +85,7 @@ export async function getProductionReadiness() {
     return capability("cod_remittance", configured && approved ? "READY" : configured ? "BLOCKED_HUMAN_APPROVAL" : "BLOCKED_EXTERNAL_INPUT", configured && approved ? "COD_REMITTANCE_CURRENT" : "COD_REMITTANCE_APPROVAL_REQUIRED", "Secure banking instructions and settlement timing require finance approval; no bank details are displayed.", "FINANCE");
   });
   await probe("notification_governance", async () => {
-    const required = PHASE27_EVENT_REGISTRY.filter((e) => ["LEGACY_ORDER", "STORE_ORDERS"].includes(e.sourceAuthority));
+    const required = requiredDomainNotificationDefinitions;
     const [routes, versions, templates, policies] = await Promise.all([prisma.notificationEventRoute.findMany(), prisma.notificationEventRouteVersion.findMany({ where: { status: "ACTIVE", approvedAt: { not: null }, activatedAt: { not: null } } }), prisma.notificationTemplateVersion.findMany({ where: { status: "PUBLISHED", approvedAt: { not: null } } }), prisma.notificationRecipientPolicyVersion.findMany({ where: { status: "APPROVED", approvedAt: { not: null } } })]);
     const missing = required.filter((e) => !versions.some((v) => routes.some((r) => r.id === v.routeId && r.sourceAuthority === e.sourceAuthority && r.sourceEventType === e.eventType) && templates.some((t) => t.id === v.templateVersionId) && policies.some((p) => p.id === v.recipientPolicyVersionId))).map((e) => `${e.sourceAuthority}:${e.eventType}`);
     for (const key of ["notification_templates", "notification_recipient_policy", "notification_routes"]) entries.push(capability(key, missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? "DOMAIN_GOVERNANCE_APPROVAL_REQUIRED" : "ACTIVE_DOMAIN_GOVERNANCE", "Required registered domains must have published templates, approved recipient policies and active routes.", "ADMIN_REVIEW", { missingDomains: missing }));

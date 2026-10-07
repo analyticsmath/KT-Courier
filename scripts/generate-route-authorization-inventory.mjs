@@ -19,7 +19,7 @@ function walk(dir) {
   return results;
 }
 
-const routeFiles = walk(apiDir);
+const routeFiles = walk(apiDir).sort();
 
 const inventory = [];
 
@@ -113,6 +113,10 @@ for (const file of routeFiles) {
     requiredRoles = ["CUSTOMER", "STORE"];
     authenticatedCount++;
     permissionGatedCount++;
+  } else if (content.includes("marketplaceOwner")) {
+    authMechanism = "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE";
+    requiredRoles = ["CUSTOMER", "GUEST_CHECKOUT_OWNER"];
+    authenticatedCount++;
   } else if (relPath.includes("/driver/")) {
     authMechanism = "DRIVER_SESSION";
     requiredRoles = ["DRIVER"];
@@ -166,6 +170,7 @@ for (const file of routeFiles) {
 
   // Detect BOLA
   const hasBola =
+    content.includes("marketplaceOwner") ||
     content.includes("ownerUserId") ||
     content.includes("userId") ||
     content.includes("storeId") ||

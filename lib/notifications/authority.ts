@@ -6,6 +6,7 @@ import { assertNotificationProductionReady } from "./production-readiness";
 import { KNOWN_NOTIFICATION_SOURCE_AUTHORITIES } from "./event-registry";
 import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
 import type { ProviderSendResult } from "./providers";
+import { resolveVerifiedGuestContact } from "./guest-recipient";
 
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const reference = (prefix: string, value: string) => `${prefix}_${createHash("sha256").update(value).digest("hex").slice(0, 24)}`;
@@ -18,6 +19,7 @@ export const RECIPIENT_SUBJECTS = [
   "EVENT_ACTOR", "CUSTOMER", "STORE_OWNER", "AUTHORIZED_STORE_STAFF", "ASSIGNED_DRIVER", "PROMOTER",
   "RECRUITMENT_APPLICANT", "ASSIGNED_RECRUITER", "ASSIGNED_HIRING_MANAGER", "FINANCE_ADMINISTRATOR",
   "RECONCILIATION_ADMINISTRATOR", "SECURITY_ADMINISTRATOR",
+  "MARKETPLACE_CUSTOMER", "PAYMENT_CUSTOMER",
 ] as const;
 export type RecipientSubject = (typeof RECIPIENT_SUBJECTS)[number];
 export const RECONCILIATION_ACTIONS = ["rescan", "retry-source-intake", "retry-fan-out", "retry-delivery", "refresh-provider-receipt", "deactivate-invalid-endpoint", "rebuild-digest"] as const;
@@ -202,9 +204,15 @@ export class RecipientPolicyService {
     if (!version || version.status !== "APPROVED") throw new NotificationPolicyError("RECIPIENT_POLICY_NOT_APPROVED");
     const policy = version.policy as { subject: RecipientSubject; role?: string };
     const fieldBySubject: Record<RecipientSubject, string> = {
-      EVENT_ACTOR: "actorUserId", CUSTOMER: "customerUserId", STORE_OWNER: "storeOwnerUserId", AUTHORIZED_STORE_STAFF: "storeStaffUserId", ASSIGNED_DRIVER: "driverUserId", PROMOTER: "promoterUserId", RECRUITMENT_APPLICANT: "applicantUserId", ASSIGNED_RECRUITER: "recruiterUserId", ASSIGNED_HIRING_MANAGER: "hiringManagerUserId", FINANCE_ADMINISTRATOR: "financeAdministratorUserId", RECONCILIATION_ADMINISTRATOR: "reconciliationAdministratorUserId", SECURITY_ADMINISTRATOR: "securityAdministratorUserId",
+      EVENT_ACTOR: "actorUserId", CUSTOMER: "customerUserId", STORE_OWNER: "storeOwnerUserId", AUTHORIZED_STORE_STAFF: "storeStaffUserId", ASSIGNED_DRIVER: "driverUserId", PROMOTER: "promoterUserId", RECRUITMENT_APPLICANT: "applicantUserId", ASSIGNED_RECRUITER: "recruiterUserId", ASSIGNED_HIRING_MANAGER: "hiringManagerUserId", FINANCE_ADMINISTRATOR: "financeAdministratorUserId", RECONCILIATION_ADMINISTRATOR: "reconciliationAdministratorUserId", SECURITY_ADMINISTRATOR: "securityAdministratorUserId", MARKETPLACE_CUSTOMER: "customerUserId", PAYMENT_CUSTOMER: "customerUserId",
     };
     const userId = input.payload[fieldBySubject[policy.subject]];
+    if ((policy.subject === "MARKETPLACE_CUSTOMER" || policy.subject === "PAYMENT_CUSTOMER") && userId === null) {
+      const checkoutReference = input.payload.checkoutReference;
+      const checkout = typeof checkoutReference === "string" ? await this.db.marketplaceCheckout.findUnique({ where: { publicReference: checkoutReference }, select: { customerUserId: true, contactSnapshotId: true } }) : null;
+      if (!checkout || checkout.customerUserId || !checkout.contactSnapshotId) throw new NotificationPolicyError("RECIPIENT_NOT_RESOLVED");
+      return resolveVerifiedGuestContact(this.db, checkout.contactSnapshotId);
+    }
     if (typeof userId !== "string" || !userId) throw new NotificationPolicyError("RECIPIENT_NOT_RESOLVED");
     const user = await this.db.user.findUnique({ where: { id: userId }, select: { id: true, role: true, email: true, emailVerifiedAt: true, status: true } });
     if (!user || user.status !== "ACTIVE" || (policy.role && user.role !== policy.role)) throw new NotificationPolicyError("RECIPIENT_NOT_RESOLVED");

@@ -10,7 +10,7 @@ export async function createStorefrontFixture(options?: { privateSnapshot: boole
   const safety = validateGate4DatabaseSafety();
   if (!safety.ok) throw new Error(safety.reason);
   const { store } = await createGate4Store("storefront", "projection");
-  const source = await createGate4ActiveProductScenario("storefront", "projection", store.id, { available: 3 });
+  const source = await createGate4ActiveProductScenario("storefront", "projection", store.id, { available: 10 });
   source.product = await prisma.catalogProduct.update({ where: { id: source.product.id }, data: { publicReference: `CP-${randomUUID().replaceAll("-", "").toUpperCase()}` } });
   const ref = `media_${randomUUID().replaceAll("-", "")}`;
   const asset = await prisma.catalogMediaAsset.create({ data: {

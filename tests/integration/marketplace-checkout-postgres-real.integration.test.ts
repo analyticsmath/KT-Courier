@@ -112,6 +112,14 @@ describeReal("Marketplace Checkout Real PostgreSQL & Concurrency Integration", (
     const { store } = await createGate4Store("mc-real", "stock-race");
     const source = await createGate4ActiveProductScenario("mc-real", "stock-race", store.id, { available: 1 });
     const level = source.level!;
+    // Reservation evidence does not change physical stock. Physical movements
+    // still cannot record a zero delta after the forward-only constraint repair.
+    await expect(prisma.catalogInventoryMovement.create({ data: {
+      publicReference: `invalid-physical-${nonce}`, inventoryItemId: source.inventoryItem!.id,
+      locationId: source.location.id, type: "MANUAL_CORRECTION", quantityDelta: 0,
+      resultingOnHand: 1, operationId: `physical-zero-${nonce}`, requestHash: "a".repeat(64),
+      reasonCode: "TEST_ZERO_PHYSICAL", actorUserId: createdUserId!,
+    } })).rejects.toThrow();
     const fingerprint = "c".repeat(64);
     const carts = await Promise.all([0, 1].map(i => prisma.marketplaceCart.create({ data: {
       publicReference: `inventory-cart-${nonce}-${i}`, ownerType: "GUEST", guestTokenHash: `inventory-hash-${nonce}-${i}`, status: "ACTIVE",
@@ -131,6 +139,7 @@ describeReal("Marketplace Checkout Real PostgreSQL & Concurrency Integration", (
     expect(await prisma.catalogInventoryLevel.findUniqueOrThrow({ where: { id: level.id } })).toMatchObject({ onHand: 1, reserved: 1, available: 0 });
     expect(await prisma.marketplaceInventoryReservation.count({ where: { checkoutId: { in: checkouts.map(c => c.id) } } })).toBe(1);
     expect(await prisma.catalogInventoryMovement.count({ where: { inventoryItemId: source.inventoryItem!.id, type: "RESERVATION" } })).toBe(1);
+    expect(await prisma.catalogInventoryMovement.findFirst({ where: { inventoryItemId: source.inventoryItem!.id, type: "RESERVATION" } })).toMatchObject({ quantityDelta: 0, resultingOnHand: 1 });
     const winner = results.find(r => r.status === "fulfilled") as PromiseFulfilledResult<Awaited<ReturnType<typeof reserveMarketplaceCheckoutInventory>>>;
     await releaseMarketplaceCheckoutReservation(repository, { reservation: winner.value, operationId: `release-${nonce}`, reason: "CHECKOUT_CANCELLED", paymentOutcomeKnown: true });
     expect(await prisma.catalogInventoryLevel.findUniqueOrThrow({ where: { id: level.id } })).toMatchObject({ onHand: 1, reserved: 0, available: 1 });

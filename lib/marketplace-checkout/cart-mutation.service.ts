@@ -172,7 +172,7 @@ async function mergeGuestAndCustomerCartsInTransaction(repository: MarketplaceCa
         candidates[duplicateIndex] = { ...duplicate, quantity: quantity > 99 ? 99 : quantity };
         if (quantity > 99) conflicts.push(`QUANTITY_CAPPED:${guestLine.publicReference}`);
       } else if (candidates.length >= MAX_CART_LINES || (!new Set(candidates.map((line) => line.storeId)).has(guestLine.storeId) && new Set(candidates.map((line) => line.storeId)).size >= MAX_CART_STORES)) conflicts.push(`CART_LIMIT:${guestLine.publicReference}`);
-      else candidates.push({ ...guestLine, fingerprint, selection });
+      else candidates.push({ ...guestLine, publicReference: `line_${randomUUID().replaceAll("-", "")}`, fingerprint, selection });
     } catch { conflicts.push(`UNAVAILABLE:${guestLine.publicReference}`); }
   }
   const merged: MarketplaceCartState = { ...customer, lines: candidates, version: customer.version + 1 };

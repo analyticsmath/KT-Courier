@@ -14,7 +14,8 @@ describe("Phase 27 exact recipient resolution and privacy", () => {
     for (const [index, subject] of RECIPIENT_SUBJECTS.entries()) {
       const policy = await routes.createRecipientPolicyVersion({ key: `POLICY_${index}`, policy: { subject } });
       await routes.approveRecipientPolicy(policy.publicReference, "reviewer");
-      await expect(recipients.resolve({ policyVersionId: policy.id, payload })).resolves.toMatchObject({ userId: `user-${index}`, roleProjection: subject, verifiedEmail: true });
+      const customerSubject = subject === "MARKETPLACE_CUSTOMER" || subject === "PAYMENT_CUSTOMER";
+      await expect(recipients.resolve({ policyVersionId: policy.id, payload })).resolves.toMatchObject({ userId: customerSubject ? "user-1" : `user-${index}`, roleProjection: subject, verifiedEmail: true });
     }
     expect(RECIPIENT_SUBJECTS).not.toContain("ALL_ADMINS" as never);
   });
