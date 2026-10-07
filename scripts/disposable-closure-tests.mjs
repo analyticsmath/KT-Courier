@@ -10,6 +10,7 @@ files.push("tests/integration/checkout-owner-resume.integration.test.ts");
 files.push("tests/integration/storefront-editorial-atomicity.integration.test.ts");
 files.push("tests/integration/driver-earning-canonical-postgres.integration.test.ts");
 files.push("tests/integration/store-earning-canonical-postgres.integration.test.ts");
+files.push("tests/integration/owner-withdrawal-canonical-postgres.integration.test.ts");
 let failed = false; let started = false;
 try {
   // The database URL is constructed here; a supplied production URL is never used.

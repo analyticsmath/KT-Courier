@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { LedgerError } from "@/lib/ledger/errors";
@@ -9,16 +10,28 @@ function code(walletId: string, purpose: "OWNER_WITHDRAWABLE" | "WITHDRAWAL_HELD
   return `${purpose === "OWNER_WITHDRAWABLE" ? "OWN-WD" : "WD-HELD"}-${walletId}`.toUpperCase();
 }
 
+export async function ensureOwnerWithdrawableAccount(wallet: Readonly<{ id: string; ownerType: string; ownerId: string }>) {
+  let sourceCode = code(wallet.id, "OWNER_WITHDRAWABLE");
+  if (wallet.ownerType === "DRIVER") {
+    const driverCode = `DRIVER-${createHash("sha256").update(wallet.ownerId).digest("hex").slice(0, 20).toUpperCase()}-OWNER-WITHDRAWABLE-ZAR`;
+    const existing = await prisma.ledgerAccount.findFirst({ where: { walletId: wallet.id, purpose: "OWNER_WITHDRAWABLE", currency: "ZAR" }, select: { code: true } });
+    // Both names were issued by canonical services. Preserve existing identities;
+    // arbitrary codes still fail ensureLedgerAccount's strict definition check.
+    sourceCode = existing?.code === sourceCode ? sourceCode : driverCode;
+  }
+  return ensureLedgerAccount({ walletId: wallet.id, code: sourceCode, purpose: "OWNER_WITHDRAWABLE", category: "LIABILITY", currency: "ZAR" });
+}
+
 export async function ensureWithdrawalAccounts(input: Readonly<{
   walletId: string;
   ownerType: WithdrawalOwnerType;
 }>): Promise<Readonly<{ sourceAccountId: string; heldAccountId: string }>> {
-  const wallet = await prisma.wallet.findUnique({ where: { id: input.walletId }, select: { id: true, ownerType: true, status: true, currency: true } });
+  const wallet = await prisma.wallet.findUnique({ where: { id: input.walletId }, select: { id: true, ownerType: true, ownerId: true, status: true, currency: true } });
   if (!wallet || wallet.status !== "ACTIVE" || wallet.currency !== "ZAR" || wallet.ownerType !== input.ownerType) {
     throw new LedgerError("LEDGER_WALLET_INACTIVE", "A matching active owner wallet is required.");
   }
   const [source, held] = await Promise.all([
-    ensureLedgerAccount({ walletId: wallet.id, code: code(wallet.id, "OWNER_WITHDRAWABLE"), purpose: "OWNER_WITHDRAWABLE", category: "LIABILITY", currency: "ZAR" }),
+    ensureOwnerWithdrawableAccount(wallet),
     ensureLedgerAccount({ walletId: wallet.id, code: code(wallet.id, "WITHDRAWAL_HELD"), purpose: "WITHDRAWAL_HELD", category: "LIABILITY", currency: "ZAR" }),
   ]);
   return Object.freeze({ sourceAccountId: source.id, heldAccountId: held.id });

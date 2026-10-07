@@ -330,7 +330,7 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
 
     await prisma.withdrawalPolicy.upsert({
       where: { ownerType_currency: { ownerType: "STORE", currency: "ZAR" } },
-      update: { enabled: true },
+      update: { enabled: true, minimumAmount: new Prisma.Decimal("10.00"), maximumAmount: new Prisma.Decimal("50000.00"), dailyMaximumAmount: new Prisma.Decimal("100000.00") },
       create: {
         ownerType: "STORE",
         currency: "ZAR",

@@ -74,3 +74,19 @@ TypeScript and the final optimized build passed. The first build attempt failed
 on an un-narrowed test result union; explicit completion narrowing repaired the
 test without altering financial service behavior. Fresh exact-commit CI/browser
 execution remains required for the latest candidate.
+
+At `7816dc9112cc29a0d1d2a01d2d4fcea01736498c`, main CI `37656771607`
+passed and certification `37656771601` passed all twenty PostgreSQL jobs,
+quality, Redis/security, recovery and browser. All 74 selected browser assertions
+passed, zero skipped or flaky. This includes the three store finance assertions;
+the dedicated store runner passed with the canonical suite selected. The final
+certified gate failed on the recorded open gates.
+
+All ten store finance desktop/phone captures were actually inspected. Reversal
+refusal/network recovery retain the selected reason and safe note. Detail amounts,
+references and reconciliation guidance are readable. Finance tables retain exact
+money in a bounded keyboard-scroll region; captures after keyboard movement show
+partially scrolled columns, so they do not independently certify every column at
+all scroll positions. Some full-page captures retain the fixed header at the
+captured viewport position. No successful production reversal, commission/refund
+attribution or complete financial acceptance is claimed.

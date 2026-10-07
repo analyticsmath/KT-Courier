@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
 import { ensureStoreEarningPayableAccount } from "@/lib/services/store-earning-account.service";
+import { ensureWithdrawalAccounts } from "@/lib/services/withdrawal-account.service";
 import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import type { StoreSettlementSnapshot } from "@/lib/store-earnings/store-settlement-snapshot";
 import { requireDisposableStoreSettlementDatabase } from "./disposable-store-settlement-guard";
@@ -39,7 +40,8 @@ export async function createDisposableStoreSettlement(options: { storeId?: strin
   const group = await prisma.marketplaceCheckoutStoreGroup.create({ data: { checkoutId: checkout.id, storeId: store.id, fulfilmentMode: "COURIER_DELIVERY" } });
   const storeOrder = await prisma.marketplaceStoreOrder.create({ data: { publicReference: `MSO-${hash.slice(0, 24).toUpperCase()}`, marketplaceOrderId: order.id, checkoutStoreGroupId: group.id, storeId: store.id, merchandiseSubtotal: amount, modifierSubtotal: "0.00", deliveryFee: "0.00", groupTotal: amount, status: "PENDING_SETTLEMENT" } });
   const wallet = await ensureWalletForOwner({ ownerType: "STORE", ownerId: store.id, currency: "ZAR" });
-  const withdrawable = await ensureLedgerAccount({ walletId: wallet.id, code: `STORE-OWNER-WITHDRAWABLE-${wallet.id}`.toUpperCase(), purpose: "OWNER_WITHDRAWABLE", category: "LIABILITY", currency: "ZAR" });
+  const withdrawalAccounts = await ensureWithdrawalAccounts({ walletId: wallet.id, ownerType: "STORE" });
+  const withdrawable = await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: withdrawalAccounts.sourceAccountId } });
   const accounts = await ensureStoreEarningPayableAccount(store.id);
   const snapshot: StoreSettlementSnapshot = { subjectType: "MARKETPLACE_ORDER", subjectId: storeOrder.id, subjectPublicReference: storeOrder.publicReference, storeId: store.id, storePublicReference: store.slug, walletId: wallet.id, paymentId: payment.id, paymentPublicReference: payment.publicReference, settlementReference: `SSET-${hash.slice(0, 24).toUpperCase()}`, settlementVersion: "disposable-v1", calculationVersion: "disposable-v1", authoritativeAt: authoritativeAt.toISOString(), sellerSettlementBasisAmount: amount, attributedCommissionAmount: "0.00", netStoreEarningAmount: amount, currency: "ZAR", commissionCharges: [] };
   return { tag, store, ownerUserId, customer, payment, receipt, held, accounts, withdrawable, order, storeOrder, snapshot };

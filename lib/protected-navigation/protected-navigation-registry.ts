@@ -60,6 +60,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "store-catalog", label: "Product catalog", href: "/store/catalog", icon: "archive", group: "Commerce", contexts: C.STORE },
   { id: "store-expenses", label:"Expenses", href:"/store/expenses", icon:"clipboard", group:"Finance", contexts:C.STORE },
   { id: "store-earnings", label: "Earnings", href: "/store/earnings", icon: "wallet", group: "Finance", mobilePriority: 4, contexts: C.STORE },
+  { id: "store-withdrawals", label: "Withdrawals", href: "/store/withdrawals", icon: "wallet", group: "Finance", contexts: C.STORE },
   { id: "store-subscription", label: "Business plan", href: "/store/subscription", icon: "briefcase", group: "Finance", contexts: C.STORE },
   { id: "store-promotions", label: "Coupons and promotions", href: "/store/promotions", icon: "chart", group: "Growth", contexts: C.STORE },
   { id: "store-advertising", label: "Advertising", href: "/store/advertising", icon: "chart", group: "Growth", contexts: C.STORE },
@@ -73,6 +74,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "driver-delivery", label: "Active delivery", href: "/driver/delivery", icon: "package", group: "Workspace", mobilePriority: 3, contexts: C.DRIVER },
   { id: "driver-availability", label: "Availability", href: "/driver/availability", icon: "activity", group: "Workspace", mobilePriority: 4, contexts: C.DRIVER },
   { id: "driver-earnings", label: "Earnings", href: "/driver/earnings", icon: "wallet", group: "Finance", mobilePriority: 5, contexts: C.DRIVER },
+  { id: "driver-withdrawals", label: "Withdrawals", href: "/driver/withdrawals", icon: "wallet", group: "Finance", contexts: C.DRIVER },
   { id: "driver-notifications", label: "Notifications", href: "/driver/notifications", icon: "bell", group: "Account", contexts: C.DRIVER },
   { id: "driver-profile", label: "My profile", href: "/driver/profile", icon: "people", group: "Account", contexts: C.DRIVER },
 

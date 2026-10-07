@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { DriverEarningError } from "@/lib/driver-earnings/errors";
 import { ensureLedgerAccount, ensureWalletForOwner } from "./wallet-account.service";
+import { ensureOwnerWithdrawableAccount } from "./withdrawal-account.service";
 
 const code = (driverId: string, suffix: string) => `DRIVER-${createHash("sha256").update(driverId).digest("hex").slice(0, 20).toUpperCase()}-${suffix}`;
 
@@ -17,7 +18,7 @@ export async function ensureDriverEarningPayableAccount(driverId: string) {
   const wallet = await ensureWalletForOwner({ ownerType: "DRIVER", ownerId: driver.id, currency: "ZAR" });
   const [account, ownerWithdrawable] = await Promise.all([
     ensureLedgerAccount({ walletId: wallet.id, code: code(driver.id, "EARNINGS-PAYABLE-ZAR"), purpose: "DRIVER_EARNINGS_PAYABLE", category: "LIABILITY", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: wallet.id, code: code(driver.id, "OWNER-WITHDRAWABLE-ZAR"), purpose: "OWNER_WITHDRAWABLE", category: "LIABILITY", currency: "ZAR" }),
+    ensureOwnerWithdrawableAccount({ id: wallet.id, ownerType: "DRIVER", ownerId: driver.id }),
   ]);
   if (account.currentBalance !== "0.00" && account.debitTotal === "0.00" && account.creditTotal === "0.00") throw new DriverEarningError("DRIVER_EARNING_ACCOUNT_INVALID", "Driver payable account did not open at zero.");
   return Object.freeze({ driver: Object.freeze({ id: driver.id, publicReference: driver.driverCode, userId: driver.userId }), wallet, account, ownerWithdrawable });

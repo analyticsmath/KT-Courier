@@ -257,7 +257,7 @@ describe("Paystack Financial Invariants", () => {
   });
 
   describe("Withdrawal Payout Fail-Closed Readiness Policy", () => {
-    it("fails closed in production unless WITHDRAWAL_PAYOUT_ENABLED is explicitly true", () => {
+    it("keeps production source-locked even when WITHDRAWAL_PAYOUT_ENABLED is explicitly true", () => {
       const readinessDisabled = withdrawalProductionReadiness({
         NODE_ENV: "production",
         WITHDRAWAL_PAYOUT_ENABLED: "false",
@@ -269,7 +269,8 @@ describe("Paystack Financial Invariants", () => {
         NODE_ENV: "production",
         WITHDRAWAL_PAYOUT_ENABLED: "true",
       });
-      expect(readinessEnabled.productionActive).toBe(true);
+      expect(readinessEnabled.productionActive).toBe(false);
+      expect(readinessEnabled.blockReason).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
       expect(readinessEnabled.payoutEnabled).toBe(true);
     });
   });

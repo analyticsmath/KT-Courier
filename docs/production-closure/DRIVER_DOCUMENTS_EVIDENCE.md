@@ -80,3 +80,18 @@ production. Both factories now use the shared runtime-environment predicate;
 boundary tests still require production refusal. Browser retries/repetitions use
 fresh image bytes and assert growth relative to prior records without resetting
 the database; identical-byte replay within each attempt remains required.
+
+At `7816dc9112cc29a0d1d2a01d2d4fcea01736498c`, main CI `37656771607`
+passed. Certification `37656771601` passed all twenty PostgreSQL jobs, quality,
+Redis/security, recovery and browser job `112913707827`. All 74 selected browser
+assertions passed in 2.4 minutes, zero skipped or flaky. The final certified job
+failed on the recorded open engineering/production gates.
+
+Both desktop/phone document replacement captures were actually viewed. They
+show one submitted licence and one superseded rejected licence; the driver
+remains profile-incomplete and not eligible. Actual private HTTP download/decode,
+replacement/replay/reload and denial assertions passed. The phone rejected badge
+wraps its last character onto a second line; the next candidate gives document
+cards wrapping layout and keeps status badges intact. That visual correction
+requires a fresh capture. PDF, vehicle, live storage and complete driver acceptance
+remain open.

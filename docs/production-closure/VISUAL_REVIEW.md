@@ -115,3 +115,13 @@ Phone document failure/retry captures show two documents and truthful rejected
 replay. Both complete assertions still failed on private download and require
 the general read-factory correction. Three store-finance assertions and their
 table/refusal/recovery captures require fresh execution and actual inspection.
+
+At `7816dc9112cc29a0d1d2a01d2d4fcea01736498c`, all 74 Chromium assertions
+passed in 2.4 minutes, zero skipped or flaky. Both driver document captures and
+all ten store finance captures were actually viewed. Status/history and exact
+money are readable; refusal/network recovery preserve reason/note. Horizontal
+tables remain bounded and keyboard navigable, with later columns outside the
+captured scroll position. Fixed headers in some full-page captures represent the
+viewport position during capture. The phone document REJECTED badge splits its
+last letter; wrapping cards and intact badges are corrected in the next candidate
+and require a fresh capture. Complete directed visual acceptance remains open.

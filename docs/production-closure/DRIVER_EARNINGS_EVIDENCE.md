@@ -146,3 +146,10 @@ certification. Updated desktop earnings and phone reconciliation-list captures
 were inspected. Money no longer splits across lines and references have readable
 widths. The bounded horizontal scroller still requires movement to expose later
 columns, including status. Full visual/finance acceptance remains open.
+
+At `7816dc9112cc29a0d1d2a01d2d4fcea01736498c`, main CI succeeds and all
+24 certification component jobs pass, including twenty PostgreSQL jobs and all
+74 Chromium assertions (2.4 minutes, zero skipped/flaky). The final certified gate
+remains red on open engineering and production evidence. Driver owner and finance
+assertions remain clean; this does not approve real delivery, provider settlement
+or commercial financial activation.

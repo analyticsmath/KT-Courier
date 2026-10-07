@@ -13,6 +13,7 @@ import { createDisposableStoreSettlement } from "./e2e-store-settlement-fixture"
 import { accrueStoreEarning } from "@/lib/services/store-earning-accrual.service";
 import { releaseStoreEarning } from "@/lib/services/store-earning-release.service";
 import { createStoreEarningReconciliation } from "@/lib/services/store-earning-reconciliation.service";
+import { createDisposableOwnerWithdrawalSource, createDisposableDriverWithdrawalSource } from "./e2e-owner-withdrawal-fixture";
 
 const prisma = new PrismaClient();
 
@@ -610,6 +611,11 @@ async function main() {
     const source = await createDisposableStoreSettlement({ storeId: store.id });
     const earning = await accrueStoreEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
     await createStoreEarningReconciliation({ caseKey: `${source.tag}:synthetic-exception`, storeEarningId: earning.id, reason: "APPLICATION_FAILURE", priority: "HIGH", safeSummary: `Synthetic store finance review at ${width}px; no provider or commercial approval.`, safeEvidence: { fixture: "disposable-store-finance", privateMarker: "PRIVATE_INTERNAL_STORE_FINANCE_EVIDENCE" } });
+  }
+  for (const width of [1440, 390]) {
+    const { store } = await upsertStore(`e2e-withdrawal-store-${width}@ktcouriers.local`, `e2e-withdrawal-store-${width}`, "Disposable withdrawal store", passwordHash);
+    await createDisposableOwnerWithdrawalSource({ storeId: store.id });
+    await createDisposableDriverWithdrawalSource({ email: `e2e-withdrawal-driver-${width}@ktcouriers.local`, passwordHash });
   }
   console.log("E2E fixtures are ready.");
 }

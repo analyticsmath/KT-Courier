@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Destination = Readonly<{ publicReference: string; maskedLabel: string; institutionName: string | null; accountLast4: string | null }>;
 
@@ -9,15 +9,21 @@ export function WithdrawalRequestForm({ destinations, disabledReason }: Readonly
   const [destination, setDestination] = useState(destinations[0]?.publicReference ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const inFlight = useRef(false);
+  const operation = useRef<{ payload: string; id: string } | null>(null);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setSubmitting(true); setMessage(null);
+    event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true; setSubmitting(true); setMessage(null);
     try {
-      const response = await fetch("/api/withdrawals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ amount, payoutDestinationPublicReference: destination, operationId: crypto.randomUUID() }) });
+      const payloadIdentity = JSON.stringify([amount, destination]);
+      if (operation.current?.payload !== payloadIdentity) operation.current = { payload: payloadIdentity, id: crypto.randomUUID() };
+      const response = await fetch("/api/withdrawals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ amount, payoutDestinationPublicReference: destination, operationId: operation.current.id }) });
       const payload = await response.json() as { error?: string; withdrawal?: { publicReference: string } };
       setMessage(response.ok ? `Withdrawal request ${payload.withdrawal?.publicReference ?? "created"}.` : payload.error ?? "Withdrawal request could not be created.");
     } catch { setMessage("Withdrawal request could not be submitted. Please try again."); }
-    finally { setSubmitting(false); }
+    finally { inFlight.current = false; setSubmitting(false); }
   }
 
   if (disabledReason) return <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{disabledReason}</p>;

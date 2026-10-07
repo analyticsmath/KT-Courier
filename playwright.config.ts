@@ -37,6 +37,7 @@ export default defineConfig({
         /driver-earnings-finance-admin\.spec\.ts/,
         /store-earnings\.spec\.ts/,
         /store-earnings-finance-admin\.spec\.ts/,
+        /withdrawal-owner\.spec\.ts/,
       ],
     },
     {

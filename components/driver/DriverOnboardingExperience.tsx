@@ -850,9 +850,9 @@ export function DriverOnboardingExperience({
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="p-3 bg-white rounded-xl border border-[var(--kt-soft-border)] flex justify-between items-center text-xs"
+                      className="p-3 bg-white rounded-xl border border-[var(--kt-soft-border)] flex flex-wrap gap-2 justify-between items-center text-xs"
                     >
-                      <div>
+                      <div className="min-w-0 break-words">
                         <span className="font-bold text-[var(--kt-ink-navy)] block">
                           {doc.documentType.replace(/_/g, " ")}
                         </span>
@@ -872,6 +872,7 @@ export function DriverOnboardingExperience({
                       </div>
                       <ProtectedStatus
                         label={doc.status}
+                        className="shrink-0 whitespace-nowrap"
                         tone={
                           doc.status === "APPROVED"
                             ? "success"

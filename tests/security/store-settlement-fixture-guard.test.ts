@@ -3,6 +3,7 @@ const calls = vi.hoisted(() => ({ create: vi.fn(), findUnique: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { user: { create: calls.create }, store: { findUnique: calls.findUnique } } }));
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 import { createDisposableStoreSettlement } from "@/scripts/e2e-store-settlement-fixture";
+import { createDisposableOwnerWithdrawalSource, createDisposableDriverWithdrawalSource } from "@/scripts/e2e-owner-withdrawal-fixture";
 const isolated = { NODE_ENV: "test", KT_RUNTIME_ENV: "e2e", KT_NETWORK_DISABLED: "true", KT_ALLOW_ISOLATED_POSTGRES_TESTS: "1", KT_STORE_EARNING_INTEGRATION_APPROVED: "true", KT_SMOKE_PROJECT_NAME: "kt-couriers-store-earning-1791390000000-100", POSTGRES_DB: "kt_store_earning_100_1791390000000", DATABASE_URL: "postgresql://kt_store_earning_100_1791390000000:disposable@localhost/kt_store_earning_100_1791390000000" };
 function env(values: Record<string, string>) { for (const [key, value] of Object.entries({ ...isolated, ...values })) vi.stubEnv(key, value); }
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
@@ -25,6 +26,8 @@ describe("store financial fixture isolation", () => {
   });
   it("refuses fixture creation before any owner lookup or write", async () => {
     env({ NODE_ENV: "production" }); await expect(createDisposableStoreSettlement({ storeId: "existing-owner" })).rejects.toThrow("Named network-isolated");
+    await expect(createDisposableOwnerWithdrawalSource({ storeId: "existing-owner" })).rejects.toThrow("Named network-isolated");
+    await expect(createDisposableDriverWithdrawalSource({ email: "synthetic@example.test", passwordHash: "unused" })).rejects.toThrow("Named network-isolated");
     expect(calls.findUnique).not.toHaveBeenCalled(); expect(calls.create).not.toHaveBeenCalled();
   });
 });
