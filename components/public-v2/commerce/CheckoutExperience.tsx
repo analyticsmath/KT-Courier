@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useSearchParams } from "next/navigation";
@@ -85,6 +85,10 @@ export function CheckoutExperience() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const stepHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => {
+    stepHeadingRef.current?.focus();
+  }, [currentStep]);
 
   // Step 1: Contact
   const [contactName, setContactName] = useState("");
@@ -566,6 +570,7 @@ export function CheckoutExperience() {
 
       {errorMessage && (
         <div
+          id="checkout-error"
           role="alert"
           style={{
             padding: "14px 18px",
@@ -580,6 +585,10 @@ export function CheckoutExperience() {
         </div>
       )}
 
+      <p role="status" aria-live="polite" aria-atomic="true">
+        Step {Math.min(currentStep, 5)} of 5: {["Contact", "Delivery address", "Delivery options", "Review your order", "Payment"][Math.min(currentStep, 5) - 1]}
+      </p>
+
       <div className={styles.checkoutMainLayout}>
         {/* Left Column: Multi-Step Flow */}
         <div className={styles.checkoutMainColumn}>
@@ -593,7 +602,7 @@ export function CheckoutExperience() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
+              <h2 id="checkout-contact-heading" ref={currentStep === 1 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
                 1. Contact
               </h2>
               {currentStep > 1 && (
@@ -608,7 +617,7 @@ export function CheckoutExperience() {
             </div>
 
             {currentStep === 1 ? (
-              <form onSubmit={handleSaveContact} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <form aria-labelledby="checkout-contact-heading" aria-describedby={errorMessage ? "checkout-error" : undefined} onSubmit={handleSaveContact} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <label htmlFor="contactName" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
                     Recipient Full Name
@@ -705,7 +714,7 @@ export function CheckoutExperience() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
+              <h2 id="checkout-address-heading" ref={currentStep === 2 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
                 2. Delivery address
               </h2>
               {currentStep > 2 && (
@@ -720,7 +729,7 @@ export function CheckoutExperience() {
             </div>
 
             {currentStep === 2 ? (
-              <form onSubmit={handleSaveAddress} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <form aria-labelledby="checkout-address-heading" aria-describedby={errorMessage ? "checkout-error" : undefined} onSubmit={handleSaveAddress} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY && <AddressAutocomplete
                   label="Find your delivery address on the map"
                   value={mappedAddress}
@@ -879,7 +888,7 @@ export function CheckoutExperience() {
                 backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+              <h2 ref={currentStep === 3 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
                 3. Delivery options
               </h2>
 
@@ -945,7 +954,7 @@ export function CheckoutExperience() {
                 backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+              <h2 ref={currentStep === 4 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
                 4. Review your order
               </h2>
 
@@ -1001,7 +1010,7 @@ export function CheckoutExperience() {
                 backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+              <h2 ref={currentStep === 5 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
                 5. Payment
               </h2>
 

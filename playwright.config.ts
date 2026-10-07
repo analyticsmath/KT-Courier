@@ -23,6 +23,9 @@ export default defineConfig({
         /ledger-admin\.spec\.ts/,
         /commission-finance-admin\.spec\.ts/,
         /production-closure\.spec\.ts/,
+        /marketplace-checkout-accessibility\.spec\.ts/,
+        /storefront-product-detail\.spec\.ts/,
+        /storefront-accessibility\.spec\.ts/,
       ],
     },
     {

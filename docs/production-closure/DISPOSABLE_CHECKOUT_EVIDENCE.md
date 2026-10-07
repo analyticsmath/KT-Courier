@@ -42,3 +42,21 @@ CI ledger browser acceptance stopped before tests: the internal network blocked
 the host from reaching the app's published port. The ingress repair requires
 fresh CI proof. Local Docker builds separately hit memory exhaustion and backend
 disconnects; these attempts are failures, not browser acceptance.
+
+At `73f8808d4186113731d81ec9b32b134ef73c5099`, main CI passed and all
+20 PostgreSQL certification jobs, quality, Redis/security and recovery passed.
+The ingress and outbound isolation checks succeeded. Browser execution reported
+29 passed and five failed out of 34: the compiled standalone runtime rejected
+the deterministic routing provider, causing absent settlement groups, and the
+store selector's accessible label included option text. Candidate fixes retain
+the production mock rejection unless explicit E2E runtime, disabled networking,
+checkout validation and the exact local browser database all match. Six new
+desktop/mobile functional assertions replace three placeholder browser files.
+These candidate tests require fresh execution; 29 critical placeholders remain.
+
+The candidate also repairs pricing configuration to read the stored JSON
+boolean/number types and legacy strings. An enabled tax policy requires an
+explicit valid rate; malformed values fail closed. No production settings,
+historic quotes or reviewed service formulas are rewritten. The seeded browser
+fixture has explicit 15% VAT, so its R23.45 tariff yields R26.97 delivery total
+and R1526.97 checkout total. This is test data, not a new production tariff.

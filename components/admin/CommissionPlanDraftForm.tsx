@@ -15,12 +15,12 @@ export function CommissionPlanDraftForm({ stores = [] }: { stores?: readonly { i
   return <form action={submit} className="grid gap-3 rounded border border-[--kt-border] p-4" aria-label="create-commission-plan">
     <h2 className="font-semibold">Create commission plan draft</h2>
     <p className="text-sm text-[--kt-text-muted]">Supply the agreed commercial rate. Independent approval is required before activation.</p>
-    <label htmlFor="commission-subject">Policy subject<select id="commission-subject" value={subjectType} onChange={(event) => setSubjectType(event.target.value)}><option value="COURIER_ORDER">Courier orders</option><option value="MARKETPLACE_STORE_ORDER" disabled={!stores.length}>Marketplace store settlement</option></select></label>
+    <div><label htmlFor="commission-subject">Policy subject</label><select id="commission-subject" value={subjectType} onChange={(event) => setSubjectType(event.target.value)}><option value="COURIER_ORDER">Courier orders</option><option value="MARKETPLACE_STORE_ORDER" disabled={!stores.length}>Marketplace store settlement</option></select></div>
     {subjectType === "MARKETPLACE_STORE_ORDER" && <>
-      <label htmlFor="commission-store">Store<select id="commission-store" name="storeId" required defaultValue=""><option value="" disabled>Choose an active store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></label>
+      <div><label htmlFor="commission-store">Store</label><select id="commission-store" name="storeId" required defaultValue=""><option value="" disabled>Choose an active store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></div>
       <p>Commission applies to the seller subtotal. Delivery fees remain separate.</p>
     </>}
-    <label htmlFor="commission-basis">Basis<select key={subjectType} id="commission-basis" name="basisType" defaultValue="ORDER_SUBTOTAL"><option value="ORDER_SUBTOTAL">Order subtotal</option>{subjectType === "COURIER_ORDER" && <option value="ORDER_TOTAL">Order total</option>}</select></label>
+    <div><label htmlFor="commission-basis">Basis</label><select key={subjectType} id="commission-basis" name="basisType" defaultValue="ORDER_SUBTOTAL"><option value="ORDER_SUBTOTAL">Order subtotal</option>{subjectType === "COURIER_ORDER" && <option value="ORDER_TOTAL">Order total</option>}</select></div>
     <label htmlFor="commission-effective-from">Effective from<input id="commission-effective-from" name="effectiveFrom" type="datetime-local" required /></label>
     <label htmlFor="commission-effective-until">Effective until (exclusive)<input id="commission-effective-until" name="effectiveUntil" type="datetime-local" /></label>
     <label htmlFor="commission-calculation-version">Calculation version<input id="commission-calculation-version" name="calculationVersion" defaultValue="commission-v1" required /></label>

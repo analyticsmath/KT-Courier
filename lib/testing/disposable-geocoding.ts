@@ -1,4 +1,4 @@
-import { isLocalCheckoutValidationAllowed } from "./safe-postgres-validator";
+import { isDisposableBrowserValidationAllowed } from "./safe-postgres-validator";
 import type { GeocodableSouthAfricanAddress, TrustedCoordinates } from "@/lib/maps/geocode.service";
 
 export function southAfricanAddressQuery(address: GeocodableSouthAfricanAddress): string {
@@ -9,7 +9,7 @@ export function southAfricanAddressQuery(address: GeocodableSouthAfricanAddress)
 export function disposableGeocode(address: GeocodableSouthAfricanAddress, env = process.env): TrustedCoordinates | null | undefined {
   const serialized = env.KT_E2E_GEOCODE_FIXTURES;
   if (!serialized) return undefined;
-  if (env.KT_RUNTIME_ENV !== "e2e" || env.KT_NETWORK_DISABLED !== "true" || !isLocalCheckoutValidationAllowed(env) || new URL(env.DATABASE_URL!).pathname !== "/kt_phase75_e2e" || serialized.length > 8192) return null;
+  if (!isDisposableBrowserValidationAllowed(env) || serialized.length > 8192) return null;
   try {
     const fixtures = JSON.parse(serialized) as Record<string, unknown>;
     if (!fixtures || Array.isArray(fixtures) || typeof fixtures !== "object" || Object.keys(fixtures).length > 32) return null;
