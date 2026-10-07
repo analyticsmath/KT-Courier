@@ -9417,8 +9417,8 @@ model MarketplaceGuestContactVerification {
   contactSnapshot MarketplaceCheckoutContactSnapshot @relation(fields: [contactSnapshotId], references: [id], onDelete: Restrict)
   checkout MarketplaceCheckout @relation(fields: [checkoutId], references: [id], onDelete: Restrict)
 
-  @@unique([contactSnapshotId, operationId])
-  @@index([contactSnapshotId, createdAt])
+  @@unique([contactSnapshotId, operationId], map: "MarketplaceGuestContactVerification_contactSnapshotId_operation")
+  @@index([contactSnapshotId, createdAt], map: "MarketplaceGuestContactVerification_contactSnapshotId_createdAt")
   @@index([checkoutId, createdAt])
 }
 

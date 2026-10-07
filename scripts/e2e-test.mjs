@@ -36,6 +36,8 @@ function buildEnv(port, appPort) {
     ALLOWED_ORIGINS: disposableBrowserOrigins(appPort),
     EMAIL_PROVIDER: "console",
     E2E_ROUTE_PROVIDER: "deterministic",
+    KT_NETWORK_DISABLED: "true",
+    KT_E2E_GEOCODE_FIXTURES: JSON.stringify({ "45 Commission St, Central, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 } }),
     NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: "true",
     NODE_ENV: "test",
     KT_RUNTIME_ENV: "e2e",

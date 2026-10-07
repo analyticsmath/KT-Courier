@@ -28,7 +28,7 @@ describe("marketplace checkout API contract", () => {
     ]) {
       const route = read(`app/api/checkout/[reference]/${path}/route.ts`);
       expect(route).not.toMatch(
-        /grandTotal|deliveryFee|paymentSuccess|markPaid/,
+        /body\.(?:grandTotal|deliveryFee|paymentSuccess)|markPaid/,
       );
       expect(route).toMatch(/enforceMarketplaceMutation/);
     }

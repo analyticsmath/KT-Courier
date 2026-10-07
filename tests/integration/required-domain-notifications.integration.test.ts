@@ -85,6 +85,7 @@ describe("durable required-domain notification intake on disposable PostgreSQL",
     await prisma.notificationEventIntent.create({ data: { sourceAuthority: "PAYMENT", eventType: definition.eventType, aggregateReference: payment.publicReference, operationId, safePayload: { sourceEventId: "absent-history", customerUserId: userId, email: "spoofed@example.test" } } });
     expect((await consumeCustomerOrderNotifications(50)).itemsReconciled).toBe(1);
     expect(await prisma.notificationSourceReceipt.findFirst({ where: { sourceEventId: operationId } })).toMatchObject({ status: "RECONCILIATION_REQUIRED" });
+    expect(await prisma.notificationReconciliationCase.findFirst({ where: { sourceReceiptId: (await prisma.notificationSourceReceipt.findFirstOrThrow({ where: { sourceEventId: operationId } })).id } })).toMatchObject({ reason: "RECEIPT_MISMATCH", safeEvidence: { reasonCode: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" } });
     expect(await prisma.notificationDelivery.count({ where: { recipientUserId: userId } })).toBe(0);
     expect((await consumeCustomerOrderNotifications(50)).itemsExamined).toBe(0);
   });

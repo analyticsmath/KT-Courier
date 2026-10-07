@@ -162,8 +162,18 @@ test.describe("Marketplace Guest Checkout Journey", () => {
     const chkBody = await chkRes.json();
     const chkRef = chkBody.checkout.reference;
 
-    const quotesRes = await request.get(`/api/checkout/${chkRef}/delivery-quotes`);
-    expect([200, 400, 409]).toContain(quotesRes.status());
+    const addressRes = await request.put(`/api/checkout/${chkRef}/delivery-address`, {
+      data: { recipientName: "Disposable Recipient", line1: "45 Commission St", suburb: "Central", city: "Johannesburg", province: "Gauteng", postalCode: "2001", operationId: `op-quote-address-${crypto.randomUUID()}`, requestHash: SAFE_HASH, checkoutVersion: chkBody.checkout.version },
+    });
+    expect(addressRes.status(), await addressRes.text()).toBe(200);
+    const addressBody = await addressRes.json();
+    const quotesRes = await request.post(`/api/checkout/${chkRef}/delivery-quotes`, {
+      data: { operationId: `op-quote-${crypto.randomUUID()}`, requestHash: SAFE_HASH, checkoutVersion: addressBody.checkout.version },
+    });
+    expect(quotesRes.status(), await quotesRes.text()).toBe(200);
+    const quotesBody = await quotesRes.json();
+    expect(quotesBody.quotes).toHaveLength(1);
+    expect(quotesBody.quotes[0]).toMatchObject({ currency: "ZAR", fee: expect.stringMatching(/^\d+\.\d{2}$/), publicReference: expect.any(String), version: expect.any(String), serviceabilityReference: expect.any(String) });
 
     monitor.assertClean();
   });
@@ -231,9 +241,9 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     expect(revRes.status()).toBe(200);
     const revBody = await revRes.json();
-    expect(revBody.review).toBeDefined();
-    expect(revBody.review.totals.merchandiseSubtotal).toBe("1500.00");
-    expect(revBody.review.commercialFingerprint).toBeDefined();
+    expect(revBody.merchandiseSubtotal).toBe("1500.00");
+    expect(revBody.commercialFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(revBody.legalEvidence.termsVersion).toMatch(/:[a-f0-9]{64}$/);
 
     await page.goto(`/checkout/${chkRef}/review`);
     await expect(page.locator("h1")).toBeVisible();
@@ -301,7 +311,10 @@ test.describe("Marketplace Guest Checkout Journey", () => {
       },
     });
     const revBody = await revRes.json();
-    version = revBody.review.version;
+    expect(revRes.status(), await revRes.text()).toBe(200);
+    const reviewedCheckout = await request.get(`/api/checkout/${chkRef}`);
+    expect(reviewedCheckout.status()).toBe(200);
+    version = (await reviewedCheckout.json()).checkout.version;
 
     const earlyPayRes = await request.post(`/api/checkout/${chkRef}/prepare-payment`, {
       data: {
@@ -310,19 +323,18 @@ test.describe("Marketplace Guest Checkout Journey", () => {
         requestHash: SAFE_HASH,
       },
     });
-    expect([400, 409, 422]).toContain(earlyPayRes.status());
+    expect(earlyPayRes.status()).toBe(422);
+    expect(await earlyPayRes.json()).toMatchObject({ code: "CHECKOUT_REVIEW_REQUIRED" });
 
     const ackRes = await request.post(`/api/checkout/${chkRef}/acknowledge`, {
       data: {
         operationId: `op-ack-do-${Date.now()}`,
         requestHash: SAFE_HASH,
         checkoutVersion: version,
-        reviewVersion: version,
-        commercialFingerprint: revBody.review.commercialFingerprint,
-        acknowledgedTotalReference: revBody.review.acknowledgedTotalReference ?? "tot_1500",
-        termsVersion: "v1.0",
-        privacyVersion: "v1.0",
-        refundPolicyReferences: ["ref_policy_standard"],
+        reviewVersion: revBody.reviewVersion,
+        commercialFingerprint: revBody.commercialFingerprint,
+        acknowledgedTotalReference: revBody.grandTotal,
+        ...revBody.legalEvidence,
       },
     });
 
@@ -389,7 +401,10 @@ test.describe("Marketplace Guest Checkout Journey", () => {
         checkoutVersion: version,
       },
     });
-    version = (await revRes.json()).review.version;
+    expect(revRes.status(), await revRes.text()).toBe(200);
+    const reviewedCheckout = await request.get(`/api/checkout/${chkRef}`);
+    expect(reviewedCheckout.status()).toBe(200);
+    version = (await reviewedCheckout.json()).checkout.version;
 
     const contactUpdate2 = await request.put(`/api/checkout/${chkRef}/contact`, {
       data: {
@@ -413,14 +428,14 @@ test.describe("Marketplace Guest Checkout Journey", () => {
       },
     });
 
-    expect([400, 409, 422]).toContain(payRes.status());
+    expect(payRes.status()).toBe(422);
     const payBody = await payRes.json();
     expect(JSON.stringify(payBody)).toContain("CHECKOUT_REVIEW_REQUIRED");
 
     monitor.assertClean();
   });
 
-  test("payment preparation returns truthful disabled state without creating provider session", async ({ request, page }) => {
+  test("payment preparation requires review and preserves the unpaid checkout", async ({ request, page }) => {
     const monitor = attachConsoleMonitor(page);
 
     const cartRes = await request.post("/api/cart/lines", {
@@ -453,6 +468,9 @@ test.describe("Marketplace Guest Checkout Journey", () => {
     });
     version = (await contactRes.json()).checkout.version;
 
+    const before = await request.get(`/api/checkout/${chkRef}/status`);
+    expect(before.status()).toBe(200);
+    const beforeBody = await before.json();
     const payRes = await request.post(`/api/checkout/${chkRef}/prepare-payment`, {
       data: {
         checkoutVersion: version,
@@ -461,18 +479,21 @@ test.describe("Marketplace Guest Checkout Journey", () => {
       },
     });
 
-    expect([400, 409, 422]).toContain(payRes.status());
+    expect(payRes.status()).toBe(422);
     const payBody = await payRes.json();
-    expect(JSON.stringify(payBody)).toMatch(/CONSOLIDATED_VALIDATION_NOT_APPROVED|CHECKOUT_REVIEW_REQUIRED|PAYMENT is inactive/);
+    expect(payBody).toMatchObject({ code: "CHECKOUT_REVIEW_REQUIRED" });
+    const after = await request.get(`/api/checkout/${chkRef}/status`);
+    expect(after.status()).toBe(200);
+    expect((await after.json()).checkout).toEqual(beforeBody.checkout);
 
     await page.goto(`/checkout/${chkRef}/payment`);
     await expect(page.locator("h1")).toBeVisible();
-    await expect(page.locator("h1")).toContainText("Payment");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Continue to payment");
 
     monitor.assertClean();
   });
 
-  test("payment preparation operation replay is idempotent", async ({ request, page }) => {
+  test("repeated unreviewed payment commands return the same rejection", async ({ request, page }) => {
     const monitor = attachConsoleMonitor(page);
 
     const cartRes = await request.post("/api/cart/lines", {
@@ -501,10 +522,12 @@ test.describe("Marketplace Guest Checkout Journey", () => {
     const res1 = await request.post(`/api/checkout/${chkRef}/prepare-payment`, { data: payload });
     const res2 = await request.post(`/api/checkout/${chkRef}/prepare-payment`, { data: payload });
 
-    expect(res1.status()).toBe(res2.status());
+    expect(res1.status()).toBe(422);
+    expect(res2.status()).toBe(422);
     const body1 = await res1.json();
     const body2 = await res2.json();
     expect(body1).toEqual(body2);
+    expect(body1).toMatchObject({ code: "CHECKOUT_REVIEW_REQUIRED" });
 
     monitor.assertClean();
   });
@@ -528,26 +551,27 @@ test.describe("Marketplace Guest Checkout Journey", () => {
     const chkBody = await chkRes.json();
     const chkRef = chkBody.checkout.reference;
 
-    await page.goto(`/checkout/${chkRef}/return?payfast_payment_id=99999&payment_status=COMPLETE`);
+    const before = await request.get(`/api/checkout/${chkRef}/status`);
+    expect(before.status()).toBe(200);
+    const beforeBody = await before.json();
+    await page.goto(`/checkout/${chkRef}/return?reference=forged-paystack-reference&trxref=forged-paystack-reference&payment_status=COMPLETE`);
 
     const heading = page.locator("h1");
     await expect(heading).toBeVisible();
     await expect(heading).toContainText("Confirming your payment");
 
-    const content = await page.textContent("body");
-    expect(content).toContain("is not payment confirmation");
+    await expect(page.locator("body")).toContainText("Payment confirmation may take a moment");
 
     const statusRes = await request.get(`/api/checkout/${chkRef}/status`);
-    if (statusRes.status() === 200) {
-      const statusBody = await statusRes.json();
-      expect(statusBody.checkout.status).not.toBe("PAYMENT_CONFIRMED");
-      expect(statusBody.checkout.status).not.toBe("COMPLETED");
-    }
+    expect(statusRes.status()).toBe(200);
+    const statusBody = await statusRes.json();
+    expect(statusBody.checkout).toEqual(beforeBody.checkout);
+    expect(statusBody.checkout.status).toBe("CHANGES_REQUIRED");
 
     monitor.assertClean();
   });
 
-  test("unauthorized checkout access from different context returns safe access denial", async ({ request, page }) => {
+  test("unauthorized checkout access from different context returns safe access denial", async ({ request, page, browser }) => {
     const monitor = attachConsoleMonitor(page);
 
     const cartRes = await request.post("/api/cart/lines", {
@@ -566,15 +590,14 @@ test.describe("Marketplace Guest Checkout Journey", () => {
     const chkBody = await chkRes.json();
     const chkRef = chkBody.checkout.reference;
 
-    const otherContext = await page.context().browser()?.newContext();
-    if (otherContext) {
+    const otherContext = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL });
+    try {
       const accessRes = await otherContext.request.get(`/api/checkout/${chkRef}`);
-      expect([401, 403, 404]).toContain(accessRes.status());
+      expect(accessRes.status()).toBe(404);
       const body = await accessRes.json();
       expect(body).not.toHaveProperty("checkout.contactSnapshot");
       expect(body).not.toHaveProperty("checkout.addressSnapshot");
-      await otherContext.close();
-    }
+    } finally { await otherContext.close(); }
 
     monitor.assertClean();
   });

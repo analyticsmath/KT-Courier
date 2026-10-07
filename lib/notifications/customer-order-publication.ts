@@ -45,7 +45,7 @@ export async function publishCustomerOrderIntent(db: Prisma.TransactionClient, i
     if (!(error instanceof NotificationPolicyError) || error.code !== "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID") throw error;
     const intake = await authority.intake.intake({ sourceAuthority: intent.sourceAuthority, sourceEventId: intent.operationId, sourceEventType: intent.eventType, aggregateReference: intent.aggregateReference, payload: { invalidSourceEvidence: true }, occurredAt: intent.createdAt });
     if (intake.receipt.status === "RECONCILIATION_REQUIRED") return "SKIPPED" as const;
-    await authority.reconciliation.open({ reason: error.code, sourceReceiptId: intake.receipt.id, safeSummary: "Canonical notification source evidence is missing or inconsistent." });
+    await authority.reconciliation.open({ reason: "RECEIPT_MISMATCH", sourceReceiptId: intake.receipt.id, safeSummary: "Canonical notification source evidence is missing or inconsistent.", safeEvidence: { reasonCode: error.code } });
     await db.notificationSourceReceipt.update({ where: { id: intake.receipt.id }, data: { status: "RECONCILIATION_REQUIRED" } });
     return "RECONCILIATION" as const;
   }

@@ -8,6 +8,7 @@ import type { MarketplaceCheckoutReviewResult, ReviewGroup } from "@/lib/marketp
 import { freezeMarketplaceStoreSettlementEvidence } from "@/lib/marketplace-checkout/frozen-seller-settlement-evidence.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
+import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
 
 const money = (value: any) => typeof value === "string" ? value : value?.toFixed?.(2) ?? "0.00";
 const ownerWhere = (owner: CartOwner) => owner.type === "CUSTOMER" ? { customerUserId: owner.userId } : { guestAccessTokenHash: owner.guestTokenHash };
@@ -263,10 +264,13 @@ export function createPrismaMarketplaceAcknowledgementRepository(database: any =
     },
     findOperation: async (checkoutId: string, operationId: string) => {
       const row = await db.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId, operationId } } });
-      return row ? { requestHash: row.requestHash, response: row.response as { acknowledged: true; reviewVersion: number } } : null;
+      return row ? { requestHash: row.requestHash, response: row.response as { acknowledged: true; reviewVersion: number; checkoutVersion?: number } } : null;
     },
     createAcknowledgement: async (input) => {
-      const response = { acknowledged: true as const, reviewVersion: input.reviewVersion };
+      // The same serializable transaction owns the checkout lock and policy check.
+      // A browser-supplied or superseded legal reference cannot become evidence.
+      assertMarketplaceLegalEvidence(input, await resolveMarketplaceLegalEvidence(db));
+      const response = { acknowledged: true as const, reviewVersion: input.reviewVersion, checkoutVersion: input.checkoutVersion };
       await db.marketplaceCheckoutAcknowledgement.create({ data: { checkoutId: input.checkoutId, reviewVersion: input.reviewVersion, commercialFingerprint: input.commercialFingerprint, grandTotal: input.acknowledgedTotalReference, termsVersion: input.termsVersion, privacyVersion: input.privacyVersion, refundPolicyReferences: input.refundPolicyReferences, settlementEvidenceVersions: input.settlementEvidenceVersions, changeSet: input.changes } });
       await db.marketplaceCheckoutChange.updateMany({ where: { checkoutId: input.checkoutId, reviewVersion: input.reviewVersion, acknowledgedAt: null }, data: { acknowledgedAt: new Date() } });
       await db.marketplaceCheckout.update({ where: { id: input.checkoutId }, data: { status: "READY_FOR_REVIEW", acceptedFingerprint: input.commercialFingerprint, changesAcknowledgedAt: new Date(), termsAcknowledgedAt: new Date(), reviewAcceptedAt: new Date(), version: { increment: 1 } } });

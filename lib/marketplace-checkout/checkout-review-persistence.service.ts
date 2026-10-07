@@ -93,9 +93,10 @@ export async function reviewMarketplaceCheckout(
 export type MarketplaceAcknowledgementRepository = Readonly<{
   transaction<T>(work: () => Promise<T>): Promise<T>;
   lockCheckout(reference: string, owner: Readonly<{ type: "CUSTOMER"; userId: string } | { type: "GUEST"; guestTokenHash: string }>): Promise<(ReviewableCheckout & { changes: readonly unknown[] }) | null>;
-  findOperation(checkoutId: string, operationId: string): Promise<{ requestHash: string; response: { acknowledged: true; reviewVersion: number } } | null>;
+  findOperation(checkoutId: string, operationId: string): Promise<{ requestHash: string; response: { acknowledged: true; reviewVersion: number; checkoutVersion?: number } } | null>;
   createAcknowledgement(input: Readonly<{
     checkoutId: string;
+    checkoutVersion: number;
     reviewVersion: number;
     commercialFingerprint: string;
     acknowledgedTotalReference: string;
@@ -131,7 +132,9 @@ export async function acknowledgeMarketplaceCheckoutReviewPersisted(
     const replay = await repository.findOperation(checkout.id, input.operationId);
     if (replay) {
       if (replay.requestHash !== input.requestHash) throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "The operation ID was reused with different acknowledgement evidence.");
-      return { ...replay.response, checkoutVersion: (replay.response as { checkoutVersion?: number }).checkoutVersion ?? (checkout.version + 1) };
+      const version = replay.response.checkoutVersion;
+      if (!Number.isSafeInteger(version) || version === undefined || version < 1) throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "This historical acknowledgement has no saved checkout version. Refresh the checkout before continuing.");
+      return { ...replay.response, checkoutVersion: version };
     }
     if (checkout.version !== input.expectedVersion || checkout.status !== "READY_FOR_REVIEW" || checkout.acceptedFingerprint) {
       throw new MarketplaceCheckoutError("CHECKOUT_CHANGES_UNACKNOWLEDGED", "Checkout review is stale or no longer acknowledgement-eligible.");
@@ -150,6 +153,7 @@ export async function acknowledgeMarketplaceCheckoutReviewPersisted(
     });
     await repository.createAcknowledgement({
       checkoutId: checkout.id,
+      checkoutVersion: checkout.version + 1,
       reviewVersion: input.reviewVersion,
       commercialFingerprint: input.commercialFingerprint,
       acknowledgedTotalReference: input.acknowledgedTotalReference,

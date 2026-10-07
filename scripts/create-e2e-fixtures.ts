@@ -489,6 +489,8 @@ async function seedPhase2Fixtures(passwordHash: string) {
 }
 
 async function main() {
+  const fixtureDatabase = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
+  if (!["localhost", "127.0.0.1", "db"].includes(fixtureDatabase.hostname) || fixtureDatabase.pathname !== "/kt_phase75_e2e") throw new Error("E2E fixtures require the named disposable browser database.");
   // The search adapter uses pg_trgm's similarity() for fuzzy matching.
   // Install it in the E2E database before any storefront search is executed.
   await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
@@ -498,6 +500,8 @@ async function main() {
     prisma.user.findUniqueOrThrow({ where: { email: "customer@ktcouriers.local" } }),
     prisma.deliveryRegion.findUniqueOrThrow({ where: { slug: "johannesburg-metro" } }),
   ]);
+  // Synthetic serviceability belongs only to the disposable browser fixture.
+  await prisma.deliveryRegion.update({ where: { id: region.id }, data: { province: "Gauteng", centerLat: -26.2041, centerLng: 28.0473, coverageRadiusKm: 30, maxDistanceKm: 50, active: true, pricingEnabled: true } });
   await upsertStore("e2e-store@ktcouriers.local", "e2e-store", "E2E Store", passwordHash);
   await upsertStore("e2e-other-store@ktcouriers.local", "e2e-other-store", "E2E Other Store", passwordHash);
   for (const orderNumber of ["E2E-DISPATCH-001", "E2E-DISPATCH-002"]) {

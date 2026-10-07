@@ -106,7 +106,12 @@ export function CheckoutExperience() {
   // Step 4 & 5: Review & Acknowledgement
   const [reviewVersion, setReviewVersion] = useState<number | null>(null);
   const [commercialFingerprint, setCommercialFingerprint] = useState<string | null>(null);
+  const [legalEvidence, setLegalEvidence] = useState<{ termsVersion: string; privacyVersion: string; refundPolicyReferences: string[] } | null>(null);
   const [termsAgreed, setTermsAgreed] = useState(false);
+
+  function invalidateReview() {
+    setReviewVersion(null); setCommercialFingerprint(null); setLegalEvidence(null); setTermsAgreed(false);
+  }
 
   // Step 6 & 7: Reservation & Payment
   const [orderComplete, setOrderComplete] = useState(false);
@@ -187,6 +192,7 @@ export function CheckoutExperience() {
         }
       }
       setContactRevision((revision) => revision + 1);
+      invalidateReview();
       setCurrentStep(2);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to save contact.");
@@ -232,7 +238,7 @@ export function CheckoutExperience() {
       }
 
       const data = await res.json();
-      let nextVersion = checkout.version + 1;
+      let nextVersion: number | null = null;
       if (data.checkout && data.checkout.storeGroups) {
         setCheckout(retainCheckoutPresentation(data.checkout, checkout));
         nextVersion = data.checkout.version;
@@ -245,6 +251,8 @@ export function CheckoutExperience() {
         }
       }
 
+      invalidateReview();
+      if (!Number.isSafeInteger(nextVersion) || nextVersion === null || nextVersion < 1) throw new Error("The saved checkout version could not be verified. Refresh before continuing.");
       // Auto-trigger delivery quotes
       await calculateQuotes(nextVersion);
     } catch (err) {
@@ -318,7 +326,9 @@ export function CheckoutExperience() {
       }
 
       const optData = await optRes.json();
-      const currentVersionBeforeReview = optData.checkout?.version ?? (checkout.version + 1);
+      if (!Number.isSafeInteger(optData.checkout?.version) || optData.checkout.version < 1) throw new Error("The saved delivery selection could not be verified. Refresh before continuing.");
+      const currentVersionBeforeReview = optData.checkout.version;
+      invalidateReview();
 
       // 2. Perform authoritative Review
       const revOpId = `rev-${crypto.randomUUID()}`;
@@ -339,8 +349,11 @@ export function CheckoutExperience() {
       }
 
       const revData = await revRes.json();
-      setReviewVersion(revData.reviewVersion ?? revData.version ?? 1);
-      setCommercialFingerprint(revData.commercialFingerprint ?? "fingerprint-confirmed");
+      if (!Number.isSafeInteger(revData.reviewVersion) || revData.reviewVersion < 1 || typeof revData.commercialFingerprint !== "string" || !revData.commercialFingerprint || typeof revData.legalEvidence?.termsVersion !== "string" || typeof revData.legalEvidence?.privacyVersion !== "string" || !Array.isArray(revData.legalEvidence?.refundPolicyReferences) || !revData.legalEvidence.refundPolicyReferences.length || revData.legalEvidence.refundPolicyReferences.some((reference: unknown) => typeof reference !== "string" || !reference)) throw new Error("Current order review and published policy evidence are required before continuing.");
+      setReviewVersion(revData.reviewVersion);
+      setCommercialFingerprint(revData.commercialFingerprint);
+      setLegalEvidence(revData.legalEvidence);
+      setTermsAgreed(false);
 
       // Refresh checkout
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
@@ -358,7 +371,7 @@ export function CheckoutExperience() {
 
   // Step 4 Confirmation: Acknowledge & Reserve Inventory
   const handleAcknowledgeAndReserve = async () => {
-    if (!checkout || !termsAgreed || !commercialFingerprint || reviewVersion === null) return;
+    if (!checkout || !termsAgreed || !commercialFingerprint || reviewVersion === null || !legalEvidence) return;
     setSubmitting(true);
     setErrorMessage(null);
 
@@ -378,9 +391,7 @@ export function CheckoutExperience() {
           reviewVersion,
           commercialFingerprint,
           acknowledgedTotalReference: checkout.totals.grandTotal,
-          termsVersion: "terms-2026-v1",
-          privacyVersion: "privacy-2026-v1",
-          refundPolicyReferences: ["refund-policy-v1"],
+          ...legalEvidence,
         }),
       });
 
@@ -390,7 +401,8 @@ export function CheckoutExperience() {
       }
 
       const ackData = await ackRes.json();
-      const currentVersionAfterAck = ackData.checkoutVersion ?? (checkout.version + 1);
+      if (!Number.isSafeInteger(ackData.checkoutVersion) || ackData.checkoutVersion < 1) throw new Error("The acknowledged checkout version could not be verified. Refresh before continuing.");
+      const currentVersionAfterAck = ackData.checkoutVersion;
 
       // 2. Reserve with currentVersionAfterAck
       const resOpId = `res-${crypto.randomUUID()}`;
@@ -953,7 +965,7 @@ export function CheckoutExperience() {
                       style={{ marginTop: 3 }}
                     />
                     <span>
-                      I agree to the <Link href="/terms" target="_blank" style={{ textDecoration: "underline" }}>Terms of Service</Link>, <Link href="/privacy-policy" target="_blank" style={{ textDecoration: "underline" }}>Privacy Policy</Link>, and the standard KT Couriers Returns & Refund Guarantee.
+                      I accept the <Link href="/terms" target="_blank" style={{ textDecoration: "underline" }}>Terms of Service</Link> and <Link href="/refund-policy" target="_blank" style={{ textDecoration: "underline" }}>Refund and Cancellation Policy</Link>, and acknowledge the <Link href="/privacy-policy" target="_blank" style={{ textDecoration: "underline" }}>Privacy Policy</Link>.
                     </span>
                   </label>
 
