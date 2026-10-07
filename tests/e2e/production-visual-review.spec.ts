@@ -7,6 +7,11 @@ async function capture(page: Page, testInfo: TestInfo, route: string, name: stri
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), `${route} must fit the viewport`).toBe(false);
+  if (route === "/store/catalog" || route === "/store/catalog/products/new") {
+    const marketplace = page.getByRole("link", { name: "View live marketplace", exact: true });
+    await expect(marketplace).toBeVisible();
+    expect(await marketplace.evaluate(element => element.getClientRects().length), "Marketplace action must remain one readable line inside a narrow panel").toBe(1);
+  }
   await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
 }
 

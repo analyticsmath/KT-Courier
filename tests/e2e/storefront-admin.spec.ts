@@ -30,8 +30,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const matching = (await list.json()).collections.filter((row: { name: string }) => row.name === name);
     expect(matching).toHaveLength(1);
     let collection = matching[0]; expect(collection).toMatchObject({ status: "DRAFT", version: 1 });
-    await page.getByRole("link", { name: new RegExp(name) }).first().click();
-    await page.getByLabel("Target type", { exact: true }).selectOption("PRODUCT");
+    const collectionLink = page.locator(`a.eo-table-link[href="/admin/storefront/collections/${collection.publicReference}"]`);
+    await expect(collectionLink).toHaveCount(1);
+    await collectionLink.click();
+    await expect(page).toHaveURL(`/admin/storefront/collections/${collection.publicReference}`);
+    await page.getByRole("combobox", { name: "Target type", exact: true }).selectOption("PRODUCT");
     await page.getByLabel("Public reference", { exact: true }).fill("CP-E2ESMARTPHONE");
     await page.getByRole("button", { name: "Add eligible item", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Collection evidence was added." })).toBeVisible();
@@ -91,7 +94,7 @@ test("projection controls reject public overrides and unsupported manual rebuild
     await page.setViewportSize({ width, height: 900 }); await page.goto(`/admin/storefront/projections/${reference}`);
     await expect(page.getByRole("heading", { name: "Projection case", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Request canonical rebuild", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("record changed");
+    await expect(page.getByRole("alert").filter({ hasText: "record changed" })).toBeVisible();
     expect(await readRecord(page, base, reference, "projectionCase")).toEqual(before);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
   }
@@ -103,7 +106,7 @@ test("projection controls reject public overrides and unsupported manual rebuild
 test("storefront admin APIs enforce role, anonymous and explicit DENY controls", async ({ page }) => {
   if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
   const bases = ["/api/admin/storefront/collections", "/api/admin/storefront/search-synonyms", "/api/admin/storefront/projections"];
-  for (const email of ["customer@ktcouriers.local", "e2e-store@ktcouriers.local", "e2e-driver-a@ktcouriers.local", "e2e-ledger-denied@ktcouriers.local"]) {
+  for (const email of ["customer@ktcouriers.local", "e2e-store@ktcouriers.local", "e2e-onboarding-1440@ktcouriers.local", "e2e-ledger-denied@ktcouriers.local"]) {
     await login(page, email);
     for (const base of bases) {
       const denied = await page.request.get(base); expect(denied.status()).toBe(403);

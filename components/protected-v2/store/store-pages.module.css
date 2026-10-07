@@ -57,3 +57,10 @@
   .scope :global(.eo-store-record-list__link) { align-items: flex-start; }
   .scope :global(.eo-store-line-list > li) { grid-template-columns: minmax(0, 1fr); }
 }
+.storefrontAvailability :global(.eo-panel__header) {
+  flex-wrap: wrap;
+}
+
+.storefrontAvailability :global(.eo-panel__action) {
+  flex-shrink: 0;
+}

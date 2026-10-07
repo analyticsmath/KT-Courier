@@ -238,3 +238,22 @@ DENY checks. Activation is exercised through the existing authenticated API; the
 current UI offers review and retirement only. The new assertions require execution.
 Discovery reports 57 assertions in fifteen files; the active placeholder inventory
 is seventeen in 82 marked files. Full directed functionality remains open.
+
+At `9fcbcaab7bd6242959dc1b41fd7b8c50827e4dd1`, main CI `37622814866`
+passed. Certification `37622814951` passed all twenty PostgreSQL jobs, quality,
+Redis/security and recovery. Browser execution passed the previous 53 assertions
+but failed all four new editorial assertions (zero skipped). The failure artifact
+shows the collection page and its accessible "Target type" combobox were present:
+an exact label-text selector failed on the select's wrapping label and options.
+The projection selector also matched Next's route announcer, and the denial test
+referenced an unseeded driver account. The candidate uses the accessible combobox,
+an explicit record link and destination check, filters the application alert by
+its expected message and uses an existing pending driver fixture. These corrections
+require a new browser execution; the failed run is not accepted as a pass.
+
+The visual candidate preserves the existing mobile missing-image frame and keeps
+the catalog panel's marketplace action readable. Three additional browser assertions
+check phone/tablet fallback geometry and short-desktop keyboard cart access, bringing
+discovery to 60 assertions in fifteen files. Local optimized build, focused twelve
+product UI assertions, lint and TypeScript pass. Fresh browser execution and repair
+capture inspection remain pending; full visual acceptance stays open.
