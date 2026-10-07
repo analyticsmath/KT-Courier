@@ -49,8 +49,8 @@ they do not retroactively grant any live account access.
 Catalog's permission-table-empty success shortcut is removed. Missing definition
 or enabled grant fails closed. Canonical active user, store and products-module
 membership is checked before overrides. Anonymous callers retain 401;
-authenticated unauthorized callers 403; existing cross-tenant media/service
-concealment retains 404.
+authenticated unauthorized callers 403; foreign media retains the existing generic
+403 ownership refusal, while foreign product/offer lookup retains 404 concealment.
 
 Products-only employees remain CUSTOMER identities. Module delegation grants only
 catalog read/manage/submit, using a central product permission subset. Pricing,
@@ -78,6 +78,18 @@ check and catalog permission check remain composed; no anti-CSRF bypass changes.
 
 No schema or migration changes. Both previously reviewed migrations remain intact.
 No unrelated `engineering-gates.json` entry is changed or upgraded.
+
+Stage A pushed candidate: `fb60594a1f0d88769c1226a08454601f4910d147`.
+PR-triggered [run 37695527118](https://github.com/analyticsmath/KT-Courier/actions/runs/37695527118)
+executed closure PostgreSQL: 158 passed / 2 failed / 0 skipped, 20 files,
+32.59 s, exit 1 (`node scripts/certification-command.mjs test:integration:closure`).
+Both actual grant/override and products-only employee authority cases passed.
+One new foreign-media expectation incorrectly asserted 404 rather than the existing
+403 + `CATALOG_OWNERSHIP_DENIED` contract; corrected without changing policy.
+An existing checkpoint product test created two distinct listings with the same
+unique store modifier name; the second fixture now uses a distinct name. Catalog
+integration independently reproduced those same two failures (63 passed / 2 failed,
+12 files, 8.70 s, exit 1). These failures remain recorded; corrected fixtures await CI.
 
 ## Completed and pending commands
 

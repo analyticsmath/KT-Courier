@@ -76,7 +76,7 @@ describe("canonical store product commands on isolated PostgreSQL", { timeout: 2
   });
   it("rejects subject reuse, invalid attributes and foreign or global-canonical mutation", async () => {
     const source = await foundation(); const draft = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
-    const other = await createStoreCatalogListingDraft(source.store.id, source.user.id, { ...source.input, operationId: randomUUID(), product: { ...source.input.product, title: `Disposable distinct subject ${randomUUID()}` }, storeSku: `DISPOSABLE-${randomUUID()}` });
+    const other = await createStoreCatalogListingDraft(source.store.id, source.user.id, { ...source.input, operationId: randomUUID(), product: { ...source.input.product, title: `Disposable distinct subject ${randomUUID()}` }, storeSku: `DISPOSABLE-${randomUUID()}`, modifiers: [{ ...source.input.modifiers[0], name: `Distinct gift wrap ${randomUUID()}` }] });
     const command = { operationId: randomUUID(), version: draft.version, title: "Disposable subject-bound edit" };
     await updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command);
     await expect(updateStoreCatalogProduct(source.store.id, other.publicReference, source.user.id, command)).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });

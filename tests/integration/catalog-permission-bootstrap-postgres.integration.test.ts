@@ -72,7 +72,7 @@ describe("canonical catalog bootstrap and authority on isolated PostgreSQL", { t
     const foreign = await source();
     const asset = await prisma.catalogMediaAsset.create({ data: { publicReference: catalogPublicReference("CMA"), ownerType: "STORE", ownerStoreId: store.id, purpose: "PRODUCT_IMAGE", storageProvider: "DISPOSABLE_FIXTURE", storageKey: `catalog-media/${createHash("sha256").update(randomUUID()).digest("hex")}`, declaredMimeType: "image/png", declaredByteSize: 100, status: "PENDING_UPLOAD", createdByUserId: owner.id, updatedByUserId: owner.id } });
     const media = createProductionCatalogMediaIntakeService();
-    await expect(media.getStoreAsset(foreign.store.id, asset.publicReference)).rejects.toMatchObject({ status: 404 });
+    await expect(media.getStoreAsset(foreign.store.id, asset.publicReference)).rejects.toMatchObject({ status: 403, code: "CATALOG_OWNERSHIP_DENIED" });
     const dto = await media.getStoreAsset(store.id, asset.publicReference);
     expect(dto).toMatchObject({ publicReference: asset.publicReference });
     for (const key of ["storageKey", "storageProvider", "checksum", "createdByUserId"]) expect(dto).not.toHaveProperty(key);
