@@ -28,15 +28,23 @@ type Draft = {
 
 const EMPTY: Draft = { existingSearch: "", productTypeDefinitionId: "", primaryCategoryId: "", title: "", description: "", attributes: "{}", variants: "Default", media: [], compliance: "{}", storeSku: "", price: "", stock: "0", modifiers: "" };
 const STEPS = ["Find existing product", "Type and category", "Core information", "Attributes", "Variants", "Media", "Compliance", "Store offer", "Price", "Inventory", "Modifiers", "Preview", "Submit"];
-const DRAFT_STORAGE_KEY = "kt_store_catalog_wizard_draft";
+const DRAFT_STORAGE_PREFIX = "kt_store_catalog_wizard_draft:v2:";
 const DRAFT_STORAGE_EVENT = "kt-store-catalog-wizard-draft-change";
 const PERSISTED_DRAFT_KEYS = ["existingSearch", "productTypeDefinitionId", "primaryCategoryId", "title", "description", "attributes", "variants", "compliance", "storeSku", "price", "stock", "modifiers"] as const;
 
 type PersistedDraft = Omit<Draft, "media">;
 
-let inMemoryDraft: Draft | null = null;
-let lastStoredDraft: string | null | undefined;
-let lastSnapshot: Draft = EMPTY;
+type DraftCache = { inMemoryDraft: Draft | null; lastStoredDraft: string | null | undefined; lastSnapshot: Draft };
+const draftCaches = new Map<string, DraftCache>();
+
+function draftCache(draftKey: string): DraftCache {
+  let cache = draftCaches.get(draftKey);
+  if (!cache) {
+    cache = { inMemoryDraft: null, lastStoredDraft: undefined, lastSnapshot: EMPTY };
+    draftCaches.set(draftKey, cache);
+  }
+  return cache;
+}
 
 function isPersistedDraft(value: unknown): value is PersistedDraft {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -44,41 +52,46 @@ function isPersistedDraft(value: unknown): value is PersistedDraft {
   return PERSISTED_DRAFT_KEYS.every((key) => typeof record[key] === "string");
 }
 
-function readStoredDraft(): Draft {
+function readStoredDraft(draftKey: string): Draft {
   if (typeof window === "undefined") return EMPTY;
-  if (inMemoryDraft) return inMemoryDraft;
+  const cache = draftCache(draftKey);
+  if (cache.inMemoryDraft) return cache.inMemoryDraft;
 
   try {
-    const stored = window.localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (stored === lastStoredDraft) return lastSnapshot;
-    lastStoredDraft = stored;
-    if (!stored) return lastSnapshot = EMPTY;
+    const stored = window.localStorage.getItem(draftKey);
+    if (stored === cache.lastStoredDraft) return cache.lastSnapshot;
+    cache.lastStoredDraft = stored;
+    if (!stored) return cache.lastSnapshot = EMPTY;
     const parsed: unknown = JSON.parse(stored);
-    return lastSnapshot = isPersistedDraft(parsed) ? { ...EMPTY, ...parsed, media: [] } : EMPTY;
+    return cache.lastSnapshot = isPersistedDraft(parsed) ? { ...EMPTY, ...parsed, media: [] } : EMPTY;
   } catch {
-    return lastSnapshot = EMPTY;
+    return cache.lastSnapshot = EMPTY;
   }
 }
 
-function subscribeToDraft(callback: () => void): () => void {
+function subscribeToDraft(draftKey: string, callback: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const onStorage = (event: StorageEvent) => {
-    if (event.key === DRAFT_STORAGE_KEY) {
-      inMemoryDraft = null;
+    if (event.storageArea === window.localStorage && (event.key === draftKey || event.key === null)) {
+      draftCache(draftKey).inMemoryDraft = null;
       callback();
     }
   };
+  const onDraftChange = (event: Event) => {
+    if ((event as CustomEvent<string>).detail === draftKey) callback();
+  };
   window.addEventListener("storage", onStorage);
-  window.addEventListener(DRAFT_STORAGE_EVENT, callback);
+  window.addEventListener(DRAFT_STORAGE_EVENT, onDraftChange);
   return () => {
     window.removeEventListener("storage", onStorage);
-    window.removeEventListener(DRAFT_STORAGE_EVENT, callback);
+    window.removeEventListener(DRAFT_STORAGE_EVENT, onDraftChange);
   };
 }
 
-function persistDraft(draft: Draft): void {
-  inMemoryDraft = draft;
-  lastSnapshot = draft;
+function persistDraft(draftKey: string, draft: Draft): void {
+  const cache = draftCache(draftKey);
+  cache.inMemoryDraft = draft;
+  cache.lastSnapshot = draft;
   try {
     const persisted: PersistedDraft = {
       existingSearch: draft.existingSearch,
@@ -95,12 +108,12 @@ function persistDraft(draft: Draft): void {
       modifiers: draft.modifiers,
     };
     const serialized = JSON.stringify(persisted);
-    window.localStorage.setItem(DRAFT_STORAGE_KEY, serialized);
-    lastStoredDraft = serialized;
+    window.localStorage.setItem(draftKey, serialized);
+    cache.lastStoredDraft = serialized;
   } catch {
     // Local storage quota or security errors do not prevent this browser-only draft from continuing.
   }
-  window.dispatchEvent(new Event(DRAFT_STORAGE_EVENT));
+  window.dispatchEvent(new CustomEvent(DRAFT_STORAGE_EVENT, { detail: draftKey }));
 }
 
 function draftSaveFailure(status: number, attachment = false) {
@@ -110,9 +123,15 @@ function draftSaveFailure(status: number, attachment = false) {
   return attachment ? "The product was saved, but an image could not be attached. Review the canonical draft before trying again." : "The product draft could not be saved. Review the highlighted fields and try again.";
 }
 
-export function StoreCatalogWizard({ productTypes, categories }: { productTypes: ProductTypeChoice[]; categories: CategoryChoice[] }) {
+export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey }: { productTypes: ProductTypeChoice[]; categories: CategoryChoice[]; draftOwnerKey: string }) {
   const [step, setStep] = useState(0);
-  const draft = useSyncExternalStore(subscribeToDraft, readStoredDraft, () => EMPTY);
+  // The authenticated page supplies both owner and store. Never adopt the legacy unscoped draft.
+  const draftKey = `${DRAFT_STORAGE_PREFIX}${draftOwnerKey}`;
+  const draftStore = useMemo(() => ({
+    subscribe: (callback: () => void) => subscribeToDraft(draftKey, callback),
+    getSnapshot: () => readStoredDraft(draftKey),
+  }), [draftKey]);
+  const draft = useSyncExternalStore(draftStore.subscribe, draftStore.getSnapshot, () => EMPTY);
   const [status, setStatus] = useState("Draft is held only in this browser view until it is submitted.");
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -120,7 +139,7 @@ export function StoreCatalogWizard({ productTypes, categories }: { productTypes:
   const selectedType = productTypes.find((choice) => choice.id === draft.productTypeDefinitionId);
   const completed = useMemo(() => [draft.existingSearch.length > 2, !!draft.productTypeDefinitionId && !!draft.primaryCategoryId, draft.title.length >= 3 && draft.description.length >= 20, isJson(draft.attributes), draft.variants.trim().length > 0, draft.media.length > 0 && draft.media.every((item) => item.status === "READY" && item.altText.trim()) && draft.media.filter((item) => item.primary).length === 1, isJson(draft.compliance), draft.storeSku.trim().length > 0, /^\d+\.\d{2}$/.test(draft.price), Number.isSafeInteger(Number(draft.stock)) && Number(draft.stock) >= 0, true, draft.title.length >= 3, false], [draft]);
 
-  function update<K extends keyof Draft>(key: K, value: Draft[K]) { persistDraft({ ...draft, [key]: value }); setStatus("Draft changed in this browser view."); }
+  function update<K extends keyof Draft>(key: K, value: Draft[K]) { persistDraft(draftKey, { ...draft, [key]: value }); setStatus("Draft changed in this browser view."); }
 
   async function submitDraft() {
     if (saving) return;

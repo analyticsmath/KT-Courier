@@ -13,7 +13,7 @@ import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.servi
 
 export default async function NewStoreCatalogProductPage() {
   await requireBusinessPage("/store/catalog/products/new");
-  await getCurrentStoreForCatalogPage();
+  const { user, store } = await getCurrentStoreForCatalogPage();
   const [productTypes, categories] = await Promise.all([
     prisma.productTypeDefinition.findMany({
       where: { status: { in: ["APPROVED", "ACTIVE"] } },
@@ -54,6 +54,8 @@ export default async function NewStoreCatalogProductPage() {
       <StoreCatalogNavigation />
       {productTypes.length && categories.length ? (
         <StoreCatalogWizard
+          key={`${user.id}:${store.id}`}
+          draftOwnerKey={`${encodeURIComponent(user.id)}:${encodeURIComponent(store.id)}`}
           productTypes={productTypes}
           categories={categories}
         />

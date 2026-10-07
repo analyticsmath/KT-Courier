@@ -165,3 +165,21 @@ cleanup path is validated before recursive removal. Lint, optimized build and
 3,408 unit/API assertions across 760 files passed with zero skipped. New
 exact-commit CI proof remains required; complete media/browser/provider acceptance
 is still open.
+
+At `5284b1aa8701a6c63ecd0d0be06ce69bdd448a9d`, main CI `37617699521`
+passed. Certification `37617699534` passed all twenty PostgreSQL jobs, quality,
+Redis/security, recovery and all 45 browser assertions (39.5 seconds, zero
+skipped). Only the final certified job failed, on the remaining open gates.
+
+The catalog draft candidate scopes persisted fields, in-memory media and browser
+change subscriptions to the authenticated owner and store supplied by the server
+page. It ignores the legacy unscoped draft because its owner is unknown; it does
+not migrate or delete that unattributed data. Matching cross-tab updates and
+storage clearing invalidate the current owner's cached draft. Two added browser
+assertions cover same-browser account switching, owner-specific reloads, legacy
+draft rejection and cross-tab changes at 1440px and 390px. Discovery reports 47
+selected assertions in twelve files; these two new assertions require execution.
+The three existing catalog UI contract assertions, lint, optimized build and
+3,408 unit/API assertions across 760 files pass with zero skipped. Product submission,
+duplicate detection, offer/price/inventory activation and full vendor acceptance
+remain open.
