@@ -5,15 +5,9 @@ import { ensureDriverEarningPayableAccount } from "@/lib/services/driver-earning
 import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { assignmentPublicReference } from "@/lib/driver-earnings/driver-earning-subject";
 import type { DriverSettlementSnapshot } from "@/lib/driver-earnings/driver-settlement-snapshot";
+import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-settlement-guard";
 
 /** Synthetic source facts only. Included in the disposable migration image; no provider request or production approval. */
-export function requireDisposableDriverSettlementDatabase() {
-  const url = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
-  const closure = url.pathname === "/kt_launch_test" && process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1" && ["localhost", "127.0.0.1"].includes(url.hostname);
-  const browser = url.pathname === "/kt_phase75_e2e" && ["localhost", "127.0.0.1", "db"].includes(url.hostname);
-  if (process.env.NODE_ENV === "production" || process.env.KT_RUNTIME_ENV !== "e2e" || process.env.KT_NETWORK_DISABLED !== "true" || (!closure && !browser)) throw new Error("Named network-isolated disposable driver settlement database required.");
-}
-
 export async function createDisposableDriverSettlement(options: { email?: string; passwordHash?: string; amount?: string } = {}) {
   requireDisposableDriverSettlementDatabase();
   const tag = `driver-evidence-${randomUUID()}`;

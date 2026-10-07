@@ -48,12 +48,32 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     expect(await read(page, "/api/driver/earnings")).toEqual(before);
   });
 }
-test("driver financial reads deny inactive eligibility, wrong roles and anonymous requests", async ({ page }) => {
+test("driver financial reads deny inactive eligibility, wrong roles and anonymous requests", async ({ page }, testInfo) => {
   if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
   const paths = ["/api/driver/earnings", "/api/driver/earnings/summary", "/api/driver/earnings/DE-00000000000000000000000000000000"];
   for (const email of ["customer@ktcouriers.local", "e2e-store@ktcouriers.local", "superadmin@ktcouriers.local", "e2e-onboarding-1440@ktcouriers.local"]) {
     await login(page, email);
     for (const path of paths) { const response = await page.request.get(path); expect(response.status()).toBe(403); expect(await response.json()).not.toHaveProperty("data"); }
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const path of ["/driver/earnings", "/driver/earnings/DE-00000000000000000000000000000000"]) {
+      const response = await page.goto(path); expect(response?.status()).toBe(200);
+      await expect(page.getByRole("heading", { name: "Earnings unavailable", exact: true })).toBeVisible();
+      await expect(page.locator('[aria-label="Driver earnings summary"]')).toHaveCount(0);
+      await expect(page.locator('[aria-label="Driver earning records"]')).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+      const onboarding = page.getByRole("link", { name: "Review onboarding status", exact: true });
+      await onboarding.focus(); await expect(onboarding).toBeFocused();
+      expect(await onboarding.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        return rect.top >= 0 && rect.bottom <= innerHeight && target !== null && element.contains(target);
+      })).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`driver-earnings-restricted-${width}-${path.split("/").length}.png`), fullPage: true, animations: "disabled" });
+      await onboarding.press("Enter"); await expect(page).toHaveURL("/driver/onboarding");
+    }
+    for (const path of paths) expect((await page.request.get(path)).status()).toBe(403);
   }
   await page.context().clearCookies();
   for (const path of paths) expect((await page.request.get(path)).status()).toBe(401);

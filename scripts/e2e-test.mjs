@@ -106,7 +106,7 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
 
     assertSuccess(runCompose(["run", "--rm", "migrate"], { projectName, env }), "E2E migration deploy");
     assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env }), "E2E seed");
-    assertSuccess(runCompose(["run", "--rm", "-e", "NODE_ENV=test", "-e", "KT_RUNTIME_ENV=e2e", "migrate", "npx", "tsx", "scripts/create-e2e-fixtures.ts"], { projectName, env }), "E2E fixture creation");
+    assertSuccess(runCompose(["run", "--rm", "-e", "NODE_ENV=test", "-e", "KT_RUNTIME_ENV=e2e", "-e", "KT_NETWORK_DISABLED=true", "migrate", "npx", "tsx", "scripts/create-e2e-fixtures.ts"], { projectName, env }), "E2E fixture creation");
 
     const appUp = runCompose(["up", "-d", "e2e-ingress"], { projectName, env });
     if (appUp.status !== 0) {
