@@ -505,6 +505,9 @@ async function main() {
   await prisma.deliveryRegion.update({ where: { id: region.id }, data: { province: "Gauteng", centerLat: -26.2041, centerLng: 28.0473, coverageRadiusKm: 30, maxDistanceKm: 50, active: true, pricingEnabled: true } });
   await upsertStore("e2e-store@ktcouriers.local", "e2e-store", "E2E Store", passwordHash);
   await upsertStore("e2e-other-store@ktcouriers.local", "e2e-other-store", "E2E Other Store", passwordHash);
+  for (const suffix of ["1440", "390", "other"]) {
+    await prisma.user.create({ data: { email: `e2e-checkout-${suffix}@ktcouriers.local`, name: "Disposable checkout customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  }
   // Pending, unapproved driver accounts are owned by independent viewport
   // assertions. No vehicle, licence approval or dispatch eligibility is seeded.
   for (const width of [1440, 390]) {

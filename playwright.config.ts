@@ -29,6 +29,8 @@ export default defineConfig({
         /storefront-accessibility\.spec\.ts/,
         /driver-profile-onboarding\.spec\.ts/,
         /store-catalog-draft-isolation\.spec\.ts/,
+        /marketplace-checkout-customer\.spec\.ts/,
+        /production-visual-review\.spec\.ts/,
       ],
     },
     {

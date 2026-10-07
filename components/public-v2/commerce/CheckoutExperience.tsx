@@ -47,6 +47,8 @@ interface PublicCheckoutData {
   status: string;
   currency: "ZAR";
   version: number;
+  contact?: { recipientName: string; email: string; phone: string; preferredContactMethod: string | null };
+  deliveryAddress?: { line1: string; line2: string | null; suburb: string | null; city: string; province: string; postalCode: string | null; deliveryInstructions: string | null };
   totals: {
     merchandiseSubtotal: string;
     modifierSubtotal: string;
@@ -79,6 +81,10 @@ function retainCheckoutPresentation(next: PublicCheckoutData, previous: PublicCh
 export function CheckoutExperience() {
   const searchParams = useSearchParams();
   const checkoutRef = searchParams.get("ref");
+  return <CheckoutSession key={checkoutRef ?? "no-checkout"} checkoutRef={checkoutRef} />;
+}
+
+function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
   const [checkout, setCheckout] = useState<PublicCheckoutData | null>(null);
   const [loading, setLoading] = useState(Boolean(checkoutRef));
@@ -124,7 +130,7 @@ export function CheckoutExperience() {
     let ignore = false;
     if (!checkoutRef) return;
 
-    fetch(`/api/checkout/${checkoutRef}`)
+    fetch(`/api/checkout/${encodeURIComponent(checkoutRef)}`)
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -135,6 +141,18 @@ export function CheckoutExperience() {
       .then((data) => {
         if (ignore) return;
         setCheckout(data.checkout);
+        const saved = data.checkout as PublicCheckoutData;
+        setContactName(saved.contact?.recipientName ?? "");
+        setContactEmail(saved.contact?.email ?? "");
+        setContactPhone(saved.contact?.phone ?? "");
+        setContactMethod(saved.contact?.preferredContactMethod ?? "EMAIL");
+        setAddrLine1(saved.deliveryAddress?.line1 ?? "");
+        setAddrLine2(saved.deliveryAddress?.line2 ?? "");
+        setAddrSuburb(saved.deliveryAddress?.suburb ?? "");
+        setAddrCity(saved.deliveryAddress?.city ?? "");
+        setAddrProvince(saved.deliveryAddress?.province ?? "Gauteng");
+        setAddrPostalCode(saved.deliveryAddress?.postalCode ?? "");
+        setAddrInstructions(saved.deliveryAddress?.deliveryInstructions ?? "");
         if (data.checkout.status === "RESERVED") {
           setCurrentStep(6);
         } else if (data.checkout.status === "COMPLETED") {
@@ -524,6 +542,14 @@ export function CheckoutExperience() {
         <p style={{ fontSize: "1.1rem", color: "var(--kt-public-text-muted)" }}>Preparing your checkout…</p>
       </div>
     );
+  }
+
+  if (!checkout) {
+    return <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center" }}>
+      <h1>Your checkout is not available</h1>
+      <p role="alert">{errorMessage ?? "The checkout could not be loaded. Please try again."}</p>
+      <Link href="/cart">Return to cart</Link>
+    </div>;
   }
 
   if (orderComplete) {

@@ -85,6 +85,8 @@ export async function getMarketplaceCheckoutForOwner(
         },
       },
       changes: true,
+      contactSnapshot: { select: { recipientName: true, email: true, phone: true, preferredContactMethod: true } },
+      addressSnapshot: { select: { recipientName: true, line1: true, line2: true, suburb: true, city: true, province: true, postalCode: true, country: true, deliveryInstructions: true } },
     },
   });
   if (!checkout)
@@ -517,6 +519,23 @@ export function projectPublicCheckout(checkout: any) {
     status: checkout.status,
     currency: checkout.currency,
     version: checkout.version,
+    ...(checkout.contactSnapshot ? { contact: {
+      recipientName: checkout.contactSnapshot.recipientName,
+      email: checkout.contactSnapshot.email,
+      phone: checkout.contactSnapshot.phone,
+      preferredContactMethod: checkout.contactSnapshot.preferredContactMethod,
+    } } : {}),
+    ...(checkout.addressSnapshot ? { deliveryAddress: {
+      recipientName: checkout.addressSnapshot.recipientName,
+      line1: checkout.addressSnapshot.line1,
+      line2: checkout.addressSnapshot.line2,
+      suburb: checkout.addressSnapshot.suburb,
+      city: checkout.addressSnapshot.city,
+      province: checkout.addressSnapshot.province,
+      postalCode: checkout.addressSnapshot.postalCode,
+      country: checkout.addressSnapshot.country,
+      deliveryInstructions: checkout.addressSnapshot.deliveryInstructions,
+    } } : {}),
     totals: {
       merchandiseSubtotal: money(checkout.merchandiseSubtotal),
       modifierSubtotal: money(checkout.modifierSubtotal),

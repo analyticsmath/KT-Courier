@@ -183,3 +183,34 @@ The three existing catalog UI contract assertions, lint, optimized build and
 3,408 unit/API assertions across 760 files pass with zero skipped. Product submission,
 duplicate detection, offer/price/inventory activation and full vendor acceptance
 remain open.
+
+At `0f11a06101e7dc38490ba9703393c775547a57d0`, certification
+`37619110254` passed all twenty PostgreSQL jobs, quality, Redis/security,
+recovery and all 47 browser assertions (50.5 seconds, zero skipped), including
+both catalog owner isolation assertions. Only the final certified job failed on
+open engineering gates. Main CI `37619110251` subsequently passed on that SHA.
+
+The checkout resume candidate selects and projects only editable owner contact
+and delivery address fields from the canonical snapshots. Verification records,
+guest tokens, protected coordinates and coverage evidence remain private. A keyed
+checkout session resets client state across references; an unavailable owner
+reference displays an error without a stale contact form or order confirmation.
+Five actual PostgreSQL assertions cover customer/guest resumption, foreign and
+cross-owner-type denials, rejected corrections without mutation, and replacement
+snapshots that preserve historical contact evidence. The local closure run passes
+92 assertions in thirteen files (27.59 seconds, zero skipped); nine focused
+checkout projection/service assertions also pass. Two replacement customer browser
+assertions cover address correction, reload/resumption, spoofed return parameters
+and foreign status access at 1440px and 390px. Discovery reports 49 assertions in
+thirteen files; these two require execution. The active placeholder inventory is
+now eighteen in 83 marked files. Successful payment, finalization, actual paid
+confirmation and full financial acceptance remain open.
+
+The candidate also adds four read-only browser capture walks at 1440px, 1366px,
+768px and 390px, covering the quote, product detail, store catalog/wizard, driver
+profile/onboarding and protected production readiness. Successful CI retains
+full-page screenshots in `browser-evidence` for actual visual inspection.
+Discovery now reports 53 assertions in fourteen files. Capture generation and
+overflow assertions are not a visual sign-off; execution and inspection remain
+required. Local lint, TypeScript, optimized build, twelve certification helpers
+and 3,409 unit/API assertions across 760 files pass, zero skipped.
