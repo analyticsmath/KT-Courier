@@ -4,6 +4,7 @@ import { NotificationPolicyError } from "./contracts";
 type Intent = { sourceAuthority: string; eventType: string; aggregateReference: string; operationId: string; safePayload: unknown };
 const unsupported = (): never => { throw new NotificationPolicyError("CLIENT_NOTIFICATION_SOURCE_NOT_SUPPORTED"); };
 const invalid = (): never => { throw new NotificationPolicyError("CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID"); };
+const requireOperation = (intent: Intent, operationId: string) => { if (intent.operationId !== operationId) invalid(); };
 const statusText = (status: string) => status.replaceAll("_", " ").toLowerCase();
 const object = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
@@ -17,14 +18,19 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
   if (intent.sourceAuthority === "MARKETPLACE") {
     const order = await db.marketplaceOrder.findUnique({ where: { id: intent.aggregateReference }, include: { checkout: { select: { publicReference: true, customerUserId: true } } } });
     if (!order || intent.eventType !== "MARKETPLACE_ORDER_CONFIRMED" || order.customerUserId !== order.checkout.customerUserId) return invalid();
+    requireOperation(intent, `marketplace-order-notification:${intent.aggregateReference}`);
     return { customerUserId: order.customerUserId, checkoutReference: order.checkout.publicReference, orderNumber: order.publicReference };
   }
   if (intent.sourceAuthority === "STORE_ORDERS") {
     const order = await db.marketplaceStoreOrder.findUnique({ where: { id: intent.aggregateReference }, include: { store: { select: { ownerUserId: true, status: true } }, marketplaceOrder: { include: { checkout: { select: { publicReference: true, customerUserId: true } } } } } });
     if (!order || order.marketplaceOrder.customerUserId !== order.marketplaceOrder.checkout.customerUserId) return invalid();
-    if (intent.eventType === "STORE_ORDER_RECEIVED") return { storeOwnerUserId: order.store.status === "ACTIVE" ? order.store.ownerUserId : null, orderNumber: order.publicReference };
+    if (intent.eventType === "STORE_ORDER_RECEIVED") {
+      requireOperation(intent, `vendor-order-notification:${intent.aggregateReference}`);
+      return { storeOwnerUserId: order.store.status === "ACTIVE" ? order.store.ownerUserId : null, orderNumber: order.publicReference };
+    }
     const source = typeof raw.sourceEventId === "string" ? await db.marketplaceStoreOrderEventIntent.findUnique({ where: { id: raw.sourceEventId } }) : null;
     if (!source || source.marketplaceStoreOrderId !== order.id || source.eventType !== intent.eventType) return invalid();
+    requireOperation(intent, `store-order-notification:${raw.sourceEventId}`);
     return { customerUserId: order.marketplaceOrder.customerUserId, checkoutReference: order.marketplaceOrder.checkout.publicReference, orderNumber: order.publicReference, status: statusText(source.eventType) };
   }
   if (intent.sourceAuthority === "PAYMENT" || intent.sourceAuthority === "REFUND") {
@@ -45,11 +51,13 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
     if (intent.eventType === "PAYMENT_STATUS_CHANGED" && intent.sourceAuthority === "PAYMENT") {
       const history = typeof raw.sourceEventId === "string" ? await db.paymentStatusHistory.findUnique({ where: { id: raw.sourceEventId } }) : null;
       if (!history || history.paymentId !== payment.id || !["FAILED", "CANCELLED", "EXPIRED"].includes(history.toStatus)) return invalid();
+      requireOperation(intent, `payment-status-notification:${raw.sourceEventId}`);
       return { ...recipient, paymentReference: payment.publicReference, status: statusText(history.toStatus) };
     }
     if (refund && intent.eventType === "REFUND_STATUS_CHANGED") {
       const history = typeof raw.sourceEventId === "string" ? await db.refundStatusHistory.findUnique({ where: { id: raw.sourceEventId } }) : null;
       if (!history || history.refundId !== refund.id || (history.toStatus === "SUCCEEDED" && (!refund.completionLedgerJournalId || !refund.completedAt))) return invalid();
+      requireOperation(intent, `refund-status-notification:${raw.sourceEventId}`);
       return { ...recipient, refundReference: refund.publicReference, amount: refund.amount.toFixed(2), status: statusText(history.toStatus) };
     }
   }

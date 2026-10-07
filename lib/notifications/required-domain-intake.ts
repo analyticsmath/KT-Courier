@@ -28,6 +28,9 @@ export async function appendRequiredDomainNotificationIntents(db: Prisma.Transac
         AND NOT EXISTS (SELECT 1 FROM "NotificationEventIntent" i WHERE i."operationId" = e.operation)
       ORDER BY e.occurred, e.operation LIMIT ${Math.min(limit, 200)}
   `);
-  for (const candidate of candidates) await db.notificationEventIntent.upsert({ where: { operationId: candidate.operationId }, update: {}, create: { sourceAuthority: candidate.sourceAuthority, eventType: candidate.eventType, aggregateReference: candidate.aggregateReference, operationId: candidate.operationId, safePayload: { sourceEventId: candidate.sourceEventId }, createdAt: candidate.occurredAt } });
-  return candidates.length;
+  // Empty-update upserts may use Prisma's read/create path, which races between
+  // workers. PostgreSQL ON CONFLICT DO NOTHING preserves the first immutable
+  // source intent and keeps concurrent intake from aborting its transaction.
+  const inserted = await db.notificationEventIntent.createMany({ skipDuplicates: true, data: candidates.map((candidate) => ({ sourceAuthority: candidate.sourceAuthority, eventType: candidate.eventType, aggregateReference: candidate.aggregateReference, operationId: candidate.operationId, safePayload: { sourceEventId: candidate.sourceEventId }, createdAt: candidate.occurredAt })) });
+  return inserted.count;
 }

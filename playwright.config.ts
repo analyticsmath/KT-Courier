@@ -24,6 +24,7 @@ export default defineConfig({
         /commission-finance-admin\.spec\.ts/,
         /production-closure\.spec\.ts/,
         /marketplace-checkout-accessibility\.spec\.ts/,
+        /marketplace-checkout-admin\.spec\.ts/,
         /storefront-product-detail\.spec\.ts/,
         /storefront-accessibility\.spec\.ts/,
       ],

@@ -19,3 +19,5 @@ Containment state: **isolated and untouched, removal requires supported Railway 
 Credentials were neither retrieved nor recorded. OAuth variable listing exposes names only. Tracing is currently disabled; enabling it is deferred while the destructive patch remains staged.
 
 Read-only refresh at 2026-10-07 01:12 UTC confirmed patch status STAGED and `destructive: true`, with the same create/delete actions. All four live deployment IDs remained SUCCESS. No Railway mutation was performed.
+
+Read-only refresh at 2026-10-07 09:56 UTC again confirmed the same patch is STAGED, destructive and contains five changes. All four live services were online with SUCCESS deployments, one running replica each and no current issues. The redacted provider artifact records only service/deployment health and patch action identities. The operations service was neither deleted nor redeployed.

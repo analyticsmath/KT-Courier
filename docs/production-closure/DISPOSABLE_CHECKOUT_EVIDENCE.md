@@ -71,3 +71,20 @@ expected the product identity rather than the actual selected offer title.
 Candidate scopes checkout errors to the form-associated alert, checks the exact
 fixture offer titles and uses the named mobile purchase dock. Fresh execution
 remains required; the engineering gates remain open and no deployment is allowed.
+
+At `a636605708ac5cc5e28bcd59b771ca57b808cfaa`, main CI passed. All 40
+browser assertions passed with zero skipped (49.6 seconds); quality, all 20
+PostgreSQL jobs, Redis/security and recovery also passed. Certification run
+`37610397199` correctly failed its final `certified` job because the engineering
+manifest still contains open gates. Green component jobs do not authorize release.
+
+The next candidate adds two checkout administration assertions (42 discovered
+across ten files) and a shared permission-protected, read-only records projection.
+It also binds required-domain notification operation IDs to canonical source
+events and replaces racing empty-update upserts with PostgreSQL conflict-safe
+insertion. Local disposable closure validation first exposed that intake race
+(69 passed, two failed); after the root fix, all 71 tests in ten files passed,
+with zero skipped. The eleven required-domain tests include actual guest email
+verification, concurrent intake/publication, unverified-account blocking,
+preferences, suppression, forged duplicate rejection and pre-send contact
+revocation. No external email send or successful payment is claimed by these tests.

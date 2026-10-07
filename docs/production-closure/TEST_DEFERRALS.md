@@ -11,7 +11,6 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/e2e/customer-wallet-refunds.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/home-cinematic-regression.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/keyboard-navigation.spec.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
-| tests/e2e/marketplace-checkout-admin.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/marketplace-checkout-customer.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/marketplace-checkout-guest.spec.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/e2e/marketplace-checkout-payment.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
@@ -78,4 +77,4 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/phase26/integration/retention-schedules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/phase26/integration/screening-rules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 
-Audited files with skip/deferral markers: 73. Release-critical open placeholders: 29.
+Audited files with skip/deferral markers: 72. Release-critical open placeholders: 28.

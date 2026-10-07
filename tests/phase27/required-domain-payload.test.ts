@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { resolveRequiredDomainPayload } from "@/lib/notifications/required-domain-payload";
 
 const asDb = (db: unknown) => db as Prisma.TransactionClient;
-const event = (sourceAuthority: string, eventType: string, safePayload: Record<string, unknown> = {}) => ({ sourceAuthority, eventType, aggregateReference: "source", operationId: "operation", safePayload });
+const event = (sourceAuthority: string, eventType: string, safePayload: Record<string, unknown> = {}) => ({ sourceAuthority, eventType, aggregateReference: "source", operationId: eventType === "MARKETPLACE_ORDER_CONFIRMED" ? "marketplace-order-notification:source" : eventType === "STORE_ORDER_RECEIVED" ? "vendor-order-notification:source" : `${sourceAuthority === "STORE_ORDERS" ? "store-order" : sourceAuthority === "REFUND" ? "refund-status" : "payment-status"}-notification:${safePayload.sourceEventId}`, safePayload });
 
 describe("canonical required-domain notification payloads", () => {
   it("ignores spoofed marketplace destinations and account identity", async () => {
@@ -43,6 +43,16 @@ describe("canonical required-domain notification payloads", () => {
     expect(await resolveRequiredDomainPayload(asDb(db), event("PAYMENT", "PAYMENT_STATUS_CHANGED", { sourceEventId: "history", status: "SUCCEEDED" }))).toMatchObject({ status: "failed" });
     db.paymentStatusHistory.findUnique.mockResolvedValue({ paymentId: "payment", toStatus: "SUCCEEDED" });
     await expect(resolveRequiredDomainPayload(asDb(db), event("PAYMENT", "PAYMENT_STATUS_CHANGED", { sourceEventId: "history" }))).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+  });
+  it("rejects a second operation identity for the same canonical payment history", async () => {
+    const intent = { ...event("PAYMENT", "PAYMENT_STATUS_CHANGED", { sourceEventId: "history" }), operationId: "forged-duplicate" };
+    await expect(resolveRequiredDomainPayload(asDb(paymentDb({ status: "FAILED" })), intent)).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+  });
+  it.each(["MARKETPLACE", "STORE_ORDERS"])("rejects a forged order notification identity in %s", async (authority) => {
+    const order = { customerUserId: "owner", publicReference: "order-public", checkout: { customerUserId: "owner", publicReference: "checkout-public" } };
+    const db = asDb({ marketplaceOrder: { findUnique: vi.fn().mockResolvedValue(order) }, marketplaceStoreOrder: { findUnique: vi.fn().mockResolvedValue({ store: { status: "ACTIVE", ownerUserId: "vendor" }, marketplaceOrder: order }) } });
+    const intent = { ...event(authority, authority === "MARKETPLACE" ? "MARKETPLACE_ORDER_CONFIRMED" : "STORE_ORDER_RECEIVED"), operationId: "forged-duplicate" };
+    await expect(resolveRequiredDomainPayload(db, intent)).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
   });
   it("requires canonical completion evidence for refund-success messages", async () => {
     const db = { ...paymentDb(), paymentRefund: { findUnique: vi.fn().mockResolvedValue({ id: "source", customerUserId: "customer", paymentId: "payment", publicReference: "refund-public", amount: new Prisma.Decimal("20.00"), completionLedgerJournalId: null, completedAt: null }) }, refundStatusHistory: { findUnique: vi.fn().mockResolvedValue({ refundId: "source", toStatus: "SUCCEEDED" }) } };
