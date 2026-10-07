@@ -17,7 +17,10 @@ test.describe("finance commission administration in the disposable browser", () 
     await page.goto(`/admin/commission-plans/${id}`);
     await expect(page.getByRole("heading", { name: "Edit draft rules" })).toBeVisible();
     await page.getByLabel("Calculation version", { exact: true }).fill("disposable-browser-edited");
+    const saveResponse = page.waitForResponse(response => response.url().endsWith(root) && response.request().method() === "PATCH");
     await page.getByRole("button", { name: "Save draft", exact: true }).click();
+    const saved = await saveResponse;
+    expect(saved.status(), await saved.text()).toBe(200);
     await expect.poll(async () => (await api(page, root, "GET")).body.plan.calculationVersion).toBe("disposable-browser-edited");
     const preview = await api(page, `${root}/preview`, "POST", { subtotal: "10.00", tax: "0.00", total: "10.00", operationId: crypto.randomUUID() }); expect(preview.status).toBe(200); expect(preview.body.authoritative).toBe(false);
     const submit = await api(page, `${root}/submit`, "POST", { operationId: crypto.randomUUID() }); expect(submit.status).toBe(200); expect(submit.body.plan.status).toBe("UNDER_REVIEW");

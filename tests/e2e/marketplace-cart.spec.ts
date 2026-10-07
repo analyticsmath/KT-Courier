@@ -1,345 +1,102 @@
-import { expect, test as baseTest } from "@playwright/test";
-import { attachConsoleMonitor } from "./fixtures/console-monitor";
+import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { login } from "./fixtures/auth";
-
-const isLocalValidationServerAvailable = Boolean(
-  process.env.PLAYWRIGHT_BASE_URL || process.env.KT_LOCAL_STOREFRONT_VALIDATION === "true"
-);
-
-const SAFE_HASH = "request-hash-1234567890123456";
-
-const test = baseTest.extend({
-  request: async ({ page }, provide) => {
-    await provide(page.request);
-  },
-});
-
-test.describe("Marketplace Cart Journey", () => {
+const mutation = () => ({ operationId: crypto.randomUUID(), requestHash: crypto.randomUUID() });
+const headers = () => ({ Origin: process.env.PLAYWRIGHT_BASE_URL! });
+async function cart(request: APIRequestContext) {
+  const response = await request.get("/api/cart");
+  expect(response.status(), await response.text()).toBe(200);
+  return (await response.json()).cart;
+}
+async function add(page: Page, quantity = 1, custom?: ReturnType<typeof mutation>) {
+  const current = await cart(page.request);
+  const data = { offerReference: "CO-E2E64GB", variantReference: "CV-E2E64GB", quantity, modifiers: [], ...custom ?? mutation(), cartVersion: current.version };
+  const response = await page.request.post("/api/cart/lines", { data, headers: headers() });
+  expect(response.status(), await response.text()).toBe(201);
+  return { data, body: await response.json() };
+}
+test.describe("Marketplace canonical cart journey", () => {
   test.beforeEach(() => {
-    test.skip(!isLocalValidationServerAvailable, "Requires active local app instance with KT_LOCAL_STOREFRONT_VALIDATION=true");
+    if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
   });
-
-  test("anonymous cart creation sets guest ownership cookie and records line selection", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const res = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-create-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-
-    expect(res.status()).toBe(201);
-    const body = await res.json();
-    expect(body.cart).toBeDefined();
-    expect(body.cart.reference).toBeDefined();
-
-    const headers = res.headers();
-    const setCookie = headers["set-cookie"] || "";
-    expect(setCookie).toContain("kt_marketplace_cart");
-
-    const storeGroups = body.cart.storeGroups;
-    expect(storeGroups.length).toBeGreaterThan(0);
-    const line = storeGroups[0].lines[0];
-    expect(line.variantReference).toBe("var_64gb");
-    expect(line.quantity).toBe(1);
-
+  test("anonymous cart persists ownership, exact server prices and its selection across reload", async ({ page }) => {
+    const { body } = await add(page);
+    expect(body.cart.storeGroups[0].lines[0]).toMatchObject({ variantReference: "CV-E2E64GB", quantity: 1, lineTotal: "1500.00" });
+    expect((await page.context().cookies()).some(c => c.name === "kt_marketplace_cart" && c.httpOnly)).toBe(true);
     await page.goto("/cart");
-    await expect(page.locator("h1")).toBeVisible();
-
-    monitor.assertClean();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.locator("body")).toContainText("E2E Smartphone");
+    await page.reload();
+    expect((await cart(page.request)).reference).toBe(body.cart.reference);
   });
-
-  test("quantity update modifies line quantity and persists across reload", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const op1 = `op-qty-1-${Date.now()}`;
-    const createRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: op1,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    expect(createRes.status()).toBe(201);
-    const createBody = await createRes.json();
-    const lineRef = createBody.cart.storeGroups[0].lines[0].reference;
-    const version = createBody.cart.version;
-
-    const updateRes = await request.put(`/api/cart/lines/${lineRef}`, {
-      data: {
-        quantity: 3,
-        operationId: `op-qty-2-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: version,
-      },
-    });
-    expect(updateRes.status()).toBe(200);
-    const updateBody = await updateRes.json();
-    const updatedLine = updateBody.cart.storeGroups[0].lines.find((l: { reference: string }) => l.reference === lineRef);
-    expect(updatedLine.quantity).toBe(3);
-
-    await page.goto("/cart");
-    await expect(page.locator("h1")).toBeVisible();
-
-    monitor.assertClean();
+  test("quantity updates persist across reload with exact recalculated totals", async ({ page }) => {
+    const { body } = await add(page);
+    const line = body.cart.storeGroups[0].lines[0];
+    const response = await page.request.patch(`/api/cart/lines/${line.reference}`, { headers: headers(), data: { cartReference: body.cart.reference, cartVersion: body.cart.version, quantity: 3, ...mutation() } });
+    expect(response.status(), await response.text()).toBe(200);
+    await page.goto("/cart"); await page.reload();
+    expect((await cart(page.request)).storeGroups[0].lines[0]).toMatchObject({ quantity: 3, lineTotal: "4500.00" });
   });
-
-  test("modifier update applies selected modifier and recalculates line total", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const createRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-mod-1-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const createBody = await createRes.json();
-    const lineRef = createBody.cart.storeGroups[0].lines[0].reference;
-    const version = createBody.cart.version;
-
-    const modRes = await request.put(`/api/cart/lines/${lineRef}`, {
-      data: {
-        quantity: 1,
-        modifiers: [{ groupReference: "mod_warranty", optionReference: "opt_2yr", quantity: 1 }],
-        operationId: `op-mod-2-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: version,
-      },
-    });
-    expect(modRes.status()).toBe(200);
-    const modBody = await modRes.json();
-    const line = modBody.cart.storeGroups[0].lines[0];
-    expect(line.selectedModifiers.length).toBe(1);
-    expect(line.lineTotal).toBe("1750.00");
-
-    monitor.assertClean();
+  test("modifier changes apply the canonical option price", async ({ page }) => {
+    const { body } = await add(page);
+    const line = body.cart.storeGroups[0].lines[0];
+    const response = await page.request.patch(`/api/cart/lines/${line.reference}`, { headers: headers(), data: { cartReference: body.cart.reference, cartVersion: body.cart.version, modifiers: [{ groupReference: "mod_warranty", optionReference: "opt_2yr", quantity: 1 }], ...mutation() } });
+    expect(response.status(), await response.text()).toBe(200);
+    expect((await response.json()).cart.storeGroups[0].lines[0]).toMatchObject({ lineTotal: "1750.00", modifiers: [expect.objectContaining({ optionReference: "opt_2yr", priceDelta: "250.00" })] });
   });
-
-  test("line removal clears cart line and returns truthful empty cart state", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const createRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-del-1-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const createBody = await createRes.json();
-    const lineRef = createBody.cart.storeGroups[0].lines[0].reference;
-    const version = createBody.cart.version;
-
-    const delRes = await request.delete(`/api/cart/lines/${lineRef}`, {
-      data: {
-        operationId: `op-del-2-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: version,
-      },
-    });
-    expect(delRes.status()).toBe(200);
-    const delBody = await delRes.json();
-    expect(delBody.cart.storeGroups.length).toBe(0);
-
-    monitor.assertClean();
+  test("removing a line leaves a truthful empty persisted cart", async ({ page }) => {
+    const { body } = await add(page);
+    const response = await page.request.delete(`/api/cart/lines/${body.cart.storeGroups[0].lines[0].reference}`, { headers: headers(), data: { cartVersion: body.cart.version, ...mutation() } });
+    expect(response.status()).toBe(200);
+    expect((await cart(page.request)).storeGroups).toHaveLength(0);
+    expect((await cart(page.request)).totals.grandTotal).toBe("0.00");
   });
-
-  test("cart claim invalidates guest token cookie upon customer auth", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const guestCartRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-claim-1-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const guestCartBody = await guestCartRes.json();
-    const cartRef = guestCartBody.cart.reference;
-
+  test("authenticated claim clears the guest cookie and retains the selected line", async ({ page }) => {
+    const guest = await add(page);
     await login(page, "customer@ktcouriers.local");
-
-    const claimRes = await page.request.post("/api/cart/claim", {
-      data: {
-        cartReference: cartRef,
-        operationId: `op-claim-2-${Date.now()}`,
-        requestHash: SAFE_HASH,
-      },
-    });
-    expect(claimRes.status()).toBe(200);
-    const claimBody = await claimRes.json();
-    expect(claimBody.cart.owner.type).toBe("CUSTOMER");
-
-    monitor.assertClean();
+    const response = await page.request.post("/api/cart/claim", { headers: headers(), data: { cartVersion: guest.body.cart.version, ...mutation() } });
+    expect(response.status(), await response.text()).toBe(200);
+    expect((await response.json()).cart.cart.owner.type).toBe("CUSTOMER");
+    expect((await page.context().cookies()).some(c => c.name === "kt_marketplace_cart")).toBe(false);
+    expect((await cart(page.request)).itemCount).toBeGreaterThan(0);
   });
-
-  test("cart merge combines guest and customer cart lines cleanly according to fingerprint policy", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const guestCartRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 2,
-        modifiers: [],
-        operationId: `op-merge-guest-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const guestCartBody = await guestCartRes.json();
-    const guestCartRef = guestCartBody.cart.reference;
-
+  test("merge combines canonical customer and guest selections by fingerprint", async ({ page }) => {
+    const guest = await add(page, 2);
     await login(page, "customer@ktcouriers.local");
-
-    const custCartRes = await page.request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-merge-cust-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const custCartBody = await custCartRes.json();
-
-    const mergeRes = await page.request.post("/api/cart/merge", {
-      data: {
-        sourceCartReference: guestCartRef,
-        targetCartReference: custCartBody.cart.reference,
-        operationId: `op-merge-do-${Date.now()}`,
-        requestHash: SAFE_HASH,
-      },
-    });
-    expect(mergeRes.status()).toBe(200);
-    const mergeBody = await mergeRes.json();
-    const lines = mergeBody.cart.storeGroups[0].lines;
-    expect(lines[0].quantity).toBe(3);
-
-    monitor.assertClean();
+    const existing = await cart(page.request);
+    const cleared = await page.request.post("/api/cart/clear", { headers: headers(), data: { cartReference: existing.reference, cartVersion: existing.version, ...mutation() } });
+    expect(cleared.status()).toBe(200);
+    await add(page, 1);
+    const response = await page.request.post("/api/cart/merge", { headers: headers(), data: { cartVersion: guest.body.cart.version, ...mutation() } });
+    expect(response.status(), await response.text()).toBe(200);
+    expect((await cart(page.request)).storeGroups[0].lines[0].quantity).toBe(3);
   });
-
-  test("cart operation replay returns deterministic receipt without duplicate line creation", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const opId = `op-replay-${Date.now()}`;
-    const payload = {
-      offerReference: "off_64gb",
-      variantReference: "var_64gb",
-      quantity: 1,
-      modifiers: [],
-      operationId: opId,
-      requestHash: SAFE_HASH,
-      cartVersion: 0,
-    };
-
-    const res1 = await request.post("/api/cart/lines", { data: payload });
-    expect(res1.status()).toBe(201);
-    const body1 = await res1.json();
-
-    const res2 = await request.post("/api/cart/lines", { data: payload });
-    expect([200, 201]).toContain(res2.status());
-    const body2 = await res2.json();
-
-    expect(body1.cart.reference).toBe(body2.cart.reference);
-
-    monitor.assertClean();
+  test("operation replay preserves one line and one version", async ({ page }) => {
+    const first = await add(page);
+    const replay = await page.request.post("/api/cart/lines", { headers: headers(), data: first.data });
+    expect(replay.status()).toBe(201);
+    expect((await replay.json()).cart.replayed).toBe(true);
+    const current = await cart(page.request);
+    expect(current.version).toBe(first.body.cart.version);
+    expect(current.storeGroups[0].lines).toHaveLength(1);
   });
-
-  test("unauthorized access attempt without guest secret is safely denied", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const guestCartRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-unauth-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const guestCartBody = await guestCartRes.json();
-    const lineRef = guestCartBody.cart.storeGroups[0].lines[0].reference;
-
-    const otherContext = await page.context().browser()?.newContext();
-    if (otherContext) {
-      const updateRes = await otherContext.request.put(`/api/cart/lines/${lineRef}`, {
-        data: {
-          quantity: 5,
-          operationId: `op-unauth-hacker-${Date.now()}`,
-          requestHash: SAFE_HASH,
-          cartVersion: guestCartBody.cart.version,
-        },
-      });
-      expect([401, 403, 404]).toContain(updateRes.status());
-      await otherContext.close();
-    }
-
-    monitor.assertClean();
+  test("another browser cannot mutate the owner's line, including a known receipt", async ({ page, browser }) => {
+    const first = await add(page);
+    const other = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL });
+    try {
+      const foreign = await cart(other.request);
+      const response = await other.request.patch(`/api/cart/lines/${first.body.cart.storeGroups[0].lines[0].reference}`, { headers: headers(), data: { cartReference: first.body.cart.reference, cartVersion: foreign.version, quantity: 5, ...mutation() } });
+      expect(response.status()).toBe(404);
+      expect((await cart(page.request)).storeGroups[0].lines[0].quantity).toBe(1);
+    } finally { await other.close(); }
   });
-
-  test("stale cart version mutation triggers version conflict error", async ({ request, page }) => {
-    const monitor = attachConsoleMonitor(page);
-
-    const res1 = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-stale-1-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const body1 = await res1.json();
-    const lineRef = body1.cart.storeGroups[0].lines[0].reference;
-
-    await request.put(`/api/cart/lines/${lineRef}`, {
-      data: {
-        quantity: 2,
-        operationId: `op-stale-2-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: body1.cart.version,
-      },
-    });
-
-    const staleRes = await request.put(`/api/cart/lines/${lineRef}`, {
-      data: {
-        quantity: 4,
-        operationId: `op-stale-3-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: body1.cart.version,
-      },
-    });
-    expect([400, 409, 422]).toContain(staleRes.status());
-
-    monitor.assertClean();
+  test("stale mutations fail deterministically without altering the accepted quantity", async ({ page }) => {
+    const first = await add(page);
+    const path = `/api/cart/lines/${first.body.cart.storeGroups[0].lines[0].reference}`;
+    const data = { cartReference: first.body.cart.reference, cartVersion: first.body.cart.version, quantity: 2, ...mutation() };
+    expect((await page.request.patch(path, { headers: headers(), data })).status()).toBe(200);
+    const stale = await page.request.patch(path, { headers: headers(), data: { ...data, quantity: 4, ...mutation() } });
+    expect(stale.status()).toBe(409);
+    expect((await stale.json()).code).toBe("CART_VERSION_CONFLICT");
+    expect((await cart(page.request)).storeGroups[0].lines[0].quantity).toBe(2);
   });
 });

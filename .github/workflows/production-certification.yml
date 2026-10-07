@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: true
 env:
   KT_NETWORK_DISABLED: 'true'
-  KT_RUNTIME_ENV: e2e
   EMAIL_PROVIDER: console
   PAYSTACK_ACTIVE: 'false'
   NEXT_PUBLIC_APP_URL: http://localhost:3000
@@ -61,6 +60,7 @@ jobs:
       matrix:
         command: [docker:migration-smoke, test:integration:auth, test:integration:permissions, test:integration:orders, test:integration:pricing, test:integration:dispatch, test:integration:cross-module, test:integration:driver-operations, test:integration:ledger, test:integration:payment-foundation, test:integration:refunds, test:integration:withdrawals, test:integration:store-earnings, test:integration:driver-earnings, test:integration:marketplace-checkout, test:integration:store-orders, test:integration:storefront, test:integration:catalog, test:integration:closure, docker:gate4]
     env:
+      KT_RUNTIME_ENV: e2e
       KT_ALLOW_ISOLATED_POSTGRES_TESTS: '1'
       KT_WITHDRAWAL_INTEGRATION_APPROVED: 'true'
       KT_REFUND_INTEGRATION_APPROVED: 'true'

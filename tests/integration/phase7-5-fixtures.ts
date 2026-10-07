@@ -62,6 +62,15 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   });
   await integrationPrisma.driverServiceRegion.create({ data: { driverProfileId: profile.id, deliveryRegionId: regionId, isPrimary: true } });
 
+  await createApprovedDriverEvidence(profile.id, user.id, tag);
+  return { user, profile };
+}
+
+/** Approved evidence exists only in the caller's disposable test database. */
+export async function createApprovedDriverEvidence(driverProfileId: string, userId: string, tag: string) {
+  const profile = { id: driverProfileId };
+  const user = { id: userId };
+
   await integrationPrisma.driverDocument.createMany({
     data: [
       { driverProfileId: profile.id, documentType: DocumentType.ID_DOCUMENT, status: DocumentStatus.APPROVED, expiresAt: null },
@@ -144,7 +153,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
     ],
   });
 
-  return { user, profile };
+  return vehicle;
 }
 
 export async function createDispatchOrder(tag: string, customerId: string, regionId: string) {

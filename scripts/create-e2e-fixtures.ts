@@ -86,20 +86,20 @@ async function seedPhase2Fixtures(passwordHash: string) {
 
   // Product 1: Smartphone
   const smartphone = await prisma.catalogProduct.upsert({
-    where: { publicReference: "prod_e2esmartphone" },
+    where: { publicReference: "CP-E2ESMARTPHONE" },
     update: { title: "E2E Smartphone" },
-    create: { publicReference: "prod_e2esmartphone", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Smartphone", normalizedTitle: "e2e smartphone", slug: "e2e-smartphone", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
+    create: { publicReference: "CP-E2ESMARTPHONE", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Smartphone", normalizedTitle: "e2e smartphone", slug: "e2e-smartphone", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
   });
 
   const var64 = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_64gb" },
+    where: { publicReference: "CV-E2E64GB" },
     update: { title: "64GB / Black", status: "ACTIVE" },
-    create: { publicReference: "var_64gb", productId: smartphone.id, title: "64GB / Black", normalizedTitle: "64gb black", optionFingerprint: "var_64gb", skuReference: "E2E-PHONE-64", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2E64GB", productId: smartphone.id, title: "64GB / Black", normalizedTitle: "64gb black", optionFingerprint: "CV-E2E64GB", skuReference: "E2E-PHONE-64", attributeValues: {}, status: "ACTIVE" },
   });
   const var128 = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_128gb" },
+    where: { publicReference: "CV-E2E128GB" },
     update: { title: "128GB / Silver", status: "ACTIVE" },
-    create: { publicReference: "var_128gb", productId: smartphone.id, title: "128GB / Silver", normalizedTitle: "128gb silver", optionFingerprint: "var_128gb", skuReference: "E2E-PHONE-128", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2E128GB", productId: smartphone.id, title: "128GB / Silver", normalizedTitle: "128gb silver", optionFingerprint: "CV-E2E128GB", skuReference: "E2E-PHONE-128", attributeValues: {}, status: "ACTIVE" },
   });
 
   await prisma.catalogProduct.update({
@@ -109,14 +109,14 @@ async function seedPhase2Fixtures(passwordHash: string) {
 
   // Offers for Product 1
   const offer64 = await prisma.storeCatalogOffer.upsert({
-    where: { publicReference: "off_64gb" },
+    where: { publicReference: "CO-E2E64GB" },
     update: {},
-    create: { publicReference: "off_64gb", storeId: store.id, productId: smartphone.id, variantId: var64.id, storeSku: "OFF-PHONE-64", merchantTitle: "E2E Smartphone 64GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
+    create: { publicReference: "CO-E2E64GB", storeId: store.id, productId: smartphone.id, variantId: var64.id, storeSku: "OFF-PHONE-64", merchantTitle: "E2E Smartphone 64GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
   });
   const offer128 = await prisma.storeCatalogOffer.upsert({
-    where: { publicReference: "off_128gb" },
+    where: { publicReference: "CO-E2E128GB" },
     update: {},
-    create: { publicReference: "off_128gb", storeId: store.id, productId: smartphone.id, variantId: var128.id, storeSku: "OFF-PHONE-128", merchantTitle: "E2E Smartphone 128GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
+    create: { publicReference: "CO-E2E128GB", storeId: store.id, productId: smartphone.id, variantId: var128.id, storeSku: "OFF-PHONE-128", merchantTitle: "E2E Smartphone 128GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
   });
 
   // Prices
@@ -205,14 +205,14 @@ async function seedPhase2Fixtures(passwordHash: string) {
 
   // Product 2: Product No Media
   const noMediaProduct = await prisma.catalogProduct.upsert({
-    where: { publicReference: "prod_nomedia" },
+    where: { publicReference: "CP-E2ENOMEDIA" },
     update: { title: "E2E Product No Media" },
-    create: { publicReference: "prod_nomedia", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Product No Media", normalizedTitle: "e2e product no media", slug: "e2e-product-no-media", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
+    create: { publicReference: "CP-E2ENOMEDIA", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Product No Media", normalizedTitle: "e2e product no media", slug: "e2e-product-no-media", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
   });
   const varNoMedia = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_nomedia" },
+    where: { publicReference: "CV-E2ENOMEDIA" },
     update: { title: "Standard", status: "ACTIVE" },
-    create: { publicReference: "var_nomedia", productId: noMediaProduct.id, title: "Standard", normalizedTitle: "standard", optionFingerprint: "var_nomedia", skuReference: "E2E-NOMEDIA-STD", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2ENOMEDIA", productId: noMediaProduct.id, title: "Standard", normalizedTitle: "standard", optionFingerprint: "CV-E2ENOMEDIA", skuReference: "E2E-NOMEDIA-STD", attributeValues: {}, status: "ACTIVE" },
   });
   await prisma.catalogProduct.update({
     where: { id: noMediaProduct.id },
@@ -239,14 +239,14 @@ async function seedPhase2Fixtures(passwordHash: string) {
 
   // Product 3: Headphones
   const headphones = await prisma.catalogProduct.upsert({
-    where: { publicReference: "prod_headphones" },
+    where: { publicReference: "CP-E2EHEADPHONES" },
     update: { title: "Wireless Headphones" },
-    create: { publicReference: "prod_headphones", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "Wireless Headphones", normalizedTitle: "wireless headphones", slug: "wireless-headphones", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
+    create: { publicReference: "CP-E2EHEADPHONES", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "Wireless Headphones", normalizedTitle: "wireless headphones", slug: "wireless-headphones", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
   });
   const varHeadphones = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_headphones" },
+    where: { publicReference: "CV-E2EHEADPHONES" },
     update: { title: "Black", status: "ACTIVE" },
-    create: { publicReference: "var_headphones", productId: headphones.id, title: "Black", normalizedTitle: "black", optionFingerprint: "var_headphones", skuReference: "E2E-AUDIO-BLK", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2EHEADPHONES", productId: headphones.id, title: "Black", normalizedTitle: "black", optionFingerprint: "CV-E2EHEADPHONES", skuReference: "E2E-AUDIO-BLK", attributeValues: {}, status: "ACTIVE" },
   });
   await prisma.catalogProduct.update({
     where: { id: headphones.id },
@@ -290,13 +290,13 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snap64.id,
       publicationVersion: pubVer,
       productId: smartphone.id,
-      productPublicReference: "prod_e2esmartphone",
+      productPublicReference: "CP-E2ESMARTPHONE",
       productSlug: "e2e-smartphone",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: var64.id,
-      variantPublicReference: "var_64gb",
+      variantPublicReference: "CV-E2E64GB",
       offerId: offer64.id,
-      offerPublicReference: "off_64gb",
+      offerPublicReference: "CO-E2E64GB",
       storeId: store.id,
       storePublicReference: "e2e-store-ref",
       storeSlug: "e2e-store",
@@ -338,13 +338,13 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snap128.id,
       publicationVersion: pubVer,
       productId: smartphone.id,
-      productPublicReference: "prod_e2esmartphone",
+      productPublicReference: "CP-E2ESMARTPHONE",
       productSlug: "e2e-smartphone",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: var128.id,
-      variantPublicReference: "var_128gb",
+      variantPublicReference: "CV-E2E128GB",
       offerId: offer128.id,
-      offerPublicReference: "off_128gb",
+      offerPublicReference: "CO-E2E128GB",
       storeId: store.id,
       storePublicReference: "e2e-store-ref",
       storeSlug: "e2e-store",
@@ -386,11 +386,11 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snapNoMedia.id,
       publicationVersion: pubVer,
       productId: noMediaProduct.id,
-      productPublicReference: "prod_nomedia",
+      productPublicReference: "CP-E2ENOMEDIA",
       productSlug: "e2e-product-no-media",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: varNoMedia.id,
-      variantPublicReference: "var_nomedia",
+      variantPublicReference: "CV-E2ENOMEDIA",
       offerId: offerNoMedia.id,
       offerPublicReference: "off_nomedia",
       storeId: store.id,
@@ -434,11 +434,11 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snapHeadphones.id,
       publicationVersion: pubVer,
       productId: headphones.id,
-      productPublicReference: "prod_headphones",
+      productPublicReference: "CP-E2EHEADPHONES",
       productSlug: "wireless-headphones",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: varHeadphones.id,
-      variantPublicReference: "var_headphones",
+      variantPublicReference: "CV-E2EHEADPHONES",
       offerId: offerHeadphones.id,
       offerPublicReference: "off_headphones",
       storeId: store.id,

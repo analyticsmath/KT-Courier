@@ -53,6 +53,7 @@ export async function addCartLine(repository: MarketplaceCartMutationRepository,
   assertSupportedQuantity(input.selection.quantity);
   return repository.transaction(async () => {
     const cart = await repository.lockCart(input.cartId); if (!cart) throw new MarketplaceCheckoutError("CART_NOT_FOUND", "Cart is unavailable.");
+    if (!sameOwner(cart.owner, input.owner)) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
     const replay = await replayOrConflict(repository, cart.id, input.mutation); if (replay) return replay;
     mutableCart(cart, input.owner, input.mutation.expectedVersion);
     const fingerprint = cartLineFingerprint({ offerReference: input.selection.offerReference, variantReference: input.selection.variantReference, modifiers: input.selection.modifiers.map((item) => ({ groupReference: item.groupReference, optionReference: item.optionReference, quantity: item.quantity })) });
@@ -70,6 +71,7 @@ export async function updateCartLineQuantity(repository: MarketplaceCartMutation
   assertSupportedQuantity(input.quantity);
   return repository.transaction(async () => {
     const cart = await repository.lockCart(input.cartId); if (!cart) throw new MarketplaceCheckoutError("CART_NOT_FOUND", "Cart is unavailable.");
+    if (!sameOwner(cart.owner, input.owner)) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
     const replay = await replayOrConflict(repository, cart.id, input.mutation); if (replay) return replay;
     mutableCart(cart, input.owner, input.mutation.expectedVersion);
     const existing = cart.lines.find((line) => line.publicReference === input.lineReference); if (!existing) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line is unavailable.");
@@ -82,6 +84,7 @@ export async function updateCartLineQuantity(repository: MarketplaceCartMutation
 export async function replaceCartLineModifiers(repository: MarketplaceCartMutationRepository, input: Readonly<{ cartId: string; lineReference: string; owner: CartOwner; mutation: CartMutation; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; revalidate: (line: MarketplaceCartLineState, modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
   return repository.transaction(async () => {
     const cart = await repository.lockCart(input.cartId); if (!cart) throw new MarketplaceCheckoutError("CART_NOT_FOUND", "Cart is unavailable.");
+    if (!sameOwner(cart.owner, input.owner)) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
     const replay = await replayOrConflict(repository, cart.id, input.mutation); if (replay) return replay;
     mutableCart(cart, input.owner, input.mutation.expectedVersion);
     const existing = cart.lines.find((line) => line.publicReference === input.lineReference); if (!existing) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line is unavailable.");
@@ -97,6 +100,7 @@ export async function replaceCartLineModifiers(repository: MarketplaceCartMutati
 export async function removeCartLine(repository: MarketplaceCartMutationRepository, input: Readonly<{ cartId: string; lineReference: string; owner: CartOwner; mutation: CartMutation }>): Promise<CartOperationResult> {
   return repository.transaction(async () => {
     const cart = await repository.lockCart(input.cartId); if (!cart) throw new MarketplaceCheckoutError("CART_NOT_FOUND", "Cart is unavailable.");
+    if (!sameOwner(cart.owner, input.owner)) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
     const replay = await replayOrConflict(repository, cart.id, input.mutation); if (replay) return replay;
     mutableCart(cart, input.owner, input.mutation.expectedVersion);
     if (!cart.lines.some((line) => line.publicReference === input.lineReference)) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line is unavailable.");
@@ -107,6 +111,7 @@ export async function removeCartLine(repository: MarketplaceCartMutationReposito
 export async function clearCart(repository: MarketplaceCartMutationRepository, input: Readonly<{ cartId: string; owner: CartOwner; mutation: CartMutation }>): Promise<CartOperationResult> {
   return repository.transaction(async () => {
     const cart = await repository.lockCart(input.cartId); if (!cart) throw new MarketplaceCheckoutError("CART_NOT_FOUND", "Cart is unavailable.");
+    if (!sameOwner(cart.owner, input.owner)) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
     const replay = await replayOrConflict(repository, cart.id, input.mutation); if (replay) return replay;
     mutableCart(cart, input.owner, input.mutation.expectedVersion);
     return commit(repository, { ...cart, lines: [], version: cart.version + 1 }, input.mutation, "CLEAR");

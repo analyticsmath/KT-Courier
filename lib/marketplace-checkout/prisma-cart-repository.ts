@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Prisma generation is intentionally deferred; the adapter is isolated here. */
 import { prisma } from "@/lib/db/prisma";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { withSerializableRetry } from "@/lib/db/serializable-retry";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import type { CartOperationResult, MarketplaceCartMutationRepository, MarketplaceCartOperationType, MarketplaceCartState } from "@/lib/marketplace-checkout/cart-mutation.service";
 
@@ -10,9 +12,14 @@ const include = { storeGroups: { include: { lines: { include: { modifiers: true 
 async function lock(db: Db, id: string) { await db.$queryRawUnsafe('SELECT "id" FROM "MarketplaceCart" WHERE "id" = $1 FOR UPDATE', id); return db.marketplaceCart.findUnique({ where: { id }, include }); }
 
 export function createPrismaMarketplaceCartRepository(database: Db = prisma): MarketplaceCartMutationRepository & { lockCartByOwner(owner: CartOwner, options?: Readonly<{ includeMerged?: boolean }>): Promise<MarketplaceCartState | null>; markMerged(guestCartId: string, customerCartId: string): Promise<void>; create(owner: CartOwner): Promise<MarketplaceCartState> } {
-  const current = () => database;
+  const transactions = new AsyncLocalStorage<Db>();
+  const current = () => transactions.getStore() ?? database;
   const repository: any = {
-    async transaction(work: () => Promise<any>) { return current().$transaction(async (tx: Db) => { const previous = database; database = tx; try { return await work(); } finally { database = previous; } }, { isolationLevel: "Serializable" }); },
+    async transaction(work: () => Promise<any>) {
+      return withSerializableRetry(() => database.$transaction(
+        (tx: Db) => transactions.run(tx, work), { isolationLevel: "Serializable" },
+      ));
+    },
     async lockCart(id: string) { const row = await lock(current(), id); return row ? toState(row) : null; },
     async lockCartByOwner(owner: CartOwner, options?: Readonly<{ includeMerged?: boolean }>) {
       const active = await current().marketplaceCart.findFirst({ where: { ...ownerWhere(owner), status: { in: ["ACTIVE", "CHECKOUT_LOCKED"] } }, include });

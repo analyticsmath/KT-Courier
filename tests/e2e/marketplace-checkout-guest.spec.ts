@@ -23,13 +23,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-chk-create-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     expect(cartRes.status()).toBe(201);
@@ -54,13 +54,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-contact-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -106,13 +106,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-addr-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -148,13 +148,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-quote-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -173,13 +173,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-rev-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -247,13 +247,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-ack-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -336,13 +336,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-inval-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -425,13 +425,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-paydis-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -477,13 +477,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-payrep-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -514,13 +514,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-return-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
@@ -552,13 +552,13 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const cartRes = await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 1,
         modifiers: [],
         operationId: `op-unauthchk-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
     const cartBody = await cartRes.json();
