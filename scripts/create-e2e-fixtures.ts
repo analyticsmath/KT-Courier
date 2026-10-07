@@ -4,6 +4,9 @@ import { AddressType, DeliveryType, DriverAvailability, DriverOnboardingStatus, 
 import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { reverseLedgerJournal } from "@/lib/services/ledger-reversal.service";
 import { createDisposableCheckoutAuthorities } from "./e2e-checkout-authorities";
+import { createDisposableDriverSettlement } from "./e2e-driver-settlement-fixture";
+import { accrueDriverEarning } from "@/lib/services/driver-earning-accrual.service";
+import { releaseDriverEarning } from "@/lib/services/driver-earning-release.service";
 
 const prisma = new PrismaClient();
 
@@ -568,6 +571,13 @@ async function main() {
 
   await seedPhase2Fixtures(passwordHash);
   await createDisposableCheckoutAuthorities();
+  for (const suffix of ["1440", "390", "other"]) {
+    for (const amount of ["100.25", "25.40"]) {
+      const source = await createDisposableDriverSettlement({ email: `e2e-earning-${suffix}@ktcouriers.local`, passwordHash, amount });
+      const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+      if (amount === "25.40") await releaseDriverEarning({ earningId: earning.id, operationId: `${source.tag}:release` }, { allowTestOnlyBypass: true });
+    }
+  }
 
   console.log("E2E fixtures are ready.");
 }

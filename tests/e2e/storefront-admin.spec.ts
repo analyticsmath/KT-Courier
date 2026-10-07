@@ -93,8 +93,11 @@ test("projection controls reject public overrides and unsupported manual rebuild
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 }); await page.goto(`/admin/storefront/projections/${reference}`);
     await expect(page.getByRole("heading", { name: "Projection case", exact: true })).toBeVisible();
+    const rebuildResponse = page.waitForResponse(response => response.url().endsWith(`${base}/${reference}/rebuild`) && response.request().method() === "POST");
     await page.getByRole("button", { name: "Request canonical rebuild", exact: true }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "record changed" })).toBeVisible();
+    const refused = await rebuildResponse; expect(refused.status()).toBe(409);
+    expect(await refused.json()).toMatchObject({ code: "CANONICAL_REBUILD_UNAVAILABLE" });
+    await expect(page.getByRole("alert").filter({ hasText: "requires correction through its canonical source event" })).toBeVisible();
     expect(await readRecord(page, base, reference, "projectionCase")).toEqual(before);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
   }

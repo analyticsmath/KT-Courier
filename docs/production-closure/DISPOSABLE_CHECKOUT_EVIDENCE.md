@@ -257,3 +257,42 @@ check phone/tablet fallback geometry and short-desktop keyboard cart access, bri
 discovery to 60 assertions in fifteen files. Local optimized build, focused twelve
 product UI assertions, lint and TypeScript pass. Fresh browser execution and repair
 capture inspection remain pending; full visual acceptance stays open.
+
+At `caa8ca9ef01eb39f574fe3b96bf83fd203591f6d`, main CI `37625334571`
+passed. Certification `37625334615` passed PostgreSQL, quality, Redis/security
+and recovery, with 59 browser assertions passed and one failed (1.9 minutes,
+zero skipped). Both editorial lifecycle assertions and role denial now pass.
+All scoped visual and keyboard-cart regressions pass and their repair captures
+have been inspected. The remaining projection assertion exposed an application
+defect: expected `CANONICAL_REBUILD_UNAVAILABLE` was classified as a 503 outage.
+The candidate returns a private typed 409 conflict and displays canonical source
+correction guidance, while unexpected failures remain safe 503 responses. Five
+focused error-policy/reconciliation/UI assertions pass; fresh browser execution
+is still required. No projection override or case mutation is authorized.
+
+The driver earning candidate replaces its skipped owner browser suite with three
+executable assertions: desktop/phone exact accrued and released amounts, safe
+history, keyboard record navigation, genuine foreign-record versus missing-record
+denial, unchanged records after reads, and wrong-role/pending-driver/anonymous
+denial. Discovery reports 63 assertions in sixteen files; the AST inventory now
+contains sixteen active critical placeholders in 81 marked files. These new
+browser assertions require execution and are not counted as passed.
+
+Six real PostgreSQL driver earning assertions pass in a 103-assertion, fifteen-file
+closure run (43.17 seconds, zero skipped). They exercise the actual accrual and
+release services, balanced ledger entries, exact account projections, concurrent
+idempotent replay, changed-command rejection, owner isolation and suspension,
+and rollback of journal/balance changes after a test-owned earning-write trigger
+fails. Accrual and release without a test bypass remain production-locked.
+All 3,411 unit/API assertions across 761 files pass, zero skipped; lint and
+TypeScript and the final stable-tree optimized build also pass.
+
+The shared fixture is included in the existing scripts directory so the migration
+image can load it. It rejects production mode, external hosts, unnamed databases
+and non-isolated runtime flags before writing. Payment/verification and completed
+assignment/POD facts are explicitly synthetic source inputs; their balanced source
+receipt is posted through the actual ledger service. They do not certify provider
+verification, real delivery, commercial rates, human approval or production money.
+The earning rows and releases are produced by the actual canonical services using
+their existing explicit test option. No production source lock or environment bypass
+was introduced. Full financial/admin/refund/withdrawal acceptance remains open.

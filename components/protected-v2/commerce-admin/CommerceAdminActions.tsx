@@ -19,6 +19,10 @@ async function submit(url: string, body: unknown, method = "POST") {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 409) {
+      const detail = await response.json().catch(() => null);
+      if (detail?.code === "CANONICAL_REBUILD_UNAVAILABLE") throw new Error("This case requires correction through its canonical source event. A manual rebuild is unavailable.");
+    }
     if (response.status === 409 || response.status === 412) throw new Error("This record changed before the request completed. Refresh and review the canonical record before trying again.");
     if (response.status === 429) throw new Error("The administration service is temporarily rate limited. Wait before trying again.");
     if (response.status >= 500) throw new Error("The administration service is temporarily unavailable. Try again later.");

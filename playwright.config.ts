@@ -32,6 +32,7 @@ export default defineConfig({
         /marketplace-checkout-customer\.spec\.ts/,
         /production-visual-review\.spec\.ts/,
         /storefront-admin\.spec\.ts/,
+        /driver-earnings\.spec\.ts/,
       ],
     },
     {
