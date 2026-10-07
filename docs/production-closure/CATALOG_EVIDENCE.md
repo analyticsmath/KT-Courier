@@ -78,8 +78,14 @@ At 42a0ecdfe7de8d749b86bc08177368628e01c6a2, the isolated CI closure runner
 passes all 148 assertions in eighteen files with zero skipped, including all six
 new moderation cases and six listing cases. The downloaded canonical JSON and
 certification-command artifacts independently report PASS, no critical skips and
-no flaky assertions. Quality also passes. Browser execution remains in progress;
-this PostgreSQL evidence does not certify native UI or visual acceptance.
+no flaky assertions. Quality and main CI also pass. The browser job passes 82
+existing assertions and fails all four new catalog journeys before writes: their
+category selector expects `Electronics · electronics`, while the canonical
+category path is `/electronics` and its actual option is
+`Electronics · /electronics`. Downloaded error snapshots confirm the actual
+option; the phone failure capture was inspected. The next candidate corrects the
+exact option label. Save, review and their twelve captures remain unproven by
+this run, and the final certified job is skipped after browser failure.
 
 Further inspection found that owner and admin product read endpoints included
 the full asset row. The next candidate reuses the existing safe intake projection
