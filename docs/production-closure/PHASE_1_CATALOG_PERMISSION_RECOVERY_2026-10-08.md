@@ -18,7 +18,12 @@ and Railway patch actions are outside scope. The original handoff is preserved.
   `fix: align disposable store catalog role grants and fail-closed authority`.
   Its SHA and actual CI evidence will be appended after the push. This report
   cannot contain its own commit hash; final tip is resolved from the remote ref.
-- Stage B candidate and acceptance results are recorded below. Stage C: pending.
+- Stage B and C checkpoints are recorded below. Targeted native acceptance passes
+  both viewports. Full Chromium has one unrelated storefront locator failure.
+- Ending branch remains `production-closure-2026-10-07`. Ending documentation
+  checkpoint SHA is the commit containing this report (resolved from remote ref
+  after commit/push); last tested source SHA is recorded explicitly below. A report
+  cannot embed its own Git hash. Final response supplies the literal pushed SHA.
 
 ## Stage A root cause and authority changes
 
@@ -150,6 +155,99 @@ Explicit changed-file ESLint and `git diff --check` passed. Workflow static test
 prove eligibility; the new PR-triggered run and exact candidate acceptance results
 will be recorded after push. No subscription/promoter/recruitment feature activation
 or production job is added. Stage C does not turn any unresolved gate green.
+
+## Exact-head candidate evidence
+
+Stage C pushed candidate: `22611f0186f405047c19614cf6d2ec818a0a58fc`.
+Remote feature ref equals that SHA and PR #17 remains OPEN DRAFT / targets main.
+[Production Certification 37696998677](https://github.com/analyticsmath/KT-Courier/actions/runs/37696998677)
+is a genuine `pull_request` run at that exact head. All jobs explicitly check out
+the head, avoiding the previous default synthetic PR merge checkout. Logs print
+and verify `CERTIFICATION_HEAD_SHA=22611f0186f405047c19614cf6d2ec818a0a58fc`.
+[Main CI 37696998811](https://github.com/analyticsmath/KT-Courier/actions/runs/37696998811)
+is tracked separately and cannot substitute for certification's affected browser jobs.
+
+| Exact candidate command | Files / cases | Skip / flaky | Duration | Exit / result |
+|---|---|---|---|---|
+| Scoped authority/permission/API/employee/seed + actual wizard DOM command listed above | 8 / 56 | 0 / 0 | 2.55 s | 0 / PASS |
+| Node workflow/reporting/runner/isolation/deferral command listed above | 6 / 27 | 0 / 0 | 0.993 s | 0 / PASS |
+| `node scripts/certification-command.mjs test:coverage` | 769 / 3496 | 0 / 0 | 101.870 s wrapper duration | 0 / PASS |
+| `node scripts/certification-command.mjs test:integration:catalog` | 12 / 65 (including 17 listing/product/moderation and 3 bootstrap/authority) | 0 / 0 | 7.00 s | 0 / PASS on actual disposable PG16 |
+| `node scripts/certification-command.mjs test:integration:closure` | 20 / 160 | 0 / 0 | 74.406 s wrapper duration | 0 / PASS on actual disposable PG16 |
+| `node scripts/certification-command.mjs test:e2e -- --project=chromium --phase1-catalog` | 5 ordered stages; full suite 87 passed / 1 failed of 88 | 0 / 0 | 442.451 s wrapper duration | 1 / FAIL |
+
+`git diff` confirms no changes from the starting checkpoint to proxy, schema,
+migrations, engineering gates, the original handoff, or any of the nine critical
+placeholder specs. Failure-only browser media stays in restricted CI artifacts;
+no trace, token or fixture-personal-data dump is committed. The report's later
+documentation checkpoint does not retroactively attribute these results to its SHA.
+
+The closure JSON independently records 160 total / 160 passed / 0 failed / 0 pending /
+0 todo and success=true. Focused actual PG files: employee lifecycle 4 passed,
+catalog listing/product/moderation 17 passed, authority/bootstrap 3 passed. These
+24 assertions are included in the closure total; the catalog total overlaps and
+must not be added as 65 more unique tests. The structured command report binds the
+counts to the exact candidate SHA and exit 0. CI artifacts are retained locally in
+ignored `output/production-closure/phase1-22611f01-postgres`.
+
+The exact-head quality job is complete and PASS, including build/typecheck/lint,
+the full 3496-case unit coverage run, workflow/runner static tests, payments/refunds,
+BOLA security and processor regressions. Main CI 37696998811 is SUCCESS. All 23
+non-browser certification jobs are green; browser is FAIL and final `certified`
+is SKIPPED, meaning **NOT CERTIFIED**. This does not upgrade the nine unresolved
+engineering gates.
+
+## Completed native evidence and bounded stop
+
+Every row below executed on `22611f0186f405047c19614cf6d2ec818a0a58fc`, with
+`--project=chromium --retries=0 --workers=1 --reporter=list,json`, isolated disposable
+PG/application, blocked external provider network and separate failure output directories.
+
+| Ordered command selection after `node node_modules/playwright/cli.js test` | Cases passed / failed | Skip / flaky | Duration | Exit / result |
+|---|---|---|---|---|
+| `tests/e2e/store-product-catalog.spec.ts tests/e2e/catalog-administration.spec.ts --grep=1440px` | 2 / 0 | 0 / 0 | 18.015 s | 0 / PASS |
+| `tests/e2e/store-product-catalog.spec.ts tests/e2e/catalog-administration.spec.ts` | 4 / 0 | 0 / 0 | 32.373 s | 0 / PASS |
+| `tests/e2e/business-employee-access.spec.ts --grep=1440px` | 1 / 0 | 0 / 0 | 10.535 s | 0 / PASS |
+| `tests/e2e/business-employee-access.spec.ts` | 2 / 0 | 0 / 0 | 15.757 s | 0 / PASS |
+| Full Chromium selection, only after all four prior rows passed | 87 / 1 of 88 | 0 / 0 | 184.784 s | 1 / FAIL |
+
+The nine focused executions repeat six unique cases; they are not nine additional
+unique browser cases. The full selection remains 88 unique cases across 25 files.
+Native price labels, exact keyboard-entered 19.25, normalized valid PNG upload 201,
+invalid SVG rejection, safe DTO, atomic complete listing, lost-confirmation retries,
+versioned edit, submit, request-changes and suspend all pass at 1440x900 and 390x900.
+Review leaves product publication and offer price in DRAFT. No real human approval
+or Cloudinary/provider acceptance is represented by synthetic fixtures.
+
+Employee owner-created products-only invitation, verified native acceptance,
+CUSTOMER employee product UI/API access, inventory/import/pricing/finance/admin
+refusal, disable/revoke, reactivate/restore, remove/revoke, foreign owner concealment
+and retained owner authority all pass at both viewports. Native runs agree with
+the actual PG acceptance/audit/concurrent-acceptance negative checks above.
+
+The sole full-suite failure is
+`tests/e2e/storefront-browsing.spec.ts:82`, "product detail page displays store,
+variant selection, price and handles variant changes". Line 95 checks visibility
+of `a[href*="CV-E2E128GB"]`, which resolves to two Silver / 128GB links and violates
+Playwright strict locator uniqueness. No assertion was skipped or retried. This
+is outside the authorized product/employee recovery source scope. The directive
+says not to move to another business domain when tests fail, so no storefront
+implementation or selector fix is attempted. The failure is preserved for the
+next architect decision, rather than hidden with `.first()` or retries.
+
+Failure-only media and structured reports from run 37696998677 remain in CI and
+ignored local `output/production-closure/phase1-22611f01-*`. No raw trace is committed.
+The final report-only checkpoint leaves every tested code file unchanged. Its new
+PR run is automatically eligible and may be pending at handoff; prior source results
+above are not relabeled as final-tip completed results. Scoped local unit/security
+and workflow tests will be repeated after the final report commit at its literal SHA.
+
+Final classification: **PHASE_1_PARTIAL**, overall **NOT_READY**. Stage A root fix,
+Stage B targeted acceptance and Stage C trigger/reporting are implemented with
+completed evidence at the tested source SHA. Full browser acceptance is not green.
+Nine unchanged seed `any` lint errors remain under the explicit `--no-ignore`
+diagnostic; normal project lint passes. No Phase 2 work is started. Stop for senior
+architect review after the documentation checkpoint push; no merge or deploy.
 
 ## Completed and pending commands
 
