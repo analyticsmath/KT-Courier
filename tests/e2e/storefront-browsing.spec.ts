@@ -81,28 +81,28 @@ test.describe("Storefront Browsing & Discovery", () => {
 
   test("product detail page displays store, variant selection, price and handles variant changes", async ({ page }) => {
     const monitor = attachConsoleMonitor(page);
-
-    await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
-
-    const title = page.locator("h1:visible");
-    await expect(title).toContainText("E2E Smartphone");
-
-    const bodyText = await page.textContent("body");
-    expect(bodyText).toContain("E2E Store");
-    expect(bodyText).toMatch(/R\s*1\s*500,00|1500\.00|1\s*500/);
-
-    const variantLink = page.locator('a[href*="CV-E2E128GB"]');
-    await expect(variantLink).toBeVisible();
-    {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("E2E Smartphone 64GB");
+      const purchase = page.getByRole("region", { name: "Purchase product", exact: true });
+      await expect(purchase.getByRole("radio", { name: /E2E Store R\s*1\s*500,00/ })).toBeChecked();
+      await expect(purchase).toContainText(/R\s*1\s*500,00/);
+      const chooser = purchase.getByRole("group", { name: "Available product variants", exact: true });
+      await expect(chooser).toHaveCount(1);
+      const variantLink = chooser.getByRole("link", { name: "Silver · 128GB", exact: true });
+      await expect(variantLink).toHaveCount(1);
+      await expect(variantLink).toBeVisible();
+      await expect(variantLink).toHaveAttribute("href", "/shop/products/e2e-smartphone-CP-E2ESMARTPHONE/CV-E2E128GB");
       await variantLink.click();
       await expect(page).toHaveURL(/CV-E2E128GB/);
-      const updatedText = await page.textContent("body");
-      expect(updatedText).toMatch(/R\s*2\s*000,00|2000\.00|2\s*000/);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("E2E Smartphone 128GB");
+      await expect(purchase).toContainText(/R\s*2\s*000,00/);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+      await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE/invalid_variant_ref_999");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("That marketplace item is not available.");
+      await expect(page.getByRole("region", { name: "Purchase product", exact: true })).toHaveCount(0);
     }
-
-    await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE/invalid_variant_ref_999");
-    await expect(page.locator("h1:visible")).toBeVisible();
-
     monitor.assertClean();
   });
 

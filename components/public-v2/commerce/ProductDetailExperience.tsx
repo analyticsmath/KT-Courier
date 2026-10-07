@@ -464,7 +464,7 @@ export function ProductDetailExperience({
 
             {/* Variant Selector */}
             {variants.length > 1 && (
-              <div className={styles.variantSelectorBlock}>
+              <div className={styles.variantSelectorBlock} role="group" aria-label="Available product variants">
                 <span className={styles.variantGroupLabel}>Available options</span>
                 <LayoutGroup id="pdp-variants">
                   <div className={styles.variantOptionsList}>

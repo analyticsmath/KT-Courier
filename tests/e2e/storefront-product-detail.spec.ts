@@ -6,7 +6,9 @@ test("keyboard variant navigation changes the canonical price without mutating t
   const cart = (await before.json()).cart; expect(cart.storeGroups).toHaveLength(0);
   await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("E2E Smartphone 64GB");
-  const option = page.locator('a[href*="CV-E2E128GB"]');
+  const chooser = page.getByRole("region", { name: "Purchase product", exact: true }).getByRole("group", { name: "Available product variants", exact: true });
+  await expect(chooser).toHaveCount(1);
+  const option = chooser.getByRole("link", { name: "Silver · 128GB", exact: true });
   await expect(option).toHaveCount(1); await option.focus(); await option.press("Enter");
   await expect(page).toHaveURL(/CV-E2E128GB/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("E2E Smartphone 128GB");
