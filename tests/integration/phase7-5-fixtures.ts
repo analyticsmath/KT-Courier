@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import {
   DeliveryType,
   DocumentStatus,
@@ -71,7 +72,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
   const vehicle = await integrationPrisma.vehicle.create({
     data: {
-      publicReference: `VEH-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `VEH-${randomUUID().replaceAll("-", "").slice(0, 24)}`,
       driverProfileId: profile.id,
       make: "Toyota",
       model: "Corolla",
@@ -85,7 +86,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
 
   const mediaReg = await integrationPrisma.privateMediaObject.create({
     data: {
-      publicReference: `MED-REG-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `MED-REG-${randomUUID().replaceAll("-", "").slice(0, 20)}`,
       ownerType: PrivateMediaOwnerType.VEHICLE,
       ownerId: vehicle.id,
       purpose: PrivateMediaPurpose.VEHICLE_REGISTRATION,
@@ -102,7 +103,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   });
   const mediaDisc = await integrationPrisma.privateMediaObject.create({
     data: {
-      publicReference: `MED-DISC-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `MED-DISC-${randomUUID().replaceAll("-", "").slice(0, 20)}`,
       ownerType: PrivateMediaOwnerType.VEHICLE,
       ownerId: vehicle.id,
       purpose: PrivateMediaPurpose.VEHICLE_LICENCE_DISC,
@@ -119,7 +120,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   });
   const mediaIns = await integrationPrisma.privateMediaObject.create({
     data: {
-      publicReference: `MED-INS-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `MED-INS-${randomUUID().replaceAll("-", "").slice(0, 20)}`,
       ownerType: PrivateMediaOwnerType.VEHICLE,
       ownerId: vehicle.id,
       purpose: PrivateMediaPurpose.VEHICLE_INSURANCE,
