@@ -6,7 +6,7 @@ import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { createStoreCatalogListingDraft } from "@/lib/services/catalog-listing-draft.service";
 import { searchCatalogDuplicates } from "@/lib/services/catalog-duplicate.service";
 import { type CatalogListingDraftInput } from "@/lib/validation/catalog-listing-draft";
-import { getStoreCatalogProduct, submitStoreCatalogProduct } from "@/lib/services/catalog-product.service";
+import { archiveStoreCatalogProduct, getStoreCatalogProduct, submitStoreCatalogProduct, updateStoreCatalogProduct } from "@/lib/services/catalog-product.service";
 import { transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
 import { moderateCatalogOffer, moderateCatalogProduct } from "@/lib/services/catalog-moderation.service";
 
@@ -38,6 +38,75 @@ async function submittedListing() {
   const product = await submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, { version: draft.version, operationId: randomUUID() });
   return { ...source, draft, product };
 }
+
+describe("canonical store product commands on isolated PostgreSQL", { timeout: 20_000 }, () => {
+  beforeAll(() => requireDisposableStoreSettlementDatabase());
+  it("serializes concurrent draft edits with one audit, event and receipt", async () => {
+    const source = await foundation(); const draft = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const command = { operationId: randomUUID(), version: draft.version, title: "Disposable updated product", description: "Canonical edited description for transaction validation." };
+    const results = await Promise.all([updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command), updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command)]);
+    expect(results[0]).toEqual(results[1]); expect(results[0]).toMatchObject({ title: command.title, version: command.version + 1, status: "DRAFT", publicationStatus: "DRAFT" });
+    expect(await prisma.catalogAuditHistory.count({ where: { aggregateReference: draft.publicReference, action: "DRAFT_UPDATED" } })).toBe(1);
+    expect(await prisma.catalogChangeEvent.count({ where: { aggregateReference: draft.publicReference, aggregateVersion: command.version + 1 } })).toBe(1);
+    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: source.user.id, operationId: command.operationId } })).toBe(1);
+  });
+  it("returns current submitted state when an earlier successful edit is retried", async () => {
+    const source = await foundation(); const draft = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const command = { operationId: randomUUID(), version: draft.version, title: "Disposable replay edit" };
+    const updated = await updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command);
+    const submitted = await submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, { operationId: randomUUID(), version: updated.version });
+    const replay = await updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command);
+    expect(replay).toMatchObject({ title: command.title, version: submitted.version, status: "SUBMITTED", publicationStatus: "DRAFT" });
+    expect(await prisma.catalogAuditHistory.count({ where: { aggregateReference: draft.publicReference, action: "DRAFT_UPDATED" } })).toBe(1);
+    await expect(updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, { ...command, title: "Changed facts" })).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
+    await expect(updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, { ...command, operationId: randomUUID() })).rejects.toMatchObject({ code: "CATALOG_VERSION_CONFLICT" });
+  });
+  it("replays concurrent submission and archive without another case or publication", async () => {
+    const source = await foundation(); const draft = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const command = { operationId: randomUUID(), version: draft.version };
+    const submitted = await Promise.all([submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command), submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command)]);
+    expect(submitted[0]).toEqual(submitted[1]); expect(submitted[0]).toMatchObject({ status: "SUBMITTED", publicationStatus: "DRAFT", version: command.version + 1 });
+    expect(await prisma.catalogModerationCase.count({ where: { productId: submitted[0].id } })).toBe(1);
+    const archive = { operationId: randomUUID(), version: submitted[0].version };
+    const archived = await Promise.all([archiveStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, archive), archiveStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, archive)]);
+    expect(archived[0]).toEqual(archived[1]); expect(archived[0]).toMatchObject({ status: "ARCHIVED", publicationStatus: "WITHDRAWN", version: archive.version + 1 });
+    expect(await submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command)).toEqual(archived[0]);
+    expect(await prisma.catalogModerationCase.count({ where: { productId: archived[0].id } })).toBe(1);
+    expect(await prisma.storeOfferPriceVersion.count({ where: { offer: { productId: archived[0].id }, status: "ACTIVE" } })).toBe(0);
+  });
+  it("rejects subject reuse, invalid attributes and foreign or global-canonical mutation", async () => {
+    const source = await foundation(); const draft = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const other = await createStoreCatalogListingDraft(source.store.id, source.user.id, { ...source.input, operationId: randomUUID(), product: { ...source.input.product, title: `Disposable distinct subject ${randomUUID()}` }, storeSku: `DISPOSABLE-${randomUUID()}` });
+    const command = { operationId: randomUUID(), version: draft.version, title: "Disposable subject-bound edit" };
+    await updateStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command);
+    await expect(updateStoreCatalogProduct(source.store.id, other.publicReference, source.user.id, command)).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
+    const invalid = { operationId: randomUUID(), version: other.version, attributeValues: {} };
+    await expect(updateStoreCatalogProduct(source.store.id, other.publicReference, source.user.id, invalid)).rejects.toMatchObject({ code: "PRODUCT_ATTRIBUTES_INVALID" });
+    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: source.user.id, operationId: invalid.operationId } })).toBe(0);
+    const foreign = await foundation();
+    await expect(updateStoreCatalogProduct(foreign.store.id, other.publicReference, foreign.user.id, { ...command, operationId: randomUUID(), version: other.version })).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
+    // Synthetic negative source only; it does not approve or publish this product.
+    await prisma.catalogProduct.update({ where: { publicReference: other.publicReference }, data: { scope: "GLOBAL_CANONICAL" } });
+    for (const action of [submitStoreCatalogProduct, archiveStoreCatalogProduct]) await expect(action(source.store.id, other.publicReference, source.user.id, { operationId: randomUUID(), version: other.version })).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
+  });
+  it("rolls back submission, case, audit and event when the operation receipt cannot commit", async () => {
+    const source = await foundation(); const draft = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const before = await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: draft.publicReference } });
+    const command = { operationId: randomUUID(), version: draft.version }; const identifier = `closure_product_${randomUUID().replaceAll("-", "")}`;
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION "${identifier}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."operationId" = '${command.operationId}' THEN RAISE EXCEPTION 'DISPOSABLE_PRODUCT_RECEIPT_FAILURE'; END IF; RETURN NEW; END $$`);
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TRIGGER "${identifier}" BEFORE INSERT ON "CatalogOperationReceipt" FOR EACH ROW EXECUTE FUNCTION "${identifier}"()`);
+      await expect(submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, command)).rejects.toThrow("DISPOSABLE_PRODUCT_RECEIPT_FAILURE");
+      expect(await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: draft.publicReference } })).toEqual(before);
+      expect(await prisma.catalogModerationCase.count({ where: { productId: before.id } })).toBe(0);
+      expect(await prisma.catalogAuditHistory.count({ where: { aggregateReference: draft.publicReference, action: "SUBMITTED" } })).toBe(0);
+      expect(await prisma.catalogChangeEvent.count({ where: { aggregateReference: draft.publicReference, aggregateVersion: draft.version + 1 } })).toBe(0);
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${identifier}" ON "CatalogOperationReceipt"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${identifier}"()`);
+    }
+  });
+});
 
 describe("canonical catalog moderation transactions on isolated PostgreSQL", { timeout: 20_000 }, () => {
   beforeAll(() => requireDisposableStoreSettlementDatabase());

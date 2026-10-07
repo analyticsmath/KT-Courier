@@ -10,7 +10,7 @@ async function read(page: Page, path: string) {
 async function step(page: Page, name: string) { await page.getByRole("button", { name: new RegExp(name) }).click(); }
 for (const width of [1440, 390]) {
   test("store saves a complete listing atomically and replays a lost confirmation at " + width + "px", async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 }); await login(page, "e2e-store@ktcouriers.local");
     const tag = randomUUID(); const title = "Disposable catalog product " + tag; const sku = "DISPOSABLE-" + tag.toUpperCase();
@@ -62,17 +62,52 @@ for (const width of [1440, 390]) {
     expect(Number(offer.priceVersions[0].amount).toFixed(2)).toBe("19.25"); expect(offer.priceVersions).toHaveLength(1);
     const products = (await read(page, "/api/store/catalog/products?search=" + encodeURIComponent(title))).products; expect(products).toHaveLength(1);
     const changed = await page.request.post("/api/store/catalog/listing-drafts", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: { ...command, openingStock: 9 } }); expect(changed.status()).toBe(409);
-    await page.getByRole("link", { name: "View saved offer", exact: true }).click(); await expect(page.getByRole("heading", { name: sku, exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "View saved product", exact: true }).click();
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    const editedTitle = title + " edited";
+    await page.getByLabel("Product title", { exact: true }).fill(editedTitle);
+    const submitProduct = page.getByRole("button", { name: "Submit product for review", exact: true });
+    await expect(submitProduct).toBeDisabled();
+    const saveProduct = page.getByRole("button", { name: "Save product changes", exact: true });
+    const productPath = "**/api/store/catalog/products/" + confirmed.publicReference;
+    let edits = 0; let editCommand: Record<string, unknown> = {};
+    await page.route(productPath, async route => { edits++; editCommand = route.request().postDataJSON(); const response = await route.fetch(); expect(response.status()).toBe(200); await route.abort("failed"); });
+    await saveProduct.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    await expect(page.locator("#catalog-product-action-errors")).toContainText("The product result could not be confirmed.");
+    await expect(saveProduct).toBeEnabled(); expect(edits).toBe(1);
+    await page.unroute(productPath);
+    const editRetry = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/products/" + confirmed.publicReference) && response.request().method() === "PATCH");
+    await saveProduct.focus(); await saveProduct.press("Enter"); const edited = await editRetry;
+    expect(edited.status()).toBe(200); expect(edited.request().postDataJSON()).toEqual(editCommand);
+    await expect(page.getByRole("heading", { name: editedTitle, exact: true })).toBeVisible();
+    await expect(submitProduct).toBeEnabled();
+    const updated = (await read(page, "/api/store/catalog/products/" + confirmed.publicReference)).product;
+    expect(updated).toMatchObject({ title: editedTitle, version: canonical.version + 1, status: "DRAFT", publicationStatus: "DRAFT" });
+    expect((await page.request.patch("/api/store/catalog/products/" + confirmed.publicReference, { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: { ...editCommand, title: "Changed operation facts" } })).status()).toBe(409);
+    const submitPath = productPath + "/submit"; let submissions = 0; let submissionCommand: Record<string, unknown> = {};
+    await page.route(submitPath, async route => { submissions++; submissionCommand = route.request().postDataJSON(); const response = await route.fetch(); expect(response.status()).toBe(200); await route.abort("failed"); });
+    await submitProduct.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    await expect(page.locator("#catalog-product-action-errors")).toContainText("The product result could not be confirmed.");
+    await expect(submitProduct).toBeEnabled(); expect(submissions).toBe(1);
+    await page.unroute(submitPath);
+    const submitRetry = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/products/" + confirmed.publicReference + "/submit") && response.request().method() === "POST");
+    await submitProduct.focus(); await submitProduct.press("Enter"); const submitted = await submitRetry;
+    expect(submitted.status()).toBe(200); expect(submitted.request().postDataJSON()).toEqual(submissionCommand);
+    await expect(submitProduct).toHaveCount(0);
+    const reviewed = (await read(page, "/api/store/catalog/products/" + confirmed.publicReference)).product;
+    expect(reviewed).toMatchObject({ title: editedTitle, version: updated.version + 1, status: "SUBMITTED", publicationStatus: "DRAFT" });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+    await page.goto("/store/catalog/offers/" + confirmed.offers[0].publicReference); await expect(page.getByRole("heading", { name: sku, exact: true })).toBeVisible();
     await expect(page.getByText("ZAR 19.25", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
-    await page.goto("/store/catalog/products/new"); await step(page, "Find existing product"); await page.getByLabel("Find an existing product", { exact: true }).fill(title);
+    await page.goto("/store/catalog/products/new"); await step(page, "Find existing product"); await page.getByLabel("Find an existing product", { exact: true }).fill(editedTitle);
     await page.getByRole("button", { name: "Search matching products", exact: true }).click();
     await expect(page.getByRole("region", { name: "Duplicate suggestions" })).toContainText(confirmed.publicReference);
     const otherStore = "e2e-other-store@ktcouriers.local"; await login(page, otherStore);
     expect((await page.request.get("/api/store/catalog/products/" + confirmed.publicReference)).status()).toBe(404);
     expect((await page.request.get("/api/store/catalog/offers/" + confirmed.offers[0].publicReference)).status()).toBe(404);
-    const suggestions = await read(page, "/api/store/catalog/products/duplicate-search?" + new URLSearchParams({ title, productTypeCode: "smartphone" })); expect(suggestions.candidates).toEqual([]);
+    const suggestions = await read(page, "/api/store/catalog/products/duplicate-search?" + new URLSearchParams({ title: editedTitle, productTypeCode: "smartphone" })); expect(suggestions.candidates).toEqual([]);
     const foreign = await page.request.post("/api/store/catalog/listing-drafts", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: { ...command, operationId: randomUUID(), openingStock: 0, inventoryLocationPublicReference: undefined } }); expect(foreign.status()).toBe(403);
     await login(page, "e2e-catalog-denied@ktcouriers.local");
     expect((await read(page, "/api/store/catalog/products")).products).toEqual([]);

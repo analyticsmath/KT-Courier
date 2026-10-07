@@ -24,7 +24,10 @@ async function submittedProduct(page: Page) {
   const title = "Disposable moderation product " + randomUUID();
   const created = await post(page, "/api/store/catalog/listing-drafts", { operationId: randomUUID(), product: { scope: "STORE_PRIVATE", productTypeDefinitionId: definition[0], primaryCategoryId: category[0], title, description: "Synthetic moderation facts; no real human approval represented.", condition: "NEW", attributeValues: {}, complianceValues: {} }, variants: [], storeSku: "REVIEW-" + randomUUID(), price: { amount: "19.25", currency: "ZAR", priceIncludesTax: true, effectiveFrom: new Date().toISOString() }, openingStock: 0, modifiers: [], media: [{ assetPublicReference: asset.publicReference, altText: "Disposable review image", primary: true, variantAssociation: "PRODUCT", displayOrder: 0 }] });
   expect(created.status()).toBe(201); const draft = (await created.json()).product;
-  const submitted = await post(page, `/api/store/catalog/products/${draft.publicReference}/submit`, { version: draft.version, operationId: randomUUID() });
+  await page.goto(`/store/catalog/products/${draft.publicReference}`);
+  const submission = page.waitForResponse(response => response.url().endsWith(`/api/store/catalog/products/${draft.publicReference}/submit`) && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Submit product for review", exact: true }).click();
+  const submitted = await submission;
   expect(submitted.status()).toBe(200); return { source: (await submitted.json()).product, title };
 }
 
@@ -48,7 +51,10 @@ for (const width of [1440, 390]) {
     let canonical = await product(page, source.id); expect(canonical.status).toBe("NEEDS_CHANGES"); expect(canonical.moderationCases[0].history).toHaveLength(1);
     expect(canonical.publicationStatus).toBe("DRAFT"); expect(canonical.offers[0].priceVersions[0].status).toBe("DRAFT");
     expect((await post(page, `/api/admin/catalog/products/${source.id}/request-changes`, { ...command, reasonCode: "DISPOSABLE_CHANGED" })).status()).toBe(409);
-    await login(page, "e2e-store@ktcouriers.local"); const resubmitted = await post(page, `/api/store/catalog/products/${source.publicReference}/submit`, { version: canonical.version, operationId: randomUUID() }); expect(resubmitted.status()).toBe(200);
+    await login(page, "e2e-store@ktcouriers.local"); await page.goto(`/store/catalog/products/${source.publicReference}`);
+    const resubmission = page.waitForResponse(response => response.url().endsWith(`/api/store/catalog/products/${source.publicReference}/submit`) && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Submit product for review", exact: true }).click();
+    const resubmitted = await resubmission; expect(resubmitted.status()).toBe(200);
     await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/catalog/products/${source.id}`);
     await page.getByLabel("Reason code", { exact: true }).fill("DISPOSABLE_SUSPENSION"); await page.getByRole("button", { name: "Suspend", exact: true }).click();
     await expect.poll(async () => (await product(page, source.id)).status).toBe("SUSPENDED"); await expect(page.getByRole("button", { name: "Suspend", exact: true })).toHaveCount(0);
