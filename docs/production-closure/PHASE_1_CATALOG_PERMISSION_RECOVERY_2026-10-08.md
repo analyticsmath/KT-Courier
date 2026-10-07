@@ -126,6 +126,31 @@ Before Stage B checkpoint: scoped unit/API/DOM command (the Stage A seven files 
 88 cases in 25 files. Discovery is not execution proof. Native execution is pending
 the Stage B exact commit CI; no browser flow is declared complete yet.
 
+Stage B checkpoint: `ca0eddbe75a0cbce840fde84e3ed13f4701ca188`.
+PR-triggered [run 37696603531](https://github.com/analyticsmath/KT-Courier/actions/runs/37696603531)
+completed `node scripts/certification-command.mjs test:integration:catalog` with
+65 passed / 12 files / 0 skips, 12.63 s, exit 0, including all 17 listing/product/
+moderation transaction tests and all 3 authority tests. Closure and native browser
+were still running when Stage C was prepared. Pushing Stage C may cancel the older
+run through the existing concurrency policy; its incomplete jobs are not passes.
+
+## Stage C trigger and exact-head reporting
+
+| File | Change |
+|---|---|
+| `.github/workflows/production-certification.yml` | Remove PR paths filter; all main PR updates eligible; preserve dispatch/release tags; every job explicitly checks out PR head SHA or dispatch/tag SHA; preserve all isolated jobs, strict wrappers and final engineering manifest gate. |
+| `scripts/certification-command.mjs` | Verify actual checkout against requested head before execution, print SHA/command and record arguments, duration, exit and parsed execution counts. |
+| `scripts/certification-output.mjs` | Parse failure-first Vitest and multi-stage Playwright summaries; retain every execution; reject mismatched/invalid SHA identities. Skip/flaky policy remains intact. |
+| `scripts/certification-output.test.mjs` | Regression checks for failure counts, ordered browser summaries and exact SHA mismatch rejection. |
+| `scripts/production-certification-workflow.test.mjs` | Parse actual workflow YAML; assert all-main-PR eligibility, dispatch/tags, all exact-head checkouts, 20 disposable PG selections, isolated provider config and final manifest gates. |
+
+`node --test scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs`
+passed 27 tests / 0 skips / 0 todo, 1.107 s, exit 0 on the Stage C working source.
+Explicit changed-file ESLint and `git diff --check` passed. Workflow static tests
+prove eligibility; the new PR-triggered run and exact candidate acceptance results
+will be recorded after push. No subscription/promoter/recruitment feature activation
+or production job is added. Stage C does not turn any unresolved gate green.
+
 ## Completed and pending commands
 
 Stage A working source is the candidate committed under the subject above.

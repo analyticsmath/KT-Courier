@@ -5,13 +5,13 @@ on:
     tags: ['release-*']
   pull_request:
     branches: [main]
-    paths: ['.github/workflows/production-certification.yml', 'docs/production-closure/**', 'lib/production-readiness/**', 'scripts/disposable-closure-tests.mjs']
 permissions:
   contents: read
 concurrency:
   group: production-certification-${{ github.ref }}
   cancel-in-progress: true
 env:
+  KT_CERTIFICATION_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   KT_NETWORK_DISABLED: 'true'
   EMAIL_PROVIDER: console
   PAYSTACK_ACTIVE: 'false'
@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci
@@ -33,7 +34,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run typecheck
-      - run: node --test scripts/certification-output.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
+      - run: node --test scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
       - run: node scripts/certification-command.mjs test:coverage
       - run: node scripts/certification-command.mjs test:payments
       - run: node scripts/certification-command.mjs test:refunds
@@ -74,6 +75,7 @@ jobs:
       KT_GATE4_INTEGRATION_APPROVED: 'true'
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci
@@ -88,6 +90,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci
@@ -102,6 +105,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci
@@ -117,6 +121,7 @@ jobs:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci
@@ -133,5 +138,6 @@ jobs:
     needs: [quality, postgres, redis-and-recovery, recovery, browser]
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - run: node scripts/check-closure-engineering-gates.mjs
       - run: echo 'Engineering gates passed for this commit. Separate production and live acceptance evidence is still required.'

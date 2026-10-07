@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasFlakyCriticalTests, hasSkippedCriticalTests } from "./certification-output.mjs";
+import { certificationTestCounts, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
 
 test("the zero-marker static audit does not fail an entirely executed suite", () => {
   assert.equal(hasSkippedCriticalTests("Runtime [SKIP_TEST] markers: 0\nTests 3282 passed (3282)"), false);
@@ -22,4 +22,26 @@ test("an eventual retry success is not clean certification", () => {
 
 test("a clean or explicitly zero-flaky result remains eligible", () => {
   for (const output of ["66 passed", "0 flaky\n66 passed", "0 skipped\n66 passed"]) assert.equal(hasFlakyCriticalTests(output), false);
+});
+
+test("Vitest failure-first summaries still retain executed passing and failing counts", () => {
+  assert.deepEqual(certificationTestCounts("Test Files 2 failed | 18 passed (20)\nTests 2 failed | 158 passed (160)").executions, [{ runner: "vitest", testFiles: { passed: 18, failed: 2, skipped: 0, todo: 0, pending: 0, flaky: 0 }, passed: 158, failed: 2, skipped: 0, todo: 0, pending: 0, flaky: 0 }]);
+});
+
+test("ordered Playwright summaries record every stage and identify the final executed suite", () => {
+  const result = certificationTestCounts("Running 2 tests using 1 worker\n2 passed (5s)\nRunning 4 tests using 1 worker\n1 failed\n1 flaky\n1 skipped\n1 passed (9s)");
+  assert.equal(result.executions.length, 2);
+  assert.equal(result.executions[0].passed, 2);
+  assert.equal(result.testsPassed, 1);
+  assert.equal(result.testsFailed, 1);
+  assert.equal(result.testsSkipped, 1);
+  assert.equal(result.testsFlaky, 1);
+  assert.equal(certificationTestCounts("infrastructure failed before tests started").testsPassed, null);
+});
+
+test("certification rejects missing, invalid or mismatched exact checkout identities", () => {
+  const head = "a".repeat(40);
+  assert.equal(verifyCertificationHead(head, head), head);
+  assert.equal(verifyCertificationHead(head), head);
+  for (const [actual, expected] of [[undefined, head], [head, "b".repeat(40)], ["abc", "abc"], [head, "HEAD"]]) assert.throws(() => verifyCertificationHead(actual, expected), /exact head SHA/);
 });
