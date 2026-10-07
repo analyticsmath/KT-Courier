@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    include: ["tests/integration/**/*.integration.test.ts"],
+    include: ["tests/integration/**/*.integration.test.ts", "tests/phase-b/private-media-vehicle-postgres.test.ts"],
     setupFiles: ["tests/setup.ts"],
     clearMocks: true,
     restoreMocks: true,

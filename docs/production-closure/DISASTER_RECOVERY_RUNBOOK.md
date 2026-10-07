@@ -36,6 +36,19 @@ Distributed controls must remain fail-closed where their contracts require Redis
 
 ## Object storage and Cloudinary
 
+New private raster intake decodes and re-encodes JPEG/PNG/WebP while retaining
+full image content and dimensions (orientation may swap width/height). Embedded
+upload metadata is removed. The stored checksum describes the normalized object;
+`PRIVATE_RASTER_V1` metadata records the source byte checksum and size. The raw
+source bytes are not separately retained by this new intake path. Existing media
+objects and catalogue mirrors are untouched. Recovery must distinguish old
+original objects from new normalized objects when verifying checksums.
+
+A failed storage/READY-finalization attempt deletes its own generated provider
+key and marks the database record QUARANTINED. If provider cleanup fails, use the
+existing provider-aware deletion path for that quarantined record after storage
+recovers. Never mark it READY merely because a provider object exists.
+
 Preserve private media access controls, checksum declarations and provider keys. Recover private report/document objects from approved storage backups and verify ownership and checksum before access. Cloudinary raster mirrors retain original/source declarations where designed; PDFs remain private. Do not rerun wholesale migration or expose private originals to work around a failed mirror. Use the existing provider-aware delete/reconciliation tools and restricted evidence.
 
 ## Operations processor recovery

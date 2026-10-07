@@ -145,3 +145,23 @@ critical placeholders. See `OPTIONAL_RECRUITMENT_EXCLUSION.md`. Canonical driver
 onboarding, employee permissions, dispatch and earnings remain critical. The
 courier publication suite now fails on an unsafe connection instead of skipping;
 the current deferral inventory contains 84 marked files.
+
+At `dbf983c2f75d27dc392910398947a7f7e3ea7843`, main CI `37616145153`
+passed. Certification `37616145205` passed all 20 PostgreSQL jobs, quality,
+Redis/security, recovery and all 45 browser assertions (45.7 seconds, zero
+skipped). The certified job correctly failed on open engineering gates.
+
+The private-media candidate rejects signature-only or truncated raster evidence
+before provider allocation or database creation. New JPEG/PNG/WebP objects are
+decoded, rotated and re-encoded without cropping or resizing, removing embedded
+upload metadata. Stored checksum/size describe normalized bytes; metadata records
+the source checksum/size, not retained raw source bytes. Existing objects and
+PDF routing are untouched. Thirteen focused native decoder/storage assertions
+pass, including cleanup after READY database-write failure and durable quarantine
+when cleanup fails. Local closure PostgreSQL passes 87 assertions in twelve files
+(23.03 seconds, zero skipped), including physical local-adapter write/read,
+canonical ownership, denied access audit and checksums. Its test-owned temporary
+cleanup path is validated before recursive removal. Lint, optimized build and
+3,408 unit/API assertions across 760 files passed with zero skipped. New
+exact-commit CI proof remains required; complete media/browser/provider acceptance
+is still open.
