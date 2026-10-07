@@ -36,7 +36,6 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/e2e/store-order-substitution.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/store-product-catalog.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/store-subscription.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
-| tests/e2e/storefront-admin.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/subscription-accessibility.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/subscription-admin.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/subscription-billing.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
@@ -88,4 +87,4 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/phase26/integration/retention-schedules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 | tests/phase26/integration/screening-rules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 
-Audited files with skip/deferral markers: 83. Release-critical open placeholders: 18.
+Audited files with skip/deferral markers: 82. Release-critical open placeholders: 17.

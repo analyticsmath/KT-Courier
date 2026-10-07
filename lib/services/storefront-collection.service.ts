@@ -121,10 +121,12 @@ export class StorefrontCollectionService {
   async removeItem(publicReference: string, itemId: string, input: Readonly<{ version: number; actorUserId: string; operationId: string }>) {
     const collection = await this.require(publicReference); assertDraft(collection); assertOptimisticVersion(collection, input.version);
     // Historical evidence is retained: removal is a tombstone, never DELETE.
-    const removed = await this.db.storefrontCollectionItem.updateMany({ where: { id: itemId, collectionId: collection.id, removedAt: null }, data: { removedAt: new Date(), removedByUserId: input.actorUserId } });
-    if (!removed.count) throw new StorefrontCollectionError("COLLECTION_ITEM_NOT_FOUND", "The collection item is unavailable.");
-    const version = await this.db.storefrontCollection.updateMany({ where: { id: collection.id, version: input.version, status: "DRAFT" }, data: { version: { increment: 1 } } });
-    if (!version.count) throw new StorefrontCollectionError("COLLECTION_VERSION_CONFLICT", "This collection has changed. Reload it before editing.");
+    await this.db.$transaction(async (tx) => {
+      const removed = await tx.storefrontCollectionItem.updateMany({ where: { id: itemId, collectionId: collection.id, removedAt: null }, data: { removedAt: new Date(), removedByUserId: input.actorUserId } });
+      if (!removed.count) throw new StorefrontCollectionError("COLLECTION_ITEM_NOT_FOUND", "The collection item is unavailable.");
+      const version = await tx.storefrontCollection.updateMany({ where: { id: collection.id, version: input.version, status: "DRAFT" }, data: { version: { increment: 1 } } });
+      if (!version.count) throw new StorefrontCollectionError("COLLECTION_VERSION_CONFLICT", "This collection has changed. Reload it before editing.");
+    });
   }
 
   async transition(publicReference: string, action: "submit" | "approve" | "reject" | "activate" | "retire", input: Readonly<{ version: number; actorUserId: string; operationId: string }>) {
@@ -133,19 +135,20 @@ export class StorefrontCollectionService {
     const detail = await this.get(publicReference);
     if (!detail) throw new StorefrontCollectionError("COLLECTION_NOT_FOUND", "The collection is unavailable.");
     if (action === "activate") {
-      if (!detail.items?.length || !collectionIsEffective({ ...collection, status: "ACTIVE" })) throw new StorefrontCollectionError("COLLECTION_NOT_ACTIVATABLE", "An active collection needs eligible items and a current effective window.");
-      for (const item of detail.items) if (!item.removedAt && !await resolveStorefrontCollectionTarget(this.db, item.targetType, item.targetReference)) throw new StorefrontCollectionError("COLLECTION_TARGET_INELIGIBLE", "Every collection target must be publicly eligible before activation.");
+      const activeItems = (detail.items ?? []).filter((item) => !item.removedAt);
+      if (!activeItems.length || !collectionIsEffective({ ...collection, status: "ACTIVE" })) throw new StorefrontCollectionError("COLLECTION_NOT_ACTIVATABLE", "An active collection needs eligible items and a current effective window.");
+      for (const item of activeItems) if (!await resolveStorefrontCollectionTarget(this.db, item.targetType, item.targetReference)) throw new StorefrontCollectionError("COLLECTION_TARGET_INELIGIBLE", "Every collection target must be publicly eligible before activation.");
     }
     return this.db.$transaction(async (tx) => {
       const update = await tx.storefrontCollection.updateMany({ where: { id: collection.id, version: input.version, status: collection.status }, data: { status: toStatus, ...(toStatus === "ACTIVE" ? { approvedByUserId: input.actorUserId } : {}), ...(toStatus === "ACTIVE" ? { seoIndexable: collection.seoIndexable } : { seoIndexable: false }), version: { increment: 1 } } });
       if (!update.count) throw new StorefrontCollectionError("COLLECTION_VERSION_CONFLICT", "This collection has changed. Reload it before editing.");
       await tx.storefrontCollectionLifecycleHistory.create({ data: { collectionId: collection.id, fromStatus: collection.status, toStatus, actorUserId: input.actorUserId, operationId: input.operationId, safeSummary: `Collection moved from ${collection.status} to ${toStatus} through reviewed lifecycle control.` } });
-      return this.require(publicReference);
+      return this.require(publicReference, tx);
     });
   }
 
-  private async require(publicReference: string): Promise<CollectionRow> {
-    const value = await this.db.storefrontCollection.findUnique({ where: { publicReference } });
+  private async require(publicReference: string, db = this.db): Promise<CollectionRow> {
+    const value = await db.storefrontCollection.findUnique({ where: { publicReference } });
     if (!value) throw new StorefrontCollectionError("COLLECTION_NOT_FOUND", "The collection is unavailable.");
     return value;
   }

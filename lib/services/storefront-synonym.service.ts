@@ -66,12 +66,12 @@ export class StorefrontSynonymService {
       const update = await tx.storefrontSearchSynonymSet.updateMany({ where: { id: record.id, version: record.version, status: record.status }, data: { status: toStatus, ...(toStatus === "APPROVED" ? { approvedByUserId: input.actorUserId } : {}), ...(toStatus === "ACTIVE" ? { activatedAt: new Date() } : {}), ...(toStatus === "RETIRED" ? { retiredAt: new Date() } : {}), version: { increment: 1 } } });
       if (!update.count) throw new StorefrontSynonymError("SYNONYM_VERSION_CONFLICT", "This synonym version has changed. Reload it before editing.");
       await tx.storefrontSearchSynonymHistory.create({ data: { synonymSetId: record.id, fromStatus: record.status, toStatus, actorUserId: input.actorUserId, operationId: input.operationId, safeSummary: `Synonym version moved from ${record.status} to ${toStatus} through reviewed lifecycle control.` } });
-      return this.require(publicReference);
+      return this.require(publicReference, tx);
     });
   }
 
-  private async require(publicReference: string): Promise<SynonymRow> {
-    const record = await this.get(publicReference);
+  private async require(publicReference: string, db = this.db): Promise<SynonymRow> {
+    const record = await db.storefrontSearchSynonymSet.findUnique({ where: { publicReference } });
     if (!record) throw new StorefrontSynonymError("SYNONYM_NOT_FOUND", "The synonym version is unavailable.");
     return record;
   }

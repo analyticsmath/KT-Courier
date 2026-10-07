@@ -31,6 +31,7 @@ export default defineConfig({
         /store-catalog-draft-isolation\.spec\.ts/,
         /marketplace-checkout-customer\.spec\.ts/,
         /production-visual-review\.spec\.ts/,
+        /storefront-admin\.spec\.ts/,
       ],
     },
     {

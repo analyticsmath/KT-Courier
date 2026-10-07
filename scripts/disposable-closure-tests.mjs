@@ -7,6 +7,7 @@ const env = { ...process.env, NODE_ENV: "test", KT_RUNTIME_ENV: "e2e", KT_ALLOW_
 const files = ["tests/integration/driver-profile-atomicity.integration.test.ts", "tests/integration/commission-system.integration.test.ts", "tests/integration/production-closure.integration.test.ts", "tests/integration/customer-order-notifications.integration.test.ts", "tests/integration/required-domain-notifications.integration.test.ts", "tests/integration/guest-contact-verification.integration.test.ts", "tests/integration/checkout-legal-evidence.integration.test.ts", "tests/integration/dashboard-addresses.integration.test.ts", "tests/integration/email-delivery-recovery.integration.test.ts", "tests/integration/security-notification-outbox.integration.test.ts", "tests/integration/paystack-webhook-concurrency.integration.test.ts"];
 files.push("tests/phase-b/private-media-vehicle-postgres.test.ts");
 files.push("tests/integration/checkout-owner-resume.integration.test.ts");
+files.push("tests/integration/storefront-editorial-atomicity.integration.test.ts");
 let failed = false; let started = false;
 try {
   // The database URL is constructed here; a supplied production URL is never used.

@@ -536,6 +536,12 @@ async function main() {
     create: { email: "e2e-ledger-denied@ktcouriers.local", name: "E2E Ledger Denied", role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash, adminProfile: { create: { displayName: "E2E Ledger Denied" } } },
   });
   const ledgerPermission = await prisma.permission.findUniqueOrThrow({ where: { key: "ledger.read" } });
+  await prisma.user.create({ data: { email: "e2e-editorial-reviewer@ktcouriers.local", name: "Disposable independent editorial reviewer", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  for (const key of ["storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile"]) {
+    const permission = await prisma.permission.findUniqueOrThrow({ where: { key } });
+    await prisma.userPermission.create({ data: { userId: deniedLedgerAdmin.id, permissionId: permission.id, effect: PermissionEffect.DENY } });
+  }
+  await prisma.storefrontProjectionCase.create({ data: { publicReference: "SPC-E2EEDITORIALCONTROL", aggregateType: "PRODUCT", aggregateReference: "CP-E2ESMARTPHONE", reason: "PUBLICATION_WITHDRAWAL_NOT_APPLIED", safeSummary: "Disposable case requires canonical source-event correction; no manual public override is permitted." } });
   await prisma.userPermission.upsert({
     where: { userId_permissionId: { userId: deniedLedgerAdmin.id, permissionId: ledgerPermission.id } },
     update: { effect: PermissionEffect.DENY },

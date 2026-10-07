@@ -214,3 +214,27 @@ Discovery now reports 53 assertions in fourteen files. Capture generation and
 overflow assertions are not a visual sign-off; execution and inspection remain
 required. Local lint, TypeScript, optimized build, twelve certification helpers
 and 3,409 unit/API assertions across 760 files pass, zero skipped.
+
+At `f7286c8af6f0fd4e8333339d830955983d3b4815`, main CI `37620687563`
+passed. Certification `37620687583` passed all twenty PostgreSQL jobs, quality,
+Redis/security, recovery and all 53 browser assertions (1.8 minutes, zero skipped).
+This includes the customer correction/resumption/access assertions and four
+responsive capture walks. Only the final certified job failed on open gates.
+The downloaded `browser-evidence` artifact contains 28 actual screenshots; partial
+visual inspection found a collapsed mobile missing-image gallery. See
+`VISUAL_REVIEW.md`. Capture generation does not sign off every layout or journey.
+
+The editorial candidate captures the form element before each asynchronous save,
+returns collection/synonym lifecycle results from their owning transaction,
+commits collection removal with its optimistic version and rejects activation
+when only tombstoned items remain. Five actual PostgreSQL assertions pass in the
+97-assertion, fourteen-file closure run (35.75 seconds, zero skipped), including a
+test-owned trigger rollback and concurrent removal conflict. Test-owned lifecycle
+evidence survives until the disposable database is destroyed. Lint, TypeScript,
+optimized build and all 3,409 unit/API assertions in 760 files pass. Four replacement
+storefront admin browser assertions cover canonical collection/synonym authoring,
+review/activation/retirement, unsupported projection overrides and role/explicit
+DENY checks. Activation is exercised through the existing authenticated API; the
+current UI offers review and retirement only. The new assertions require execution.
+Discovery reports 57 assertions in fifteen files; the active placeholder inventory
+is seventeen in 82 marked files. Full directed functionality remains open.
