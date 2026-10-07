@@ -9,6 +9,8 @@ services:
       PRIVATE_MEDIA_STORAGE: local
       PRIVATE_MEDIA_LOCAL_DIR: /tmp/kt-couriers-e2e-private-media
       KT_E2E_PRIVATE_MEDIA_LOCAL: "true"
+      CATALOG_MEDIA_STORAGE: filesystem
+      CATALOG_MEDIA_LOCAL_DIR: /tmp/kt-couriers-e2e-catalog-media
   e2e-ingress:
     image: ${MIGRATE_IMAGE:-kt-couriers-migrate:latest}
     restart: "no"

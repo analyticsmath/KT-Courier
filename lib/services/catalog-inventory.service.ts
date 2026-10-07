@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { applyInventoryDelta, inventoryProjection } from "@/lib/catalog/catalog-inventory-policy";
 import { catalogPublicReference, catalogRequestHash } from "@/lib/catalog/catalog-normalization";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
-import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 
 export async function listStoreInventory(storeId: string) {
   return prisma.catalogInventoryItem.findMany({
@@ -21,9 +21,9 @@ export async function postCatalogInventoryMovement(storeId: string, actorUserId:
   reasonCode: string;
   safeNote?: string;
   version: number;
-}) {
+}, transaction?: Prisma.TransactionClient) {
   const requestHash = catalogRequestHash({ inventoryPublicReference, ...input });
-  return prisma.$transaction(async (tx) => {
+  return withCatalogTransaction(transaction, async (tx) => {
     const item = await tx.catalogInventoryItem.findFirst({ where: { publicReference: inventoryPublicReference, offer: { storeId } }, include: { offer: true } });
     if (!item) {
       const exists = await tx.catalogInventoryItem.findUnique({ where: { publicReference: inventoryPublicReference }, include: { offer: { select: { storeId: true } } } });
@@ -54,4 +54,3 @@ export async function postCatalogInventoryMovement(storeId: string, actorUserId:
     return movement;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
-

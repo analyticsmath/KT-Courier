@@ -30,6 +30,7 @@ export default defineConfig({
         /driver-profile-onboarding\.spec\.ts/,
         /driver-documents\.spec\.ts/,
         /store-catalog-draft-isolation\.spec\.ts/,
+        /store-product-catalog\.spec\.ts/,
         /marketplace-checkout-customer\.spec\.ts/,
         /production-visual-review\.spec\.ts/,
         /storefront-admin\.spec\.ts/,

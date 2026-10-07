@@ -133,3 +133,13 @@ readable; phone document badges remain intact. Fixed navigation placement in som
 full-page driver captures does not certify every scroll/focus state. The next
 candidate removes redundant last-four suffixes and distinguishes canonical history
 events; finance captures and complete visual acceptance remain pending.
+
+At `e63a1f3501b367b8debcff33007c734345e3f0eb`, all 82 Chromium assertions
+pass, zero skipped/flaky. Twelve finance captures and eight updated owner
+reserved/cancelled captures were actually inspected. Select labels no longer
+repeat the last four and canonical history descriptions are distinguishable.
+Finance money, masks, rejection release evidence and unresolved unknown outcome
+are readable. Fixed navigation retained in full-page captures limits scroll/focus
+claims. The phone destination withdrawal-reference row wraps its amount; the
+next candidate separates it into an unbroken money span and requires new capture
+review. Complete visual acceptance remains open.

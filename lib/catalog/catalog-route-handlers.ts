@@ -130,7 +130,7 @@ export async function storeDuplicateSearch(request: NextRequest) {
   const auth = await requireStoreCatalogPermission(PERMISSIONS.CATALOG_READ, request); if ("response" in auth) return auth.response;
   const title = request.nextUrl.searchParams.get("title")?.trim() ?? ""; const productTypeCode = request.nextUrl.searchParams.get("productTypeCode")?.trim() ?? "";
   if (title.length < 3 || productTypeCode.length < 2) return invalid("Duplicate search requires title and product type.");
-  try { return catalogJson({ candidates: await searchCatalogDuplicates({ title, productTypeCode, gtin: request.nextUrl.searchParams.get("gtin") ?? undefined, brandId: request.nextUrl.searchParams.get("brandId") ?? undefined, mpn: request.nextUrl.searchParams.get("mpn") ?? undefined }) }); } catch (error) { return catalogApiError(error); }
+  try { return catalogJson({ candidates: await searchCatalogDuplicates({ storeId: auth.store.id, title, productTypeCode, gtin: request.nextUrl.searchParams.get("gtin") ?? undefined, brandId: request.nextUrl.searchParams.get("brandId") ?? undefined, mpn: request.nextUrl.searchParams.get("mpn") ?? undefined }) }); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storeInventoryGet(request: NextRequest) {

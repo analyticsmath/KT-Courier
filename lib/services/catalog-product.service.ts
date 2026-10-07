@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { type Prisma } from "@prisma/client";
 import { validateProductAttributeValues } from "@/lib/catalog/product-attribute-validation";
 import { evaluateCatalogCompliance } from "@/lib/catalog/catalog-compliance-policy";
 import { assertProductTransition } from "@/lib/catalog/catalog-state-machines";
@@ -6,7 +7,7 @@ import { calculateCatalogQuality } from "@/lib/catalog/catalog-quality-score";
 import { catalogPublicReference, catalogSlug, normalizeCatalogKey } from "@/lib/catalog/catalog-normalization";
 import { productOptionFingerprint } from "@/lib/catalog/product-option-fingerprint";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
-import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 import { toInputJsonObject } from "@/lib/json/input-json";
 
 export type CatalogProductDraftInput = {
@@ -27,10 +28,11 @@ export type CatalogProductDraftInput = {
   operationId: string;
 };
 
-async function authoringFoundation(productTypeDefinitionId: string, categoryId: string) {
+async function authoringFoundation(productTypeDefinitionId: string, categoryId: string, transaction?: Prisma.TransactionClient) {
+  const database = transaction ?? prisma;
   const [definition, category] = await Promise.all([
-    prisma.productTypeDefinition.findUnique({ where: { id: productTypeDefinitionId } }),
-    prisma.catalogCategory.findUnique({ where: { id: categoryId } }),
+    database.productTypeDefinition.findUnique({ where: { id: productTypeDefinitionId } }),
+    database.catalogCategory.findUnique({ where: { id: categoryId } }),
   ]);
   if (!definition || !["APPROVED", "ACTIVE"].includes(definition.status)) {
     throw new CatalogPolicyError("PRODUCT_TYPE_UNAVAILABLE", "An approved product-type version is required for draft authoring.");
@@ -62,9 +64,10 @@ export async function getStoreCatalogProduct(storeId: string, publicReference: s
   return product;
 }
 
-export async function createStorePrivateCatalogProduct(storeId: string, actorUserId: string, input: CatalogProductDraftInput) {
+export async function createStorePrivateCatalogProduct(storeId: string, actorUserId: string, input: CatalogProductDraftInput, transaction?: Prisma.TransactionClient) {
   if (input.scope !== "STORE_PRIVATE") throw new CatalogPolicyError("STORE_PRIVATE_REQUIRED", "Store authoring creates store-private products only.");
-  const { definition } = await authoringFoundation(input.productTypeDefinitionId, input.primaryCategoryId);
+  const { definition } = await authoringFoundation(input.productTypeDefinitionId, input.primaryCategoryId, transaction);
+  if (!definition.attributeSchema || typeof definition.attributeSchema !== "object" || !Array.isArray((definition.attributeSchema as Record<string, unknown>).attributes)) throw new CatalogPolicyError("PRODUCT_TYPE_SCHEMA_INVALID", "The product type's attribute schema is unavailable. Ask the catalog administrator to review it.");
   const attributeIssues = validateProductAttributeValues(definition.attributeSchema as never, input.attributeValues);
   if (attributeIssues.length > 0) throw new CatalogPolicyError("PRODUCT_ATTRIBUTES_INVALID", "Product attributes do not match the selected product type.");
   const publicReference = catalogPublicReference("CP");
@@ -82,7 +85,7 @@ export async function createStorePrivateCatalogProduct(storeId: string, actorUse
     priceReady: false,
     inventoryReady: false,
   });
-  return prisma.$transaction(async (tx) => {
+  return withCatalogTransaction(transaction, async (tx) => {
     const product = await tx.catalogProduct.create({
       data: {
         publicReference,

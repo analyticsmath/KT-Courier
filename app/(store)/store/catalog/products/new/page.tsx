@@ -14,7 +14,7 @@ import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.servi
 export default async function NewStoreCatalogProductPage() {
   await requireBusinessPage("/store/catalog/products/new");
   const { user, store } = await getCurrentStoreForCatalogPage();
-  const [productTypes, categories] = await Promise.all([
+  const [productTypes, categories, inventoryLocations] = await Promise.all([
     prisma.productTypeDefinition.findMany({
       where: { status: { in: ["APPROVED", "ACTIVE"] } },
       select: {
@@ -31,6 +31,7 @@ export default async function NewStoreCatalogProductPage() {
       select: { id: true, name: true, path: true },
       orderBy: { path: "asc" },
     }),
+    prisma.inventoryLocation.findMany({ where: { storeId: store.id, status: "ACTIVE" }, select: { publicReference: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   return (
     <ProtectedPageFrame>
@@ -58,6 +59,7 @@ export default async function NewStoreCatalogProductPage() {
           draftOwnerKey={`${encodeURIComponent(user.id)}:${encodeURIComponent(store.id)}`}
           productTypes={productTypes}
           categories={categories}
+          inventoryLocations={inventoryLocations}
         />
       ) : (
         <ProtectedState

@@ -85,6 +85,7 @@ for (const file of routeFiles) {
     content.includes("requirePromoterMutation") ||
     content.includes("requirePromoterAdmin") ||
     content.includes("requireStorefrontAdminMutation") ||
+    content.includes("prepareCatalogMutation") ||
     content.includes("beginPayfastItnRequest") ||
     /\bmutation\(/.test(content);
 

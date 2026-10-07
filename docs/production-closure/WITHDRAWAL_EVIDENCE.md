@@ -93,3 +93,18 @@ in 61.07 seconds. Lint, TypeScript and the optimized production build pass.
 Eleven critical placeholders remain in 76 marked files;
 82 Chromium assertions in 22 files are selected, with three new finance cases
 pending actual execution and capture inspection.
+
+At `e63a1f3501b367b8debcff33007c734345e3f0eb`, main CI `37665349612`
+passes and certification `37665349760` passes all 24 component jobs. Browser job
+`112943037079` passes 82 assertions in 3.5 minutes, zero skipped/flaky, including
+the three finance cases. Final certified job `112947307352` fails the remaining
+engineering/production gates. No live payout or separate human approval is claimed.
+
+All twelve new finance captures and eight updated reserved/cancelled owner captures
+were actually inspected. Money, masked destinations, refusal recovery, rejected
+release evidence and unknown-outcome reconciliation are readable. Owner selects no
+longer repeat the last four, and distinct history events have plain descriptions.
+Full-page driver captures still retain fixed navigation at the captured viewport
+position and do not prove every scroll/focus state. A phone finance destination's
+withdrawal-reference row splits its amount; the next candidate separates reference,
+state and an unbroken amount. Its new capture remains required.

@@ -1,21 +1,22 @@
 import { prisma } from "@/lib/db/prisma";
+import { type Prisma } from "@prisma/client";
 import { assertCatalogMediaAttachment } from "@/lib/catalog/media/catalog-media-attachment";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
-import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 
 type AttachInput = Readonly<{ operationId: string; productVersion: number; assetPublicReference: string; role: "PRIMARY" | "GALLERY" | "VARIANT" | "SWATCH" | "LABEL"; altText: string; displayOrder: number; variantPublicReference?: string | null }>;
 
-async function ownedDraftProduct(storeId: string, publicReference: string) {
-  const product = await prisma.catalogProduct.findUnique({ where: { publicReference }, include: { variants: true, media: true } });
+async function ownedDraftProduct(storeId: string, publicReference: string, transaction?: Prisma.TransactionClient) {
+  const product = await (transaction ?? prisma).catalogProduct.findUnique({ where: { publicReference }, include: { variants: true, media: true } });
   if (!product) throw new CatalogNotFoundError("Catalog product was not found.");
   if (product.scope !== "STORE_PRIVATE" || product.sourceStoreId !== storeId) throw new CatalogOwnershipError();
   if (!["DRAFT", "NEEDS_CHANGES"].includes(product.status)) throw new CatalogPolicyError("CATALOG_MEDIA_PRODUCT_NOT_EDITABLE", "Media associations may only change on editable product drafts.", 409);
   return product;
 }
 
-export async function attachStoreCatalogMedia(storeId: string, productReference: string, actorUserId: string, input: AttachInput) {
-  const product = await ownedDraftProduct(storeId, productReference);
-  const asset = await prisma.catalogMediaAsset.findUnique({ where: { publicReference: input.assetPublicReference } });
+export async function attachStoreCatalogMedia(storeId: string, productReference: string, actorUserId: string, input: AttachInput, transaction?: Prisma.TransactionClient) {
+  const product = await ownedDraftProduct(storeId, productReference, transaction);
+  const asset = await (transaction ?? prisma).catalogMediaAsset.findUnique({ where: { publicReference: input.assetPublicReference } });
   if (!asset) throw new CatalogNotFoundError("Catalog media asset was not found.");
   const variant = input.variantPublicReference ? product.variants.find((item) => item.publicReference === input.variantPublicReference) : null;
   if (input.variantPublicReference && !variant) throw new CatalogPolicyError("CATALOG_MEDIA_VARIANT_MISMATCH", "Variant media must reference a variant on the same product.");
@@ -23,7 +24,7 @@ export async function attachStoreCatalogMedia(storeId: string, productReference:
   if (product.media.some((item) => item.variantId === (variant?.id ?? null) && item.displayOrder === input.displayOrder)) throw new CatalogConflictError("CATALOG_MEDIA_ORDER_CONFLICT", "Media order is already occupied for this product or variant.");
   const primaryCount = product.media.filter((item) => item.role === "PRIMARY" && item.variantId === null).length + (input.role === "PRIMARY" && !variant ? 1 : 0);
   assertCatalogMediaAttachment({ product, variant, asset, role: input.role, altText: input.altText, existingProductImageCount: product.media.length, existingVariantImageCount: existingVariantCount, resultingPrimaryImageCount: primaryCount });
-  return prisma.$transaction(async (tx) => {
+  return withCatalogTransaction(transaction, async (tx) => {
     const versionUpdate = await tx.catalogProduct.updateMany({ where: { id: product.id, version: input.productVersion }, data: { version: { increment: 1 } } });
     if (versionUpdate.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product changed; reload before attaching media.");
     const association = await tx.catalogProductMedia.create({ data: { productId: product.id, variantId: variant?.id, assetId: asset.id, role: input.role, altText: input.altText.trim(), displayOrder: input.displayOrder } });

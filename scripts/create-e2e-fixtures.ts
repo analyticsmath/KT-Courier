@@ -75,6 +75,11 @@ async function seedPhase2Fixtures(passwordHash: string) {
     create: { ownerUserId: otherStoreUser.id, name: "E2E Other Store", slug: "e2e-other-store", status: StoreStatus.ACTIVE, city: "Johannesburg", province: "Gauteng", country: "South Africa" },
   });
 
+  const deniedCatalogOwner = await prisma.user.create({ data: { email: "e2e-catalog-denied@ktcouriers.local", name: "Disposable catalog denied owner", role: UserRole.STORE, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  await prisma.store.create({ data: { ownerUserId: deniedCatalogOwner.id, name: "Disposable denied catalog store", slug: "e2e-catalog-denied", status: StoreStatus.ACTIVE } });
+  const deniedCatalogPricing = await prisma.permission.findUniqueOrThrow({ where: { key: "catalog_pricing.manage" } });
+  await prisma.userPermission.create({ data: { userId: deniedCatalogOwner.id, permissionId: deniedCatalogPricing.id, effect: PermissionEffect.DENY } });
+
   // Category
   const category = await prisma.catalogCategory.upsert({
     where: { publicReference: "cat_electronics" },
@@ -92,7 +97,7 @@ async function seedPhase2Fixtures(passwordHash: string) {
   const productType = await prisma.productTypeDefinition.upsert({
     where: { code_versionNumber: { code: "smartphone", versionNumber: 1 } },
     update: { name: "Smartphone", status: "ACTIVE" },
-    create: { publicReference: "ptd_smartphone", code: "smartphone", name: "Smartphone", description: "Smartphones and mobile devices", versionNumber: 1, attributeSchema: {}, variantSchema: {}, complianceSchema: {}, searchFacetSchema: {}, status: "ACTIVE", createdByUserId: storeUser.id },
+    create: { publicReference: "ptd_smartphone", code: "smartphone", name: "Smartphone", description: "Smartphones and mobile devices", versionNumber: 1, attributeSchema: { attributes: [] }, variantSchema: {}, complianceSchema: {}, searchFacetSchema: {}, status: "ACTIVE", createdByUserId: storeUser.id },
   });
 
   // Product 1: Smartphone
