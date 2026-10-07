@@ -7,6 +7,7 @@ import { createDisposableCheckoutAuthorities } from "./e2e-checkout-authorities"
 import { createDisposableDriverSettlement } from "./e2e-driver-settlement-fixture";
 import { accrueDriverEarning } from "@/lib/services/driver-earning-accrual.service";
 import { releaseDriverEarning } from "@/lib/services/driver-earning-release.service";
+import { createDriverEarningReconciliation } from "@/lib/services/driver-earning-reconciliation.service";
 
 const prisma = new PrismaClient();
 
@@ -540,7 +541,7 @@ async function main() {
   });
   const ledgerPermission = await prisma.permission.findUniqueOrThrow({ where: { key: "ledger.read" } });
   await prisma.user.create({ data: { email: "e2e-editorial-reviewer@ktcouriers.local", name: "Disposable independent editorial reviewer", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
-  for (const key of ["storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile"]) {
+  for (const key of ["storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile"]) {
     const permission = await prisma.permission.findUniqueOrThrow({ where: { key } });
     await prisma.userPermission.create({ data: { userId: deniedLedgerAdmin.id, permissionId: permission.id, effect: PermissionEffect.DENY } });
   }
@@ -579,6 +580,11 @@ async function main() {
     }
   }
 
+  for (const width of [1440, 390]) {
+    const source = await createDisposableDriverSettlement({ email: `e2e-earning-finance-${width}@ktcouriers.local`, passwordHash });
+    const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+    await createDriverEarningReconciliation({ caseKey: `${source.tag}:synthetic-exception`, driverEarningId: earning.id, reason: "APPLICATION_FAILURE", priority: "HIGH", safeSummary: `Synthetic finance review fixture at ${width}px; no real delivery or provider event.`, safeEvidence: { fixture: "disposable-driver-finance", privateMarker: "PRIVATE_INTERNAL_DRIVER_FINANCE_EVIDENCE" } });
+  }
   console.log("E2E fixtures are ready.");
 }
 

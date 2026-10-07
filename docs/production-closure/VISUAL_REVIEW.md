@@ -48,3 +48,13 @@ so real image quality, multi-image behavior and live media delivery remain open.
 
 Complete customer/vendor/driver/admin screens, all interactive/error states,
 paid-order flows and provider-backed media acceptance still require review.
+
+At `1d53a4e81387855de65ea1ec384248289b78c3e9`, certification `37635433735`
+passed all 63 selected browser assertions, zero skipped, including the corrected
+projection refusal and driver earnings eligibility/owner isolation. Six driver
+captures were inspected: desktop/phone released records preserve the exact
+amounts and readable history, and both restricted routes display clear eligibility
+guidance with an unobscured onboarding focus ring. Real browser hit-target and
+Enter navigation assertions pass for that onboarding link. These captures do not
+certify every scroll position or history target. The next finance-admin table
+patch and its new browser assertions still require execution and inspection.

@@ -36,10 +36,35 @@ error receives this state; unexpected failures still propagate.
 Desktop/phone browser assertions cover exact owner balances/history, genuine
 cross-driver denial, record immutability, role/anonymous denial and the pending
 driver restricted state, including keyboard navigation and unobscured focus.
-Execution of the follow-up is pending. Its local browser runner has not reached
-assertions; Docker Desktop returned HTTP 500 to a read-only container listing
-during application build. No browser success or cleanup result is inferred from
-that infrastructure failure. The shared local database and Redis were not reset
-or restarted. Full finance administration, actual
+At `1d53a4e81387855de65ea1ec384248289b78c3e9`, main CI `37635433731`
+passed. Certification `37635433735` passed quality, all twenty PostgreSQL jobs,
+Redis/security, recovery and all 63 browser assertions (2.2 minutes), zero
+skipped. Both exact owner history/foreign-access assertions and the pending-driver
+restricted UI assertion passed; the projection refusal correction also passed.
+Only the final certification gate failed on open engineering work. All six fresh
+driver captures were inspected: released records show the exact amounts and
+history at desktop/phone widths; both restricted routes show readable eligibility
+guidance and a visible onboarding focus ring. Full-page phone images place fixed
+navigation at the original viewport position; they do not prove scrolling access
+to every history entry. Browser hit-target/keyboard checks certify the restricted
+state's onboarding link only.
+
+The separate local browser run was stopped during application build after Docker
+Desktop returned HTTP 500 to read-only container listings. Only the verified
+task-owned Docker build client and its Compose/buildx descendants were stopped.
+The runner exited nonzero; its owned-project cleanup also returned HTTP 500, so
+cleanup is unverified. The affected disposable project is
+`kt-couriers-e2e-1791381996001-4852`. The shared local database and Redis were not
+reset or restarted. This local infrastructure failure is not browser proof.
+
+The next candidate replaces the driver finance-admin placeholder with three
+executable assertions: desktop/phone evidence inspection and locked reversal,
+plus wrong-role/explicit-DENY/anonymous denial. Dedicated synthetic owners receive
+an actual canonical accrual and reconciliation case. The browser checks exact
+amounts, history and journal references, immutable evidence after locked and
+forged reversal requests, safe reconciliation rendering, and phone table keyboard
+scrolling. The two list tables use the existing bounded scroll region. Discovery
+now selects 66 assertions in seventeen files. These new assertions have not run;
+fifteen active critical placeholders remain. Full finance administration,
 provider verification, physical delivery and complete financial acceptance
 remain open.

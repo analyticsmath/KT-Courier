@@ -33,6 +33,7 @@ export default defineConfig({
         /production-visual-review\.spec\.ts/,
         /storefront-admin\.spec\.ts/,
         /driver-earnings\.spec\.ts/,
+        /driver-earnings-finance-admin\.spec\.ts/,
       ],
     },
     {
