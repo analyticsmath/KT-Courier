@@ -1,7 +1,8 @@
 # Phase 1B storefront validation — 8 October 2026
 
-Classification at source checkpoint: **PHASE_1_PARTIAL; OVERALL_NOT_READY** until
-new exact-SHA acceptance completes. No Phase 2 implementation is authorized here.
+Final source classification: **PHASE_1_PARTIAL; OVERALL_NOT_READY**. The scoped
+storefront fix passes, but the single full Chromium run fails a different finance
+locator. No second implementation cycle or Phase 2 work was started.
 
 ## Baseline and bounded work
 
@@ -14,6 +15,9 @@ new exact-SHA acceptance completes. No Phase 2 implementation is authorized here
 - Existing Phase 1 report is preserved. Source checkpoint identity and new CI
   evidence will be appended after the normal push; this file cannot embed its
   own commit hash. Final source SHA is distinguished from any later report-only tip.
+- Final source SHA: `2be819b3464f11213eeab24a2312caac17f5f0c1`, normally pushed
+  and verified equal to remote HEAD. Source checkpoint diff: 7 files,
+  173 insertions / 25 deletions, including the initial evidence report.
 
 [Starting-head certification 37698348502](https://github.com/analyticsmath/KT-Courier/actions/runs/37698348502)
 was allowed to finish and was never cancelled. Its browser job passed 88/88,
@@ -68,7 +72,7 @@ existing variant case and do not inflate discovery. No Prisma schema/migrations,
 permission bootstrap, catalog commands, finance locks, production workflow trigger,
 or engineering-gate statuses are changed.
 
-## Local observations and CI pending
+## Local observations and exact-source CI
 
 | Command / observation | Actual result |
 |---|---|
@@ -83,10 +87,111 @@ or engineering-gate statuses are changed.
 Scoped command:
 `node node_modules/vitest/vitest.mjs run tests/ui/storefront-variant-group.test.ts tests/public-v2/pdp-three-column-layout.test.ts tests/ui/store-catalog-wizard-label.test.ts tests/security/store-catalog-authority.test.ts tests/auth/permission-bootstrap.test.ts tests/auth/permissions.test.ts tests/api/catalog-store-api.test.ts tests/api/catalog-media-store-api.test.ts tests/client-platform/employees.test.ts tests/infrastructure/seed-idempotency-contract.test.ts --reporter=default`.
 
-These local results concern working source based on e4acdf9f; they are not yet
-new-commit CI proof. Exact-head quality, 20 PostgreSQL commands, Redis/security,
-recovery and browser results will be recorded after execution. The final manifest
-gate is expected to remain FAIL on genuine later-phase open requirements.
+The first local results concern working source based on e4acdf9f. The committed
+rechecks and CI evidence below explicitly identify the new source SHA. Earlier
+source results are not claimed as new-head acceptance.
+
+The scoped Vitest command was rerun at committed source `2be819b3`: **64 passed,
+10 files, zero skipped/failed**, 2.22 s. The three Node runner/workflow contract
+files were also rerun at that commit: **13 passed, zero skipped/todo/failed**,
+0.116 s. These are local execution results at the exact source commit.
+
+New exact-source runs:
+[CI 37700812272](https://github.com/analyticsmath/KT-Courier/actions/runs/37700812272)
+and [Production Certification 37700812430](https://github.com/analyticsmath/KT-Courier/actions/runs/37700812430).
+Both declare head SHA `2be819b3464f11213eeab24a2312caac17f5f0c1`.
+
+### Exact-source component evidence
+
+Artifact counts below all record the exact source SHA above. Selections overlap
+the complete coverage run and are not added together as unique test totals.
+
+| Selection | Passed / failed / skipped / flaky | Wrapper duration |
+|---|---|---|
+| `test:coverage` | 3497 / 0 / 0 / 0 | 101.475 s |
+| `test:payments` | 333 / 0 / 0 / 0 | 6.028 s |
+| `test:refunds` | 101 / 0 / 0 / 0 | 2.859 s |
+| `test:security:bola` | 23 / 0 / 0 / 0 | 1.618 s |
+| `test:processors` | 22 / 0 / 0 / 0 | 1.508 s |
+| `test:integration:closure` | 160 / 0 / 0 / 0 | 109.595 s |
+| `test:integration:redis-rate-limit` | 7 / 0 / 0 / 0 | 5.280 s |
+| `test:integration:bola-authority` | 10 / 0 / 0 / 0 | 72.046 s |
+
+Quality job `113063550445` is SUCCESS, including configured lint, Next build,
+typecheck, Prisma generation/validation, migration check, production dependency
+audit, runner contract tests and all five quality test selections. All twenty
+PostgreSQL command jobs are SUCCESS. Redis/security job `113063550281` and
+recovery job `113063550517` are SUCCESS. Recovery used disposable fixtures;
+production protected rows were not touched. Browser job `113063550544` FAILED;
+the final `certified` job `113067341175` was SKIPPED because browser failed.
+
+### Browser stages and precise remaining blocker
+
+The CI command was
+`node scripts/certification-command.mjs test:e2e -- --project=chromium --phase1-catalog`.
+Each stage executes `node node_modules/playwright/cli.js test` with its selection,
+`--project=chromium --retries=0 --workers=1 --reporter=list,json` and separate
+failure-artifact directories. The target uses `tests/e2e/storefront-browsing.spec.ts`
+with `--grep=product detail page displays store`; product detail selects the
+existing `tests/e2e/storefront-product-detail.spec.ts`. Catalog selects
+`store-product-catalog.spec.ts` and `catalog-administration.spec.ts`; employee
+selects `business-employee-access.spec.ts`. Desktop stages add `--grep=1440px`.
+Full Chromium has no filename/grep restriction. All stage records contain source
+SHA `2be819b3464f11213eeab24a2312caac17f5f0c1`.
+
+| Ordered stage | Passed / failed / skipped / flaky | Duration | Result |
+|---|---|---|---|
+| Storefront variant target, 1440 and 390 within one case | 1 / 0 / 0 / 0 | 7.460 s | PASS |
+| Existing product-detail spec, including keyboard Enter | 4 / 0 / 0 / 0 | 9.275 s | PASS |
+| Catalog 1440 | 2 / 0 / 0 / 0 | 25.171 s | PASS |
+| Catalog both 1440/390 | 4 / 0 / 0 / 0 | 41.383 s | PASS |
+| Employee 1440 | 1 / 0 / 0 / 0 | 12.871 s | PASS |
+| Employee both 1440/390 | 2 / 0 / 0 / 0 | 19.430 s | PASS |
+| Full Chromium, 88 discovered cases | 87 / 1 / 0 / 0 | 251.897 s | FAIL |
+
+All executions used zero retries. The target verified initial checked seller and
+R1500 price, exactly one actionable Silver/128GB link, ordinary click, canonical
+URL/title and R2000 price, invalid-variant safe handling, no overflow and clean
+console at both widths. The keyboard case verified Enter, reload persistence,
+canonical price and unchanged cart. Native catalog and employee journeys passed
+at both widths without modifying their implementation.
+
+The remaining full-suite failure is
+`tests/e2e/withdrawal-finance-admin.spec.ts:101`, test
+"finance reviews, rejects with released capacity and investigates an uncertain
+payout at 1440px" (declared at line 32). Its global
+`page.getByText(second.destination.maskedLabel, { exact: true })` matches six
+`td[data-label="Masked destination"]` cells bearing the same disposable masked
+label. `toBeVisible()` fails strict uniqueness. This is a separate finance-table
+locator ambiguity; the actual DOM root cause and appropriate operation/row scope
+remain uninvestigated. Do not infer a payout/provider defect or production risk
+from this assertion alone. No finance test/source correction, retry or repeated
+manual full-suite run was attempted. The original storefront test also passed
+within the full suite. Failure-only trace/screenshot/video and sanitized reports
+are retained in restricted GitHub artifacts and ignored local output; none is
+committed or claimed as human visual approval.
+
+### Final manifest and checkpoint handoff
+
+Source CI `37700812272` completed SUCCESS. Source Production Certification
+`37700812430` completed FAILURE: 23 component jobs SUCCESS, browser FAILURE,
+and `certified` SKIPPED. At this source the final manifest was **not executed**;
+its absence cannot be described as an open-gates-only failure. Starting-head run
+`37698348502` did execute it and FAILED on the nine genuine later-phase gates.
+Those same unchanged manifest keys remain blocking:
+`marketplace_parcel_classification`, `notification_required_domains`,
+`commercial_financial_certification`,
+`customer_vendor_driver_full_functional_acceptance`, `visual_acceptance`,
+`media_full_functional_acceptance`, `critical_skip_closure`,
+`fresh_production_protected_row_audit`, and `github_certification_and_deployment`.
+
+This final evidence update is a legitimate report-only checkpoint on top of the
+frozen source. Its automatic PR runs, if still pending at handoff, are PENDING for
+that new tip; the source results above must not be relabeled as report-tip proof.
+No workflow dispatch/rerun was requested to chase a green result. Remote equality,
+draft PR status and unchanged main are rechecked after the report push. Stop for
+architect review; approve a separate bounded investigation of the finance-table
+ambiguity before considering complete Phase 1 acceptance.
 
 ## Preserved boundaries and later work
 
@@ -108,3 +213,68 @@ inputs, real provider/device/backup acceptance and human approvals remain later 
 
 Next recommended batch is the financial and store-order browser placeholders,
 subject to senior architect authorization. Nothing in Phase 2 is implemented here.
+
+## Complete source-run job inventory
+
+Run 37700812430; SHA 2be819b3464f11213eeab24a2312caac17f5f0c1; conclusion FAILURE.
+
+| Job | ID | Conclusion |
+|---|---|---|
+| redis-and-recovery | 113063550281 | SUCCESS |
+| postgres (test:integration:permissions) | 113063550424 | SUCCESS |
+| quality | 113063550445 | SUCCESS |
+| postgres (test:integration:payment-foundation) | 113063550456 | SUCCESS |
+| postgres (test:integration:cross-module) | 113063550459 | SUCCESS |
+| postgres (test:integration:driver-operations) | 113063550483 | SUCCESS |
+| postgres (test:integration:dispatch) | 113063550484 | SUCCESS |
+| postgres (test:integration:store-earnings) | 113063550486 | SUCCESS |
+| postgres (test:integration:pricing) | 113063550491 | SUCCESS |
+| recovery | 113063550517 | SUCCESS |
+| postgres (test:integration:auth) | 113063550523 | SUCCESS |
+| postgres (test:integration:withdrawals) | 113063550524 | SUCCESS |
+| postgres (test:integration:orders) | 113063550532 | SUCCESS |
+| postgres (test:integration:driver-earnings) | 113063550535 | SUCCESS |
+| browser | 113063550544 | FAILURE |
+| postgres (test:integration:ledger) | 113063550547 | SUCCESS |
+| postgres (test:integration:marketplace-checkout) | 113063550558 | SUCCESS |
+| postgres (test:integration:store-orders) | 113063550628 | SUCCESS |
+| postgres (test:integration:refunds) | 113063550639 | SUCCESS |
+| postgres (test:integration:catalog) | 113063550656 | SUCCESS |
+| postgres (docker:migration-smoke) | 113063550671 | SUCCESS |
+| postgres (test:integration:closure) | 113063550703 | SUCCESS |
+| postgres (test:integration:storefront) | 113063550707 | SUCCESS |
+| postgres (docker:gate4) | 113063550738 | SUCCESS |
+| certified | 113067341175 | SKIPPED |
+
+Run 37700812272; SHA 2be819b3464f11213eeab24a2312caac17f5f0c1; conclusion SUCCESS.
+
+| Job | ID | Conclusion |
+|---|---|---|
+| container-build | 113063549832 | SUCCESS |
+| pricing-integration | 113063549955 | SUCCESS |
+| Phase 1 Release-Critical Verification (Paystack, Invariants, Security, Processors, Refunds) | 113063549978 | SUCCESS |
+| Phase 1 PostgreSQL Webhook Concurrency Integration | 113063550115 | SUCCESS |
+| migration-smoke | 113063550131 | SUCCESS |
+| docker-runtime | 113063550157 | SUCCESS |
+| cross-module-integration | 113063550174 | SUCCESS |
+| ledger-integration | 113063550189 | SUCCESS |
+| quality | 113063550193 | SUCCESS |
+| dispatch-integration | 113063550363 | SUCCESS |
+| store-earning-e2e | 113063550908 | SKIPPED |
+| store-earning-integration | 113063550988 | SKIPPED |
+| withdrawal-e2e | 113063550995 | SKIPPED |
+| Legacy PayFast Confirmation E2E (Compatibility) | 113063551024 | SKIPPED |
+| payment-foundation-integration | 113063551071 | SKIPPED |
+| driver-earning-e2e | 113063551227 | SKIPPED |
+| withdrawal-integration | 113063551264 | SKIPPED |
+| Legacy PayFast Compatibility Integration | 113063551275 | SKIPPED |
+| storefront-accessibility | 113063551466 | SKIPPED |
+| Legacy PayFast Checkout E2E (Compatibility) | 113063551534 | SKIPPED |
+| driver-earning-integration | 113063551609 | SKIPPED |
+| Legacy PayFast Confirmation Integration (Compatibility) | 113063551677 | SKIPPED |
+| storefront-e2e | 113063551772 | SKIPPED |
+| refund-e2e | 113063551784 | SKIPPED |
+| refund-integration | 113063552092 | SKIPPED |
+| payment-foundation-e2e | 113063552129 | SKIPPED |
+| e2e-chromium | 113063552156 | SKIPPED |
+| storefront-integration | 113063552361 | SKIPPED |
