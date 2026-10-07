@@ -125,3 +125,11 @@ captured scroll position. Fixed headers in some full-page captures represent the
 viewport position during capture. The phone document REJECTED badge splits its
 last letter; wrapping cards and intact badges are corrected in the next candidate
 and require a fresh capture. Complete directed visual acceptance remains open.
+
+At `82a31f1355fab95c5a6dd1528d13d1936b9640bd`, all 79 Chromium assertions
+passed, zero skipped/flaky. All twelve owner withdrawal captures and both document
+captures were inspected. Exact balances, read-only masks and cancelled history are
+readable; phone document badges remain intact. Fixed navigation placement in some
+full-page driver captures does not certify every scroll/focus state. The next
+candidate removes redundant last-four suffixes and distinguishes canonical history
+events; finance captures and complete visual acceptance remain pending.

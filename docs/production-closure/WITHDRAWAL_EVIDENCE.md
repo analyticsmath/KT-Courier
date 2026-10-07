@@ -55,3 +55,41 @@ Production readiness source remains false. The latest read-only Railway check at
 zero issues/recent failures. The destructive five-change patch remains STAGED;
 it was not applied. This is health evidence, not candidate deployment parity or
 protected-row integrity proof.
+
+At `82a31f1355fab95c5a6dd1528d13d1936b9640bd`, main CI `37662108498`
+passed. Certification `37662108487` passed all 24 component jobs, including twenty
+PostgreSQL jobs and browser job `112931971781`: 79 assertions passed in 2.1
+minutes, zero skipped or flaky. The final certified job failed only the recorded
+open engineering/production gates. All five new owner withdrawal assertions passed,
+including actual lost-response replay and cancellation.
+
+All twelve store/driver desktop/phone reserved/cancelled/destination captures were
+actually inspected. Exact ZAR 20.30/5.10 balances, cancellation, masked references
+and accessible controls are readable. Some driver full-page captures retain fixed
+navigation at the captured viewport position; they do not prove all scroll states.
+The select repeats an already-masked last four and the history has distinct canonical
+events with indistinguishable labels. The next candidate removes the repeated suffix
+and supplies plain event descriptions; fresh capture validation remains required.
+
+The finance follow-up now cancels earning allocations and transitions dispute holds
+inside rejection's release transaction. Actual PostgreSQL checks prove complete
+store/driver earning capacity can be reused and allocation failure rolls back the
+rejection, release journal, balances and history. A payout-start replay now reads its
+matching receipt before checking the advanced state. No external payout is invoked.
+Three new finance browser assertions cover queue/detail, review/rejection, lost start
+response, unknown outcome/reconciliation, masked destinations and authorization.
+They are newly executable and pending. Complete separate-processor/live payout,
+financial provider and policy approval acceptance remains open.
+
+Round 31 actual closure PostgreSQL validation passes 136 assertions across
+seventeen files, zero skipped. Four added finance cases prove rejection/reallocation
+for both owner types, rollback on allocation-write failure, concurrent payout-start
+replay and reserve preservation on unknown outcome. Twenty-six focused existing
+finance/transfer/UI assertions pass. An earlier full-unit attempt failed because a
+mock returned the unknown attempt for every operation lookup; its new-operation
+fixture now returns no receipt and still requires state refusal with no writes.
+The corrected full suite passes all 3,471 assertions in 765 files, zero skipped,
+in 61.07 seconds. Lint, TypeScript and the optimized production build pass.
+Eleven critical placeholders remain in 76 marked files;
+82 Chromium assertions in 22 files are selected, with three new finance cases
+pending actual execution and capture inspection.

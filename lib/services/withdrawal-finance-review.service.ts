@@ -7,6 +7,7 @@ import { assertWithdrawalTransition } from "@/lib/withdrawals/withdrawal-state-m
 import { resolveWithdrawalOwnerForUser } from "@/lib/withdrawals/withdrawal-owner-policy";
 import { WithdrawalError } from "@/lib/withdrawals/errors";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import { cancelWithdrawalEarningAllocations, transitionInFlightDisputesOnPayoutFailure } from "./withdrawal-earning-allocation.service";
 
 async function lockWithdrawal(tx: Prisma.TransactionClient, publicReference: string) {
   const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "WithdrawalRequest" WHERE "withdrawalNumber" = ${publicReference} FOR UPDATE`);
@@ -61,6 +62,8 @@ export async function rejectWithdrawal(input: Readonly<{ actorUserId: string; pu
     await lockWithdrawalAccounts(tx, withdrawal);
     const release = await postLedgerJournalWithinTransaction(tx, withdrawalReleasePosting({ withdrawalReference: withdrawal.publicReference, amount: withdrawal.amount.toFixed(2), sourceAccountId: withdrawal.sourceAccountId, heldAccountId: withdrawal.heldAccountId, actorUserId: input.actorUserId, payoutDestinationReference: withdrawal.payoutDestination.publicReference, ownerType: withdrawal.ownerType, policyVersion: withdrawal.policyVersion }));
     const updated = await tx.withdrawalRequest.update({ where: { id: withdrawal.id }, data: { status: "REJECTED", rejectedByUserId: input.actorUserId, rejectedAt: new Date(), rejectionReasonCode: reasonCode, releaseLedgerJournalId: release.id, version: { increment: 1 } } });
+    await cancelWithdrawalEarningAllocations(tx, withdrawal.id);
+    await transitionInFlightDisputesOnPayoutFailure(tx, withdrawal.id);
     await tx.withdrawalStatusHistory.createMany({ data: [
       { withdrawalId: withdrawal.id, fromStatus: withdrawal.status, toStatus: "REJECTED", actorType: "FINANCE_ADMIN", actorUserId: input.actorUserId, reasonCode },
       { withdrawalId: withdrawal.id, toStatus: "REJECTED", actorType: "SYSTEM", reasonCode: "RESERVATION_RELEASED", safeMetadata: { releaseJournalReference: release.reference } },

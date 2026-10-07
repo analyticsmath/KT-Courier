@@ -550,7 +550,7 @@ async function main() {
   });
   const ledgerPermission = await prisma.permission.findUniqueOrThrow({ where: { key: "ledger.read" } });
   await prisma.user.create({ data: { email: "e2e-editorial-reviewer@ktcouriers.local", name: "Disposable independent editorial reviewer", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
-  for (const key of ["storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile", "store_earnings.read", "store_earnings.reverse", "store_earnings.reconcile"]) {
+  for (const key of ["storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile", "store_earnings.read", "store_earnings.reverse", "store_earnings.reconcile", "withdrawals.read", "withdrawals.review", "withdrawals.approve", "withdrawals.process", "withdrawals.reconcile", "payout_destinations.read", "payout_destinations.manage"]) {
     const permission = await prisma.permission.findUniqueOrThrow({ where: { key } });
     await prisma.userPermission.create({ data: { userId: deniedLedgerAdmin.id, permissionId: permission.id, effect: PermissionEffect.DENY } });
   }
@@ -616,6 +616,10 @@ async function main() {
     const { store } = await upsertStore(`e2e-withdrawal-store-${width}@ktcouriers.local`, `e2e-withdrawal-store-${width}`, "Disposable withdrawal store", passwordHash);
     await createDisposableOwnerWithdrawalSource({ storeId: store.id });
     await createDisposableDriverWithdrawalSource({ email: `e2e-withdrawal-driver-${width}@ktcouriers.local`, passwordHash });
+  }
+  for (const width of [1440, 390]) {
+    const { store } = await upsertStore(`e2e-withdrawal-finance-${width}@ktcouriers.local`, `e2e-withdrawal-finance-${width}`, "Disposable withdrawal finance owner", passwordHash);
+    await createDisposableOwnerWithdrawalSource({ storeId: store.id });
   }
   console.log("E2E fixtures are ready.");
 }

@@ -95,3 +95,9 @@ wraps its last character onto a second line; the next candidate gives document
 cards wrapping layout and keeps status badges intact. That visual correction
 requires a fresh capture. PDF, vehicle, live storage and complete driver acceptance
 remain open.
+
+At `82a31f1355fab95c5a6dd1528d13d1936b9640bd`, all 79 Chromium assertions
+pass (2.1 minutes, zero skipped/flaky). Both document replacement captures were
+viewed. The phone badges now remain intact and sit below the wrapped file details;
+the profile remains incomplete and not dispatch eligible. Complete driver/media
+acceptance and live storage remain open.

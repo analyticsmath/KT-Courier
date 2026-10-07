@@ -38,6 +38,7 @@ export default defineConfig({
         /store-earnings\.spec\.ts/,
         /store-earnings-finance-admin\.spec\.ts/,
         /withdrawal-owner\.spec\.ts/,
+        /withdrawal-finance-admin\.spec\.ts/,
       ],
     },
     {

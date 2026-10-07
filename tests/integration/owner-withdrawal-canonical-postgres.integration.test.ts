@@ -7,6 +7,8 @@ import { createWithdrawalRequest, cancelWithdrawalRequest } from "@/lib/services
 import { getOwnerWithdrawal, getOwnerWithdrawalOverview, listOwnerPayoutDestinations } from "@/lib/services/withdrawal-query.service";
 import { ensureWithdrawalAccounts } from "@/lib/services/withdrawal-account.service";
 import { ensureWalletForOwner, ensureLedgerAccount } from "@/lib/services/wallet-account.service";
+import { beginWithdrawalReview, approveWithdrawal, rejectWithdrawal } from "@/lib/services/withdrawal-finance-review.service";
+import { startWithdrawalPayout, recordWithdrawalPayoutUnknown } from "@/lib/services/withdrawal-payout.service";
 
 async function legacyDriverWallet(arbitrary: boolean) {
   const tag = randomUUID();
@@ -98,5 +100,59 @@ describe("canonical owner withdrawal reserve/cancel on isolated PostgreSQL", { t
     const detail = await getOwnerWithdrawal(source.ownerUserId, record.publicReference);
     expect(detail).toMatchObject({ status: "CANCELLED", canCancel: false });
     for (const key of ["id", "walletId", "sourceAccountId", "heldAccountId", "reserveLedgerJournalId"]) expect(detail).not.toHaveProperty(key);
+  });
+  it.each(["STORE", "DRIVER"] as const)("finance rejection releases %s earning capacity for a fresh full withdrawal", async ownerType => {
+    const source = ownerType === "STORE" ? await createDisposableOwnerWithdrawalSource() : await createDisposableDriverWithdrawalSource();
+    const ownerUserId = "ownerUserId" in source ? source.ownerUserId : source.driverUser.id;
+    const command = { actorUserId: ownerUserId, amount: "25.40", payoutDestinationPublicReference: source.destination.publicReference, operationId: `${source.tag}:first` };
+    const request = await createWithdrawalRequest(command);
+    await beginWithdrawalReview({ actorUserId: source.actor.id, publicReference: request.publicReference, operationId: `${source.tag}:review` });
+    await rejectWithdrawal({ actorUserId: source.actor.id, publicReference: request.publicReference, operationId: `${source.tag}:reject`, reasonCode: "FINANCE_REJECTED" });
+    const saved = await prisma.withdrawalRequest.findUniqueOrThrow({ where: { id: request.id }, include: { earningAllocations: true, releaseLedgerJournal: true, statusHistory: true } });
+    expect(saved.status).toBe("REJECTED"); expect(saved.payoutLedgerJournalId).toBeNull();
+    expect(saved.earningAllocations).toHaveLength(1); expect(saved.earningAllocations[0].status).toBe("CANCELLED");
+    expect(saved.releaseLedgerJournal!.totalDebits.toFixed(2)).toBe("25.40"); expect(saved.releaseLedgerJournal!.totalCredits.toFixed(2)).toBe("25.40");
+    expect(saved.statusHistory.filter(row => row.reasonCode === "FINANCE_REJECTED")).toHaveLength(1);
+    expect(await getOwnerWithdrawalOverview(ownerUserId)).toMatchObject({ withdrawableBalance: "25.40", heldBalance: "0.00" });
+    const fresh = await createWithdrawalRequest({ ...command, operationId: `${source.tag}:second` });
+    const allocations = await prisma.withdrawalEarningAllocation.findMany({ where: { withdrawalRequestId: fresh.id } });
+    expect(allocations).toHaveLength(1); expect(allocations[0].allocatedAmount.toFixed(2)).toBe("25.40"); expect(allocations[0].status).toBe("RESERVED");
+    await cancelWithdrawalRequest({ actorUserId: ownerUserId, publicReference: fresh.publicReference, operationId: `${source.tag}:cancel` });
+  });
+  it("rolls back finance rejection, release journal and balances when allocation cancellation fails", async () => {
+    const source = await createDisposableOwnerWithdrawalSource();
+    const request = await createWithdrawalRequest({ actorUserId: source.ownerUserId, amount: "5.10", payoutDestinationPublicReference: source.destination.publicReference, operationId: `${source.tag}:request` });
+    const before = await prisma.withdrawalRequest.findUniqueOrThrow({ where: { id: request.id }, include: { earningAllocations: true, statusHistory: true } });
+    const identifier = `closure_withdrawal_${randomUUID().replaceAll("-", "")}`;
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION "${identifier}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD."withdrawalRequestId" = '${request.id}' THEN RAISE EXCEPTION 'DISPOSABLE_WITHDRAWAL_ALLOCATION_FAILURE'; END IF; RETURN NEW; END $$`);
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TRIGGER "${identifier}" BEFORE UPDATE ON "WithdrawalEarningAllocation" FOR EACH ROW EXECUTE FUNCTION "${identifier}"()`);
+      await expect(rejectWithdrawal({ actorUserId: source.actor.id, publicReference: request.publicReference, operationId: `${source.tag}:reject`, reasonCode: "FINANCE_REJECTED" })).rejects.toThrow("DISPOSABLE_WITHDRAWAL_ALLOCATION_FAILURE");
+      expect(await prisma.withdrawalRequest.findUniqueOrThrow({ where: { id: request.id }, include: { earningAllocations: true, statusHistory: true } })).toEqual(before);
+      expect(await getOwnerWithdrawalOverview(source.ownerUserId)).toMatchObject({ withdrawableBalance: "20.30", heldBalance: "5.10" });
+      expect(await prisma.ledgerJournal.count({ where: { correlationId: request.publicReference, type: "WITHDRAWAL_RELEASE" } })).toBe(0);
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${identifier}" ON "WithdrawalEarningAllocation"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION "${identifier}"()`);
+    }
+  });
+  it("concurrent payout-start replay returns one canonical attempt and unknown outcome retains the reserve", async () => {
+    const source = await createDisposableOwnerWithdrawalSource();
+    const request = await createWithdrawalRequest({ actorUserId: source.ownerUserId, amount: "5.10", payoutDestinationPublicReference: source.destination.publicReference, operationId: `${source.tag}:request` });
+    await approveWithdrawal({ actorUserId: source.actor.id, publicReference: request.publicReference, operationId: `${source.tag}:approve` });
+    const command = { actorUserId: source.actor.id, publicReference: request.publicReference, operationId: `${source.tag}:start` };
+    const attempts = await Promise.all([startWithdrawalPayout(command), startWithdrawalPayout(command)]);
+    expect(new Set(attempts.map(row => row.id)).size).toBe(1);
+    expect(await prisma.withdrawalPayoutAttempt.count({ where: { withdrawalId: request.id } })).toBe(1);
+    expect(await prisma.withdrawalStatusHistory.count({ where: { withdrawalId: request.id, reasonCode: "PAYOUT_PROCESSING_STARTED" } })).toBe(1);
+    await expect(startWithdrawalPayout({ ...command, actorUserId: source.ownerUserId })).rejects.toMatchObject({ code: "WITHDRAWAL_IDEMPOTENCY_CONFLICT" });
+    await expect(startWithdrawalPayout({ ...command, operationId: `${source.tag}:second` })).rejects.toMatchObject({ code: "WITHDRAWAL_INVALID_STATE" });
+    await recordWithdrawalPayoutUnknown({ actorUserId: source.actor.id, withdrawalPublicReference: request.publicReference, payoutAttemptPublicReference: attempts[0].publicReference, operationId: `${source.tag}:unknown` });
+    expect((await startWithdrawalPayout(command)).status).toBe("UNKNOWN");
+    const saved = await prisma.withdrawalRequest.findUniqueOrThrow({ where: { id: request.id }, include: { reconciliationCases: true, earningAllocations: true } });
+    expect(saved.status).toBe("RECONCILIATION_REQUIRED"); expect(saved.payoutLedgerJournalId).toBeNull(); expect(saved.releaseLedgerJournalId).toBeNull();
+    expect(saved.reconciliationCases).toHaveLength(1); expect(saved.reconciliationCases[0].reason).toBe("UNKNOWN_PAYOUT_OUTCOME");
+    expect(saved.earningAllocations[0].status).toBe("RESERVED");
+    expect(await getOwnerWithdrawalOverview(source.ownerUserId)).toMatchObject({ withdrawableBalance: "20.30", heldBalance: "5.10" });
   });
 });
