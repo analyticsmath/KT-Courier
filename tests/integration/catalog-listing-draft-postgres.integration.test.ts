@@ -6,7 +6,7 @@ import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { createStoreCatalogListingDraft } from "@/lib/services/catalog-listing-draft.service";
 import { searchCatalogDuplicates } from "@/lib/services/catalog-duplicate.service";
 import { type CatalogListingDraftInput } from "@/lib/validation/catalog-listing-draft";
-import { submitStoreCatalogProduct } from "@/lib/services/catalog-product.service";
+import { getStoreCatalogProduct, submitStoreCatalogProduct } from "@/lib/services/catalog-product.service";
 import { transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
 import { moderateCatalogOffer, moderateCatalogProduct } from "@/lib/services/catalog-moderation.service";
 
@@ -123,6 +123,10 @@ describe("atomic canonical catalog listing drafts on isolated PostgreSQL", { tim
     expect(await prisma.catalogPublicationSnapshot.count({ where: { productId: canonical.id } })).toBe(0);
     expect(await counts(source.store.id)).toMatchObject({ products: 1, offers: 1, groups: 1 });
     expect(JSON.stringify(product)).not.toContain(source.asset.storageKey);
+    const ownerRead = await getStoreCatalogProduct(source.store.id, product.publicReference);
+    expect(ownerRead.media[0].asset).toMatchObject({ publicReference: source.asset.publicReference, status: "READY", width: 100, height: 100 });
+    for (const field of ["storageKey", "storageProvider", "createdByUserId", "checksum"]) expect(ownerRead.media[0].asset).not.toHaveProperty(field);
+    expect(JSON.stringify(ownerRead)).not.toContain(source.asset.storageKey);
   });
   it("serializes concurrent retries and rejects changed facts without extra records", async () => {
     const source = await foundation();

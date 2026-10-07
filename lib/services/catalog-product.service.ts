@@ -9,6 +9,7 @@ import { productOptionFingerprint } from "@/lib/catalog/product-option-fingerpri
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 import { toInputJsonObject } from "@/lib/json/input-json";
+import { projectCatalogMediaAsset } from "@/lib/services/catalog-media-intake.service";
 
 export type CatalogProductDraftInput = {
   scope: "GLOBAL_CANONICAL" | "STORE_PRIVATE";
@@ -61,7 +62,7 @@ export async function getStoreCatalogProduct(storeId: string, publicReference: s
     include: { variants: { include: { optionValues: { include: { optionValue: { include: { option: true } } } }, media: true } }, options: { include: { values: true } }, media: { include: { asset: true } }, offers: { where: { storeId }, include: { priceVersions: { orderBy: { versionNumber: "desc" } }, inventoryItem: { include: { levels: { include: { location: true } } } } } }, primaryCategory: true, productTypeDefinition: true, brand: true },
   });
   if (!product) throw new CatalogNotFoundError("Catalog product was not found.");
-  return product;
+  return { ...product, media: product.media.map(attachment => ({ ...attachment, asset: projectCatalogMediaAsset(attachment.asset) })) };
 }
 
 export async function createStorePrivateCatalogProduct(storeId: string, actorUserId: string, input: CatalogProductDraftInput, transaction?: Prisma.TransactionClient) {

@@ -54,6 +54,7 @@ for (const width of [1440, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     await page.screenshot({ path: testInfo.outputPath("catalog-listing-saved.png"), fullPage: true, animations: "disabled" });
     const canonical = (await read(page, "/api/store/catalog/products/" + confirmed.publicReference)).product;
+    expect(JSON.stringify(canonical)).not.toContain('"storageKey"'); expect(JSON.stringify(canonical)).not.toContain('"storageProvider"');
     expect(canonical).toMatchObject({ title, status: "DRAFT", publicationStatus: "DRAFT", media: [{ altText: "Disposable synthetic product image", role: "PRIMARY" }] });
     expect(canonical.variants.map((row: { title: string }) => row.title).sort()).toEqual(["Blue", "Default"]);
     const offer = (await read(page, "/api/store/catalog/offers/" + confirmed.offers[0].publicReference)).offer;

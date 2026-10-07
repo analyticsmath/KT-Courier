@@ -73,3 +73,23 @@ desktop/phone moderation journeys bring discovery to 86 in 24 files;
 four moderation captures require execution and inspection. Source inventory now
 contains nine critical placeholders in 74 marked files. Full catalog imports,
 publication, media review/quarantine and vendor acceptance remain open.
+
+At 42a0ecdfe7de8d749b86bc08177368628e01c6a2, the isolated CI closure runner
+passes all 148 assertions in eighteen files with zero skipped, including all six
+new moderation cases and six listing cases. The downloaded canonical JSON and
+certification-command artifacts independently report PASS, no critical skips and
+no flaky assertions. Quality also passes. Browser execution remains in progress;
+this PostgreSQL evidence does not certify native UI or visual acceptance.
+
+Further inspection found that owner and admin product read endpoints included
+the full asset row. The next candidate reuses the existing safe intake projection
+for both: safe lifecycle/dimensions remain available, while storage keys, provider
+identity, full checksums and asset actor identity are omitted. Authorized admin reads
+retain existing safe review reason codes. Nine focused media/product assertions,
+TypeScript, full lint and the optimized build pass. PostgreSQL and
+browser checks are extended to reject storage/provider fields in product reads;
+fresh exact-commit execution is still required for this projection change.
+
+The full local unit/API suite for the projection candidate passes all 3,480
+assertions in 766 files, zero skipped (80.32 seconds). It does not substitute for
+the extended actual PostgreSQL assertions or owner/admin browser reads.

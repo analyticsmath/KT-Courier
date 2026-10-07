@@ -9,7 +9,9 @@ async function post(page: Page, path: string, data: unknown) {
 async function product(page: Page, id: string) {
   const response = await page.request.get(`/api/admin/catalog/products/${id}`);
   expect(response.status()).toBe(200); expect(response.headers()["cache-control"]).toContain("no-store");
-  return (await response.json()).product;
+  const canonical = (await response.json()).product;
+  expect(JSON.stringify(canonical)).not.toContain('"storageKey"'); expect(JSON.stringify(canonical)).not.toContain('"storageProvider"');
+  return canonical;
 }
 async function submittedProduct(page: Page) {
   await login(page, "e2e-store@ktcouriers.local"); await page.goto("/store/catalog/products/new");

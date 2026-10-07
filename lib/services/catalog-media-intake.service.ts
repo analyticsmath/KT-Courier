@@ -88,6 +88,8 @@ function safeAssetDto(asset: CatalogMediaAssetRecord, includeReviewEvidence = fa
   });
 }
 
+export { safeAssetDto as projectCatalogMediaAsset };
+
 function assertIntentActor(intent: CatalogMediaUploadIntentRecord, actorUserId: string, storeId?: string): void {
   if (intent.createdByUserId !== actorUserId) throw new CatalogPolicyError("CATALOG_MEDIA_UPLOAD_FORBIDDEN", "Upload intent is not available to this actor.", 403);
   if (storeId) assertStoreCanAccessCatalogMedia(intent, storeId);

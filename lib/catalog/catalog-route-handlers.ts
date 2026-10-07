@@ -32,6 +32,7 @@ import { listCatalogCategories, createCatalogCategory, updateCatalogCategory } f
 import { listProductTypeDefinitions, createProductTypeDefinition, updateProductTypeDefinition, transitionProductTypeDefinition } from "@/lib/services/product-type.service";
 import { listCatalogModerationCases, getCatalogModerationCase, moderateCatalogProduct, moderateCatalogOffer } from "@/lib/services/catalog-moderation.service";
 import { listCatalogAdminProducts, listCatalogAdminOffers } from "@/lib/services/catalog-query.service";
+import { projectCatalogMediaAsset } from "@/lib/services/catalog-media-intake.service";
 
 function query(request: NextRequest) {
   return Object.fromEntries(request.nextUrl.searchParams.entries());
@@ -238,7 +239,7 @@ export async function adminProductsGet(request: NextRequest) {
 
 export async function adminProductGet(request: NextRequest, id: string) {
   const auth = await requireCatalogAdminPermission(PERMISSIONS.CATALOG_MODERATION_READ, request); if ("response" in auth) return auth.response;
-  try { const product = await prisma.catalogProduct.findUnique({ where: { id }, include: { primaryCategory: true, productTypeDefinition: true, brand: true, variants: { include: { media: true } }, media: { include: { asset: true } }, offers: { include: { store: true, priceVersions: true, inventoryItem: { include: { levels: true } } } }, moderationCases: { include: { history: true } } } }); return product ? catalogJson({ product }) : catalogJson({ error: "Product was not found." }, 404); } catch (error) { return catalogApiError(error); }
+  try { const product = await prisma.catalogProduct.findUnique({ where: { id }, include: { primaryCategory: true, productTypeDefinition: true, brand: true, variants: { include: { media: true } }, media: { include: { asset: true } }, offers: { include: { store: true, priceVersions: true, inventoryItem: { include: { levels: true } } } }, moderationCases: { include: { history: true } } } }); return product ? catalogJson({ product: { ...product, media: product.media.map(attachment => ({ ...attachment, asset: projectCatalogMediaAsset(attachment.asset, true) })) } }) : catalogJson({ error: "Product was not found." }, 404); } catch (error) { return catalogApiError(error); }
 }
 
 export async function adminProductAction(request: NextRequest, id: string, action: "approve" | "request-changes" | "reject" | "suspend") {
