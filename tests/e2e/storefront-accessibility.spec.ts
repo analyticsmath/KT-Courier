@@ -9,7 +9,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(decrease).toBeDisabled();
     const increase = purchase.getByRole("button", { name: "Increase quantity", exact: true });
     await increase.focus(); await increase.press("Enter"); await expect(decrease).toBeEnabled();
-    const add = purchase.getByRole("button", { name: "Add to cart", exact: true });
+    const actions = viewport.width < 768 ? page.getByRole("region", { name: "Quick purchase dock", exact: true }) : purchase;
+    const add = actions.getByRole("button", { name: "Add to cart", exact: true });
     await add.focus(); await add.press("Enter");
     await expect(purchase.getByRole("status")).toContainText(/added|cart/i);
     const cartRes = await page.request.get("/api/cart"); expect(cartRes.status()).toBe(200);

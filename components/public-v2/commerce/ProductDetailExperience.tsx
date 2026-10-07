@@ -676,7 +676,7 @@ export function ProductDetailExperience({
 
       {/* Mobile Sticky Purchase Dock (No truncated title, pure price + dual action) */}
       {isPurchasable && (
-        <div className={styles.pdpMobileStickyBar} aria-label="Quick purchase dock">
+        <section className={styles.pdpMobileStickyBar} aria-label="Quick purchase dock">
           <div className={styles.pdpMobileStickyPriceCol}>
             <span className={styles.pdpMobileStickyPrice}>
               {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
@@ -701,7 +701,7 @@ export function ProductDetailExperience({
               {buyingNow ? "Checking out..." : "Buy now"}
             </button>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

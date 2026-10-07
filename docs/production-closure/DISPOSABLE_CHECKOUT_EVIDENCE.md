@@ -60,3 +60,14 @@ explicit valid rate; malformed values fail closed. No production settings,
 historic quotes or reviewed service formulas are rewritten. The seeded browser
 fixture has explicit 15% VAT, so its R23.45 tariff yields R26.97 delivery total
 and R1526.97 checkout total. This is test data, not a new production tariff.
+
+At `be968fb285236ff16ec2c52f4e7404624bea753d`, main CI passed. Certification
+quality (3,390 unit/API assertions), recovery, Redis/security and all 20
+PostgreSQL jobs passed. Browser execution ran all 40 assertions: 35 passed and
+five failed. The prior commission, routing, review and acknowledgement failures
+passed. New accessibility assertions incorrectly included Next.js's own route
+announcer and the desktop action region on mobile, and the variant assertion
+expected the product identity rather than the actual selected offer title.
+Candidate scopes checkout errors to the form-associated alert, checks the exact
+fixture offer titles and uses the named mobile purchase dock. Fresh execution
+remains required; the engineering gates remain open and no deployment is allowed.

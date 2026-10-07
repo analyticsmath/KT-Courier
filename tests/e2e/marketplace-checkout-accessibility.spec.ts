@@ -36,7 +36,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const addressSubmit = page.getByRole("button", { name: /Calculate Delivery/ });
     await addressSubmit.focus(); await addressSubmit.press("Enter");
     await expect(page.getByRole("heading", { name: "3. Delivery options", exact: true })).toBeFocused();
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.locator("#checkout-error")).toHaveCount(0);
     const review = page.getByRole("button", { name: "Review order →", exact: true });
     await review.focus(); await review.press("Enter");
     await expect(page.getByRole("heading", { name: "4. Review your order", exact: true })).toBeFocused();
@@ -63,7 +63,8 @@ test("server contact rejection is announced and associated with the form without
   await page.getByLabel("Email Address", { exact: true }).fill("disposable-recipient@example.test");
   await page.getByLabel("Phone Number (SA)", { exact: true }).fill("123");
   await page.getByRole("button", { name: /Continue to Delivery Address/ }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator("#checkout-error")).toHaveAttribute("role", "alert");
+  await expect(page.locator("#checkout-error")).toBeVisible();
   await expect(page.getByRole("form", { name: "1. Contact", exact: true })).toHaveAttribute("aria-describedby", "checkout-error");
   await expect(page.getByRole("status").filter({ hasText: "Step 1 of 5" })).toContainText("Contact");
   const current = await page.request.get(`/api/checkout/${checkout.reference}`); expect(current.status()).toBe(200);
