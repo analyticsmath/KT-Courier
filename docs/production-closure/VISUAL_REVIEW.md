@@ -93,3 +93,15 @@ and status text intact and gives references readable widths while retaining the
 keyboard scroll region. Those table changes, and the new driver private-document
 upload states, require fresh exact-commit browser execution and actual inspection.
 Full directed visual acceptance remains open.
+
+At `53da89974f60775ec51747aacd3e424f772cf005`, the existing 66 browser
+assertions passed and both new upload assertions failed. The desktop driver
+earnings list and phone reconciliation list were actually inspected. Financial
+decimals are intact; references wrap at readable widths. Later columns remain
+inside the bounded horizontal scroll region. This is scoped inspection, not proof
+that every column and focus state has been reviewed at every viewport.
+
+The phone upload failure capture was inspected: a safe storage-unavailable
+message and zero documents are visible. The guarded disposable raster adapter
+and optimized test launcher correction require new browser execution and capture
+inspection. Three store-owner earning assertions are newly executable and pending.

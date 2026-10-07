@@ -35,6 +35,7 @@ export default defineConfig({
         /storefront-admin\.spec\.ts/,
         /driver-earnings\.spec\.ts/,
         /driver-earnings-finance-admin\.spec\.ts/,
+        /store-earnings\.spec\.ts/,
       ],
     },
     {

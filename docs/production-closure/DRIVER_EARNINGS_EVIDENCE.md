@@ -133,3 +133,16 @@ were inspected. Retention/recovery are visible; table captures exposed broken
 money/status/reference wrapping. The follow-up preserves numeric/status text
 and supplies readable reference widths inside the existing keyboard scroller.
 Its updated browser/visual proof remains pending.
+
+That incomplete `1e90e48f` certification run subsequently finished CANCELLED
+when the next branch push superseded its outstanding dependency-install job.
+Its completed 66-pass browser result remains partial evidence only.
+
+At `53da89974f60775ec51747aacd3e424f772cf005`, main CI passed, and
+certification passed all twenty PostgreSQL jobs, quality, Redis/security and
+recovery. All existing 66 browser assertions passed, including the driver owner
+and finance checks; both new document-upload assertions failed. This is not green
+certification. Updated desktop earnings and phone reconciliation-list captures
+were inspected. Money no longer splits across lines and references have readable
+widths. The bounded horizontal scroller still requires movement to expose later
+columns, including status. Full visual/finance acceptance remains open.

@@ -9,6 +9,9 @@ import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-s
 import { accrueDriverEarning } from "@/lib/services/driver-earning-accrual.service";
 import { releaseDriverEarning } from "@/lib/services/driver-earning-release.service";
 import { createDriverEarningReconciliation } from "@/lib/services/driver-earning-reconciliation.service";
+import { createDisposableStoreSettlement } from "./e2e-store-settlement-fixture";
+import { accrueStoreEarning } from "@/lib/services/store-earning-accrual.service";
+import { releaseStoreEarning } from "@/lib/services/store-earning-release.service";
 
 const prisma = new PrismaClient();
 
@@ -588,6 +591,18 @@ async function main() {
     const source = await createDisposableDriverSettlement({ email: `e2e-earning-finance-${width}@ktcouriers.local`, passwordHash });
     const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
     await createDriverEarningReconciliation({ caseKey: `${source.tag}:synthetic-exception`, driverEarningId: earning.id, reason: "APPLICATION_FAILURE", priority: "HIGH", safeSummary: `Synthetic finance review fixture at ${width}px; no real delivery or provider event.`, safeEvidence: { fixture: "disposable-driver-finance", privateMarker: "PRIVATE_INTERNAL_DRIVER_FINANCE_EVIDENCE" } });
+  }
+  for (const suffix of ["1440", "390", "other"]) {
+    const { store } = await upsertStore(`e2e-store-earning-${suffix}@ktcouriers.local`, `e2e-store-earning-${suffix}`, "Disposable earning store", passwordHash);
+    for (const amount of ["100.25", "25.40"]) {
+      const source = await createDisposableStoreSettlement({ storeId: store.id, amount });
+      const earning = await accrueStoreEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+      if (amount === "25.40") {
+        // Synthetic maturity only; the production hold policy is not approved.
+        await prisma.storeEarning.update({ where: { id: earning.id }, data: { releaseEligibleAt: new Date("2026-10-02T12:00:00Z") } });
+        await releaseStoreEarning({ earningId: earning.id, operationId: `${source.tag}:release` }, { allowTestOnlyBypass: true });
+      }
+    }
   }
   console.log("E2E fixtures are ready.");
 }

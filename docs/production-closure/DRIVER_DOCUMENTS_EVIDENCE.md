@@ -46,3 +46,24 @@ Discovery selects 68 browser assertions across eighteen files. These two upload
 assertions require exact-commit execution and actual capture inspection before
 they can be counted as acceptance. PDF, vehicle, approval, live object storage,
 real device and the complete driver journey still require proof.
+
+At `53da89974f60775ec51747aacd3e424f772cf005`, main CI `37648243940`
+passed. Certification `37648243933` passed all twenty PostgreSQL jobs,
+quality, Redis/security and recovery. Browser job `112885086102` passed 66
+assertions but failed both new upload assertions on both attempts; none were
+skipped. Its phone failure capture was inspected and shows the static private
+storage unavailable message with zero attached documents. The final certification
+job did not run. This is failed acceptance, not a provider-only closure blocker.
+
+The root correction supplies local raster storage only when all named disposable
+browser database, runtime, network and temporary-directory guards pass. Production
+is explicitly refused even when every test flag is supplied. Next's generated
+standalone launcher overwrites NODE_ENV with production; a guarded browser-only
+launcher now starts the same optimized server with test storage. The production
+Docker command remains the generated launcher. Actual isolated browser execution
+is required to prove upload and private download after this correction.
+
+Round 28 local validation passed 3,450 unit/API assertions in 764 files and
+122 actual PostgreSQL assertions in sixteen files, zero skipped. Sixteen new
+storage-boundary assertions and five native launcher refusal assertions pass.
+These results do not replace successful HTTP upload/browser proof.
