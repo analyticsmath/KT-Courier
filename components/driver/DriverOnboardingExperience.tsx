@@ -69,7 +69,7 @@ export function DriverOnboardingExperience({
   const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [uploadingProfilePhoto, setUploadingProfilePhoto] = useState(false);
   const [profilePhotoRef, setProfilePhotoRef] = useState<string | null>(
-    driver.profilePhotoMediaId ? `PMO-${driver.profilePhotoMediaId}` : null
+    driver.profilePhotoMediaReference ?? null
   );
 
   // Vehicle form state
@@ -520,7 +520,7 @@ export function DriverOnboardingExperience({
         </OperationalPanel>
 
         {/* Navigation tabs */}
-        <div className="flex border-b border-[var(--kt-soft-border)] gap-2">
+        <div className="eo-driver-onboarding-nav flex flex-wrap border-b border-[var(--kt-soft-border)] gap-2" role="group" aria-label="Onboarding steps">
           <button
             type="button"
             className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${
@@ -529,6 +529,7 @@ export function DriverOnboardingExperience({
                 : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
             }`}
             onClick={() => setActiveTab("identity")}
+            aria-pressed={activeTab === "identity"}
           >
             1. Identity & Contact
           </button>
@@ -540,6 +541,7 @@ export function DriverOnboardingExperience({
                 : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
             }`}
             onClick={() => setActiveTab("documents")}
+            aria-pressed={activeTab === "documents"}
           >
             2. Driver Licence & Identity Documents ({documents.length})
           </button>
@@ -551,18 +553,19 @@ export function DriverOnboardingExperience({
                 : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
             }`}
             onClick={() => setActiveTab("vehicles")}
+            aria-pressed={activeTab === "vehicles"}
           >
             3. Fleet Vehicles ({vehicles.length})
           </button>
         </div>
 
         {message && (
-          <div className="p-3 text-xs bg-[var(--kt-mint-wash)] text-[var(--kt-teal-emerald)] rounded-xl border border-[var(--kt-teal-emerald)] font-semibold">
+          <div role="status" aria-live="polite" className="p-3 text-xs bg-[var(--kt-mint-wash)] text-[var(--kt-teal-emerald)] rounded-xl border border-[var(--kt-teal-emerald)] font-semibold">
             {message}
           </div>
         )}
         {error && (
-          <div className="p-3 text-xs bg-[var(--kt-red-soft)] text-[var(--kt-red)] rounded-xl border border-[var(--kt-red)] font-semibold">
+          <div id="driver-onboarding-error" role="alert" className="p-3 text-xs bg-[var(--kt-red-soft)] text-[var(--kt-red)] rounded-xl border border-[var(--kt-red)] font-semibold">
             {error}
           </div>
         )}
@@ -573,13 +576,14 @@ export function DriverOnboardingExperience({
             title="Step 1: Driver Legal Identity & Residence"
             description="Submit your South African National ID / passport, date of birth, residential address, and emergency contact details for verification."
           >
-            <form onSubmit={handleIdentitySubmit} className="space-y-4">
+            <form aria-label="Driver identity and contact" aria-describedby={error ? "driver-onboarding-error" : undefined} onSubmit={handleIdentitySubmit} className="eo-driver-identity-form space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-display-name" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Display / Legal Full Name *
                   </label>
                   <input
+                    id="onboarding-display-name"
                     type="text"
                     required
                     value={displayName}
@@ -590,10 +594,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-phone" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Phone Number *
                   </label>
                   <input
+                    id="onboarding-phone"
                     type="tel"
                     required
                     value={phone}
@@ -604,10 +609,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-id-type" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Identity Document Type *
                   </label>
                   <select
+                    id="onboarding-id-type"
                     value={idType}
                     onChange={(e) => setIdType(e.target.value)}
                     className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
@@ -619,10 +625,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-id-number" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     ID or Passport Number *
                   </label>
                   <input
+                    id="onboarding-id-number"
                     type="text"
                     required
                     value={idNumber}
@@ -633,10 +640,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-date-of-birth" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Date of Birth *
                   </label>
                   <input
+                    id="onboarding-date-of-birth"
                     type="date"
                     required
                     value={dateOfBirth}
@@ -646,10 +654,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-address" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Residential Address *
                   </label>
                   <input
+                    id="onboarding-address"
                     type="text"
                     required
                     value={residentialAddress}
@@ -660,10 +669,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-licence-number" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Driver Licence Number *
                   </label>
                   <input
+                    id="onboarding-licence-number"
                     type="text"
                     required
                     value={licenseNumber}
@@ -674,10 +684,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-licence-expiry" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Licence Expiry Date *
                   </label>
                   <input
+                    id="onboarding-licence-expiry"
                     type="date"
                     required
                     value={licenseExpiryDate}
@@ -687,10 +698,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-emergency-name" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Emergency Contact Name *
                   </label>
                   <input
+                    id="onboarding-emergency-name"
                     type="text"
                     required
                     value={emergencyContactName}
@@ -701,10 +713,11 @@ export function DriverOnboardingExperience({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                  <label htmlFor="onboarding-emergency-phone" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                     Emergency Contact Phone *
                   </label>
                   <input
+                    id="onboarding-emergency-phone"
                     type="tel"
                     required
                     value={emergencyContactPhone}

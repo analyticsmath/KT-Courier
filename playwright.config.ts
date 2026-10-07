@@ -27,6 +27,7 @@ export default defineConfig({
         /marketplace-checkout-admin\.spec\.ts/,
         /storefront-product-detail\.spec\.ts/,
         /storefront-accessibility\.spec\.ts/,
+        /driver-profile-onboarding\.spec\.ts/,
       ],
     },
     {

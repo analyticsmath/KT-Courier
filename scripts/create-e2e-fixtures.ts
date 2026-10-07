@@ -505,6 +505,12 @@ async function main() {
   await prisma.deliveryRegion.update({ where: { id: region.id }, data: { province: "Gauteng", centerLat: -26.2041, centerLng: 28.0473, coverageRadiusKm: 30, maxDistanceKm: 50, active: true, pricingEnabled: true } });
   await upsertStore("e2e-store@ktcouriers.local", "e2e-store", "E2E Store", passwordHash);
   await upsertStore("e2e-other-store@ktcouriers.local", "e2e-other-store", "E2E Other Store", passwordHash);
+  // Pending, unapproved driver accounts are owned by independent viewport
+  // assertions. No vehicle, licence approval or dispatch eligibility is seeded.
+  for (const width of [1440, 390]) {
+    const user = await prisma.user.create({ data: { email: `e2e-onboarding-${width}@ktcouriers.local`, name: "Disposable pending driver", phone: "+27820000000", role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    await prisma.driverProfile.create({ data: { userId: user.id, driverCode: `E2E-ONBOARDING-${width}`, displayName: user.name, phone: user.phone, internalNotes: "Disposable independent reviewer note" } });
+  }
   for (const orderNumber of ["E2E-DISPATCH-001", "E2E-DISPATCH-002"]) {
     const quote = await prisma.pricingQuote.create({
       data: {

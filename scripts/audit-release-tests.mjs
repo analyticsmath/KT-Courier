@@ -1,19 +1,12 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import ts from "typescript";
+import { hasTestDeferrals } from "./release-test-deferrals.mjs";
 const files = [];
 function walk(directory) { for (const entry of readdirSync(directory, { withFileTypes: true })) { const path = `${directory}/${entry.name}`; if (entry.isDirectory()) walk(path); else if (/\.(?:ts|tsx|mjs)$/.test(path)) files.push(path); } }
 walk("tests");
 const rows = [];
 for (const file of files.sort()) {
   const source = readFileSync(file, "utf8");
-  const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-  let hasSkip = false;
-  function inspect(node) {
-    if (ts.isPropertyAccessExpression(node) && /^(?:describe|test|it)$/.test(node.expression.getText(parsed)) && /^(?:skip|skipIf|todo|fixme)$/.test(node.name.text)) hasSkip = true;
-    if (ts.isIfStatement(node) && /safety\.ok/.test(node.expression.getText(parsed)) && /\breturn\b/.test(node.thenStatement.getText(parsed))) hasSkip = true;
-    ts.forEachChild(node, inspect);
-  }
-  inspect(parsed); if (!hasSkip) continue;
+  if (!hasTestDeferrals(source, file)) continue;
   const legacy = /payfast/.test(file);
   const optional = /(?:promoter|subscription|advertising|developer|recruitment|screening|hiring|talent|retention|home-cinematic)/.test(file);
   const conditional = /skipIf|describeReal|describeCatalogIntegration|isLocalValidationServerAvailable|\[SKIP_DB_EXECUTION\]/.test(source);

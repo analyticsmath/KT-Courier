@@ -10,6 +10,7 @@ export async function getDriverProfileByUserId(userId: string): Promise<DriverSe
     where: { userId },
     include: {
       user: true,
+      profilePhoto: { select: { publicReference: true } },
       serviceRegions: {
         include: {
           deliveryRegion: true,
@@ -27,40 +28,41 @@ export async function updateOwnDriverProfile(
   userId: string,
   input: DriverSelfUpdateInput
 ): Promise<DriverSelfDto> {
-  const driver = await prisma.driverProfile.findUnique({ where: { userId } });
-  if (!driver) throw new Error("Driver profile not found.");
+  return prisma.$transaction(async (tx) => {
+    const driver = await tx.driverProfile.findUnique({ where: { userId } });
+    if (!driver) throw new Error("Driver profile not found.");
 
-  // Update DriverProfile display name and phone
-  const updated = await prisma.driverProfile.update({
-    where: { userId },
-    data: {
-      displayName: input.displayName,
-      phone: input.phone,
-      emergencyContactName: input.emergencyContactName,
-      emergencyContactPhone: input.emergencyContactPhone,
-    },
-    include: {
-      user: true,
-      serviceRegions: {
-        include: {
-          deliveryRegion: true,
+    // Both representations must commit together, including an explicitly cleared name.
+    if (input.displayName !== undefined || input.phone !== undefined) {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          ...(input.displayName !== undefined && { name: input.displayName }),
+          ...(input.phone !== undefined && { phone: input.phone }),
+        },
+      });
+    }
+    const updated = await tx.driverProfile.update({
+      where: { userId },
+      data: {
+        displayName: input.displayName,
+        phone: input.phone,
+        emergencyContactName: input.emergencyContactName,
+        emergencyContactPhone: input.emergencyContactPhone,
+      },
+      include: {
+        user: true,
+        profilePhoto: { select: { publicReference: true } },
+        serviceRegions: {
+          include: {
+            deliveryRegion: true,
+          },
         },
       },
-    },
-  });
-
-  // Keep user name & phone in sync if provided
-  if (input.displayName || input.phone) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(input.displayName !== undefined && { name: input.displayName }),
-        ...(input.phone !== undefined && { phone: input.phone }),
-      },
     });
-  }
 
-  return toDriverSelfDto(updated);
+    return toDriverSelfDto(updated);
+  });
 }
 
 // ─── Update own availability ──────────────────────────────────────────────────
@@ -83,7 +85,7 @@ export async function updateOwnAvailability(
   }
 
   if (driver.availability === availability) {
-    const full = await prisma.driverProfile.findUniqueOrThrow({ where: { userId }, include: { user: true, serviceRegions: { include: { deliveryRegion: true } } } });
+    const full = await prisma.driverProfile.findUniqueOrThrow({ where: { userId }, include: { user: true, profilePhoto: { select: { publicReference: true } }, serviceRegions: { include: { deliveryRegion: true } } } });
     return { ...toDriverSelfDto(full), availabilityRevision: revision };
   }
 
@@ -97,6 +99,7 @@ export async function updateOwnAvailability(
     where: { userId },
     include: {
       user: true,
+      profilePhoto: { select: { publicReference: true } },
       serviceRegions: {
         include: {
           deliveryRegion: true,
@@ -113,71 +116,64 @@ export async function completeDriverOnboarding(
   userId: string,
   input: DriverOnboardingInput
 ): Promise<DriverSelfDto> {
-  const driver = await prisma.driverProfile.findUnique({ where: { userId } });
-  if (!driver) throw new Error("Driver profile not found.");
+  return prisma.$transaction(async (tx) => {
+    const driver = await tx.driverProfile.findUnique({ where: { userId } });
+    if (!driver) throw new Error("Driver profile not found.");
 
-  let profilePhotoMediaId: string | undefined = undefined;
-  if (input.profilePhotoMediaReference) {
-    const media = await prisma.privateMediaObject.findUnique({
-      where: { publicReference: input.profilePhotoMediaReference },
-    });
-    if (
-      media &&
-      media.ownerType === PrivateMediaOwnerType.DRIVER &&
-      media.ownerId === driver.id &&
-      media.status === "READY" &&
-      media.purpose === PrivateMediaPurpose.DRIVER_PROFILE_PHOTO
-    ) {
+    let profilePhotoMediaId: string | undefined = undefined;
+    if (input.profilePhotoMediaReference) {
+      const media = await tx.privateMediaObject.findUnique({
+        where: { publicReference: input.profilePhotoMediaReference },
+      });
+      if (
+        !media ||
+        media.ownerType !== PrivateMediaOwnerType.DRIVER ||
+        media.ownerId !== driver.id ||
+        media.status !== "READY" ||
+        media.purpose !== PrivateMediaPurpose.DRIVER_PROFILE_PHOTO
+      ) {
+        throw new Error("The uploaded private media cannot be used as a driver profile photo.");
+      }
       profilePhotoMediaId = media.id;
     }
-  }
 
-  const identitySnapshot = {
-    idNumber: input.idNumber,
-    idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
-    dateOfBirth: input.dateOfBirth.toISOString(),
-    residentialAddress: input.residentialAddress,
-    completedAt: new Date().toISOString(),
-  };
-
-  const updated = await prisma.driverProfile.update({
-    where: { userId },
-    data: {
-      displayName: input.displayName || driver.displayName,
-      phone: input.phone,
-      licenseNumber: input.licenseNumber,
-      licenseExpiryDate: input.licenseExpiryDate,
-      emergencyContactName: input.emergencyContactName,
-      emergencyContactPhone: input.emergencyContactPhone,
-      idNumber: input.idNumber,
-      idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
-      dateOfBirth: input.dateOfBirth,
-      residentialAddress: input.residentialAddress,
-      ...(profilePhotoMediaId ? { profilePhotoMediaId } : {}),
-      internalNotes: JSON.stringify(identitySnapshot),
-      onboardingStatus: DriverOnboardingStatus.PENDING_REVIEW,
-      vehicleComplianceRequiredAt: driver.vehicleComplianceRequiredAt ?? new Date(),
-    },
-    include: {
-      user: true,
-      serviceRegions: {
-        include: {
-          deliveryRegion: true,
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        ...(input.displayName ? { name: input.displayName } : {}),
+        phone: input.phone,
+      },
+    });
+    const updated = await tx.driverProfile.update({
+      where: { userId },
+      data: {
+        displayName: input.displayName || driver.displayName,
+        phone: input.phone,
+        licenseNumber: input.licenseNumber,
+        licenseExpiryDate: input.licenseExpiryDate,
+        emergencyContactName: input.emergencyContactName,
+        emergencyContactPhone: input.emergencyContactPhone,
+        idNumber: input.idNumber,
+        idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
+        dateOfBirth: input.dateOfBirth,
+        residentialAddress: input.residentialAddress,
+        ...(profilePhotoMediaId ? { profilePhotoMediaId } : {}),
+        onboardingStatus: DriverOnboardingStatus.PENDING_REVIEW,
+        vehicleComplianceRequiredAt: driver.vehicleComplianceRequiredAt ?? new Date(),
+      },
+      include: {
+        user: true,
+        profilePhoto: { select: { publicReference: true } },
+        serviceRegions: {
+          include: {
+            deliveryRegion: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  // Keep user sync
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      ...(input.displayName ? { name: input.displayName } : {}),
-      phone: input.phone,
-    },
+    return toDriverSelfDto(updated);
   });
-
-  return toDriverSelfDto(updated);
 }
 
 // ─── Attach Own Driver Document ───────────────────────────────────────────────
@@ -298,6 +294,7 @@ export async function attachOwnProfilePhoto(input: {
     data: { profilePhotoMediaId: media.id },
     include: {
       user: true,
+      profilePhoto: { select: { publicReference: true } },
       serviceRegions: { include: { deliveryRegion: true } },
     },
   });

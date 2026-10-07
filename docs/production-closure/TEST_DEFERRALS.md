@@ -9,6 +9,8 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/e2e/catalog-administration.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/customer-subscription.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/customer-wallet-refunds.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/e2e/driver-earnings-finance-admin.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/e2e/driver-earnings.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/home-cinematic-regression.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/keyboard-navigation.spec.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/e2e/marketplace-checkout-customer.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
@@ -63,6 +65,17 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/integration/reviewed-client-initialization.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/integration/store-order-postgres-real.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/integration/storefront-postgres-real.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
+| tests/phase26/e2e/admin-applications.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/admin-checks.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/admin-handoffs.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/admin-interviews.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/admin-offers.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/admin-openings.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/admin-reconciliation.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/admin-requisitions.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/applicant-registration.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/application-wizard.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
+| tests/phase26/e2e/careers-browse.e2e.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/phase26/integration/applicant-submission.integration.test.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/phase26/integration/background-checks.integration.test.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/phase26/integration/driver-handoff.integration.test.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
@@ -77,4 +90,4 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/phase26/integration/retention-schedules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/phase26/integration/screening-rules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 
-Audited files with skip/deferral markers: 72. Release-critical open placeholders: 28.
+Audited files with skip/deferral markers: 85. Release-critical open placeholders: 41.

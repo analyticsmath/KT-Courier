@@ -144,6 +144,7 @@ export interface DriverSelfDto {
   dateOfBirth?: Date | null;
   residentialAddress?: string | null;
   profilePhotoMediaId?: string | null;
+  profilePhotoMediaReference?: string | null;
   user: UserPublicDto;
 }
 
@@ -238,6 +239,7 @@ export function toDriverDetailDto(
 export function toDriverSelfDto(
   driver: DriverProfile & {
     user: User;
+    profilePhoto?: { publicReference: string } | null;
     serviceRegions: (DriverServiceRegion & { deliveryRegion: DeliveryRegion })[];
   }
 ): DriverSelfDto {
@@ -266,6 +268,7 @@ export function toDriverSelfDto(
     dateOfBirth: (driver as DriverProfile & { dateOfBirth?: Date | null }).dateOfBirth ?? null,
     residentialAddress: (driver as DriverProfile & { residentialAddress?: string | null }).residentialAddress ?? null,
     profilePhotoMediaId: (driver as DriverProfile & { profilePhotoMediaId?: string | null }).profilePhotoMediaId ?? null,
+    profilePhotoMediaReference: driver.profilePhoto?.publicReference ?? null,
     user: toUserPublicDto(driver.user),
   };
 }

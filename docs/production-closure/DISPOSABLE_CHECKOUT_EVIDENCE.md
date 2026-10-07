@@ -88,3 +88,31 @@ with zero skipped. The eleven required-domain tests include actual guest email
 verification, concurrent intake/publication, unverified-account blocking,
 preferences, suppression, forged duplicate rejection and pre-send contact
 revocation. No external email send or successful payment is claimed by these tests.
+
+At `9d9d337d5f6cc560a007f5e20e6014ea34c81aaa`, main CI `37612330867`
+passed. Certification `37612330761` passed all 20 PostgreSQL jobs, quality,
+Redis/security, recovery and all 42 browser assertions (53.2 seconds, zero skipped).
+The final certified job failed because engineering gates remain open.
+
+The next candidate corrects the source audit to recognize nested, computed and
+focused test declarations. Four parser regression tests pass. The regenerated
+inventory contains 85 marked files and 41 critical placeholders, correcting the
+previous undercount of 28. Newly discovered driver earnings and Phase 26 browser
+placeholders are open work; discovering them does not certify or exclude them.
+
+The driver candidate makes profile/account and onboarding/account updates atomic,
+preserves independent internal review notes, rejects invalid private headshots,
+and returns the canonical public photo reference for reload/resubmission. It adds
+identity labels, status/error announcements, error associations, keyboard focus
+and 44px controls without approving a driver or changing financial policy.
+The initial PostgreSQL run passed 80 assertions in eleven files, zero skipped,
+including actual rollback on a test-owned DriverProfile trigger failure. A later
+photo reload regression passed in the final local run: 81 assertions in eleven
+files, zero skipped (22.01 seconds). The intervening run had 80 passes and one
+commission test timeout at 5,000ms during overlapping validation; the sequential
+rerun preserved the original timeout and assertions. Lint, TypeScript, optimized
+build, 3,393 unit/API tests (759 files) and ten certification-helper tests passed.
+Three desktop/mobile/authorization browser assertions require fresh execution.
+Browser discovery reports 45 tests in eleven files;
+discovery is not execution. No live GPS, POD, document approval or payment is
+claimed by these contact/onboarding assertions.
