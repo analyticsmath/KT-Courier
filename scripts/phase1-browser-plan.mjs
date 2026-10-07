@@ -7,6 +7,9 @@ export function phase1BrowserPlan() {
   const employee = ["tests/e2e/business-employee-access.spec.ts"];
   const common = ["--project=chromium", "--retries=0", "--workers=1"];
   return [
+    { name: "withdrawal-finance-1440", expectedTests: 1, args: ["tests/e2e/withdrawal-finance-admin.spec.ts", "--grep=at 1440px", ...common] },
+    { name: "withdrawal-finance-390", expectedTests: 1, args: ["tests/e2e/withdrawal-finance-admin.spec.ts", "--grep=at 390px", ...common] },
+    { name: "withdrawal-finance-negative", expectedTests: 1, args: ["tests/e2e/withdrawal-finance-admin.spec.ts", "--grep=deny wrong roles", ...common] },
     { name: "storefront-variant-target", expectedTests: 1, args: ["tests/e2e/storefront-browsing.spec.ts", "--grep=product detail page displays store", ...common] },
     { name: "storefront-product-detail", expectedTests: 4, args: ["tests/e2e/storefront-product-detail.spec.ts", ...common] },
     { name: "catalog-1440", expectedTests: 2, args: [...catalog, "--grep=1440px", ...common] },

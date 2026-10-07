@@ -4,7 +4,7 @@ import { phase1BrowserPlan, browserStagePassed } from "./phase1-browser-plan.mjs
 
 test("required native selections precede the full suite and retain failure artifacts separately", () => {
   const plan = phase1BrowserPlan();
-  assert.deepEqual(plan.map(stage => [stage.name, stage.expectedTests]), [["storefront-variant-target", 1], ["storefront-product-detail", 4], ["catalog-1440", 2], ["catalog-both", 4], ["employee-1440", 1], ["employee-both", 2], ["full-chromium", 88]]);
+  assert.deepEqual(plan.map(stage => [stage.name, stage.expectedTests]), [["withdrawal-finance-1440", 1], ["withdrawal-finance-390", 1], ["withdrawal-finance-negative", 1], ["storefront-variant-target", 1], ["storefront-product-detail", 4], ["catalog-1440", 2], ["catalog-both", 4], ["employee-1440", 1], ["employee-both", 2], ["full-chromium", 88]]);
   assert.ok(plan.slice(0, -1).every(stage => stage.args.some(arg => arg.endsWith(".spec.ts"))));
   assert.ok(plan.every(stage => stage.args.includes("--retries=0") && stage.args.includes("--workers=1")));
   assert.equal(new Set(plan.map(stage => stage.name)).size, plan.length);

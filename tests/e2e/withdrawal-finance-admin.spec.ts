@@ -95,10 +95,29 @@ for (const width of [1440, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
     await page.goto("/admin/payout-destinations");
-    await page.getByRole("link", { name: second.destination.publicReference, exact: true }).click();
+    const destinationPath = `/admin/payout-destinations/${encodeURIComponent(second.destination.publicReference)}`;
+    const destinationLink = page.getByRole("link", { name: second.destination.publicReference, exact: true });
+    await expect(destinationLink).toHaveCount(1);
+    await expect(destinationLink).toHaveAttribute("href", destinationPath);
+    await destinationLink.click();
+    await expect(page).toHaveURL(destinationPath);
+    const detail = page.getByRole("main");
+    const detailHeader = detail.locator("header").filter({ has: page.getByRole("heading", { name: "Payout Destinations", exact: true }) });
+    await expect(detailHeader).toHaveCount(1);
+    const reference = detailHeader.getByRole("paragraph").filter({ hasText: second.destination.publicReference });
+    await expect(reference).toHaveCount(1);
+    await expect(reference).toHaveText(second.destination.publicReference);
+    const maskedTerm = detail.getByRole("term").filter({ hasText: /^Masked label$/ });
+    await expect(maskedTerm).toHaveCount(1);
+    await expect(maskedTerm).toBeVisible();
+    const maskedField = detail.locator("dl > div").filter({ has: page.getByRole("term").filter({ hasText: /^Masked label$/ }) });
+    await expect(maskedField).toHaveCount(1);
+    const maskedDefinition = maskedField.getByRole("definition");
+    await expect(maskedDefinition).toHaveCount(1);
+    await expect(maskedDefinition).toBeVisible();
+    await expect(maskedDefinition).toHaveText(second.destination.maskedLabel);
     const masked = (await read(page, `/api/admin/payout-destinations/${second.destination.publicReference}`)).payoutDestination;
     expect(masked).not.toHaveProperty("externalReference"); expect(masked).not.toHaveProperty("walletId");
-    await expect(page.getByText(second.destination.maskedLabel, { exact: true })).toBeVisible();
     await expect(page.getByRole("textbox")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
