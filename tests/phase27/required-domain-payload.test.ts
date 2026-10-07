@@ -6,6 +6,28 @@ const asDb = (db: unknown) => db as Prisma.TransactionClient;
 const event = (sourceAuthority: string, eventType: string, safePayload: Record<string, unknown> = {}) => ({ sourceAuthority, eventType, aggregateReference: "source", operationId: eventType === "MARKETPLACE_ORDER_CONFIRMED" ? "marketplace-order-notification:source" : eventType === "STORE_ORDER_RECEIVED" ? "vendor-order-notification:source" : `${sourceAuthority === "STORE_ORDERS" ? "store-order" : sourceAuthority === "REFUND" ? "refund-status" : "payment-status"}-notification:${safePayload.sourceEventId}`, safePayload });
 
 describe("canonical required-domain notification payloads", () => {
+  it("binds courier confirmation to canonical ownership and one operation identity", async () => {
+    const db = asDb({ order: { findUnique: vi.fn().mockResolvedValue({ customerId: "owner", orderNumber: "courier-public" }) } });
+    const intent = { sourceAuthority: "LEGACY_ORDER", eventType: "ORDER_CONFIRMED", aggregateReference: "source", operationId: "legacy-order-confirmed:source", safePayload: { customerUserId: "attacker", orderNumber: "fake" } };
+    expect(await resolveRequiredDomainPayload(db, intent)).toEqual({ customerUserId: "owner", orderNumber: "courier-public" });
+    await expect(resolveRequiredDomainPayload(db, { ...intent, operationId: "forged" })).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+  });
+  it("derives courier status from history while ignoring queued browser-supplied status", async () => {
+    const db = asDb({ order: { findUnique: vi.fn().mockResolvedValue({ customerId: "owner", orderNumber: "courier-public" }) }, orderStatusHistory: { findUnique: vi.fn().mockResolvedValue({ orderId: "source", status: "IN_TRANSIT" }) } });
+    const intent = { sourceAuthority: "LEGACY_ORDER", eventType: "ORDER_STATUS_CHANGED", aggregateReference: "source", operationId: "legacy-order-status-history:history", safePayload: { status: "DELIVERED" } };
+    expect(await resolveRequiredDomainPayload(db, intent)).toEqual({ customerUserId: "owner", orderNumber: "courier-public", status: "in transit" });
+  });
+  it.each([null, { orderId: "foreign", status: "DELIVERED" }])("rejects courier status without matching canonical history: %j", async (history) => {
+    const db = asDb({ order: { findUnique: vi.fn().mockResolvedValue({ customerId: "owner", orderNumber: "courier-public" }) }, orderStatusHistory: { findUnique: vi.fn().mockResolvedValue(history) } });
+    await expect(resolveRequiredDomainPayload(db, { sourceAuthority: "LEGACY_ORDER", eventType: "ORDER_STATUS_CHANGED", aggregateReference: "source", operationId: "legacy-order-status-history:history", safePayload: { status: "DELIVERED" } })).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+  });
+  it("rejects the old free-form status identity and missing courier source records", async () => {
+    const order = { findUnique: vi.fn().mockResolvedValue({ customerId: "owner", orderNumber: "courier-public" }) };
+    const intent = { sourceAuthority: "LEGACY_ORDER", eventType: "ORDER_STATUS_CHANGED", aggregateReference: "source", operationId: "legacy-order-status:source:DELIVERED", safePayload: { status: "DELIVERED" } };
+    await expect(resolveRequiredDomainPayload(asDb({ order }), intent)).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+    order.findUnique.mockResolvedValue(null);
+    await expect(resolveRequiredDomainPayload(asDb({ order }), intent)).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+  });
   it("ignores spoofed marketplace destinations and account identity", async () => {
     const db = asDb({ marketplaceOrder: { findUnique: vi.fn().mockResolvedValue({ customerUserId: "owner", publicReference: "order-public", checkout: { customerUserId: "owner", publicReference: "checkout-public" } }) } });
     const payload = await resolveRequiredDomainPayload(db, event("MARKETPLACE", "MARKETPLACE_ORDER_CONFIRMED", { customerUserId: "attacker", email: "attacker@example.test", orderNumber: "fake" }));

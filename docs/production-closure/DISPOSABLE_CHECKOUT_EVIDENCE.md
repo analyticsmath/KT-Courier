@@ -116,3 +116,32 @@ Three desktop/mobile/authorization browser assertions require fresh execution.
 Browser discovery reports 45 tests in eleven files;
 discovery is not execution. No live GPS, POD, document approval or payment is
 claimed by these contact/onboarding assertions.
+
+At `7c45c3d7d98c6f60eb9460ed2a99ee6b8cbfce4c`, all 45 browser assertions
+passed (50.0 seconds, zero skipped), including the driver contact/onboarding
+and authorization checks. All 20 PostgreSQL certification jobs, quality,
+Redis/security and recovery passed. Certification `37614766079` failed only
+the final certified job on open engineering gates. Main CI `37614766194`
+failed its migration-smoke job before executing migrations because Docker Hub
+returned HTTP 500 resolving `node:24-bookworm-slim`; the failed job is being
+rerun. The certification migration-smoke job passed on the same commit. The
+failed-job rerun subsequently passed; main CI is now `SUCCESS` on that exact SHA.
+
+The notification candidate reconstructs courier status from matching canonical
+order history, binds confirmation/status operation identities and rejects
+unsupported compatibility facts. Fourteen actual courier publication assertions
+and eleven other required-domain assertions are included in the local closure
+run: 84 passed in eleven files, zero skipped (18.80 seconds). Sixteen focused
+payload assertions, lint, TypeScript, optimized build, 3,398 unit/API assertions
+in 759 files and twelve helper assertions also passed with zero skipped.
+New exact-commit CI validation remains required.
+
+Source and launch-scope review identifies the Phase 26 recruitment pipeline as
+optional and locked behind its exported false production constant. The audit
+now qualifies that exact directory exclusion from parsed source; enabling the
+lock makes its placeholders critical again. Twenty-two previously critical
+recruitment placeholders are excluded, never passed, leaving nineteen active
+critical placeholders. See `OPTIONAL_RECRUITMENT_EXCLUSION.md`. Canonical driver
+onboarding, employee permissions, dispatch and earnings remain critical. The
+courier publication suite now fails on an unsafe connection instead of skipping;
+the current deferral inventory contains 84 marked files.

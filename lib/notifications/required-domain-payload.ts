@@ -13,7 +13,20 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
   const raw = object(intent.safePayload);
   if (intent.sourceAuthority === "LEGACY_ORDER") {
     const order = await db.order.findUnique({ where: { id: intent.aggregateReference }, select: { customerId: true, orderNumber: true } });
-    return { customerUserId: order?.customerId ?? null, orderNumber: order?.orderNumber ?? null, ...(intent.eventType === "ORDER_STATUS_CHANGED" ? { status: typeof raw.status === "string" ? statusText(raw.status) : null } : {}) };
+    if (!order) return invalid();
+    const recipient = { customerUserId: order.customerId, orderNumber: order.orderNumber };
+    if (intent.eventType === "ORDER_CONFIRMED") {
+      requireOperation(intent, `legacy-order-confirmed:${intent.aggregateReference}`);
+      return recipient;
+    }
+    if (intent.eventType === "ORDER_STATUS_CHANGED") {
+      const prefix = "legacy-order-status-history:";
+      if (!intent.operationId.startsWith(prefix)) return invalid();
+      const history = await db.orderStatusHistory.findUnique({ where: { id: intent.operationId.slice(prefix.length) } });
+      if (!history || history.orderId !== intent.aggregateReference) return invalid();
+      return { ...recipient, status: statusText(history.status) };
+    }
+    return unsupported();
   }
   if (intent.sourceAuthority === "MARKETPLACE") {
     const order = await db.marketplaceOrder.findUnique({ where: { id: intent.aggregateReference }, include: { checkout: { select: { publicReference: true, customerUserId: true } } } });
