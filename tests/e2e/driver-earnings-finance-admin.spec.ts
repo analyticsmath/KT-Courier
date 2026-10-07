@@ -25,6 +25,9 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "Driver Earnings", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     const table = page.getByRole("region", { name: "Driver earnings records", exact: true });
+    const amounts = table.locator("td.is-numeric");
+    expect(await amounts.count()).toBeGreaterThan(0);
+    expect(await amounts.evaluateAll(elements => elements.every(element => getComputedStyle(element).whiteSpace === "nowrap"))).toBe(true);
     if (width === 390) {
       await table.focus(); await table.press("ArrowRight");
       await expect.poll(() => table.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);

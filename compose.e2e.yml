@@ -3,6 +3,10 @@
 services:
   app:
     ports: !reset []
+    environment:
+      # Test-owned private files stay writable and disappear with this container.
+      PRIVATE_MEDIA_STORAGE: local
+      PRIVATE_MEDIA_LOCAL_DIR: /tmp/kt-couriers-e2e-private-media
   e2e-ingress:
     image: ${MIGRATE_IMAGE:-kt-couriers-migrate:latest}
     restart: "no"

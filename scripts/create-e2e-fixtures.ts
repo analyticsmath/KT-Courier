@@ -519,6 +519,8 @@ async function main() {
   for (const width of [1440, 390]) {
     const user = await prisma.user.create({ data: { email: `e2e-onboarding-${width}@ktcouriers.local`, name: "Disposable pending driver", phone: "+27820000000", role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
     await prisma.driverProfile.create({ data: { userId: user.id, driverCode: `E2E-ONBOARDING-${width}`, displayName: user.name, phone: user.phone, internalNotes: "Disposable independent reviewer note" } });
+    const documentUser = await prisma.user.create({ data: { email: `e2e-documents-${width}@ktcouriers.local`, name: "Disposable document driver", role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    await prisma.driverProfile.create({ data: { userId: documentUser.id, driverCode: `E2E-DOCUMENTS-${width}`, displayName: documentUser.name } });
   }
   for (const orderNumber of ["E2E-DISPATCH-001", "E2E-DISPATCH-002"]) {
     const quote = await prisma.pricingQuote.create({

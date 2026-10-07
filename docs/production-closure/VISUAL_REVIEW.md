@@ -79,3 +79,17 @@ and hit-target assertions. This run does not establish clean full acceptance.
 Certification now rejects a nonzero flaky summary even when Playwright exits
 zero. The local focused round-26 run failed during Docker image compilation with
 a BuildKit RPC/EOF error before any browser assertions; it adds no browser proof.
+
+At `1e90e48f00ea7a2d5b30eadcef43ed7cc0aee6c8`, all 66 browser assertions
+passed in 2.5 minutes with zero skipped or flaky results. All ten desktop/phone
+finance captures and the cart capture were viewed. Refusal and network-error
+captures preserve reviewer fields with readable recovery guidance. The cart
+viewport/hit-target/keyboard assertion passes; its screenshot after adding to
+cart does not independently establish the earlier focus-ring position.
+
+New list-table captures exposed split financial decimals and narrow references
+and status codes, despite correct bounded scrolling. The follow-up keeps money
+and status text intact and gives references readable widths while retaining the
+keyboard scroll region. Those table changes, and the new driver private-document
+upload states, require fresh exact-commit browser execution and actual inspection.
+Full directed visual acceptance remains open.

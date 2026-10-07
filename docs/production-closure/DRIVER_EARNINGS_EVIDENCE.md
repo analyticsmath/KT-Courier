@@ -119,3 +119,17 @@ Label-scoped inspection confirmed zero containers, volumes and networks for
 (including explicit checks of ignored runner scripts), TypeScript, seventeen
 focused guard/admin-UI assertions and fourteen native certification/isolation/
 deferral assertions pass, zero skipped. This is source/helper validation only.
+
+At `1e90e48f00ea7a2d5b30eadcef43ed7cc0aee6c8`, main CI `37644241966`
+passed. Certification browser job `112870736907` passed all 66 assertions in
+2.5 minutes, zero skipped or flaky results; enhanced refusal retention, aborted
+request recovery, truthful onboarding and strict cart viewport checks pass.
+Quality, nineteen PostgreSQL jobs, Redis/security and recovery have passed;
+at the pre-push snapshot, the remaining storefront job was still installing
+dependencies. No result is claimed for it; branch concurrency may supersede
+that incomplete run on the next push. This is not completed green certification.
+Ten finance captures and the cart capture
+were inspected. Retention/recovery are visible; table captures exposed broken
+money/status/reference wrapping. The follow-up preserves numeric/status text
+and supplies readable reference widths inside the existing keyboard scroller.
+Its updated browser/visual proof remains pending.

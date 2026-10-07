@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
+import { DriverDocumentError } from "@/lib/driver-documents/errors";
 import { toDriverSelfDto, type DriverSelfDto } from "@/lib/dto/driver.dto";
 import { DriverAvailability, DriverOnboardingStatus, DocumentStatus, DocumentType, PrivateMediaOwnerType, PrivateMediaPurpose } from "@/types/db";
 import type { DriverSelfUpdateInput, DriverOnboardingInput } from "../validation/driver";
@@ -183,42 +185,31 @@ export async function attachOwnDriverDocument(input: {
   privateMediaReference: string;
   expiresAt?: Date | null;
 }) {
-  const driver = await prisma.driverProfile.findUnique({
-    where: { userId: input.driverUserId },
-    select: { id: true },
-  });
-  if (!driver) throw new Error("Driver profile not found.");
-
-  const media = await prisma.privateMediaObject.findUnique({
-    where: { publicReference: input.privateMediaReference },
-  });
-  if (
-    !media ||
-    media.ownerType !== PrivateMediaOwnerType.DRIVER ||
-    media.ownerId !== driver.id ||
-    media.status !== "READY"
-  ) {
-    throw new Error("The uploaded private media cannot be used for this driver document.");
-  }
-
   return prisma.$transaction(async (tx) => {
-    const prior = await tx.driverDocument.findFirst({
-      where: {
-        driverProfileId: driver.id,
-        documentType: input.documentType,
-        status: { in: [DocumentStatus.PENDING, DocumentStatus.SUBMITTED, DocumentStatus.APPROVED] },
-      },
-    });
-
-    if (prior) {
-      await tx.driverDocument.update({
-        where: { id: prior.id },
-        data: {
-          status: DocumentStatus.REJECTED,
-          rejectionReason: "SUPERSEDED_BY_NEW_UPLOAD",
-        },
-      });
+    // Serialize replacements for this driver before reading the current document.
+    const drivers = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "DriverProfile" WHERE "userId" = ${input.driverUserId} FOR UPDATE`);
+    const driver = drivers[0];
+    if (!driver) throw new DriverDocumentError("PROFILE_NOT_FOUND");
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "PrivateMediaObject" WHERE "publicReference" = ${input.privateMediaReference} FOR UPDATE`);
+    const media = await tx.privateMediaObject.findUnique({ where: { publicReference: input.privateMediaReference } });
+    const purposes: PrivateMediaPurpose[] = input.documentType === DocumentType.LICENSE
+      ? [PrivateMediaPurpose.DRIVER_LICENCE]
+      : input.documentType === DocumentType.OTHER
+        ? [PrivateMediaPurpose.DRIVER_IDENTITY_DOCUMENT, PrivateMediaPurpose.OTHER]
+        : [PrivateMediaPurpose.DRIVER_IDENTITY_DOCUMENT];
+    if (!media || media.ownerType !== PrivateMediaOwnerType.DRIVER || media.ownerId !== driver.id || media.status !== "READY" || input.documentType === DocumentType.VEHICLE_REGISTRATION || !purposes.includes(media.purpose)) {
+      throw new DriverDocumentError("MEDIA_INVALID");
     }
+    const include = { privateMediaObject: { select: { publicReference: true, originalFileName: true, detectedMimeType: true } } } as const;
+    const attached = await tx.driverDocument.findUnique({ where: { privateMediaObjectId: media.id }, include });
+    if (attached) {
+      if (attached.driverProfileId !== driver.id || attached.documentType !== input.documentType || (attached.expiresAt?.getTime() ?? null) !== (input.expiresAt?.getTime() ?? null)) throw new DriverDocumentError("MEDIA_ALREADY_ATTACHED");
+      return attached;
+    }
+    await tx.driverDocument.updateMany({
+      where: { driverProfileId: driver.id, documentType: input.documentType, status: { in: [DocumentStatus.PENDING, DocumentStatus.SUBMITTED, DocumentStatus.APPROVED] } },
+      data: { status: DocumentStatus.REJECTED, rejectionReason: "SUPERSEDED_BY_NEW_UPLOAD" },
+    });
 
     return tx.driverDocument.create({
       data: {
@@ -229,15 +220,7 @@ export async function attachOwnDriverDocument(input: {
         expiresAt: input.expiresAt ?? null,
         status: DocumentStatus.SUBMITTED,
       },
-      include: {
-        privateMediaObject: {
-          select: {
-            publicReference: true,
-            originalFileName: true,
-            detectedMimeType: true,
-          },
-        },
-      },
+      include,
     });
   });
 }
@@ -248,7 +231,7 @@ export async function listOwnDriverDocuments(driverUserId: string) {
     where: { userId: driverUserId },
     select: { id: true },
   });
-  if (!driver) throw new Error("Driver profile not found.");
+  if (!driver) throw new DriverDocumentError("PROFILE_NOT_FOUND");
 
   return prisma.driverDocument.findMany({
     where: { driverProfileId: driver.id },

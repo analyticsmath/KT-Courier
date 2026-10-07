@@ -358,7 +358,9 @@ export function DriverOnboardingExperience({
         return;
       }
 
-      setMessage(`Successfully uploaded and submitted ${selectedDocType.replace(/_/g, " ")}.`);
+      setMessage(attachData.status === "SUBMITTED"
+        ? `Successfully uploaded and submitted ${selectedDocType.replace(/_/g, " ")}.`
+        : `This evidence is already attached. Current document status: ${attachData.status}.`);
       setDocFile(null);
       setDocExpiresAt("");
       await refreshDocuments();
@@ -777,15 +779,16 @@ export function DriverOnboardingExperience({
           <div className="space-y-6">
             <OperationalPanel
               title="Step 2: Upload Driver Identity & Licence Documents"
-              description="Attach official copies of your ID / Passport and valid Driver's Licence. Documents are stored in encrypted private evidence storage."
+              description="Attach official copies of your ID / Passport and valid Driver's Licence. Documents remain private and require authorized access."
             >
-              <form onSubmit={handleDriverDocUpload} className="space-y-4">
+              <form onSubmit={handleDriverDocUpload} className="space-y-4" aria-label="Driver document upload">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="driver-document-type" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Document Type *
                     </label>
                     <select
+                      id="driver-document-type"
                       value={selectedDocType}
                       onChange={(e) => setSelectedDocType(e.target.value)}
                       className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
@@ -798,10 +801,11 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="driver-document-expiry" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Expiry Date (if applicable)
                     </label>
                     <input
+                      id="driver-document-expiry"
                       type="date"
                       value={docExpiresAt}
                       onChange={(e) => setDocExpiresAt(e.target.value)}

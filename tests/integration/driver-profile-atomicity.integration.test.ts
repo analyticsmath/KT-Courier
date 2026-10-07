@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { completeDriverOnboarding, getDriverProfileByUserId, updateOwnDriverProfile } from "@/lib/services/driver-profile.service";
+import { attachOwnDriverDocument, completeDriverOnboarding, getDriverProfileByUserId, listOwnDriverDocuments, updateOwnDriverProfile } from "@/lib/services/driver-profile.service";
 import type { DriverOnboardingInput } from "@/lib/validation/driver";
 
 describe("driver profile and onboarding on disposable PostgreSQL", () => {
@@ -27,10 +27,66 @@ describe("driver profile and onboarding on disposable PostgreSQL", () => {
   });
   const input = (): DriverOnboardingInput => ({ displayName: "Updated driver", phone: "+27821112233", idNumber: "DISPOSABLE-PASSPORT", idType: "PASSPORT", dateOfBirth: new Date("1990-01-01T00:00:00Z"), residentialAddress: "Synthetic test address", licenseNumber: "TEST-LICENCE", licenseExpiryDate: new Date("2030-01-01T00:00:00Z"), emergencyContactName: "Test contact", emergencyContactPhone: "+27829998877" });
   const snapshot = async () => ({ user: await prisma.user.findUniqueOrThrow({ where: { id: userId } }), driver: await prisma.driverProfile.findUniqueOrThrow({ where: { id: driverId } }) });
-  async function photo(overrides: Partial<{ ownerId: string; purpose: "DRIVER_PROFILE_PHOTO" | "DRIVER_LICENCE"; status: "READY" | "PENDING_UPLOAD" }> = {}) {
+  async function photo(overrides: Partial<{ ownerId: string; purpose: "DRIVER_PROFILE_PHOTO" | "DRIVER_LICENCE" | "DRIVER_IDENTITY_DOCUMENT"; status: "READY" | "PENDING_UPLOAD" }> = {}) {
     const media = await prisma.privateMediaObject.create({ data: { publicReference: `PMO-${randomUUID()}`, ownerType: "DRIVER", ownerId: driverId, purpose: "DRIVER_PROFILE_PHOTO", status: "READY", storageProvider: "local", storageKey: `driver-profile-test/${randomUUID()}`, originalFileName: "headshot.jpg", declaredMimeType: "image/jpeg", detectedMimeType: "image/jpeg", checksum: "a".repeat(64), byteSize: 100, createdByUserId: userId, ...overrides } });
     ownedMedia.push(media.id); return media;
   }
+  it("attaches owned licence evidence once, retains replay identity and refuses changed details", async () => {
+    const media = await photo({ purpose: "DRIVER_LICENCE" });
+    const command = { driverUserId: userId, documentType: "LICENSE" as const, privateMediaReference: media.publicReference, expiresAt: new Date("2030-01-01T00:00:00Z") };
+    const before = await snapshot();
+    const first = await attachOwnDriverDocument(command);
+    expect(first).toMatchObject({ driverProfileId: driverId, status: "SUBMITTED", privateMediaObject: { publicReference: media.publicReference } });
+    expect(await attachOwnDriverDocument(command)).toEqual(first);
+    await expect(attachOwnDriverDocument({ ...command, expiresAt: null })).rejects.toMatchObject({ code: "MEDIA_ALREADY_ATTACHED" });
+    expect(await listOwnDriverDocuments(userId)).toEqual([first]); expect(await snapshot()).toEqual(before);
+  });
+  it.each(["missing", "foreign", "headshot", "identity-for-licence", "not-ready", "vehicle"] as const)("rejects %s document evidence without replacing the submitted licence", async (kind) => {
+    const valid = await photo({ purpose: "DRIVER_LICENCE" });
+    const command = { driverUserId: userId, documentType: "LICENSE" as const, privateMediaReference: valid.publicReference };
+    const prior = await attachOwnDriverDocument(command);
+    const invalid = kind === "missing" ? null : await photo({ purpose: kind === "headshot" ? "DRIVER_PROFILE_PHOTO" : kind === "identity-for-licence" ? "DRIVER_IDENTITY_DOCUMENT" : "DRIVER_LICENCE", ...(kind === "foreign" ? { ownerId: `foreign-${randomUUID()}` } : {}), ...(kind === "not-ready" ? { status: "PENDING_UPLOAD" as const } : {}) });
+    await expect(attachOwnDriverDocument({ ...command, privateMediaReference: invalid?.publicReference ?? `PMO-${randomUUID()}`, ...(kind === "vehicle" ? { documentType: "VEHICLE_REGISTRATION" as const } : {}) })).rejects.toMatchObject({ code: "MEDIA_INVALID" });
+    expect(await listOwnDriverDocuments(userId)).toEqual([prior]);
+  });
+  it("serializes concurrent replacements so only one current licence survives", async () => {
+    const media = await Promise.all([photo({ purpose: "DRIVER_LICENCE" }), photo({ purpose: "DRIVER_LICENCE" })]);
+    const records = await Promise.all(media.map(record => attachOwnDriverDocument({ driverUserId: userId, documentType: "LICENSE", privateMediaReference: record.publicReference })));
+    expect(new Set(records.map(record => record.id)).size).toBe(2);
+    const saved = await listOwnDriverDocuments(userId);
+    expect(saved).toHaveLength(2); expect(saved.filter(record => record.status === "SUBMITTED")).toHaveLength(1);
+    expect(saved.filter(record => record.status === "REJECTED")).toMatchObject([{ rejectionReason: "SUPERSEDED_BY_NEW_UPLOAD" }]);
+    const superseded = saved.find(record => record.status === "REJECTED")!;
+    expect(await attachOwnDriverDocument({ driverUserId: userId, documentType: "LICENSE", privateMediaReference: superseded.privateMediaObject!.publicReference })).toEqual(superseded);
+    expect(await listOwnDriverDocuments(userId)).toEqual(saved);
+  });
+  it("replays concurrent attachment of the same evidence without duplicate documents", async () => {
+    const media = await photo({ purpose: "DRIVER_LICENCE" });
+    const command = { driverUserId: userId, documentType: "LICENSE" as const, privateMediaReference: media.publicReference };
+    const records = await Promise.all([attachOwnDriverDocument(command), attachOwnDriverDocument(command)]);
+    expect(records[0]).toEqual(records[1]); expect(await listOwnDriverDocuments(userId)).toEqual([records[0]]);
+  });
+  it.each(["ID_DOCUMENT", "PROOF_OF_ADDRESS", "OTHER"] as const)("attaches intended identity evidence for %s without approving the driver", async (documentType) => {
+    const media = await photo({ purpose: "DRIVER_IDENTITY_DOCUMENT" }); const before = await snapshot();
+    const record = await attachOwnDriverDocument({ driverUserId: userId, documentType, privateMediaReference: media.publicReference });
+    expect(record).toMatchObject({ documentType, status: "SUBMITTED", privateMediaObjectId: media.id });
+    expect(await snapshot()).toEqual(before);
+  });
+  it("rolls back supersession when creating the replacement document fails", async () => {
+    const original = await photo({ purpose: "DRIVER_LICENCE" }); const replacement = await photo({ purpose: "DRIVER_LICENCE" });
+    const command = { driverUserId: userId, documentType: "LICENSE" as const };
+    const prior = await attachOwnDriverDocument({ ...command, privateMediaReference: original.publicReference });
+    const identifier = `closure_document_${randomUUID().replaceAll("-", "")}`;
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION "${identifier}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."driverProfileId" = '${driverId}' THEN RAISE EXCEPTION 'DISPOSABLE_DOCUMENT_WRITE_FAILURE'; END IF; RETURN NEW; END $$`);
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TRIGGER "${identifier}" BEFORE INSERT ON "DriverDocument" FOR EACH ROW EXECUTE FUNCTION "${identifier}"()`);
+      await expect(attachOwnDriverDocument({ ...command, privateMediaReference: replacement.publicReference })).rejects.toThrow("DISPOSABLE_DOCUMENT_WRITE_FAILURE");
+      expect(await listOwnDriverDocuments(userId)).toEqual([prior]);
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${identifier}" ON "DriverDocument"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION "${identifier}"()`);
+    }
+  });
   it("returns synchronized account/profile fields without review notes or password data", async () => {
     const result = await updateOwnDriverProfile(userId, { displayName: "Updated driver", phone: "+27821112233", emergencyContactName: "Test contact" });
     expect(result).toMatchObject({ displayName: "Updated driver", phone: "+27821112233", user: { name: "Updated driver", phone: "+27821112233" } });
