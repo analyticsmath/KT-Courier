@@ -3,6 +3,7 @@
 
 import { prisma } from "@/lib/db/prisma";
 import type { DeliveryZoneCheckResult } from "./google-maps.types";
+import { regionBoundaryIssues } from "./region-boundaries";
 
 // ─── Haversine distance (km) between two lat/lng points ──────────────────────
 
@@ -34,10 +35,11 @@ export async function checkDeliveryZone(
   let regions;
   try {
     regions = await prisma.deliveryRegion.findMany({
-      where: { active: true },
+      where: { active: true, pricingEnabled: true },
       select: {
         id: true,
         name: true,
+        province: true,
         centerLat: true,
         centerLng: true,
         coverageRadiusKm: true,
@@ -46,7 +48,7 @@ export async function checkDeliveryZone(
       orderBy: { displayOrder: "asc" },
     });
   } catch {
-    // If DB is unavailable, treat as unknown (don't block order creation)
+    // Unknown coverage is not serviceability; quote callers must reject it.
     return {
       matched: false,
       regionId: null,
@@ -69,7 +71,7 @@ export async function checkDeliveryZone(
   }
 
   for (const region of regions) {
-    if (!region.centerLat || !region.centerLng) continue;
+    if (regionBoundaryIssues(region).length) continue;
 
     const centerLat = Number(region.centerLat);
     const centerLng = Number(region.centerLng);

@@ -85,15 +85,18 @@ export async function createCommissionPlan(input: PlanDraftInput & Readonly<{ ac
   return result;
 }
 
-export async function updateDraftCommissionPlan(planId: string, input: PlanDraftInput & Readonly<{ actorUserId: string }>) {
+export async function updateDraftCommissionPlan(planId: string, input: PlanDraftInput & Readonly<{ actorUserId: string; expectedVersion: number }>) {
   const draft = normalizedDraft(input);
   return prisma.$transaction(async (tx) => {
-    const plan = await tx.commissionPlan.findUnique({ where: { id: planId }, select: { id: true, status: true, createdByUserId: true } });
+    const plan = await tx.commissionPlan.findUnique({ where: { id: planId }, include: { rules: true } });
     if (!plan) throw new CommissionError("COMMISSION_PLAN_NOT_FOUND", "Commission plan was not found.");
     if (plan.status !== "DRAFT") throw new CommissionError("COMMISSION_INVALID_STATE", "Only draft commission plans can be changed.");
+    if (plan.version !== input.expectedVersion) throw new CommissionError("COMMISSION_IDEMPOTENCY_CONFLICT", "Commission plan changed. Refresh before editing.");
     if (plan.createdByUserId !== input.actorUserId) throw new CommissionError("COMMISSION_INVALID_STATE", "Only the plan maker may edit its draft.");
     await tx.commissionRule.deleteMany({ where: { planId } });
-    return tx.commissionPlan.update({ where: { id: planId }, data: { basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, calculationVersion: draft.calculationVersion, version: { increment: 1 }, rules: { create: draft.rules } }, include: planInclude });
+    const updated = await tx.commissionPlan.update({ where: { id: planId, version: input.expectedVersion }, data: { basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, calculationVersion: draft.calculationVersion, version: { increment: 1 }, rules: { create: draft.rules } }, include: planInclude });
+    await tx.adminActivityLog.create({ data: { actorUserId: input.actorUserId, action: "UPDATE", entityType: "CommissionPlan", entityId: planId, message: "Commission draft rules updated", metadata: { priorVersion: plan.version, version: updated.version, priorRuleCodes: plan.rules.map((r) => r.ruleCode), ruleCodes: draft.rules.map((r) => r.ruleCode) } } });
+    return updated;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 

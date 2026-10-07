@@ -43,6 +43,7 @@ export function FaqInteractiveView() {
             selectedTopic === "all" ? styles.topicButtonActive : ""
           }`}
           onClick={() => setSelectedTopic("all")}
+          aria-pressed={selectedTopic === "all"}
           type="button"
         >
           All Topics
@@ -54,6 +55,7 @@ export function FaqInteractiveView() {
             }`}
             key={section.id}
             onClick={() => setSelectedTopic(section.id)}
+            aria-pressed={selectedTopic === section.id}
             type="button"
           >
             {section.title}
@@ -62,6 +64,7 @@ export function FaqInteractiveView() {
       </div>
 
       {/* Filtered FAQ Result Stream */}
+      <p role="status" aria-live="polite">{filteredSections.reduce((count, section) => count + section.items.length, 0)} questions shown.</p>
       <div className={styles.faqContentStream}>
         {filteredSections.length === 0 ? (
           <div className={styles.noResultsCard}>
@@ -84,7 +87,7 @@ export function FaqInteractiveView() {
               <div className={styles.faqItemList}>
                 {section.items.map((item) => (
                   <details className={styles.faqItemDetails} key={item.question}>
-                    <summary>{item.question}</summary>
+                    <summary className={styles.faqQuestion}>{item.question}</summary>
                     <div className={styles.faqAnswer}>
                       <p>{item.answer}</p>
                     </div>

@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import {
   PROVINCES,
-  SIZES,
   type DeliveryConfiguration,
 } from "@/lib/client-platform/contracts";
 import type { SavedAddressDto } from "@/lib/services/customer-addresses.service";
@@ -50,6 +49,10 @@ export function PublicDeliveryQuoteForm({
 }) {
   const router = useRouter();
   const [services, setServices] = useState<DeliveryConfiguration[]>([]);
+  const [parcels, setParcels] = useState<{ id: string; stableKey: string; displayName: string; lengthCm: number; widthCm: number; heightCm: number; maximumWeightKg: number }[]>([]);
+  const [parcelKey, setParcelKey] = useState("");
+  const selectedParcel = parcels.find((p) => p.stableKey === parcelKey) ?? parcels[0];
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [methods, setMethods] = useState<{
     quoteId: string;
@@ -89,16 +92,25 @@ export function PublicDeliveryQuoteForm({
   );
   useEffect(() => {
     let live = true;
-    fetch("/api/public/delivery-quotes")
+    const parcelRequest = fetch("/api/public/parcel-profiles").then(async (r) => {
+      if (!r.ok) throw new Error("Parcel profiles unavailable.");
+      const profiles = await r.json();
+      if (live) { setParcels(profiles); if (!profiles.length) setError("Parcel acceptance limits await operational approval. Please contact support."); }
+    }).catch(() => { if (live) setError("Parcel profiles could not be loaded. Please retry."); });
+    const serviceRequest = fetch("/api/public/delivery-quotes")
       .then(async (r) => {
         const v = await r.json();
         if (!r.ok) throw new Error(v.error);
-        if (live) setServices(v);
+        if (live) {
+          setServices(v);
+          if (!v.length) setError("Delivery services await operational configuration. Please contact support.");
+        }
       })
       .catch(() => {
         if (live)
           setError("Delivery services could not be loaded. Please retry.");
       });
+    void Promise.all([parcelRequest, serviceRequest]).finally(() => { if (live) setCatalogLoading(false); });
     if (reference)
       fetch(`/api/public/delivery-quotes/${reference}`)
         .then(async (r) => {
@@ -232,7 +244,8 @@ export function PublicDeliveryQuoteForm({
   return (
     <div className="space-y-8">
       {error && <p role="alert">{error}</p>}
-      <form onSubmit={estimate} className="space-y-6">
+      {catalogLoading && <p id="quote-configuration-status" role="status">Loading delivery services and parcel limits…</p>}
+      <form onSubmit={estimate} className="space-y-6" aria-busy={busy || catalogLoading}>
         <div className="grid gap-8 md:grid-cols-2">
           {addressFields("pickup", "Collection address", pickup, setPickup)}
           {addressFields("dropoff", "Delivery address", dropoff, setDropoff)}
@@ -260,11 +273,13 @@ export function PublicDeliveryQuoteForm({
               id="quote-size"
               name="size"
               className="w-full border-b py-3"
-              onChange={() => setQuote(null)}
+              required
+              value={selectedParcel?.stableKey ?? ""}
+              onChange={(e) => { setParcelKey(e.target.value); setQuote(null); }}
             >
-              {SIZES.map((s) => (
-                <option key={s} value={s}>
-                  {s.toLowerCase()}
+              {parcels.map((s) => (
+                <option key={s.id} value={s.stableKey}>
+                  {s.displayName} · max {s.maximumWeightKg} kg
                 </option>
               ))}
             </select>
@@ -276,14 +291,18 @@ export function PublicDeliveryQuoteForm({
               name="weight"
               type="number"
               min="0.0001"
-              max="10000"
+              max={selectedParcel?.maximumWeightKg}
               step="0.0001"
               required
+              aria-describedby={selectedParcel ? "quote-parcel-limits" : undefined}
               onChange={() => setQuote(null)}
             />
           </div>
         </div>
-        <Button type="submit" loading={busy} disabled={!services.length}>
+        {selectedParcel && <p id="quote-parcel-limits" role="status" className="text-sm">
+          {selectedParcel.displayName} limits: {selectedParcel.lengthCm} × {selectedParcel.widthCm} × {selectedParcel.heightCm} cm; maximum {selectedParcel.maximumWeightKg} kg.
+        </p>}
+        <Button type="submit" loading={busy} disabled={!services.length || !parcels.length}>
           Calculate delivery price
         </Button>
       </form>

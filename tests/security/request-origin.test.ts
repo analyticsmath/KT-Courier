@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createOriginFailureResponse,
   validateSameOriginRequest,
@@ -9,6 +9,26 @@ function request(headers: HeadersInit = {}, url = "http://localhost:3000/api/tes
 }
 
 describe("request origin validation", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("accepts only the explicitly configured dynamic loopback ports in a production-mode E2E server", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:46173");
+    vi.stubEnv("ALLOWED_ORIGINS", "http://localhost:46173,http://127.0.0.1:46173");
+    for (const origin of ["http://localhost:46173", "http://127.0.0.1:46173"]) {
+      expect(validateSameOriginRequest(request({ origin }, "http://app:3000/api/test")).ok).toBe(true);
+    }
+    for (const origin of ["http://localhost:46174", "http://127.0.0.1:46174", "https://unrelated.example"]) {
+      expect(validateSameOriginRequest(request({ origin }, "http://app:3000/api/test")).ok).toBe(false);
+    }
+  });
+
+  it("does not infer E2E origins from runtime flags or spoofed host headers in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("KT_RUNTIME_ENV", "e2e");
+    for (const key of ["ALLOWED_ORIGINS", "NEXT_PUBLIC_APP_URL", "APP_URL", "VERCEL_URL", "CORS_ALLOW_ORIGIN", "TRUSTED_PROXY_ORIGINS"]) vi.stubEnv(key, "");
+    expect(validateSameOriginRequest(request({ origin: "http://localhost:46173", host: "localhost:46173" })).ok).toBe(false);
+  });
   it("allows a matching Origin", () => {
     const result = validateSameOriginRequest(
       request({ origin: "http://localhost:3000" })

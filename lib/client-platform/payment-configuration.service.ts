@@ -9,6 +9,8 @@ import {
   resolvePaymentBreakdown,
 } from "@/lib/payments/payment-policy.service";
 import { createCashOnDeliveryObligationWithinTransaction } from "@/lib/services/cash-on-delivery.service";
+import { BankInstructionsSchema } from "./driver-cash.service";
+export const PaymentApprovalSchema = z.object({ policyId: z.string().cuid(), expectedVersion: z.number().int().positive(), remittanceVerified: z.literal(true), settlementTiming: z.string().trim().min(5).max(150), reason: z.string().trim().min(10).max(500) }).strict();
 const amount = z
   .string()
   .regex(/^\d+(\.\d{1,2})?$/)
@@ -63,6 +65,7 @@ export const PaymentConfigurationSchema = z
         code: "custom",
         message: "Order overrides must identify the business.",
       });
+    if (v.active && v.mode !== "DIGITAL" && (!v.deliveryServiceId || (!v.regionId && !v.provinces?.length))) c.addIssue({ code: "custom", message: "Active cash requires an explicit service and regional scope." });
   });
 async function authorize(u: AuthenticatedUser) {
   if (
@@ -132,6 +135,8 @@ export async function listPaymentConfigurations(u: AuthenticatedUser) {
       expectedVersion: p.versionNumber,
       editable: latest.get(paymentPolicyScope(p)) === p.versionNumber,
       createdAt: p.createdAt.toISOString(),
+      approvalRequired: p.mode !== "DIGITAL" && !(p.policyEvidence as { approvedByUserId?: string } | null)?.approvedByUserId,
+      authorId: p.createdByUserId,
     })),
     stores,
     services,
@@ -141,6 +146,13 @@ export async function listPaymentConfigurations(u: AuthenticatedUser) {
 export async function savePaymentConfiguration(
   u: AuthenticatedUser,
   input: z.infer<typeof PaymentConfigurationSchema>,
+) {
+  return saveReviewedPaymentConfiguration(u, input);
+}
+async function saveReviewedPaymentConfiguration(
+  u: AuthenticatedUser,
+  input: z.infer<typeof PaymentConfigurationSchema>,
+  review?: { authorId: string; policyId: string; settlementTiming: string },
 ) {
   await authorize(u);
   input = PaymentConfigurationSchema.parse(input);
@@ -216,6 +228,19 @@ export async function savePaymentConfiguration(
           409,
         );
       const now = new Date();
+      const activate = input.active && (input.mode === "DIGITAL" || !!review);
+      let approvalEvidence: Prisma.InputJsonObject = {};
+      if (review) {
+        if (review.authorId === u.id || input.mode !== "DEPOSIT_PLUS_COD" || input.depositPercent !== "0.5" && input.depositPercent !== "0.5000" || !input.deliveryServiceId || (!input.regionId && !input.provinces?.length)) throw new PlatformError("COD_APPROVAL_INVALID", "Independent approval requires the initial 50/50 split and explicit service/region scope.", 422);
+        const source = existing.find((p) => p.id === review.policyId && p.versionNumber === input.expectedVersion && p.status === "INACTIVE");
+        if (!source || source.createdByUserId !== review.authorId) throw new PlatformError("COD_APPROVAL_CONFLICT", "Review the latest inactive draft for this scope.", 409);
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'client_cash_deposit_bank'}))`;
+        const bank = await tx.systemSetting.findUnique({ where: { key: "client_cash_deposit_bank" } });
+        const bankAuthor = await tx.adminActivityLog.findFirst({ where: { entityType: "SystemSetting", entityId: "client_cash_deposit_bank" }, orderBy: { createdAt: "desc" }, select: { actorUserId: true } });
+        if (!bank || !BankInstructionsSchema.safeParse(bank.value).success || !bankAuthor || bankAuthor.actorUserId === u.id) throw new PlatformError("COD_REMITTANCE_REVIEW_REQUIRED", "Review valid secure remittance instructions authored by a different administrator.", 409);
+        approvalEvidence = { approvedByUserId: u.id, approvedAt: now.toISOString(), remittanceApproved: true, remittanceUpdatedAt: bank.updatedAt.toISOString(), settlementTiming: review.settlementTiming, sourceDraftId: review.policyId };
+      }
+      if (activate || !input.active)
       await tx.paymentMethodPolicy.updateMany({
         where: { id: { in: existing.map((p) => p.id) }, status: "ACTIVE" },
         data: { status: "SUPERSEDED", effectiveTo: now },
@@ -225,7 +250,7 @@ export async function savePaymentConfiguration(
           ...scope,
           provinceScope: input.provinces ?? Prisma.DbNull,
           versionNumber: version + 1,
-          status: input.active ? "ACTIVE" : "INACTIVE",
+          status: activate ? "ACTIVE" : "INACTIVE",
           mode: input.mode,
           depositPercent: input.depositPercent
             ? new Prisma.Decimal(input.depositPercent)
@@ -235,11 +260,11 @@ export async function savePaymentConfiguration(
               ? new Prisma.Decimal(input.maximumCodAmount)
               : null,
           effectiveFrom: now,
-          createdByUserId: u.id,
-          policyEvidence: { reason: input.reason, actualActorUserId: u.id },
+          createdByUserId: review?.authorId ?? u.id,
+          policyEvidence: { reason: input.reason, actualActorUserId: u.id, activationRequested: input.active, ...approvalEvidence },
         },
       });
-      if (input.orderId && input.active) {
+      if (input.orderId && activate) {
         await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`;
         const o = await tx.order.findUnique({
           where: { id: input.orderId },
@@ -357,7 +382,7 @@ export async function savePaymentConfiguration(
           entityType: "PaymentMethodPolicy",
           entityId: row.id,
           message:
-            input.orderId && input.active
+            input.orderId && activate
               ? "Unpaid order payment policy updated"
               : "Scoped payment policy version saved",
           metadata: {
@@ -366,7 +391,7 @@ export async function savePaymentConfiguration(
             orderId: input.orderId,
             version: version + 1,
             mode: input.mode,
-            active: input.active,
+            active: activate,
           },
         },
       });
@@ -374,4 +399,18 @@ export async function savePaymentConfiguration(
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+}
+
+export async function approvePaymentConfiguration(u: AuthenticatedUser, input: z.infer<typeof PaymentApprovalSchema>) {
+  await authorize(u);
+  const data = PaymentApprovalSchema.parse(input);
+  const draft = await prisma.paymentMethodPolicy.findUnique({ where: { id: data.policyId } });
+  if (!draft || draft.versionNumber !== data.expectedVersion || draft.status !== "INACTIVE" || !draft.createdByUserId) throw new PlatformError("COD_APPROVAL_CONFLICT", "Review the latest inactive draft.", 409);
+  if (draft.createdByUserId === u.id) throw new PlatformError("COD_INDEPENDENT_REVIEW_REQUIRED", "A different authorized administrator must approve this policy.", 403);
+  return saveReviewedPaymentConfiguration(u, {
+    storeId: draft.storeId, deliveryServiceId: draft.deliveryServiceId, provinces: Array.isArray(draft.provinceScope) ? draft.provinceScope as z.infer<typeof PaymentConfigurationSchema>["provinces"] : null,
+    regionId: draft.regionId, orderId: draft.orderId, mode: draft.mode,
+    depositPercent: draft.depositPercent?.toString() ?? null, maximumCodAmount: draft.maximumCodAmount?.toFixed(2) ?? null,
+    active: true, expectedVersion: data.expectedVersion, reason: data.reason,
+  }, { authorId: draft.createdByUserId, policyId: draft.id, settlementTiming: data.settlementTiming });
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
-import { publicFaqJsonLd, publicFaqSections } from "@/lib/public-faq/faqs";
+import { publicFaqJsonLd } from "@/lib/public-faq/faqs";
 import { FaqInteractiveView } from "./FaqInteractiveView";
 import styles from "./faq-page.module.css";
 
@@ -40,25 +40,7 @@ export function FaqPage() {
           </p>
         </section>
 
-        {/* Server-side native semantic disclosure structure */}
-        <div className={styles.faqSectionWrap}>
-          {publicFaqSections.map((section) => (
-            <section className={styles.faqSection} id={section.id} key={section.id}>
-              <h2 className={styles.faqSectionHeading}>{section.title}</h2>
-              <div className={styles.faqItemList}>
-                {section.items.map((item) => (
-                  <details className={styles.faqItemDetails} key={item.question}>
-                    <summary>{item.question}</summary>
-                    <div className={styles.faqAnswer}>
-                      <p>{item.answer}</p>
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-
+        {/* The client view is also server-rendered with native disclosures. */}
         <FaqInteractiveView />
       </div>
     </article>

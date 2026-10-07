@@ -6,6 +6,7 @@ import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
 import { calculateRoute } from "@/lib/maps/routes.service";
 import { getPricingConfiguration } from "@/lib/pricing/config";
+import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
 import { calculateDeliveryPrice } from "@/lib/pricing/calculator";
 import {
   hashPricingInput,
@@ -121,6 +122,7 @@ export async function saveDeliveryConfiguration(
   });
 }
 export async function createPublicQuote(input: PublicQuoteInput) {
+  const parcelProfile = await requireParcelProfile(input.parcelSize, input.weightKg);
   const selected = (await deliveryCatalog()).find(
     (c) => c.stableKey === input.serviceKey && c.active,
   );
@@ -155,7 +157,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
   );
   if (
     zones.some(
-      (z) => !z.matched || !z.regionId || z.withinMaxDistance === false,
+      (z) => !z.matched || !z.regionId || z.withinMaxDistance !== true,
     )
   )
     throw new PlatformError(
@@ -205,6 +207,9 @@ export async function createPublicQuote(input: PublicQuoteInput) {
       503,
     );
   const config = await getPricingConfiguration();
+  if (regions.some((region) => route.route.distanceMeters > Number(region.maxDistanceKm) * 1000)) {
+    throw new PlatformError("COVERAGE_DISTANCE_EXCEEDED", "This route exceeds the configured maximum distance.", 409);
+  }
   const tariff = selected.tariffs[input.parcelSize];
   if (tariff.maximumWeightKg && Number(input.weightKg) > tariff.maximumWeightKg)
     throw new PlatformError(
@@ -247,7 +252,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
     weightIncrementKg: null,
     dimensionalPricingEnabled: false,
     volumetricDivisor: null,
-    maxDistanceKm: null,
+    maxDistanceKm: d(Math.min(...regions.map((region) => Number(region.maxDistanceKm)))),
   };
   const calculation = calculateDeliveryPrice({
     input: {
@@ -284,6 +289,8 @@ export async function createPublicQuote(input: PublicQuoteInput) {
         configurationId: selected.id,
         version: selected.version,
         parcelSize: input.parcelSize,
+        parcelProfileId: parcelProfile.id,
+        parcelProfileVersion: parcelProfile.versionNumber,
         tariff,
       },
       regionSnapshot: {

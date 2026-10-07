@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { disposableBrowserOrigins } from "./e2e-environment.mjs";
 import {
   assertSuccess,
   findAvailableLoopbackPort,
@@ -32,6 +33,7 @@ function buildEnv(port, appPort) {
     DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
     SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
     NEXT_PUBLIC_APP_URL: `http://localhost:${appPort}`,
+    ALLOWED_ORIGINS: disposableBrowserOrigins(appPort),
     EMAIL_PROVIDER: "console",
     E2E_ROUTE_PROVIDER: "deterministic",
     NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: "true",

@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 735,
+    "totalRoutes": 739,
     "totalServerActions": 0,
-    "publicRoutes": 116,
-    "authenticatedRoutes": 616,
-    "permissionGatedRoutes": 500,
+    "publicRoutes": 117,
+    "authenticatedRoutes": 619,
+    "permissionGatedRoutes": 503,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 192,
-    "generatedAt": "2026-10-06T11:10:00.000Z"
+    "rateLimitedRoutes": 194,
+    "generatedAt": "2026-10-07T00:27:28.784Z"
   },
   "serverActions": [],
   "routes": [
@@ -3155,7 +3155,8 @@
       "routePath": "app/api/admin/payment-policies/route.ts",
       "httpMethods": [
         "GET",
-        "POST"
+        "POST",
+        "PATCH"
       ],
       "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
       "requiredRoles": [
@@ -12500,6 +12501,85 @@
       "bolaOwnershipValidated": false,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/production-readiness/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "EXACT_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "system_readiness.read",
+        "system_readiness.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Closure route: exact admin permissions before domain reads; same-origin and rate controls for mutations; version conflict protection in configuration service."
+    },
+    {
+      "routePath": "app/api/admin/parcel-profiles/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "EXACT_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "commercial_configuration.read",
+        "commercial_configuration.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Closure route: exact admin permissions before domain reads; same-origin and rate controls for mutations; version conflict protection in configuration service."
+    },
+    {
+      "routePath": "app/api/admin/marketplace-delivery-policy/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "EXACT_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "commercial_configuration.read",
+        "commercial_configuration.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Closure route: exact admin permissions before domain reads; same-origin and rate controls for mutations; version conflict protection in configuration service."
+    },
+    {
+      "routePath": "app/api/public/parcel-profiles/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "PUBLIC_READ_ONLY",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Closure route: exact admin permissions before domain reads; same-origin and rate controls for mutations; version conflict protection in configuration service."
     }
   ]
 }

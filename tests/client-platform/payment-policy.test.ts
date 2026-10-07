@@ -51,8 +51,8 @@ const actor = {
 } as AuthenticatedUser;
 const input = {
   storeId: base.storeId,
-  deliveryServiceId: null,
-  provinces: null,
+  deliveryServiceId: "CLIENT_STANDARD",
+  provinces: ["Gauteng"] as ["Gauteng"],
   regionId: null,
   orderId: null,
   mode: "DEPOSIT_PLUS_COD" as const,
@@ -74,6 +74,7 @@ beforeEach(() => {
     ownerUser: { status: "ACTIVE", emailVerifiedAt: new Date() },
   });
   permission.mockResolvedValue(true);
+  db.deliveryServiceDefinition.findFirst.mockResolvedValue({ stableKey: "CLIENT_STANDARD" });
 });
 describe("scoped cash payment policies", () => {
   it("matches every province, service and destination scope", async () => {
@@ -199,22 +200,26 @@ describe("scoped cash payment policies", () => {
     ).toBe(false);
   });
   it("rejects a stale edit before writing", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, deliveryServiceId: input.deliveryServiceId, provinceScope: input.provinces }]);
     await expect(
       savePaymentConfiguration(actor, { ...input, expectedVersion: 0 }),
     ).rejects.toMatchObject({ status: 409 });
     expect(db.paymentMethodPolicy.create).not.toHaveBeenCalled();
   });
   it("audits the actual administrator and creates the successor version", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, deliveryServiceId: input.deliveryServiceId, provinceScope: input.provinces }]);
     await savePaymentConfiguration(actor, input);
     expect(db.paymentMethodPolicy.create.mock.calls[0][0].data).toMatchObject({
       versionNumber: 2,
       createdByUserId: "admin",
+      status: "INACTIVE",
     });
     expect(db.adminActivityLog.create.mock.calls[0][0].data.actorUserId).toBe(
       "admin",
     );
+    expect(db.paymentMethodPolicy.updateMany).not.toHaveBeenCalled();
   });
-  it("blocks per-order changes once payment is prepared", async () => {
+  it("blocks per-order digital changes once payment is prepared", async () => {
     db.paymentMethodPolicy.findMany.mockResolvedValue([]);
     db.order.findUnique.mockResolvedValue({
       storeId: base.storeId,
@@ -226,6 +231,8 @@ describe("scoped cash payment policies", () => {
     await expect(
       savePaymentConfiguration(actor, {
         ...input,
+        mode: "DIGITAL",
+        depositPercent: null,
         expectedVersion: 0,
         orderId: "corder22345678901234567890",
       }),

@@ -132,11 +132,12 @@ export function run(command, args, options = {}) {
     input: options.input,
     shell: false,
     stdio: options.stdio ?? "pipe",
+    timeout: options.timeout,
   });
 }
 
 export function runDocker(args, options = {}) {
-  return run("docker", args, options);
+  return run("docker", args, { ...options, timeout: options.timeout ?? (args[0] === "info" ? 20000 : args.includes("down") ? 60000 : undefined) });
 }
 
 export function runCompose(args, options = {}) {

@@ -1,0 +1,18 @@
+{
+  "classification": "NOT_READY",
+  "gates": [
+    { "key": "dynamic_disposable_origin", "status": "IMPLEMENTED", "evidence": "Explicit dynamically allocated localhost/127.0.0.1 browser origins; security regression tests." },
+    { "key": "public_quote_copy", "status": "IMPLEMENTED", "evidence": "Reviewed registry and regression test; live deployment verification remains separate." },
+    { "key": "readiness_and_audited_evidence", "status": "IMPLEMENTED", "evidence": "Protected capability matrix and separately reviewed SHA-bound evidence." },
+    { "key": "coverage_boundary_validation", "status": "IMPLEMENTED", "evidence": "Activation validation, stale-write protection, explicit clearing and fail-closed quote paths." },
+    { "key": "parcel_profile_configuration", "status": "IMPLEMENTED", "evidence": "Versioned operator-authored limits and dynamic anonymous/booking gates." },
+    { "key": "marketplace_parcel_classification", "status": "OPEN", "evidence": "Checkout supports explicit ANY-size tariffs; trusted size-specific package classification is not yet integrated." },
+    { "key": "notification_required_domains", "status": "OPEN", "evidence": "Courier publication is mature; guest marketplace, vendor, payment and refund adapters need complete durable/canonical domain acceptance." },
+    { "key": "commercial_financial_certification", "status": "VALIDATION_BLOCKED", "evidence": "Commission/refund/store/driver earning and other existing source validation locks remain; activation must follow full financial/concurrency/functional proof." },
+    { "key": "customer_vendor_driver_full_functional_acceptance", "status": "OPEN", "evidence": "Existing unit/API and partial browser coverage is insufficient for the entire directed journeys." },
+    { "key": "critical_skip_closure", "status": "OPEN", "evidence": "Existing release-critical placeholder browser suites remain; see TEST_DEFERRALS.md." },
+    { "key": "disposable_postgres_browser_recovery_execution", "status": "VALIDATION_BLOCKED", "evidence": "Local Docker server readiness times out; no database/browser/restore pass is claimed." },
+    { "key": "fresh_production_protected_row_audit", "status": "VALIDATION_BLOCKED", "evidence": "An approved read-only production execution path or operator artifact is required; OAuth exposes variable names only." },
+    { "key": "github_certification_and_deployment", "status": "VALIDATION_BLOCKED", "evidence": "No merge/deployment until all workflow jobs and engineering gates pass for the exact release." }
+  ]
+}

@@ -37,7 +37,7 @@ class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
 export function resolveMarketplaceCheckoutProductionComposition() {
   return Object.freeze({
     deliveryQuotes: new Phase6MarketplaceDeliveryQuoteAdapter(createPhase6MarketplaceQuoteAuthority()),
-    phase6Authority: "pricing-quote.service.createPricingQuoteForTrustedOwner" as const,
+    phase6Authority: "matrix-quote.service.createMarketplaceMatrixQuote" as const,
     phase10Authority: "payment-preparation.service.prepareMarketplacePayment" as const,
     paymentCheckoutAuthority: "marketplace-paystack-checkout.service.prepareMarketplacePaystackCustomerAction" as const,
     phase12Authority: "marketplace-payment-success-hook.service.onVerifiedMarketplacePaymentSucceeded" as const,
@@ -109,7 +109,8 @@ export async function executeMarketplaceDeliveryQuotes(input: Readonly<{
   return repository.transaction(async () => {
     const checkout = await repository.lockCheckout(input.reference, input.owner);
     if (!checkout || checkout.version !== input.expectedVersion) throw new Error("Checkout delivery evidence is stale.");
-    const serviceArea = checkout.addressServiceAreaReference || "cmu057leb0002wj4xl77v5twc";
+      const serviceArea = checkout.addressServiceAreaReference;
+      if (!serviceArea) throw new Error("A validated service area is required before delivery quoting.");
     return Promise.all(checkout.groups.map(async (group) => composition.deliveryQuotes.quoteStoreGroup({
       checkoutReference: checkout.publicReference,
       storeReference: group.storeReference,

@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db/prisma";
 import { createOrder } from "@/lib/services/orders.service";
 import { CreateOrderSchema } from "@/lib/validation/order";
 import { json, failure, mutation } from "@/lib/client-platform/api";
+import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
 export async function POST(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -33,6 +34,9 @@ export async function POST(
   try {
     const id = (await c.params).id;
     const quote = await readPublicQuote(id, user.id);
+    const parcel = quote.ruleSnapshot as { parcelSize: string; parcelProfileId?: string };
+    const profile = await requireParcelProfile(parcel.parcelSize, String((quote.metadata as { bookingInput?: { actualWeightKg?: string } }).bookingInput?.actualWeightKg ?? "0"));
+    if (profile.id !== parcel.parcelProfileId) throw new PlatformError("PARCEL_PROFILE_CHANGED", "Parcel acceptance limits changed. Request a new quote.", 409);
     const business =
       user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE";
     const store = business

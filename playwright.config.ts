@@ -21,6 +21,8 @@ export default defineConfig({
         /marketplace-cart\.spec\.ts/,
         /marketplace-checkout-guest\.spec\.ts/,
         /ledger-admin\.spec\.ts/,
+        /commission-finance-admin\.spec\.ts/,
+        /production-closure\.spec\.ts/,
       ],
     },
     {
