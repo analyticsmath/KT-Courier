@@ -33,7 +33,8 @@ const removeRejectTrigger = async () => {
 describe("real PostgreSQL security notification outbox", () => {
   beforeAll(async () => {
     const url = new URL(process.env.DATABASE_URL ?? "");
-    if (!["localhost", "127.0.0.1"].includes(url.hostname) || !/kt_courier_(?:test|ci)/.test(url.pathname)) throw new Error("This suite requires a disposable local test database.");
+    const approvedLaunchDatabase = url.pathname === "/kt_launch_test" && process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1";
+    if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(url.hostname) || (!/kt_courier_(?:test|ci)/.test(url.pathname) && !approvedLaunchDatabase)) throw new Error("This suite requires a disposable local test database.");
     databaseValidated = true;
     await removeRejectTrigger();
     vi.stubEnv("NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY", key);

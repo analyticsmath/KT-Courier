@@ -1,9 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { railwayProductionOrigin } from "@/lib/config/railway-origin";
 import { proxy } from "@/proxy";
 
 describe("configured production edge origin", () => {
+  beforeEach(() => {
+    // Model the stateless edge explicitly; CI also hosts database-backed jobs.
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("RAILWAY_SERVICE_ID", "");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_ID", "");
+  });
   afterEach(() => vi.unstubAllEnvs());
   it.each([undefined, "", "http://web.example", "https://user:pass@web.example", "https://web.example/path", "https://web.example?query=1", "https://web.example#fragment", "https://localhost", "https://web..example"])("fails closed for invalid origin %s", (value) => {
     expect(railwayProductionOrigin(value ?? "")).toBeNull();

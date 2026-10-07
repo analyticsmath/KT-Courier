@@ -61,7 +61,7 @@ jobs:
       matrix:
         command: [docker:migration-smoke, test:integration:auth, test:integration:permissions, test:integration:orders, test:integration:pricing, test:integration:dispatch, test:integration:cross-module, test:integration:driver-operations, test:integration:ledger, test:integration:payment-foundation, test:integration:refunds, test:integration:withdrawals, test:integration:store-earnings, test:integration:driver-earnings, test:integration:marketplace-checkout, test:integration:store-orders, test:integration:storefront, test:integration:catalog, test:integration:closure, docker:gate4]
     env:
-      KT_ALLOW_ISOLATED_POSTGRES_TESTS: 'true'
+      KT_ALLOW_ISOLATED_POSTGRES_TESTS: '1'
       KT_WITHDRAWAL_INTEGRATION_APPROVED: 'true'
       KT_REFUND_INTEGRATION_APPROVED: 'true'
       KT_STORE_EARNING_INTEGRATION_APPROVED: 'true'
@@ -93,10 +93,22 @@ jobs:
       - run: npx prisma generate
       - run: node scripts/certification-command.mjs test:integration:redis-rate-limit
       - run: node scripts/certification-command.mjs test:integration:bola-authority
-      - run: npm run recovery:drill
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: certification-redis-and-recovery, path: 'output/production-closure'}
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 24, cache: npm}
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run recovery:drill
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: certification-recovery, path: 'output/production-closure'}
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -114,7 +126,7 @@ jobs:
         with: {name: browser-failure-evidence, path: 'test-results'}
   certified:
     runs-on: ubuntu-latest
-    needs: [quality, postgres, redis-and-recovery, browser]
+    needs: [quality, postgres, redis-and-recovery, recovery, browser]
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/check-closure-engineering-gates.mjs
