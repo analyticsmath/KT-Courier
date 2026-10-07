@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { disposableBrowserPrivateMediaAllowed } from "@/lib/private-media/disposable-private-media-policy";
 import { createCloudinaryPrivateImageStorageAdapter } from "@/lib/private-media/cloudinary-private-image-storage";
-import { LocalPrivateMediaStorageAdapter } from "@/lib/private-media/private-media-storage";
+import { createPrivateMediaStorageAdapter, LocalPrivateMediaStorageAdapter, LockedPrivateMediaStorageAdapter } from "@/lib/private-media/private-media-storage";
 const isolated = { NODE_ENV: "test", KT_RUNTIME_ENV: "e2e", KT_NETWORK_DISABLED: "true", KT_E2E_PRIVATE_MEDIA_LOCAL: "true", PRIVATE_MEDIA_LOCAL_DIR: "/tmp/kt-couriers-e2e-private-media", DATABASE_URL: "postgresql://kt_phase75_e2e:disposable@db:5432/kt_phase75_e2e" };
 afterEach(() => vi.unstubAllEnvs());
 describe("local private raster adapter boundary", () => {
@@ -22,10 +22,13 @@ describe("local private raster adapter boundary", () => {
   it("selects the actual local adapter in the approved disposable browser environment", () => {
     for (const [key, value] of Object.entries(isolated)) vi.stubEnv(key, value);
     expect(createCloudinaryPrivateImageStorageAdapter()).toBeInstanceOf(LocalPrivateMediaStorageAdapter);
+    expect(createPrivateMediaStorageAdapter()).toBeInstanceOf(LocalPrivateMediaStorageAdapter);
   });
   it("production cannot select local storage even with every test flag supplied", () => {
     for (const [key, value] of Object.entries(isolated)) vi.stubEnv(key, value);
     vi.stubEnv("NODE_ENV", "production"); vi.stubEnv("CLOUDINARY_URL", ""); vi.stubEnv("CLOUDINARY_CLOUD_NAME", ""); vi.stubEnv("CLOUDINARY_API_KEY", ""); vi.stubEnv("CLOUDINARY_API_SECRET", "");
     expect(() => createCloudinaryPrivateImageStorageAdapter()).toThrow("Cloudinary profile image uploads are not configured.");
+    vi.stubEnv("PRIVATE_MEDIA_STORAGE", "local");
+    expect(createPrivateMediaStorageAdapter()).toBeInstanceOf(LockedPrivateMediaStorageAdapter);
   });
 });

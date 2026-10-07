@@ -32,3 +32,45 @@ store-owner assertions require exact-commit execution and actual screenshot revi
 before they count as acceptance. Refund reserves, commissions, store staff finance
 permissions, finance administration, withdrawal and complete merchant/customer
 order journeys remain open. Fourteen critical placeholders remain in the audit.
+
+At `9001252c8717474bcdd1ddb3278e55652d8f0a24`, main CI and all three
+store-owner browser assertions passed. Browser job `112901353131` had 69 passes
+and two failed document-download assertions, zero skipped. All four owner
+list/released-detail captures were inspected: desktop and phone show exact
+amounts, clear statuses and readable history. The phone full-page detail retains
+the fixed header at the captured viewport position; it is not proof of every
+focus target or scroll state.
+
+Certification `37653131586` failed browser and the dedicated store-earning job;
+nineteen other PostgreSQL jobs, quality, Redis/security and recovery passed.
+The dedicated runner selected the new canonical suite, which refused its
+unsupported database before executing six assertions. That failed run is not a
+zero-skip pass. A separate store fixture guard now supports the named closure/
+browser and uniquely generated local store runner, requiring test runtime,
+network-disabled flags and, for the dedicated runner, matching database
+username/name, isolated-test approval and specific approval/project identity.
+Production and foreign/mismatched identities are refused before writes.
+
+Local round 29 closure validation passed 124 assertions in sixteen files, zero
+skipped. Eight canonical store checks now include concurrent exact reversal with
+one balanced journal and post-release reversal refusal with reconciliation and
+unchanged owner funds. The dedicated store runner also executed all eight canonical
+checks alongside its eight existing assertions: sixteen passed in eight files,
+zero skipped. Thirty-nine focused boundary/routing/UI assertions pass, including
+fifteen store fixture guard assertions.
+
+Store finance now retains reason/note on refusal, recovers pending state after
+network failure, and uses keyboard-scrollable bounded tables with intact money.
+Three new finance browser assertions and ten captures require actual execution
+and inspection. They verify locked requests, unchanged evidence, released-record
+control absence, safe reconciliation and role/explicit-DENY isolation. Successful
+production reversal and real commission/refund attribution are not claimed.
+Discovery is now 74 Chromium assertions in twenty files. Thirteen critical
+placeholders remain in 78 marked files; complete financial acceptance stays open.
+
+Final round 29 source validation: full unit/API suite passed 3,465 assertions
+across 765 files, zero skipped; lint (including ignored fixture/runner scripts),
+TypeScript and the final optimized build passed. The first build attempt failed
+on an un-narrowed test result union; explicit completion narrowing repaired the
+test without altering financial service behavior. Fresh exact-commit CI/browser
+execution remains required for the latest candidate.

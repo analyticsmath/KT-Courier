@@ -12,6 +12,7 @@ import { createDriverEarningReconciliation } from "@/lib/services/driver-earning
 import { createDisposableStoreSettlement } from "./e2e-store-settlement-fixture";
 import { accrueStoreEarning } from "@/lib/services/store-earning-accrual.service";
 import { releaseStoreEarning } from "@/lib/services/store-earning-release.service";
+import { createStoreEarningReconciliation } from "@/lib/services/store-earning-reconciliation.service";
 
 const prisma = new PrismaClient();
 
@@ -548,7 +549,7 @@ async function main() {
   });
   const ledgerPermission = await prisma.permission.findUniqueOrThrow({ where: { key: "ledger.read" } });
   await prisma.user.create({ data: { email: "e2e-editorial-reviewer@ktcouriers.local", name: "Disposable independent editorial reviewer", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
-  for (const key of ["storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile"]) {
+  for (const key of ["storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile", "store_earnings.read", "store_earnings.reverse", "store_earnings.reconcile"]) {
     const permission = await prisma.permission.findUniqueOrThrow({ where: { key } });
     await prisma.userPermission.create({ data: { userId: deniedLedgerAdmin.id, permissionId: permission.id, effect: PermissionEffect.DENY } });
   }
@@ -603,6 +604,12 @@ async function main() {
         await releaseStoreEarning({ earningId: earning.id, operationId: `${source.tag}:release` }, { allowTestOnlyBypass: true });
       }
     }
+  }
+  for (const width of [1440, 390]) {
+    const { store } = await upsertStore(`e2e-store-earning-finance-${width}@ktcouriers.local`, `e2e-store-earning-finance-${width}`, "Disposable finance earning store", passwordHash);
+    const source = await createDisposableStoreSettlement({ storeId: store.id });
+    const earning = await accrueStoreEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+    await createStoreEarningReconciliation({ caseKey: `${source.tag}:synthetic-exception`, storeEarningId: earning.id, reason: "APPLICATION_FAILURE", priority: "HIGH", safeSummary: `Synthetic store finance review at ${width}px; no provider or commercial approval.`, safeEvidence: { fixture: "disposable-store-finance", privateMarker: "PRIVATE_INTERNAL_STORE_FINANCE_EVIDENCE" } });
   }
   console.log("E2E fixtures are ready.");
 }

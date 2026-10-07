@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { createDisposableStoreSettlement } from "@/scripts/e2e-store-settlement-fixture";
-import { requireDisposableDriverSettlementDatabase } from "@/scripts/disposable-driver-settlement-guard";
+import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 import { accrueStoreEarning } from "@/lib/services/store-earning-accrual.service";
 import { releaseStoreEarning } from "@/lib/services/store-earning-release.service";
+import { reverseStoreEarning } from "@/lib/services/store-earning-reversal.service";
 import { getStoreEarningForOwner } from "@/lib/services/store-earning-query.service";
 
 const isolated = { allowTestOnlyBypass: true } as const;
@@ -19,7 +20,7 @@ async function balances(source: Awaited<ReturnType<typeof createDisposableStoreS
   return { payable: payable.currentBalance.toFixed(2), withdrawable: withdrawable.currentBalance.toFixed(2) };
 }
 describe("canonical store accrual/release on isolated PostgreSQL", () => {
-  beforeAll(() => { requireDisposableDriverSettlementDatabase(); if (new URL(process.env.DATABASE_URL!).pathname !== "/kt_launch_test") throw new Error("Disposable closure database required."); });
+  beforeAll(() => { requireDisposableStoreSettlementDatabase(); });
   it("concurrent identical accruals produce one earning and one balanced journal", async () => {
     const source = await createDisposableStoreSettlement(); const operationId = `${source.tag}:accrue`;
     const results = await Promise.all(Array.from({ length: 3 }, () => accrueStoreEarning({ operationId, snapshot: source.snapshot }, isolated)));
@@ -64,6 +65,36 @@ describe("canonical store accrual/release on isolated PostgreSQL", () => {
     await prisma.store.update({ where: { id: source.store.id }, data: { status: "SUSPENDED" } });
     await expect(releaseStoreEarning(command, isolated)).rejects.toMatchObject({ code: "STORE_EARNING_RELEASE_NOT_ELIGIBLE" });
     expect(await balances(source)).toEqual({ payable: "100.25", withdrawable: "0.00" });
+  });
+  it("concurrent exact reversal posts one balanced journal and preserves owner evidence", async () => {
+    const { source, earning } = await accrued();
+    const actor = await prisma.user.create({ data: { email: `${source.tag}-finance@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
+    const command = { earningId: earning.id, operationId: `${source.tag}:reverse`, reasonCode: "SETTLEMENT_INVALIDATED" as const, actorUserId: actor.id };
+    const results = await Promise.all([reverseStoreEarning(command, isolated), reverseStoreEarning(command, isolated)]);
+    const completed = results.map(row => {
+      if (!("reversalLedgerJournalReference" in row)) throw new Error("Expected canonical reversal completion, received a refusal.");
+      return row;
+    });
+    expect(new Set(completed.map(row => row.reversalLedgerJournalReference)).size).toBe(1);
+    expect(completed.filter(row => row.idempotent)).toHaveLength(1);
+    expect(await balances(source)).toEqual({ payable: "0.00", withdrawable: "0.00" });
+    const saved = await prisma.storeEarning.findUniqueOrThrow({ where: { id: earning.id }, include: { reversalLedgerJournal: { include: { entries: true } }, statusHistory: true } });
+    expect(saved.status).toBe("REVERSED"); expect(saved.reversedAmount.toFixed(2)).toBe("100.25");
+    expect(saved.reversalLedgerJournal!.entries).toHaveLength(2);
+    expect(saved.reversalLedgerJournal!.totalDebits.toFixed(2)).toBe("100.25"); expect(saved.reversalLedgerJournal!.totalCredits.toFixed(2)).toBe("100.25");
+    expect(saved.statusHistory.filter(row => row.toStatus === "REVERSED")).toHaveLength(1);
+    expect(await getStoreEarningForOwner(source.ownerUserId, earning.publicReference)).toMatchObject({ status: "REVERSED", availablePayableAmount: "0.00", originalEarningAmount: "100.25" });
+  });
+  it("records a blocked reversal after release without removing owner-withdrawable funds", async () => {
+    const { source, earning } = await accrued();
+    await prisma.storeEarning.update({ where: { id: earning.id }, data: { releaseEligibleAt: new Date("2026-10-02T12:00:00Z") } });
+    await releaseStoreEarning({ earningId: earning.id, operationId: `${source.tag}:release` }, isolated);
+    const result = await reverseStoreEarning({ earningId: earning.id, operationId: `${source.tag}:reverse`, reasonCode: "SETTLEMENT_INVALIDATED", actorUserId: source.ownerUserId }, isolated);
+    expect(result).toMatchObject({ reversalBlocked: true, blockReason: "REVERSAL_AFTER_RELEASE" });
+    expect(await balances(source)).toEqual({ payable: "0.00", withdrawable: "100.25" });
+    const saved = await prisma.storeEarning.findUniqueOrThrow({ where: { id: earning.id }, include: { reconciliationCases: true } });
+    expect(saved.status).toBe("RELEASED"); expect(saved.reversalLedgerJournalId).toBeNull(); expect(saved.reversedAmount.toFixed(2)).toBe("0.00");
+    expect(saved.reconciliationCases).toEqual(expect.arrayContaining([expect.objectContaining({ reason: "REVERSAL_AFTER_RELEASE", status: "OPEN" })]));
   });
   it("rolls back release journal and balances if the earning update fails", async () => {
     const { source, earning } = await accrued();

@@ -67,3 +67,16 @@ Round 28 local validation passed 3,450 unit/API assertions in 764 files and
 122 actual PostgreSQL assertions in sixteen files, zero skipped. Sixteen new
 storage-boundary assertions and five native launcher refusal assertions pass.
 These results do not replace successful HTTP upload/browser proof.
+
+At `9001252c8717474bcdd1ddb3278e55652d8f0a24`, upload, replacement and
+rejected replay reached their assertions at both viewports, then private download
+returned 503. Phone failure/retry captures show two documents and the truthful
+REJECTED replay message. Both complete assertions failed; browser had 69 passes
+and two failures, zero skipped.
+
+The general read factory must select the same guarded disposable adapter as
+raster intake: optimized compilation fixes direct NODE_ENV expressions to
+production. Both factories now use the shared runtime-environment predicate;
+boundary tests still require production refusal. Browser retries/repetitions use
+fresh image bytes and assert growth relative to prior records without resetting
+the database; identical-byte replay within each attempt remains required.

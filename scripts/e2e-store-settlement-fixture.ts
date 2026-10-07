@@ -4,13 +4,11 @@ import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet
 import { ensureStoreEarningPayableAccount } from "@/lib/services/store-earning-account.service";
 import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import type { StoreSettlementSnapshot } from "@/lib/store-earnings/store-settlement-snapshot";
-import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-settlement-guard";
+import { requireDisposableStoreSettlementDatabase } from "./disposable-store-settlement-guard";
 
 /** Synthetic source facts only; actual receipt/accrual/release journals exercise the canonical services. */
 export async function createDisposableStoreSettlement(options: { storeId?: string; amount?: string } = {}) {
-  requireDisposableDriverSettlementDatabase();
-  const database = new URL(process.env.DATABASE_URL!);
-  if (!["/kt_launch_test", "/kt_phase75_e2e"].includes(database.pathname)) throw new Error("Named isolated closure/browser store settlement database required.");
+  requireDisposableStoreSettlementDatabase();
   const tag = `store-evidence-${randomUUID()}`;
   const hash = createHash("sha256").update(tag).digest("hex");
   const amount = options.amount ?? "100.25";

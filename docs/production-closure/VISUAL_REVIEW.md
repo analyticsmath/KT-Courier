@@ -105,3 +105,13 @@ The phone upload failure capture was inspected: a safe storage-unavailable
 message and zero documents are visible. The guarded disposable raster adapter
 and optimized test launcher correction require new browser execution and capture
 inspection. Three store-owner earning assertions are newly executable and pending.
+
+At `9001252c8717474bcdd1ddb3278e55652d8f0a24`, all three store-owner
+assertions passed and all four desktop/phone list/detail captures were inspected.
+Exact amounts, readable references, non-colour status labels and canonical release
+history are visible. The phone detail full-page capture positions its fixed header
+at the captured viewport; full scrolling/focus acceptance remains open.
+Phone document failure/retry captures show two documents and truthful rejected
+replay. Both complete assertions still failed on private download and require
+the general read-factory correction. Three store-finance assertions and their
+table/refusal/recovery captures require fresh execution and actual inspection.

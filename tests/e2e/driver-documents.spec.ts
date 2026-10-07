@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import sharp from "sharp";
+import { randomBytes, randomUUID } from "node:crypto";
 import { login } from "./fixtures/auth";
 
 async function documents(page: Page) {
@@ -11,6 +12,9 @@ for (const width of [1440, 390]) {
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 });
     await login(page, `e2e-documents-${width}@ktcouriers.local`);
+    const prior = await documents(page);
+    const uploadTag = randomUUID().slice(0, 8);
+    const images = await Promise.all([0, 1].map(() => sharp(randomBytes(12), { raw: { width: 2, height: 2, channels: 3 } }).png().toBuffer()));
     await page.goto("/driver/onboarding");
     await page.getByRole("button", { name: /^2\. Driver Licence & Identity Documents/ }).click();
     const form = page.getByRole("form", { name: "Driver document upload", exact: true });
@@ -18,9 +22,8 @@ for (const width of [1440, 390]) {
     await form.getByLabel("Expiry Date (if applicable)", { exact: true }).fill("2030-01-01");
     const upload = form.getByRole("button", { name: "Upload Document", exact: true });
     await expect(upload).toBeDisabled();
-    for (const [index, color] of ["#123456", "#654321"].entries()) {
-      const png = await sharp({ create: { width: 2, height: 2, channels: 3, background: color } }).png().toBuffer();
-      await form.getByLabel("File (PDF, JPEG, PNG, WEBP, max 10MB) *", { exact: true }).setInputFiles({ name: `disposable-licence-${index}.png`, mimeType: "image/png", buffer: png });
+    for (const [index, png] of images.entries()) {
+      await form.getByLabel("File (PDF, JPEG, PNG, WEBP, max 10MB) *", { exact: true }).setInputFiles({ name: `disposable-licence-${uploadTag}-${index}.png`, mimeType: "image/png", buffer: png });
       await expect(upload).toBeEnabled();
       const attached = page.waitForResponse(response => response.url().endsWith("/api/driver/documents") && response.request().method() === "POST");
       await upload.focus(); await upload.press("Enter"); expect((await attached).status()).toBe(201);
@@ -28,14 +31,16 @@ for (const width of [1440, 390]) {
       await expect(upload).toBeDisabled();
       if (index === 0) await form.getByLabel("Expiry Date (if applicable)", { exact: true }).fill("2030-01-01");
     }
-    const saved = await documents(page); expect(saved).toHaveLength(2);
+    const saved = await documents(page); expect(saved).toHaveLength(prior.length + 2);
     const current = saved.filter((row: { status: string }) => row.status === "SUBMITTED"); expect(current).toHaveLength(1);
-    expect(saved.filter((row: { status: string }) => row.status === "REJECTED")).toMatchObject([{ rejectionReason: "SUPERSEDED_BY_NEW_UPLOAD" }]);
+    const rejected = saved.filter((row: { status: string }) => row.status === "REJECTED");
+    expect(rejected).toHaveLength(prior.length + 1);
+    expect(rejected.every((row: { rejectionReason: string }) => row.rejectionReason === "SUPERSEDED_BY_NEW_UPLOAD")).toBe(true);
     // Re-uploading identical older bytes replays their existing rejected record;
     // it must neither revive that evidence nor claim a fresh submission.
-    const oldPng = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#123456" } }).png().toBuffer();
+    const oldPng = images[0];
     await form.getByLabel("Expiry Date (if applicable)", { exact: true }).fill("2030-01-01");
-    await form.getByLabel("File (PDF, JPEG, PNG, WEBP, max 10MB) *", { exact: true }).setInputFiles({ name: "disposable-licence-0.png", mimeType: "image/png", buffer: oldPng });
+    await form.getByLabel("File (PDF, JPEG, PNG, WEBP, max 10MB) *", { exact: true }).setInputFiles({ name: `disposable-licence-${uploadTag}-0.png`, mimeType: "image/png", buffer: oldPng });
     await expect(upload).toBeEnabled();
     await upload.focus(); await upload.press("Enter");
     await expect(page.getByText("This evidence is already attached. Current document status: REJECTED.", { exact: true })).toBeVisible();
@@ -50,7 +55,7 @@ for (const width of [1440, 390]) {
     expect((await replay.json()).id).toBe(current[0].id); expect(await documents(page)).toEqual(saved);
     const profile = await page.request.get("/api/driver/profile"); expect(await profile.json()).toMatchObject({ status: "PENDING_REVIEW", availability: "OFFLINE", onboardingStatus: "PROFILE_INCOMPLETE" });
     await page.reload(); await page.getByRole("button", { name: /^2\. Driver Licence & Identity Documents/ }).click();
-    await expect(page.getByText("disposable-licence-1.png", { exact: true })).toBeVisible();
+    await expect(page.getByText(`disposable-licence-${uploadTag}-1.png`, { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     await page.screenshot({ path: testInfo.outputPath("driver-private-document-replacement.png"), fullPage: true, animations: "disabled" });
     await login(page, `e2e-onboarding-${width}@ktcouriers.local`);

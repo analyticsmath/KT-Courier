@@ -24,7 +24,6 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/e2e/promoter-referrals.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/promoter-withdrawals.spec.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Inactive optional commercial/developer/recruitment policy or cinematic visual regression; not proof of an active flow. |
 | tests/e2e/refund-finance-admin.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
-| tests/e2e/store-earnings-finance-admin.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/store-order-accessibility.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/store-order-admin.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
 | tests/e2e/store-order-customer.spec.ts | RELEASE_CRITICAL | OPEN_ENGINEERING | Active launch capability still contains a placeholder; must be replaced with executable functional assertions. |
@@ -84,4 +83,4 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/phase26/integration/retention-schedules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 | tests/phase26/integration/screening-rules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 
-Audited files with skip/deferral markers: 79. Release-critical open placeholders: 14.
+Audited files with skip/deferral markers: 78. Release-critical open placeholders: 13.
