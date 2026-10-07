@@ -88,6 +88,7 @@ services:
       args:
         NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: ${NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES:-}
         KT_NEXT_BUILD_CPUS: ${KT_NEXT_BUILD_CPUS:-1}
+        KT_NEXT_BUILD_HEAP_MB: ${KT_NEXT_BUILD_HEAP_MB:-4096}
     init: true
     restart: unless-stopped
     security_opt:
@@ -113,6 +114,8 @@ services:
       KT_E2E_RATE_LIMIT_MODE: ${KT_E2E_RATE_LIMIT_MODE:-}
       PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
       PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-}
+      PAYSTACK_MODE: ${PAYSTACK_MODE:-disabled}
+      PAYMENT_APP_ORIGIN: ${PAYMENT_APP_ORIGIN:-}
       PAYFAST_MERCHANT_ID: ${PAYFAST_MERCHANT_ID:-}
       PAYFAST_MERCHANT_KEY: ${PAYFAST_MERCHANT_KEY:-}
       PAYFAST_PASSPHRASE: ${PAYFAST_PASSPHRASE:-}
@@ -202,3 +205,4 @@ volumes:
 networks:
   kt_couriers_internal:
     driver: bridge
+    internal: ${KT_E2E_NETWORK_INTERNAL:-false}

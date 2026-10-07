@@ -50,4 +50,19 @@ describe("admin commission draft API", () => {
     const failed = await edit(); expect(failed.status).toBe(503);
     expect(await failed.text()).not.toContain("sensitive-internal");
   });
+  it("accepts a store settlement draft through the existing authenticated mutation boundary", async () => {
+    const scoped = { ...draft, subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${id}` };
+    mocks.mutation.mockResolvedValue({ body: scoped }); mocks.update.mockResolvedValue({ id, status: "DRAFT" });
+    expect((await edit()).status).toBe(200);
+    expect(mocks.update).toHaveBeenCalledWith(id, { ...scoped, actorUserId: "authenticated-maker" });
+  });
+  it.each([
+    { subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: "GLOBAL:COURIER_ORDER" },
+    { subjectType: "COURIER_ORDER", scopeKey: `STORE:${id}` },
+    { subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${id}`, basisType: "ORDER_TOTAL" },
+    { subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: "STORE:unknown" },
+  ])("rejects mismatched subjects, scopes and delivery-inclusive bases %#", async (override) => {
+    mocks.mutation.mockResolvedValue({ body: { ...draft, ...override } });
+    expect((await edit()).status).toBe(422); expect(mocks.update).not.toHaveBeenCalled();
+  });
 });

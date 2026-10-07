@@ -593,10 +593,19 @@ test.describe("Marketplace Guest Checkout Journey", () => {
     const otherContext = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL });
     try {
       const accessRes = await otherContext.request.get(`/api/checkout/${chkRef}`);
-      expect(accessRes.status()).toBe(404);
+      expect(accessRes.status()).toBe(401);
       const body = await accessRes.json();
-      expect(body).not.toHaveProperty("checkout.contactSnapshot");
-      expect(body).not.toHaveProperty("checkout.addressSnapshot");
+      expect(body).not.toHaveProperty("checkout");
+      const ownCartRes = await otherContext.request.get("/api/cart");
+      expect(ownCartRes.status()).toBe(200);
+      const ownCart = (await ownCartRes.json()).cart;
+      const ownLine = await otherContext.request.post("/api/cart/lines", { data: { offerReference: "CO-E2E64GB", variantReference: "CV-E2E64GB", quantity: 1, modifiers: [], operationId: crypto.randomUUID(), requestHash: SAFE_HASH, cartVersion: ownCart.version } });
+      expect(ownLine.status()).toBe(201);
+      const ownCheckout = await otherContext.request.post("/api/checkout", { data: { cartReference: (await ownLine.json()).cart.reference } });
+      expect(ownCheckout.status()).toBe(201);
+      const foreignAccess = await otherContext.request.get(`/api/checkout/${chkRef}`);
+      expect(foreignAccess.status()).toBe(404);
+      expect(await foreignAccess.json()).not.toHaveProperty("checkout");
     } finally { await otherContext.close(); }
 
     monitor.assertClean();

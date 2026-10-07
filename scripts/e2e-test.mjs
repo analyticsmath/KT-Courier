@@ -35,6 +35,12 @@ function buildEnv(port, appPort) {
     NEXT_PUBLIC_APP_URL: `http://localhost:${appPort}`,
     ALLOWED_ORIGINS: disposableBrowserOrigins(appPort),
     EMAIL_PROVIDER: "console",
+    // Non-secret test configuration allows pre-payment browser commands. The
+    // isolated network prevents provider access; no payment success is invented.
+    PAYSTACK_MODE: "test",
+    PAYSTACK_SECRET_KEY: "sk_test_disposable_browser_no_provider",
+    PAYMENT_APP_ORIGIN: `http://localhost:${appPort}`,
+    KT_E2E_NETWORK_INTERNAL: "true",
     E2E_ROUTE_PROVIDER: "deterministic",
     KT_NETWORK_DISABLED: "true",
     KT_E2E_GEOCODE_FIXTURES: JSON.stringify({ "45 Commission St, Central, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 } }),
@@ -96,7 +102,7 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
 
     assertSuccess(runCompose(["run", "--rm", "migrate"], { projectName, env }), "E2E migration deploy");
     assertSuccess(runCompose(["run", "--rm", "seed"], { projectName, env }), "E2E seed");
-    assertSuccess(runCompose(["run", "--rm", "migrate", "npx", "tsx", "scripts/create-e2e-fixtures.ts"], { projectName, env }), "E2E fixture creation");
+    assertSuccess(runCompose(["run", "--rm", "-e", "NODE_ENV=test", "-e", "KT_RUNTIME_ENV=e2e", "migrate", "npx", "tsx", "scripts/create-e2e-fixtures.ts"], { projectName, env }), "E2E fixture creation");
 
     const appUp = runCompose(["up", "-d", "app"], { projectName, env });
     if (appUp.status !== 0) {

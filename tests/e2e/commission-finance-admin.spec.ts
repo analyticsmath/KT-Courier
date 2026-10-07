@@ -7,6 +7,24 @@ async function api(page: Page, path: string, method: string, body?: unknown) {
   }, { path, method, body });
 }
 test.describe("finance commission administration in the disposable browser", () => {
+  test("authors a store-specific draft from an explicit rate without approving it", async ({ page }) => {
+    await login(page, "superadmin@ktcouriers.local"); await page.goto("/admin/commission-plans");
+    await page.getByLabel("Policy subject").selectOption("MARKETPLACE_STORE_ORDER");
+    await page.getByLabel("Store", { exact: true }).selectOption({ label: "E2E Store" });
+    const storeId = await page.getByLabel("Store", { exact: true }).inputValue();
+    await expect(page.getByLabel("Basis", { exact: true })).toHaveValue("ORDER_SUBTOTAL");
+    const rate = page.getByLabel("Rate (basis points; 100 equals 1%)", { exact: true });
+    await expect(rate).toHaveValue("");
+    await rate.fill("500");
+    await page.getByLabel("Effective from", { exact: true }).fill("2026-10-01T09:00");
+    await page.getByLabel("Calculation version", { exact: true }).fill("disposable-browser-authored-store");
+    await page.getByRole("button", { name: "Create draft", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText(/Draft CP-[A-F0-9]+ created/);
+    const listed = await api(page, "/api/admin/commission-plans", "GET"); expect(listed.status).toBe(200);
+    const saved = listed.body.data.find((plan: { calculationVersion: string }) => plan.calculationVersion === "disposable-browser-authored-store");
+    expect(saved).toMatchObject({ subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${storeId}`, status: "DRAFT", approvedBy: null, basisType: "ORDER_SUBTOTAL" });
+    expect(saved.rules).toEqual([expect.objectContaining({ beneficiaryType: "PLATFORM", rateBasisPoints: 500 })]);
+  });
   test("persists a draft, rejects stale changes/self-approval, previews without accrual, and denies customer administration", async ({ page }) => {
     await login(page, "superadmin@ktcouriers.local"); await page.goto("/admin/commission-plans");
     await expect(page.getByRole("heading", { name: "Commission Plans", exact: true })).toBeVisible();

@@ -1,6 +1,6 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { createCommissionPlan, submitCommissionPlan, approveCommissionPlan, activateCommissionPlan, retireCommissionPlan } from "@/lib/services/commission-plan.service";
+import { createCommissionPlan, updateDraftCommissionPlan, submitCommissionPlan, approveCommissionPlan, activateCommissionPlan, retireCommissionPlan } from "@/lib/services/commission-plan.service";
 import { resolveActiveCommissionPlan } from "@/lib/services/commission-plan-query.service";
 import { createUser, uniqueTag } from "./phase7-5-fixtures";
 
@@ -28,5 +28,25 @@ describe("commission policy persistence and independent review on disposable Pos
     await retireCommissionPlan(draft.id, checker, `${tag}:retire`);
     await expect(resolveActiveCommissionPlan({ subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER", authoritativeAt: new Date() })).rejects.toMatchObject({ code: "COMMISSION_POLICY_NOT_FOUND" });
     expect(await prisma.commissionPlanStatusHistory.count({ where: { planId: draft.id } })).toBe(5);
+  });
+  it("authors store-specific policy with independent review while production activation remains locked", async () => {
+    const owner = await createUser(`${tag}-store-owner`, "STORE");
+    const store = await prisma.store.create({ data: { name: "Disposable commission store", slug: `${tag}-store`, ownerUserId: owner.id, status: "ACTIVE" } });
+    const other = await prisma.store.create({ data: { name: "Another disposable commission store", slug: `${tag}-other`, ownerUserId: owner.id, status: "ACTIVE" } });
+    const input = { subjectType: "MARKETPLACE_STORE_ORDER" as const, scopeKey: `STORE:${store.id}`, basisType: "ORDER_SUBTOTAL" as const, effectiveFrom: new Date(Date.now() - 1000).toISOString(), calculationVersion: "disposable-store-commission", rules: [{ ruleCode: "DISPOSABLE_PLATFORM", allocationType: "PLATFORM_COMMISSION_REVENUE" as const, beneficiaryType: "PLATFORM" as const, calculationMethod: "FIXED_AMOUNT" as const, fixedAmount: "1.00", priority: 1 }], actorUserId: maker, operationId: `${tag}:store-draft` };
+    await expect(createCommissionPlan({ ...input, basisType: "ORDER_TOTAL" })).rejects.toMatchObject({ code: "COMMISSION_INVALID_PLAN" });
+    const draft = await createCommissionPlan(input);
+    expect(draft).toMatchObject({ status: "DRAFT", subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${store.id}` });
+    await expect(updateDraftCommissionPlan(draft.id, { ...input, scopeKey: `STORE:${other.id}`, expectedVersion: draft.version })).rejects.toMatchObject({ code: "COMMISSION_INVALID_PLAN" });
+    await expect(updateDraftCommissionPlan(draft.id, { ...input, expectedVersion: draft.version + 1 })).rejects.toMatchObject({ code: "COMMISSION_IDEMPOTENCY_CONFLICT" });
+    const saved = await updateDraftCommissionPlan(draft.id, { ...input, expectedVersion: draft.version });
+    expect(saved.version).toBe(draft.version + 1);
+    await submitCommissionPlan(draft.id, maker, `${tag}:store-submit`);
+    await expect(approveCommissionPlan(draft.id, maker, `${tag}:store-self-approve`)).rejects.toMatchObject({ code: "COMMISSION_MAKER_CHECKER_REQUIRED" });
+    const approved = await approveCommissionPlan(draft.id, checker, `${tag}:store-approve`);
+    expect(approved.approvedByUserId).toBe(checker);
+    await expect(activateCommissionPlan(draft.id, checker, `${tag}:store-production-locked`)).rejects.toMatchObject({ code: "COMMISSION_PRODUCTION_LOCKED" });
+    expect(await prisma.commissionAccrual.count({ where: { planId: draft.id } })).toBe(0);
+    expect(await prisma.commissionPlan.findUnique({ where: { id: draft.id } })).toMatchObject({ status: "APPROVED" });
   });
 });

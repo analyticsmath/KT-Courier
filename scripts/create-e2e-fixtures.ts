@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { AddressType, DeliveryType, DriverAvailability, DriverOnboardingStatus, DriverStatus, OrderSource, OrderStatus, PermissionEffect, StoreStatus, UserRole, UserStatus, VehicleType } from "@/types/db";
 import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { reverseLedgerJournal } from "@/lib/services/ledger-reversal.service";
+import { createDisposableCheckoutAuthorities } from "./e2e-checkout-authorities";
 
 const prisma = new PrismaClient();
 
@@ -551,6 +552,7 @@ async function main() {
   await reverseLedgerJournal({ originalJournalId: ledgerFixture.id, idempotencyKey: "e2e-ledger-reversal-v1", actor: { kind: "SYSTEM" }, memo: "E2E reversal relation fixture" });
 
   await seedPhase2Fixtures(passwordHash);
+  await createDisposableCheckoutAuthorities();
 
   console.log("E2E fixtures are ready.");
 }
