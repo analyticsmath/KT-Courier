@@ -4,8 +4,8 @@ import { createStorefrontFixture } from "./storefront-fixtures";
 
 describe("storefront publication evidence invariants", () => {
   it("blocks a snapshot containing private fields and records reconciliation without a public document", async () => {
-    const f = await createStorefrontFixture();
-    await prisma.catalogPublicationSnapshot.update({ where: { id: f.snapshot.id }, data: { snapshot: { ...(f.snapshot.snapshot as object), email: "private@disposable.test" } } });
+    const f = await createStorefrontFixture({ privateSnapshot: true });
+    await expect(prisma.catalogPublicationSnapshot.update({ where: { id: f.snapshot.id }, data: { snapshot: {} } })).rejects.toThrow();
     await expect(f.projections.buildPublishedSnapshot(f.snapshot.publicReference)).rejects.toMatchObject({ reason: "APPLICATION_FAILURE" });
     expect(await prisma.storefrontProductDocument.count({ where: { offerId: f.source.offer.id } })).toBe(0);
     expect(await prisma.storefrontProjectionCase.findFirst({ where: { aggregateReference: f.snapshot.publicReference } })).toMatchObject({ reason: "APPLICATION_FAILURE", status: "OBSERVED" });

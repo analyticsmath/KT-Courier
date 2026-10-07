@@ -52,7 +52,7 @@ test.describe("Marketplace canonical cart journey", () => {
   });
   test("authenticated claim clears the guest cookie and retains the selected line", async ({ page }) => {
     const guest = await add(page);
-    await login(page, "customer@ktcouriers.local");
+    await login(page, "customer@ktcouriers.local", { preserveGuestCart: true });
     const response = await page.request.post("/api/cart/claim", { headers: headers(), data: { cartVersion: guest.body.cart.version, ...mutation() } });
     expect(response.status(), await response.text()).toBe(200);
     expect((await response.json()).cart.cart.owner.type).toBe("CUSTOMER");
@@ -61,7 +61,7 @@ test.describe("Marketplace canonical cart journey", () => {
   });
   test("merge combines canonical customer and guest selections by fingerprint", async ({ page }) => {
     const guest = await add(page, 2);
-    await login(page, "customer@ktcouriers.local");
+    await login(page, "customer@ktcouriers.local", { preserveGuestCart: true });
     const existing = await cart(page.request);
     const cleared = await page.request.post("/api/cart/clear", { headers: headers(), data: { cartReference: existing.reference, cartVersion: existing.version, ...mutation() } });
     expect(cleared.status()).toBe(200);

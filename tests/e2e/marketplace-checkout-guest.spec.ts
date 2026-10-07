@@ -532,7 +532,7 @@ test.describe("Marketplace Guest Checkout Journey", () => {
 
     const heading = page.locator("h1");
     await expect(heading).toBeVisible();
-    await expect(heading).toContainText("Confirming payment");
+    await expect(heading).toContainText("Confirming your payment");
 
     const content = await page.textContent("body");
     expect(content).toContain("is not payment confirmation");

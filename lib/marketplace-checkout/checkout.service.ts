@@ -510,6 +510,7 @@ async function updateCheckoutSnapshot(
 
 export function projectPublicCheckout(checkout: any) {
   if (!checkout) return null;
+  const money = (value: any) => new Prisma.Decimal(value ?? 0).toFixed(2);
   return {
     reference: checkout.publicReference,
     publicReference: checkout.publicReference,
@@ -517,20 +518,10 @@ export function projectPublicCheckout(checkout: any) {
     currency: checkout.currency,
     version: checkout.version,
     totals: {
-      merchandiseSubtotal:
-        checkout.merchandiseSubtotal?.toString?.() ??
-        checkout.merchandiseSubtotal ??
-        "0.00",
-      modifierSubtotal:
-        checkout.modifierSubtotal?.toString?.() ??
-        checkout.modifierSubtotal ??
-        "0.00",
-      deliveryFeeTotal:
-        checkout.deliveryFeeTotal?.toString?.() ??
-        checkout.deliveryFeeTotal ??
-        "0.00",
-      grandTotal:
-        checkout.grandTotal?.toString?.() ?? checkout.grandTotal ?? "0.00",
+      merchandiseSubtotal: money(checkout.merchandiseSubtotal),
+      modifierSubtotal: money(checkout.modifierSubtotal),
+      deliveryFeeTotal: money(checkout.deliveryFeeTotal),
+      grandTotal: money(checkout.grandTotal),
     },
     changes: (checkout.changes ?? []).map((item: any) => ({
       type: item.type,
@@ -543,8 +534,7 @@ export function projectPublicCheckout(checkout: any) {
       ...(group.store?.slug ? { storeSlug: group.store.slug } : {}),
       status: group.status,
       fulfilmentMode: group.fulfilmentMode,
-      deliveryFee:
-        group.deliveryFee?.toString?.() ?? group.deliveryFee ?? "0.00",
+      deliveryFee: money(group.deliveryFee),
       quoteReference: group.deliveryQuoteReference,
       quoteExpiresAt: group.deliveryQuoteExpiresAt,
       lines: (group.lines ?? []).map((line: any) => ({
@@ -554,12 +544,9 @@ export function projectPublicCheckout(checkout: any) {
         ...(line.variantTitle ? { variantTitle: line.variantTitle } : {}),
         offerReference: line.offerReference,
         quantity: line.quantity,
-        baseUnitPrice: line.baseUnitPrice?.toString?.() ?? line.baseUnitPrice,
-        modifierUnitTotal:
-          line.modifierUnitTotal?.toString?.() ??
-          line.modifierUnitTotal ??
-          "0.00",
-        lineTotal: line.lineTotal?.toString?.() ?? line.lineTotal,
+        baseUnitPrice: money(line.baseUnitPrice),
+        modifierUnitTotal: money(line.modifierUnitTotal),
+        lineTotal: money(line.lineTotal),
         modifiers: line.modifiers ?? [],
       })),
     })),

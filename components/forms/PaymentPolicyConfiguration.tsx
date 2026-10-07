@@ -37,6 +37,8 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
               : null,
           maximumCodAmount: mode !== "DIGITAL" ? f.get("maximum") : null,
           active: f.get("active") === "on",
+          effectiveFrom: new Date(String(f.get("effectiveFrom"))).toISOString(),
+          effectiveTo: f.get("effectiveTo") ? new Date(String(f.get("effectiveTo"))).toISOString() : null,
           expectedVersion: editing?.expectedVersion ?? 0,
           reason: f.get("reason"),
         }),
@@ -224,10 +226,18 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
           <input
             name="active"
             type="checkbox"
-            defaultChecked={editing?.active ?? false}
+            defaultChecked={editing?.active || editing?.scheduled || false}
           />
           Request activation (cash requires independent review)
         </label>
+        <div>
+          <Label htmlFor="policy-effective-from">Effective from (your local time)</Label>
+          <Input id="policy-effective-from" name="effectiveFrom" type="datetime-local" required defaultValue={localDateTime(editing?.effectiveFrom ?? new Date().toISOString())} />
+        </div>
+        <div>
+          <Label htmlFor="policy-effective-to">Effective until (optional, your local time)</Label>
+          <Input id="policy-effective-to" name="effectiveTo" type="datetime-local" defaultValue={editing?.effectiveTo ? localDateTime(editing.effectiveTo) : ""} />
+        </div>
         <div className="sm:col-span-2">
           <Label htmlFor="policy-reason">Reason for change</Label>
           <Input
@@ -274,10 +284,11 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
                 </p>
                 <p className="text-sm">
                   {p.mode.replaceAll("_", " ")} ·{" "}
-                  {p.active ? "Active" : "Inactive"} ·{" "}
+                  {p.active ? "Active" : p.scheduled ? "Scheduled" : "Inactive"} ·{" "}
                   {p.provinces?.join(", ") ?? "All provinces"}
                 </p>
                 {p.orderId && <p className="text-sm">Delivery: {p.orderId}</p>}
+                <p className="text-sm">Effective {p.effectiveFrom}{p.effectiveTo ? ` until ${p.effectiveTo}` : " with no end date"}. Independent approval retains this window.</p>
               </div>
               {p.editable && (
                 <Button
@@ -308,4 +319,9 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
       </section>
     </div>
   );
+}
+
+function localDateTime(value: string) {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }

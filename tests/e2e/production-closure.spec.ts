@@ -6,7 +6,7 @@ test("anonymous quote copy and form semantics work on desktop and mobile", async
     await expect(page.getByText("Get a quotation without an account.", { exact: false })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.getByLabel("Parcel size", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /quote|estimate/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Calculate delivery price", exact: true })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1); expect(overflow).toBe(false);
   }
   for (const path of ["/services/pricing", "/faq"]) {

@@ -6,12 +6,14 @@
     { "key": "readiness_and_audited_evidence", "status": "IMPLEMENTED", "evidence": "Protected capability matrix and separately reviewed SHA-bound evidence." },
     { "key": "coverage_boundary_validation", "status": "IMPLEMENTED", "evidence": "Activation validation, stale-write protection, explicit clearing and fail-closed quote paths." },
     { "key": "parcel_profile_configuration", "status": "IMPLEMENTED", "evidence": "Versioned operator-authored limits and dynamic anonymous/booking gates." },
+    { "key": "cod_effective_window_authoring", "status": "IMPLEMENTED", "evidence": "Admin-authored start/end windows, unchanged dates on independent review, scheduled successor preservation, explicit cancellation and per-order timing guards; PostgreSQL window assertions added." },
     { "key": "marketplace_parcel_classification", "status": "OPEN", "evidence": "Checkout supports explicit ANY-size tariffs; trusted size-specific package classification is not yet integrated." },
     { "key": "notification_required_domains", "status": "OPEN", "evidence": "Courier publication is mature; guest marketplace, vendor, payment and refund adapters need complete durable/canonical domain acceptance." },
     { "key": "commercial_financial_certification", "status": "VALIDATION_BLOCKED", "evidence": "Commission/refund/store/driver earning and other existing source validation locks remain; activation must follow full financial/concurrency/functional proof." },
     { "key": "customer_vendor_driver_full_functional_acceptance", "status": "OPEN", "evidence": "Existing unit/API and partial browser coverage is insufficient for the entire directed journeys." },
     { "key": "critical_skip_closure", "status": "OPEN", "evidence": "Existing release-critical placeholder browser suites remain; see TEST_DEFERRALS.md." },
-    { "key": "disposable_postgres_browser_recovery_execution", "status": "VALIDATION_BLOCKED", "evidence": "Local Docker server readiness times out; no database/browser/restore pass is claimed." },
+    { "key": "disposable_recovery_execution", "status": "IMPLEMENTED", "evidence": "GitHub certification recovery job passed dump/restore, historical upgrade, fixture full-row counts/hashes and ledger invariants at c60b196ac70040c4f78ef84f44a86a29a981c529. This is not a production-backup/RTO proof." },
+    { "key": "disposable_postgres_browser_execution", "status": "VALIDATION_BLOCKED", "evidence": "At c60b196ac70040c4f78ef84f44a86a29a981c529: 18 of 20 PostgreSQL jobs passed; inventory/storefront fixture failures remain under repair. Redis/BOLA passed. Browser: 19 passed, 14 failed. Local Docker remains unavailable." },
     { "key": "fresh_production_protected_row_audit", "status": "VALIDATION_BLOCKED", "evidence": "An approved read-only production execution path or operator artifact is required; OAuth exposes variable names only." },
     { "key": "github_certification_and_deployment", "status": "VALIDATION_BLOCKED", "evidence": "No merge/deployment until all workflow jobs and engineering gates pass for the exact release." }
   ]

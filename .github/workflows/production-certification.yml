@@ -33,6 +33,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run typecheck
+      - run: node --test scripts/certification-output.test.mjs
       - run: node scripts/certification-command.mjs test:coverage
       - run: node scripts/certification-command.mjs test:payments
       - run: node scripts/certification-command.mjs test:refunds

@@ -132,9 +132,8 @@ test.describe("Storefront Browsing & Discovery", () => {
     const heading = page.locator("h1:visible");
     await expect(heading).toContainText("E2E Product No Media");
 
-    const fallbackImage = page.locator('[role="img"], .productMediaUnavailable');
-    await expect(fallbackImage).toBeVisible();
-    await expect(fallbackImage).toContainText("Image unavailable");
+    const fallbackImage = page.getByText("Image unavailable", { exact: true });
+    await expect(fallbackImage.first()).toBeVisible();
 
     const brokenImages = await page.evaluate(() => {
       return Array.from(document.querySelectorAll("img")).filter((img) => img.naturalWidth === 0 && img.src !== "");

@@ -43,6 +43,8 @@ const base = {
   depositPercent: new Prisma.Decimal("0.5"),
   depositAmount: null,
   maximumCodAmount: new Prisma.Decimal(100),
+  effectiveFrom: new Date("2020-01-01T00:00:00Z"),
+  effectiveTo: null,
 };
 const actor = {
   id: "admin",
@@ -77,6 +79,28 @@ beforeEach(() => {
   db.deliveryServiceDefinition.findFirst.mockResolvedValue({ stableKey: "CLIENT_STANDARD" });
 });
 describe("scoped cash payment policies", () => {
+  it("rejects reversed effective windows and expired activation", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, deliveryServiceId: input.deliveryServiceId, provinceScope: input.provinces }]);
+    expect(PaymentConfigurationSchema.safeParse({ ...input, effectiveFrom: "2030-01-02T00:00:00Z", effectiveTo: "2030-01-01T00:00:00Z" }).success).toBe(false);
+    await expect(savePaymentConfiguration(actor, { ...input, effectiveFrom: "2020-01-01T00:00:00Z", effectiveTo: "2020-01-02T00:00:00Z" })).rejects.toMatchObject({ code: "PAYMENT_POLICY_PERIOD_INVALID" });
+    expect(db.paymentMethodPolicy.create).not.toHaveBeenCalled();
+  });
+  it("schedules a digital successor without superseding current authority early", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, deliveryServiceId: input.deliveryServiceId, provinceScope: input.provinces }]);
+    await savePaymentConfiguration(actor, { ...input, mode: "DIGITAL", depositPercent: null, maximumCodAmount: null, effectiveFrom: "2030-01-01T00:00:00Z", effectiveTo: "2030-02-01T00:00:00Z" });
+    expect(db.paymentMethodPolicy.updateMany).toHaveBeenCalledWith({ where: { id: base.id, status: "ACTIVE" }, data: { effectiveTo: new Date("2030-01-01T00:00:00Z") } });
+    expect(db.paymentMethodPolicy.create.mock.calls[0][0].data).toMatchObject({ status: "ACTIVE", effectiveFrom: new Date("2030-01-01T00:00:00Z"), effectiveTo: new Date("2030-02-01T00:00:00Z") });
+  });
+  it("cancels a future authority without writing an end before its start", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, deliveryServiceId: input.deliveryServiceId, provinceScope: input.provinces, effectiveFrom: new Date("2030-01-01T00:00:00Z") }]);
+    await savePaymentConfiguration(actor, { ...input, active: false });
+    expect(db.paymentMethodPolicy.updateMany).toHaveBeenCalledWith({ where: { id: base.id, status: "ACTIVE" }, data: { status: "SUPERSEDED" } });
+  });
+  it("requires explicit cancellation before an overlapping scheduled replacement", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, deliveryServiceId: input.deliveryServiceId, provinceScope: input.provinces, effectiveFrom: new Date("2030-02-01T00:00:00Z") }]);
+    await expect(savePaymentConfiguration(actor, { ...input, mode: "DIGITAL", depositPercent: null, effectiveFrom: "2030-01-01T00:00:00Z" })).rejects.toMatchObject({ code: "PAYMENT_POLICY_SCHEDULE_CONFLICT" });
+    expect(db.paymentMethodPolicy.create).not.toHaveBeenCalled();
+  });
   it("matches every province, service and destination scope", async () => {
     db.paymentMethodPolicy.findMany.mockResolvedValue([
       {

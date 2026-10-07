@@ -4,6 +4,7 @@ import { saveDeliveryMatrix, actOnDeliveryMatrix, listDeliveryMatrices } from "@
 import { selectMarketplaceDeliveryPolicy } from "@/lib/marketplace-checkout/delivery-policy";
 import { recordAcceptanceEvidence, reviewAcceptanceEvidence, evidenceIsCurrent } from "@/lib/production-readiness/evidence";
 import { savePaymentConfiguration, approvePaymentConfiguration } from "@/lib/client-platform/payment-configuration.service";
+import { resolvePaymentPolicy } from "@/lib/payments/payment-policy.service";
 import { saveBankInstructions } from "@/lib/client-platform/driver-cash.service";
 import { createDeliveryRegion, updateDeliveryRegion } from "@/lib/services/admin-regions.service";
 import { createUser, uniqueTag } from "./phase7-5-fixtures";
@@ -45,7 +46,8 @@ describe("production closure configuration transactions on isolated PostgreSQL",
     const owner = await createUser(`${tag}-store`, "STORE"); await prisma.user.update({ where: { id: owner.id }, data: { emailVerifiedAt: new Date() } });
     const store = await prisma.store.create({ data: { name: tag, slug: `${tag}-store`, ownerUserId: owner.id, status: "ACTIVE" } });
     await prisma.deliveryServiceDefinition.create({ data: { stableKey: "CLIENT_CLOSURE", versionNumber: 1, displayName: "Disposable closure service", status: "ACTIVE", effectiveFrom: new Date(Date.now() - 1000), createdByUserId: author.id } });
-    const saved = await savePaymentConfiguration(author, { storeId: store.id, deliveryServiceId: "CLIENT_CLOSURE", provinces: ["Gauteng"], regionId: null, orderId: null, mode: "DEPOSIT_PLUS_COD", depositPercent: "0.5", maximumCodAmount: "10.00", active: true, expectedVersion: 0, reason: "Disposable COD operating draft" });
+    const effectiveFrom = new Date(Date.now() + 60000).toISOString(); const effectiveTo = new Date(Date.now() + 120000).toISOString();
+    const saved = await savePaymentConfiguration(author, { storeId: store.id, deliveryServiceId: "CLIENT_CLOSURE", provinces: ["Gauteng"], regionId: null, orderId: null, mode: "DEPOSIT_PLUS_COD", depositPercent: "0.5", maximumCodAmount: "10.00", active: true, expectedVersion: 0, effectiveFrom, effectiveTo, reason: "Disposable COD operating draft" });
     expect((await prisma.paymentMethodPolicy.findUniqueOrThrow({ where: { id: saved.id } })).status).toBe("INACTIVE");
     const review = { policyId: saved.id, expectedVersion: saved.version, remittanceVerified: true as const, settlementTiming: "Disposable same-day settlement", reason: "Disposable independent COD approval" };
     await expect(approvePaymentConfiguration(author, review)).rejects.toMatchObject({ status: 403 });
@@ -53,5 +55,20 @@ describe("production closure configuration transactions on isolated PostgreSQL",
     await saveBankInstructions(author, { bankName: "Disposable test institution", accountName: "Disposable fixture", accountNumber: "0".repeat(8), branchCode: "0".repeat(6), referenceHint: "Disposable order reference", expectedVersion: 0 });
     const approved = await approvePaymentConfiguration(reviewer, review); const row = await prisma.paymentMethodPolicy.findUniqueOrThrow({ where: { id: approved.id } });
     expect(row.status).toBe("ACTIVE"); expect(row.createdByUserId).toBe(author.id); expect(row.policyEvidence).toMatchObject({ approvedByUserId: reviewer.id, remittanceApproved: true });
+    expect(row.effectiveFrom.toISOString()).toBe(effectiveFrom); expect(row.effectiveTo?.toISOString()).toBe(effectiveTo);
+    const context = { storeId: store.id, deliveryServiceKey: "CLIENT_CLOSURE", provinces: ["Gauteng"] };
+    await expect(resolvePaymentPolicy(context, new Date(new Date(effectiveFrom).getTime() - 1))).rejects.toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
+    expect((await resolvePaymentPolicy(context, new Date(effectiveFrom))).id).toBe(row.id);
+    await expect(resolvePaymentPolicy(context, new Date(effectiveTo))).rejects.toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
+  });
+  it("retains current authority until a scheduled successor starts and stops at its explicit end", async () => {
+    const scope = { storeId: null, deliveryServiceId: null, provinces: null, regionId: null, orderId: null, mode: "DIGITAL" as const, depositPercent: null, maximumCodAmount: null, active: true, reason: "Disposable effective-window authority" };
+    const first = await savePaymentConfiguration(author, { ...scope, expectedVersion: 0 });
+    const start = new Date("2030-01-01T00:00:00Z"); const end = new Date("2030-02-01T00:00:00Z");
+    const second = await savePaymentConfiguration(author, { ...scope, expectedVersion: first.version, effectiveFrom: start.toISOString(), effectiveTo: end.toISOString() });
+    expect((await prisma.paymentMethodPolicy.findUniqueOrThrow({ where: { id: first.id } })).status).toBe("ACTIVE");
+    expect((await resolvePaymentPolicy({}, new Date(start.getTime() - 1))).id).toBe(first.id);
+    expect((await resolvePaymentPolicy({}, start)).id).toBe(second.id);
+    await expect(resolvePaymentPolicy({}, end)).rejects.toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
   });
 });

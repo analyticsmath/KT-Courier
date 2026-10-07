@@ -40,11 +40,15 @@ export const PaymentConfigurationSchema = z
       .nullable(),
     maximumCodAmount: amount.nullable(),
     active: z.boolean(),
+    effectiveFrom: z.string().datetime({ offset: true }).optional(),
+    effectiveTo: z.string().datetime({ offset: true }).nullable().optional(),
     expectedVersion: z.number().int().nonnegative(),
     reason: z.string().trim().min(10).max(500),
   })
   .strict()
   .superRefine((v, c) => {
+    if (v.effectiveFrom && v.effectiveTo && new Date(v.effectiveTo) <= new Date(v.effectiveFrom))
+      c.addIssue({ code: "custom", path: ["effectiveTo"], message: "The end must be later than the start." });
     if (v.mode !== "DIGITAL" && (!v.storeId || !v.maximumCodAmount))
       c.addIssue({
         code: "custom",
@@ -131,7 +135,10 @@ export async function listPaymentConfigurations(u: AuthenticatedUser) {
       depositPercent: p.depositPercent?.toString() ?? null,
       maximumCodAmount: p.maximumCodAmount?.toFixed(2) ?? null,
       active:
-        p.status === "ACTIVE" && (!p.effectiveTo || p.effectiveTo > new Date()),
+        p.status === "ACTIVE" && p.effectiveFrom <= new Date() && (!p.effectiveTo || p.effectiveTo > new Date()),
+      scheduled: p.status === "ACTIVE" && p.effectiveFrom > new Date(),
+      effectiveFrom: p.effectiveFrom.toISOString(),
+      effectiveTo: p.effectiveTo?.toISOString() ?? null,
       expectedVersion: p.versionNumber,
       editable: latest.get(paymentPolicyScope(p)) === p.versionNumber,
       createdAt: p.createdAt.toISOString(),
@@ -228,7 +235,13 @@ async function saveReviewedPaymentConfiguration(
           409,
         );
       const now = new Date();
+      const effectiveFrom = input.effectiveFrom ? new Date(input.effectiveFrom) : now;
+      const effectiveTo = input.effectiveTo ? new Date(input.effectiveTo) : null;
+      if (effectiveTo && (effectiveTo <= effectiveFrom || effectiveTo <= now))
+        throw new PlatformError("PAYMENT_POLICY_PERIOD_INVALID", "Use a valid, unexpired policy window.", 422);
       const activate = input.active && (input.mode === "DIGITAL" || !!review);
+      if (activate && input.orderId && effectiveFrom > now)
+        throw new PlatformError("PAYMENT_ORDER_PERIOD_INVALID", "An immediate order override must already be effective.", 422);
       let approvalEvidence: Prisma.InputJsonObject = {};
       if (review) {
         if (review.authorId === u.id || input.mode !== "DEPOSIT_PLUS_COD" || input.depositPercent !== "0.5" && input.depositPercent !== "0.5000" || !input.deliveryServiceId || (!input.regionId && !input.provinces?.length)) throw new PlatformError("COD_APPROVAL_INVALID", "Independent approval requires the initial 50/50 split and explicit service/region scope.", 422);
@@ -240,11 +253,22 @@ async function saveReviewedPaymentConfiguration(
         if (!bank || !BankInstructionsSchema.safeParse(bank.value).success || !bankAuthor || bankAuthor.actorUserId === u.id) throw new PlatformError("COD_REMITTANCE_REVIEW_REQUIRED", "Review valid secure remittance instructions authored by a different administrator.", 409);
         approvalEvidence = { approvedByUserId: u.id, approvedAt: now.toISOString(), remittanceApproved: true, remittanceUpdatedAt: bank.updatedAt.toISOString(), settlementTiming: review.settlementTiming, sourceDraftId: review.policyId };
       }
-      if (activate || !input.active)
-      await tx.paymentMethodPolicy.updateMany({
-        where: { id: { in: existing.map((p) => p.id) }, status: "ACTIVE" },
-        data: { status: "SUPERSEDED", effectiveTo: now },
-      });
+      if (activate || !input.active) {
+        const cutoff = activate && effectiveFrom > now ? effectiveFrom : now;
+        for (const prior of existing.filter((p) => p.status === "ACTIVE" && (!p.effectiveTo || p.effectiveTo > now))) {
+          if (activate && prior.effectiveFrom >= cutoff)
+            throw new PlatformError("PAYMENT_POLICY_SCHEDULE_CONFLICT", "Deactivate the existing scheduled policy before replacing its window.", 409);
+          // Future replacements close the current window at their start, without
+          // withdrawing the current authority early. Cancelling a future policy
+          // changes its status without writing an invalid end before its start.
+          await tx.paymentMethodPolicy.updateMany({
+            where: { id: prior.id, status: "ACTIVE" },
+            data: !input.active && prior.effectiveFrom >= now
+              ? { status: "SUPERSEDED" }
+              : { ...(cutoff <= now ? { status: "SUPERSEDED" } : {}), ...( !prior.effectiveTo || prior.effectiveTo > cutoff ? { effectiveTo: cutoff } : {}) },
+          });
+        }
+      }
       const row = await tx.paymentMethodPolicy.create({
         data: {
           ...scope,
@@ -259,7 +283,8 @@ async function saveReviewedPaymentConfiguration(
             input.mode !== "DIGITAL" && input.maximumCodAmount
               ? new Prisma.Decimal(input.maximumCodAmount)
               : null,
-          effectiveFrom: now,
+          effectiveFrom,
+          effectiveTo,
           createdByUserId: review?.authorId ?? u.id,
           policyEvidence: { reason: input.reason, actualActorUserId: u.id, activationRequested: input.active, ...approvalEvidence },
         },
@@ -392,6 +417,8 @@ async function saveReviewedPaymentConfiguration(
             version: version + 1,
             mode: input.mode,
             active: activate,
+            effectiveFrom: effectiveFrom.toISOString(),
+            effectiveTo: effectiveTo?.toISOString() ?? null,
           },
         },
       });
@@ -412,5 +439,6 @@ export async function approvePaymentConfiguration(u: AuthenticatedUser, input: z
     regionId: draft.regionId, orderId: draft.orderId, mode: draft.mode,
     depositPercent: draft.depositPercent?.toString() ?? null, maximumCodAmount: draft.maximumCodAmount?.toFixed(2) ?? null,
     active: true, expectedVersion: data.expectedVersion, reason: data.reason,
+    effectiveFrom: draft.effectiveFrom.toISOString(), effectiveTo: draft.effectiveTo?.toISOString() ?? null,
   }, { authorId: draft.createdByUserId, policyId: draft.id, settlementTiming: data.settlementTiming });
 }

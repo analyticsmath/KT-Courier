@@ -113,8 +113,11 @@ describeReal("Marketplace Checkout Real PostgreSQL & Concurrency Integration", (
     const source = await createGate4ActiveProductScenario("mc-real", "stock-race", store.id, { available: 1 });
     const level = source.level!;
     const fingerprint = "c".repeat(64);
+    const carts = await Promise.all([0, 1].map(i => prisma.marketplaceCart.create({ data: {
+      publicReference: `inventory-cart-${nonce}-${i}`, ownerType: "GUEST", guestTokenHash: `inventory-hash-${nonce}-${i}`, status: "ACTIVE",
+    } })));
     const checkouts = await Promise.all([0, 1].map(i => prisma.marketplaceCheckout.create({ data: {
-      publicReference: `inventory-checkout-${nonce}-${i}`, cartId: createdCartId!,
+      publicReference: `inventory-checkout-${nonce}-${i}`, cartId: carts[i].id,
       status: "READY_FOR_REVIEW", acceptedFingerprint: fingerprint, reviewAcceptedAt: new Date(),
     } })));
     const repository = createPrismaMarketplaceReservationRepository(prisma);
@@ -136,5 +139,6 @@ describeReal("Marketplace Checkout Real PostgreSQL & Concurrency Integration", (
     await prisma.marketplaceInventoryReservation.delete({ where: { id: winner.value.id } });
     await prisma.marketplaceCheckoutOperation.deleteMany({ where: { checkoutId: { in: checkouts.map(c => c.id) } } });
     await prisma.marketplaceCheckout.deleteMany({ where: { id: { in: checkouts.map(c => c.id) } } });
+    await prisma.marketplaceCart.deleteMany({ where: { id: { in: carts.map(c => c.id) } } });
   });
 });

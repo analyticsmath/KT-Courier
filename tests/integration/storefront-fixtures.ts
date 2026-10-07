@@ -6,7 +6,7 @@ import { StorefrontProjectionService } from "@/lib/services/storefront-projectio
 import { createGate4Store, createGate4ActiveProductScenario } from "./gate4/fixtures";
 import { validateGate4DatabaseSafety } from "./gate4/harness-safety";
 
-export async function createStorefrontFixture() {
+export async function createStorefrontFixture(options?: { privateSnapshot: boolean }) {
   const safety = validateGate4DatabaseSafety();
   if (!safety.ok) throw new Error(safety.reason);
   const { store } = await createGate4Store("storefront", "projection");
@@ -15,7 +15,8 @@ export async function createStorefrontFixture() {
   const ref = `media_${randomUUID().replaceAll("-", "")}`;
   const asset = await prisma.catalogMediaAsset.create({ data: {
     publicReference: ref, ownerType: "STORE", ownerStoreId: store.id, purpose: "PRODUCT_IMAGE",
-    storageProvider: "disposable", storageKey: ref, declaredMimeType: "image/png", declaredByteSize: 1024,
+    storageProvider: "disposable", storageKey: `catalog-media/${randomUUID().replaceAll("-", "").repeat(2)}`, declaredMimeType: "image/png", declaredByteSize: 1024,
+    mimeType: "image/png", byteSize: 1024, checksum: "a".repeat(64), storageConfirmedAt: new Date(), validatedAt: new Date(),
     width: 400, height: 300, privacyInspectionPassed: true, status: "READY",
     createdByUserId: source.adminUser.id, updatedByUserId: source.adminUser.id,
   } });
@@ -24,7 +25,7 @@ export async function createStorefrontFixture() {
     productReference: source.product.publicReference, variantReference: source.variant.publicReference,
     offerReference: source.offer.publicReference, storeReference: store.slug,
     productTypeCode: "DISPOSABLE", productTypeVersion: 1, categoryPath: source.category.path,
-    title: source.product.title, description: "Disposable fixture", identifiers: {}, attributes: {}, variantOptions: {},
+    title: source.product.title, description: "Disposable fixture", identifiers: {}, attributes: options?.privateSnapshot ? { email: "private@disposable.test" } : {}, variantOptions: {},
     price: { versionReference: source.priceVersion.publicReference, amount: source.priceVersion.amount.toFixed(2), currency: "ZAR", includesTax: true },
     availability: {}, media: [{ assetReference: asset.publicReference, role: "PRIMARY", altText: "Disposable product image", order: 0 }], compliance: {},
   });
