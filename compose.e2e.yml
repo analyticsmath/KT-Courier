@@ -1,6 +1,15 @@
 # Used only by the disposable browser runner. Application/provider traffic stays
 # on the internal network; browsers enter through a fixed-upstream proxy.
 services:
+  # Financial acceptance reads the genuine disposable DB from the host. Docker
+  # internal-only bridges do not publish a usable host route. This dedicated
+  # DB ingress is loopback-bound; the application/provider network stays internal.
+  db:
+    ports: !override
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - kt_couriers_internal
+      - e2e_database_ingress
   app:
     ports: !reset []
     command: ["node", "scripts/e2e-standalone-app.mjs"]
@@ -33,5 +42,7 @@ services:
       - kt_couriers_internal
       - e2e_browser_ingress
 networks:
+  e2e_database_ingress:
+    driver: bridge
   e2e_browser_ingress:
     driver: bridge

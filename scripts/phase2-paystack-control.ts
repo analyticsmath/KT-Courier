@@ -9,6 +9,12 @@ import { openSecurityPayload } from "../lib/notifications/security-payload-vault
 async function main() {
   assertDisposablePaystackAcceptance();
   const [reference, action] = process.argv.slice(2);
+  if (reference === "__probe__" && action === "probe") {
+    const rows = await prisma.$queryRaw<Array<{ database: string; role: string }>>`SELECT current_database() AS database, current_user AS role`;
+    if (rows[0]?.database !== "kt_phase75_e2e" || rows[0]?.role !== "kt_phase75_e2e") throw new Error("Disposable PostgreSQL server identity mismatch.");
+    console.log("PAYSTACK_POSTGRES_IDENTITY_VERIFIED");
+    return;
+  }
   const checkout = await prisma.marketplaceCheckout.findUniqueOrThrow({ where: { publicReference: reference }, include: { contactSnapshot: true } });
   assertDisposablePaystackEmail(checkout.contactSnapshot?.email ?? "");
   if (action === "guest-code") {

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { disposableBrowserOrigins } from "./e2e-environment.mjs";
 import { runPhase1BrowserPlan } from "./phase1-browser-plan.mjs";
@@ -153,6 +154,20 @@ try {
   if (!(await waitForHttp(`${baseUrl}/api/ready`, { timeoutMs: 60_000 })).ok) throw new Error("E2E readiness endpoint did not return 200.");
   if (phase1Acceptance) runPhase1BrowserPlan(env);
   else {
+    if (playwrightArgs.includes("tests/e2e/marketplace-checkout-payment.spec.ts")) {
+      mkdirSync("output/production-closure", { recursive: true });
+      const probe = spawnSync(process.execPath, ["node_modules/tsx/dist/cli.mjs", "scripts/phase2-paystack-control.ts", "__probe__", "probe"], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 20_000 });
+      if (probe.status !== 0) throw new Error("Disposable PostgreSQL financial acceptance preflight failed.");
+      const report = path.resolve("output/production-closure/paystack-postgres-vitest.json");
+      const sha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim();
+      const started = Date.now();
+      const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config=vitest.paystack-acceptance.config.ts", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 120_000 });
+      let counts;
+      try { counts = JSON.parse(readFileSync(report, "utf8")); } catch { /* Missing evidence refuses acceptance. */ }
+      const passed = /^[a-f0-9]{40}$/.test(sha ?? "") && result.status === 0 && counts?.numPassedTests === 2 && counts?.numFailedTests === 0 && counts?.numPendingTests === 0 && counts?.numTodoTests === 0;
+      writeFileSync("output/production-closure/paystack-postgres-receipt.json", JSON.stringify({ commitSha: sha, durationMs: Date.now() - started, exitCode: result.status, testsPassed: counts?.numPassedTests ?? null, testsFailed: counts?.numFailedTests ?? null, testsSkipped: counts?.numPendingTests ?? null, testsTodo: counts?.numTodoTests ?? null, status: passed ? "PASS" : "FAIL", database, projectName }, null, 2));
+      if (!passed) throw new Error("Canonical Paystack PostgreSQL acceptance failed; browser cases were not started.");
+    }
     const projectsToRun = playwrightArgs.some((arg) => arg.startsWith("--project")) ? playwrightArgs : ["--project=chromium", "--project=mobile", "--project=keyboard", ...playwrightArgs];
     const result = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", ...projectsToRun], { cwd: process.cwd(), env, stdio: "inherit", shell: false });
     if (result.status !== 0) throw new Error("Playwright E2E tests failed.");
