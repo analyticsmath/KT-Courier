@@ -39,6 +39,44 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   await page.getByRole("button", { name: "Confirm Start Delivery", exact: true }).click();
   await expect.poll(async () => (await deliveryControl(f.storeReference)).order.status).toBe("IN_TRANSIT");
   const started = await deliveryControl(f.storeReference) as DeliverySnapshot;
+  // Customer and driver use the native, order-scoped chat on the paid courier
+  // bridge. Message delivery is local durable storage, not external messaging.
+  await login(page, `e2e-paystack-${suffix}@ktcouriers.local`);
+  await page.goto(`/account/orders/${started.order.id}`);
+  await expect(page.locator("section").filter({ has: page.getByRole("heading", { name: "Current progress", exact: true }) }).getByText("In transit", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Delivery map", exact: true })).toBeVisible();
+  const tracking = await page.request.get(`/api/tracking/orders/${started.order.id}/location`);
+  expect(tracking.status(), await tracking.text()).toBe(200);
+  expect(await tracking.json()).toMatchObject({ data: { active: true, latestKnownLocation: null } });
+  const openedPromise = page.waitForResponse(response => response.url().endsWith("/api/platform/conversations") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Open delivery chat", exact: true }).click();
+  const opened = await openedPromise; expect(opened.status(), await opened.text()).toBe(201);
+  const conversation = await opened.json() as { id: string };
+  const messagesPath = `/api/platform/conversations/${conversation.id}/messages?scope=personal`;
+  const customerMessage = `Synthetic customer delivery question ${suffix}`;
+  await page.getByLabel("Message", { exact: true }).fill(customerMessage);
+  const sentChatPromise = page.waitForResponse(response => response.url().includes(`/conversations/${conversation.id}/messages`) && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  const sentChat = await sentChatPromise; expect(sentChat.status(), await sentChat.text()).toBe(201);
+  const messageCommand = sentChat.request().postDataJSON(); const sentMessage = await sentChat.json();
+  const chatReplay = await page.request.post(messagesPath, { data: messageCommand, headers: { origin: new URL(page.url()).origin } });
+  expect(chatReplay.status()).toBe(201); expect(await chatReplay.json()).toEqual({ id: sentMessage.id, replayed: true });
+  const chatConflict = await page.request.post(messagesPath, { data: { ...messageCommand, body: "Changed operation meaning" }, headers: { origin: new URL(page.url()).origin } });
+  expect(chatConflict.status()).toBe(409);
+  await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
+  await login(page, `e2e-handoff-driver-${suffix}@ktcouriers.local`);
+  await page.goto(`/driver/assignments/${baseline.assignment.id}`);
+  await page.getByRole("button", { name: "Open delivery chat", exact: true }).click();
+  await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
+  const driverMessage = `Synthetic assigned driver response ${suffix}`;
+  await page.getByLabel("Message", { exact: true }).fill(driverMessage);
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByText(driverMessage, { exact: true })).toBeVisible();
+  const chatHistory = await page.request.get(messagesPath); expect(chatHistory.status()).toBe(200);
+  expect((await chatHistory.json()).messages).toEqual([
+    expect.objectContaining({ id: sentMessage.id, body: customerMessage, mine: false }),
+    expect.objectContaining({ body: driverMessage, mine: true }),
+  ]);
   const attempt = { ...await command(), reason: "RECIPIENT_UNAVAILABLE", driverNote: "Disposable synthetic recipient-unavailable scenario; no physical attempt claimed." };
   const attempted = await post("attempt", attempt); expect(attempted.status(), await attempted.text()).toBe(200);
   expect((await post("attempt", attempt)).status()).toBe(200);
@@ -51,6 +89,9 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   const redeliveryReplay = await page.request.post(`/api/orders/${started.order.id}/redelivery`, { data: redeliveryBody, headers: { origin: new URL(page.url()).origin } }); expect(redeliveryReplay.status()).toBe(201); expect((await redeliveryReplay.json()).data.publicReference).toBe(request.publicReference);
   const redeliveryConflict = await page.request.post(`/api/orders/${started.order.id}/redelivery`, { data: { ...redeliveryBody, safeNote: "Different operation meaning" }, headers: { origin: new URL(page.url()).origin } }); expect(redeliveryConflict.status()).toBe(409);
   await login(page, "e2e-checkout-other@ktcouriers.local"); const foreignRedelivery = await page.request.post(`/api/orders/${started.order.id}/redelivery`, { data: redeliveryBody, headers: { origin: new URL(page.url()).origin } }); expect(foreignRedelivery.status()).toBe(400);
+  expect((await page.request.get(messagesPath)).status()).toBe(404);
+  expect((await page.request.post(messagesPath, { data: { body: "Foreign message denied", operationId: crypto.randomUUID() }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(404);
+  expect((await page.request.get(`/api/tracking/orders/${started.order.id}/location`)).status()).toBe(403);
 
   await login(page, "superadmin@ktcouriers.local");
   const scheduleBody = { operationId: `REDOP-${crypto.randomUUID().toUpperCase()}`, expectedUpdatedAt: request.updatedAt, scheduledFor: new Date(Date.now() + 3_600_000).toISOString(), responsibilityCode: "DISPOSABLE_CUSTOMER_REQUEST" };
@@ -91,12 +132,20 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   expect((await page.request.get(`/api/private-media/${proof.mediaReference}`)).status()).toBe(403);
   const foreignUpload = await page.request.post(`${path}/delivery/proof`, { multipart: { assignmentVersion: String(beforeLocation.assignment.version), file: { name: "foreign.png", mimeType: "image/png", buffer: image } }, headers: { origin: new URL(page.url()).origin } }); expect(foreignUpload.status()).toBe(409);
   expect(await deliveryControl(f.storeReference)).toEqual(beforeLocation);
+  expect((await page.request.get(messagesPath)).status()).toBe(404);
   await login(page, `e2e-handoff-driver-${suffix}@ktcouriers.local`); await page.goto(`/driver/assignments/${baseline.assignment.id}`);
   const destination = beforeLocation.syntheticDestination;
   if (!destination?.latitude || !destination.longitude) throw new Error("Reviewed disposable geocoded destination is required for synthetic DEVICE_GPS browser evidence.");
   await page.context().setGeolocation({ latitude: Number(destination.latitude), longitude: Number(destination.longitude), accuracy: 5 });
   await page.context().grantPermissions(["geolocation"]);
   await page.getByRole("button", { name: "Record Location", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "Verified location recorded." })).toBeVisible();
+  await login(page, `e2e-paystack-${suffix}@ktcouriers.local`);
+  const liveTracking = await page.request.get(`/api/tracking/orders/${started.order.id}/location`);
+  expect(liveTracking.status(), await liveTracking.text()).toBe(200);
+  expect(await liveTracking.json()).toMatchObject({ data: { active: true, latestKnownLocation: { source: "DEVICE_GPS", validationStatus: "ACCEPTED", latitude: Math.round(Number(destination.latitude) * 100) / 100, longitude: Math.round(Number(destination.longitude) * 100) / 100 } } });
+  const customerHistory = await page.request.get(messagesPath); expect(customerHistory.status()).toBe(200);
+  expect((await customerHistory.json()).messages).toHaveLength(2);
+  await login(page, `e2e-handoff-driver-${suffix}@ktcouriers.local`); await page.goto(`/driver/assignments/${baseline.assignment.id}`);
   const finalCommand = { ...completion, ...await command() };
   const results = await Promise.all([post("complete", finalCommand), post("complete", finalCommand)]); for (const completed of results) expect(completed.status(), await completed.text()).toBe(200);
   const final = await deliveryControl(f.storeReference) as DeliverySnapshot;
@@ -104,5 +153,11 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   expect(final.proof[0].usedAt).not.toBeNull(); expect(final.otps[0].consumed).toBe(true); expect(final.commands.filter(row => row.type === "DELIVERY_COMPLETE")).toHaveLength(1);
   expect((await post("complete", finalCommand)).status()).toBe(200); expect(await deliveryControl(f.storeReference)).toEqual(final);
   const store = await storeControl(f.storeReference); expect(store.deliveryBridgeStatus).toBe("DELIVERED"); expect(store.payment).toEqual(f.baseline.payment);
-  return { evidenceClass: "SYNTHETIC_BROWSER_DEVICE_GPS_AND_RASTER_NOT_T5", baseline, afterAttempt, beforeLocation, final, store };
+  await login(page, `e2e-paystack-${suffix}@ktcouriers.local`); await page.goto(`/account/orders/${started.order.id}`);
+  await expect(page.locator("section").filter({ has: page.getByRole("heading", { name: "Current progress", exact: true }) }).getByText("Delivered", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Delivery confirmation", exact: true })).toBeVisible();
+  const expiredTracking = await page.request.get(`/api/tracking/orders/${started.order.id}/location`);
+  expect(expiredTracking.status()).toBe(403); expect(await expiredTracking.json()).toMatchObject({ error: "LOCATION_LIVE_SCOPE_EXPIRED" });
+  await login(page, `e2e-handoff-driver-${suffix}@ktcouriers.local`); await page.goto(`/driver/assignments/${baseline.assignment.id}`);
+  return { evidenceClass: "SYNTHETIC_BROWSER_DEVICE_GPS_AND_RASTER_NOT_T5", baseline, afterAttempt, beforeLocation, final, store, chat: { conversationId: conversation.id, persistedMessages: 2, exactReplay: true, changedPayloadRejected: true, foreignCustomerAndDriverDenied: true }, tracking: { activeProjection: "COARSENED_DEVICE_GPS", deliveredLiveScopeDenied: true } };
 }

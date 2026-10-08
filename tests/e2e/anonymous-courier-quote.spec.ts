@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/db/prisma";
 import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
-import { login } from "./fixtures/auth";
 for (const width of [1440, 390]) test(`anonymous canonical courier quote, private ownership and signed-in booking at ${width}px`, async ({ page, browser }, info) => {
   assertDisposablePaystackAcceptance(); await page.context().clearCookies(); await page.setViewportSize({ width, height: 900 }); await page.goto("/quote");
   const pickup = page.getByRole("group", { name: "Collection address", exact: true }), dropoff = page.getByRole("group", { name: "Delivery address", exact: true });
@@ -23,7 +22,14 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   const endpoint = `/api/public/delivery-quotes/${dto.id}/book`;
   expect((await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: {} })).status()).toBe(401); expect(await prisma.pricingQuote.findUnique({ where: { id: dto.id } })).toEqual(before);
   await info.attach(`anonymous-quote-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`anonymous-quote-${width}.png`) }), contentType: "image/png" });
-  await login(page, "customer@ktcouriers.local"); await page.goto(`/quote?reference=${dto.id}`);
+  // Exercise the real sign-in return path: the role-switching test helper
+  // clears cookies and would destroy this guest's private quote capability.
+  await page.getByRole("link", { name: "Sign in to book", exact: true }).click();
+  await page.getByLabel("Email address", { exact: true }).fill("customer@ktcouriers.local");
+  await page.getByLabel("Password", { exact: true }).fill("ChangeMe123!");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/quote\\?reference=${dto.id}$`));
+  expect((await page.context().cookies()).find(cookie => cookie.name === "kt_public_quote")?.value).toBe(ownedCookie.value);
   const forbiddenCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", recipientName: "Disposable recipient", recipientPhone: "+27820000001", paymentMethod: "DEPOSIT_PLUS_COD" } });
   expect(forbiddenCash.status(), await forbiddenCash.text()).toBe(422);
   expect(await forbiddenCash.json()).toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });

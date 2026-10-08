@@ -29,10 +29,13 @@ describeCatalogIntegration("canonical catalog inventory", () => {
     const f = await catalogFoundation(); const foreign = await catalogFoundation();
     const good = `${f.inventory.publicReference},${f.location.publicReference},${f.inventory.version},2`;
     const command = { csv: `${INVENTORY_UPLOAD_HEADER}\n${good}\n${foreign.inventory.publicReference},${foreign.location.publicReference},${foreign.inventory.version},2`, operationId: randomUUID(), dryRun: false };
+    const receiptsBefore = await prisma.catalogOperationReceipt.findMany({ where: { actorUserId: f.user.id }, orderBy: { id: "asc" } });
+    const inventoryBefore = await prisma.catalogInventoryItem.findMany({ where: { id: { in: [f.inventory.id, foreign.inventory.id] } }, orderBy: { id: "asc" } });
     await expect(uploadCatalogInventory(f.store.id, f.user.id, command)).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
     await expect(uploadCatalogInventory(f.store.id, f.user.id, { ...command, csv: `${INVENTORY_UPLOAD_HEADER}\n${good.replace(`,${f.inventory.version},2`, `,${f.inventory.version + 1},2`)}` })).rejects.toMatchObject({ code: "CATALOG_VERSION_CONFLICT" });
     expect(await prisma.catalogInventoryMovement.count({ where: { inventoryItemId: { in: [f.inventory.id, foreign.inventory.id] } } })).toBe(0);
-    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: f.user.id } })).toBe(0);
+    expect(await prisma.catalogOperationReceipt.findMany({ where: { actorUserId: f.user.id }, orderBy: { id: "asc" } })).toEqual(receiptsBefore);
+    expect(await prisma.catalogInventoryItem.findMany({ where: { id: { in: [f.inventory.id, foreign.inventory.id] } }, orderBy: { id: "asc" } })).toEqual(inventoryBefore);
   });
   it("posts receipt and damage once, denies negative and foreign stock, and conserves projections", async () => {
     const f = await catalogFoundation(); const command = { type: "STOCK_RECEIPT" as const, quantityDelta: 5, locationPublicReference: f.location.publicReference, operationId: randomUUID(), reasonCode: "DISPOSABLE_RECEIPT", version: f.inventory.version };
