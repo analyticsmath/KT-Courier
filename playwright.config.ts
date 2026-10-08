@@ -40,6 +40,7 @@ export default defineConfig({
         /refund-finance-admin\.spec\.ts/,
         /store-order-(?:customer|merchant|admin|substitution|handoff|accessibility)\.spec\.ts/,
         /production-visual-review\.spec\.ts/,
+        /profile-avatar-lifecycle\.spec\.ts/,
         /storefront-admin\.spec\.ts/,
         /driver-earnings\.spec\.ts/,
         /driver-earnings-finance-admin\.spec\.ts/,

@@ -527,6 +527,12 @@ async function main() {
   await prisma.deliveryRegion.update({ where: { id: region.id }, data: { province: "Gauteng", centerLat: -26.2041, centerLng: 28.0473, coverageRadiusKm: 30, maxDistanceKm: 50, active: true, pricingEnabled: true } });
   await upsertStore("e2e-store@ktcouriers.local", "e2e-store", "E2E Store", passwordHash);
   await upsertStore("e2e-other-store@ktcouriers.local", "e2e-other-store", "E2E Other Store", passwordHash);
+  for (const width of [1440, 390]) {
+    await upsertStore(`e2e-avatar-store-${width}@ktcouriers.local`, `e2e-avatar-store-${width}`, "Disposable profile media store", passwordHash);
+    await prisma.user.create({ data: { email: `e2e-avatar-customer-${width}@ktcouriers.local`, name: "Disposable profile media customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    const avatarDriver = await prisma.user.create({ data: { email: `e2e-avatar-driver-${width}@ktcouriers.local`, name: "Disposable profile media driver", role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    await prisma.driverProfile.create({ data: { userId: avatarDriver.id, driverCode: `E2E-AVATAR-${width}` } });
+  }
   // Verified synthetic accounts receive no business membership until the native invitation is accepted.
   for (const width of [1440, 390]) {
     await upsertStore(`e2e-team-owner-${width}@ktcouriers.local`, `e2e-team-${width}`, "Disposable employee lifecycle business", passwordHash);
