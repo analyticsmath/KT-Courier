@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db/prisma";
 import { assertDisposablePaystackAcceptance, assertDisposablePaystackEmail } from "../lib/testing/disposable-paystack-policy";
@@ -11,6 +12,8 @@ import { ensureCustomerRefundWallet } from "../lib/services/customer-wallet.serv
 import { PaystackClient, type PaystackRefundInput, type PaystackRefundData } from "../lib/payments/providers/paystack/paystack-client";
 import { PaystackRefundAdapter } from "../lib/refunds/providers/paystack/paystack-refund-adapter";
 import { RefundProviderRegistry } from "../lib/refunds/providers/refund-provider-registry";
+import { applyMarketplaceStoreOrderAdjustment } from "../lib/store-orders/store-order.service";
+import { ExistingPhaseFinancialAdjustmentAuthority } from "../lib/store-orders/financial-adjustment-composition";
 
 function journalReceipt(journal: Prisma.LedgerJournalGetPayload<{ include: { entries: true } }> | null) {
   return journal && { id: journal.id, type: journal.type, currency: journal.currency, totalDebits: journal.totalDebits.toFixed(2), totalCredits: journal.totalCredits.toFixed(2), entries: journal.entries.map(entry => ({ direction: entry.direction, amount: entry.amount.toFixed(2) })) };
@@ -26,10 +29,10 @@ async function assertNamedDisposableRefundRuntime() {
 async function main() {
   await assertNamedDisposableRefundRuntime();
   const [checkoutReference, action, raw = "{}"] = process.argv.slice(2);
-  const options = JSON.parse(raw) as { reference?: string; amount?: string; operationId?: string; outcome?: string };
+  const options = JSON.parse(raw) as { reference?: string; amount?: string; operationId?: string; outcome?: string; storeOrderReference?: string; adjustmentReference?: string };
   const checkout = await prisma.marketplaceCheckout.findUniqueOrThrow({ where: { publicReference: checkoutReference }, include: { contactSnapshot: true } });
   assertDisposablePaystackEmail(checkout.contactSnapshot?.email ?? "");
-  assert.match(checkout.contactSnapshot!.email, /^e2e-paystack-(wallet|finance)-\d+@ktcouriers\.local$/);
+  assert.match(checkout.contactSnapshot!.email, /^e2e-paystack-(?:(wallet|finance)-\d+|store-positive-(1440|390))@ktcouriers\.local$/);
   assert.ok(checkout.customerUserId, "Wallet proof requires an authenticated synthetic owner.");
   const owner = checkout.customerUserId!;
   const payment = await prisma.payment.findFirstOrThrow({ where: { marketplaceCheckoutId: checkout.id }, include: { successfulAttempt: true, successWebhookEvent: true } });
@@ -55,7 +58,8 @@ async function main() {
       assert.ok(Number.isSafeInteger(input.amountCents) && input.amountCents! > 0);
       const existing = await prisma.systemSetting.findUnique({ where: { key: providerKey } });
       const calls = ((existing?.value as { calls?: number } | null)?.calls ?? 0) + 1;
-      const facts = { calls, id: 700000 + payment.amount.mul(100).toNumber(), amount: input.amountCents!, status: options.outcome ?? "pending", reference: input.transaction };
+      const providerId = Number.parseInt(createHash("sha256").update(`${payment.id}:${calls}`).digest("hex").slice(0, 12), 16);
+      const facts = { calls, id: providerId, amount: input.amountCents!, status: options.outcome ?? "pending", reference: input.transaction };
       await prisma.systemSetting.upsert({ where: { key: providerKey }, create: { key: providerKey, value: facts, label: "Disposable offline refund provider facts", type: "JSON" }, update: { value: facts } });
       if (options.outcome === "network-loss") throw new TypeError("Synthetic network loss after provider acceptance.");
       return { id: facts.id, amount: facts.amount, transaction: { id: 1, reference: input.transaction }, deducted_amount: 0, currency: "ZAR", status: facts.status } as PaystackRefundData;
@@ -73,7 +77,15 @@ async function main() {
   const operationId = options.operationId ?? `phase2:${checkoutReference}:${action}`;
   const selected = options.reference ? await prisma.paymentRefund.findFirstOrThrow({ where: { publicReference: options.reference, paymentId: payment.id, customerUserId: owner } }) : null;
   let result: unknown = null;
-  if (action === "reserve-wallet" || action === "reserve-original") {
+  if (action === "apply-store-adjustment") {
+    assert.match(checkout.contactSnapshot!.email, /^e2e-paystack-store-positive-(1440|390)@ktcouriers\.local$/);
+    assert.ok(options.storeOrderReference && options.adjustmentReference);
+    const child = await prisma.marketplaceStoreOrder.findFirstOrThrow({ where: { publicReference: options.storeOrderReference, marketplaceOrder: { paymentId: payment.id, customerUserId: owner, checkoutId: checkout.id } } });
+    await prisma.marketplaceStoreOrderAdjustment.findFirstOrThrow({ where: { publicReference: options.adjustmentReference, marketplaceStoreOrderId: child.id, status: "APPROVED" } });
+    const storeOwner = await prisma.user.findUniqueOrThrow({ where: { email: "e2e-store@ktcouriers.local" } });
+    const applied = await applyMarketplaceStoreOrderAdjustment({ storeOrderReference: child.publicReference, adjustmentReference: options.adjustmentReference, actorUserId: storeOwner.id, operationId, requestHash: createHash("sha256").update(JSON.stringify({ action, ...options })).digest("hex"), dependencies: { financialAuthority: new ExistingPhaseFinancialAdjustmentAuthority(dependencies) } });
+    assert.ok("refundReference" in applied && typeof applied.refundReference === "string"); result = { publicReference: applied.refundReference };
+  } else if (action === "reserve-wallet" || action === "reserve-original") {
     result = await createRefundRequest({ actorUserId: owner, paymentPublicReference: payment.publicReference, amount: options.amount ?? "25.00", method: action === "reserve-wallet" ? "CUSTOMER_WALLET" : "ORIGINAL_PAYMENT_METHOD", reasonCode: "CUSTOMER_SERVICE_RESOLUTION", operationId }, dependencies);
   } else if (action === "cancel") {
     assert.ok(selected); result = await cancelRefundRequest({ actorUserId: owner, publicReference: selected.publicReference, operationId });

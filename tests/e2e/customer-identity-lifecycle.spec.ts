@@ -26,7 +26,9 @@ for (const width of [1440, 390]) test(`native customer verification, owned addre
   await page.getByRole("button", { name: "Verify code", exact: true }).click(); expect((await verification).status()).toBe(200);
   await expect(page).toHaveURL(/\/account/);
   expect((await page.request.post("/api/auth/verify-otp", { headers: { origin }, data: { email, code } })).status()).toBe(400);
-  await page.goto("/account/addresses"); await page.getByLabel("Label", { exact: true }).fill("Synthetic home");
+  await page.goto("/account/addresses");
+  if (!await page.getByLabel("Label", { exact: true }).isVisible()) await page.getByRole("button", { name: "Add address", exact: true }).first().click();
+  await page.getByLabel("Label", { exact: true }).fill("Synthetic home");
   await page.getByLabel("Street address", { exact: true }).fill("45 Commission St");
   const addressCreated = page.waitForResponse(r => r.url().endsWith("/api/account/addresses") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Add address", exact: true }).click();

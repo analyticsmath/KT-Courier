@@ -5,13 +5,25 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { MARKETPLACE_ORDER_COOKIE } from "@/lib/marketplace-checkout/tokens";
 import { exactKeys, enforceStoreOrderMutation, storeOrderBody, storeOrderError, storeOrderJson, text } from "@/lib/store-orders/api-policy";
 import { decideStoreOrderSubstitution, requestMarketplaceStoreOrderCancellation, updateStoreOrderSubstitutionPreference } from "@/lib/store-orders/store-order.service";
+import { getCustomerStoreOrderActions } from "@/lib/services/customer-store-order-actions.service";
 
 const hash = (action: string, body: Record<string, unknown>) => createHash("sha256").update(`${action}:${JSON.stringify(body)}`).digest("hex");
+
+export async function GET(request: NextRequest, context: { params: Promise<{ reference: string; storeOrderReference: string }> }) {
+  const user = await getCurrentUser();
+  if (user && (user.role !== "CUSTOMER" || user.status !== "ACTIVE")) return storeOrderJson({ error: "Active customer order ownership is required." }, 403);
+  const customerUserId = user?.id, guestSecret = customerUserId ? undefined : request.cookies.get(MARKETPLACE_ORDER_COOKIE)?.value;
+  if (!customerUserId && !guestSecret) return storeOrderJson({ error: "Customer order ownership is required." }, 401);
+  const { reference, storeOrderReference } = await context.params;
+  try { return storeOrderJson(await getCustomerStoreOrderActions({ marketplaceOrderReference: reference, storeOrderReference, customerUserId, guestSecret })); }
+  catch (error) { return storeOrderError(error); }
+}
 
 export async function POST(request: NextRequest, context: { params: Promise<{ reference: string; storeOrderReference: string }> }) {
   try {
     const blocked = await enforceStoreOrderMutation(request, "customer"); if (blocked) return blocked;
     const { reference, storeOrderReference } = await context.params; const user = await getCurrentUser();
+    if (user && (user.role !== "CUSTOMER" || user.status !== "ACTIVE")) return storeOrderJson({ error: "Active customer order ownership is required." }, 403);
     const customerUserId = user?.role === "CUSTOMER" ? user.id : undefined; const guestSecret = customerUserId ? undefined : request.cookies.get(MARKETPLACE_ORDER_COOKIE)?.value;
     if (!customerUserId && !guestSecret) return storeOrderJson({ error: "Customer order ownership is required." }, 401);
     const bound = await prisma.marketplaceStoreOrder.findFirst({ where: { publicReference: storeOrderReference, marketplaceOrder: { publicReference: reference } }, select: { id: true } });

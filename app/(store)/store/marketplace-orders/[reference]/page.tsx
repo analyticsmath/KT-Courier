@@ -30,6 +30,7 @@ export default async function MarketplaceStoreOrderPage({
     },
   });
   if (!order) notFound();
+  const replacements = await prisma.storeCatalogOffer.findMany({ where: { storeId: access.store.id, status: "ACTIVE", publicationStatus: "PUBLISHED" }, select: { publicReference: true, product: { select: { title: true } }, variant: { select: { publicReference: true, title: true } } }, orderBy: { publicReference: "asc" }, take: 100 });
 
   return (
     <ProtectedPageFrame>
@@ -53,6 +54,7 @@ export default async function MarketplaceStoreOrderPage({
           preparationStatus: order.preparationStatus,
           resolutionStatus: order.resolutionStatus,
           reviewDeadlineAt: order.reviewDeadlineAt,
+          replacements: replacements.map(item => ({ offerReference: item.publicReference, variantReference: item.variant.publicReference, label: `${item.product.title} — ${item.variant.title}` })),
           lines: order.lines.map((line: any) => ({
             id: line.id,
             title: line.title,
@@ -63,6 +65,8 @@ export default async function MarketplaceStoreOrderPage({
               line.fulfilment?.confirmedAvailableQuantity ?? null,
             issues: line.issues.map((issue: any) => ({
               id: issue.id,
+              publicReference: issue.publicReference,
+              status: issue.status,
               issueType: issue.issueType,
               affectedQuantity: issue.affectedQuantity,
             })),

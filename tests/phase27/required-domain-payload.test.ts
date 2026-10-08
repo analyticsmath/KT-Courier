@@ -80,4 +80,12 @@ describe("canonical required-domain notification payloads", () => {
     const db = { ...paymentDb(), paymentRefund: { findUnique: vi.fn().mockResolvedValue({ id: "source", customerUserId: "customer", paymentId: "payment", publicReference: "refund-public", amount: new Prisma.Decimal("20.00"), completionLedgerJournalId: null, completedAt: null }) }, refundStatusHistory: { findUnique: vi.fn().mockResolvedValue({ refundId: "source", toStatus: "SUCCEEDED" }) } };
     await expect(resolveRequiredDomainPayload(asDb(db), event("REFUND", "REFUND_STATUS_CHANGED", { sourceEventId: "history" }))).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
   });
+  it("publishes a refund decision once, excluding its supporting funds-reserved audit row", async () => {
+    const history = vi.fn().mockResolvedValue({ refundId: "source", toStatus: "REQUESTED", operationId: "owned-request", fromStatus: null });
+    const db = { ...paymentDb(), paymentRefund: { findUnique: vi.fn().mockResolvedValue({ id: "source", customerUserId: "customer", paymentId: "payment", publicReference: "refund-public", amount: new Prisma.Decimal("20.00") }) }, refundStatusHistory: { findUnique: history } };
+    const intent = event("REFUND", "REFUND_STATUS_CHANGED", { sourceEventId: "history" });
+    expect(await resolveRequiredDomainPayload(asDb(db), intent)).toMatchObject({ refundReference: "refund-public", status: "requested", amount: "20.00" });
+    history.mockResolvedValue({ refundId: "source", toStatus: "REQUESTED", operationId: null, fromStatus: null });
+    await expect(resolveRequiredDomainPayload(asDb(db), intent)).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+  });
 });

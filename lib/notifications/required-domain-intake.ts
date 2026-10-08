@@ -19,6 +19,7 @@ export async function appendRequiredDomainNotificationIntents(db: Prisma.Transac
         FROM "PaymentStatusHistory" h JOIN "Payment" p ON p.id = h."paymentId" WHERE h."toStatus" IN ('FAILED', 'CANCELLED', 'EXPIRED')
       UNION ALL
       SELECT 'REFUND', 'REFUND_STATUS_CHANGED', h."refundId", 'refund-status-notification:' || h.id, h.id, h."createdAt" FROM "RefundStatusHistory" h
+        WHERE h."operationId" IS NOT NULL OR h."fromStatus" IS NOT NULL
     )
     SELECT e.authority AS "sourceAuthority", e.type AS "eventType", e.aggregate AS "aggregateReference", e.operation AS "operationId", e.source AS "sourceEventId", e.occurred AS "occurredAt"
       FROM domain_events e JOIN (VALUES ${pairs}) AS supported(authority, type) ON supported.authority = e.authority AND supported.type = e.type

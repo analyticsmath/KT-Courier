@@ -5,9 +5,9 @@ import { createDriverOperationIdStore } from "@/lib/driver-operations/client-ope
 import { useRouter } from "next/navigation";
 import styles from "./store-pages.module.css";
 
-type Action = "begin-review" | "accept" | "start-preparation" | "mark-ready" | "reject" | "confirm-availability" | "generate-pickup-code";
+type Action = "begin-review" | "accept" | "start-preparation" | "mark-ready" | "reject" | "confirm-availability" | "generate-pickup-code" | "propose-substitution";
 
-export function StoreFulfilmentActions({ reference, acceptanceStatus, preparationStatus, lines }: Readonly<{ lines: readonly Readonly<{ id: string; title: string; quantity: number }>[]; reference: string; acceptanceStatus: string; preparationStatus: string }>) {
+export function StoreFulfilmentActions({ reference, acceptanceStatus, preparationStatus, lines, replacements = [] }: Readonly<{ lines: readonly Readonly<{ id: string; title: string; quantity: number; issues?: readonly { publicReference: string; status: string; affectedQuantity: number }[] }>[]; replacements?: readonly { offerReference: string; variantReference: string; label: string }[]; reference: string; acceptanceStatus: string; preparationStatus: string }>) {
   const router = useRouter();
   const operations = useRef(createDriverOperationIdStore());
   const busy = useRef(false);
@@ -22,6 +22,7 @@ export function StoreFulfilmentActions({ reference, acceptanceStatus, preparatio
     setMessage(null); setFailed(false); setSubmitting(action);
     try {
       const response = await fetch(`/api/store/orders/${encodeURIComponent(reference)}/actions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, operationId: operations.current.get(action, fields), ...fields }) });
+      const body = await response.json();
       if (!response.ok) {
         setFailed(true);
         if (response.status === 409 || response.status === 412) setMessage("This order changed before the request completed. Refresh and review its canonical state before trying again.");
@@ -30,7 +31,6 @@ export function StoreFulfilmentActions({ reference, acceptanceStatus, preparatio
         else setMessage("The order service could not complete this action. Review the form and try again.");
         return;
       }
-      const body = await response.json();
       if (action === "generate-pickup-code") setPickupCode(typeof body.result?.pickupCode === "string" ? body.result.pickupCode : null);
       operations.current.clear(action);
       setMessage("The store order was updated by the server.");
@@ -50,6 +50,7 @@ export function StoreFulfilmentActions({ reference, acceptanceStatus, preparatio
   return <div className={styles.scope}><section className="eo-store-actions" aria-labelledby="store-fulfilment-actions"><h2 id="store-fulfilment-actions">Fulfilment actions</h2><p>Only actions that the current server state may permit are shown. The server confirms any change before this record updates.</p>
     {canReview ? <button className="eo-button eo-button--secondary" disabled={submitting !== null} onClick={() => void submit("begin-review")}>{submitting === "begin-review" ? "Starting review…" : "Begin review"}</button> : null}
     {canAccept ? lines.map(line => <form key={line.id} className="eo-store-action-form" onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget); void submit("confirm-availability", { orderLineId: line.id, availableQuantity: Number(values.get("availableQuantity")), reasonCode: "STORE_REPORTED_AVAILABILITY" }); }}><h3>{line.title}</h3><label>Available quantity for {line.title}<input required name="availableQuantity" type="number" inputMode="numeric" min="0" max={line.quantity} defaultValue={line.quantity} /></label><button className="eo-button eo-button--secondary" disabled={submitting !== null} type="submit">Confirm availability</button></form>) : null}
+    {preparationStatus === "NOT_STARTED" && replacements.length ? lines.flatMap(line => (line.issues ?? []).filter(issue => ["OPEN", "CUSTOMER_ACTION_REQUIRED"].includes(issue.status)).map(issue => <form key={issue.publicReference} className="eo-store-action-form" aria-label={`Propose replacement for ${line.title}`} onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget); const selected = replacements.find(item => item.offerReference === values.get("replacement")); if (selected) void submit("propose-substitution", { issueReference: issue.publicReference, offerReference: selected.offerReference, variantReference: selected.variantReference, quantity: Number(values.get("quantity")) }); }}><h3>Offer a replacement for {line.title}</h3><p>The customer must approve a replacement. Its price cannot exceed the paid amount for the affected item.</p><label>Replacement item<select required name="replacement"><option value="">Choose a published item</option>{replacements.map(item => <option key={item.offerReference} value={item.offerReference}>{item.label}</option>)}</select></label><label>Replacement quantity<input required name="quantity" type="number" min="1" max={issue.affectedQuantity} defaultValue={issue.affectedQuantity} /></label><button type="submit" disabled={submitting !== null} className="eo-button eo-button--secondary">Propose replacement</button></form>)) : null}
     {canAccept ? <form onSubmit={accept} className="eo-store-action-form"><h3>Accept order</h3><label>Preparation time (minutes)<input required min="1" max="1440" name="preparationMinutes" type="number" inputMode="numeric" /></label><label>Pickup instructions<textarea required maxLength={500} name="pickupInstructions" /></label><button className="eo-button eo-button--primary" disabled={submitting !== null} type="submit">{submitting === "accept" ? "Accepting…" : "Accept order"}</button></form> : null}
     {canStart ? <button className="eo-button eo-button--secondary" disabled={submitting !== null} onClick={() => void submit("start-preparation")}>{submitting === "start-preparation" ? "Starting…" : "Start preparation"}</button> : null}
     {canReady ? <button className="eo-button eo-button--primary" disabled={submitting !== null} onClick={() => void submit("mark-ready")}>{submitting === "mark-ready" ? "Marking ready…" : "Mark ready for collection"}</button> : null}

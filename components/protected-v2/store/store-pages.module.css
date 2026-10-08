@@ -36,7 +36,7 @@
 .scope :global(.eo-store-actions > p) { margin: var(--eo-space-2) 0 var(--eo-space-4); color: var(--eo-text-secondary); font-size: .8125rem; line-height: 1.5; }
 .scope :global(.eo-store-action-form) { display: grid; gap: var(--eo-space-3); margin-top: var(--eo-space-4); border-top: 1px solid var(--eo-line-soft); padding-top: var(--eo-space-4); }
 .scope :global(.eo-store-action-form label) { display: grid; gap: 6px; color: var(--eo-text-secondary); font-size: .8125rem; font-weight: 650; }
-.scope :global(.eo-store-action-form input:not([type="checkbox"])), .scope :global(.eo-store-action-form textarea) { width: 100%; border: 1px solid var(--eo-line-strong); border-radius: var(--eo-radius-control); background: var(--eo-surface); padding: 9px 10px; color: var(--eo-text); font: inherit; }
+.scope :global(.eo-store-action-form input:not([type="checkbox"])), .scope :global(.eo-store-action-form textarea), .scope :global(.eo-store-action-form select) { width: 100%; min-height: 44px; border: 1px solid var(--eo-line-strong); border-radius: var(--eo-radius-control); background: var(--eo-surface); padding: 9px 10px; color: var(--eo-text); font: inherit; }
 .scope :global(.eo-store-action-form textarea) { min-height: 86px; resize: vertical; }
 .scope :global(.eo-store-destructive) { margin-top: var(--eo-space-4); border-top: 1px solid var(--eo-line-soft); padding-top: var(--eo-space-3); }
 .scope :global(.eo-store-destructive summary) { cursor: pointer; color: #80211b; font-size: .8125rem; font-weight: 650; }

@@ -86,7 +86,8 @@ async function main() {
   assertDisposablePaystackEmail(checkout.customer?.email ?? "");
   if (checkout.customer?.email !== f.email || checkout.storeGroups.some(group => group.storeId !== f.storeId)) throw new Error("Owned parcel checkout required.");
   const quoteIds = checkout.storeGroups.map(group => group.deliveryQuoteReference).filter((id): id is string => !!id);
-  const quotes = await prisma.pricingQuote.findMany({ where: { id: { in: quoteIds }, storeId: f.storeId }, select: { id: true, subtotal: true, taxAmount: true, total: true, ruleSnapshot: true } });
+  const quoteRows = await prisma.pricingQuote.findMany({ where: { id: { in: quoteIds }, storeId: f.storeId }, select: { id: true, subtotal: true, taxAmount: true, total: true, ruleSnapshot: true } });
+  const quotes = quoteRows.map(quote => ({ ...quote, subtotal: quote.subtotal.toFixed(2), taxAmount: quote.taxAmount.toFixed(2), total: quote.total.toFixed(2) }));
   const stock = await prisma.catalogInventoryLevel.findMany({ where: { inventoryItem: { offer: { storeId: f.storeId } } }, select: { onHand: true, reserved: true, available: true } });
   console.log(`PARCEL_RECEIPT ${JSON.stringify({ checkout: { status: checkout.status, version: checkout.version, reviewVersion: checkout.reviewVersion }, classification: await classifyPersistedCheckoutParcel(reference, f.storeId), quotes, stock, paymentCount: await prisma.payment.count({ where: { marketplaceCheckoutId: checkout.id } }), orderCount: await prisma.marketplaceOrder.count({ where: { checkoutId: checkout.id } }), audit: await prisma.adminActivityLog.findMany({ where: { actorUserId: { in: [f.makerId, f.reviewerId] }, entityType: "MarketplaceTrustedPackaging" }, select: { action: true, actorUserId: true, metadata: true } }) })}`);
 }

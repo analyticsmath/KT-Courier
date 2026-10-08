@@ -21,7 +21,7 @@ export function OtpField({ label, error, id, required, onValueChange, ...props }
   return (
     <div className={styles.fieldGroup}>
       <label className={styles.fieldLabel} htmlFor={id}>
-        {label}{required ? <span className={styles.required}> *</span> : null}
+        {label}{required ? <span aria-hidden="true" className={styles.required}> *</span> : null}
       </label>
       <input
         {...props}

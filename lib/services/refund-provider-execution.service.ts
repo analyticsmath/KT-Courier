@@ -19,6 +19,7 @@ import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { completeStoreEarningRefundProjectionsWithinTransaction } from "./store-earning-refund.service";
 import { completeDriverEarningRefundProjectionsWithinTransaction } from "./driver-earning-refund.service";
 import { resolveRefundHeldAccount } from "./refund-held-account.service";
+import { projectMarketplaceRefundCompletion } from "./marketplace-refund-completion.service";
 
 const DEFAULT_REFUND_PROVIDER_TIMEOUT_MS = 10_000;
 
@@ -279,6 +280,7 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
       await completeStoreEarningRefundProjectionsWithinTransaction(tx, { refundId: refund.id, refundPublicReference: refund.publicReference, actorUserId: input.actorUserId });
       await completeDriverEarningRefundProjectionsWithinTransaction(tx, { refundId: refund.id, refundPublicReference: refund.publicReference, actorUserId: input.actorUserId });
       const updated = await tx.paymentRefund.update({ where: { id: refund.id }, data: { status: "SUCCEEDED", completionLedgerJournalId: journal.id, completedByUserId: input.actorUserId, completedAt: now, reconciliationRequiredAt: null, version: { increment: 1 } } });
+      await projectMarketplaceRefundCompletion(tx, refund.id);
       await tx.refundReconciliationCase.updateMany({ where: { refundId: refund.id, status: { in: ["OPEN", "MONITORING"] } }, data: { status: "RESOLVED", resolvedAt: now, resolutionCode: "PROVIDER_SUCCESS_POSTED", resolvedByUserId: input.actorUserId } });
       await tx.refundStatusHistory.create({ data: { refundId: refund.id, attemptId: attempt.id, fromStatus: refund.status, toStatus: "SUCCEEDED", actorType: "PROVIDER", actorUserId: input.actorUserId, reasonCode: "PROVIDER_REFUND_SUCCEEDED", safeMetadata: { attemptReference: attempt.publicReference, providerRefundId: validated.providerRefundId, completionJournalReference: journal.reference } } });
       return updated;

@@ -45,6 +45,7 @@ export default defineConfig({
         /trusted-parcel-classification\.spec\.ts/,
         /driver-canonical-delivery\.spec\.ts/,
         /customer-identity-lifecycle\.spec\.ts/,
+        /store-order-positive-substitution\.spec\.ts/,
         /storefront-admin\.spec\.ts/,
         /driver-earnings\.spec\.ts/,
         /driver-earnings-finance-admin\.spec\.ts/,

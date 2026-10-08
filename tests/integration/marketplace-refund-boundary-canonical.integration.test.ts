@@ -40,6 +40,8 @@ it("only persisted bounded store reversal evidence funds a partial settled-store
   const state = await protectedRefundState(source.id); expect(state.refunds).toHaveLength(1); assertJournalMoney(state.refunds[0].reserveLedgerJournal, "REFUND_RESERVE", "1500.00"); assertJournalMoney(state.refunds[0].completionLedgerJournal, "REFUND_EXTERNAL_PAYOUT", "1500.00");
   expect(state.payment.totalRefundReservedAmount.isZero()).toBe(true); expect(state.payment.totalRefundedAmount.toFixed(2)).toBe("1500.00"); expect(client.calls).toBe(1);
   expect((await prisma.storeEarning.findUniqueOrThrow({ where: { id: reversed.id } })).reversedAmount.equals(reversed.reversedAmount)).toBe(true);
+  expect((await prisma.marketplaceStoreOrderAdjustment.findUniqueOrThrow({ where: { id: adjustment.id } })).status).toBe("COMPLETED");
+  expect((await prisma.marketplaceStoreOrder.findUniqueOrThrow({ where: { id: f.order.storeOrders[0].id } })).resolutionStatus).toBe("RESOLVED");
 }), 240_000);
 
 it("verified guest reserves and pays only from the separate canonical original-method liability", async () => withCanonicalBrowser(async page => {

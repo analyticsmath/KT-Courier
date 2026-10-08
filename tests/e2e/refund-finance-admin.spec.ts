@@ -48,7 +48,7 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
   await expect(page.getByRole("button", { name: /mark.*success|mark.*paid|Start provider refund/i })).toHaveCount(0);
   const externalCompleted = await refundControl(reference, "query-provider", { reference: external.reference, outcome: "processed" });
   const succeeded = externalCompleted.refunds.find(r => r.reference === external.reference)!;
-  expect(succeeded.status).toBe("SUCCEEDED"); assertBalancedRefundJournal(succeeded.completion, "REFUND_EXTERNAL_PAYOUT", "10.00");
+  expect(succeeded.status, JSON.stringify({ reconciliation: succeeded.reconciliation, history: succeeded.history, attempts: succeeded.attempts, provider: externalCompleted.provider })).toBe("SUCCEEDED"); assertBalancedRefundJournal(succeeded.completion, "REFUND_EXTERNAL_PAYOUT", "10.00");
   expect(externalCompleted.payment).toMatchObject({ reserved: "0.00", refunded: "35.00" });
   expect(balance(externalCompleted, "CASH_CLEARING")).toBe(new Prisma.Decimal(balance(baseline, "CASH_CLEARING")).sub("10.00").toFixed(2));
   await login(page, "e2e-ledger-denied@ktcouriers.local");

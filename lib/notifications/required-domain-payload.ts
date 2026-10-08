@@ -69,7 +69,7 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
     }
     if (refund && intent.eventType === "REFUND_STATUS_CHANGED") {
       const history = typeof raw.sourceEventId === "string" ? await db.refundStatusHistory.findUnique({ where: { id: raw.sourceEventId } }) : null;
-      if (!history || history.refundId !== refund.id || (history.toStatus === "SUCCEEDED" && (!refund.completionLedgerJournalId || !refund.completedAt))) return invalid();
+      if (!history || history.refundId !== refund.id || (!history.operationId && !history.fromStatus) || (history.toStatus === "SUCCEEDED" && (!refund.completionLedgerJournalId || !refund.completedAt))) return invalid();
       requireOperation(intent, `refund-status-notification:${raw.sourceEventId}`);
       return { ...recipient, refundReference: refund.publicReference, amount: refund.amount.toFixed(2), status: statusText(history.toStatus) };
     }
