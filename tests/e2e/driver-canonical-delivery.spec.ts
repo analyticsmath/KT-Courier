@@ -4,6 +4,6 @@ for (const width of [1440, 390]) test(`canonical assigned driver delivery, retry
   test.setTimeout(240_000);
   const receipt = await canonicalDriverDeliveryJourney(page, `driver-delivery-${width}`, width);
   await page.reload();
-  await info.attach(`driver-canonical-delivery-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  await info.attach(`driver-canonical-delivery-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`driver-canonical-delivery-${width}.png`) }), contentType: "image/png" });
   await info.attach("canonical-synthetic-driver-delivery", { body: JSON.stringify(receipt), contentType: "application/json" });
 });

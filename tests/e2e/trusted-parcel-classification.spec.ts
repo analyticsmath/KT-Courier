@@ -99,6 +99,6 @@ for (const width of [1440, 390]) test(`independent measured packaging governance
     expect((await page.request.post("/api/admin/marketplace-trusted-packages", { headers, data: draft })).status()).toBe(403);
     expect(receipts[0].audit.filter(row => row.metadata.afterStatus === "APPROVED")).toEqual([expect.objectContaining({ actorUserId: f.reviewerId })]);
     await info.attach(`trusted-parcel-postgres-${width}`, { body: JSON.stringify(receipts), contentType: "application/json" });
-    await login(page, f.reviewerEmail); await page.goto("/admin/marketplace-delivery-policy"); await info.attach(`trusted-parcel-admin-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+    await login(page, f.reviewerEmail); await page.goto("/admin/marketplace-delivery-policy"); await info.attach(`trusted-parcel-admin-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`trusted-parcel-admin-${width}.png`) }), contentType: "image/png" });
   } finally { await control("cleanup", tag); }
 });

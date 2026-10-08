@@ -53,7 +53,7 @@ for (const width of [1440, 390]) test(`native customer verification, owned addre
   const owned = (await (await page.request.get(`/api/account/addresses/${address.id}`)).json()).address;
   expect(owned.line1).toBe("45 Commission St"); expect(owned).not.toHaveProperty("customerUserId");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await info.attach(`customer-address-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  await info.attach(`customer-address-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`customer-address-${width}.png`) }), contentType: "image/png" });
   const otherContext = await browser.newContext({ baseURL: origin }); const other = await otherContext.newPage();
   try {
     await login(other, "e2e-checkout-other@ktcouriers.local");

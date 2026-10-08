@@ -55,7 +55,7 @@ for (const width of [1440, 390]) test(`native store logo and cover replacement, 
   }
   await page.reload(); await expect(page.getByRole("img", { name: "Your store logo", exact: true })).toBeVisible(); await expect(page.getByRole("img", { name: "Your store cover photo", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await info.attach(`store-branding-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  await info.attach(`store-branding-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`store-branding-${width}.png`) }), contentType: "image/png" });
   const beforeDenied = await receipt(email);
   await login(page, "e2e-other-store@ktcouriers.local");
   for (const reference of references) { expect((await page.request.get(`/api/store/profile-media?reference=${reference}`)).status()).toBe(404); expect((await page.request.delete("/api/store/profile-media", { headers, data: { reference, operationId: crypto.randomUUID() } })).status()).toBe(404); }

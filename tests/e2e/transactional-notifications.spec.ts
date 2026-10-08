@@ -65,7 +65,7 @@ for (const width of [1440, 390]) test(`owned paid, store and refund inbox, prefe
   await login(page, email); await page.goto("/account/notifications");
   for (const m of final.messages.filter(m => m.audience === "CUSTOMER")) await expect(page.getByRole("listitem").filter({ hasText: m.inbox!.body })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-  await info.attach(`canonical-inbox-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  await info.attach(`canonical-inbox-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`canonical-inbox-${width}.png`) }), contentType: "image/png" });
   await item.getByRole("button", { name: "Archive notification", exact: true }).click(); await expect(item).toHaveCount(0);
   expect((await page.request.post(`/api/notifications/${paymentMessage.inbox!.publicReference}/unread`, { headers })).status()).toBe(409);
   const archived = (await control("snapshot", f.reference))!; expect(archived.messages.find(m => m.eventType === "PAYMENT_SUCCEEDED_VERIFIED")!.inbox!.state).toBe("ARCHIVED");

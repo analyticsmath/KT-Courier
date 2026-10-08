@@ -6,6 +6,7 @@ import { adjustStoreEarningInTransaction } from "@/lib/services/store-earning-re
 import { createMarketplaceRefundRequest, type RefundRequestDependencies } from "@/lib/services/refund-request.service";
 import type { StoreOrderFinancialAuthority } from "@/lib/store-orders/contracts";
 import { StoreOrderError } from "@/lib/store-orders/errors";
+import { storeAdjustmentChildOperation } from "./financial-operation";
 
 const zero = () => new Prisma.Decimal(0);
 
@@ -123,15 +124,15 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
       for (const component of components) {
         if (component.amount.isZero()) continue;
         const source = accrual.allocations.find((allocation) => allocation.publicReference === component.publicReference)!;
-        const reversed = await reverseCommissionInTransaction(tx, { accrualPublicReference: accrual.publicReference, allocationPublicReference: source.publicReference, originalAmount: source.amount.toFixed(2), previouslyReversedAmount: (priorByReference.get(source.publicReference) ?? zero()).toFixed(2) }, { amount: component.amount.toFixed(2) }, { operationId: `${input.operationId}:commission:${source.publicReference}`, reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
+        const reversed = await reverseCommissionInTransaction(tx, { accrualPublicReference: accrual.publicReference, allocationPublicReference: source.publicReference, originalAmount: source.amount.toFixed(2), previouslyReversedAmount: (priorByReference.get(source.publicReference) ?? zero()).toFixed(2) }, { amount: component.amount.toFixed(2) }, { operationId: storeAdjustmentChildOperation(input.operationId, "commission", source.publicReference), reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
         commissionReversals.push(reversed.reversalLedgerJournalReference);
       }
-      const earningReversal = storeEarning.isZero() ? null : await adjustStoreEarningInTransaction(tx, { publicReference: earning.publicReference, originalSellerBasis: earning.settlementBasisAmount.toFixed(2), originalCommission: earning.attributedCommissionAmount.toFixed(2), originalAmount: earning.amount.toFixed(2), previouslyAdjustedAmount: priorStoreEarning.toFixed(2) }, { sellerBasisAmount: sellerBasis.toFixed(2), commissionAmount: commission.toFixed(2), storeEarningAmount: storeEarning.toFixed(2) }, { operationId: `${input.operationId}:store-earning`, reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
+      const earningReversal = storeEarning.isZero() ? null : await adjustStoreEarningInTransaction(tx, { publicReference: earning.publicReference, originalSellerBasis: earning.settlementBasisAmount.toFixed(2), originalCommission: earning.attributedCommissionAmount.toFixed(2), originalAmount: earning.amount.toFixed(2), previouslyAdjustedAmount: priorStoreEarning.toFixed(2) }, { sellerBasisAmount: sellerBasis.toFixed(2), commissionAmount: commission.toFixed(2), storeEarningAmount: storeEarning.toFixed(2) }, { operationId: storeAdjustmentChildOperation(input.operationId, "store-earning"), reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
       const committedEvidence = { operationId: input.operationId, paymentReference: adjustment.storeOrder.marketplaceOrder.payment.publicReference, customerUserId: adjustment.storeOrder.marketplaceOrder.customerUserId, refundAmount: refund.toFixed(2), commissionReversalReferences: commissionReversals, ...(earningReversal ? { storeEarningReversalReference: earningReversal.reversalLedgerJournalReference } : {}) };
       await database.marketplaceStoreOrderAdjustment.update({ where: { id: adjustment.id }, data: { financialEvidence: { ...(adjustment.financialEvidence ?? {}), phase21CommittedReversals: committedEvidence } } });
       return committedEvidence;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    const refund = new Prisma.Decimal(evidence.refundAmount).isZero() ? null : await createMarketplaceRefundRequest({ paymentPublicReference: evidence.paymentReference, customerUserId: evidence.customerUserId, guestConfirmationVerified: !evidence.customerUserId, sourceAdjustmentReference: input.adjustmentReference, amount: evidence.refundAmount, method: "ORIGINAL_PAYMENT_METHOD", reasonCode: "SERVICE_NOT_PROVIDED", operationId: `${input.operationId}:refund` }, this.refundDependencies);
+    const refund = new Prisma.Decimal(evidence.refundAmount).isZero() ? null : await createMarketplaceRefundRequest({ paymentPublicReference: evidence.paymentReference, customerUserId: evidence.customerUserId, guestConfirmationVerified: !evidence.customerUserId, sourceAdjustmentReference: input.adjustmentReference, amount: evidence.refundAmount, method: "ORIGINAL_PAYMENT_METHOD", reasonCode: "SERVICE_NOT_PROVIDED", operationId: storeAdjustmentChildOperation(input.operationId, "refund") }, this.refundDependencies);
     return Object.freeze({ refundReference: refund?.publicReference, commissionReversalReferences: evidence.commissionReversalReferences, storeEarningReversalReference: evidence.storeEarningReversalReference, financialStatus: refund ? "REFUND_RESERVED" as const : "REFUND_COMPLETED" as const });
   }
 }

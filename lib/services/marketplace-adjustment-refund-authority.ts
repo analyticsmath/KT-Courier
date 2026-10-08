@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { storeAdjustmentChildOperation } from "@/lib/store-orders/financial-operation";
 import { RefundError } from "@/lib/refunds/errors";
 
 /** Store refunds use committed exact reversals plus the independently proved
@@ -10,7 +11,7 @@ export async function assertCommittedMarketplaceAdjustmentFunding(tx: Prisma.Tra
   if (!adjustment || !["APPLYING", "REFUND_PENDING", "COMPLETED"].includes(adjustment.status) || adjustment.storeOrder.marketplaceOrder.paymentId !== input.paymentId || adjustment.storeOrder.marketplaceOrder.customerUserId !== input.customerUserId || !adjustment.refundAmount.equals(input.amount)) throw invalid();
   const evidence = (adjustment.financialEvidence as Record<string, unknown> | null)?.phase21CommittedReversals as Record<string, unknown> | undefined;
   const snapshot = adjustment.storeOrder.settlementSnapshots[0];
-  if (!evidence || typeof evidence.operationId !== "string" || input.operationId !== `${evidence.operationId}:refund` || typeof evidence.refundAmount !== "string" || !/^\d+\.\d{2}$/.test(evidence.refundAmount) || !new Prisma.Decimal(evidence.refundAmount).equals(input.amount) || !snapshot?.commissionAccrualReference || !snapshot.storeEarningReference || snapshot.settlementVersion !== adjustment.sourceVersion || snapshot.sourcePaymentId !== input.paymentId) throw invalid();
+  if (!evidence || typeof evidence.operationId !== "string" || input.operationId !== storeAdjustmentChildOperation(evidence.operationId, "refund") || typeof evidence.refundAmount !== "string" || !/^\d+\.\d{2}$/.test(evidence.refundAmount) || !new Prisma.Decimal(evidence.refundAmount).equals(input.amount) || !snapshot?.commissionAccrualReference || !snapshot.storeEarningReference || snapshot.settlementVersion !== adjustment.sourceVersion || snapshot.sourcePaymentId !== input.paymentId) throw invalid();
   const fee = adjustment.deliveryFeeAmount;
   if (fee.lessThan(0) || fee.greaterThan(adjustment.refundAmount)) throw invalid();
   if (!fee.isZero()) {
@@ -38,12 +39,12 @@ export async function assertCommittedMarketplaceAdjustmentFunding(tx: Prisma.Tra
     const metadata = journal.metadata as Record<string, unknown> | null;
     const earningJournal = journal.reference === evidence.storeEarningReversalReference;
     if (journal.currency !== "ZAR" || !journal.totalDebits.equals(journal.totalCredits) || journal.entries.length !== 2 || typeof metadata?.operationId !== "string") throw invalid();
-    if (earningJournal ? journal.type !== "STORE_EARNING_REVERSAL" || metadata.earningReference !== snapshot.storeEarningReference || metadata.operationId !== `${evidence.operationId}:store-earning` : journal.type !== "ACCOUNT_TRANSFER" || metadata.accrualReference !== snapshot.commissionAccrualReference || !metadata.operationId.startsWith(`${evidence.operationId}:commission:`)) throw invalid();
+    if (earningJournal ? journal.type !== "STORE_EARNING_REVERSAL" || metadata.earningReference !== snapshot.storeEarningReference || metadata.operationId !== storeAdjustmentChildOperation(evidence.operationId, "store-earning") : journal.type !== "ACCOUNT_TRANSFER" || metadata.accrualReference !== snapshot.commissionAccrualReference || typeof metadata.allocationReference !== "string" || metadata.operationId !== storeAdjustmentChildOperation(evidence.operationId, "commission", metadata.allocationReference)) throw invalid();
     const credits = journal.entries.filter(entry => entry.direction === "CREDIT" && entry.accountId === held.id);
     if (credits.length !== 1 || !credits[0].amount.equals(journal.totalCredits) || !credits[0].amount.greaterThan(0)) throw invalid();
     restored = restored.add(credits[0].amount);
   }
   if (!restored.add(fee).equals(input.amount)) throw invalid();
-  const otherRefund = await tx.paymentRefund.findFirst({ where: { creationIdempotencyKey: `${evidence.operationId}:refund` } });
+  const otherRefund = await tx.paymentRefund.findFirst({ where: { creationIdempotencyKey: storeAdjustmentChildOperation(evidence.operationId, "refund") } });
   if (otherRefund && (otherRefund.paymentId !== input.paymentId || !otherRefund.amount.equals(input.amount))) throw invalid();
 }

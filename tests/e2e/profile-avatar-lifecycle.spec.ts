@@ -58,7 +58,7 @@ for (const role of ["customer", "store", "driver"] as const) for (const width of
     const beforeRemoval = snapshot(email);
     await page.reload(); await expect(page.getByRole("img", { name: "Your profile", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    await testInfo.attach(`profile-${role}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+    await testInfo.attach(`profile-${role}-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`profile-${role}-${width}.png`) }), contentType: "image/png" });
     await login(page, "e2e-checkout-other@ktcouriers.local");
     expect((await page.request.get(`/api/private-media/${references[1]}`)).status()).toBe(403); expect(snapshot(email).avatarReference).toBe(references[1]);
     await login(page, email); await page.goto(path);

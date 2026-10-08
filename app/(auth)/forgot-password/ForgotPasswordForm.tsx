@@ -30,8 +30,8 @@ export function ForgotPasswordForm() {
       });
       const data = await res.json();
 
-      if (!res.ok && data.fields?.email) {
-        setEmailError(data.fields.email);
+      if (!res.ok) {
+        setEmailError(data.fields?.email ?? data.error ?? "Password reset is temporarily unavailable. Please try again.");
         return;
       }
 

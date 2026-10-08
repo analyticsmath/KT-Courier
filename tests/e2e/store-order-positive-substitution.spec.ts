@@ -53,7 +53,7 @@ for (const width of [1440, 390]) test(`native owned replacement approval and exa
   expect(new Prisma.Decimal(adjustment.refundAmount).toFixed(2)).toBe(expectedRefund); expect(new Prisma.Decimal(expectedRefund).greaterThan(0)).toBe(true);
   expect(decided.payment).toEqual(f.baseline.payment);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await info.attach(`owned-replacement-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  await info.attach(`owned-replacement-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`owned-replacement-${width}.png`) }), contentType: "image/png" });
   await login(page, "e2e-store@ktcouriers.local");
   expect((await storeAction(page, f.storeReference, { action: "accept", preparationMinutes: 30, pickupInstructions: "Disposable collection" })).status()).toBe(422);
   const funded = await refundControl(f.reference, "apply-store-adjustment", { storeOrderReference: f.storeReference, adjustmentReference: adjustment.publicReference });

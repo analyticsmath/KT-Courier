@@ -6,7 +6,7 @@ import { proveStoreOrderEmployeeScope } from "./store-order-employee";
 import { refundControl, assertBalancedRefundJournal } from "./refund";
 
 export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | "substitution" | "handoff" | "accessibility") {
-  for (const width of [1440, 390]) test(`canonical ${domain} store-order journey at ${width}px`, async ({ page }, info) => {
+  for (const width of domain === "accessibility" ? [1440, 768, 390, 320] : [1440, 390]) test(`canonical ${domain} store-order journey at ${width}px`, async ({ page }, info) => {
     test.setTimeout(180_000);
     const f = await prepareStoreOrder(page, `store-${domain}-${width}`, width);
     const postStore = async (body: Record<string, unknown>) => { const response = await storeAction(page, f.storeReference, body); expect(response.status(), await response.text()).toBe(200); return (await response.json()).result; };
@@ -95,7 +95,17 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
         await expect(page.locator('.eo-store-action-message[role="alert"]')).toContainText("could not complete"); expect(await storeControl(f.storeReference)).toEqual(f.baseline);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         for (const button of await page.getByRole("button", { name: /Begin review|Confirm availability|Accept order/ }).all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        await info.attach(`store-order-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+        if (width === 1440) {
+          await page.evaluate(() => { document.documentElement.style.zoom = "2"; });
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+          await input.focus(); await expect(input).toBeFocused();
+          await page.keyboard.press("Tab"); await expect(page.getByLabel("Pickup instructions")).toBeFocused();
+          await expect(page.getByRole("button", { name: "Accept order", exact: true })).toBeVisible();
+          expect(await storeControl(f.storeReference)).toEqual(f.baseline);
+          await info.attach("store-order-200-percent", { body: await page.screenshot({ fullPage: true, path: info.outputPath("store-order-200-percent.png") }), contentType: "image/png" });
+          await page.evaluate(() => { document.documentElement.style.zoom = ""; });
+        }
+        await info.attach(`store-order-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`store-order-${width}.png`) }), contentType: "image/png" });
       } else {
         if (domain === "handoff") {
           const premature = await storeAction(page, f.storeReference, { action: "generate-pickup-code" }); expect(premature.status()).toBe(422); expect((await premature.json()).code).toBe("STORE_ORDER_HANDOFF_NOT_READY");
