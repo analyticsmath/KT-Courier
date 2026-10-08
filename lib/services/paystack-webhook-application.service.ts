@@ -465,7 +465,7 @@ export async function applyPaystackWebhookEvent(
         ? "AMOUNT_MISMATCH"
         : "CONFLICTING_PROVIDER_STATUS";
 
-    return prisma.$transaction(async (tx) => {
+    return withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
       const upserted = await tx.paymentWebhookEvent.upsert({
         where: { eventFingerprint },
         update: {
@@ -520,7 +520,7 @@ export async function applyPaystackWebhookEvent(
 
       await tx.payment.update({ where: { id: payment.id }, data: { reconciliationStatus: "REQUIRED" } });
       return Object.freeze({ outcome: "RECONCILIATION_REQUIRED", eventPublicReference: upserted.publicReference, ledgerJournalReference: null });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
   }
 
   // Handle late success for cancelled or expired attempts

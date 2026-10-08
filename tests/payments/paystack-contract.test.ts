@@ -378,6 +378,9 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
   // 13. Currency mismatch rejection (non-ZAR)
   it("13. rejects webhook when currency is not ZAR and opens reconciliation case", async () => {
+    // Only local reconciliation is retried after a PostgreSQL conflict;
+    // independent provider verification must not be repeated.
+    (prisma.$transaction as any).mockRejectedValueOnce({ code: "P2034" });
     const payload = {
       event: "charge.success" as const,
       data: {
@@ -422,6 +425,8 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
     expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
     expect(prisma.paymentReconciliationCase.create).toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(mockClient.verifyTransaction).toHaveBeenCalledTimes(1);
     expect((prisma.paymentWebhookEvent.upsert as any).mock.calls.at(-1)[0].update).not.toHaveProperty("normalizedStatus");
   });
 
