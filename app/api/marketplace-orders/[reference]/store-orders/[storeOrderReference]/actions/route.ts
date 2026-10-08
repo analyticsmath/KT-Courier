@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { createHash } from "node:crypto";
+import { storeOrderRequestHash } from "@/lib/store-orders/request-hash";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { MARKETPLACE_ORDER_COOKIE } from "@/lib/marketplace-checkout/tokens";
@@ -8,7 +8,7 @@ import { decideStoreOrderSubstitution, requestMarketplaceStoreOrderCancellation,
 import { getCustomerStoreOrderActions } from "@/lib/services/customer-store-order-actions.service";
 import { PreapprovedChoicesSchema } from "@/lib/store-orders/preapproved-choices";
 
-const hash = (action: string, body: Record<string, unknown>) => createHash("sha256").update(`${action}:${JSON.stringify(body)}`).digest("hex");
+const hash = storeOrderRequestHash;
 
 export async function GET(request: NextRequest, context: { params: Promise<{ reference: string; storeOrderReference: string }> }) {
   const user = await getCurrentUser();

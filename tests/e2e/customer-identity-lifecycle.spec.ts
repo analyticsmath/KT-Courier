@@ -41,7 +41,10 @@ for (const width of [1440, 390]) test(`native customer verification, owned addre
   await page.goto("/account/addresses");
   if (!await page.getByLabel("Label", { exact: true }).isVisible()) await page.getByRole("button", { name: "Add address", exact: true }).first().click();
   await page.getByLabel("Label", { exact: true }).fill("Synthetic home");
-  await page.getByLabel("Street address", { exact: true }).fill("45 Commission St");
+  await authField("Street address").fill("45 Commission St");
+  await page.getByLabel("City / suburb", { exact: true }).fill("Johannesburg");
+  await page.getByLabel("Province", { exact: true }).fill("Gauteng");
+  await page.getByLabel("Postal code", { exact: true }).fill("2001");
   const addressCreated = page.waitForResponse(r => r.url().endsWith("/api/account/addresses") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Add address", exact: true }).click();
   const addressResponse = await addressCreated; expect(addressResponse.status(), await addressResponse.text()).toBe(201);

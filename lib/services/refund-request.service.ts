@@ -244,7 +244,9 @@ export async function createRefundRequestInTransaction(tx: Prisma.TransactionCli
   else await assertGenericRefundHasNoStoreEarningExposure(tx, payment.id);
   await assertGenericRefundHasNoDriverEarningExposure(tx, payment.id);
   const allocations = await resolveOriginalCommissionAllocations(tx, payment);
-  const deltas = calculateCumulativeCommissionAdjustments({ originalPaymentAmount: payment.amount, priorSuccessfulAndReservedRefundAmount: succeeded.add(reserved), currentRefundAmount: amount.toDecimal(), allocations });
+  // Bound adjustments already restored customer-held funds through canonical
+  // reversals. Their reservation must not reverse those allocations again.
+  const deltas = sourceAdjustmentReference ? [] : calculateCumulativeCommissionAdjustments({ originalPaymentAmount: payment.amount, priorSuccessfulAndReservedRefundAmount: succeeded.add(reserved), currentRefundAmount: amount.toDecimal(), allocations });
   const customerFunds = await tx.ledgerAccount.findUnique({ where: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" } });
   if (!customerFunds || customerFunds.purpose !== "HELD" || customerFunds.category !== "LIABILITY" || customerFunds.allowNegative) throw new RefundError("REFUND_FUNDING_UNAVAILABLE", "Platform customer funds held account is unavailable.");
   const funding = buildRefundFundingPlan({ refundAmount: amount.toString(), customerFundsHeldAccountId: customerFunds.id, adjustmentDeltas: deltas, createReference: fundingReference });

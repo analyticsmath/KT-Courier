@@ -94,7 +94,7 @@ for (const width of [1440, 390]) test(`independent measured packaging governance
     }
     await control("tariff-size", tag);
     const stale = await freshCheckout(page, f, f.entries.find(e => e.offerReference.endsWith("-stale"))!); await control("stale-offer", tag);
-    const staleDenied = await calculate(page, stale); expect(staleDenied.status()).toBe(409); const staleReceipt = await control<Snapshot>("snapshot", tag, stale); expect(staleReceipt.classification).toMatchObject({ status: "UNKNOWN", reason: "PACKAGE_SOURCE_REVISION_STALE" }); expect(staleReceipt.quotes).toHaveLength(0); receipts.push(staleReceipt);
+    const staleDenied = await calculate(page, stale); expect(staleDenied.status(), await staleDenied.text()).toBe(422); expect((await staleDenied.json()).code).toBe("CHECKOUT_REVIEW_REQUIRED"); const staleReceipt = await control<Snapshot>("snapshot", tag, stale); expect(staleReceipt.classification).toMatchObject({ status: "UNKNOWN", reason: "PACKAGE_SOURCE_REVISION_STALE" }); expect(staleReceipt.quotes).toHaveLength(0); receipts.push(staleReceipt);
     await login(page, f.email); expect((await page.request.get("/api/admin/marketplace-trusted-packages")).status()).toBe(403);
     expect((await page.request.post("/api/admin/marketplace-trusted-packages", { headers, data: draft })).status()).toBe(403);
     expect(receipts[0].audit.filter(row => row.metadata.afterStatus === "APPROVED")).toEqual([expect.objectContaining({ actorUserId: f.reviewerId })]);

@@ -3,6 +3,7 @@ import { login } from "./auth";
 import { prepareStoreOrder, storeControl, storeAction, customerAction } from "./store-order";
 import { completeSyntheticStoreHandoff } from "./store-handoff";
 import { proveStoreOrderEmployeeScope } from "./store-order-employee";
+import { refundControl, assertBalancedRefundJournal } from "./refund";
 
 export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | "substitution" | "handoff" | "accessibility") {
   for (const width of [1440, 390]) test(`canonical ${domain} store-order journey at ${width}px`, async ({ page }, info) => {
@@ -10,9 +11,14 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
     const f = await prepareStoreOrder(page, `store-${domain}-${width}`, width);
     const postStore = async (body: Record<string, unknown>) => { const response = await storeAction(page, f.storeReference, body); expect(response.status(), await response.text()).toBe(200); return (await response.json()).result; };
     if (domain === "customer") {
-      const operationId = crypto.randomUUID();
-      const body = { action: "request-cancellation", reasonCode: "CUSTOMER_CHANGED_MIND", operationId };
-      const response = await customerAction(page, f.order.publicReference, f.storeReference, body);
+      await page.goto(`/order-confirmation/${f.order.publicReference}`);
+      const controls = page.getByRole("region", { name: `Order decisions for ${f.storeReference}`, exact: true });
+      await controls.getByText("Request cancellation of this store order", { exact: true }).click();
+      await controls.getByRole("checkbox", { name: "I want to cancel this store order.", exact: true }).check();
+      const requested = page.waitForResponse(response => response.url().endsWith(`/store-orders/${f.storeReference}/actions`) && response.request().method() === "POST");
+      await controls.getByRole("button", { name: "Confirm cancellation request", exact: true }).click();
+      const response = await requested;
+      const body = response.request().postDataJSON(); const operationId = body.operationId as string;
       expect(response.status(), await response.text()).toBe(200);
       expect((await response.json()).result).toMatchObject({ status: "APPROVED", replayed: false });
       const after = await storeControl(f.storeReference);
@@ -21,9 +27,19 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       const replay = await customerAction(page, f.order.publicReference, f.storeReference, body);
       expect(replay.status()).toBe(200); expect((await replay.json()).result.replayed).toBe(true);
       expect((await customerAction(page, f.order.publicReference, f.storeReference, { ...body, reasonCode: "DIFFERENT_REASON" })).status()).toBe(409);
+      expect(after.preparationStatus).toBe("ABORTED"); expect(after.adjustments).toHaveLength(1);
+      const funded = await refundControl(f.reference, "apply-store-adjustment", { storeOrderReference: f.storeReference, adjustmentReference: after.adjustments[0].publicReference });
+      const refund = funded.refunds[0]; expect(refund.status).toBe("REQUESTED"); assertBalancedRefundJournal(refund.reserve, "REFUND_RESERVE", refund.amount);
+      await refundControl(f.reference, "approve", { reference: refund.reference });
+      const paid = await refundControl(f.reference, "start-provider", { reference: refund.reference, outcome: "processed" });
+      expect(paid.payment.refunded).toBe(paid.payment.amount); expect(paid.payment.reserved).toBe("0.00");
+      assertBalancedRefundJournal(paid.refunds[0].completion, "REFUND_EXTERNAL_PAYOUT", refund.amount);
+      const completed = await storeControl(f.storeReference); expect(completed.resolutionStatus).toBe("RESOLVED"); expect(completed.stock).toEqual(after.stock);
+      expect(completed.cancellations).toEqual([{ status: "APPLIED", operationId }]);
+      await page.reload(); await expect(page.getByText("Refund completed", { exact: false }).first()).toBeVisible();
       await login(page, "e2e-checkout-other@ktcouriers.local");
       expect((await customerAction(page, f.order.publicReference, f.storeReference, body)).status()).toBe(404);
-      expect((await storeControl(f.storeReference)).cancellations).toEqual(after.cancellations);
+      expect((await storeControl(f.storeReference)).cancellations).toEqual(completed.cancellations);
       await page.context().clearCookies();
       expect((await page.request.get(`/api/marketplace-orders/${f.order.publicReference}/tracking`)).status()).toBe(401);
     } else if (domain === "admin") {

@@ -18,6 +18,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { PreapprovedChoicesSchema, assertPreapprovedChoice, type PreapprovedChoice, type FrozenPreapprovedChoice } from "./preapproved-choices";
 import { completedAdjustmentResolution } from "./adjustment-resolution";
+import { createUnstartedFullAdjustment, unearnedStoreOrderCancellation } from "./full-order-adjustment";
 
 type Delegate = { findUnique: (args: unknown) => Promise<any>; findFirst: (args: unknown) => Promise<any>; findMany: (args: unknown) => Promise<any[]>; create: (args: unknown) => Promise<any>; update: (args: unknown) => Promise<any>; updateMany: (args: unknown) => Promise<{ count: number }>; upsert: (args: unknown) => Promise<any> };
 type Phase21Database = Record<string, Delegate>;
@@ -211,7 +212,7 @@ export async function rejectMarketplaceStoreOrder(input: Readonly<{ storeOrderRe
     assertStoreOrder(!["ACCEPTED", "REJECTED", "TIMED_OUT"].includes(order.acceptanceStatus), "STORE_ORDER_REJECTION_INVALID", "An accepted or resolved order cannot be rejected.");
     if (input.timedOut) assertAcceptanceTransition(order.acceptanceStatus, "TIMED_OUT"); else assertAcceptanceTransition(order.acceptanceStatus, "REJECTED");
     const adjustmentReference = ref("soadj");
-    await model(tx, "marketplaceStoreOrderAdjustment").create({ data: { publicReference: adjustmentReference, marketplaceStoreOrderId: order.id, adjustmentType: "FULL_STORE_REJECTION", status: "APPROVED", reasonCode: input.reasonCode, sourceVersion: "phase20-frozen-v1", operationId: input.operationId, requestHash: input.requestHash, deliveryFeeAmount: order.deliveryFee, refundAmount: order.groupTotal, financialEvidence: { settlementSnapshotReference: order.settlementSnapshots[0]?.publicReference ?? null, refundMethod: "ORIGINAL_PAYMENT_METHOD", inventoryDisposition: "RESTOCK" } } });
+    await createUnstartedFullAdjustment(tx as unknown as Prisma.TransactionClient, { storeOrderId: order.id, publicReference: adjustmentReference, adjustmentType: "FULL_STORE_REJECTION", actorUserId: input.actorUserId, reasonCode: input.reasonCode, operationId: input.operationId, requestHash: input.requestHash });
     await updateOrder(tx, order, { acceptanceStatus: input.timedOut ? "TIMED_OUT" : "REJECTED", preparationStatus: "ABORTED", resolutionStatus: "ADJUSTMENT_PENDING", financialResolutionStatus: "ADJUSTMENT_CALCULATED" });
     const response = { storeOrderReference: order.publicReference, acceptanceStatus: input.timedOut ? "TIMED_OUT" : "REJECTED", adjustmentReference };
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: input.timedOut ? "STORE_ORDER_TIMED_OUT" : "STORE_ORDER_REJECTED", actorUserId: input.actorUserId, evidence: { ...response, reasonCode: input.reasonCode, note: safeNote(input.note) ?? undefined } });
@@ -390,7 +391,7 @@ async function createLineAdjustment(tx: Phase21Database, order: any, issue: any,
   const allocations = sourceLine.financialAllocations ?? [];
   assertStoreOrder(allocations.length === 3 && new Set(allocations.map((allocation: any) => allocation.type)).size === 3, "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "All three immutable line allocations are required.");
   const sourceAmounts = Object.fromEntries(allocations.map((allocation: any) => [allocation.type, allocation.amount.toFixed(2)]));
-  const priorAllocations = await model(tx, "marketplaceStoreOrderAdjustmentAllocation").findMany({ where: { marketplaceOrderLineId: sourceLine.id, allocationType: "SELLER_BASIS", adjustmentId: { not: adjustment.id } } });
+  const priorAllocations = await model(tx, "marketplaceStoreOrderAdjustmentAllocation").findMany({ where: { marketplaceOrderLineId: sourceLine.id, allocationType: "SELLER_BASIS", adjustmentId: { not: adjustment.id }, adjustment: { status: { not: "REJECTED" } } } });
   const priorRefund = money(priorAllocations.reduce((sum, allocation) => sum + cents(allocation.amount.toFixed(2)), BigInt(0)));
   const valueAllocation = frozenRefundAllocation({ sellerBasis: sourceAmounts.SELLER_BASIS, commission: sourceAmounts.COMMISSION, storeEarning: sourceAmounts.STORE_EARNING, includedTax: sourceLine.includedTaxAmount?.toFixed(2) ?? "0.00", priorRefund, refund: refundAmount });
   for (const allocation of allocations) {
@@ -461,6 +462,9 @@ export async function applyMarketplaceStoreOrderAdjustment(input: Readonly<{ sto
     if (result.financialStatus === "REFUND_COMPLETED") {
       const issueReference = (adjustment.financialEvidence as Record<string, unknown> | null)?.issueReference;
       if (typeof issueReference === "string") await model(tx, "marketplaceStoreOrderIssue").updateMany({ where: { marketplaceStoreOrderId: order.id, publicReference: issueReference, status: "REFUND_PENDING" }, data: { status: "RESOLVED", resolvedAt: new Date(), version: { increment: 1 } } });
+      const issueReferences = (adjustment.financialEvidence as Record<string, unknown> | null)?.issueReferences;
+      if (Array.isArray(issueReferences) && issueReferences.every(value => typeof value === "string")) await model(tx, "marketplaceStoreOrderIssue").updateMany({ where: { marketplaceStoreOrderId: order.id, publicReference: { in: issueReferences }, status: "REFUND_PENDING" }, data: { status: "RESOLVED", resolvedAt: new Date(), version: { increment: 1 } } });
+      if (adjustment.adjustmentType === "CUSTOMER_CANCELLATION") await model(tx, "marketplaceStoreOrderCancellationRequest").updateMany({ where: { marketplaceStoreOrderId: order.id, status: "APPROVED", decisionEvidence: { path: ["adjustmentReference"], equals: adjustment.publicReference } }, data: { status: "APPLIED" } });
       await model(tx, "marketplaceStoreOrderReconciliationCase").updateMany({ where: { marketplaceStoreOrderId: order.id, reasonCode: "FINANCIAL_COMPOSITION_FAILED", status: "OPEN", OR: [{ adjustmentId: adjustment.id }, { safeEvidence: { path: ["adjustmentReference"], equals: adjustment.publicReference } }] }, data: { status: "RESOLVED", resolvedAt: new Date(), resolutionCode: "BOUND_ZERO_VALUE_ADJUSTMENT_COMPLETED" } });
     }
     const nextResolution = result.financialStatus === "REFUND_COMPLETED" ? "RESOLVED" : "REFUND_PENDING";
@@ -469,7 +473,7 @@ export async function applyMarketplaceStoreOrderAdjustment(input: Readonly<{ sto
     await model(tx, "marketplaceStoreOrderAdjustment").update({ where: { id: adjustment.id }, data: { status: result.financialStatus === "REFUND_COMPLETED" ? "COMPLETED" : "REFUND_PENDING", refundId: refund?.id ?? null, appliedAt: new Date(), completedAt: result.financialStatus === "REFUND_COMPLETED" ? new Date() : null } });
     if (result.financialStatus === "REFUND_COMPLETED") {
       const [pending, openIssues, openCases] = await Promise.all([
-        model(tx, "marketplaceStoreOrderAdjustment").findMany({ where: { marketplaceStoreOrderId: order.id, status: { not: "COMPLETED" } }, select: { status: true } }),
+        model(tx, "marketplaceStoreOrderAdjustment").findMany({ where: { marketplaceStoreOrderId: order.id, status: { notIn: ["COMPLETED", "REJECTED"] } }, select: { status: true } }),
         model(tx, "marketplaceStoreOrderIssue").findMany({ where: { marketplaceStoreOrderId: order.id, status: { in: ["OPEN", "CUSTOMER_ACTION_REQUIRED", "REFUND_PENDING"] } }, select: { id: true } }),
         model(tx, "marketplaceStoreOrderReconciliationCase").findMany({ where: { marketplaceStoreOrderId: order.id, status: "OPEN" }, select: { id: true } }),
       ]);
@@ -492,13 +496,15 @@ export async function requestMarketplaceStoreOrderCancellation(input: Readonly<{
       assertStoreOrder(order.acceptanceStatus === "ACCEPTED", "STORE_ORDER_CANCELLATION_INVALID", "Stores can request cancellation only after acceptance.");
     } else {
       assertStoreOrder((input.requesterUserId && order.marketplaceOrder.customerUserId === input.requesterUserId) || (!input.requesterUserId && !order.marketplaceOrder.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
-      assertStoreOrder(!["HANDED_OFF", "ABORTED"].includes(order.preparationStatus), "STORE_ORDER_CANCELLATION_TOO_LATE", "Cancellation is unavailable after handoff or abort.");
     }
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const requestReference = ref("socancel");
-    await model(tx, "marketplaceStoreOrderCancellationRequest").create({ data: { publicReference: requestReference, marketplaceStoreOrderId: order.id, requesterType: input.requesterType, requesterUserId: input.requesterUserId ?? null, reasonCode: input.reasonCode.slice(0, 80), safeNote: safeNote(input.note), status: order.preparationStatus === "NOT_STARTED" ? "APPROVED" : "REQUESTED", operationId: input.operationId, requestHash: input.requestHash, decisionEvidence: { stage: order.preparationStatus, deliveryBridgeStatus: order.deliveryBridgeStatus } } });
-    if (order.preparationStatus === "NOT_STARTED") await updateOrder(tx, order, { resolutionStatus: "ADJUSTMENT_PENDING", financialResolutionStatus: "ADJUSTMENT_CALCULATED" });
-    const response = { storeOrderReference: order.publicReference, cancellationRequestReference: requestReference, status: order.preparationStatus === "NOT_STARTED" ? "APPROVED" : "REQUESTED" };
+    assertStoreOrder(!["HANDED_OFF", "ABORTED"].includes(order.preparationStatus), "STORE_ORDER_CANCELLATION_TOO_LATE", "Cancellation is unavailable after handoff or abort.");
+    const automatic = unearnedStoreOrderCancellation(order);
+    const adjustmentReference = automatic ? await createUnstartedFullAdjustment(tx as unknown as Prisma.TransactionClient, { storeOrderId: order.id, publicReference: ref("soadj"), adjustmentType: "CUSTOMER_CANCELLATION", actorUserId: input.requesterUserId, reasonCode: input.reasonCode.slice(0, 80), operationId: input.operationId, requestHash: input.requestHash }) : null;
+    await model(tx, "marketplaceStoreOrderCancellationRequest").create({ data: { publicReference: requestReference, marketplaceStoreOrderId: order.id, requesterType: input.requesterType, requesterUserId: input.requesterUserId ?? null, reasonCode: input.reasonCode.slice(0, 80), safeNote: safeNote(input.note), status: automatic ? "APPROVED" : "REQUESTED", operationId: input.operationId, requestHash: input.requestHash, decisionEvidence: { stage: order.preparationStatus, deliveryBridgeStatus: order.deliveryBridgeStatus, adjustmentReference } } });
+    if (automatic) await updateOrder(tx, order, { preparationStatus: "ABORTED", resolutionStatus: "ADJUSTMENT_PENDING", financialResolutionStatus: "ADJUSTMENT_CALCULATED" });
+    const response = { storeOrderReference: order.publicReference, cancellationRequestReference: requestReference, adjustmentReference, status: automatic ? "APPROVED" : "REQUESTED" };
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "STORE_ORDER_CANCELLATION_REQUESTED", actorUserId: input.requesterUserId, evidence: response });
     await receipt(tx, { storeOrderId: order.id, operationId: input.operationId, hash: input.requestHash, type: "CANCELLATION_REQUEST", response });
     return { ...response, replayed: false };

@@ -32,7 +32,7 @@ async function main() {
   const options = JSON.parse(raw) as { reference?: string; amount?: string; operationId?: string; outcome?: string; storeOrderReference?: string; adjustmentReference?: string };
   const checkout = await prisma.marketplaceCheckout.findUniqueOrThrow({ where: { publicReference: checkoutReference }, include: { contactSnapshot: true } });
   assertDisposablePaystackEmail(checkout.contactSnapshot?.email ?? "");
-  assert.match(checkout.contactSnapshot!.email, /^e2e-paystack-(?:(wallet|finance)-\d+|store-positive-(1440|390))@ktcouriers\.local$/);
+  assert.match(checkout.contactSnapshot!.email, /^e2e-paystack-(?:(wallet|finance)-\d+|store-(?:positive|customer|full-rejection)-(1440|390))@ktcouriers\.local$/);
   assert.ok(checkout.customerUserId, "Wallet proof requires an authenticated synthetic owner.");
   const owner = checkout.customerUserId!;
   const payment = await prisma.payment.findFirstOrThrow({ where: { marketplaceCheckoutId: checkout.id }, include: { successfulAttempt: true, successWebhookEvent: true } });
@@ -78,7 +78,7 @@ async function main() {
   const selected = options.reference ? await prisma.paymentRefund.findFirstOrThrow({ where: { publicReference: options.reference, paymentId: payment.id, customerUserId: owner } }) : null;
   let result: unknown = null;
   if (action === "apply-store-adjustment") {
-    assert.match(checkout.contactSnapshot!.email, /^e2e-paystack-store-positive-(1440|390)@ktcouriers\.local$/);
+    assert.match(checkout.contactSnapshot!.email, /^e2e-paystack-store-(?:positive|customer|full-rejection)-(1440|390)@ktcouriers\.local$/);
     assert.ok(options.storeOrderReference && options.adjustmentReference);
     const child = await prisma.marketplaceStoreOrder.findFirstOrThrow({ where: { publicReference: options.storeOrderReference, marketplaceOrder: { paymentId: payment.id, customerUserId: owner, checkoutId: checkout.id } } });
     await prisma.marketplaceStoreOrderAdjustment.findFirstOrThrow({ where: { publicReference: options.adjustmentReference, marketplaceStoreOrderId: child.id, status: "APPROVED" } });
