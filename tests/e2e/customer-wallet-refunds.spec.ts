@@ -55,6 +55,8 @@ for (const width of [1440, 390]) test(`owned wallet refund reserves and cancels 
   assertBalancedRefundJournal(cancelled.refunds[0].release, "REFUND_RELEASE", "25.00");
   expect(balance(cancelled, "HELD")).toBe(balance(baseline, "HELD"));
   await page.reload(); await expect(page.getByRole("button", { name: "Cancel refund", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Refund request progress", exact: true }).getByText("Reserved funds released", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await testInfo.attach(`customer-refund-cancelled-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`customer-refund-cancelled-${width}.png`) }), contentType: "image/png" });
   await page.context().clearCookies(); expect((await page.request.get(`/api/refunds/${refund.reference}`)).status()).toBe(401);
   for (const email of ["e2e-store@ktcouriers.local", "driver@ktcouriers.local"]) {

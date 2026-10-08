@@ -22,6 +22,7 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
   }
   const approved = await refundControl(reference); expect(approved.refunds[0].status).toBe("APPROVED");
   await expect(page.getByText("Refund completion is inactive pending consolidated validation approval.", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await testInfo.attach(`finance-refund-approved-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`finance-refund-approved-${width}.png`) }), contentType: "image/png" });
   expect((await page.request.post(`/api/admin/refunds/${refund.id}/complete-wallet`, { data: { operationId: crypto.randomUUID() }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(503);
   expect((await refundControl(reference)).payment).toEqual(approved.payment);
@@ -48,6 +49,7 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
   await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/refunds/${external.id}`);
   await expect(page.getByText("Provider status queries remain validation-locked.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /mark.*success|mark.*paid|Start provider refund/i })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await testInfo.attach(`finance-refund-uncertain-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`finance-refund-uncertain-${width}.png`) }), contentType: "image/png" });
   const externalCompleted = await refundControl(reference, "query-provider", { reference: external.reference, outcome: "processed" });
   const succeeded = externalCompleted.refunds.find(r => r.reference === external.reference)!;

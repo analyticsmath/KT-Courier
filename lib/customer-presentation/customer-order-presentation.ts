@@ -90,6 +90,20 @@ export function getCustomerRefundReason(reason: string): string {
   return reasons[reason] ?? "Reason unavailable";
 }
 
+export function getCustomerRefundProgressReason(reason: string): string {
+  const events: Readonly<Record<string, string>> = {
+    REFUND_REQUESTED: "Refund requested",
+    FUNDS_RESERVED: "Refund amount reserved",
+    CUSTOMER_CANCELLED: "Cancelled by you",
+    RESERVATION_RELEASED: "Reserved funds released",
+    FINANCE_REVIEW_STARTED: "Refund review started",
+    FINANCE_APPROVED: "Refund approved",
+    FINANCE_REJECTED: "Refund not approved",
+    WALLET_CREDIT_SUCCEEDED: "Refund credited to your wallet",
+  };
+  return events[reason] ?? "Status recorded";
+}
+
 export function getCustomerWithdrawalStatus(status: string): Readonly<{ label: string; tone: ProtectedStatusTone }> {
   const statuses: Readonly<Record<string, Readonly<{ label: string; tone: ProtectedStatusTone }>>> = {
     REQUESTED: { label: "Requested", tone: "warning" },

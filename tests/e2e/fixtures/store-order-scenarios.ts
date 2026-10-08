@@ -34,9 +34,14 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       const paid = await refundControl(f.reference, "start-provider", { reference: refund.reference, outcome: "processed" });
       expect(paid.payment.refunded).toBe(paid.payment.amount); expect(paid.payment.reserved).toBe("0.00");
       assertBalancedRefundJournal(paid.refunds[0].completion, "REFUND_EXTERNAL_PAYOUT", refund.amount);
-      const completed = await storeControl(f.storeReference); expect(completed.resolutionStatus).toBe("RESOLVED"); expect(completed.stock).toEqual(after.stock);
+      const completed = await storeControl(f.storeReference); expect(completed.resolutionStatus).toBe("RESOLVED"); expect(completed.preparationStatus).toBe("ABORTED"); expect(completed.stock).toEqual(after.stock);
       expect(completed.cancellations).toEqual([{ status: "APPLIED", operationId }]);
-      await page.reload(); await expect(page.getByText("Refund completed", { exact: false }).first()).toBeVisible();
+      await page.reload(); await expect(controls.getByText("Refund completed", { exact: true })).toBeVisible();
+      const storeCard = page.getByRole("article").filter({ has: controls });
+      await expect(storeCard.getByText("Aborted", { exact: true })).toBeVisible();
+      const tracking = await page.request.get(`/api/marketplace-orders/${f.order.publicReference}/tracking`);
+      expect(tracking.status(), await tracking.text()).toBe(200);
+      expect((await tracking.json()).storeOrders).toEqual([expect.objectContaining({ storeOrderReference: f.storeReference, fulfilmentStatus: "ABORTED" })]);
       await info.attach(`customer-order-refunded-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`customer-order-refunded-${width}.png`) }), contentType: "image/png" });
       await login(page, "e2e-checkout-other@ktcouriers.local");
       expect((await customerAction(page, f.order.publicReference, f.storeReference, body)).status()).toBe(404);
@@ -59,8 +64,12 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       await page.goto("/admin/store-order-reconciliation");
       await expect(page.getByRole("heading", { name: "Store-order reconciliation", exact: true })).toBeVisible();
       const cases = page.getByRole("table", { name: "Marketplace store-order operational reconciliation cases", exact: true });
-      await expect(cases.getByText(f.storeReference, { exact: true })).toBeVisible();
-      await expect(cases).toContainText("ADMIN_CANONICAL_RESCAN");
+      const caseRow = cases.getByRole("row").filter({ hasText: f.storeReference });
+      await expect(caseRow).toHaveCount(1);
+      await expect(caseRow).toBeVisible();
+      await expect(caseRow.getByText(f.storeReference, { exact: true })).toBeVisible();
+      await expect(caseRow).toContainText("ADMIN_CANONICAL_RESCAN");
+      await expect(caseRow).toContainText("Awaiting store review");
       await info.attach(`admin-store-reconciliation-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`admin-store-reconciliation-${width}.png`) }), contentType: "image/png" });
     } else if (domain === "substitution") {
       const pref = await customerAction(page, f.order.publicReference, f.storeReference, { action: "substitution-preference", orderLineId: f.baseline.lines[0].id, preference: "CONTACT_ME" }); expect(pref.status(), await pref.text()).toBe(200);
