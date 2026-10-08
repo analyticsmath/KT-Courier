@@ -852,6 +852,15 @@ export default function DriverAssignmentDetailPage() {
             </div>
           )}
 
+          {locationStatus && <p className="text-xs text-[var(--kt-text-muted)]" role="status">{locationStatus}</p>}
+          {["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
+            <div className="mb-3">
+              <Button variant="ghost" onClick={handleRecordLocation} disabled={locationRecording}>
+                {locationRecording ? "Recording location…" : "Record Location"}
+              </Button>
+            </div>
+          )}
+
           {/* Idle — choose an action */}
           {deliveryAction === "idle" && (
             <div className="space-y-3">
@@ -864,7 +873,6 @@ export default function DriverAssignmentDetailPage() {
                   </p>
                 </div>
               )}
-              {locationStatus && <p className="text-xs text-[var(--kt-text-muted)]" role="status">{locationStatus}</p>}
               <div className="flex gap-3 flex-wrap">
                 {["PICKED_UP", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
                   <Button variant="primary" onClick={() => { setDeliveryAction("start"); setDeliveryError(null); }}>
@@ -895,11 +903,6 @@ export default function DriverAssignmentDetailPage() {
                 >
                   Delivery Attempted
                 </Button>
-                {["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
-                  <Button variant="ghost" onClick={handleRecordLocation} disabled={locationRecording}>
-                    {locationRecording ? "Recording location…" : "Record Location"}
-                  </Button>
-                )}
               </div>
             </div>
           )}

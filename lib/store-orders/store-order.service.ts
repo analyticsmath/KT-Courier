@@ -16,6 +16,8 @@ import { completeMarketplacePickupInTx } from "@/lib/services/pickup-custody.ser
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { PreapprovedChoicesSchema, assertPreapprovedChoice, type PreapprovedChoice, type FrozenPreapprovedChoice } from "./preapproved-choices";
+import { completedAdjustmentResolution } from "./adjustment-resolution";
 
 type Delegate = { findUnique: (args: unknown) => Promise<any>; findFirst: (args: unknown) => Promise<any>; findMany: (args: unknown) => Promise<any[]>; create: (args: unknown) => Promise<any>; update: (args: unknown) => Promise<any>; updateMany: (args: unknown) => Promise<{ count: number }>; upsert: (args: unknown) => Promise<any> };
 type Phase21Database = Record<string, Delegate>;
@@ -227,17 +229,29 @@ export async function timeoutUnacceptedStoreOrders(input: Readonly<{ now?: Date;
   }));
 }
 
-export async function updateStoreOrderSubstitutionPreference(input: Readonly<{ storeOrderReference: string; orderLineId: string; customerUserId?: string; guestSecret?: string; preference: "REFUND_IF_UNAVAILABLE" | "NO_SUBSTITUTION" | "CONTACT_ME" | "PREAPPROVED_CHOICES_ONLY"; operationId: string; requestHash: string; testApproval?: TestApproval }>) {
+export async function updateStoreOrderSubstitutionPreference(input: Readonly<{ storeOrderReference: string; orderLineId: string; customerUserId?: string; guestSecret?: string; preference: "REFUND_IF_UNAVAILABLE" | "NO_SUBSTITUTION" | "CONTACT_ME" | "PREAPPROVED_CHOICES_ONLY"; choices?: readonly PreapprovedChoice[]; operationId: string; requestHash: string; testApproval?: TestApproval }>) {
   assertStoreOrderProductionReady("AVAILABILITY", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
-    assertStoreOrder((input.customerUserId && order.marketplaceOrder?.customerUserId === input.customerUserId) || (!input.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder?.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
+    assertStoreOrder((input.customerUserId && order.marketplaceOrder?.customerUserId === input.customerUserId) || (!input.customerUserId && !order.marketplaceOrder?.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder?.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
-    assertStoreOrder(order.preparationStatus === "NOT_STARTED" && !["HANDED_OFF", "ABORTED"].includes(order.preparationStatus), "STORE_ORDER_PREFERENCE_LOCKED", "Substitution preference can no longer be changed.");
+    assertStoreOrder(order.preparationStatus === "NOT_STARTED" && !["ACCEPTED", "REJECTED", "TIMED_OUT"].includes(order.acceptanceStatus), "STORE_ORDER_PREFERENCE_LOCKED", "Substitution preference can no longer be changed.");
     const line = order.lines.find((item: any) => item.id === input.orderLineId);
     assertStoreOrder(line?.fulfilment && line.fulfilment.issues.length === 0, "STORE_ORDER_PREFERENCE_LOCKED", "Preference can only change before a line issue opens.");
+    const frozenChoices: FrozenPreapprovedChoice[] = [];
+    if (input.preference === "PREAPPROVED_CHOICES_ONLY") {
+      const parsed = PreapprovedChoicesSchema.safeParse(input.choices);
+      assertStoreOrder(parsed.success, "STORE_ORDER_PREAPPROVED_CHOICE_REQUIRED", "Select one to three exact replacement items before saving this preference.");
+      for (const choice of parsed.data) {
+        assertStoreOrder(choice.quantity <= line.quantity, "STORE_ORDER_QUANTITY_INVALID", "Replacement quantity exceeds the original line.");
+        const resolved = await resolveMarketplaceCartLine({ ...choice, modifiers: [] }, tx as unknown as Prisma.TransactionClient);
+        assertStoreOrder(resolved.storeId === order.storeId, "STORE_ORDER_SUBSTITUTION_WRONG_STORE", "A replacement must belong to the original store.");
+        assertSubstitutionPriceCap({ substituteCharge: money(cents(resolved.unitPrice) * BigInt(choice.quantity)), originalRemainingCharge: line.lineTotal.toFixed(2) });
+        frozenChoices.push({ ...choice, publicationVersion: resolved.publicationVersion, priceVersion: resolved.priceVersion, unitPrice: resolved.unitPrice });
+      }
+    } else assertStoreOrder(!input.choices?.length, "STORE_ORDER_INPUT_INVALID", "Exact replacement choices belong to the selected-items preference.");
     await model(tx, "marketplaceStoreOrderLineFulfilment").update({ where: { id: line.fulfilment.id }, data: { substitutionPreference: input.preference, preferenceChangedAt: new Date(), preferenceActorUserId: input.customerUserId ?? null, version: { increment: 1 } } });
-    const response = { storeOrderReference: order.publicReference, orderLineId: line.id, preference: input.preference };
+    const response = { storeOrderReference: order.publicReference, orderLineId: line.id, preference: input.preference, choices: frozenChoices };
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "SUBSTITUTION_PREFERENCE_UPDATED", actorUserId: input.customerUserId, evidence: response });
     await receipt(tx, { storeOrderId: order.id, operationId: input.operationId, hash: input.requestHash, type: "PREFERENCE", response });
     return { ...response, replayed: false };
@@ -257,11 +271,17 @@ export async function proposeStoreOrderSubstitution(input: Readonly<{ storeOrder
     assertStoreOrder(issue.proposals.length < policy.maximumSubstitutionProposalsPerLine, "STORE_ORDER_SUBSTITUTION_LIMIT", "The frozen policy proposal limit has been reached.");
     assertStoreOrder(input.quantity <= issue.affectedQuantity, "STORE_ORDER_QUANTITY_INVALID", "Substitute quantity exceeds the unavailable quantity.");
     const resolved = await resolveMarketplaceCartLine({ offerReference: input.substituteOfferReference, variantReference: input.substituteVariantReference, quantity: input.quantity, modifiers: [] }, tx as unknown as Prisma.TransactionClient);
+    if (issue.lineFulfilment.substitutionPreference === "PREAPPROVED_CHOICES_ONLY") {
+      const preference = await model(tx, "marketplaceStoreOrderHistory").findFirst({ where: { marketplaceStoreOrderId: order.id, eventType: "SUBSTITUTION_PREFERENCE_UPDATED", safeEvidence: { path: ["orderLineId"], equals: issue.orderLine.id } }, orderBy: { createdAt: "desc" } });
+      const choices = preference?.safeEvidence?.choices;
+      assertStoreOrder(Array.isArray(choices), "STORE_ORDER_PREAPPROVED_CHOICE_REQUIRED", "The customer's exact replacement choices are unavailable.");
+      assertPreapprovedChoice(choices, { offerReference: resolved.offerReference, variantReference: resolved.variantReference, quantity: input.quantity, publicationVersion: resolved.publicationVersion, priceVersion: resolved.priceVersion, unitPrice: resolved.unitPrice });
+    }
     assertStoreOrder(resolved.storeId === order.storeId, "STORE_ORDER_SUBSTITUTION_CROSS_STORE", "A substitute must belong to the same store.");
     const originalRemainingCharge = money(cents(issue.orderLine.effectiveUnitPrice.toFixed(2)) * BigInt(issue.affectedQuantity));
     const substituteCharge = money(cents(resolved.unitPrice) * BigInt(input.quantity));
     assertSubstitutionPriceCap({ substituteCharge, originalRemainingCharge });
-    const inventory = await prisma.catalogInventoryItem.findFirst({ where: { offer: { publicReference: resolved.offerReference, storeId: order.storeId }, variant: { publicReference: resolved.variantReference }, trackingMode: "TRACKED" }, include: { levels: { where: { available: { gte: input.quantity }, location: { status: "ACTIVE" } }, orderBy: { id: "asc" }, take: 1 } } });
+    const inventory = await (tx as unknown as Prisma.TransactionClient).catalogInventoryItem.findFirst({ where: { offer: { publicReference: resolved.offerReference, storeId: order.storeId }, variant: { publicReference: resolved.variantReference }, trackingMode: "TRACKED" }, include: { levels: { where: { available: { gte: input.quantity }, location: { status: "ACTIVE" } }, orderBy: { id: "asc" }, take: 1 } } });
     assertStoreOrder(inventory?.levels[0], "STORE_ORDER_SUBSTITUTION_STOCK_UNAVAILABLE", "Substitute stock is unavailable.");
     const level = inventory.levels[0];
     const expiry = new Date(Date.now() + policy.customerDecisionWindowSeconds * 1000);
@@ -297,7 +317,7 @@ export async function decideStoreOrderSubstitution(input: Readonly<{ storeOrderR
   assertStoreOrderProductionReady("SUBSTITUTION", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
-    assertStoreOrder((input.customerUserId && order.marketplaceOrder.customerUserId === input.customerUserId) || (!input.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
+    assertStoreOrder((input.customerUserId && order.marketplaceOrder.customerUserId === input.customerUserId) || (!input.customerUserId && !order.marketplaceOrder?.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const proposal = await model(tx, "marketplaceStoreOrderSubstitutionProposal").findUnique({ where: { publicReference: input.proposalReference }, include: { reservation: true, issue: true, lineFulfilment: true } });
     assertStoreOrder(proposal?.marketplaceStoreOrderId === order.id && proposal.status === "PROPOSED", "STORE_ORDER_SUBSTITUTION_INVALID", "Substitution proposal is unavailable.");
@@ -316,7 +336,7 @@ export async function decideStoreOrderSubstitution(input: Readonly<{ storeOrderR
       await model(tx, "marketplaceStoreOrderSubstitutionReservation").update({ where: { id: proposal.reservation.id }, data: { status: "CONSUMED", consumedAt: new Date() } });
       await model(tx, "catalogInventoryMovement").create({ data: { publicReference: ref("cim"), inventoryItemId: proposal.reservation.inventoryItemId, locationId: level.locationId, type: "ORDER_SUBSTITUTION_COMMITMENT", quantityDelta: -proposal.reservation.quantity, operationId: `${input.operationId}:commit`, requestHash: input.requestHash, reasonCode: "SUBSTITUTION_APPROVED", actorUserId: input.customerUserId ?? "system", resultingOnHand: level.onHand - proposal.reservation.quantity } });
       await model(tx, "marketplaceStoreOrderSubstitutionProposal").update({ where: { id: proposal.id }, data: { status: "APPROVED", decidedAt: new Date() } });
-      await model(tx, "marketplaceStoreOrderLineFulfilment").update({ where: { id: proposal.lineFulfilmentId }, data: { status: "SUBSTITUTION_APPROVED", resolvedFulfilmentQuantity: { increment: proposal.substituteQuantity }, version: { increment: 1 } } });
+      await model(tx, "marketplaceStoreOrderLineFulfilment").update({ where: { id: proposal.lineFulfilmentId }, data: { status: "SUBSTITUTION_APPROVED", resolvedFulfilmentQuantity: { increment: proposal.issue.affectedQuantity }, version: { increment: 1 } } });
       adjustmentReference = await createLineAdjustment(tx, order, proposal.issue, proposal.lineFulfilment, { type: "SUBSTITUTION", reasonCode: "CUSTOMER_APPROVED_SUBSTITUTION", operationId: `${input.operationId}:adjust`, requestHash: requestHash("substitution-adjustment", evidence), decisionReference, replacementCharge: proposal.customerCharge.toFixed(2), actorUserId: input.customerUserId });
     } else {
       await releaseSubstituteReservation(tx, proposal.reservation, input.customerUserId ?? "system", input.operationId, input.requestHash, "REJECTED");
@@ -437,11 +457,24 @@ export async function applyMarketplaceStoreOrderAdjustment(input: Readonly<{ sto
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const adjustment = await model(tx, "marketplaceStoreOrderAdjustment").findUnique({ where: { publicReference: input.adjustmentReference } });
     assertStoreOrder(adjustment?.marketplaceStoreOrderId === order.id && adjustment.status === "APPLYING", "STORE_ORDER_ADJUSTMENT_INVALID", "Staged store-order adjustment is unavailable.");
+    assertStoreOrder(result.financialStatus !== "REFUND_COMPLETED" || adjustment.refundAmount.isZero() && !result.refundReference, "STORE_ORDER_REFUND_COMPLETION_INVALID", "A positive refund resolves only through its journal-backed completion authority.");
+    if (result.financialStatus === "REFUND_COMPLETED") {
+      const issueReference = (adjustment.financialEvidence as Record<string, unknown> | null)?.issueReference;
+      if (typeof issueReference === "string") await model(tx, "marketplaceStoreOrderIssue").updateMany({ where: { marketplaceStoreOrderId: order.id, publicReference: issueReference, status: "REFUND_PENDING" }, data: { status: "RESOLVED", resolvedAt: new Date(), version: { increment: 1 } } });
+      await model(tx, "marketplaceStoreOrderReconciliationCase").updateMany({ where: { marketplaceStoreOrderId: order.id, reasonCode: "FINANCIAL_COMPOSITION_FAILED", status: "OPEN", OR: [{ adjustmentId: adjustment.id }, { safeEvidence: { path: ["adjustmentReference"], equals: adjustment.publicReference } }] }, data: { status: "RESOLVED", resolvedAt: new Date(), resolutionCode: "BOUND_ZERO_VALUE_ADJUSTMENT_COMPLETED" } });
+    }
     const nextResolution = result.financialStatus === "REFUND_COMPLETED" ? "RESOLVED" : "REFUND_PENDING";
     const refund = result.refundReference ? await model(tx, "paymentRefund").findUnique({ where: { publicReference: result.refundReference }, select: { id: true, paymentId: true } }) : null;
     assertStoreOrder(!result.refundReference || refund?.paymentId === order.marketplaceOrder.paymentId, "STORE_ORDER_REFUND_SOURCE_INVALID", "Canonical refund must belong to the store order's original payment.");
     await model(tx, "marketplaceStoreOrderAdjustment").update({ where: { id: adjustment.id }, data: { status: result.financialStatus === "REFUND_COMPLETED" ? "COMPLETED" : "REFUND_PENDING", refundId: refund?.id ?? null, appliedAt: new Date(), completedAt: result.financialStatus === "REFUND_COMPLETED" ? new Date() : null } });
-    await updateOrder(tx, order, { financialResolutionStatus: result.financialStatus, resolutionStatus: nextResolution });
+    if (result.financialStatus === "REFUND_COMPLETED") {
+      const [pending, openIssues, openCases] = await Promise.all([
+        model(tx, "marketplaceStoreOrderAdjustment").findMany({ where: { marketplaceStoreOrderId: order.id, status: { not: "COMPLETED" } }, select: { status: true } }),
+        model(tx, "marketplaceStoreOrderIssue").findMany({ where: { marketplaceStoreOrderId: order.id, status: { in: ["OPEN", "CUSTOMER_ACTION_REQUIRED", "REFUND_PENDING"] } }, select: { id: true } }),
+        model(tx, "marketplaceStoreOrderReconciliationCase").findMany({ where: { marketplaceStoreOrderId: order.id, status: "OPEN" }, select: { id: true } }),
+      ]);
+      await updateOrder(tx, order, completedAdjustmentResolution({ pendingStatuses: pending.map(item => item.status), openIssues: openIssues.length, openCases: openCases.length }));
+    } else await updateOrder(tx, order, { financialResolutionStatus: result.financialStatus, resolutionStatus: nextResolution });
     const response = { storeOrderReference: order.publicReference, adjustmentReference: adjustment.publicReference, refundReference: result.refundReference ?? null, commissionReversalReferences: result.commissionReversalReferences, storeEarningReversalReference: result.storeEarningReversalReference ?? null, financialStatus: result.financialStatus };
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "STORE_ORDER_ADJUSTMENT_APPLIED", actorUserId: input.actorUserId, evidence: response });
     await receipt(tx, { storeOrderId: order.id, operationId: input.operationId, hash: input.requestHash, type: "ADJUSTMENT", response });
@@ -458,7 +491,7 @@ export async function requestMarketplaceStoreOrderCancellation(input: Readonly<{
       await requireStoreOrderActor({ actorUserId: input.requesterUserId, storeId: order.storeId, permission: "store_orders.reject" });
       assertStoreOrder(order.acceptanceStatus === "ACCEPTED", "STORE_ORDER_CANCELLATION_INVALID", "Stores can request cancellation only after acceptance.");
     } else {
-      assertStoreOrder((input.requesterUserId && order.marketplaceOrder.customerUserId === input.requesterUserId) || (!input.requesterUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
+      assertStoreOrder((input.requesterUserId && order.marketplaceOrder.customerUserId === input.requesterUserId) || (!input.requesterUserId && !order.marketplaceOrder.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
       assertStoreOrder(!["HANDED_OFF", "ABORTED"].includes(order.preparationStatus), "STORE_ORDER_CANCELLATION_TOO_LATE", "Cancellation is unavailable after handoff or abort.");
     }
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;

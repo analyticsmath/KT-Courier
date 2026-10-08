@@ -4,7 +4,7 @@
 
 Inventory date: 2026-10-08. Inspected application source: `1f6e2f1ddb57e2a5f8b0b8035815ce1e9fb4937f` (application code identical to accepted Phase 1C source `1a7a7d0cd1612d0f031ec8e0682da83569df2646`). This is Phase **2.0 inventory**, not financial, browser, provider or production acceptance. No domain implementation, activation constant, migration, fixture or engineering gate was changed for this inventory.
 
-The complete 8 October Phase 2 + Phase 3 directive is the standing program. Each row below identifies an existing authority; planned tests are not executed evidence. Resume one batch per separately authorized session, target 60 minutes, absolute 75 minutes including preservation and reporting. Phase 4 is unauthorized. The hazardous Railway staged patch `9a3370a3-8d07-4ef9-9e8d-a57ff488fccb` remains untouched.
+The complete 8 October Phase 2 + Phase 3 directive is the standing program. Each row below identifies an existing authority; planned tests are not executed evidence. Historical single-batch authorization and overall 60/75-minute limits were superseded by the continuous mandate. Phase 4 is unauthorized. The hazardous Railway staged patch `9a3370a3-8d07-4ef9-9e8d-a57ff488fccb` remains untouched.
 
 ## Actual batch order
 
@@ -25,7 +25,7 @@ No Phase 2/3 checkpoint or execution ledger existed at the starting tip. PR [#17
 | 14–17 | 3.5 → 3.6 → 3.7 → 3.8 | Required notifications → trusted parcel class → media lifecycle → security/privacy | OPEN |
 | 18–20 | 3.9 → 3.10 → 3.11 | Visual/accessibility → recovery/operator preparedness → cumulative engineering dossier | OPEN |
 
-No Phase 3 batch starts before Phase 2 engineering completion unless the architect explicitly authorizes an independent batch. No batch completion implicitly authorizes the next session or a deployment.
+All Phase 2 and Phase 3 engineering packages are now authorized continuously, including independent work while an exact-source checkpoint runs. This authorization does not permit a deployment or override financial or external approval requirements.
 
 ## Canonical flow matrix
 
@@ -140,3 +140,5 @@ The continuous completion order supersedes the former instruction to seek author
 Source `f767de1f3c805b67cf6ac8da9cb1900301c7dc57` has 23 successful non-browser certification components and a failed directed browser stage (18/30 passed, 12 failed, zero skips/retries). Customer wallet reserve/cancel, owned store cancellation, merchant employee scope, admin rescan, substitution rejection and store accessibility have two passing cases each; avatar lifecycle has six. Those passes do not establish positive substitution, financial query, courier custody or cumulative full acceptance. Detailed run and failure records remain in the append-only execution ledger.
 
 New source candidate adds `CustomerStoreOrderControls.tsx`, `customer-store-order-actions.service.ts` and owned GET/POST child actions; same-store native proposal controls; cumulative frozen refund value allocation; transaction-scoped substitute source validation; `marketplace-refund-completion.service.ts`; bound matrix quote version validation; and two required positive replacement/refund browser cases. Scoped unit checks pass; candidate T2/T3 remains pending. Full-store rejection with delivery fee, preapproved bounded choice authority, expiry/stale positive/negative acceptance and cumulative full acceptance remain open. No manifest gate is promoted by these partial results.
+
+Subsequent source `e7fbdc4ed11e15fbc4ff40e7a3fc640c8bd74926` passed normal CI and all 23 nonbrowser certification jobs, but directed browser execution ended early: two wallet passes, three completed timeouts, one interrupted driver case; 26 directed and all later canonical stages not executed. Current candidate implements bounded preapproved-choice history and same-store/version/price/quantity enforcement, restores selections on refresh, corrects original-vs-replacement fulfilment quantity, closes bound zero-value issues without payout, and adds stale legal/contact negatives to the existing canonical case. Policy 42 files / 200 assertions, full typecheck and scoped lint PASS; T2/T3 pending. Full rejection/delivery-fee and cancellation financial/stock composition and cumulative acceptance remain OPEN.

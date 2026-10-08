@@ -8,7 +8,7 @@ import type { CustomerStoreOrderActions } from "@/lib/services/customer-store-or
 export function CustomerStoreOrderControls({ marketplaceOrderReference, data }: { marketplaceOrderReference: string; data: CustomerStoreOrderActions }) {
   const router = useRouter(), busy = useRef(false), operations = useRef(createDriverOperationIdStore());
   const [saving, setSaving] = useState(false), [message, setMessage] = useState(""), [failed, setFailed] = useState(false);
-  async function act(action: string, fields: Record<string, string>) {
+  async function act(action: string, fields: Record<string, unknown>) {
     if (busy.current) return; busy.current = true; setSaving(true); setMessage(""); setFailed(false);
     try {
       const response = await fetch(`/api/marketplace-orders/${encodeURIComponent(marketplaceOrderReference)}/store-orders/${encodeURIComponent(data.storeOrderReference)}/actions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, operationId: operations.current.get(action, fields), ...fields }) });
@@ -19,9 +19,10 @@ export function CustomerStoreOrderControls({ marketplaceOrderReference, data }: 
     finally { busy.current = false; setSaving(false); }
   }
   return <section className="mt-4 space-y-4" aria-label={`Order decisions for ${data.storeOrderReference}`}>
-    {data.lines.filter(line => line.canChange).map(line => <form key={line.id} className="space-y-2" onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget); void act("substitution-preference", { orderLineId: line.id, preference: String(values.get("preference")) }); }}>
+    {data.lines.filter(line => line.canChange).map(line => <form key={line.id} className="space-y-2" onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget), preference = String(values.get("preference")); const choices = values.getAll("replacementChoice").map(reference => data.replacements.find(item => item.offerReference === reference)).filter(item => item !== undefined).map(item => ({ offerReference: item.offerReference, variantReference: item.variantReference, quantity: line.quantity })); void act("substitution-preference", { orderLineId: line.id, preference, ...(preference === "PREAPPROVED_CHOICES_ONLY" ? { choices } : {}) }); }}>
       <label htmlFor={`preference-${line.id}`} className="block text-sm font-bold">If {line.title} is unavailable</label>
-      <select id={`preference-${line.id}`} name="preference" defaultValue={line.preference} disabled={saving} className="min-h-11 w-full rounded-lg border p-2"><option value="REFUND_IF_UNAVAILABLE">Refund unavailable items</option><option value="NO_SUBSTITUTION">Do not substitute</option><option value="CONTACT_ME">Ask me before a replacement</option></select>
+      <select id={`preference-${line.id}`} name="preference" defaultValue={line.preference} disabled={saving} className="min-h-11 w-full rounded-lg border p-2"><option value="REFUND_IF_UNAVAILABLE">Refund unavailable items</option><option value="NO_SUBSTITUTION">Do not substitute</option><option value="CONTACT_ME">Ask me before a replacement</option><option value="PREAPPROVED_CHOICES_ONLY">Only my selected replacements</option></select>
+      <details><summary className="min-h-11 cursor-pointer py-3">Choose permitted replacement items</summary><p className="text-sm">Choose up to three items when using selected replacements. Approval covers up to {line.quantity} units at the current price; the server checks the paid amount. You still confirm the final proposal.</p><fieldset disabled={saving} className="max-h-64 overflow-y-auto"><legend className="sr-only">Permitted replacements for {line.title}</legend>{data.replacements.map(item => <label key={item.offerReference} className="flex min-h-11 items-center gap-3"><input type="checkbox" name="replacementChoice" value={item.offerReference} defaultChecked={line.selectedChoiceReferences.includes(item.offerReference)} />{item.label}</label>)}</fieldset></details>
       <Button type="submit" variant="secondary" disabled={saving}>Save item preference</Button>
     </form>)}
     {data.proposals.map(proposal => <article key={proposal.reference} className="rounded-lg border p-4 space-y-3" aria-label={`Replacement ${proposal.reference}`}>

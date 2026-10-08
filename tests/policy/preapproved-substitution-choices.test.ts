@@ -1,0 +1,6 @@
+import { expect, it } from "vitest";
+import { PreapprovedChoicesSchema, assertPreapprovedChoice } from "@/lib/store-orders/preapproved-choices";
+const choice = { offerReference: "offer-original", variantReference: "variant-original", quantity: 2, publicationVersion: "3", priceVersion: "price-original", unitPrice: "10.00" };
+it("permits only the frozen selected item within its approved quantity", () => { expect(() => assertPreapprovedChoice([choice], { ...choice, quantity: 1 })).not.toThrow(); });
+it.each([{ offerReference: "offer-foreign" }, { variantReference: "variant-foreign" }, { quantity: 3 }, { publicationVersion: "4" }, { priceVersion: "price-new" }, { unitPrice: "11.00" }])("refuses a changed replacement %j", changed => { expect(() => assertPreapprovedChoice([choice], { ...choice, ...changed })).toThrow("explicitly selected"); });
+it("requires bounded unique choices and disallows client price authority", () => { const selection = { offerReference: choice.offerReference, variantReference: choice.variantReference, quantity: choice.quantity }; for (const invalid of [[], [selection, selection], [choice], Array.from({ length: 4 }, (_, index) => ({ ...selection, offerReference: `offer-${index}` }))]) expect(PreapprovedChoicesSchema.safeParse(invalid).success).toBe(false); expect(PreapprovedChoicesSchema.safeParse([selection]).success).toBe(true); });

@@ -22,8 +22,9 @@ export function splitFrozenCommissionAdjustmentCents(total: Prisma.Decimal, comp
   const weights = sorted.map(component => BigInt(component.amount.mul(100).toFixed(0)));
   const denominator = weights.reduce((value, weight) => value + weight, BigInt(0));
   const totalCents = BigInt(total.mul(100).toFixed(0));
-  if (denominator <= BigInt(0) || totalCents > denominator) throw invalid();
+  if (totalCents > denominator) throw invalid();
   if (!totalCents) return sorted.map(component => ({ ...component, amount: zero() }));
+  if (denominator <= BigInt(0)) throw invalid();
 
   // Allocate the first N cents in one immutable weighted priority sequence.
   // Giving the last recipient every floor-rounding remainder is not monotonic:

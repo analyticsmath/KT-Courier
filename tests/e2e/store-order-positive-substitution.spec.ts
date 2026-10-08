@@ -6,18 +6,29 @@ import { refundControl, assertBalancedRefundJournal } from "./fixtures/refund";
 
 for (const width of [1440, 390]) test(`native owned replacement approval and exact original-method refund at ${width}px`, async ({ page }, info) => {
   test.setTimeout(240_000);
-  const f = await prepareStoreOrder(page, `store-positive-${width}`, width);
+  const f = await prepareStoreOrder(page, `store-positive-${width}`, width, width === 390 ? { baseLine: { offerReference: "CO-E2E64GB", variantReference: "CV-E2E64GB", quantity: 2, modifiers: [] } } : {});
   await page.goto(`/order-confirmation/${f.order.publicReference}`);
   const decisions = page.getByRole("region", { name: `Order decisions for ${f.storeReference}`, exact: true });
-  await decisions.getByRole("combobox").selectOption("CONTACT_ME");
+  if (width === 390) {
+    expect((await customerAction(page, f.order.publicReference, f.storeReference, { action: "substitution-preference", orderLineId: f.baseline.lines[0].id, preference: "PREAPPROVED_CHOICES_ONLY", operationId: crypto.randomUUID() })).status()).toBe(422);
+    await decisions.getByText("Choose permitted replacement items", { exact: true }).click();
+    await decisions.getByRole("checkbox", { name: /Headphones/ }).check();
+    await decisions.getByRole("combobox").selectOption("PREAPPROVED_CHOICES_ONLY");
+  } else await decisions.getByRole("combobox").selectOption("CONTACT_ME");
   const preference = page.waitForResponse(r => r.url().endsWith(`/store-orders/${f.storeReference}/actions`) && r.request().method() === "POST");
   await decisions.getByRole("button", { name: "Save item preference", exact: true }).click(); expect((await preference).status()).toBe(200);
+  if (width === 390) {
+    await page.reload();
+    await decisions.getByText("Choose permitted replacement items", { exact: true }).click();
+    await expect(decisions.getByRole("checkbox", { name: /Headphones/ })).toBeChecked();
+  }
   await login(page, "e2e-store@ktcouriers.local");
   expect((await storeAction(page, f.storeReference, { action: "begin-review" })).status()).toBe(200);
   const unavailable = await storeAction(page, f.storeReference, { action: "confirm-availability", orderLineId: f.baseline.lines[0].id, availableQuantity: 0 }); expect(unavailable.status(), await unavailable.text()).toBe(200);
   await page.goto(`/store/marketplace-orders/${f.storeReference}`);
   const proposalForm = page.getByRole("form", { name: /Propose replacement for/ });
   await proposalForm.getByLabel("Replacement item", { exact: true }).selectOption("off_headphones");
+  await proposalForm.getByLabel("Replacement quantity", { exact: true }).fill("1");
   const proposalResponse = page.waitForResponse(r => r.url().endsWith(`/api/store/orders/${f.storeReference}/actions`) && r.request().method() === "POST");
   await proposalForm.getByRole("button", { name: "Propose replacement", exact: true }).click(); const proposed = await proposalResponse; expect(proposed.status(), await proposed.text()).toBe(200);
   const proposal = (await proposed.json()).result;
@@ -35,6 +46,7 @@ for (const width of [1440, 390]) test(`native owned replacement approval and exa
   const command = approved.request().postDataJSON(); expect((await customerAction(page, f.order.publicReference, f.storeReference, command)).status()).toBe(200);
   const decided = await storeControl(f.storeReference);
   expect(decided.proposals[0]).toMatchObject({ status: "APPROVED", reservation: { status: "CONSUMED" } });
+  expect(decided.lines[0].fulfilment.resolvedFulfilmentQuantity).toBe(width === 390 ? 2 : 1);
   expect(decided.stock.every(row => row.onHand === row.available + row.reserved)).toBe(true);
   expect(decided.adjustments).toHaveLength(1); const adjustment = decided.adjustments[0];
   const expectedRefund = new Prisma.Decimal(proposal.originalRemainingCharge).sub(proposal.customerCharge).toFixed(2);

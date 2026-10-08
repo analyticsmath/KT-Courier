@@ -7,6 +7,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { beginStoreOrderReview, confirmStoreOrderLineAvailability, requestMarketplaceStoreOrderCancellation, updateStoreOrderSubstitutionPreference, createStoreOrderReconciliationCase, acceptMarketplaceStoreOrder, generateStoreOrderPickupChallenge, createMarketplaceDeliveryBridge, applyMarketplaceStoreOrderAdjustment, startStoreOrderPreparation, markStoreOrderReadyForHandoff } from "../../lib/store-orders/store-order.service";
 import { login } from "../e2e/fixtures/auth";
 import { completeSyntheticStoreHandoff } from "../e2e/fixtures/store-handoff";
+import { proposeStoreOrderSubstitution, decideStoreOrderSubstitution } from "../../lib/store-orders/store-order.service";
 
 export function canonicalStoreIntegration(domain: string) {
   describe(`store-order ${domain}: canonical PostgreSQL persistence`, () => {
@@ -55,6 +56,26 @@ export function canonicalStoreIntegration(domain: string) {
           await expect(updateStoreOrderSubstitutionPreference({ ...input, customerUserId: foreign.id })).rejects.toMatchObject({ code: "STORE_ORDER_CUSTOMER_ACCESS_DENIED" });
           expect(await updateStoreOrderSubstitutionPreference(input)).toMatchObject({ replayed: true });
           expect((await storeControl(f.storeReference)).lines[0].fulfilment.substitutionPreference).toBe("CONTACT_ME");
+          const selected = { ...command(), orderLineId: baseline.lines[0].id, customerUserId: customer.id, preference: "PREAPPROVED_CHOICES_ONLY" as const, choices: [{ offerReference: "off_headphones", variantReference: "CV-E2EHEADPHONES", quantity: 1 }] };
+          await expect(updateStoreOrderSubstitutionPreference({ ...selected, choices: [] })).rejects.toMatchObject({ code: "STORE_ORDER_PREAPPROVED_CHOICE_REQUIRED" });
+          await updateStoreOrderSubstitutionPreference(selected);
+          expect((await updateStoreOrderSubstitutionPreference(selected)).replayed).toBe(true);
+          const availability = await confirmStoreOrderLineAvailability({ ...command(), orderLineId: baseline.lines[0].id, availableQuantity: 0 });
+          if (!("issueReference" in availability) || typeof availability.issueReference !== "string") throw new Error("Canonical owned issue required.");
+          const beforeProposal = await storeControl(f.storeReference);
+          const proposalInput = { ...command(), issueReference: availability.issueReference, substituteOfferReference: "off_headphones", substituteVariantReference: "CV-E2EHEADPHONES", quantity: 1 };
+          await expect(proposeStoreOrderSubstitution({ ...proposalInput, substituteOfferReference: "CO-E2E64GB", substituteVariantReference: "CV-E2E64GB" })).rejects.toMatchObject({ code: "STORE_ORDER_PREAPPROVED_CHOICE_REQUIRED" });
+          expect(await storeControl(f.storeReference)).toEqual(beforeProposal);
+          const proposed = await proposeStoreOrderSubstitution(proposalInput);
+          if (!("proposalReference" in proposed) || typeof proposed.proposalReference !== "string") throw new Error("Canonical selected proposal required.");
+          const reserved = await storeControl(f.storeReference);
+          await expect(decideStoreOrderSubstitution({ ...command(), proposalReference: proposed.proposalReference, customerUserId: foreign.id, decision: "APPROVE" })).rejects.toMatchObject({ code: "STORE_ORDER_CUSTOMER_ACCESS_DENIED" });
+          expect(await storeControl(f.storeReference)).toEqual(reserved);
+          const decision = { ...command(), proposalReference: proposed.proposalReference, customerUserId: customer.id, decision: "APPROVE" as const };
+          await decideStoreOrderSubstitution(decision); expect((await decideStoreOrderSubstitution(decision)).replayed).toBe(true);
+          const approved = await storeControl(f.storeReference);
+          expect(approved.proposals[0]).toMatchObject({ status: "APPROVED", reservation: { status: "CONSUMED" } });
+          expect(approved.adjustments).toHaveLength(1); expect(approved.payment).toEqual(baseline.payment);
         } else if (domain === "handoff" || domain === "delivery-bridge") {
           if (domain === "handoff") await expect(generateStoreOrderPickupChallenge(command())).rejects.toMatchObject({ code: "STORE_ORDER_HANDOFF_NOT_READY" });
           else await expect(createMarketplaceDeliveryBridge(command())).rejects.toMatchObject({ code: "STORE_ORDER_DELIVERY_BRIDGE_INVALID" });

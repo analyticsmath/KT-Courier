@@ -25,6 +25,11 @@ describe("store-order financial composition policy", () => {
     expect(() => splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.01"), [allocation("cca_a", "0.00")])).toThrow("Frozen commission allocation");
   });
 
+  it("completes a zero-value commission adjustment without inventing a reversal", () => {
+    expect(splitFrozenCommissionAdjustmentCents(new Prisma.Decimal(0), [])).toEqual([]);
+    expect(splitFrozenCommissionAdjustmentCents(new Prisma.Decimal(0), [allocation("cca_zero", "0.00")]).map(row => row.amount.toFixed(2))).toEqual(["0.00"]);
+  });
+
   it("never decreases a frozen recipient when a cumulative refund crosses a rounding boundary", () => {
     const components = [allocation("cca_a", "0.01"), allocation("cca_b", "0.01"), allocation("cca_c", "0.01")];
     const one = splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.01"), components);

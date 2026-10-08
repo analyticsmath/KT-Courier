@@ -8,6 +8,7 @@ export default defineConfig({
   forbidOnly: true,
   reporter: [["list"], ["./scripts/e2e-failure-reporter.mjs"]],
   use: {
+    actionTimeout: 15_000,
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3200",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

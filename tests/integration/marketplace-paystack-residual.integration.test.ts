@@ -23,6 +23,17 @@ describe("Paystack residual canonical PostgreSQL acceptance", () => {
     const f = await prepareCheckout(page, "pg-residual-hash", 390, false, { stopAfterReview: true });
     const read = async () => (await (await page.request.get(`/api/checkout/${f.reference}`)).json()).checkout;
     const command = (version: number) => ({ checkoutVersion: version, operationId: randomUUID(), requestHash: randomUUID() });
+    const original = await read();
+    const staleLegal = await page.request.post(`/api/checkout/${f.reference}/acknowledge`, { data: { ...command(original.version), reviewVersion: f.review.reviewVersion, commercialFingerprint: f.review.commercialFingerprint, acknowledgedTotalReference: f.review.grandTotal, ...f.review.legalEvidence, termsVersion: "legal_stale:unaccepted" } });
+    expect(staleLegal.status(), await staleLegal.text()).toBe(422);
+    expect((await staleLegal.json()).code).toBe("CHECKOUT_CHANGES_UNACKNOWLEDGED");
+    expect((await read()).version).toBe(original.version);
+    const staleContact = await page.request.put(`/api/checkout/${f.reference}/contact`, { data: { ...command(original.version - 1), recipientName: "Unaccepted contact change", email: "e2e-paystack-pg-residual-hash@ktcouriers.local", phone: "+27821112233" } });
+    expect(staleContact.status(), await staleContact.text()).toBe(409);
+    expect((await read()).contact).toEqual(original.contact);
+    const beforePayment = await prisma.marketplaceCheckout.findUniqueOrThrow({ where: { publicReference: f.reference } });
+    expect(await prisma.payment.count({ where: { marketplaceCheckoutId: beforePayment.id } })).toBe(0);
+    expect(await prisma.marketplaceInventoryReservation.count({ where: { checkoutId: beforePayment.id } })).toBe(0);
     const ack = await page.request.post(`/api/checkout/${f.reference}/acknowledge`, { data: { ...command((await read()).version), reviewVersion: f.review.reviewVersion, commercialFingerprint: f.review.commercialFingerprint, acknowledgedTotalReference: f.review.grandTotal, ...f.review.legalEvidence } });
     expect(ack.status(), await ack.text()).toBe(200);
     const reserve = command((await ack.json()).checkoutVersion);
