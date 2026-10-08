@@ -370,6 +370,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     });
 
     expect(mockClient.verifyTransaction).toHaveBeenCalledWith("atm_bg_1");
+    expect(prisma.paymentAttempt.findUnique).toHaveBeenCalledWith({ where: { merchantReference: "atm_bg_1" }, include: { payment: true } });
     expect(result.outcome).toBe("APPLIED");
   });
 

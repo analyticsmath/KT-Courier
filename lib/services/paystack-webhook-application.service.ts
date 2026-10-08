@@ -379,9 +379,10 @@ export async function applyPaystackWebhookEvent(
   const eventFingerprint = event?.eventFingerprint ?? createHash("sha256")
     .update(`paystack:${chargePayload.event}:${providerIdStr}:${chargePayload.data.status}`).digest("hex");
 
-  // Look up matching PaymentAttempt by publicReference
+  // Paystack receives the locked merchant reference at initialization; the
+  // attempt's public API reference is a different identity in real sessions.
   const attempt = await prisma.paymentAttempt.findUnique({
-    where: { publicReference: reference },
+    where: { merchantReference: reference },
     include: { payment: true },
   });
 
