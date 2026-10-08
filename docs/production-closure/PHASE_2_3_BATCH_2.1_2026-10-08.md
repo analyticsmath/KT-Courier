@@ -1,4 +1,8 @@
-# Phase 2.1 — canonical offline Paystack checkpoint
+# Phase 2.1 — current canonical offline Paystack checkpoint
+
+**PARTIAL; production NOT_READY.** Latest source: `95dbab4a904a0971983857399f0dddc1384f8358`. Required core acceptance: **PASS**. PostgreSQL 2/2; focused Chromium 9/9; full Chromium 97/97; all counts below distinguish failures and unexecuted tiers. Residual multi-store/modifier, cent/large-value, stale-evidence and operation-hash proofs remain **OPEN**. Latest detailed session and exact workflow URLs follow the preserved original receipt. Batch 2.2 and Phase 3 were not started.
+
+## Original checkpoint — 09:50:03 UTC session, preserved history
 
 **PARTIAL; production NOT_READY.** All legitimate implementation is preserved on `production-closure-2026-10-07`. Corrected source: `58f33038fad91278affaa0cf89e07d7ab30843a1`. Starting checkpoint: `1091cbec70320099fe0e71c7622f2f108f2aa314`. This receipt is a separate documentation commit; its final tip is returned after normal push. [Machine receipt](PHASE_2_3_BATCH_2.1_2026-10-08.json).
 
@@ -48,3 +52,32 @@ Final source correction `58f33038fad91278affaa0cf89e07d7ab30843a1` changes the a
 **Next action:** Resume only Batch 2.1 verification/defect closure from the latest preserved report tip. Do not start Batch 2.2 or Phase 3. No production/provider/deployment authorization is implied.
 
 No source payment/refund/settlement locks, manifest gates, main/protected branch, production data/configuration, provider credentials, optional activation or Railway staged patch were changed. No external Paystack API, money, deploy, merge/reset/clean/discard/force push or production operation occurred. Local check children completed under deliberate timeouts; no local test/build was left running. Git checkpoint and final report-tip remote equality are verified in the final handoff.
+
+
+## Resumed Batch 2.1 — 2026-10-08T12:00:33.518Z
+
+Started 11:12:38 UTC; target 12:12:38 UTC; absolute stop 12:27:38 UTC. Clean local/remote starting tip `e292715a4bf9f04f98d541f1f087cef1402e762d`; PR #17 OPEN/draft/unmerged. Latest source: `95dbab4a904a0971983857399f0dddc1384f8358`. Classification **PARTIAL**; core acceptance **PASS**. Historical failed evidence above and in JSON is preserved.
+
+Starting-head [CI 37766153091](https://github.com/analyticsmath/KT-Courier/actions/runs/37766153091) passed. [Certification 37766153075](https://github.com/analyticsmath/KT-Courier/actions/runs/37766153075) passed the database identity preflight but failed both actual PG cases (0 passed, 2 failed, 0 skipped, 4.358 seconds). The merchant-reference lookup correction reached Verify, exposing protected-write defects: success tried to replace an established provider reference with the numeric transaction ID; UNKNOWN tried to rewrite immutable signed intake normalization. Neither focused nor full browser selection started.
+
+Preserve established provider reference and signed intake normalization. A new incremental migration permits only the first coherent post-success order association, matching actual order/payment/checkout/owner/ZAR total; it rejects unlinking/rebinding and still protects all financial and success evidence. Duplicate intake races acknowledge only a committed durable receipt. Production activation locks are unchanged. Real PG assertions now also check preserved provider reference and immutable COMPLETE intake normalization. Local supporting checks on the working tree committed as `a28f3285e20b9e41f4027ee1716be071c344c212` passed: 39 scoped policy/payment tests, 333 payment tests, lint and 8 GB typecheck. They are not financial acceptance; their precommit runner recorded the then-current baseline SHA.
+
+Exact latest-source [CI 37771823380](https://github.com/analyticsmath/KT-Courier/actions/runs/37771823380) is **success**. [Certification 37771823257](https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257) is **failure**. PostgreSQL: **PASS**, 2 passed / 0 failed / 0 skipped. Focused Paystack Chromium: **PASS**, 9 passed / 0 failed / 0 skipped / 0 flaky. Full Chromium: **PASS**, 97/97 passed, 0 skipped, 0 flaky, 0 retries. Missing evidence is unverified, never PASS. The JSON retains exact workflow/job URLs and stage receipts.
+
+Residual 2.1 items remain **OPEN**: multi-store/modifier allocations, cent/large-value arithmetic, stale quote/legal/contact rejection, and operation-ID/request-hash conflicts. Source inspection confirms reserve/prepare handlers still omit requestHash forwarding; no runtime passing proof is claimed. No Batch 2.2 or Phase 3 work occurred.
+
+**Next authorized work:** Batch 2.1 only: resolve any acceptance failure and execute remaining matrix invariants. Batch 2.2 and Phase 3 were not started. No main merge, deployment, production access/mutation, real Paystack operation, financial lock removal, Railway patch change, force push or destructive reset. Final report tip and remote equality are returned after normal push; the report cannot embed its own commit SHA.
+
+Intermediate source a28f3285e20b9e41f4027ee1716be071c344c212: CI 37768916403 SUCCESS, certification 37768916516 failed its browser job after 23 successful non-browser components. Both actual PostgreSQL cases failed (0 passed / 2 failed / 0 skipped, 4.368 seconds). Payment and receipt journal assertions passed before the missing-order assertion; database log proved the reverse order-association write rolled back under the succeeded-payment immutability guard. UNKNOWN failed at concurrent intake (P2002 / HTTP 503). Focused/full browsers were not started. These failed cases remain failed acceptance.
+
+The working tree committed as 2228f8d570495241fe7a4d65b82f62d820fe949f passed 335 payment tests, lint, 8 GB typecheck and incremental migration safety. An intermediate check failed one test because its synchronous mock did not provide Promise.catch; ordinary try/await/catch corrected that handling. Actual PG acceptance at that exact source passed 2/2 with zero failed/skipped/todo in 3.876 seconds, including paid amount and order-link immutability. Focused Chromium executed all nine: 8 passed / 1 failed / 0 skipped / 0 flaky / retries 0. The final signed incorrect amount/currency case encountered P2034 when concurrent events opened the same reconciliation case. Full Chromium stayed blocked. CI 37770411829 SUCCESS; certification 37770411791 had 23 successful non-browser components and failed its browser job.
+
+Final retry correction 95dbab4a904a0971983857399f0dddc1384f8358 reuses the existing bounded database retry helper only around mismatch reconciliation. Independent Verify remains outside that retry; a fault-injected contract assertion proves one Verify call across two local transaction attempts. Supporting 335 payment tests, lint and typecheck passed; the updated 24-case contract file and lint then passed. They are T1 evidence, not real PostgreSQL/browser acceptance.
+
+## Accepted core evidence and remaining gates
+
+At source `95dbab4a904a0971983857399f0dddc1384f8358`, all 24 certification component jobs passed. The final certified job failed only on the nine unchanged release gates; production remains **NOT_READY**. Exact PG acceptance took 4.700 seconds. The focused invocation took 135.032 seconds including provisioning and the PG gate; full Chromium took 333.347 seconds. Focused and full runs used zero retries, skips or flaky cases.
+
+Inspected all nine actual full-suite financial attachments. Four customer/verified-guest paths at 1440/390 each show one R1526.97 ZAR debit/credit-balanced journal with two entries, one consumed reservation and one canonical order; each initialized and independently verified once. Guest capabilities are bound without publishing a hash/token. The five negative paths show no success journal/order and preserve inventory; the concurrent signed amount/currency case verifies twice, once per event, then reconciles both with no financial mutation. JSON proof summaries retain case names, exact journal totals, provider call counts and before/after inventory projections. This ordinary cent-valued basket does not certify cent-allocation corner cases or large-value arithmetic.
+
+The final corrected source has no unexplained failure in the required PG/focused/full acceptance tiers. Batch 2.1 remains **PARTIAL** solely because its explicitly listed residual proofs are OPEN. Architect review and separately authorized remaining 2.1 proofs are next. No Batch 2.2 or Phase 3, production deployment or Railway patch work was started.

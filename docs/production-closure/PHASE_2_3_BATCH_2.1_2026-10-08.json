@@ -3,17 +3,17 @@
   "batch": "2.1",
   "classification": "PARTIAL",
   "readiness": "NOT_READY",
-  "classificationReason": "Engineering checkpoint; exact-source financial acceptance and all remaining contract-matrix cases must be verified before Batch 2.1 certification.",
+  "classificationReason": "Residual Batch 2.1 matrix invariants remain OPEN; executed acceptance evidence is recorded separately from unexecuted work.",
   "branch": "production-closure-2026-10-07",
-  "startingSha": "1091cbec70320099fe0e71c7622f2f108f2aa314",
-  "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+  "startingSha": "e292715a4bf9f04f98d541f1f087cef1402e762d",
+  "sourceSha": "95dbab4a904a0971983857399f0dddc1384f8358",
   "sourcePushedAndRemoteVerified": true,
   "reportTipSha": null,
   "reportTipReason": "The containing report commit cannot embed its own SHA. Final response records the pushed report tip separately.",
-  "startedAt": "2026-10-08T09:50:03Z",
-  "preparedAt": "2026-10-08T10:49:52.127Z",
-  "practicalStopAt": "2026-10-08T10:50:03Z",
-  "absoluteStopAt": "2026-10-08T11:05:03Z",
+  "startedAt": "2026-10-08T11:12:38Z",
+  "preparedAt": "2026-10-08T12:04:31.087Z",
+  "practicalStopAt": "2026-10-08T12:12:38Z",
+  "absoluteStopAt": "2026-10-08T12:27:38Z",
   "pr": {
     "number": 17,
     "url": "https://github.com/analyticsmath/KT-Courier/pull/17",
@@ -271,12 +271,12 @@
     "defect": "Success remained REQUIRES_ACTION and UNKNOWN provider Verify counter stayed zero. Application looked up publicReference although Paystack initialization sends merchantReference."
   },
   "finalCorrection": {
-    "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
-    "correction": "Lookup PaymentAttempt by unique merchantReference and assert that query identity in the existing Paystack contract test.",
-    "localSupportingChecks": "PASS",
-    "postgresAndBrowserAcceptance": "NOT_YET_VERIFIED",
-    "directWorkflowRun": null,
-    "nextEvidence": "Automatic final report-tip workflows run the same application/test code. Inspect their exact head SHA before counting results."
+    "sourceSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+    "postgresAcceptance": "PASS",
+    "focusedBrowserAcceptance": "PASS",
+    "fullChromiumAcceptance": "PASS",
+    "financialProductionActivation": "UNCHANGED",
+    "nextAction": "Batch 2.1 only: resolve any acceptance failure and execute remaining matrix invariants. Batch 2.2 and Phase 3 were not started."
   },
   "changes": [
     "Explicit test-only Paystack initialize/Verify seam with independent persisted synthetic provider records, no external fetch fallback.",
@@ -287,11 +287,10 @@
     "Actual-discovery full Chromium counts, separate focused DB, regenerated deferral audit; eight other browser placeholders remain open."
   ],
   "residualWork": [
-    "Verify/download corrected-source PostgreSQL, nine focused Paystack browser and expanded full Chromium execution evidence; discovery or unit mocks cannot close financial acceptance.",
-    "Any failure in corrected-source CI is an open defect, not an accepted pass.",
-    "Complete matrix follow-ups not covered by this bounded single-store basket: multi-store/modifier and cent/large-value cases, stale quote/legal/contact negatives, changed-operation request-hash proof. The previously inventoried Number/toFixed and reserve/prepare requestHash forwarding risks remain unverified.",
-    "Other marketplace order/settlement integration anchors and eight other financial/store browser placeholders remain open; do not count their trivial/scaffold assertions as acceptance.",
-    "Paystack sandbox/live/operator acceptance, real fees/stock/approvals and production rollout remain separate and unauthorized."
+    "OPEN: multi-store and modifier financial allocations.",
+    "OPEN: cent rounding and large ZAR amounts through the composed payment chain.",
+    "OPEN: stale quote, legal and contact evidence rejection.",
+    "OPEN: operation-ID/request-hash conflict proof; reserve/prepare handlers still do not forward requestHash."
   ],
   "safety": {
     "localDockerAttempts": 0,
@@ -306,5 +305,1143 @@
     "railwayStagedPatchChanged": false,
     "optionalDomainsActivated": false
   },
-  "nextAction": "Resume only Batch 2.1 verification/defect closure from the latest preserved report tip. Do not start Batch 2.2 or Phase 3. No production/provider/deployment authorization is implied."
+  "nextAction": "Resume only Batch 2.1 verification/defect closure from the latest preserved report tip. Do not start Batch 2.2 or Phase 3. No production/provider/deployment authorization is implied.",
+  "resumedSessions": [
+    {
+      "startedAt": "2026-10-08T11:12:38Z",
+      "targetStopAt": "2026-10-08T12:12:38Z",
+      "absoluteStopAt": "2026-10-08T12:27:38Z",
+      "preparedAt": "2026-10-08T12:00:33.518Z",
+      "startingRemoteSha": "e292715a4bf9f04f98d541f1f087cef1402e762d",
+      "sourceSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+      "classification": "PARTIAL",
+      "coreAcceptance": "PASS",
+      "startingHeadEvidence": {
+        "ci": {
+          "conclusion": "success",
+          "headSha": "e292715a4bf9f04f98d541f1f087cef1402e762d",
+          "status": "completed",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37766153091"
+        },
+        "certification": {
+          "runId": 37766153075,
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37766153075",
+          "headSha": "e292715a4bf9f04f98d541f1f087cef1402e762d",
+          "conclusion": "failure",
+          "postgres": {
+            "commitSha": "e292715a4bf9f04f98d541f1f087cef1402e762d",
+            "durationMs": 4358,
+            "exitCode": 1,
+            "testsPassed": 0,
+            "testsFailed": 2,
+            "testsSkipped": 0,
+            "testsTodo": 0,
+            "status": "FAIL",
+            "database": "kt_phase75_e2e",
+            "projectName": "kt-couriers-e2e-1791456994845-9667"
+          },
+          "failureReasons": [
+            "Established provider payment reference is immutable.",
+            "Payment webhook receipt identity and provider evidence are immutable."
+          ],
+          "focusedBrowser": "NOT_STARTED",
+          "fullChromium": "NOT_STARTED"
+        }
+      },
+      "intermediateAttempt": {
+        "sourceSha": "a28f3285e20b9e41f4027ee1716be071c344c212",
+        "ci": {
+          "conclusion": "success",
+          "headSha": "a28f3285e20b9e41f4027ee1716be071c344c212",
+          "status": "completed",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37768916403"
+        },
+        "certificationRunId": 37768916516,
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37768916516",
+        "conclusion": "failure",
+        "successfulNonBrowserComponents": 23,
+        "postgres": {
+          "commitSha": "a28f3285e20b9e41f4027ee1716be071c344c212",
+          "durationMs": 4368,
+          "exitCode": 1,
+          "testsPassed": 0,
+          "testsFailed": 2,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "status": "FAIL",
+          "database": "kt_phase75_e2e",
+          "projectName": "kt-couriers-e2e-1791458493691-9508"
+        },
+        "failureReasons": [
+          "Canonical order creation rolled back because the succeeded-payment guard rejected marketplaceOrderId association.",
+          "Concurrent identical webhook INSERT returned P2002 and HTTP 503."
+        ],
+        "focusedBrowser": "NOT_STARTED",
+        "fullChromium": "NOT_STARTED"
+      },
+      "financialAttemptBeforeRetry": {
+        "sourceSha": "2228f8d570495241fe7a4d65b82f62d820fe949f",
+        "ci": {
+          "conclusion": "success",
+          "headSha": "2228f8d570495241fe7a4d65b82f62d820fe949f",
+          "status": "completed",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37770411829"
+        },
+        "certificationRunId": 37770411791,
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37770411791",
+        "conclusion": "failure",
+        "successfulNonBrowserComponents": 23,
+        "postgres": {
+          "commitSha": "2228f8d570495241fe7a4d65b82f62d820fe949f",
+          "durationMs": 3876,
+          "exitCode": 0,
+          "testsPassed": 2,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "status": "PASS",
+          "database": "kt_phase75_e2e",
+          "projectName": "kt-couriers-e2e-1791459385028-9248"
+        },
+        "focusedBrowser": {
+          "command": "test:e2e",
+          "arguments": [
+            "--",
+            "tests/e2e/marketplace-checkout-payment.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/paystack-focused"
+          ],
+          "commitSha": "2228f8d570495241fe7a4d65b82f62d820fe949f",
+          "durationMs": 115240,
+          "exitCode": 1,
+          "testFilesPassed": null,
+          "testsPassed": 8,
+          "testsFailed": 1,
+          "testsSkipped": 0,
+          "testsFlaky": 0,
+          "executions": [
+            {
+              "runner": "vitest",
+              "testFiles": {
+                "passed": 1,
+                "failed": 0,
+                "skipped": 0,
+                "todo": 0,
+                "pending": 0,
+                "flaky": 0
+              },
+              "passed": 2,
+              "failed": 0,
+              "skipped": 0,
+              "todo": 0,
+              "pending": 0,
+              "flaky": 0
+            },
+            {
+              "runner": "playwright",
+              "testFiles": null,
+              "passed": 8,
+              "failed": 1,
+              "skipped": 0,
+              "todo": 0,
+              "pending": 0,
+              "flaky": 0
+            }
+          ],
+          "skippedCriticalTestsDetected": false,
+          "flakyCriticalTestsDetected": false,
+          "status": "FAIL"
+        },
+        "browserFailure": "The signed incorrect-amount/currency case raised P2034 while two concurrent events created the same reconciliation case.",
+        "fullChromium": "NOT_STARTED"
+      },
+      "correction": "Preserve established provider reference and signed intake normalization. A new incremental migration permits only the first coherent post-success order association, matching actual order/payment/checkout/owner/ZAR total; it rejects unlinking/rebinding and still protects all financial and success evidence. Duplicate intake races acknowledge only a committed durable receipt. Production activation locks are unchanged.",
+      "ci": {
+        "runId": 37771823380,
+        "conclusion": "success",
+        "headSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+        "status": "completed",
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823380"
+      },
+      "certification": {
+        "runId": 37771823257,
+        "headSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257",
+        "jobs": [
+          {
+            "name": "quality",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293009877"
+          },
+          {
+            "name": "browser",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293009992"
+          },
+          {
+            "name": "recovery",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010015"
+          },
+          {
+            "name": "postgres (test:integration:auth)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010066"
+          },
+          {
+            "name": "postgres (test:integration:cross-module)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010115"
+          },
+          {
+            "name": "postgres (test:integration:ledger)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010124"
+          },
+          {
+            "name": "postgres (test:integration:refunds)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010125"
+          },
+          {
+            "name": "postgres (test:integration:catalog)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010138"
+          },
+          {
+            "name": "postgres (test:integration:driver-earnings)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010147"
+          },
+          {
+            "name": "postgres (test:integration:storefront)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010155"
+          },
+          {
+            "name": "postgres (test:integration:payment-foundation)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010164"
+          },
+          {
+            "name": "postgres (test:integration:store-orders)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010173"
+          },
+          {
+            "name": "postgres (test:integration:driver-operations)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010184"
+          },
+          {
+            "name": "postgres (docker:migration-smoke)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010189"
+          },
+          {
+            "name": "postgres (test:integration:orders)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010198"
+          },
+          {
+            "name": "postgres (docker:gate4)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010203"
+          },
+          {
+            "name": "postgres (test:integration:permissions)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010209"
+          },
+          {
+            "name": "redis-and-recovery",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010216"
+          },
+          {
+            "name": "postgres (test:integration:pricing)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010227"
+          },
+          {
+            "name": "postgres (test:integration:closure)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010280"
+          },
+          {
+            "name": "postgres (test:integration:store-earnings)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010301"
+          },
+          {
+            "name": "postgres (test:integration:dispatch)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010368"
+          },
+          {
+            "name": "postgres (test:integration:marketplace-checkout)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010375"
+          },
+          {
+            "name": "postgres (test:integration:withdrawals)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113293010383"
+          },
+          {
+            "name": "certified",
+            "status": "completed",
+            "conclusion": "failure",
+            "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37771823257/job/113299185709"
+          }
+        ]
+      },
+      "postgres": {
+        "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+        "durationMs": 4700,
+        "exitCode": 0,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "testsSkipped": 0,
+        "testsTodo": 0,
+        "status": "PASS",
+        "database": "kt_phase75_e2e",
+        "projectName": "kt-couriers-e2e-1791460114737-9685"
+      },
+      "focusedBrowser": {
+        "command": "test:e2e",
+        "arguments": [
+          "--",
+          "tests/e2e/marketplace-checkout-payment.spec.ts",
+          "--project=chromium",
+          "--retries=0",
+          "--workers=1",
+          "--output=test-results/paystack-focused"
+        ],
+        "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+        "durationMs": 135032,
+        "exitCode": 0,
+        "testFilesPassed": null,
+        "testsPassed": 9,
+        "testsFailed": 0,
+        "testsSkipped": 0,
+        "testsFlaky": 0,
+        "executions": [
+          {
+            "runner": "vitest",
+            "testFiles": {
+              "passed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "todo": 0,
+              "pending": 0,
+              "flaky": 0
+            },
+            "passed": 2,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0
+          },
+          {
+            "runner": "playwright",
+            "testFiles": null,
+            "passed": 9,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0
+          }
+        ],
+        "skippedCriticalTestsDetected": false,
+        "flakyCriticalTestsDetected": false,
+        "status": "PASS",
+        "retries": 0
+      },
+      "fullChromium": {
+        "stage": "full-chromium",
+        "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+        "command": [
+          "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+          "node_modules/playwright/cli.js",
+          "test",
+          "--project=chromium",
+          "--retries=0",
+          "--workers=1",
+          "--output=test-results/full-chromium",
+          "--reporter=list,json"
+        ],
+        "exitCode": 0,
+        "expectedTests": 97,
+        "testsPassed": 97,
+        "skipped": 0,
+        "flaky": 0,
+        "durationMs": 333347,
+        "status": "PASS",
+        "unexpected": 0,
+        "executedCases": 97,
+        "retries": 0
+      },
+      "browserStages": [
+        {
+          "stage": "storefront-variant-target",
+          "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/storefront-browsing.spec.ts",
+            "--grep=product detail page displays store",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/storefront-variant-target",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 1,
+          "testsPassed": 1,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 7248,
+          "status": "PASS"
+        },
+        {
+          "stage": "storefront-product-detail",
+          "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/storefront-product-detail.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/storefront-product-detail",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 4,
+          "testsPassed": 4,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 9196,
+          "status": "PASS"
+        },
+        {
+          "stage": "catalog-1440",
+          "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/store-product-catalog.spec.ts",
+            "tests/e2e/catalog-administration.spec.ts",
+            "--grep=1440px",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/catalog-1440",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 2,
+          "testsPassed": 2,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 23713,
+          "status": "PASS"
+        },
+        {
+          "stage": "catalog-both",
+          "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/store-product-catalog.spec.ts",
+            "tests/e2e/catalog-administration.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/catalog-both",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 4,
+          "testsPassed": 4,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 41459,
+          "status": "PASS"
+        },
+        {
+          "stage": "employee-1440",
+          "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/business-employee-access.spec.ts",
+            "--grep=1440px",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/employee-1440",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 1,
+          "testsPassed": 1,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 12760,
+          "status": "PASS"
+        },
+        {
+          "stage": "employee-both",
+          "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/business-employee-access.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/employee-both",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 2,
+          "testsPassed": 2,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 19156,
+          "status": "PASS"
+        },
+        {
+          "stage": "full-chromium",
+          "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/full-chromium",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 97,
+          "testsPassed": 97,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 333347,
+          "status": "PASS"
+        }
+      ],
+      "browserFinancialProofs": [
+        {
+          "name": "canonical-postgres-payment-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "SUCCEEDED",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [
+            {
+              "currency": "ZAR",
+              "totalDebits": "1526.97",
+              "totalCredits": "1526.97",
+              "entries": 2
+            }
+          ],
+          "orders": 1,
+          "guestCapabilityBound": false,
+          "reservations": [
+            {
+              "status": "CONSUMED",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "APPLIED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": true,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 50,
+                "reserved": 1,
+                "available": 49
+              },
+              "after": {
+                "onHand": 49,
+                "reserved": 0,
+                "available": 49
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-payment-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "SUCCEEDED",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [
+            {
+              "currency": "ZAR",
+              "totalDebits": "1526.97",
+              "totalCredits": "1526.97",
+              "entries": 2
+            }
+          ],
+          "orders": 1,
+          "guestCapabilityBound": false,
+          "reservations": [
+            {
+              "status": "CONSUMED",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "APPLIED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": true,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 49,
+                "reserved": 1,
+                "available": 48
+              },
+              "after": {
+                "onHand": 48,
+                "reserved": 0,
+                "available": 48
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-payment-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "SUCCEEDED",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [
+            {
+              "currency": "ZAR",
+              "totalDebits": "1526.97",
+              "totalCredits": "1526.97",
+              "entries": 2
+            }
+          ],
+          "orders": 1,
+          "guestCapabilityBound": true,
+          "reservations": [
+            {
+              "status": "CONSUMED",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "APPLIED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": true,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 48,
+                "reserved": 1,
+                "available": 47
+              },
+              "after": {
+                "onHand": 47,
+                "reserved": 0,
+                "available": 47
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-payment-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "SUCCEEDED",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [
+            {
+              "currency": "ZAR",
+              "totalDebits": "1526.97",
+              "totalCredits": "1526.97",
+              "entries": 2
+            }
+          ],
+          "orders": 1,
+          "guestCapabilityBound": true,
+          "reservations": [
+            {
+              "status": "CONSUMED",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "APPLIED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": true,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 47,
+                "reserved": 1,
+                "available": 46
+              },
+              "after": {
+                "onHand": 46,
+                "reserved": 0,
+                "available": 46
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-negative-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "REQUIRES_ACTION",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [],
+          "orders": 0,
+          "guestCapabilityBound": null,
+          "reservations": [
+            {
+              "status": "ACTIVE",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "RECONCILIATION_REQUIRED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": false,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "signed charge remains financially unchanged when independent Verify has amount mismatch",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 46,
+                "reserved": 1,
+                "available": 45
+              },
+              "after": {
+                "onHand": 46,
+                "reserved": 1,
+                "available": 45
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-negative-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "REQUIRES_ACTION",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [],
+          "orders": 0,
+          "guestCapabilityBound": null,
+          "reservations": [
+            {
+              "status": "ACTIVE",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "RECONCILIATION_REQUIRED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": true,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "signed charge remains financially unchanged when independent Verify has currency mismatch",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 46,
+                "reserved": 2,
+                "available": 44
+              },
+              "after": {
+                "onHand": 46,
+                "reserved": 2,
+                "available": 44
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-negative-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "REQUIRES_ACTION",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [],
+          "orders": 0,
+          "guestCapabilityBound": null,
+          "reservations": [
+            {
+              "status": "ACTIVE",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "RECONCILIATION_REQUIRED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": true,
+              "providerDataVerified": false,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "signed charge remains financially unchanged when independent Verify has unknown mismatch",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 46,
+                "reserved": 3,
+                "available": 43
+              },
+              "after": {
+                "onHand": 46,
+                "reserved": 3,
+                "available": 43
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-negative-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "REQUIRES_ACTION",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 1,
+          "journals": [],
+          "orders": 0,
+          "guestCapabilityBound": null,
+          "reservations": [
+            {
+              "status": "ACTIVE",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "RECONCILIATION_REQUIRED",
+              "signatureVerified": true,
+              "merchantVerified": false,
+              "amountVerified": true,
+              "providerDataVerified": false,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "signed charge remains financially unchanged when independent Verify has reference mismatch",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 46,
+                "reserved": 4,
+                "available": 42
+              },
+              "after": {
+                "onHand": 46,
+                "reserved": 4,
+                "available": 42
+              }
+            }
+          ]
+        },
+        {
+          "name": "canonical-postgres-signed-mismatch-proof",
+          "baselinePaymentStatus": "REQUIRES_ACTION",
+          "paymentStatus": "REQUIRES_ACTION",
+          "amount": "1526.97",
+          "currency": "ZAR",
+          "initializeCalls": 1,
+          "verifyCalls": 2,
+          "journals": [],
+          "orders": 0,
+          "guestCapabilityBound": null,
+          "reservations": [
+            {
+              "status": "ACTIVE",
+              "quantities": [
+                1
+              ]
+            }
+          ],
+          "events": [
+            {
+              "processingStatus": "RECONCILIATION_REQUIRED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": false,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            },
+            {
+              "processingStatus": "RECONCILIATION_REQUIRED",
+              "signatureVerified": true,
+              "merchantVerified": true,
+              "amountVerified": true,
+              "providerDataVerified": true,
+              "attemptCount": 1
+            }
+          ],
+          "caseTitle": "signed incorrect amounts and currency cannot override independent correct provider facts",
+          "inventory": [
+            {
+              "quantity": 1,
+              "before": {
+                "onHand": 46,
+                "reserved": 5,
+                "available": 41
+              },
+              "after": {
+                "onHand": 46,
+                "reserved": 5,
+                "available": 41
+              }
+            }
+          ]
+        }
+      ],
+      "supportingPayments": {
+        "command": "test:payments",
+        "arguments": [],
+        "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+        "durationMs": 5928,
+        "exitCode": 0,
+        "testFilesPassed": 54,
+        "testsPassed": 335,
+        "testsFailed": 0,
+        "testsSkipped": 0,
+        "testsFlaky": 0,
+        "executions": [
+          {
+            "runner": "vitest",
+            "testFiles": {
+              "passed": 54,
+              "failed": 0,
+              "skipped": 0,
+              "todo": 0,
+              "pending": 0,
+              "flaky": 0
+            },
+            "passed": 335,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0
+          }
+        ],
+        "skippedCriticalTestsDetected": false,
+        "flakyCriticalTestsDetected": false,
+        "status": "PASS"
+      },
+      "residualIssues": [
+        "OPEN: multi-store and modifier financial allocations.",
+        "OPEN: cent rounding and large ZAR amounts through the composed payment chain.",
+        "OPEN: stale quote, legal and contact evidence rejection.",
+        "OPEN: operation-ID/request-hash conflict proof; reserve/prepare handlers still do not forward requestHash."
+      ],
+      "nextAuthorizedWork": "Batch 2.1 only: resolve any acceptance failure and execute remaining matrix invariants. Batch 2.2 and Phase 3 were not started.",
+      "restrictions": "No main merge, deployment, production access/mutation, real Paystack operation, financial lock removal, Railway patch change, force push or destructive reset.",
+      "releaseGates": {
+        "status": "NOT_READY",
+        "successfulComponents": 24,
+        "certifiedJobConclusion": "failure",
+        "reason": "Nine unchanged release gates remain unresolved.",
+        "ids": [
+          "marketplace_parcel_classification",
+          "notification_required_domains",
+          "commercial_financial_certification",
+          "customer_vendor_driver_full_functional_acceptance",
+          "visual_acceptance",
+          "media_full_functional_acceptance",
+          "critical_skip_closure",
+          "fresh_production_protected_row_audit",
+          "github_certification_and_deployment"
+        ]
+      }
+    }
+  ],
+  "latestSourceSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+  "historicalInitialSession": {
+    "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+    "startingSha": "1091cbec70320099fe0e71c7622f2f108f2aa314",
+    "startedAt": "2026-10-08T09:50:03Z",
+    "preparedAt": "2026-10-08T10:49:52.127Z",
+    "practicalStopAt": "2026-10-08T10:50:03Z",
+    "absoluteStopAt": "2026-10-08T11:05:03Z"
+  },
+  "historicalFinalCorrection": {
+    "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+    "correction": "Lookup PaymentAttempt by unique merchantReference and assert that query identity in the existing Paystack contract test.",
+    "localSupportingChecks": "PASS",
+    "postgresAndBrowserAcceptance": "NOT_YET_VERIFIED",
+    "directWorkflowRun": null,
+    "nextEvidence": "Automatic final report-tip workflows run the same application/test code. Inspect their exact head SHA before counting results."
+  },
+  "historicalResidualWork": [
+    "Verify/download corrected-source PostgreSQL, nine focused Paystack browser and expanded full Chromium execution evidence; discovery or unit mocks cannot close financial acceptance.",
+    "Any failure in corrected-source CI is an open defect, not an accepted pass.",
+    "Complete matrix follow-ups not covered by this bounded single-store basket: multi-store/modifier and cent/large-value cases, stale quote/legal/contact negatives, changed-operation request-hash proof. The previously inventoried Number/toFixed and reserve/prepare requestHash forwarding risks remain unverified.",
+    "Other marketplace order/settlement integration anchors and eight other financial/store browser placeholders remain open; do not count their trivial/scaffold assertions as acceptance.",
+    "Paystack sandbox/live/operator acceptance, real fees/stock/approvals and production rollout remain separate and unauthorized."
+  ],
+  "latestCoreAcceptance": "PASS",
+  "latestSupportingPayments": {
+    "command": "test:payments",
+    "arguments": [],
+    "commitSha": "95dbab4a904a0971983857399f0dddc1384f8358",
+    "durationMs": 5928,
+    "exitCode": 0,
+    "testFilesPassed": 54,
+    "testsPassed": 335,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "testsFlaky": 0,
+    "executions": [
+      {
+        "runner": "vitest",
+        "testFiles": {
+          "passed": 54,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0
+        },
+        "passed": 335,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0
+      }
+    ],
+    "skippedCriticalTestsDetected": false,
+    "flakyCriticalTestsDetected": false,
+    "status": "PASS"
+  }
 }
