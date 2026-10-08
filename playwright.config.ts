@@ -42,6 +42,7 @@ export default defineConfig({
         /store-order-(?:customer|merchant|admin|substitution|handoff|accessibility)\.spec\.ts/,
         /production-visual-review\.spec\.ts/,
         /profile-avatar-lifecycle\.spec\.ts/,
+        /store-branding-lifecycle\.spec\.ts/,
         /transactional-notifications\.spec\.ts/,
         /trusted-parcel-classification\.spec\.ts/,
         /driver-canonical-delivery\.spec\.ts/,

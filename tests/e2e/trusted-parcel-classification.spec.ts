@@ -84,12 +84,12 @@ for (const width of [1440, 390]) test(`independent measured packaging governance
       expect(receipt.quotes).toHaveLength(1); expect(receipt.quotes[0]).toMatchObject({ subtotal: fee, ruleSnapshot: { ruleKey: `PARCEL_${sizeClass}`, parcelClassification: { sizeClass, packageVersion: full.version } } });
       expect(receipt.paymentCount).toBe(0); expect(receipt.orderCount).toBe(0); expect(receipt.stock.every(row => row.onHand === 20 && row.reserved === 0 && row.available === 20)).toBe(true);
     }
-    const unknown = await freshCheckout(page, f, entry, 2); const unknownDenied = await calculate(page, unknown); expect(unknownDenied.status()).toBe(409); await expect(page.locator("#checkout-error")).toContainText("No approved marketplace delivery tariff");
+    const unknown = await freshCheckout(page, f, entry, 2); const unknownDenied = await calculate(page, unknown); expect(unknownDenied.status(), await unknownDenied.text()).toBe(422); expect((await unknownDenied.json()).code).toBe("CHECKOUT_REVIEW_REQUIRED"); await expect(page.locator("#checkout-error")).toContainText("No approved marketplace delivery tariff");
     const unknownBefore = await control<Snapshot>("snapshot", tag, unknown); expect(unknownBefore.classification).toMatchObject({ status: "UNKNOWN", sizeClass: null, reason: "AGGREGATE_PACKING_APPROVAL_REQUIRED" }); expect(unknownBefore.quotes).toHaveLength(0);
     await control("tariff-any", tag); const anyQuote = await calculate(page, unknown); expect(anyQuote.status(), await anyQuote.text()).toBe(200); await review(page, unknown);
     const anyReceipt = await control<Snapshot>("snapshot", tag, unknown); expect(anyReceipt.quotes[0]).toMatchObject({ subtotal: "44.00", ruleSnapshot: { ruleKey: "PARCEL_ANY", parcelClassification: { sizeClass: null } } }); expect(anyReceipt.stock).toEqual(unknownBefore.stock); receipts.push(anyReceipt);
     for (const suffix of ["oversize", "overweight"]) {
-      const reference = await freshCheckout(page, f, f.entries.find(e => e.offerReference.endsWith(`-${suffix}`))!); const denied = await calculate(page, reference); expect(denied.status()).toBe(409); await expect(page.locator("#checkout-error")).toContainText("exceed approved acceptance limits");
+      const reference = await freshCheckout(page, f, f.entries.find(e => e.offerReference.endsWith(`-${suffix}`))!); const denied = await calculate(page, reference); expect(denied.status(), await denied.text()).toBe(422); expect((await denied.json()).code).toBe("CHECKOUT_REVIEW_REQUIRED"); await expect(page.locator("#checkout-error")).toContainText("exceed approved acceptance limits");
       const receipt = await control<Snapshot>("snapshot", tag, reference); expect(receipt.classification).toMatchObject({ status: "UNSUPPORTED", sizeClass: null }); expect(receipt.quotes).toHaveLength(0); expect(receipt.paymentCount).toBe(0); expect(receipt.orderCount).toBe(0); receipts.push(receipt);
     }
     await control("tariff-size", tag);

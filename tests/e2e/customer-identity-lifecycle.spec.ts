@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { login } from "./fixtures/auth";
 import { assertDisposablePaystackAcceptance } from "../../lib/testing/disposable-paystack-policy";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const execute = promisify(execFile);
+async function inbox(email: string, action: "verification" | "reset") {
+  const { stdout } = await execute(process.execPath, ["--import", "tsx", "scripts/phase3-identity-control.ts", email, action], { env: process.env, timeout: 30_000, maxBuffer: 64_000 });
+  const line = stdout.split(/\r?\n/).find(value => value.startsWith("IDENTITY_TEST_INBOX "));
+  if (!line) throw Error("Owned disposable identity inbox evidence unavailable.");
+  return (JSON.parse(line.slice("IDENTITY_TEST_INBOX ".length)) as { secret: string }).secret;
+}
 
 for (const width of [1440, 390]) test(`native customer verification, owned addresses and password reset revocation at ${width}px`, async ({ page, browser }, info) => {
   test.setTimeout(180_000); assertDisposablePaystackAcceptance();
@@ -15,10 +24,11 @@ for (const width of [1440, 390]) test(`native customer verification, owned addre
   await authField("Password").fill(password); await authField("Confirm password").fill(password);
   const signup = page.waitForResponse(r => r.url().endsWith("/api/auth/signup") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  const created = await signup; expect(created.status(), await created.text()).toBe(201);
-  // Existing nonproduction response only; no delivery or destination ownership
-  // is claimed. The deliberate receipt excludes fixture codes and reset keys.
-  const code = (await created.json())._dev_otp as string; expect(code).toMatch(/^\d{6}$/);
+  const created = await signup; expect([201, 202], await created.text()).toContain(created.status());
+  if (created.status() === 202) expect((await created.json()).deliveryPending).toBe(true);
+  // Read the genuine encrypted synthetic outbox through a named-runtime CLI;
+  // provider delivery is unclaimed and secrets are excluded from attachments.
+  const code = await inbox(email, "verification");
   await expect(page).toHaveURL(/\/verify-otp/);
   const origin = new URL(page.url()).origin;
   expect((await page.request.post("/api/auth/verify-otp", { headers: { origin: "https://foreign.example.test" }, data: { email, code } })).status()).toBe(403);
@@ -52,7 +62,7 @@ for (const width of [1440, 390]) test(`native customer verification, owned addre
     expect((await other.request.post("/api/auth/login", { headers: { origin }, data: { email, password } })).status()).toBe(200);
     await page.goto("/forgot-password"); await authField("Email address").fill(email);
     const forgot = page.waitForResponse(r => r.url().endsWith("/api/auth/forgot-password")); await page.getByRole("button", { name: "Send reset link", exact: true }).click();
-    const forgotten = await forgot; expect(forgotten.status()).toBe(200); const token = (await forgotten.json())._dev_token as string; expect(token).toBeTruthy();
+    const forgotten = await forgot; expect(forgotten.status()).toBe(200); const token = await inbox(email, "reset");
     await page.goto(`/reset-password?token=${token}`); await authField("New password").fill(newPassword); await authField("Confirm new password").fill(newPassword);
     const reset = page.waitForResponse(r => r.url().endsWith("/api/auth/reset-password")); await page.getByRole("button", { name: "Update password", exact: true }).click(); expect((await reset).status()).toBe(200);
     await expect(page).toHaveURL(/\/login\?reset=success/);

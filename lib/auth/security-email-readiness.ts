@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { otpHmacKeyAvailable } from "@/lib/auth/otp";
 import { NOTIFICATION_PRODUCTION_VALIDATION_APPROVED } from "@/lib/notifications/production-readiness";
 import { securityPayloadKey } from "@/lib/notifications/security-payload-vault";
+import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
 
 function providerConfigured(
   env: Record<string, string | undefined>,
@@ -18,6 +19,9 @@ export function shouldQueueSecurityEmail(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   if (env.NODE_ENV === "production") return true;
+  // The named offline browser runtime exercises durable encrypted intents;
+  // its CLI reads the synthetic inbox without claiming provider delivery.
+  try { assertDisposablePaystackAcceptance(env); securityPayloadKey(env); return true; } catch { /* Normal provider readiness follows. */ }
   if (!providerConfigured(env)) return false;
   try {
     securityPayloadKey(env);

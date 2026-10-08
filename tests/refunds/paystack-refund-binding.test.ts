@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { PaystackRefundAdapter } from "../../lib/refunds/providers/paystack/paystack-refund-adapter";
 import { PaystackClient } from "../../lib/payments/providers/paystack/paystack-client";
+import { validateRefundProviderResult } from "../../lib/refunds/providers/refund-provider-result";
+import { createMerchantReference } from "../../lib/payments/merchant-reference";
 
 const context = () => ({ signal: new AbortController().signal, correlationId: "disposable-refund-binding", timeoutMs: 1000 });
 const input = { refundPublicReference: "RF-SYNTHETIC", paymentPublicReference: "PAY-SYNTHETIC", providerPaymentId: "canonical-payment", amount: "0.03", currency: "ZAR" as const, reasonCode: "SERVICE_NOT_PROVIDED", providerOperationKey: "synthetic-create" };
@@ -12,6 +14,16 @@ function adapter(data: typeof facts) {
   return { authority: new PaystackRefundAdapter(client), create };
 }
 describe("Paystack refund returned financial fact binding", () => {
+  it("preserves a queryable refund ID for an unknown result on an escaped canonical payment reference", async () => {
+    const reference = createMerchantReference("pay_SYNTHETIC_1234", 1);
+    const f = adapter({ ...facts, transaction: { id: 77, reference }, status: "unrecognized" });
+    const result = validateRefundProviderResult(await f.authority.createRefund({ ...input, providerPaymentId: reference }, context()));
+    expect(result).toMatchObject({ status: "UNKNOWN", definitive: false, providerRefundId: "42", providerPaymentId: reference });
+    expect(validateRefundProviderResult(await f.authority.queryRefund({ refundPublicReference: input.refundPublicReference, providerRefundId: "42", providerPaymentId: reference }, context()))).toMatchObject({ providerRefundId: "42", providerPaymentId: reference, amount: "0.03", status: "UNKNOWN" });
+  });
+  for (const reference of ["payment with spaces", "payment\nreference", "https://foreign.example.test/payment"]) it(`denies unsafe payment reference ${JSON.stringify(reference)}`, () => {
+    expect(() => validateRefundProviderResult({ status: "UNKNOWN", definitive: false, providerPaymentId: reference })).toThrow();
+  });
   it("posts exact subunits and returns independent definitive evidence", async () => {
     const f = adapter(facts); const result = await f.authority.createRefund(input, context());
     expect(f.create).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 3, transaction: "canonical-payment", currency: "ZAR" }), expect.any(AbortSignal));

@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { CatalogConflictError, CatalogNotFoundError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { catalogPublicReference, catalogRequestHash } from "@/lib/catalog/catalog-normalization";
@@ -337,7 +338,20 @@ export class PrismaCatalogMediaRepository implements CatalogMediaRepository {
 
   private async transition(intent: CatalogMediaUploadIntentRecord, input: { assetStatus: CatalogMediaAssetLifecycleStatus; intentStatus?: CatalogMediaUploadLifecycleStatus; action: string; reasonCode?: string; operation: CatalogMediaOperation; assetData?: Record<string, unknown>; intentData?: Record<string, unknown>; recordOperation?: boolean }) {
     return prisma.$transaction(async (tx) => {
-      const asset = await tx.catalogMediaAsset.update({ where: { id: intent.assetId }, data: { ...input.assetData, status: input.assetStatus, updatedByUserId: input.operation.actorUserId, version: { increment: 1 } } });
+      const branding = intent.ownerType === "STORE" && intent.ownerStoreId && ["STORE_LOGO", "STORE_HERO"].includes(intent.purpose);
+      if (branding) await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${intent.ownerStoreId} FOR UPDATE`);
+      const changed = await tx.catalogMediaAsset.updateMany({ where: { id: intent.assetId, version: intent.asset.version, status: intent.asset.status }, data: { ...input.assetData, status: input.assetStatus, updatedByUserId: input.operation.actorUserId, version: { increment: 1 } } });
+      if (changed.count !== 1) throw new CatalogConflictError("CATALOG_MEDIA_VERSION_CONFLICT", "Image changed during validation. Refresh before retrying.");
+      const asset = await tx.catalogMediaAsset.findUniqueOrThrow({ where: { id: intent.assetId } });
+      if (branding && input.assetStatus === "READY") {
+        const previous = await tx.catalogMediaAsset.findMany({ where: { ownerType: "STORE", ownerStoreId: intent.ownerStoreId, purpose: intent.purpose, status: "READY", id: { not: asset.id } } });
+        for (const prior of previous) {
+          assertCatalogMediaAssetTransition(prior.status, "ARCHIVED");
+          const retired = await tx.catalogMediaAsset.update({ where: { id: prior.id }, data: { status: "ARCHIVED", archivedAt: new Date(), updatedByUserId: input.operation.actorUserId, version: { increment: 1 } } });
+          await tx.catalogMediaHistory.create({ data: { assetId: prior.id, fromStatus: "READY", toStatus: "ARCHIVED", action: "STORE_BRANDING_REPLACED", actorUserId: input.operation.actorUserId, safeDetails: { replacementReference: asset.publicReference } } });
+          await recordCatalogEvidence(tx, { aggregateType: "MEDIA", aggregateReference: prior.publicReference, aggregateVersion: retired.version, action: "STORE_BRANDING_REPLACED", eventType: "MEDIA_UPDATED", actorUserId: input.operation.actorUserId, safeMetadata: { replacementReference: asset.publicReference } });
+        }
+      }
       await tx.catalogMediaHistory.create({ data: { assetId: asset.id, uploadIntentId: intent.id, fromStatus: intent.asset.status, toStatus: input.assetStatus, action: input.action, reasonCode: input.reasonCode, actorUserId: input.operation.actorUserId } });
       const updated = await tx.catalogMediaUploadIntent.update({ where: { id: intent.id }, data: { ...input.intentData, ...(input.intentStatus ? { status: input.intentStatus } : {}) }, include: includeAsset });
       await recordCatalogEvidence(tx, { aggregateType: "MEDIA", aggregateReference: asset.publicReference, aggregateVersion: asset.version, action: input.action, eventType: "MEDIA_UPDATED", actorUserId: input.operation.actorUserId, reasonCode: input.reasonCode });
@@ -350,7 +364,19 @@ export class PrismaCatalogMediaRepository implements CatalogMediaRepository {
 
   private async assetOnlyTransition(asset: CatalogMediaAssetRecord, status: CatalogMediaAssetLifecycleStatus, action: string, reasonCode: string | undefined, operationInput: CatalogMediaOperation, data: Record<string, unknown>) {
     return prisma.$transaction(async (tx) => {
-      const updated = await tx.catalogMediaAsset.update({ where: { id: asset.id }, data: { ...data, status, updatedByUserId: operationInput.actorUserId, version: { increment: 1 } } });
+      const branding = asset.ownerType === "STORE" && asset.ownerStoreId && ["STORE_LOGO", "STORE_HERO"].includes(asset.purpose);
+      if (branding) await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${asset.ownerStoreId} FOR UPDATE`);
+      const changed = await tx.catalogMediaAsset.updateMany({ where: { id: asset.id, version: asset.version, status: asset.status }, data: { ...data, status, updatedByUserId: operationInput.actorUserId, version: { increment: 1 } } });
+      if (changed.count !== 1) throw new CatalogConflictError("CATALOG_MEDIA_VERSION_CONFLICT", "Image changed before the action. Refresh before retrying.");
+      const updated = await tx.catalogMediaAsset.findUniqueOrThrow({ where: { id: asset.id } });
+      if (branding && status === "ARCHIVED") {
+        const previous = await tx.catalogMediaAsset.findMany({ where: { ownerType: "STORE", ownerStoreId: asset.ownerStoreId, purpose: asset.purpose, status: "READY", id: { not: asset.id } } });
+        for (const prior of previous) {
+          const retired = await tx.catalogMediaAsset.update({ where: { id: prior.id }, data: { status: "ARCHIVED", archivedAt: new Date(), updatedByUserId: operationInput.actorUserId, version: { increment: 1 } } });
+          await tx.catalogMediaHistory.create({ data: { assetId: prior.id, fromStatus: "READY", toStatus: "ARCHIVED", action: "STORE_BRANDING_REMOVED", actorUserId: operationInput.actorUserId } });
+          await recordCatalogEvidence(tx, { aggregateType: "MEDIA", aggregateReference: prior.publicReference, aggregateVersion: retired.version, action: "STORE_BRANDING_REMOVED", eventType: "MEDIA_UPDATED", actorUserId: operationInput.actorUserId });
+        }
+      }
       await tx.catalogMediaHistory.create({ data: { assetId: asset.id, fromStatus: asset.status, toStatus: status, action, reasonCode, actorUserId: operationInput.actorUserId } });
       await recordCatalogEvidence(tx, { aggregateType: "MEDIA", aggregateReference: asset.publicReference, aggregateVersion: updated.version, action, eventType: "MEDIA_UPDATED", actorUserId: operationInput.actorUserId, reasonCode });
       await tx.catalogOperationReceipt.create({ data: { actorUserId: operationInput.actorUserId, storeId: asset.ownerStoreId, operationId: operationInput.operationId, requestHash: operationInput.requestHash, action: `MEDIA:${operationInput.action}`, aggregateReference: asset.publicReference } });

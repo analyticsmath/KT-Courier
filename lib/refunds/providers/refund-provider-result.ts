@@ -2,6 +2,8 @@ import { RefundError } from "../errors";
 import type { ProviderRefundResult, RefundProviderResultStatus } from "./refund-provider-adapter";
 
 const SAFE_REFERENCE = /^[A-Za-z0-9_.:-]{1,160}$/;
+// Canonical Paystack transaction references escape underscores as "=u".
+const SAFE_PAYMENT_REFERENCE = /^[A-Za-z0-9_.:=-]{1,160}$/;
 const SAFE_CODE = /^[A-Za-z0-9_.:-]{1,80}$/;
 const STATUSES = new Set<RefundProviderResultStatus>(["SUCCEEDED", "PROCESSING", "FAILED", "UNKNOWN", "NEEDS_ATTENTION"]);
 
@@ -10,7 +12,7 @@ export function validateRefundProviderResult(result: ProviderRefundResult): Prov
     throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Refund provider returned an invalid result.");
   }
   if (result.providerRefundId && !SAFE_REFERENCE.test(result.providerRefundId)) throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider refund reference is invalid.");
-  if (result.providerPaymentId && !SAFE_REFERENCE.test(result.providerPaymentId)) throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider payment reference is invalid.");
+  if (result.providerPaymentId && !SAFE_PAYMENT_REFERENCE.test(result.providerPaymentId)) throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider payment reference is invalid.");
   if (result.providerStatusCode && !SAFE_CODE.test(result.providerStatusCode)) throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider status code is invalid.");
   if (result.status === "SUCCEEDED" && (!result.definitive || !result.providerRefundId)) throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider success is not authoritative or lacks a refund reference.");
   if (result.status === "FAILED" && !result.definitive) throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider failure is not definitive.");
