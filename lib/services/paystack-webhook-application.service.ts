@@ -302,7 +302,9 @@ export async function ingestPaystackWebhook(
   const sanitizedSnapshot = sanitizeEvidenceSnapshot(payload as unknown as Record<string, unknown>);
 
   // Fast HTTP ingestion upsert: stores raw event with sourceAddressVerified: false, signatureVerified: true
-  const eventRecord = await prisma.paymentWebhookEvent.upsert({
+  let eventRecord: PaymentWebhookEvent;
+  try {
+    eventRecord = await prisma.paymentWebhookEvent.upsert({
     where: { eventFingerprint },
     update: {},
     create: {
@@ -326,7 +328,15 @@ export async function ingestPaystackWebhook(
       safePayloadSnapshot: (sanitizedSnapshot ?? payload) as unknown as Prisma.InputJsonValue,
       unknownFieldCount: 0,
     },
-  });
+    });
+  } catch (error: unknown) {
+    // Prisma's empty-update upsert can race into two INSERTs. A duplicate
+    // receipt is acknowledged only after its committed durable row is read.
+    if ((error as { code?: string }).code !== "P2002") throw error;
+    const committed = await prisma.paymentWebhookEvent.findUnique({ where: { eventFingerprint } });
+    if (!committed) throw error;
+    eventRecord = committed;
+  }
 
   const duplicate = eventRecord.processingStatus === "APPLIED" || eventRecord.processingStatus === "DUPLICATE";
 

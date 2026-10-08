@@ -102,6 +102,10 @@ describe("canonical Paystack real PostgreSQL acceptance", () => {
         expect(journals).toHaveLength(1); expect(journals[0].currency).toBe("ZAR");
         expect(journals[0].totalDebits.equals(fresh.amount)).toBe(true); expect(journals[0].totalCredits.equals(fresh.amount)).toBe(true);
         expect(journals[0].entries).toHaveLength(2); expect(orders).toHaveLength(1); expect(orders[0].grandTotal.equals(fresh.amount)).toBe(true);
+        expect(fresh.marketplaceOrderId).toBe(orders[0].id);
+        await expect(prisma.payment.update({ where: { id: fresh.id }, data: { marketplaceOrderId: null } })).rejects.toThrow("binding is immutable");
+        await expect(prisma.payment.update({ where: { id: fresh.id }, data: { marketplaceOrderId: crypto.randomUUID() } })).rejects.toThrow("binding is immutable");
+        await expect(prisma.payment.update({ where: { id: fresh.id }, data: { amount: fresh.amount.add("0.01") } })).rejects.toThrow("Succeeded payment evidence is immutable");
         expect(reservation.status).toBe("CONSUMED");
         for (const item of reservation.items) {
           const before = baseline.items.find(value => value.inventoryLevelId === item.inventoryLevelId)!;
