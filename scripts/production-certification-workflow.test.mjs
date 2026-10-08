@@ -32,3 +32,15 @@ test("separate observable disposable jobs, strict browser plan and final manifes
   assert.equal(workflow.jobs.postgres.strategy["fail-fast"], false);
   assert.equal(workflow.jobs.postgres.strategy.matrix.command.length, 20);
 });
+
+test("finance targets use a separate disposable invocation before the unchanged full browser plan", () => {
+  const steps = workflow.jobs.browser.steps;
+  const focused = steps.findIndex(step => step.name?.startsWith("Isolated withdrawal finance acceptance"));
+  const full = steps.findIndex(step => step.run?.includes("test:e2e -- --project=chromium --phase1-catalog"));
+  assert.ok(focused >= 0 && full > focused);
+  assert.match(steps[focused].run, /certification-command\.mjs test:e2e -- tests\/e2e\/withdrawal-finance-admin\.spec\.ts --project=chromium --retries=0 --workers=1/);
+  for (const guard of ["result.commitSha!==process.env.KT_CERTIFICATION_HEAD_SHA", "result.status!=='PASS'", "result.testsPassed!==3", "result.testsFailed!==0", "result.testsSkipped!==0", "result.testsFlaky!==0"]) assert.ok(steps[focused].run.includes(guard), guard);
+  assert.match(steps[focused].run, /test-e2e-finance-focused\.json/);
+  const planSource = readFileSync(new URL("./phase1-browser-plan.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(planSource, /withdrawal-finance-admin\.spec\.ts/);
+});
