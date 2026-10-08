@@ -27,7 +27,7 @@ function uniqueSorted(items: readonly ReservationLine[]): readonly ReservationLi
   return result;
 }
 
-export async function reserveMarketplaceCheckoutInventory(repository: MarketplaceReservationRepository, input: Readonly<{ checkoutId: string; publicReference: string; commercialFingerprint: string; lines: readonly ReservationLine[]; expiresAt: Date; operationId: string }>): Promise<MarketplaceReservationState> {
+export async function reserveMarketplaceCheckoutInventory(repository: MarketplaceReservationRepository, input: Readonly<{ checkoutId: string; publicReference: string; commercialFingerprint: string; lines: readonly ReservationLine[]; expiresAt: Date; operationId: string; requestHash?: string }>): Promise<MarketplaceReservationState> {
   return repository.transaction(async () => {
     const existing = await repository.findActiveReservation(input.checkoutId);
     if (existing) {
@@ -42,7 +42,7 @@ export async function reserveMarketplaceCheckoutInventory(repository: Marketplac
     for (const line of lines) { await repository.applyLevelReservation(line.inventoryLevelId, line.quantity); await repository.appendMovement({ inventoryItemReference: line.inventoryItemReference, locationReference: line.locationReference, levelId: line.inventoryLevelId, type: "RESERVATION", quantityDelta: 0, operationId: `${input.operationId}:${line.inventoryLevelId}`, reasonCode: "MARKETPLACE_CHECKOUT_RESERVATION" }); }
     const reservation = await repository.createReservation({ id: input.publicReference, checkoutId: input.checkoutId, status: "ACTIVE", commercialFingerprint: input.commercialFingerprint, expiresAt: input.expiresAt, items: lines });
     await repository.updateCheckout(input.checkoutId, { status: "RESERVED", reservationExpiresAt: input.expiresAt });
-    await repository.completeOperation?.({ checkoutId: input.checkoutId, operationId: input.operationId, requestHash: input.commercialFingerprint, type: "RESERVE", response: { reservationId: reservation.id, status: reservation.status } });
+    await repository.completeOperation?.({ checkoutId: input.checkoutId, operationId: input.operationId, requestHash: input.requestHash ?? input.commercialFingerprint, type: "RESERVE", response: { id: reservation.id, status: reservation.status } });
     return reservation;
   });
 }

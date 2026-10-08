@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db/prisma";
 import { createHash } from "node:crypto";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ re
     const { reference, storeOrderReference } = await context.params; const user = await getCurrentUser();
     const customerUserId = user?.role === "CUSTOMER" ? user.id : undefined; const guestSecret = customerUserId ? undefined : request.cookies.get(MARKETPLACE_ORDER_COOKIE)?.value;
     if (!customerUserId && !guestSecret) return storeOrderJson({ error: "Customer order ownership is required." }, 401);
+    const bound = await prisma.marketplaceStoreOrder.findFirst({ where: { publicReference: storeOrderReference, marketplaceOrder: { publicReference: reference } }, select: { id: true } });
+    if (!bound) return storeOrderJson({ error: "Store order was not found." }, 404);
     const body = await storeOrderBody(request); const action = text(body, "action", 3, 40); const operationId = text(body, "operationId", 12, 160); const requestHash = hash(action, body);
     let result: unknown;
     if (action === "substitution-preference") { exactKeys(body, ["action", "operationId", "orderLineId", "preference"]); const preference = text(body, "preference", 3, 40); if (!["REFUND_IF_UNAVAILABLE", "NO_SUBSTITUTION", "CONTACT_ME", "PREAPPROVED_CHOICES_ONLY"].includes(preference)) return storeOrderJson({ error: "Invalid substitution preference." }, 422); result = await updateStoreOrderSubstitutionPreference({ storeOrderReference, orderLineId: text(body, "orderLineId", 5, 128), customerUserId, guestSecret, preference: preference as "REFUND_IF_UNAVAILABLE" | "NO_SUBSTITUTION" | "CONTACT_ME" | "PREAPPROVED_CHOICES_ONLY", operationId, requestHash }); }

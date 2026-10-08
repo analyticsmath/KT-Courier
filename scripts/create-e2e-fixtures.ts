@@ -4,6 +4,7 @@ import { AddressType, DeliveryType, DriverAvailability, DriverOnboardingStatus, 
 import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { reverseLedgerJournal } from "@/lib/services/ledger-reversal.service";
 import { createDisposableCheckoutAuthorities } from "./e2e-checkout-authorities";
+import { createDisposableResidualCatalog } from "./e2e-paystack-residual-fixtures";
 import { createDisposableDriverSettlement } from "./e2e-driver-settlement-fixture";
 import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-settlement-guard";
 import { accrueDriverEarning } from "@/lib/services/driver-earning-accrual.service";
@@ -529,7 +530,7 @@ async function main() {
   for (const suffix of ["1440", "390", "other"]) {
     await prisma.user.create({ data: { email: `e2e-checkout-${suffix}@ktcouriers.local`, name: "Disposable checkout customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
   }
-  for (const suffix of ["1440", "390", "amount", "currency", "unknown", "reference", "payload", "pg-success", "pg-unknown"]) {
+  for (const suffix of ["1440", "390", "amount", "currency", "unknown", "reference", "payload", "pg-success", "pg-unknown", "wallet-1440", "wallet-390", "finance-1440", "finance-390", "store-customer-1440", "store-customer-390", "store-merchant-1440", "store-merchant-390", "store-admin-1440", "store-admin-390", "store-substitution-1440", "store-substitution-390", "store-handoff-1440", "store-handoff-390", "store-accessibility-1440", "store-accessibility-390", "pg-store", "pg-store-acceptance", "pg-store-adjustment", "pg-store-delivery-bridge", "pg-store-handoff", "pg-store-invariants", "pg-store-inventory", "pg-store-reconciliation", "pg-store-refund", "pg-store-substitution", "pg-residual-one", "pg-residual-two", "pg-residual-three", "pg-residual-large", "pg-residual-multistore", "pg-residual-hash", "pg-residual-stale", "pg-residual-settlement"]) {
     await prisma.user.create({ data: { email: `e2e-paystack-${suffix}@ktcouriers.local`, name: "Disposable Paystack customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
   }
   // Pending, unapproved driver accounts are owned by independent viewport
@@ -563,7 +564,7 @@ async function main() {
   });
   const ledgerPermission = await prisma.permission.findUniqueOrThrow({ where: { key: "ledger.read" } });
   await prisma.user.create({ data: { email: "e2e-editorial-reviewer@ktcouriers.local", name: "Disposable independent editorial reviewer", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
-  for (const key of ["catalog_moderation.read", "catalog_moderation.review", "catalog_moderation.approve", "catalog_moderation.suspend", "storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile", "store_earnings.read", "store_earnings.reverse", "store_earnings.reconcile", "withdrawals.read", "withdrawals.review", "withdrawals.approve", "withdrawals.process", "withdrawals.reconcile", "payout_destinations.read", "payout_destinations.manage"]) {
+  for (const key of ["catalog_moderation.read", "catalog_moderation.review", "catalog_moderation.approve", "catalog_moderation.suspend", "storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile", "store_earnings.read", "store_earnings.reverse", "store_earnings.reconcile", "withdrawals.read", "withdrawals.review", "withdrawals.approve", "withdrawals.process", "withdrawals.reconcile", "payout_destinations.read", "payout_destinations.manage", "refunds.read", "refunds.review", "refunds.approve", "refunds.process", "refunds.reconcile", "refund_provider_status.read"]) {
     const permission = await prisma.permission.findUniqueOrThrow({ where: { key } });
     await prisma.userPermission.create({ data: { userId: deniedLedgerAdmin.id, permissionId: permission.id, effect: PermissionEffect.DENY } });
   }
@@ -594,6 +595,7 @@ async function main() {
 
   await seedPhase2Fixtures(passwordHash);
   await createDisposableCheckoutAuthorities();
+  await createDisposableResidualCatalog();
   for (const suffix of ["1440", "390", "other"]) {
     for (const amount of ["100.25", "25.40"]) {
       const source = await createDisposableDriverSettlement({ email: `e2e-earning-${suffix}@ktcouriers.local`, passwordHash, amount });

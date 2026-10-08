@@ -229,8 +229,8 @@ export async function updateStoreOrderSubstitutionPreference(input: Readonly<{ s
   assertStoreOrderProductionReady("AVAILABILITY", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
-    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     assertStoreOrder((input.customerUserId && order.marketplaceOrder?.customerUserId === input.customerUserId) || (!input.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder?.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
+    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     assertStoreOrder(order.preparationStatus === "NOT_STARTED" && !["HANDED_OFF", "ABORTED"].includes(order.preparationStatus), "STORE_ORDER_PREFERENCE_LOCKED", "Substitution preference can no longer be changed.");
     const line = order.lines.find((item: any) => item.id === input.orderLineId);
     assertStoreOrder(line?.fulfilment && line.fulfilment.issues.length === 0, "STORE_ORDER_PREFERENCE_LOCKED", "Preference can only change before a line issue opens.");
@@ -295,8 +295,8 @@ export async function decideStoreOrderSubstitution(input: Readonly<{ storeOrderR
   assertStoreOrderProductionReady("SUBSTITUTION", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
-    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     assertStoreOrder((input.customerUserId && order.marketplaceOrder.customerUserId === input.customerUserId) || (!input.customerUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
+    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const proposal = await model(tx, "marketplaceStoreOrderSubstitutionProposal").findUnique({ where: { publicReference: input.proposalReference }, include: { reservation: true, issue: true, lineFulfilment: true } });
     assertStoreOrder(proposal?.marketplaceStoreOrderId === order.id && proposal.status === "PROPOSED", "STORE_ORDER_SUBSTITUTION_INVALID", "Substitution proposal is unavailable.");
     assertStoreOrder(proposal.expiresAt > new Date(), "STORE_ORDER_SUBSTITUTION_EXPIRED", "Substitution proposal has expired.");
@@ -431,7 +431,6 @@ export async function requestMarketplaceStoreOrderCancellation(input: Readonly<{
   assertStoreOrderProductionReady("ADJUSTMENT", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
-    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     if (input.requesterType === "STORE") {
       assertStoreOrder(input.requesterUserId, "STORE_ORDER_ACCESS_DENIED", "Store actor is required.");
       await requireStoreOrderActor({ actorUserId: input.requesterUserId, storeId: order.storeId, permission: "store_orders.reject" });
@@ -440,6 +439,7 @@ export async function requestMarketplaceStoreOrderCancellation(input: Readonly<{
       assertStoreOrder((input.requesterUserId && order.marketplaceOrder.customerUserId === input.requesterUserId) || (!input.requesterUserId && verifyMarketplaceGuestSecret(input.guestSecret, order.marketplaceOrder.guestConfirmationHash)), "STORE_ORDER_CUSTOMER_ACCESS_DENIED", "Customer order ownership is required.");
       assertStoreOrder(!["HANDED_OFF", "ABORTED"].includes(order.preparationStatus), "STORE_ORDER_CANCELLATION_TOO_LATE", "Cancellation is unavailable after handoff or abort.");
     }
+    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const requestReference = ref("socancel");
     await model(tx, "marketplaceStoreOrderCancellationRequest").create({ data: { publicReference: requestReference, marketplaceStoreOrderId: order.id, requesterType: input.requesterType, requesterUserId: input.requesterUserId ?? null, reasonCode: input.reasonCode.slice(0, 80), safeNote: safeNote(input.note), status: order.preparationStatus === "NOT_STARTED" ? "APPROVED" : "REQUESTED", operationId: input.operationId, requestHash: input.requestHash, decisionEvidence: { stage: order.preparationStatus, deliveryBridgeStatus: order.deliveryBridgeStatus } } });
     if (order.preparationStatus === "NOT_STARTED") await updateOrder(tx, order, { resolutionStatus: "ADJUSTMENT_PENDING", financialResolutionStatus: "ADJUSTMENT_CALCULATED" });

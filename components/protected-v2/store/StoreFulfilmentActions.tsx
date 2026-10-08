@@ -4,13 +4,13 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./store-pages.module.css";
 
-type Action = "begin-review" | "accept" | "start-preparation" | "mark-ready" | "reject";
+type Action = "begin-review" | "accept" | "start-preparation" | "mark-ready" | "reject" | "confirm-availability";
 
 function newOperationId() {
   return crypto.randomUUID();
 }
 
-export function StoreFulfilmentActions({ reference, acceptanceStatus, preparationStatus }: Readonly<{ reference: string; acceptanceStatus: string; preparationStatus: string }>) {
+export function StoreFulfilmentActions({ reference, acceptanceStatus, preparationStatus, lines }: Readonly<{ lines: readonly Readonly<{ id: string; title: string; quantity: number }>[]; reference: string; acceptanceStatus: string; preparationStatus: string }>) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -44,6 +44,7 @@ export function StoreFulfilmentActions({ reference, acceptanceStatus, preparatio
 
   return <div className={styles.scope}><section className="eo-store-actions" aria-labelledby="store-fulfilment-actions"><h2 id="store-fulfilment-actions">Fulfilment actions</h2><p>Only actions that the current server state may permit are shown. The server confirms any change before this record updates.</p>
     {canReview ? <button className="eo-button eo-button--secondary" disabled={submitting !== null} onClick={() => void submit("begin-review")}>{submitting === "begin-review" ? "Starting review…" : "Begin review"}</button> : null}
+    {canAccept ? lines.map(line => <form key={line.id} className="eo-store-action-form" onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget); void submit("confirm-availability", { orderLineId: line.id, availableQuantity: Number(values.get("availableQuantity")), reasonCode: "STORE_REPORTED_AVAILABILITY" }); }}><h3>{line.title}</h3><label>Available quantity for {line.title}<input required name="availableQuantity" type="number" inputMode="numeric" min="0" max={line.quantity} defaultValue={line.quantity} /></label><button className="eo-button eo-button--secondary" disabled={submitting !== null} type="submit">Confirm availability</button></form>) : null}
     {canAccept ? <form onSubmit={accept} className="eo-store-action-form"><h3>Accept order</h3><label>Preparation time (minutes)<input required min="1" max="1440" name="preparationMinutes" type="number" inputMode="numeric" /></label><label>Pickup instructions<textarea required maxLength={500} name="pickupInstructions" /></label><button className="eo-button eo-button--primary" disabled={submitting !== null} type="submit">{submitting === "accept" ? "Accepting…" : "Accept order"}</button></form> : null}
     {canStart ? <button className="eo-button eo-button--secondary" disabled={submitting !== null} onClick={() => void submit("start-preparation")}>{submitting === "start-preparation" ? "Starting…" : "Start preparation"}</button> : null}
     {canReady ? <button className="eo-button eo-button--primary" disabled={submitting !== null} onClick={() => void submit("mark-ready")}>{submitting === "mark-ready" ? "Marking ready…" : "Mark ready for collection"}</button> : null}

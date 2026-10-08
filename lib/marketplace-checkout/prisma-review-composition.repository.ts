@@ -38,7 +38,7 @@ function toReviewable(row: any): any {
       storeReference: group.storeId,
       pickupLocationReference: group.pickupLocationReference ?? `loc_${group.storeId}`,
       fulfilmentMode: group.fulfilmentMode,
-      lines: group.lines.map((line: any) => ({
+      lines: group.lines.filter((line: any) => line.reviewVersion === row.reviewVersion).map((line: any) => ({
         lineReference: line.id,
         storeReference: group.storeId,
         offerReference: line.offerReference,

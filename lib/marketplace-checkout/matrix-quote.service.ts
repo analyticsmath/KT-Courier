@@ -9,8 +9,9 @@ import type { PricingQuoteRequestInput } from "@/lib/validation/pricing";
 import { listDeliveryMatrices } from "./delivery-policy-configuration";
 import { selectMarketplaceDeliveryPolicy } from "./delivery-policy";
 import { MarketplaceCheckoutError } from "./errors";
+import { classifyPersistedCheckoutParcel } from "./parcel-configuration.service";
 
-export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQuoteOwnerType; ownerId: string; storeId: string }, input: PricingQuoteRequestInput, serviceAreaReference: string) {
+export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQuoteOwnerType; ownerId: string; storeId: string }, input: PricingQuoteRequestInput, serviceAreaReference: string, checkoutReference?: string) {
   const fail = (message: string): never => { throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", message); };
   const points = [input.pickupAddress, input.dropoffAddress];
   if (points.some((p) => p.latitude == null || p.longitude == null)) fail("Verified pickup and destination coordinates are required.");
@@ -26,9 +27,11 @@ export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQu
   if (!route.ok) return fail("Route unavailable.");
   const distanceKm = route.route.distanceMeters / 1000;
   if (regions.some((r) => distanceKm > Number(r.maxDistanceKm))) fail("Road distance exceeds the operational region limit.");
-  // The checkout has no approved parcel classification. Only an explicitly
-  // authored ANY-size matrix row may apply; never infer size from line count.
-  const tariff = selectMarketplaceDeliveryPolicy(await listDeliveryMatrices(), { sizeClass: null, distanceKm, province: input.dropoffAddress.province!, regionId: serviceAreaReference, storeId: owner.storeId, highRisk: regions.some((r) => Number(r.highRiskSurcharge) > 0) });
+  const parcelClassification = await classifyPersistedCheckoutParcel(checkoutReference, owner.storeId);
+  if (parcelClassification.status === "UNSUPPORTED") fail("The trusted package measurements exceed approved acceptance limits or contain invalid source quantities.");
+  // Unknown aggregate packing remains eligible only for an independently
+  // approved explicit ANY tariff. Shopper size and product weight are ignored.
+  const tariff = selectMarketplaceDeliveryPolicy(await listDeliveryMatrices(), { sizeClass: parcelClassification.sizeClass, distanceKm, province: input.dropoffAddress.province!, regionId: serviceAreaReference, storeId: owner.storeId, highRisk: regions.some((r) => Number(r.highRiskSurcharge) > 0) });
   const configuration = await getPricingConfiguration();
   const snapshot = pricingInputSnapshot(input);
   const subtotal = new Prisma.Decimal(tariff.fee);
@@ -41,7 +44,7 @@ export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQu
     distanceMeters: route.route.distanceMeters, durationSeconds: route.route.durationSeconds, routeProvider: route.route.provider,
     originRegionId: zones[0].regionId, destinationRegionId: zones[1].regionId,
     rawDistanceKm: new Prisma.Decimal(distanceKm), billableDistanceKm: new Prisma.Decimal(distanceKm), subtotal, taxRate, taxAmount, total,
-    inputSnapshot: snapshot as Prisma.InputJsonValue, ruleSnapshot: { ...tariff, policyAuthority: "marketplace_delivery_matrix", priceBasis: "DELIVERY_SUBTOTAL" }, regionSnapshot: { originRegionId: zones[0].regionId, destinationRegionId: zones[1].regionId }, taxSnapshot: { enabled: configuration.tax.enabled, rate: taxRate.toString(), amount: taxAmount.toFixed(2), source: configuration.tax.source }, expiresAt,
+    inputSnapshot: snapshot as Prisma.InputJsonValue, ruleSnapshot: { ...tariff, parcelClassification, policyAuthority: "marketplace_delivery_matrix", priceBasis: "DELIVERY_SUBTOTAL" }, regionSnapshot: { originRegionId: zones[0].regionId, destinationRegionId: zones[1].regionId }, taxSnapshot: { enabled: configuration.tax.enabled, rate: taxRate.toString(), amount: taxAmount.toFixed(2), source: configuration.tax.source }, expiresAt,
     lineItems: { create: [{ code: "BASE_FEE", label: "Approved marketplace delivery fee", amount: subtotal, currency: "ZAR", metadata: { policyVersion: tariff.policyVersion, ruleKey: tariff.ruleKey, highRiskApplied: tariff.highRiskApplied } }, ...(configuration.tax.enabled ? [{ code: "VAT" as const, label: "VAT", amount: taxAmount, currency: "ZAR" }] : [])] },
   } });
   return { id: quote.id, total: quote.total.toFixed(2), expiresAt: quote.expiresAt, policyVersion: tariff.policyVersion };

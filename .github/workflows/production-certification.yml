@@ -135,6 +135,8 @@ jobs:
           node scripts/certification-command.mjs test:e2e -- tests/e2e/marketplace-checkout-payment.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/paystack-focused
           node --input-type=module -e "import {readFileSync,renameSync} from 'node:fs'; const path='output/production-closure/test-e2e.json'; const result=JSON.parse(readFileSync(path,'utf8')); if(result.commitSha!==process.env.KT_CERTIFICATION_HEAD_SHA || result.status!=='PASS' || result.testsPassed!==9 || result.testsFailed!==0 || result.testsSkipped!==0 || result.testsFlaky!==0) throw new Error('Exact-source Paystack acceptance requires all nine cases, zero failures/skips/flaky.'); renameSync(path,'output/production-closure/test-e2e-paystack-focused.json');"
       - run: node scripts/certification-command.mjs test:e2e -- --project=chromium --phase1-catalog
+      - name: Canonical store PostgreSQL acceptance with verified Paystack source
+        run: node scripts/certification-command.mjs test:e2e -- --project=chromium --phase2-canonical
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: browser-evidence, path: 'test-results'}

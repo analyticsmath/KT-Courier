@@ -68,6 +68,13 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
       merchantNote: input.reasonCode,
     }, context.signal);
 
+    const returnedAmount = (data as typeof data & { amount?: number }).amount;
+    if (data.currency !== input.currency || !data.transaction ||
+        ![String(data.transaction.id), data.transaction.reference].includes(input.providerPaymentId) ||
+        !Number.isSafeInteger(returnedAmount) || returnedAmount !== amountCents) {
+      throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Paystack refund identity, amount or currency does not match the reserved request.");
+    }
+
     const rawStatus = (data.status || "").toLowerCase();
     const { status, definitive } = this.mapRawStatus(rawStatus);
 
@@ -75,6 +82,8 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
       status,
       providerRefundId: String(data.id),
       providerPaymentId: input.providerPaymentId,
+      amount: input.amount,
+      currency: data.currency,
       providerStatusCode: data.status,
       safeProviderStatus: rawStatus,
       safeMetadata: Object.freeze({
@@ -90,12 +99,20 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
     const client = this.getClient();
 
     const data = await client.getRefund(input.providerRefundId, context.signal);
+    const returnedAmount = (data as typeof data & { amount?: number }).amount;
+    if (String(data.id) !== input.providerRefundId || data.currency !== "ZAR" ||
+        !data.transaction?.reference || !Number.isSafeInteger(returnedAmount) || returnedAmount! <= 0) {
+      throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Paystack refund query returned incoherent financial evidence.");
+    }
     const rawStatus = (data.status || "").toLowerCase();
     const { status, definitive } = this.mapRawStatus(rawStatus);
 
     return Object.freeze({
       status,
       providerRefundId: String(data.id),
+      providerPaymentId: data.transaction.reference,
+      amount: `${Math.floor(returnedAmount! / 100)}.${String(returnedAmount! % 100).padStart(2, "0")}`,
+      currency: data.currency,
       providerStatusCode: data.status,
       safeProviderStatus: rawStatus,
       safeMetadata: Object.freeze({

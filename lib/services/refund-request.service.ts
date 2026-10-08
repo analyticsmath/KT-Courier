@@ -30,7 +30,7 @@ type RequestDependencies = Readonly<{
 }>;
 
 async function lockPaymentByReference(tx: Prisma.TransactionClient, publicReference: string) {
-  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "paymentNumber" = ${publicReference} FOR UPDATE`);
+  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "publicReference" = ${publicReference} FOR UPDATE`);
   if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Successful payment was not found.");
   const payment = await tx.payment.findUnique({
     where: { id: rows[0].id },
@@ -60,6 +60,9 @@ async function resolveCustomerRefundAccounts(tx: Prisma.TransactionClient, custo
 }
 
 async function resolveOriginalCommissionAllocations(tx: Prisma.TransactionClient, payment: Awaited<ReturnType<typeof lockPaymentByReference>>) {
+  // A marketplace payment has no courier order. An undefined Prisma filter
+  // would otherwise inspect allocations belonging to unrelated payments.
+  if (!payment.orderId) return [];
   const accruals = await tx.commissionAccrual.findMany({
     where: { subjectType: "COURIER_ORDER", subjectId: payment.orderId ?? undefined, status: { in: ["ACCRUED", "RECONCILIATION_REQUIRED"] } },
     include: { allocations: { orderBy: { id: "asc" } } },
@@ -255,7 +258,9 @@ export async function createRefundRequest(input: RefundRequestInput, dependencie
     if ((error as { code?: string })?.code !== "P2002") throw error;
     const operationId = assertRefundOperationId(input.operationId);
     const winner = await prisma.paymentRefund.findUnique({ where: { creationIdempotencyKey: operationId } });
-    if (winner) return winner;
+    const payment = await prisma.payment.findUnique({ where: { publicReference: input.paymentPublicReference }, select: { id: true } });
+    const { amount, customerNote } = assertRefundRequestInput(input);
+    if (winner && payment && winner.creationRequestHash === refundCreationHash({ paymentId: payment.id, customerUserId: input.actorUserId, amount: amount.toString(), method: input.method, reasonCode: input.reasonCode, customerNote, policyVersion: REFUND_POLICY_VERSION })) return winner;
     throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to a different refund request.");
   }
 }
@@ -268,9 +273,11 @@ async function releaseRefundReservation(input: Readonly<{ actorUserId: string; p
     if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
     const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: true, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } }, fundingAllocations: { include: { commissionAllocation: { select: { publicReference: true } } }, orderBy: { id: "asc" } } } });
     if (!refund) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
+    if (input.targetStatus === "CANCELLED" && refund.customerUserId !== input.actorUserId) throw new RefundError("REFUND_FORBIDDEN", "Refund request does not belong to the customer.");
+    if (input.targetStatus === "REJECTED" && refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot reject their own refund administratively.");
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {
-      if (replay.toStatus === input.targetStatus && refund.status === input.targetStatus) return refund;
+      if (replay.toStatus === input.targetStatus && refund.status === input.targetStatus && replay.actorUserId === input.actorUserId && (input.targetStatus !== "REJECTED" || refund.financeNote === financeNote)) return refund;
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
     if (input.targetStatus === "CANCELLED" && refund.customerUserId !== input.actorUserId) throw new RefundError("REFUND_FORBIDDEN", "Refund request does not belong to the customer.");

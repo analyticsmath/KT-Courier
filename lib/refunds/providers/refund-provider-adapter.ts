@@ -38,6 +38,9 @@ export type ProviderRefundResult = Readonly<{
   status: RefundProviderResultStatus;
   providerRefundId?: string;
   providerPaymentId?: string;
+  /** Independently returned provider facts, required for Paystack settlement. */
+  amount?: string;
+  currency?: string;
   providerStatusCode?: string;
   safeProviderStatus?: string;
   safeMetadata?: Readonly<Record<string, SafeProviderJson>>;

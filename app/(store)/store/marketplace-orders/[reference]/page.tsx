@@ -13,12 +13,12 @@ export default async function MarketplaceStoreOrderPage({
 }: {
   params: Promise<{ reference: string }>;
 }) {
-  await requireBusinessPage("/store/marketplace-orders/[reference]");
+  const access = await requireBusinessPage("/store/marketplace-orders/[reference]");
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
   const { reference } = await params;
   const order = await (prisma as any).marketplaceStoreOrder.findFirst({
-    where: { publicReference: reference, store: { ownerUserId: user.id } },
+    where: { publicReference: reference, storeId: access.store.id },
     include: {
       lines: {
         include: {

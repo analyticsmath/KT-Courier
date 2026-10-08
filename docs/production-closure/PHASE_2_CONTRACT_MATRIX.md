@@ -1,5 +1,7 @@
 # Phase 2 canonical contract matrix and proof plan
 
+**Current authority override (2026-10-08):** the Continuous Phase 2 + Phase 3 Completion Order supersedes every intermediate permission/stop and overall 60/75-minute limit in this historical inventory. All packages proceed continuously with internal checkpoints; financial/production restrictions remain. Historical evidence counts and outcomes are unchanged. Current execution state is recorded in PHASE_2_3_EXECUTION_LEDGER.md.
+
 Inventory date: 2026-10-08. Inspected application source: `1f6e2f1ddb57e2a5f8b0b8035815ce1e9fb4937f` (application code identical to accepted Phase 1C source `1a7a7d0cd1612d0f031ec8e0682da83569df2646`). This is Phase **2.0 inventory**, not financial, browser, provider or production acceptance. No domain implementation, activation constant, migration, fixture or engineering gate was changed for this inventory.
 
 The complete 8 October Phase 2 + Phase 3 directive is the standing program. Each row below identifies an existing authority; planned tests are not executed evidence. Resume one batch per separately authorized session, target 60 minutes, absolute 75 minutes including preservation and reporting. Phase 4 is unauthorized. The hazardous Railway staged patch `9a3370a3-8d07-4ef9-9e8d-a57ff488fccb` remains untouched.

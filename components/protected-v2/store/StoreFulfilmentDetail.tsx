@@ -37,7 +37,7 @@ export function StoreFulfilmentDetail({ order }: { order: StoreFulfilmentDetailM
             </li>)}
           </ul>
         </OperationalPanel>
-        <StoreFulfilmentActions reference={order.reference} acceptanceStatus={order.acceptanceStatus} preparationStatus={order.preparationStatus} />
+        <StoreFulfilmentActions lines={order.lines} reference={order.reference} acceptanceStatus={order.acceptanceStatus} preparationStatus={order.preparationStatus} />
       </div>
       <OperationalPanel title="Operational activity" padding="compact">
         {order.history.length ? <ActivityTimeline ariaLabel="Store-order operational activity" items={order.history.map((event) => ({ id: event.id, title: event.eventType.replaceAll("_", " "), timestamp: dateTimeFormat.format(event.createdAt) }))} /> : <p className="text-sm text-[var(--eo-text-secondary)]" role="status">No store-safe activity is available.</p>}

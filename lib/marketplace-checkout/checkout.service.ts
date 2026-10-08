@@ -31,6 +31,8 @@ import {
   resolveMarketplaceCartLine,
 } from "@/lib/marketplace-checkout/cart.service";
 import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
+import { runCheckoutCommand } from "./checkout-command-receipt";
+import { assertAcceptedCheckoutEvidence } from "./accepted-checkout-evidence";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
 
 type Delegate = {
@@ -170,7 +172,7 @@ export async function createMarketplaceCheckout(
         });
         const modifierUnit = source.modifiers.reduce(
           (sum, modifier) =>
-            addCents(sum, parseZarToCents(modifier.priceDelta)),
+            addCents(sum, parseZarToCents(lineTotal(modifier.priceDelta, modifier.quantity))),
           "0",
         );
         const modifierUnitZar = centsToZar(modifierUnit);
@@ -577,6 +579,7 @@ export async function beginMarketplaceReservation(input: {
   owner: CheckoutOwner;
   expectedVersion: number;
   operationId: string;
+  requestHash: string;
   testApproval?: { approved: true };
 }) {
   const checkout = await table("marketplaceCheckout").findFirst({
@@ -590,13 +593,14 @@ export async function beginMarketplaceReservation(input: {
   });
   if (
     !checkout ||
-    checkout.version !== input.expectedVersion ||
     !checkout.acceptedFingerprint
   )
     throw new MarketplaceCheckoutError(
       "CHECKOUT_REVIEW_REQUIRED",
       "A current accepted checkout review is required before inventory reservation.",
     );
+  return runCheckoutCommand({ checkoutId: checkout.id, operationId: input.operationId, requestHash: input.requestHash, expectedVersion: input.expectedVersion, type: "RESERVE" }, async (boundHash) => {
+  await assertAcceptedCheckoutEvidence(checkout.id);
   const snapshots = checkout.storeGroups.flatMap((group: any) =>
     group.lines.filter(
       (line: any) => line.reviewVersion === checkout.reviewVersion,
@@ -631,7 +635,7 @@ export async function beginMarketplaceReservation(input: {
     }),
   );
   assertMarketplaceCheckoutProductionReady("RESERVATION", input.testApproval);
-  return reserveMarketplaceCheckoutInventory(
+  const reserved = await reserveMarketplaceCheckoutInventory(
     createPrismaMarketplaceReservationRepository(),
     {
       checkoutId: checkout.id,
@@ -640,8 +644,11 @@ export async function beginMarketplaceReservation(input: {
       lines,
       expiresAt: new Date(Date.now() + 15 * 60_000),
       operationId: input.operationId,
+      requestHash: boundHash,
     },
   );
+  return { id: reserved.id, status: reserved.status };
+  });
 }
 
 export async function prepareMarketplacePayment(input: {
@@ -649,6 +656,7 @@ export async function prepareMarketplacePayment(input: {
   owner: CheckoutOwner;
   expectedVersion: number;
   operationId: string;
+  requestHash: string;
   testApproval?: { approved: true };
 }) {
   resolveMarketplaceCheckoutProductionComposition();
@@ -663,13 +671,16 @@ export async function prepareMarketplacePayment(input: {
   });
   if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
   if (
-    checkout.version !== input.expectedVersion ||
     !checkout.contactSnapshot?.email
   )
     throw new MarketplaceCheckoutError(
       "CHECKOUT_REVIEW_REQUIRED",
       "Canonical checkout payer contact evidence is required.",
     );
+  return runCheckoutCommand({ checkoutId: checkout.id, operationId: input.operationId, requestHash: input.requestHash, expectedVersion: input.expectedVersion, type: "PREPARE_PAYMENT" }, async () => {
+  // Resume unresolved payments without creating another provider attempt if
+  // their held quote has since expired.
+  if (!await prisma.payment.findUnique({ where: { marketplaceCheckoutId: checkout.id } })) await assertAcceptedCheckoutEvidence(checkout.id);
   const prepared = await prepareMarketplaceCheckoutPayment(
     createPrismaMarketplacePaymentPreparationRepository(),
     createPhase10And11MarketplacePaymentOrchestrator(),
@@ -688,6 +699,7 @@ export async function prepareMarketplacePayment(input: {
     });
   }
   return prepared;
+  });
 }
 
 export async function cancelMarketplaceCheckout(input: {

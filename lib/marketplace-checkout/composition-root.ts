@@ -7,6 +7,7 @@ import { resolveMarketplaceCartLine, type CartOwner } from "@/lib/marketplace-ch
 import type { PromotionEvaluationAdapter, ReviewLine, RevalidatedLine } from "@/lib/marketplace-checkout/checkout-review.service";
 import { createPrismaCustomerDeliveryEntitlementRepository, SubscriptionAwareMarketplaceDeliveryQuoteAdapter } from "@/lib/subscriptions/subscription-delivery-benefit.service";
 import { resolvePromotionProductionComposition } from "@/lib/promotions/promotion-composition-root";
+import { Prisma } from "@prisma/client";
 
 class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
   async evaluate(input: Parameters<PromotionEvaluationAdapter["evaluate"]>[0]) {
@@ -61,8 +62,8 @@ function revalidatedLine(line: ReviewLine): Promise<RevalidatedLine> {
     quantity: line.quantity,
     modifiers: (line.modifiers ?? []).map((modifier) => ({ groupReference: modifier.groupReference, optionReference: modifier.optionReference, quantity: modifier.quantity })),
   }).then((resolved) => {
-    const modifierUnitTotal = resolved.modifiers.reduce((total, modifier) => total + Number(modifier.priceDelta) * modifier.quantity, 0);
-    const base = Number(resolved.unitPrice);
+    const modifierUnitTotal = resolved.modifiers.reduce((total, modifier) => total.add(new Prisma.Decimal(modifier.priceDelta).mul(modifier.quantity)), new Prisma.Decimal(0));
+    const base = new Prisma.Decimal(resolved.unitPrice);
     return Object.freeze({
       lineReference: line.lineReference,
       available: true,
@@ -71,7 +72,7 @@ function revalidatedLine(line: ReviewLine): Promise<RevalidatedLine> {
       publicationVersion: resolved.publicationVersion,
       baseUnitPrice: resolved.unitPrice,
       modifierUnitTotal: modifierUnitTotal.toFixed(2),
-      lineTotal: ((base + modifierUnitTotal) * resolved.quantity).toFixed(2),
+      lineTotal: base.add(modifierUnitTotal).mul(resolved.quantity).toFixed(2),
       modifierValid: true,
     });
   });

@@ -1,6 +1,6 @@
 # Phase 2 + Phase 3 execution ledger
 
-Standing authority: complete Phase 2 + Phase 3 directive issued 2026-10-08. One bounded batch per user-authorized session; 60-minute target / 75-minute hard stop, including checkpoint push. Production remains **NOT_READY**. Phase 4, main merge, deployment, real money, production reads/writes and Railway staged patch changes are unauthorized.
+Standing authority: **Continuous Phase 2 + Phase 3 Completion Order, 2026-10-08**. All internal packages are authorized continuously. Earlier batch authorization, architect handoff and overall 60/75-minute stop rules are superseded; historical statements below preserve prior context and outcomes only. Deliberate per-process timeouts still apply. Production remains **NOT_READY**. Phase 4, main merge, deployment, real money, production reads/writes and Railway staged patch changes are unauthorized.
 
 ## Preserved baseline
 
@@ -13,8 +13,8 @@ Standing authority: complete Phase 2 + Phase 3 directive issued 2026-10-08. One 
 
 | Phase/batch | Status | Source/evidence | Next action |
 |---|---|---|---|
-| 2.0 | COMPLETE | Inventory source `afe419467492f36a24801610ec863c3cd141cf1d`; 52/52 scoped T1, 88 cases discovered only; [checkpoint](PHASE_2_3_BATCH_2.0_2026-10-08.md) / [JSON](PHASE_2_3_BATCH_2.0_2026-10-08.json) | STOP; next separately authorized batch 2.1 |
-| 2.1 | PARTIAL — core PASS | Source `95dbab4a904a0971983857399f0dddc1384f8358`: real PG 2/2, focused Paystack 9/9, full Chromium 97/97; zero failed/skipped/flaky/retries; residual matrix proofs OPEN; [receipt](PHASE_2_3_BATCH_2.1_2026-10-08.md) | STOP for architect review; separately authorized 2.1 residual proofs next; no 2.2 or Phase 3 |
+| 2.0 | COMPLETE | Inventory source `afe419467492f36a24801610ec863c3cd141cf1d`; 52/52 scoped T1, 88 cases discovered only; [checkpoint](PHASE_2_3_BATCH_2.0_2026-10-08.md) / [JSON](PHASE_2_3_BATCH_2.0_2026-10-08.json) | Continue under continuous authority |
+| 2.1 | ACTIVE — core baseline PASS | Source `95dbab4a904a0971983857399f0dddc1384f8358`: historical real PG 2/2, focused Paystack 9/9, full Chromium 97/97; residual matrix proofs authored, not executed yet; [receipt](PHASE_2_3_BATCH_2.1_2026-10-08.md) | Verify new residual source in isolated CI |
 | 2.2 | OPEN | Customer wallet/refund placeholder | Customer financial proof after verified 2.1 source |
 | 2.3 | OPEN | Finance refund placeholder | Distinct-actor completion/uncertainty after 2.2 |
 | 2.4 | OPEN | Customer/merchant/admin store-order placeholders | Settled canonical groups and role-scoped operations |
@@ -24,6 +24,18 @@ Standing authority: complete Phase 2 + Phase 3 directive issued 2026-10-08. One 
 | 3.0–3.11 | OPEN | No Phase 3 completion evidence | Sequential batches listed in contract matrix after Phase 2 prerequisite |
 
 ## Append-only session history
+
+### 2026-10-08 — integrated implementation checkpoint, acceptance pending
+
+Authored checkout command hash/version receipts and first-payment stale authority validation, exact modifier arithmetic, parent/child ownership checks, refund DTO safety and provider response binding, durable committed reversal recovery, and independently reviewed trusted packaging configuration/classification. No activation locks were removed. Converted all eight remaining critical E2E files to sixteen selected substantive scenarios; full Chromium discovery is **113 cases in 29 files**, discovery only. All eleven trivial marketplace/store integration scaffolds now call canonical browser/HTTP payment preparation, signed ingress, independent Verify and real persisted domain assertions. A separate named-disposable required selection executes seventeen PostgreSQL cases; generic integration selection retains its existing non-browser cases. Payment baseline PG 2/2 remains separately required.
+
+Executed local scoped unit/security tests: **52 files / 256 assertions PASS**, zero failed or skipped. Typecheck PASS after removing an unsupported Vitest option. Runner/security Node tests **29/29 PASS**, zero skipped. Full lint PASS with four warnings in ignored local output scripts, zero errors. Newly authored PostgreSQL and browser cases are **PENDING**, not accepted proof. Two-party positive custody, broader Phase 3 directed role coverage and cumulative acceptance remain open. Agent turns were interrupted by account usage limits; the coordinator continued integration directly. No production/provider access, deployment, main modification, financial unlock or Railway patch action occurred.
+
+### 2026-10-08 — continuous completion authority and verified baseline
+
+Fetched origin before source edits. Clean branch `production-closure-2026-10-07`, local and remote HEAD `acc14d299f5abfe54a1f5a3fcc90d4debf796d42`; PR #17 OPEN/DRAFT, target main, unmerged. Actual latest CI 37774472590 SUCCESS. Certification 37774472737 has all 24 component jobs SUCCESS and final `certified` FAILURE. Accepted payment source remains `95dbab4a904a0971983857399f0dddc1384f8358`; no older run is attributed to new source.
+
+Internal active work: 2.1 residual checkout identity/stale evidence; independent 2.2/2.3 wallet/refund/finance, 2.4–2.6 store operations and 3.0–3.10 independent domain investigation. Code-work adaptive parallelism uses exclusive source ownership and one integration coordinator. No production access, provider network, financial unlock, Railway patch operation or deployment has occurred. Receipt changes and newly authored assertions remain unverified at T2/T3 until exact-source execution.
 
 ### 2026-10-08 — Phase 2.0 opened
 

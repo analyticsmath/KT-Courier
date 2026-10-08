@@ -78,7 +78,7 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
     async quote(evidence: Phase6MarketplaceQuoteEvidence): Promise<MarketplaceDeliveryQuoteResult | null> {
       const request = evidence.phase6Request as Phase6Request | undefined;
       if (!request || request.serviceAreaReference !== evidence.serviceAreaReference) return null;
-      const quote = await createMarketplaceMatrixQuote(request.owner, request.quoteInput, evidence.serviceAreaReference);
+      const quote = await createMarketplaceMatrixQuote(request.owner, request.quoteInput, evidence.serviceAreaReference, evidence.checkoutReference);
       return Object.freeze({
         fee: quote.total,
         currency: "ZAR",

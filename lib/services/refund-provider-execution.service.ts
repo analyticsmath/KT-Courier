@@ -109,6 +109,11 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
       const refund = await tx.paymentRefund.findUnique({ where: { id: refundRows[0].id }, include: { payment: true, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } } } });
       const attempt = await tx.refundExecutionAttempt.findUnique({ where: { id: attemptRows[0].id } });
       if (!refund || !attempt || attempt.refundId !== refund.id || refund.currentAttemptId !== attempt.id) throw new RefundError("REFUND_CONCURRENCY_CONFLICT", "Refund attempt identity is incoherent.");
+      if ((validated.providerPaymentId && validated.providerPaymentId !== attempt.providerPaymentId) ||
+          (validated.status === "SUCCEEDED" && attempt.provider === "PAYSTACK" &&
+           (validated.currency !== refund.currency || validated.amount !== refund.amount.toFixed(2)))) {
+        throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider settlement facts do not match the reserved refund.");
+      }
       if (attempt.status === "SUCCEEDED" && refund.status === "SUCCEEDED" && validated.status === "SUCCEEDED" && attempt.providerRefundId === validated.providerRefundId) return refund;
       const reconciliationPath = refund.status === "RECONCILIATION_REQUIRED" && attempt.status === "UNKNOWN";
       if (!(refund.status === "PROCESSING" && attempt.status === "PROCESSING") && !reconciliationPath) throw new RefundError("REFUND_INVALID_STATE", "Refund attempt cannot be finalized from its current state.");

@@ -187,6 +187,7 @@ describe("Paystack Financial Invariants", () => {
           id: 998877,
           transaction: { id: 12345, reference: "atm_123" },
           deducted_amount: 5000,
+          amount: 5000,
           currency: "ZAR",
           status: "processed",
         })),

@@ -1,8 +1,62 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { Prisma } from "@prisma/client";
+import { login } from "./fixtures/auth";
+import { createPaidCheckout } from "./fixtures/store-order";
+import { assertBalancedRefundJournal, balance, refundControl } from "./fixtures/refund";
 
-test.describe("refund customer wallet flows", () => {
-  test.skip("shows exact Wallet heading, ZAR balance and journal-backed transaction history", async () => {});
-  test.skip("shows exact Refunds heading, list and safe status progress", async () => {});
-  test.skip("validates full and partial refund request fields while explaining the production lock", async () => {});
-  test.skip("cancels an eligible owned request without exposing provider, commission or ledger internals", async () => {});
+for (const width of [1440, 390]) test(`owned wallet refund reserves and cancels exact funds with safe history at ${width}px`, async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  const { reference, snapshot: source } = await createPaidCheckout(page, `wallet-${width}`, width);
+  const baseline = await refundControl(reference);
+  expect(baseline.payment).toMatchObject({ status: "SUCCEEDED", reserved: "0.00", refunded: "0.00" });
+  expect(balance(baseline, "CUSTOMER_WALLET_AVAILABLE")).toBe("0.00");
+  await page.goto("/account/wallet");
+  await expect(page.getByRole("heading", { name: "Wallet", exact: true })).toBeVisible();
+  await expect(page.getByText("No wallet transactions yet.", { exact: true })).toBeVisible();
+  await expect(page.getByText(/This wallet is read-only/)).toBeVisible();
+  await page.goto("/account/refunds");
+  await expect(page.getByRole("heading", { name: "Refunds", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Exact amount (ZAR)", { exact: true })).toBeDisabled();
+  await expect(page.getByLabel("Payment reference", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Request refund", exact: true })).toHaveCount(0);
+  const base = { paymentPublicReference: source.payment.reference, amount: "25.00", method: "CUSTOMER_WALLET", reasonCode: "CUSTOMER_SERVICE_RESOLUTION", operationId: crypto.randomUUID() };
+  for (const amount of ["0.00", "-1.00", "25.001"]) expect((await page.request.post("/api/refunds", { data: { ...base, amount }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(422);
+  const locked = await page.request.post("/api/refunds", { data: base, headers: { origin: new URL(page.url()).origin } });
+  expect(locked.status()).toBe(503); expect(await locked.json()).toMatchObject({ blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" });
+  expect((await refundControl(reference)).payment).toEqual(baseline.payment);
+  const reserved = await refundControl(reference, "reserve-wallet", { amount: "25.00" });
+  const refund = reserved.refunds[0];
+  expect(refund).toMatchObject({ status: "REQUESTED", amount: "25.00", method: "CUSTOMER_WALLET", funding: [{ source: "CUSTOMER_FUNDS_HELD", amount: "25.00" }] });
+  expect(reserved.payment.reserved).toBe("25.00"); expect(balance(reserved, "CUSTOMER_REFUND_HELD")).toBe("25.00");
+  assertBalancedRefundJournal(refund.reserve, "REFUND_RESERVE", "25.00");
+  expect((await refundControl(reference, "reserve-wallet", { amount: "25.00" })).refunds).toEqual(reserved.refunds);
+  await expect(refundControl(reference, "reserve-wallet", { amount: "26.00" })).rejects.toThrow("different refund request");
+  await expect(refundControl(reference, "reserve-wallet", { amount: new Prisma.Decimal(baseline.payment.amount).add("0.01").toFixed(2), operationId: crypto.randomUUID() })).rejects.toThrow("remaining refundable");
+  await login(page, "e2e-checkout-other@ktcouriers.local");
+  expect((await page.request.get(`/api/refunds/${refund.reference}`)).status()).toBe(404);
+  expect((await page.request.post(`/api/refunds/${refund.reference}/cancel`, { data: { operationId: crypto.randomUUID() }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(404);
+  expect((await refundControl(reference)).refunds).toEqual(reserved.refunds);
+  await login(page, `e2e-paystack-wallet-${width}@ktcouriers.local`);
+  await page.goto(`/account/refunds/${refund.reference}`);
+  await expect(page.getByRole("heading", { name: refund.reference, exact: true })).toBeVisible();
+  const safeResponse = await page.request.get(`/api/refunds/${refund.reference}`);
+  expect(safeResponse.status()).toBe(200);
+  const safeBody = await safeResponse.text();
+  for (const unsafe of ["providerPaymentId", "commissionAllocation", "ledgerAccountId", "sk_test", "approvedByUserId"]) expect(safeBody).not.toContain(unsafe);
+  const cancelResponse = page.waitForResponse(r => r.url().endsWith(`/api/refunds/${refund.reference}/cancel`) && r.request().method() === "POST");
+  const cancel = page.getByRole("button", { name: "Cancel refund", exact: true });
+  await cancel.focus(); await expect(cancel).toBeFocused(); await page.keyboard.press("Enter");
+  const response = await cancelResponse; expect(response.status(), await response.text()).toBe(200);
+  await expect(page.getByText("Refund cancellation recorded and the exact reservation was released.", { exact: true })).toBeVisible();
+  const cancelled = await refundControl(reference);
+  expect(cancelled.refunds[0].status).toBe("CANCELLED"); expect(cancelled.payment.reserved).toBe("0.00");
+  expect(balance(cancelled, "CUSTOMER_REFUND_HELD")).toBe("0.00"); expect(balance(cancelled, "CUSTOMER_WALLET_AVAILABLE")).toBe("0.00");
+  assertBalancedRefundJournal(cancelled.refunds[0].release, "REFUND_RELEASE", "25.00");
+  expect(balance(cancelled, "HELD")).toBe(balance(baseline, "HELD"));
+  await page.reload(); await expect(page.getByRole("button", { name: "Cancel refund", exact: true })).toHaveCount(0);
+  await page.context().clearCookies(); expect((await page.request.get(`/api/refunds/${refund.reference}`)).status()).toBe(401);
+  for (const email of ["e2e-store@ktcouriers.local", "driver@ktcouriers.local"]) {
+    await login(page, email); expect((await page.request.get("/api/customer-wallet")).status()).toBe(403); expect((await page.request.get("/api/refunds")).status()).toBe(403);
+  }
+  await testInfo.attach("canonical-postgres-refund-cancel-proof", { body: JSON.stringify({ baseline, reserved, cancelled }), contentType: "application/json" });
 });

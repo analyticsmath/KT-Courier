@@ -25,9 +25,10 @@ export async function completeRefundToCustomerWallet(input: Readonly<{
     if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
     const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: true, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } } } });
     if (!refund) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
+    assertRefundCompletionControl({ customerUserId: refund.customerUserId ?? "", approvedByUserId: refund.approvedByUserId, completedByUserId: input.actorUserId });
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {
-      if (replay.toStatus === "SUCCEEDED" && refund.status === "SUCCEEDED") return refund;
+      if (replay.toStatus === "SUCCEEDED" && refund.status === "SUCCEEDED" && replay.actorUserId === input.actorUserId) return refund;
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
     if (refund.method !== "CUSTOMER_WALLET" || refund.status !== "APPROVED") throw new RefundError("REFUND_INVALID_STATE", "Only approved customer-wallet refunds can be completed internally.");

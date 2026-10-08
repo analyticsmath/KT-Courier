@@ -23,6 +23,8 @@ const database = "kt_phase75_e2e";
 const password = "phase75_e2e_disposable_only";
 const playwrightArgs = process.argv.slice(2);
 const phase1Acceptance = playwrightArgs.includes("--phase1-catalog");
+const phase2Canonical = playwrightArgs.includes("--phase2-canonical");
+if (phase2Canonical && playwrightArgs.some(arg => !["--phase2-canonical", "--project=chromium"].includes(arg))) throw new Error("Canonical acceptance uses its fixed required selection.");
 if (phase1Acceptance && playwrightArgs.some(arg => !["--phase1-catalog", "--project=chromium"].includes(arg))) throw new Error("Phase 1 acceptance uses its fixed required selections.");
 
 function runCompose(args, options) {
@@ -62,6 +64,7 @@ function buildEnv(port, appPort) {
     KT_LOCAL_STOREFRONT_VALIDATION: "true",
     KT_LOCAL_CHECKOUT_VALIDATION: "true",
     PLAYWRIGHT_BASE_URL: `http://localhost:${appPort}`,
+    E2E_BASE_URL: `http://localhost:${appPort}`,
   };
 }
 
@@ -152,7 +155,13 @@ try {
   const baseUrl = `http://localhost:${currentAppPort}`;
   if (!(await waitForHttp(`${baseUrl}/api/health`, { timeoutMs: 60_000 })).ok) throw new Error("E2E health endpoint did not return 200.");
   if (!(await waitForHttp(`${baseUrl}/api/ready`, { timeoutMs: 60_000 })).ok) throw new Error("E2E readiness endpoint did not return 200.");
-  if (phase1Acceptance) runPhase1BrowserPlan(env);
+  if (phase2Canonical) {
+    const report = path.resolve("output/production-closure/phase2-canonical-vitest.json");
+    mkdirSync(path.dirname(report), { recursive: true });
+    const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config=vitest.phase2-canonical-acceptance.config.ts", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 900_000 });
+    const counts = JSON.parse(readFileSync(report, "utf8"));
+    if (result.status !== 0 || counts.numTotalTests !== 17 || counts.numPassedTests !== 17 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All seventeen canonical marketplace/store PostgreSQL cases must execute and pass without deferrals.");
+  } else if (phase1Acceptance) runPhase1BrowserPlan(env);
   else {
     if (playwrightArgs.includes("tests/e2e/marketplace-checkout-payment.spec.ts")) {
       mkdirSync("output/production-closure", { recursive: true });
@@ -169,7 +178,7 @@ try {
       if (!passed) throw new Error("Canonical Paystack PostgreSQL acceptance failed; browser cases were not started.");
     }
     const projectsToRun = playwrightArgs.some((arg) => arg.startsWith("--project")) ? playwrightArgs : ["--project=chromium", "--project=mobile", "--project=keyboard", ...playwrightArgs];
-    const result = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", ...projectsToRun], { cwd: process.cwd(), env, stdio: "inherit", shell: false });
+    const result = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", ...projectsToRun], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 900_000 });
     if (result.status !== 0) throw new Error("Playwright E2E tests failed.");
   }
   safeLog("Disposable Playwright E2E tests passed.");

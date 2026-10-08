@@ -55,6 +55,12 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
         },
       });
       if (!adjustment || adjustment.storeOrder.publicReference !== input.storeOrderReference || !["APPROVED", "APPLYING"].includes(adjustment.status)) throw new StoreOrderError("STORE_ORDER_ADJUSTMENT_INVALID", "Only an approved canonical adjustment may be applied.");
+      const committed = (adjustment.financialEvidence as Record<string, unknown> | null)?.phase21CommittedReversals;
+      if (committed && typeof committed === "object") {
+        const replay = committed as { operationId: string; paymentReference: string; customerUserId: string | null; refundAmount: string; commissionReversalReferences: readonly string[]; storeEarningReversalReference?: string };
+        if (replay.operationId !== input.operationId) throw new StoreOrderError("STORE_ORDER_IDEMPOTENCY_CONFLICT", "Committed reversal belongs to a different financial operation.");
+        return replay;
+      }
       const snapshot = adjustment.storeOrder.settlementSnapshots[0];
       if (!snapshot || snapshot.status !== "COMPLETED" || snapshot.settlementVersion !== adjustment.sourceVersion || !snapshot.commissionAccrualReference || !snapshot.storeEarningReference) throw new StoreOrderError("STORE_ORDER_ORIGINAL_SETTLEMENT_PENDING", "The original Phase 20 settlement must complete before an adjustment can be composed.");
       const sellerBasis = sum(adjustment.allocations, "SELLER_BASIS");
@@ -65,13 +71,15 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
       const accrual = await tx.commissionAccrual.findUnique({ where: { publicReference: snapshot.commissionAccrualReference }, include: { allocations: { orderBy: { publicReference: "asc" } } } });
       const earning = await tx.storeEarning.findUnique({ where: { publicReference: snapshot.storeEarningReference } });
       if (!accrual || !earning || accrual.totalAmount.lessThan(commission) || earning.amount.lessThan(storeEarning)) throw new StoreOrderError("STORE_ORDER_FINANCIAL_EVIDENCE_INVALID", "Original Phase 14 or Phase 16 evidence is unavailable.");
-      const previous = await database.marketplaceStoreOrderAdjustment.findMany({ where: { marketplaceStoreOrderId: adjustment.marketplaceStoreOrderId, id: { not: adjustment.id }, status: { in: ["APPLIED", "REFUND_PENDING", "COMPLETED"] } }, include: { allocations: true } });
+      const candidates = await database.marketplaceStoreOrderAdjustment.findMany({ where: { marketplaceStoreOrderId: adjustment.marketplaceStoreOrderId, id: { not: adjustment.id }, status: { in: ["APPLYING", "RECONCILIATION_REQUIRED", "APPLIED", "REFUND_PENDING", "COMPLETED"] } }, include: { allocations: true } });
+      const previous = candidates.filter((item: any) => ["APPLIED", "REFUND_PENDING", "COMPLETED"].includes(item.status) || Boolean(item.financialEvidence?.phase21CommittedReversals));
       const priorCommission = previous.reduce((total: Prisma.Decimal, item: any) => total.add(sum(item.allocations, "COMMISSION")), zero());
       const priorStoreEarning = previous.reduce((total: Prisma.Decimal, item: any) => total.add(sum(item.allocations, "STORE_EARNING")), zero());
       if (priorCommission.add(commission).greaterThan(accrual.totalAmount) || priorStoreEarning.add(storeEarning).greaterThan(earning.amount)) throw new StoreOrderError("STORE_ORDER_FINANCIAL_LIMIT_EXCEEDED", "Cumulative adjustment exceeds frozen financial evidence.");
-      const components = splitFrozenCommissionAdjustmentCents(commission, accrual.allocations.map((allocation) => ({ amount: allocation.amount, publicReference: allocation.publicReference })));
+      const cumulativeComponents = splitFrozenCommissionAdjustmentCents(priorCommission.add(commission), accrual.allocations.map((allocation) => ({ amount: allocation.amount, publicReference: allocation.publicReference })));
       const priorComponents = splitFrozenCommissionAdjustmentCents(priorCommission, accrual.allocations.map((allocation) => ({ amount: allocation.amount, publicReference: allocation.publicReference })));
       const priorByReference = new Map(priorComponents.map((component) => [component.publicReference, component.amount]));
+      const components = cumulativeComponents.map((component) => ({ ...component, amount: component.amount.sub(priorByReference.get(component.publicReference) ?? zero()) }));
       const commissionReversals: string[] = [];
       for (const component of components) {
         if (component.amount.isZero()) continue;
@@ -80,7 +88,9 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
         commissionReversals.push(reversed.reversalLedgerJournalReference);
       }
       const earningReversal = storeEarning.isZero() ? null : await adjustStoreEarningInTransaction(tx, { publicReference: earning.publicReference, originalSellerBasis: earning.settlementBasisAmount.toFixed(2), originalCommission: earning.attributedCommissionAmount.toFixed(2), originalAmount: earning.amount.toFixed(2), previouslyAdjustedAmount: priorStoreEarning.toFixed(2) }, { sellerBasisAmount: sellerBasis.toFixed(2), commissionAmount: commission.toFixed(2), storeEarningAmount: storeEarning.toFixed(2) }, { operationId: `${input.operationId}:store-earning`, reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
-      return { paymentReference: adjustment.storeOrder.marketplaceOrder.payment.publicReference, customerUserId: adjustment.storeOrder.marketplaceOrder.customerUserId, refundAmount: refund.toFixed(2), commissionReversalReferences: Object.freeze(commissionReversals), storeEarningReversalReference: earningReversal?.reversalLedgerJournalReference };
+      const committedEvidence = { operationId: input.operationId, paymentReference: adjustment.storeOrder.marketplaceOrder.payment.publicReference, customerUserId: adjustment.storeOrder.marketplaceOrder.customerUserId, refundAmount: refund.toFixed(2), commissionReversalReferences: commissionReversals, ...(earningReversal ? { storeEarningReversalReference: earningReversal.reversalLedgerJournalReference } : {}) };
+      await database.marketplaceStoreOrderAdjustment.update({ where: { id: adjustment.id }, data: { financialEvidence: { ...(adjustment.financialEvidence ?? {}), phase21CommittedReversals: committedEvidence } } });
+      return committedEvidence;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     const refund = new Prisma.Decimal(evidence.refundAmount).isZero() ? null : await createMarketplaceRefundRequest({ paymentPublicReference: evidence.paymentReference, customerUserId: evidence.customerUserId, guestConfirmationVerified: !evidence.customerUserId, amount: evidence.refundAmount, method: "ORIGINAL_PAYMENT_METHOD", reasonCode: "SERVICE_NOT_PROVIDED", operationId: `${input.operationId}:refund` });
     return Object.freeze({ refundReference: refund?.publicReference, commissionReversalReferences: evidence.commissionReversalReferences, storeEarningReversalReference: evidence.storeEarningReversalReference, financialStatus: refund ? "REFUND_RESERVED" as const : "REFUND_COMPLETED" as const });
