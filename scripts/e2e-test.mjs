@@ -160,7 +160,7 @@ try {
     mkdirSync(path.dirname(report), { recursive: true });
     const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config=vitest.phase2-canonical-acceptance.config.ts", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 900_000 });
     const counts = JSON.parse(readFileSync(report, "utf8"));
-    if (result.status !== 0 || counts.numTotalTests !== 17 || counts.numPassedTests !== 17 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All seventeen canonical marketplace/store PostgreSQL cases must execute and pass without deferrals.");
+    if (result.status !== 0 || counts.numTotalTests !== 29 || counts.numPassedTests !== 29 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All twenty-nine canonical marketplace/store/refund/driver PostgreSQL cases must execute and pass without deferrals.");
   } else if (phase1Acceptance) runPhase1BrowserPlan(env);
   else {
     if (playwrightArgs.includes("tests/e2e/marketplace-checkout-payment.spec.ts")) {

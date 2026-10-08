@@ -112,7 +112,7 @@ export async function createPaidCheckout(page: Page, suffix: string, width: numb
   return { reference, snapshot };
 }
 export type StoreSnapshot = {
-  custody: { courierStatus: string | null; assignment: { id: string; version: number; status: string } | null };
+  custody: { courierOrderId: string | null; courierStatus: string | null; assignment: { id: string; version: number; status: string } | null };
   reference: string; status: string; acceptanceStatus: string; preparationStatus: string;
   resolutionStatus: string; financialResolutionStatus: string; deliveryBridgeStatus: string;
   lines: Array<{ id: string; quantity: number; fulfilment: { status: string; substitutionPreference: string; confirmedAvailableQuantity: number; resolvedFulfilmentQuantity: number }; issues: Array<{ publicReference: string; status: string }> }>;

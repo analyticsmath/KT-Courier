@@ -23,7 +23,8 @@ export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }
     try {
       const entry = { storeId: text("storeId"), offerReference: text("offerReference"), variantReference: text("variantReference"), publicationVersion: text("publicationVersion"), modifiers: JSON.parse(text("modifiers")), packingRule: "SINGLE_PREPACKAGED_UNIT", lengthCm: Number(text("lengthCm")), widthCm: Number(text("widthCm")), heightCm: Number(text("heightCm")), weightKg: Number(text("weightKg")), authorityReference: text("authorityReference") };
       const latest = [...versions].sort((a, b) => b.version - a.version)[0];
-      const packages = (latest?.packages ?? []).filter((prior) => !(prior.storeId === entry.storeId && prior.offerReference === entry.offerReference && prior.variantReference === entry.variantReference && prior.publicationVersion === entry.publicationVersion && JSON.stringify(prior.modifiers) === JSON.stringify(entry.modifiers)));
+      const current = [...versions].filter(version => version.status !== "RETIRED").sort((a, b) => b.version - a.version)[0];
+      const packages = (current?.packages ?? []).filter((prior) => !(prior.storeId === entry.storeId && prior.offerReference === entry.offerReference && prior.variantReference === entry.variantReference && prior.publicationVersion === entry.publicationVersion && JSON.stringify(prior.modifiers) === JSON.stringify(entry.modifiers)));
       void request("POST", { expectedVersion: latest?.version ?? 0, effectiveFrom: new Date(text("effectiveFrom")).toISOString(), effectiveTo: text("effectiveTo") ? new Date(text("effectiveTo")).toISOString() : null, packages: [...packages, entry], reason: text("reason") });
     } catch { setMessage("Enter valid effective dates and a JSON array of modifier selections."); }
   }

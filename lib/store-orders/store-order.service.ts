@@ -379,12 +379,21 @@ async function createLineAdjustment(tx: Phase21Database, order: any, issue: any,
   return adjustmentReference;
 }
 
+async function requireStoreFinancialAdjustmentActor(actorUserId: string, storeId: string) {
+  const actor = await prisma.user.findUnique({ where: { id: actorUserId }, select: { id: true, role: true, status: true } });
+  assertStoreOrder(actor?.status === "ACTIVE", "STORE_ORDER_ACCESS_DENIED", "An active authorized adjustment actor is required.");
+  if (["ADMIN", "SUPER_ADMIN"].includes(actor.role)) {
+    assertStoreOrder(await hasPermission({ userId: actor.id, role: actor.role, permissionKey: PERMISSIONS.STORE_ORDERS_RETRY_ADJUSTMENT }), "STORE_ORDER_ACCESS_DENIED", "Financial adjustment permission is required.");
+  } else await requireStoreOrderActor({ actorUserId, storeId, permission: "store_orders.availability" });
+}
+
 export async function applyMarketplaceStoreOrderAdjustment(input: Readonly<{ storeOrderReference: string; adjustmentReference: string; actorUserId: string; operationId: string; requestHash: string; dependencies?: StoreOrderDependencies; testApproval?: TestApproval }>) {
   const dependencies = { ...resolveStoreOrderProductionComposition(), ...input.dependencies };
   assertStoreOrderProductionReady("ADJUSTMENT", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   assertStoreOrder(dependencies.financialAuthority, "STORE_ORDER_FINANCIAL_AUTHORITY_UNAVAILABLE", "Canonical Phase 14–16 and Phase 15 adjustment authority is unavailable.");
   const staged = await transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
+    await requireStoreFinancialAdjustmentActor(input.actorUserId, order.storeId);
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const adjustment = await model(tx, "marketplaceStoreOrderAdjustment").findUnique({ where: { publicReference: input.adjustmentReference }, include: { allocations: true } });
     assertStoreOrder(adjustment?.marketplaceStoreOrderId === order.id && ["APPROVED", "RECONCILIATION_REQUIRED"].includes(adjustment.status), "STORE_ORDER_ADJUSTMENT_INVALID", "Approved or reconciled store-order adjustment is required.");
@@ -416,11 +425,14 @@ export async function applyMarketplaceStoreOrderAdjustment(input: Readonly<{ sto
   }
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
+    await requireStoreFinancialAdjustmentActor(input.actorUserId, order.storeId);
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const adjustment = await model(tx, "marketplaceStoreOrderAdjustment").findUnique({ where: { publicReference: input.adjustmentReference } });
     assertStoreOrder(adjustment?.marketplaceStoreOrderId === order.id && adjustment.status === "APPLYING", "STORE_ORDER_ADJUSTMENT_INVALID", "Staged store-order adjustment is unavailable.");
     const nextResolution = result.financialStatus === "REFUND_COMPLETED" ? "RESOLVED" : "REFUND_PENDING";
-    await model(tx, "marketplaceStoreOrderAdjustment").update({ where: { id: adjustment.id }, data: { status: result.financialStatus === "REFUND_COMPLETED" ? "COMPLETED" : "REFUND_PENDING", refundId: result.refundReference ?? null, appliedAt: new Date(), completedAt: result.financialStatus === "REFUND_COMPLETED" ? new Date() : null } });
+    const refund = result.refundReference ? await model(tx, "paymentRefund").findUnique({ where: { publicReference: result.refundReference }, select: { id: true, paymentId: true } }) : null;
+    assertStoreOrder(!result.refundReference || refund?.paymentId === order.marketplaceOrder.paymentId, "STORE_ORDER_REFUND_SOURCE_INVALID", "Canonical refund must belong to the store order's original payment.");
+    await model(tx, "marketplaceStoreOrderAdjustment").update({ where: { id: adjustment.id }, data: { status: result.financialStatus === "REFUND_COMPLETED" ? "COMPLETED" : "REFUND_PENDING", refundId: refund?.id ?? null, appliedAt: new Date(), completedAt: result.financialStatus === "REFUND_COMPLETED" ? new Date() : null } });
     await updateOrder(tx, order, { financialResolutionStatus: result.financialStatus, resolutionStatus: nextResolution });
     const response = { storeOrderReference: order.publicReference, adjustmentReference: adjustment.publicReference, refundReference: result.refundReference ?? null, commissionReversalReferences: result.commissionReversalReferences, storeEarningReversalReference: result.storeEarningReversalReference ?? null, financialStatus: result.financialStatus };
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "STORE_ORDER_ADJUSTMENT_APPLIED", actorUserId: input.actorUserId, evidence: response });

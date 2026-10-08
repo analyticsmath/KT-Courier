@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { reverseCommissionInTransaction } from "@/lib/services/commission-reversal.service";
 import { adjustStoreEarningInTransaction } from "@/lib/services/store-earning-reversal.service";
-import { createMarketplaceRefundRequest } from "@/lib/services/refund-request.service";
+import { createMarketplaceRefundRequest, type RefundRequestDependencies } from "@/lib/services/refund-request.service";
 import type { StoreOrderFinancialAuthority } from "@/lib/store-orders/contracts";
 import { StoreOrderError } from "@/lib/store-orders/errors";
 
@@ -14,15 +14,48 @@ function sum(rows: readonly any[], type: string): Prisma.Decimal {
 }
 
 export function splitFrozenCommissionAdjustmentCents(total: Prisma.Decimal, components: readonly Readonly<{ amount: Prisma.Decimal; publicReference: string }>[]) {
+  const invalid = () => new StoreOrderError("STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Frozen commission allocation evidence is invalid.");
+  if (!total.isFinite() || total.lessThan(0) || !total.mul(100).isInteger() ||
+      new Set(components.map(component => component.publicReference)).size !== components.length ||
+      components.some(component => !component.amount.isFinite() || component.amount.lessThan(0) || !component.amount.mul(100).isInteger())) throw invalid();
+  const sorted = components.slice().sort((left, right) => left.publicReference.localeCompare(right.publicReference));
+  const weights = sorted.map(component => BigInt(component.amount.mul(100).toFixed(0)));
+  const denominator = weights.reduce((value, weight) => value + weight, BigInt(0));
   const totalCents = BigInt(total.mul(100).toFixed(0));
-  const denominator = components.reduce((value, component) => value.add(component.amount), zero());
-  if (totalCents < BigInt(0) || denominator.lessThanOrEqualTo(0)) throw new StoreOrderError("STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Frozen commission allocation evidence is invalid.");
-  let assigned = BigInt(0);
-  return components.slice().sort((left, right) => left.publicReference.localeCompare(right.publicReference)).map((component, index, list) => {
-    const amount = index === list.length - 1 ? totalCents - assigned : (totalCents * BigInt(component.amount.mul(100).toFixed(0))) / BigInt(denominator.mul(100).toFixed(0));
-    assigned += amount;
-    return { ...component, amount: new Prisma.Decimal(amount.toString()).div(100) };
+  if (denominator <= BigInt(0) || totalCents > denominator) throw invalid();
+  if (!totalCents) return sorted.map(component => ({ ...component, amount: zero() }));
+
+  // Allocate the first N cents in one immutable weighted priority sequence.
+  // Giving the last recipient every floor-rounding remainder is not monotonic:
+  // with three equal weights that recipient loses a cent at N=3. Highest
+  // averages keeps each recipient's cumulative reversal nondecreasing. A
+  // binary priority cutoff avoids looping once per cent for large payments.
+  const maximum = weights.reduce((value, weight) => weight > value ? weight : value, BigInt(0));
+  const precision = (maximum + BigInt(1)) ** BigInt(2);
+  const countAtOrAbove = (priority: bigint) => weights.reduce((value, weight) => {
+    const count = weight * precision / priority;
+    return value + (count > weight ? weight : count);
+  }, BigInt(0));
+  let low = BigInt(1);
+  let high = maximum * precision;
+  while (low < high) {
+    const middle = (low + high + BigInt(1)) / BigInt(2);
+    if (countAtOrAbove(middle) >= totalCents) low = middle;
+    else high = middle - BigInt(1);
+  }
+  const assigned = weights.map(weight => {
+    const count = weight * precision / (low + BigInt(1));
+    return count > weight ? weight : count;
   });
+  let residual = totalCents - assigned.reduce((value, count) => value + count, BigInt(0));
+  // Preserve final-reference priority for genuinely tied fractional cents.
+  for (let index = sorted.length - 1; index >= 0 && residual > BigInt(0); index--) {
+    if (assigned[index] < weights[index] && weights[index] * precision / (assigned[index] + BigInt(1)) === low) {
+      assigned[index] += BigInt(1); residual -= BigInt(1);
+    }
+  }
+  if (residual !== BigInt(0)) throw invalid();
+  return sorted.map((component, index) => ({ ...component, amount: new Prisma.Decimal(assigned[index].toString()).div(100) }));
 }
 
 /**
@@ -31,6 +64,11 @@ export function splitFrozenCommissionAdjustmentCents(total: Prisma.Decimal, comp
  * inside the imported canonical authorities.
  */
 export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFinancialAuthority {
+  // Canonical service dependencies can be injected by the strictly guarded
+  // disposable acceptance harness. Application composition uses the default
+  // source lock; no environment variable selects an alternative authority.
+  constructor(private readonly refundDependencies: RefundRequestDependencies = {}) {}
+
   async applyExactAdjustment(input: Readonly<{
     adjustmentReference: string;
     storeOrderReference: string;
@@ -92,7 +130,7 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
       await database.marketplaceStoreOrderAdjustment.update({ where: { id: adjustment.id }, data: { financialEvidence: { ...(adjustment.financialEvidence ?? {}), phase21CommittedReversals: committedEvidence } } });
       return committedEvidence;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    const refund = new Prisma.Decimal(evidence.refundAmount).isZero() ? null : await createMarketplaceRefundRequest({ paymentPublicReference: evidence.paymentReference, customerUserId: evidence.customerUserId, guestConfirmationVerified: !evidence.customerUserId, amount: evidence.refundAmount, method: "ORIGINAL_PAYMENT_METHOD", reasonCode: "SERVICE_NOT_PROVIDED", operationId: `${input.operationId}:refund` });
+    const refund = new Prisma.Decimal(evidence.refundAmount).isZero() ? null : await createMarketplaceRefundRequest({ paymentPublicReference: evidence.paymentReference, customerUserId: evidence.customerUserId, guestConfirmationVerified: !evidence.customerUserId, amount: evidence.refundAmount, method: "ORIGINAL_PAYMENT_METHOD", reasonCode: "SERVICE_NOT_PROVIDED", operationId: `${input.operationId}:refund` }, this.refundDependencies);
     return Object.freeze({ refundReference: refund?.publicReference, commissionReversalReferences: evidence.commissionReversalReferences, storeEarningReversalReference: evidence.storeEarningReversalReference, financialStatus: refund ? "REFUND_RESERVED" as const : "REFUND_COMPLETED" as const });
   }
 }

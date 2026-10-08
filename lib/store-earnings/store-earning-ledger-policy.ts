@@ -67,16 +67,17 @@ export function storeEarningReversalPosting(input: Readonly<{
   settlementVersion: string;
   reasonCode: string;
   operationId?: string;
+  frozenAdjustmentEvidence?: Readonly<{ originalSellerBasis: string; originalCommission: string; originalAmount: string; previouslyAdjustedAmount: string }>;
 }> & Actor): PostLedgerJournalInput {
   const suffix = input.operationId ? `:adjust:${input.operationId}` : ":reverse:v1";
   return Object.freeze({
     idempotencyKey: `store-earning:${input.earningReference}${suffix}`,
-    sourceReference: `store-earning:${input.earningReference}${input.operationId ? ":adjust" : ":reverse"}`,
+    sourceReference: `store-earning:${input.earningReference}${input.operationId ? `:adjust:${input.operationId}` : ":reverse"}`,
     type: "STORE_EARNING_REVERSAL",
     currency: "ZAR",
     actor: actor(input),
     memo: `Store earning reversal ${input.earningReference}`,
-    metadata: { earningReference: input.earningReference, storeReference: input.storePublicReference, subjectReference: input.subjectPublicReference, settlementVersion: input.settlementVersion, reasonCode: input.reasonCode, operationId: input.operationId ?? null },
+    metadata: { earningReference: input.earningReference, storeReference: input.storePublicReference, subjectReference: input.subjectPublicReference, settlementVersion: input.settlementVersion, reasonCode: input.reasonCode, operationId: input.operationId ?? null, ...(input.frozenAdjustmentEvidence ? { frozenAdjustmentEvidence: input.frozenAdjustmentEvidence } : {}) },
     entries: Object.freeze([
       { accountId: input.storePayableAccountId, direction: "DEBIT" as const, amount: input.amount, lineCode: "STORE_EARNINGS_PAYABLE" },
       { accountId: input.customerFundsHeldAccountId, direction: "CREDIT" as const, amount: input.amount, lineCode: "CUSTOMER_FUNDS_HELD" },

@@ -24,10 +24,11 @@ import { assertGenericRefundHasNoDriverEarningExposure, releaseDriverEarningRefu
 function refundReference(): string { return `RF-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
 function fundingReference(): string { return `RFA-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
 
-type RequestDependencies = Readonly<{
+export type RefundRequestDependencies = Readonly<{
   assertProductionReady?: () => void;
   providerRegistry?: RefundProviderRegistry;
 }>;
+type RequestDependencies = RefundRequestDependencies;
 
 async function lockPaymentByReference(tx: Prisma.TransactionClient, publicReference: string) {
   const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "paymentNumber" = ${publicReference} FOR UPDATE`);

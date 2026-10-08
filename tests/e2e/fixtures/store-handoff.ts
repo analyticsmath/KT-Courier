@@ -54,4 +54,5 @@ export async function completeSyntheticStoreHandoff(page: Page, reference: strin
   // The store cannot repeat collection after custody has transferred.
   await login(page, "e2e-store@ktcouriers.local");
   expect((await storeAction(page, reference, { action: "generate-pickup-code" })).status()).toBe(422);
+  return { assignmentId: assignment.id, assignmentVersion: after.custody.assignment!.version, courierOrderId: after.custody.courierOrderId! };
 }

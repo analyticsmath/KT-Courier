@@ -1,4 +1,5 @@
 "use client";
+import { DriverDeliveryEvidencePanel } from "@/components/driver/DriverDeliveryEvidencePanel";
 import { Conversations } from "@/components/forms/Conversations";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -129,6 +130,7 @@ export default function DriverAssignmentDetailPage() {
   const [deliveryPublicNote, setDeliveryPublicNote] = useState("");
   const [deliveryDriverNote, setDeliveryDriverNote] = useState("");
   const [deliveryConfirm, setDeliveryConfirm] = useState(false);
+  const [deliveryProofReference, setDeliveryProofReference] = useState<string | undefined>();
 
   // Attempted form
   const [attemptReason, setAttemptReason] = useState("");
@@ -472,13 +474,14 @@ export default function DriverAssignmentDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...operationCommand("delivery-complete", { recipientName: deliveryRecipientName, recipientPhone: deliveryRecipientPhone, publicNote: deliveryPublicNote, driverNote: deliveryDriverNote }),
+          ...operationCommand("delivery-complete", { recipientName: deliveryRecipientName, recipientPhone: deliveryRecipientPhone, publicNote: deliveryPublicNote, driverNote: deliveryDriverNote, evidenceReference: deliveryProofReference }),
           otpCode,
           recipientName: deliveryRecipientName,
           recipientPhone: deliveryRecipientPhone || undefined,
           publicNote: deliveryPublicNote || undefined,
           driverNote: deliveryDriverNote,
           confirmDelivery: true,
+          evidenceReference: deliveryProofReference,
         }),
       });
       const data = await res.json();
@@ -844,7 +847,7 @@ export default function DriverAssignmentDetailPage() {
           <h2 className="text-sm font-extrabold text-[var(--kt-ink-navy)] mb-3">Delivery Actions</h2>
 
           {deliveryError && (
-            <div className="mb-3 p-3 rounded-xl bg-[var(--kt-signal-red)]/10 border border-[var(--kt-signal-red)]/30 text-sm text-[var(--kt-signal-red)]">
+            <div role="alert" className="mb-3 p-3 rounded-xl bg-[var(--kt-signal-red)]/10 border border-[var(--kt-signal-red)]/30 text-sm text-[var(--kt-signal-red)]">
               {deliveryError}
             </div>
           )}
@@ -863,9 +866,9 @@ export default function DriverAssignmentDetailPage() {
               )}
               {locationStatus && <p className="text-xs text-[var(--kt-text-muted)]" role="status">{locationStatus}</p>}
               <div className="flex gap-3 flex-wrap">
-                {assignment.orderStatus === "PICKED_UP" && (
+                {["PICKED_UP", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
                   <Button variant="primary" onClick={() => { setDeliveryAction("start"); setDeliveryError(null); }}>
-                    Start Delivery
+                    {assignment.orderStatus === "DELIVERY_ATTEMPTED" ? "Resume Delivery" : "Start Delivery"}
                   </Button>
                 )}
                 {(assignment.orderStatus === "IN_TRANSIT" || assignment.orderStatus === "DELIVERY_ATTEMPTED") && (
@@ -900,6 +903,8 @@ export default function DriverAssignmentDetailPage() {
               </div>
             </div>
           )}
+
+          {["IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && <DriverDeliveryEvidencePanel assignmentId={id} assignmentVersion={assignment.version} onProof={setDeliveryProofReference} /> }
 
           {/* Start delivery */}
           {deliveryAction === "start" && (

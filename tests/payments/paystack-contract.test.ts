@@ -726,7 +726,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
     const outcome = await pollAndApplyRefundProviderStatus(
       { attemptId: "rea_stale" },
-      { registry: mockRegistry as any },
+      { registry: mockRegistry as any, assertProductionReady: () => undefined },
     );
 
     expect(outcome.polled).toBe(true);

@@ -39,13 +39,24 @@ export async function reverseCommissionInTransaction(
   if (rows.length !== 1) throw new CommissionError("COMMISSION_ACCRUAL_NOT_FOUND", "Frozen commission accrual evidence is unavailable.");
   const allocationRows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CommissionAllocation" WHERE "publicReference" = ${frozenOriginalAllocation.allocationPublicReference} FOR UPDATE`);
   if (allocationRows.length !== 1) throw new CommissionError("COMMISSION_ACCRUAL_NOT_FOUND", "Frozen commission allocation evidence is unavailable.");
-  const allocation = await tx.commissionAllocation.findUnique({ where: { id: allocationRows[0].id }, include: { accrual: { include: { ledgerJournal: { select: { id: true } } } } } });
+  const allocation = await tx.commissionAllocation.findUnique({ where: { id: allocationRows[0].id }, include: { accrual: { include: { ledgerJournal: { include: { entries: true, reversalJournal: { select: { id: true } } } } } } } });
   if (!allocation || allocation.accrual.publicReference !== frozenOriginalAllocation.accrualPublicReference || !allocation.amount.equals(original) || allocation.status !== "ACCRUED" || allocation.downstreamReleaseJournalId) throw new CommissionError("COMMISSION_REVERSAL_NOT_ALLOWED", "Commission allocation is not eligible for a bounded reversal.");
+  const originalCredit = allocation.accrual.ledgerJournal.entries.filter(entry => entry.accountId === allocation.ledgerAccountId && entry.direction === "CREDIT").reduce((total, entry) => total.add(entry.amount), new Prisma.Decimal(0));
+  if (allocation.accrual.ledgerJournal.reversalJournal || originalCredit.lessThan(original)) throw new CommissionError("COMMISSION_REVERSAL_NOT_ALLOWED", "Original commission journal does not support this allocation adjustment.");
   const held = await tx.ledgerAccount.findFirst({ where: { purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", allowNegative: false, wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
   if (!held) throw new CommissionError("COMMISSION_ACCOUNT_INVALID", "Canonical customer-funds-held account is unavailable.");
   const accountIds = [held.id, allocation.ledgerAccountId].sort();
   await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "LedgerAccount" WHERE "id" IN (${Prisma.join(accountIds)}) ORDER BY "id" ASC FOR UPDATE`);
-  const journal = await postLedgerJournalWithinTransaction(tx, commissionAdjustmentReversalPosting({ accrualReference: allocation.accrual.publicReference, originalJournalId: allocation.accrual.ledgerJournal.id, heldAccountId: held.id, allocationAccountId: allocation.ledgerAccountId, amount: adjustment.toFixed(2), operationId: operationEvidence.operationId, actorUserId: operationEvidence.actorUserId }));
+  const posting = commissionAdjustmentReversalPosting({ accrualReference: allocation.accrual.publicReference, allocationReference: allocation.publicReference, originalJournalId: allocation.accrual.ledgerJournal.id, heldAccountId: held.id, allocationAccountId: allocation.ledgerAccountId, amount: adjustment.toFixed(2), originalAmount: original.toFixed(2), previouslyReversedAmount: prior.toFixed(2), operationId: operationEvidence.operationId, actorUserId: operationEvidence.actorUserId });
+  const replay = await tx.ledgerJournal.findUnique({ where: { idempotencyKey: posting.idempotencyKey } });
+  if (replay) {
+    const journal = await postLedgerJournalWithinTransaction(tx, posting);
+    return Object.freeze({ commissionAccrualReference: allocation.accrual.publicReference, commissionAllocationReference: allocation.publicReference, reversalLedgerJournalReference: journal.reference, amount: adjustment.toFixed(2), replayed: true });
+  }
+  const reversed = await tx.ledgerEntry.aggregate({ where: { direction: "DEBIT", accountId: allocation.ledgerAccountId, lineCode: "COMMISSION_ADJUSTMENT_REVERSAL", journal: { type: "ACCOUNT_TRANSFER", metadata: { path: ["allocationReference"], equals: allocation.publicReference } } }, _sum: { amount: true } });
+  const actualPrior = reversed._sum.amount ?? new Prisma.Decimal(0);
+  if (!actualPrior.equals(prior) || actualPrior.add(adjustment).greaterThan(original)) throw new CommissionError("COMMISSION_REVERSAL_NOT_ALLOWED", "Cumulative commission adjustment does not match immutable prior journals.");
+  const journal = await postLedgerJournalWithinTransaction(tx, posting);
   await tx.commissionStatusHistory.create({ data: { accrualId: allocation.accrualId, fromStatus: allocation.accrual.status, toStatus: allocation.accrual.status, actorType: operationEvidence.actorUserId ? "USER" : "SYSTEM", actorId: operationEvidence.actorUserId ?? null, reasonCode: operationEvidence.reasonCode, safeMetadata: { adjustmentAmount: adjustment.toFixed(2), allocationReference: allocation.publicReference, reversalLedgerReference: journal.reference, operationId: operationEvidence.operationId } } });
   return Object.freeze({ commissionAccrualReference: allocation.accrual.publicReference, commissionAllocationReference: allocation.publicReference, reversalLedgerJournalReference: journal.reference, amount: adjustment.toFixed(2), replayed: false });
 }
@@ -59,6 +70,7 @@ export async function reverseCommissionAccrual(input: Readonly<{ accrualId: stri
     if (!accrual) throw new CommissionError("COMMISSION_ACCRUAL_NOT_FOUND", "Commission accrual was not found.");
     if (accrual.status === "REVERSED" && accrual.reversalLedgerJournal) return Object.freeze({ publicReference: accrual.publicReference, status: accrual.status, reversalLedgerJournalReference: accrual.reversalLedgerJournal.reference, idempotent: true });
     if (accrual.status !== "ACCRUED" || accrual.reversalLedgerJournalId || !accrual.ledgerJournal) throw new CommissionError("COMMISSION_REVERSAL_NOT_ALLOWED", "The commission accrual cannot be reversed in its current state.");
+    if (await tx.ledgerJournal.count({ where: { type: "ACCOUNT_TRANSFER", metadata: { path: ["accrualReference"], equals: accrual.publicReference }, entries: { some: { lineCode: "COMMISSION_ADJUSTMENT_REVERSAL" } } } })) throw new CommissionError("COMMISSION_REVERSAL_NOT_ALLOWED", "A partially adjusted accrual cannot receive an additional whole-journal reversal.");
     const released = accrual.allocations.find((allocation) => allocation.status === "RELEASED" || allocation.downstreamReleaseJournalId);
     if (released) {
       await tx.commissionReconciliationCase.upsert({ where: { caseKey: `commission-release:${released.id}` }, update: { observationCount: { increment: 1 }, lastObservedAt: new Date(), status: "OPEN" }, create: { publicReference: ref("CRC"), caseKey: `commission-release:${released.id}`, accrualId: accrual.id, allocationId: released.id, reason: "DOWNSTREAM_RELEASE_EXISTS", status: "OPEN", priority: "HIGH", safeSummary: "A downstream release prevents direct commission reversal." } });

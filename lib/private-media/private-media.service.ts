@@ -222,6 +222,16 @@ export class PrivateMediaService {
         || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.CLAIMS_DECIDE });
     }
     if (ownerType === PrivateMediaOwnerType.USER) return ownerId === actor.userId;
+    // POD intake is owned by its canonical courier order before final delivery
+    // proof exists. Only an assigned active driver can upload through the
+    // separate delivery-proof route; completed assignments retain read access.
+    if (ownerType === PrivateMediaOwnerType.PROOF_OF_DELIVERY && actor.role === UserRole.DRIVER) {
+      const assignment = await prisma.orderAssignment.findFirst({
+        where: { orderId: ownerId, status: { in: ["ACCEPTED", "COMPLETED"] }, driverProfile: { userId: actor.userId, status: "ACTIVE", user: { status: "ACTIVE", role: "DRIVER" } } },
+        select: { id: true },
+      });
+      return Boolean(assignment);
+    }
     if (actor.role === UserRole.SUPER_ADMIN || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ })) return true;
     if (ownerType === PrivateMediaOwnerType.DRIVER) {
       const owner = await prisma.driverProfile.findUnique({ where: { id: ownerId }, select: { userId: true } });

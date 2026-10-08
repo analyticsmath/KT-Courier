@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { json, failure } from "@/lib/client-platform/api";
 import { normalizeProfileImage } from "@/lib/client-platform/images.service";
-import { replaceProfileAvatar } from "@/lib/client-platform/profile-avatar.service";
+import { replaceProfileAvatar, retireUnassociatedProfileAvatar } from "@/lib/client-platform/profile-avatar.service";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { parseBoundedMultipartRequest } from "@/lib/security/bounded-upload";
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       result = await replaceProfileAvatar({ actor: { userId: u.id, role: u.role }, previousReference: previous.avatarMediaReference, nextReference: media!.publicReference }, service);
     } catch (error) {
       // A losing concurrent upload must not remain as unassociated READY media.
-      if (media!.publicReference !== previous.avatarMediaReference) await service.requestDeletion({ actor: { userId: u.id, role: u.role }, reference: media!.publicReference }).catch(() => undefined);
+      if (media!.publicReference !== previous.avatarMediaReference) await retireUnassociatedProfileAvatar({ userId: u.id, role: u.role }, media!.publicReference, service).catch(() => undefined);
       throw error;
     }
     return json({ saved: true, ...result });

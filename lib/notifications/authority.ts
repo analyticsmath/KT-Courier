@@ -263,8 +263,17 @@ export class NotificationInboxService {
   constructor(private readonly db: any) {}
   async list(userId: string, skip: number, take: number) { const where = { ownerUserId: userId, OR: [{ expiresAt: null }, { expiresAt: { gt: now() } }] }; const [items, total] = await Promise.all([this.db.notificationInboxItem.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }), this.db.notificationInboxItem.count({ where })]); return { items, total }; }
   async unreadCount(userId: string) { return this.db.notificationInboxItem.count({ where: { ownerUserId: userId, state: "UNREAD", OR: [{ expiresAt: null }, { expiresAt: { gt: now() } }] } }); }
-  async changeState(userId: string, referenceValue: string, state: "READ" | "UNREAD" | "ARCHIVED") { const item = await this.db.notificationInboxItem.findFirst({ where: { ownerUserId: userId, publicReference: referenceValue } }); if (!item) throw new NotificationPolicyError("NOTIFICATION_INBOX_ITEM_NOT_FOUND"); if (item.expiresAt && item.expiresAt <= now()) throw new NotificationPolicyError("NOTIFICATION_INBOX_ITEM_EXPIRED"); if (item.state === "ARCHIVED" && state !== "ARCHIVED") throw new NotificationPolicyError("NOTIFICATION_INBOX_ITEM_ARCHIVED"); return this.db.notificationInboxItem.update({ where: { id: item.id }, data: state === "READ" ? { state, readAt: item.readAt ?? now() } : state === "UNREAD" ? { state, readAt: null } : { state, archivedAt: item.archivedAt ?? now() } }); }
-  async readAll(userId: string) { return this.db.notificationInboxItem.updateMany({ where: { ownerUserId: userId, state: "UNREAD" }, data: { state: "READ", readAt: now() } }); }
+  async changeState(userId: string, referenceValue: string, state: "READ" | "UNREAD" | "ARCHIVED") {
+    const item = await this.db.notificationInboxItem.findFirst({ where: { ownerUserId: userId, publicReference: referenceValue } });
+    if (!item) throw new NotificationPolicyError("NOTIFICATION_INBOX_ITEM_NOT_FOUND");
+    if (item.expiresAt && item.expiresAt <= now()) throw new NotificationPolicyError("NOTIFICATION_INBOX_ITEM_EXPIRED");
+    if (item.state === "ARCHIVED" && state !== "ARCHIVED") throw new NotificationPolicyError("NOTIFICATION_INBOX_ITEM_ARCHIVED");
+    if (item.state === state) return item;
+    const changed = await this.db.notificationInboxItem.updateMany({ where: { id: item.id, ownerUserId: userId, state: item.state, OR: [{ expiresAt: null }, { expiresAt: { gt: now() } }] }, data: state === "READ" ? { state, readAt: item.readAt ?? now() } : state === "UNREAD" ? { state, readAt: null } : { state, archivedAt: item.archivedAt ?? now() } });
+    if (changed.count !== 1) throw new NotificationPolicyError("NOTIFICATION_INBOX_ITEM_CHANGED");
+    return this.db.notificationInboxItem.findUniqueOrThrow({ where: { id: item.id } });
+  }
+  async readAll(userId: string) { return this.db.notificationInboxItem.updateMany({ where: { ownerUserId: userId, state: "UNREAD", OR: [{ expiresAt: null }, { expiresAt: { gt: now() } }] }, data: { state: "READ", readAt: now() } }); }
 }
 
 export class NotificationEndpointService {

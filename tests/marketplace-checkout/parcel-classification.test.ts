@@ -32,6 +32,12 @@ describe("server-authoritative marketplace parcel measurements", () => {
     for (const change of [{ storeId: "foreign" }, { offerReference: "foreign" }, { variantReference: "foreign" }, { publicationVersion: "pub2" }, { modifiers: [{ optionReference: "extra", quantity: 1 }] }]) expect(classify({ ...entry, ...change }).status).toBe("UNKNOWN");
     const modifiers = [{ optionReference: "extra", quantity: 2 }]; expect(classify({ ...entry, modifiers }, { ...line, modifiers }).sizeClass).toBe("SMALL");
   });
+  it("normalizes persisted modifier evidence without using database metadata as selection meaning", () => {
+    const modifiers = [{ optionReference: "gift", quantity: 1 }, { optionReference: "wrap", quantity: 2 }];
+    const persisted = [{ id: "db-wrap", optionReference: "wrap", quantity: 2, groupReference: "packaging", priceDelta: "1.00" }, { id: "db-gift", optionReference: "gift", quantity: 1, groupReference: "extras", priceDelta: "0.50" }];
+    expect(classify({ ...entry, modifiers }, { ...line, modifiers: persisted }).sizeClass).toBe("SMALL");
+    expect(classify({ ...entry, modifiers }, { ...line, modifiers: [{ ...persisted[0], quantity: 1 }, persisted[1]] }).status).toBe("UNKNOWN");
+  });
   it.each([0, -1, 1.5, NaN, Number.MAX_SAFE_INTEGER + 1])("rejects invalid source quantity (%s)", (quantity) => { expect(classify(entry, { ...line, quantity }).status).toBe("UNSUPPORTED"); });
   it("leaves all multiple units and line groups unknown without inventing a packing algorithm", () => {
     expect(classify(entry, { ...line, quantity: 2 })).toMatchObject({ status: "UNKNOWN", reason: "AGGREGATE_PACKING_APPROVAL_REQUIRED" });

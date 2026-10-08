@@ -52,7 +52,7 @@ async function reserveProviderAttempt(input: Readonly<{ actorUserId: string; pub
     const refund = await tx.paymentRefund.findUnique({ where: { id: locked[0].id }, include: { payment: { include: { successfulAttempt: true } } } });
     if (!refund) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
     const providerPaymentId = refund.payment.successfulAttempt?.providerReference;
-    if (refund.method !== "ORIGINAL_PAYMENT_METHOD" || refund.status !== "APPROVED" || !providerPaymentId || refund.payment.provider !== adapter.code) {
+    if (refund.method !== "ORIGINAL_PAYMENT_METHOD" || !providerPaymentId || refund.payment.provider !== adapter.code) {
       throw new RefundError("REFUND_INVALID_STATE", "Refund is not eligible for original-payment-method processing.");
     }
     if (!adapter.capabilities.supportsFullRefund || (!refund.amount.equals(refund.payment.amount) && !adapter.capabilities.supportsPartialRefund) || adapter.capabilities.requiresCustomerBankData) {
@@ -66,6 +66,7 @@ async function reserveProviderAttempt(input: Readonly<{ actorUserId: string; pub
       if (replay.refundId !== refund.id || replay.requestHash !== requestHash) throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to a different provider refund attempt.");
       return { refund, attempt: replay, providerPaymentId, replayed: true as const, blocked: null };
     }
+    if (refund.status !== "APPROVED") throw new RefundError("REFUND_INVALID_STATE", "Refund is not eligible for original-payment-method processing.");
     const activeAttempt = await tx.refundExecutionAttempt.findFirst({ where: { refundId: refund.id, status: { in: ["RESERVED", "PROCESSING", "UNKNOWN"] } }, select: { id: true } });
     if (activeAttempt) throw new RefundError("REFUND_PROVIDER_OUTCOME_UNKNOWN", "Refund already has an unresolved provider attempt.");
     assertRefundTransition(refund.status, "PROCESSING");
@@ -110,31 +111,32 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
       const attempt = await tx.refundExecutionAttempt.findUnique({ where: { id: attemptRows[0].id } });
       if (!refund || !attempt || attempt.refundId !== refund.id || refund.currentAttemptId !== attempt.id) throw new RefundError("REFUND_CONCURRENCY_CONFLICT", "Refund attempt identity is incoherent.");
       if ((validated.providerPaymentId && validated.providerPaymentId !== attempt.providerPaymentId) ||
+          (attempt.providerRefundId && validated.providerRefundId && validated.providerRefundId !== attempt.providerRefundId) ||
           (validated.status === "SUCCEEDED" && attempt.provider === "PAYSTACK" &&
            (validated.currency !== refund.currency || validated.amount !== refund.amount.toFixed(2)))) {
         throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Provider settlement facts do not match the reserved refund.");
       }
       if (attempt.status === "SUCCEEDED" && refund.status === "SUCCEEDED" && validated.status === "SUCCEEDED" && attempt.providerRefundId === validated.providerRefundId) return refund;
-      const reconciliationPath = refund.status === "RECONCILIATION_REQUIRED" && attempt.status === "UNKNOWN";
+      const reconciliationPath = refund.status === "RECONCILIATION_REQUIRED" && ["UNKNOWN", "NEEDS_ATTENTION"].includes(attempt.status);
       if (!(refund.status === "PROCESSING" && attempt.status === "PROCESSING") && !reconciliationPath) throw new RefundError("REFUND_INVALID_STATE", "Refund attempt cannot be finalized from its current state.");
       assertRefundCompletionControl({ customerUserId: refund.customerUserId ?? "", approvedByUserId: refund.approvedByUserId, completedByUserId: input.actorUserId });
       const safeResultSnapshot = { status: validated.status, providerRefundId: validated.providerRefundId ?? null, providerPaymentId: validated.providerPaymentId ?? attempt.providerPaymentId, providerStatusCode: validated.providerStatusCode ?? null, safeProviderStatus: validated.safeProviderStatus ?? null, definitive: validated.definitive, safeMetadata: validated.safeMetadata ?? null };
       const now = new Date();
       if (validated.status === "PROCESSING") {
         if (reconciliationPath) {
-          assertRefundAttemptTransition("UNKNOWN", "PROCESSING");
+          assertRefundAttemptTransition(attempt.status, "PROCESSING");
           assertRefundTransition("RECONCILIATION_REQUIRED", "PROCESSING");
-          await tx.refundExecutionAttempt.update({ where: { id: attempt.id }, data: { status: "PROCESSING", safeResultSnapshot, version: { increment: 1 } } });
+          await tx.refundExecutionAttempt.update({ where: { id: attempt.id }, data: { status: "PROCESSING", providerRefundId: validated.providerRefundId, safeResultSnapshot, version: { increment: 1 } } });
           const updated = await tx.paymentRefund.update({ where: { id: refund.id }, data: { status: "PROCESSING", version: { increment: 1 } } });
           await tx.refundStatusHistory.create({ data: { refundId: refund.id, attemptId: attempt.id, fromStatus: "RECONCILIATION_REQUIRED", toStatus: "PROCESSING", actorType: "PROVIDER", actorUserId: input.actorUserId, reasonCode: "PROVIDER_STILL_PROCESSING" } });
           return updated;
         }
-        await tx.refundExecutionAttempt.update({ where: { id: attempt.id }, data: { safeResultSnapshot, version: { increment: 1 } } });
+        await tx.refundExecutionAttempt.update({ where: { id: attempt.id }, data: { providerRefundId: validated.providerRefundId, safeResultSnapshot, version: { increment: 1 } } });
         return refund;
       }
       if (validated.status === "FAILED") {
         if (reconciliationPath) {
-          assertRefundAttemptTransition("UNKNOWN", "PROCESSING");
+          assertRefundAttemptTransition(attempt.status, "PROCESSING");
           assertRefundAttemptTransition("PROCESSING", "FAILED");
           assertRefundTransition("RECONCILIATION_REQUIRED", "PROCESSING");
           assertRefundTransition("PROCESSING", "APPROVED");
@@ -155,6 +157,10 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
         return updated;
       }
       if (validated.status === "UNKNOWN") {
+        // Losing a later query response does not erase the provider's known
+        // needs-attention fact or release the existing reservation.
+        if (reconciliationPath && attempt.status === "NEEDS_ATTENTION") return refund;
+        if (reconciliationPath && attempt.status === "UNKNOWN" && JSON.stringify(attempt.safeResultSnapshot) === JSON.stringify(safeResultSnapshot)) return refund;
         if (!reconciliationPath) {
           assertRefundAttemptTransition(attempt.status, "UNKNOWN");
           assertRefundTransition(refund.status, "RECONCILIATION_REQUIRED");
@@ -169,6 +175,7 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
         return updated;
       }
       if (validated.status === "NEEDS_ATTENTION") {
+        if (reconciliationPath && attempt.status === "NEEDS_ATTENTION" && JSON.stringify(attempt.safeResultSnapshot) === JSON.stringify(safeResultSnapshot)) return refund;
         if (!reconciliationPath) {
           assertRefundAttemptTransition(attempt.status, "NEEDS_ATTENTION");
           assertRefundTransition(refund.status, "RECONCILIATION_REQUIRED");

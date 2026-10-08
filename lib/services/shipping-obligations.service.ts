@@ -121,22 +121,27 @@ export async function recordVendorPreparation(input: { orderId: string; actorUse
 export async function recordDriverDeliveryResponsibility(input: { assignmentId: string; driverProfileId: string; driverUserId: string; assignmentVersion: number; reportType: "SAFETY_CHECK" | "LAWFUL_TRANSPORT_CONFIRMATION" | "SUSPICIOUS_PACKAGE"; operationId: string; safeNote?: string; evidenceReference?: string }) {
   if (!DRIVER_REPORTS.has(input.reportType)) throw new ShippingObligationError("DRIVER_RESPONSIBILITY_REPORT_INVALID");
   if (input.reportType === "SUSPICIOUS_PACKAGE" && !input.safeNote?.trim()) throw new ShippingObligationError("SUSPICIOUS_PACKAGE_DETAIL_REQUIRED");
-  const client = prisma as any;
-  const replay = await client.driverDeliveryResponsibilityReport.findUnique({ where: { operationId: input.operationId } }); if (replay) return replay;
-  const authority = await assertAcceptedCurrentDriver(input.assignmentId, input.driverProfileId, input.assignmentVersion);
-  if (input.evidenceReference) {
-    const media = await client.privateMediaObject.findFirst({ where: { publicReference: input.evidenceReference, ownerType: "DRIVER", ownerId: input.driverProfileId, createdByUserId: input.driverUserId, status: "READY" }, select: { id: true } });
-    if (!media) throw new ShippingObligationError("DRIVER_RESPONSIBILITY_EVIDENCE_FORBIDDEN");
-  }
-  try { return await prisma.$transaction(async (tx) => {
-    const report = await (tx as any).driverDeliveryResponsibilityReport.create({ data: { publicReference: phase5Reference("DRR"), orderId: authority.orderId, assignmentId: input.assignmentId, driverProfileId: input.driverProfileId, reportType: input.reportType, safeNote: input.safeNote ? safeOperationalText(input.safeNote, 500) : null, evidenceReference: input.evidenceReference ?? null, requiresReview: input.reportType === "SUSPICIOUS_PACKAGE", operationId: input.operationId } });
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`driver-responsibility:${input.operationId}`}))`;
+    // Pin both assignment and principal authority until the report/event commit.
+    await tx.$queryRaw`SELECT a.id FROM "OrderAssignment" a JOIN "Order" o ON o.id = a."orderId" JOIN "DriverProfile" d ON d.id = a."driverProfileId" JOIN "User" u ON u.id = d."userId" WHERE a.id = ${input.assignmentId} FOR UPDATE OF a, o, d, u`;
+    const authority = await assertAcceptedCurrentDriver(input.assignmentId, input.driverProfileId, input.assignmentVersion, tx);
+    if (authority.driverUserId !== input.driverUserId) throw new ShippingObligationError("DRIVER_RESPONSIBILITY_FORBIDDEN");
+    const safeNote = input.safeNote ? safeOperationalText(input.safeNote, 500) : null;
+    if (input.evidenceReference) {
+      const media = await tx.privateMediaObject.findFirst({ where: { publicReference: input.evidenceReference, ownerType: "DRIVER", ownerId: input.driverProfileId, createdByUserId: input.driverUserId, status: "READY" }, select: { id: true } });
+      if (!media) throw new ShippingObligationError("DRIVER_RESPONSIBILITY_EVIDENCE_FORBIDDEN");
+    }
+    const replay = await tx.driverDeliveryResponsibilityReport.findUnique({ where: { operationId: input.operationId } });
+    if (replay) {
+      if (replay.orderId !== authority.orderId || replay.assignmentId !== input.assignmentId || replay.driverProfileId !== input.driverProfileId || replay.reportType !== input.reportType || replay.safeNote !== safeNote || replay.evidenceReference !== (input.evidenceReference ?? null)) throw new ShippingObligationError("DRIVER_RESPONSIBILITY_OPERATION_CONFLICT");
+      return replay;
+    }
+    const report = await tx.driverDeliveryResponsibilityReport.create({ data: { publicReference: phase5Reference("DRR"), orderId: authority.orderId, assignmentId: input.assignmentId, driverProfileId: input.driverProfileId, reportType: input.reportType, safeNote, evidenceReference: input.evidenceReference ?? null, requiresReview: input.reportType === "SUSPICIOUS_PACKAGE", operationId: input.operationId } });
     const eventType = input.reportType === "SAFETY_CHECK" ? "DRIVER_SAFETY_CONFIRMED" : input.reportType === "LAWFUL_TRANSPORT_CONFIRMATION" ? "DRIVER_LAWFUL_TRANSPORT_CONFIRMED" : "DRIVER_SUSPICIOUS_PACKAGE_REPORTED";
     await (tx as any).orderOperationalEvent.create({ data: { orderId: authority.orderId, assignmentId: input.assignmentId, driverProfileId: input.driverProfileId, actorUserId: input.driverUserId, actorRole: "DRIVER", eventType, internalNote: report.safeNote } });
     return report;
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); } catch (error) {
-    if (isUniqueConstraint(error)) { const concurrentReplay = await client.driverDeliveryResponsibilityReport.findUnique({ where: { operationId: input.operationId } }); if (concurrentReplay) return concurrentReplay; }
-    throw error;
-  }
+  });
 }
 
 export async function resolveSuspiciousPackageReport(input: { publicReference: string; actorUserId: string; operationId: string; safeResolution: string }) {

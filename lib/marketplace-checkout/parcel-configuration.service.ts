@@ -60,5 +60,11 @@ export async function actOnTrustedPackageVersion(actorId: string, input: z.infer
 export async function classifyPersistedCheckoutParcel(checkoutReference: string | undefined, storeId: string) {
   const checkout = checkoutReference ? await prisma.marketplaceCheckout.findUnique({ where: { publicReference: checkoutReference }, select: { reviewVersion: true, lines: { where: { storeReference: storeId }, include: { modifiers: true } } } }) : null;
   const lines = checkout?.lines.filter((line) => line.reviewVersion === checkout.reviewVersion) ?? [];
+  if (lines.length) {
+    const offers = await prisma.storeCatalogOffer.findMany({ where: { publicReference: { in: lines.map((line) => line.offerReference) }, storeId, status: "ACTIVE", publicationStatus: "PUBLISHED" }, include: { variant: true } });
+    if (lines.some((line) => !offers.some((offer) => offer.publicReference === line.offerReference && offer.variant.publicReference === line.variantReference && String(offer.version) === line.publicationVersion))) {
+      return { sizeClass: null, status: "UNKNOWN" as const, reason: "PACKAGE_SOURCE_REVISION_STALE", packageVersion: null, profileId: null, profileVersion: null };
+    }
+  }
   return classifyTrustedMarketplaceParcel({ storeId, lines, versions: await listTrustedPackageVersions(), profiles: await publicParcelProfiles() });
 }

@@ -44,6 +44,18 @@ for (const role of ["customer", "store", "driver"] as const) for (const width of
     }
     expect(references[1]).not.toBe(references[0]);
     expect((await page.request.get(`/api/private-media/${references[0]}`)).status()).toBe(409);
+    if (role === "customer" && width === 1440) {
+      const png = await sharp({ create: { width: 32, height: 32, channels: 3, background: "#204c28" } }).png().toBuffer();
+      const concurrent = await Promise.all([1, 2].map(() => page.request.post("/api/platform/avatar", { headers, multipart: { file: { name: "same-concurrent-avatar.png", mimeType: "image/png", buffer: png } } })));
+      expect(concurrent.every(response => [200, 409].includes(response.status()))).toBe(true); expect(concurrent.some(response => response.status() === 200)).toBe(true);
+      const winner = snapshot(email); expect(winner.avatarReference).toBeTruthy(); expect(winner.objects.filter(o => o.status === "READY")).toHaveLength(1);
+      expect(winner.objects.find(o => o.publicReference === winner.avatarReference)?.status).toBe("READY");
+      expect((await page.request.get(`/api/private-media/${winner.avatarReference}`)).status()).toBe(200);
+      expect((await page.request.get(`/api/private-media/${references[1]}`)).status()).toBe(409);
+      references[1] = winner.avatarReference!;
+      await testInfo.attach("identical-concurrent-avatar-receipt", { body: JSON.stringify(winner), contentType: "application/json" });
+    }
+    const beforeRemoval = snapshot(email);
     await page.reload(); await expect(page.getByRole("img", { name: "Your profile", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     await testInfo.attach(`profile-${role}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
@@ -53,7 +65,7 @@ for (const role of ["customer", "store", "driver"] as const) for (const width of
     const removed = page.waitForResponse(r => r.url().endsWith("/api/platform/avatar") && r.request().method() === "DELETE");
     await page.getByRole("button", { name: "Remove image", exact: true }).click(); expect((await removed).status()).toBe(200);
     await expect(page.getByRole("status").filter({ hasText: "Profile image removed." })).toBeVisible();
-    const final = snapshot(email); expect(final.avatarReference).toBeNull(); expect(final.objects).toHaveLength(2); expect(final.objects.every(o => o.status === "DELETED")).toBe(true);
+    const final = snapshot(email); expect(final.avatarReference).toBeNull(); expect(final.objects).toHaveLength(beforeRemoval.objects.length); expect(final.objects.every(o => o.status === "DELETED")).toBe(true);
     expect((await page.request.get("/api/platform/avatar")).status()).toBe(404); expect((await page.request.get(`/api/private-media/${references[1]}`)).status()).toBe(409);
     expect((await page.request.delete("/api/platform/avatar", { headers })).status()).toBe(200); expect(snapshot(email)).toEqual(final);
     await page.context().clearCookies(); expect((await page.request.get(`/api/private-media/${references[1]}`)).status()).toBe(401);

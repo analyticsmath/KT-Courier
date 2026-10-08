@@ -25,7 +25,7 @@ export type ParcelSourceLine = { offerReference: string; variantReference: strin
 export type TrustedParcelClassification = { sizeClass: ParcelClass | null; status: "CLASSIFIED" | "UNKNOWN" | "UNSUPPORTED"; reason: string; packageVersion: number | null; profileId: string | null; profileVersion: number | null };
 
 function selection(modifiers: readonly { optionReference: string; quantity: number }[]) {
-  return JSON.stringify([...modifiers].sort((a, b) => a.optionReference.localeCompare(b.optionReference)));
+  return JSON.stringify(modifiers.map(({ optionReference, quantity }) => ({ optionReference, quantity })).sort((a, b) => a.optionReference.localeCompare(b.optionReference)));
 }
 
 /** The only supported packing rule is an independently reviewed complete unit.

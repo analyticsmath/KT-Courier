@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 743,
+    "totalRoutes": 744,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 643,
+    "authenticatedRoutes": 644,
     "permissionGatedRoutes": 505,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 197,
-    "generatedAt": "2026-10-08T13:20:19.743Z"
+    "rateLimitedRoutes": 198,
+    "generatedAt": "2026-10-08T14:20:47.411Z"
   },
   "serverActions": [],
   "routes": [
@@ -8735,6 +8735,22 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/driver/assignments/[id]/delivery/proof/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "DRIVER_SESSION",
+      "requiredRoles": [
+        "DRIVER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."

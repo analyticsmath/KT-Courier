@@ -71,7 +71,7 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
         expect(await storeControl(f.storeReference)).toEqual(f.baseline);
         await input.fill("30"); await page.getByLabel("Pickup instructions").fill("Disposable pickup point");
         await page.getByRole("button", { name: "Accept order", exact: true }).click();
-        await expect(page.getByRole("alert")).toContainText("could not complete"); expect(await storeControl(f.storeReference)).toEqual(f.baseline);
+        await expect(page.locator('.eo-store-action-message[role="alert"]')).toContainText("could not complete"); expect(await storeControl(f.storeReference)).toEqual(f.baseline);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         for (const button of await page.getByRole("button", { name: /Begin review|Confirm availability|Accept order/ }).all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         await info.attach(`store-order-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
