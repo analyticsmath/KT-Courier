@@ -272,6 +272,10 @@ export class PaystackClient {
       signal?: AbortSignal;
     },
   ): Promise<{ status: boolean; message: string; data: T }> {
+    if (process.env.KT_E2E_PAYSTACK_ACCEPTANCE === "true") {
+      const { requestDisposablePaystack } = await import("@/lib/testing/disposable-paystack-provider");
+      return await requestDisposablePaystack(path, options.method, options.body, this.secretKey) as { status: boolean; message: string; data: T };
+    }
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.secretKey}`,

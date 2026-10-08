@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-export function phase1BrowserPlan() {
+export function phase1BrowserPlan(fullTests = null) {
   const catalog = ["tests/e2e/store-product-catalog.spec.ts", "tests/e2e/catalog-administration.spec.ts"];
   const employee = ["tests/e2e/business-employee-access.spec.ts"];
   const common = ["--project=chromium", "--retries=0", "--workers=1"];
@@ -13,12 +13,19 @@ export function phase1BrowserPlan() {
     { name: "catalog-both", expectedTests: 4, args: [...catalog, ...common] },
     { name: "employee-1440", expectedTests: 1, args: [...employee, "--grep=1440px", ...common] },
     { name: "employee-both", expectedTests: 2, args: [...employee, ...common] },
-    { name: "full-chromium", expectedTests: 88, args: [...common] },
+    { name: "full-chromium", expectedTests: fullTests, args: [...common] },
   ];
 }
 
 export function browserStagePassed(stage, exitCode, stats) {
-  return exitCode === 0 && stats?.expected === stage.expectedTests && stats?.unexpected === 0 && stats?.skipped === 0 && stats?.flaky === 0;
+  return Number.isSafeInteger(stage.expectedTests) && stage.expectedTests > 0 && exitCode === 0 && stats?.expected === stage.expectedTests && stats?.unexpected === 0 && stats?.skipped === 0 && stats?.flaky === 0;
+}
+
+export function discoveredBrowserTests(report) {
+  const count = suites => suites.reduce((total, suite) => total + (suite.specs ?? []).reduce((n, spec) => n + (spec.tests ?? []).length, 0) + count(suite.suites ?? []), 0);
+  const total = count(report.suites ?? []);
+  if (!Number.isSafeInteger(total) || total < 1 || report.errors?.length) throw new Error("Full Chromium discovery is missing or invalid.");
+  return total;
 }
 
 export function runPhase1BrowserPlan(env) {
@@ -26,7 +33,11 @@ export function runPhase1BrowserPlan(env) {
   if (!/^[a-f0-9]{40}$/.test(sha ?? "")) throw new Error("Browser acceptance requires an exact checkout SHA.");
   const records = [];
   mkdirSync("output/production-closure", { recursive: true });
-  for (const stage of phase1BrowserPlan()) {
+  const discoveryPath = path.resolve("output/production-closure/browser-full-discovery.json");
+  const discovery = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", "--project=chromium", "--list", "--reporter=json"], { env: { ...env, PLAYWRIGHT_JSON_OUTPUT_FILE: discoveryPath }, encoding: "utf8", timeout: 60_000 });
+  if (discovery.status !== 0) throw new Error("Full Chromium discovery failed.");
+  const fullTests = discoveredBrowserTests(JSON.parse(readFileSync(discoveryPath, "utf8")));
+  for (const stage of phase1BrowserPlan(fullTests)) {
     const args = [path.join("node_modules", "playwright", "cli.js"), "test", ...stage.args, `--output=test-results/${stage.name}`, "--reporter=list,json"];
     const reportPath = path.resolve(`output/production-closure/browser-${stage.name}.json`);
     const started = Date.now();

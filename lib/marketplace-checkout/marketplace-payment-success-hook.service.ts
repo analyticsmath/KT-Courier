@@ -34,7 +34,7 @@ export async function onVerifiedMarketplacePaymentSucceeded(
     // The provider receipt and durable finalization intent are safe evidence;
     // only canonical finalization remains behind the source production gate.
     assertMarketplaceCheckoutProductionReady("ORDER_FINALIZATION", testApproval);
-    await finalizePaidMarketplaceCheckout(finalizationRepository, { paymentId: payment.id, checkoutId: payment.marketplaceCheckoutId!, operationId: receipt.operationId, testApproval });
+    await finalizePaidMarketplaceCheckout(finalizationRepository, { paymentId: payment.id, checkoutId: payment.marketplaceCheckoutId!, operationId: receipt.operationId, guestConfirmationHash: payment.checkoutCustomerUserId ? null : payment.checkoutGuestAccessTokenHash, testApproval });
   } catch (error) {
     await repository.markCheckoutReconciliationRequired({ checkoutId: payment.marketplaceCheckoutId!, paymentId: payment.id, operationId: receipt.operationId, safeReason: error instanceof MarketplaceCheckoutError ? error.code : "FINALIZATION_APPLICATION_FAILURE" });
   }

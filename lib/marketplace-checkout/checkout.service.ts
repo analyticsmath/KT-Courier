@@ -661,8 +661,8 @@ export async function prepareMarketplacePayment(input: {
     },
     include: { contactSnapshot: true },
   });
+  if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
   if (
-    !checkout ||
     checkout.version !== input.expectedVersion ||
     !checkout.contactSnapshot?.email
   )

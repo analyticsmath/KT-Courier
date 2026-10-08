@@ -34,6 +34,7 @@ export default defineConfig({
         /catalog-administration\.spec\.ts/,
         /business-employee-access\.spec\.ts/,
         /marketplace-checkout-customer\.spec\.ts/,
+        /marketplace-checkout-payment\.spec\.ts/,
         /production-visual-review\.spec\.ts/,
         /storefront-admin\.spec\.ts/,
         /driver-earnings\.spec\.ts/,

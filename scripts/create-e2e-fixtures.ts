@@ -529,6 +529,9 @@ async function main() {
   for (const suffix of ["1440", "390", "other"]) {
     await prisma.user.create({ data: { email: `e2e-checkout-${suffix}@ktcouriers.local`, name: "Disposable checkout customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
   }
+  for (const suffix of ["1440", "390", "amount", "currency", "unknown", "reference", "payload"]) {
+    await prisma.user.create({ data: { email: `e2e-paystack-${suffix}@ktcouriers.local`, name: "Disposable Paystack customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  }
   // Pending, unapproved driver accounts are owned by independent viewport
   // assertions. No vehicle, licence approval or dispatch eligibility is seeded.
   for (const width of [1440, 390]) {

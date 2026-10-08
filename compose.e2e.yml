@@ -5,6 +5,10 @@ services:
     ports: !reset []
     command: ["node", "scripts/e2e-standalone-app.mjs"]
     environment:
+      KT_E2E_PAYSTACK_ACCEPTANCE: "true"
+      KT_LOCAL_FULL_FLOW: "false"
+      KT_E2E_NETWORK_INTERNAL: "true"
+      NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY: ${NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY}
       # Test-owned private files stay writable and disappear with this container.
       PRIVATE_MEDIA_STORAGE: local
       PRIVATE_MEDIA_LOCAL_DIR: /tmp/kt-couriers-e2e-private-media

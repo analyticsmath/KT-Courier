@@ -14,7 +14,7 @@ Standing authority: complete Phase 2 + Phase 3 directive issued 2026-10-08. One 
 | Phase/batch | Status | Source/evidence | Next action |
 |---|---|---|---|
 | 2.0 | COMPLETE | Inventory source `afe419467492f36a24801610ec863c3cd141cf1d`; 52/52 scoped T1, 88 cases discovered only; [checkpoint](PHASE_2_3_BATCH_2.0_2026-10-08.md) / [JSON](PHASE_2_3_BATCH_2.0_2026-10-08.json) | STOP; next separately authorized batch 2.1 |
-| 2.1 | OPEN | Nine-placeholder tracker in contract matrix; no replacement yet | Canonical Paystack offline composition and payment browser proof |
+| 2.1 | IN_PROGRESS | Guarded persisted offline Paystack composition; nine executable payment browser cases added; exact-source CI acceptance pending | Verify source checkpoint in isolated CI, then publish Batch 2.1 receipt and STOP |
 | 2.2 | OPEN | Customer wallet/refund placeholder | Customer financial proof after verified 2.1 source |
 | 2.3 | OPEN | Finance refund placeholder | Distinct-actor completion/uncertainty after 2.2 |
 | 2.4 | OPEN | Customer/merchant/admin store-order placeholders | Settled canonical groups and role-scoped operations |
@@ -40,3 +40,13 @@ Document path/credential-pattern audit passed before the inventory commit. Compl
 Automatic inventory-source CI [37757744504](https://github.com/analyticsmath/KT-Courier/actions/runs/37757744504) was IN_PROGRESS and certification [37757744580](https://github.com/analyticsmath/KT-Courier/actions/runs/37757744580) QUEUED at receipt preparation. Both are PENDING evidence, neither PASS. Documentation push can supersede them via existing concurrency; no workflow was dispatched, rerun or manually cancelled. Final report-tip SHA and its automatic run snapshot are returned after normal push; no old run is attributed to that new tip.
 
 Next batch: **2.1**, first file `tests/e2e/marketplace-checkout-payment.spec.ts`, then `lib/services/payment-provider-session.service.ts` and this matrix's offline seam/guest authority findings. Refresh branch/PR/workflow state at next authorized session. No Phase 2.1 or Phase 3 work started in this session. Overall Phase 2/3 remain OPEN and production remains NOT_READY.
+
+### 2026-10-08 — Phase 2.1 authorized and implementation checkpoint opened
+
+Session began 09:50:03 UTC; practical stop 10:50:03, absolute stop 11:05:03 including push/report. Verified clean branch/local/remote `1091cbec70320099fe0e71c7622f2f108f2aa314`, draft/open/unmerged PR #17, normal CI 37758337863 SUCCESS and certification 37758338132 running. No local Docker attempt or production/provider operation was started.
+
+Implemented an explicit named-disposable provider seam using independent persisted synthetic transaction facts, with test-runtime/database/contact/network/configuration guards and no external fetch fallback. Financial effects remain in canonical signed webhook intake, leased PostgreSQL application, independent Verify, balanced journal, durable verified-event consumer and marketplace finalization. Fixed intake/application fingerprint inconsistency, independent Verify reference binding, wrong-owner prepare-payment denial, and guest capability binding/delivery after canonical completion. Source payment/refund/settlement activation locks remain intact.
+
+Payment placeholder replaced by nine selected Chromium cases: customer and verified guest at 1440/390, forged/changed signature, foreign owner, spoofed browser return, concurrent duplicate intake/claim and replay, amount/currency/reference/UNKNOWN Verify mismatch and signed amount/currency mismatch. Snapshots assert actual PostgreSQL journals, consumed stock, immutable order evidence and consumer receipts. Full browser count derives from actual discovery. A focused financial invocation uses its own disposable database before the existing Phase 1 plan's separate database. These are implemented cases, **not yet certified passes**. Eight other browser placeholders and other integration anchors remain open.
+
+Scoped checks and exact-source workflow results will be recorded in the final Batch 2.1 receipt. One initial typecheck failed at the default 2 GB heap; the repository-configured 8 GB command then exposed and allowed correction of actual type errors. No discovery/unit/mock result is being counted as financial acceptance. Batch 2.2 and Phase 3 remain unauthorized for this session; all nine release gates remain unchanged.
