@@ -69,7 +69,8 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       await expect(caseRow).toBeVisible();
       await expect(caseRow.getByText(f.storeReference, { exact: true })).toBeVisible();
       await expect(caseRow).toContainText("ADMIN_CANONICAL_RESCAN");
-      await expect(caseRow).toContainText("Awaiting store review");
+      await expect(caseRow).toContainText("Settled");
+      await expect(caseRow).toContainText("PENDING_STORE_REVIEW");
       await info.attach(`admin-store-reconciliation-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`admin-store-reconciliation-${width}.png`) }), contentType: "image/png" });
     } else if (domain === "substitution") {
       const pref = await customerAction(page, f.order.publicReference, f.storeReference, { action: "substitution-preference", orderLineId: f.baseline.lines[0].id, preference: "CONTACT_ME" }); expect(pref.status(), await pref.text()).toBe(200);
