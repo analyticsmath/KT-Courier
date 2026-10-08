@@ -29,7 +29,6 @@ import { finalizeProviderRefundAttempt } from "@/lib/services/refund-provider-ex
 import type {
   PaymentProviderEnvironment,
   PaymentReconciliationReasonCode,
-  PaymentWebhookNormalizedStatusCode,
 } from "@/lib/payments/types";
 import { consumeVerifiedPaymentEvents } from "@/lib/payments/verified-payment-event-processor.service";
 
@@ -467,7 +466,6 @@ export async function applyPaystackWebhookEvent(
           merchantVerified: isMerchantMatching,
           amountVerified: isAmountMatching,
           providerDataVerified: isVerifiedSuccess && isMerchantMatching,
-          normalizedStatus: (isVerifiedSuccess ? "COMPLETE" : "FAILED") as PaymentWebhookNormalizedStatusCode,
         },
         create: {
           publicReference: event?.publicReference ?? eventReference(),
@@ -477,7 +475,9 @@ export async function applyPaystackWebhookEvent(
           merchantReference: reference,
           providerPaymentId: providerIdStr,
           providerStatus: chargePayload.data.status,
-          normalizedStatus: (isVerifiedSuccess ? "COMPLETE" : "FAILED") as PaymentWebhookNormalizedStatusCode,
+          // Signed charge.success is immutable intake evidence. A differing
+          // Verify outcome belongs to reconciliation, not this receipt field.
+          normalizedStatus: "COMPLETE",
           processingStatus: "RECONCILIATION_REQUIRED",
           paymentId: payment.id,
           attemptId: attempt.id,
@@ -674,7 +674,9 @@ export async function applyPaystackWebhookEvent(
       await tx.paymentAttempt.update({
         where: { id: freshAttempt.id },
         data: {
-          providerReference: providerIdStr,
+          // Initialization establishes the provider reference. The numeric
+          // transaction ID is separate evidence retained on the webhook/journal.
+          providerReference: freshAttempt.providerReference ?? providerIdStr,
           providerStatusCode: chargePayload.data.status,
           status: "SUCCEEDED",
           providerConfirmedAt: freshAttempt.providerConfirmedAt ?? now,

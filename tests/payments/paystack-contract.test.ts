@@ -271,6 +271,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     (prisma.paymentAttempt.findUnique as any).mockResolvedValue({
       id: "att_1",
       publicReference: "atm_bg_1",
+      providerReference: "atm_bg_1",
       amount: new Prisma.Decimal("250.00"),
       currency: "ZAR",
       provider: "PAYSTACK",
@@ -372,6 +373,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     expect(mockClient.verifyTransaction).toHaveBeenCalledWith("atm_bg_1");
     expect(prisma.paymentAttempt.findUnique).toHaveBeenCalledWith({ where: { merchantReference: "atm_bg_1" }, include: { payment: true } });
     expect(result.outcome).toBe("APPLIED");
+    expect(prisma.paymentAttempt.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ providerReference: "atm_bg_1" }) }));
   });
 
   // 13. Currency mismatch rejection (non-ZAR)
@@ -420,6 +422,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
     expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
     expect(prisma.paymentReconciliationCase.create).toHaveBeenCalled();
+    expect((prisma.paymentWebhookEvent.upsert as any).mock.calls.at(-1)[0].update).not.toHaveProperty("normalizedStatus");
   });
 
   // 14. Amount mismatch between webhook and payment record

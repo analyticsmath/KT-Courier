@@ -82,11 +82,14 @@ describe("canonical Paystack real PostgreSQL acceptance", () => {
         }
       }
       const fresh = await prisma.payment.findUniqueOrThrow({ where: { id: payment.paymentId } });
+      const freshAttempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: attempt.id } });
+      expect(freshAttempt.providerReference).toBe(attempt.providerReference);
       const events = await prisma.paymentWebhookEvent.findMany({ where: { merchantReference: attempt.merchantReference } });
       const journals = await prisma.ledgerJournal.findMany({ where: { correlationId: payment.paymentReference, type: "EXTERNAL_PAYMENT_RECEIPT" }, include: { entries: true } });
       const orders = await prisma.marketplaceOrder.findMany({ where: { checkoutId: source.id } });
       const reservation = await prisma.marketplaceInventoryReservation.findUniqueOrThrow({ where: { id: baseline.id }, include: { items: { include: { inventoryLevel: true } } } });
       expect(events).toHaveLength(1); expect(events[0].attemptCount).toBe(1);
+      expect(events[0].normalizedStatus).toBe("COMPLETE");
       if (outcome === "unknown") {
         expect(fresh.status).not.toBe("SUCCEEDED"); expect(fresh.successLedgerJournalId).toBeNull();
         expect(events[0].processingStatus).toBe("RECONCILIATION_REQUIRED"); expect(journals).toHaveLength(0); expect(orders).toHaveLength(0);
