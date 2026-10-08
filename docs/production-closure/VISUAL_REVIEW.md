@@ -165,3 +165,11 @@ The viewport suite checks concrete heading/navigation/overflow semantics without
 capturing passing runs. Historical artifact inspections recorded above remain
 limited observations, not visual approval. Future full visual acceptance requires
 actual native browser review at all four directed widths; it is still OPEN.
+
+## Continuous Phase 2/3 authority and inspected evidence
+
+The owner's 8 October 2026 continuous directive supersedes the historical failure-only capture restriction above. It explicitly requires actual inspection of relevant native screenshots. Successful critical-state screenshots are now captured in the isolated synthetic acceptance journeys; automatic trace/video retention remains failure-only. No production/customer/provider data is used.
+
+Actually inspected d4a04088a514e202f38d1a1e3c1ea353328f9248 phone captures from certification 37828006758, browser-evidence artifact 11573505851: inventory-upload-390.png shows visible template/file/review controls, receipt feedback and readable stock cards; owned-replacement-390.png shows own order decisions, adjustment status and a truthful unavailable-map fallback. The tall trusted-parcel-admin-390.png was viewed as an overview: policy and measured-packaging inputs fit the narrow column, but that long capture does not establish every history field's legibility or every focus/scroll state. Catalog's horizontal tab strip is intentional bounded navigation, not whole-document overflow.
+
+Customer delivery completion and driver phone captures from the same SHA show readable delivered/POD/status content. They also exposed false empty chat after reload despite two durable messages. The next source fixes owned-thread hydration and requires native customer/driver reload assertions plus chat captures. Previous f8c732ba branding/store-order phone and 8261bcf customer-avatar/driver inspections remain historical scoped evidence, not acceptance of another source. New wallet/refund/finance, admin reconciliation and ready-order captures still require actual execution and inspection. Independent visual/device acceptance remains BLOCKED_EXTERNAL; the manifest visual gate stays OPEN.

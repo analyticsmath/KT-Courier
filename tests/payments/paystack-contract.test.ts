@@ -87,6 +87,7 @@ vi.mock("@/lib/db/prisma", () => ({
       findMany: vi.fn(async () => []),
       create: vi.fn(async () => ({ id: "opr_1", operationId: "op_1" })),
       update: vi.fn(async () => ({ id: "opr_1" })),
+      updateMany: vi.fn(),
       findUnique: vi.fn(async () => null),
     },
     refund: {
@@ -736,6 +737,14 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
   // 22. Strict DRY_RUN execution with zero mutations and zero network
   it("22. executes consume-verified-payment-events in DRY_RUN mode with zero mutations", async () => {
+    // This unit fixture must model the operational lease that the real executor
+    // completes; the dry run still performs no financial or intent mutation.
+    let lease: Record<string, unknown> | null = null;
+    (prisma.operationalProcessorRun.create as any).mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+      lease = { id: "opr_dry_run", ...data }; return lease;
+    });
+    (prisma.operationalProcessorRun.findUnique as any).mockImplementation(async () => lease);
+    (prisma.operationalProcessorRun.updateMany as any).mockResolvedValue({ count: 1 });
     (prisma.paymentVerifiedEventIntent.findMany as any).mockResolvedValueOnce([
       { id: "pve_1", publicReference: "pve_ref_1" },
     ]);
@@ -753,6 +762,10 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     expect(result.itemsCompleted).toBe(0);
     // Verified 0 writes occurred on the intent
     expect(prisma.paymentVerifiedEventIntent.create).not.toHaveBeenCalled();
+    expect(prisma.operationalProcessorRun.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ leaseOwner: "cron:consume-verified-payment-events", status: { in: ["LEASE_ACQUIRED", "RUNNING"] }, leaseExpiresAt: { gt: expect.any(Date) } }),
+      data: expect.objectContaining({ status: "DRY_RUN_COMPLETED", itemsClaimed: 0, itemsCompleted: 0, leaseExpiresAt: null }),
+    }));
   });
 
   // 23. Webhook payload discriminated schema parsing for charge.success

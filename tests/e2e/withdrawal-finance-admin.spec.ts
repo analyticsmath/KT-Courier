@@ -29,7 +29,7 @@ async function action(page: Page, id: string, path: string, buttonName: string) 
   await page.reload();
 }
 for (const width of [1440, 390]) {
-  test(`finance reviews, rejects with released capacity and investigates an uncertain payout at ${width}px`, async ({ page }) => {
+  test(`finance reviews, rejects with released capacity and investigates an uncertain payout at ${width}px`, async ({ page }, info) => {
     requireDisposableRunner(); await page.setViewportSize({ width, height: 900 });
     const first = await ownerRequest(page, width);
     await page.goto("/admin/withdrawals");
@@ -83,6 +83,7 @@ for (const width of [1440, 390]) {
     const uncertain = (await read(page, `/api/admin/withdrawals/${second.record.id}`)).withdrawal;
     expect(uncertain).toMatchObject({ status: "RECONCILIATION_REQUIRED", journals: { release: null, payout: null } });
     expect(uncertain.payoutAttempts[0].status).toBe("UNKNOWN"); expect(uncertain.reconciliation).toHaveLength(1);
+    await info.attach(`finance-withdrawal-uncertain-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`finance-withdrawal-uncertain-${width}.png`) }), contentType: "image/png" });
     await expect(page.getByRole("button", { name: /record verified payout|start payout processing|reject and release/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 

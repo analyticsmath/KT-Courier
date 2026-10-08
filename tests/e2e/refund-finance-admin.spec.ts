@@ -22,6 +22,7 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
   }
   const approved = await refundControl(reference); expect(approved.refunds[0].status).toBe("APPROVED");
   await expect(page.getByText("Refund completion is inactive pending consolidated validation approval.", { exact: true })).toBeVisible();
+  await testInfo.attach(`finance-refund-approved-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`finance-refund-approved-${width}.png`) }), contentType: "image/png" });
   expect((await page.request.post(`/api/admin/refunds/${refund.id}/complete-wallet`, { data: { operationId: crypto.randomUUID() }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(503);
   expect((await refundControl(reference)).payment).toEqual(approved.payment);
   const completed = await refundControl(reference, "complete-wallet", { reference: refund.reference });
@@ -33,6 +34,7 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
   await expect(page.getByRole("heading", { name: "Wallet", exact: true })).toBeVisible();
   const wallet = await page.request.get("/api/customer-wallet"); expect(wallet.status()).toBe(200); expect((await wallet.json()).wallet).toMatchObject({ availableBalance: "25.00", refundHeldBalance: "0.00", spendingEnabled: false });
   const history = await page.request.get("/api/customer-wallet/transactions"); expect(history.status()).toBe(200); expect((await history.json()).data).toEqual([expect.objectContaining({ type: "REFUND_WALLET_CREDIT", amount: "25.00", direction: "CREDIT" })]);
+  await testInfo.attach(`wallet-credit-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`wallet-credit-${width}.png`) }), contentType: "image/png" });
   const original = await refundControl(reference, "reserve-original", { amount: "10.00" });
   const external = original.refunds.find(r => r.method === "ORIGINAL_PAYMENT_METHOD")!;
   await refundControl(reference, "approve", { reference: external.reference });
@@ -46,6 +48,7 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
   await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/refunds/${external.id}`);
   await expect(page.getByText("Provider status queries remain validation-locked.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /mark.*success|mark.*paid|Start provider refund/i })).toHaveCount(0);
+  await testInfo.attach(`finance-refund-uncertain-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`finance-refund-uncertain-${width}.png`) }), contentType: "image/png" });
   const externalCompleted = await refundControl(reference, "query-provider", { reference: external.reference, outcome: "processed" });
   const succeeded = externalCompleted.refunds.find(r => r.reference === external.reference)!;
   expect(succeeded.status, JSON.stringify({ reconciliation: succeeded.reconciliation, history: succeeded.history, attempts: succeeded.attempts, provider: externalCompleted.provider })).toBe("SUCCEEDED"); assertBalancedRefundJournal(succeeded.completion, "REFUND_EXTERNAL_PAYOUT", "10.00");

@@ -37,6 +37,7 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       const completed = await storeControl(f.storeReference); expect(completed.resolutionStatus).toBe("RESOLVED"); expect(completed.stock).toEqual(after.stock);
       expect(completed.cancellations).toEqual([{ status: "APPLIED", operationId }]);
       await page.reload(); await expect(page.getByText("Refund completed", { exact: false }).first()).toBeVisible();
+      await info.attach(`customer-order-refunded-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`customer-order-refunded-${width}.png`) }), contentType: "image/png" });
       await login(page, "e2e-checkout-other@ktcouriers.local");
       expect((await customerAction(page, f.order.publicReference, f.storeReference, body)).status()).toBe(404);
       expect((await storeControl(f.storeReference)).cancellations).toEqual(completed.cancellations);
@@ -55,6 +56,12 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       expect(after.payment).toEqual(f.baseline.payment); expect(after.journalCount).toBe(f.baseline.journalCount);
       expect((await page.request.post(url, { data: body, headers: { origin: new URL(page.url()).origin } })).status()).toBe(200);
       expect((await storeControl(f.storeReference)).history).toEqual(after.history);
+      await page.goto("/admin/store-order-reconciliation");
+      await expect(page.getByRole("heading", { name: "Store-order reconciliation", exact: true })).toBeVisible();
+      const cases = page.getByRole("table", { name: "Marketplace store-order operational reconciliation cases", exact: true });
+      await expect(cases.getByText(f.storeReference, { exact: true })).toBeVisible();
+      await expect(cases).toContainText("ADMIN_CANONICAL_RESCAN");
+      await info.attach(`admin-store-reconciliation-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`admin-store-reconciliation-${width}.png`) }), contentType: "image/png" });
     } else if (domain === "substitution") {
       const pref = await customerAction(page, f.order.publicReference, f.storeReference, { action: "substitution-preference", orderLineId: f.baseline.lines[0].id, preference: "CONTACT_ME" }); expect(pref.status(), await pref.text()).toBe(200);
       await login(page, "e2e-store@ktcouriers.local");
@@ -119,6 +126,7 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
         await page.reload(); await page.getByRole("button", { name: "Start preparation", exact: true }).click(); await expect.poll(async () => (await storeControl(f.storeReference)).preparationStatus).toBe("PREPARING");
         await page.reload(); await page.getByRole("button", { name: "Mark ready for collection", exact: true }).click(); await expect.poll(async () => (await storeControl(f.storeReference)).preparationStatus).toBe("READY_FOR_HANDOFF");
         const ready = await storeControl(f.storeReference); expect(ready.payment).toEqual(f.baseline.payment);
+        await info.attach(`store-order-ready-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`store-order-ready-${width}.png`) }), contentType: "image/png" });
         if (domain === "handoff") {
           const unassigned = await storeAction(page, f.storeReference, { action: "generate-pickup-code" }); expect(unassigned.status()).toBe(422);
           expect(["STORE_ORDER_DRIVER_ASSIGNMENT_INVALID", "STORE_ORDER_HANDOFF_NOT_READY"]).toContain((await unassigned.json()).code);

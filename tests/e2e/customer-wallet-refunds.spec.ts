@@ -14,6 +14,7 @@ for (const width of [1440, 390]) test(`owned wallet refund reserves and cancels 
   await expect(page.getByRole("heading", { name: "Wallet", exact: true })).toBeVisible();
   await expect(page.getByText("No wallet transactions yet.", { exact: true })).toBeVisible();
   await expect(page.getByText(/This wallet is read-only/)).toBeVisible();
+  await testInfo.attach(`wallet-empty-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`wallet-empty-${width}.png`) }), contentType: "image/png" });
   await page.goto("/account/refunds");
   await expect(page.getByRole("heading", { name: "Refunds", exact: true })).toBeVisible();
   await expect(page.getByLabel("Exact amount (ZAR)", { exact: true })).toBeDisabled();
@@ -54,6 +55,7 @@ for (const width of [1440, 390]) test(`owned wallet refund reserves and cancels 
   assertBalancedRefundJournal(cancelled.refunds[0].release, "REFUND_RELEASE", "25.00");
   expect(balance(cancelled, "HELD")).toBe(balance(baseline, "HELD"));
   await page.reload(); await expect(page.getByRole("button", { name: "Cancel refund", exact: true })).toHaveCount(0);
+  await testInfo.attach(`customer-refund-cancelled-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`customer-refund-cancelled-${width}.png`) }), contentType: "image/png" });
   await page.context().clearCookies(); expect((await page.request.get(`/api/refunds/${refund.reference}`)).status()).toBe(401);
   for (const email of ["e2e-store@ktcouriers.local", "driver@ktcouriers.local"]) {
     await login(page, email); expect((await page.request.get("/api/customer-wallet")).status()).toBe(403); expect((await page.request.get("/api/refunds")).status()).toBe(403);

@@ -259,7 +259,7 @@ function ConversationPanel({
             ))
           ) : (
             <p className="text-sm text-[var(--eo-text-secondary)]">
-              No conversations yet.
+              {error ? "Conversation unavailable." : "No conversations yet."}
             </p>
           )}
         </nav>
