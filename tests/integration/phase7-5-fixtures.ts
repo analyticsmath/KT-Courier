@@ -31,7 +31,7 @@ export function uniqueTag(prefix = "p75") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export async function createUser(tag: string, role: UserRole, status = UserStatus.ACTIVE): Promise<AuthenticatedUser> {
+export async function createUser(tag: string, role: UserRole, status: UserStatus = UserStatus.ACTIVE): Promise<AuthenticatedUser> {
   const user = await integrationPrisma.user.create({
     data: { email: `${tag}@phase75.test`, name: tag, role, status, passwordHash: "not-used-by-integration-tests" },
   });

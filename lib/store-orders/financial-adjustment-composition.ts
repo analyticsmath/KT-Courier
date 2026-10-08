@@ -130,7 +130,7 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
       await database.marketplaceStoreOrderAdjustment.update({ where: { id: adjustment.id }, data: { financialEvidence: { ...(adjustment.financialEvidence ?? {}), phase21CommittedReversals: committedEvidence } } });
       return committedEvidence;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    const refund = new Prisma.Decimal(evidence.refundAmount).isZero() ? null : await createMarketplaceRefundRequest({ paymentPublicReference: evidence.paymentReference, customerUserId: evidence.customerUserId, guestConfirmationVerified: !evidence.customerUserId, amount: evidence.refundAmount, method: "ORIGINAL_PAYMENT_METHOD", reasonCode: "SERVICE_NOT_PROVIDED", operationId: `${input.operationId}:refund` }, this.refundDependencies);
+    const refund = new Prisma.Decimal(evidence.refundAmount).isZero() ? null : await createMarketplaceRefundRequest({ paymentPublicReference: evidence.paymentReference, customerUserId: evidence.customerUserId, guestConfirmationVerified: !evidence.customerUserId, sourceAdjustmentReference: input.adjustmentReference, amount: evidence.refundAmount, method: "ORIGINAL_PAYMENT_METHOD", reasonCode: "SERVICE_NOT_PROVIDED", operationId: `${input.operationId}:refund` }, this.refundDependencies);
     return Object.freeze({ refundReference: refund?.publicReference, commissionReversalReferences: evidence.commissionReversalReferences, storeEarningReversalReference: evidence.storeEarningReversalReference, financialStatus: refund ? "REFUND_RESERVED" as const : "REFUND_COMPLETED" as const });
   }
 }

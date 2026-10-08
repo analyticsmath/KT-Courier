@@ -307,6 +307,11 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
         throw new Error(err.error || err.message || "Failed to calculate delivery quotes.");
       }
 
+      // Consume the authoritative response before refreshing the checkout.
+      // Leaving a fetch body unread can stall browser network receipts.
+      const quoteResult = await res.json();
+      if (!Array.isArray(quoteResult.quotes) || quoteResult.quotes.length !== checkout.storeGroups.length) throw new Error("Delivery quote evidence could not be verified. Refresh before continuing.");
+
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
         const freshData = await freshRes.json();

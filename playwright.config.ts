@@ -6,7 +6,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   forbidOnly: true,
-  reporter: [["list"]],
+  reporter: [["list"], ["./scripts/e2e-failure-reporter.mjs"]],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3200",
     trace: "retain-on-failure",
@@ -44,6 +44,7 @@ export default defineConfig({
         /transactional-notifications\.spec\.ts/,
         /trusted-parcel-classification\.spec\.ts/,
         /driver-canonical-delivery\.spec\.ts/,
+        /customer-identity-lifecycle\.spec\.ts/,
         /storefront-admin\.spec\.ts/,
         /driver-earnings\.spec\.ts/,
         /driver-earnings-finance-admin\.spec\.ts/,

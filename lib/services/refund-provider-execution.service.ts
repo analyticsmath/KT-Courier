@@ -18,6 +18,7 @@ import { RefundProviderRegistry, createProductionRefundProviderRegistry } from "
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { completeStoreEarningRefundProjectionsWithinTransaction } from "./store-earning-refund.service";
 import { completeDriverEarningRefundProjectionsWithinTransaction } from "./driver-earning-refund.service";
+import { resolveRefundHeldAccount } from "./refund-held-account.service";
 
 const DEFAULT_REFUND_PROVIDER_TIMEOUT_MS = 10_000;
 
@@ -252,7 +253,7 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
         return updated;
       }
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${refund.paymentId} FOR UPDATE`);
-      const held = await tx.ledgerAccount.findFirst({ where: { purpose: "CUSTOMER_REFUND_HELD", currency: "ZAR", wallet: { ownerType: "CUSTOMER", ownerId: refund.customerUserId ?? undefined, status: "ACTIVE" } } });
+      const held = await resolveRefundHeldAccount(tx, refund.customerUserId);
       const cash = await tx.ledgerAccount.findUnique({ where: { code: "PLATFORM-CASH-CLEARING-ZAR" } });
       if (!held || !cash || held.category !== "LIABILITY" || cash.category !== "ASSET" || held.allowNegative || cash.allowNegative) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Refund completion accounts are invalid.");
       const accountIds = [held.id, cash.id].sort();

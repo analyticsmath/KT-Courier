@@ -13,6 +13,7 @@ export function refundCreationHash(input: Readonly<{
   reasonCode: RefundReasonCodeValue;
   customerNote: string | null;
   policyVersion: number;
+  sourceAdjustmentReference?: string;
 }>): string {
   return digest({
     amount: input.amount,
@@ -22,6 +23,7 @@ export function refundCreationHash(input: Readonly<{
     paymentId: input.paymentId,
     policyVersion: input.policyVersion,
     reasonCode: input.reasonCode,
+    ...(input.sourceAdjustmentReference ? { sourceAdjustmentReference: input.sourceAdjustmentReference } : {}),
   });
 }
 

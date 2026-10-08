@@ -96,8 +96,8 @@ export async function prepareCheckout(page: Page, suffix: string, width: number,
   return { reference, baseline };
 }
 
-export async function createPaidCheckout(page: Page, suffix: string, width: number) {
-  const { reference, baseline } = await prepareCheckout(page, suffix, width);
+export async function createPaidCheckout(page: Page, suffix: string, width: number, options: Parameters<typeof prepareCheckout>[4] = {}, guest = false) {
+  const { reference, baseline } = await prepareCheckout(page, suffix, width, guest, options);
   await paymentControl(reference, "success");
   if (!baseline) throw new Error("Payment preparation baseline is required.");
   const raw = JSON.stringify({ event: "charge.success", data: { id: baseline.provider.id, domain: "test", status: "success", reference: baseline.attempt.merchantReference, amount: baseline.provider.amount, currency: "ZAR" } });
@@ -135,8 +135,8 @@ export async function storeControl(reference: string, action = "snapshot"): Prom
   if (!custodyLine) throw new Error("Canonical custody snapshot was not produced.");
   return { ...JSON.parse(line.slice("STORE_ORDER_SNAPSHOT ".length)), custody: JSON.parse(custodyLine.slice("STORE_ORDER_CUSTODY ".length)) };
 }
-export async function prepareStoreOrder(page: Page, suffix: string, width: number) {
-  const paid = await createPaidCheckout(page, suffix, width);
+export async function prepareStoreOrder(page: Page, suffix: string, width: number, options: Parameters<typeof prepareCheckout>[4] = {}) {
+  const paid = await createPaidCheckout(page, suffix, width, options);
   const order = paid.snapshot.orders[0];
   const reference = order.storeOrders[0].publicReference;
   const baseline = await storeControl(reference, "initialize");

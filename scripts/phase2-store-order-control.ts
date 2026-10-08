@@ -41,6 +41,14 @@ async function main() {
     const admin = await prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" } });
     const driver = await prisma.driverProfile.findFirstOrThrow({ where: { user: { email: `e2e-handoff-driver-${suffix}@ktcouriers.local` } } });
     await offerAssignment(admin.id, bridge.courierOrderId, { driverProfileId: driver.id, reasonCode: "DISPOSABLE_TWO_PARTY_CUSTODY" });
+  } else if (["deny-employee-review", "allow-employee-review"].includes(action)) {
+    const width = /^e2e-paystack-store-merchant-(1440|390)@ktcouriers\.local$/.exec(source.marketplaceOrder.checkout.contactSnapshot!.email)?.[1];
+    if (!width) throw new Error("Independent merchant employee namespace required.");
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: `e2e-order-employee-${width}@ktcouriers.local` } });
+    await prisma.storeEmployeeMembership.findFirstOrThrow({ where: { userId: user.id, storeId: source.storeId, status: "ACTIVE" } });
+    const permission = await prisma.permission.findUniqueOrThrow({ where: { key: "store_orders.review" } });
+    if (action === "deny-employee-review") await prisma.userPermission.upsert({ where: { userId_permissionId: { userId: user.id, permissionId: permission.id } }, create: { userId: user.id, permissionId: permission.id, effect: "DENY" }, update: { effect: "DENY" } });
+    else await prisma.userPermission.deleteMany({ where: { userId: user.id, permissionId: permission.id } });
   } else if (action === "expire-review") {
     // Only time is advanced on namespace-owned operational evidence. Money,
     // payment verification, settlement and inventory are never patched.

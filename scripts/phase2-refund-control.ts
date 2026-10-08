@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db/prisma";
 import { assertDisposablePaystackAcceptance, assertDisposablePaystackEmail } from "../lib/testing/disposable-paystack-policy";
 import { createRefundRequest, cancelRefundRequest } from "../lib/services/refund-request.service";
@@ -10,6 +11,10 @@ import { ensureCustomerRefundWallet } from "../lib/services/customer-wallet.serv
 import { PaystackClient, type PaystackRefundInput, type PaystackRefundData } from "../lib/payments/providers/paystack/paystack-client";
 import { PaystackRefundAdapter } from "../lib/refunds/providers/paystack/paystack-refund-adapter";
 import { RefundProviderRegistry } from "../lib/refunds/providers/refund-provider-registry";
+
+function journalReceipt(journal: Prisma.LedgerJournalGetPayload<{ include: { entries: true } }> | null) {
+  return journal && { id: journal.id, type: journal.type, currency: journal.currency, totalDebits: journal.totalDebits.toFixed(2), totalCredits: journal.totalCredits.toFixed(2), entries: journal.entries.map(entry => ({ direction: entry.direction, amount: entry.amount.toFixed(2) })) };
+}
 
 /** CLI fixture injection only. No application route imports this module. */
 async function assertNamedDisposableRefundRuntime() {
@@ -86,6 +91,6 @@ async function main() {
   const fresh = await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
   const refunds = await prisma.paymentRefund.findMany({ where: { paymentId: payment.id }, include: { fundingAllocations: true, reserveLedgerJournal: { include: { entries: true } }, releaseLedgerJournal: { include: { entries: true } }, completionLedgerJournal: { include: { entries: true } }, statusHistory: true, attempts: true, reconciliationCases: true }, orderBy: { createdAt: "asc" } });
   const accounts = await prisma.ledgerAccount.findMany({ where: { OR: [{ wallet: { ownerType: "CUSTOMER", ownerId: owner } }, { code: { in: ["PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", "PLATFORM-CASH-CLEARING-ZAR"] } }] }, select: { purpose: true, currentBalance: true } });
-  console.log(`REFUND_SNAPSHOT ${JSON.stringify({ result: result ? { reference: (result as { publicReference: string }).publicReference } : null, payment: { amount: fresh.amount.toFixed(2), reserved: fresh.totalRefundReservedAmount.toFixed(2), refunded: fresh.totalRefundedAmount.toFixed(2), status: fresh.status }, accounts: accounts.map(a => ({ purpose: a.purpose, balance: a.currentBalance.toFixed(2) })), refunds: refunds.map(r => ({ id: r.id, reference: r.publicReference, amount: r.amount.toFixed(2), status: r.status, method: r.method, funding: r.fundingAllocations.map(f => ({ amount: f.amount.toFixed(2), source: f.sourceType })), reserve: r.reserveLedgerJournal, release: r.releaseLedgerJournal, completion: r.completionLedgerJournal, history: r.statusHistory.map(h => ({ toStatus: h.toStatus, reason: h.reasonCode, operationId: h.operationId })), attempts: r.attempts.map(a => ({ status: a.status, provider: a.provider, number: a.attemptNumber })), reconciliation: r.reconciliationCases.map(c => ({ status: c.status, reason: c.reason })) })), provider: (await prisma.systemSetting.findUnique({ where: { key: providerKey } }))?.value ?? null })}`);
+  console.log(`REFUND_SNAPSHOT ${JSON.stringify({ result: result ? { reference: (result as { publicReference: string }).publicReference } : null, payment: { amount: fresh.amount.toFixed(2), reserved: fresh.totalRefundReservedAmount.toFixed(2), refunded: fresh.totalRefundedAmount.toFixed(2), status: fresh.status }, accounts: accounts.map(a => ({ purpose: a.purpose, balance: a.currentBalance.toFixed(2) })), refunds: refunds.map(r => ({ id: r.id, reference: r.publicReference, amount: r.amount.toFixed(2), status: r.status, method: r.method, funding: r.fundingAllocations.map(f => ({ amount: f.amount.toFixed(2), source: f.sourceType })), reserve: journalReceipt(r.reserveLedgerJournal), release: journalReceipt(r.releaseLedgerJournal), completion: journalReceipt(r.completionLedgerJournal), history: r.statusHistory.map(h => ({ toStatus: h.toStatus, reason: h.reasonCode, operationId: h.operationId })), attempts: r.attempts.map(a => ({ status: a.status, provider: a.provider, number: a.attemptNumber })), reconciliation: r.reconciliationCases.map(c => ({ status: c.status, reason: c.reason })) })), provider: (await prisma.systemSetting.findUnique({ where: { key: providerKey } }))?.value ?? null })}`);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => prisma.$disconnect());

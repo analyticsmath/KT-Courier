@@ -311,7 +311,7 @@ export async function decideStoreOrderSubstitution(input: Readonly<{ storeOrderR
       assertStoreOrder(level && level.reserved >= proposal.reservation.quantity, "STORE_ORDER_INVENTORY_INCOHERENT", "Substitute reservation inventory is incoherent.");
       await (tx as unknown as { catalogInventoryLevel: Delegate }).catalogInventoryLevel.update({ where: { id: level.id }, data: { reserved: { decrement: proposal.reservation.quantity }, onHand: { decrement: proposal.reservation.quantity }, version: { increment: 1 } } });
       await model(tx, "marketplaceStoreOrderSubstitutionReservation").update({ where: { id: proposal.reservation.id }, data: { status: "CONSUMED", consumedAt: new Date() } });
-      await model(tx, "catalogInventoryMovement").create({ data: { publicReference: ref("cim"), inventoryItemId: proposal.reservation.inventoryItemId, locationId: proposal.reservation.inventoryLevelId, type: "ORDER_SUBSTITUTION_COMMITMENT", quantityDelta: -proposal.reservation.quantity, operationId: `${input.operationId}:commit`, requestHash: input.requestHash, reasonCode: "SUBSTITUTION_APPROVED", actorUserId: input.customerUserId ?? "system", resultingOnHand: level.onHand - proposal.reservation.quantity } });
+      await model(tx, "catalogInventoryMovement").create({ data: { publicReference: ref("cim"), inventoryItemId: proposal.reservation.inventoryItemId, locationId: level.locationId, type: "ORDER_SUBSTITUTION_COMMITMENT", quantityDelta: -proposal.reservation.quantity, operationId: `${input.operationId}:commit`, requestHash: input.requestHash, reasonCode: "SUBSTITUTION_APPROVED", actorUserId: input.customerUserId ?? "system", resultingOnHand: level.onHand - proposal.reservation.quantity } });
       await model(tx, "marketplaceStoreOrderSubstitutionProposal").update({ where: { id: proposal.id }, data: { status: "APPROVED", decidedAt: new Date() } });
       await model(tx, "marketplaceStoreOrderLineFulfilment").update({ where: { id: proposal.lineFulfilmentId }, data: { status: "SUBSTITUTION_APPROVED", resolvedFulfilmentQuantity: { increment: proposal.substituteQuantity }, version: { increment: 1 } } });
       adjustmentReference = await createLineAdjustment(tx, order, proposal.issue, proposal.lineFulfilment, { type: "SUBSTITUTION", reasonCode: "CUSTOMER_APPROVED_SUBSTITUTION", operationId: `${input.operationId}:adjust`, requestHash: requestHash("substitution-adjustment", evidence), decisionReference, replacementCharge: proposal.customerCharge.toFixed(2), actorUserId: input.customerUserId });
@@ -752,14 +752,19 @@ export async function listStoreOrderQueue(storeId: string) {
 }
 
 export async function createStoreOrderReconciliationCase(input: Readonly<{ storeOrderReference: string; reasonCode: string; safeSummary: string; operationId: string; evidence?: Record<string, unknown>; testApproval?: TestApproval }>) {
-  assertStoreOrderProductionReady("RECONCILIATION", input.testApproval); checkOperation({ operationId: input.operationId, hash: requestHash("reconcile", { reference: input.storeOrderReference, reason: input.reasonCode, operationId: input.operationId }) });
+  const hash = requestHash("reconcile", { reference: input.storeOrderReference, reason: input.reasonCode, summary: input.safeSummary, evidence: input.evidence ?? null, operationId: input.operationId });
+  assertStoreOrderProductionReady("RECONCILIATION", input.testApproval); checkOperation({ operationId: input.operationId, hash });
   return transaction(async (tx) => {
+    await (tx as unknown as Prisma.TransactionClient).$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "publicReference" = ${input.storeOrderReference} FOR UPDATE`);
     const order = await lockOrder(tx, input.storeOrderReference);
+    const prior = await replay(tx, order.id, input.operationId, hash); if (prior) return prior;
     const caseKey = `${order.id}:${input.reasonCode}:${input.operationId}`;
     const reconciliation = await model(tx, "marketplaceStoreOrderReconciliationCase").upsert({ where: { caseKey }, create: { publicReference: ref("sorec"), caseKey, marketplaceStoreOrderId: order.id, reasonCode: input.reasonCode.slice(0, 80), priority: "HIGH", safeSummary: input.safeSummary.slice(0, 500), safeEvidence: input.evidence ?? null, retryOperationId: input.operationId }, update: { observationCount: { increment: 1 }, safeSummary: input.safeSummary.slice(0, 500), safeEvidence: input.evidence ?? null } });
     if (order.resolutionStatus !== "RECONCILIATION_REQUIRED") await updateOrder(tx, order, { resolutionStatus: "RECONCILIATION_REQUIRED", financialResolutionStatus: "RECONCILIATION_REQUIRED" });
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "STORE_ORDER_RECONCILIATION_REQUIRED", evidence: { reconciliationReference: reconciliation.publicReference, reasonCode: input.reasonCode } });
-    return { reconciliationReference: reconciliation.publicReference, replayed: false };
+    const response = { reconciliationReference: reconciliation.publicReference };
+    await receipt(tx, { storeOrderId: order.id, operationId: input.operationId, hash, type: "RECONCILIATION", response });
+    return { ...response, replayed: false };
   });
 }
 

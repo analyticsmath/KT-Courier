@@ -4,7 +4,7 @@ import { REFUND_METHODS, REFUND_REASON_CODES, REFUND_STATUSES } from "@/lib/refu
 const operationId = z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/);
 const refundReference = z.string().trim().regex(/^RF-[A-F0-9]{32}$/);
 const opaqueId = z.string().trim().regex(/^c[a-z0-9]{20,40}$/i);
-const exactAmount = z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/);
+const exactAmount = z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/).refine(value => /[1-9]/.test(value), "Amount must be positive.");
 const note = z.string().trim().min(1).max(500).optional();
 const positiveInteger = (maximum: number) => z.preprocess((value) => typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value, z.number().int().min(1).max(maximum));
 

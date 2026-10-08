@@ -76,7 +76,9 @@ export function canonicalStoreIntegration(domain: string) {
           }
         } else if (domain === "reconciliation") {
           const input = { storeOrderReference: f.storeReference, operationId: randomUUID(), reasonCode: "DISPOSABLE_COHERENCE_RESCAN", safeSummary: "Synthetic coherence rescan" };
-          await createStoreOrderReconciliationCase(input); await createStoreOrderReconciliationCase(input);
+          expect((await createStoreOrderReconciliationCase(input)).replayed).toBe(false);
+          expect((await createStoreOrderReconciliationCase(input)).replayed).toBe(true);
+          await expect(createStoreOrderReconciliationCase({ ...input, safeSummary: "Changed rescan meaning" })).rejects.toMatchObject({ code: "STORE_ORDER_IDEMPOTENCY_CONFLICT" });
           const after = await storeControl(f.storeReference);
           expect(after.reconciliation).toHaveLength(1); expect(after.resolutionStatus).toBe("RECONCILIATION_REQUIRED");
           expect(after.history.filter(row => row.operationId === input.operationId)).toHaveLength(1);

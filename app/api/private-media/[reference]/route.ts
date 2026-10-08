@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { badRequest, forbidden, notFound, serviceUnavailable, unauthorized } from "@/lib/api/response";
+import { badRequest, conflict, forbidden, notFound, serviceUnavailable, unauthorized } from "@/lib/api/response";
 import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-media/private-media.service";
 
 export async function GET(_request: Request, context: { params: Promise<{ reference: string }> }) {
@@ -13,6 +13,7 @@ export async function GET(_request: Request, context: { params: Promise<{ refere
     if (error instanceof PrivateMediaPolicyError) {
       if (error.status === 403) return forbidden(error.message);
       if (error.status === 404) return notFound(error.message);
+      if (error.status === 409) return conflict(error.message);
       if (error.status === 503) return serviceUnavailable(error.message);
       return badRequest(error.message);
     }

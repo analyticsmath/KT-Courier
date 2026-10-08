@@ -22,7 +22,7 @@ export async function deliveryControl(reference: string, action = "snapshot") {
 export async function canonicalDriverDeliveryJourney(page: Page, suffix: string, width: number) {
   const f = await prepareStoreOrder(page, suffix, width);
   await login(page, "e2e-store@ktcouriers.local");
-  for (const body of [{ action: "confirm-availability", orderLineId: f.baseline.lines[0].id, availableQuantity: 1 }, { action: "accept", preparationMinutes: 30, pickupInstructions: "Disposable synthetic pickup" }, { action: "start-preparation" }, { action: "mark-ready" }]) { const res = await storeAction(page, f.storeReference, body); expect(res.status(), await res.text()).toBe(200); }
+  for (const body of [{ action: "begin-review" }, { action: "confirm-availability", orderLineId: f.baseline.lines[0].id, availableQuantity: 1 }, { action: "accept", preparationMinutes: 30, pickupInstructions: "Disposable synthetic pickup" }, { action: "start-preparation" }, { action: "mark-ready" }]) { const res = await storeAction(page, f.storeReference, body); expect(res.status(), await res.text()).toBe(200); }
   await completeSyntheticStoreHandoff(page, f.storeReference, suffix);
   const baseline = await deliveryControl(f.storeReference) as DeliverySnapshot;
   expect(baseline.order.status).toBe("PICKED_UP"); expect(baseline.pod).toBeNull(); expect(baseline.locations).toBe(0);

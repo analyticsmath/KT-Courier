@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { login } from "./auth";
 import { prepareStoreOrder, storeControl, storeAction, customerAction } from "./store-order";
 import { completeSyntheticStoreHandoff } from "./store-handoff";
+import { proveStoreOrderEmployeeScope } from "./store-order-employee";
 
 export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | "substitution" | "handoff" | "accessibility") {
   for (const width of [1440, 390]) test(`canonical ${domain} store-order journey at ${width}px`, async ({ page }, info) => {
@@ -63,6 +64,10 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       expect(await storeControl(f.storeReference)).toEqual(f.baseline);
       await login(page, "e2e-store@ktcouriers.local"); await page.goto(`/store/marketplace-orders/${f.storeReference}`);
       await expect(page.getByRole("heading", { name: f.storeReference, exact: true })).toBeVisible();
+      if (domain === "merchant") {
+        await proveStoreOrderEmployeeScope(page, f.storeReference, width);
+        await page.goto(`/store/marketplace-orders/${f.storeReference}`);
+      }
       if (domain === "accessibility") {
         const input = page.getByLabel("Preparation time (minutes)"); await input.focus(); await expect(input).toBeFocused();
         await page.keyboard.press("Tab"); await expect(page.getByLabel("Pickup instructions")).toBeFocused();
@@ -80,7 +85,7 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
           const premature = await storeAction(page, f.storeReference, { action: "generate-pickup-code" }); expect(premature.status()).toBe(422); expect((await premature.json()).code).toBe("STORE_ORDER_HANDOFF_NOT_READY");
           expect(await storeControl(f.storeReference)).toEqual(f.baseline);
         }
-        await postStore({ action: "begin-review" });
+        if (domain !== "merchant") await postStore({ action: "begin-review" });
         await page.reload(); await page.getByRole("button", { name: "Confirm availability", exact: true }).click();
         await expect.poll(async () => (await storeControl(f.storeReference)).lines[0].fulfilment.status).toBe("AVAILABLE");
         await page.getByLabel("Preparation time (minutes)").fill("30"); await page.getByLabel("Pickup instructions").fill("Disposable confirmed pickup point");
