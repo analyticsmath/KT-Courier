@@ -25,8 +25,8 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   // Exercise the real sign-in return path: the role-switching test helper
   // clears cookies and would destroy this guest's private quote capability.
   await page.getByRole("link", { name: "Sign in to book", exact: true }).click();
-  await page.getByLabel("Email address", { exact: true }).fill("customer@ktcouriers.local");
-  await page.getByLabel("Password", { exact: true }).fill("ChangeMe123!");
+  await page.getByLabel(/^Email address(?:\s*\*)?$/).fill("customer@ktcouriers.local");
+  await page.getByLabel(/^Password(?:\s*\*)?$/).fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/quote\\?reference=${dto.id}$`));
   expect((await page.context().cookies()).find(cookie => cookie.name === "kt_public_quote")?.value).toBe(ownedCookie.value);

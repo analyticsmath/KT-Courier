@@ -19,7 +19,7 @@ export async function deliveryControl(reference: string, action = "snapshot") {
 
 /** DEVICE_GPS here is a browser fixture at a synthetic destination. This is
  * canonical offline engineering proof, never physical/device acceptance. */
-export async function canonicalDriverDeliveryJourney(page: Page, suffix: string, width: number) {
+export async function canonicalDriverDeliveryJourney(page: Page, suffix: string, width: number, captureChat?: (actor: "customer" | "driver") => Promise<void>) {
   const f = await prepareStoreOrder(page, suffix, width);
   await login(page, "e2e-store@ktcouriers.local");
   for (const body of [{ action: "begin-review" }, { action: "confirm-availability", orderLineId: f.baseline.lines[0].id, availableQuantity: 1 }, { action: "accept", preparationMinutes: 30, pickupInstructions: "Disposable synthetic pickup" }, { action: "start-preparation" }, { action: "mark-ready" }]) { const res = await storeAction(page, f.storeReference, body); expect(res.status(), await res.text()).toBe(200); }
@@ -63,7 +63,10 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   expect(chatReplay.status()).toBe(201); expect(await chatReplay.json()).toEqual({ id: sentMessage.id, replayed: true });
   const chatConflict = await page.request.post(messagesPath, { data: { ...messageCommand, body: "Changed operation meaning" }, headers: { origin: new URL(page.url()).origin } });
   expect(chatConflict.status()).toBe(409);
+  await page.reload();
   await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await captureChat?.("customer");
   await login(page, `e2e-handoff-driver-${suffix}@ktcouriers.local`);
   await page.goto(`/driver/assignments/${baseline.assignment.id}`);
   await page.getByRole("button", { name: "Open delivery chat", exact: true }).click();
@@ -72,6 +75,11 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   await page.getByLabel("Message", { exact: true }).fill(driverMessage);
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByText(driverMessage, { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
+  await expect(page.getByText(driverMessage, { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await captureChat?.("driver");
   const chatHistory = await page.request.get(messagesPath); expect(chatHistory.status()).toBe(200);
   expect((await chatHistory.json()).messages).toEqual([
     expect.objectContaining({ id: sentMessage.id, body: customerMessage, mine: false }),
@@ -90,6 +98,9 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   const redeliveryConflict = await page.request.post(`/api/orders/${started.order.id}/redelivery`, { data: { ...redeliveryBody, safeNote: "Different operation meaning" }, headers: { origin: new URL(page.url()).origin } }); expect(redeliveryConflict.status()).toBe(409);
   await login(page, "e2e-checkout-other@ktcouriers.local"); const foreignRedelivery = await page.request.post(`/api/orders/${started.order.id}/redelivery`, { data: redeliveryBody, headers: { origin: new URL(page.url()).origin } }); expect(foreignRedelivery.status()).toBe(400);
   expect((await page.request.get(messagesPath)).status()).toBe(404);
+  const foreignThreads = await page.request.get(`/api/platform/conversations?scope=personal&orderId=${started.order.id}`);
+  expect(foreignThreads.status()).toBe(200); expect(await foreignThreads.json()).toEqual({ conversations: [] });
+  expect((await page.request.get("/api/platform/conversations?scope=personal&orderId=invalid")).status()).toBe(422);
   expect((await page.request.post(messagesPath, { data: { body: "Foreign message denied", operationId: crypto.randomUUID() }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(404);
   expect((await page.request.get(`/api/tracking/orders/${started.order.id}/location`)).status()).toBe(403);
 

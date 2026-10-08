@@ -14,6 +14,7 @@ files.push("tests/integration/owner-withdrawal-canonical-postgres.integration.te
 files.push("tests/integration/catalog-listing-draft-postgres.integration.test.ts");
 files.push("tests/integration/business-employee-postgres.integration.test.ts");
 files.push("tests/integration/catalog-permission-bootstrap-postgres.integration.test.ts");
+files.push("tests/integration/processor-lease-canonical-postgres.integration.test.ts");
 files.push("tests/phase-b/privacy-dsar-retention-postgres.test.ts", "tests/phase-b/privacy-location-security-postgres.test.ts", "tests/phase-b/privacy-policy-final-postgres.test.ts", "tests/phase-b/privacy-marketing-cookie-preferences-postgres.test.ts");
 let failed = false; let started = false;
 try {
