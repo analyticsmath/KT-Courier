@@ -5,6 +5,7 @@ import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { reverseLedgerJournal } from "@/lib/services/ledger-reversal.service";
 import { createDisposableCheckoutAuthorities } from "./e2e-checkout-authorities";
 import { createDisposableResidualCatalog } from "./e2e-paystack-residual-fixtures";
+import { createDisposableHandoffActors } from "./e2e-handoff-actors";
 import { createDisposableDriverSettlement } from "./e2e-driver-settlement-fixture";
 import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-settlement-guard";
 import { accrueDriverEarning } from "@/lib/services/driver-earning-accrual.service";
@@ -281,6 +282,10 @@ async function seedPhase2Fixtures(passwordHash: string) {
     create: { publicReference: "prc_headphones", offerId: offerHeadphones.id, versionNumber: 1, amount: "800.00", currency: "ZAR", effectiveFrom: new Date("2020-01-01"), status: "ACTIVE", createdByUserId: storeUser.id },
   });
   await prisma.storeCatalogOffer.update({ where: { id: offerHeadphones.id }, data: { currentPriceVersionId: priceHeadphones.id, status: "ACTIVE", publicationStatus: "PUBLISHED" } });
+  // Opening stock is input evidence for the real substitution reservation.
+  const headphoneItem = await prisma.catalogInventoryItem.create({ data: { publicReference: "inv_headphones", offerId: offerHeadphones.id, variantId: varHeadphones.id, trackingMode: "TRACKED" } });
+  await prisma.catalogInventoryMovement.create({ data: { publicReference: "mov_headphones", inventoryItemId: headphoneItem.id, locationId: invLoc.id, type: "INITIAL_STOCK", quantityDelta: 20, operationId: "disposable-headphones-opening", requestHash: "disposable-headphones-opening", reasonCode: "DISPOSABLE_INPUT_STOCK", actorUserId: storeUser.id, resultingOnHand: 20 } });
+  await prisma.catalogInventoryLevel.create({ data: { inventoryItemId: headphoneItem.id, locationId: invLoc.id, available: 20, onHand: 20, reserved: 0 } });
 
   const snapHeadphones = await prisma.catalogPublicationSnapshot.upsert({
     where: { offerId_publicationVersion: { offerId: offerHeadphones.id, publicationVersion: pubVer } },
@@ -596,6 +601,7 @@ async function main() {
   await seedPhase2Fixtures(passwordHash);
   await createDisposableCheckoutAuthorities();
   await createDisposableResidualCatalog();
+  await createDisposableHandoffActors(passwordHash, region.id);
   for (const suffix of ["1440", "390", "other"]) {
     for (const amount of ["100.25", "25.40"]) {
       const source = await createDisposableDriverSettlement({ email: `e2e-earning-${suffix}@ktcouriers.local`, passwordHash, amount });

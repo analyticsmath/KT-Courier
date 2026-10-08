@@ -10,7 +10,7 @@ import { createProductionRefundProviderRegistry, RefundProviderRegistry } from "
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import * as refundExecution from "./refund-provider-execution.service";
 
-async function callProviderQuery(adapter: RefundProviderAdapter, providerRefundId: string, refundReference: string, timeoutMs: number): Promise<ProviderRefundQueryResult> {
+async function callProviderQuery(adapter: RefundProviderAdapter, providerRefundId: string, refundReference: string, timeoutMs: number, providerPaymentId?: string | null): Promise<ProviderRefundQueryResult> {
   if (!adapter.queryRefund || !adapter.capabilities.supportsStatusQuery) return Object.freeze({ status: "UNKNOWN", providerStatusCode: "QUERY_UNAVAILABLE", definitive: false });
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -19,7 +19,7 @@ async function callProviderQuery(adapter: RefundProviderAdapter, providerRefundI
   });
   try {
     return await Promise.race([
-      adapter.queryRefund({ refundPublicReference: refundReference, providerRefundId }, { signal: controller.signal, correlationId: refundReference, timeoutMs }),
+      adapter.queryRefund({ refundPublicReference: refundReference, providerRefundId, ...(providerPaymentId ? { providerPaymentId } : {}) }, { signal: controller.signal, correlationId: refundReference, timeoutMs }),
       timeoutPromise,
     ]);
   } finally {
@@ -49,7 +49,7 @@ export async function queryRefundProviderStatus(input: Readonly<{
   }
   let result: ProviderRefundQueryResult;
   try {
-    result = validateRefundProviderResult(await callProviderQuery(adapter, refund.currentAttempt.providerRefundId, refund.publicReference, Math.min(Math.max(dependencies.timeoutMs ?? 10_000, 100), 30_000)));
+    result = validateRefundProviderResult(await callProviderQuery(adapter, refund.currentAttempt.providerRefundId, refund.publicReference, Math.min(Math.max(dependencies.timeoutMs ?? 10_000, 100), 30_000), refund.currentAttempt.providerPaymentId));
   } catch (error) {
     result = unknownRefundProviderResult(error);
   }
@@ -102,6 +102,7 @@ export async function pollAndApplyRefundProviderStatus(
         attempt.providerRefundId,
         refund.publicReference,
         Math.min(Math.max(dependencies.timeoutMs ?? input.timeoutMs ?? 10_000, 100), 30_000),
+        attempt.providerPaymentId,
       ),
     );
   } catch (error) {

@@ -17,5 +17,5 @@ async function mutate(request: NextRequest, action: boolean) {
   try { return json(action ? await actOnTrustedPackageVersion(auth.user.id, TrustedPackageActionSchema.parse(body.body)) : await saveTrustedPackageVersion(auth.user.id, TrustedPackageDraftSchema.parse(body.body)), action ? 200 : 201); }
   catch (error) { return failure(error); }
 }
-export const POST = (request: NextRequest) => mutate(request, false);
-export const PATCH = (request: NextRequest) => mutate(request, true);
+export async function POST(request: NextRequest) { return mutate(request, false); }
+export async function PATCH(request: NextRequest) { return mutate(request, true); }

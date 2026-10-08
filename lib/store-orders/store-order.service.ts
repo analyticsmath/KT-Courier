@@ -14,6 +14,8 @@ import { requireStoreOrderActor, type StoreOrderPermission } from "@/lib/store-o
 import { assertAcceptanceTransition, assertFinancialTransition, assertPreparationTransition, deriveStoreOrderStatus } from "@/lib/store-orders/state-machine";
 import { completeMarketplacePickupInTx } from "@/lib/services/pickup-custody.service";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
+import { hasPermission } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
 type Delegate = { findUnique: (args: unknown) => Promise<any>; findFirst: (args: unknown) => Promise<any>; findMany: (args: unknown) => Promise<any[]>; create: (args: unknown) => Promise<any>; update: (args: unknown) => Promise<any>; updateMany: (args: unknown) => Promise<{ count: number }>; upsert: (args: unknown) => Promise<any> };
 type Phase21Database = Record<string, Delegate>;
@@ -79,7 +81,7 @@ async function history(tx: Phase21Database, input: Readonly<{ storeOrderId: stri
 }
 
 function checkOperation(input: Readonly<{ operationId: string; hash: string }>) {
-  assertStoreOrder(/^[A-Za-z0-9_-]{12,160}$/.test(input.operationId), "STORE_ORDER_OPERATION_INVALID", "A valid operation ID is required.");
+  assertStoreOrder(/^[A-Za-z0-9_:-]{12,160}$/.test(input.operationId), "STORE_ORDER_OPERATION_INVALID", "A valid operation ID is required.");
   assertStoreOrder(/^[a-f0-9]{64}$/.test(input.hash), "STORE_ORDER_REQUEST_HASH_INVALID", "A request hash is required.");
 }
 
@@ -498,12 +500,24 @@ export async function markStoreOrderReadyForHandoff(input: Readonly<{ storeOrder
   });
 }
 
+async function authorizeDeliveryOperation(storeId: string, actorUserId: string, adminPermission: string) {
+  // SYSTEM is supplied only by the disabled canonical worker, never the HTTP
+  // body. HTTP handlers derive the real actor from the verified session.
+  if (actorUserId === "SYSTEM") return;
+  const actor = await prisma.user.findUnique({ where: { id: actorUserId }, select: { id: true, role: true, status: true } });
+  assertStoreOrder(actor?.status === "ACTIVE", "STORE_ORDER_ACCESS_DENIED", "An active authorized actor is required.");
+  if (actor.role === "ADMIN" || actor.role === "SUPER_ADMIN") {
+    assertStoreOrder(await hasPermission({ userId: actor.id, role: actor.role, permissionKey: adminPermission }), "STORE_ORDER_ACCESS_DENIED", "Delivery recovery permission is required.");
+  } else await requireStoreOrderActor({ actorUserId, storeId, permission: "store_orders.accept" });
+}
+
 export async function createMarketplaceDeliveryBridge(input: Readonly<{ storeOrderReference: string; actorUserId: string; operationId: string; requestHash: string; dependencies?: StoreOrderDependencies; testApproval?: TestApproval }>) {
   const dependencies = { ...resolveStoreOrderProductionComposition(), ...input.dependencies };
   assertStoreOrderProductionReady("DELIVERY_BRIDGE", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   assertStoreOrder(dependencies.deliveryAuthority, "STORE_ORDER_DELIVERY_AUTHORITY_UNAVAILABLE", "The existing courier-order bridge authority is unavailable.");
   const staged = await transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
+    await authorizeDeliveryOperation(order.storeId, input.actorUserId, PERMISSIONS.STORE_ORDERS_RETRY_DELIVERY);
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     assertStoreOrder(order.acceptanceStatus === "ACCEPTED" && ["REQUEST_PENDING", "FAILED"].includes(order.deliveryBridgeStatus) && !order.deliveryBridge?.courierOrderId, "STORE_ORDER_DELIVERY_BRIDGE_INVALID", "Store order is not eligible for a courier bridge.");
     const snapshot = order.operationalSnapshot as Record<string, unknown> | null;
@@ -567,6 +581,7 @@ export async function refreshStoreOrderDriverAssignment(input: Readonly<{ storeO
   assertStoreOrderProductionReady("DELIVERY_BRIDGE", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
+    await authorizeDeliveryOperation(order.storeId, input.actorUserId, PERMISSIONS.STORE_ORDERS_RECONCILE_HANDOFF);
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     assertStoreOrder(order.deliveryBridge?.courierOrderId, "STORE_ORDER_DELIVERY_BRIDGE_MISSING", "Courier bridge is required before assignment refresh.");
     const assignment = await prisma.orderAssignment.findFirst({ where: { orderId: order.deliveryBridge.courierOrderId, status: "ACCEPTED", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { id: true, driverProfileId: true } });
@@ -639,11 +654,12 @@ export async function verifyStoreOrderPickupHandoff(input: Readonly<{ storeOrder
   assertStoreOrder(/^\d{6}$/.test(input.pickupCode), "STORE_ORDER_HANDOFF_CODE_INVALID", "Pickup code is invalid.");
   const result = await transaction(async (tx) => {
     const order = await lockMarketplacePickup(tx, input.storeOrderReference);
-    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     const handoff = order.pickupHandoff;
-    assertStoreOrder(handoff && handoff.status === "CHALLENGE_ACTIVE" && handoff.expiresAt > new Date() && handoff.storeVerifiedByUserId, "STORE_ORDER_HANDOFF_CHALLENGE_INVALID", "A store-verified active pickup challenge is required.");
+    assertStoreOrder(handoff, "STORE_ORDER_HANDOFF_CHALLENGE_INVALID", "A store-verified pickup challenge is required.");
     const assignment = await model(tx, "orderAssignment").findFirst({ where: { id: handoff.assignmentId, orderId: handoff.courierOrderId, driverProfileId: input.driverProfileId, status: "ACCEPTED", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, include: { driverProfile: { include: { user: { select: { status: true, role: true } } } }, order: { select: { parcelCount: true, currentDriverProfileId: true } } } });
     assertStoreOrder(assignment?.driverProfile.userId === input.driverUserId && assignment.driverProfile.status === "ACTIVE" && assignment.driverProfile.user.status === "ACTIVE" && assignment.driverProfile.user.role === "DRIVER" && assignment.order.currentDriverProfileId === input.driverProfileId, "STORE_ORDER_DRIVER_ASSIGNMENT_INVALID", "The active assignment does not belong to this driver.");
+    const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
+    assertStoreOrder(handoff.status === "CHALLENGE_ACTIVE" && handoff.expiresAt > new Date() && handoff.storeVerifiedByUserId, "STORE_ORDER_HANDOFF_CHALLENGE_INVALID", "A store-verified active pickup challenge is required.");
     const packageCountValue = input.packageEvidence?.packageCount;
     assertStoreOrder(typeof packageCountValue === "number" && Number.isInteger(packageCountValue) && packageCountValue === assignment.order.parcelCount, "STORE_ORDER_HANDOFF_PACKAGE_MISMATCH", "Package count does not match the canonical courier order.");
     const packageCount = packageCountValue;

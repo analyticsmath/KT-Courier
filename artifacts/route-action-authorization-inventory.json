@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 742,
+    "totalRoutes": 743,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 642,
-    "permissionGatedRoutes": 504,
+    "authenticatedRoutes": 643,
+    "permissionGatedRoutes": 505,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 196,
-    "generatedAt": "2026-10-07T18:51:53.838Z"
+    "rateLimitedRoutes": 197,
+    "generatedAt": "2026-10-08T13:20:19.743Z"
   },
   "serverActions": [],
   "routes": [
@@ -2541,6 +2541,25 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/marketplace-trusted-packages/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."

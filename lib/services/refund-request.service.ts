@@ -30,7 +30,7 @@ type RequestDependencies = Readonly<{
 }>;
 
 async function lockPaymentByReference(tx: Prisma.TransactionClient, publicReference: string) {
-  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "publicReference" = ${publicReference} FOR UPDATE`);
+  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "paymentNumber" = ${publicReference} FOR UPDATE`);
   if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Successful payment was not found.");
   const payment = await tx.payment.findUnique({
     where: { id: rows[0].id },

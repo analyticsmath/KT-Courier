@@ -654,7 +654,8 @@ export default function DriverAssignmentDetailPage() {
       )}
 
       {/* ── Pickup actions for ACCEPTED + eligible order ── */}
-      {isAccepted && pickupEligible && (
+      {isAccepted && pickupEligible && assignment.marketplaceStoreOrderReference ? <Card><h2>Store pickup verification</h2><p>This marketplace pickup requires the code supplied by store staff.</p><a className="eo-button eo-button--primary" href={`/driver/store-order-handoffs/${encodeURIComponent(assignment.marketplaceStoreOrderReference)}`}>Verify store pickup</a></Card> : null}
+      {isAccepted && pickupEligible && !assignment.marketplaceStoreOrderReference && (
         <Card>
           <h2 className="text-sm font-extrabold text-[var(--kt-ink-navy)] mb-3">Pickup Actions</h2>
 

@@ -4,7 +4,9 @@ import { prisma } from "../../lib/db/prisma";
 import { prepareStoreOrder, storeControl } from "../e2e/fixtures/store-order";
 import { assertDisposablePaystackAcceptance } from "../../lib/testing/disposable-paystack-policy";
 import { createHash, randomUUID } from "node:crypto";
-import { beginStoreOrderReview, confirmStoreOrderLineAvailability, requestMarketplaceStoreOrderCancellation, updateStoreOrderSubstitutionPreference, createStoreOrderReconciliationCase, acceptMarketplaceStoreOrder, generateStoreOrderPickupChallenge, createMarketplaceDeliveryBridge, applyMarketplaceStoreOrderAdjustment } from "../../lib/store-orders/store-order.service";
+import { beginStoreOrderReview, confirmStoreOrderLineAvailability, requestMarketplaceStoreOrderCancellation, updateStoreOrderSubstitutionPreference, createStoreOrderReconciliationCase, acceptMarketplaceStoreOrder, generateStoreOrderPickupChallenge, createMarketplaceDeliveryBridge, applyMarketplaceStoreOrderAdjustment, startStoreOrderPreparation, markStoreOrderReadyForHandoff } from "../../lib/store-orders/store-order.service";
+import { login } from "../e2e/fixtures/auth";
+import { completeSyntheticStoreHandoff } from "../e2e/fixtures/store-handoff";
 
 export function canonicalStoreIntegration(domain: string) {
   describe(`store-order ${domain}: canonical PostgreSQL persistence`, () => {
@@ -57,6 +59,21 @@ export function canonicalStoreIntegration(domain: string) {
           if (domain === "handoff") await expect(generateStoreOrderPickupChallenge(command())).rejects.toMatchObject({ code: "STORE_ORDER_HANDOFF_NOT_READY" });
           else await expect(createMarketplaceDeliveryBridge(command())).rejects.toMatchObject({ code: "STORE_ORDER_DELIVERY_BRIDGE_INVALID" });
           expect(await storeControl(f.storeReference)).toEqual(baseline);
+          await beginStoreOrderReview(command());
+          await confirmStoreOrderLineAvailability({ ...command(), orderLineId: baseline.lines[0].id, availableQuantity: 1 });
+          await acceptMarketplaceStoreOrder({ ...command(), preparationMinutes: 30, pickupInstructions: "Disposable two-party collection" });
+          const bridgeCommand = command();
+          await createMarketplaceDeliveryBridge(bridgeCommand);
+          const bridge = await prisma.marketplaceStoreOrderDeliveryBridge.findUniqueOrThrow({ where: { marketplaceStoreOrderId: f.order.storeOrders[0].id }, include: { courierOrder: true } });
+          expect(bridge.courierOrder?.status).toBe("CONFIRMED");
+          expect(bridge.courierOrder?.pricingQuoteId).toBe(bridge.deliveryQuoteReference);
+          expect(await createMarketplaceDeliveryBridge(bridgeCommand)).toMatchObject({ replayed: true });
+          expect(await prisma.order.count({ where: { pricingQuoteId: bridge.deliveryQuoteReference } })).toBe(1);
+          if (domain === "handoff") {
+            await startStoreOrderPreparation(command()); await markStoreOrderReadyForHandoff(command());
+            await login(page, "e2e-store@ktcouriers.local");
+            await completeSyntheticStoreHandoff(page, f.storeReference, "pg-store-handoff");
+          }
         } else if (domain === "reconciliation") {
           const input = { storeOrderReference: f.storeReference, operationId: randomUUID(), reasonCode: "DISPOSABLE_COHERENCE_RESCAN", safeSummary: "Synthetic coherence rescan" };
           await createStoreOrderReconciliationCase(input); await createStoreOrderReconciliationCase(input);
@@ -74,6 +91,7 @@ export function canonicalStoreIntegration(domain: string) {
         expect(final.payment.status).toBe("SUCCEEDED");
         expect(final.stock.every(row => row.onHand === row.available + row.reserved && row.available >= 0 && row.reserved >= 0)).toBe(true);
         const journals = await prisma.ledgerJournal.findMany({ where: { correlationId: f.snapshot.payment.reference }, select: { totalDebits: true, totalCredits: true } });
+        expect(journals.length).toBeGreaterThan(0);
         expect(journals.every(journal => journal.totalDebits.equals(journal.totalCredits))).toBe(true);
       } finally { await context.close(); await browser.close(); }
     }, 180_000);

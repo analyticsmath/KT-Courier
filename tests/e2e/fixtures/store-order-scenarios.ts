@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { login } from "./auth";
 import { prepareStoreOrder, storeControl, storeAction, customerAction } from "./store-order";
+import { completeSyntheticStoreHandoff } from "./store-handoff";
 
 export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | "substitution" | "handoff" | "accessibility") {
   for (const width of [1440, 390]) test(`canonical ${domain} store-order journey at ${width}px`, async ({ page }, info) => {
@@ -91,6 +92,7 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
           const unassigned = await storeAction(page, f.storeReference, { action: "generate-pickup-code" }); expect(unassigned.status()).toBe(422);
           expect(["STORE_ORDER_DRIVER_ASSIGNMENT_INVALID", "STORE_ORDER_HANDOFF_NOT_READY"]).toContain((await unassigned.json()).code);
           expect(await storeControl(f.storeReference)).toEqual(ready);
+          await completeSyntheticStoreHandoff(page, f.storeReference, `store-handoff-${width}`);
         }
         expect(ready.history.map(h => h.eventType)).toEqual(expect.arrayContaining(["STORE_ORDER_REVIEW_BEGUN", "LINE_AVAILABILITY_CONFIRMED", "STORE_ORDER_ACCEPTED"]));
       }

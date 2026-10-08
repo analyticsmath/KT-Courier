@@ -17,7 +17,9 @@ export class ExistingCourierOrderMarketplaceBridge implements StoreOrderDelivery
 
   async scheduleDispatch(input: Readonly<{ storeOrderReference: string; courierOrderId: string; expectedReadyAt: Date; operationId: string }>) {
     const bridges = prisma as unknown as { marketplaceStoreOrderDeliveryBridge?: { findFirst: (args: unknown) => Promise<{ deliveryQuoteReference: string | null } | null> } };
-    const bridge = await bridges.marketplaceStoreOrderDeliveryBridge?.findFirst({ where: { courierOrderId: input.courierOrderId }, select: { deliveryQuoteReference: true } });
+    // Courier creation precedes committing its ID to the bridge. Resolve the
+    // frozen quote by store-order identity at this staging boundary.
+    const bridge = await bridges.marketplaceStoreOrderDeliveryBridge?.findFirst({ where: { storeOrder: { publicReference: input.storeOrderReference } }, select: { deliveryQuoteReference: true } });
     if (!bridge?.deliveryQuoteReference) throw new StoreOrderError("STORE_ORDER_DELIVERY_QUOTE_MISSING", "Frozen delivery quote evidence is unavailable for Phase 7 scheduling.");
     const dispatchEvidence = await scheduleMarketplaceDispatchEligibility({ ...input, deliveryQuoteReference: bridge.deliveryQuoteReference });
     return Object.freeze({ dispatchEvidence });

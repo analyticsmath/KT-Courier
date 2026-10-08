@@ -101,7 +101,7 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
     const data = await client.getRefund(input.providerRefundId, context.signal);
     const returnedAmount = (data as typeof data & { amount?: number }).amount;
     if (String(data.id) !== input.providerRefundId || data.currency !== "ZAR" ||
-        !data.transaction?.reference || !Number.isSafeInteger(returnedAmount) || returnedAmount! <= 0) {
+        !data.transaction?.reference || (input.providerPaymentId && ![String(data.transaction.id), data.transaction.reference].includes(input.providerPaymentId)) || !Number.isSafeInteger(returnedAmount) || returnedAmount! <= 0) {
       throw new RefundError("REFUND_PROVIDER_RESPONSE_INVALID", "Paystack refund query returned incoherent financial evidence.");
     }
     const rawStatus = (data.status || "").toLowerCase();
@@ -110,7 +110,7 @@ export class PaystackRefundAdapter implements RefundProviderAdapter {
     return Object.freeze({
       status,
       providerRefundId: String(data.id),
-      providerPaymentId: data.transaction.reference,
+      providerPaymentId: input.providerPaymentId ?? data.transaction.reference,
       amount: `${Math.floor(returnedAmount! / 100)}.${String(returnedAmount! % 100).padStart(2, "0")}`,
       currency: data.currency,
       providerStatusCode: data.status,

@@ -30,6 +30,7 @@ export type ProviderRefundInput = Readonly<{
 export type ProviderRefundQueryInput = Readonly<{
   refundPublicReference: string;
   providerRefundId: string;
+  providerPaymentId?: string;
 }>;
 
 export type RefundProviderResultStatus = "SUCCEEDED" | "PROCESSING" | "FAILED" | "UNKNOWN" | "NEEDS_ATTENTION";

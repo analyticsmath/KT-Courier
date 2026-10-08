@@ -112,6 +112,7 @@ export async function createPaidCheckout(page: Page, suffix: string, width: numb
   return { reference, snapshot };
 }
 export type StoreSnapshot = {
+  custody: { courierStatus: string | null; assignment: { id: string; version: number; status: string } | null };
   reference: string; status: string; acceptanceStatus: string; preparationStatus: string;
   resolutionStatus: string; financialResolutionStatus: string; deliveryBridgeStatus: string;
   lines: Array<{ id: string; quantity: number; fulfilment: { status: string; substitutionPreference: string; confirmedAvailableQuantity: number; resolvedFulfilmentQuantity: number }; issues: Array<{ publicReference: string; status: string }> }>;
@@ -130,7 +131,9 @@ export async function storeControl(reference: string, action = "snapshot"): Prom
   const { stdout } = await execute(process.execPath, ["node_modules/tsx/dist/cli.mjs", "scripts/phase2-store-order-control.ts", reference, action], { env: process.env, timeout: 60_000, maxBuffer: 2_000_000 });
   const line = stdout.split(/\r?\n/).find(value => value.startsWith("STORE_ORDER_SNAPSHOT "));
   if (!line) throw new Error("Canonical store-order snapshot was not produced.");
-  return JSON.parse(line.slice("STORE_ORDER_SNAPSHOT ".length));
+  const custodyLine = stdout.split(/\r?\n/).find(value => value.startsWith("STORE_ORDER_CUSTODY "));
+  if (!custodyLine) throw new Error("Canonical custody snapshot was not produced.");
+  return { ...JSON.parse(line.slice("STORE_ORDER_SNAPSHOT ".length)), custody: JSON.parse(custodyLine.slice("STORE_ORDER_CUSTODY ".length)) };
 }
 export async function prepareStoreOrder(page: Page, suffix: string, width: number) {
   const paid = await createPaidCheckout(page, suffix, width);
