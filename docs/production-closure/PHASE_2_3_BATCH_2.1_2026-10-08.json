@@ -1,0 +1,310 @@
+{
+  "phase": 2,
+  "batch": "2.1",
+  "classification": "PARTIAL",
+  "readiness": "NOT_READY",
+  "classificationReason": "Engineering checkpoint; exact-source financial acceptance and all remaining contract-matrix cases must be verified before Batch 2.1 certification.",
+  "branch": "production-closure-2026-10-07",
+  "startingSha": "1091cbec70320099fe0e71c7622f2f108f2aa314",
+  "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+  "sourcePushedAndRemoteVerified": true,
+  "reportTipSha": null,
+  "reportTipReason": "The containing report commit cannot embed its own SHA. Final response records the pushed report tip separately.",
+  "startedAt": "2026-10-08T09:50:03Z",
+  "preparedAt": "2026-10-08T10:49:52.127Z",
+  "practicalStopAt": "2026-10-08T10:50:03Z",
+  "absoluteStopAt": "2026-10-08T11:05:03Z",
+  "pr": {
+    "number": 17,
+    "url": "https://github.com/analyticsmath/KT-Courier/pull/17",
+    "state": "OPEN",
+    "draft": true,
+    "base": "main",
+    "mergedAt": null
+  },
+  "preservedPhase1Source": "1a7a7d0cd1612d0f031ec8e0682da83569df2646",
+  "localChecks": [
+    {
+      "name": "unit",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/unit/disposable-paystack-policy.test.ts",
+        "tests/payments/paystack-contract.test.ts",
+        "tests/refunds/refund-production-readiness.test.ts",
+        "--reporter=json",
+        "--outputFile=output/production-closure/phase2-1-unit.json"
+      ],
+      "pid": 18724,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 8626,
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 3,
+      "financialAcceptance": false
+    },
+    {
+      "name": "payments",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/payments",
+        "--reporter=json",
+        "--outputFile=output/production-closure/phase2-1-payments.json"
+      ],
+      "pid": 15896,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 8621,
+      "passed": 333,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 54,
+      "financialAcceptance": false
+    },
+    {
+      "name": "types",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "--max-old-space-size=8192",
+        "node_modules/typescript/bin/tsc",
+        "--noEmit"
+      ],
+      "pid": 19324,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 24498
+    },
+    {
+      "name": "lint",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "node_modules/eslint/bin/eslint.js",
+        "app/api/checkout/[reference]/route.ts",
+        "lib/marketplace-checkout/checkout.service.ts",
+        "lib/marketplace-checkout/marketplace-payment-success-hook.service.ts",
+        "lib/testing/disposable-paystack-policy.ts",
+        "lib/testing/disposable-paystack-provider.ts",
+        "lib/payments/providers/paystack/paystack-client.ts",
+        "lib/services/paystack-webhook-application.service.ts",
+        "scripts/phase2-paystack-control.ts",
+        "scripts/create-e2e-fixtures.ts",
+        "tests/unit/disposable-paystack-policy.test.ts",
+        "tests/e2e/marketplace-checkout-payment.spec.ts",
+        "tests/integration/marketplace-payment.integration.test.ts",
+        "playwright.config.ts",
+        "vitest.paystack-acceptance.config.ts",
+        "vitest.marketplace-checkout-integration.config.ts"
+      ],
+      "pid": 960,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 13649
+    },
+    {
+      "name": "selection",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "--test",
+        "scripts/phase1-browser-plan.test.mjs",
+        "scripts/production-certification-workflow.test.mjs",
+        "scripts/release-test-deferrals.test.mjs"
+      ],
+      "pid": 15628,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 925
+    },
+    {
+      "name": "prisma",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "node_modules/prisma/build/index.js",
+        "validate"
+      ],
+      "pid": 12032,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3019
+    },
+    {
+      "name": "migrations",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "scripts/check-migrations-safety.mjs"
+      ],
+      "pid": 6788,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 413
+    },
+    {
+      "name": "discovery",
+      "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "node_modules/playwright/cli.js",
+        "test",
+        "--project=chromium",
+        "--list",
+        "--reporter=json",
+        "--retries=0",
+        "--workers=1"
+      ],
+      "pid": 18640,
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2002
+    }
+  ],
+  "discovery": {
+    "cases": 97,
+    "files": 26,
+    "paymentCases": [
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "signed charge remains financially unchanged when independent Verify has amount mismatch",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "signed charge remains financially unchanged when independent Verify has currency mismatch",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "signed charge remains financially unchanged when independent Verify has unknown mismatch",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "signed charge remains financially unchanged when independent Verify has reference mismatch",
+        "expectedStatus": "passed"
+      },
+      {
+        "file": "marketplace-checkout-payment.spec.ts",
+        "title": "signed incorrect amounts and currency cannot override independent correct provider facts",
+        "expectedStatus": "passed"
+      }
+    ],
+    "executedBrowsersLocally": 0,
+    "financialAcceptance": false
+  },
+  "firstSourceAttempt": {
+    "sourceSha": "ee39716459db3c27c7f6f8c874d5ded91a2ad52d",
+    "ciRun": 37762143765,
+    "ciConclusion": "success",
+    "certificationRun": 37762143742,
+    "certificationConclusion": "failure",
+    "successfulNonBrowserComponents": 23,
+    "paymentBrowser": {
+      "executed": 9,
+      "passed": 0,
+      "failed": 9,
+      "skipped": 0,
+      "retries": 0
+    },
+    "defect": "Host Prisma could not reach named disposable PostgreSQL on its internal-only Docker network.",
+    "correction": "Dedicated loopback-bound DB ingress, retaining internal application/provider network and required outbound probe; real database/role preflight."
+  },
+  "correctedSourceAttempt": {
+    "sourceSha": "de38d735e5d1804758a23c5a5f6a696f02aabde5",
+    "ciRun": 37764169949,
+    "ci": {
+      "conclusion": "success",
+      "headSha": "de38d735e5d1804758a23c5a5f6a696f02aabde5",
+      "status": "completed"
+    },
+    "certificationRun": 37764169990,
+    "certificationStatus": "completed",
+    "certificationConclusion": "failure",
+    "successfulComponents": 23,
+    "browserStatus": "completed",
+    "browserConclusion": "failure",
+    "postgresAcceptance": {
+      "commitSha": "de38d735e5d1804758a23c5a5f6a696f02aabde5",
+      "durationMs": 9764,
+      "exitCode": 1,
+      "testsPassed": 0,
+      "testsFailed": 2,
+      "testsSkipped": 0,
+      "testsTodo": 0,
+      "status": "FAIL",
+      "database": "kt_phase75_e2e",
+      "projectName": "kt-couriers-e2e-1791456006000-9692"
+    },
+    "paymentBrowserExecuted": 0,
+    "expandedFullBrowserExecuted": 0,
+    "defect": "Success remained REQUIRES_ACTION and UNKNOWN provider Verify counter stayed zero. Application looked up publicReference although Paystack initialization sends merchantReference."
+  },
+  "finalCorrection": {
+    "sourceSha": "58f33038fad91278affaa0cf89e07d7ab30843a1",
+    "correction": "Lookup PaymentAttempt by unique merchantReference and assert that query identity in the existing Paystack contract test.",
+    "localSupportingChecks": "PASS",
+    "postgresAndBrowserAcceptance": "NOT_YET_VERIFIED",
+    "directWorkflowRun": null,
+    "nextEvidence": "Automatic final report-tip workflows run the same application/test code. Inspect their exact head SHA before counting results."
+  },
+  "changes": [
+    "Explicit test-only Paystack initialize/Verify seam with independent persisted synthetic provider records, no external fetch fallback.",
+    "Signed intake/application fingerprint consistency and Verify merchant-reference matching.",
+    "Two real PostgreSQL integration cases replace the dummy payment assertion and execute before focused browser acceptance.",
+    "Nine selected browser cases cover customer/verified guest at 1440/390, forged/changed signatures, wrong owner, spoofed returns, concurrent duplicate processing/replay, invalid amount/currency/reference and UNKNOWN.",
+    "Canonical guest finalization capability binding and HttpOnly order-cookie delivery after owned completed checkout read.",
+    "Actual-discovery full Chromium counts, separate focused DB, regenerated deferral audit; eight other browser placeholders remain open."
+  ],
+  "residualWork": [
+    "Verify/download corrected-source PostgreSQL, nine focused Paystack browser and expanded full Chromium execution evidence; discovery or unit mocks cannot close financial acceptance.",
+    "Any failure in corrected-source CI is an open defect, not an accepted pass.",
+    "Complete matrix follow-ups not covered by this bounded single-store basket: multi-store/modifier and cent/large-value cases, stale quote/legal/contact negatives, changed-operation request-hash proof. The previously inventoried Number/toFixed and reserve/prepare requestHash forwarding risks remain unverified.",
+    "Other marketplace order/settlement integration anchors and eight other financial/store browser placeholders remain open; do not count their trivial/scaffold assertions as acceptance.",
+    "Paystack sandbox/live/operator acceptance, real fees/stock/approvals and production rollout remain separate and unauthorized."
+  ],
+  "safety": {
+    "localDockerAttempts": 0,
+    "externalProviderCalls": 0,
+    "productionMutations": 0,
+    "deploymentOperations": 0,
+    "mainChanges": 0,
+    "mergedPullRequests": 0,
+    "forcePushes": 0,
+    "productionActivationLocksChanged": false,
+    "engineeringGateManifestChanged": false,
+    "railwayStagedPatchChanged": false,
+    "optionalDomainsActivated": false
+  },
+  "nextAction": "Resume only Batch 2.1 verification/defect closure from the latest preserved report tip. Do not start Batch 2.2 or Phase 3. No production/provider/deployment authorization is implied."
+}
