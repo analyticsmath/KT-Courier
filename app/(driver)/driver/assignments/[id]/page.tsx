@@ -1093,7 +1093,7 @@ export default function DriverAssignmentDetailPage() {
       {isAccepted && isDeliveryStatus && (
         <Card>
           <h2 className="text-sm font-extrabold text-[var(--kt-ink-navy)] mb-2">Proof of delivery</h2>
-          <p className="text-sm text-[var(--kt-text-muted)] leading-relaxed">This workflow uses the canonical delivery OTP and server confirmation. This route has no source-backed camera, signature, or proof-file upload control, so none is simulated here.</p>
+          <p className="text-sm text-[var(--kt-text-muted)] leading-relaxed">Upload a private delivery proof image under Delivery evidence and responsibilities. Confirm the handover using the recipient’s one-time code after completing the required safety and location checks.</p>
         </Card>
       )}
 

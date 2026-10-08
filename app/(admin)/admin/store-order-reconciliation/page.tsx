@@ -40,8 +40,8 @@ export default async function StoreOrderReconciliationPage() {
     },
   });
   return <ProtectedPageFrame>
-    <ProtectedPageHeader eyebrow="Marketplace operations" title="Store-order reconciliation" description="Read-only operational discrepancy triage for marketplace store orders. Payment, refund, payout, ledger, commission, and financial reconciliation remain outside R20." />
-    <OperationalPanel title="Operational reconciliation cases" description="This queue distinguishes marketplace store orders from courier orders. It contains only canonical operational references, state, safe summary, and timestamps; it performs no retry or financial action.">
+    <ProtectedPageHeader eyebrow="Marketplace operations" title="Store-order reconciliation" description="Review fulfilment discrepancies for marketplace store orders. Financial issues are reviewed in the finance reconciliation desks." />
+    <OperationalPanel title="Operational reconciliation cases" description="This read-only queue shows order references, fulfilment status, discrepancy summaries and timestamps. Use the authorised order workflow for any action.">
       <EditorialTable caption="Marketplace store-order operational reconciliation cases" mobileMode="stack" rows={cases} emptyState={<ProtectedState kind="empty" title="No store-order reconciliation cases" description="No canonical operational reconciliation case is available." />} columns={[
         { id: "reference", header: "Case", priority: "primary", cell: (item) => <span className="font-mono text-xs">{item.publicReference}</span> },
         { id: "storeOrder", header: "Marketplace store order", priority: "primary", cell: (item) => <div>{item.storeOrder?.publicReference ?? "Store order unavailable"}<small>{item.storeOrder?.store?.name ?? "Store unavailable"}</small></div> },
