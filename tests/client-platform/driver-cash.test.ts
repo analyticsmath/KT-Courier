@@ -6,6 +6,7 @@ const db = vi.hoisted(() => ({
   systemSetting: { findUnique: vi.fn(), upsert: vi.fn() },
   driverCashDeposit: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -116,6 +117,11 @@ describe("driver cash deposit verification", () => {
     await expect(
       submitDriverDeposit("driver-user", { ...input, amount: "99.99" }),
     ).rejects.toMatchObject({ status: 422 });
+  });
+  it("rejects a second active deposit under a different submission operation", async () => {
+    db.driverCashDeposit.findFirst.mockResolvedValue(deposit);
+    await expect(submitDriverDeposit("driver-user", input)).rejects.toMatchObject({ code: "CASH_DEPOSIT_ALREADY_SUBMITTED" });
+    expect(db.driverCashDeposit.create).not.toHaveBeenCalled(); expect(reconcile).not.toHaveBeenCalled();
   });
   it("blocks submission when actual bank instructions are missing", async () => {
     db.systemSetting.findUnique.mockResolvedValue(null);

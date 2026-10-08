@@ -43,6 +43,7 @@ function buildEnv(port, appPort) {
     DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
     SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
     NEXT_PUBLIC_APP_URL: `http://localhost:${appPort}`,
+    APP_URL: `http://localhost:${appPort}`,
     ALLOWED_ORIGINS: disposableBrowserOrigins(appPort),
     EMAIL_PROVIDER: "console",
     // Non-secret test configuration allows pre-payment browser commands. The
@@ -160,7 +161,7 @@ try {
     mkdirSync(path.dirname(report), { recursive: true });
     const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config=vitest.phase2-canonical-acceptance.config.ts", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 900_000 });
     const counts = JSON.parse(readFileSync(report, "utf8"));
-    if (result.status !== 0 || counts.numTotalTests !== 35 || counts.numPassedTests !== 35 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All thirty-five canonical marketplace/store/refund/driver PostgreSQL cases must execute and pass without deferrals.");
+    if (result.status !== 0 || counts.numTotalTests !== 38 || counts.numPassedTests !== 38 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All thirty-eight canonical marketplace/store/refund/driver/COD PostgreSQL cases must execute and pass without deferrals.");
   } else if (phase1Acceptance) runPhase1BrowserPlan(env);
   else {
     if (playwrightArgs.includes("tests/e2e/marketplace-checkout-payment.spec.ts")) {

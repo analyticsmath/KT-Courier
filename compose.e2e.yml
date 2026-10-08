@@ -15,6 +15,7 @@ services:
     command: ["node", "scripts/e2e-standalone-app.mjs"]
     environment:
       KT_E2E_PAYSTACK_ACCEPTANCE: "true"
+      APP_URL: ${APP_URL}
       KT_LOCAL_FULL_FLOW: "false"
       KT_E2E_NETWORK_INTERNAL: "true"
       NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY: ${NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY}

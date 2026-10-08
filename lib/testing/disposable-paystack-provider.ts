@@ -42,9 +42,14 @@ export async function requestDisposablePaystack(path: string, method: string, bo
   assertDisposablePaystackEmail(input.email);
   const callback = new URL(input.callback_url);
   if (callback.origin !== new URL(process.env.PAYMENT_APP_ORIGIN!).origin) throw new Error("Offline callback must remain local.");
-  const attempt = await prisma.paymentAttempt.findUnique({ where: { merchantReference: input.reference }, include: { payment: { include: { marketplaceCheckout: { include: { contactSnapshot: true } } } } } });
-  if (!attempt || attempt.provider !== "PAYSTACK" || attempt.payment.subjectType !== "MARKETPLACE_CHECKOUT" ||
-      attempt.payment.marketplaceCheckout?.contactSnapshot?.email !== input.email || input.currency !== "ZAR" ||
+  const attempt = await prisma.paymentAttempt.findUnique({ where: { merchantReference: input.reference }, include: { payment: { include: { user: true, order: { include: { store: { select: { ownerUserId: true } }, cashOnDelivery: true, pricingQuote: true } }, marketplaceCheckout: { include: { contactSnapshot: true } } } } } });
+  const payment = attempt?.payment;
+  const cod = payment?.order?.cashOnDelivery;
+  const marketplace = payment?.subjectType === "MARKETPLACE_CHECKOUT" && payment.marketplaceCheckout?.contactSnapshot?.email === input.email;
+  // Courier deposit acceptance is limited to its separately named synthetic
+  // business and the actual frozen 50/50 obligation. No financial row changes.
+  const courierDeposit = payment?.subjectType === "COURIER_ORDER" && /^e2e-paystack-cod-[a-z0-9-]+@ktcouriers\.local$/.test(input.email) && payment.user?.email === input.email && payment.order?.storeId && payment.order.store?.ownerUserId === payment.userId && cod?.policyMode === "DEPOSIT_PLUS_COD" && cod.status === "PENDING" && cod.digitalPaid.isZero() && cod.cashCollected.isZero() && cod.digitalRequired.equals(payment.amount) && payment.order.pricingQuote?.total.equals(cod.authoritativePayable) && cod.digitalRequired.equals(cod.authoritativePayable.mul("0.5").toDecimalPlaces(2)) && cod.digitalRequired.add(cod.cashObligation).equals(cod.authoritativePayable);
+  if (!attempt || attempt.provider !== "PAYSTACK" || (!marketplace && !courierDeposit) || input.currency !== "ZAR" ||
       !Number.isSafeInteger(input.amount) || input.amount <= 0 ||
       !attempt.amount.mul(100).equals(input.amount)) throw new Error("Offline initialization must match canonical payment facts.");
   const key = disposablePaystackKey(input.reference);

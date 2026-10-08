@@ -31,6 +31,12 @@ const dangerousPatterns = [
 ];
 const approvedDestructiveOperations = [
   {
+    migration: "20261008180000_store_earning_bounded_adjustment_evidence",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"StoreEarning"\s+DROP\s+CONSTRAINT\s+"StoreEarning_terminal_evidence_check"\s*;\s*$/i,
+    reason: "Atomically allows bounded reversals only with an exact immutable balanced journal chain; existing identity, capture, account and projection guards remain and no rows or columns are removed.",
+  },
+  {
     migration: "20261007010000_inventory_reservation_evidence",
     label: "DROP CONSTRAINT",
     statement: /^\s*ALTER\s+TABLE\s+"CatalogInventoryMovement"\s+DROP\s+CONSTRAINT\s+"CatalogInventoryMovement_result_check"\s*;\s*$/i,

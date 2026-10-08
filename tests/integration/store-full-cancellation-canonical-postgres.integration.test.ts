@@ -24,6 +24,9 @@ describe("full unstarted cancellation with canonical payment, stock and refund e
       const payment = await prisma.payment.findUniqueOrThrow({ where: { id: f.snapshot.payment.id }, include: { successfulAttempt: true } });
       const orderId = f.order.storeOrders[0].id;
       const snapshot = await prisma.marketplaceSettlementSnapshot.findFirstOrThrow({ where: { marketplaceStoreOrderId: orderId } });
+      const earning = await prisma.storeEarning.findUniqueOrThrow({ where: { publicReference: snapshot.storeEarningReference! } });
+      await expect(prisma.$executeRaw`UPDATE "StoreEarning" SET "reversedAmount" = "reversedAmount" + 0.01 WHERE "id" = ${earning.id}`).rejects.toThrow();
+      expect(await prisma.storeEarning.findUniqueOrThrow({ where: { id: earning.id } })).toEqual(earning);
       const command = () => { const operationId = randomUUID(); return { storeOrderReference: f.storeReference, actorUserId: owner.id, operationId, requestHash: createHash("sha256").update(operationId).digest("hex") }; };
       expect(snapshot.deliveryFeeResidual.greaterThan(0)).toBe(true);
       const before = await storeControl(f.storeReference);
@@ -62,6 +65,11 @@ describe("full unstarted cancellation with canonical payment, stock and refund e
         const result = await applyMarketplaceStoreOrderAdjustment(apply);
         if (!("refundReference" in result) || typeof result.refundReference !== "string") throw Error("Canonical bound refund reference required.");
         expect((await applyMarketplaceStoreOrderAdjustment(apply)).replayed).toBe(true);
+        const backedEarning = await prisma.storeEarning.findUniqueOrThrow({ where: { id: earning.id } });
+        expect(backedEarning.reversedAmount.greaterThan(0)).toBe(true);
+        if (backedEarning.reversedAmount.lessThan(backedEarning.amount)) await expect(prisma.$executeRaw`UPDATE "StoreEarning" SET "reversedAmount" = "reversedAmount" + 0.01 WHERE "id" = ${earning.id}`).rejects.toThrow();
+        await expect(prisma.$executeRaw`UPDATE "StoreEarning" SET "reversedAmount" = "reversedAmount" - 0.01 WHERE "id" = ${earning.id}`).rejects.toThrow();
+        expect(await prisma.storeEarning.findUniqueOrThrow({ where: { id: earning.id } })).toEqual(backedEarning);
         const refund = await prisma.paymentRefund.findUniqueOrThrow({ where: { publicReference: result.refundReference }, include: { fundingAllocations: true, reserveLedgerJournal: { include: { entries: true } } } });
         expect(refund.fundingAllocations.every(item => item.sourceType === "CUSTOMER_FUNDS_HELD")).toBe(true);
         assertJournalMoney(refund.reserveLedgerJournal, "REFUND_RESERVE", adjustment.refundAmount.toFixed(2));

@@ -46,6 +46,7 @@ export default defineConfig({
         /transactional-notifications\.spec\.ts/,
         /trusted-parcel-classification\.spec\.ts/,
         /driver-canonical-delivery\.spec\.ts/,
+        /cod-custody-remittance\.spec\.ts/,
         /customer-identity-lifecycle\.spec\.ts/,
         /store-order-positive-substitution\.spec\.ts/,
         /storefront-admin\.spec\.ts/,

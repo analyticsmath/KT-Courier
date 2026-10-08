@@ -14,7 +14,7 @@ export async function createDisposableHandoffActors(passwordHash: string, region
   const reviewer = await prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" } });
   const storage = new PrivateMediaService(new LocalPrivateMediaStorageAdapter("/tmp/kt-couriers-e2e-eligibility-input"));
   const syntheticRaster = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#ababab" } }).png().toBuffer();
-  for (const suffix of ["store-handoff-1440", "store-handoff-390", "pg-store-handoff", "driver-delivery-1440", "driver-delivery-390", "driver-delivery-pg", "foreign"]) {
+  for (const suffix of ["store-handoff-1440", "store-handoff-390", "pg-store-handoff", "driver-delivery-1440", "driver-delivery-390", "driver-delivery-pg", "cod-1440", "cod-390", "cod-shortage", "cod-zero", "cod-failure", "foreign"]) {
     const user = await prisma.user.create({ data: { email: `e2e-handoff-driver-${suffix}@ktcouriers.local`, name: "Disposable custody driver", role: "DRIVER", status: "ACTIVE", emailVerifiedAt: new Date(), passwordHash } });
     const driver = await prisma.driverProfile.create({ data: { userId: user.id, driverCode: `E2E-CUSTODY-${suffix}`, status: "ACTIVE", active: true, onboardingStatus: "APPROVED", availability: "AVAILABLE", maxConcurrentAssignments: 1, serviceRegions: { create: { deliveryRegionId: regionId, isPrimary: true } } } });
     await prisma.driverDocument.createMany({ data: ["ID_DOCUMENT", "LICENSE"].map(documentType => ({ driverProfileId: driver.id, documentType: documentType as "ID_DOCUMENT" | "LICENSE", status: "APPROVED", reviewedByAdminId: reviewer.id, reviewedAt: new Date() })) });

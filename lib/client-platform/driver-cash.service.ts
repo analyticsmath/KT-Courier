@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { reconcileCashCollection } from "@/lib/services/cash-on-delivery.service";
 import { PlatformError } from "./contracts";
 import type { AuthenticatedUser } from "@/types/domain";
+import { withLedgerRetry } from "@/lib/ledger/retry";
 export const DepositSchema = z
   .object({
     orderId: z.string().cuid(),
@@ -240,9 +241,10 @@ export async function submitDriverDeposit(
       "Bank instructions have not been configured. Contact KT support.",
       409,
     );
-  return prisma.$transaction(
+  return withLedgerRetry(() => prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`deposit:${input.operationId}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`deposit-order:${input.orderId}`}))`;
       const prior = await tx.driverCashDeposit.findUnique({
         where: { operationId: input.operationId },
       });
@@ -280,6 +282,8 @@ export async function submitDriverDeposit(
           "Deposit the full outstanding collected cash for this delivery.",
           422,
         );
+      if (await tx.driverCashDeposit.findFirst({ where: { orderId: input.orderId, status: { in: ["PENDING", "PROCESSING", "CONFIRMED"] } } }))
+        throw new PlatformError("CASH_DEPOSIT_ALREADY_SUBMITTED", "This delivery already has a deposit awaiting review or confirmed receipt.", 409);
       const row = await tx.driverCashDeposit.create({
         data: { ...input, amount, driverProfileId: driver.id },
         select: { id: true, status: true },
@@ -301,7 +305,7 @@ export async function submitDriverDeposit(
       return { ...row, replayed: false };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  ));
 }
 async function matchingReceipt(row: {
   id: string;
