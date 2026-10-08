@@ -90,8 +90,10 @@ for (const width of [1440, 390]) {
     await page.goto("/admin/withdrawal-reconciliation");
     const caseReference = uncertain.reconciliation[0].publicReference;
     const caseLink = page.getByRole("link", { name: caseReference, exact: true }); await caseLink.focus(); await caseLink.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/admin/withdrawal-reconciliation/${caseReference}$`));
     await expect(page.getByRole("heading", { name: "Withdrawal Reconciliation", exact: true })).toBeVisible();
-    await expect(page.getByText("UNKNOWN_PAYOUT_OUTCOME", { exact: true })).toBeVisible();
+    await expect(page.getByRole("definition").filter({ hasText: /^UNKNOWN_PAYOUT_OUTCOME$/ })).toBeVisible();
+    await info.attach(`finance-withdrawal-reconciliation-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`finance-withdrawal-reconciliation-${width}.png`) }), contentType: "image/png" });
     await expect(page.getByRole("button", { name: /resolve|mark paid|close case/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
