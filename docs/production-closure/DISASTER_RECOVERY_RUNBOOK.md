@@ -2,7 +2,7 @@
 
 ## Current proof status
 
-`npm run recovery:drill` was attempted. Docker's server readiness timed out, so dump/restore and historical-upgrade proof are NOT_RUN. This is an engineering/infrastructure release blocker. No production dump, restore, reset or seed was performed.
+The initial local attempt timed out on Docker readiness. Isolated GitHub execution has since passed: source `98cdd293bd1e8a18093cdc8f5a8d7c2a21666601`, certification [37820077771](https://github.com/analyticsmath/KT-Courier/actions/runs/37820077771), recovery job `113458537130`. Actual receipt: dumpRestore PASS, historicalUpgrade PASS, fixtureCountsAndHashes MATCH, ledgerInvariants PASS, protectedProductionDataTouched false. The complete workflow remains failed on browser acceptance at that source; this recovery result does not promote the release gate or establish production backup readiness.
 
 ## Reproducible disposable drill
 
@@ -14,7 +14,7 @@ npx prisma generate
 npm run recovery:drill
 ```
 
-`scripts/recovery-drill.mjs` constructs a unique `kt-couriers-recovery-*` Compose project and its own loopback database URL. It ignores a caller-supplied database URL. It deploys current migrations into `kt_recovery_source_test`, inserts an explicitly disposable user and balanced opening journal with two accounts and two entries, runs `pg_dump --format=custom`, creates `kt_recovery_restored_test`, and runs `pg_restore --exit-on-error --no-owner` into that empty database. It checks `prisma migrate status`, representative row preservation, incomplete migrations, source/restore fixture counts and full-row hashes, and the existing complete ledger invariant script. It separately applies the earliest checked-in baseline to `kt_recovery_historical_test`, inserts the representative user, resolves that baseline, applies current incremental migrations and checks row preservation. The report is `output/production-closure/recovery.json`. Cleanup removes only the unique disposable project/volumes. These commands are prepared but have not passed execution on this host.
+`scripts/recovery-drill.mjs` constructs a unique `kt-couriers-recovery-*` Compose project and its own loopback database URL. It ignores a caller-supplied database URL. It deploys current migrations into `kt_recovery_source_test`, inserts an explicitly disposable user and balanced opening journal with two accounts and two entries, runs `pg_dump --format=custom`, creates `kt_recovery_restored_test`, and runs `pg_restore --exit-on-error --no-owner` into that empty database. It checks `prisma migrate status`, representative row preservation, incomplete migrations, source/restore fixture counts and full-row hashes, and the existing complete ledger invariant script. It separately applies the earliest checked-in baseline to `kt_recovery_historical_test`, inserts the representative user, resolves that baseline, applies current incremental migrations and checks row preservation. The report is `output/production-closure/recovery.json`. Cleanup removes only the unique disposable project/volumes. These commands have passed in isolated CI. Local Docker remains unsuitable for the heavy drill; use the disposable CI evidence and separately authorized operator infrastructure.
 
 The drill proves restore mechanics and migration compatibility on fixtures. It does not prove Railway's production backup freshness, recovery time objective or recovery point objective. Operations must verify provider backup retention, restore permissions and latest successful backup separately.
 

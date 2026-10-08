@@ -4,8 +4,36 @@ import { prisma } from "@/lib/db/prisma";
 import { postCatalogInventoryMovement } from "@/lib/services/catalog-inventory.service";
 import { describeCatalogIntegration } from "./catalog-integration-guard";
 import { catalogFoundation, catalogEvidence } from "./catalog-canonical-support";
+import { uploadCatalogInventory } from "@/lib/services/catalog-inventory-upload.service";
+import { INVENTORY_UPLOAD_HEADER } from "@/lib/catalog/inventory-upload-policy";
 
 describeCatalogIntegration("canonical catalog inventory", () => {
+  it("previews and atomically posts CSV receipts once with payload-bound replay", async () => {
+    const f = await catalogFoundation();
+    const csv = `${INVENTORY_UPLOAD_HEADER}\n${f.inventory.publicReference},${f.location.publicReference},${f.inventory.version},3`;
+    const command = { csv, operationId: randomUUID(), dryRun: true };
+    const preview = await uploadCatalogInventory(f.store.id, f.user.id, command);
+    expect(preview).toMatchObject({ dryRun: true, preview: [{ onHand: 0, resultingOnHand: 3, quantity: 3 }] });
+    expect(await prisma.catalogInventoryMovement.count({ where: { inventoryItemId: f.inventory.id } })).toBe(0);
+    expect(await prisma.catalogInventoryLevel.count({ where: { inventoryItemId: f.inventory.id } })).toBe(0);
+    const posted = await uploadCatalogInventory(f.store.id, f.user.id, { ...command, dryRun: false });
+    expect(posted).toMatchObject({ replayed: false, movements: [{ quantityDelta: 3, type: "STOCK_RECEIPT" }] });
+    const before = await prisma.catalogInventoryLevel.findFirstOrThrow({ where: { inventoryItemId: f.inventory.id } });
+    expect(before).toMatchObject({ onHand: 3, reserved: 0, available: 3 });
+    expect(await uploadCatalogInventory(f.store.id, f.user.id, { ...command, dryRun: false })).toMatchObject({ replayed: true, movements: posted.movements });
+    await expect(uploadCatalogInventory(f.store.id, f.user.id, { ...command, csv: csv.replace(/,3$/, ",4"), dryRun: false })).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
+    expect(await prisma.catalogInventoryLevel.findUnique({ where: { id: before.id } })).toEqual(before);
+    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: f.user.id, action: "INVENTORY:CSV_RECEIPT" } })).toBe(1);
+  });
+  it("rejects stale or foreign rows atomically without partial stock or receipts", async () => {
+    const f = await catalogFoundation(); const foreign = await catalogFoundation();
+    const good = `${f.inventory.publicReference},${f.location.publicReference},${f.inventory.version},2`;
+    const command = { csv: `${INVENTORY_UPLOAD_HEADER}\n${good}\n${foreign.inventory.publicReference},${foreign.location.publicReference},${foreign.inventory.version},2`, operationId: randomUUID(), dryRun: false };
+    await expect(uploadCatalogInventory(f.store.id, f.user.id, command)).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
+    await expect(uploadCatalogInventory(f.store.id, f.user.id, { ...command, csv: `${INVENTORY_UPLOAD_HEADER}\n${good.replace(`,${f.inventory.version},2`, `,${f.inventory.version + 1},2`)}` })).rejects.toMatchObject({ code: "CATALOG_VERSION_CONFLICT" });
+    expect(await prisma.catalogInventoryMovement.count({ where: { inventoryItemId: { in: [f.inventory.id, foreign.inventory.id] } } })).toBe(0);
+    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: f.user.id } })).toBe(0);
+  });
   it("posts receipt and damage once, denies negative and foreign stock, and conserves projections", async () => {
     const f = await catalogFoundation(); const command = { type: "STOCK_RECEIPT" as const, quantityDelta: 5, locationPublicReference: f.location.publicReference, operationId: randomUUID(), reasonCode: "DISPOSABLE_RECEIPT", version: f.inventory.version };
     const receipt = await postCatalogInventoryMovement(f.store.id, f.user.id, f.inventory.publicReference, command);

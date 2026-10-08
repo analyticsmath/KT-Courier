@@ -15,6 +15,9 @@ describe("canonical offline 50/50 COD custody and shortage persistence", () => {
       const input = { orderId: f.order.id, collectorDriverId: f.driver.id, actorUserId: f.driver.userId, operationId: randomUUID(), amount: f.before.cod.cashObligation.toFixed(2) };
       const collections = await Promise.all([recordCashCollection(input), recordCashCollection(input)]); expect(collections[0].id).toBe(collections[1].id);
       const collected = await codState(f.order.id); expect(collected.journals).toHaveLength(1); expect(collected.cod.events.filter(row => row.eventType === "COLLECTED")).toHaveLength(1);
+      const promotionExpense = await prisma.ledgerAccount.findUniqueOrThrow({ where: { code: "PLATFORM-PROMOTION-EXPENSE-ZAR" } });
+      const suspense = await prisma.ledgerAccount.findUniqueOrThrow({ where: { code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR" } });
+      expect(suspense.purpose).toBe("COD_SHORTAGE_SUSPENSE"); expect(suspense.allowNegative).toBe(false); expect(suspense.id).not.toBe(promotionExpense.id);
       const received = suffix === "zero" ? "0.00" : collected.cod.cashCollected.sub("0.01").toFixed(2);
       const reconcile = { orderId: f.order.id, actorUserId: f.admin.id, receivedAmount: received, operationId: randomUUID(), evidenceReference: "SYNTHETIC_REMITTANCE_RECEIPT_NOT_PHYSICAL_EVIDENCE" };
       await reconcileCashCollection(reconcile);

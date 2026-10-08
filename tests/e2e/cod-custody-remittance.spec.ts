@@ -13,7 +13,9 @@ for (const width of [1440, 390]) test(`native synthetic COD deposit, custody and
   const origin = process.env.E2E_BASE_URL!;
   const post = (data: object) => page.request.post(`/api/driver/orders/${f.order.id}/cod/collection`, { headers: { origin }, data });
   await login(page, f.driver.user.email);
+  const walletCount = await prisma.wallet.count({ where: { ownerType: "DRIVER", ownerId: f.driver.id } });
   expect((await post({ amount: f.before.cod.cashObligation.toFixed(2), operationId: randomUUID() })).status()).toBe(400);
+  expect(await prisma.wallet.count({ where: { ownerType: "DRIVER", ownerId: f.driver.id } })).toBe(walletCount);
   expect(await codState(f.order.id)).toEqual(f.before);
   const payment = await verifyCodDeposit(page, f); await codTransit(f);
   const ready = await codState(f.order.id);

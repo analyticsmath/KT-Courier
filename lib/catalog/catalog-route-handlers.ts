@@ -14,6 +14,7 @@ import {
   CatalogProductCreateSchema,
   CatalogProductPatchSchema,
   InventoryMovementCreateSchema,
+  InventoryUploadSchema,
   ModifierGroupCreateSchema,
   ProductTypeDefinitionCreateSchema,
   ProductTypeDefinitionPatchSchema,
@@ -24,6 +25,7 @@ import {
 import { listStoreCatalogProducts, getStoreCatalogProduct, createStorePrivateCatalogProduct, updateStoreCatalogProduct, submitStoreCatalogProduct, archiveStoreCatalogProduct } from "@/lib/services/catalog-product.service";
 import { listStoreCatalogOffers, getStoreCatalogOffer, createStoreCatalogOffer, updateStoreCatalogOffer, transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
 import { listStoreInventory, postCatalogInventoryMovement } from "@/lib/services/catalog-inventory.service";
+import { uploadCatalogInventory } from "@/lib/services/catalog-inventory-upload.service";
 import { listStoreModifierGroups, createStoreModifierGroup } from "@/lib/services/catalog-modifier.service";
 import { listStoreCatalogImports, createCatalogImportJob, validateCatalogImportJob, applyCatalogImportJob } from "@/lib/services/catalog-import.service";
 import { createStoreOfferPriceVersion } from "@/lib/services/store-price.service";
@@ -143,6 +145,12 @@ export async function storeInventoryMovementPost(request: NextRequest, publicRef
   const prepared = await storeMutation(request, PERMISSIONS.CATALOG_INVENTORY_MANAGE, `/api/store/catalog/inventory/${publicReference}/movements`); if (!("body" in prepared)) return prepared.response;
   const parsed = InventoryMovementCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ movement: await postCatalogInventoryMovement(prepared.store.id, prepared.user.id, publicReference, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
+}
+
+export async function storeInventoryUploadPost(request: NextRequest) {
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_INVENTORY_MANAGE, "/api/store/catalog/inventory/upload"); if (!("body" in prepared)) return prepared.response;
+  const parsed = InventoryUploadSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
+  try { return catalogJson(await uploadCatalogInventory(prepared.store.id, prepared.user.id, parsed.data), parsed.data.dryRun ? 200 : 201); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storeModifiersGet(request: NextRequest) {

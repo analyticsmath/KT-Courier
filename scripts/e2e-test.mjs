@@ -57,7 +57,7 @@ function buildEnv(port, appPort) {
     NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     E2E_ROUTE_PROVIDER: "deterministic",
     KT_NETWORK_DISABLED: "true",
-    KT_E2E_GEOCODE_FIXTURES: JSON.stringify({ "45 Commission St, Central, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 } }),
+    KT_E2E_GEOCODE_FIXTURES: JSON.stringify({ "45 Commission St, Central, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 }, "10 E2E Pickup Road, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 }, "45 Commission St, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2051, longitude: 28.0483 } }),
     NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: "true",
     NODE_ENV: "test",
     KT_RUNTIME_ENV: "e2e",

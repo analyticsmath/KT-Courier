@@ -185,6 +185,11 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
   });
 
   describe("recordCashCollection Boundary", () => {
+    it("refuses unready collection before creating any custody account", async () => {
+      (prisma.cashOnDelivery.findUnique as any).mockResolvedValue({ id: "cod-pending", status: "PENDING", order: { currentDriverProfileId: null, status: "PENDING" } });
+      await expect(recordCashCollection({ orderId: "order-pending", collectorDriverId: "drv_001", actorUserId: "driver-user", amount: "10.00", operationId: "denied-operation" })).rejects.toMatchObject({ code: "COD_COLLECTOR_NOT_AUTHORIZED" });
+      expect(prisma.wallet.create).not.toHaveBeenCalled(); expect(prisma.ledgerAccount.create).not.toHaveBeenCalled(); expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+    });
     it("debits driver custody and credits customer funds held on collection", async () => {
       const mockCod = {
         id: "cod_collect",
@@ -215,6 +220,7 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
           }),
         }),
       );
+      expect(prisma.ledgerAccount.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ purpose: "COD_SHORTAGE_SUSPENSE", code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR", allowNegative: false }) }));
 
       expect(prisma.ledgerEntry.createMany).toHaveBeenCalledWith(
         expect.objectContaining({

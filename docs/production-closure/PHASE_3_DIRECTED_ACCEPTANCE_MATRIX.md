@@ -2,7 +2,22 @@
 
 Continuous execution authority: owner directive dated 2026-10-08 supersedes historical work-package approval/stopping rules. Production remains **NOT_READY**. This is an active task board, not a completion claim. Every source and run below must be attributed explicitly; authored/discovered cases are not executed acceptance. T1 = policy/unit; T2 = real disposable PostgreSQL/Redis; T3 = browser/HTTP; T4 = complete exact-source component CI; T5 = independently authorized external/human evidence.
 
-Starting baseline `acc14d299f5abfe54a1f5a3fcc90d4debf796d42`; historical accepted payment source `95dbab4a904a0971983857399f0dddc1384f8358` retains PG 2/2, focused Chromium 9/9 and full Chromium 97/97. These results do not prove the new source. Current corrected checkpoint `d5c572351547d6c40111fa5e95bc699383ad1735` is under validation. Phase 2 new canonical 17 and full 113 selection remain pending until actually executed.
+Starting baseline `acc14d299f5abfe54a1f5a3fcc90d4debf796d42`; historical accepted payment source `95dbab4a904a0971983857399f0dddc1384f8358` retains PG 2/2, focused Chromium 9/9 and full Chromium 97/97. These results do not prove the new source. Latest executed checkpoint `98cdd293bd1e8a18093cdc8f5a8d7c2a21666601` has CI 37820077750 SUCCESS and certification 37820077771 FAILURE: 23 nonbrowser jobs passed, directed browser 32/38 PASS, 6 FAIL, zero retries/skips, final certified SKIPPED. Canonical 38 and later focused/full browser stages were not executed. Candidate directed 42 and dynamic full discovery 139 remain pending execution.
+
+| Current internal package | Executed evidence / next required proof | State |
+|---|---|---|
+| Customer identity, saved address, reset/session revocation | 98cdd293 native 1440/390 PASS; auth PostgreSQL component PASS | T2/T3 PASS; cumulative T4 OPEN |
+| Wallet, finance uncertainty and runtime locks | 98cdd293 directed four cases PASS; canonical positive monetary suite not yet executed | PARTIAL; T2 cumulative OPEN |
+| Store customer cancellation and positive replacement | 98cdd293 four native cases FAIL on journal-source normalization; forward correction authored | FAILED; corrected T2/T3 OPEN |
+| Merchant/scoped employee, admin, handoff and accessibility | 98cdd293 native PASS; four accessibility cases include 320/390/768/1440 and 200-percent zoom | T3 PASS; canonical cumulative T2 OPEN |
+| Customer/store/driver avatar, branding, measured parcel and notifications | 98cdd293 directed native PASS; 8261bcf catalog 17 canonical and eight media cases PASS | T2/T3 partial PASS; exact-source cumulative OPEN |
+| Courier driver custody/delivery | 98cdd293 native 1440/390 PASS with synthetic location/private POD | T3 PASS; physical device/road T5 BLOCKED_EXTERNAL |
+| COD collection/remittance | 98cdd293 two native cases FAIL on duplicate suspense purpose; distinct typed account and atomic account creation authored | FAILED; corrected T2/T3 OPEN |
+| Vendor stock upload / anonymous courier quote-to-booking | New bounded canonical CSV and owned public-quote journeys at 1440/390; four discovery cases only | T2/T3 NOT_EXECUTED |
+| Read-only protected-row audit | Actual SQL read-only mode and synthetic change detection authored; production run prohibited | Disposable T2 NOT_EXECUTED; T5 BLOCKED_EXTERNAL |
+| Recovery / security / complete CI | 98cdd293 recovery restore/upgrade/hashes/invariants PASS; Redis/BOLA PASS; full browser remains blocked by ordinary failures | T4 PARTIAL; cumulative acceptance OPEN |
+
+The older role inventory below remains a technical scope reference. Current package outcomes above and the execution ledger supersede its earlier OPEN/pending checkpoint notes without changing historical outcomes. Both phases remain ACTIVE. Nine manifest gate statuses and all production/financial restrictions remain intact.
 
 | Actor / journey | Canonical page, route and authority | Ownership / denied case | Device / executable evidence | Current tier state | Independent external dependency |
 |---|---|---|---|---|---|

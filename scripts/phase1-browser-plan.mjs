@@ -42,7 +42,9 @@ export function runPhase1BrowserPlan(env) {
     const reportPath = path.resolve(`output/production-closure/browser-${stage.name}.json`);
     const started = Date.now();
     console.log(`PHASE_1_BROWSER_STAGE ${stage.name} SHA=${sha} COMMAND=${process.execPath} ${args.join(" ")}`);
-    const result = spawnSync(process.execPath, args, { cwd: process.cwd(), env: { ...env, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath }, stdio: "inherit", shell: false, timeout: 900_000 });
+    // Expanded full discovery includes the directed financial/role journeys.
+    // Allow 20 minutes for full execution; focused stages retain 15 minutes.
+    const result = spawnSync(process.execPath, args, { cwd: process.cwd(), env: { ...env, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath }, stdio: "inherit", shell: false, timeout: stage.name === "full-chromium" ? 1_200_000 : 900_000 });
     // Verify executed counts as well as exit status: a narrowed/missing selection
     // cannot silently turn a required stage green.
     let stats;

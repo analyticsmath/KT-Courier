@@ -19,13 +19,13 @@ export default async function StoreCatalogImportsPage() {
       <ProtectedPageHeader
         eyebrow="Catalog"
         title="Bulk imports"
-        description="Store import records and validation evidence. Import application remains limited to its canonical draft-only flow."
+        description="Store import records and validation evidence. Product draft import is currently unavailable."
       />
       <StoreCatalogNavigation />
       <OperationalPanel title="Import safeguards" padding="compact">
         <p className="text-sm text-[var(--eo-text-secondary)]">
-          The existing import workflow requires a dry run before apply. It does
-          not publish products, offers, or prices.
+          Create product drafts in the catalog. To record received stock, use
+          Upload stock receipts on the Inventory page.
         </p>
       </OperationalPanel>
       {imports.length ? (

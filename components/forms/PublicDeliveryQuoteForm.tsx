@@ -169,6 +169,7 @@ export function PublicDeliveryQuoteForm({
     return (
       <fieldset className="space-y-4">
         <legend className="mb-4 font-semibold">{title}</legend>
+        {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY && <p className="text-sm">Map suggestions are unavailable. Enter address details; pricing requires the server to confirm both locations.</p>}
         {savedAddresses.length > 0 && (
           <>
             <Label htmlFor={`${prefix}-saved`}>Use a saved address</Label>

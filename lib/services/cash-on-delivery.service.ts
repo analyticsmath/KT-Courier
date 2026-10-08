@@ -17,17 +17,17 @@ const money = (value: string) => {
 const hash = (value: unknown) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const reference = (prefix: string, id: string) => `${prefix}-${id.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 
-async function custodyAccounts(driverId: string) {
+async function custodyAccounts(driverId: string, tx: Prisma.TransactionClient) {
   const [platformWallet, driverWallet] = await Promise.all([
-    ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }),
-    ensureWalletForOwner({ ownerType: "DRIVER", ownerId: driverId, currency: "ZAR" }),
+    ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }, tx),
+    ensureWalletForOwner({ ownerType: "DRIVER", ownerId: driverId, currency: "ZAR" }, tx),
   ]);
   const [held, driverCash, platformCash, shortageSuspense, platformAdjustment] = await Promise.all([
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: driverWallet.id, code: reference("DRIVER-COD-CASH", driverId), purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR", purpose: "SUSPENSE", category: "EXPENSE", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY", currency: "ZAR" }),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: driverWallet.id, code: reference("DRIVER-COD-CASH", driverId), purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR", purpose: "COD_SHORTAGE_SUSPENSE", category: "EXPENSE", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY", currency: "ZAR" }, tx),
   ]);
   return { held, driverCash, platformCash, shortageSuspense, platformAdjustment };
 }
@@ -60,7 +60,6 @@ export async function activateDepositCashOnDeliveryWithinTransaction(tx: Prisma.
 
 export async function recordCashCollection(input: { orderId: string; collectorDriverId: string; actorUserId: string; amount: string; operationId: string }) {
   const amount = money(input.amount); const requestHash = hash({ orderId: input.orderId, collectorDriverId: input.collectorDriverId, amount: amount.toFixed(2) });
-  const accounts = await custodyAccounts(input.collectorDriverId);
   const run = () => prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "orderId" = ${input.orderId} FOR UPDATE`);
     if (rows.length !== 1) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
@@ -78,6 +77,7 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
       if (!deposit || deposit.status !== "SUCCEEDED" || !deposit.amount.equals(cod.digitalRequired) || !cod.digitalPaid.equals(cod.digitalRequired)) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Verified digital deposit is required before cash collection.");
     }
     if (!amount.equals(cod.cashObligation.sub(cod.cashCollected))) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Collection amount must equal the outstanding cash obligation.");
+    const accounts = await custodyAccounts(input.collectorDriverId, tx);
     const journal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `cod-collect:${input.operationId}`, type: "GENERAL", currency: "ZAR", sourceReference: `cod:${cod.publicReference}:collection`, correlationId: cod.publicReference, memo: "COD cash collection into driver custody", actor: { kind: "USER", userId: input.actorUserId }, metadata: { codReference: cod.publicReference, collectorDriverId: input.collectorDriverId }, entries: [{ accountId: accounts.driverCash.id, direction: "DEBIT", amount: amount.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" }, { accountId: accounts.held.id, direction: "CREDIT", amount: amount.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" }] });
     return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { cashCollected: { increment: amount }, status: "COLLECTED", collectorDriverId: input.collectorDriverId, collectedAt: new Date(), collectionOperationId: input.operationId, collectionRequestHash: requestHash, collectionJournalId: journal.id, version: { increment: 1 }, events: { create: { operationId: `collection:${input.operationId}`, requestHash, eventType: "COLLECTED", actorUserId: input.actorUserId } } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -101,7 +101,7 @@ export async function reconcileCashCollection(input: { orderId: string; actorUse
     if (cod.status !== "COLLECTED") throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD cash cannot be reconciled from current state.");
     if (received.greaterThan(cod.cashCollected)) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Received remittance cannot exceed collected cash.");
 
-    const accounts = await custodyAccounts(cod.collectorDriverId);
+    const accounts = await custodyAccounts(cod.collectorDriverId, tx);
     const hasDiscrepancy = received.lessThan(cod.cashCollected);
     const discrepancy = hasDiscrepancy ? cod.cashCollected.sub(received) : new Prisma.Decimal(0);
 
@@ -203,7 +203,7 @@ export async function adjustCashOnDelivery(input: {
       throw new CashOnDeliveryError("COD_NOT_ADJUSTABLE", "COD order has no outstanding remittance discrepancy to adjust.");
     }
 
-    const accounts = await custodyAccounts(cod.collectorDriverId);
+    const accounts = await custodyAccounts(cod.collectorDriverId, tx);
     const amount = cod.remittanceDiscrepancy;
 
     const debitAccount = input.adjustmentType === "FORGIVE_SHORTAGE"

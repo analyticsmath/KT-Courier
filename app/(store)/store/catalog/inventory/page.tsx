@@ -8,11 +8,13 @@ import { StoreCatalogNavigation } from "@/components/protected-v2/store/StoreCat
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { listStoreInventory } from "@/lib/services/catalog-inventory.service";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
+import { InventoryCsvUpload } from "@/components/store/InventoryCsvUpload";
 
 export default async function StoreCatalogInventoryPage() {
   await requireBusinessPage("/store/catalog/inventory");
-  const { store } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_INVENTORY_READ);
-  const inventory = await listStoreInventory(store.id);
+  const { store, user } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_INVENTORY_READ);
+  const [inventory, manage] = await Promise.all([listStoreInventory(store.id), storeCatalogPermission(user.id, PERMISSIONS.CATALOG_INVENTORY_MANAGE)]);
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
@@ -21,6 +23,7 @@ export default async function StoreCatalogInventoryPage() {
         description="Location-aware inventory projections derived from canonical stock movements. No stock threshold, reservation, or adjustment authority is inferred here."
       />
       <StoreCatalogNavigation />
+      {manage.allowed && <InventoryCsvUpload template={inventory.flatMap(item => item.trackingMode === "TRACKED" ? item.levels.filter(level => level.location.status === "ACTIVE").slice(0, 1).map(level => ({ inventoryReference: item.publicReference, locationReference: level.location.publicReference, version: item.version })) : [])} />}
       {inventory.length ? (
         <EditorialTable
           caption="Store inventory records"
