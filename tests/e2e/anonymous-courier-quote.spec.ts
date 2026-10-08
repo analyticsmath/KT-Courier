@@ -24,6 +24,11 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   expect((await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: {} })).status()).toBe(401); expect(await prisma.pricingQuote.findUnique({ where: { id: dto.id } })).toEqual(before);
   await info.attach(`anonymous-quote-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`anonymous-quote-${width}.png`) }), contentType: "image/png" });
   await login(page, "customer@ktcouriers.local"); await page.goto(`/quote?reference=${dto.id}`);
+  const forbiddenCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", recipientName: "Disposable recipient", recipientPhone: "+27820000001", paymentMethod: "DEPOSIT_PLUS_COD" } });
+  expect(forbiddenCash.status(), await forbiddenCash.text()).toBe(422);
+  expect(await forbiddenCash.json()).toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
+  expect(await prisma.pricingQuote.findUnique({ where: { id: dto.id } })).toEqual(before);
+  expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(0);
   for (const [label, value] of [["Sender name", "Disposable sender"], ["Sender phone", "+27820000000"], ["Recipient name", "Disposable recipient"], ["Recipient phone", "+27820000001"]]) await page.getByLabel(label, { exact: true }).fill(value);
   const booked = page.waitForResponse(result => result.url().endsWith(endpoint)); await page.getByRole("button", { name: "Book this delivery", exact: true }).click();
   const created = await booked; expect(created.status(), await created.text()).toBe(201); const result = await created.json();

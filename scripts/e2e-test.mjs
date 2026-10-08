@@ -159,9 +159,11 @@ try {
   if (phase2Canonical) {
     const report = path.resolve("output/production-closure/phase2-canonical-vitest.json");
     mkdirSync(path.dirname(report), { recursive: true });
-    const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config=vitest.phase2-canonical-acceptance.config.ts", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 900_000 });
+    // Forty-one mandatory canonical cases include three additional paid
+    // replacement price/expiry boundaries; keep execution finite at 20 minutes.
+    const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config=vitest.phase2-canonical-acceptance.config.ts", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 1_200_000 });
     const counts = JSON.parse(readFileSync(report, "utf8"));
-    if (result.status !== 0 || counts.numTotalTests !== 38 || counts.numPassedTests !== 38 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All thirty-eight canonical marketplace/store/refund/driver/COD PostgreSQL cases must execute and pass without deferrals.");
+    if (result.status !== 0 || counts.numTotalTests !== 41 || counts.numPassedTests !== 41 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All forty-one canonical marketplace/store/refund/driver/COD PostgreSQL cases must execute and pass without deferrals.");
   } else if (phase1Acceptance) runPhase1BrowserPlan(env);
   else {
     if (playwrightArgs.includes("tests/e2e/marketplace-checkout-payment.spec.ts")) {

@@ -12,7 +12,7 @@ export async function uploadCatalogInventory(storeId: string, actorUserId: strin
   const reference = `CIB-${createHash("sha256").update(JSON.stringify([actorUserId, storeId, input.operationId])).digest("hex")}`;
   const child = (index: number) => `csv:${createHash("sha256").update(JSON.stringify([reference, index])).digest("hex")}`;
   return prisma.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${reference}, 0))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${reference}, 0))`;
     const replay = await tx.catalogOperationReceipt.findUnique({ where: { actorUserId_action_operationId: { actorUserId, action: "INVENTORY:CSV_RECEIPT", operationId: input.operationId } } });
     if (replay && (replay.storeId !== storeId || replay.requestHash !== requestHash)) throw new CatalogConflictError("OPERATION_REPLAY_MISMATCH", "Upload operation was already used with different stock rows.");
     if (replay) return { reference, replayed: true, dryRun: false, movements: await tx.catalogInventoryMovement.findMany({ where: { operationId: { in: rows.map((_, index) => child(index)) }, inventoryItem: { offer: { storeId } } }, orderBy: { operationId: "asc" } }) };

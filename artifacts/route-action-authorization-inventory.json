@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 744,
+    "totalRoutes": 745,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 644,
-    "permissionGatedRoutes": 505,
+    "authenticatedRoutes": 645,
+    "permissionGatedRoutes": 506,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 198,
-    "generatedAt": "2026-10-08T14:20:47.411Z"
+    "rateLimitedRoutes": 200,
+    "generatedAt": "2026-10-08T18:31:25.629Z"
   },
   "serverActions": [],
   "routes": [
@@ -9381,6 +9381,7 @@
     {
       "routePath": "app/api/marketplace-orders/[reference]/store-orders/[storeOrderReference]/actions/route.ts",
       "httpMethods": [
+        "GET",
         "POST"
       ],
       "authorizationMechanism": "AUTHENTICATED_SESSION",
@@ -11035,6 +11036,25 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/store/catalog/inventory/upload/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [
+        "catalog_inventory.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/store/catalog/listing-drafts/route.ts",
       "httpMethods": [
         "POST"
@@ -11794,7 +11814,8 @@
       "routePath": "app/api/store/profile-media/route.ts",
       "httpMethods": [
         "GET",
-        "POST"
+        "POST",
+        "DELETE"
       ],
       "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
       "requiredRoles": [
@@ -11802,8 +11823,8 @@
         "STORE"
       ],
       "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."

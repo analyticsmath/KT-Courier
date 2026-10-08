@@ -25,10 +25,10 @@ export async function NotificationCentre({ userId, title = "Notifications" }: { 
     permissions.preferences ? prisma.notificationCategory.findMany({ where: { status: "ACTIVE" }, select: { key: true, mandatory: true, purpose: true }, orderBy: { key: "asc" } }) : [],
     permissions.preferences ? prisma.notificationPreference.findMany({ where: { userId, channel: "EMAIL" }, select: { categoryKey: true, mode: true } }) : [],
   ]);
-  return <section className="max-w-2xl mx-auto space-y-5" aria-label="Notification centre">
+  return <section className="min-w-0 w-full max-w-2xl mx-auto space-y-5" aria-label="Notification centre">
     <div><h1 className="font-display text-2xl font-black text-[var(--kt-navy)]">{title}</h1><p className="text-sm text-[var(--kt-text-muted)] mt-1">Account and service updates from one canonical inbox.</p></div>
     {items.length === 0 ? <div className="rounded-xl border border-[var(--kt-soft-border)] bg-white p-5 text-sm text-[var(--kt-text-muted)]">You have no notifications.</div> : <ul className="space-y-3">{items.map(item => <li key={item.id} className={`rounded-xl border bg-white p-4 ${item.state === "UNREAD" ? "border-[var(--kt-signal-cobalt)]" : "border-[var(--kt-soft-border)]"}`}>
-      <div className="flex gap-3"><div className="min-w-0 flex-1"><h2 className="font-bold text-[var(--kt-navy)]">{item.title}</h2><p className="mt-1 text-sm text-[var(--kt-text-muted)] break-words">{item.body}</p><time className="mt-2 block text-xs text-[var(--kt-text-muted)]">{item.createdAt.toLocaleString("en-ZA")}</time></div>{item.state === "UNREAD" ? <span aria-label="Unread notification" className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--kt-signal-cobalt)]" /> : null}</div>
+      <div className="flex gap-3"><div className="min-w-0 flex-1"><h2 className="font-bold text-[var(--kt-navy)] [overflow-wrap:anywhere]">{item.title}</h2><p className="mt-1 text-sm text-[var(--kt-text-muted)] [overflow-wrap:anywhere]">{item.body}</p><time className="mt-2 block text-xs text-[var(--kt-text-muted)]">{item.createdAt.toLocaleString("en-ZA")}</time></div>{item.state === "UNREAD" ? <span aria-label="Unread notification" className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--kt-signal-cobalt)]" /> : null}</div>
       {item.actionRoute && isSafeInternalRoute(item.actionRoute) ? <Link href={item.actionRoute} className="mt-2 inline-flex min-h-12 items-center underline">View update</Link> : null}
       {permissions.state ? <InboxControls reference={item.publicReference} state={item.state} /> : null}
     </li>)}</ul>}

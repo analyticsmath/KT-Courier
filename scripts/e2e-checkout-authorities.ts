@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { saveDeliveryConfiguration } from "@/lib/client-platform/delivery.service";
 import { INITIAL_DELIVERY } from "@/lib/client-platform/initial-delivery";
+import { saveParcelProfile } from "@/lib/commercial/parcel-profiles";
 import { saveDeliveryMatrix, actOnDeliveryMatrix, listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { createCommissionPlan, submitCommissionPlan, approveCommissionPlan, activateCommissionPlan } from "@/lib/services/commission-plan.service";
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
@@ -15,6 +16,8 @@ export async function createDisposableCheckoutAuthorities() {
   const initial = INITIAL_DELIVERY[0];
   const priorService = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: initial.stableKey }, orderBy: { versionNumber: "desc" } });
   await saveDeliveryConfiguration(maker.id, { ...initial, regionIds: [region.id], expectedVersion: priorService?.versionNumber ?? 0, reason: "Disposable service fixture; no production coverage approval implied." });
+  const priorParcel = await prisma.parcelProfileVersion.findFirst({ where: { stableKey: "SMALL" }, orderBy: { versionNumber: "desc" } });
+  await saveParcelProfile(maker.id, { stableKey: "SMALL", displayName: "Disposable small parcel", lengthCm: 30, widthCm: 20, heightCm: 15, maximumWeightKg: 10, status: "ACTIVE", effectiveFrom: new Date().toISOString(), effectiveTo: null, expectedVersion: priorParcel?.versionNumber ?? 0, reason: "Synthetic browser limits only; no production dimensional or packing approval implied." });
 
   const latest = Math.max(0, ...(await listDeliveryMatrices()).map((item) => item.version));
   const draft = await saveDeliveryMatrix(maker.id, { expectedVersion: latest, reason: "Disposable browser matrix; this amount is synthetic test data.", effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null, rules: [{ key: "DISPOSABLE_BROWSER_ANY", sizeClass: "ANY", minDistanceKm: 0, maxDistanceKm: 50, province: "Gauteng", regionId: region.id, storeId: null, fee: "23.45", highRiskSurcharge: "0.00", minimumFee: "23.45", maximumFee: "23.45" }] });

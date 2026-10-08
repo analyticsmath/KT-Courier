@@ -86,6 +86,7 @@ for (const file of routeFiles) {
     content.includes("requirePromoterAdmin") ||
     content.includes("requireStorefrontAdminMutation") ||
     content.includes("prepareCatalogMutation") ||
+    content.includes("storeInventoryUploadPost") ||
     content.includes("beginPayfastItnRequest") ||
     /\bmutation\(/.test(content);
 
@@ -168,6 +169,10 @@ for (const file of routeFiles) {
     content.includes("operationId") ||
     content.includes("idempotencyKey") ||
     content.includes("clientMutationId");
+  // This delegated handler performs scoped origin/rate checks and binds its
+  // mandatory operationId to the canonical CSV receipt, not the route wrapper.
+  const delegatedInventoryUpload = content.includes("storeInventoryUploadPost");
+  if (delegatedInventoryUpload) requiredPermissions = ["catalog_inventory.manage"];
 
   // Detect BOLA
   const hasBola =
@@ -224,7 +229,7 @@ for (const file of routeFiles) {
     requiredRoles,
     requiredPermissions,
     rateLimitingApplied: hasRateLimit,
-    idempotencyEnforced: hasIdempotency,
+    idempotencyEnforced: hasIdempotency || delegatedInventoryUpload,
     bolaOwnershipValidated: hasBola || authMechanism.includes("ADMIN"),
     remediationStatus: "COMPLIANT",
     authorizationEvidence:

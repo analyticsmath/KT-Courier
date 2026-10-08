@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { assertPrivacyDisposableDatabase } from "./privacy-disposable-guard";
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
@@ -8,7 +9,7 @@ import { createRetentionHold, releaseRetentionHold } from "@/lib/retention/hold-
 import { activateRetentionPolicy, createRetentionPolicyVersion, executeAccountAnonymisation, executeRetentionTarget } from "@/lib/retention/privacy-retention.service";
 
 const marker = `DSAR${randomUUID().replaceAll("-", "").toUpperCase()}`; let userA = ""; let userB = ""; let admin = "";
-beforeAll(async () => { await prisma.$queryRaw`SELECT 1`; const rows = await Promise.all(["a", "b", "admin"].map((suffix) => prisma.user.create({ data: { email: `${marker.toLowerCase()}-${suffix}@example.test`, name: `DSAR ${suffix}`, passwordHash: "proof-only", role: suffix === "admin" ? UserRole.ADMIN : UserRole.CUSTOMER, status: UserStatus.ACTIVE } }))); [userA, userB, admin] = rows.map((row) => row.id); });
+beforeAll(async () => { await assertPrivacyDisposableDatabase(); const rows = await Promise.all(["a", "b", "admin"].map((suffix) => prisma.user.create({ data: { email: `${marker.toLowerCase()}-${suffix}@example.test`, name: `DSAR ${suffix}`, passwordHash: "proof-only", role: suffix === "admin" ? UserRole.ADMIN : UserRole.CUSTOMER, status: UserStatus.ACTIVE } }))); [userA, userB, admin] = rows.map((row) => row.id); });
 
 describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
   it("enforces self ownership, duplicate control, transitions, controlled deletion plan and export scope", async () => {
@@ -16,9 +17,12 @@ describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
     await expect(createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-002` })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_DUPLICATE" });
     await expect(getPrivacyRequest(String(access.publicReference), userB)).rejects.toMatchObject({ code: "PRIVACY_REQUEST_NOT_OWNER" });
     await expect(transitionPrivacyRequest({ actorUserId: admin, publicReference: String(access.publicReference), nextStatus: "COMPLETED", reasonCode: "BAD", operationId: `${marker}-BAD` })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_INVALID_TRANSITION" });
+    await expect(transitionPrivacyRequest({ actorUserId: admin, publicReference: String(access.publicReference), nextStatus: "UNDER_REVIEW", reasonCode: "UNVERIFIED", operationId: `${marker}-UNVERIFIED` })).rejects.toMatchObject({ code: "PRIVACY_IDENTITY_VERIFICATION_REQUIRED" });
+    expect((await getPrivacyRequest(String(access.publicReference), userA))?.status).toBe("IDENTITY_VERIFICATION_REQUIRED");
     const deletion = await createPrivacyRequest({ requesterUserId: userA, requestType: "DELETION_OR_ANONYMISATION", operationId: `${marker}-DELETE-001` }); const detail = await getPrivacyRequest(String(deletion.publicReference));
     expect((detail as any).executionPlan.policySnapshot.domains.some((x: any) => x.dataClass === "FINANCIAL_LEDGER" && x.action === "RETAIN")).toBe(true);
     const exportData = await buildPrivacyExport(userA); expect(exportData).toHaveProperty("profile"); expect(JSON.stringify(exportData)).not.toContain("passwordHash");
+    expect(exportData.profile?.id).toBe(userA); expect(JSON.stringify(exportData)).not.toContain(`${marker.toLowerCase()}-b@example.test`);
   });
   it("delegates consent withdrawal and holds/retries retention without removing economic relationships", async () => {
     const withdrawal = await createPrivacyRequest({ requesterUserId: userB, requestType: "CONSENT_WITHDRAWAL", operationId: `${marker}-WITHDRAW-001` });

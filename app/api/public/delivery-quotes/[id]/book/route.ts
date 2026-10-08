@@ -53,26 +53,6 @@ export async function POST(
         "Request a new quote in this workspace.",
         409,
       );
-    const claimed = await prisma.pricingQuote.updateMany({
-      where: {
-        id,
-        ownerId: quote.ownerId,
-        status: "ACTIVE",
-        expiresAt: { gt: new Date() },
-        calculationVersion: "client-delivery-v1",
-      },
-      data: {
-        ownerId: user.id,
-        ownerType: business ? "STORE" : "CUSTOMER",
-        storeId: store?.id ?? null,
-      },
-    });
-    if (claimed.count !== 1)
-      throw new PlatformError(
-        "QUOTE_EXPIRED",
-        "Request a new quote before booking.",
-        409,
-      );
     const m = quote.metadata as {
       bookingInput: {
         deliveryType: "PARCEL_DOCUMENT";
@@ -94,7 +74,17 @@ export async function POST(
       parcelCount: 1,
     });
     // Strict order schema excludes sender helper fields rather than accepting extra client facts.
-    return json(await createOrder(user, input, business), 201);
+    const order = await prisma.$transaction(async tx => {
+      const claimed = await tx.pricingQuote.updateMany({
+        where: { id, ownerId: quote.ownerId, status: "ACTIVE", expiresAt: { gt: new Date() }, calculationVersion: "client-delivery-v1" },
+        data: { ownerId: user.id, ownerType: business ? "STORE" : "CUSTOMER", storeId: store?.id ?? null },
+      });
+      if (claimed.count !== 1) throw new PlatformError("QUOTE_EXPIRED", "Request a new quote before booking.", 409);
+      // Ownership, consumption, contacts and the canonical order commit together.
+      // A refused payment policy must leave the anonymous quote usable by its owner.
+      return createOrder(user, input, business, tx);
+    });
+    return json(order, 201);
   } catch (e) {
     return failure(e);
   }

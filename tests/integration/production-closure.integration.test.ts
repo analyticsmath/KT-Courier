@@ -15,13 +15,15 @@ describe("production closure configuration transactions on isolated PostgreSQL",
   let author: AuthenticatedUser; let reviewer: AuthenticatedUser; const tag = uniqueTag("closure");
   beforeAll(async () => {
     const url = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
-    if (process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS !== "1" || !["localhost", "127.0.0.1"].includes(url.hostname) || url.pathname !== "/kt_launch_test") throw new Error("Disposable closure database required; refusal is a failure, never a skip.");
+    if (process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS !== "1" || !["localhost", "127.0.0.1"].includes(url.hostname) || url.pathname !== "/kt_launch_test" || url.username !== "kt_closure_test") throw new Error("Disposable closure database required; refusal is a failure, never a skip.");
+    const [identity] = await prisma.$queryRaw<Array<{ database: string; role: string }>>`SELECT current_database() AS database, current_user AS role`;
+    expect(identity).toEqual({ database: "kt_launch_test", role: "kt_closure_test" });
     author = await createUser(`${tag}-author`, "SUPER_ADMIN"); reviewer = await createUser(`${tag}-reviewer`, "SUPER_ADMIN");
   });
   it("executes the operator audit read-only and detects a synthetic protected-row change without exporting row contents", async () => {
     const auditOwner = await createUser(`${tag}-audit`, "CUSTOMER");
     const first = await reviewedProtectedRowAudit();
-    expect(first.database).toEqual({ database: "kt_launch_test", role: "disposable", transactionReadOnly: "on" });
+    expect(first.database).toEqual({ database: "kt_launch_test", role: "kt_closure_test", transactionReadOnly: "on" });
     const before = first.protected as Record<string, { count: number; hash: string }>;
     expect(Object.keys(before)).toHaveLength(17);
     expect(Object.values(before).every(value => Number.isSafeInteger(value.count) && /^[a-f0-9]{64}$/.test(value.hash))).toBe(true);
