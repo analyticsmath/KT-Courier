@@ -15,7 +15,12 @@ files.push("tests/integration/catalog-listing-draft-postgres.integration.test.ts
 files.push("tests/integration/business-employee-postgres.integration.test.ts");
 files.push("tests/integration/catalog-permission-bootstrap-postgres.integration.test.ts");
 files.push("tests/integration/processor-lease-canonical-postgres.integration.test.ts");
+files.push("tests/integration/verified-payment-consumer-concurrency.integration.test.ts");
+files.push("tests/integration/business-support-denial.integration.test.ts");
 files.push("tests/phase-b/privacy-dsar-retention-postgres.test.ts", "tests/phase-b/privacy-location-security-postgres.test.ts", "tests/phase-b/privacy-policy-final-postgres.test.ts", "tests/phase-b/privacy-marketing-cookie-preferences-postgres.test.ts");
+const selection = process.argv.slice(2);
+if (selection.length && (selection.length !== 1 || !["--verified-consumer-regression", "--authority-regressions"].includes(selection[0]))) throw new Error("Unsupported closure regression selection.");
+const selectedFiles = selection[0] === "--verified-consumer-regression" ? ["tests/integration/verified-payment-consumer-concurrency.integration.test.ts"] : selection[0] === "--authority-regressions" ? ["tests/integration/catalog-permission-bootstrap-postgres.integration.test.ts", "tests/integration/paystack-webhook-concurrency.integration.test.ts", "tests/integration/business-support-denial.integration.test.ts"] : files;
 let failed = false; let started = false;
 try {
   // The database URL is constructed here; a supplied production URL is never used.
@@ -26,7 +31,7 @@ try {
   assertSuccess(runCompose(["run", "--build", "--rm", "migrate"], { projectName, env }), "Disposable migrations");
   mkdirSync("output/production-closure", { recursive: true });
   const report = "output/production-closure/postgres.json";
-  const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config", "vitest.integration.config.ts", ...files, "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { env, stdio: "inherit", shell: false });
+  const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config", "vitest.integration.config.ts", ...selectedFiles, "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { env, stdio: "inherit", shell: false });
   if (result.status !== 0) throw new Error("Closure PostgreSQL tests failed.");
   const summary = JSON.parse(readFileSync(report, "utf8"));
   if (!summary.numTotalTests || summary.numPendingTests || summary.numTodoTests || summary.testResults.some((suite) => suite.assertionResults.some((test) => ["pending", "todo", "skipped", "disabled"].includes(test.status)))) throw new Error("Release-critical tests were skipped or not discovered.");

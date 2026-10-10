@@ -298,24 +298,26 @@ describe("Paystack Financial Invariants", () => {
       ).rejects.toThrow(/Paystack signature verification failed/i);
     });
 
-    it("rejects amount mismatch and opens reconciliation case without posting ledger", async () => {
-      // Attempt expects 20000 cents (R200.00), but webhook received 15000 cents (R150.00)
+    it.each([
+      { mismatch: "amount", expectedAmount: "200.00", verifiedId: 778899 },
+      { mismatch: "provider transaction identity", expectedAmount: "150.00", verifiedId: 999999 },
+    ])("rejects $mismatch mismatch and opens reconciliation case without posting ledger", async ({ expectedAmount, verifiedId }) => {
       (prisma.paymentAttempt.findUnique as any).mockResolvedValueOnce({
         id: "att_1",
         publicReference: "atm_test_ref_1",
-        amount: { toString: () => "200.00" },
+        amount: { toString: () => expectedAmount },
         currency: "ZAR",
         provider: "PAYSTACK",
         providerCredentialVersion: "test-v1",
         status: "REQUIRES_ACTION",
-        payment: { id: "pay_1", publicReference: "pay_ref_1", amount: { toString: () => "200.00" }, currency: "ZAR" },
+        payment: { id: "pay_1", publicReference: "pay_ref_1", amount: { toString: () => expectedAmount }, currency: "ZAR" },
       });
 
       const mockClient = {
         verifyTransaction: vi.fn(async () => ({
           status: true,
           data: {
-            id: 778899,
+            id: verifiedId,
             status: "success",
             amount: 15000, // Verify API also returns 15000 cents
             currency: "ZAR",
@@ -331,6 +333,8 @@ describe("Paystack Financial Invariants", () => {
       });
 
       expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.ledgerEntry.createMany).not.toHaveBeenCalled();
       expect(prisma.payment.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { reconciliationStatus: "REQUIRED" },

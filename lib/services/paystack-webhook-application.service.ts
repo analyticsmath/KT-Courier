@@ -30,7 +30,7 @@ import type {
   PaymentProviderEnvironment,
   PaymentReconciliationReasonCode,
 } from "@/lib/payments/types";
-import { consumeVerifiedPaymentEvents } from "@/lib/payments/verified-payment-event-processor.service";
+import { consumeVerifiedPaymentEvents, reportVerifiedPaymentDispatchFailure } from "@/lib/payments/verified-payment-event-processor.service";
 
 export const VERIFIED_PAYMENT_EVENT_TYPE = "PAYMENT_SUCCEEDED_VERIFIED" as const;
 export const VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION = 1 as const;
@@ -450,7 +450,7 @@ export async function applyPaystackWebhookEvent(
   const verifyAmount = typeof verifyData?.amount === "number" ? verifyData.amount : undefined;
 
   const isVerifiedSuccess = verifyStatus === "success";
-  const isMerchantMatching = verifyData?.reference === reference;
+  const isMerchantMatching = verifyData?.reference === reference && String(verifyData?.id) === providerIdStr;
   const isCurrencyZar = verifyCurrency === "ZAR" && currency === "ZAR";
   const expectedCents = zarToSubunitCents(attempt.amount.toString());
   const actualVerifiedAmount = verifyAmount ?? -1;
@@ -809,7 +809,7 @@ export async function applyPaystackWebhookEvent(
   });
 
   // Drain outbox asynchronously for immediate downstream effects
-  consumeVerifiedPaymentEvents({ limit: 10 }).catch(() => undefined);
+  consumeVerifiedPaymentEvents({ limit: 10 }).catch(reportVerifiedPaymentDispatchFailure);
 
   return applyResult;
 }

@@ -22,7 +22,10 @@ import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const describeReal = hasDatabase ? describe : describe.skip;
 
-describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integration", () => {
+// These cases include full fixture creation plus multiple serializable ledger
+// transactions. Match the existing bounded PostgreSQL authority budget rather
+// than Vitest's five-second unit-test default; assertions and retries are intact.
+describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integration", { timeout: 30_000 }, () => {
   const hex64 = (s: string) => createHash("sha256").update(s).digest("hex");
   // Alphabetic entropy keeps synthetic bank references within the opaque-reference policy.
   const testNonce = randomBytes(8).toString("hex").replace(/[0-9a-f]/g, (digit) => String.fromCharCode(97 + parseInt(digit, 16)));

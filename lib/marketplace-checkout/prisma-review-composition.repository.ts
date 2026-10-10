@@ -2,6 +2,7 @@
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { createTransactionContext } from "@/lib/db/transaction-context";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import type { MarketplaceAcknowledgementRepository, MarketplaceCheckoutReviewRepository } from "@/lib/marketplace-checkout/checkout-review-persistence.service";
 import type { MarketplaceCheckoutReviewResult, ReviewGroup } from "@/lib/marketplace-checkout/checkout-review.service";
@@ -72,12 +73,9 @@ function publicReview(result: MarketplaceCheckoutReviewResult) {
 }
 
 export function createPrismaMarketplaceReviewRepository(database: any = prisma): MarketplaceCheckoutReviewRepository {
-  let db = database;
+  const { db, run } = createTransactionContext(database);
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => {
-      const previous = db; db = tx;
-      try { return await work(); } finally { db = previous; }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
     lockCheckout: async (reference: string, owner: CartOwner) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "publicReference" = ${reference} FOR UPDATE`);
       const row = await db.marketplaceCheckout.findFirst({ where: { publicReference: reference, ...ownerWhere(owner) }, include: checkoutInclude() });
@@ -252,9 +250,9 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
 }
 
 export function createPrismaMarketplaceAcknowledgementRepository(database: any = prisma): MarketplaceAcknowledgementRepository {
-  let db = database;
+  const { db, run } = createTransactionContext(database);
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => { const previous = db; db = tx; try { return await work(); } finally { db = previous; } }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
     lockCheckout: async (reference: string, owner: CartOwner) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "publicReference" = ${reference} FOR UPDATE`);
       const row = await db.marketplaceCheckout.findFirst({ where: { publicReference: reference, ...ownerWhere(owner) }, include: checkoutInclude() });

@@ -60,6 +60,11 @@ export function proxy(request: NextRequest): NextResponse {
   // so production routes use the healthy Railway runtime. Preview homepage
   // assets and rendering stay on the branch for visual review.
   const previewHome = process.env.VERCEL_ENV === "preview" && (pathname === "/" || pathname.startsWith("/_next/") || pathname.startsWith("/media/") || pathname.startsWith("/images/"));
+  // This denial is independent of runtime detection: inherited database or
+  // Railway variables must not turn a Vercel preview into a stateful backend.
+  if (process.env.VERCEL === "1" && !previewHome && (process.env.VERCEL_ENV !== "production" || process.env.NODE_ENV !== "production" || process.env.KT_RUNTIME_ENV === "e2e" || process.env.KT_NETWORK_DISABLED === "true")) {
+    return NextResponse.json({ error: "Stateful routing is unavailable in this environment." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
   if (isVercelProxyRuntime() && !previewHome) {
     const origin = railwayProductionOrigin();
     if (!origin) return NextResponse.json({ error: "Production routing configuration is unavailable." }, { status: 503, headers: { "Cache-Control": "no-store" } });
