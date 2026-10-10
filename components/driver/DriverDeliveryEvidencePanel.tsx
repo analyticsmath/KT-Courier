@@ -28,7 +28,7 @@ export function DriverDeliveryEvidencePanel({ assignmentId, assignmentVersion, o
     <h3 id="delivery-evidence-title" className="font-semibold">Delivery evidence and responsibilities</h3>
     <p className="text-sm">Confirm checks you performed. Upload private proof from this delivery; the server checks its assignment before use.</p>
     <div className="flex flex-wrap gap-3"><button type="button" disabled={busy} className="min-h-11 rounded-lg border px-3" onClick={() => void report("SAFETY_CHECK")}>Confirm safety check</button><button type="button" disabled={busy} className="min-h-11 rounded-lg border px-3" onClick={() => void report("LAWFUL_TRANSPORT_CONFIRMATION")}>Confirm lawful transport</button></div>
-    <form onSubmit={upload} className="space-y-3"><label className="block" htmlFor="delivery-proof-file">Private delivery proof image</label><input id="delivery-proof-file" name="file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required disabled={busy} /><button type="submit" disabled={busy} className="min-h-11 rounded-lg border px-3">Upload private delivery proof</button></form>
+    <form onSubmit={upload} className="space-y-3"><label className="block" htmlFor="delivery-proof-file">Private delivery proof image</label><input id="delivery-proof-file" name="file" type="file" className="block w-full min-w-0 max-w-full" accept="image/jpeg,image/png,image/webp" capture="environment" required disabled={busy} /><button type="submit" disabled={busy} className="min-h-11 rounded-lg border px-3">Upload private delivery proof</button></form>
     {message && <p role={failed ? "alert" : "status"}>{message}</p>}
   </section>;
 }
