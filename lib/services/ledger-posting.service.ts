@@ -62,9 +62,19 @@ function uniqueTarget(error: unknown): string[] {
   return target === undefined ? [] : [String(target)];
 }
 
-async function resolveIdempotentReceipt(idempotencyKey: string, requestHash: string) {
+function assertReplayActor(journal: { createdByUserId: string | null }, posting: ReturnType<typeof normalizeLedgerPosting>) {
+  // Bind replay to the persisted audit actor without changing historical hashes.
+  const actorUserId = posting.actor.kind === "USER" ? posting.actor.userId : null;
+  if ((journal.createdByUserId ?? null) !== actorUserId) {
+    throw new LedgerError("LEDGER_IDEMPOTENCY_CONFLICT", "The idempotency key is associated with a different posting actor.");
+  }
+}
+
+async function resolveIdempotentReceipt(posting: ReturnType<typeof normalizeLedgerPosting>, requestHash: string) {
+  const idempotencyKey = posting.idempotencyKey;
   const existing = await prisma.ledgerJournal.findUnique({ where: { idempotencyKey }, include: journalInclude });
   if (!existing) return null;
+  assertReplayActor(existing, posting);
   if (existing.requestHash !== requestHash) {
     throw new LedgerError("LEDGER_IDEMPOTENCY_CONFLICT", "The idempotency key is already associated with a different posting.");
   }
@@ -137,6 +147,7 @@ async function postNormalizedLedgerJournalWithinTransaction(
 ) {
   const existing = await tx.ledgerJournal.findUnique({ where: { idempotencyKey: posting.idempotencyKey }, include: journalInclude });
   if (existing) {
+    assertReplayActor(existing, posting);
     if (existing.requestHash !== requestHash) {
       throw new LedgerError("LEDGER_IDEMPOTENCY_CONFLICT", "The idempotency key is already associated with a different posting.");
     }
@@ -271,7 +282,7 @@ export async function postLedgerJournal(input: PostLedgerJournalInput) {
     return await withLedgerRetry(() => postInTransaction(posting, requestHash, reference));
   } catch (error) {
     if ((error as { code?: string })?.code === "P2002") {
-      const receipt = await resolveIdempotentReceipt(posting.idempotencyKey, requestHash);
+      const receipt = await resolveIdempotentReceipt(posting, requestHash);
       if (receipt) return receipt;
       const targets = uniqueTarget(error);
       if (targets.some((target) => target.includes("sourceReference"))) {

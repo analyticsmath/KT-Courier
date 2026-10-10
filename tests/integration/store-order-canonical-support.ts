@@ -1,4 +1,5 @@
 import { chromium } from "@playwright/test";
+import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../../lib/db/prisma";
 import { prepareStoreOrder, storeControl } from "../e2e/fixtures/store-order";
@@ -42,7 +43,7 @@ export function canonicalStoreIntegration(domain: string) {
             expect(uncertain.payment.totalRefundedAmount).toBe(baseline.payment.totalRefundedAmount);
             expect(uncertain.adjustments[0].status).toBe("RECONCILIATION_REQUIRED");
           } else if (domain === "adjustment") {
-            expect(after.adjustments[0].refundAmount).toBe("1500.00");
+            expect(new Prisma.Decimal(after.adjustments[0].refundAmount).equals("1500.00")).toBe(true);
             const allocations = await prisma.marketplaceStoreOrderAdjustmentAllocation.findMany({ where: { adjustment: { publicReference: after.adjustments[0].publicReference } } });
             expect(allocations.length).toBeGreaterThan(0);
             const seller = allocations.find(row => row.allocationType === "SELLER_BASIS")!;
@@ -104,6 +105,7 @@ export function canonicalStoreIntegration(domain: string) {
           expect(after.reconciliation).toHaveLength(1); expect(after.resolutionStatus).toBe("RECONCILIATION_REQUIRED");
           expect(after.history.filter(row => row.operationId === input.operationId)).toHaveLength(1);
         } else {
+          await beginStoreOrderReview(command());
           await expect(acceptMarketplaceStoreOrder({ ...command(), preparationMinutes: 30, pickupInstructions: "Disposable pickup" })).rejects.toMatchObject({ code: "STORE_ORDER_AVAILABILITY_UNRESOLVED" });
           const input = { ...command(), requesterType: "CUSTOMER" as const, requesterUserId: customer.id, reasonCode: "CUSTOMER_CHANGED_MIND" };
           await requestMarketplaceStoreOrderCancellation(input);

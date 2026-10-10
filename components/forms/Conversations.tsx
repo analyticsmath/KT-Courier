@@ -204,7 +204,7 @@ function ConversationPanel({
     }
   }
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6 [overflow-wrap:anywhere]">
       {scope !== "admin" && (
         <form
           onSubmit={(e) => {
@@ -234,8 +234,8 @@ function ConversationPanel({
           </Button>
         </form>
       )}
-      <div className="grid gap-6 md:grid-cols-[minmax(180px,1fr)_3fr]">
-        <nav aria-label="Conversations" className="space-y-2">
+      <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(180px,1fr)_minmax(0,3fr)]">
+        <nav aria-label="Conversations" className="min-w-0 space-y-2">
           {loading ? <p role="status">Loading delivery conversation…</p> : conversations.length ? (
             conversations.map((c) => (
               <button
@@ -264,7 +264,7 @@ function ConversationPanel({
           )}
         </nav>
         <section
-          className="space-y-4"
+          className="min-w-0 space-y-4"
           aria-label={current?.subject ?? "Messages"}
         >
           {selected ? (

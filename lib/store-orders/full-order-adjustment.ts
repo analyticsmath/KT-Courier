@@ -42,7 +42,7 @@ async function reverseUnstartedGoodsCommitments(tx: Prisma.TransactionClient, or
   const finalizationOperation = job.operationId.slice(0, -suffix.length);
   const actorUserId = input.actorUserId ?? order.store.ownerUserId;
   assertStoreOrder(actorUserId, "STORE_ORDER_INVENTORY_INCOHERENT", "Canonical inventory actor is required.");
-  const reservation = await tx.marketplaceInventoryReservation.findFirstOrThrow({ where: { checkoutId: order.marketplaceOrder.checkoutId, paymentId: order.marketplaceOrder.paymentId, status: "CONSUMED" }, include: { items: true } });
+  const reservation = await tx.marketplaceInventoryReservation.findFirstOrThrow({ where: { checkoutId: order.marketplaceOrder.checkoutId, paymentId: order.marketplaceOrder.paymentId, status: "CONSUMED" }, include: { items: { include: { inventoryLevel: { include: { inventoryItem: { include: { offer: true } } } } } } } });
   const sources = await tx.marketplaceCheckoutLineSnapshot.findMany({ where: { id: { in: order.lines.map(line => line.checkoutLineSnapshotId) }, checkoutId: order.marketplaceOrder.checkoutId } });
   const restore = new Map<string, number>();
   const sourceQuantities = new Map<string, number>();
@@ -50,13 +50,20 @@ async function reverseUnstartedGoodsCommitments(tx: Prisma.TransactionClient, or
   for (const line of order.lines) {
     const source = sources.find(item => item.id === line.checkoutLineSnapshotId);
     assertStoreOrder(source && source.quantity === line.quantity && source.offerReference === line.offerReference, "STORE_ORDER_INVENTORY_INCOHERENT", "Frozen line inventory identity is required.");
-    if (!source.inventoryItemId || !source.inventoryLocationId) continue;
-    const item = reservation.items.find(item => item.inventoryItemReference === source.inventoryItemId && item.locationReference === source.inventoryLocationId);
-    // Reservation references use public references in some older snapshots;
-    // always resolve the exact frozen item/location pair through its level.
-    const level = await tx.catalogInventoryLevel.findUnique({ where: { inventoryItemId_locationId: { inventoryItemId: source.inventoryItemId, locationId: source.inventoryLocationId } } });
-    const reservedItem = item ?? reservation.items.find(item => item.inventoryLevelId === level?.id);
-    assertStoreOrder(level && reservedItem, "STORE_ORDER_INVENTORY_INCOHERENT", "Consumed source inventory is required.");
+    // Historical checkout snapshots can lack inventory IDs. The payment-bound
+    // consumed reservation is the immutable authority for the actual sale,
+    // never a fresh search for available stock or a mutable primary location.
+    const candidates = reservation.items.filter(item => {
+      const level = item.inventoryLevel;
+      return level.inventoryItem.offer.publicReference === source.offerReference &&
+        level.inventoryItem.offer.storeId === order.storeId &&
+        (!source.inventoryItemId || level.inventoryItemId === source.inventoryItemId) &&
+        (!source.inventoryLocationId || level.locationId === source.inventoryLocationId);
+    });
+    assertStoreOrder(candidates.length === 1, "STORE_ORDER_INVENTORY_INCOHERENT", "One exact consumed source inventory binding is required.");
+    const reservedItem = candidates[0];
+    const level = reservedItem.inventoryLevel;
+    assertStoreOrder(reservedItem.inventoryItemReference === level.inventoryItem.publicReference && reservedItem.locationReference === level.locationId, "STORE_ORDER_INVENTORY_INCOHERENT", "Consumed reservation item and location must match its level.");
     const sourceQuantity = (sourceQuantities.get(level.id) ?? 0) + line.quantity;
     assertStoreOrder(sourceQuantity <= reservedItem.quantity, "STORE_ORDER_INVENTORY_INCOHERENT", "Frozen line quantities exceed their consumed reservation.");
     sourceQuantities.set(level.id, sourceQuantity);

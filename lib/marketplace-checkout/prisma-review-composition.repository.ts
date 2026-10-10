@@ -58,7 +58,7 @@ function toReviewable(row: any): any {
         includedTaxAmount: line.includedTaxAmount ? money(line.includedTaxAmount) : null,
         inventoryItemId: line.inventoryItemId,
         inventoryLocationId: line.inventoryLocationId,
-        modifiers: line.modifiers.map((modifier: any) => ({ ...modifier, priceDelta: money(modifier.priceDelta), totalContribution: money(modifier.totalContribution) })),
+        modifiers: line.modifiers.map((modifier: any) => ({ groupReference: modifier.groupReference, groupName: modifier.groupName, optionReference: modifier.optionReference, optionName: modifier.optionName, quantity: modifier.quantity, priceDelta: money(modifier.priceDelta), totalContribution: money(modifier.totalContribution), sourceVersion: modifier.sourceVersion })),
       })),
     })),
     sourceGroups: row.storeGroups.map((group: any) => ({ id: group.id, storeId: group.storeId })),
