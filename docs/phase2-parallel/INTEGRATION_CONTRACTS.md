@@ -82,6 +82,8 @@ The following test suites were identified in the base commit as pending Phase 1 
    - **Scope:** Multi-store settlement, ledger entries, exact ZAR cent allocations, and refund dual-control.
    - **Status:** Requires Phase 1 financial correctness fixes before full green execution.
 
+For complete cross-stream blocker tracking and ownership classification, refer to [`docs/phase2-parallel/REMAINING_DEFECTS.md`](docs/phase2-parallel/REMAINING_DEFECTS.md).
+
 ---
 
 ## 5. Non-Destructive Reintegration Procedure for Chief Architect

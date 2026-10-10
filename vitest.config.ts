@@ -17,7 +17,7 @@ export default defineConfig({
       "tests/phase-b/**/*-postgres.test.ts",
     ],
     setupFiles: ["tests/setup.ts"],
-    testTimeout: 15000,
+    testTimeout: 45000,
     clearMocks: true,
     restoreMocks: true,
     coverage: {

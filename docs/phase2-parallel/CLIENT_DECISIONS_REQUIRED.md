@@ -19,14 +19,15 @@ Current implementation defaults storefront product visibility nationwide across 
 
 ## 2. Express Delivery Tariff & Parcel Factors
 
-The initial confirmed Express formula is set to:
-$$\text{Total} = \text{Base Fee (by Parcel Size)} + (\text{R5.50} \times \text{Distance in km})$$
+**Provenance Note:** The client specification *Delivery and Access* explicitly establishes the base rate of **R5.50/km** and mandates an applicable parcel-size component. However, the specific base amounts for parcel sizes (**Small R5.50, Medium R8.50, Large R13.00**) originate from inherited initialization code (`scripts/initialize-reviewed-client-launch.ts` / `CLIENT_REVIEW_2026_10_06`) and lack an explicit, signed commercial sign-off in client documentation. Consequently, they are classified as `INHERITED_IMPLEMENTED_UNVERIFIED` in the traceability matrix.
+
+$$\text{Express Total} = \text{Base Fee (by Parcel Size)} + (\text{R5.50} \times \text{Distance in km})$$
 - Small: R5.50 Base Fee + R5.50/km
 - Medium: R8.50 Base Fee + R5.50/km
 - Large: R13.00 Base Fee + R5.50/km
 
 **Decisions Required:**
-1. **Production Confirmation:** Confirm whether these rates represent final operational tariffs or require adjustment prior to commercial activation.
+1. **Commercial Policy Approval:** Confirm whether these parcel-size base amounts (Small R5.50, Medium R8.50, Large R13.00) represent final commercial launch tariffs or require adjustment prior to live activation.
 2. **Volumetric Divisor:** Confirm whether volumetric weight ($L \times W \times H / 5000$) applies to Express quotes exceeding physical weight thresholds.
 3. **Same-Day Cutoff Time:** Specify the daily order cutoff time (e.g., 12:00 SAST) after which same-day Express delivery cannot be selected.
 
@@ -68,7 +69,7 @@ The store marketing panel supports advertising requests for TikTok, Facebook, In
 
 **Decisions Required:**
 1. **Package Tiers & Pricing:** Confirm official package names, post/story/video inclusions, campaign durations, and prices (ZAR) for commercial authoring.
-2. **Managed Delivery Sourcing:** Confirm that social ad execution remains a managed administrative service rather than an automated automated programmatic ad placement.
+2. **Managed Delivery Sourcing:** Confirm that social ad execution remains a managed administrative service rather than an automated programmatic ad placement.
 
 ---
 

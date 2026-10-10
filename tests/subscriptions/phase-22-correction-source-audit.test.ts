@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
-const read = (file: string) => readFileSync(path.join(root, file), "utf8");
+const read = (file: string) => readFileSync(path.join(root, file), "utf8").replace(/\r\n/g, "\n");
 
 describe("phase 22 correction source audit", () => {
   it("keeps recurring REST separate from custom checkout and preserves compatibility renames", () => {

@@ -48,7 +48,7 @@ function validationPath(sql: string, start: string, end: string): string {
 
 describe("20260805060000_residual_index_alignment", () => {
   it("contains all eight authoritative Prisma index specifications", () => {
-    const sql = readFileSync(migrationPath, "utf8");
+    const sql = readFileSync(migrationPath, "utf8").replace(/\r\n/g, "\n");
 
     for (const [table, index, columns] of residualIndexes) {
       expect(sql).toContain(`('${table}', '${index}', ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]::text[])`);
@@ -70,7 +70,7 @@ describe("20260805060000_residual_index_alignment", () => {
   });
 
   it("uses normalized comparisons across all five validation paths", () => {
-    const sql = readFileSync(migrationPath, "utf8");
+    const sql = readFileSync(migrationPath, "utf8").replace(/\r\n/g, "\n");
     const paths = [
       validationPath(sql, "IF named_index_oid IS NOT NULL AND NOT EXISTS (", "IF named_index_oid IS NOT NULL THEN"),
       validationPath(sql, "-- A partial index", "-- A unique index"),

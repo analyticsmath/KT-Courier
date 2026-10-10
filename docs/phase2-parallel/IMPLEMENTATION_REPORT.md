@@ -5,12 +5,13 @@
 **Base Commit SHA:** `b31ede4a900b0778e15dce0a3ef78e6d2613b350`  
 **Classification:** `PHASE_2_ISOLATED_COMPLETE — COMBINED_ACCEPTANCE_PENDING`  
 **Delivery Owner:** Anti-Gravity Coding Agent (Senior Full-Stack Engineer & Independent Phase 2 Delivery Owner)  
+**Last Updated:** 11 October 2026  
 
 ---
 
 ## 1. Executive Summary
 
-Phase 2 functional scope was implemented and verified in full isolation within dedicated Git worktree `d:\KT-Courier-phase2`, branched directly from the frozen common ancestor `b31ede4a900b0778e15dce0a3ef78e6d2613b350`.
+Phase 2 functional scope was implemented, audited, and verified in full isolation within dedicated Git worktree `d:\KT-Courier-phase2`, branched directly from the frozen common ancestor `b31ede4a900b0778e15dce0a3ef78e6d2613b350`.
 
 Zero modifications were made to Phase 1-owned financial files (`lib/payments/verified-payment-event-processor.service.ts`, `lib/marketplace-checkout/*`, `lib/services/ledger-posting.service.ts`, `lib/store-orders/full-order-adjustment.ts`, `lib/auth/permission-bootstrap.ts`, `proxy.ts`, etc.). The Phase 1 working tree (`d:\KT-Courier`), database, and processes were completely untouched.
 
@@ -36,7 +37,7 @@ All eleven functional domains requested by the client documents have been audite
 - **Service Speeds & Turnarounds:**
   - `ECONOMY`: 3–4 business days.
   - `STANDARD`: Explicitly fixed to 1–2 business days as mandated by final client instructions.
-  - `EXPRESS`: Rapid delivery configured at R5.50/km plus parcel base fees (Small R5.50, Medium R8.50, Large R13.00).
+  - `EXPRESS`: Rapid delivery configured at R5.50/km plus parcel base fees (Small R5.50, Medium R8.50, Large R13.00). Note: R5.50/km is explicitly grounded in client specification *Delivery and Access*; the parcel size base fees are inherited from initialization routines (`scripts/initialize-reviewed-client-launch.ts` / `CLIENT_REVIEW_2026_10_06`) and classified as `INHERITED_IMPLEMENTED_UNVERIFIED` pending explicit client commercial sign-off (see `docs/phase2-parallel/CLIENT_DECISIONS_REQUIRED.md`).
   - `SCHEDULED`: Implemented as an optional future collection date/time picker under the selected service, preserving quoted tariffs without creating an ungrounded separate tariff.
 - **Serviceability vs. Catalogue Visibility:** Storefront products are visible nationwide across South Africa by default, while courier delivery is strictly gated by active service regions (initial operations in Gauteng / JHB / Pretoria with configurable admin boundaries).
 - **Security & Privacy:** Quotes are bound to a cryptographically secure, hashed guest cookie (`kt_public_quote`). Cross-account quote tampering and foreign context access return `404` or `401`.
@@ -45,33 +46,33 @@ All eleven functional domains requested by the client documents have been audite
 - **Social Profile & Media:** Integrated in `app/(account)/account/profile/page.tsx` with avatar upload, replacement, and removal via raster sanitization.
 - **Addresses & Orders:** Saved delivery addresses with geolocation coordinates (`/account/addresses`), active delivery tracking, and full order history.
 - **Read-Only Wallet Projection:** Customer wallet balances and transaction histories are projected strictly as read models from canonical ledger queries. Phase 2 performs zero raw ledger mutations or direct cash balance adjustments.
-- **Conversations & Support:** Native customer-support conversation threads with explicit investigation and pending badges.
+- **Conversations & Support:** Native customer-support conversation threads (`lib/client-platform/conversations.service.ts`) with explicit investigation and pending badges.
 
 ### Domain C: Store Registration, Inventory & Merchant Fulfillment
 - **Business Onboarding:** Complete profile configuration at `app/(store)/store/profile/page.tsx` including trading names, registration/VAT numbers, operating hours, pickup addresses, and documentation uploads.
-- **Catalogue & Inventory Management:** Product listing wizard with variants, modifiers, and draft isolation. Bulk inventory CSV importer with strict schema validation, batching, and idempotency keys.
+- **Catalogue & Inventory Management:** Product listing wizard with variants, modifiers, and draft isolation. Bulk inventory CSV importer (`lib/services/catalog-inventory-upload.service.ts`) with strict schema validation, batching, and idempotency keys.
 - **Merchant Order Operations:** Multi-step order state machine (Reviewing -> Accepted -> Preparing -> Ready for Pickup -> Courier Handoff). Pickup verification uses single-use 6-digit OTP challenges and package count verification.
-- **Customer Substitutions:** Native substitution proposal and choice workflow (`CustomerStoreOrderControls.tsx`), supporting customer approval or rejection within same-store items and price caps.
+- **Customer Substitutions:** Native substitution proposal and choice workflow (`components/public-v2/commerce/CustomerStoreOrderControls.tsx`, `lib/store-orders/preapproved-choices.ts`), supporting customer approval or rejection within same-store items and price caps.
 - **Two-Store Isolation:** Verified strict multi-tenant boundary. Store owners and staff cannot inspect or modify records belonging to other vendors.
 
 ### Domain D: Granular Business Employees & Superuser Support
-- **Employee Roles & Permissions:** Store owners invite, activate, suspend, and configure staff access per section (operations, marketing, finance, customer service). Deny-precedence is enforced server-side.
+- **Employee Roles & Permissions:** Store owners invite, activate, suspend, and configure staff access per section (`lib/client-platform/store-permissions.ts`: operations, marketing, finance, customer service). Deny-precedence is enforced server-side.
 - **Superuser Support Mode:** Implemented via `grantBusinessSupportAccess` in `lib/client-platform/support-access.service.ts`. Accessible only to active `SUPER_ADMIN` with `stores.read` permission. Generates a 15-minute time-limited, purpose-bound session and logs every access event to `AdminActivityLog`. Zero invisible impersonation.
 
 ### Domain E: Driver Onboarding, Vehicle Compliance & Delivery Operations
 - **Driver Onboarding:** Legal personal details, identity and driving licence document intake, expiry tracking, and status verification.
 - **Vehicle Compliance:** Complete compliance for 8+ vehicle types: motorcycle, scooter, sedan, hatchback, bakkie, panel van, van, truck, and other. Multi-angle vehicle photos and independent admin vehicle approval workflow.
-- **Driver Workbench:** Active assignments, turn-by-turn routing, pickup challenge verification, and secure POD photo intake.
+- **Driver Workbench:** Active assignments, turn-by-turn routing, pickup challenge verification, and secure POD photo intake (`lib/driver-operations/*`).
 - **Order-Scoped Chat:** Dedicated Driver–Customer and Driver–Admin channels with order lifecycle boundaries preventing post-delivery contact.
-- **COD Custody Projections:** Driver cash screens project held cash custody and deposit submission requirements from canonical records without posting artificial custody journals.
+- **COD Custody Projections:** Driver cash screens (`lib/client-platform/driver-cash.service.ts`) project held cash custody and deposit submission requirements from canonical records without posting artificial custody journals.
 
 ### Domain F: Store Promotions, Banners & Advertising
-- **Promotions & Coupons:** Fixed and percentage discounts, start/end dates, per-product/category limits, and redemption boundaries.
-- **Managed Marketing & Social Ads:** Campaign authoring for TikTok, Facebook, Instagram, and Google. Admin review queue with editable package names, placements, duration, and pricing.
+- **Promotions & Coupons:** Fixed and percentage discounts, start/end dates, per-product/category limits, and redemption boundaries (`lib/client-platform/promotion-authoring.service.ts`).
+- **Managed Marketing & Social Ads:** Campaign authoring for TikTok, Facebook, Instagram, and Google (`lib/advertising/managed-marketing.service.ts`). Admin review queue with editable package names, placements, duration, and pricing.
 - **Truthful Status:** Social publication and ad tracking remain manual/pending; no third-party APIs are fabricated and no locked payment processors are activated.
 
 ### Domain G: Store Expense Reports & Operational Analytics
-- **Expenses Dashboard:** Located at `app/(store)/store/expenses/page.tsx` and `app/api/store/expenses/route.ts`. Aggregates delivery fees, commissions, subscriptions, advertising, and refunds.
+- **Expenses Dashboard:** Located at `app/(store)/store/expenses/page.tsx` and `app/api/store/expenses/route.ts` (`lib/client-platform/expenses.service.ts`). Aggregates delivery fees, commissions, subscriptions, advertising, and refunds.
 - **Security & Integrity:** Strict tenant isolation; bounded date range (up to 366 days) and record limits (5,000 rows).
 - **Formula Injection Defense:** CSV export sanitizes every cell beginning with `=`, `+`, `-`, `@`, `\t`, `\r`, or `\n` by prepending `'`, preventing formula execution in spreadsheet applications while preserving valid negative numbers.
 
@@ -85,9 +86,9 @@ All eleven functional domains requested by the client documents have been audite
 - **Rehearsal Safety:** Strictly nonproduction staging rehearsal; no real production database connections or live credential migrations.
 
 ### Domain J: Brand, Legal, Mobile UX & Accessibility
-- **Branding:** Consistent "KT Couriers" naming and logo. Preserved the accomplished delivery van cinematic animation on the homepage without regressions.
-- **Legal Policies:** Published Terms, Privacy, Shipping, and Refund policies formatted with versioning and effective dates.
-- **Mobile & Accessibility:** Verified across 320px, 390px, 768px, and 1440px viewports; 200% zoom compatibility; full keyboard navigation.
+- **Branding:** Consistent "KT Couriers" naming and logo. Preserved the accomplished delivery van cinematic animation on the homepage without regressions (`components/public-v2/home/*`).
+- **Legal Policies:** Published Terms, Privacy, Shipping, and Refund policies formatted with versioning and effective dates (`components/public-v2/legal/PublishedPolicyPage.tsx`).
+- **Mobile & Accessibility:** Verified across 320px, 390px, 768px, and 1440px viewports; full keyboard navigation. Note: `home-cinematic-regression.spec.ts` is explicitly deferred in `docs/production-closure/TEST_DEFERRALS.md` as non-blocking visual regression.
 
 ### Domain K: Commercial Growth & Production Locks
 - **Promoter / KT50 / Subscriptions:** Subsystems preserved under fail-closed production gates (`CONSOLIDATED_VALIDATION_NOT_APPROVED`, `PROMOTER_COMMERCIAL_LOCKED`).
@@ -100,3 +101,4 @@ All eleven functional domains requested by the client documents have been audite
 - **Prisma & PostgreSQL:** 78 active incremental migrations verified safe. Zero destructive schema alterations.
 - **Exact Money Accounting:** All monetary values handled via `Prisma.Decimal` or exact cents; zero floating-point arithmetic.
 - **Phase 1 Protected Boundary:** Zero files modified within Phase 1 financial, ledger, webhook, or checkout finalization modules.
+- **Defect Tracking:** All open blockers cataloged with responsible owners in `docs/phase2-parallel/REMAINING_DEFECTS.md`.

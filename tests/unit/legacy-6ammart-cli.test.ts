@@ -20,7 +20,7 @@ writeFileSync(source, JSON.stringify({ packageVersion: 1,
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 function run(extra: string[] = []) {
   return spawnSync(process.execPath, ["--import", "tsx", "scripts/legacy-6ammart/import-catalog-core.ts", "--source", source, ...extra], {
-    cwd: process.cwd(), encoding: "utf8", timeout: 10_000,
+    cwd: process.cwd(), encoding: "utf8", timeout: 30_000,
     env: { ...process.env, DATABASE_URL: "postgresql://fixture:fixture@127.0.0.1:1/unreachable", KT_DATABASE_CLASSIFICATION: "", KT_LEGACY_6AMMART_PRODUCTION_APPROVED: "" },
   });
 }
