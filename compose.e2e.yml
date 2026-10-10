@@ -14,6 +14,8 @@ services:
     ports: !reset []
     command: ["node", "scripts/e2e-standalone-app.mjs"]
     environment:
+      # Never inherit a host/live Redis URL from a local Compose env file.
+      REDIS_URL: redis://redis:6379/0
       KT_E2E_PAYSTACK_ACCEPTANCE: "true"
       APP_URL: ${APP_URL}
       KT_LOCAL_FULL_FLOW: "false"

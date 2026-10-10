@@ -8,6 +8,19 @@ import { completeSyntheticStoreHandoff } from "./store-handoff";
 import { assertDisposablePaystackAcceptance } from "../../../lib/testing/disposable-paystack-policy";
 
 const execute = promisify(execFile);
+async function assertViewportWidth(page: Page) {
+  const bounds = await page.evaluate(() => {
+    const viewport = innerWidth, width = document.documentElement.scrollWidth;
+    return { viewport, width, fonts: document.fonts.status, fits: width <= viewport + 1,
+      overflow: width <= viewport + 1 ? [] : [...document.querySelectorAll("body *")].flatMap(element => {
+        const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && rect.right > viewport + 1 && style.display !== "none" && style.visibility !== "hidden"
+          ? [{ tag: element.tagName, class: element.className, right: rect.right, width: rect.width, text: element.textContent?.trim().slice(0, 80) }] : [];
+      }).slice(0, 20) };
+  });
+  if (!bounds.fits) await page.screenshot({ path: "output/production-closure/canonical-driver-viewport-failure.png", fullPage: true });
+  expect(bounds.fits, `Canonical viewport bounds: ${JSON.stringify(bounds)}`).toBe(true);
+}
 export type DeliverySnapshot = { evidenceClass: string; order: { id: string; status: string }; assignment: { id: string; version: number; status: string }; syntheticDestination: { latitude: string | null; longitude: string | null }; pod: { id: string; method: string; evidenceReference: string } | null; proof: Array<{ publicReference: string; usedAt: string | null; privateVisibility: boolean; status: string }>; commands: Array<{ operationId: string; type: string }>; attempts: Array<{ attemptNumber: number; retryable: boolean }>; locations: number; otps: Array<{ consumed: boolean; attempts: number }>; redeliveries: Array<{ status: string; publicReference: string }> };
 export async function deliveryControl(reference: string, action = "snapshot") {
   assertDisposablePaystackAcceptance();
@@ -65,7 +78,7 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   expect(chatConflict.status()).toBe(409);
   await page.reload();
   await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await assertViewportWidth(page);
   await captureChat?.("customer");
   await login(page, `e2e-handoff-driver-${suffix}@ktcouriers.local`);
   await page.goto(`/driver/assignments/${baseline.assignment.id}`);
@@ -78,7 +91,7 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   await page.reload();
   await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
   await expect(page.getByText(driverMessage, { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await assertViewportWidth(page);
   await captureChat?.("driver");
   const chatHistory = await page.request.get(messagesPath); expect(chatHistory.status()).toBe(200);
   expect((await chatHistory.json()).messages).toEqual([

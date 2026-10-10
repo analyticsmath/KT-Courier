@@ -356,12 +356,12 @@ export async function decideStoreOrderSubstitution(input: Readonly<{ storeOrderR
  * adjustment. It never silently substitutes an item. */
 export async function expireStoreOrderSubstitutions(input: Readonly<{ now?: Date; operationIdFactory: (proposalReference: string) => string; testApproval?: TestApproval }>) {
   assertStoreOrderProductionReady("SUBSTITUTION", input.testApproval);
-  const proposals = await model(db, "marketplaceStoreOrderSubstitutionProposal").findMany({ where: { status: "PROPOSED", expiresAt: { lte: input.now ?? new Date() } }, select: { publicReference: true, marketplaceStoreOrder: { select: { publicReference: true } } } });
+  const proposals = await prisma.marketplaceStoreOrderSubstitutionProposal.findMany({ where: { status: "PROPOSED", expiresAt: { lte: input.now ?? new Date() } }, select: { publicReference: true, storeOrder: { select: { publicReference: true } } } });
   return Promise.all(proposals.map(async (candidate) => {
     const operationId = input.operationIdFactory(candidate.publicReference);
     const hash = requestHash("substitution-expiry", { proposal: candidate.publicReference, operationId });
     return transaction(async (tx) => {
-      const order = await lockOrder(tx, candidate.marketplaceStoreOrder.publicReference);
+      const order = await lockOrder(tx, candidate.storeOrder.publicReference);
       const prior = await replay(tx, order.id, operationId, hash); if (prior) return prior;
       const proposal = await model(tx, "marketplaceStoreOrderSubstitutionProposal").findUnique({ where: { publicReference: candidate.publicReference }, include: { reservation: true, issue: true, lineFulfilment: true } });
       if (!proposal || proposal.status !== "PROPOSED" || proposal.expiresAt > (input.now ?? new Date())) return { proposalReference: candidate.publicReference, skipped: true, replayed: false };

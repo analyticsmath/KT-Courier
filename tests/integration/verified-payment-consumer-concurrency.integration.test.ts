@@ -7,6 +7,7 @@ import { ingestPaystackWebhook, applyPaystackWebhookEventsBatch } from "@/lib/se
 import type { PaystackClient } from "@/lib/payments/providers/paystack/paystack-client";
 import { consumeVerifiedPaymentEvent, createPrismaVerifiedPaymentEventRepository, type VerifiedPaymentEvent } from "@/lib/payments/verified-payment-event-processor.service";
 import { createPrismaMarketplaceFinalizationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-finalization.repository";
+import { createPrismaMarketplaceSettlementRepository } from "@/lib/marketplace-checkout/prisma-marketplace-settlement.repository";
 
 describe("verified consumer PostgreSQL claim authority", () => {
   beforeAll(async () => {
@@ -95,29 +96,31 @@ describe("verified consumer PostgreSQL claim authority", () => {
     expect(await prisma.paymentVerifiedEventConsumerReceipt.count({ where: { eventIntentId: event.id } })).toBe(0);
   }, 30000);
 
-  it("keeps a reused marketplace adapter on two distinct real PostgreSQL transactions", async () => {
-    let arrivals = 0;
-    let release!: () => void;
-    const barrier = new Promise<void>(resolve => { release = resolve; });
-    const identities: bigint[] = [];
-    const database = {
-      $transaction: <T>(work: (tx: Prisma.TransactionClient) => Promise<T>, options: { isolationLevel: Prisma.TransactionIsolationLevel }) => prisma.$transaction(tx => work(new Proxy(tx, { get(target, key) {
-        if (key !== "$queryRaw") return Reflect.get(target, key);
-        return async (query: Prisma.Sql) => {
-          const rows = await tx.$queryRaw<{ id: bigint }[]>`SELECT txid_current() AS id`;
-          identities.push(rows[0].id);
-          return tx.$queryRaw(query);
-        };
-      } })), options),
-    };
-    const repository = createPrismaMarketplaceFinalizationRepository(database);
-    await Promise.all(Array.from({ length: 2 }, () => repository.transaction(async () => {
-      if (++arrivals === 2) release();
-      await barrier;
-      expect(await repository.lockVerifiedSuccessfulPayment(randomUUID())).toBeNull();
-    })));
-    expect(identities).toHaveLength(2);
-    expect(new Set(identities).size).toBe(2);
+  it("keeps reused marketplace adapters on distinct real PostgreSQL transactions", async () => {
+    for (const kind of ["finalization", "settlement"] as const) {
+      let arrivals = 0;
+      let release!: () => void;
+      const barrier = new Promise<void>(resolve => { release = resolve; });
+      const identities: bigint[] = [];
+      const database = {
+        $transaction: <T>(work: (tx: Prisma.TransactionClient) => Promise<T>, options: { isolationLevel: Prisma.TransactionIsolationLevel }) => prisma.$transaction(tx => work(new Proxy(tx, { get(target, key) {
+          if (key !== "$queryRaw") return Reflect.get(target, key);
+          return async (query: Prisma.Sql) => {
+            const rows = await tx.$queryRaw<{ id: bigint }[]>`SELECT txid_current() AS id`;
+            identities.push(rows[0].id);
+            return tx.$queryRaw(query);
+          };
+        } })), options),
+      };
+      const repository = kind === "finalization" ? createPrismaMarketplaceFinalizationRepository(database) : createPrismaMarketplaceSettlementRepository(database);
+      await Promise.all(Array.from({ length: 2 }, () => repository.transaction(async () => {
+        if (++arrivals === 2) release();
+        await barrier;
+        expect(await ("lockVerifiedSuccessfulPayment" in repository ? repository.lockVerifiedSuccessfulPayment(randomUUID()) : repository.lockCanonicalSettlement(randomUUID()))).toBeNull();
+      })));
+      expect(identities).toHaveLength(2);
+      expect(new Set(identities).size).toBe(2);
+    }
   }, 30000);
 
   it("recovers an expired claim and fences the stale worker's completion and reconciliation", async () => {

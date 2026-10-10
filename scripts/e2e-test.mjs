@@ -40,8 +40,13 @@ function buildEnv(port, appPort) {
     SHADOW_POSTGRES_DB: `${database}_shadow`,
     POSTGRES_PORT: String(port),
     APP_PORT: String(appPort),
-    DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}?schema=public`,
-    SHADOW_DATABASE_URL: `postgresql://${database}:${password}@localhost:${port}/${database}_shadow?schema=public`,
+    // Compose publishes IPv4 loopback only. On Windows, localhost's IPv6
+    // connection fallback exceeds Prisma's transaction acquisition deadline.
+    DATABASE_URL: `postgresql://${database}:${password}@127.0.0.1:${port}/${database}?schema=public`,
+    SHADOW_DATABASE_URL: `postgresql://${database}:${password}@127.0.0.1:${port}/${database}_shadow?schema=public`,
+    // Host-side fixtures do not need Redis; keep any inherited live URL out.
+    // The application uses the owned Compose service in compose.e2e.yml.
+    REDIS_URL: "redis://127.0.0.1:1/0",
     NEXT_PUBLIC_APP_URL: `http://localhost:${appPort}`,
     APP_URL: `http://localhost:${appPort}`,
     ALLOWED_ORIGINS: disposableBrowserOrigins(appPort),
@@ -151,6 +156,7 @@ try {
 
   // Prove provider isolation before any browser can submit a payment command.
   // A literal public address avoids treating a DNS outage as isolation proof.
+  assertSuccess(runCompose(["exec", "-T", "app", "node", "-e", "process.exit(process.env.REDIS_URL==='redis://redis:6379/0'?0:1)"], { projectName, env }), "E2E application owned Redis binding");
   assertSuccess(runCompose(["exec", "-T", "app", "node", "-e", "const net=require('node:net'); const s=net.connect({host:'1.1.1.1',port:443}); s.setTimeout(3000); s.once('connect',()=>{s.destroy();process.exit(1)}); s.once('error',()=>process.exit(0)); s.once('timeout',()=>{s.destroy();process.exit(0)});"], { projectName, env }), "E2E application outbound isolation");
 
   const baseUrl = `http://localhost:${currentAppPort}`;
