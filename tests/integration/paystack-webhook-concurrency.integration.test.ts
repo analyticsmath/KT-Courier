@@ -17,7 +17,7 @@ import {
   completeManualWithdrawalPayout,
 } from "@/lib/services/withdrawal-payout.service";
 import { createPayableOrder } from "./payment-fixtures";
-import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from "node:crypto";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const describeReal = hasDatabase ? describe : describe.skip;
@@ -492,10 +492,11 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
     });
 
     const amountSubunits = Math.round(Number(amountStr) * 100);
+    const providerId = randomInt(1, 1_000_000_000_000);
     const rawBody = JSON.stringify({
       event: "charge.success",
       data: {
-        id: Math.floor(Math.random() * 10000000) + 1000000,
+        id: providerId,
         reference: attemptRef,
         status: "success",
         amount: amountSubunits,
@@ -516,7 +517,7 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
           verifyTransaction: async (ref: string) => ({
             status: true,
             message: "Verification successful",
-            data: { id: 12345678, status: "success", reference: ref, amount: amountSubunits, currency: "ZAR" },
+            data: { id: providerId, status: "success", reference: ref, amount: amountSubunits, currency: "ZAR" },
           }),
         } as unknown as PaystackClient,
         secretKey,
@@ -649,10 +650,11 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
       },
     });
 
+    const providerId = randomInt(1, 1_000_000_000_000);
     const rawBody = JSON.stringify({
       event: "charge.success",
       data: {
-        id: Math.floor(Math.random() * 10000000) + 1000000,
+        id: providerId,
         reference: attemptRef,
         status: "success",
         amount: 25000,
@@ -671,7 +673,7 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
       verifyTransaction: async (ref: string) => ({
         status: true,
         message: "Verification successful",
-        data: { id: 12345678, status: "success", reference: ref, amount: 25000, currency: "ZAR" },
+        data: { id: providerId, status: "success", reference: ref, amount: 25000, currency: "ZAR" },
       }),
     } as unknown as PaystackClient;
 
