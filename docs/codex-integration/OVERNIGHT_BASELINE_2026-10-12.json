@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "observedUtc": "2026-10-11T20:13:20Z",
+  "timezone": "Asia/Karachi",
+  "repository": "analyticsmath/KT-Courier",
+  "worktree": "D:/KT-Courier-integration",
+  "branch": "integration/codex-phase1-phase2-2026-10-11",
+  "head": "4b57c36cda111673bad1ea3689a8aafa66a01b03",
+  "tree": "9497eba3a65fd68bfe842eaf3593fd70ac26f61d",
+  "migrationTree": "1d0f1c9e100d2aace8fba5062ea5c0462ab62096",
+  "remoteMain": "83a4d63078efa20d4e234fe081c10e15746387d1",
+  "mainIsAncestor": true,
+  "aheadOfMain": 94,
+  "behindMain": 0,
+  "localChanges": [],
+  "publication": {
+    "status": "BLOCKED_PREVIEW_ISOLATION",
+    "pushed": false,
+    "integratedPullRequest": false,
+    "hostedCertification": "NOT_RUN",
+    "reason": "Linked Vercel project readback omitted previewDeploymentsDisabled and Git branch rules; authenticated REST GET returned 403. Source-level branch exclusion is not independent platform readback."
+  },
+  "vercel": {
+    "projectId": "prj_PoKqf1EUWkvl7Y3nxaTtoYSjQm7r",
+    "projectName": "kt-courier",
+    "productionBranch": "main",
+    "productionSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+    "catchAllExternalRewriteToProductionRailway": true,
+    "previewDeploymentsDisabled": "UNCONFIRMED",
+    "ssoProtection": "all_except_custom_domains",
+    "localBranchDeploymentEnabled": {
+      "integration/codex-phase1-phase2-2026-10-11": false
+    }
+  },
+  "railway": {
+    "projectId": "e9554aaa-1b53-4595-8731-e8c2885ac594",
+    "productionEnvironmentId": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+    "webServiceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+    "workerServiceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+    "webAndWorkerTrackMain": true,
+    "webPredeployRunsPrismaMigrateDeploy": true,
+    "webAndWorkerOnline": true,
+    "stagedPatchId": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+    "stagedPatchStatus": "STAGED",
+    "stagedPatchChanges": 5,
+    "stagedPatchDestructive": true,
+    "wouldDeleteWorker": true,
+    "applied": false
+  },
+  "github": {
+    "pr17": {
+      "state": "OPEN",
+      "draft": true,
+      "head": "9612d8366e54e3492a80c53d63753b0af01a6c47"
+    },
+    "branchProtection": false,
+    "repositoryRulesets": 0,
+    "actionsSecrets": 0,
+    "actionsVariables": 0,
+    "defaultWorkflowToken": "READ_ONLY",
+    "actionsShaPinningRequired": false
+  },
+  "candidateRepair": {
+    "changedFiles": [
+      ".github/workflows/ci.yml",
+      "scripts/production-certification-workflow.test.mjs",
+      "vercel.json"
+    ],
+    "applicationSourceChanged": false,
+    "schemaOrMigrationChanged": false,
+    "ciCheckoutStepsBoundToPullRequestHead": 28,
+    "branchPreviewSuppressionIsPlatformVerified": false
+  },
+  "releaseGates": {
+    "classification": "NOT_READY",
+    "open": 6,
+    "validationBlocked": 3
+  },
+  "prohibitedMutationsPerformed": [],
+  "notes": [
+    "No preview route or production route was requested.",
+    "Codex did not access production data, run migrations, or trigger a provider transaction.",
+    "Current Docker containers were observed only and left untouched.",
+    "October client DOCX source binaries were absent in this checkout; extracted corpus is present."
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "preparedUtc": "2026-10-11T20:24:57Z",
+  "timezone": "Asia/Karachi",
+  "verdicts": {
+    "phase2": "PHASE2_INCOMPLETE",
+    "publication": "PUBLISH_BLOCKED_PREVIEW_ISOLATION",
+    "hostedEvidence": "HOSTED_EVIDENCE_BLOCKED",
+    "main": "MAIN_MERGE_BLOCKED_PRODUCTION_DEPLOYMENT_RISK",
+    "production": "PRODUCTION_NOT_READY"
+  },
+  "candidate": {
+    "branch": "integration/codex-phase1-phase2-2026-10-11",
+    "commit": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe",
+    "tree": "fceeb7d0df67f07af4ff41874fbff76b1553aae2",
+    "migrationTree": "1d0f1c9e100d2aace8fba5062ea5c0462ab62096",
+    "workingTreeClean": true,
+    "applicationSourceChanged": false,
+    "changedPaths": [
+      ".github/workflows/ci.yml",
+      "scripts/production-certification-workflow.test.mjs",
+      "vercel.json"
+    ],
+    "engineeringCommits": [
+      "4b57c36cda111673bad1ea3689a8aafa66a01b03",
+      "2cd712bbe1aa27717dc78ff732f87b9e8360cafe"
+    ],
+    "remotePublished": false
+  },
+  "ancestry": {
+    "remoteMain": "83a4d63078efa20d4e234fe081c10e15746387d1",
+    "mainIsAncestor": true,
+    "aheadOfMain": 95,
+    "behindMain": 0,
+    "phase1ImplementationAncestor": "3655a53e8a595c4c89dbf9891578961dec195292",
+    "phase2BranchAncestor": "3c79fce207800264b78e59a60bfcc4240ede6cc4",
+    "latestPhase1ReportTipIncluded": false,
+    "legacyMigrationBranchUniqueCommits": 5
+  },
+  "localVerification": [
+    {
+      "name": "npm run lint",
+      "status": "PASS",
+      "exitCode": 0,
+      "source": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe"
+    },
+    {
+      "name": "node --test scripts/production-certification-workflow.test.mjs",
+      "status": "PASS",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "source": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe"
+    },
+    {
+      "name": "YAML parse and exact checkout-ref inspection",
+      "status": "PASS",
+      "checkoutsExpected": 28,
+      "checkoutsBoundToPrHead": 28,
+      "source": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe"
+    },
+    {
+      "name": "vercel.json parse and Vercel JSON schema validation",
+      "status": "PASS",
+      "source": "4b57c36cda111673bad1ea3689a8aafa66a01b03",
+      "unchangedInCandidate": true
+    },
+    {
+      "name": "git diff --check",
+      "status": "PASS",
+      "exitCode": 0,
+      "source": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe"
+    },
+    {
+      "name": "Global test deferral inventory",
+      "status": "PASS",
+      "filesWithMarkers": 65,
+      "openCriticalPlaceholders": 0,
+      "releaseGateStatus": "OPEN_PENDING_FINAL_SHA_EXECUTION",
+      "source": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe"
+    }
+  ],
+  "priorApplicationVerification": {
+    "sourceCommit": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+    "sourceTree": "9567d168a78b75b89299784c3b13b82aa27ba522",
+    "migrationTree": "1d0f1c9e100d2aace8fba5062ea5c0462ab62096",
+    "provenance": "Existing local receipts in docs/codex-integration/test-receipts/phase2-final-aa0a3af7; not a full-tree run of the new candidate.",
+    "results": {
+      "directedChromium": "42/42",
+      "fullChromiumSingleProcess": "139/139",
+      "canonicalPostgres": "41/41",
+      "closurePostgres": "178/178",
+      "strictPostgresBola": "10/10",
+      "redis": "7/7",
+      "coverage": "3748/3748",
+      "productionDependencyAudit": "0 vulnerabilities",
+      "fullDevelopmentAudit": "5 high reports; braces 3.0.3 transitive developer-tool chain"
+    }
+  },
+  "hostedVerification": {
+    "candidateRuns": [],
+    "pullRequestCreatedOrUpdated": false,
+    "reason": "Mandatory Vercel preview isolation could not be independently read back before publication."
+  },
+  "releaseGates": {
+    "manifestClassification": "NOT_READY",
+    "open": 6,
+    "validationBlocked": 3
+  },
+  "platform": {
+    "vercelProjectId": "prj_PoKqf1EUWkvl7Y3nxaTtoYSjQm7r",
+    "previewDeploymentsDisabled": "UNCONFIRMED",
+    "branchSpecificSourceSuppressionAdded": true,
+    "branchSpecificSuppressionReadBackFromProject": false,
+    "railwayStagedPatch": {
+      "id": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+      "status": "STAGED",
+      "destructive": true,
+      "applied": false,
+      "createsCredentialDiagnostic": true,
+      "deletesOperationsWorker": true
+    },
+    "railwayProductionWebAndWorkerOnline": true,
+    "productionSource": "main"
+  },
+  "actionsNotPerformed": [
+    "No Git push, pull request creation/update, or hosted workflow trigger",
+    "No main merge or push",
+    "No Vercel preview setting mutation or preview route request",
+    "No Railway patch apply/discard/accept",
+    "No production data access, database migration, provider transaction, customer communication, or service interruption",
+    "No remote branch deletion"
+  ]
+}

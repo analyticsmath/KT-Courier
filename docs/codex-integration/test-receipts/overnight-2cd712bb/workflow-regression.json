@@ -1,0 +1,24 @@
+{
+  "command": "node --test scripts/production-certification-workflow.test.mjs",
+  "workingDirectory": "D:/KT-Courier-integration",
+  "sourceCommit": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe",
+  "sourceTree": "fceeb7d0df67f07af4ff41874fbff76b1553aae2",
+  "capturedAtUtc": "2026-10-11T20:24:57Z",
+  "timestampPrecision": "capture time after completion; exact process start not recorded",
+  "exitCode": 0,
+  "status": "PASS",
+  "tests": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "assertions": [
+    "production-certification PR triggers and exact-source checkout",
+    "production-certification isolated component job boundaries",
+    "finance and browser selection preservation",
+    "every CI checkout step binds to the PR head with read-only token and offline provider settings",
+    "integration branch Vercel deployment suppression source rule"
+  ],
+  "stdoutFile": "workflow-regression.stdout.txt"
+}

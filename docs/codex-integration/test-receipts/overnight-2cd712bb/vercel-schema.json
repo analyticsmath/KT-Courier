@@ -1,0 +1,11 @@
+{
+  "command": "Parse vercel.json and validate against https://openapi.vercel.sh/vercel.json with Ajv Draft-04 support",
+  "sourceCommitAtExecution": "4b57c36cda111673bad1ea3689a8aafa66a01b03",
+  "candidateCommit": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe",
+  "candidateTree": "fceeb7d0df67f07af4ff41874fbff76b1553aae2",
+  "configUnchangedAfterValidation": true,
+  "executionDateLocal": "2026-10-12",
+  "status": "PASS",
+  "exitCode": 0,
+  "result": "Valid JSON; conforms to the retrieved Vercel vercel.json Draft-04 schema."
+}
