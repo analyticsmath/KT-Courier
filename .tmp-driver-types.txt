@@ -1,0 +1,2 @@
+lib/store-orders/financial-adjustment-composition.ts(6,47): error TS2305: Module '"@/lib/services/refund-request.service"' has no exported member 'RefundRequestDependencies'.
+tests/client-platform/profile-avatar-retirement.test.ts(2,32): error TS2305: Module '"@/lib/client-platform/profile-avatar.service"' has no exported member 'retireUnassociatedProfileAvatar'.
