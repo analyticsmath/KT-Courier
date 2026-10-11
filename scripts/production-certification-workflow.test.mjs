@@ -5,6 +5,9 @@ import yaml from "js-yaml";
 
 const source = readFileSync(new URL("../.github/workflows/production-certification.yml", import.meta.url), "utf8");
 const workflow = yaml.load(source);
+const ciSource = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+const ciWorkflow = yaml.load(ciSource);
+const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
 
 test("every main PR update is eligible, with dispatch and approved release tags preserved", () => {
   assert.deepEqual(workflow.on.pull_request.branches, ["main"]);
@@ -43,4 +46,22 @@ test("finance targets use a separate disposable invocation before the unchanged 
   assert.match(steps[focused].run, /test-e2e-finance-focused\.json/);
   const planSource = readFileSync(new URL("./phase1-browser-plan.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(planSource, /withdrawal-finance-admin\.spec\.ts/);
+});
+
+test("CI tests the pull request head with read-only credentials and offline providers", () => {
+  assert.equal(ciWorkflow.env.KT_CERTIFICATION_HEAD_SHA, "${{ github.event.pull_request.head.sha || github.sha }}");
+  for (const [name, job] of Object.entries(ciWorkflow.jobs)) {
+    const checkout = job.steps.find(step => step.uses === "actions/checkout@v4");
+    assert.equal(checkout?.with?.ref, "${{ env.KT_CERTIFICATION_HEAD_SHA }}", name);
+  }
+  assert.deepEqual(ciWorkflow.permissions, { contents: "read" });
+  assert.equal(ciWorkflow.env.KT_NETWORK_DISABLED, "true");
+  assert.equal(ciWorkflow.env.EMAIL_PROVIDER, "console");
+  assert.equal(ciWorkflow.env.PAYSTACK_ACTIVE, "false");
+  assert.doesNotMatch(ciSource, /secrets\./);
+});
+
+test("Vercel source config suppresses the integrated branch and leaves main unmatched", () => {
+  const branch = "integration/codex-phase1-phase2-2026-10-11";
+  assert.deepEqual(vercelConfig.git?.deploymentEnabled, { [branch]: false });
 });

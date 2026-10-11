@@ -8,7 +8,14 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 env:
+  KT_CERTIFICATION_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  KT_NETWORK_DISABLED: 'true'
+  EMAIL_PROVIDER: console
+  PAYSTACK_ACTIVE: 'false'
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kt_courier_ci?schema=public
   NEXT_PUBLIC_APP_URL: http://localhost:3000
 
@@ -36,6 +43,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,6 +53,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify exact-source CI and Vercel deployment controls
+        run: node --test scripts/production-certification-workflow.test.mjs
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high --fetch-retries=2 --fetch-timeout=30000
@@ -92,6 +103,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -120,6 +132,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -137,6 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -148,6 +162,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -159,6 +174,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -176,6 +192,7 @@ jobs:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -212,6 +229,7 @@ jobs:
       DIRECT_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -256,6 +274,7 @@ jobs:
       DIRECT_URL: postgresql://kt_courier_test:test_password@localhost:5432/kt_courier_test?schema=public
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -275,6 +294,7 @@ jobs:
       KT_SMOKE_PROJECT_NAME: kt-couriers-payment-ci-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -290,6 +310,7 @@ jobs:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -307,6 +328,7 @@ jobs:
       KT_SMOKE_PROJECT_NAME: kt-couriers-payfast-ci-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -328,6 +350,7 @@ jobs:
       PAYMENT_APP_ORIGIN: https://payfast-e2e.example.test
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -345,6 +368,7 @@ jobs:
       KT_SMOKE_PROJECT_NAME: kt-couriers-payfast-confirmation-ci-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -369,6 +393,7 @@ jobs:
       KT_PAYFAST_TEST_DEPENDENCIES: deterministic-injected
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -386,6 +411,7 @@ jobs:
       KT_WITHDRAWAL_INTEGRATION_APPROVED: "true"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -403,6 +429,7 @@ jobs:
       KT_E2E_RATE_LIMIT_MODE: relaxed
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -420,6 +447,7 @@ jobs:
       KT_REFUND_INTEGRATION_APPROVED: "true"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -437,6 +465,7 @@ jobs:
       KT_E2E_RATE_LIMIT_MODE: relaxed
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -456,6 +485,7 @@ jobs:
       NO_PROXY: "*"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -475,6 +505,7 @@ jobs:
       NO_PROXY: "*"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -494,6 +525,7 @@ jobs:
       NO_PROXY: "*"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -513,6 +545,7 @@ jobs:
       NO_PROXY: "*"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -528,6 +561,7 @@ jobs:
       KT_SMOKE_PROJECT_NAME: kt-couriers-ci-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -542,6 +576,7 @@ jobs:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -560,6 +595,7 @@ jobs:
       NO_PROXY: "*"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -577,6 +613,7 @@ jobs:
       NO_PROXY: "*"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -595,6 +632,7 @@ jobs:
       NO_PROXY: "*"
     steps:
       - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
