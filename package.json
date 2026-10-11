@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && node scripts/build-next.mjs",
+    "build:e2e-host": "node scripts/build-e2e-standalone-image.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",

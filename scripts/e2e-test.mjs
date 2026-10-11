@@ -5,7 +5,7 @@ import process from "node:process";
 import { disposableBrowserOrigins } from "./e2e-environment.mjs";
 import { runPhase1BrowserPlan } from "./phase1-browser-plan.mjs";
 import { certificationEnvironmentProfile } from "./certification-output.mjs";
-import { disposableProviderEnvironment, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { disposableProviderEnvironment, e2eHostStandaloneImageName, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 import {
   assertSuccess,
   findAvailableLoopbackPort,
@@ -24,6 +24,7 @@ const projectName = `kt-couriers-e2e-${nonce}`;
 const database = "kt_phase75_e2e";
 const password = "phase75_e2e_disposable_only";
 const e2eImages = e2eImageNames(nonce);
+const usesHostStandaloneImage = Boolean(process.env.KT_E2E_PREBUILT_APP_IMAGE);
 const harnessStartedAt = Date.now();
 const playwrightArgs = process.argv.slice(2);
 const phase1Acceptance = playwrightArgs.includes("--phase1-catalog");
@@ -80,6 +81,19 @@ function buildEnv(port, appPort) {
   };
 }
 
+function prepareHostStandaloneImage() {
+  const sourceSha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim();
+  const expectedImage = e2eHostStandaloneImageName(sourceSha);
+  if (process.env.KT_E2E_PREBUILT_APP_IMAGE !== expectedImage) {
+    throw new Error("Prebuilt E2E app image name must be bound to the exact current source SHA.");
+  }
+  const imageSha = runDocker(["image", "inspect", "--format", "{{ index .Config.Labels \"org.ktcouriers.e2e.source-sha\" }}", expectedImage]);
+  if (imageSha.status !== 0 || imageSha.stdout.trim() !== sourceSha) {
+    throw new Error("Prebuilt E2E app image is missing or its source SHA label does not match this checkout.");
+  }
+  assertSuccess(runDocker(["tag", expectedImage, e2eImages.appImage]), "E2E host standalone run-specific image tag");
+}
+
 function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv) {
   const endedAtMs = Date.now();
   const sourceSha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim() ?? null;
@@ -111,6 +125,7 @@ function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv
       emailProvider: "console",
       networkDisabled: true,
       appImage: e2eImages.appImage,
+      appImageBuildMode: usesHostStandaloneImage ? "source-labeled-host-standalone" : "docker-production-build",
       migrateImage: e2eImages.migrateImage,
     },
     status: result.status === 0 ? "PASS" : result.error?.code === "ETIMEDOUT" ? "TIMEOUT_INCOMPLETE" : "FAIL",
@@ -150,7 +165,11 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
 
     // STRICT FATAL GATE: images build must succeed sequentially to avoid concurrent BuildKit memory exhaustion
     assertSuccess(runCompose(["build", "migrate"], { projectName, env }), "E2E migrate build");
-    assertSuccess(runCompose(["build", "app"], { projectName, env }), "E2E application build");
+    if (usesHostStandaloneImage) {
+      prepareHostStandaloneImage();
+    } else {
+      assertSuccess(runCompose(["build", "app"], { projectName, env }), "E2E application build");
+    }
 
     const dbUp = runCompose(["up", "-d", "db"], { projectName, env });
     if (dbUp.status !== 0) {
@@ -286,6 +305,7 @@ writeFileSync(harnessReceiptPath, JSON.stringify({
     emailProvider: "console",
     networkDisabled: true,
     appImage: e2eImages.appImage,
+    appImageBuildMode: usesHostStandaloneImage ? "source-labeled-host-standalone" : "docker-production-build",
     migrateImage: e2eImages.migrateImage,
   },
   stageReportPath: phase1Acceptance ? path.resolve("output/production-closure/phase1-browser-stages.json") : phase2Canonical ? path.resolve("output/production-closure/phase2-canonical-vitest.json") : null,

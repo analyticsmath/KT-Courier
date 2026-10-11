@@ -46,6 +46,13 @@ export function disposableProviderEnvironment(env = {}) {
   };
 }
 
+export function e2eHostStandaloneImageName(sourceSha) {
+  if (typeof sourceSha !== "string" || !/^[a-f0-9]{40}$/.test(sourceSha)) {
+    throw new Error("Host-built E2E image requires an exact source commit SHA.");
+  }
+  return `kt-couriers-e2e-host-app:${sourceSha}`;
+}
+
 function normalizedSpecPaths(args) {
   return args
     .map((argument) => argument.replaceAll("\\", "/"))

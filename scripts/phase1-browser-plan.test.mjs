@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { phase1BrowserPlan, browserStagePassed, discoveredBrowserTests } from "./phase1-browser-plan.mjs";
 import { readFileSync } from "node:fs";
-import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eHostStandaloneImageName, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 
 test("required native selections precede the full suite and retain failure artifacts separately", () => {
   const plan = phase1BrowserPlan(93);
@@ -56,6 +56,12 @@ test("disposable E2E environments replace or remove inherited payment and email 
   assert.equal(env.PAYFAST_MERCHANT_KEY, "");
   assert.equal(env.PAYFAST_PASSPHRASE, "");
   assert.equal(env.RESEND_API_KEY, "");
+});
+
+test("host standalone app image names are bound to exact commit SHAs", () => {
+  const sha = "a".repeat(40);
+  assert.equal(e2eHostStandaloneImageName(sha), `kt-couriers-e2e-host-app:${sha}`);
+  for (const invalid of [undefined, "latest", "abc", "A".repeat(40)]) assert.throws(() => e2eHostStandaloneImageName(invalid), /exact source commit SHA/);
 });
 
 test("full execution count comes from actual recursive project discovery", () => {

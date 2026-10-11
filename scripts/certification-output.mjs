@@ -90,7 +90,7 @@ export function certificationEnvironmentProfile(env = process.env, command = "")
   }
 
   return {
-    commandIsolation: command === "test:e2e" ? "disposable-compose-runner" : "command-specific",
+    commandIsolation: command === "test:e2e" ? "disposable-compose-runner" : command === "build:e2e-host" ? "sanitized-host-standalone-image-build" : "command-specific",
     nodeEnvironment: ["development", "test", "production"].includes(env.NODE_ENV) ? env.NODE_ENV : "unset-or-other",
     runtimeEnvironment: ["development", "test", "e2e", "production"].includes(env.KT_RUNTIME_ENV) ? env.KT_RUNTIME_ENV : "unset-or-other",
     networkDisabled: env.KT_NETWORK_DISABLED === "true",

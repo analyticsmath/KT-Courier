@@ -4,7 +4,7 @@ import path from "node:path";
 import { sanitize } from "./docker-common.mjs";
 import { certificationEnvironmentProfile, certificationTestCounts, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
 const command = process.argv[2];
-if (!/^(test:(coverage|payments|refunds|security:bola|processors|e2e|integration:[a-z-]+)|docker:(migration-smoke|gate4))$/.test(command ?? "")) throw new Error("Unsupported certification command.");
+if (!/^(build:e2e-host|test:(coverage|payments|refunds|security:bola|processors|e2e|integration:[a-z-]+)|docker:(migration-smoke|gate4))$/.test(command ?? "")) throw new Error("Unsupported certification command.");
 const commitSha = verifyCertificationHead(spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim(), process.env.KT_CERTIFICATION_HEAD_SHA);
 const sourceTreeSha = spawnSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).stdout?.trim();
 const started = Date.now();
