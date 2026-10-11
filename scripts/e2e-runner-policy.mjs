@@ -34,6 +34,18 @@ export function e2eImageNames(runId) {
   };
 }
 
+export function disposableProviderEnvironment(env = {}) {
+  return {
+    ...env,
+    PAYSTACK_SECRET_KEY: "sk_test_disposable_browser_no_provider",
+    PAYSTACK_PUBLIC_KEY: "pk_test_disposable_browser_no_provider",
+    PAYFAST_MERCHANT_ID: "",
+    PAYFAST_MERCHANT_KEY: "",
+    PAYFAST_PASSPHRASE: "",
+    RESEND_API_KEY: "",
+  };
+}
+
 function normalizedSpecPaths(args) {
   return args
     .map((argument) => argument.replaceAll("\\", "/"))

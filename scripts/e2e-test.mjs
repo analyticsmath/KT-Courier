@@ -5,7 +5,7 @@ import process from "node:process";
 import { disposableBrowserOrigins } from "./e2e-environment.mjs";
 import { runPhase1BrowserPlan } from "./phase1-browser-plan.mjs";
 import { certificationEnvironmentProfile } from "./certification-output.mjs";
-import { e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { disposableProviderEnvironment, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 import {
   assertSuccess,
   findAvailableLoopbackPort,
@@ -37,7 +37,7 @@ function runCompose(args, options) {
 
 function buildEnv(port, appPort) {
   return {
-    ...process.env,
+    ...disposableProviderEnvironment(process.env),
     POSTGRES_DB: database,
     POSTGRES_USER: database,
     POSTGRES_PASSWORD: password,
@@ -58,7 +58,6 @@ function buildEnv(port, appPort) {
     // Non-secret test configuration allows pre-payment browser commands. The
     // isolated network prevents provider access; no payment success is invented.
     PAYSTACK_MODE: "test",
-    PAYSTACK_SECRET_KEY: "sk_test_disposable_browser_no_provider",
     PAYMENT_APP_ORIGIN: `http://localhost:${appPort}`,
     KT_E2E_NETWORK_INTERNAL: "true",
     KT_E2E_PAYSTACK_ACCEPTANCE: "true",

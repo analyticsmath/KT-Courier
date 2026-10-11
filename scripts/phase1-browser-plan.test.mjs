@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { phase1BrowserPlan, browserStagePassed, discoveredBrowserTests } from "./phase1-browser-plan.mjs";
 import { readFileSync } from "node:fs";
-import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_SPECS, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 
 test("required native selections precede the full suite and retain failure artifacts separately", () => {
   const plan = phase1BrowserPlan(93);
@@ -38,6 +38,24 @@ test("disposable E2E image tags are unique and never use shared latest tags", ()
   assert.notDeepEqual(first, second);
   assert.ok(Object.values(first).every((tag) => !tag.endsWith(":latest")));
   assert.throws(() => e2eImageNames("UpperCase"));
+});
+
+test("disposable E2E environments replace or remove inherited payment and email credentials", () => {
+  const env = disposableProviderEnvironment({
+    PAYSTACK_SECRET_KEY: "production-paystack-secret",
+    PAYSTACK_PUBLIC_KEY: "pk_live_real",
+    PAYFAST_MERCHANT_ID: "live-merchant",
+    PAYFAST_MERCHANT_KEY: "live-secret",
+    PAYFAST_PASSPHRASE: "live-passphrase",
+    RESEND_API_KEY: "re_live_secret",
+  });
+
+  assert.equal(env.PAYSTACK_SECRET_KEY, "sk_test_disposable_browser_no_provider");
+  assert.equal(env.PAYSTACK_PUBLIC_KEY, "pk_test_disposable_browser_no_provider");
+  assert.equal(env.PAYFAST_MERCHANT_ID, "");
+  assert.equal(env.PAYFAST_MERCHANT_KEY, "");
+  assert.equal(env.PAYFAST_PASSPHRASE, "");
+  assert.equal(env.RESEND_API_KEY, "");
 });
 
 test("full execution count comes from actual recursive project discovery", () => {
