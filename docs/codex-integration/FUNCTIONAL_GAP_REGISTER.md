@@ -1,3 +1,4 @@
+> **Historical snapshot:** This document was prepared against the 6eed666 integration evidence baseline. The final exact-source results, corrected browser status and current handoff are in [PHASE_2_FINAL_CLOSURE.md](PHASE_2_FINAL_CLOSURE.md).
 # Functional gaps and blockers
 
 This register replaces the Phase 2 handoff's owner/status labels where Phase 1 evidence supersedes them. `6eed666775a30db5e7e4a70208c418072b76053b` is the tested integration source commit. No application, schema or migration code changed in the merge; no runtime feature was represented as newly built. DB-free, disposable persistence, recovery, and selected browser layers now have exact-SHA local evidence; hosted CI and human/external acceptance remain incomplete. See `INTEGRATED_TEST_EVIDENCE.md` for counts and limits.

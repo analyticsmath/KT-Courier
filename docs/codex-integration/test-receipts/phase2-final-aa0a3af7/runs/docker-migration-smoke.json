@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "command": "docker:migration-smoke",
+  "arguments": [],
+  "fullCommand": "npm run docker:migration-smoke",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T18:26:08.744Z",
+  "endedAt": "2026-10-11T18:27:50.152Z",
+  "durationMs": 101408,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": null,
+  "testsExpected": null,
+  "testsExecuted": null,
+  "testsPassed": null,
+  "testsFailed": null,
+  "testsSkipped": null,
+  "testsFlaky": null,
+  "playwrightProgress": null,
+  "executions": [],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": false,
+    "databaseHostClass": "unset",
+    "emailProvider": "unset-or-other",
+    "paystackMode": "unset-or-other"
+  },
+  "stdoutPath": "output\\production-closure\\command-receipts\\docker-migration-smoke-1791743168744-9748.log",
+  "status": "PASS",
+  "receiptPath": "output\\production-closure\\command-receipts\\docker-migration-smoke-1791743168744-9748.json"
+}

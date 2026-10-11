@@ -1,0 +1,27 @@
+{
+  "sourceSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+  "evidenceType": "historical report summary; original directed timeout process JSON is unavailable in this checkout",
+  "attempts": [
+    {
+      "selection": "exact dedicated 18-file directed Chromium selection",
+      "status": "TIMED_OUT",
+      "timeoutMs": 900000,
+      "reportedPasses": 24,
+      "expected": 42,
+      "completed": false,
+      "finalCounts": null,
+      "classification": "incomplete; not a pass"
+    },
+    {
+      "selection": "unchanged seven-stage plan full Chromium process",
+      "status": "TIMED_OUT",
+      "timeoutMs": 1200000,
+      "reportedPasses": 84,
+      "expected": 139,
+      "completed": false,
+      "finalCounts": null,
+      "classification": "incomplete; not a pass",
+      "supportingHistoricalReceipt": "docs/codex-integration/test-receipts/phase1-browser-stages.json"
+    }
+  ]
+}

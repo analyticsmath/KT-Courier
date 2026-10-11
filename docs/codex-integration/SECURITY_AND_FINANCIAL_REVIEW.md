@@ -1,3 +1,4 @@
+> **Historical snapshot:** This document was prepared against the 6eed666 integration evidence baseline. The final exact-source results, corrected browser status and current handoff are in [PHASE_2_FINAL_CLOSURE.md](PHASE_2_FINAL_CLOSURE.md).
 # Security and financial review
 
 ## Authorization and tenant boundaries

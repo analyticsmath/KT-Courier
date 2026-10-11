@@ -1,0 +1,1823 @@
+{
+  "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "selection": "single full Chromium process, retries=0, workers=1",
+  "stats": {
+    "startTime": "2026-10-11T16:40:16.074Z",
+    "duration": 2360873.437,
+    "expected": 139,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "tests": [
+    {
+      "file": "anonymous-courier-quote.spec.ts",
+      "title": "anonymous canonical courier quote, private ownership and signed-in booking at 1440px",
+      "line": 4,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7874,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "anonymous-courier-quote.spec.ts",
+      "title": "anonymous canonical courier quote, private ownership and signed-in booking at 390px",
+      "line": 4,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7257,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "business-employee-access.spec.ts",
+      "title": "owner manages a products-only employee through invitation and access lifecycle at 1440px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 22627,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "business-employee-access.spec.ts",
+      "title": "owner manages a products-only employee through invitation and access lifecycle at 390px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 19174,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "catalog-administration.spec.ts",
+      "title": "catalog moderation preserves history and replays uncertain native actions at 1440px",
+      "line": 35,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 21566,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "catalog-administration.spec.ts",
+      "title": "catalog moderation preserves history and replays uncertain native actions at 390px",
+      "line": 35,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17157,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "catalog-inventory-upload.spec.ts",
+      "title": "native vendor CSV stock receipt with scoped preview and replay at 1440px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 10307,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "catalog-inventory-upload.spec.ts",
+      "title": "native vendor CSV stock receipt with scoped preview and replay at 390px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5603,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "cod-custody-remittance.spec.ts",
+      "title": "native synthetic COD deposit, custody and independent remittance at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17452,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "cod-custody-remittance.spec.ts",
+      "title": "native synthetic COD deposit, custody and independent remittance at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 13274,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "commission-finance-admin.spec.ts",
+      "title": "authors a store-specific draft from an explicit rate without approving it",
+      "line": 10,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3708,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "commission-finance-admin.spec.ts",
+      "title": "persists a draft, rejects stale changes/self-approval, previews without accrual, and denies customer administration",
+      "line": 28,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7473,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "customer-identity-lifecycle.spec.ts",
+      "title": "native customer verification, owned addresses and password reset revocation at 1440px",
+      "line": 14,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17350,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "customer-identity-lifecycle.spec.ts",
+      "title": "native customer verification, owned addresses and password reset revocation at 390px",
+      "line": 14,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17512,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "customer-wallet-refunds.spec.ts",
+      "title": "owned wallet refund reserves and cancels exact funds with safe history at 1440px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 50936,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "customer-wallet-refunds.spec.ts",
+      "title": "owned wallet refund reserves and cancels exact funds with safe history at 390px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 47555,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-canonical-delivery.spec.ts",
+      "title": "canonical assigned driver delivery, retry, private POD and synthetic location at 1440px",
+      "line": 4,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 128573,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-canonical-delivery.spec.ts",
+      "title": "canonical assigned driver delivery, retry, private POD and synthetic location at 390px",
+      "line": 4,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 114229,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-documents.spec.ts",
+      "title": "driver uploads private licence evidence, replaces it and rejects foreign access at 1440px",
+      "line": 11,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 10515,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-documents.spec.ts",
+      "title": "driver uploads private licence evidence, replaces it and rejects foreign access at 390px",
+      "line": 11,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 11644,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-earnings-finance-admin.spec.ts",
+      "title": "finance inspects canonical driver evidence and reversal stays locked at 1440px",
+      "line": 10,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7186,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-earnings-finance-admin.spec.ts",
+      "title": "finance inspects canonical driver evidence and reversal stays locked at 390px",
+      "line": 10,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 6406,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-earnings-finance-admin.spec.ts",
+      "title": "driver finance endpoints deny wrong roles, explicit DENY and anonymous access",
+      "line": 92,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 8340,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-earnings.spec.ts",
+      "title": "driver reads exact accrual/release history and rejects foreign earnings at 1440px",
+      "line": 14,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5907,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-earnings.spec.ts",
+      "title": "driver reads exact accrual/release history and rejects foreign earnings at 390px",
+      "line": 14,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5934,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-earnings.spec.ts",
+      "title": "driver financial reads deny inactive eligibility, wrong roles and anonymous requests",
+      "line": 51,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 8412,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-profile-onboarding.spec.ts",
+      "title": "driver contact editing and pending onboarding persist at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 6123,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-profile-onboarding.spec.ts",
+      "title": "driver contact editing and pending onboarding persist at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5360,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "driver-profile-onboarding.spec.ts",
+      "title": "non-drivers cannot read or mutate driver identity, including forged foreign IDs",
+      "line": 67,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3908,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "ledger-admin.spec.ts",
+      "title": "authorized admin inspects accounts, filters, journal balancing, and reversal links",
+      "line": 5,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5609,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "ledger-admin.spec.ts",
+      "title": "explicit ledger.read DENY and non-admin roles cannot access",
+      "line": 50,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5348,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "ledger-admin.spec.ts",
+      "title": "ledger inspection has no mutation controls or visible secret material",
+      "line": 61,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3371,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "anonymous cart persists ownership, exact server prices and its selection across reload",
+      "line": 21,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2629,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "quantity updates persist across reload with exact recalculated totals",
+      "line": 31,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1849,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "modifier changes apply the canonical option price",
+      "line": 39,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 795,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "removing a line leaves a truthful empty persisted cart",
+      "line": 46,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 769,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "authenticated claim clears the guest cookie and retains the selected line",
+      "line": 53,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3014,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "merge combines canonical customer and guest selections by fingerprint",
+      "line": 62,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3099,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "operation replay preserves one line and one version",
+      "line": 73,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 789,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "another browser cannot mutate the owner's line, including a known receipt",
+      "line": 82,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 779,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-cart.spec.ts",
+      "title": "stale mutations fail deterministically without altering the accepted quantity",
+      "line": 92,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 861,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-accessibility.spec.ts",
+      "title": "checkout keyboard progression announces server-backed review at 1440px",
+      "line": 18,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 4235,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-accessibility.spec.ts",
+      "title": "checkout keyboard progression announces server-backed review at 390px",
+      "line": 18,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3713,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-accessibility.spec.ts",
+      "title": "server contact rejection is announced and associated with the form without progressing",
+      "line": 60,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2055,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-admin.spec.ts",
+      "title": "admin checkout records match canonical unpaid evidence at desktop and mobile without mutation",
+      "line": 4,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 4256,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-admin.spec.ts",
+      "title": "both checkout administration API aliases deny customer, vendor and anonymous access",
+      "line": 48,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 4550,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-customer.spec.ts",
+      "title": "customer corrects and resumes an unpaid checkout without granting foreign confirmation access at 1440px",
+      "line": 12,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 9600,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-customer.spec.ts",
+      "title": "customer corrects and resumes an unpaid checkout without granting foreign confirmation access at 390px",
+      "line": 12,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 12886,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "checkout creation from active cart initializes canonical checkout reference and store groups",
+      "line": 21,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 710,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "contact details submission persists valid contact and rejects invalid input",
+      "line": 52,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 825,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "delivery address submission updates checkout address snapshot and rejects client fee manipulation",
+      "line": 104,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 811,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "delivery quote retrieval returns source-backed quote evidence",
+      "line": 146,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1042,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "checkout review calculates expected totals against fixture prices",
+      "line": 181,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2523,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "review acknowledgement updates accepted state and blocks unacknowledged progression",
+      "line": 255,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1977,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "cart or address modification invalidates previous review acknowledgement",
+      "line": 346,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1504,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "payment preparation requires review and preserves the unpaid checkout",
+      "line": 438,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2143,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "repeated unreviewed payment commands return the same rejection",
+      "line": 496,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 777,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "browser return route with fake parameters does not alter payment state or confirm order",
+      "line": 535,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1662,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-guest.spec.ts",
+      "title": "unauthorized checkout access from different context returns safe access denial",
+      "line": 574,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 960,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+      "line": 104,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 33944,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+      "line": 104,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 32642,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+      "line": 104,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 31450,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+      "line": 104,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 32796,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "signed charge remains financially unchanged when independent Verify has amount mismatch",
+      "line": 182,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 15776,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "signed charge remains financially unchanged when independent Verify has currency mismatch",
+      "line": 182,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 16035,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "signed charge remains financially unchanged when independent Verify has unknown mismatch",
+      "line": 182,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 16294,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "signed charge remains financially unchanged when independent Verify has reference mismatch",
+      "line": 182,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17013,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "marketplace-checkout-payment.spec.ts",
+      "title": "signed incorrect amounts and currency cannot override independent correct provider facts",
+      "line": 194,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 15859,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "production-closure.spec.ts",
+      "title": "anonymous quote copy and form semantics work on desktop and mobile",
+      "line": 3,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 6285,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "production-closure.spec.ts",
+      "title": "protected readiness, parcel and marketplace configuration surfaces enforce roles and expose safe gates",
+      "line": 21,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 6154,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "production-visual-review.spec.ts",
+      "title": "public and protected headings and navigation fit the viewport at 1440px",
+      "line": 18,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 9679,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "production-visual-review.spec.ts",
+      "title": "public and protected headings and navigation fit the viewport at 1366px",
+      "line": 18,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 8798,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "production-visual-review.spec.ts",
+      "title": "public and protected headings and navigation fit the viewport at 768px",
+      "line": 18,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 8289,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "production-visual-review.spec.ts",
+      "title": "public and protected headings and navigation fit the viewport at 390px",
+      "line": 18,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 9011,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "profile-avatar-lifecycle.spec.ts",
+      "title": "customer owns upload, replacement and revoked removal at 1440px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 20277,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "profile-avatar-lifecycle.spec.ts",
+      "title": "customer owns upload, replacement and revoked removal at 390px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17580,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "profile-avatar-lifecycle.spec.ts",
+      "title": "store owns upload, replacement and revoked removal at 1440px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 21108,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "profile-avatar-lifecycle.spec.ts",
+      "title": "store owns upload, replacement and revoked removal at 390px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 18643,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "profile-avatar-lifecycle.spec.ts",
+      "title": "driver owns upload, replacement and revoked removal at 1440px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17521,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "profile-avatar-lifecycle.spec.ts",
+      "title": "driver owns upload, replacement and revoked removal at 390px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17509,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "refund-finance-admin.spec.ts",
+      "title": "distinct finance actors complete wallet once and retain Paystack uncertainty at 1440px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 61386,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "refund-finance-admin.spec.ts",
+      "title": "distinct finance actors complete wallet once and retain Paystack uncertainty at 390px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 68263,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-branding-lifecycle.spec.ts",
+      "title": "native store logo and cover replacement, replay and revocation at 1440px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 34820,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-branding-lifecycle.spec.ts",
+      "title": "native store logo and cover replacement, replay and revocation at 390px",
+      "line": 15,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 26967,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-catalog-draft-isolation.spec.ts",
+      "title": "catalog drafts stay with their authenticated owner/store at 1440px",
+      "line": 20,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 11575,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-catalog-draft-isolation.spec.ts",
+      "title": "catalog drafts stay with their authenticated owner/store at 390px",
+      "line": 20,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 9024,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-earnings-finance-admin.spec.ts",
+      "title": "finance inspects store evidence and retains refused reversal input at 1440px",
+      "line": 8,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 8399,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-earnings-finance-admin.spec.ts",
+      "title": "finance inspects store evidence and retains refused reversal input at 390px",
+      "line": 8,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7236,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-earnings-finance-admin.spec.ts",
+      "title": "store finance denies wrong roles, explicit DENY and anonymous access",
+      "line": 71,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7884,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-earnings.spec.ts",
+      "title": "store owner inspects exact accrued/released evidence and denies foreign records at 1440px",
+      "line": 8,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5390,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-earnings.spec.ts",
+      "title": "store owner inspects exact accrued/released evidence and denies foreign records at 390px",
+      "line": 8,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5660,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-earnings.spec.ts",
+      "title": "store earning endpoints deny accounts without business finance access and anonymous requests",
+      "line": 42,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 6850,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical accessibility store-order journey at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 45934,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical accessibility store-order journey at 768px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 31076,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical accessibility store-order journey at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 30955,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical accessibility store-order journey at 320px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 29306,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical admin store-order journey at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 28048,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical admin store-order journey at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 26465,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical customer store-order journey at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 38044,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical customer store-order journey at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 38711,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical handoff store-order journey at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 65033,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical handoff store-order journey at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 63343,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical merchant store-order journey at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 60262,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical merchant store-order journey at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 59460,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-order-positive-substitution.spec.ts",
+      "title": "native owned replacement approval and exact original-method refund at 1440px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 44257,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-order-positive-substitution.spec.ts",
+      "title": "native owned replacement approval and exact original-method refund at 390px",
+      "line": 7,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 44576,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical substitution store-order journey at 1440px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 29630,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "fixtures/store-order-scenarios.ts",
+      "title": "canonical substitution store-order journey at 390px",
+      "line": 9,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 31447,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-product-catalog.spec.ts",
+      "title": "store saves a complete listing atomically and replays a lost confirmation at 1440px",
+      "line": 12,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 17100,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "store-product-catalog.spec.ts",
+      "title": "store saves a complete listing atomically and replays a lost confirmation at 390px",
+      "line": 12,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 18848,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-accessibility.spec.ts",
+      "title": "product quantity controls work with keyboard and announce persisted cart at 1440px",
+      "line": 4,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3353,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-accessibility.spec.ts",
+      "title": "product quantity controls work with keyboard and announce persisted cart at 390px",
+      "line": 4,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2430,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-admin.spec.ts",
+      "title": "admin authors and reviews canonical collection and synonym controls at 1440px",
+      "line": 17,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 12400,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-admin.spec.ts",
+      "title": "admin authors and reviews canonical collection and synonym controls at 390px",
+      "line": 17,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 9665,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-admin.spec.ts",
+      "title": "projection controls reject public overrides and unsupported manual rebuild without changing evidence",
+      "line": 88,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3969,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-admin.spec.ts",
+      "title": "storefront admin APIs enforce role, anonymous and explicit DENY controls",
+      "line": 109,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 6727,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-browsing.spec.ts",
+      "title": "untrusted lock headers cannot change the canonical exposure decision",
+      "line": 13,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2386,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-browsing.spec.ts",
+      "title": "safely activated state renders canonical storefront heading and source-backed content",
+      "line": 21,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1440,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-browsing.spec.ts",
+      "title": "search filters known products by query and reflects normalized query state in URL",
+      "line": 43,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2764,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-browsing.spec.ts",
+      "title": "category browsing displays category hierarchy, breadcrumbs and eligible products",
+      "line": 60,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7256,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-browsing.spec.ts",
+      "title": "product detail page displays store, variant selection, price and handles variant changes",
+      "line": 82,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 3966,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-browsing.spec.ts",
+      "title": "store detail page renders public store identity and eligible catalog items without private fields",
+      "line": 109,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 4094,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-browsing.spec.ts",
+      "title": "media fallback presents neutral image placeholder for products without media",
+      "line": 127,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1840,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-product-detail.spec.ts",
+      "title": "keyboard variant navigation changes the canonical price without mutating the cart",
+      "line": 3,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2616,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-product-detail.spec.ts",
+      "title": "missing product media retains a visible gallery frame at 390px",
+      "line": 23,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1625,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-product-detail.spec.ts",
+      "title": "missing product media retains a visible gallery frame at 768px",
+      "line": 23,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 1977,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "storefront-product-detail.spec.ts",
+      "title": "short desktop purchase rail reveals keyboard-focused cart actions",
+      "line": 43,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 2242,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "transactional-notifications.spec.ts",
+      "title": "owned paid, store and refund inbox, preferences and revocation at 1440px",
+      "line": 16,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 45324,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "transactional-notifications.spec.ts",
+      "title": "owned paid, store and refund inbox, preferences and revocation at 390px",
+      "line": 16,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 44279,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "trusted-parcel-classification.spec.ts",
+      "title": "independent measured packaging governance and canonical quotes at 1440px",
+      "line": 44,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 45334,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "trusted-parcel-classification.spec.ts",
+      "title": "independent measured packaging governance and canonical quotes at 390px",
+      "line": 44,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 52417,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-finance-admin.spec.ts",
+      "title": "finance reviews, rejects with released capacity and investigates an uncertain payout at 1440px",
+      "line": 32,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 13851,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-finance-admin.spec.ts",
+      "title": "finance reviews, rejects with released capacity and investigates an uncertain payout at 390px",
+      "line": 32,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 11260,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-finance-admin.spec.ts",
+      "title": "withdrawal finance reads and mutations deny wrong roles, explicit DENY and anonymous accounts",
+      "line": 130,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 7969,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-owner.spec.ts",
+      "title": "store owner reserves, retries a lost response, cancels and inspects masked destinations at 1440px",
+      "line": 16,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5516,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-owner.spec.ts",
+      "title": "store owner reserves, retries a lost response, cancels and inspects masked destinations at 390px",
+      "line": 16,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5437,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-owner.spec.ts",
+      "title": "driver owner reserves, retries a lost response, cancels and inspects masked destinations at 1440px",
+      "line": 16,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5247,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-owner.spec.ts",
+      "title": "driver owner reserves, retries a lost response, cancels and inspects masked destinations at 390px",
+      "line": 16,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 5279,
+          "retry": 0
+        }
+      ]
+    },
+    {
+      "file": "withdrawal-owner.spec.ts",
+      "title": "withdrawal owner endpoints conceal foreign records and deny ineligible, unsupported and anonymous accounts",
+      "line": 94,
+      "status": "passed",
+      "runs": [
+        {
+          "status": "passed",
+          "durationMs": 8680,
+          "retry": 0
+        }
+      ]
+    }
+  ],
+  "attachments": "Embedded screenshot payloads omitted; test names, final outcomes, retries and durations retained."
+}

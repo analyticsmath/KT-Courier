@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "command": "docker:gate4",
+  "arguments": [],
+  "fullCommand": "npm run docker:gate4",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T18:22:34.696Z",
+  "endedAt": "2026-10-11T18:22:37.830Z",
+  "durationMs": 3134,
+  "process": {
+    "exitCode": 1,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": null,
+  "testsExpected": null,
+  "testsExecuted": null,
+  "testsPassed": null,
+  "testsFailed": null,
+  "testsSkipped": null,
+  "testsFlaky": null,
+  "playwrightProgress": null,
+  "executions": [],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": false,
+    "databaseHostClass": "unset",
+    "emailProvider": "unset-or-other",
+    "paystackMode": "unset-or-other"
+  },
+  "stdoutPath": "output\\production-closure\\command-receipts\\docker-gate4-1791742954696-7144.log",
+  "status": "FAIL"
+}

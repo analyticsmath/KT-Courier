@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "command": "npx prisma generate",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T17:46:44.4215601+00:00",
+  "endedAt": "2026-10-11T17:47:07.1370909+00:00",
+  "durationMs": 22715.5308,
+  "process": {
+    "exitCode": 0
+  },
+  "environmentProfile": "local source-only schema generation; no database/provider endpoints invoked",
+  "stdoutPath": "output\\production-closure\\command-receipts\\prisma-generate-20261011-224644-141.log",
+  "status": "PASS"
+}

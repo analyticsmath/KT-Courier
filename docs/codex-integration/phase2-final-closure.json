@@ -1,0 +1,2584 @@
+{
+  "schemaVersion": 1,
+  "dossier": "docs/codex-integration/PHASE_2_FINAL_CLOSURE.md",
+  "preparedDateLocal": "2026-10-12",
+  "testEvidenceDate": "2026-10-11",
+  "timezone": "Asia/Karachi",
+  "decision": {
+    "phase2": "PHASE_2_NOT_ACCEPTED",
+    "publication": "PUBLISH_BLOCKED_PREVIEW_ISOLATION",
+    "hostedEvidence": "HOSTED_EVIDENCE_BLOCKED",
+    "production": "PRODUCTION_NOT_READY",
+    "reason": "Exact-SHA local engineering runs pass, but hosted certification is unavailable without proven Vercel preview isolation. Full development audit also retains five high advisories."
+  },
+  "candidate": {
+    "repository": "https://github.com/analyticsmath/KT-Courier",
+    "branch": "integration/codex-phase1-phase2-2026-10-11",
+    "codeSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+    "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+    "migrationTreeSha": "1d0f1c9e100d2aace8fba5062ea5c0462ab62096",
+    "reportOnlyCommitBeforeFinalDossier": "5ef65487350fcecbb915b07521bbe943eb017259",
+    "allCurrentReceiptsBindExactSource": true,
+    "applicationSchemaMigrationOrDomainDeltaInFiveClosureCommits": false
+  },
+  "git": {
+    "codeFreezeStatus": "clean",
+    "mergeSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "mergeParents": [
+      "46aeb318d097852db5634a512c5773818a884ece",
+      "3c79fce207800264b78e59a60bfcc4240ede6cc4"
+    ],
+    "mergeBase": "b31ede4a900b0778e15dce0a3ef78e6d2613b350",
+    "phase1ImplementationSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+    "phase1ReportSha": "46aeb318d097852db5634a512c5773818a884ece",
+    "phase2SourceSha": "3c79fce207800264b78e59a60bfcc4240ede6cc4",
+    "mainSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+    "integrationBranchAheadBehindOrigin": {
+      "ahead": 9,
+      "behind": 1
+    },
+    "remoteOnlyCommit": {
+      "ref": "origin/production-closure-2026-10-07",
+      "sha": "9612d8366e54e3492a80c53d63753b0af01a6c47",
+      "subject": "Phase2",
+      "files": [
+        {
+          "path": ".tmp-driver-final-types.txt",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": ".tmp-driver-types-latest.txt",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": ".tmp-driver-types.txt",
+          "bytes": 368,
+          "sha256": "dd67e5a8d0e7f3c0ff833fac1420044595a96a2ba5d9c00ca0645ecabc3565d8"
+        },
+        {
+          "path": ".tmp-driver-verified-types.txt",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "diagnostics": "Two stale missing-export TypeScript diagnostics; no application-source change; files in D:/KT-Courier left untouched."
+    },
+    "preservedBranches": true,
+    "pushed": false,
+    "pullRequestCreated": false,
+    "closureCommits": [
+      {
+        "sha": "a6b10fc00b459dff0198f0cd5ed5fcfcaf7cbc11",
+        "subject": "test: bound browser certification runs and receipts"
+      },
+      {
+        "sha": "ca6b91330aac55ad316d2c30b49639c514efcc4a",
+        "subject": "test: cover preview proxy origin isolation"
+      },
+      {
+        "sha": "b6d1c6d41b5e324b711ae6f4a72b0e60f16068c4",
+        "subject": "test: scrub inherited provider credentials from e2e"
+      },
+      {
+        "sha": "b6d798e3f9965ff51a0c16a5d997c03673df4995",
+        "subject": "test: support isolated host-built e2e image"
+      },
+      {
+        "sha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+        "subject": "test: package standalone app on linux runtime"
+      }
+    ]
+  },
+  "clientAuthority": {
+    "octoberWebsiteChangesDocxAvailable": false,
+    "octoberDeliveryAndAccessDocxAvailable": false,
+    "extractedTextCorpusAvailable": true,
+    "binaryReviewClaimed": false,
+    "precedence": [
+      "WEBSITE & SYSTEM CHANGES",
+      "Delivery and Access",
+      "Updated Details",
+      "earlier public-policy documents"
+    ],
+    "websiteChangesRecordedDigest": "13e99cd7c71e49229448927befd2643e6890f07a4de6f700c62b7ddebde82b2f",
+    "deliveryAndAccessRecordedDigest": "f37d9903734488e4548b832a02b012ba21546f8ae4e4efc9f51628286c15a180"
+  },
+  "localExecution": {
+    "directed42": {
+      "status": "PASS",
+      "expected": 42,
+      "executed": 42,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "flaky": 0,
+      "singleProcess": true,
+      "playwrightDurationMs": 1935277,
+      "harnessDurationMs": 2978353,
+      "timeoutMs": 2700000
+    },
+    "sevenStageBrowserPlan": {
+      "status": "PASS",
+      "focusedStageCounts": [
+        1,
+        4,
+        2,
+        4,
+        1,
+        2
+      ],
+      "focusedCases": 14,
+      "discoveredFullChromium": 139,
+      "fullChromiumSingleProcessPassed": 139,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "flaky": 0,
+      "retries": 0,
+      "fullStageDurationMs": 2362780,
+      "timeoutMs": 2700000,
+      "wrapperCompletedAttempts": 153
+    },
+    "canonicalPostgres": {
+      "status": "PASS",
+      "expected": 41,
+      "passed": 41,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "vitestFiles": 36,
+      "durationMs": 909800
+    },
+    "coverage": {
+      "status": "PASS",
+      "files": 792,
+      "tests": 3748,
+      "passed": 3748,
+      "failed": 0,
+      "skipped": 0,
+      "statementsPercent": 49.6,
+      "branchesPercent": 43.92,
+      "functionsPercent": 50.55,
+      "linesPercent": 53.22
+    },
+    "postgresClosure": {
+      "status": "PASS",
+      "tests": 178
+    },
+    "strictPostgresBola": {
+      "status": "PASS",
+      "tests": 10
+    },
+    "unitBola": {
+      "status": "PASS",
+      "tests": 23
+    },
+    "redisRateLimit": {
+      "status": "PASS",
+      "tests": 7
+    },
+    "payments": {
+      "status": "PASS",
+      "tests": 343
+    },
+    "refunds": {
+      "status": "PASS",
+      "tests": 115
+    },
+    "processors": {
+      "status": "PASS",
+      "tests": 23
+    },
+    "paystackContract": {
+      "status": "PASS",
+      "tests": 24
+    },
+    "paystackInvariants": {
+      "status": "PASS",
+      "tests": 23
+    },
+    "runnerContract": {
+      "status": "PASS",
+      "tests": 35
+    },
+    "fakeOriginProxy": {
+      "status": "PASS",
+      "tests": 36
+    },
+    "gate4": {
+      "status": "PASS",
+      "requiredSuites": 11,
+      "tests": 32,
+      "fixtures": 13,
+      "unmappedChecks": 0,
+      "unmappedUniqueConstraints": 0,
+      "unmappedTriggers": 0
+    },
+    "migrationUpgrade": {
+      "status": "PASS",
+      "historicalMigrations": 62,
+      "forwardMigrations": 18,
+      "total": 80
+    },
+    "recoveryDrill": {
+      "status": "PASS",
+      "protectedProductionDataTouched": false
+    },
+    "disposableMigrationSmoke": "PASS",
+    "quality": {
+      "npmCi": "PASS",
+      "prismaGenerate": "PASS",
+      "prismaValidate": "PASS",
+      "migrationsCheck": "PASS",
+      "nextTypegen": "PASS",
+      "lint": "PASS",
+      "typecheck": "PASS",
+      "build": "PASS",
+      "staticRoutes": 521
+    },
+    "productionOnlyAudit": {
+      "status": "PASS",
+      "vulnerabilities": 0
+    },
+    "fullAudit": {
+      "status": "FAIL",
+      "highAdvisories": 5
+    }
+  },
+  "requirements": [
+    {
+      "key": "anonymous_quote_and_booking_handoff",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "/quote",
+        "/api/public/delivery-quotes",
+        "lib/client-platform/delivery.service.ts"
+      ],
+      "dataOwners": [
+        "hashed guest capability",
+        "PostgreSQL versioned quote settings"
+      ],
+      "positive": [
+        "anonymous quote",
+        "authenticated resume"
+      ],
+      "negative": [
+        "foreign or stale quote refusal"
+      ],
+      "evidence": [
+        "directed42",
+        "canonicalPostgres"
+      ]
+    },
+    {
+      "key": "tariffs_coverage_and_parcel_limits",
+      "status": "BLOCKED_HUMAN",
+      "routesServices": [
+        "lib/pricing/*",
+        "lib/maps/*",
+        "lib/commercial/parcel-profiles"
+      ],
+      "dataOwners": [
+        "PostgreSQL versioned settings",
+        "admin audit"
+      ],
+      "positive": [
+        "synthetic configured quote"
+      ],
+      "negative": [
+        "unknown, stale and unsupported refusal"
+      ],
+      "evidence": [
+        "directed42",
+        "coverage"
+      ],
+      "limits": [
+        "Signed effective rates and operational coverage absent; no Express fee interpretation or marketplace interpolation invented."
+      ]
+    },
+    {
+      "key": "trusted_marketplace_parcel_classification",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "/api/admin/marketplace-trusted-packages",
+        "lib/marketplace-checkout/parcel-classification.ts",
+        "matrix quote service"
+      ],
+      "dataOwners": [
+        "PostgreSQL review/version/audit records"
+      ],
+      "positive": [
+        "reviewed SMALL/MEDIUM/LARGE quote"
+      ],
+      "negative": [
+        "unknown without ANY, stale, oversized and maker self-review denied before order/payment"
+      ],
+      "evidence": [
+        "directed42",
+        "canonicalPostgres",
+        "postgresClosure"
+      ],
+      "limits": [
+        "Client physical limits and tariffs remain unsigned."
+      ]
+    },
+    {
+      "key": "customer_identity_session_orders_wallet_refunds",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "auth/session APIs",
+        "account wallet/refund routes",
+        "customer identity service"
+      ],
+      "dataOwners": [
+        "PostgreSQL account/order/payment/ledger",
+        "Redis rate limits"
+      ],
+      "positive": [
+        "owned identity, order and canonical wallet flows"
+      ],
+      "negative": [
+        "expiry, replay, foreign owner and invalid source denial"
+      ],
+      "evidence": [
+        "directed42",
+        "canonicalPostgres",
+        "postgresClosure",
+        "bola10",
+        "payments343",
+        "refunds115"
+      ]
+    },
+    {
+      "key": "vendor_catalog_inventory_fulfillment_and_employee_rbac",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "/store/orders",
+        "marketplace checkout/catalog APIs",
+        "lib/store-orders/*"
+      ],
+      "dataOwners": [
+        "PostgreSQL tenant/catalog/stock/order/reservation/handoff/audit"
+      ],
+      "positive": [
+        "inventory upload, store order, substitution and handoff"
+      ],
+      "negative": [
+        "foreign store, replay, explicit DENY, disabled/revoked and stale actions"
+      ],
+      "evidence": [
+        "directed42",
+        "canonicalPostgres",
+        "postgresClosure",
+        "gate4",
+        "bola10"
+      ],
+      "limits": [
+        "Not every modifier/multi-store combination has acceptance."
+      ]
+    },
+    {
+      "key": "optional_campaign_subscription_promoter_scope",
+      "status": "OPTIONAL_FAIL_CLOSED",
+      "routesServices": [
+        "campaign and subscription surfaces"
+      ],
+      "dataOwners": [
+        "source locks/configuration"
+      ],
+      "positive": [],
+      "negative": [
+        "optional unsupported actions stay inactive"
+      ],
+      "evidence": [
+        "TEST_DEFERRALS.md"
+      ],
+      "limits": [
+        "Manual managed requests only without third-party authorization."
+      ]
+    },
+    {
+      "key": "driver_onboarding_assignment_delivery_and_private_pod",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "driver portal/document routes",
+        "canonical delivery and handoff services"
+      ],
+      "dataOwners": [
+        "PostgreSQL eligibility/assignment/OTP/POD/earning",
+        "private media metadata"
+      ],
+      "positive": [
+        "synthetic eligible delivery and one-use handoff"
+      ],
+      "negative": [
+        "ineligible, foreign, stale, invalid OTP and replay refusal"
+      ],
+      "evidence": [
+        "directed42",
+        "postgresClosure",
+        "bola10"
+      ],
+      "limits": [
+        "No physical GPS, camera, vehicle or road acceptance."
+      ]
+    },
+    {
+      "key": "cod_custody_deposit_shortage_bank_reconciliation",
+      "status": "BLOCKED_HUMAN",
+      "routesServices": [
+        "COD custody/remittance",
+        "finance reconciliation"
+      ],
+      "dataOwners": [
+        "PostgreSQL custody/operation/audit/ledger; bank evidence separate"
+      ],
+      "positive": [
+        "synthetic eligible custody"
+      ],
+      "negative": [
+        "foreign, stale and duplicate custody refused"
+      ],
+      "evidence": [
+        "directed42",
+        "canonicalPostgres",
+        "gate4"
+      ],
+      "limits": [
+        "No bank receipt, whitelist, cash limit or actual cash/bank action fabricated."
+      ]
+    },
+    {
+      "key": "admin_versioned_controls_audit_and_finance_dual_review",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "admin settings/moderation/audit",
+        "finance review services"
+      ],
+      "dataOwners": [
+        "PostgreSQL versioned settings and reviewer records"
+      ],
+      "positive": [
+        "audited synthetic maker/reviewer operations"
+      ],
+      "negative": [
+        "self-review, explicit DENY, stale version and non-canonical paid state rejected"
+      ],
+      "evidence": [
+        "gate4",
+        "postgresClosure",
+        "bola10"
+      ]
+    },
+    {
+      "key": "required_notifications_preferences_and_contact_revocation",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "required-domain outbox/publisher and inbox"
+      ],
+      "dataOwners": [
+        "PostgreSQL recipient/intent/receipt",
+        "Redis rate limit"
+      ],
+      "positive": [
+        "owned idempotent inbox/outbox"
+      ],
+      "negative": [
+        "suppression, unverified/replaced contact, foreign recipient and replay block send"
+      ],
+      "evidence": [
+        "postgresClosure",
+        "directed42"
+      ],
+      "limits": [
+        "No actual customer communication or provider dispatch."
+      ]
+    },
+    {
+      "key": "legal_branding_business_address_and_privacy_signoff",
+      "status": "BLOCKED_HUMAN",
+      "routesServices": [
+        "public policy/content"
+      ],
+      "dataOwners": [
+        "public content"
+      ],
+      "positive": [],
+      "negative": [
+        "no fictitious walk-in office/address asserted"
+      ],
+      "evidence": [
+        "client-authority extracted corpus"
+      ],
+      "limits": [
+        "POPIA/CPA/counsel and registered business address require human signoff."
+      ]
+    },
+    {
+      "key": "legacy_import_and_fresh_production_row_audit",
+      "status": "BLOCKED_HUMAN",
+      "routesServices": [
+        "historical migration and recovery tooling"
+      ],
+      "dataOwners": [
+        "disposable PostgreSQL only"
+      ],
+      "positive": [
+        "80-migration upgrade",
+        "synthetic restore count/hash and ledger invariants"
+      ],
+      "negative": [
+        "production DB and protected rows untouched"
+      ],
+      "evidence": [
+        "migrationUpgrade",
+        "recoveryDrill"
+      ],
+      "limits": [
+        "Sanitized legacy extract and authorized read-only production audit absent."
+      ]
+    },
+    {
+      "key": "private_avatar_document_pod_media_lifecycle",
+      "status": "INHERITED_WORKING",
+      "routesServices": [
+        "/api/platform/avatar",
+        "private media/document/POD services"
+      ],
+      "dataOwners": [
+        "PostgreSQL media ownership/status/version",
+        "local/fake object provider"
+      ],
+      "positive": [
+        "owned upload/replacement/removal"
+      ],
+      "negative": [
+        "foreign, anonymous, revoked, stale and concurrent pointer denial"
+      ],
+      "evidence": [
+        "directed42",
+        "postgresClosure"
+      ],
+      "limits": [
+        "No production Cloudinary writes."
+      ]
+    },
+    {
+      "key": "visual_responsive_accessibility_device_acceptance",
+      "status": "NOT_YET_PROVEN",
+      "routesServices": [
+        "responsive UI and browser accessibility specs"
+      ],
+      "dataOwners": [
+        "none"
+      ],
+      "positive": [
+        "selected headless 390/1440 cases"
+      ],
+      "negative": [
+        "selected focus and protected-action denial"
+      ],
+      "evidence": [
+        "directed42",
+        "sevenStageBrowserPlan"
+      ],
+      "limits": [
+        "320/768/200% zoom, assistive tech, human visual/device signoff remain absent."
+      ]
+    },
+    {
+      "key": "runner_exact_selection_and_receipt_integrity",
+      "status": "FIXED_IN_THIS_RUN",
+      "routesServices": [
+        "scripts/e2e-test.mjs",
+        "scripts/e2e-runner-policy.mjs",
+        "scripts/phase1-browser-plan.mjs"
+      ],
+      "dataOwners": [
+        "exact source-bound local receipts"
+      ],
+      "positive": [
+        "directed 42, full 139, canonical 41"
+      ],
+      "negative": [
+        "contract tests reject selection/count/timeout policy regressions"
+      ],
+      "evidence": [
+        "runnerContract",
+        "directed42",
+        "sevenStageBrowserPlan",
+        "canonicalPostgres"
+      ]
+    },
+    {
+      "key": "critical_skip_closure_and_hosted_ci",
+      "status": "NOT_YET_PROVEN",
+      "routesServices": [
+        "release test inventory",
+        "GitHub/Vercel integration"
+      ],
+      "dataOwners": [
+        "hosted exact-SHA checks"
+      ],
+      "positive": [
+        "all current required local selections report zero skips"
+      ],
+      "negative": [
+        "release deferral inventory rejects critical skips"
+      ],
+      "evidence": [
+        "runnerContract",
+        "gate4"
+      ],
+      "limits": [
+        "Exact-SHA hosted CI absent pending preview isolation and owner authorization."
+      ]
+    }
+  ],
+  "threatMatrix": [
+    {
+      "threat": "Cross-account and cross-tenant access",
+      "positive": "Owned customer/store/driver operations",
+      "negative": "Anonymous, foreign, DENY, disabled/revoked and stale actor denial",
+      "evidence": [
+        "bola10",
+        "unitBola23",
+        "postgresClosure",
+        "directed42"
+      ]
+    },
+    {
+      "threat": "Duplicate or forged monetary command",
+      "positive": "Canonical operation receipt and balanced ledger",
+      "negative": "Replay, changed request identity, forged event/subject and unknown outcome",
+      "evidence": [
+        "payments343",
+        "refunds115",
+        "canonicalPostgres",
+        "postgresClosure",
+        "gate4"
+      ]
+    },
+    {
+      "threat": "Paystack signature/transaction identity",
+      "positive": "Disposable signed test identity",
+      "negative": "Signature, amount, currency, reference and subject mismatch",
+      "evidence": [
+        "paystackContract",
+        "paystackInvariants",
+        "postgresClosure"
+      ],
+      "liveProviderCall": false
+    },
+    {
+      "threat": "COD custody fabrication/double post",
+      "positive": "Synthetic eligible custody tied to canonical operation",
+      "negative": "Foreign/stale/duplicate custody rejected; bank record separate",
+      "evidence": [
+        "directed42",
+        "canonicalPostgres",
+        "gate4"
+      ],
+      "physicalCashOrBankActivity": false
+    },
+    {
+      "threat": "Wrong or suppressed notification recipient",
+      "positive": "Owned idempotent inbox/outbox intent",
+      "negative": "Unverified/replaced contact, preference, suppression and replay",
+      "evidence": [
+        "postgresClosure",
+        "directed42"
+      ],
+      "externalSend": false
+    },
+    {
+      "threat": "Media IDOR/stale replacement",
+      "positive": "Owned private media lifecycle",
+      "negative": "Foreign, revoked, stale and concurrent pointer denial",
+      "evidence": [
+        "directed42",
+        "postgresClosure"
+      ],
+      "productionCloudinaryWrite": false
+    },
+    {
+      "threat": "Preview forwarded to production origin",
+      "positive": "Local Next proxy against fake origin",
+      "negative": "Preview/API/webhook/POST/redirect/header probes",
+      "evidence": [
+        "fakeOriginProxy"
+      ],
+      "vercelPlatformOrderProven": false
+    }
+  ],
+  "previewIsolation": {
+    "vercelProject": "kt-courier",
+    "projectId": "prj_PoKqf1EUWkvl7Y3nxaTtoYSjQm7r",
+    "githubRepository": "analyticsmath/KT-Courier",
+    "sourceCatchAll": {
+      "path": "/:path*",
+      "destination": "https://web-production-9f8bb.up.railway.app/:path*"
+    },
+    "ssoProtection": "all_except_custom_domains",
+    "environmentInventory": {
+      "namedVariablesReturned": 0,
+      "hiddenProductionEnvCount": 0,
+      "valuesRead": false
+    },
+    "branchDeploymentObserved": {
+      "branch": "phase2/antigravity-functional-completion-2026-10-11",
+      "sha": "850f5de701c4f49cb0a616f75c11652cecb712a0"
+    },
+    "proxyFakeOriginTests": 36,
+    "platformRewriteOrderProven": false,
+    "autoPreviewSuppressionProven": false,
+    "pushAuthorized": false,
+    "branchPushed": false,
+    "pullRequestCreated": false,
+    "hostedRunUrl": null,
+    "safeOperatorChoices": [
+      "Disable deployments for only this branch and verify suppression while independent GitHub checks remain available; then obtain explicit push authorization.",
+      "Create a separate preview Vercel/Railway environment with disposable DB, Redis, test payment credentials, media and domains; exercise all methods before publication."
+    ]
+  },
+  "railway": {
+    "project": "KT Courier Production",
+    "projectId": "e9554aaa-1b53-4595-8731-e8c2885ac594",
+    "environment": "production",
+    "patchId": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+    "stagedChangeCount": 5,
+    "destructive": true,
+    "createsProviderCredentialDiagnostic": true,
+    "addsPaystackSecretVariable": true,
+    "deletesQueryStorefrontCategories": true,
+    "applied": false,
+    "discarded": false,
+    "operatorAction": "Do not deploy; owner must inspect and split/reconcile all five changes, preserve query service, Postgres and Redis."
+  },
+  "dockerResidue": {
+    "sharedTags": [
+      {
+        "tag": "kt-couriers-app:latest",
+        "imageId": "sha256:1b1e91f791cbd1eb85ecca3a8440c9f750c8418e352dd796c88886e8b7586d06"
+      },
+      {
+        "tag": "kt-couriers-migrate:latest",
+        "imageId": "sha256:04a6d44c5aca8d224d31d1b06d4cb23356fd30289ad2c1072e1a484c770ef4da"
+      }
+    ],
+    "existingContainerReferences": [
+      {
+        "name": "kt-couriers-e2e-1791677630665-21284-app-1",
+        "state": "running healthy",
+        "imageId": "sha256:d0cdf8c9fcaab229a903837a13791062c09e39463438d8478c5e7f87f06cb1e8",
+        "configuredTag": "kt-couriers-app:latest"
+      },
+      {
+        "name": "kt-couriers-e2e-1791677630665-21284-migrate-1",
+        "state": "exited",
+        "imageId": "sha256:242bf3a98de9b736dea20785bd90ad3c037641ce7b76ba480f0ec8700d63e830",
+        "configuredTag": "kt-couriers-migrate:latest"
+      },
+      {
+        "name": "kt-couriers-e2e-1791677630665-21284-e2e-ingress-1",
+        "state": "exited",
+        "imageId": "sha256:242bf3a98de9b736dea20785bd90ad3c037641ce7b76ba480f0ec8700d63e830",
+        "configuredTag": "kt-couriers-migrate:latest"
+      },
+      {
+        "name": "kt-couriers-db-1",
+        "state": "running healthy",
+        "imageId": "sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229"
+      },
+      {
+        "name": "kt-couriers-redis-1",
+        "state": "running healthy",
+        "imageId": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99"
+      }
+    ],
+    "newDisposableContainersAndVolumesCleaned": true,
+    "disposableImagesPreserved": true,
+    "restorePlan": "Obtain and verify original immutable registry digests with the owner; retag only in a separate reviewed action. Do not stop, remove, recreate or prune."
+  },
+  "dependencyAdvisories": {
+    "productionOnlyAudit": "PASS_ZERO",
+    "fullAudit": "FAIL_FIVE_HIGH",
+    "chain": "braces@3.0.3 -> micromatch@4.0.8 -> fast-glob@3.3.1 -> @next/eslint-plugin-next@16.3.8 -> eslint-config-next@16.3.8",
+    "cve": "CVE-2026-93687",
+    "ghsa": "GHSA-vfj7-8cjw-p6xm",
+    "advisoryUrl": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+    "severity": "High 8.7",
+    "patchedVersionAvailableAtAudit": false,
+    "risk": "Deeply nested untrusted glob patterns can cause development/build/lint stack exhaustion; residual CI/developer availability risk.",
+    "owner": "Engineering dependency/security owner",
+    "remediation": "Wait for compatible upstream fix or assess a compatible override/fork/replacement with regression coverage; do not force downgrade Next 16."
+  },
+  "releaseGates": [
+    {
+      "key": "marketplace_parcel_classification",
+      "status": "OPEN",
+      "owner": "Engineering + client/operations",
+      "next": "Sign parcel limits, ANY policy and effective rates."
+    },
+    {
+      "key": "notification_required_domains",
+      "status": "OPEN",
+      "owner": "Engineering + communications",
+      "next": "Complete recipient/event policy and approve templates/provider."
+    },
+    {
+      "key": "commercial_financial_certification",
+      "status": "VALIDATION_BLOCKED",
+      "owner": "Client finance/operations + provider/bank",
+      "next": "Approve tariffs, commissions, COD and settlement; later exact hosted certification."
+    },
+    {
+      "key": "customer_vendor_driver_full_functional_acceptance",
+      "status": "OPEN",
+      "owner": "Engineering + QA + client",
+      "next": "Review remaining actor/state/device combinations."
+    },
+    {
+      "key": "visual_acceptance",
+      "status": "OPEN",
+      "owner": "QA + product owner",
+      "next": "Human viewport, zoom, keyboard, assistive-tech and device review."
+    },
+    {
+      "key": "media_full_functional_acceptance",
+      "status": "OPEN",
+      "owner": "Engineering + media/device owner",
+      "next": "Complete isolated media lifecycle and separately authorized Cloudinary/device review."
+    },
+    {
+      "key": "critical_skip_closure",
+      "status": "OPEN",
+      "owner": "Engineering + release owner",
+      "next": "Audit required skips/guards and obtain exact-source hosted run."
+    },
+    {
+      "key": "fresh_production_protected_row_audit",
+      "status": "VALIDATION_BLOCKED",
+      "owner": "Authorized production data operator",
+      "next": "Approved privacy-scoped read-only row audit with independent review."
+    },
+    {
+      "key": "github_certification_and_deployment",
+      "status": "VALIDATION_BLOCKED",
+      "owner": "Platform owner + release owner",
+      "next": "Prove preview isolation, authorize push, run exact-SHA CI; deployment remains separate."
+    }
+  ],
+  "phase3Backlog": [
+    {
+      "owner": "Vercel/GitHub platform owner",
+      "action": "Prove branch preview suppression or isolated preview; then explicitly authorize push and run hosted exact-SHA checks."
+    },
+    {
+      "owner": "Engineering dependency/security",
+      "action": "Resolve or accept GHSA risk without downgrading Next 16."
+    },
+    {
+      "owner": "Client/operations",
+      "action": "Sign tariffs, parcel limits, coverage and Express interpretation."
+    },
+    {
+      "owner": "Client finance/provider/bank",
+      "action": "Approve commissions, COD, custody, deposits and settlement policy."
+    },
+    {
+      "owner": "QA/product owner",
+      "action": "Human visual, accessibility, viewport and device signoff."
+    },
+    {
+      "owner": "Media/storage owner",
+      "action": "Isolated lifecycle proof and separately authorized provider acceptance."
+    },
+    {
+      "owner": "Authorized production data operator",
+      "action": "Approved read-only protected-row audit; no production access by engineering."
+    },
+    {
+      "owner": "Legal/comms",
+      "action": "Approve POPIA/CPA, address, templates, recipients and delivery policy."
+    },
+    {
+      "owner": "Railway/environment owner",
+      "action": "Review staged patch and restore Docker tags only from verified original digests."
+    }
+  ],
+  "productionBoundary": {
+    "productionDatabaseRead": false,
+    "productionRedisAccess": false,
+    "protectedRowsRead": false,
+    "productionSecretsRead": false,
+    "liveProviderOrBankActivity": false,
+    "productionCloudinaryWrite": false,
+    "customerCommunication": false,
+    "productionMigration": false,
+    "mainMerge": false,
+    "deployment": false
+  },
+  "commands": [
+    {
+      "id": "build-20261011-230104-711",
+      "command": "npm run build",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:01:05.0048238+00:00",
+      "endedAt": "2026-10-11T18:03:53.5448344+00:00",
+      "durationMs": 168540,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/build-20261011-230104-711.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/build-20261011-230104-711.log",
+      "receiptSha256": "fd07563eb79efb797450556bae2aefa9e4526bb219942d266a3b5787c6febd8c",
+      "stdoutSha256": "809225393f046f907a48f038a96cf7b56a85a7145736b0432ba04c5976930cfb",
+      "runnerExecutions": []
+    },
+    {
+      "id": "build-e2e-host-1791732892645-4336",
+      "command": "npm run build:e2e-host",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T15:34:52.645Z",
+      "endedAt": "2026-10-11T15:38:01.673Z",
+      "durationMs": 189028,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/build-e2e-host-1791732892645-4336.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/build-e2e-host-1791732892645-4336.log",
+      "receiptSha256": "627b3518a9569ea458979047f743be089cca94937a3f32b8836da871c4dcde5a",
+      "stdoutSha256": "6346677eb4e355c7ad6eee87aca447954257b7604e38ca170051f6e4fa62b465",
+      "runnerExecutions": []
+    },
+    {
+      "id": "docker-gate4-1791742954696-7144",
+      "command": "npm run docker:gate4",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "FAIL",
+      "startedAt": "2026-10-11T18:22:34.696Z",
+      "endedAt": "2026-10-11T18:22:37.830Z",
+      "durationMs": 3134,
+      "processExitCode": 1,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-gate4-1791742954696-7144.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-gate4-1791742954696-7144.log",
+      "receiptSha256": "f87c13c1f3000b803607760d67f0e87ad5571131394f77937107ff0301182efb",
+      "stdoutSha256": "fed0b1ea88a0c4742ab6cfc31c4fa3acbf7b03d2e134669563292e83e58fd7b4",
+      "runnerExecutions": []
+    },
+    {
+      "id": "docker-gate4-1791742990250-17872",
+      "command": "npm run docker:gate4",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:23:10.250Z",
+      "endedAt": "2026-10-11T18:25:28.584Z",
+      "durationMs": 138334,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 32,
+        "executed": 32,
+        "passed": 32,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "11 suite summaries; wrapper reports only final 8-test suite",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-gate4-1791742990250-17872.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-gate4-1791742990250-17872.log",
+      "receiptSha256": "3109185a3f8629517a62ae7293342dd67a8f4edc3804b79f749a5465d386e6a3",
+      "stdoutSha256": "802ba91b6bfa46e34282f19763e3dc21ac4b5fe4077d14b946e1fe5b964ae115",
+      "rawReceiptCounts": {
+        "expected": 8,
+        "executed": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 4
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 3
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 2
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 2
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 1
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 3
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 2
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 1
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 2
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 4
+        },
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 8
+        }
+      ]
+    },
+    {
+      "id": "docker-migration-smoke-1791743168744-9748",
+      "command": "npm run docker:migration-smoke",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:26:08.744Z",
+      "endedAt": "2026-10-11T18:27:50.152Z",
+      "durationMs": 101408,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-migration-smoke-1791743168744-9748.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-migration-smoke-1791743168744-9748.log",
+      "receiptSha256": "e9e10ec6197fce1fcac0ddc2afd79337c86b49c4fc5cfeebbc20e6fb084025a3",
+      "stdoutSha256": "e9c09f4bdcb141958914aaaba84fa733db8dc9045071011ad056bbc8d5857ef3",
+      "runnerExecutions": []
+    },
+    {
+      "id": "gate4-preflight-20261011-232105-088",
+      "command": "npm run db:gate4:preflight",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:21:05.3274068+00:00",
+      "endedAt": "2026-10-11T18:21:07.0113403+00:00",
+      "durationMs": 1684,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/gate4-preflight-20261011-232105-088.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/gate4-preflight-20261011-232105-088.log",
+      "receiptSha256": "e6f7326d30ecd8b585690ba84579dca946b14171f759439866006a3e6a3db15b",
+      "stdoutSha256": "9f6ef888b522969342d244d732d3a9e8aaa77e5388d211a99623e246f5746966",
+      "runnerExecutions": []
+    },
+    {
+      "id": "lint-20261011-225641-986",
+      "command": "npm run lint",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:56:42.2136429+00:00",
+      "endedAt": "2026-10-11T17:59:48.6999649+00:00",
+      "durationMs": 186486,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/lint-20261011-225641-986.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/lint-20261011-225641-986.log",
+      "receiptSha256": "a175d1cac61d73bf7cd958659a422e8e7bf94b368706af7ccc8561d906326dad",
+      "stdoutSha256": "c64b8cce36dbaa950b1cea865077381f3e4d7d1d2a733feec911f0ee985084ae",
+      "runnerExecutions": []
+    },
+    {
+      "id": "migrations-check-20261011-225557-328",
+      "command": "npm run migrations:check",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:55:57.5846543+00:00",
+      "endedAt": "2026-10-11T17:55:58.9101582+00:00",
+      "durationMs": 1326,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/migrations-check-20261011-225557-328.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/migrations-check-20261011-225557-328.log",
+      "receiptSha256": "4adc6267849f5e9075d40b4324d862ee0a6286ec399554310829decab8d14df3",
+      "stdoutSha256": "bfba5f8bd181578c1852228b7dfb53dea0a15bf78ac3442d3ccf970987249502",
+      "runnerExecutions": []
+    },
+    {
+      "id": "next-typegen-20261011-225615-643",
+      "command": "npx next typegen",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:56:15.8913593+00:00",
+      "endedAt": "2026-10-11T17:56:28.5475255+00:00",
+      "durationMs": 12656,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/next-typegen-20261011-225615-643.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/next-typegen-20261011-225615-643.log",
+      "receiptSha256": "602c96a39820f6aa437082a5e75490e5b0fcce7d38b8af76a6d0f29ef5e0f9f9",
+      "stdoutSha256": "8b0db89a1e25137a4cb79143a4ea63ae347e6f5f2247f026d984e133255d3084",
+      "runnerExecutions": []
+    },
+    {
+      "id": "npm-audit-full-20261011-231732-662",
+      "command": "npm audit --audit-level=high",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "FAIL",
+      "startedAt": "2026-10-11T18:17:32.8894197+00:00",
+      "endedAt": "2026-10-11T18:17:38.3683543+00:00",
+      "durationMs": 5479,
+      "processExitCode": 1,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-audit-full-20261011-231732-662.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-audit-full-20261011-231732-662.log",
+      "receiptSha256": "e663e7c1db1f7aef0be353ba111ba677e59b00e005df7ccff1463aeb31111bd9",
+      "stdoutSha256": "56fc6b731873358df9bc3ae257338505e67260144b7e01a82bb62c2b7c910539",
+      "runnerExecutions": []
+    },
+    {
+      "id": "npm-audit-production-20261011-231711-614",
+      "command": "npm audit --omit=dev --audit-level=high",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:17:11.8422608+00:00",
+      "endedAt": "2026-10-11T18:17:16.2937982+00:00",
+      "durationMs": 4452,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-audit-production-20261011-231711-614.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-audit-production-20261011-231711-614.log",
+      "receiptSha256": "e36e66f3932a344d7adfe7ccf70b24cc5961cd9174830c508518383a9d8f8134",
+      "stdoutSha256": "4b02d4a3c23d969c46bd2041360f80bfcb1fe760d9db864009acdd710f9de601",
+      "runnerExecutions": []
+    },
+    {
+      "id": "npm-ci-20261011-233159-090",
+      "command": "npm ci",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:31:59.3385881+00:00",
+      "endedAt": "2026-10-11T18:35:18.7099877+00:00",
+      "durationMs": 199371,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-ci-20261011-233159-090.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-ci-20261011-233159-090.log",
+      "receiptSha256": "48454dcd7ae7e62fe7ffc5226976bfe43b9a885166928a1cac8f18ee4cefb24c",
+      "stdoutSha256": "4559b3ddec57e7b678bf0dff4cb48663dd4186db441a3b6b6795c7ed32708a9f",
+      "runnerExecutions": []
+    },
+    {
+      "id": "npm-vulnerable-dev-chain-20261011-232930-785",
+      "command": "npm ls braces micromatch fast-glob @next/eslint-plugin-next eslint-config-next --all",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:29:31.0584475+00:00",
+      "endedAt": "2026-10-11T18:29:36.4807284+00:00",
+      "durationMs": 5422,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-vulnerable-dev-chain-20261011-232930-785.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-vulnerable-dev-chain-20261011-232930-785.log",
+      "receiptSha256": "b15786452cfb392632e7c4f220dfb5380e68cb30e0e53f69bede427b1078ef2d",
+      "stdoutSha256": "25cc0baf90e81cdb49f88953277f6f95b21468aa3a76824bb9b641fc9bc28fde",
+      "runnerExecutions": []
+    },
+    {
+      "id": "paystack-contract-20261011-231631-299",
+      "command": "npm run test:paystack:contract",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:16:31.5327778+00:00",
+      "endedAt": "2026-10-11T18:16:37.1418667+00:00",
+      "durationMs": 5609,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 24,
+        "executed": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "stdout test summary",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/paystack-contract-20261011-231631-299.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/paystack-contract-20261011-231631-299.log",
+      "receiptSha256": "12f7c3a888c693e1f17b751c94753694b4e0e8ed5059d9356527798325e2591f",
+      "stdoutSha256": "f984c2faa34357bdb6d100c03d6e1d1c598ad414a1a663b016707a29a432bc83",
+      "rawReceiptCounts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null
+      },
+      "runnerExecutions": []
+    },
+    {
+      "id": "paystack-invariants-20261011-231652-728",
+      "command": "npm run test:paystack:invariants",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:16:52.9632904+00:00",
+      "endedAt": "2026-10-11T18:16:57.6277380+00:00",
+      "durationMs": 4664,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 23,
+        "executed": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "stdout test summary",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/paystack-invariants-20261011-231652-728.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/paystack-invariants-20261011-231652-728.log",
+      "receiptSha256": "19976faa533919c008fc92d7333eac250972e324011106b7b879b9a5a0ef7860",
+      "stdoutSha256": "9787d51cd6e6bab8c2b35137517384153fcf951c913eea4b7e92d8461f23663e",
+      "rawReceiptCounts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null
+      },
+      "runnerExecutions": []
+    },
+    {
+      "id": "prisma-generate-20261011-224644-141",
+      "command": "npx prisma generate",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:46:44.4215601+00:00",
+      "endedAt": "2026-10-11T17:47:07.1370909+00:00",
+      "durationMs": 22715.5308,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local source-only schema generation; no database/provider endpoints invoked",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-generate-20261011-224644-141.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-generate-20261011-224644-141.log",
+      "receiptSha256": "28eabdbf83230763a307fbf93c0196fced7dfefa067dd96ff5b71bbc3c4db371",
+      "stdoutSha256": "a0e618a900db9c8f01bb524f8ce240c139440f53fa58dcb81397f8ad1fbe51c9",
+      "runnerExecutions": []
+    },
+    {
+      "id": "prisma-generate-final-20261011-233559-430",
+      "command": "npx prisma generate",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:35:59.7441775+00:00",
+      "endedAt": "2026-10-11T18:36:20.0565847+00:00",
+      "durationMs": 20312,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-generate-final-20261011-233559-430.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-generate-final-20261011-233559-430.log",
+      "receiptSha256": "cee695ed39340936620b6e0d246f0e7642c9680c29cd8f6f20f4b485a74950dd",
+      "stdoutSha256": "3033a3629e02cbcfea2e7226958e5fd2d6b9536abf1778626ea65f2e3c4b6377",
+      "runnerExecutions": []
+    },
+    {
+      "id": "prisma-validate-20261011-225517-376",
+      "command": "npx prisma validate",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "FAIL",
+      "startedAt": "2026-10-11T17:55:17.6390107+00:00",
+      "endedAt": "2026-10-11T17:55:21.7601307+00:00",
+      "durationMs": 4121,
+      "processExitCode": 1,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-validate-20261011-225517-376.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-validate-20261011-225517-376.log",
+      "receiptSha256": "f430a08e63ae048a3674b1dd8bee68dcebbde3f517e1bec254b2a642bc90acf7",
+      "stdoutSha256": "ba49aad7fed1c769478fb24e3237427130914080533ec3fe03d83c3efc28e001",
+      "runnerExecutions": []
+    },
+    {
+      "id": "prisma-validate-loopback-20261011-225539-229",
+      "command": "npx prisma validate",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:55:39.4537345+00:00",
+      "endedAt": "2026-10-11T17:55:42.9841014+00:00",
+      "durationMs": 3530,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-validate-loopback-20261011-225539-229.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-validate-loopback-20261011-225539-229.log",
+      "receiptSha256": "28e7454bf07b5d80f057c4e4081e4efabb2069e342fa49cbda143dbe71479e83",
+      "stdoutSha256": "25ed99279b7cadd2f020f513c9b9e5e47bf809a71cff881d3dd5be5e81db7177",
+      "runnerExecutions": []
+    },
+    {
+      "id": "railway-origin-proxy-tests-20261011-232836-584",
+      "command": "npx vitest run tests/security/railway-origin.test.ts --reporter=dot",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:28:36.8180368+00:00",
+      "endedAt": "2026-10-11T18:28:42.8978189+00:00",
+      "durationMs": 6080,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 36,
+        "executed": 36,
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "Vitest summary",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/railway-origin-proxy-tests-20261011-232836-584.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/railway-origin-proxy-tests-20261011-232836-584.log",
+      "receiptSha256": "db464b5b793ba91b8b7332b898b08af407bb7714cc5d9de7b9c42d76cc41cdec",
+      "stdoutSha256": "e61abb9ff44af3a41a3679cbced6852fb813140c482acda2ae640b7dfcd6cac2",
+      "rawReceiptCounts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null
+      },
+      "runnerExecutions": []
+    },
+    {
+      "id": "recovery-drill-20261011-231244-296",
+      "command": "npm run recovery:drill",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:12:44.5510936+00:00",
+      "endedAt": "2026-10-11T18:15:46.4895446+00:00",
+      "durationMs": 181938,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/recovery-drill-20261011-231244-296.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/recovery-drill-20261011-231244-296.log",
+      "receiptSha256": "8b4d80d45ff7bce5744f0394eb29112990520b338050f923a6bafc1762354e51",
+      "stdoutSha256": "08a64da2c787efbde4329b2612c49ca8fac8203f2655d1bcba7a8059e752b784",
+      "runnerExecutions": []
+    },
+    {
+      "id": "script-contract-tests-20261011-232811-439",
+      "command": "node --test scripts\\certification-output.test.mjs scripts\\e2e-ingress.test.mjs scripts\\e2e-standalone-app.test.mjs scripts\\phase1-browser-plan.test.mjs scripts\\production-certification-workflow.test.mjs scripts\\release-test-deferrals.test.mjs",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:28:11.6953095+00:00",
+      "endedAt": "2026-10-11T18:28:13.8537894+00:00",
+      "durationMs": 2158,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 35,
+        "executed": 35,
+        "passed": 35,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "node TAP summary",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/script-contract-tests-20261011-232811-439.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/script-contract-tests-20261011-232811-439.log",
+      "receiptSha256": "d60dd64c5b16e24ea2a74f1d000722898b7b9fc16187654419a7ca8d09de8198",
+      "stdoutSha256": "dee21f50e619b70de7324d5b574e02ba06426a0872984a818bbd327c7b054376",
+      "rawReceiptCounts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null
+      },
+      "runnerExecutions": []
+    },
+    {
+      "id": "test-coverage-1791740891648-17240",
+      "command": "npm run test:coverage",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "FAIL",
+      "startedAt": "2026-10-11T17:48:11.648Z",
+      "endedAt": "2026-10-11T17:50:23.606Z",
+      "durationMs": 131958,
+      "processExitCode": 1,
+      "counts": {
+        "expected": 3748,
+        "executed": 3748,
+        "passed": 3746,
+        "failed": 2,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-coverage-1791740891648-17240.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-coverage-1791740891648-17240.log",
+      "receiptSha256": "cb554d72986ec2156a89e39435c97a607506e310d2d01c95ce2037eb9074264b",
+      "stdoutSha256": "109701374a39db039dda785d52b2e3e4b8947026482e3d164cb19c88dddc3636",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 790,
+            "failed": 2,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 792
+          },
+          "passed": 3746,
+          "failed": 2,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 3748
+        }
+      ]
+    },
+    {
+      "id": "test-coverage-1791741064399-6524",
+      "command": "npm run test:coverage",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:51:04.399Z",
+      "endedAt": "2026-10-11T17:53:01.388Z",
+      "durationMs": 116989,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 3748,
+        "executed": 3748,
+        "passed": 3748,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-coverage-1791741064399-6524.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-coverage-1791741064399-6524.log",
+      "receiptSha256": "22f31283b58ae9a4763f5f0ab13325b4d8fd7e3b49d2db558116977c46ad1211",
+      "stdoutSha256": "95a7573b46b6ca788bac7ced84ab258ad6d1668e41f00c4e7c06ed14df91de26",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 792,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 792
+          },
+          "passed": 3748,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 3748
+        }
+      ]
+    },
+    {
+      "id": "test-e2e-1791733124915-11192",
+      "command": "npm run test:e2e -- tests/e2e/customer-wallet-refunds.spec.ts tests/e2e/refund-finance-admin.spec.ts tests/e2e/store-order-customer.spec.ts tests/e2e/store-order-merchant.spec.ts tests/e2e/store-order-admin.spec.ts tests/e2e/store-order-substitution.spec.ts tests/e2e/store-order-handoff.spec.ts tests/e2e/store-order-accessibility.spec.ts tests/e2e/profile-avatar-lifecycle.spec.ts tests/e2e/transactional-notifications.spec.ts tests/e2e/trusted-parcel-classification.spec.ts tests/e2e/driver-canonical-delivery.spec.ts tests/e2e/cod-custody-remittance.spec.ts tests/e2e/catalog-inventory-upload.spec.ts tests/e2e/anonymous-courier-quote.spec.ts tests/e2e/customer-identity-lifecycle.spec.ts tests/e2e/store-order-positive-substitution.spec.ts tests/e2e/store-branding-lifecycle.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/phase2-3-directed",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T15:38:44.915Z",
+      "endedAt": "2026-10-11T16:28:25.761Z",
+      "durationMs": 2980846,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 42,
+        "executed": 42,
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": "disposable Compose; see matching harness/runtime receipt",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-e2e-1791733124915-11192.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-e2e-1791733124915-11192.log",
+      "receiptSha256": "959780830be4632ff0c977f506a894fe8275ba4f68ce355ce9d24c5c2f746ee0",
+      "stdoutSha256": "5ec41ace16fcde94a3c10a2c050fb64c9310c929a75b7bc0cbad435493fe6fb9",
+      "runnerExecutions": [
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 42,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 42,
+          "hasFinalSummary": true
+        }
+      ]
+    },
+    {
+      "id": "test-e2e-1791736168306-21436",
+      "command": "npm run test:e2e -- --project=chromium --phase1-catalog",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T16:29:28.306Z",
+      "endedAt": "2026-10-11T17:19:48.757Z",
+      "durationMs": 3020451,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 139,
+        "executed": 139,
+        "passed": 139,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": "disposable Compose; see matching harness/runtime receipt",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-e2e-1791736168306-21436.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-e2e-1791736168306-21436.log",
+      "receiptSha256": "4b21c022381780f903c6500c80e1e9fc062cf8ce1c791cacf36c9b30755c63fb",
+      "stdoutSha256": "0bec8c845193d4d3f6324e934b68888c64a504a04e6aba33ac21a54e164676b0",
+      "runnerExecutions": [
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 1,
+          "hasFinalSummary": true
+        },
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 4,
+          "hasFinalSummary": true
+        },
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 2,
+          "hasFinalSummary": true
+        },
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 4,
+          "hasFinalSummary": true
+        },
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 1,
+          "hasFinalSummary": true
+        },
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 2,
+          "hasFinalSummary": true
+        },
+        {
+          "runner": "playwright",
+          "testFiles": null,
+          "passed": 139,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 139,
+          "hasFinalSummary": true
+        }
+      ]
+    },
+    {
+      "id": "test-e2e-1791739229709-16924",
+      "command": "npm run test:e2e -- --project=chromium --phase2-canonical",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:20:29.709Z",
+      "endedAt": "2026-10-11T17:40:23.455Z",
+      "durationMs": 1193746,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 41,
+        "executed": 41,
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": "disposable Compose; see matching harness/runtime receipt",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-e2e-1791739229709-16924.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-e2e-1791739229709-16924.log",
+      "receiptSha256": "201f1c0ec7469a68e6e5bfb838cac652b007a76c6fb0acd767d88a6614bda88f",
+      "stdoutSha256": "657f68ebe370abecf914640be6c6c057bdcfd46596c883c745cfb46beb608c09",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 19,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 19
+          },
+          "passed": 41,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 41
+        }
+      ]
+    },
+    {
+      "id": "test-integration-bola-authority-1791742127831-10780",
+      "command": "npm run test:integration:bola-authority",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:08:47.831Z",
+      "endedAt": "2026-10-11T18:09:49.522Z",
+      "durationMs": 61691,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 10,
+        "executed": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-bola-authority-1791742127831-10780.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-bola-authority-1791742127831-10780.log",
+      "receiptSha256": "2822fe1025187e4aa7ad7b86ef1052f767cc6a0edf8e2ef0a880e4d5e9a1ad87",
+      "stdoutSha256": "66add56f2dc63dc0d15ac1f1d6eff4d1115f2dc6387cb593b005348579c3a5ba",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 10
+        }
+      ]
+    },
+    {
+      "id": "test-integration-closure-1791741851116-5816",
+      "command": "npm run test:integration:closure",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:04:11.116Z",
+      "endedAt": "2026-10-11T18:07:53.667Z",
+      "durationMs": 222551,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 178,
+        "executed": 178,
+        "passed": 178,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-closure-1791741851116-5816.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-closure-1791741851116-5816.log",
+      "receiptSha256": "5327913cb4fbd2d43b1cc988529e9d8cce013c8080d724932781e4c367129103",
+      "stdoutSha256": "3be03ab523d0a4a63c8213b465371494e419d158aab8ed321dd99e93038c3346",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 27,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 27
+          },
+          "passed": 178,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 178
+        }
+      ]
+    },
+    {
+      "id": "test-integration-migration-upgrade-1791742213450-12420",
+      "command": "npm run test:integration:migration-upgrade",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:10:13.450Z",
+      "endedAt": "2026-10-11T18:12:04.415Z",
+      "durationMs": 110965,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-migration-upgrade-1791742213450-12420.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-migration-upgrade-1791742213450-12420.log",
+      "receiptSha256": "e93ce0ebbb935ccb94e337ea5b070f18d6b4cd31817b702035d3d2a89099cd24",
+      "stdoutSha256": "eac5a9080a8c8b91bd3754d89315f4a29ad1946e9fcb0bc17cd57f40d16d40e0",
+      "runnerExecutions": []
+    },
+    {
+      "id": "test-integration-redis-rate-limit-1791742097225-6736",
+      "command": "npm run test:integration:redis-rate-limit",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:08:17.225Z",
+      "endedAt": "2026-10-11T18:08:25.264Z",
+      "durationMs": 8039,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 7,
+        "executed": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-redis-rate-limit-1791742097225-6736.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-integration-redis-rate-limit-1791742097225-6736.log",
+      "receiptSha256": "bbed612514799d31310a280bce6f4d9c560cdcfc719cbec75cce156277980ce0",
+      "stdoutSha256": "4470096ca210b4d74790b9b6eaf2f92c45e5afb953546bf0a4bbd12c277cc321",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 1
+          },
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 7
+        }
+      ]
+    },
+    {
+      "id": "test-payments-1791741197042-2844",
+      "command": "npm run test:payments",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:53:17.042Z",
+      "endedAt": "2026-10-11T17:53:25.655Z",
+      "durationMs": 8613,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 343,
+        "executed": 343,
+        "passed": 343,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-payments-1791741197042-2844.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-payments-1791741197042-2844.log",
+      "receiptSha256": "be6e3ff7cd332f4ee44ae745b630607420f52695752b773e1746344d8569a1d0",
+      "stdoutSha256": "754b9aac90faf93de9afcb99c669473164708e7a9edac1fe64525343dd8842ed",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 56,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 56
+          },
+          "passed": 343,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 343
+        }
+      ]
+    },
+    {
+      "id": "test-processors-1791741255982-21380",
+      "command": "npm run test:processors",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:54:15.982Z",
+      "endedAt": "2026-10-11T17:54:20.676Z",
+      "durationMs": 4694,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 23,
+        "executed": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-processors-1791741255982-21380.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-processors-1791741255982-21380.log",
+      "receiptSha256": "07f15714bdeb2316d3218863b8f4fef342b9d6b0384b6196ada989ef7d313637",
+      "stdoutSha256": "c19850b629b08c45d475d8f3fa059d3d61778fae92ffcfc26c0c3a2d95ef712a",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 4,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 4
+          },
+          "passed": 23,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 23
+        }
+      ]
+    },
+    {
+      "id": "test-refunds-1791741219515-9152",
+      "command": "npm run test:refunds",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:53:39.515Z",
+      "endedAt": "2026-10-11T17:53:44.155Z",
+      "durationMs": 4640,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 115,
+        "executed": 115,
+        "passed": 115,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-refunds-1791741219515-9152.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-refunds-1791741219515-9152.log",
+      "receiptSha256": "f005f865a049f370241df68b087138a403cc745495e2d3ba676b1cfec484859d",
+      "stdoutSha256": "2bc9287840ca87966275bd95a669342ff1521b33b233703b7001ad765f40db1d",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 26,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 26
+          },
+          "passed": 115,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 115
+        }
+      ]
+    },
+    {
+      "id": "test-security-bola-1791741236890-2220",
+      "command": "npm run test:security:bola",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T17:53:56.890Z",
+      "endedAt": "2026-10-11T17:54:01.729Z",
+      "durationMs": 4839,
+      "processExitCode": 0,
+      "counts": {
+        "expected": 23,
+        "executed": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "countSource": "certification receipt plus runner summary",
+      "environment": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-security-bola-1791741236890-2220.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-security-bola-1791741236890-2220.log",
+      "receiptSha256": "35cdcb543db6412b94fa7ea607d367584494c5fcc408fdf611a44db4ae5f1962",
+      "stdoutSha256": "cbca98cb5ffbc3fc8bd5518100f532fff198b8dffb7d60156afc269f10988a48",
+      "runnerExecutions": [
+        {
+          "runner": "vitest",
+          "testFiles": {
+            "passed": 2,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0,
+            "expected": 2
+          },
+          "passed": 23,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "pending": 0,
+          "flaky": 0,
+          "expected": 23
+        }
+      ]
+    },
+    {
+      "id": "typecheck-20261011-230014-884",
+      "command": "npm run typecheck",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+      "status": "PASS",
+      "startedAt": "2026-10-11T18:00:15.1139510+00:00",
+      "endedAt": "2026-10-11T18:00:45.5482831+00:00",
+      "durationMs": 30434,
+      "processExitCode": 0,
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "countSource": "not a test-counting command",
+      "environment": "local verification; no live service or provider action intended",
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/typecheck-20261011-230014-884.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/typecheck-20261011-230014-884.log",
+      "receiptSha256": "31d72f3c2afbc579e905062eb481b7a793824f402b0e5b79e43322224171c55c",
+      "stdoutSha256": "1230e6e8d3c9d844df1d5e1929e8c6e010b356e531551d58e862c90ee955e535",
+      "runnerExecutions": []
+    }
+  ],
+  "receiptArchive": {
+    "directory": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7",
+    "commandReceiptCount": 36,
+    "earlierAttemptDirectory": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/attempts",
+    "supportingRunsDirectory": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/runs",
+    "rawReceiptJsonByteIdentical": true,
+    "stdoutCopiesByteIdentical": true,
+    "fullChromiumReport": "runs/browser-full-chromium-summary.json",
+    "fullChromiumScreenshotPayloadsOmitted": true,
+    "historicalPaystackPostgresEvidenceSha": "6eed666775a30db5e7e4a70208c418072b76053b"
+  },
+  "nonGreenCommands": [
+    {
+      "id": "docker-gate4-1791742954696-7144",
+      "command": "npm run docker:gate4",
+      "status": "FAIL",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-gate4-1791742954696-7144.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/docker-gate4-1791742954696-7144.log"
+    },
+    {
+      "id": "npm-audit-full-20261011-231732-662",
+      "command": "npm audit --audit-level=high",
+      "status": "FAIL",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-audit-full-20261011-231732-662.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/npm-audit-full-20261011-231732-662.log"
+    },
+    {
+      "id": "prisma-validate-20261011-225517-376",
+      "command": "npx prisma validate",
+      "status": "FAIL",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "counts": {
+        "expected": null,
+        "executed": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "todo": null,
+        "flaky": null
+      },
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-validate-20261011-225517-376.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/prisma-validate-20261011-225517-376.log"
+    },
+    {
+      "id": "test-coverage-1791740891648-17240",
+      "command": "npm run test:coverage",
+      "status": "FAIL",
+      "sourceSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+      "counts": {
+        "expected": 3748,
+        "executed": 3748,
+        "passed": 3746,
+        "failed": 2,
+        "skipped": 0,
+        "todo": 0,
+        "flaky": 0
+      },
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-coverage-1791740891648-17240.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/commands/test-coverage-1791740891648-17240.log"
+    }
+  ],
+  "earlierFailedAttempts": [
+    {
+      "id": "test-e2e-1791730042686-15852",
+      "sourceSha": "b6d1c6d41b5e324b711ae6f4a72b0e60f16068c4",
+      "status": "FAIL",
+      "command": "npm run test:e2e -- tests/e2e/customer-wallet-refunds.spec.ts tests/e2e/refund-finance-admin.spec.ts tests/e2e/store-order-customer.spec.ts tests/e2e/store-order-merchant.spec.ts tests/e2e/store-order-admin.spec.ts tests/e2e/store-order-substitution.spec.ts tests/e2e/store-order-handoff.spec.ts tests/e2e/store-order-accessibility.spec.ts tests/e2e/profile-avatar-lifecycle.spec.ts tests/e2e/transactional-notifications.spec.ts tests/e2e/trusted-parcel-classification.spec.ts tests/e2e/driver-canonical-delivery.spec.ts tests/e2e/cod-custody-remittance.spec.ts tests/e2e/catalog-inventory-upload.spec.ts tests/e2e/anonymous-courier-quote.spec.ts tests/e2e/customer-identity-lifecycle.spec.ts tests/e2e/store-order-positive-substitution.spec.ts tests/e2e/store-branding-lifecycle.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/phase2-3-directed",
+      "processExitCode": 1,
+      "durationMs": 258853,
+      "expected": null,
+      "executed": null,
+      "passed": null,
+      "failed": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/attempts/test-e2e-1791730042686-15852.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/attempts/test-e2e-1791730042686-15852.log"
+    },
+    {
+      "id": "test-e2e-1791731514816-14948",
+      "sourceSha": "b6d798e3f9965ff51a0c16a5d997c03673df4995",
+      "status": "FAIL",
+      "command": "npm run test:e2e -- tests/e2e/customer-wallet-refunds.spec.ts tests/e2e/refund-finance-admin.spec.ts tests/e2e/store-order-customer.spec.ts tests/e2e/store-order-merchant.spec.ts tests/e2e/store-order-admin.spec.ts tests/e2e/store-order-substitution.spec.ts tests/e2e/store-order-handoff.spec.ts tests/e2e/store-order-accessibility.spec.ts tests/e2e/profile-avatar-lifecycle.spec.ts tests/e2e/transactional-notifications.spec.ts tests/e2e/trusted-parcel-classification.spec.ts tests/e2e/driver-canonical-delivery.spec.ts tests/e2e/cod-custody-remittance.spec.ts tests/e2e/catalog-inventory-upload.spec.ts tests/e2e/anonymous-courier-quote.spec.ts tests/e2e/customer-identity-lifecycle.spec.ts tests/e2e/store-order-positive-substitution.spec.ts tests/e2e/store-branding-lifecycle.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/phase2-3-directed",
+      "processExitCode": 1,
+      "durationMs": 576270,
+      "expected": null,
+      "executed": null,
+      "passed": null,
+      "failed": null,
+      "receipt": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/attempts/test-e2e-1791731514816-14948.json",
+      "stdout": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/attempts/test-e2e-1791731514816-14948.log"
+    }
+  ],
+  "historicalTimedOutAttempts": [
+    {
+      "sourceSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "selection": "exact dedicated 18-file directed Chromium selection",
+      "status": "TIMED_OUT",
+      "timeoutMs": 900000,
+      "reportedPasses": 24,
+      "expected": 42,
+      "completed": false,
+      "finalCounts": null,
+      "evidence": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/attempts/historical-6eed-timeouts.json"
+    },
+    {
+      "sourceSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "selection": "unchanged seven-stage plan full Chromium process",
+      "status": "TIMED_OUT",
+      "timeoutMs": 1200000,
+      "reportedPasses": 84,
+      "expected": 139,
+      "completed": false,
+      "finalCounts": null,
+      "evidence": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/attempts/historical-6eed-timeouts.json"
+    }
+  ],
+  "historicalPaystackPostgresReceipt": {
+    "sourceSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "testsPassed": 2,
+    "testsFailed": 0,
+    "notReattributedToCurrentSource": true,
+    "path": "docs/codex-integration/test-receipts/phase2-final-aa0a3af7/runs/paystack-postgres-receipt.json"
+  }
+}

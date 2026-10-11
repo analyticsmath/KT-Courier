@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "command": "npm run build",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T18:01:05.0048238+00:00",
+  "endedAt": "2026-10-11T18:03:53.5448344+00:00",
+  "durationMs": 168540.0,
+  "process": {
+    "signal": null,
+    "exitCode": 0
+  },
+  "testsExpected": null,
+  "testsExecuted": null,
+  "testsPassed": null,
+  "testsFailed": null,
+  "testsSkipped": null,
+  "testsTodo": null,
+  "testsFlaky": null,
+  "environmentProfile": "local verification; no live service or provider action intended",
+  "stdoutPath": "output\\production-closure\\command-receipts\\build-20261011-230104-711.log",
+  "status": "PASS"
+}

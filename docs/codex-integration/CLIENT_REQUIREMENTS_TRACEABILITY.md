@@ -1,3 +1,4 @@
+> **Historical snapshot:** This document was prepared against the 6eed666 integration evidence baseline. The final exact-source results, corrected browser status and current handoff are in [PHASE_2_FINAL_CLOSURE.md](PHASE_2_FINAL_CLOSURE.md).
 # Client requirements traceability
 
 This supersedes the Phase 2 handoff's completion labels. The application features below are inherited from the shared/Phase 1 source tree; the Phase 2 branch added no application implementation. The journey matrix records source-level boundaries; its exact integrated test evidence is supplemented below and in `INTEGRATED_TEST_EVIDENCE.md`. DB-free, disposable PostgreSQL/Redis/recovery and selected browser layers ran at the exact integration source SHA. Hosted CI and human/device acceptance have separate statuses and are not inferred from local tests.

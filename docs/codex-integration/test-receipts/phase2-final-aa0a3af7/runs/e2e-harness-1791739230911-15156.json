@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "command": [
+    "C:\\Program Files\\nodejs\\node.exe",
+    "scripts/e2e-test.mjs",
+    "--project=chromium",
+    "--phase2-canonical"
+  ],
+  "selection": "phase2-canonical-postgres",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T17:20:30.911Z",
+  "endedAt": "2026-10-11T17:40:21.853Z",
+  "durationMs": 1190942,
+  "expectedTests": 41,
+  "process": {
+    "exitCode": 0
+  },
+  "cleanup": "PASS",
+  "environment": {
+    "profile": {
+      "commandIsolation": "disposable-compose-runner",
+      "nodeEnvironment": "test",
+      "runtimeEnvironment": "e2e",
+      "networkDisabled": true,
+      "databaseHostClass": "loopback",
+      "emailProvider": "console",
+      "paystackMode": "test"
+    },
+    "composeProject": "kt-couriers-e2e-1791739230911-15156",
+    "databaseName": "kt_phase75_e2e",
+    "databaseIngress": "127.0.0.1 ephemeral port",
+    "browserIngress": "127.0.0.1 ephemeral port",
+    "applicationNetwork": "internal-only",
+    "applicationEgressProbe": "literal 1.1.1.1:443 blocked before browser execution",
+    "redis": "disposable Compose service",
+    "paystack": "test-mode dummy fixture only; no external provider access",
+    "emailProvider": "console",
+    "networkDisabled": true,
+    "appImage": "kt-couriers-e2e-app:1791739230911-15156",
+    "appImageId": "sha256:794eeb17921d4ed77d449bdf9865b025af2769e9a5fe420734e3def769cacad5",
+    "appImageBuildMode": "host-next-standalone-with-disposable-linux-runtime",
+    "migrateImage": "kt-couriers-e2e-migrate:1791739230911-15156",
+    "migrateImageId": "sha256:7ae7fdc1633e1d875f2a39566f9963e0e15baf704b25cf262bea31b5726e8d8a"
+  },
+  "stageReportPath": "D:\\KT-Courier-integration\\output\\production-closure\\phase2-canonical-vitest.json",
+  "status": "PASS"
+}

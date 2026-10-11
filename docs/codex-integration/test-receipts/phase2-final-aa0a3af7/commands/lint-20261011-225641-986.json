@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "command": "npm run lint",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T17:56:42.2136429+00:00",
+  "endedAt": "2026-10-11T17:59:48.6999649+00:00",
+  "durationMs": 186486.0,
+  "process": {
+    "exitCode": 0,
+    "signal": null
+  },
+  "testsExpected": null,
+  "testsExecuted": null,
+  "testsPassed": null,
+  "testsFailed": null,
+  "testsSkipped": null,
+  "testsTodo": null,
+  "testsFlaky": null,
+  "environmentProfile": "local verification; no live service or provider action intended",
+  "stdoutPath": "output\\production-closure\\command-receipts\\lint-20261011-225641-986.log",
+  "status": "PASS"
+}

@@ -1,21 +1,17 @@
 # Release gate disposition
 
-The source manifest `docs/production-closure/engineering-gates.json` remains authoritative and unchanged. No gate was mechanically promoted. This adjacent matrix explains its existing status using the integration run and the separate Phase 1 exact-source evidence.
+The authoritative [engineering-gates.json](../production-closure/engineering-gates.json) remains unchanged at NOT_READY. The final local evidence and reasons are recorded in [PHASE_2_FINAL_CLOSURE.md](PHASE_2_FINAL_CLOSURE.md). No gate was promoted by this report.
 
-| Gate key | Manifest status | Engineering evidence at `6eed666775a30db5e7e4a70208c418072b76053b` | What remains / owner |
-|---|---|---|---|
-| `marketplace_parcel_classification` | `OPEN` | T1 parcel tests and exact-SHA directed trusted-parcel browser/real PostgreSQL receipts pass at 1440/390: independent reviewer, measured SMALL/MEDIUM/LARGE, `ANY`, unknown/oversize/overweight/stale source denial, unchanged stock and no payment/order for denied parcels. | Client-approved physical parcel limits, effective size tariffs and service coverage remain required before activation. Engineering + client/operations. |
-| `notification_required_domains` | `OPEN` | Disposable PostgreSQL closure 178/178; directed transactional-notification browser case is included in 42/42. Unit notification policy tests pass. | Prove every required event/recipient/suppression/pre-send revocation path; approved templates/provider and communications acceptance. Engineering + communications owner. |
-| `commercial_financial_certification` | `VALIDATION_BLOCKED` | Integrated canonical PostgreSQL 41/41, Paystack PostgreSQL 2/2, dedicated Paystack browser 9/9, closure 178/178 and directed 42/42 pass with offline fixtures. No live Paystack or bank activity occurred. | Signed tariff, commission, COD, bank, Paystack and independent finance/operator approvals; exact hosted certification. |
-| `customer_vendor_driver_full_functional_acceptance` | `OPEN` | Full DB-free suite 3,734/3,734; disposable PostgreSQL 178/178 and canonical 41/41; strict BOLA 10/10; directed browser 42/42. Full Chromium's one-process stage timed out after 84 of 139; remaining 55 passed in four bounded runs. | Complete all exact-SHA hosted end-to-end journeys, unresolved two-tenant/concurrency/mobile cases, and real user/driver acceptance. Engineering, QA and client. |
-| `visual_acceptance` | `OPEN` | Selected browser responsive stages at 1440/390 and directed accessibility journeys pass. No current-candidate human screenshot or visual review. The cinematic home regression remains explicitly deferred. | 320/390/768/1440 layouts, 200% zoom, keyboard/focus/screen-reader review, home delivery-van review and product owner signoff. QA + product owner. |
-| `media_full_functional_acceptance` | `OPEN` | Disposable closure 178/178; directed avatar/private media and driver POD/document related browser selections pass within the 42-case selection. | Complete persisted ownership/revoke/replay across all actors; actual Cloudinary and physical-camera acceptance. Engineering + storage/device owners. |
-| `critical_skip_closure` | `OPEN` | DB-free 3,734/3,734, PostgreSQL 178/178, BOLA 10/10, Redis 7/7, recovery, migration upgrade and directed browser 42/42 passed without skips. Seven-stage Phase 1 plan's single full-browser stage timed out; all 139 discovered cases emitted passes across reruns. Optional deferred scope remains classified in `TEST_DEFERRALS.md`. | Hosted exact-SHA certification, clean full-browser stage artifact, reconcile remaining conditional guards, and keep optional inactive scope explicit. Engineering + release owner. |
-| `fresh_production_protected_row_audit` | `VALIDATION_BLOCKED` | Redacted read-only instructions and disposable rehearsal can be prepared; this work did not access production rows or secrets. | Authorized production data operator, protected read-only path, source/row receipt and independent reviewer. External operator only. |
-| `github_certification_and_deployment` | `VALIDATION_BLOCKED` | Phase 1 commissioned CI evidence exists at its own SHA. No hosted run exists for this integration SHA. GitHub workflows contain test/migration jobs but no deployment job. | Exact integration hosted certification is unavailable safely: `vercel.json` forwards every route to production Railway. Platform owner must prove preview isolation; merge/deploy remains separately governed. Platform/release owner. |
+| Gate | Status | Owner/action |
+|---|---|---|
+| marketplace_parcel_classification | OPEN | Client/operations sign physical limits, ANY policy and effective tariff. |
+| notification_required_domains | OPEN | Engineering/communications complete recipient policy and approve templates. |
+| commercial_financial_certification | VALIDATION_BLOCKED | Finance/provider/bank approve tariffs, commissions, COD and settlement; exact hosted checks follow isolation. |
+| customer_vendor_driver_full_functional_acceptance | OPEN | Engineering, QA and client review remaining actor/state combinations. |
+| visual_acceptance | OPEN | QA/product review target viewports, zoom, keyboard and assistive technology. |
+| media_full_functional_acceptance | OPEN | Media/device owners complete isolated lifecycle and separately authorized provider acceptance. |
+| critical_skip_closure | OPEN | Engineering/release owner audit remaining required guards and hosted exact-SHA workflow. |
+| fresh_production_protected_row_audit | VALIDATION_BLOCKED | Authorized production data operator runs approved read-only audit. |
+| github_certification_and_deployment | VALIDATION_BLOCKED | Platform owner proves preview isolation; release owner authorizes publication and later deployment steps. |
 
-## Release interpretation
-
-`engineering-gates.json` remains `NOT_READY`. Phase 1's separate manifest run `38106385184` passed all 24 commissioned component jobs but the final `certified` job failed on nine open or validation-blocked gates. That is consistent with this disposition. A passing DB-free unit suite is engineering evidence, not product completion, human acceptance, production data audit or release approval.
-
-The following remain explicitly prohibited under the takeover order: production deployment, merge to `main`, production migration/seed/write, live provider/bank activity, production secret extraction, the observed Railway staged patch, real customer communication, and production protected-row access. No such side effect occurred.
+Current local exact-SHA test evidence is green for the directed 42, full Chromium 139, canonical PostgreSQL 41, configured quality and disposable integration checks. The full development audit retains five high advisories. The branch has no hosted run. Thus the final status is PHASE_2_NOT_ACCEPTED; production remains PRODUCTION_NOT_READY.
