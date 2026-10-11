@@ -4,6 +4,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { disposableBrowserOrigins } from "./e2e-environment.mjs";
 import { runPhase1BrowserPlan } from "./phase1-browser-plan.mjs";
+import { certificationEnvironmentProfile } from "./certification-output.mjs";
+import { e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 import {
   assertSuccess,
   findAvailableLoopbackPort,
@@ -21,6 +23,8 @@ const nonce = `${Date.now()}-${process.pid}`;
 const projectName = `kt-couriers-e2e-${nonce}`;
 const database = "kt_phase75_e2e";
 const password = "phase75_e2e_disposable_only";
+const e2eImages = e2eImageNames(nonce);
+const harnessStartedAt = Date.now();
 const playwrightArgs = process.argv.slice(2);
 const phase1Acceptance = playwrightArgs.includes("--phase1-catalog");
 const phase2Canonical = playwrightArgs.includes("--phase2-canonical");
@@ -64,6 +68,9 @@ function buildEnv(port, appPort) {
     KT_NETWORK_DISABLED: "true",
     KT_E2E_GEOCODE_FIXTURES: JSON.stringify({ "45 Commission St, Central, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 }, "10 E2E Pickup Road, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 }, "45 Commission St, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2051, longitude: 28.0483 } }),
     NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: "true",
+    // Every disposable run owns its own tags; never replace shared :latest tags.
+    APP_IMAGE: e2eImages.appImage,
+    MIGRATE_IMAGE: e2eImages.migrateImage,
     NODE_ENV: "test",
     KT_RUNTIME_ENV: "e2e",
     KT_E2E_RATE_LIMIT_MODE: "relaxed",
@@ -72,6 +79,44 @@ function buildEnv(port, appPort) {
     PLAYWRIGHT_BASE_URL: `http://localhost:${appPort}`,
     E2E_BASE_URL: `http://localhost:${appPort}`,
   };
+}
+
+function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv) {
+  const endedAtMs = Date.now();
+  const sourceSha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim() ?? null;
+  const sourceTreeSha = spawnSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).stdout?.trim() ?? null;
+  const receiptPath = path.resolve(`output/production-closure/e2e-runtime-${nonce}.json`);
+  mkdirSync(path.dirname(receiptPath), { recursive: true });
+  writeFileSync(receiptPath, JSON.stringify({
+    schemaVersion: 1,
+    command: [process.execPath, path.join("node_modules", "playwright", "cli.js"), "test", ...args],
+    selection: isExactPhase2And3DirectedSelection(args) ? "phase2-3-directed" : phase1Acceptance ? "phase1-seven-stage-plan" : phase2Canonical ? "phase2-canonical-postgres" : "custom-e2e",
+    commitSha: sourceSha,
+    sourceTreeSha,
+    startedAt: new Date(startedAtMs).toISOString(),
+    endedAt: new Date(endedAtMs).toISOString(),
+    durationMs: endedAtMs - startedAtMs,
+    timeoutMs,
+    expectedTests: isExactPhase2And3DirectedSelection(args) ? 42 : phase1Acceptance ? 139 : phase2Canonical ? 41 : null,
+    process: { exitCode: result.status, signal: result.signal ?? null, errorCode: result.error?.code ?? null },
+    environment: {
+      profile: certificationEnvironmentProfile(runtimeEnv, "test:e2e"),
+      composeProject: projectName,
+      databaseName: database,
+      databaseIngress: "127.0.0.1 ephemeral port",
+      browserIngress: "127.0.0.1 ephemeral port",
+      applicationNetwork: "internal-only",
+      applicationEgressProbe: "literal 1.1.1.1:443 blocked before browser execution",
+      redis: "disposable Compose service",
+      paystack: "test-mode dummy fixture only; no external provider access",
+      emailProvider: "console",
+      networkDisabled: true,
+      appImage: e2eImages.appImage,
+      migrateImage: e2eImages.migrateImage,
+    },
+    status: result.status === 0 ? "PASS" : result.error?.code === "ETIMEDOUT" ? "TIMEOUT_INCOMPLETE" : "FAIL",
+  }, null, 2));
+  return receiptPath;
 }
 
 let env = buildEnv(5432, 3000);
@@ -85,7 +130,11 @@ function assertDisposableProject() {
 
 async function cleanup() {
   const result = runCompose(["down", "-v", "--remove-orphans"], { projectName, env });
-  if (result.status !== 0) safeError(result.stderr || result.stdout || "E2E cleanup failed.");
+  if (result.status !== 0) {
+    safeError(result.stderr || result.stdout || "E2E cleanup failed.");
+    return false;
+  }
+  return true;
 }
 
 async function startE2EServicesWithRetry(maxAttempts = 3) {
@@ -149,6 +198,7 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
 }
 
 let failed = false;
+let cleanupFailed = false;
 try {
   assertDisposableProject();
   assertSuccess(runDocker(["info"]), "docker info");
@@ -187,7 +237,12 @@ try {
       if (!passed) throw new Error("Canonical Paystack PostgreSQL acceptance failed; browser cases were not started.");
     }
     const projectsToRun = playwrightArgs.some((arg) => arg.startsWith("--project")) ? playwrightArgs : ["--project=chromium", "--project=mobile", "--project=keyboard", ...playwrightArgs];
-    const result = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", ...projectsToRun], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 900_000 });
+    const timeout = playwrightTimeoutMs(projectsToRun);
+    const selectionStartedAt = Date.now();
+    const result = spawnSync(process.execPath, [path.join("node_modules", "playwright", "cli.js"), "test", ...projectsToRun], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout });
+    const receiptPath = writePlaywrightReceipt(projectsToRun, timeout, result, selectionStartedAt, env);
+    safeLog(`E2E_SELECTION_RECEIPT=${receiptPath}`);
+    if (result.error?.code === "ETIMEDOUT") safeError(`Playwright process timed out after ${timeout}ms; the stage is incomplete.`);
     if (result.status !== 0) throw new Error("Playwright E2E tests failed.");
   }
   safeLog("Disposable Playwright E2E tests passed.");
@@ -198,7 +253,44 @@ try {
   if (logs.stdout) safeError(logs.stdout);
   if (logs.stderr) safeError(logs.stderr);
 } finally {
-  await cleanup();
+  cleanupFailed = !(await cleanup());
+  if (cleanupFailed) failed = true;
 }
 
+const harnessEndedAt = Date.now();
+const harnessSourceSha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim() ?? null;
+const harnessSourceTreeSha = spawnSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).stdout?.trim() ?? null;
+const harnessReceiptPath = path.resolve(`output/production-closure/e2e-harness-${nonce}.json`);
+mkdirSync(path.dirname(harnessReceiptPath), { recursive: true });
+writeFileSync(harnessReceiptPath, JSON.stringify({
+  schemaVersion: 1,
+  command: [process.execPath, "scripts/e2e-test.mjs", ...playwrightArgs],
+  selection: phase1Acceptance ? "phase1-seven-stage-plan" : phase2Canonical ? "phase2-canonical-postgres" : isExactPhase2And3DirectedSelection(playwrightArgs) ? "phase2-3-directed" : "custom-e2e",
+  commitSha: harnessSourceSha,
+  sourceTreeSha: harnessSourceTreeSha,
+  startedAt: new Date(harnessStartedAt).toISOString(),
+  endedAt: new Date(harnessEndedAt).toISOString(),
+  durationMs: harnessEndedAt - harnessStartedAt,
+  expectedTests: phase1Acceptance ? 139 : phase2Canonical ? 41 : isExactPhase2And3DirectedSelection(playwrightArgs) ? 42 : null,
+  process: { exitCode: failed ? 1 : 0 },
+  cleanup: cleanupFailed ? "FAIL" : "PASS",
+  environment: {
+    profile: certificationEnvironmentProfile(env, "test:e2e"),
+    composeProject: projectName,
+    databaseName: database,
+    databaseIngress: "127.0.0.1 ephemeral port",
+    browserIngress: "127.0.0.1 ephemeral port",
+    applicationNetwork: "internal-only",
+    applicationEgressProbe: "literal 1.1.1.1:443 blocked before browser execution",
+    redis: "disposable Compose service",
+    paystack: "test-mode dummy fixture only; no external provider access",
+    emailProvider: "console",
+    networkDisabled: true,
+    appImage: e2eImages.appImage,
+    migrateImage: e2eImages.migrateImage,
+  },
+  stageReportPath: phase1Acceptance ? path.resolve("output/production-closure/phase1-browser-stages.json") : phase2Canonical ? path.resolve("output/production-closure/phase2-canonical-vitest.json") : null,
+  status: failed ? "FAIL" : "PASS",
+}, null, 2));
+safeLog(`E2E_HARNESS_RECEIPT=${harnessReceiptPath}`);
 process.exit(failed ? 1 : 0);

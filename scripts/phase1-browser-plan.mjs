@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { PHASE1_FULL_CHROMIUM_TIMEOUT_MS } from "./e2e-runner-policy.mjs";
 
 export function phase1BrowserPlan(fullTests = null) {
   const catalog = ["tests/e2e/store-product-catalog.spec.ts", "tests/e2e/catalog-administration.spec.ts"];
@@ -41,16 +42,37 @@ export function runPhase1BrowserPlan(env) {
     const args = [path.join("node_modules", "playwright", "cli.js"), "test", ...stage.args, `--output=test-results/${stage.name}`, "--reporter=list,json"];
     const reportPath = path.resolve(`output/production-closure/browser-${stage.name}.json`);
     const started = Date.now();
+    const startedAt = new Date(started).toISOString();
     console.log(`PHASE_1_BROWSER_STAGE ${stage.name} SHA=${sha} COMMAND=${process.execPath} ${args.join(" ")}`);
-    // Expanded full discovery includes the directed financial/role journeys.
-    // Allow 20 minutes for full execution; focused stages retain 15 minutes.
-    const result = spawnSync(process.execPath, args, { cwd: process.cwd(), env: { ...env, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath }, stdio: "inherit", shell: false, timeout: stage.name === "full-chromium" ? 1_200_000 : 900_000 });
+    // Prior local evidence reached 84/139 cases in the 20-minute cap. A 45-minute
+    // finite bound follows the observed throughput while preserving the full selection.
+    const timeout = stage.name === "full-chromium" ? PHASE1_FULL_CHROMIUM_TIMEOUT_MS : 900_000;
+    const result = spawnSync(process.execPath, args, { cwd: process.cwd(), env: { ...env, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath }, stdio: "inherit", shell: false, timeout });
     // Verify executed counts as well as exit status: a narrowed/missing selection
     // cannot silently turn a required stage green.
     let stats;
     try { stats = JSON.parse(readFileSync(reportPath, "utf8")).stats; } catch { /* Missing execution evidence fails closed below. */ }
     const passed = browserStagePassed(stage, result.status, stats);
-    const record = { stage: stage.name, commitSha: sha, command: [process.execPath, ...args], exitCode: result.status, expectedTests: stage.expectedTests, testsPassed: stats?.expected ?? null, skipped: stats?.skipped ?? null, flaky: stats?.flaky ?? null, durationMs: Date.now() - started, status: passed ? "PASS" : "FAIL" };
+    const ended = Date.now();
+    const record = {
+      stage: stage.name,
+      commitSha: sha,
+      command: [process.execPath, ...args],
+      startedAt,
+      endedAt: new Date(ended).toISOString(),
+      timeoutMs: timeout,
+      process: { exitCode: result.status, signal: result.signal ?? null, errorCode: result.error?.code ?? null },
+      expectedTests: stage.expectedTests,
+      testsExecuted: stats ? stats.expected + stats.unexpected + stats.skipped + stats.flaky : null,
+      testsPassed: stats?.expected ?? null,
+      testsFailed: stats?.unexpected ?? null,
+      skipped: stats?.skipped ?? null,
+      todo: stats?.todo ?? null,
+      flaky: stats?.flaky ?? null,
+      reportPath,
+      durationMs: ended - started,
+      status: passed ? "PASS" : "FAIL",
+    };
     records.push(record);
     writeFileSync("output/production-closure/phase1-browser-stages.json", JSON.stringify(records, null, 2));
     console.log(`PHASE_1_BROWSER_RESULT ${JSON.stringify(record)}`);

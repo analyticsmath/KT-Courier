@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { certificationTestCounts, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
+import { certificationEnvironmentProfile, certificationTestCounts, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
 
 test("the zero-marker static audit does not fail an entirely executed suite", () => {
   assert.equal(hasSkippedCriticalTests("Runtime [SKIP_TEST] markers: 0\nTests 3282 passed (3282)"), false);
@@ -24,8 +24,11 @@ test("a clean or explicitly zero-flaky result remains eligible", () => {
   for (const output of ["66 passed", "0 flaky\n66 passed", "0 skipped\n66 passed"]) assert.equal(hasFlakyCriticalTests(output), false);
 });
 
-test("Vitest failure-first summaries still retain executed passing and failing counts", () => {
-  assert.deepEqual(certificationTestCounts("Test Files 2 failed | 18 passed (20)\nTests 2 failed | 158 passed (160)").executions, [{ runner: "vitest", testFiles: { passed: 18, failed: 2, skipped: 0, todo: 0, pending: 0, flaky: 0 }, passed: 158, failed: 2, skipped: 0, todo: 0, pending: 0, flaky: 0 }]);
+test("Vitest failure-first summaries retain expected and executed counts", () => {
+  const counts = certificationTestCounts("Test Files 2 failed | 18 passed (20)\nTests 2 failed | 158 passed (160)");
+  assert.deepEqual(counts.executions, [{ runner: "vitest", testFiles: { passed: 18, failed: 2, skipped: 0, todo: 0, pending: 0, flaky: 0, expected: 20 }, passed: 158, failed: 2, skipped: 0, todo: 0, pending: 0, flaky: 0, expected: 160 }]);
+  assert.equal(counts.testsExpected, 160);
+  assert.equal(counts.testsExecuted, 160);
 });
 
 test("ordered Playwright summaries record every stage and identify the final executed suite", () => {
@@ -36,7 +39,48 @@ test("ordered Playwright summaries record every stage and identify the final exe
   assert.equal(result.testsFailed, 1);
   assert.equal(result.testsSkipped, 1);
   assert.equal(result.testsFlaky, 1);
+  assert.equal(result.testsExpected, 4);
+  assert.equal(result.testsExecuted, 4);
   assert.equal(certificationTestCounts("infrastructure failed before tests started").testsPassed, null);
+});
+
+test("partial Playwright list output preserves completed attempt counts when a final report is missing", () => {
+  const result = certificationTestCounts([
+    "Running 42 tests using 1 worker",
+    "  ✓   1 [chromium] › customer wallet refunds (4s)",
+    "  x   2 [chromium] › refund finance admin (2s)",
+    "  -   3 [chromium] › skipped mobile-only case",
+    "  ✓   4 [chromium] › retry title (retry #1) (5s)",
+  ].join("\n"));
+
+  assert.equal(result.testsExpected, 42);
+  assert.equal(result.testsExecuted, null, "an interrupted run has no authoritative final test summary");
+  assert.deepEqual(result.playwrightProgress, {
+    passedAttempts: 2,
+    failedAttempts: 1,
+    skippedAttempts: 1,
+    flakyAttempts: 1,
+    completedAttempts: 4,
+  });
+});
+
+test("certification environment receipts classify endpoints without retaining secrets", () => {
+  assert.deepEqual(certificationEnvironmentProfile({
+    DATABASE_URL: "postgresql://secret:secret@127.0.0.1:5432/disposable",
+    KT_RUNTIME_ENV: "e2e",
+    KT_NETWORK_DISABLED: "true",
+    EMAIL_PROVIDER: "console",
+    PAYSTACK_MODE: "test",
+    PAYSTACK_SECRET_KEY: "never-include-this",
+  }, "test:e2e"), {
+    commandIsolation: "disposable-compose-runner",
+    nodeEnvironment: "unset-or-other",
+    runtimeEnvironment: "e2e",
+    networkDisabled: true,
+    databaseHostClass: "loopback",
+    emailProvider: "console",
+    paystackMode: "test",
+  });
 });
 
 test("certification rejects missing, invalid or mismatched exact checkout identities", () => {
