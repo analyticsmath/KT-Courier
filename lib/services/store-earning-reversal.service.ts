@@ -41,7 +41,14 @@ export async function adjustStoreEarningInTransaction(
   if (!held || earning.payableAccount.status !== "ACTIVE") throw new StoreEarningError("STORE_EARNING_ACCOUNT_INVALID", "Canonical earning accounts are unavailable.");
   const accountIds = [earning.payableAccountId, held.id].sort();
   await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "LedgerAccount" WHERE "id" IN (${Prisma.join(accountIds)}) ORDER BY "id" ASC FOR UPDATE`);
-  const journal = await postLedgerJournalWithinTransaction(tx, storeEarningReversalPosting({ earningReference: earning.publicReference, amount: formatStoreEarningMoney(amount), storePayableAccountId: earning.payableAccountId, customerFundsHeldAccountId: held.id, storePublicReference: earning.storePublicReference, subjectPublicReference: earning.subjectPublicReference, settlementVersion: earning.settlementVersion, reasonCode: operationEvidence.reasonCode, operationId: operationEvidence.operationId, actorUserId: operationEvidence.actorUserId }));
+  const posting = storeEarningReversalPosting({ earningReference: earning.publicReference, amount: formatStoreEarningMoney(amount), storePayableAccountId: earning.payableAccountId, customerFundsHeldAccountId: held.id, storePublicReference: earning.storePublicReference, subjectPublicReference: earning.subjectPublicReference, settlementVersion: earning.settlementVersion, reasonCode: operationEvidence.reasonCode, operationId: operationEvidence.operationId, actorUserId: operationEvidence.actorUserId, frozenAdjustmentEvidence: originalStoreEarningEvidence });
+  const replay = await tx.ledgerJournal.findUnique({ where: { idempotencyKey: posting.idempotencyKey } });
+  if (replay) {
+    const journal = await postLedgerJournalWithinTransaction(tx, posting);
+    return Object.freeze({ storeEarningReference: earning.publicReference, reversalLedgerJournalReference: journal.reference, amount: formatStoreEarningMoney(amount), replayed: true });
+  }
+  if (!earning.reversedAmount.equals(prior) || earning.reversedAmount.add(earning.refundedAmount).add(earning.refundReservedAmount).add(amount).greaterThan(originalAmount)) throw new StoreEarningError("STORE_EARNING_REVERSAL_NOT_ALLOWED", "Cumulative store adjustment does not match the current protected earning projection.");
+  const journal = await postLedgerJournalWithinTransaction(tx, posting);
   await tx.storeEarning.update({ where: { id: earning.id }, data: { reversedAmount: { increment: amount }, version: { increment: 1 }, statusHistory: { create: { fromStatus: earning.status, toStatus: earning.status, actorType: operationEvidence.actorUserId ? "USER" : "SYSTEM", actorId: operationEvidence.actorUserId ?? null, reasonCode: operationEvidence.reasonCode, safeMetadata: { operationId: operationEvidence.operationId, sellerBasisAmount: formatStoreEarningMoney(sellerBasis), commissionAmount: formatStoreEarningMoney(commission), reversalLedgerReference: journal.reference } } } } });
   return Object.freeze({ storeEarningReference: earning.publicReference, reversalLedgerJournalReference: journal.reference, amount: formatStoreEarningMoney(amount), replayed: false });
 }

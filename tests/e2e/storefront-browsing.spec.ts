@@ -7,35 +7,15 @@ const isLocalValidationServerAvailable = Boolean(
 
 test.describe("Storefront Browsing & Discovery", () => {
   test.beforeEach(() => {
-    test.skip(!isLocalValidationServerAvailable, "Requires active local app instance with KT_LOCAL_STOREFRONT_VALIDATION=true");
+    if (!isLocalValidationServerAvailable) throw new Error("Run through the disposable E2E runner.");
   });
 
-  test("locked state displays activation pending heading and nonindexable metadata when locked header is set", async ({ page }) => {
-    const monitor = attachConsoleMonitor(page);
+  test("untrusted lock headers cannot change the canonical exposure decision", async ({ page }) => {
     await page.setExtraHTTPHeaders({ "x-kt-storefront-lock": "true" });
-
-    let productApiRequested = false;
-    page.on("request", (req) => {
-      if (req.url().includes("/api/catalog/products")) productApiRequested = true;
-    });
-
     await page.goto("/shop");
-
-    const heading = page.locator("#marketplace-unavailable-title, h1");
-    await expect(heading).toBeVisible();
-    await expect(heading).toContainText("The marketplace catalogue is not available yet");
-
-    const eyebrow = page.locator("p", { hasText: "Marketplace catalogue pending activation" });
-    await expect(eyebrow).toBeVisible();
-
-    const robotsMeta = page.locator('meta[name="robots"]');
-    await expect(robotsMeta).toHaveAttribute("content", /noindex/);
-
-    const productCards = page.locator('[data-testid="product-card"], .productCard');
-    await expect(productCards).toHaveCount(0);
-    expect(productApiRequested).toBe(false);
-
-    monitor.assertClean();
+    await expect(page.locator("h1:visible")).toContainText(/Shop|Discover/i);
+    await expect(page.locator("body")).not.toContainText("The marketplace catalogue is not available yet");
+    await expect(page.locator('a[href*="CP-E2ESMARTPHONE"]').first()).toBeVisible();
   });
 
   test("safely activated state renders canonical storefront heading and source-backed content", async ({ page }) => {
@@ -43,7 +23,7 @@ test.describe("Storefront Browsing & Discovery", () => {
 
     await page.goto("/shop");
 
-    const heading = page.locator("h1");
+    const heading = page.locator("h1:visible");
     await expect(heading).toBeVisible();
     await expect(heading).toContainText(/Marketplace|Shop/i);
 
@@ -86,14 +66,14 @@ test.describe("Storefront Browsing & Discovery", () => {
     await expect(breadcrumbs).toBeVisible();
     await expect(breadcrumbs).toContainText("Electronics");
 
-    const heading = page.locator("h1");
+    const heading = page.locator("h1:visible");
     await expect(heading).toContainText("Electronics");
 
     const pageContent = await page.textContent("body");
     expect(pageContent).toContain("E2E Smartphone");
 
     await page.goto("/shop/categories/nonexistent-category-slug-999");
-    const notFoundHeading = page.locator("h1");
+    const notFoundHeading = page.locator("h1:visible");
     await expect(notFoundHeading).toBeVisible();
 
     monitor.assertClean();
@@ -101,27 +81,28 @@ test.describe("Storefront Browsing & Discovery", () => {
 
   test("product detail page displays store, variant selection, price and handles variant changes", async ({ page }) => {
     const monitor = attachConsoleMonitor(page);
-
-    await page.goto("/shop/products/e2e-smartphone-prod_e2esmartphone");
-
-    const title = page.locator("h1");
-    await expect(title).toContainText("E2E Smartphone");
-
-    const bodyText = await page.textContent("body");
-    expect(bodyText).toContain("E2E Store");
-    expect(bodyText).toMatch(/R\s*1\s*500,00|1500\.00|1\s*500/);
-
-    const variantLink = page.locator('a[href*="var_128gb"]');
-    if (await variantLink.isVisible()) {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("E2E Smartphone 64GB");
+      const purchase = page.getByRole("region", { name: "Purchase product", exact: true });
+      await expect(purchase.getByRole("radio", { name: /E2E Store R\s*1\s*500,00/ })).toBeChecked();
+      await expect(purchase).toContainText(/R\s*1\s*500,00/);
+      const chooser = purchase.getByRole("group", { name: "Available product variants", exact: true });
+      await expect(chooser).toHaveCount(1);
+      const variantLink = chooser.getByRole("link", { name: "Silver · 128GB", exact: true });
+      await expect(variantLink).toHaveCount(1);
+      await expect(variantLink).toBeVisible();
+      await expect(variantLink).toHaveAttribute("href", "/shop/products/e2e-smartphone-CP-E2ESMARTPHONE/CV-E2E128GB");
       await variantLink.click();
-      await expect(page).toHaveURL(/var_128gb/);
-      const updatedText = await page.textContent("body");
-      expect(updatedText).toMatch(/R\s*2\s*000,00|2000\.00|2\s*000/);
+      await expect(page).toHaveURL(/CV-E2E128GB/);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("E2E Smartphone 128GB");
+      await expect(purchase).toContainText(/R\s*2\s*000,00/);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+      await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE/invalid_variant_ref_999");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("That marketplace item is not available.");
+      await expect(page.getByRole("region", { name: "Purchase product", exact: true })).toHaveCount(0);
     }
-
-    await page.goto("/shop/products/e2e-smartphone-prod_e2esmartphone/invalid_variant_ref_999");
-    await expect(page.locator("h1")).toBeVisible();
-
     monitor.assertClean();
   });
 
@@ -130,7 +111,7 @@ test.describe("Storefront Browsing & Discovery", () => {
 
     await page.goto("/shop/stores/e2e-store");
 
-    const heading = page.locator("h1");
+    const heading = page.locator("h1:visible");
     await expect(heading).toContainText("E2E Store");
 
     const content = await page.content();
@@ -146,14 +127,15 @@ test.describe("Storefront Browsing & Discovery", () => {
   test("media fallback presents neutral image placeholder for products without media", async ({ page }) => {
     const monitor = attachConsoleMonitor(page);
 
-    await page.goto("/shop/products/e2e-product-no-media-prod_nomedia");
+    await page.goto("/shop/products/e2e-product-no-media-CP-E2ENOMEDIA");
 
-    const heading = page.locator("h1");
+    const heading = page.locator("h1:visible");
     await expect(heading).toContainText("E2E Product No Media");
 
-    const fallbackImage = page.locator('[role="img"], .productMediaUnavailable');
+    const gallery = page.getByRole("region", { name: "E2E Product No Media image gallery", exact: true });
+    const fallbackImage = gallery.getByText("Image unavailable", { exact: true }).filter({ visible: true });
+    await expect(fallbackImage).toHaveCount(1);
     await expect(fallbackImage).toBeVisible();
-    await expect(fallbackImage).toContainText("Image unavailable");
 
     const brokenImages = await page.evaluate(() => {
       return Array.from(document.querySelectorAll("img")).filter((img) => img.naturalWidth === 0 && img.src !== "");

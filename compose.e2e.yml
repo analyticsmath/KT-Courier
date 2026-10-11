@@ -1,0 +1,51 @@
+# Used only by the disposable browser runner. Application/provider traffic stays
+# on the internal network; browsers enter through a fixed-upstream proxy.
+services:
+  # Financial acceptance reads the genuine disposable DB from the host. Docker
+  # internal-only bridges do not publish a usable host route. This dedicated
+  # DB ingress is loopback-bound; the application/provider network stays internal.
+  db:
+    ports: !override
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - kt_couriers_internal
+      - e2e_database_ingress
+  app:
+    ports: !reset []
+    command: ["node", "scripts/e2e-standalone-app.mjs"]
+    environment:
+      # Never inherit a host/live Redis URL from a local Compose env file.
+      REDIS_URL: redis://redis:6379/0
+      KT_E2E_PAYSTACK_ACCEPTANCE: "true"
+      APP_URL: ${APP_URL}
+      KT_LOCAL_FULL_FLOW: "false"
+      KT_E2E_NETWORK_INTERNAL: "true"
+      NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY: ${NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY}
+      # Test-owned private files stay writable and disappear with this container.
+      PRIVATE_MEDIA_STORAGE: local
+      PRIVATE_MEDIA_LOCAL_DIR: /tmp/kt-couriers-e2e-private-media
+      KT_E2E_PRIVATE_MEDIA_LOCAL: "true"
+      CATALOG_MEDIA_STORAGE: filesystem
+      CATALOG_MEDIA_LOCAL_DIR: /tmp/kt-couriers-e2e-catalog-media
+  e2e-ingress:
+    image: ${MIGRATE_IMAGE:-kt-couriers-migrate:latest}
+    restart: "no"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      KT_RUNTIME_ENV: e2e
+    command: ["node", "scripts/e2e-ingress.mjs"]
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - kt_couriers_internal
+      - e2e_browser_ingress
+networks:
+  e2e_database_ingress:
+    driver: bridge
+  e2e_browser_ingress:
+    driver: bridge

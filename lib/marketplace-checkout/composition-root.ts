@@ -7,6 +7,7 @@ import { resolveMarketplaceCartLine, type CartOwner } from "@/lib/marketplace-ch
 import type { PromotionEvaluationAdapter, ReviewLine, RevalidatedLine } from "@/lib/marketplace-checkout/checkout-review.service";
 import { createPrismaCustomerDeliveryEntitlementRepository, SubscriptionAwareMarketplaceDeliveryQuoteAdapter } from "@/lib/subscriptions/subscription-delivery-benefit.service";
 import { resolvePromotionProductionComposition } from "@/lib/promotions/promotion-composition-root";
+import { Prisma } from "@prisma/client";
 
 class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
   async evaluate(input: Parameters<PromotionEvaluationAdapter["evaluate"]>[0]) {
@@ -37,7 +38,7 @@ class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
 export function resolveMarketplaceCheckoutProductionComposition() {
   return Object.freeze({
     deliveryQuotes: new Phase6MarketplaceDeliveryQuoteAdapter(createPhase6MarketplaceQuoteAuthority()),
-    phase6Authority: "pricing-quote.service.createPricingQuoteForTrustedOwner" as const,
+    phase6Authority: "matrix-quote.service.createMarketplaceMatrixQuote" as const,
     phase10Authority: "payment-preparation.service.prepareMarketplacePayment" as const,
     paymentCheckoutAuthority: "marketplace-paystack-checkout.service.prepareMarketplacePaystackCustomerAction" as const,
     phase12Authority: "marketplace-payment-success-hook.service.onVerifiedMarketplacePaymentSucceeded" as const,
@@ -61,8 +62,8 @@ function revalidatedLine(line: ReviewLine): Promise<RevalidatedLine> {
     quantity: line.quantity,
     modifiers: (line.modifiers ?? []).map((modifier) => ({ groupReference: modifier.groupReference, optionReference: modifier.optionReference, quantity: modifier.quantity })),
   }).then((resolved) => {
-    const modifierUnitTotal = resolved.modifiers.reduce((total, modifier) => total + Number(modifier.priceDelta) * modifier.quantity, 0);
-    const base = Number(resolved.unitPrice);
+    const modifierUnitTotal = resolved.modifiers.reduce((total, modifier) => total.add(new Prisma.Decimal(modifier.priceDelta).mul(modifier.quantity)), new Prisma.Decimal(0));
+    const base = new Prisma.Decimal(resolved.unitPrice);
     return Object.freeze({
       lineReference: line.lineReference,
       available: true,
@@ -71,7 +72,7 @@ function revalidatedLine(line: ReviewLine): Promise<RevalidatedLine> {
       publicationVersion: resolved.publicationVersion,
       baseUnitPrice: resolved.unitPrice,
       modifierUnitTotal: modifierUnitTotal.toFixed(2),
-      lineTotal: ((base + modifierUnitTotal) * resolved.quantity).toFixed(2),
+      lineTotal: base.add(modifierUnitTotal).mul(resolved.quantity).toFixed(2),
       modifierValid: true,
     });
   });
@@ -109,7 +110,8 @@ export async function executeMarketplaceDeliveryQuotes(input: Readonly<{
   return repository.transaction(async () => {
     const checkout = await repository.lockCheckout(input.reference, input.owner);
     if (!checkout || checkout.version !== input.expectedVersion) throw new Error("Checkout delivery evidence is stale.");
-    const serviceArea = checkout.addressServiceAreaReference || "cmu057leb0002wj4xl77v5twc";
+      const serviceArea = checkout.addressServiceAreaReference;
+      if (!serviceArea) throw new Error("A validated service area is required before delivery quoting.");
     return Promise.all(checkout.groups.map(async (group) => composition.deliveryQuotes.quoteStoreGroup({
       checkoutReference: checkout.publicReference,
       storeReference: group.storeReference,

@@ -8,23 +8,24 @@ import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/Protecte
 import { StoreCatalogNavigation } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { listStoreCatalogImports } from "@/lib/services/catalog-import.service";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
 export default async function StoreCatalogImportsPage() {
   await requireBusinessPage("/store/catalog/imports");
-  const { store } = await getCurrentStoreForCatalogPage();
+  const { store } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_IMPORTS_READ);
   const imports = await listStoreCatalogImports(store.id);
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
         eyebrow="Catalog"
         title="Bulk imports"
-        description="Store import records and validation evidence. Import application remains limited to its canonical draft-only flow."
+        description="Store import records and validation evidence. Product draft import is currently unavailable."
       />
       <StoreCatalogNavigation />
       <OperationalPanel title="Import safeguards" padding="compact">
         <p className="text-sm text-[var(--eo-text-secondary)]">
-          The existing import workflow requires a dry run before apply. It does
-          not publish products, offers, or prices.
+          Create product drafts in the catalog. To record received stock, use
+          Upload stock receipts on the Inventory page.
         </p>
       </OperationalPanel>
       {imports.length ? (

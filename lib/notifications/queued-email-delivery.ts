@@ -3,6 +3,7 @@ import { resolveNotificationProductionComposition } from "./composition-root";
 import { deliverSecurityEmail } from "./security-email-delivery";
 import { assertNotificationProductionReady } from "./production-readiness";
 import { recoverStalledEmailDeliveries } from "./email-delivery-recovery";
+import { guestContactIdFromSubject, resolveVerifiedGuestContact } from "./guest-recipient";
 
 /** Process due email only, through the canonical atomic claim/provider boundary. */
 export async function deliverQueuedEmails(limit: number) {
@@ -25,10 +26,20 @@ export async function deliverQueuedEmails(limit: number) {
       if (intent?.sourceAuthority === "AUTHENTICATION_SECURITY") {
         result = await deliverSecurityEmail(delivery.id);
       } else {
-        const user = await prisma.user.findUnique({ where: { id: delivery.recipientUserId }, select: { email: true, emailVerifiedAt: true, status: true } });
-        if (!user?.email || !user.emailVerifiedAt || user.status !== "ACTIVE") { await block("RECIPIENT_NOT_ELIGIBLE"); skipped++; continue; }
         const message = await prisma.notificationMessage.findUnique({ where: { id: delivery.messageId } });
         if (!message || message.recipientUserId !== delivery.recipientUserId) { await block("MESSAGE_RECIPIENT_MISMATCH"); skipped++; continue; }
+        let destination: string;
+        const contactSnapshotId = guestContactIdFromSubject(delivery.recipientUserId);
+        if (contactSnapshotId) {
+          const projection = await prisma.notificationRecipient.findFirst({ where: { messageId: message.id, subjectUserId: delivery.recipientUserId, roleProjection: "GUEST_CHECKOUT_CONTACT" } });
+          if (!projection) { await block("RECIPIENT_NOT_ELIGIBLE"); skipped++; continue; }
+          try { destination = (await resolveVerifiedGuestContact(prisma, contactSnapshotId)).email; }
+          catch { await block("RECIPIENT_NOT_ELIGIBLE"); skipped++; continue; }
+        } else {
+          const user = await prisma.user.findUnique({ where: { id: delivery.recipientUserId }, select: { email: true, emailVerifiedAt: true, status: true } });
+          if (!user?.email || !user.emailVerifiedAt || user.status !== "ACTIVE") { await block("RECIPIENT_NOT_ELIGIBLE"); skipped++; continue; }
+          destination = user.email;
+        }
         const category = await prisma.notificationCategory.findUnique({ where: { key: message.categoryKey } });
         if (!category || category.status !== "ACTIVE" || category.purpose !== message.purpose) { await block("CATEGORY_NOT_ELIGIBLE"); skipped++; continue; }
         const route = message.routeVersionId ? await prisma.notificationEventRouteVersion.findUnique({ where: { id: message.routeVersionId } }) : null;
@@ -41,7 +52,7 @@ export async function deliverQueuedEmails(limit: number) {
           else await block(eligibility.state === "DIGEST" ? "DIGEST_NOT_CONFIGURED" : eligibility.reason ?? "PREFERENCE_NOT_ELIGIBLE");
           skipped++; continue;
         }
-        result = await composition.services.delivery.deliver({ deliveryId: delivery.id, destination: user.email, operationId: `production-email:${delivery.publicReference}` });
+        result = await composition.services.delivery.deliver({ deliveryId: delivery.id, destination, operationId: `production-email:${delivery.publicReference}` });
       }
       if (result?.status === "PROVIDER_ACCEPTED" || result?.status === "DELIVERED") completed++;
       else if (result?.status === "FAILED_RETRYABLE") retried++;

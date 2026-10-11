@@ -12,6 +12,7 @@ import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
 import { accountEmailQueueFailureResponse, shouldQueueSecurityEmail, securityEmailUnavailableResponse } from "@/lib/auth/security-email-readiness";
+import { passwordResetUrl } from "@/lib/auth/password-reset-url";
 
 const GENERIC_RESPONSE = {
   message:
@@ -19,15 +20,6 @@ const GENERIC_RESPONSE = {
 };
 
 const RESET_EXPIRES_MINUTES = 60;
-
-function buildResetUrl(token: string): string {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.NODE_ENV === "production"
-      ? "https://ktcouriers.com"
-      : "http://localhost:3000");
-  return `${base}/reset-password?token=${token}`;
-}
 
 export async function POST(req: NextRequest) {
   const originFailure = await enforceSameOriginRequest(req);
@@ -77,7 +69,7 @@ export async function POST(req: NextRequest) {
   const rawToken = generateToken(32);
   const tokenHash = hashToken(rawToken);
 
-  const resetUrl = buildResetUrl(rawToken);
+  const resetUrl = passwordResetUrl(rawToken);
   const queued = await prisma.$transaction(async (tx) => {
     const resetRecord = await tx.passwordResetToken.create({
       data: { userId: user.id, tokenHash, expiresAt: generateResetTokenExpiresAt() },

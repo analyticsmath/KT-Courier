@@ -45,6 +45,7 @@ import { PERMISSIONS } from "../../lib/auth/permission-keys";
 import { prepareMarketplaceAdminRecovery } from "../../lib/marketplace-checkout/admin-recovery-policy";
 import { PrivateMediaService, PrivateMediaPolicyError } from "../../lib/private-media/private-media.service";
 import type { PrivateMediaStorageAdapter } from "../../lib/private-media/private-media-storage";
+import { createApprovedDriverEvidence } from "../integration/phase7-5-fixtures";
 
 const isStrict = process.env.STRICT_POSTGRES_REQUIRED === "1";
 
@@ -218,6 +219,8 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       await prisma.driverServiceRegion.create({
         data: { driverProfileId: drvB.id, deliveryRegionId: region.id },
       });
+      await createApprovedDriverEvidence(driverAProfileId, driverAUserId, `bola-a-${nonce}`);
+      await createApprovedDriverEvidence(driverBProfileId, driverBUserId, `bola-b-${nonce}`);
 
       // 5. Create Order for Customer B
       customerBOrderNumber = `KT-ORD-B-${nonce}`;

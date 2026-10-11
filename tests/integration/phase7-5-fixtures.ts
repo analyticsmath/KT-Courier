@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import {
   DeliveryType,
   DocumentStatus,
@@ -30,7 +31,7 @@ export function uniqueTag(prefix = "p75") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export async function createUser(tag: string, role: UserRole, status = UserStatus.ACTIVE): Promise<AuthenticatedUser> {
+export async function createUser(tag: string, role: UserRole, status: UserStatus = UserStatus.ACTIVE): Promise<AuthenticatedUser> {
   const user = await integrationPrisma.user.create({
     data: { email: `${tag}@phase75.test`, name: tag, role, status, passwordHash: "not-used-by-integration-tests" },
   });
@@ -61,6 +62,15 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   });
   await integrationPrisma.driverServiceRegion.create({ data: { driverProfileId: profile.id, deliveryRegionId: regionId, isPrimary: true } });
 
+  await createApprovedDriverEvidence(profile.id, user.id, tag);
+  return { user, profile };
+}
+
+/** Approved evidence exists only in the caller's disposable test database. */
+export async function createApprovedDriverEvidence(driverProfileId: string, userId: string, tag: string) {
+  const profile = { id: driverProfileId };
+  const user = { id: userId };
+
   await integrationPrisma.driverDocument.createMany({
     data: [
       { driverProfileId: profile.id, documentType: DocumentType.ID_DOCUMENT, status: DocumentStatus.APPROVED, expiresAt: null },
@@ -71,7 +81,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
   const vehicle = await integrationPrisma.vehicle.create({
     data: {
-      publicReference: `VEH-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `VEH-${randomUUID().replaceAll("-", "").slice(0, 24)}`,
       driverProfileId: profile.id,
       make: "Toyota",
       model: "Corolla",
@@ -85,7 +95,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
 
   const mediaReg = await integrationPrisma.privateMediaObject.create({
     data: {
-      publicReference: `MED-REG-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `MED-REG-${randomUUID().replaceAll("-", "").slice(0, 20)}`,
       ownerType: PrivateMediaOwnerType.VEHICLE,
       ownerId: vehicle.id,
       purpose: PrivateMediaPurpose.VEHICLE_REGISTRATION,
@@ -102,7 +112,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   });
   const mediaDisc = await integrationPrisma.privateMediaObject.create({
     data: {
-      publicReference: `MED-DISC-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `MED-DISC-${randomUUID().replaceAll("-", "").slice(0, 20)}`,
       ownerType: PrivateMediaOwnerType.VEHICLE,
       ownerId: vehicle.id,
       purpose: PrivateMediaPurpose.VEHICLE_LICENCE_DISC,
@@ -119,7 +129,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
   });
   const mediaIns = await integrationPrisma.privateMediaObject.create({
     data: {
-      publicReference: `MED-INS-${tag.slice(0, 8)}-${Date.now()}-${rand}`.slice(0, 30),
+      publicReference: `MED-INS-${randomUUID().replaceAll("-", "").slice(0, 20)}`,
       ownerType: PrivateMediaOwnerType.VEHICLE,
       ownerId: vehicle.id,
       purpose: PrivateMediaPurpose.VEHICLE_INSURANCE,
@@ -143,7 +153,7 @@ export async function createDriver(tag: string, regionId: string, capacity = 1) 
     ],
   });
 
-  return { user, profile };
+  return vehicle;
 }
 
 export async function createDispatchOrder(tag: string, customerId: string, regionId: string) {

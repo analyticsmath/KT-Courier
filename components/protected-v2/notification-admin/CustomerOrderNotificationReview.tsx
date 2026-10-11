@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 type Action = "APPROVE_TEMPLATE" | "PUBLISH_TEMPLATE" | "APPROVE_RECIPIENT_POLICY" | "PREPARE_ROUTE" | "APPROVE_ROUTE" | "ACTIVATE_ROUTE";
-export type CustomerOrderReviewRow = { eventType: string; label: string; title: string; body: string; templateStatus: string; recipientPolicyStatus: string; routeStatus: string; activatedAt: string | null; actions: { action: Action; label: string }[]; publisherMustDiffer: boolean; activatorMustDiffer: boolean };
+export type CustomerOrderReviewRow = { eventType: string; label: string; recipientSummary: string; title: string; body: string; templateStatus: string; recipientPolicyStatus: string; routeStatus: string; activatedAt: string | null; actions: { action: Action; label: string }[]; publisherMustDiffer: boolean; activatorMustDiffer: boolean };
 
 export function CustomerOrderNotificationReview({ rows, locked }: { rows: CustomerOrderReviewRow[]; locked: boolean }) {
   const router = useRouter();
@@ -31,7 +31,7 @@ export function CustomerOrderNotificationReview({ rows, locked }: { rows: Custom
       <h2 className="text-xl font-semibold">{row.label}</h2>
       <div><p className="font-medium">{row.title || "Template not prepared"}</p><p className="whitespace-pre-wrap">{row.body}</p></div>
       <p>Template: {row.templateStatus.replaceAll("_", " ")} · Recipient policy: {row.recipientPolicyStatus} · Route: {row.routeStatus}</p>
-      <p className="text-sm">Recipient: the customer recorded on the courier order. Channels: account inbox and verified email. Email preferences and quiet hours apply.</p>
+      <p className="text-sm">Recipient: {row.recipientSummary} Channels: account inbox where available and verified email. Email preferences and quiet hours apply.</p>
       {row.activatedAt && <p className="text-sm">New events are eligible from {new Date(row.activatedAt).toLocaleString("en-ZA")}.</p>}
       {row.publisherMustDiffer && <p>A different administrator must publish this approved template.</p>}
       {row.activatorMustDiffer && <p>A different administrator must activate this approved route.</p>}

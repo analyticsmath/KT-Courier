@@ -2,7 +2,7 @@ import { storeAccess } from "@/lib/client-platform/store-access";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
-import { DEFAULT_STORE_CATALOG_PERMISSION_KEYS } from "@/lib/auth/permission-keys";
+import { DEFAULT_STORE_CATALOG_PERMISSION_KEYS, STORE_EMPLOYEE_PRODUCT_PERMISSION_KEYS } from "@/lib/auth/permission-keys";
 import { prisma } from "@/lib/db/prisma";
 import { catalogJson } from "@/lib/catalog/catalog-api-policy";
 import {
@@ -14,13 +14,12 @@ import { PermissionEffect, UserRole } from "@/types/db";
 async function hasPermissionForStoreCatalog(
   userId: string,
   permissionKey: string,
+  owner: boolean,
 ): Promise<boolean> {
   if (
     !DEFAULT_STORE_CATALOG_PERMISSION_KEYS.some((key) => key === permissionKey)
   )
     return false;
-  const permissionCount = await prisma.permission.count();
-  if (permissionCount === 0) return true;
   const permission = await prisma.permission.findUnique({
     where: { key: permissionKey },
     include: {
@@ -35,7 +34,16 @@ async function hasPermissionForStoreCatalog(
   const override = permission.userPermissions[0];
   if (override?.effect === PermissionEffect.DENY) return false;
   if (override?.effect === PermissionEffect.ALLOW) return true;
+  // Module membership delegates product work only. Granular catalog operations
+  // require an explicit user grant; STORE role defaults belong to the owner.
+  if (!owner && !STORE_EMPLOYEE_PRODUCT_PERMISSION_KEYS.includes(permissionKey as never)) return false;
   return permission.rolePermissions.length > 0;
+}
+
+export async function storeCatalogPermission(userId: string, permissionKey: string) {
+  const access = await storeAccess(userId, "products");
+  const allowed = access.store.status === "ACTIVE" && await hasPermissionForStoreCatalog(userId, permissionKey, access.owner);
+  return { ...access, allowed };
 }
 
 export type StoreCatalogAuth = {
@@ -52,20 +60,20 @@ export async function requireStoreCatalogPermission(
     return {
       response: catalogJson({ error: "Authentication is required." }, 401),
     };
-  let store;
+  let access;
   try {
-    store = (await storeAccess(user.id, "products")).store;
+    access = await storeCatalogPermission(user.id, permissionKey);
   } catch {
     return {
       response: catalogJson({ error: "Catalog access is required." }, 403),
     };
   }
+  const { store } = access;
   if (store.status !== "ACTIVE")
     return {
       response: catalogJson({ error: "An active business is required." }, 403),
     };
-  const allowed = await hasPermissionForStoreCatalog(user.id, permissionKey);
-  if (!allowed) {
+  if (!access.allowed) {
     await recordSecurityEvent({
       type: SECURITY_EVENT_TYPES.PERMISSION_DENIED,
       severity: "MEDIUM",

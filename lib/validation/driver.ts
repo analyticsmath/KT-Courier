@@ -106,10 +106,10 @@ export type DriverOnboardingInput = z.infer<typeof DriverOnboardingSchema>;
 
 // ─── Driver Document Attachment Input ─────────────────────────────────────────
 export const AttachDriverDocumentSchema = z.object({
-  documentType: z.nativeEnum(DocumentType),
+  documentType: z.enum([DocumentType.LICENSE, DocumentType.ID_DOCUMENT, DocumentType.PROOF_OF_ADDRESS, DocumentType.OTHER]),
   privateMediaReference: z.string().regex(/^PMO-[a-f0-9-]{36}$/),
   expiresAt: z.coerce.date().nullable().optional(),
-});
+}).strict();
 
 export type AttachDriverDocumentInput = z.infer<typeof AttachDriverDocumentSchema>;
 

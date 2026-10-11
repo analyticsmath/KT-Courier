@@ -17,15 +17,19 @@ type Message = {
   mine: boolean;
   senderName: string;
 };
-export function Conversations({
-  scope = "personal",
-  initialConversations = [],
-  deliveryOrderId,
-}: {
+type ConversationProps = {
   scope?: "personal" | "STORE" | "admin";
   initialConversations?: Conversation[];
   deliveryOrderId?: string;
-}) {
+};
+export function Conversations(props: ConversationProps) {
+  return <ConversationPanel key={`${props.scope ?? "personal"}:${props.deliveryOrderId ?? "support"}`} {...props} />;
+}
+function ConversationPanel({
+  scope = "personal",
+  initialConversations = [],
+  deliveryOrderId,
+}: ConversationProps) {
   const [conversations, setConversations] = useState(initialConversations),
     [selected, setSelected] = useState<string | undefined>(
       initialConversations[0]?.id,
@@ -35,11 +39,37 @@ export function Conversations({
     [subject, setSubject] = useState(""),
     [body, setBody] = useState(""),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [loading, setLoading] = useState(Boolean(deliveryOrderId && !initialConversations.length));
   const last = useRef<string | undefined>(undefined),
     generation = useRef(0),
     pending = useRef<{ body: string; operationId: string } | null>(null);
   const current = conversations.find((c) => c.id === selected);
+  useEffect(() => {
+    if (!deliveryOrderId || !loading) return;
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const query = new URLSearchParams({ scope, orderId: deliveryOrderId! });
+        const response = await fetch(`/api/platform/conversations?${query}`, {
+          cache: "no-store", signal: controller.signal,
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error ?? "Delivery conversation could not be loaded.");
+        if (controller.signal.aborted) return;
+        const rows = result.conversations as Conversation[];
+        setConversations(rows);
+        setSelected(rows[0]?.id);
+      } catch (e) {
+        if (!controller.signal.aborted)
+          setError(e instanceof Error ? e.message : "Delivery conversation could not be loaded.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [deliveryOrderId, scope, loading]);
   useEffect(() => {
     if (!selected) return;
     const controller = new AbortController();
@@ -174,7 +204,7 @@ export function Conversations({
     }
   }
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6 [overflow-wrap:anywhere]">
       {scope !== "admin" && (
         <form
           onSubmit={(e) => {
@@ -197,16 +227,16 @@ export function Conversations({
               />
             </div>
           )}
-          <Button type="submit" loading={busy}>
+          <Button type="submit" loading={busy} disabled={loading}>
             {deliveryOrderId
               ? "Open delivery chat"
               : "Start support conversation"}
           </Button>
         </form>
       )}
-      <div className="grid gap-6 md:grid-cols-[minmax(180px,1fr)_3fr]">
-        <nav aria-label="Conversations" className="space-y-2">
-          {conversations.length ? (
+      <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(180px,1fr)_minmax(0,3fr)]">
+        <nav aria-label="Conversations" className="min-w-0 space-y-2">
+          {loading ? <p role="status">Loading delivery conversation…</p> : conversations.length ? (
             conversations.map((c) => (
               <button
                 key={c.id}
@@ -229,12 +259,12 @@ export function Conversations({
             ))
           ) : (
             <p className="text-sm text-[var(--eo-text-secondary)]">
-              No conversations yet.
+              {error ? "Conversation unavailable." : "No conversations yet."}
             </p>
           )}
         </nav>
         <section
-          className="space-y-4"
+          className="min-w-0 space-y-4"
           aria-label={current?.subject ?? "Messages"}
         >
           {selected ? (

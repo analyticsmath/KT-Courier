@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import type { PrismaTransactionClient } from "@/lib/db/transaction-runner";
 import { OrderAssignmentStatus, OrderStatus } from "@/types/db";
 import { DriverOperationError } from "./errors";
 import type { OperationalAssignmentSnapshot } from "./types";
@@ -13,9 +14,10 @@ const TERMINAL = new Set<OrderStatus>([
 export async function assertAcceptedCurrentDriver(
   assignmentId: string,
   driverProfileId: string,
-  expectedVersion?: number
+  expectedVersion?: number,
+  client: Pick<PrismaTransactionClient, "orderAssignment"> = prisma
 ): Promise<OperationalAssignmentSnapshot> {
-  const assignment = await prisma.orderAssignment.findFirst({
+  const assignment = await client.orderAssignment.findFirst({
     where: { id: assignmentId, driverProfileId },
     select: {
       id: true,

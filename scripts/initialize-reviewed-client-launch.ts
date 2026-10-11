@@ -6,6 +6,7 @@ import { createLegalDocumentDraft, publishLegalDocumentVersion } from "../lib/se
 import { DeliveryConfigurationSchema } from "../lib/client-platform/contracts";
 import { saveDeliveryConfiguration } from "../lib/client-platform/delivery.service";
 import { prepareCustomerOrderNotifications } from "../lib/notifications/customer-order-configuration";
+import { prepareRequiredDomainNotifications } from "../lib/notifications/required-domain-configuration";
 
 type Policy = { documentType: string; version: string; content: string; contentHash: string; sourceSha256: string };
 const source = "CLIENT_REVIEW_2026_10_06";
@@ -75,6 +76,7 @@ async function main() {
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('client-customer-notification-preparation')::bigint)`;
     await prepareCustomerOrderNotifications(tx);
+    await prepareRequiredDomainNotifications(tx);
   });
   console.log(JSON.stringify({ event: "client_launch.notification_drafts_prepared", publicationApprovalRequired: true }));
 }

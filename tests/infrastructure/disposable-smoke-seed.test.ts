@@ -411,9 +411,10 @@ describe("Disposable smoke seed authorization & identity", () => {
     it("Dockerfile retains Turbopack, standalone output, and bounded heap size", () => {
       expect(dockerfile).not.toMatch(/--webpack/);
       expect(dockerfile).toMatch(
-        /ENV NODE_OPTIONS="--max-old-space-size=4096"/,
+        /ENV NODE_OPTIONS="--max-old-space-size=\$\{KT_NEXT_BUILD_HEAP_MB\}"/,
       );
-      expect(dockerfile).toMatch(/node --max-old-space-size=4096/);
+      expect(dockerfile).toMatch(/ARG KT_NEXT_BUILD_HEAP_MB=4096/);
+      expect(dockerfile).toMatch(/node --max-old-space-size=\$\{KT_NEXT_BUILD_HEAP_MB\}/);
       expect(dockerfile).toMatch(/app\/\.next\/standalone/);
     });
   });

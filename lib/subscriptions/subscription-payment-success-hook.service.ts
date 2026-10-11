@@ -26,7 +26,7 @@ export async function onVerifiedSubscriptionPaymentSucceeded(repository: Subscri
   // Payment without this evidence remains successful and held for recovery.
   if (!payment.providerEvent) {
     await repository.openApplicationReconciliation({ paymentId: payment.id, invoiceId: payment.subscriptionInvoiceId, reason: "PROVIDER_EVENT_MISSING" });
-    return;
+    throw new SubscriptionError("SUBSCRIPTION_RECONCILIATION_REQUIRED", "Verified subscription evidence is missing.");
   }
   const event = payment.providerEvent;
   const classification = resolveSubscriptionProviderEvent({
@@ -51,14 +51,19 @@ export async function onVerifiedSubscriptionPaymentSucceeded(repository: Subscri
   const tokenMismatch = Boolean(event.expectedTokenFingerprint && event.providerTokenFingerprint !== event.expectedTokenFingerprint);
   if (classification === "RECONCILIATION_REQUIRED" || tokenMismatch) {
     await repository.openApplicationReconciliation({ paymentId: payment.id, invoiceId: payment.subscriptionInvoiceId, reason: tokenMismatch ? "PROVIDER_TOKEN_MISMATCH" : "PROVIDER_EVENT_MISMATCH" });
-    return;
+    throw new SubscriptionError("SUBSCRIPTION_RECONCILIATION_REQUIRED", "Verified subscription evidence does not match.");
   }
   if (classification === "DUPLICATE") return;
+  let result;
   try {
-    const result = await repository.settleAndActivatePaidInvoice({ paymentId: payment.id, invoiceId: payment.subscriptionInvoiceId, operationId: `subscription-activation:${payment.id}` });
-    if (result.outcome === "RECONCILIATION_REQUIRED") await repository.openApplicationReconciliation({ paymentId: payment.id, invoiceId: payment.subscriptionInvoiceId, reason: "PAYMENT_SUCCEEDED_CONTRACT_INACTIVE" });
-  } catch {
+    result = await repository.settleAndActivatePaidInvoice({ paymentId: payment.id, invoiceId: payment.subscriptionInvoiceId, operationId: `subscription-activation:${payment.id}` });
+  } catch (error) {
     await repository.openApplicationReconciliation({ paymentId: payment.id, invoiceId: payment.subscriptionInvoiceId, reason: "APPLICATION_FAILURE" });
+    throw error;
+  }
+  if (result.outcome === "RECONCILIATION_REQUIRED") {
+    await repository.openApplicationReconciliation({ paymentId: payment.id, invoiceId: payment.subscriptionInvoiceId, reason: "PAYMENT_SUCCEEDED_CONTRACT_INACTIVE" });
+    throw new SubscriptionError("SUBSCRIPTION_RECONCILIATION_REQUIRED", "Verified subscription could not be activated.");
   }
 }
 

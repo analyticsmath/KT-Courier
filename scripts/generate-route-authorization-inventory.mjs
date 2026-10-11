@@ -19,7 +19,7 @@ function walk(dir) {
   return results;
 }
 
-const routeFiles = walk(apiDir);
+const routeFiles = walk(apiDir).sort();
 
 const inventory = [];
 
@@ -85,6 +85,8 @@ for (const file of routeFiles) {
     content.includes("requirePromoterMutation") ||
     content.includes("requirePromoterAdmin") ||
     content.includes("requireStorefrontAdminMutation") ||
+    content.includes("prepareCatalogMutation") ||
+    content.includes("storeInventoryUploadPost") ||
     content.includes("beginPayfastItnRequest") ||
     /\bmutation\(/.test(content);
 
@@ -113,6 +115,10 @@ for (const file of routeFiles) {
     requiredRoles = ["CUSTOMER", "STORE"];
     authenticatedCount++;
     permissionGatedCount++;
+  } else if (content.includes("marketplaceOwner")) {
+    authMechanism = "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE";
+    requiredRoles = ["CUSTOMER", "GUEST_CHECKOUT_OWNER"];
+    authenticatedCount++;
   } else if (relPath.includes("/driver/")) {
     authMechanism = "DRIVER_SESSION";
     requiredRoles = ["DRIVER"];
@@ -163,9 +169,14 @@ for (const file of routeFiles) {
     content.includes("operationId") ||
     content.includes("idempotencyKey") ||
     content.includes("clientMutationId");
+  // This delegated handler performs scoped origin/rate checks and binds its
+  // mandatory operationId to the canonical CSV receipt, not the route wrapper.
+  const delegatedInventoryUpload = content.includes("storeInventoryUploadPost");
+  if (delegatedInventoryUpload) requiredPermissions = ["catalog_inventory.manage"];
 
   // Detect BOLA
   const hasBola =
+    content.includes("marketplaceOwner") ||
     content.includes("ownerUserId") ||
     content.includes("userId") ||
     content.includes("storeId") ||
@@ -218,7 +229,7 @@ for (const file of routeFiles) {
     requiredRoles,
     requiredPermissions,
     rateLimitingApplied: hasRateLimit,
-    idempotencyEnforced: hasIdempotency,
+    idempotencyEnforced: hasIdempotency || delegatedInventoryUpload,
     bolaOwnershipValidated: hasBola || authMechanism.includes("ADMIN"),
     remediationStatus: "COMPLIANT",
     authorizationEvidence:

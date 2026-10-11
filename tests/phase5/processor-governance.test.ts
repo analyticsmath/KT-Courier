@@ -44,6 +44,12 @@ const leaseDb = vi.hoisted(() => {
         return row;
       },
     ),
+    updateMany: vi.fn(async ({ where, data }: { where: { id?: string; operationId: string; leaseOwner: string; status: { in: string[] }; leaseExpiresAt: { gt: Date } }; data: Record<string, unknown> }) => {
+      const row = rows.get(where.operationId);
+      if (!row || (where.id && row.id !== where.id) || row.leaseOwner !== where.leaseOwner || !where.status.in.includes(String(row.status)) || !(row.leaseExpiresAt instanceof Date) || row.leaseExpiresAt <= where.leaseExpiresAt.gt) return { count: 0 };
+      Object.assign(row, data);
+      return { count: 1 };
+    }),
   };
   const tx = {
     $queryRaw: vi.fn(async () => [{ locked: true }]),

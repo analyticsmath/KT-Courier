@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DriverEarningsUnavailable } from "@/components/driver/DriverEarningsUnavailable";
 import { MetricTile, OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
@@ -7,6 +8,7 @@ import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedStat
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { SecureLedgerIllustration } from "@/components/protected-v2/illustrations/SecureLedgerIllustration";
 import { requireRole } from "@/lib/auth/guards";
+import { DriverEarningError } from "@/lib/driver-earnings/errors";
 import { listDriverEarningsForOwner } from "@/lib/services/driver-earning-query.service";
 import { getDriverEarningSummaryForOwner } from "@/lib/services/driver-earning-summary.service";
 import type { DriverEarningListItemDto } from "@/lib/dto/driver-earning.dto";
@@ -17,7 +19,12 @@ export const metadata: Metadata = { title: "Driver earnings" };
 
 export default async function DriverEarningsPage() {
   const user = await requireRole(UserRole.DRIVER);
-  const [summary, earnings] = await Promise.all([getDriverEarningSummaryForOwner(user.id), listDriverEarningsForOwner(user.id, { page: 1, pageSize: 50 })]);
+  const result = await Promise.all([getDriverEarningSummaryForOwner(user.id), listDriverEarningsForOwner(user.id, { page: 1, pageSize: 50 })]).catch((error: unknown) => {
+    if (error instanceof DriverEarningError && error.code === "DRIVER_EARNING_FORBIDDEN") return null;
+    throw error;
+  });
+  if (!result) return <DriverEarningsUnavailable />;
+  const [summary, earnings] = result;
   return <div className={styles.scope}><ProtectedPageFrame>
     <ProtectedPageHeader eyebrow="Driver account" title="Earnings" description="Server-authoritative earning records and financial state. Amounts are displayed exactly as issued by the earning services." />
     <div className="space-y-6"><div className="eo-driver-metric-grid" aria-label="Driver earnings summary"><MetricTile label="Payable balance" value={`ZAR ${summary.payableBalance}`} description="Current source-backed balance" /><MetricTile label="Released" value={`ZAR ${summary.releasedToOwnerWithdrawable}`} description="Released to the owner balance" /><MetricTile label="Refund reserved" value={`ZAR ${summary.refundReserved}`} description="Reserved amount in the source projection" /></div>

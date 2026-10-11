@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && node --max-old-space-size=4096 ./node_modules/next/dist/bin/next build",
+    "build": "prisma generate && node scripts/build-next.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
@@ -93,6 +93,8 @@
     "test:integration:legacy:payfast-confirmation": "node scripts/payfast-confirmation-integration-test.mjs",
     "test:integration:withdrawals": "node scripts/withdrawal-integration-test.mjs",
     "test:integration:commissions": "node scripts/commission-integration-test.mjs",
+    "test:integration:closure": "node scripts/disposable-closure-tests.mjs",
+    "recovery:drill": "node scripts/recovery-drill.mjs",
     "test:e2e": "node scripts/e2e-test.mjs",
     "dispatch:reconcile-expired": "tsx scripts/reconcile-expired-dispatch.ts",
     "payments:reconciliation:scan": "node scripts/scan-payment-reconciliation.mjs",

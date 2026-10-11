@@ -17,17 +17,17 @@ const money = (value: string) => {
 const hash = (value: unknown) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const reference = (prefix: string, id: string) => `${prefix}-${id.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 
-async function custodyAccounts(driverId: string) {
+async function custodyAccounts(driverId: string, tx: Prisma.TransactionClient) {
   const [platformWallet, driverWallet] = await Promise.all([
-    ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }),
-    ensureWalletForOwner({ ownerType: "DRIVER", ownerId: driverId, currency: "ZAR" }),
+    ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }, tx),
+    ensureWalletForOwner({ ownerType: "DRIVER", ownerId: driverId, currency: "ZAR" }, tx),
   ]);
   const [held, driverCash, platformCash, shortageSuspense, platformAdjustment] = await Promise.all([
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: driverWallet.id, code: reference("DRIVER-COD-CASH", driverId), purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR", purpose: "SUSPENSE", category: "EXPENSE", currency: "ZAR" }),
-    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY", currency: "ZAR" }),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: driverWallet.id, code: reference("DRIVER-COD-CASH", driverId), purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR", purpose: "COD_SHORTAGE_SUSPENSE", category: "EXPENSE", currency: "ZAR" }, tx),
+    ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY", currency: "ZAR" }, tx),
   ]);
   return { held, driverCash, platformCash, shortageSuspense, platformAdjustment };
 }
@@ -60,7 +60,6 @@ export async function activateDepositCashOnDeliveryWithinTransaction(tx: Prisma.
 
 export async function recordCashCollection(input: { orderId: string; collectorDriverId: string; actorUserId: string; amount: string; operationId: string }) {
   const amount = money(input.amount); const requestHash = hash({ orderId: input.orderId, collectorDriverId: input.collectorDriverId, amount: amount.toFixed(2) });
-  const accounts = await custodyAccounts(input.collectorDriverId);
   const run = () => prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "orderId" = ${input.orderId} FOR UPDATE`);
     if (rows.length !== 1) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
@@ -78,6 +77,7 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
       if (!deposit || deposit.status !== "SUCCEEDED" || !deposit.amount.equals(cod.digitalRequired) || !cod.digitalPaid.equals(cod.digitalRequired)) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Verified digital deposit is required before cash collection.");
     }
     if (!amount.equals(cod.cashObligation.sub(cod.cashCollected))) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Collection amount must equal the outstanding cash obligation.");
+    const accounts = await custodyAccounts(input.collectorDriverId, tx);
     const journal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `cod-collect:${input.operationId}`, type: "GENERAL", currency: "ZAR", sourceReference: `cod:${cod.publicReference}:collection`, correlationId: cod.publicReference, memo: "COD cash collection into driver custody", actor: { kind: "USER", userId: input.actorUserId }, metadata: { codReference: cod.publicReference, collectorDriverId: input.collectorDriverId }, entries: [{ accountId: accounts.driverCash.id, direction: "DEBIT", amount: amount.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" }, { accountId: accounts.held.id, direction: "CREDIT", amount: amount.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" }] });
     return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { cashCollected: { increment: amount }, status: "COLLECTED", collectorDriverId: input.collectorDriverId, collectedAt: new Date(), collectionOperationId: input.operationId, collectionRequestHash: requestHash, collectionJournalId: journal.id, version: { increment: 1 }, events: { create: { operationId: `collection:${input.operationId}`, requestHash, eventType: "COLLECTED", actorUserId: input.actorUserId } } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -92,16 +92,21 @@ export async function reconcileCashCollection(input: { orderId: string; actorUse
     if (rows.length !== 1) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
     const cod = await tx.cashOnDelivery.findUnique({ where: { id: rows[0].id } });
     if (!cod?.collectorDriverId) throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD collection has no collector custody evidence.");
+    const prior = await tx.cashOnDeliveryReconciliation.findUnique({ where: { operationId: input.operationId } });
+    if (prior) {
+      if (prior.cashOnDeliveryId !== cod.id || prior.requestHash !== requestHash || prior.collectorDriverId !== cod.collectorDriverId || prior.reconciledByUserId !== input.actorUserId) throw new CashOnDeliveryError("COD_RECONCILIATION_CONFLICT", "Remittance operation conflicts with its immutable receipt.");
+      return cod;
+    }
     if (cod.reconciliationJournalId || cod.suspenseJournalId) throw new CashOnDeliveryError("COD_ALREADY_RECONCILED", "COD collection is already reconciled.");
     if (cod.status !== "COLLECTED") throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD cash cannot be reconciled from current state.");
     if (received.greaterThan(cod.cashCollected)) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Received remittance cannot exceed collected cash.");
 
-    const accounts = await custodyAccounts(cod.collectorDriverId);
+    const accounts = await custodyAccounts(cod.collectorDriverId, tx);
     const hasDiscrepancy = received.lessThan(cod.cashCollected);
     const discrepancy = hasDiscrepancy ? cod.cashCollected.sub(received) : new Prisma.Decimal(0);
 
     const journalEntries = [
-      { accountId: accounts.platformCash.id, direction: "DEBIT" as const, amount: received.toFixed(2), lineCode: "PLATFORM_CASH_RECEIVED" },
+      ...(received.greaterThan(0) ? [{ accountId: accounts.platformCash.id, direction: "DEBIT" as const, amount: received.toFixed(2), lineCode: "PLATFORM_CASH_RECEIVED" }] : []),
       ...(hasDiscrepancy ? [{ accountId: accounts.shortageSuspense.id, direction: "DEBIT" as const, amount: discrepancy.toFixed(2), lineCode: "COD_SHORTAGE_SUSPENSE" }] : []),
       { accountId: accounts.driverCash.id, direction: "CREDIT" as const, amount: cod.cashCollected.toFixed(2), lineCode: "DRIVER_CUSTODY_RELEASED" },
     ];
@@ -184,8 +189,13 @@ export async function adjustCashOnDelivery(input: {
     const cod = await tx.cashOnDelivery.findUnique({ where: { id: rows[0].id } });
     if (!cod) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
 
+    const prior = await tx.cashOnDeliveryEvent.findUnique({ where: { operationId: `adjust:${input.operationId}` } });
+    if (prior) {
+      if (prior.cashOnDeliveryId !== cod.id || prior.eventType !== "ADMIN_ADJUSTED" || prior.requestHash !== requestHash || prior.actorUserId !== input.actorUserId) throw new CashOnDeliveryError("COD_ADJUSTMENT_CONFLICT", "Adjustment operation conflicts with its immutable receipt.");
+      return cod;
+    }
+
     if (cod.adjustmentJournalId) {
-      if (cod.adminAdjustmentReason === input.adjustmentReason) return cod;
       throw new CashOnDeliveryError("COD_ALREADY_ADJUSTED", "COD remittance discrepancy has already been adjusted.");
     }
 
@@ -193,7 +203,7 @@ export async function adjustCashOnDelivery(input: {
       throw new CashOnDeliveryError("COD_NOT_ADJUSTABLE", "COD order has no outstanding remittance discrepancy to adjust.");
     }
 
-    const accounts = await custodyAccounts(cod.collectorDriverId);
+    const accounts = await custodyAccounts(cod.collectorDriverId, tx);
     const amount = cod.remittanceDiscrepancy;
 
     const debitAccount = input.adjustmentType === "FORGIVE_SHORTAGE"
@@ -254,9 +264,10 @@ export async function recordCashCollectionFailure(input: { orderId: string; coll
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "orderId" = ${input.orderId} FOR UPDATE`);
     if (rows.length !== 1) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
     const cod = await tx.cashOnDelivery.findUnique({ where: { id: rows[0].id }, include: { order: true } });
-    if (!cod || cod.status !== "READY_FOR_COLLECTION" || cod.order.currentDriverProfileId !== input.collectorDriverId) throw new CashOnDeliveryError("COD_NOT_READY", "COD cash collection cannot be failed by this collector.");
+    if (!cod || cod.order.currentDriverProfileId !== input.collectorDriverId) throw new CashOnDeliveryError("COD_NOT_READY", "COD cash collection cannot be failed by this collector.");
     const prior = await tx.cashOnDeliveryEvent.findUnique({ where: { operationId: input.operationId } });
-    if (prior) { if (prior.requestHash !== requestHash) throw new CashOnDeliveryError("COD_COLLECTION_CONFLICT", "Failure operation conflicts with existing evidence."); return cod; }
+    if (prior) { if (prior.cashOnDeliveryId !== cod.id || prior.eventType !== "COLLECTION_FAILED" || prior.actorUserId !== input.actorUserId || prior.requestHash !== requestHash) throw new CashOnDeliveryError("COD_COLLECTION_CONFLICT", "Failure operation conflicts with existing evidence."); return cod; }
+    if (cod.status !== "READY_FOR_COLLECTION" || !["IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(cod.order.status)) throw new CashOnDeliveryError("COD_NOT_READY", "Cash collection failure requires an active delivery.");
     return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { status: "COLLECTION_FAILED", failureReasonCode: input.reasonCode, version: { increment: 1 }, events: { create: { operationId: input.operationId, requestHash, eventType: "COLLECTION_FAILED", actorUserId: input.actorUserId, safeReasonCode: input.reasonCode } } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

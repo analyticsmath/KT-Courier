@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, unprocessable, serverError } from "@/lib/api/response";
+import { RegionConfigurationError } from "@/lib/maps/region-boundaries";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { formatZodErrors } from "@/lib/validation/auth";
@@ -8,7 +9,6 @@ import {
   listDeliveryRegions,
   createDeliveryRegion,
 } from "@/lib/services/admin-regions.service";
-import { recordAdminActivity } from "@/lib/services/admin-activity.service";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 
 const CreateRegionSchema = z.object({
@@ -21,13 +21,14 @@ const CreateRegionSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens"),
   description: z.string().trim().max(500).optional(),
   active: z.boolean().default(true),
+  pricingEnabled: z.boolean().default(true),
   city: z.string().trim().max(100).optional(),
-  province: z.string().trim().max(100).optional(),
-  centerLat: z.number().min(-90).max(90).optional(),
-  centerLng: z.number().min(-180).max(180).optional(),
-  coverageRadiusKm: z.number().min(0).max(500).optional(),
+  province: z.string().trim().max(100).nullable().optional(),
+  centerLat: z.number().min(-90).max(90).nullable().optional(),
+  centerLng: z.number().min(-180).max(180).nullable().optional(),
+  coverageRadiusKm: z.number().min(0).max(500).nullable().optional(),
   baseFee: z.number().min(0).optional(),
-  maxDistanceKm: z.number().min(0).max(500).optional(),
+  maxDistanceKm: z.number().min(0).max(500).nullable().optional(),
   notes: z.string().trim().max(1000).optional(),
   displayOrder: z.number().int().min(0).default(0),
 });
@@ -67,16 +68,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const region = await createDeliveryRegion(parsed.data);
-    await recordAdminActivity({
-      actorUserId: user.id,
-      action: "CREATE",
-      entityType: "DeliveryRegion",
-      entityId: region.id,
-      message: `Created delivery region: ${region.name}`,
-    });
+    const region = await createDeliveryRegion(parsed.data, user.id);
     return ok({ region }, 201);
   } catch (err) {
+    if (err instanceof RegionConfigurationError) return unprocessable(err.message);
     return serverError(err instanceof Error ? err.message : "Failed to create region");
   }
 }

@@ -120,7 +120,9 @@ export function composeArgs(args = [], options = {}) {
   if (existsSync(".env.docker")) {
     result.push("--env-file", ".env.docker");
   }
-  result.push(...composeFileArgs, ...args);
+  result.push(...composeFileArgs);
+  for (const file of options.extraComposeFiles ?? []) result.push("-f", file);
+  result.push(...args);
   return result;
 }
 
@@ -132,11 +134,12 @@ export function run(command, args, options = {}) {
     input: options.input,
     shell: false,
     stdio: options.stdio ?? "pipe",
+    timeout: options.timeout,
   });
 }
 
 export function runDocker(args, options = {}) {
-  return run("docker", args, options);
+  return run("docker", args, { ...options, timeout: options.timeout ?? (args[0] === "info" ? 20000 : args.includes("down") ? 60000 : undefined) });
 }
 
 export function runCompose(args, options = {}) {

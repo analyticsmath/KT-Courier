@@ -37,6 +37,8 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
               : null,
           maximumCodAmount: mode !== "DIGITAL" ? f.get("maximum") : null,
           active: f.get("active") === "on",
+          effectiveFrom: new Date(String(f.get("effectiveFrom"))).toISOString(),
+          effectiveTo: f.get("effectiveTo") ? new Date(String(f.get("effectiveTo"))).toISOString() : null,
           expectedVersion: editing?.expectedVersion ?? 0,
           reason: f.get("reason"),
         }),
@@ -52,10 +54,18 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
       setBusy(false);
     }
   }
+  async function approve(p: Policy, form: HTMLFormElement) {
+    const f = new FormData(form); setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/admin/payment-policies", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ policyId: p.id, expectedVersion: p.expectedVersion, remittanceVerified: f.get("remittanceVerified") === "on", settlementTiming: f.get("settlementTiming"), reason: f.get("reason") }) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error ?? "Approval failed.");
+      setNotice(`Approved policy version ${body.version}.`); router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Approval failed."); } finally { setBusy(false); }
+  }
   return (
     <div className="space-y-8">
       <p className="text-sm">
-        Cash is enabled only for the approved business and matching scopes.
+        Cash drafts require a different authorized administrator to approve the initial 50/50 split and secure remittance instructions. Cash is enabled only for the approved business and matching scopes.
         Existing bookings keep their committed split. An order override can
         change an unpaid order before payment is prepared or pickup begins.
       </p>
@@ -100,7 +110,6 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
             <option value="DEPOSIT_PLUS_COD">
               Online deposit + cash on delivery
             </option>
-            <option value="FULL_COD">Full cash on delivery</option>
           </select>
         </div>
         <div>
@@ -217,10 +226,18 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
           <input
             name="active"
             type="checkbox"
-            defaultChecked={editing?.active ?? true}
+            defaultChecked={editing?.active || editing?.scheduled || false}
           />
-          Enable this policy
+          Request activation (cash requires independent review)
         </label>
+        <div>
+          <Label htmlFor="policy-effective-from">Effective from (your local time)</Label>
+          <Input id="policy-effective-from" name="effectiveFrom" type="datetime-local" required defaultValue={localDateTime(editing?.effectiveFrom ?? new Date().toISOString())} />
+        </div>
+        <div>
+          <Label htmlFor="policy-effective-to">Effective until (optional, your local time)</Label>
+          <Input id="policy-effective-to" name="effectiveTo" type="datetime-local" defaultValue={editing?.effectiveTo ? localDateTime(editing.effectiveTo) : ""} />
+        </div>
         <div className="sm:col-span-2">
           <Label htmlFor="policy-reason">Reason for change</Label>
           <Input
@@ -267,10 +284,11 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
                 </p>
                 <p className="text-sm">
                   {p.mode.replaceAll("_", " ")} ·{" "}
-                  {p.active ? "Active" : "Inactive"} ·{" "}
+                  {p.active ? "Active" : p.scheduled ? "Scheduled" : "Inactive"} ·{" "}
                   {p.provinces?.join(", ") ?? "All provinces"}
                 </p>
                 {p.orderId && <p className="text-sm">Delivery: {p.orderId}</p>}
+                <p className="text-sm">Effective {p.effectiveFrom}{p.effectiveTo ? ` until ${p.effectiveTo}` : " with no end date"}. Independent approval retains this window.</p>
               </div>
               {p.editable && (
                 <Button
@@ -287,6 +305,12 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
                   Edit policy
                 </Button>
               )}
+              {p.editable && p.approvalRequired && <form className="w-full space-y-3" onSubmit={(e) => { e.preventDefault(); void approve(p, e.currentTarget); }}>
+                <Label htmlFor={`settlement-${p.id}`}>Approved settlement timing</Label><Input id={`settlement-${p.id}`} name="settlementTiming" required minLength={5} maxLength={150} />
+                <label className="flex gap-3"><input name="remittanceVerified" type="checkbox" required />I reviewed the secure remittance instructions and operating procedure.</label>
+                <Label htmlFor={`approval-${p.id}`}>Approval reason</Label><Input id={`approval-${p.id}`} name="reason" required minLength={10} maxLength={500} />
+                <Button type="submit" loading={busy}>Approve and activate 50/50 COD</Button>
+              </form>}
             </article>
           ))
         ) : (
@@ -295,4 +319,9 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
       </section>
     </div>
   );
+}
+
+function localDateTime(value: string) {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }

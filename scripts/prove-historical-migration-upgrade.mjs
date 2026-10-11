@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { PrismaClient } from "@prisma/client";
-import { runCompose } from "./docker-common.mjs";
+import { assertSuccess, runCompose, runDocker, safeError, startDisposableComposeWithPortRetry, waitForServiceHealth } from "./docker-common.mjs";
 
 const root = process.cwd();
 const migrationsDir = path.join(root, "prisma", "migrations");
@@ -13,86 +13,38 @@ function log(msg) {
   console.log(`[MIGRATION_UPGRADE_PROOF] ${msg}`);
 }
 
-function parseRootUrl(originalUrl) {
-  const url = new URL(originalUrl);
-  url.pathname = "/postgres";
-  return url.toString();
-}
-
-function buildDbUrl(rootUrl, dbName) {
-  const url = new URL(rootUrl);
-  url.pathname = `/${dbName}`;
-  return url.toString();
-}
-
 function runPrismaCli(args, dbUrl) {
-  const result = spawnSync("npx", args, {
+  const result = spawnSync(process.execPath, ["node_modules/prisma/build/index.js", ...args.slice(1)], {
     cwd: root,
     env: {
       ...process.env,
       DATABASE_URL: dbUrl,
     },
     encoding: "utf8",
-    shell: true,
+    shell: false,
   });
   return result;
 }
 
 async function main() {
-  const baseDatabaseUrl =
-    process.env.DATABASE_URL ||
-    "postgresql://kt_courier:change_me_local_only@localhost:5433/kt_courier_demo_full?schema=public";
-
   log("Starting historical database upgrade proof...");
-
-  // Ensure kt_courier user has CREATEDB privilege
-  runCompose([
-    "exec",
-    "-u",
-    "postgres",
-    "-T",
-    "db",
-    "psql",
-    "-U",
-    "postgres",
-    "-d",
-    "kt_courier_dev",
-    "-c",
-    "ALTER USER kt_courier CREATEDB;",
-  ]);
-
-  const rootUrl = parseRootUrl(baseDatabaseUrl);
-  const rootPrisma = new PrismaClient({
-    datasources: { db: { url: rootUrl } },
-  });
-
-  // Verify connection to PostgreSQL
-  try {
-    await rootPrisma.$queryRaw`SELECT 1`;
-    log("PostgreSQL server is connected and ready.");
-  } catch (err) {
-    console.error(
-      "[MIGRATION_UPGRADE_PROOF_ERROR] PostgreSQL connection failed on:",
-      rootUrl,
-      err
-    );
-    process.exit(1);
-  }
-
-  const nonce = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const nonce = `${Date.now()}_${process.pid}`;
+  const projectName = `kt-couriers-migration-upgrade-${nonce.replaceAll("_", "-")}`;
   const disposableDbName = `kt_migration_upgrade_${nonce}`;
-  const testDbUrl = buildDbUrl(baseDatabaseUrl, disposableDbName);
-
+  const buildEnv = port => ({ ...process.env, POSTGRES_DB: disposableDbName, POSTGRES_USER: "kt_migration_test", POSTGRES_PASSWORD: "disposable_migration_only", POSTGRES_PORT: String(port), DATABASE_URL: `postgresql://kt_migration_test:disposable_migration_only@127.0.0.1:${port}/${disposableDbName}?schema=public`, NODE_ENV: "test", KT_RUNTIME_ENV: "e2e", KT_NETWORK_DISABLED: "true" });
+  let env = buildEnv(5432);
   let testPrisma = null;
-
   try {
-    log(`Creating disposable database: ${disposableDbName}`);
-    await rootPrisma.$executeRawUnsafe(`CREATE DATABASE "${disposableDbName}"`);
-
+    assertSuccess(runDocker(["info"]), "Docker availability");
+    const started = await startDisposableComposeWithPortRetry({ projectName, buildEnv });
+    env = started.env;
+    if (await waitForServiceHealth("db", { projectName, env, timeoutMs: 120000 }) !== "healthy") throw new Error("Disposable migration database unhealthy.");
+    const testDbUrl = env.DATABASE_URL;
     testPrisma = new PrismaClient({
       datasources: { db: { url: testDbUrl } },
     });
-    await testPrisma.$queryRaw`SELECT 1`;
+    const identity = await testPrisma.$queryRaw`SELECT current_database() AS database, current_user AS role`;
+    if (identity[0]?.database !== disposableDbName || identity[0]?.role !== env.POSTGRES_USER) throw new Error("Disposable migration database identity mismatch.");
 
     // 1. Discover all migration directories
     const allEntries = readdirSync(migrationsDir, { withFileTypes: true })
@@ -146,11 +98,11 @@ async function main() {
           "-v",
           "ON_ERROR_STOP=1",
           "-U",
-          "kt_courier",
+          env.POSTGRES_USER,
           "-d",
           disposableDbName,
         ],
-        { input: sqlContent }
+        { projectName, env, input: sqlContent }
       );
 
       if (execResult.status !== 0) {
@@ -293,20 +245,12 @@ async function main() {
     if (testPrisma) {
       await testPrisma.$disconnect().catch(() => {});
     }
-    log(`Dropping disposable database: ${disposableDbName}`);
-    try {
-      await rootPrisma.$executeRawUnsafe(
-        `DROP DATABASE IF EXISTS "${disposableDbName}" WITH (FORCE)`
-      );
-      log("Disposable database dropped cleanly.");
-    } catch (cleanupErr) {
-      console.warn("Could not drop disposable database:", cleanupErr);
-    }
-    await rootPrisma.$disconnect().catch(() => {});
+    if (!/^kt-couriers-migration-upgrade-\d+-\d+$/.test(projectName) || !/^kt_migration_upgrade_\d+_\d+$/.test(env.POSTGRES_DB)) throw new Error("Refusing non-disposable cleanup.");
+    assertSuccess(runCompose(["down", "-v", "--remove-orphans"], { projectName, env }), "Disposable migration cleanup");
   }
 }
 
 main().catch((err) => {
-  console.error("[FATAL_MIGRATION_UPGRADE_PROOF_ERROR]", err);
+  safeError(`[FATAL_MIGRATION_UPGRADE_PROOF_ERROR] ${err instanceof Error ? err.message : "Historical proof failed."}`);
   process.exit(1);
 });

@@ -5,6 +5,9 @@ node_modules
 coverage
 dist
 tmp
+output
+test-results
+playwright-report
 *.log
 .env
 .env.*

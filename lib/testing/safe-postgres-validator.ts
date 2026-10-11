@@ -62,3 +62,10 @@ export function isLocalFullFlowAllowed(env = process.env): boolean {
   if (env.KT_LOCAL_FULL_FLOW !== "true" && env.KT_LOCAL_FULL_FLOW !== "1") return false;
   return isSafeLocalTestDatabaseUrl(env.DATABASE_URL);
 }
+
+/** Compiled Next.js E2E artifacts use NODE_ENV=production, but only this
+ * explicit isolated browser identity may substitute non-financial providers. */
+export function isDisposableBrowserValidationAllowed(env = process.env): boolean {
+  return env.KT_RUNTIME_ENV === "e2e" && env.KT_NETWORK_DISABLED === "true" &&
+    isLocalCheckoutValidationAllowed(env) && new URL(env.DATABASE_URL!).pathname === "/kt_phase75_e2e";
+}

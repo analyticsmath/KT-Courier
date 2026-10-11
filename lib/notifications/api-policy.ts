@@ -14,7 +14,10 @@ export async function requireNotificationUser(request: Request, mutation = false
   if (mutation) {
     const origin = request.headers.get("origin");
     const host = request.headers.get("host");
-    if (!origin || !host || new URL(origin).host !== host) return { response: forbidden("Same-origin request required.") } as const;
+    try {
+      const source = new URL(origin ?? "");
+      if (!host || !["http:", "https:"].includes(source.protocol) || source.host !== host) return { response: forbidden("Same-origin request required.") } as const;
+    } catch { return { response: forbidden("Same-origin request required.") } as const; }
   }
   return { user } as const;
 }

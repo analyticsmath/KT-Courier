@@ -45,7 +45,15 @@ describe("R22 protected cross-role QA contracts", () => {
   it("keeps protected page bodies within a protected-v2 boundary", () => {
     const paymentPages = protectedPages.filter((file) => file.startsWith("app/(payments)"));
     const nonPaymentPages = protectedPages.filter((file) => !file.startsWith("app/(payments)"));
-    expect(nonPaymentPages.every((file) => source(file).includes("@/components/protected-v2"))).toBe(true);
+    expect(nonPaymentPages.every((file) => {
+      const body = source(file);
+      if (body.includes("@/components/protected-v2")) return true;
+      const delegated = body.match(/from "@\/(components\/withdrawals\/Owner\w+Page)"/);
+      if (delegated) return source(`${delegated[1]}.tsx`).includes("@/components/protected-v2");
+      // Unsupported customer detail routes terminate in Next's private 404.
+      return file === "app/(account)/account/withdrawals/[publicReference]/page.tsx"
+        && /^import \{ notFound \} from "next\/navigation";\s*export default function WithdrawalDetailPage\(\) \{ notFound\(\); \}\s*$/.test(body);
+    })).toBe(true);
     expect(paymentPages.every((file) => source(file).includes("@/components/protected-v2"))).toBe(true);
     const remediatedPages = [
       "app/(admin)/admin/delivery-exceptions/page.tsx",

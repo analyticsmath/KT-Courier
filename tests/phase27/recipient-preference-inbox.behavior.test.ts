@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NotificationDigestService, NotificationEndpointService, NotificationInboxService, NotificationPreferenceService, NotificationRouteService, RecipientPolicyService, RECIPIENT_SUBJECTS, inQuietHours, isValidNotificationTimezone } from "@/lib/notifications/authority";
 import { createNotificationMemoryDb } from "./helpers/in-memory-notification-db";
 
@@ -14,7 +14,8 @@ describe("Phase 27 exact recipient resolution and privacy", () => {
     for (const [index, subject] of RECIPIENT_SUBJECTS.entries()) {
       const policy = await routes.createRecipientPolicyVersion({ key: `POLICY_${index}`, policy: { subject } });
       await routes.approveRecipientPolicy(policy.publicReference, "reviewer");
-      await expect(recipients.resolve({ policyVersionId: policy.id, payload })).resolves.toMatchObject({ userId: `user-${index}`, roleProjection: subject, verifiedEmail: true });
+      const customerSubject = subject === "MARKETPLACE_CUSTOMER" || subject === "PAYMENT_CUSTOMER";
+      await expect(recipients.resolve({ policyVersionId: policy.id, payload })).resolves.toMatchObject({ userId: customerSubject ? "user-1" : `user-${index}`, roleProjection: subject, verifiedEmail: true });
     }
     expect(RECIPIENT_SUBJECTS).not.toContain("ALL_ADMINS" as never);
   });
@@ -69,6 +70,19 @@ describe("Phase 27 preference, quiet-hour, and digest policy", () => {
 });
 
 describe("Phase 27 inbox and endpoint ownership", () => {
+  it("refuses a raced read after archive rather than resurrecting an archived item", async () => {
+    const db = createNotificationMemoryDb({ notificationInboxItem: [{ id: "race", publicReference: "race-owned", ownerUserId: "u1", state: "UNREAD", expiresAt: null }] });
+    vi.spyOn(db.notificationInboxItem, "findFirst").mockImplementation(async () => ({ ...db.__state.notificationInboxItem[0] }));
+    const inbox = new NotificationInboxService(db);
+    const results = await Promise.allSettled([inbox.changeState("u1", "race-owned", "ARCHIVED"), inbox.changeState("u1", "race-owned", "READ")]);
+    expect(results[0].status).toBe("fulfilled"); expect(results[1]).toMatchObject({ status: "rejected", reason: { code: "NOTIFICATION_INBOX_ITEM_CHANGED" } });
+    expect(db.__state.notificationInboxItem[0].state).toBe("ARCHIVED");
+  });
+  it("read-all preserves expired and foreign inbox evidence", async () => {
+    const db = createNotificationMemoryDb({ notificationInboxItem: [{ id: "owned", ownerUserId: "u1", state: "UNREAD", expiresAt: null }, { id: "expired", ownerUserId: "u1", state: "UNREAD", expiresAt: new Date(0) }, { id: "foreign", ownerUserId: "u2", state: "UNREAD", expiresAt: null }] });
+    expect(await new NotificationInboxService(db).readAll("u1")).toEqual({ count: 1 });
+    expect(db.__state.notificationInboxItem.map((row: { state: string }) => row.state)).toEqual(["READ", "UNREAD", "UNREAD"]);
+  });
   it("preserves inbox evidence while enforcing exact owner, expiry, and irreversible archive semantics", async () => {
     const db = createNotificationMemoryDb({ notificationInboxItem: [{ id: "inbox-1", publicReference: "inbox-one", messageId: "message-1", ownerUserId: "u1", title: "Title", body: "Body", state: "UNREAD", expiresAt: null, createdAt: new Date() }, { id: "inbox-old", publicReference: "inbox-old", messageId: "message-old", ownerUserId: "u1", title: "Old", body: "Old", state: "UNREAD", expiresAt: new Date(Date.now() - 1) }] }); const inbox = new NotificationInboxService(db);
     await expect(inbox.list("u1", 0, 10)).resolves.toMatchObject({ total: 1, items: [expect.objectContaining({ publicReference: "inbox-one" })] });

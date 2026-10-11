@@ -18,9 +18,9 @@ const event: VerifiedPaymentEvent = Object.freeze({
 
 function repository(claim: "CLAIMED" | "SKIPPED" = "CLAIMED") {
   return {
-    claim: vi.fn().mockResolvedValue(claim === "CLAIMED" ? { kind: "CLAIMED", receiptId: "receipt-id" } : { kind: "SKIPPED" }),
-    complete: vi.fn().mockResolvedValue(undefined),
-    reconcile: vi.fn().mockResolvedValue(undefined),
+    claim: vi.fn().mockResolvedValue(claim === "CLAIMED" ? { kind: "CLAIMED", receiptId: "receipt-id", attemptCount: 1 } : { kind: "SKIPPED" }),
+    complete: vi.fn().mockResolvedValue(true),
+    reconcile: vi.fn().mockResolvedValue(true),
   } satisfies VerifiedPaymentEventRepository;
 }
 
@@ -33,12 +33,26 @@ function effects() {
 }
 
 describe("verified payment event processor", () => {
+  it("does not report success or reconcile after a newer claim has taken ownership", async () => {
+    const repo = repository(); const downstream = effects();
+    repo.complete.mockResolvedValue(false);
+    await expect(consumeVerifiedPaymentEvent(repo, downstream, event)).resolves.toBe("SKIPPED");
+    expect(repo.reconcile).not.toHaveBeenCalled();
+  });
+  it("does not retry a failed effect and respects a lost reconciliation fence", async () => {
+    const repo = repository(); const downstream = effects();
+    downstream.finalizeMarketplacePayment.mockRejectedValue(new Error("Dispatch interrupted"));
+    repo.reconcile.mockResolvedValue(false);
+    await expect(consumeVerifiedPaymentEvent(repo, downstream, event)).resolves.toBe("SKIPPED");
+    expect(downstream.finalizeMarketplacePayment).toHaveBeenCalledOnce();
+    expect(repo.complete).not.toHaveBeenCalled();
+  });
   it("dispatches marketplace finalization exactly through the canonical effect", async () => {
     const repo = repository(); const downstream = effects();
     await expect(consumeVerifiedPaymentEvent(repo, downstream, event)).resolves.toBe("MARKETPLACE_FINALIZED");
     expect(downstream.finalizeMarketplacePayment).toHaveBeenCalledOnce();
     expect(downstream.activateSubscriptionPayment).not.toHaveBeenCalled();
-    expect(repo.complete).toHaveBeenCalledWith("receipt-id");
+    expect(repo.complete).toHaveBeenCalledWith("receipt-id", 1);
   });
 
   it("does not rerun a previously claimed event", async () => {
@@ -59,7 +73,7 @@ describe("verified payment event processor", () => {
     const repo = repository(); const downstream = effects();
     downstream.finalizeMarketplacePayment.mockRejectedValueOnce(Object.assign(new Error("finalizer failed"), { code: "CHECKOUT_REVIEW_REQUIRED" }));
     await expect(consumeVerifiedPaymentEvent(repo, downstream, event)).resolves.toBe("RECONCILIATION_REQUIRED");
-    expect(repo.reconcile).toHaveBeenCalledWith(event, "receipt-id", "CHECKOUT_REVIEW_REQUIRED");
+    expect(repo.reconcile).toHaveBeenCalledWith(event, "receipt-id", 1, "CHECKOUT_REVIEW_REQUIRED");
     expect(repo.complete).not.toHaveBeenCalled();
   });
 

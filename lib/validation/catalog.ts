@@ -106,6 +106,8 @@ export const InventoryMovementCreateSchema = z.object({
   version: optimisticVersion,
 }).strict();
 
+export const InventoryUploadSchema = z.object({ csv: z.string().min(1).max(64_000), operationId, dryRun: z.boolean() }).strict();
+
 export const ModifierGroupCreateSchema = z.object({
   name: safeText(120),
   description: safeText(500).optional(),

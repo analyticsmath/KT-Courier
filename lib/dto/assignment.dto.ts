@@ -177,6 +177,7 @@ export function toAdminAssignmentDto(
 // Safe for driver consumption — no private admin notes, no customer PII beyond safe label.
 
 export interface DriverAssignmentDto {
+  marketplaceStoreOrderReference?: string | null;
   id: string;
   orderId: string;
   orderNumber: string;

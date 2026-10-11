@@ -41,6 +41,7 @@ interface RegionFormState {
   notes: string;
   displayOrder: string;
   active: boolean;
+  pricingEnabled: boolean;
 }
 
 const EMPTY_FORM: RegionFormState = {
@@ -57,6 +58,7 @@ const EMPTY_FORM: RegionFormState = {
   notes: "",
   displayOrder: "0",
   active: true,
+  pricingEnabled: true,
 };
 
 function dtoToForm(dto: DeliveryRegionDto): RegionFormState {
@@ -74,6 +76,7 @@ function dtoToForm(dto: DeliveryRegionDto): RegionFormState {
     notes: dto.notes ?? "",
     displayOrder: dto.displayOrder.toString(),
     active: dto.active,
+    pricingEnabled: dto.pricingEnabled,
   };
 }
 
@@ -129,12 +132,14 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
       slug: form.slug.trim(),
       description: form.description.trim() || undefined,
       active: form.active,
+      pricingEnabled: form.pricingEnabled,
+      ...(editId ? { expectedUpdatedAt: new Date(regions.find((r) => r.id === editId)!.updatedAt).toISOString() } : {}),
       city: form.city.trim() || undefined,
-      province: form.province.trim() || undefined,
-      centerLat: form.centerLat ? parseFloat(form.centerLat) : undefined,
-      centerLng: form.centerLng ? parseFloat(form.centerLng) : undefined,
-      coverageRadiusKm: form.coverageRadiusKm ? parseFloat(form.coverageRadiusKm) : undefined,
-      maxDistanceKm: form.maxDistanceKm ? parseFloat(form.maxDistanceKm) : undefined,
+      province: form.province.trim() || null,
+      centerLat: form.centerLat ? parseFloat(form.centerLat) : null,
+      centerLng: form.centerLng ? parseFloat(form.centerLng) : null,
+      coverageRadiusKm: form.coverageRadiusKm ? parseFloat(form.coverageRadiusKm) : null,
+      maxDistanceKm: form.maxDistanceKm ? parseFloat(form.maxDistanceKm) : null,
       baseFee: form.baseFee ? parseFloat(form.baseFee) : undefined,
       notes: form.notes.trim() || undefined,
       displayOrder: parseInt(form.displayOrder) || 0,
@@ -177,9 +182,10 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
       const res = await fetch(`/api/admin/regions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toggleActive: true }),
+        body: JSON.stringify({ toggleActive: true, expectedUpdatedAt: new Date(regions.find((r) => r.id === id)!.updatedAt).toISOString() }),
       });
       const data = await res.json() as { region?: DeliveryRegionDto; error?: string };
+      if (data.error) setFormError(data.error);
       if (data.region) {
         setRegions((r) => r.map((x) => (x.id === id ? data.region! : x)));
       }
@@ -192,6 +198,7 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
 
   return (
     <div className="space-y-6">
+      {!showForm && formError ? <p role="alert">{formError}</p> : null}
       {/* Header controls */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-[var(--kt-text-muted)]">
@@ -212,6 +219,8 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
           </h2>
 
           <div className="space-y-4">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.pricingEnabled} onChange={(e) => setField("pricingEnabled", e.target.checked)} />Pricing enabled</label>
+            <p className="text-sm">Active pricing requires a province, centre point, positive radius, and maximum route distance supplied by operations.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="rg_name" required>Region name</Label>
@@ -389,14 +398,17 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <p className="text-sm font-bold text-[var(--kt-ink-navy)]">{region.name}</p>
                     <StatusBadge active={region.active} />
+                    <span>{region.pricingEnabled ? "Pricing enabled" : "Pricing disabled"}</span>
                   </div>
                   <p className="text-xs text-[var(--kt-text-muted)] font-mono mb-2">{region.slug}</p>
+                  {region.boundaryIssues?.length ? <p role="status" className="text-sm">Boundaries required: {region.boundaryIssues.join(", ")}</p> : <p className="text-sm">Boundaries supplied</p>}
+                  <p className="text-sm">Affected services: {region.serviceInspectionUnavailable ? "Inspection unavailable; review service configuration." : region.affectedServiceKeys?.join(", ") || "None"}</p>
 
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--kt-text-muted)]">
                     {(region.city || region.province) && (
                       <span>{[region.city, region.province].filter(Boolean).join(", ")}</span>
                     )}
-                    {region.centerLat && region.centerLng && (
+                    {region.centerLat !== null && region.centerLng !== null && (
                       <span>
                         {region.centerLat.toFixed(4)}, {region.centerLng.toFixed(4)}
                         {region.coverageRadiusKm && ` · ${region.coverageRadiusKm} km radius`}

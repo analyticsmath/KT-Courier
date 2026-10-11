@@ -427,6 +427,7 @@ export const PERMISSIONS = {
   REPORT_RECONCILIATION_RETRY: "report_reconciliation.retry",
 
   SYSTEM_READINESS_READ: "system_readiness.read",
+  SYSTEM_READINESS_MANAGE: "system_readiness.manage",
   INCIDENTS_READ: "incidents.read",
   INCIDENTS_MANAGE: "incidents.manage",
   SECURITY_INCIDENTS_READ: "security_incidents.read",
@@ -1534,6 +1535,7 @@ export const SYSTEM_PERMISSION_DEFINITIONS: SystemPermissionDefinition[] = [
   { key: PERMISSIONS.REPORT_RECONCILIATION_READ, name: "Read report reconciliation", category: "Reporting Administration", description: "Inspect reporting reconciliation cases." },
   { key: PERMISSIONS.REPORT_RECONCILIATION_RETRY, name: "Retry report reconciliation", category: "Reporting Administration", description: "Run report reconciliation recovery actions." },
   { key: PERMISSIONS.SYSTEM_READINESS_READ, name: "Read system readiness diagnostics", category: "Command Centre", description: "Read safe privileged readiness and production-lock diagnostics." },
+  { key: PERMISSIONS.SYSTEM_READINESS_MANAGE, name: "Review production acceptance evidence", category: "Command Centre", description: "Record and independently approve release-bound production acceptance evidence." },
   { key: PERMISSIONS.INCIDENTS_READ, name: "Read operational incidents", category: "Command Centre", description: "Read operational incident records and safe timelines." },
   { key: PERMISSIONS.INCIDENTS_MANAGE, name: "Manage operational incidents", category: "Command Centre", description: "Create and transition operational incidents." },
   { key: PERMISSIONS.SECURITY_INCIDENTS_READ, name: "Read security incidents", category: "Governance", description: "Read security incident records and controlled history." },
@@ -1780,10 +1782,14 @@ export const SELF_REPORT_PERMISSION_KEYS: PermissionKey[] = [
   PERMISSIONS.REPORT_DOWNLOAD_OWN,
 ];
 
-export const DEFAULT_STORE_CATALOG_PERMISSION_KEYS: PermissionKey[] = [
+export const STORE_EMPLOYEE_PRODUCT_PERMISSION_KEYS: PermissionKey[] = [
   PERMISSIONS.CATALOG_READ,
   PERMISSIONS.CATALOG_MANAGE,
   PERMISSIONS.CATALOG_SUBMIT,
+];
+
+export const DEFAULT_STORE_CATALOG_PERMISSION_KEYS: PermissionKey[] = [
+  ...STORE_EMPLOYEE_PRODUCT_PERMISSION_KEYS,
   PERMISSIONS.CATALOG_PRICING_READ,
   PERMISSIONS.CATALOG_PRICING_MANAGE,
   PERMISSIONS.CATALOG_INVENTORY_READ,
@@ -1836,6 +1842,7 @@ export const SELF_DEVELOPER_PERMISSION_KEYS: PermissionKey[] = [
 ];
 
 export const ROLE_DEFAULT_PERMISSION_KEYS: Partial<Record<UserRole, PermissionKey[]>> = {
+  [UserRole.SUPER_ADMIN]: DEFAULT_ADMIN_PERMISSION_KEYS,
   [UserRole.ADMIN]: DEFAULT_ADMIN_PERMISSION_KEYS,
   [UserRole.CUSTOMER]: [...SELF_NOTIFICATION_PERMISSION_KEYS, ...SELF_DEVELOPER_PERMISSION_KEYS, ...SELF_REPORT_PERMISSION_KEYS],
   [UserRole.STORE]: [...SELF_NOTIFICATION_PERMISSION_KEYS, ...SELF_DEVELOPER_PERMISSION_KEYS, ...SELF_REPORT_PERMISSION_KEYS, ...DEFAULT_STORE_CATALOG_PERMISSION_KEYS],

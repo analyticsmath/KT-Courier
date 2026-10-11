@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
+import { type Prisma } from "@prisma/client";
 import { assertOfferTransition } from "@/lib/catalog/catalog-state-machines";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { normalizeStoreSku } from "@/lib/catalog/product-identifiers";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
-import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 
 export async function listStoreCatalogOffers(storeId: string, filters: { page: number; pageSize: number; search?: string; status?: string }) {
   return prisma.storeCatalogOffer.findMany({
@@ -38,11 +39,12 @@ export async function createStoreCatalogOffer(storeId: string, actorUserId: stri
   minimumQuantity: string;
   primaryInventoryLocationId?: string;
   operationId: string;
-}) {
+}, transaction?: Prisma.TransactionClient) {
+  const database = transaction ?? prisma;
   const [product, variant, location] = await Promise.all([
-    prisma.catalogProduct.findUnique({ where: { id: input.productId } }),
-    prisma.catalogProductVariant.findUnique({ where: { id: input.variantId } }),
-    input.primaryInventoryLocationId ? prisma.inventoryLocation.findFirst({ where: { id: input.primaryInventoryLocationId, storeId, status: "ACTIVE" } }) : null,
+    database.catalogProduct.findUnique({ where: { id: input.productId } }),
+    database.catalogProductVariant.findUnique({ where: { id: input.variantId } }),
+    input.primaryInventoryLocationId ? database.inventoryLocation.findFirst({ where: { id: input.primaryInventoryLocationId, storeId, status: "ACTIVE" } }) : null,
   ]);
   if (!product || !variant || variant.productId !== product.id) throw new CatalogPolicyError("OFFER_PRODUCT_VARIANT_MISMATCH", "Offer variant must belong to the selected product.");
   if (product.scope === "STORE_PRIVATE" && product.sourceStoreId !== storeId) throw new CatalogOwnershipError();
@@ -50,7 +52,7 @@ export async function createStoreCatalogOffer(storeId: string, actorUserId: stri
   if (input.primaryInventoryLocationId && !location) throw new CatalogOwnershipError();
   const publicReference = catalogPublicReference("CO");
   const inventoryReference = catalogPublicReference("CII");
-  return prisma.$transaction(async (tx) => {
+  return withCatalogTransaction(transaction, async (tx) => {
     const offer = await tx.storeCatalogOffer.create({
       data: {
         publicReference,

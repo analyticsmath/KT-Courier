@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MarketplaceStoreOrderStatus } from "@prisma/client";
 import { presentCommerceStatus } from "@/lib/commerce-admin-presentation/commerce-status";
 
 const root = process.cwd();
@@ -62,6 +63,9 @@ describe("R20 commerce operations closure", () => {
   });
 
   it("maps known source states explicitly and leaves unknown states neutral", () => {
+    for (const state of Object.values(MarketplaceStoreOrderStatus)) {
+      expect(presentCommerceStatus(state).label).not.toBe("Status unavailable");
+    }
     expect(presentCommerceStatus("SUBMITTED")).toEqual({ label: "Submitted", tone: "information" });
     expect(presentCommerceStatus("QUARANTINED")).toEqual({ label: "Quarantined", tone: "warning" });
     expect(presentCommerceStatus("UNMAPPED_STATE")).toEqual({ label: "Status unavailable", tone: "neutral" });

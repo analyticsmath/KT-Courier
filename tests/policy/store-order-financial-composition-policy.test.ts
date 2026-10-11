@@ -24,4 +24,45 @@ describe("store-order financial composition policy", () => {
     expect(() => splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.01"), [])).toThrow("Frozen commission allocation");
     expect(() => splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.01"), [allocation("cca_a", "0.00")])).toThrow("Frozen commission allocation");
   });
+
+  it("completes a zero-value commission adjustment without inventing a reversal", () => {
+    expect(splitFrozenCommissionAdjustmentCents(new Prisma.Decimal(0), [])).toEqual([]);
+    expect(splitFrozenCommissionAdjustmentCents(new Prisma.Decimal(0), [allocation("cca_zero", "0.00")]).map(row => row.amount.toFixed(2))).toEqual(["0.00"]);
+  });
+
+  it("never decreases a frozen recipient when a cumulative refund crosses a rounding boundary", () => {
+    const components = [allocation("cca_a", "0.01"), allocation("cca_b", "0.01"), allocation("cca_c", "0.01")];
+    const one = splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.01"), components);
+    const two = splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.02"), components);
+    const three = splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.03"), components);
+    expect(one.map(row => row.amount.toFixed(2))).toEqual(["0.00", "0.00", "0.01"]);
+    expect(two.map(row => row.amount.toFixed(2))).toEqual(["0.00", "0.01", "0.01"]);
+    expect(three.map(row => row.amount.toFixed(2))).toEqual(["0.01", "0.01", "0.01"]);
+  });
+
+  it("conserves every cent, observes every source ceiling and is monotonic for unequal frozen weights", () => {
+    const components = [allocation("cca_a", "0.09"), allocation("cca_b", "0.04"), allocation("cca_c", "0.02")];
+    let previous = components.map(() => new Prisma.Decimal(0));
+    for (let cents = 0; cents <= 15; cents++) {
+      const result = splitFrozenCommissionAdjustmentCents(new Prisma.Decimal(cents).div(100), components);
+      expect(result.reduce((value, row) => value.add(row.amount), new Prisma.Decimal(0)).mul(100).toNumber()).toBe(cents);
+      for (let index = 0; index < result.length; index++) {
+        expect(result[index].amount.greaterThanOrEqualTo(previous[index])).toBe(true);
+        expect(result[index].amount.lessThanOrEqualTo(components[index].amount)).toBe(true);
+      }
+      previous = result.map(row => row.amount);
+    }
+  });
+
+  it("allocates large exact values without enumerating cents", () => {
+    const result = splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("9000000000000000.00"), [allocation("cca_a", "3000000000000000.00"), allocation("cca_b", "3000000000000000.00"), allocation("cca_c", "3000000000000000.00")]);
+    expect(result.map(row => row.amount.toFixed(2))).toEqual(["3000000000000000.00", "3000000000000000.00", "3000000000000000.00"]);
+  });
+
+  it("rejects over-ceiling, fractional-cent, negative component and duplicate source evidence", () => {
+    expect(() => splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.02"), [allocation("cca_a", "0.01")])).toThrow("Frozen commission allocation");
+    expect(() => splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.001"), [allocation("cca_a", "1.00")])).toThrow("Frozen commission allocation");
+    expect(() => splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.01"), [allocation("cca_a", "-0.01"), allocation("cca_b", "1.00")])).toThrow("Frozen commission allocation");
+    expect(() => splitFrozenCommissionAdjustmentCents(new Prisma.Decimal("0.01"), [allocation("cca_a", "0.01"), allocation("cca_a", "0.01")])).toThrow("Frozen commission allocation");
+  });
 });

@@ -12,14 +12,14 @@ type ReconciliationListQuery = z.infer<typeof RefundReconciliationListQuerySchem
 type CustomerRefundRow = Readonly<{
   publicReference: string; amount: Prisma.Decimal; status: RefundStatusCode; method: RefundMethodCode;
   reasonCode: RefundReasonCodeValue; customerNote: string | null; createdAt: Date; completedAt: Date | null;
-  payment: Readonly<{ publicReference: string; order: Readonly<{ orderNumber: string }> }>;
+  payment: Readonly<{ publicReference: string; order: Readonly<{ orderNumber: string }> | null; marketplaceOrder?: Readonly<{ publicReference: string }> | null }>;
   statusHistory: readonly Readonly<{ toStatus: RefundStatusCode; reasonCode: string; createdAt: Date }>[];
 }>;
 
 type FinanceRefundRow = Omit<CustomerRefundRow, "payment" | "statusHistory"> & Readonly<{
   id: string; financeNote: string | null; approvedByUserId: string | null; approvedAt: Date | null;
-  completedByUserId: string | null; customer: Readonly<{ name: string | null; email: string }>;
-  payment: Readonly<{ publicReference: string; amount: Prisma.Decimal; totalRefundedAmount: Prisma.Decimal; totalRefundReservedAmount: Prisma.Decimal; order: Readonly<{ orderNumber: string }> }>;
+  completedByUserId: string | null; customer: Readonly<{ name: string | null; email: string }> | null;
+  payment: Readonly<{ publicReference: string; amount: Prisma.Decimal; totalRefundedAmount: Prisma.Decimal; totalRefundReservedAmount: Prisma.Decimal; order: Readonly<{ orderNumber: string }> | null; marketplaceOrder?: Readonly<{ publicReference: string }> | null }>;
   reserveLedgerJournal: Readonly<{ reference: string }>;
   releaseLedgerJournal: Readonly<{ reference: string }> | null;
   completionLedgerJournal: Readonly<{ reference: string; type: string }> | null;
@@ -37,13 +37,13 @@ type RefundReconciliationListRow = Readonly<{
 }>;
 
 const customerInclude = {
-  payment: { select: { publicReference: true, order: { select: { orderNumber: true } } } },
+  payment: { select: { publicReference: true, order: { select: { orderNumber: true } }, marketplaceOrder: { select: { publicReference: true } } } },
   statusHistory: { select: { toStatus: true, reasonCode: true, createdAt: true }, orderBy: { createdAt: "asc" as const } },
 } as const;
 
 function customerItem(value: unknown): CustomerRefundListItemDto {
   const row = value as CustomerRefundRow;
-  return Object.freeze({ publicReference: row.publicReference, paymentReference: row.payment.publicReference, orderReference: row.payment.order.orderNumber, amount: row.amount.toFixed(2), currency: "ZAR", status: row.status, method: row.method, reasonCode: row.reasonCode, requestedAt: row.createdAt.toISOString(), completedAt: row.completedAt?.toISOString() ?? null, canCancel: row.status === "REQUESTED" || row.status === "UNDER_REVIEW" });
+  return Object.freeze({ publicReference: row.publicReference, paymentReference: row.payment.publicReference, orderReference: row.payment.order?.orderNumber ?? row.payment.marketplaceOrder?.publicReference ?? "Unavailable", amount: row.amount.toFixed(2), currency: "ZAR", status: row.status, method: row.method, reasonCode: row.reasonCode, requestedAt: row.createdAt.toISOString(), completedAt: row.completedAt?.toISOString() ?? null, canCancel: row.status === "REQUESTED" || row.status === "UNDER_REVIEW" });
 }
 
 function customerDetail(value: unknown): CustomerRefundDetailDto {
@@ -53,7 +53,7 @@ function customerDetail(value: unknown): CustomerRefundDetailDto {
 
 const financeInclude = {
   customer: { select: { name: true, email: true } },
-  payment: { select: { publicReference: true, amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true, order: { select: { orderNumber: true } } } },
+  payment: { select: { publicReference: true, amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true, order: { select: { orderNumber: true } }, marketplaceOrder: { select: { publicReference: true } } } },
   reserveLedgerJournal: { select: { reference: true } },
   releaseLedgerJournal: { select: { reference: true } },
   completionLedgerJournal: { select: { reference: true, type: true } },
@@ -65,7 +65,7 @@ const financeInclude = {
 
 function financeItem(value: unknown): FinanceRefundListItemDto {
   const row = value as FinanceRefundRow;
-  return Object.freeze({ id: row.id, publicReference: row.publicReference, paymentReference: row.payment.publicReference, orderReference: row.payment.order.orderNumber, customer: Object.freeze({ name: row.customer.name ?? "Customer", email: row.customer.email }), amount: row.amount.toFixed(2), currency: "ZAR", status: row.status, method: row.method, reasonCode: row.reasonCode, requestedAt: row.createdAt.toISOString(), reconciliationRequired: row.status === "RECONCILIATION_REQUIRED" || row.reconciliationCases.some((item) => item.status === "OPEN" || item.status === "MONITORING") });
+  return Object.freeze({ id: row.id, publicReference: row.publicReference, paymentReference: row.payment.publicReference, orderReference: row.payment.order?.orderNumber ?? row.payment.marketplaceOrder?.publicReference ?? "Unavailable", customer: Object.freeze({ name: row.customer?.name ?? "Guest customer", email: row.customer?.email ?? "" }), amount: row.amount.toFixed(2), currency: "ZAR", status: row.status, method: row.method, reasonCode: row.reasonCode, requestedAt: row.createdAt.toISOString(), reconciliationRequired: row.status === "RECONCILIATION_REQUIRED" || row.reconciliationCases.some((item) => item.status === "OPEN" || item.status === "MONITORING") });
 }
 
 function financeDetail(value: unknown) {

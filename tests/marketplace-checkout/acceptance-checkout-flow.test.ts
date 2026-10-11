@@ -73,23 +73,23 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
       expect(projection?.currency).toBe("ZAR");
       expect(projection?.version).toBe(3);
       expect(projection?.totals).toEqual({
-        merchandiseSubtotal: "250",
-        modifierSubtotal: "30",
-        deliveryFeeTotal: "45",
-        grandTotal: "325",
+        merchandiseSubtotal: "250.00",
+        modifierSubtotal: "30.00",
+        deliveryFeeTotal: "45.00",
+        grandTotal: "325.00",
       });
       expect(projection?.storeGroups).toHaveLength(1);
       expect(projection?.storeGroups[0].storeReference).toBe("store-abc");
-      expect(projection?.storeGroups[0].deliveryFee).toBe("45");
+      expect(projection?.storeGroups[0].deliveryFee).toBe("45.00");
       expect(projection?.storeGroups[0].quoteReference).toBe("quote-xyz");
       expect(projection?.storeGroups[0].lines[0]).toMatchObject({
         productReference: "prod-1",
         variantReference: "var-1",
         offerReference: "off-1",
         quantity: 2,
-        baseUnitPrice: "125",
-        modifierUnitTotal: "15",
-        lineTotal: "280",
+        baseUnitPrice: "125.00",
+        modifierUnitTotal: "15.00",
+        lineTotal: "280.00",
         modifiers: [{ id: "opt-1", name: "Extra Cheese" }],
       });
     });

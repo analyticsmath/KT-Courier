@@ -37,7 +37,8 @@ ARG NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES
 ENV NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES=${NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES}
 ARG KT_NEXT_BUILD_CPUS=1
 ENV KT_NEXT_BUILD_CPUS=${KT_NEXT_BUILD_CPUS}
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+ARG KT_NEXT_BUILD_HEAP_MB=4096
+ENV NODE_OPTIONS="--max-old-space-size=${KT_NEXT_BUILD_HEAP_MB}"
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/package.json ./package.json
@@ -45,7 +46,7 @@ COPY --from=dependencies /app/package-lock.json ./package-lock.json
 COPY --from=dependencies /app/prisma ./prisma
 COPY . .
 
-RUN node --max-old-space-size=4096 ./node_modules/next/dist/bin/next build
+RUN node --max-old-space-size=${KT_NEXT_BUILD_HEAP_MB} ./node_modules/next/dist/bin/next build
 
 FROM base AS runner
 

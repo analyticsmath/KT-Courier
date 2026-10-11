@@ -1,6 +1,7 @@
 // Server-only. Resolve customer-entered delivery addresses to trusted coordinates.
 
 import { getMapsServerConfig, type MapsServerConfig } from "./google-maps-config";
+import { disposableGeocode, southAfricanAddressQuery } from "@/lib/testing/disposable-geocoding";
 
 const TIMEOUT_MS = 8_000;
 
@@ -34,18 +35,14 @@ export async function geocodeSouthAfricanAddress(
   address: GeocodableSouthAfricanAddress,
   configurationOverride?: MapsServerConfig,
 ): Promise<TrustedCoordinates | null> {
+  if (!configurationOverride) {
+    const fixture = disposableGeocode(address);
+    if (fixture !== undefined) return fixture;
+  }
   const config = configurationOverride ?? getMapsServerConfig();
   if (!config) return null;
 
-  const query = [
-    address.line1,
-    address.line2,
-    address.suburb,
-    address.city,
-    address.province,
-    address.postalCode,
-    "South Africa",
-  ].filter((value): value is string => Boolean(value?.trim())).join(", ");
+  const query = southAfricanAddressQuery(address);
 
   const url = new URL(config.geocodeApiUrl);
   url.searchParams.set("address", query);

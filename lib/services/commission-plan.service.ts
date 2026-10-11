@@ -19,8 +19,8 @@ type PlanRuleInput = Readonly<{
 }>;
 
 type PlanDraftInput = Readonly<{
-  subjectType: "COURIER_ORDER";
-  scopeKey: "GLOBAL:COURIER_ORDER";
+  subjectType: "COURIER_ORDER" | "MARKETPLACE_STORE_ORDER";
+  scopeKey: string;
   basisType: "ORDER_SUBTOTAL" | "ORDER_TOTAL";
   effectiveFrom: string;
   effectiveUntil?: string | null;
@@ -68,7 +68,9 @@ function normalizedRules(rules: readonly PlanRuleInput[]) {
 }
 
 function normalizedDraft(input: PlanDraftInput) {
-  if (input.subjectType !== "COURIER_ORDER" || input.scopeKey !== "GLOBAL:COURIER_ORDER" || !input.calculationVersion.trim()) throw new CommissionError("COMMISSION_INVALID_PLAN", "Only the canonical global courier-order scope is supported.");
+  const validScope = input.subjectType === "COURIER_ORDER" ? input.scopeKey === "GLOBAL:COURIER_ORDER" : input.subjectType === "MARKETPLACE_STORE_ORDER" && /^STORE:c[a-z0-9]{20,40}$/i.test(input.scopeKey);
+  if (!validScope || !input.calculationVersion.trim()) throw new CommissionError("COMMISSION_INVALID_PLAN", "Choose the canonical courier scope or a specific marketplace store.");
+  if (input.subjectType === "MARKETPLACE_STORE_ORDER" && (input.basisType !== "ORDER_SUBTOTAL" || input.rules.some((rule) => rule.beneficiaryType !== "PLATFORM"))) throw new CommissionError("COMMISSION_INVALID_PLAN", "Store settlement requires seller subtotal and platform commission rules, excluding delivery fees.");
   const effectiveFrom = date(input.effectiveFrom, "effectiveFrom"); const effectiveUntil = input.effectiveUntil ? date(input.effectiveUntil, "effectiveUntil") : null;
   if (effectiveUntil && effectiveUntil <= effectiveFrom) throw new CommissionError("COMMISSION_INVALID_PLAN", "effectiveUntil must be after effectiveFrom.");
   return { ...input, effectiveFrom, effectiveUntil, calculationVersion: input.calculationVersion.trim(), rules: normalizedRules(input.rules) };
@@ -79,21 +81,29 @@ const planInclude = { rules: { orderBy: { priority: "asc" as const } }, createdB
 export async function createCommissionPlan(input: PlanDraftInput & Readonly<{ actorUserId: string; operationId: string }>) {
   const draft = normalizedDraft(input);
   const result = await prisma.$transaction(async (tx) => {
+    if (draft.subjectType === "MARKETPLACE_STORE_ORDER") {
+      const store = await tx.store.findUnique({ where: { id: draft.scopeKey.slice("STORE:".length) }, select: { id: true, status: true } });
+      if (!store || store.status !== "ACTIVE") throw new CommissionError("COMMISSION_INVALID_PLAN", "The commission scope must identify an active marketplace store.");
+    }
     const latest = await tx.commissionPlan.aggregate({ where: { subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR" }, _max: { versionNumber: true } });
     return tx.commissionPlan.create({ data: { publicReference: ref("CP"), subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR", versionNumber: (latest._max.versionNumber ?? 0) + 1, status: "DRAFT", basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, createdByUserId: input.actorUserId, calculationVersion: draft.calculationVersion, rules: { create: draft.rules }, statusHistory: { create: { fromStatus: null, toStatus: "DRAFT", actorUserId: input.actorUserId, operationId: input.operationId, reasonCode: "PLAN_CREATED" } } }, include: planInclude });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   return result;
 }
 
-export async function updateDraftCommissionPlan(planId: string, input: PlanDraftInput & Readonly<{ actorUserId: string }>) {
+export async function updateDraftCommissionPlan(planId: string, input: PlanDraftInput & Readonly<{ actorUserId: string; expectedVersion: number }>) {
   const draft = normalizedDraft(input);
   return prisma.$transaction(async (tx) => {
-    const plan = await tx.commissionPlan.findUnique({ where: { id: planId }, select: { id: true, status: true, createdByUserId: true } });
+    const plan = await tx.commissionPlan.findUnique({ where: { id: planId }, include: { rules: true } });
     if (!plan) throw new CommissionError("COMMISSION_PLAN_NOT_FOUND", "Commission plan was not found.");
+    if (plan.subjectType !== draft.subjectType || plan.scopeKey !== draft.scopeKey) throw new CommissionError("COMMISSION_INVALID_PLAN", "A plan's subject and store scope cannot be changed. Create a separate draft.");
     if (plan.status !== "DRAFT") throw new CommissionError("COMMISSION_INVALID_STATE", "Only draft commission plans can be changed.");
+    if (plan.version !== input.expectedVersion) throw new CommissionError("COMMISSION_IDEMPOTENCY_CONFLICT", "Commission plan changed. Refresh before editing.");
     if (plan.createdByUserId !== input.actorUserId) throw new CommissionError("COMMISSION_INVALID_STATE", "Only the plan maker may edit its draft.");
     await tx.commissionRule.deleteMany({ where: { planId } });
-    return tx.commissionPlan.update({ where: { id: planId }, data: { basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, calculationVersion: draft.calculationVersion, version: { increment: 1 }, rules: { create: draft.rules } }, include: planInclude });
+    const updated = await tx.commissionPlan.update({ where: { id: planId, version: input.expectedVersion }, data: { basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, calculationVersion: draft.calculationVersion, version: { increment: 1 }, rules: { create: draft.rules } }, include: planInclude });
+    await tx.adminActivityLog.create({ data: { actorUserId: input.actorUserId, action: "UPDATE", entityType: "CommissionPlan", entityId: planId, message: "Commission draft rules updated", metadata: { priorVersion: plan.version, version: updated.version, priorRuleCodes: plan.rules.map((r) => r.ruleCode), ruleCodes: draft.rules.map((r) => r.ruleCode) } } });
+    return updated;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
@@ -109,10 +119,14 @@ async function transitionPlan(planId: string, actorUserId: string, operationId: 
     const plan = await tx.commissionPlan.findUnique({ where: { id: planId }, include: { rules: { orderBy: { priority: "asc" } } } });
     if (!plan) throw new CommissionError("COMMISSION_PLAN_NOT_FOUND", "Commission plan was not found.");
     assertCommissionPlanTransition(plan.status, to);
-    if (to === "UNDER_REVIEW" || to === "ACTIVE") normalizedRules(plan.rules.map((rule) => ({ ...rule, fixedAmount: rule.fixedAmount?.toFixed(2), minimumAmount: rule.minimumAmount?.toFixed(2), maximumAmount: rule.maximumAmount?.toFixed(2), rateBasisPoints: rule.rateBasisPoints ?? undefined })));
+    if (to === "UNDER_REVIEW" || to === "ACTIVE") normalizedDraft({ subjectType: plan.subjectType, scopeKey: plan.scopeKey, basisType: plan.basisType, calculationVersion: plan.calculationVersion, effectiveFrom: plan.effectiveFrom.toISOString(), effectiveUntil: plan.effectiveUntil?.toISOString(), rules: plan.rules.map((rule) => ({ ...rule, fixedAmount: rule.fixedAmount?.toFixed(2), minimumAmount: rule.minimumAmount?.toFixed(2), maximumAmount: rule.maximumAmount?.toFixed(2), rateBasisPoints: rule.rateBasisPoints ?? undefined })) });
     if (to === "APPROVED" && plan.createdByUserId === actorUserId) throw new CommissionError("COMMISSION_MAKER_CHECKER_REQUIRED", "The plan creator cannot approve the same policy version.");
     if (to === "ACTIVE") {
       assertCommissionProductionReady(options);
+      if (plan.subjectType === "MARKETPLACE_STORE_ORDER") {
+        const store = await tx.store.findUnique({ where: { id: plan.scopeKey.slice("STORE:".length) }, select: { status: true } });
+        if (!store || store.status !== "ACTIVE") throw new CommissionError("COMMISSION_INVALID_PLAN", "Store settlement policy requires an active canonical store.");
+      }
       if (!plan.approvedByUserId || plan.approvedByUserId === plan.createdByUserId || plan.rules.length === 0) throw new CommissionError("COMMISSION_MAKER_CHECKER_REQUIRED", "Activation requires an independently approved plan with rules.");
       const overlap = await tx.commissionPlan.findFirst({ where: { id: { not: plan.id }, subjectType: plan.subjectType, scopeKey: plan.scopeKey, currency: plan.currency, status: "ACTIVE", effectiveFrom: { lt: plan.effectiveUntil ?? new Date("9999-12-31T00:00:00.000Z") }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: plan.effectiveFrom } }] }, select: { id: true } });
       if (overlap) throw new CommissionError("COMMISSION_POLICY_OVERLAP", "An active commission policy already covers this effective period.");

@@ -4,11 +4,11 @@ import {
 } from "@/lib/client-platform/store-permissions";
 import { prisma } from "@/lib/db/prisma";
 import {
-  DEFAULT_ADMIN_PERMISSION_KEYS,
   ROLE_DEFAULT_PERMISSION_KEYS,
   SYSTEM_PERMISSION_DEFINITIONS,
 } from "@/lib/auth/permission-keys";
 import { PermissionEffect, UserRole, type Prisma } from "@/types/db";
+import { installSystemPermissionDefaults } from "./permission-bootstrap";
 
 export class PermissionDeniedError extends Error {
   constructor(message = "Missing required permission.") {
@@ -200,61 +200,9 @@ export async function syncSystemPermissions(args: {
 }> {
   void args.actorUserId;
 
-  return prisma.$transaction(async (tx) => {
-    const permissionIdsByKey = new Map<string, string>();
-    let permissionsUpserted = 0;
-
-    for (const definition of SYSTEM_PERMISSION_DEFINITIONS) {
-      const permission = await tx.permission.upsert({
-        where: { key: definition.key },
-        update: {
-          name: definition.name,
-          category: definition.category,
-          description: definition.description,
-          isSystem: true,
-        },
-        create: {
-          key: definition.key,
-          name: definition.name,
-          category: definition.category,
-          description: definition.description,
-          isSystem: true,
-        },
-      });
-
-      permissionIdsByKey.set(definition.key, permission.id);
-      permissionsUpserted += 1;
-    }
-
-    let rolePermissionsUpserted = 0;
-    for (const [role, permissionKeys] of Object.entries(
-      ROLE_DEFAULT_PERMISSION_KEYS,
-    ) as [UserRole, typeof DEFAULT_ADMIN_PERMISSION_KEYS][]) {
-      for (const permissionKey of permissionKeys) {
-        const permissionId = permissionIdsByKey.get(permissionKey);
-        if (!permissionId) continue;
-
-        await tx.rolePermission.upsert({
-          where: {
-            role_permissionId: {
-              role,
-              permissionId,
-            },
-          },
-          update: { enabled: true },
-          create: {
-            role,
-            permissionId,
-            enabled: true,
-          },
-        });
-
-        rolePermissionsUpserted += 1;
-      }
-    }
-
-    return { permissionsUpserted, rolePermissionsUpserted };
-  });
+  // The explicitly authorized admin sync retains its existing re-enable policy.
+  // Foundation bootstrap uses the same installer without that option.
+  return prisma.$transaction(tx => installSystemPermissionDefaults(tx, { reenableExistingDefaults: true }));
 }
 
 export type PermissionTransaction = Prisma.TransactionClient;

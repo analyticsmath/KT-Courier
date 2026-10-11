@@ -252,6 +252,9 @@
 @keyframes cart-skeleton { to { background-position-x: -200%; } }
 .checkoutMainLayout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .9fr); align-items: start; gap: clamp(24px, 4vw, 54px); }
 .checkoutMainColumn { display: flex; min-width: 0; flex-direction: column; gap: 20px; }
+.checkoutMainColumn :is(button, select, input:not([type="checkbox"])) { min-height: 44px; }
+.checkoutMainColumn label:has(input[type="checkbox"]) { min-height: 44px; }
+.checkoutMainColumn :is(button, input, select):focus-visible { outline: 2px solid var(--kt-public-focus); outline-offset: 3px; }
 .checkoutSummary { position: sticky; top: 132px; min-width: 0; padding: 22px; background: var(--kt-public-surface-primary); }
 .checkoutFieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .checkoutFieldGridThree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -3620,6 +3623,8 @@
   .pdpPurchasePlaneTall {
     max-height: calc(100svh - var(--shop-header-offset, 66px) - 32px);
     overflow-y: auto;
+    /* Keep native keyboard scrolling clear of the panel edge and focus outline. */
+    scroll-padding-block: 12px;
   }
 }
 

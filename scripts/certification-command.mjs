@@ -1,0 +1,23 @@
+import { spawn, spawnSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { sanitize } from "./docker-common.mjs";
+import { certificationTestCounts, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
+const command = process.argv[2];
+if (!/^(test:(coverage|payments|refunds|security:bola|processors|e2e|integration:[a-z-]+)|docker:(migration-smoke|gate4))$/.test(command ?? "")) throw new Error("Unsupported certification command.");
+const commitSha = verifyCertificationHead(spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim(), process.env.KT_CERTIFICATION_HEAD_SHA);
+const started = Date.now();
+const args = process.argv.slice(3);
+console.log(`CERTIFICATION_HEAD_SHA=${commitSha} COMMAND=npm run ${command} ${args.join(" ")}`);
+const child = spawn(process.platform === "win32" ? "npm.cmd" : "npm", ["run", command, ...process.argv.slice(3)], { env: process.env, shell: process.platform === "win32", stdio: ["ignore", "pipe", "pipe"] });
+let output = "";
+for (const stream of [child.stdout, child.stderr]) stream.on("data", (data) => { const safe = sanitize(data.toString()); output += safe; process.stdout.write(safe); });
+child.on("error", () => { process.exitCode = 1; });
+child.on("close", (code) => {
+  const plain = output.replace(/\u001b\[[0-9;]*m/g, "");
+  const skipped = hasSkippedCriticalTests(plain);
+  const flaky = hasFlakyCriticalTests(plain);
+  const counts = certificationTestCounts(plain);
+  mkdirSync("output/production-closure", { recursive: true });
+  writeFileSync(`output/production-closure/${command.replaceAll(":", "-")}.json`, JSON.stringify({ command, arguments: args, commitSha, durationMs: Date.now() - started, exitCode: code, ...counts, skippedCriticalTestsDetected: skipped, flakyCriticalTestsDetected: flaky, status: code === 0 && !skipped && !flaky ? "PASS" : "FAIL" }, null, 2));
+  process.exitCode = code === 0 && !skipped && !flaky ? 0 : 1;
+});

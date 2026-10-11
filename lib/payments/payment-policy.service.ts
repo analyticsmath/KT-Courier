@@ -1,5 +1,6 @@
 import { Prisma, type PaymentMethodPolicy } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { BankInstructionsSchema } from "@/lib/client-platform/driver-cash.service";
 export type PaymentPolicyContext = Readonly<{
   businessModuleId?: string | null;
   storeId?: string | null;
@@ -18,7 +19,7 @@ export class PaymentPolicyError extends Error {
     super(message);
   }
 }
-type PolicyDb = Pick<Prisma.TransactionClient, "paymentMethodPolicy" | "store">;
+type PolicyDb = Pick<Prisma.TransactionClient, "paymentMethodPolicy" | "store"> & Partial<Pick<Prisma.TransactionClient, "systemSetting">>;
 export function paymentPolicyScope(
   p: Pick<
     PaymentMethodPolicy,
@@ -142,6 +143,15 @@ export async function resolvePaymentBreakdown(
   const p = await resolvePaymentPolicy(input, input.now, db),
     mode = p.mode === "DIGITAL" ? "DIGITAL_ONLY" : p.mode;
   if (mode !== "DIGITAL_ONLY") {
+    const production = process.env.NODE_ENV === "production" && process.env.KT_RUNTIME_ENV !== "e2e";
+    if (production) {
+      const evidence = p.policyEvidence as { approvedByUserId?: string; approvedAt?: string; remittanceApproved?: boolean; remittanceUpdatedAt?: string; settlementTiming?: string } | null;
+      if (!p.deliveryServiceId || (!p.regionId && (!Array.isArray(p.provinceScope) || !p.provinceScope.length)) || mode !== "DEPOSIT_PLUS_COD" || !p.depositPercent?.equals("0.5") || !evidence?.approvedByUserId || evidence.approvedByUserId === p.createdByUserId || !evidence.approvedAt || !evidence.remittanceApproved) {
+        throw new PaymentPolicyError("COD_PRODUCTION_APPROVAL_REQUIRED", "Production cash requires independent approval of the 50/50 split, service/region scope, and remittance operations.");
+      }
+      const bank = await db.systemSetting?.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { value: true, updatedAt: true } });
+      if (!bank || !BankInstructionsSchema.safeParse(bank.value).success || bank.updatedAt.toISOString() !== evidence.remittanceUpdatedAt || !evidence.settlementTiming) throw new PaymentPolicyError("COD_REMITTANCE_NOT_CONFIGURED", "Approved secure remittance instructions are required before cash checkout. Changed instructions require renewed policy approval.");
+    }
     if (!input.storeId || p.storeId !== input.storeId)
       throw new PaymentPolicyError(
         "COD_BUSINESS_NOT_APPROVED",

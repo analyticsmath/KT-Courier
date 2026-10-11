@@ -1,0 +1,629 @@
+{
+  "schemaVersion": "kt-phase2-3-emergency-handoff-v1",
+  "requestedAction": "STOP_PRESERVE_PUSH_REPORT_RETURN_CONTROL",
+  "classification": {
+    "phase2Engineering": "PARTIAL",
+    "phase3Engineering": "PARTIAL",
+    "productionRelease": "NOT_READY",
+    "externalAcceptance": "BLOCKED"
+  },
+  "git": {
+    "repository": "analyticsmath/KT-Courier",
+    "branch": "production-closure-2026-10-07",
+    "startingSha": "acc14d299f5abfe54a1f5a3fcc90d4debf796d42",
+    "lastImplementationSha": "3eca65655f0b1072cb76d58017d430168a506fab",
+    "reportCommitSha": null,
+    "reportCommitShaNote": "Self-referential SHA cannot be embedded in this tracked file; verify the enclosing commit and origin SHA in the final response.",
+    "pullRequest": "https://github.com/analyticsmath/KT-Courier/pull/17",
+    "pullRequestState": "OPEN_DRAFT_UNMERGED",
+    "protectedMainLastVerifiedSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+    "preservedUntrackedFiles": [
+      ".tmp-driver-final-types.txt",
+      ".tmp-driver-types-latest.txt",
+      ".tmp-driver-types.txt",
+      ".tmp-driver-verified-types.txt"
+    ],
+    "commitsSinceCheckpoint": [
+      {
+        "sha": "3eca65655f0b1072cb76d58017d430168a506fab",
+        "subject": "test: distinguish settled store money from pending operational review"
+      },
+      {
+        "sha": "269c1b8e268902f0d65ec257aee0712c01d964a9",
+        "subject": "fix: preserve readable refund evidence and canonical store status"
+      },
+      {
+        "sha": "553e4a3caaa2b1b3f5b5df48765ba1ca5e3298f7",
+        "subject": "fix(operations): describe the available proof and reconciliation workflows"
+      },
+      {
+        "sha": "0fba968e19832e0058a905caa804b4fc7ddbde92",
+        "subject": "test(finance): await the selected reconciliation detail before asserting"
+      },
+      {
+        "sha": "9e673ea8146d695d5f38221642bc7b6a0592008a",
+        "subject": "test(acceptance): complete financial visual evidence and model owned dry-run lease"
+      },
+      {
+        "sha": "f5d035cd51ffd6b207b7579f9e812b1cf8aaf7b5",
+        "subject": "fix(operations): fence stale leases and restore owned delivery chat on reload"
+      },
+      {
+        "sha": "d4a04088a514e202f38d1a1e3c1ea353328f9248",
+        "subject": "test(acceptance): preserve guest ownership and verify native delivery chat"
+      },
+      {
+        "sha": "5fdea4a599fa30790095736fc83dc2bb2c16bc7f",
+        "subject": "fix(phase3): make quote booking atomic and repair isolated acceptance"
+      },
+      {
+        "sha": "f8c732bac2ee2c70779845b7da780523349f8c22",
+        "subject": "feat(phase3): add scoped inventory upload and anonymous canonical booking"
+      },
+      {
+        "sha": "98cdd293bd1e8a18093cdc8f5a8d7c2a21666601",
+        "subject": "fix(finance): validate bounded reversal evidence and canonical COD custody"
+      },
+      {
+        "sha": "8261bcf6e70a2b91fbc0a48d96aa12bfc5501662",
+        "subject": "test(phase3): replace catalog scaffolds and verify bounded financial operations"
+      },
+      {
+        "sha": "931927fe87d3680c27e12dd53f8a7cc5ff70f0cb",
+        "subject": "feat(phase2): compose canonical unstarted cancellation refunds and stock restoration"
+      },
+      {
+        "sha": "544a295e35c523d46f3f1438eff0a62b0361e2b4",
+        "subject": "Complete store branding lifecycle and repair bounded acceptance contracts"
+      },
+      {
+        "sha": "358fec0273aa17da76b70758e63ef3b4d21bbfec",
+        "subject": "Bind customer replacement choices and preserve delivery location action"
+      },
+      {
+        "sha": "e7fbdc4ed11e15fbc4ff40e7a3fc640c8bd74926",
+        "subject": "Complete native replacement decisions and frozen refund projection"
+      },
+      {
+        "sha": "f767de1f3c805b67cf6ac8da9cb1900301c7dc57",
+        "subject": "Bind guest and partial refund authority and repair directed browser flows"
+      },
+      {
+        "sha": "9353cb28e10401a21e1947f169cde3172466cc9e",
+        "subject": "feat(phase2-3): integrate canonical recovery and directed acceptance"
+      },
+      {
+        "sha": "89ff973d7a91aad3641179a5b07e9aeb986334c3",
+        "subject": "fix(phase3): revoke retired profile media and verify owned lifecycle"
+      },
+      {
+        "sha": "d5c572351547d6c40111fa5e95bc699383ad1735",
+        "subject": "fix(phase2): repair checkpoint failures and bind store pickup custody"
+      },
+      {
+        "sha": "0bf9de79d8f5b3c89e93b28830e032a4525302c1",
+        "subject": "feat(phase2): integrate canonical refund and store acceptance with checkout residuals"
+      }
+    ],
+    "changedPathsSinceCheckpoint": [
+      ".github/workflows/production-certification.yml",
+      "app/(account)/account/refunds/[publicReference]/page.tsx",
+      "app/(admin)/admin/marketplace-delivery-policy/page.tsx",
+      "app/(admin)/admin/refunds/[id]/page.tsx",
+      "app/(admin)/admin/store-order-reconciliation/page.tsx",
+      "app/(auth)/forgot-password/ForgotPasswordForm.tsx",
+      "app/(driver)/driver/assignments/[id]/page.tsx",
+      "app/(driver)/driver/delivery/page.tsx",
+      "app/(driver)/driver/store-order-handoffs/[reference]/page.tsx",
+      "app/(public)/order-confirmation/[publicReference]/page.tsx",
+      "app/(store)/store/catalog/imports/page.tsx",
+      "app/(store)/store/catalog/inventory/page.tsx",
+      "app/(store)/store/marketplace-orders/[reference]/page.tsx",
+      "app/api/admin/marketplace-trusted-packages/route.ts",
+      "app/api/admin/redelivery/[reference]/schedule/route.ts",
+      "app/api/auth/forgot-password/route.ts",
+      "app/api/auth/verify-otp/route.ts",
+      "app/api/checkout/[reference]/prepare-payment/route.ts",
+      "app/api/checkout/[reference]/reserve/route.ts",
+      "app/api/driver/assignments/[id]/delivery/otp/route.ts",
+      "app/api/driver/assignments/[id]/delivery/proof/route.ts",
+      "app/api/marketplace-orders/[reference]/store-orders/[storeOrderReference]/actions/route.ts",
+      "app/api/notifications/preferences/route.ts",
+      "app/api/orders/[id]/redelivery/route.ts",
+      "app/api/platform/avatar/route.ts",
+      "app/api/platform/conversations/route.ts",
+      "app/api/private-media/[reference]/route.ts",
+      "app/api/public/delivery-quotes/[id]/book/route.ts",
+      "app/api/store/catalog/inventory/upload/route.ts",
+      "app/api/store/orders/[reference]/actions/route.ts",
+      "app/api/store/profile-media/route.ts",
+      "artifacts/route-action-authorization-inventory.json",
+      "components/admin/MarketplaceTrustedPackageManager.tsx",
+      "components/driver/DriverDeliveryEvidencePanel.tsx",
+      "components/driver/MarketplacePickupForm.tsx",
+      "components/forms/Conversations.tsx",
+      "components/forms/ProfileAvatar.tsx",
+      "components/forms/PublicDeliveryQuoteForm.tsx",
+      "components/notifications/InboxControls.tsx",
+      "components/notifications/NotificationCentre.tsx",
+      "components/protected-v2/store/StoreFulfilmentActions.tsx",
+      "components/protected-v2/store/StoreFulfilmentDetail.tsx",
+      "components/protected-v2/store/store-pages.module.css",
+      "components/public-v2/auth/AuthTextField.tsx",
+      "components/public-v2/auth/OtpField.tsx",
+      "components/public-v2/auth/PasswordField.tsx",
+      "components/public-v2/commerce/CheckoutExperience.tsx",
+      "components/public-v2/commerce/CustomerStoreOrderControls.tsx",
+      "components/store/InventoryCsvUpload.tsx",
+      "components/store/StoreBrandingUploader.tsx",
+      "compose.e2e.yml",
+      "docs/production-closure/DISASTER_RECOVERY_RUNBOOK.md",
+      "docs/production-closure/ENVIRONMENT_AND_ACTIVATION_DEPENDENCIES.md",
+      "docs/production-closure/OPERATOR_ACTIONS_REQUIRED.md",
+      "docs/production-closure/PHASE_2_3_EXECUTION_LEDGER.md",
+      "docs/production-closure/PHASE_2_CONTRACT_MATRIX.md",
+      "docs/production-closure/PHASE_3_DIRECTED_ACCEPTANCE_MATRIX.md",
+      "docs/production-closure/TEST_DEFERRALS.md",
+      "docs/production-closure/VISUAL_REVIEW.md",
+      "lib/auth/password-reset-url.ts",
+      "lib/auth/security-email-readiness.ts",
+      "lib/catalog/catalog-route-handlers.ts",
+      "lib/catalog/inventory-upload-policy.ts",
+      "lib/client-platform/conversations.service.ts",
+      "lib/client-platform/driver-cash.service.ts",
+      "lib/client-platform/profile-avatar.service.ts",
+      "lib/commerce-admin-presentation/commerce-status.ts",
+      "lib/commissions/commission-ledger-policy.ts",
+      "lib/customer-presentation/customer-order-presentation.ts",
+      "lib/driver-operations/authority.ts",
+      "lib/driver-operations/proof-evidence-authority.ts",
+      "lib/driver-operations/replay-authority.ts",
+      "lib/dto/assignment.dto.ts",
+      "lib/ledger/types.ts",
+      "lib/marketplace-checkout/accepted-checkout-evidence.ts",
+      "lib/marketplace-checkout/cart.service.ts",
+      "lib/marketplace-checkout/checkout-command-receipt.ts",
+      "lib/marketplace-checkout/checkout.service.ts",
+      "lib/marketplace-checkout/composition-root.ts",
+      "lib/marketplace-checkout/frozen-courier-quote.ts",
+      "lib/marketplace-checkout/inventory-reservation.service.ts",
+      "lib/marketplace-checkout/matrix-quote.service.ts",
+      "lib/marketplace-checkout/parcel-classification.ts",
+      "lib/marketplace-checkout/parcel-configuration.service.ts",
+      "lib/marketplace-checkout/phase6-marketplace-quote-authority.ts",
+      "lib/marketplace-checkout/prisma-review-composition.repository.ts",
+      "lib/notifications/api-policy.ts",
+      "lib/notifications/authority.ts",
+      "lib/notifications/required-domain-intake.ts",
+      "lib/notifications/required-domain-payload.ts",
+      "lib/private-media/private-media.service.ts",
+      "lib/processors/lease-authority.ts",
+      "lib/processors/processor-service.ts",
+      "lib/refunds/providers/paystack/paystack-refund-adapter.ts",
+      "lib/refunds/providers/refund-provider-adapter.ts",
+      "lib/refunds/providers/refund-provider-result.ts",
+      "lib/refunds/refund-idempotency.ts",
+      "lib/services/account-email-verification.service.ts",
+      "lib/services/cash-on-delivery.service.ts",
+      "lib/services/catalog-import.service.ts",
+      "lib/services/catalog-inventory-upload.service.ts",
+      "lib/services/catalog-media-intake.service.ts",
+      "lib/services/commission-reversal.service.ts",
+      "lib/services/customer-store-order-actions.service.ts",
+      "lib/services/delivery-execution.service.ts",
+      "lib/services/delivery-proof-upload.service.ts",
+      "lib/services/driver-assignments.service.ts",
+      "lib/services/driver-location-evidence.service.ts",
+      "lib/services/marketplace-adjustment-refund-authority.ts",
+      "lib/services/marketplace-courier-order.service.ts",
+      "lib/services/marketplace-refund-completion.service.ts",
+      "lib/services/orders.service.ts",
+      "lib/services/product-type.service.ts",
+      "lib/services/refund-finance-review.service.ts",
+      "lib/services/refund-held-account.service.ts",
+      "lib/services/refund-provider-execution.service.ts",
+      "lib/services/refund-query.service.ts",
+      "lib/services/refund-reconciliation.service.ts",
+      "lib/services/refund-request.service.ts",
+      "lib/services/refund-wallet-completion.service.ts",
+      "lib/services/shipping-governance.service.ts",
+      "lib/services/shipping-obligations.service.ts",
+      "lib/services/store-earning-reversal.service.ts",
+      "lib/services/storefront-store.service.ts",
+      "lib/store-earnings/store-earning-ledger-policy.ts",
+      "lib/store-orders/adjustment-resolution.ts",
+      "lib/store-orders/allocation.ts",
+      "lib/store-orders/api-policy.ts",
+      "lib/store-orders/composition-root.ts",
+      "lib/store-orders/financial-adjustment-composition.ts",
+      "lib/store-orders/financial-operation.ts",
+      "lib/store-orders/full-order-adjustment.ts",
+      "lib/store-orders/preapproved-choices.ts",
+      "lib/store-orders/request-hash.ts",
+      "lib/store-orders/state-machine.ts",
+      "lib/store-orders/store-order.service.ts",
+      "lib/testing/disposable-paystack-provider.ts",
+      "lib/validation/catalog.ts",
+      "lib/validation/refunds.ts",
+      "playwright.config.ts",
+      "prisma/migrations/20261008180000_store_earning_bounded_adjustment_evidence/migration.sql",
+      "prisma/migrations/20261008181000_cod_shortage_account_purpose/migration.sql",
+      "prisma/migrations/20261008182000_store_adjustment_canonical_source_reference/migration.sql",
+      "prisma/schema.prisma",
+      "scripts/audit-reviewed-production.ts",
+      "scripts/check-migrations-safety.mjs",
+      "scripts/create-e2e-fixtures.ts",
+      "scripts/disposable-closure-tests.mjs",
+      "scripts/e2e-checkout-authorities.ts",
+      "scripts/e2e-failure-reporter.mjs",
+      "scripts/e2e-handoff-actors.ts",
+      "scripts/e2e-paystack-residual-fixtures.ts",
+      "scripts/e2e-test.mjs",
+      "scripts/generate-route-authorization-inventory.mjs",
+      "scripts/phase1-browser-plan.mjs",
+      "scripts/phase2-refund-control.ts",
+      "scripts/phase2-store-order-control.ts",
+      "scripts/phase3-driver-delivery-control.ts",
+      "scripts/phase3-identity-control.ts",
+      "scripts/phase3-media-control.ts",
+      "scripts/phase3-notification-control.ts",
+      "scripts/phase3-parcel-control.ts",
+      "tests/api/refunds.test.ts",
+      "tests/catalog/inventory-upload-policy.test.ts",
+      "tests/client-platform/conversations.test.ts",
+      "tests/client-platform/driver-cash.test.ts",
+      "tests/client-platform/password-reset-url.test.ts",
+      "tests/client-platform/profile-avatar-retirement.test.ts",
+      "tests/client-platform/security-email-readiness.test.ts",
+      "tests/commissions/commission-ledger-policy.test.ts",
+      "tests/driver-operations/driver-replay-authority.test.ts",
+      "tests/e2e/anonymous-courier-quote.spec.ts",
+      "tests/e2e/catalog-inventory-upload.spec.ts",
+      "tests/e2e/cod-custody-remittance.spec.ts",
+      "tests/e2e/customer-identity-lifecycle.spec.ts",
+      "tests/e2e/customer-wallet-refunds.spec.ts",
+      "tests/e2e/driver-canonical-delivery.spec.ts",
+      "tests/e2e/fixtures/driver-delivery.ts",
+      "tests/e2e/fixtures/phase2-checkout.ts",
+      "tests/e2e/fixtures/refund.ts",
+      "tests/e2e/fixtures/store-handoff.ts",
+      "tests/e2e/fixtures/store-order-employee.ts",
+      "tests/e2e/fixtures/store-order-scenarios.ts",
+      "tests/e2e/fixtures/store-order.ts",
+      "tests/e2e/profile-avatar-lifecycle.spec.ts",
+      "tests/e2e/refund-finance-admin.spec.ts",
+      "tests/e2e/store-branding-lifecycle.spec.ts",
+      "tests/e2e/store-order-accessibility.spec.ts",
+      "tests/e2e/store-order-admin.spec.ts",
+      "tests/e2e/store-order-customer.spec.ts",
+      "tests/e2e/store-order-handoff.spec.ts",
+      "tests/e2e/store-order-merchant.spec.ts",
+      "tests/e2e/store-order-positive-substitution.spec.ts",
+      "tests/e2e/store-order-substitution.spec.ts",
+      "tests/e2e/transactional-notifications.spec.ts",
+      "tests/e2e/trusted-parcel-classification.spec.ts",
+      "tests/e2e/withdrawal-finance-admin.spec.ts",
+      "tests/integration/auth-session.integration.test.ts",
+      "tests/integration/catalog-canonical-support.ts",
+      "tests/integration/catalog-import.integration.test.ts",
+      "tests/integration/catalog-invariants.integration.test.ts",
+      "tests/integration/catalog-inventory.integration.test.ts",
+      "tests/integration/catalog-media.integration.test.ts",
+      "tests/integration/catalog-moderation.integration.test.ts",
+      "tests/integration/catalog-price.integration.test.ts",
+      "tests/integration/catalog-product.integration.test.ts",
+      "tests/integration/catalog-taxonomy.integration.test.ts",
+      "tests/integration/catalog-variant.integration.test.ts",
+      "tests/integration/cod-canonical-postgres.integration.test.ts",
+      "tests/integration/cod-canonical-support.ts",
+      "tests/integration/driver-canonical-delivery.integration.test.ts",
+      "tests/integration/marketplace-canonical-support.ts",
+      "tests/integration/marketplace-order.integration.test.ts",
+      "tests/integration/marketplace-paystack-residual.integration.test.ts",
+      "tests/integration/marketplace-refund-boundary-canonical.integration.test.ts",
+      "tests/integration/marketplace-settlement.integration.test.ts",
+      "tests/integration/phase7-5-fixtures.ts",
+      "tests/integration/processor-lease-canonical-postgres.integration.test.ts",
+      "tests/integration/production-closure.integration.test.ts",
+      "tests/integration/refund-canonical-postgres.integration.test.ts",
+      "tests/integration/refund-canonical-support.ts",
+      "tests/integration/store-financial-recovery-canonical-postgres.integration.test.ts",
+      "tests/integration/store-full-cancellation-canonical-postgres.integration.test.ts",
+      "tests/integration/store-order-acceptance.integration.test.ts",
+      "tests/integration/store-order-adjustment.integration.test.ts",
+      "tests/integration/store-order-canonical-support.ts",
+      "tests/integration/store-order-delivery-bridge.integration.test.ts",
+      "tests/integration/store-order-handoff.integration.test.ts",
+      "tests/integration/store-order-invariants.integration.test.ts",
+      "tests/integration/store-order-inventory.integration.test.ts",
+      "tests/integration/store-order-reconciliation.integration.test.ts",
+      "tests/integration/store-order-refund.integration.test.ts",
+      "tests/integration/store-order-substitution.integration.test.ts",
+      "tests/integration/store-substitution-boundary-canonical.integration.test.ts",
+      "tests/marketplace-checkout/checkout-command-receipt.test.ts",
+      "tests/marketplace-checkout/frozen-courier-quote.test.ts",
+      "tests/marketplace-checkout/parcel-classification.test.ts",
+      "tests/orders/cash-on-delivery-reconciliation.test.ts",
+      "tests/payments/paystack-contract.test.ts",
+      "tests/payments/paystack-financial-invariants.test.ts",
+      "tests/phase-b/privacy-disposable-guard.ts",
+      "tests/phase-b/privacy-dsar-retention-postgres.test.ts",
+      "tests/phase-b/privacy-location-security-postgres.test.ts",
+      "tests/phase-b/privacy-marketing-cookie-preferences-postgres.test.ts",
+      "tests/phase-b/privacy-policy-final-postgres.test.ts",
+      "tests/phase27/inbox-presentation-authority.test.ts",
+      "tests/phase27/recipient-preference-inbox.behavior.test.ts",
+      "tests/phase27/required-domain-payload.test.ts",
+      "tests/phase5/processor-governance.test.ts",
+      "tests/policy/completed-adjustment-resolution.test.ts",
+      "tests/policy/frozen-refund-value-allocation.test.ts",
+      "tests/policy/preapproved-substitution-choices.test.ts",
+      "tests/policy/store-adjustment-financial-operation.test.ts",
+      "tests/policy/store-adjustment-funding.test.ts",
+      "tests/policy/store-order-financial-composition-policy.test.ts",
+      "tests/policy/store-order-request-hash.test.ts",
+      "tests/policy/store-order-state-policy.test.ts",
+      "tests/processors/processor-registry-consistency.test.ts",
+      "tests/r20/r20-commerce-closure.test.ts",
+      "tests/refunds/paystack-refund-binding.test.ts",
+      "tests/services/account-email-verification.service.test.ts",
+      "tests/services/catalog-import.service.test.ts",
+      "tests/services/marketplace-adjustment-refund-authority.test.ts",
+      "tests/services/marketplace-refund-completion.service.test.ts",
+      "tests/services/storefront-store.service.test.ts",
+      "tests/shipping/shipping-replay-authority.test.ts",
+      "vitest.integration.config.ts",
+      "vitest.marketplace-checkout-integration.config.ts",
+      "vitest.phase2-canonical-acceptance.config.ts",
+      "vitest.refund-integration.config.ts",
+      "vitest.store-order-integration.config.ts"
+    ]
+  },
+  "latestSourceEvidence": {
+    "sha": "3eca65655f0b1072cb76d58017d430168a506fab",
+    "ci": {
+      "runId": 37840465610,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37840465610",
+      "conclusion": "success",
+      "checks": [
+        "prisma generate",
+        "prisma validate",
+        "disposable migrate",
+        "lint",
+        "build",
+        "typecheck",
+        "coverage",
+        "security notification PostgreSQL",
+        "migration safety"
+      ]
+    },
+    "certification": {
+      "runId": 37840465574,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37840465574",
+      "conclusion": "failure",
+      "componentJobsPassed": 23,
+      "componentJobsFailed": 1,
+      "failedComponent": "browser",
+      "certified": "skipped"
+    },
+    "quality": {
+      "passed": 3712,
+      "failed": 0,
+      "skipped": 0,
+      "files": 790,
+      "overlappingSelections": {
+        "payments": 335,
+        "refunds": 115,
+        "processors": 23,
+        "securityBola": 23
+      }
+    },
+    "postgresClosure": {
+      "passed": 172,
+      "failed": 0,
+      "skipped": 0,
+      "files": 25,
+      "databaseKind": "disposable"
+    },
+    "catalogPostgres": {
+      "passed": 51,
+      "failed": 0,
+      "skipped": 0
+    },
+    "redis": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    "bolaAuthority": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    "recovery": {
+      "dumpRestore": "PASS",
+      "historicalUpgrade": "PASS",
+      "fixtureCountsAndHashes": "MATCH",
+      "ledgerInvariants": "PASS",
+      "protectedProductionDataTouched": false
+    },
+    "browser": {
+      "directed": {
+        "command": "node scripts/certification-command.mjs test:e2e -- <18 directed specs> --project=chromium --retries=0 --workers=1",
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0,
+        "retries": 0,
+        "flaky": 0
+      },
+      "withdrawalFinanceFocused": {
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "retries": 0,
+        "flaky": 0
+      },
+      "offlinePaystackPostgres": {
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "offlinePaystackFocused": {
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "retries": 0,
+        "flaky": 0
+      },
+      "preliminaryStageCounts": [
+        1,
+        4,
+        2,
+        4,
+        1,
+        2
+      ],
+      "preliminaryStages": "PASS; overlapping repeated selections",
+      "fullChromium": {
+        "selected": 139,
+        "selectedSpecFiles": 44,
+        "passed": 135,
+        "failed": 4,
+        "skipped": 0,
+        "retries": 0,
+        "flaky": 0,
+        "status": "FAILED",
+        "failedCases": [
+          "store-order-substitution 1440px",
+          "store-order-substitution 390px",
+          "transactional-notifications 1440px",
+          "transactional-notifications 390px"
+        ],
+        "observedError": "Prisma P2034 write conflict at paymentVerifiedEventConsumerReceipt.create during verified payment processing; PostgreSQL log also records duplicate receipt operationId contention; root cause and safe remedy require audit"
+      },
+      "canonicalPostgres": {
+        "selected": 41,
+        "selectedFiles": 19,
+        "executed": 0,
+        "status": "NOT_EXECUTED_AFTER_BROWSER_FAILURE"
+      }
+    },
+    "testArtifacts": [
+      {
+        "id": 11578743336,
+        "name": "certification-browser-reports",
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37840465574/artifacts/11578743336"
+      },
+      {
+        "id": 11579645031,
+        "name": "browser-evidence",
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37840465574/artifacts/11579645031"
+      },
+      {
+        "id": 11578260215,
+        "name": "postgres-18",
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37840465574/artifacts/11578260215"
+      },
+      {
+        "id": 11578101173,
+        "name": "certification-quality",
+        "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37840465574/artifacts/11578101173"
+      }
+    ]
+  },
+  "historicalSourceEvidence": [
+    {
+      "sha": "269c1b8e268902f0d65ec257aee0712c01d964a9",
+      "ciRun": 37838614587,
+      "certificationRun": 37838614540,
+      "nonbrowserPassed": 23,
+      "directedPassed": 40,
+      "directedFailed": 2,
+      "failure": "new admin test conflated settled money and pending operational review; corrected in later source"
+    },
+    {
+      "sha": "95dbab4a904a0971983857399f0dddc1384f8358",
+      "certificationRun": 37771823257,
+      "paymentPostgresPassed": 2,
+      "paymentBrowserPassed": 9,
+      "fullBrowserPassed": 97,
+      "status": "HISTORICAL_ONLY"
+    }
+  ],
+  "phase2Domains": {
+    "paystackAndCheckout": "PARTIAL",
+    "multistoreModifiersRoundingAndEdgeCases": "PARTIAL",
+    "walletAndRefundRequests": "PARTIAL",
+    "financeRefundApprovalProcessingAndReconciliation": "PARTIAL",
+    "storeOrderCustomerVendorAdmin": "PARTIAL",
+    "substitutionsCancellationAndAdjustments": "PARTIAL",
+    "inventoryReserveConsumeRelease": "PARTIAL",
+    "deliveryBridgeHandoffSettlementAndEarnings": "PARTIAL",
+    "eightCriticalPlaceholders": "PARTIAL_18_EXECUTABLE_DIRECTED_PASS_FULL_SUITE_FAIL"
+  },
+  "phase3Domains": {
+    "guestCustomerAndIdentity": "PARTIAL",
+    "vendorAndEmployee": "PARTIAL",
+    "driverGpsOtpPodChat": "PARTIAL",
+    "cod": "PARTIAL",
+    "notifications": "FAILED_FULL_BROWSER",
+    "trustedParcel": "PARTIAL",
+    "privateMediaCloudinary": "PARTIAL",
+    "securityAuthorizationPrivacy": "PARTIAL",
+    "accessibilityVisualDesktopMobile": "PARTIAL",
+    "operationsRecovery": "PARTIAL"
+  },
+  "releaseGateStatuses": {
+    "marketplace_parcel_classification": "OPEN",
+    "notification_required_domains": "OPEN",
+    "commercial_financial_certification": "VALIDATION_BLOCKED",
+    "customer_vendor_driver_full_functional_acceptance": "OPEN",
+    "visual_acceptance": "OPEN",
+    "media_full_functional_acceptance": "OPEN",
+    "critical_skip_closure": "OPEN",
+    "fresh_production_protected_row_audit": "VALIDATION_BLOCKED",
+    "github_certification_and_deployment": "VALIDATION_BLOCKED"
+  },
+  "forwardMigrations": [
+    "20261008180000_store_earning_bounded_adjustment_evidence",
+    "20261008181000_cod_shortage_account_purpose",
+    "20261008182000_store_adjustment_canonical_source_reference"
+  ],
+  "nextEngineeringActions": [
+    "Audit and repair P2034/duplicate verified-payment consumer receipt contention without weakening idempotency or retrying outbound side effects",
+    "Rerun four failing native cases and full 139/139 selected Chromium without retries/skips/flaky",
+    "Execute and repair the 41 selected canonical disposable PostgreSQL cases",
+    "Revalidate all 24 certification components on one tested source SHA",
+    "Inspect final responsive/focus states and compile normal acceptance dossiers only after execution"
+  ],
+  "externalRequirements": [
+    "Independent audit and safe discard of dangerous Railway staged patch by authorized operator",
+    "Approved read-only production protected-row audit",
+    "Client-approved coverage/parcel/packing/tariff/tax/commission/COD/bank facts",
+    "Separately authorized bounded real Paystack charge/refund/settlement",
+    "Notification templates and live delivery maker/checker acceptance",
+    "Live Cloudinary/private media, genuine device GPS/camera/POD/cash/physical handoff",
+    "Independent customer/vendor/driver/admin and accessibility review",
+    "Backup/Vercel origin/deployment SHA parity and separate release authorization"
+  ],
+  "railwayStagedPatch": {
+    "id": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+    "lastKnownStatus": "HAZARDOUS_UNTOUCHED_NOT_REFRESHED",
+    "potentialOperationsServiceDeletion": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+    "applied": false,
+    "discarded": false
+  },
+  "safety": {
+    "productionMutation": false,
+    "productionSql": false,
+    "productionConfigurationChange": false,
+    "deployment": false,
+    "realMoneyAction": false,
+    "secretDisclosure": false,
+    "financialSourceUnlock": false,
+    "mainMerge": false,
+    "railwayPatchMutation": false
+  },
+  "ownedLocalTestBuildProcessesRunningAtStopInspection": false,
+  "details": "PHASE_2_3_EMERGENCY_HANDOFF.md and append-only PHASE_2_3_EXECUTION_LEDGER.md contain domain paths, exact evidence and remaining work."
+}

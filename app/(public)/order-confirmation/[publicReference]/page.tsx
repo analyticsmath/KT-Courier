@@ -9,6 +9,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { MARKETPLACE_ORDER_COOKIE } from "@/lib/marketplace-checkout/tokens";
 import { getMarketplaceDeliveryTracking, MarketplaceDeliveryTrackingError } from "@/lib/services/marketplace-delivery-tracking.service";
 import { noIndexPublicMetadata } from "@/lib/public-site/site-metadata";
+import { getCustomerStoreOrderActions } from "@/lib/services/customer-store-order-actions.service";
+import { CustomerStoreOrderControls } from "@/components/public-v2/commerce/CustomerStoreOrderControls";
 
 export const metadata: Metadata = {
   title: "Order status | KT Couriers",
@@ -34,6 +36,7 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
   if (!customerUserId && !guestSecret) return <MarketplaceUnavailable routeContext="confirmation" />;
   const tracking = await loadTracking({ marketplaceOrderReference: publicReference, customerUserId, guestSecret });
   if (!tracking) return <MarketplaceUnavailable routeContext="confirmation" />;
+  const decisions = await Promise.all(tracking.storeOrders.map(storeOrder => getCustomerStoreOrderActions({ marketplaceOrderReference: publicReference, storeOrderReference: storeOrder.storeOrderReference, customerUserId, guestSecret })));
 
   const confirmed = tracking.status === "CONFIRMED";
   return <main className={styles.commerceRoot} id="storefront-content">
@@ -60,6 +63,7 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
           <p className={styles.orderLocationNote}>{storeOrder.liveLocation
             ? `Courier location is available. Last update ${new Date(storeOrder.liveLocation.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.`
             : "Courier location is not available at this stage."}</p>
+          <CustomerStoreOrderControls marketplaceOrderReference={publicReference} data={decisions.find(decision => decision.storeOrderReference === storeOrder.storeOrderReference)!} />
         </article>)}
       </section>
       <section aria-label="Delivery map" className={styles.orderStoreCard}><h2>Delivery map</h2><CourierTrackingMap scope="MARKETPLACE" reference={tracking.marketplaceOrderReference} /></section>

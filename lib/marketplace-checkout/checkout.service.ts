@@ -31,6 +31,8 @@ import {
   resolveMarketplaceCartLine,
 } from "@/lib/marketplace-checkout/cart.service";
 import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
+import { runCheckoutCommand } from "./checkout-command-receipt";
+import { assertAcceptedCheckoutEvidence } from "./accepted-checkout-evidence";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
 
 type Delegate = {
@@ -85,6 +87,8 @@ export async function getMarketplaceCheckoutForOwner(
         },
       },
       changes: true,
+      contactSnapshot: { select: { recipientName: true, email: true, phone: true, preferredContactMethod: true } },
+      addressSnapshot: { select: { recipientName: true, line1: true, line2: true, suburb: true, city: true, province: true, postalCode: true, country: true, deliveryInstructions: true } },
     },
   });
   if (!checkout)
@@ -168,7 +172,7 @@ export async function createMarketplaceCheckout(
         });
         const modifierUnit = source.modifiers.reduce(
           (sum, modifier) =>
-            addCents(sum, parseZarToCents(modifier.priceDelta)),
+            addCents(sum, parseZarToCents(lineTotal(modifier.priceDelta, modifier.quantity))),
           "0",
         );
         const modifierUnitZar = centsToZar(modifierUnit);
@@ -510,27 +514,35 @@ async function updateCheckoutSnapshot(
 
 export function projectPublicCheckout(checkout: any) {
   if (!checkout) return null;
+  const money = (value: any) => new Prisma.Decimal(value ?? 0).toFixed(2);
   return {
     reference: checkout.publicReference,
     publicReference: checkout.publicReference,
     status: checkout.status,
     currency: checkout.currency,
     version: checkout.version,
+    ...(checkout.contactSnapshot ? { contact: {
+      recipientName: checkout.contactSnapshot.recipientName,
+      email: checkout.contactSnapshot.email,
+      phone: checkout.contactSnapshot.phone,
+      preferredContactMethod: checkout.contactSnapshot.preferredContactMethod,
+    } } : {}),
+    ...(checkout.addressSnapshot ? { deliveryAddress: {
+      recipientName: checkout.addressSnapshot.recipientName,
+      line1: checkout.addressSnapshot.line1,
+      line2: checkout.addressSnapshot.line2,
+      suburb: checkout.addressSnapshot.suburb,
+      city: checkout.addressSnapshot.city,
+      province: checkout.addressSnapshot.province,
+      postalCode: checkout.addressSnapshot.postalCode,
+      country: checkout.addressSnapshot.country,
+      deliveryInstructions: checkout.addressSnapshot.deliveryInstructions,
+    } } : {}),
     totals: {
-      merchandiseSubtotal:
-        checkout.merchandiseSubtotal?.toString?.() ??
-        checkout.merchandiseSubtotal ??
-        "0.00",
-      modifierSubtotal:
-        checkout.modifierSubtotal?.toString?.() ??
-        checkout.modifierSubtotal ??
-        "0.00",
-      deliveryFeeTotal:
-        checkout.deliveryFeeTotal?.toString?.() ??
-        checkout.deliveryFeeTotal ??
-        "0.00",
-      grandTotal:
-        checkout.grandTotal?.toString?.() ?? checkout.grandTotal ?? "0.00",
+      merchandiseSubtotal: money(checkout.merchandiseSubtotal),
+      modifierSubtotal: money(checkout.modifierSubtotal),
+      deliveryFeeTotal: money(checkout.deliveryFeeTotal),
+      grandTotal: money(checkout.grandTotal),
     },
     changes: (checkout.changes ?? []).map((item: any) => ({
       type: item.type,
@@ -543,8 +555,7 @@ export function projectPublicCheckout(checkout: any) {
       ...(group.store?.slug ? { storeSlug: group.store.slug } : {}),
       status: group.status,
       fulfilmentMode: group.fulfilmentMode,
-      deliveryFee:
-        group.deliveryFee?.toString?.() ?? group.deliveryFee ?? "0.00",
+      deliveryFee: money(group.deliveryFee),
       quoteReference: group.deliveryQuoteReference,
       quoteExpiresAt: group.deliveryQuoteExpiresAt,
       lines: (group.lines ?? []).map((line: any) => ({
@@ -554,12 +565,9 @@ export function projectPublicCheckout(checkout: any) {
         ...(line.variantTitle ? { variantTitle: line.variantTitle } : {}),
         offerReference: line.offerReference,
         quantity: line.quantity,
-        baseUnitPrice: line.baseUnitPrice?.toString?.() ?? line.baseUnitPrice,
-        modifierUnitTotal:
-          line.modifierUnitTotal?.toString?.() ??
-          line.modifierUnitTotal ??
-          "0.00",
-        lineTotal: line.lineTotal?.toString?.() ?? line.lineTotal,
+        baseUnitPrice: money(line.baseUnitPrice),
+        modifierUnitTotal: money(line.modifierUnitTotal),
+        lineTotal: money(line.lineTotal),
         modifiers: line.modifiers ?? [],
       })),
     })),
@@ -571,6 +579,7 @@ export async function beginMarketplaceReservation(input: {
   owner: CheckoutOwner;
   expectedVersion: number;
   operationId: string;
+  requestHash: string;
   testApproval?: { approved: true };
 }) {
   const checkout = await table("marketplaceCheckout").findFirst({
@@ -584,13 +593,14 @@ export async function beginMarketplaceReservation(input: {
   });
   if (
     !checkout ||
-    checkout.version !== input.expectedVersion ||
     !checkout.acceptedFingerprint
   )
     throw new MarketplaceCheckoutError(
       "CHECKOUT_REVIEW_REQUIRED",
       "A current accepted checkout review is required before inventory reservation.",
     );
+  return runCheckoutCommand({ checkoutId: checkout.id, operationId: input.operationId, requestHash: input.requestHash, expectedVersion: input.expectedVersion, type: "RESERVE" }, async (boundHash) => {
+  await assertAcceptedCheckoutEvidence(checkout.id);
   const snapshots = checkout.storeGroups.flatMap((group: any) =>
     group.lines.filter(
       (line: any) => line.reviewVersion === checkout.reviewVersion,
@@ -625,7 +635,7 @@ export async function beginMarketplaceReservation(input: {
     }),
   );
   assertMarketplaceCheckoutProductionReady("RESERVATION", input.testApproval);
-  return reserveMarketplaceCheckoutInventory(
+  const reserved = await reserveMarketplaceCheckoutInventory(
     createPrismaMarketplaceReservationRepository(),
     {
       checkoutId: checkout.id,
@@ -634,8 +644,11 @@ export async function beginMarketplaceReservation(input: {
       lines,
       expiresAt: new Date(Date.now() + 15 * 60_000),
       operationId: input.operationId,
+      requestHash: boundHash,
     },
   );
+  return { id: reserved.id, status: reserved.status };
+  });
 }
 
 export async function prepareMarketplacePayment(input: {
@@ -643,6 +656,7 @@ export async function prepareMarketplacePayment(input: {
   owner: CheckoutOwner;
   expectedVersion: number;
   operationId: string;
+  requestHash: string;
   testApproval?: { approved: true };
 }) {
   resolveMarketplaceCheckoutProductionComposition();
@@ -655,15 +669,18 @@ export async function prepareMarketplacePayment(input: {
     },
     include: { contactSnapshot: true },
   });
+  if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
   if (
-    !checkout ||
-    checkout.version !== input.expectedVersion ||
     !checkout.contactSnapshot?.email
   )
     throw new MarketplaceCheckoutError(
       "CHECKOUT_REVIEW_REQUIRED",
       "Canonical checkout payer contact evidence is required.",
     );
+  return runCheckoutCommand({ checkoutId: checkout.id, operationId: input.operationId, requestHash: input.requestHash, expectedVersion: input.expectedVersion, type: "PREPARE_PAYMENT" }, async () => {
+  // Resume unresolved payments without creating another provider attempt if
+  // their held quote has since expired.
+  if (!await prisma.payment.findUnique({ where: { marketplaceCheckoutId: checkout.id } })) await assertAcceptedCheckoutEvidence(checkout.id);
   const prepared = await prepareMarketplaceCheckoutPayment(
     createPrismaMarketplacePaymentPreparationRepository(),
     createPhase10And11MarketplacePaymentOrchestrator(),
@@ -682,6 +699,7 @@ export async function prepareMarketplacePayment(input: {
     });
   }
   return prepared;
+  });
 }
 
 export async function cancelMarketplaceCheckout(input: {

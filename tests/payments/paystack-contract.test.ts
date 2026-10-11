@@ -87,6 +87,7 @@ vi.mock("@/lib/db/prisma", () => ({
       findMany: vi.fn(async () => []),
       create: vi.fn(async () => ({ id: "opr_1", operationId: "op_1" })),
       update: vi.fn(async () => ({ id: "opr_1" })),
+      updateMany: vi.fn(),
       findUnique: vi.fn(async () => null),
     },
     refund: {
@@ -271,6 +272,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     (prisma.paymentAttempt.findUnique as any).mockResolvedValue({
       id: "att_1",
       publicReference: "atm_bg_1",
+      providerReference: "atm_bg_1",
       amount: new Prisma.Decimal("250.00"),
       currency: "ZAR",
       provider: "PAYSTACK",
@@ -370,11 +372,16 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     });
 
     expect(mockClient.verifyTransaction).toHaveBeenCalledWith("atm_bg_1");
+    expect(prisma.paymentAttempt.findUnique).toHaveBeenCalledWith({ where: { merchantReference: "atm_bg_1" }, include: { payment: true } });
     expect(result.outcome).toBe("APPLIED");
+    expect(prisma.paymentAttempt.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ providerReference: "atm_bg_1" }) }));
   });
 
   // 13. Currency mismatch rejection (non-ZAR)
   it("13. rejects webhook when currency is not ZAR and opens reconciliation case", async () => {
+    // Only local reconciliation is retried after a PostgreSQL conflict;
+    // independent provider verification must not be repeated.
+    (prisma.$transaction as any).mockRejectedValueOnce({ code: "P2034" });
     const payload = {
       event: "charge.success" as const,
       data: {
@@ -419,6 +426,9 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
     expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
     expect(prisma.paymentReconciliationCase.create).toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(mockClient.verifyTransaction).toHaveBeenCalledTimes(1);
+    expect((prisma.paymentWebhookEvent.upsert as any).mock.calls.at(-1)[0].update).not.toHaveProperty("normalizedStatus");
   });
 
   // 14. Amount mismatch between webhook and payment record
@@ -717,7 +727,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
     const outcome = await pollAndApplyRefundProviderStatus(
       { attemptId: "rea_stale" },
-      { registry: mockRegistry as any },
+      { registry: mockRegistry as any, assertProductionReady: () => undefined },
     );
 
     expect(outcome.polled).toBe(true);
@@ -727,6 +737,14 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
 
   // 22. Strict DRY_RUN execution with zero mutations and zero network
   it("22. executes consume-verified-payment-events in DRY_RUN mode with zero mutations", async () => {
+    // This unit fixture must model the operational lease that the real executor
+    // completes; the dry run still performs no financial or intent mutation.
+    let lease: Record<string, unknown> | null = null;
+    (prisma.operationalProcessorRun.create as any).mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+      lease = { id: "opr_dry_run", ...data }; return lease;
+    });
+    (prisma.operationalProcessorRun.findUnique as any).mockImplementation(async () => lease);
+    (prisma.operationalProcessorRun.updateMany as any).mockResolvedValue({ count: 1 });
     (prisma.paymentVerifiedEventIntent.findMany as any).mockResolvedValueOnce([
       { id: "pve_1", publicReference: "pve_ref_1" },
     ]);
@@ -744,6 +762,10 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     expect(result.itemsCompleted).toBe(0);
     // Verified 0 writes occurred on the intent
     expect(prisma.paymentVerifiedEventIntent.create).not.toHaveBeenCalled();
+    expect(prisma.operationalProcessorRun.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ leaseOwner: "cron:consume-verified-payment-events", status: { in: ["LEASE_ACQUIRED", "RUNNING"] }, leaseExpiresAt: { gt: expect.any(Date) } }),
+      data: expect.objectContaining({ status: "DRY_RUN_COMPLETED", itemsClaimed: 0, itemsCompleted: 0, leaseExpiresAt: null }),
+    }));
   });
 
   // 23. Webhook payload discriminated schema parsing for charge.success

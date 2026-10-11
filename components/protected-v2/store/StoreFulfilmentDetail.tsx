@@ -10,7 +10,8 @@ export type StoreFulfilmentDetailModel = Readonly<{
   preparationStatus: string;
   resolutionStatus: string;
   reviewDeadlineAt: Date | null;
-  lines: readonly Readonly<{ id: string; title: string; variantTitle: string | null; quantity: number; fulfilmentStatus: string | null; confirmedAvailableQuantity: number | null; issues: readonly Readonly<{ id: string; issueType: string; affectedQuantity: number }>[] }>[];
+  lines: readonly Readonly<{ id: string; title: string; variantTitle: string | null; quantity: number; fulfilmentStatus: string | null; confirmedAvailableQuantity: number | null; issues: readonly Readonly<{ id: string; publicReference: string; status: string; issueType: string; affectedQuantity: number }>[] }>[];
+  replacements?: readonly { offerReference: string; variantReference: string; label: string }[];
   history: readonly Readonly<{ id: string; eventType: string; createdAt: Date }>[];
 }>;
 
@@ -37,7 +38,7 @@ export function StoreFulfilmentDetail({ order }: { order: StoreFulfilmentDetailM
             </li>)}
           </ul>
         </OperationalPanel>
-        <StoreFulfilmentActions reference={order.reference} acceptanceStatus={order.acceptanceStatus} preparationStatus={order.preparationStatus} />
+        <StoreFulfilmentActions lines={order.lines} replacements={order.replacements} reference={order.reference} acceptanceStatus={order.acceptanceStatus} preparationStatus={order.preparationStatus} />
       </div>
       <OperationalPanel title="Operational activity" padding="compact">
         {order.history.length ? <ActivityTimeline ariaLabel="Store-order operational activity" items={order.history.map((event) => ({ id: event.id, title: event.eventType.replaceAll("_", " "), timestamp: dateTimeFormat.format(event.createdAt) }))} /> : <p className="text-sm text-[var(--eo-text-secondary)]" role="status">No store-safe activity is available.</p>}

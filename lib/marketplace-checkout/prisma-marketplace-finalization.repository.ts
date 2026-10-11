@@ -2,6 +2,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { createTransactionContext } from "@/lib/db/transaction-context";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import type { MarketplaceFinalizationRepository, MarketplacePaidLine, MarketplacePaidStoreGroup, PaidMarketplaceCheckout } from "@/lib/marketplace-checkout/marketplace-checkout-finalization.service";
 
@@ -61,9 +62,9 @@ export function buildPaidMarketplaceCheckoutFromFrozenEvidence(row: any, evidenc
 
 /** Real Serializable Prisma adapter used only through the Phase 20 finalizer. */
 export function createPrismaMarketplaceFinalizationRepository(database: any = prisma): MarketplaceFinalizationRepository {
-  let db = database;
+  const { db, run } = createTransactionContext(database);
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => { const previous = db; db = tx; try { return await work(); } finally { db = previous; } }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
     lockVerifiedSuccessfulPayment: async (paymentId: string) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${paymentId} FOR UPDATE`);
       const payment = await db.payment.findUnique({ where: { id: paymentId } });

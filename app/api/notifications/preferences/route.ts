@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const access = await requireNotificationUser(request, true, PERMISSIONS.NOTIFICATION_MANAGE_OWN_PREFERENCES);
   if ("response" in access) return access.response;
-  const parsed = preference.safeParse(await request.json());
+  const parsed = preference.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return badRequest("Invalid notification preference.");
   const input = parsed.data;
   if (input.timezone && !isValidNotificationTimezone(input.timezone)) return badRequest("Invalid notification timezone.");
