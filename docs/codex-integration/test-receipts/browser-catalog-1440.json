@@ -1,0 +1,300 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\KT-Courier-integration\\node_modules\\playwright\\cli.js",
+      "test",
+      "tests/e2e/store-product-catalog.spec.ts",
+      "tests/e2e/catalog-administration.spec.ts",
+      "--grep=1440px",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/catalog-1440",
+      "--reporter=list,json"
+    ],
+    "configFile": "D:\\KT-Courier-integration\\playwright.config.ts",
+    "rootDir": "D:/KT-Courier-integration/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": true,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results/catalog-1440",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/storefront-browsing\\.spec\\.ts/",
+          "/marketplace-cart\\.spec\\.ts/",
+          "/marketplace-checkout-guest\\.spec\\.ts/",
+          "/ledger-admin\\.spec\\.ts/",
+          "/commission-finance-admin\\.spec\\.ts/",
+          "/production-closure\\.spec\\.ts/",
+          "/marketplace-checkout-accessibility\\.spec\\.ts/",
+          "/marketplace-checkout-admin\\.spec\\.ts/",
+          "/storefront-product-detail\\.spec\\.ts/",
+          "/storefront-accessibility\\.spec\\.ts/",
+          "/driver-profile-onboarding\\.spec\\.ts/",
+          "/driver-documents\\.spec\\.ts/",
+          "/store-catalog-draft-isolation\\.spec\\.ts/",
+          "/store-product-catalog\\.spec\\.ts/",
+          "/catalog-administration\\.spec\\.ts/",
+          "/business-employee-access\\.spec\\.ts/",
+          "/marketplace-checkout-customer\\.spec\\.ts/",
+          "/marketplace-checkout-payment\\.spec\\.ts/",
+          "/customer-wallet-refunds\\.spec\\.ts/",
+          "/refund-finance-admin\\.spec\\.ts/",
+          "/store-order-(?:customer|merchant|admin|substitution|handoff|accessibility)\\.spec\\.ts/",
+          "/production-visual-review\\.spec\\.ts/",
+          "/profile-avatar-lifecycle\\.spec\\.ts/",
+          "/store-branding-lifecycle\\.spec\\.ts/",
+          "/transactional-notifications\\.spec\\.ts/",
+          "/trusted-parcel-classification\\.spec\\.ts/",
+          "/driver-canonical-delivery\\.spec\\.ts/",
+          "/cod-custody-remittance\\.spec\\.ts/",
+          "/catalog-inventory-upload\\.spec\\.ts/",
+          "/anonymous-courier-quote\\.spec\\.ts/",
+          "/customer-identity-lifecycle\\.spec\\.ts/",
+          "/store-order-positive-substitution\\.spec\\.ts/",
+          "/storefront-admin\\.spec\\.ts/",
+          "/driver-earnings\\.spec\\.ts/",
+          "/driver-earnings-finance-admin\\.spec\\.ts/",
+          "/store-earnings\\.spec\\.ts/",
+          "/store-earnings-finance-admin\\.spec\\.ts/",
+          "/withdrawal-owner\\.spec\\.ts/",
+          "/withdrawal-finance-admin\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results/catalog-1440",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "cinematic-1440",
+        "name": "cinematic-1440",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/",
+          "/storefront-search\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results/catalog-1440",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "cinematic-1366",
+        "name": "cinematic-1366",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results/catalog-1440",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "cinematic-mobile-390",
+        "name": "cinematic-mobile-390",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results/catalog-1440",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "cinematic-tablet-768",
+        "name": "cinematic-tablet-768",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results/catalog-1440",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile",
+        "name": "mobile",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/mobile-viewport\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results/catalog-1440",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "keyboard",
+        "name": "keyboard",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/keyboard-navigation\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "catalog-administration.spec.ts",
+      "file": "catalog-administration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "catalog moderation preserves history and replays uncertain native actions at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 22793,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-11T09:48:11.818Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c77c38e037e2675a6d2a-aae104026acb8dd1bc43",
+          "file": "catalog-administration.spec.ts",
+          "line": 35,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "store-product-catalog.spec.ts",
+      "file": "store-product-catalog.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "store saves a complete listing atomically and replays a lost confirmation at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18480,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-11T09:48:35.755Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8c7e01be144ee0b2699b-45e9f9d9ec739b157260",
+          "file": "store-product-catalog.spec.ts",
+          "line": 12,
+          "column": 7
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-11T09:48:10.522Z",
+    "duration": 44583.391,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

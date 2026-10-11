@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "evidenceDate": "2026-10-11",
+  "repository": "https://github.com/analyticsmath/KT-Courier",
+  "integrationBranch": "integration/codex-phase1-phase2-2026-10-11",
+  "baseSha": "b31ede4a900b0778e15dce0a3ef78e6d2613b350",
+  "phase1Sha": "46aeb318d097852db5634a512c5773818a884ece",
+  "phase1ImplementationSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+  "phase2Sha": "3c79fce207800264b78e59a60bfcc4240ede6cc4",
+  "mergeSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+  "finalSourceSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+  "sourceBranchesPreserved": true,
+  "sourceRefsReconfirmedUnchanged": true,
+  "codeChanges": {
+    "applicationSchemaMigrationOrDomainSourceDeltaFromPhase1": false,
+    "mergeConflicts": 0,
+    "timeoutIncreasesRetained": false,
+    "originalVitestAndLegacyCliTimeoutsUsed": "15 seconds / 10 seconds",
+    "integrationChanges": [
+      "Merge commit preserving Phase 1 and Phase 2 ancestry",
+      "Two test-file CRLF normalization fixes retained; no behavior change",
+      "Evidence and traceability documentation"
+    ]
+  },
+  "safetyChecks": {
+    "sourceWorktreesChanged": false,
+    "phase1UntrackedDriverDiagnosticsPreserved": 4,
+    "phase2WorktreeClean": true,
+    "productionDatabaseAccessed": false,
+    "productionRedisAccessed": false,
+    "protectedProductionRowsAccessed": false,
+    "productionSecretsRead": false,
+    "livePaystackOrBankCalls": false,
+    "liveCloudinaryMutation": false,
+    "realCustomerCommunication": false,
+    "railwayStagedPatchApplied": false,
+    "productionDeploymentOrMainMerge": false,
+    "branchPushedOrPullRequestCreated": false,
+    "reasonHostedRunWasNotStarted": "vercel.json forwards every route to production Railway; preview isolation is not proven",
+    "disposableComposeProjectPerRun": true,
+    "databaseAndBrowserIngressLoopbackOnly": true,
+    "applicationNetworkInternal": true,
+    "applicationOutboundProbeBlockedBeforeBrowser": true,
+    "networkDisabledForTestApplication": true,
+    "paystackConfiguration": "dummy test fixture only; no provider network access",
+    "emailProvider": "console",
+    "deterministicLocalMapAndGeocodeFixtures": true,
+    "temporaryE2eComposeOverrideRestoredByteForByte": true,
+    "temporaryBolaAndRecoveryRunnerChangesRestored": true,
+    "trackedRunnerConfigDiffCleanAfterTesting": true,
+    "existingComposeProjectTouched": false,
+    "disposableTestContainersAndVolumesCleaned": true,
+    "localDockerTagSideEffect": {
+      "pushed": false,
+      "description": "Local test builds replaced kt-couriers-app:latest and kt-couriers-migrate:latest. Original image objects referenced by pre-existing containers were unavailable for retagging; those containers were left untouched.",
+      "currentAppTagImageId": "sha256:1b1e91f791cbd1eb85ecca3a8440c9f750c8418e352dd796c88886e8b7586d06",
+      "currentMigrateTagImageId": "sha256:63462b5eeeea70a166bf205b9002c27b9ca6e9c337175a38e9f2fb3637d78b5e"
+    }
+  },
+  "testRuns": [
+    {
+      "id": "install-and-schema",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "commands": ["npm ci", "npx prisma generate", "npx prisma validate", "npm run migrations:check"],
+      "status": "PASS",
+      "details": "Lockfile install, Prisma generation and validation pass; baseline plus 79 forward migrations pass safety checks; 8 archived migrations remain classified."
+    },
+    {
+      "id": "lint-typecheck-build",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "commands": ["npm run lint", "npx next typegen", "npm run typecheck", "npm run build"],
+      "status": "PASS",
+      "staticRoutesGenerated": 521,
+      "buildDetail": "Host Next build completed on exact source; rerun also passed with deterministic-coordinate build flag, KT_NEXT_BUILD_CPUS=1 and 4096 MB heap."
+    },
+    {
+      "id": "container-production-build-resource-limit",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "Repository Docker app production build",
+      "status": "BLOCKED_RESOURCE",
+      "details": "Containerized Next build exceeded host build memory at 4096, 2048 and 1024 MB heap settings. Exact-source host standalone build was used for the isolated E2E app image; repository test orchestration and checks were unchanged."
+    },
+    {
+      "id": "unit-and-policy-full",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "Repository full Vitest selection (`npm test`, script resolves to `vitest run`); runner flags were not retained with the original console output",
+      "status": "PASS",
+      "testFiles": 792,
+      "testsPassed": 3734,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsTodo": 0
+    },
+    {
+      "id": "coverage",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:coverage",
+      "status": "PASS",
+      "testFiles": 792,
+      "testsPassed": 3734,
+      "coveragePercent": {
+        "statements": 49.6,
+        "branches": 43.92,
+        "functions": 50.53,
+        "lines": 53.22
+      }
+    },
+    {
+      "id": "focused-payment-security-policy",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "commands": ["npm run test:paystack:contract", "npm run test:paystack:invariants", "npm run test:payments", "npm run test:refunds", "npm run test:security:bola", "npm run test:processors"],
+      "status": "PASS",
+      "passedBySelection": {
+        "paystackContract": 24,
+        "paystackInvariants": 23,
+        "payments": 343,
+        "refunds": 115,
+        "unitBola": 23,
+        "processors": 23
+      },
+      "testsFailed": 0
+    },
+    {
+      "id": "dependency-audit-production",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm audit --omit=dev --audit-level=high",
+      "status": "PASS",
+      "productionVulnerabilities": 0
+    },
+    {
+      "id": "dependency-audit-full-tree",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm audit --audit-level=high",
+      "status": "FAIL_KNOWN_DEV_ADVISORIES",
+      "highAdvisoryCount": 5,
+      "dependencyChain": "braces@3.0.3 -> micromatch -> fast-glob -> @next/eslint-plugin-next -> eslint-config-next@16.3.8",
+      "forcedMajorDowngradeApplied": false
+    },
+    {
+      "id": "gate4-static-preflight",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "status": "PASS_STATIC_RUNTIME_BLOCKED",
+      "requiredFilesChecked": 11,
+      "skipMarkers": 0,
+      "fixtureScenarios": 13,
+      "runtimeReason": "DATABASE_URL was the intentional invalid loopback port-1 placeholder; no database seed or runtime bypass was allowed."
+    },
+    {
+      "id": "postgres-closure",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:integration:closure",
+      "status": "PASS",
+      "testsPassed": 178,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsTodo": 0,
+      "vitestSuiteRecords": 56,
+      "artifact": "test-receipts/postgres.json"
+    },
+    {
+      "id": "strict-postgres-bola",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:integration:bola-authority",
+      "status": "PASS",
+      "testsPassed": 10,
+      "testsFailed": 0,
+      "testsSkipped": 0
+    },
+    {
+      "id": "strict-redis-rate-limit",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:integration:redis-rate-limit",
+      "status": "PASS",
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "testsSkipped": 0
+    },
+    {
+      "id": "migration-upgrade",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:integration:migration-upgrade",
+      "status": "PASS",
+      "historicalMigrationProofs": 62,
+      "forwardMigrations": 18,
+      "totalMigrationChecks": 80,
+      "finalMigrationStatus": "UP_TO_DATE"
+    },
+    {
+      "id": "recovery-drill",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run recovery:drill",
+      "status": "PASS_DISPOSABLE_FIXTURES",
+      "dumpRestore": "PASS",
+      "historicalUpgrade": "PASS",
+      "fixtureCountsAndHashes": "MATCH",
+      "ledgerInvariants": "PASS",
+      "protectedProductionDataTouched": false,
+      "artifact": "test-receipts/recovery.json"
+    },
+    {
+      "id": "canonical-postgres",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:e2e -- --project=chromium --phase2-canonical",
+      "status": "PASS",
+      "testFiles": 19,
+      "testsPassed": 41,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsTodo": 0,
+      "durationMs": 989260,
+      "artifact": "test-receipts/phase2-canonical-vitest.json"
+    },
+    {
+      "id": "paystack-canonical-postgres-and-browser",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "browserCommand": "npm run test:e2e -- --project=chromium tests/e2e/marketplace-checkout-payment.spec.ts",
+      "status": "PASS_OFFLINE_FIXTURES",
+      "databaseIdentityProbe": "PAYSTACK_POSTGRES_IDENTITY_VERIFIED",
+      "postgresTestsPassed": 2,
+      "browserTestsPassed": 9,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "providerRequests": 0,
+      "artifacts": ["test-receipts/paystack-postgres-receipt.json", "test-receipts/paystack-postgres-vitest.json"]
+    },
+    {
+      "id": "phase2-3-directed-browser-initial-attempt",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:e2e -- tests/e2e/customer-wallet-refunds.spec.ts tests/e2e/refund-finance-admin.spec.ts tests/e2e/store-order-customer.spec.ts tests/e2e/store-order-merchant.spec.ts tests/e2e/store-order-admin.spec.ts tests/e2e/store-order-substitution.spec.ts tests/e2e/store-order-handoff.spec.ts tests/e2e/store-order-accessibility.spec.ts tests/e2e/profile-avatar-lifecycle.spec.ts tests/e2e/transactional-notifications.spec.ts tests/e2e/trusted-parcel-classification.spec.ts tests/e2e/driver-canonical-delivery.spec.ts tests/e2e/cod-custody-remittance.spec.ts tests/e2e/catalog-inventory-upload.spec.ts tests/e2e/anonymous-courier-quote.spec.ts tests/e2e/customer-identity-lifecycle.spec.ts tests/e2e/store-order-positive-substitution.spec.ts tests/e2e/store-branding-lifecycle.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/phase2-3-directed",
+      "selection": "18 workflow spec-file arguments resolving to 42 tests across 13 Playwright test source files; Chromium; one worker; zero retries",
+      "status": "TIMEOUT_INCOMPLETE",
+      "durationMs": 1040516,
+      "passingResultsEmittedBeforeTimeout": 24,
+      "assertionFailuresReportedBeforeTimeout": 0,
+      "finalPlaywrightCountsAvailable": false,
+      "note": "Harness fixed timeout ended the single process before all 42 cases and the final Playwright count report. This attempt is not treated as a pass."
+    },
+    {
+      "id": "phase2-3-directed-browser-batched-rerun",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "selection": "Same 18 workflow spec-file arguments (13 Playwright source files); no grep/exclusions; Chromium; one worker; zero retries",
+      "status": "PASS",
+      "batchCount": 7,
+      "testsPassed": 42,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsFlaky": 0,
+      "summedDurationMs": 2890207,
+      "batchReports": [
+        {"artifact": "test-receipts/test-e2e-phase2-3-directed-batch-01.json", "testsPassed": 8, "testsFailed": 0, "testsSkipped": 0, "testsFlaky": 0, "durationMs": 282980},
+        {"artifact": "test-receipts/test-e2e-phase2-3-directed-batch-02.json", "testsPassed": 4, "testsFailed": 0, "testsSkipped": 0, "testsFlaky": 0, "durationMs": 537823},
+        {"artifact": "test-receipts/test-e2e-phase2-3-directed-batch-03.json", "testsPassed": 8, "testsFailed": 0, "testsSkipped": 0, "testsFlaky": 0, "durationMs": 407282},
+        {"artifact": "test-receipts/test-e2e-phase2-3-directed-batch-04.json", "testsPassed": 6, "testsFailed": 0, "testsSkipped": 0, "testsFlaky": 0, "durationMs": 358441},
+        {"artifact": "test-receipts/test-e2e-phase2-3-directed-batch-05.json", "testsPassed": 6, "testsFailed": 0, "testsSkipped": 0, "testsFlaky": 0, "durationMs": 438729},
+        {"artifact": "test-receipts/test-e2e-phase2-3-directed-batch-06.json", "testsPassed": 6, "testsFailed": 0, "testsSkipped": 0, "testsFlaky": 0, "durationMs": 492109},
+        {"artifact": "test-receipts/test-e2e-phase2-3-directed-batch-07.json", "testsPassed": 4, "testsFailed": 0, "testsSkipped": 0, "testsFlaky": 0, "durationMs": 372843}
+      ]
+    },
+    {
+      "id": "phase1-plan-targeted-browser-stages",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:e2e -- --project=chromium --phase1-catalog",
+      "status": "PASS",
+      "stages": [
+        {"name": "storefront-variant-target", "passed": 1, "failed": 0, "skipped": 0, "flaky": 0},
+        {"name": "storefront-product-detail", "passed": 4, "failed": 0, "skipped": 0, "flaky": 0},
+        {"name": "catalog-1440", "passed": 2, "failed": 0, "skipped": 0, "flaky": 0},
+        {"name": "catalog-both-widths", "passed": 4, "failed": 0, "skipped": 0, "flaky": 0},
+        {"name": "employee-1440", "passed": 1, "failed": 0, "skipped": 0, "flaky": 0},
+        {"name": "employee-both-widths", "passed": 2, "failed": 0, "skipped": 0, "flaky": 0}
+      ],
+      "artifact": "test-receipts/phase1-browser-stages.json"
+    },
+    {
+      "id": "phase1-plan-full-chromium-primary-process",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "command": "npm run test:e2e -- --project=chromium --phase1-catalog",
+      "status": "TIMEOUT_INCOMPLETE",
+      "selectedTests": 139,
+      "durationMs": 1200153,
+      "passingResultsEmittedBeforeTimeout": 84,
+      "assertionFailuresReportedBeforeTimeout": 0,
+      "finalPlaywrightCountsAvailable": false,
+      "artifact": "test-receipts/phase1-browser-stages.json"
+    },
+    {
+      "id": "phase1-plan-full-chromium-remaining-test-reruns",
+      "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+      "status": "PASS_REMAINDER_IN_BATCHES",
+      "remainderTestsPassed": 55,
+      "remainderTestsFailed": 0,
+      "remainderTestsSkipped": 0,
+      "remainderTestsFlaky": 0,
+      "batchResults": [14, 10, 15, 16],
+      "interpretation": "Together with 84 passing results emitted by the initial full-selection run, every one of the 139 discovered tests emitted a passing result; the official single-process stage remains timed out/incomplete."
+    }
+  ],
+  "gateMatrix": [
+    {"key": "marketplace_parcel_classification", "status": "OPEN"},
+    {"key": "notification_required_domains", "status": "OPEN"},
+    {"key": "commercial_financial_certification", "status": "VALIDATION_BLOCKED"},
+    {"key": "customer_vendor_driver_full_functional_acceptance", "status": "OPEN"},
+    {"key": "visual_acceptance", "status": "OPEN"},
+    {"key": "media_full_functional_acceptance", "status": "OPEN"},
+    {"key": "critical_skip_closure", "status": "OPEN"},
+    {"key": "fresh_production_protected_row_audit", "status": "VALIDATION_BLOCKED"},
+    {"key": "github_certification_and_deployment", "status": "VALIDATION_BLOCKED"}
+  ],
+  "productCompletionVerdict": "PHASE_2_NOT_ACCEPTED",
+  "productionReadiness": "NOT_READY",
+  "releaseLimitations": [
+    "No hosted exact-source CI because the configured Vercel rewrite forwards to production Railway.",
+    "Full 139-case Chromium selection has no clean single-process result; it timed out after 84 emitted passes, while the remaining 55 passed in bounded runs.",
+    "Human client/operator/finance/legal, visual/accessibility/device, live provider, Cloudinary and real legacy-import acceptance remain external or pending.",
+    "The full development dependency audit remains red on five high advisories; production dependency audit is clean."
+  ]
+}

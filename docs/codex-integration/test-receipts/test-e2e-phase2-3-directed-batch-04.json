@@ -1,0 +1,35 @@
+{
+  "command": "test:e2e",
+  "arguments": [
+    "--",
+    "tests/e2e/store-branding-lifecycle.spec.ts",
+    "tests/e2e/store-order-accessibility.spec.ts",
+    "--project=chromium",
+    "--retries=0",
+    "--workers=1",
+    "--output=test-results/phase2-3-directed-batch-4"
+  ],
+  "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+  "durationMs": 358441,
+  "exitCode": 0,
+  "testFilesPassed": null,
+  "testsPassed": 6,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "executions": [
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "status": "PASS"
+}

@@ -1,0 +1,8 @@
+{
+  "source": "DISPOSABLE_FIXTURES",
+  "dumpRestore": "PASS",
+  "historicalUpgrade": "PASS",
+  "protectedProductionDataTouched": false,
+  "fixtureCountsAndHashes": "MATCH",
+  "ledgerInvariants": "PASS"
+}
