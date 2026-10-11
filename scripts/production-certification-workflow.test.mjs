@@ -50,9 +50,15 @@ test("finance targets use a separate disposable invocation before the unchanged 
 
 test("CI tests the pull request head with read-only credentials and offline providers", () => {
   assert.equal(ciWorkflow.env.KT_CERTIFICATION_HEAD_SHA, "${{ github.event.pull_request.head.sha || github.sha }}");
-  for (const [name, job] of Object.entries(ciWorkflow.jobs)) {
-    const checkout = job.steps.find(step => step.uses === "actions/checkout@v4");
-    assert.equal(checkout?.with?.ref, "${{ env.KT_CERTIFICATION_HEAD_SHA }}", name);
+  assert.deepEqual(ciWorkflow.on.pull_request.branches, ["main"]);
+  const checkoutSteps = Object.entries(ciWorkflow.jobs).flatMap(([jobName, job]) =>
+    job.steps
+      .filter(step => step.uses === "actions/checkout@v4")
+      .map(step => ({ jobName, step })),
+  );
+  assert.equal(checkoutSteps.length, 28);
+  for (const { jobName, step } of checkoutSteps) {
+    assert.equal(step.with?.ref, "${{ env.KT_CERTIFICATION_HEAD_SHA }}", jobName);
   }
   assert.deepEqual(ciWorkflow.permissions, { contents: "read" });
   assert.equal(ciWorkflow.env.KT_NETWORK_DISABLED, "true");
