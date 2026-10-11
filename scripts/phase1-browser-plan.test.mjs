@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { phase1BrowserPlan, browserStagePassed, discoveredBrowserTests } from "./phase1-browser-plan.mjs";
 import { readFileSync } from "node:fs";
-import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eHostStandaloneImageName, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eImageNames, e2eStandaloneRuntimeDockerfile, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 
 test("required native selections precede the full suite and retain failure artifacts separately", () => {
   const plan = phase1BrowserPlan(93);
@@ -58,10 +58,18 @@ test("disposable E2E environments replace or remove inherited payment and email 
   assert.equal(env.RESEND_API_KEY, "");
 });
 
-test("host standalone app image names are bound to exact commit SHAs", () => {
+test("host standalone runtime uses the run-scoped Linux migrator and exact source SHA", () => {
   const sha = "a".repeat(40);
-  assert.equal(e2eHostStandaloneImageName(sha), `kt-couriers-e2e-host-app:${sha}`);
-  for (const invalid of [undefined, "latest", "abc", "A".repeat(40)]) assert.throws(() => e2eHostStandaloneImageName(invalid), /exact source commit SHA/);
+  const dockerfile = e2eStandaloneRuntimeDockerfile("kt-couriers-e2e-migrate:run-123", sha);
+  assert.match(dockerfile, /^FROM kt-couriers-e2e-migrate:run-123/m);
+  assert.match(dockerfile, /org\.ktcouriers\.e2e\.source-sha=\"a{40}\"/);
+  assert.match(dockerfile, /COPY --chown=node:node standalone-next\/ \.\/\.next\//);
+  assert.match(dockerfile, /COPY --chown=node:node catalog-media\/ \.\/var\/catalog-media\//);
+  assert.match(dockerfile, /COPY --chown=node:node client-authority\/ \.\/docs\/client-authority\/2026-10\//);
+  assert.doesNotMatch(dockerfile, /COPY .*node_modules/);
+  for (const [image, source] of [["kt-couriers-migrate:latest", sha], ["kt-couriers-e2e-migrate:bad tag", sha], ["kt-couriers-e2e-migrate:run-123", "abc"]]) {
+    assert.throws(() => e2eStandaloneRuntimeDockerfile(image, source), /disposable migration image|exact source commit SHA/);
+  }
 });
 
 test("full execution count comes from actual recursive project discovery", () => {

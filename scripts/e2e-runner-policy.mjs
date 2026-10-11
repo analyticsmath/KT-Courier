@@ -46,11 +46,28 @@ export function disposableProviderEnvironment(env = {}) {
   };
 }
 
-export function e2eHostStandaloneImageName(sourceSha) {
-  if (typeof sourceSha !== "string" || !/^[a-f0-9]{40}$/.test(sourceSha)) {
-    throw new Error("Host-built E2E image requires an exact source commit SHA.");
+export function e2eStandaloneRuntimeDockerfile(migrationImage, sourceSha) {
+  if (!/^kt-couriers-e2e-migrate:[a-z0-9][a-z0-9_.-]{0,63}$/.test(migrationImage ?? "")) {
+    throw new Error("Host standalone runtime requires a run-scoped disposable migration image.");
   }
-  return `kt-couriers-e2e-host-app:${sourceSha}`;
+  if (typeof sourceSha !== "string" || !/^[a-f0-9]{40}$/.test(sourceSha)) {
+    throw new Error("Host standalone runtime requires an exact source commit SHA.");
+  }
+  return [
+    `FROM ${migrationImage}`,
+    "WORKDIR /app",
+    `LABEL org.ktcouriers.e2e.source-sha=\"${sourceSha}\"`,
+    `LABEL org.ktcouriers.e2e.linux-prisma-image=\"${migrationImage}\"`,
+    "ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000",
+    "COPY --chown=node:node standalone-next/ ./.next/",
+    "COPY --chown=node:node static/ ./.next/static/",
+    "COPY --chown=node:node public/ ./public/",
+    "COPY --chown=node:node catalog-media/ ./var/catalog-media/",
+    "COPY --chown=node:node client-authority/ ./docs/client-authority/2026-10/",
+    "COPY --chown=node:node standalone-server.js ./server.js",
+    "CMD [\"node\", \"scripts/e2e-standalone-app.mjs\"]",
+    "",
+  ].join("\n");
 }
 
 function normalizedSpecPaths(args) {

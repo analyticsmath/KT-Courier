@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { disposableBrowserOrigins } from "./e2e-environment.mjs";
 import { runPhase1BrowserPlan } from "./phase1-browser-plan.mjs";
 import { certificationEnvironmentProfile } from "./certification-output.mjs";
-import { disposableProviderEnvironment, e2eHostStandaloneImageName, e2eImageNames, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { disposableProviderEnvironment, e2eImageNames, e2eStandaloneRuntimeDockerfile, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 import {
   assertSuccess,
   findAvailableLoopbackPort,
@@ -24,7 +24,7 @@ const projectName = `kt-couriers-e2e-${nonce}`;
 const database = "kt_phase75_e2e";
 const password = "phase75_e2e_disposable_only";
 const e2eImages = e2eImageNames(nonce);
-const usesHostStandaloneImage = Boolean(process.env.KT_E2E_PREBUILT_APP_IMAGE);
+const usesHostStandaloneBuild = process.env.KT_E2E_USE_HOST_STANDALONE === "true";
 const harnessStartedAt = Date.now();
 const playwrightArgs = process.argv.slice(2);
 const phase1Acceptance = playwrightArgs.includes("--phase1-catalog");
@@ -83,15 +83,45 @@ function buildEnv(port, appPort) {
 
 function prepareHostStandaloneImage() {
   const sourceSha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim();
-  const expectedImage = e2eHostStandaloneImageName(sourceSha);
-  if (process.env.KT_E2E_PREBUILT_APP_IMAGE !== expectedImage) {
-    throw new Error("Prebuilt E2E app image name must be bound to the exact current source SHA.");
+  const sourceTreeSha = spawnSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).stdout?.trim();
+  const manifestPath = path.resolve(`output/production-closure/e2e-host-standalone-${sourceSha}.json`);
+  let manifest;
+  try { manifest = JSON.parse(readFileSync(manifestPath, "utf8")); } catch { throw new Error("Exact-source host standalone build receipt is missing or invalid."); }
+  if (manifest.status !== "PASS" || manifest.commitSha !== sourceSha || manifest.sourceTreeSha !== sourceTreeSha || manifest.hostBuildEnvironment !== "sanitized; workspace environment files and inherited provider credentials excluded") {
+    throw new Error("Host standalone build receipt does not match the exact current source commit and tree.");
   }
-  const imageSha = runDocker(["image", "inspect", "--format", "{{ index .Config.Labels \"org.ktcouriers.e2e.source-sha\" }}", expectedImage]);
-  if (imageSha.status !== 0 || imageSha.stdout.trim() !== sourceSha) {
-    throw new Error("Prebuilt E2E app image is missing or its source SHA label does not match this checkout.");
+  const standalone = path.resolve(".next", "standalone");
+  const standaloneBuildId = readFileSync(path.join(standalone, ".next", "BUILD_ID"), "utf8").trim();
+  if (!standaloneBuildId || standaloneBuildId !== manifest.buildId) throw new Error("Host standalone output does not match its recorded build ID.");
+  const migrationImageId = runDocker(["image", "inspect", "--format", "{{.Id}}", e2eImages.migrateImage]);
+  if (migrationImageId.status !== 0 || !/^sha256:[a-f0-9]{64}$/.test(migrationImageId.stdout.trim())) throw new Error("Run-scoped disposable migration image is missing.");
+
+  const outputRoot = path.resolve("output", "production-closure");
+  const contextDirectory = path.resolve(outputRoot, `e2e-host-runtime-context-${nonce}`);
+  try {
+    mkdirSync(contextDirectory, { recursive: false });
+    cpSync(path.join(standalone, ".next"), path.join(contextDirectory, "standalone-next"), { recursive: true, errorOnExist: true });
+    cpSync(path.join(standalone, "server.js"), path.join(contextDirectory, "standalone-server.js"));
+    cpSync(path.resolve(".next", "static"), path.join(contextDirectory, "static"), { recursive: true, errorOnExist: true });
+    cpSync(path.resolve("public"), path.join(contextDirectory, "public"), { recursive: true, errorOnExist: true });
+    cpSync(path.resolve("var", "catalog-media"), path.join(contextDirectory, "catalog-media"), { recursive: true, errorOnExist: true });
+    cpSync(path.resolve("docs", "client-authority", "2026-10"), path.join(contextDirectory, "client-authority"), { recursive: true, errorOnExist: true });
+    writeFileSync(path.join(contextDirectory, "Dockerfile"), e2eStandaloneRuntimeDockerfile(e2eImages.migrateImage, sourceSha));
+    assertSuccess(runDocker(["build", "--tag", e2eImages.appImage, "--file", path.join(contextDirectory, "Dockerfile"), contextDirectory], { timeout: 600_000 }), "E2E host standalone runtime image build");
+    const labels = runDocker(["image", "inspect", "--format", "{{ index .Config.Labels \"org.ktcouriers.e2e.source-sha\" }}|{{ index .Config.Labels \"org.ktcouriers.e2e.linux-prisma-image\" }}", e2eImages.appImage]);
+    if (labels.status !== 0 || labels.stdout.trim() !== `${sourceSha}|${e2eImages.migrateImage}`) {
+      throw new Error("Host standalone runtime image did not retain its source and disposable Linux Prisma labels.");
+    }
+  } finally {
+    const resolvedOutput = path.resolve(outputRoot);
+    const resolvedContext = path.resolve(contextDirectory);
+    if (resolvedContext.startsWith(`${resolvedOutput}${path.sep}`) && existsSync(resolvedContext)) rmSync(resolvedContext, { recursive: true, force: true });
   }
-  assertSuccess(runDocker(["tag", expectedImage, e2eImages.appImage]), "E2E host standalone run-specific image tag");
+}
+
+function inspectImageId(image) {
+  const result = runDocker(["image", "inspect", "--format", "{{.Id}}", image]);
+  return result.status === 0 && /^sha256:[a-f0-9]{64}$/.test(result.stdout.trim()) ? result.stdout.trim() : null;
 }
 
 function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv) {
@@ -125,8 +155,10 @@ function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv
       emailProvider: "console",
       networkDisabled: true,
       appImage: e2eImages.appImage,
-      appImageBuildMode: usesHostStandaloneImage ? "source-labeled-host-standalone" : "docker-production-build",
+      appImageId: inspectImageId(e2eImages.appImage),
+      appImageBuildMode: usesHostStandaloneBuild ? "host-next-standalone-with-disposable-linux-runtime" : "docker-production-build",
       migrateImage: e2eImages.migrateImage,
+      migrateImageId: inspectImageId(e2eImages.migrateImage),
     },
     status: result.status === 0 ? "PASS" : result.error?.code === "ETIMEDOUT" ? "TIMEOUT_INCOMPLETE" : "FAIL",
   }, null, 2));
@@ -165,7 +197,7 @@ async function startE2EServicesWithRetry(maxAttempts = 3) {
 
     // STRICT FATAL GATE: images build must succeed sequentially to avoid concurrent BuildKit memory exhaustion
     assertSuccess(runCompose(["build", "migrate"], { projectName, env }), "E2E migrate build");
-    if (usesHostStandaloneImage) {
+    if (usesHostStandaloneBuild) {
       prepareHostStandaloneImage();
     } else {
       assertSuccess(runCompose(["build", "app"], { projectName, env }), "E2E application build");
@@ -305,8 +337,10 @@ writeFileSync(harnessReceiptPath, JSON.stringify({
     emailProvider: "console",
     networkDisabled: true,
     appImage: e2eImages.appImage,
-    appImageBuildMode: usesHostStandaloneImage ? "source-labeled-host-standalone" : "docker-production-build",
+    appImageId: inspectImageId(e2eImages.appImage),
+    appImageBuildMode: usesHostStandaloneBuild ? "host-next-standalone-with-disposable-linux-runtime" : "docker-production-build",
     migrateImage: e2eImages.migrateImage,
+    migrateImageId: inspectImageId(e2eImages.migrateImage),
   },
   stageReportPath: phase1Acceptance ? path.resolve("output/production-closure/phase1-browser-stages.json") : phase2Canonical ? path.resolve("output/production-closure/phase2-canonical-vitest.json") : null,
   status: failed ? "FAIL" : "PASS",
