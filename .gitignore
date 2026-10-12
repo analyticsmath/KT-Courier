@@ -91,3 +91,5 @@ next-env.d.ts
 _asset-source/
 /public/media/public/images/
 /public/media/public/protagonists/*.png
+
+.vercel
