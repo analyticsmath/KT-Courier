@@ -118,12 +118,11 @@ jobs:
         with: {name: certification-recovery, path: 'output/production-closure'}
   browser:
     runs-on: ubuntu-latest
-    # Six fresh disposable sessions share one clean exact-source app build; each stage
+    # Six isolated Docker app sessions preserve Linux traced dependencies; each stage
     # remains bounded and every expected case remains mandatory.
     timeout-minutes: 90
     env:
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
-      KT_E2E_USE_HOST_STANDALONE: 'true'
     steps:
       - uses: actions/checkout@v4
         with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
@@ -131,8 +130,6 @@ jobs:
         with: {node-version: 24, cache: npm}
       - run: npm ci
       - run: node node_modules/playwright/cli.js install --with-deps chromium
-      - name: Sanitized exact-source standalone build
-        run: node scripts/certification-command.mjs build:e2e-host
       - name: New vendor five-product media cart chat and delivery acceptance
         run: |
           node scripts/certification-command.mjs test:e2e -- tests/e2e/vendor-five-product-media.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/vendor-five-products

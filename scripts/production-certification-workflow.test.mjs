@@ -71,11 +71,10 @@ test("CI tests the pull request head with read-only credentials and offline prov
 
 test("five-product journey has a dedicated exact-count receipt and retains full acceptance", () => {
   const steps = workflow.jobs.browser.steps;
-  assert.equal(workflow.jobs.browser.env.KT_E2E_USE_HOST_STANDALONE, "true");
-  const build = steps.findIndex(step => step.run?.includes("certification-command.mjs build:e2e-host"));
+  assert.equal(workflow.jobs.browser.env.KT_E2E_USE_HOST_STANDALONE, undefined, "Linux certification must retain Next traced module aliases from its own Docker build");
   const vendor = steps.findIndex(step => step.name?.startsWith("New vendor five-product"));
   const full = steps.findIndex(step => step.run?.includes("test:e2e -- --project=chromium --phase1-catalog"));
-  assert.ok(build >= 0 && vendor > build && full > vendor);
+  assert.ok(vendor >= 0 && full > vendor);
   for (const guard of ["result.commitSha!==process.env.KT_CERTIFICATION_HEAD_SHA", "result.status!=='PASS'", "result.testsPassed!==1", "result.testsExpected!==1", "result.testsFailed!==0", "result.testsSkipped!==0", "result.testsFlaky!==0"]) assert.ok(steps[vendor].run.includes(guard), guard);
   assert.match(steps[vendor].run, /--retries=0 --workers=1/);
   assert.match(steps[vendor].run, /test-e2e-vendor-five-products\.json/);

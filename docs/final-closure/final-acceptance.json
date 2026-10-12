@@ -144,6 +144,37 @@
       "testsSkipped": 0,
       "testsFlaky": 0,
       "status": "FAIL"
+    },
+    {
+      "path": "receipts/test-e2e-hosted-startup-cd87.json",
+      "sha256": "2e8570a558055a252cebb44891f13288b430b9c8f4f5a30916051b5e0ecfb4f8",
+      "schemaVersion": 1,
+      "command": "test:e2e",
+      "arguments": [
+        "--",
+        "tests/e2e/vendor-five-product-media.spec.ts",
+        "--project=chromium",
+        "--retries=0",
+        "--workers=1",
+        "--output=test-results/vendor-five-products"
+      ],
+      "commitSha": "cd87ba489e0fee4de3f0362ee69c36368ad63943",
+      "sourceTreeSha": "b066db39ae3b67ae80cb513e74f8d5ddd47ecf79",
+      "startedAt": "2026-10-12T19:28:43.799Z",
+      "endedAt": "2026-10-12T19:32:37.710Z",
+      "durationMs": 233911,
+      "process": {
+        "exitCode": 1,
+        "signal": null,
+        "spawnError": null
+      },
+      "testsExpected": null,
+      "testsExecuted": null,
+      "testsPassed": null,
+      "testsFailed": null,
+      "testsSkipped": null,
+      "testsFlaky": null,
+      "status": "FAIL"
     }
   ],
   "gates": [
@@ -292,11 +323,22 @@
       "sourceSha": "85514600aea15af1ee67bfb868e24591318d1d52",
       "kind": "CI",
       "result": "10_APPLICABLE_PASS_18_CONDITIONAL_SKIPPED"
+    },
+    {
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38297246475",
+      "sourceSha": "cd87ba489e0fee4de3f0362ee69c36368ad63943",
+      "kind": "MANUAL_CERTIFICATION",
+      "result": "23_COMPONENTS_PASS_BROWSER_STARTUP_FAIL",
+      "browserTests": "NOT_RUN",
+      "artifactId": 11769880874,
+      "failure": "Shared standalone packaging omitted Linux Next traced Prisma alias",
+      "remediation": "Restore existing isolated Docker app build in Linux certification; keep all required selections."
     }
   ],
   "finalCheckoutCertification": {
     "statusAtCommit": "NOT_RUN",
-    "authority": "Latest manual Production Certification artifact for the exact final main checkout; do not inherit the application-source run for a newer commit."
+    "authority": "Latest manual Production Certification artifact for the exact final main checkout; do not inherit the application-source run for a newer commit.",
+    "latestAttempt": "Previous cd87ba48 run failed before browser tests; new exact checkout must complete all components."
   },
   "production": {
     "deployedSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
