@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { createTransactionContext } from "@/lib/db/transaction-context";
 import { accrueCommissionInTransaction } from "@/lib/services/commission-accrual.service";
 import { accrueStoreEarningInTransaction } from "@/lib/services/store-earning-accrual.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
@@ -27,15 +28,11 @@ function frozenCommissionBeneficiaries(value: unknown): readonly Readonly<{ bene
  * locks the aggregate in a stable order, and composes Phase 14 then Phase 16.
  */
 export function createPrismaMarketplaceSettlementRepository(database: any = prisma): MarketplaceSettlementRepository {
-  const db = database;
-  let transactionDb: any = null;
-  const current = () => transactionDb ?? db;
+  const { db, run } = createTransactionContext(database);
+  const current = () => db;
 
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => {
-      const previous = transactionDb; transactionDb = tx;
-      try { return await work(); } finally { transactionDb = previous; }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
     resolveOperationReceipt: async ({ marketplaceStoreOrderReference, operationId, requestHash }): Promise<SettlementOperationReceipt> => {
       const client = current();
       const storeOrder = await client.marketplaceStoreOrder.findUnique({ where: { publicReference: marketplaceStoreOrderReference }, include: { marketplaceOrder: { select: { checkoutId: true } } } });

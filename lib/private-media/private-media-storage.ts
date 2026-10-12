@@ -1,6 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { disposableBrowserPrivateMediaAllowed } from "./disposable-private-media-policy";
 
 export class PrivateMediaStorageError extends Error {
   constructor(
@@ -158,6 +159,7 @@ export class LockedPrivateMediaStorageAdapter implements PrivateMediaStorageAdap
 }
 
 export function createPrivateMediaStorageAdapter(): PrivateMediaStorageAdapter {
+  if (disposableBrowserPrivateMediaAllowed()) return new LocalPrivateMediaStorageAdapter(process.env.PRIVATE_MEDIA_LOCAL_DIR);
   const mode = process.env.PRIVATE_MEDIA_STORAGE?.trim().toLowerCase();
   const s3 = configuredS3();
   if (mode === "s3" && s3) return new S3PrivateMediaStorageAdapter(s3);

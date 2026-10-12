@@ -12,7 +12,7 @@
 import { PrismaClient, Prisma, UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { assertSeedExecutionAllowed } from "../lib/security/seed-safety";
-import { DEFAULT_ADMIN_PERMISSION_KEYS, SYSTEM_PERMISSION_DEFINITIONS } from "../lib/auth/permission-keys";
+import { installSystemPermissionDefaults } from "../lib/auth/permission-bootstrap";
 import {
   FOUNDATION_AD_PLACEMENTS,
   FOUNDATION_PLATFORM_WALLET,
@@ -31,30 +31,8 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
 }> {
   console.log("  [Bootstrap] Ensuring system permissions & roles...");
 
-  // 1. Permissions & Role Permissions
-  for (const def of SYSTEM_PERMISSION_DEFINITIONS) {
-    await prisma.permission.upsert({
-      where: { key: def.key },
-      update: { name: def.name, description: def.description, category: def.category },
-      create: { key: def.key, name: def.name, description: def.description, category: def.category },
-    });
-  }
-
-  for (const permKey of DEFAULT_ADMIN_PERMISSION_KEYS) {
-    const perm = await prisma.permission.findUnique({ where: { key: permKey } });
-    if (perm) {
-      await prisma.rolePermission.upsert({
-        where: { role_permissionId: { role: "ADMIN", permissionId: perm.id } },
-        update: {},
-        create: { role: "ADMIN", permissionId: perm.id },
-      });
-      await prisma.rolePermission.upsert({
-        where: { role_permissionId: { role: "SUPER_ADMIN", permissionId: perm.id } },
-        update: {},
-        create: { role: "SUPER_ADMIN", permissionId: perm.id },
-      });
-    }
-  }
+  // Shared canonical registry, additive only. No production seed is authorized.
+  await installSystemPermissionDefaults(prisma);
 
   // 2. Roles and standard administrator accounts
   const superAdmin = await prisma.user.upsert({

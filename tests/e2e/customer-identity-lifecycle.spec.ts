@@ -1,0 +1,80 @@
+import { expect, test } from "@playwright/test";
+import { login } from "./fixtures/auth";
+import { assertDisposablePaystackAcceptance } from "../../lib/testing/disposable-paystack-policy";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const execute = promisify(execFile);
+async function inbox(email: string, action: "verification" | "reset") {
+  const { stdout } = await execute(process.execPath, ["--import", "tsx", "scripts/phase3-identity-control.ts", email, action], { env: process.env, timeout: 30_000, maxBuffer: 64_000 });
+  const line = stdout.split(/\r?\n/).find(value => value.startsWith("IDENTITY_TEST_INBOX "));
+  if (!line) throw Error("Owned disposable identity inbox evidence unavailable.");
+  return (JSON.parse(line.slice("IDENTITY_TEST_INBOX ".length)) as { secret: string }).secret;
+}
+
+for (const width of [1440, 390]) test(`native customer verification, owned addresses and password reset revocation at ${width}px`, async ({ page, browser }, info) => {
+  test.setTimeout(180_000); assertDisposablePaystackAcceptance();
+  await page.setViewportSize({ width, height: 900 });
+  const email = `e2e-identity-${width}-${crypto.randomUUID().slice(0, 8)}@ktcouriers.local`;
+  const authField = (label: string) => page.getByLabel(new RegExp(String.raw`^${label}(?:\s*\*)?$`));
+  const password = "DisposableIdentity123!"; const newPassword = "DisposableChanged456!";
+  await page.goto("/signup?type=customer");
+  await expect(authField("Full name")).toHaveAccessibleName("Full name");
+  await authField("Full name").fill("Disposable identity customer");
+  await authField("Email address").fill(email);
+  await authField("Password").fill(password); await authField("Confirm password").fill(password);
+  const signup = page.waitForResponse(r => r.url().endsWith("/api/auth/signup") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  const created = await signup; expect([201, 202], await created.text()).toContain(created.status());
+  if (created.status() === 202) expect((await created.json()).deliveryPending).toBe(true);
+  // Read the genuine encrypted synthetic outbox through a named-runtime CLI;
+  // provider delivery is unclaimed and secrets are excluded from attachments.
+  const code = await inbox(email, "verification");
+  await expect(page).toHaveURL(/\/verify-otp/);
+  const origin = new URL(page.url()).origin;
+  expect((await page.request.post("/api/auth/verify-otp", { headers: { origin: "https://foreign.example.test" }, data: { email, code } })).status()).toBe(403);
+  expect((await page.request.post("/api/auth/verify-otp", { headers: { origin }, data: { email, code: code === "999999" ? "888888" : "999999" } })).status()).toBe(400);
+  await authField("Verification code").fill(code);
+  const verification = page.waitForResponse(r => r.url().endsWith("/api/auth/verify-otp"));
+  await page.getByRole("button", { name: "Verify code", exact: true }).click(); expect((await verification).status()).toBe(200);
+  await expect(page).toHaveURL(/\/account/);
+  expect((await page.request.post("/api/auth/verify-otp", { headers: { origin }, data: { email, code } })).status()).toBe(400);
+  await page.goto("/account/addresses");
+  if (!await page.getByLabel("Label", { exact: true }).isVisible()) await page.getByRole("button", { name: "Add address", exact: true }).first().click();
+  await page.getByLabel("Label", { exact: true }).fill("Synthetic home");
+  await authField("Street address").fill("45 Commission St");
+  await page.getByLabel("City / suburb", { exact: true }).fill("Johannesburg");
+  await page.getByLabel("Province", { exact: true }).fill("Gauteng");
+  await page.getByLabel("Postal code", { exact: true }).fill("2001");
+  const addressCreated = page.waitForResponse(r => r.url().endsWith("/api/account/addresses") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Add address", exact: true }).click();
+  const addressResponse = await addressCreated; expect(addressResponse.status(), await addressResponse.text()).toBe(201);
+  const address = (await addressResponse.json()).address;
+  await expect(page.getByText("Synthetic home", { exact: true })).toBeVisible();
+  const owned = (await (await page.request.get(`/api/account/addresses/${address.id}`)).json()).address;
+  expect(owned.line1).toBe("45 Commission St"); expect(owned).not.toHaveProperty("customerUserId");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await info.attach(`customer-address-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`customer-address-${width}.png`) }), contentType: "image/png" });
+  const otherContext = await browser.newContext({ baseURL: origin }); const other = await otherContext.newPage();
+  try {
+    await login(other, "e2e-checkout-other@ktcouriers.local");
+    expect((await other.request.get(`/api/account/addresses/${address.id}`)).status()).toBe(404);
+    expect((await other.request.patch(`/api/account/addresses/${address.id}`, { headers: { origin }, data: { label: "Foreign replacement" } })).status()).toBe(404);
+    expect((await other.request.delete(`/api/account/addresses/${address.id}`, { headers: { origin } })).status()).toBe(404);
+    expect((await (await page.request.get(`/api/account/addresses/${address.id}`)).json()).address).toEqual(owned);
+    await other.goto("/login");
+    expect((await other.request.post("/api/auth/login", { headers: { origin }, data: { email, password } })).status()).toBe(200);
+    await page.goto("/forgot-password"); await authField("Email address").fill(email);
+    const forgot = page.waitForResponse(r => r.url().endsWith("/api/auth/forgot-password")); await page.getByRole("button", { name: "Send reset link", exact: true }).click();
+    const forgotten = await forgot; expect(forgotten.status()).toBe(200); const token = await inbox(email, "reset");
+    await page.goto(`/reset-password?token=${token}`); await authField("New password").fill(newPassword); await authField("Confirm new password").fill(newPassword);
+    const reset = page.waitForResponse(r => r.url().endsWith("/api/auth/reset-password")); await page.getByRole("button", { name: "Update password", exact: true }).click(); expect((await reset).status()).toBe(200);
+    await expect(page).toHaveURL(/\/login\?reset=success/);
+    expect((await other.request.get("/api/account/addresses")).status()).toBe(401); expect((await page.request.get("/api/account/addresses")).status()).toBe(401);
+    expect((await page.request.post("/api/auth/reset-password", { headers: { origin }, data: { token, password: newPassword, confirmPassword: newPassword } })).status()).toBe(400);
+    expect((await page.request.post("/api/auth/login", { headers: { origin }, data: { email, password } })).status()).toBe(401);
+    await authField("Email address").fill(email); await authField("Password").fill(newPassword);
+    const signedIn = page.waitForResponse(r => r.url().endsWith("/api/auth/login")); await page.getByRole("button", { name: "Sign in", exact: true }).click(); expect((await signedIn).status()).toBe(200);
+    await expect(page).toHaveURL(/\/account/); expect((await page.request.get(`/api/account/addresses/${address.id}`)).status()).toBe(200);
+    await info.attach("identity-authority", { body: JSON.stringify({ evidenceClass: "NAMED_DISPOSABLE_NO_EXTERNAL_EMAIL", viewport: width, verificationCodeConsumed: true, foreignAddressDenied: true, oldSessionsRevoked: true, resetReplayDenied: true }), contentType: "application/json" });
+  } finally { await otherContext.close(); }
+});

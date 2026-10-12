@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "command": "node --test scripts\\certification-output.test.mjs scripts\\e2e-ingress.test.mjs scripts\\e2e-standalone-app.test.mjs scripts\\phase1-browser-plan.test.mjs scripts\\production-certification-workflow.test.mjs scripts\\release-test-deferrals.test.mjs",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T18:28:11.6953095+00:00",
+  "endedAt": "2026-10-11T18:28:13.8537894+00:00",
+  "durationMs": 2158.0,
+  "process": {
+    "exitCode": 0,
+    "signal": null
+  },
+  "testsExpected": null,
+  "testsExecuted": null,
+  "testsPassed": null,
+  "testsFailed": null,
+  "testsSkipped": null,
+  "testsTodo": null,
+  "testsFlaky": null,
+  "environmentProfile": "local verification; no live service or provider action intended",
+  "stdoutPath": "output\\production-closure\\command-receipts\\script-contract-tests-20261011-232811-439.log",
+  "status": "PASS"
+}

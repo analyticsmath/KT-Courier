@@ -1,0 +1,4360 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-11T02:46:51.867Z",
+  "verdict": "PHASE 1 — ENGINEERING COMPLETE",
+  "overallProductionRelease": "NOT_READY",
+  "basis": "Every commissioned engineering acceptance gate passed on the exact pushed implementation SHA in isolated local or hosted runs. Hosted GitHub execution supplies the complete 139-case Chromium and 41-case persisted canonical PostgreSQL acceptance. Interrupted local browser attempts are retained as incomplete evidence and are not counted as passes.",
+  "git": {
+    "auditedStartSha": "b31ede4a900b0778e15dce0a3ef78e6d2613b350",
+    "implementationSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+    "branch": "production-closure-2026-10-07",
+    "sourcePushConfirmed": true,
+    "remoteBranchHeadAtEvidenceCollection": "3655a53e8a595c4c89dbf9891578961dec195292",
+    "productionMainSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+    "aheadBehindMain": [
+      0,
+      82
+    ],
+    "changedPathCount": 40,
+    "changedPathsFromAuditedStart": [
+      "components/driver/DriverDeliveryEvidencePanel.tsx",
+      "components/forms/Conversations.tsx",
+      "compose.e2e.yml",
+      "eslint.config.mjs",
+      "lib/auth/permission-bootstrap.ts",
+      "lib/client-platform/support-access.service.ts",
+      "lib/db/transaction-context.ts",
+      "lib/marketplace-checkout/marketplace-payment-success-hook.service.ts",
+      "lib/marketplace-checkout/prisma-marketplace-finalization.repository.ts",
+      "lib/marketplace-checkout/prisma-marketplace-settlement.repository.ts",
+      "lib/marketplace-checkout/prisma-review-composition.repository.ts",
+      "lib/payments/verified-payment-event-processor.service.ts",
+      "lib/services/ledger-posting.service.ts",
+      "lib/services/paystack-webhook-application.service.ts",
+      "lib/store-orders/full-order-adjustment.ts",
+      "lib/store-orders/store-order.service.ts",
+      "lib/subscriptions/subscription-payment-success-hook.service.ts",
+      "prisma/migrations/20261010090000_guest_refund_journal_authority/migration.sql",
+      "proxy.ts",
+      "scripts/disposable-closure-tests.mjs",
+      "scripts/e2e-test.mjs",
+      "scripts/new-phase1-command.mjs",
+      "scripts/new-phase1-prepared-postgres.mjs",
+      "scripts/prove-historical-migration-upgrade.mjs",
+      "tests/client-platform/support-access.test.ts",
+      "tests/e2e/fixtures/driver-delivery.ts",
+      "tests/integration/business-support-denial.integration.test.ts",
+      "tests/integration/marketplace-refund-boundary-canonical.integration.test.ts",
+      "tests/integration/paystack-webhook-concurrency.integration.test.ts",
+      "tests/integration/store-order-canonical-support.ts",
+      "tests/integration/store-substitution-boundary-canonical.integration.test.ts",
+      "tests/integration/verified-payment-consumer-concurrency.integration.test.ts",
+      "tests/payments/marketplace-dispatch-failure.test.ts",
+      "tests/payments/marketplace-transaction-context.test.ts",
+      "tests/payments/paystack-financial-invariants.test.ts",
+      "tests/payments/verified-payment-event-processor.test.ts",
+      "tests/security/railway-origin.test.ts",
+      "tests/services/ledger-posting.service.test.ts",
+      "tests/subscriptions/subscription-activation-hook.test.ts",
+      "tsconfig.json"
+    ],
+    "pullRequest": {
+      "number": 17,
+      "url": "https://github.com/analyticsmath/KT-Courier/pull/17",
+      "state": "OPEN",
+      "draft": true,
+      "merged": false
+    },
+    "publication": {
+      "reportOnlyCommitFollowsImplementationCommit": true,
+      "excludedReportPaths": [
+        "docs/production-closure/NEW_PHASE_1_ENGINEERING_COMPLETION_REPORT.md",
+        "docs/production-closure/NEW_PHASE_1_ENGINEERING_EVIDENCE.json"
+      ],
+      "nonReportTrackedTreeSha256": "40375a21b97c5d9d1906c6aadd553cd69260dc65f061f198bb998a71b0676aee",
+      "verification": "Filter the git ls-tree -r -z records for the implementation SHA and report commit by excludedReportPaths; the resulting ordered records must be identical and hash to nonReportTrackedTreeSha256.",
+      "nonReportTrackedRecordCount": 10874,
+      "hashMethod": "SHA-256 of NUL-delimited git ls-tree -r -z records, with one terminal NUL, after excluding exactly excludedReportPaths."
+    }
+  },
+  "implementation": {
+    "confirmedRootCauses": [
+      "Serializable payment-consumer snapshots could remain stale while waiting on the shared immutable intent lock, causing duplicate canonical receipt creation and P2034/P2002 contention.",
+      "Provider identity/replay comparisons did not consistently bind every persisted authority field and actor; signed provider transaction identity also needed independent matching.",
+      "Downstream hooks could swallow durable dispatch/finalization failures, and some cancellation paths lacked exact reservation-backed stock restoration.",
+      "Guest refund journal authority allowed the dedicated original-method liability path only after a narrowly payment-bound forward migration while retaining customer/wallet restrictions.",
+      "Support role defaults could bypass an explicit store permission DENY; stateful preview routing could inherit production-backed runtime configuration.",
+      "The legacy migration-upgrade helper accepted inherited connection authority, and real browser fixtures hit suite isolation/viewport issues."
+    ],
+    "principalSafeguards": [
+      "READ COMMITTED transaction after the existing row lock, seven persisted identity/opId checks, immutable receipt generation fencing, and safe unique-conflict validation.",
+      "AsyncLocalStorage transaction context for finalization/review/acknowledgement/settlement, with bounded existing lease/transaction behavior.",
+      "Bounded retry only for safe database work; non-idempotent provider actions remain outside retrying transactions; durable failure propagates into reconciliation.",
+      "Verified transaction-ID/reference/amount/currency/status binding; duplicate replay checks persisted identity and actor.",
+      "Dedicated ORIGINAL_PAYMENT_METHOD guest liability accepts only a successful paid guest marketplace intent with matching verified signed/applied provider evidence and balanced capture.",
+      "Exact reservation-source restoration, permission DENY precedence, production-only stateful proxy authority, and owned disposable migration servers/databases/roles.",
+      "Linux Chromium measured and fixed native file-input overflow at 390px; original browser assertions and all selected viewport journeys remain unchanged."
+    ],
+    "newForwardMigration": "20261010090000_guest_refund_journal_authority"
+  },
+  "requiredSelection": {
+    "originalDirectedCases": 4,
+    "fullChromiumCases": 139,
+    "browserStages": 7,
+    "stagedBrowserExecutions": 153,
+    "canonicalPostgreSqlCases": 41,
+    "canonicalFiles": 19,
+    "originalSelectionsChanged": false,
+    "retriesUsedInRequiredChromium": 0,
+    "criticalSkipped": 0,
+    "todoPending": 0,
+    "flaky": 0
+  },
+  "local": {
+    "exactSource": "3655a53e8a595c4c89dbf9891578961dec195292",
+    "quality": {
+      "status": "PASS",
+      "passedCommands": 15,
+      "requiredCommands": [
+        "npm ci",
+        "npm exec -- prisma generate",
+        "npm exec -- prisma validate",
+        "npm run migrations:check",
+        "npm audit --omit=dev --audit-level=high",
+        "npm run lint",
+        "npm run typecheck",
+        "npm run build",
+        "npm run test:coverage",
+        "npm run test:paystack:contract",
+        "npm run test:paystack:invariants",
+        "npm run test:payments",
+        "npm run test:refunds",
+        "npm run test:security:bola",
+        "npm run test:processors"
+      ],
+      "receipts": [
+        {
+          "command": "npm ci",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:13:17.263Z",
+          "endedAt": "2026-10-10T22:15:41.863Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/ci-1791670397287.log",
+          "receipt": "output/production-closure/new-phase1/ci-1791670397287.json"
+        },
+        {
+          "command": "npm exec -- prisma generate",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:15:42.190Z",
+          "endedAt": "2026-10-10T22:16:02.111Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/generate-1791670542192.log",
+          "receipt": "output/production-closure/new-phase1/generate-1791670542192.json"
+        },
+        {
+          "command": "npm exec -- prisma validate",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:16:02.436Z",
+          "endedAt": "2026-10-10T22:16:06.713Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/validate-1791670562438.log",
+          "receipt": "output/production-closure/new-phase1/validate-1791670562438.json"
+        },
+        {
+          "command": "npm run migrations:check",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:16:07.034Z",
+          "endedAt": "2026-10-10T22:16:08.148Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/migrations-check-1791670567036.log",
+          "receipt": "output/production-closure/new-phase1/migrations-check-1791670567036.json"
+        },
+        {
+          "command": "npm audit --omit=dev --audit-level=high",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:16:08.476Z",
+          "endedAt": "2026-10-10T22:16:11.764Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/audit-1791670568478.log",
+          "receipt": "output/production-closure/new-phase1/audit-1791670568478.json"
+        },
+        {
+          "command": "npm run lint",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:16:12.101Z",
+          "endedAt": "2026-10-10T22:19:16.551Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/lint-1791670572103.log",
+          "receipt": "output/production-closure/new-phase1/lint-1791670572103.json"
+        },
+        {
+          "command": "npm run typecheck",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:19:16.868Z",
+          "endedAt": "2026-10-10T22:19:49.707Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/typecheck-1791670756870.log",
+          "receipt": "output/production-closure/new-phase1/typecheck-1791670756870.json"
+        },
+        {
+          "command": "npm run build",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:46:46.100Z",
+          "endedAt": "2026-10-10T22:50:18.732Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/build-1791672406102.log",
+          "receipt": "output/production-closure/new-phase1/build-1791672406102.json"
+        },
+        {
+          "command": "npm run test:coverage",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:23:57.470Z",
+          "endedAt": "2026-10-10T22:26:39.625Z",
+          "exitCode": 0,
+          "testsPassed": 3734,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-coverage-1791671037471.log",
+          "receipt": "output/production-closure/new-phase1/test-coverage-1791671037471.json"
+        },
+        {
+          "command": "npm run test:paystack:contract",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:26:39.981Z",
+          "endedAt": "2026-10-10T22:26:44.812Z",
+          "exitCode": 0,
+          "testsPassed": 24,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-paystack-contract-1791671199983.log",
+          "receipt": "output/production-closure/new-phase1/test-paystack-contract-1791671199983.json"
+        },
+        {
+          "command": "npm run test:paystack:invariants",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:26:45.101Z",
+          "endedAt": "2026-10-10T22:26:49.107Z",
+          "exitCode": 0,
+          "testsPassed": 23,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-paystack-invariants-1791671205102.log",
+          "receipt": "output/production-closure/new-phase1/test-paystack-invariants-1791671205102.json"
+        },
+        {
+          "command": "npm run test:payments",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:26:49.389Z",
+          "endedAt": "2026-10-10T22:26:57.474Z",
+          "exitCode": 0,
+          "testsPassed": 343,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-payments-1791671209390.log",
+          "receipt": "output/production-closure/new-phase1/test-payments-1791671209390.json"
+        },
+        {
+          "command": "npm run test:refunds",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:26:57.767Z",
+          "endedAt": "2026-10-10T22:27:02.231Z",
+          "exitCode": 0,
+          "testsPassed": 115,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-refunds-1791671217769.log",
+          "receipt": "output/production-closure/new-phase1/test-refunds-1791671217769.json"
+        },
+        {
+          "command": "npm run test:security:bola",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:27:02.519Z",
+          "endedAt": "2026-10-10T22:27:06.694Z",
+          "exitCode": 0,
+          "testsPassed": 23,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-security-bola-1791671222520.log",
+          "receipt": "output/production-closure/new-phase1/test-security-bola-1791671222520.json"
+        },
+        {
+          "command": "npm run test:processors",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:27:06.983Z",
+          "endedAt": "2026-10-10T22:27:11.202Z",
+          "exitCode": 0,
+          "testsPassed": 23,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-processors-1791671226984.log",
+          "receipt": "output/production-closure/new-phase1/test-processors-1791671226984.json"
+        }
+      ],
+      "coverageTestsPassed": 3734,
+      "coverageFilesPassed": 792
+    },
+    "databaseAndRecovery": {
+      "status": "PASS",
+      "passedCommands": 14,
+      "requiredCommands": [
+        "npm run test:integration:closure",
+        "npm run test:integration:catalog",
+        "npm run test:integration:marketplace-checkout",
+        "npm run test:integration:store-orders",
+        "npm run test:integration:refunds",
+        "npm run test:integration:withdrawals",
+        "npm run test:integration:ledger",
+        "npm run test:integration:driver-earnings",
+        "npm run test:integration:store-earnings",
+        "npm run test:integration:redis-rate-limit",
+        "npm run test:integration:bola-authority",
+        "npm run test:integration:webhook-concurrency",
+        "npm run test:integration:migration-upgrade",
+        "npm run recovery:drill"
+      ],
+      "receipts": [
+        {
+          "command": "npm run test:integration:closure",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:23:12.404Z",
+          "endedAt": "2026-10-10T22:28:27.859Z",
+          "exitCode": 0,
+          "testsPassed": 178,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-closure-1791670992411.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-closure-1791670992411.json"
+        },
+        {
+          "command": "npm run test:integration:catalog",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:28:28.155Z",
+          "endedAt": "2026-10-10T22:30:08.632Z",
+          "exitCode": 0,
+          "testsPassed": 51,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-catalog-1791671308157.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-catalog-1791671308157.json"
+        },
+        {
+          "command": "npm run test:integration:marketplace-checkout",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:30:08.928Z",
+          "endedAt": "2026-10-10T22:31:04.181Z",
+          "exitCode": 0,
+          "testsPassed": 8,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-marketplace-checkout-1791671408930.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-marketplace-checkout-1791671408930.json"
+        },
+        {
+          "command": "npm run test:integration:store-orders",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:31:04.453Z",
+          "endedAt": "2026-10-10T22:31:58.992Z",
+          "exitCode": 0,
+          "testsPassed": 2,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-store-orders-1791671464454.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-store-orders-1791671464454.json"
+        },
+        {
+          "command": "npm run test:integration:refunds",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:31:59.271Z",
+          "endedAt": "2026-10-10T22:33:23.882Z",
+          "exitCode": 0,
+          "testsPassed": 9,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-refunds-1791671519272.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-refunds-1791671519272.json"
+        },
+        {
+          "command": "npm run test:integration:withdrawals",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:33:24.180Z",
+          "endedAt": "2026-10-10T22:34:24.953Z",
+          "exitCode": 0,
+          "testsPassed": 7,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-withdrawals-1791671604182.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-withdrawals-1791671604182.json"
+        },
+        {
+          "command": "npm run test:integration:ledger",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:34:25.235Z",
+          "endedAt": "2026-10-10T22:36:17.438Z",
+          "exitCode": 0,
+          "testsPassed": 26,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-ledger-1791671665237.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-ledger-1791671665237.json"
+        },
+        {
+          "command": "npm run test:integration:driver-earnings",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:36:17.783Z",
+          "endedAt": "2026-10-10T22:37:51.502Z",
+          "exitCode": 0,
+          "testsPassed": 14,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-driver-earnings-1791671777785.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-driver-earnings-1791671777785.json"
+        },
+        {
+          "command": "npm run test:integration:store-earnings",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:37:51.805Z",
+          "endedAt": "2026-10-10T22:39:19.168Z",
+          "exitCode": 0,
+          "testsPassed": 16,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-store-earnings-1791671871806.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-store-earnings-1791671871806.json"
+        },
+        {
+          "command": "npm run test:integration:redis-rate-limit",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:39:19.446Z",
+          "endedAt": "2026-10-10T22:39:25.396Z",
+          "exitCode": 0,
+          "testsPassed": 7,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-redis-rate-limit-1791671959447.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-redis-rate-limit-1791671959447.json"
+        },
+        {
+          "command": "npm run test:integration:bola-authority",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:39:25.730Z",
+          "endedAt": "2026-10-10T22:40:33.684Z",
+          "exitCode": 0,
+          "testsPassed": 10,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-bola-authority-1791671965731.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-bola-authority-1791671965731.json"
+        },
+        {
+          "command": "npm run test:integration:webhook-concurrency",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:40:33.958Z",
+          "endedAt": "2026-10-10T22:41:34.532Z",
+          "exitCode": 0,
+          "testsPassed": 7,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsTodo": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-integration-webhook-concurrency-1791672033959.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-webhook-concurrency-1791672033959.json"
+        },
+        {
+          "command": "npm run test:integration:migration-upgrade",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:41:34.826Z",
+          "endedAt": "2026-10-10T22:43:24.762Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/test-integration-migration-upgrade-1791672094827.log",
+          "receipt": "output/production-closure/new-phase1/test-integration-migration-upgrade-1791672094827.json"
+        },
+        {
+          "command": "npm run recovery:drill",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:43:25.045Z",
+          "endedAt": "2026-10-10T22:46:31.806Z",
+          "exitCode": 0,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsTodo": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/recovery-drill-1791672205046.log",
+          "receipt": "output/production-closure/new-phase1/recovery-drill-1791672205046.json"
+        }
+      ],
+      "executedCounts": {
+        "npm run test:integration:closure": 178,
+        "npm run test:integration:catalog": 51,
+        "npm run test:integration:marketplace-checkout": 8,
+        "npm run test:integration:store-orders": 2,
+        "npm run test:integration:refunds": 9,
+        "npm run test:integration:withdrawals": 7,
+        "npm run test:integration:ledger": 26,
+        "npm run test:integration:driver-earnings": 14,
+        "npm run test:integration:store-earnings": 16,
+        "npm run test:integration:redis-rate-limit": 7,
+        "npm run test:integration:bola-authority": 10,
+        "npm run test:integration:webhook-concurrency": 7
+      },
+      "recovery": {
+        "source": "DISPOSABLE_FIXTURES",
+        "dumpRestore": "PASS",
+        "historicalUpgrade": "PASS",
+        "protectedProductionDataTouched": false,
+        "fixtureCountsAndHashes": "MATCH",
+        "ledgerInvariants": "PASS"
+      }
+    },
+    "scriptContracts": {
+      "command": "node --test --test-reporter=tap scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs",
+      "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+      "exactCommittedSource": true,
+      "environment": "OFFLINE_SCRIPT_CONTRACTS",
+      "startedAt": "2026-10-10T22:27:11.491Z",
+      "endedAt": "2026-10-10T22:27:12.757Z",
+      "exitCode": 0,
+      "testsPassed": 29,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsTodo": 0,
+      "testsFlaky": null,
+      "log": "output/production-closure/new-phase1/node-contracts-final.log",
+      "receipt": "output/production-closure/new-phase1/node-contracts-final.json"
+    },
+    "directedFourChromium": {
+      "command": "npm run test:e2e -- tests/e2e/store-order-substitution.spec.ts tests/e2e/transactional-notifications.spec.ts --project=chromium --retries=0 --workers=1",
+      "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+      "exactCommittedSource": true,
+      "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+      "startedAt": "2026-10-10T22:53:03.677Z",
+      "endedAt": "2026-10-10T23:11:58.992Z",
+      "exitCode": 0,
+      "testsPassed": 4,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsTodo": 0,
+      "testsFlaky": 0,
+      "log": "output/production-closure/new-phase1/test-e2e-1791672783678.log",
+      "receipt": "output/production-closure/new-phase1/test-e2e-1791672783678.json"
+    },
+    "fullChromium": {
+      "status": "INCOMPLETE_LOCALLY",
+      "acceptanceCredit": 0,
+      "hostedExactSourcePassExists": true,
+      "windowsAttempt": {
+        "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+        "command": "npm run test:e2e -- --project=chromium --phase1-catalog",
+        "receipt": "output/production-closure/new-phase1/local-final-browser/windows-phase1-attempt/receipt.json",
+        "partialCounts": {
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "classification": "PARTIAL_WINDOWS_LOG_COUNTS_NOT_COMPLETION",
+          "expectedFull": 139,
+          "partialPassed": 83,
+          "failedWalletContext": true,
+          "completedLines": [
+            "  ok  80 [chromium] › tests\\e2e\\profile-avatar-lifecycle.spec.ts:15:7 › driver owns upload, replacement and revoked removal at 390px (16.0s)",
+            "  ok  81 [chromium] › tests\\e2e\\refund-finance-admin.spec.ts:7:38 › distinct finance actors complete wallet once and retain Paystack uncertainty at 1440px (59.9s)",
+            "  ok  82 [chromium] › tests\\e2e\\refund-finance-admin.spec.ts:7:38 › distinct finance actors complete wallet once and retain Paystack uncertainty at 390px (57.0s)",
+            "  ok  83 [chromium] › tests\\e2e\\store-branding-lifecycle.spec.ts:15:38 › native store logo and cover replacement, replay and revocation at 1440px (25.0s)",
+            "  ok  84 [chromium] › tests\\e2e\\store-branding-lifecycle.spec.ts:15:38 › native store logo and cover replacement, replay and revocation at 390px (21.7s)"
+          ],
+          "fullStageTimedOut": true
+        },
+        "confirmedObservedFailure": "Prisma P2028 during phase2-refund-control.ts wallet-account initialization on the 390px wallet path, before refund reservation. Subsequent read-only paired pool diagnostics passed on Windows and Linux but did not establish this attempt's root cause."
+      },
+      "linuxBindAttempt": {
+        "receipt": "output/production-closure/new-phase1/test-e2e-1791675881989.json",
+        "partialProgress": {
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "classification": "PARTIAL_LOG_COUNTS_NOT_COMPLETION",
+          "expectedFull": 139,
+          "completedPassLines": 96,
+          "finalFrameworkCountsKnown": false,
+          "sourceLog": "output/production-closure/new-phase1/test-e2e-1791675881989.log"
+        },
+        "classification": "The original finite full-stage deadline expired after 96 observed full-stage pass lines; Playwright final counts were not produced, so this is incomplete rather than 96/139 acceptance."
+      },
+      "linuxNativeVolumeAttempt": {
+        "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+        "projectName": "kt-couriers-e2e-1791677630665-21284",
+        "log": "output/production-closure/new-phase1/test-e2e-1791677627971.log",
+        "fixedPrimingStageReceipts": [
+          {
+            "command": [
+              "test",
+              "tests/e2e/storefront-browsing.spec.ts",
+              "--grep=product detail page displays store",
+              "--project=chromium",
+              "--retries=0",
+              "--workers=1",
+              "--output=test-results/storefront-variant-target",
+              "--reporter=list,json"
+            ],
+            "startedAt": "2026-10-11T00:18:28.731Z",
+            "endedAt": "2026-10-11T00:18:48.450Z",
+            "exitCode": 0
+          },
+          {
+            "command": [
+              "test",
+              "tests/e2e/storefront-product-detail.spec.ts",
+              "--project=chromium",
+              "--retries=0",
+              "--workers=1",
+              "--output=test-results/storefront-product-detail",
+              "--reporter=list,json"
+            ],
+            "startedAt": "2026-10-11T00:18:48.456Z",
+            "endedAt": "2026-10-11T00:19:05.780Z",
+            "exitCode": 0
+          },
+          {
+            "command": [
+              "test",
+              "tests/e2e/store-product-catalog.spec.ts",
+              "tests/e2e/catalog-administration.spec.ts",
+              "--grep=1440px",
+              "--project=chromium",
+              "--retries=0",
+              "--workers=1",
+              "--output=test-results/catalog-1440",
+              "--reporter=list,json"
+            ],
+            "startedAt": "2026-10-11T00:19:05.783Z",
+            "endedAt": "2026-10-11T00:20:04.571Z",
+            "exitCode": 0
+          },
+          {
+            "command": [
+              "test",
+              "tests/e2e/store-product-catalog.spec.ts",
+              "tests/e2e/catalog-administration.spec.ts",
+              "--project=chromium",
+              "--retries=0",
+              "--workers=1",
+              "--output=test-results/catalog-both",
+              "--reporter=list,json"
+            ],
+            "startedAt": "2026-10-11T00:20:04.575Z",
+            "endedAt": "2026-10-11T00:21:29.565Z",
+            "exitCode": 0
+          },
+          {
+            "command": [
+              "test",
+              "tests/e2e/business-employee-access.spec.ts",
+              "--grep=1440px",
+              "--project=chromium",
+              "--retries=0",
+              "--workers=1",
+              "--output=test-results/employee-1440",
+              "--reporter=list,json"
+            ],
+            "startedAt": "2026-10-11T00:21:29.569Z",
+            "endedAt": "2026-10-11T00:21:53.658Z",
+            "exitCode": 0
+          },
+          {
+            "command": [
+              "test",
+              "tests/e2e/business-employee-access.spec.ts",
+              "--project=chromium",
+              "--retries=0",
+              "--workers=1",
+              "--output=test-results/employee-both",
+              "--reporter=list,json"
+            ],
+            "startedAt": "2026-10-11T00:21:53.661Z",
+            "endedAt": "2026-10-11T00:22:28.274Z",
+            "exitCode": 0
+          }
+        ],
+        "observedFullStagePassLines": 46,
+        "finalPlaywrightReportPresent": false,
+        "completedRunReceiptPresent": false,
+        "dockerDesktopRecovery": "Docker Desktop could not restart its Linux engine on this Windows host; the startup log reported failures removing local dockerInference and docker-secrets-engine engine.sock IPC endpoints. No Docker factory reset was used. The original empty IPC path names were restored after the diagnostic attempt."
+      },
+      "failedAndIncompleteReceipts": [
+        {
+          "command": "npm run build",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T22:27:13.225Z",
+          "endedAt": "2026-10-10T22:27:31.270Z",
+          "exitCode": 1,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/build-1791671233227.log"
+        },
+        {
+          "command": "npm run test:e2e -- --project=chromium --phase1-catalog",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T23:11:59.378Z",
+          "endedAt": "2026-10-10T23:41:54.761Z",
+          "exitCode": 1,
+          "testsPassed": 0,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-e2e-1791673919380.log"
+        },
+        {
+          "command": "npm run test:e2e -- --project=chromium --phase1-catalog",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T23:41:57.955Z",
+          "endedAt": "2026-10-10T23:42:23.978Z",
+          "exitCode": 1,
+          "testsPassed": null,
+          "testsFailed": null,
+          "testsSkipped": null,
+          "testsFlaky": null,
+          "log": "output/production-closure/new-phase1/test-e2e-1791675717957.log"
+        },
+        {
+          "command": "npm run test:e2e -- --project=chromium --phase1-catalog",
+          "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "exactCommittedSource": true,
+          "environment": "OFFLINE_OR_GENERATED_DISPOSABLE",
+          "startedAt": "2026-10-10T23:44:41.970Z",
+          "endedAt": "2026-10-11T00:13:17.265Z",
+          "exitCode": 1,
+          "testsPassed": 0,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "testsFlaky": 0,
+          "log": "output/production-closure/new-phase1/test-e2e-1791675881989.log"
+        }
+      ]
+    },
+    "canonicalPostgreSql": {
+      "status": "NOT_EXECUTED_LOCALLY",
+      "acceptanceCredit": 0,
+      "localReportPath": "output/production-closure/new-phase1/local-final-browser/linux-phase2-canonical/phase2-canonical-vitest.json",
+      "reason": "The local native-volume full browser process did not return a final stage receipt, so its queued canonical invocation never started. The 41 cases completed and passed in the exact-source hosted isolated PostgreSQL job below."
+    }
+  },
+  "hosted": {
+    "exactSource": "3655a53e8a595c4c89dbf9891578961dec195292",
+    "ordinaryCI": {
+      "id": 38090587286,
+      "headSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+      "status": "completed",
+      "conclusion": "success",
+      "createdAt": "2026-10-10T22:13:10Z",
+      "completedAt": "2026-10-10T22:18:53Z",
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587286"
+    },
+    "productionCertification": {
+      "id": 38090587426,
+      "headSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+      "status": "completed",
+      "conclusion": "failure",
+      "createdAt": "2026-10-10T22:13:10Z",
+      "completedAt": "2026-10-10T22:57:22Z",
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426",
+      "totalJobs": 25,
+      "commissionedComponentJobsPassed": 24,
+      "postgresMatrixJobsPassed": 20,
+      "jobs": [
+        {
+          "name": "redis-and-recovery",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:15:29Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079558"
+        },
+        {
+          "name": "browser",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:57:10Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079639"
+        },
+        {
+          "name": "postgres (test:integration:marketplace-checkout)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:14:45Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079712"
+        },
+        {
+          "name": "postgres (test:integration:orders)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:15:40Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079719"
+        },
+        {
+          "name": "quality",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:19:08Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079728"
+        },
+        {
+          "name": "postgres (test:integration:storefront)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:14:41Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079747"
+        },
+        {
+          "name": "postgres (test:integration:driver-operations)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:15:35Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079749"
+        },
+        {
+          "name": "recovery",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:02Z",
+          "completedAt": "2026-10-10T22:16:19Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079758"
+        },
+        {
+          "name": "postgres (test:integration:auth)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:14:42Z",
+          "completedAt": "2026-10-10T22:16:58Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079762"
+        },
+        {
+          "name": "postgres (test:integration:refunds)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:14:36Z",
+          "completedAt": "2026-10-10T22:16:27Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079767"
+        },
+        {
+          "name": "postgres (test:integration:catalog)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:14:23Z",
+          "completedAt": "2026-10-10T22:15:43Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079772"
+        },
+        {
+          "name": "postgres (test:integration:dispatch)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:05Z",
+          "completedAt": "2026-10-10T22:17:31Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079776"
+        },
+        {
+          "name": "postgres (test:integration:ledger)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:15:43Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079780"
+        },
+        {
+          "name": "postgres (test:integration:cross-module)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:15:42Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079786"
+        },
+        {
+          "name": "postgres (docker:migration-smoke)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:42Z",
+          "completedAt": "2026-10-10T22:18:18Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079787"
+        },
+        {
+          "name": "postgres (docker:gate4)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:13:30Z",
+          "completedAt": "2026-10-10T22:15:54Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079795"
+        },
+        {
+          "name": "postgres (test:integration:withdrawals)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:31Z",
+          "completedAt": "2026-10-10T22:16:40Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079812"
+        },
+        {
+          "name": "postgres (test:integration:driver-earnings)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:34Z",
+          "completedAt": "2026-10-10T22:17:47Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079834"
+        },
+        {
+          "name": "postgres (test:integration:store-orders)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:36Z",
+          "completedAt": "2026-10-10T22:16:39Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079836"
+        },
+        {
+          "name": "postgres (test:integration:permissions)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:44Z",
+          "completedAt": "2026-10-10T22:17:54Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079849"
+        },
+        {
+          "name": "postgres (test:integration:store-earnings)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:03Z",
+          "completedAt": "2026-10-10T22:17:16Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079854"
+        },
+        {
+          "name": "postgres (test:integration:closure)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:44Z",
+          "completedAt": "2026-10-10T22:18:33Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079860"
+        },
+        {
+          "name": "postgres (test:integration:pricing)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:14:47Z",
+          "completedAt": "2026-10-10T22:17:07Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079868"
+        },
+        {
+          "name": "postgres (test:integration:payment-foundation)",
+          "conclusion": "success",
+          "startedAt": "2026-10-10T22:15:45Z",
+          "completedAt": "2026-10-10T22:18:11Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079870"
+        },
+        {
+          "name": "certified",
+          "conclusion": "failure",
+          "startedAt": "2026-10-10T22:57:12Z",
+          "completedAt": "2026-10-10T22:57:22Z",
+          "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114333975890"
+        }
+      ],
+      "separateCertifiedJobResult": {
+        "conclusion": "failure",
+        "reason": "Nine unchanged release/feature/external manifest rows remain OPEN or VALIDATION_BLOCKED. No row was changed to manufacture certification.",
+        "log": "output/production-closure/new-phase1/hosted-365-certified-failure.log",
+        "unresolvedRows": [
+          {
+            "key": "marketplace_parcel_classification",
+            "status": "OPEN"
+          },
+          {
+            "key": "notification_required_domains",
+            "status": "OPEN"
+          },
+          {
+            "key": "commercial_financial_certification",
+            "status": "VALIDATION_BLOCKED"
+          },
+          {
+            "key": "customer_vendor_driver_full_functional_acceptance",
+            "status": "OPEN"
+          },
+          {
+            "key": "visual_acceptance",
+            "status": "OPEN"
+          },
+          {
+            "key": "media_full_functional_acceptance",
+            "status": "OPEN"
+          },
+          {
+            "key": "critical_skip_closure",
+            "status": "OPEN"
+          },
+          {
+            "key": "fresh_production_protected_row_audit",
+            "status": "VALIDATION_BLOCKED"
+          },
+          {
+            "key": "github_certification_and_deployment",
+            "status": "VALIDATION_BLOCKED"
+          }
+        ]
+      }
+    },
+    "fullChromium": {
+      "jobUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079639",
+      "command": "node scripts/certification-command.mjs test:e2e -- --project=chromium --phase1-catalog",
+      "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+      "startedAt": "2026-10-10T22:34:16.445Z",
+      "endedAt": "2026-10-10T22:50:22.171Z",
+      "durationMs": 965726.3180000001,
+      "expected": 139,
+      "passed": 139,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "retries": 0,
+      "stages": [
+        {
+          "stage": "storefront-variant-target",
+          "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/storefront-browsing.spec.ts",
+            "--grep=product detail page displays store",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/storefront-variant-target",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 1,
+          "testsPassed": 1,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 7039,
+          "status": "PASS"
+        },
+        {
+          "stage": "storefront-product-detail",
+          "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/storefront-product-detail.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/storefront-product-detail",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 4,
+          "testsPassed": 4,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 8930,
+          "status": "PASS"
+        },
+        {
+          "stage": "catalog-1440",
+          "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/store-product-catalog.spec.ts",
+            "tests/e2e/catalog-administration.spec.ts",
+            "--grep=1440px",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/catalog-1440",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 2,
+          "testsPassed": 2,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 22880,
+          "status": "PASS"
+        },
+        {
+          "stage": "catalog-both",
+          "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/store-product-catalog.spec.ts",
+            "tests/e2e/catalog-administration.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/catalog-both",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 4,
+          "testsPassed": 4,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 40515,
+          "status": "PASS"
+        },
+        {
+          "stage": "employee-1440",
+          "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/business-employee-access.spec.ts",
+            "--grep=1440px",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/employee-1440",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 1,
+          "testsPassed": 1,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 12528,
+          "status": "PASS"
+        },
+        {
+          "stage": "employee-both",
+          "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "tests/e2e/business-employee-access.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/employee-both",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 2,
+          "testsPassed": 2,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 18613,
+          "status": "PASS"
+        },
+        {
+          "stage": "full-chromium",
+          "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+          "command": [
+            "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+            "node_modules/playwright/cli.js",
+            "test",
+            "--project=chromium",
+            "--retries=0",
+            "--workers=1",
+            "--output=test-results/full-chromium",
+            "--reporter=list,json"
+          ],
+          "exitCode": 0,
+          "expectedTests": 139,
+          "testsPassed": 139,
+          "skipped": 0,
+          "flaky": 0,
+          "durationMs": 966315,
+          "status": "PASS"
+        }
+      ],
+      "cases": [
+        {
+          "file": "anonymous-courier-quote.spec.ts",
+          "line": 4,
+          "title": "anonymous canonical courier quote, private ownership and signed-in booking at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3550,
+              "startedAt": "2026-10-10T22:34:20.439Z"
+            }
+          ]
+        },
+        {
+          "file": "anonymous-courier-quote.spec.ts",
+          "line": 4,
+          "title": "anonymous canonical courier quote, private ownership and signed-in booking at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4095,
+              "startedAt": "2026-10-10T22:34:24.185Z"
+            }
+          ]
+        },
+        {
+          "file": "business-employee-access.spec.ts",
+          "line": 15,
+          "title": "owner manages a products-only employee through invitation and access lifecycle at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 8181,
+              "startedAt": "2026-10-10T22:34:28.311Z"
+            }
+          ]
+        },
+        {
+          "file": "business-employee-access.spec.ts",
+          "line": 15,
+          "title": "owner manages a products-only employee through invitation and access lifecycle at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 6479,
+              "startedAt": "2026-10-10T22:34:36.506Z"
+            }
+          ]
+        },
+        {
+          "file": "catalog-administration.spec.ts",
+          "line": 35,
+          "title": "catalog moderation preserves history and replays uncertain native actions at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 8825,
+              "startedAt": "2026-10-10T22:34:43.036Z"
+            }
+          ]
+        },
+        {
+          "file": "catalog-administration.spec.ts",
+          "line": 35,
+          "title": "catalog moderation preserves history and replays uncertain native actions at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7983,
+              "startedAt": "2026-10-10T22:34:51.870Z"
+            }
+          ]
+        },
+        {
+          "file": "catalog-inventory-upload.spec.ts",
+          "line": 7,
+          "title": "native vendor CSV stock receipt with scoped preview and replay at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2353,
+              "startedAt": "2026-10-10T22:34:59.873Z"
+            }
+          ]
+        },
+        {
+          "file": "catalog-inventory-upload.spec.ts",
+          "line": 7,
+          "title": "native vendor CSV stock receipt with scoped preview and replay at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2074,
+              "startedAt": "2026-10-10T22:35:02.236Z"
+            }
+          ]
+        },
+        {
+          "file": "cod-custody-remittance.spec.ts",
+          "line": 9,
+          "title": "native synthetic COD deposit, custody and independent remittance at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4767,
+              "startedAt": "2026-10-10T22:35:04.482Z"
+            }
+          ]
+        },
+        {
+          "file": "cod-custody-remittance.spec.ts",
+          "line": 9,
+          "title": "native synthetic COD deposit, custody and independent remittance at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3872,
+              "startedAt": "2026-10-10T22:35:09.263Z"
+            }
+          ]
+        },
+        {
+          "file": "commission-finance-admin.spec.ts",
+          "line": 10,
+          "title": "authors a store-specific draft from an explicit rate without approving it",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1396,
+              "startedAt": "2026-10-10T22:35:13.153Z"
+            }
+          ]
+        },
+        {
+          "file": "commission-finance-admin.spec.ts",
+          "line": 28,
+          "title": "persists a draft, rejects stale changes/self-approval, previews without accrual, and denies customer administration",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3403,
+              "startedAt": "2026-10-10T22:35:14.564Z"
+            }
+          ]
+        },
+        {
+          "file": "customer-identity-lifecycle.spec.ts",
+          "line": 14,
+          "title": "native customer verification, owned addresses and password reset revocation at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7064,
+              "startedAt": "2026-10-10T22:35:17.988Z"
+            }
+          ]
+        },
+        {
+          "file": "customer-identity-lifecycle.spec.ts",
+          "line": 14,
+          "title": "native customer verification, owned addresses and password reset revocation at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7137,
+              "startedAt": "2026-10-10T22:35:25.065Z"
+            }
+          ]
+        },
+        {
+          "file": "customer-wallet-refunds.spec.ts",
+          "line": 7,
+          "title": "owned wallet refund reserves and cancels exact funds with safe history at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 15107,
+              "startedAt": "2026-10-10T22:35:32.221Z"
+            }
+          ]
+        },
+        {
+          "file": "customer-wallet-refunds.spec.ts",
+          "line": 7,
+          "title": "owned wallet refund reserves and cancels exact funds with safe history at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 15770,
+              "startedAt": "2026-10-10T22:35:47.349Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-canonical-delivery.spec.ts",
+          "line": 4,
+          "title": "canonical assigned driver delivery, retry, private POD and synthetic location at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 46352,
+              "startedAt": "2026-10-10T22:36:03.138Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-canonical-delivery.spec.ts",
+          "line": 4,
+          "title": "canonical assigned driver delivery, retry, private POD and synthetic location at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 46277,
+              "startedAt": "2026-10-10T22:36:49.506Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-documents.spec.ts",
+          "line": 11,
+          "title": "driver uploads private licence evidence, replaces it and rejects foreign access at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4788,
+              "startedAt": "2026-10-10T22:37:35.805Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-documents.spec.ts",
+          "line": 11,
+          "title": "driver uploads private licence evidence, replaces it and rejects foreign access at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4172,
+              "startedAt": "2026-10-10T22:37:40.604Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-earnings-finance-admin.spec.ts",
+          "line": 10,
+          "title": "finance inspects canonical driver evidence and reversal stays locked at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3168,
+              "startedAt": "2026-10-10T22:37:44.794Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-earnings-finance-admin.spec.ts",
+          "line": 10,
+          "title": "finance inspects canonical driver evidence and reversal stays locked at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4059,
+              "startedAt": "2026-10-10T22:37:47.975Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-earnings-finance-admin.spec.ts",
+          "line": 92,
+          "title": "driver finance endpoints deny wrong roles, explicit DENY and anonymous access",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3548,
+              "startedAt": "2026-10-10T22:37:52.048Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-earnings.spec.ts",
+          "line": 14,
+          "title": "driver reads exact accrual/release history and rejects foreign earnings at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2610,
+              "startedAt": "2026-10-10T22:37:55.610Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-earnings.spec.ts",
+          "line": 14,
+          "title": "driver reads exact accrual/release history and rejects foreign earnings at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2536,
+              "startedAt": "2026-10-10T22:37:58.230Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-earnings.spec.ts",
+          "line": 51,
+          "title": "driver financial reads deny inactive eligibility, wrong roles and anonymous requests",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3908,
+              "startedAt": "2026-10-10T22:38:00.778Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-profile-onboarding.spec.ts",
+          "line": 9,
+          "title": "driver contact editing and pending onboarding persist at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2476,
+              "startedAt": "2026-10-10T22:38:04.702Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-profile-onboarding.spec.ts",
+          "line": 9,
+          "title": "driver contact editing and pending onboarding persist at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2128,
+              "startedAt": "2026-10-10T22:38:07.193Z"
+            }
+          ]
+        },
+        {
+          "file": "driver-profile-onboarding.spec.ts",
+          "line": 67,
+          "title": "non-drivers cannot read or mutate driver identity, including forged foreign IDs",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1692,
+              "startedAt": "2026-10-10T22:38:09.332Z"
+            }
+          ]
+        },
+        {
+          "file": "ledger-admin.spec.ts",
+          "line": 5,
+          "title": "authorized admin inspects accounts, filters, journal balancing, and reversal links",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2469,
+              "startedAt": "2026-10-10T22:38:11.037Z"
+            }
+          ]
+        },
+        {
+          "file": "ledger-admin.spec.ts",
+          "line": 50,
+          "title": "explicit ledger.read DENY and non-admin roles cannot access",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2232,
+              "startedAt": "2026-10-10T22:38:13.519Z"
+            }
+          ]
+        },
+        {
+          "file": "ledger-admin.spec.ts",
+          "line": 61,
+          "title": "ledger inspection has no mutation controls or visible secret material",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1333,
+              "startedAt": "2026-10-10T22:38:15.769Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 21,
+          "title": "anonymous cart persists ownership, exact server prices and its selection across reload",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1392,
+              "startedAt": "2026-10-10T22:38:17.122Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 31,
+          "title": "quantity updates persist across reload with exact recalculated totals",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 947,
+              "startedAt": "2026-10-10T22:38:18.529Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 39,
+          "title": "modifier changes apply the canonical option price",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 304,
+              "startedAt": "2026-10-10T22:38:19.492Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 46,
+          "title": "removing a line leaves a truthful empty persisted cart",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 339,
+              "startedAt": "2026-10-10T22:38:19.809Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 53,
+          "title": "authenticated claim clears the guest cookie and retains the selected line",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1041,
+              "startedAt": "2026-10-10T22:38:20.162Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 62,
+          "title": "merge combines canonical customer and guest selections by fingerprint",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1010,
+              "startedAt": "2026-10-10T22:38:21.213Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 73,
+          "title": "operation replay preserves one line and one version",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 305,
+              "startedAt": "2026-10-10T22:38:22.239Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 82,
+          "title": "another browser cannot mutate the owner's line, including a known receipt",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 362,
+              "startedAt": "2026-10-10T22:38:22.555Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-cart.spec.ts",
+          "line": 92,
+          "title": "stale mutations fail deterministically without altering the accepted quantity",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 356,
+              "startedAt": "2026-10-10T22:38:22.929Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-accessibility.spec.ts",
+          "line": 18,
+          "title": "checkout keyboard progression announces server-backed review at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1689,
+              "startedAt": "2026-10-10T22:38:23.300Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-accessibility.spec.ts",
+          "line": 18,
+          "title": "checkout keyboard progression announces server-backed review at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1610,
+              "startedAt": "2026-10-10T22:38:25.000Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-accessibility.spec.ts",
+          "line": 60,
+          "title": "server contact rejection is announced and associated with the form without progressing",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 956,
+              "startedAt": "2026-10-10T22:38:26.626Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-admin.spec.ts",
+          "line": 4,
+          "title": "admin checkout records match canonical unpaid evidence at desktop and mobile without mutation",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1590,
+              "startedAt": "2026-10-10T22:38:27.598Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-admin.spec.ts",
+          "line": 48,
+          "title": "both checkout administration API aliases deny customer, vendor and anonymous access",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1606,
+              "startedAt": "2026-10-10T22:38:29.199Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-customer.spec.ts",
+          "line": 12,
+          "title": "customer corrects and resumes an unpaid checkout without granting foreign confirmation access at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4658,
+              "startedAt": "2026-10-10T22:38:30.822Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-customer.spec.ts",
+          "line": 12,
+          "title": "customer corrects and resumes an unpaid checkout without granting foreign confirmation access at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 5730,
+              "startedAt": "2026-10-10T22:38:35.493Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 21,
+          "title": "checkout creation from active cart initializes canonical checkout reference and store groups",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 296,
+              "startedAt": "2026-10-10T22:38:41.243Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 52,
+          "title": "contact details submission persists valid contact and rejects invalid input",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 369,
+              "startedAt": "2026-10-10T22:38:41.552Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 104,
+          "title": "delivery address submission updates checkout address snapshot and rejects client fee manipulation",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 353,
+              "startedAt": "2026-10-10T22:38:41.935Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 146,
+          "title": "delivery quote retrieval returns source-backed quote evidence",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 326,
+              "startedAt": "2026-10-10T22:38:42.301Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 181,
+          "title": "checkout review calculates expected totals against fixture prices",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 774,
+              "startedAt": "2026-10-10T22:38:42.639Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 255,
+          "title": "review acknowledgement updates accepted state and blocks unacknowledged progression",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 442,
+              "startedAt": "2026-10-10T22:38:43.428Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 346,
+          "title": "cart or address modification invalidates previous review acknowledgement",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 421,
+              "startedAt": "2026-10-10T22:38:43.882Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 438,
+          "title": "payment preparation requires review and preserves the unpaid checkout",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 756,
+              "startedAt": "2026-10-10T22:38:44.314Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 496,
+          "title": "repeated unreviewed payment commands return the same rejection",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 282,
+              "startedAt": "2026-10-10T22:38:45.081Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 535,
+          "title": "browser return route with fake parameters does not alter payment state or confirm order",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 699,
+              "startedAt": "2026-10-10T22:38:45.375Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 574,
+          "title": "unauthorized checkout access from different context returns safe access denial",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 346,
+              "startedAt": "2026-10-10T22:38:46.087Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 11826,
+              "startedAt": "2026-10-10T22:38:46.459Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 12604,
+              "startedAt": "2026-10-10T22:38:58.299Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 10963,
+              "startedAt": "2026-10-10T22:39:10.916Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 12330,
+              "startedAt": "2026-10-10T22:39:21.889Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "title": "signed charge remains financially unchanged when independent Verify has amount mismatch",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 6510,
+              "startedAt": "2026-10-10T22:39:34.231Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "title": "signed charge remains financially unchanged when independent Verify has currency mismatch",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 6427,
+              "startedAt": "2026-10-10T22:39:40.759Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "title": "signed charge remains financially unchanged when independent Verify has unknown mismatch",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 6342,
+              "startedAt": "2026-10-10T22:39:47.199Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "title": "signed charge remains financially unchanged when independent Verify has reference mismatch",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 6206,
+              "startedAt": "2026-10-10T22:39:53.552Z"
+            }
+          ]
+        },
+        {
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 194,
+          "title": "signed incorrect amounts and currency cannot override independent correct provider facts",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 6566,
+              "startedAt": "2026-10-10T22:39:59.768Z"
+            }
+          ]
+        },
+        {
+          "file": "production-closure.spec.ts",
+          "line": 3,
+          "title": "anonymous quote copy and form semantics work on desktop and mobile",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3033,
+              "startedAt": "2026-10-10T22:40:06.349Z"
+            }
+          ]
+        },
+        {
+          "file": "production-closure.spec.ts",
+          "line": 21,
+          "title": "protected readiness, parcel and marketplace configuration surfaces enforce roles and expose safe gates",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2201,
+              "startedAt": "2026-10-10T22:40:09.393Z"
+            }
+          ]
+        },
+        {
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "title": "public and protected headings and navigation fit the viewport at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4494,
+              "startedAt": "2026-10-10T22:40:11.613Z"
+            }
+          ]
+        },
+        {
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "title": "public and protected headings and navigation fit the viewport at 1366px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4244,
+              "startedAt": "2026-10-10T22:40:16.118Z"
+            }
+          ]
+        },
+        {
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "title": "public and protected headings and navigation fit the viewport at 768px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3956,
+              "startedAt": "2026-10-10T22:40:20.375Z"
+            }
+          ]
+        },
+        {
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "title": "public and protected headings and navigation fit the viewport at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3756,
+              "startedAt": "2026-10-10T22:40:24.344Z"
+            }
+          ]
+        },
+        {
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "title": "customer owns upload, replacement and revoked removal at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 8854,
+              "startedAt": "2026-10-10T22:40:28.124Z"
+            }
+          ]
+        },
+        {
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "title": "customer owns upload, replacement and revoked removal at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7454,
+              "startedAt": "2026-10-10T22:40:36.988Z"
+            }
+          ]
+        },
+        {
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "title": "store owns upload, replacement and revoked removal at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 8164,
+              "startedAt": "2026-10-10T22:40:44.455Z"
+            }
+          ]
+        },
+        {
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "title": "store owns upload, replacement and revoked removal at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7605,
+              "startedAt": "2026-10-10T22:40:52.633Z"
+            }
+          ]
+        },
+        {
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "title": "driver owns upload, replacement and revoked removal at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 8219,
+              "startedAt": "2026-10-10T22:41:00.249Z"
+            }
+          ]
+        },
+        {
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "title": "driver owns upload, replacement and revoked removal at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7610,
+              "startedAt": "2026-10-10T22:41:08.483Z"
+            }
+          ]
+        },
+        {
+          "file": "refund-finance-admin.spec.ts",
+          "line": 7,
+          "title": "distinct finance actors complete wallet once and retain Paystack uncertainty at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 20993,
+              "startedAt": "2026-10-10T22:41:16.110Z"
+            }
+          ]
+        },
+        {
+          "file": "refund-finance-admin.spec.ts",
+          "line": 7,
+          "title": "distinct finance actors complete wallet once and retain Paystack uncertainty at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 20994,
+              "startedAt": "2026-10-10T22:41:37.120Z"
+            }
+          ]
+        },
+        {
+          "file": "store-branding-lifecycle.spec.ts",
+          "line": 15,
+          "title": "native store logo and cover replacement, replay and revocation at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 11797,
+              "startedAt": "2026-10-10T22:41:58.130Z"
+            }
+          ]
+        },
+        {
+          "file": "store-branding-lifecycle.spec.ts",
+          "line": 15,
+          "title": "native store logo and cover replacement, replay and revocation at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 10812,
+              "startedAt": "2026-10-10T22:42:09.940Z"
+            }
+          ]
+        },
+        {
+          "file": "store-catalog-draft-isolation.spec.ts",
+          "line": 20,
+          "title": "catalog drafts stay with their authenticated owner/store at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 5292,
+              "startedAt": "2026-10-10T22:42:20.768Z"
+            }
+          ]
+        },
+        {
+          "file": "store-catalog-draft-isolation.spec.ts",
+          "line": 20,
+          "title": "catalog drafts stay with their authenticated owner/store at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4495,
+              "startedAt": "2026-10-10T22:42:26.071Z"
+            }
+          ]
+        },
+        {
+          "file": "store-earnings-finance-admin.spec.ts",
+          "line": 8,
+          "title": "finance inspects store evidence and retains refused reversal input at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4424,
+              "startedAt": "2026-10-10T22:42:30.584Z"
+            }
+          ]
+        },
+        {
+          "file": "store-earnings-finance-admin.spec.ts",
+          "line": 8,
+          "title": "finance inspects store evidence and retains refused reversal input at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4562,
+              "startedAt": "2026-10-10T22:42:35.020Z"
+            }
+          ]
+        },
+        {
+          "file": "store-earnings-finance-admin.spec.ts",
+          "line": 71,
+          "title": "store finance denies wrong roles, explicit DENY and anonymous access",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3691,
+              "startedAt": "2026-10-10T22:42:39.594Z"
+            }
+          ]
+        },
+        {
+          "file": "store-earnings.spec.ts",
+          "line": 8,
+          "title": "store owner inspects exact accrued/released evidence and denies foreign records at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2829,
+              "startedAt": "2026-10-10T22:42:43.300Z"
+            }
+          ]
+        },
+        {
+          "file": "store-earnings.spec.ts",
+          "line": 8,
+          "title": "store owner inspects exact accrued/released evidence and denies foreign records at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2518,
+              "startedAt": "2026-10-10T22:42:46.140Z"
+            }
+          ]
+        },
+        {
+          "file": "store-earnings.spec.ts",
+          "line": 42,
+          "title": "store earning endpoints deny accounts without business finance access and anonymous requests",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2909,
+              "startedAt": "2026-10-10T22:42:48.670Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical accessibility store-order journey at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 13810,
+              "startedAt": "2026-10-10T22:42:51.618Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical accessibility store-order journey at 768px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 11553,
+              "startedAt": "2026-10-10T22:43:05.437Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical accessibility store-order journey at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 13395,
+              "startedAt": "2026-10-10T22:43:17.002Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical accessibility store-order journey at 320px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 12942,
+              "startedAt": "2026-10-10T22:43:30.412Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical admin store-order journey at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 10467,
+              "startedAt": "2026-10-10T22:43:43.370Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical admin store-order journey at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 11330,
+              "startedAt": "2026-10-10T22:43:53.851Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical customer store-order journey at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 14053,
+              "startedAt": "2026-10-10T22:44:05.204Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical customer store-order journey at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 14768,
+              "startedAt": "2026-10-10T22:44:19.267Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical handoff store-order journey at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 26978,
+              "startedAt": "2026-10-10T22:44:34.051Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical handoff store-order journey at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 27173,
+              "startedAt": "2026-10-10T22:45:01.040Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical merchant store-order journey at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 25820,
+              "startedAt": "2026-10-10T22:45:28.229Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical merchant store-order journey at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 27155,
+              "startedAt": "2026-10-10T22:45:54.061Z"
+            }
+          ]
+        },
+        {
+          "file": "store-order-positive-substitution.spec.ts",
+          "line": 7,
+          "title": "native owned replacement approval and exact original-method refund at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 18983,
+              "startedAt": "2026-10-10T22:46:21.235Z"
+            }
+          ]
+        },
+        {
+          "file": "store-order-positive-substitution.spec.ts",
+          "line": 7,
+          "title": "native owned replacement approval and exact original-method refund at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 20059,
+              "startedAt": "2026-10-10T22:46:40.228Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical substitution store-order journey at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 12160,
+              "startedAt": "2026-10-10T22:47:00.301Z"
+            }
+          ]
+        },
+        {
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "title": "canonical substitution store-order journey at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 13168,
+              "startedAt": "2026-10-10T22:47:12.470Z"
+            }
+          ]
+        },
+        {
+          "file": "store-product-catalog.spec.ts",
+          "line": 12,
+          "title": "store saves a complete listing atomically and replays a lost confirmation at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 8595,
+              "startedAt": "2026-10-10T22:47:25.664Z"
+            }
+          ]
+        },
+        {
+          "file": "store-product-catalog.spec.ts",
+          "line": 12,
+          "title": "store saves a complete listing atomically and replays a lost confirmation at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 10778,
+              "startedAt": "2026-10-10T22:47:34.273Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-accessibility.spec.ts",
+          "line": 4,
+          "title": "product quantity controls work with keyboard and announce persisted cart at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1841,
+              "startedAt": "2026-10-10T22:47:45.070Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-accessibility.spec.ts",
+          "line": 4,
+          "title": "product quantity controls work with keyboard and announce persisted cart at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1583,
+              "startedAt": "2026-10-10T22:47:46.923Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-admin.spec.ts",
+          "line": 17,
+          "title": "admin authors and reviews canonical collection and synonym controls at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 6636,
+              "startedAt": "2026-10-10T22:47:48.522Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-admin.spec.ts",
+          "line": 17,
+          "title": "admin authors and reviews canonical collection and synonym controls at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7338,
+              "startedAt": "2026-10-10T22:47:55.170Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-admin.spec.ts",
+          "line": 88,
+          "title": "projection controls reject public overrides and unsupported manual rebuild without changing evidence",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1572,
+              "startedAt": "2026-10-10T22:48:02.524Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-admin.spec.ts",
+          "line": 109,
+          "title": "storefront admin APIs enforce role, anonymous and explicit DENY controls",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3056,
+              "startedAt": "2026-10-10T22:48:04.109Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-browsing.spec.ts",
+          "line": 13,
+          "title": "untrusted lock headers cannot change the canonical exposure decision",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 849,
+              "startedAt": "2026-10-10T22:48:07.184Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-browsing.spec.ts",
+          "line": 21,
+          "title": "safely activated state renders canonical storefront heading and source-backed content",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 802,
+              "startedAt": "2026-10-10T22:48:08.050Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-browsing.spec.ts",
+          "line": 43,
+          "title": "search filters known products by query and reflects normalized query state in URL",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1333,
+              "startedAt": "2026-10-10T22:48:08.866Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-browsing.spec.ts",
+          "line": 60,
+          "title": "category browsing displays category hierarchy, breadcrumbs and eligible products",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2134,
+              "startedAt": "2026-10-10T22:48:10.211Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-browsing.spec.ts",
+          "line": 82,
+          "title": "product detail page displays store, variant selection, price and handles variant changes",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2218,
+              "startedAt": "2026-10-10T22:48:12.358Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-browsing.spec.ts",
+          "line": 109,
+          "title": "store detail page renders public store identity and eligible catalog items without private fields",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1432,
+              "startedAt": "2026-10-10T22:48:14.590Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-browsing.spec.ts",
+          "line": 127,
+          "title": "media fallback presents neutral image placeholder for products without media",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 768,
+              "startedAt": "2026-10-10T22:48:16.038Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-product-detail.spec.ts",
+          "line": 3,
+          "title": "keyboard variant navigation changes the canonical price without mutating the cart",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1504,
+              "startedAt": "2026-10-10T22:48:16.826Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-product-detail.spec.ts",
+          "line": 23,
+          "title": "missing product media retains a visible gallery frame at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 876,
+              "startedAt": "2026-10-10T22:48:18.342Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-product-detail.spec.ts",
+          "line": 23,
+          "title": "missing product media retains a visible gallery frame at 768px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 814,
+              "startedAt": "2026-10-10T22:48:19.239Z"
+            }
+          ]
+        },
+        {
+          "file": "storefront-product-detail.spec.ts",
+          "line": 43,
+          "title": "short desktop purchase rail reveals keyboard-focused cart actions",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 1230,
+              "startedAt": "2026-10-10T22:48:20.064Z"
+            }
+          ]
+        },
+        {
+          "file": "transactional-notifications.spec.ts",
+          "line": 16,
+          "title": "owned paid, store and refund inbox, preferences and revocation at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 19057,
+              "startedAt": "2026-10-10T22:48:21.317Z"
+            }
+          ]
+        },
+        {
+          "file": "transactional-notifications.spec.ts",
+          "line": 16,
+          "title": "owned paid, store and refund inbox, preferences and revocation at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 20625,
+              "startedAt": "2026-10-10T22:48:40.383Z"
+            }
+          ]
+        },
+        {
+          "file": "trusted-parcel-classification.spec.ts",
+          "line": 44,
+          "title": "independent measured packaging governance and canonical quotes at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 21134,
+              "startedAt": "2026-10-10T22:49:01.029Z"
+            }
+          ]
+        },
+        {
+          "file": "trusted-parcel-classification.spec.ts",
+          "line": 44,
+          "title": "independent measured packaging governance and canonical quotes at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 29430,
+              "startedAt": "2026-10-10T22:49:22.175Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-finance-admin.spec.ts",
+          "line": 32,
+          "title": "finance reviews, rejects with released capacity and investigates an uncertain payout at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 7269,
+              "startedAt": "2026-10-10T22:49:51.628Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-finance-admin.spec.ts",
+          "line": 32,
+          "title": "finance reviews, rejects with released capacity and investigates an uncertain payout at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 5215,
+              "startedAt": "2026-10-10T22:49:58.917Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-finance-admin.spec.ts",
+          "line": 130,
+          "title": "withdrawal finance reads and mutations deny wrong roles, explicit DENY and anonymous accounts",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 3869,
+              "startedAt": "2026-10-10T22:50:04.143Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "title": "store owner reserves, retries a lost response, cancels and inspects masked destinations at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2502,
+              "startedAt": "2026-10-10T22:50:08.029Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "title": "store owner reserves, retries a lost response, cancels and inspects masked destinations at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2234,
+              "startedAt": "2026-10-10T22:50:10.541Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "title": "driver owner reserves, retries a lost response, cancels and inspects masked destinations at 1440px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2368,
+              "startedAt": "2026-10-10T22:50:12.789Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "title": "driver owner reserves, retries a lost response, cancels and inspects masked destinations at 390px",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 2190,
+              "startedAt": "2026-10-10T22:50:15.168Z"
+            }
+          ]
+        },
+        {
+          "file": "withdrawal-owner.spec.ts",
+          "line": 94,
+          "title": "withdrawal owner endpoints conceal foreign records and deny ineligible, unsupported and anonymous accounts",
+          "project": "chromium",
+          "expectedStatus": "passed",
+          "status": "expected",
+          "attempts": [
+            {
+              "status": "passed",
+              "retry": 0,
+              "durationMs": 4206,
+              "startedAt": "2026-10-10T22:50:17.369Z"
+            }
+          ]
+        }
+      ]
+    },
+    "canonicalPostgreSql": {
+      "jobUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079639",
+      "command": "Canonical store PostgreSQL acceptance with verified Paystack source",
+      "sourceSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+      "startedAt": "2026-10-10T22:51:02.745Z",
+      "endedAt": "2026-10-10T22:57:02.481Z",
+      "expected": 41,
+      "passed": 41,
+      "failed": 0,
+      "pending": 0,
+      "todo": 0,
+      "files": 19,
+      "assertions": [
+        {
+          "file": "tests/integration/cod-canonical-postgres.integration.test.ts",
+          "name": "canonical offline 50/50 COD custody and shortage persistence retains shortage remittance as a balanced suspense obligation with exact replay",
+          "status": "passed",
+          "durationMs": 1304.9956630000001
+        },
+        {
+          "file": "tests/integration/cod-canonical-postgres.integration.test.ts",
+          "name": "canonical offline 50/50 COD custody and shortage persistence retains zero remittance as a balanced suspense obligation with exact replay",
+          "status": "passed",
+          "durationMs": 827.165935
+        },
+        {
+          "file": "tests/integration/cod-canonical-postgres.integration.test.ts",
+          "name": "canonical offline 50/50 COD custody and shortage persistence rejects cancelled collection and over-limit booking, and replays failed cash attempts without a journal",
+          "status": "passed",
+          "durationMs": 985.4437759999996
+        },
+        {
+          "file": "tests/integration/driver-canonical-delivery.integration.test.ts",
+          "name": "canonical PostgreSQL driver delivery persists OTP, private proof, attempt and immutable command receipts",
+          "status": "passed",
+          "durationMs": 41214.548641
+        },
+        {
+          "file": "tests/integration/marketplace-order.integration.test.ts",
+          "name": "Phase 20 PostgreSQL marketplace order scenarios freezes separate stores, modifier quantities and commission versions from one verified payment",
+          "status": "passed",
+          "durationMs": 7413.539355
+        },
+        {
+          "file": "tests/integration/marketplace-paystack-residual.integration.test.ts",
+          "name": "Paystack residual canonical PostgreSQL acceptance freezes exact 0.01 seller basis and rounded commission without drift",
+          "status": "passed",
+          "durationMs": 6406.624239
+        },
+        {
+          "file": "tests/integration/marketplace-paystack-residual.integration.test.ts",
+          "name": "Paystack residual canonical PostgreSQL acceptance freezes exact 0.02 seller basis and rounded commission without drift",
+          "status": "passed",
+          "durationMs": 5913.168603
+        },
+        {
+          "file": "tests/integration/marketplace-paystack-residual.integration.test.ts",
+          "name": "Paystack residual canonical PostgreSQL acceptance freezes exact 0.03 seller basis and rounded commission without drift",
+          "status": "passed",
+          "durationMs": 5987.531162999998
+        },
+        {
+          "file": "tests/integration/marketplace-paystack-residual.integration.test.ts",
+          "name": "Paystack residual canonical PostgreSQL acceptance freezes exact 9000000.01 seller basis and rounded commission without drift",
+          "status": "passed",
+          "durationMs": 6093.9204919999975
+        },
+        {
+          "file": "tests/integration/marketplace-paystack-residual.integration.test.ts",
+          "name": "Paystack residual canonical PostgreSQL acceptance replays reservation and payment commands while rejecting changed command hashes",
+          "status": "passed",
+          "durationMs": 3500.545025000003
+        },
+        {
+          "file": "tests/integration/marketplace-paystack-residual.integration.test.ts",
+          "name": "Paystack residual canonical PostgreSQL acceptance rejects an expired quote before first provider initialization and financial writes",
+          "status": "passed",
+          "durationMs": 3089.8383969999995
+        },
+        {
+          "file": "tests/integration/marketplace-refund-boundary-canonical.integration.test.ts",
+          "name": "only persisted bounded store reversal evidence funds a partial settled-store refund",
+          "status": "passed",
+          "durationMs": 8070.59438
+        },
+        {
+          "file": "tests/integration/marketplace-refund-boundary-canonical.integration.test.ts",
+          "name": "verified guest reserves and pays only from the separate canonical original-method liability",
+          "status": "passed",
+          "durationMs": 5548.805516999999
+        },
+        {
+          "file": "tests/integration/marketplace-settlement.integration.test.ts",
+          "name": "Phase 20 PostgreSQL marketplace settlement scenarios posts frozen commission and seller earning once from canonical paid source without payout",
+          "status": "passed",
+          "durationMs": 9593.898345
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority reserves partial amounts atomically, denies actor/hash replay, completes exact wallet credit and conserves the cumulative paid ceiling",
+          "status": "passed",
+          "durationMs": 8043.652035
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority definitively failed partial provider attempts retain reserves, retry once with a new operation, and replay success without another provider call",
+          "status": "passed",
+          "durationMs": 6424.413920999999
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority pending cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6335.0032790000005
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority needs-attention cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6320.332188
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority unrecognized cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6297.166805000004
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority network-loss cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6139.7182230000035
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority rate-limit cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6189.641844999998
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority wrong-amount cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6169.751164999994
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority wrong-currency cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6117.758483999998
+        },
+        {
+          "file": "tests/integration/refund-canonical-postgres.integration.test.ts",
+          "name": "signed Paystack source → canonical refund PostgreSQL authority wrong-reference cannot release a canonical partial reservation or post a payout without verified processed facts",
+          "status": "passed",
+          "durationMs": 6417.557947999994
+        },
+        {
+          "file": "tests/integration/store-financial-recovery-canonical-postgres.integration.test.ts",
+          "name": "canonical settled-store financial reversal recovery persists bounded reversals before the refund lock, retries without duplicate money and recovers through one canonical reservation and payout",
+          "status": "passed",
+          "durationMs": 8364.246336
+        },
+        {
+          "file": "tests/integration/store-full-cancellation-canonical-postgres.integration.test.ts",
+          "name": "full unstarted cancellation with canonical payment, stock and refund evidence composes rejection from remaining frozen allocations and refunds the unearned fee once",
+          "status": "passed",
+          "durationMs": 9905.890999000001
+        },
+        {
+          "file": "tests/integration/store-full-cancellation-canonical-postgres.integration.test.ts",
+          "name": "full unstarted cancellation with canonical payment, stock and refund evidence composes customer from remaining frozen allocations and refunds the unearned fee once",
+          "status": "passed",
+          "durationMs": 10161.683463000001
+        },
+        {
+          "file": "tests/integration/store-full-cancellation-canonical-postgres.integration.test.ts",
+          "name": "full unstarted cancellation with canonical payment, stock and refund evidence composes shortage from remaining frozen allocations and refunds the unearned fee once",
+          "status": "passed",
+          "durationMs": 9733.716655
+        },
+        {
+          "file": "tests/integration/store-full-cancellation-canonical-postgres.integration.test.ts",
+          "name": "full unstarted cancellation with canonical payment, stock and refund evidence keeps accepted cancellation pending review and preserves its courier and stock obligations",
+          "status": "passed",
+          "durationMs": 8444.581850999999
+        },
+        {
+          "file": "tests/integration/store-order-acceptance.integration.test.ts",
+          "name": "store-order acceptance: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 8935.921312
+        },
+        {
+          "file": "tests/integration/store-order-adjustment.integration.test.ts",
+          "name": "store-order adjustment: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 9591.712792
+        },
+        {
+          "file": "tests/integration/store-order-delivery-bridge.integration.test.ts",
+          "name": "store-order delivery-bridge: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 9854.101477
+        },
+        {
+          "file": "tests/integration/store-order-handoff.integration.test.ts",
+          "name": "store-order handoff: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 19827.413145
+        },
+        {
+          "file": "tests/integration/store-order-invariants.integration.test.ts",
+          "name": "store-order invariants: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 9669.527158
+        },
+        {
+          "file": "tests/integration/store-order-inventory.integration.test.ts",
+          "name": "store-order inventory: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 9815.479886
+        },
+        {
+          "file": "tests/integration/store-order-reconciliation.integration.test.ts",
+          "name": "store-order reconciliation: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 9876.170302
+        },
+        {
+          "file": "tests/integration/store-order-refund.integration.test.ts",
+          "name": "store-order refund: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 10455.150049
+        },
+        {
+          "file": "tests/integration/store-order-substitution.integration.test.ts",
+          "name": "store-order substitution: canonical PostgreSQL persistence executes canonical verified payment and domain transitions without financial state fabrication",
+          "status": "passed",
+          "durationMs": 13281.430576
+        },
+        {
+          "file": "tests/integration/store-substitution-boundary-canonical.integration.test.ts",
+          "name": "canonical replacement price, expiry and zero-value boundaries persists equal replacement decisions without extra money or stranded stock",
+          "status": "passed",
+          "durationMs": 8866.518426
+        },
+        {
+          "file": "tests/integration/store-substitution-boundary-canonical.integration.test.ts",
+          "name": "canonical replacement price, expiry and zero-value boundaries persists stale replacement decisions without extra money or stranded stock",
+          "status": "passed",
+          "durationMs": 9847.276326
+        },
+        {
+          "file": "tests/integration/store-substitution-boundary-canonical.integration.test.ts",
+          "name": "canonical replacement price, expiry and zero-value boundaries persists expiry replacement decisions without extra money or stranded stock",
+          "status": "passed",
+          "durationMs": 9147.837563000001
+        }
+      ],
+      "verificationReceipt": {
+        "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+        "durationMs": 4612,
+        "exitCode": 0,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "testsSkipped": 0,
+        "testsTodo": 0,
+        "status": "PASS",
+        "database": "kt_phase75_e2e",
+        "projectName": "kt-couriers-e2e-1791671375890-37365"
+      },
+      "signedAndUnknownIngressPostgres": {
+        "numTotalTestSuites": 2,
+        "numPassedTestSuites": 2,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 0,
+        "numTotalTests": 2,
+        "numPassedTests": 2,
+        "numFailedTests": 0,
+        "numPendingTests": 0,
+        "numTodoTests": 0,
+        "snapshot": {
+          "added": 0,
+          "failure": false,
+          "filesAdded": 0,
+          "filesRemoved": 0,
+          "filesRemovedList": [],
+          "filesUnmatched": 0,
+          "filesUpdated": 0,
+          "matched": 0,
+          "total": 0,
+          "unchecked": 0,
+          "uncheckedKeysByFile": [],
+          "unmatched": 0,
+          "updated": 0,
+          "didUpdate": false
+        },
+        "startTime": 1791671414788,
+        "success": true,
+        "testResults": [
+          {
+            "assertionResults": [
+              {
+                "ancestorTitles": [
+                  "canonical Paystack real PostgreSQL acceptance"
+                ],
+                "fullName": "canonical Paystack real PostgreSQL acceptance persists success through signed intake, independent Verify and canonical effects",
+                "status": "passed",
+                "title": "persists success through signed intake, independent Verify and canonical effects",
+                "duration": 2068.2943779999996,
+                "failureMessages": [],
+                "meta": {},
+                "tags": []
+              },
+              {
+                "ancestorTitles": [
+                  "canonical Paystack real PostgreSQL acceptance"
+                ],
+                "fullName": "canonical Paystack real PostgreSQL acceptance persists unknown through signed intake, independent Verify and canonical effects",
+                "status": "passed",
+                "title": "persists unknown through signed intake, independent Verify and canonical effects",
+                "duration": 852.4312020000002,
+                "failureMessages": [],
+                "meta": {},
+                "tags": []
+              }
+            ],
+            "startTime": 1791671416113,
+            "endTime": 1791671419033.4312,
+            "status": "passed",
+            "message": "",
+            "name": "/home/runner/work/KT-Courier/KT-Courier/tests/integration/marketplace-payment.integration.test.ts"
+          }
+        ]
+      }
+    },
+    "additionalBrowserEvidence": {
+      "directed42": {
+        "report": "output/production-closure/new-phase1/hosted-365/certification-browser-reports/test-e2e-phase2-3-directed.json"
+      },
+      "finance3": {
+        "report": "output/production-closure/new-phase1/hosted-365/certification-browser-reports/test-e2e-finance-focused.json"
+      },
+      "offlinePaystack9": {
+        "report": "output/production-closure/new-phase1/hosted-365/certification-browser-reports/test-e2e-paystack-focused.json"
+      }
+    },
+    "quality": {
+      "coverageReport": {
+        "command": "test:coverage",
+        "arguments": [],
+        "commitSha": "3655a53e8a595c4c89dbf9891578961dec195292",
+        "durationMs": 96895,
+        "exitCode": 0,
+        "testFilesPassed": 792,
+        "testsPassed": 3734,
+        "testsFailed": 0,
+        "testsSkipped": 0,
+        "testsFlaky": 0,
+        "executions": [
+          {
+            "runner": "vitest",
+            "testFiles": {
+              "passed": 792,
+              "failed": 0,
+              "skipped": 0,
+              "todo": 0,
+              "pending": 0,
+              "flaky": 0
+            },
+            "passed": 3734,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "pending": 0,
+            "flaky": 0
+          }
+        ],
+        "skippedCriticalTestsDetected": false,
+        "flakyCriticalTestsDetected": false,
+        "status": "PASS"
+      },
+      "coverageTests": 3734,
+      "coverageFiles": 792,
+      "paymentTests": 343,
+      "refundTests": 115,
+      "bolaTests": 23,
+      "processorTests": 23,
+      "scriptContracts": 29
+    }
+  },
+  "migrationsAndRecovery": {
+    "activeMigrations": 80,
+    "incrementsFromProductionBaseline": 79,
+    "archivedMigrationFiles": 8,
+    "historicalChecksumsCompared": 62,
+    "existingChecksumsChanged": false,
+    "newForwardMigration": "20261010090000_guest_refund_journal_authority",
+    "localDisposableRecovery": {
+      "source": "DISPOSABLE_FIXTURES",
+      "dumpRestore": "PASS",
+      "historicalUpgrade": "PASS",
+      "protectedProductionDataTouched": false,
+      "fixtureCountsAndHashes": "MATCH",
+      "ledgerInvariants": "PASS"
+    },
+    "hostedRecoveryJobUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38090587426/job/114326079758",
+    "proof": "Synthetic database restore compared complete row counts and hashes; balanced immutable ledger and historical migration checks passed. This is not production backup/RPO/RTO acceptance."
+  },
+  "isolationAndSafety": {
+    "environments": [
+      "OFFLINE_OR_GENERATED_DISPOSABLE",
+      "GITHUB_NONPRODUCTION_DISPOSABLE_OR_OFFLINE",
+      "NAMED_NETWORK_ISOLATED_E2E_POSTGRES"
+    ],
+    "protectedProductionRowsRead": false,
+    "productionMutation": false,
+    "realProviderCalls": false,
+    "realMoneyMoved": false,
+    "customerMessagesSent": false,
+    "railwayPatchAction": "NONE",
+    "sourceProductionParityClaimed": false,
+    "localDockerAtPublication": "Unavailable; Docker Desktop reported no Linux engine endpoint and its manual Windows service remained stopped after a sanitized local startup attempt.",
+    "topology": {
+      "observedAt": "2026-10-10T21:38:46Z",
+      "scope": "Sanitized read-only infrastructure metadata; no production rows or variable values; no mutation",
+      "railway": {
+        "projectId": "e9554aaa-1b53-4595-8731-e8c2885ac594",
+        "environment": {
+          "id": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+          "name": "production"
+        },
+        "summary": {
+          "totalServices": 4,
+          "servicesWithIssues": 0,
+          "totalFailures": 0
+        },
+        "services": [
+          {
+            "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+            "state": "online",
+            "replicas": {
+              "running": 1,
+              "crashed": 0,
+              "total": 1
+            },
+            "activeDeployments": [
+              {
+                "id": "8220e084-6ad3-4467-b3d8-65afe8fe29ff",
+                "status": "SUCCESS",
+                "createdAt": "2026-10-06T21:07:20.323Z",
+                "statusUpdatedAt": "2026-10-06T21:08:50.059Z"
+              }
+            ]
+          },
+          {
+            "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+            "state": "online",
+            "replicas": {
+              "running": 1,
+              "crashed": 0,
+              "total": 1
+            },
+            "activeDeployments": [
+              {
+                "id": "49d872d9-7fdb-442c-a4a4-cd01b70ff82f",
+                "status": "SUCCESS",
+                "createdAt": "2026-10-06T21:07:19.791Z",
+                "statusUpdatedAt": "2026-10-06T21:10:56.128Z"
+              }
+            ]
+          },
+          {
+            "serviceId": "288108fd-cdd8-4548-bdf1-48400ecc0f40",
+            "state": "online",
+            "replicas": {
+              "running": 1,
+              "crashed": 0,
+              "total": 1
+            },
+            "activeDeployments": [
+              {
+                "id": "9ab83cf2-455b-457c-a26d-6408a5dbcf54",
+                "status": "SUCCESS",
+                "createdAt": "2026-09-19T21:01:48.814Z",
+                "statusUpdatedAt": "2026-09-19T21:01:55.237Z"
+              }
+            ]
+          },
+          {
+            "serviceId": "85d40ee8-2135-4e18-a573-0e4d67483e04",
+            "state": "online",
+            "replicas": {
+              "running": 1,
+              "crashed": 0,
+              "total": 1
+            },
+            "activeDeployments": [
+              {
+                "id": "9324de4d-e667-45ba-8233-32181fa26ec8",
+                "status": "SUCCESS",
+                "createdAt": "2026-09-19T21:01:48.814Z",
+                "statusUpdatedAt": "2026-09-19T21:01:54.438Z"
+              }
+            ]
+          }
+        ],
+        "deployments": [
+          {
+            "id": "8220e084-6ad3-4467-b3d8-65afe8fe29ff",
+            "status": "SUCCESS",
+            "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+            "createdAt": "2026-10-06T21:07:20.323Z",
+            "branch": "main",
+            "sourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+          },
+          {
+            "id": "49d872d9-7fdb-442c-a4a4-cd01b70ff82f",
+            "status": "SUCCESS",
+            "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+            "createdAt": "2026-10-06T21:07:19.791Z",
+            "branch": "main",
+            "sourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+          },
+          {
+            "id": "ff284931-f842-41bc-9651-42b70562a6f7",
+            "status": "REMOVED",
+            "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+            "createdAt": "2026-10-06T21:05:14.173Z",
+            "branch": "fix/remaining-readiness",
+            "sourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+          },
+          {
+            "id": "6be12b78-4e6c-489a-bf3f-9ee9e2d7fd3a",
+            "status": "REMOVED",
+            "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+            "createdAt": "2026-10-06T20:00:33.532Z",
+            "branch": "main",
+            "sourceSha": "7dc7317aa1952fbe2af245cae8ba5d36a4401298"
+          },
+          {
+            "id": "188ba548-c69a-4ef3-9ba1-5b64e8ae24bd",
+            "status": "REMOVED",
+            "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+            "createdAt": "2026-10-06T20:00:32.821Z",
+            "branch": "main",
+            "sourceSha": "7dc7317aa1952fbe2af245cae8ba5d36a4401298"
+          }
+        ],
+        "staged": {
+          "patchId": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+          "status": "STAGED",
+          "changeCount": 5,
+          "destructive": true,
+          "resources": [
+            {
+              "id": "a5e3c97a-c6f1-4f92-9ab9-0caf00139bbe",
+              "kind": "service",
+              "name": "paystack-credential-test",
+              "action": "create"
+            },
+            {
+              "id": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "kind": "service",
+              "name": "query-storefront-categories",
+              "action": "delete"
+            }
+          ],
+          "actionTaken": "NONE"
+        }
+      },
+      "vercel": {
+        "id": "dpl_dfSzQgjXdqSXzNhUNBXMzFcKTTUj",
+        "state": "READY",
+        "target": "production",
+        "sourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+        "branch": "main"
+      }
+    },
+    "laterRailwayRefresh": {
+      "observedAt": "2026-10-10 23:49:52 UTC",
+      "scope": "Sanitized read-only metadata; no production rows, logs, variable values or mutation",
+      "railway": [
+        {
+          "type": "environment",
+          "environment": {
+            "id": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+            "name": "production"
+          },
+          "summary": {
+            "totalServices": 4,
+            "servicesWithIssues": 0,
+            "totalFailures": 0
+          },
+          "services": [
+            {
+              "id": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "state": "online",
+              "issues": false,
+              "replicas": {
+                "running": 1,
+                "crashed": 0,
+                "total": 1
+              },
+              "activeDeployments": [
+                {
+                  "id": "8220e084-6ad3-4467-b3d8-65afe8fe29ff",
+                  "status": "SUCCESS",
+                  "createdAt": "2026-10-06T21:07:20.323Z",
+                  "statusUpdatedAt": "2026-10-06T21:08:50.059Z"
+                }
+              ]
+            },
+            {
+              "id": "55254aaf-3719-4da9-a5b6-9214417101c6",
+              "state": "online",
+              "issues": false,
+              "replicas": {
+                "running": 1,
+                "crashed": 0,
+                "total": 1
+              },
+              "activeDeployments": [
+                {
+                  "id": "49d872d9-7fdb-442c-a4a4-cd01b70ff82f",
+                  "status": "SUCCESS",
+                  "createdAt": "2026-10-06T21:07:19.791Z",
+                  "statusUpdatedAt": "2026-10-06T21:10:56.128Z"
+                }
+              ]
+            },
+            {
+              "id": "288108fd-cdd8-4548-bdf1-48400ecc0f40",
+              "state": "online",
+              "issues": false,
+              "replicas": {
+                "running": 1,
+                "crashed": 0,
+                "total": 1
+              },
+              "activeDeployments": [
+                {
+                  "id": "9ab83cf2-455b-457c-a26d-6408a5dbcf54",
+                  "status": "SUCCESS",
+                  "createdAt": "2026-09-19T21:01:48.814Z",
+                  "statusUpdatedAt": "2026-09-19T21:01:55.237Z"
+                }
+              ]
+            },
+            {
+              "id": "85d40ee8-2135-4e18-a573-0e4d67483e04",
+              "state": "online",
+              "issues": false,
+              "replicas": {
+                "running": 1,
+                "crashed": 0,
+                "total": 1
+              },
+              "activeDeployments": [
+                {
+                  "id": "9324de4d-e667-45ba-8233-32181fa26ec8",
+                  "status": "SUCCESS",
+                  "createdAt": "2026-09-19T21:01:48.814Z",
+                  "statusUpdatedAt": "2026-09-19T21:01:54.438Z"
+                }
+              ]
+            }
+          ],
+          "pendingWork": [
+            {
+              "id": "patch:9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+              "kind": "EnvironmentPatch",
+              "status": "staged"
+            }
+          ]
+        },
+        {
+          "type": "staged",
+          "destructive": true,
+          "staged": {
+            "patchId": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+            "status": "STAGED",
+            "changeCount": 5,
+            "message": null,
+            "createdAt": "2026-09-20T09:05:13.809Z",
+            "updatedAt": "2026-09-20T22:45:07.177Z"
+          },
+          "resources": [
+            {
+              "id": "a5e3c97a-c6f1-4f92-9ab9-0caf00139bbe",
+              "name": "paystack-credential-test",
+              "kind": "service",
+              "action": "create"
+            },
+            {
+              "id": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "name": "query-storefront-categories",
+              "kind": "service",
+              "action": "delete"
+            }
+          ],
+          "actionTaken": "NONE"
+        },
+        {
+          "type": "deployments",
+          "deployments": [
+            {
+              "id": "8220e084-6ad3-4467-b3d8-65afe8fe29ff",
+              "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "status": "SUCCESS",
+              "createdAt": "2026-10-06T21:07:20.323Z",
+              "branch": "main",
+              "sourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+            },
+            {
+              "id": "49d872d9-7fdb-442c-a4a4-cd01b70ff82f",
+              "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+              "status": "SUCCESS",
+              "createdAt": "2026-10-06T21:07:19.791Z",
+              "branch": "main",
+              "sourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+            },
+            {
+              "id": "ff284931-f842-41bc-9651-42b70562a6f7",
+              "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T21:05:14.173Z",
+              "branch": "fix/remaining-readiness",
+              "sourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+            },
+            {
+              "id": "6be12b78-4e6c-489a-bf3f-9ee9e2d7fd3a",
+              "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T20:00:33.532Z",
+              "branch": "main",
+              "sourceSha": "7dc7317aa1952fbe2af245cae8ba5d36a4401298"
+            },
+            {
+              "id": "188ba548-c69a-4ef3-9ba1-5b64e8ae24bd",
+              "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T20:00:32.821Z",
+              "branch": "main",
+              "sourceSha": "7dc7317aa1952fbe2af245cae8ba5d36a4401298"
+            },
+            {
+              "id": "9b7c7509-78e2-4649-a6b3-467004e2f7b4",
+              "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T19:57:26.436Z",
+              "branch": "fix/dashboard-address-clearing",
+              "sourceSha": "7dc7317aa1952fbe2af245cae8ba5d36a4401298"
+            },
+            {
+              "id": "8c4b4e33-5548-446c-8ea8-3629cb4c7e7e",
+              "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T19:50:43.588Z",
+              "branch": "main",
+              "sourceSha": "71eb56c5efef59e86c629cb55b85604f17455dab"
+            },
+            {
+              "id": "f606b6fc-109d-4dff-8eee-47dbc30f449e",
+              "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T19:50:42.985Z",
+              "branch": "main",
+              "sourceSha": "71eb56c5efef59e86c629cb55b85604f17455dab"
+            },
+            {
+              "id": "33af1b02-845a-42e4-99c9-7782a75ae1fd",
+              "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T19:47:34.546Z",
+              "branch": "fix/dashboard-address-edit-race",
+              "sourceSha": "71eb56c5efef59e86c629cb55b85604f17455dab"
+            },
+            {
+              "id": "ed8f4850-10af-470d-b203-28601d0d4a12",
+              "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+              "status": "REMOVED",
+              "createdAt": "2026-10-06T19:38:35.932Z",
+              "branch": "fix/dashboard-media-security",
+              "sourceSha": "25012533ce361f1b9c199b968dc3deeea58d7e21"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "outstandingExternalGates": [
+    {
+      "gate": "Commercial tariffs, coverage, parcels, tax, commissions and subscriptions",
+      "owner": "Client/commercial, operations and finance approvals"
+    },
+    {
+      "gate": "COD bank instructions, cash deposits and independent reconciliation",
+      "owner": "Client, finance and bank operator"
+    },
+    {
+      "gate": "Real Paystack charge, refund and settlement",
+      "owner": "Explicit user, finance and provider authority"
+    },
+    {
+      "gate": "Live notification provider, templates and sending",
+      "owner": "Client communications and provider owner"
+    },
+    {
+      "gate": "Full product/device, physical GPS/POD, private-media storage and revocation acceptance",
+      "owner": "Phase 2 product/QA and Phase 3 operations"
+    },
+    {
+      "gate": "Production protected-row audit and production backup/RPO/RTO",
+      "owner": "Authorized data and infrastructure operators"
+    },
+    {
+      "gate": "POPIA/legal/regulated goods decisions",
+      "owner": "Legal/privacy/compliance owners"
+    },
+    {
+      "gate": "Railway staged-patch discard, production parity, PR merge, deployment and release",
+      "owner": "Separately authorized infrastructure/release owners"
+    }
+  ],
+  "limitations": [
+    "The local full Chromium run did not return final counts, and canonical 41 was not run locally; neither local attempt is represented as a pass. The same fixed selections passed in exact-source isolated GitHub execution.",
+    "Docker Desktop could not be restarted on the local host after resumption; the local startup failure and non-destructive diagnostic/rollback are recorded above.",
+    "Client DOCX binaries were unavailable; supplied rules and repository-extracted authority were used.",
+    "Dedicated refund9, withdrawal7 and marketplace8 suites include contract/scaffold assertions; durable proof comes from the canonical41, closure178 and other persisted PostgreSQL suites.",
+    "Five developer audit advisories arise from one unpatched braces3.0.3 nested-glob denial-of-service advisory in the Next ESLint dependency tree; the production dependency audit is clean. Contextual severity remains developer-tool Sev3.",
+    "The final certified release-manifest job remains failed on the nine retained rows above, and production release remains NOT_READY."
+  ]
+}

@@ -900,6 +900,9 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
         ...baseAttempt.withdrawal,
         status: "RECONCILIATION_REQUIRED",
       });
+      // This new operation has no receipt; the existing unknown attempt is only
+      // returned by its own identity, not by every lookup key.
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockImplementation((args: any) => args.where?.idempotencyKey ? null : baseAttempt);
 
       await expect(
         startWithdrawalPayout({
@@ -908,6 +911,8 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
           operationId: "op-start-manual-when-unknown",
         }),
       ).rejects.toThrowError(/Only approved withdrawals can start payout processing/);
+      expect(prisma.withdrawalPayoutAttempt.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalRequest.update).not.toHaveBeenCalled();
     });
   });
 });

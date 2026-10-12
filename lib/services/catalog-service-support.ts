@@ -2,6 +2,16 @@ import { type Prisma } from "@prisma/client";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { catalogRequestHash } from "@/lib/catalog/catalog-normalization";
 import { toInputJsonObject } from "@/lib/json/input-json";
+import { prisma } from "@/lib/db/prisma";
+
+/** Compose canonical commands into one caller-owned transaction without nested commits. */
+export async function withCatalogTransaction<T>(
+  transaction: Prisma.TransactionClient | undefined,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+  options?: { isolationLevel: Prisma.TransactionIsolationLevel },
+): Promise<T> {
+  return transaction ? work(transaction) : prisma.$transaction(work, options);
+}
 
 export async function recordCatalogEvidence(
   tx: Prisma.TransactionClient,

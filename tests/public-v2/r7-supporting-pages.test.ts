@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { FaqPage } from "@/components/public-v2/faq/FaqPage";
 import aboutMetadata from "@/app/(public)/about/page";
 import { metadata as aboutPageMetadata } from "@/app/(public)/about/page";
 import { metadata as careersPageMetadata } from "@/app/(public)/careers/page";
@@ -174,8 +177,10 @@ describe("R7 supporting public pages", () => {
     );
 
     expect(readSource("lib/public-faq/faqs.ts")).toContain("serviceFaqs");
-    expect(faqComponent).toContain("<details");
-    expect(faqComponent).toContain("<summary>");
+    const html = renderToStaticMarkup(createElement(FaqPage));
+    expect(html.match(/<summary(?:\s[^>]*)?>/g)).toHaveLength(visibleQuestions.length);
+    for (const section of publicFaqSections) expect(html.split(`id="${section.id}"`).length - 1).toBe(1);
+    expect(html).toContain("without an account");
     expect(faqComponent).not.toContain('"use client"');
     expect(faqSchema["@type"]).toBe("FAQPage");
     expect(

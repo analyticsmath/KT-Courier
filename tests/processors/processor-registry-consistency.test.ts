@@ -8,6 +8,7 @@ import {
   PROCESSOR_HANDLERS,
   executeRegisteredProcessor,
 } from "@/lib/processors/processor-service";
+import { completeProcessorRun } from "@/lib/processors/lease-authority";
 
 const dryRunDb = vi.hoisted(() => ({
   storeEarning: { findMany: vi.fn(async () => []), update: vi.fn() },
@@ -28,6 +29,10 @@ vi.mock("@/lib/processors/lease-authority", () => ({
 }));
 
 describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
+  it("refuses a successful dry-run result when the processor lease was lost", async () => {
+    vi.mocked(completeProcessorRun).mockResolvedValueOnce(false);
+    await expect(executeRegisteredProcessor({ name: "consume-verified-payment-events", mode: "DRY_RUN" })).rejects.toThrow("PROCESSOR_LEASE_LOST");
+  });
   it("enforces all registered processors have required metadata and status", () => {
     const entries = Object.entries(PROCESSOR_REGISTRY) as Array<
       [ProcessorName, (typeof PROCESSOR_REGISTRY)[ProcessorName]]

@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
+import { type Prisma } from "@prisma/client";
 import { assertModifierGroup, assertModifierPrice } from "@/lib/catalog/catalog-modifier-policy";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { CatalogOwnershipError } from "@/lib/catalog/errors";
-import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 
 export async function listStoreModifierGroups(storeId: string) {
   return prisma.storeModifierGroup.findMany({ where: { storeId }, include: { options: { orderBy: { displayOrder: "asc" } }, offers: { include: { offer: { select: { publicReference: true, storeSku: true } } } } }, orderBy: { name: "asc" } });
@@ -16,11 +17,11 @@ export async function createStoreModifierGroup(storeId: string, actorUserId: str
   isRequired: boolean;
   options: Array<{ name: string; priceDelta: string; currency: "ZAR"; displayOrder: number }>;
   operationId: string;
-}) {
+}, transaction?: Prisma.TransactionClient) {
   assertModifierGroup(input);
   input.options.forEach((option) => assertModifierPrice({ amount: option.priceDelta, currency: option.currency }));
   const publicReference = catalogPublicReference("MG");
-  return prisma.$transaction(async (tx) => {
+  return withCatalogTransaction(transaction, async (tx) => {
     const group = await tx.storeModifierGroup.create({
       data: {
         publicReference,
@@ -39,8 +40,9 @@ export async function createStoreModifierGroup(storeId: string, actorUserId: str
   });
 }
 
-export async function attachModifierGroup(storeId: string, offerId: string, groupId: string, displayOrder: number) {
-  const [offer, group] = await Promise.all([prisma.storeCatalogOffer.findUnique({ where: { id: offerId } }), prisma.storeModifierGroup.findUnique({ where: { id: groupId } })]);
+export async function attachModifierGroup(storeId: string, offerId: string, groupId: string, displayOrder: number, transaction?: Prisma.TransactionClient) {
+  const database = transaction ?? prisma;
+  const [offer, group] = await Promise.all([database.storeCatalogOffer.findUnique({ where: { id: offerId } }), database.storeModifierGroup.findUnique({ where: { id: groupId } })]);
   if (!offer || !group || offer.storeId !== storeId || group.storeId !== storeId) throw new CatalogOwnershipError();
-  return prisma.storeOfferModifierGroup.upsert({ where: { offerId_groupId: { offerId, groupId } }, create: { offerId, groupId, displayOrder }, update: { displayOrder } });
+  return database.storeOfferModifierGroup.upsert({ where: { offerId_groupId: { offerId, groupId } }, create: { offerId, groupId, displayOrder }, update: { displayOrder } });
 }

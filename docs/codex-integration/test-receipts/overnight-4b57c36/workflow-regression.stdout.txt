@@ -1,0 +1,14 @@
+✔ every main PR update is eligible, with dispatch and approved release tags preserved (2.7516ms)
+✔ all certification jobs check out the same exact PR head or dispatch/tag SHA (0.3501ms)
+✔ separate observable disposable jobs, strict browser plan and final manifest gates remain (0.642ms)
+✔ finance targets use a separate disposable invocation before the unchanged full browser plan (0.8995ms)
+✔ CI tests the pull request head with read-only credentials and offline providers (0.5829ms)
+✔ Vercel source config suppresses the integrated branch and leaves main unmatched (0.2564ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 192.9165

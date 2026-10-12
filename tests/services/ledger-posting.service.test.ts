@@ -30,6 +30,7 @@ const accounts = (overrides: Record<string, unknown> = {}) => [
 const journal = (requestHash = "a".repeat(64)) => ({
   id: "journal", reference: "LJ-TEST", type: "GENERAL", currency: "ZAR", idempotencyKey: "posting-1", requestHash,
   sourceReference: "TEST:SOURCE-1", correlationId: null, memo: null, metadata: null, policyVersion: "phase9-v1",
+  createdByUserId: null,
   totalDebits: decimal(10), totalCredits: decimal(10), reversalOfJournalId: null, postedAt: new Date("2026-01-01"), createdAt: new Date("2026-01-01"),
   originalJournal: null, reversalJournal: null,
   entries: [
@@ -55,6 +56,25 @@ beforeEach(() => {
 });
 
 describe("ledger posting service", () => {
+  it("rejects a changed audit actor on replay without rewriting historical request hashes", async () => {
+    await postLedgerJournal(input());
+    const hash = mocks.tx.ledgerJournal.create.mock.calls[0][0].data.requestHash;
+    mocks.tx.ledgerJournal.findUnique.mockReset().mockResolvedValue({ ...journal(hash), createdByUserId: "original-user" });
+    const request = { ...input(), actor: { kind: "USER" as const, userId: "another-user" } };
+    await expect(postLedgerJournal(request)).rejects.toMatchObject({ code: "LEDGER_IDEMPOTENCY_CONFLICT" });
+    mocks.tx.ledgerJournal.findUnique.mockResolvedValue({ ...journal(hash), createdByUserId: "another-user" });
+    expect((await postLedgerJournal(request)).id).toBe("journal");
+    expect(mocks.tx.ledgerJournal.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a changed actor when resolving a concurrent unique-key receipt", async () => {
+    await postLedgerJournal(input());
+    const hash = mocks.tx.ledgerJournal.create.mock.calls[0][0].data.requestHash;
+    mocks.prisma.$transaction.mockRejectedValueOnce({ code: "P2002", meta: { target: ["idempotencyKey"] } });
+    mocks.prisma.ledgerJournal.findUnique.mockResolvedValue({ ...journal(hash), createdByUserId: "another-user" });
+    await expect(postLedgerJournal(input())).rejects.toMatchObject({ code: "LEDGER_IDEMPOTENCY_CONFLICT" });
+    expect(mocks.tx.ledgerJournal.create).toHaveBeenCalledTimes(1);
+  });
   it("locks sorted accounts, creates one balanced journal and entries, and atomically updates projections", async () => {
     const callerInput = input();
     const before = JSON.stringify(callerInput);

@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { LocalPrivateMediaStorageAdapter } from "@/lib/private-media/private-media-storage";
@@ -9,8 +11,9 @@ import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-medi
 import { PrivateMediaOwnerType, PrivateMediaPurpose, UserRole, UserStatus, VehicleType } from "@/types/db";
 
 const marker = randomUUID();
-const rootPromise = mkdtemp(path.join(os.tmpdir(), "kt-phase-b-private-media-"));
-const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
+let root = "";
+let safetyValidated = false;
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWPgEpHjEpFjgFAABk4A8YCCZIUAAAAASUVORK5CYII=", "base64");
 let driverOneUserId = "";
 let driverTwoUserId = "";
 let vehicleOneId = "";
@@ -25,6 +28,11 @@ async function createDriver(suffix: string) {
 }
 
 beforeAll(async () => {
+  const url = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
+  const approvedDatabase = url.pathname === "/kt_launch_test" || (url.pathname === "/kt_courier_phase_b_runtime_disposable" && process.env.KT_PHASEB_RUNTIME_APPROVED === "1");
+  if (process.env.NODE_ENV === "production" || process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS !== "1" || !approvedDatabase || !["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("Disposable private-media database required.");
+  safetyValidated = true;
+  root = await mkdtemp(path.join(os.tmpdir(), "kt-phase-b-private-media-"));
   await prisma.$queryRawUnsafe("SELECT 1");
   const one = await createDriver("one");
   const two = await createDriver("two");
@@ -37,14 +45,16 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  const root = await rootPromise;
+  if (!safetyValidated) return;
   await prisma.vehicleDocument.deleteMany({ where: { vehicle: { driverProfile: { driverCode: { startsWith: `PB-${marker.slice(0, 8)}` } } } } });
   await prisma.vehicleMedia.deleteMany({ where: { vehicle: { driverProfile: { driverCode: { startsWith: `PB-${marker.slice(0, 8)}` } } } } });
   await prisma.privateMediaObject.deleteMany({ where: { publicReference: { startsWith: "PMO-" }, createdByUserId: { in: [driverOneUserId, driverTwoUserId] } } });
   await prisma.vehicle.deleteMany({ where: { id: { in: [vehicleOneId, vehicleTwoId] } } });
   await prisma.driverProfile.deleteMany({ where: { id: { in: [driverOneProfileId, driverTwoProfileId] } } });
   await prisma.user.deleteMany({ where: { id: { in: [driverOneUserId, driverTwoUserId] } } });
-  await rm(root, { recursive: true, force: true });
+  const resolvedRoot = path.resolve(root);
+  if (path.dirname(resolvedRoot) !== path.resolve(os.tmpdir()) || !path.basename(resolvedRoot).startsWith("kt-phase-b-private-media-")) throw new Error("Refusing unexpected private-media cleanup path.");
+  await rm(resolvedRoot, { recursive: true, force: true });
 });
 
 describe("Phase B private media and vehicle PostgreSQL invariants", () => {
@@ -58,13 +68,17 @@ describe("Phase B private media and vehicle PostgreSQL invariants", () => {
   });
 
   it("allows only the owner to upload/read private vehicle evidence and audits denial", async () => {
-    const root = await rootPromise;
     const service = new PrivateMediaService(new LocalPrivateMediaStorageAdapter(root));
     const uploaded = await service.uploadForDriver({ actor: { userId: driverOneUserId, role: UserRole.DRIVER }, vehicleId: vehicleOneId, purpose: PrivateMediaPurpose.VEHICLE_COMPLIANCE_IMAGE, fileName: "front.png", mimeType: "image/png", bytes: png });
     await expect(service.uploadForDriver({ actor: { userId: driverTwoUserId, role: UserRole.DRIVER }, vehicleId: vehicleOneId, purpose: PrivateMediaPurpose.VEHICLE_COMPLIANCE_IMAGE, fileName: "front.png", mimeType: "image/png", bytes: png })).rejects.toMatchObject({ code: "VEHICLE_NOT_FOUND" } satisfies Partial<PrivateMediaPolicyError>);
-    expect(Array.from((await service.read({ actor: { userId: driverOneUserId, role: UserRole.DRIVER }, reference: uploaded.publicReference })).bytes)).toEqual(Array.from(png));
+    const bytes = (await service.read({ actor: { userId: driverOneUserId, role: UserRole.DRIVER }, reference: uploaded.publicReference })).bytes;
+    expect(await sharp(bytes).metadata()).toMatchObject({ width: 2, height: 2, format: "png" });
+    const decoded = await sharp(bytes).raw().toBuffer();
+    expect([...decoded.subarray(0, 3)]).toEqual([10, 20, 30]);
     await expect(service.read({ actor: { userId: driverTwoUserId, role: UserRole.DRIVER }, reference: uploaded.publicReference })).rejects.toMatchObject({ code: "PRIVATE_MEDIA_FORBIDDEN" } satisfies Partial<PrivateMediaPolicyError>);
     const object = await prisma.privateMediaObject.findUniqueOrThrow({ where: { publicReference: uploaded.publicReference } });
+    expect(object.checksum).toBe(createHash("sha256").update(bytes).digest("hex"));
+    expect(object.metadata).toMatchObject({ sourceChecksum: createHash("sha256").update(png).digest("hex"), rasterNormalization: "PRIVATE_RASTER_V1" });
     await expect(prisma.privateMediaAccessLog.findFirst({ where: { privateMediaObjectId: object.id, actorUserId: driverTwoUserId, outcome: "DENIED" } })).resolves.toBeTruthy();
   });
 });

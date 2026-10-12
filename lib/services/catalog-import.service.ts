@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { assertCatalogImportCanApply, assertCatalogImportFile } from "@/lib/catalog/catalog-import-policy";
 import { catalogPublicReference, catalogRequestHash } from "@/lib/catalog/catalog-normalization";
-import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError } from "@/lib/catalog/errors";
-import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 
 export async function listStoreCatalogImports(storeId: string) {
   return prisma.catalogImportJob.findMany({ where: { storeId }, include: { rows: { where: { status: "INVALID" }, take: 100, orderBy: { rowNumber: "asc" } } }, orderBy: { createdAt: "desc" } });
@@ -28,15 +27,13 @@ export async function validateCatalogImportJob(storeId: string, publicReference:
   return prisma.catalogImportJob.update({ where: { id: job.id }, data: { status: "VALIDATED", dryRunCompleted: true, totalRows: job.rows.length, validRows, invalidRows, completedAt: new Date() } });
 }
 
-export async function applyCatalogImportJob(storeId: string, actorUserId: string, publicReference: string) {
+export async function applyCatalogImportJob(storeId: string, _actorUserId: string, publicReference: string) {
   const job = await prisma.catalogImportJob.findUnique({ where: { publicReference } });
   if (!job) throw new CatalogNotFoundError("Catalog import was not found.");
   if (job.storeId !== storeId) throw new CatalogOwnershipError();
   assertCatalogImportCanApply(job);
-  return prisma.$transaction(async (tx) => {
-    const applied = await tx.catalogImportJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date() } });
-    await recordCatalogEvidence(tx, { aggregateType: "IMPORT", aggregateReference: job.publicReference, aggregateVersion: 1, action: "DRAFTS_APPLIED", eventType: "IMPORT_APPLIED", actorUserId, safeMetadata: { totalRows: job.totalRows, publishedRows: 0 } });
-    return applied;
-  });
+  // No parsed-row draft authority exists yet. Never record DRAFTS_APPLIED or
+  // COMPLETED without actual products. Stock CSV uses canonical movements.
+  throw new CatalogPolicyError("CATALOG_IMPORT_APPLICATION_UNAVAILABLE", "Product draft import is unavailable. Create products in the catalog, or upload stock receipts from Inventory.");
 }
 

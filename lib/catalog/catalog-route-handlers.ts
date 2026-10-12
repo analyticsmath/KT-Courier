@@ -14,6 +14,7 @@ import {
   CatalogProductCreateSchema,
   CatalogProductPatchSchema,
   InventoryMovementCreateSchema,
+  InventoryUploadSchema,
   ModifierGroupCreateSchema,
   ProductTypeDefinitionCreateSchema,
   ProductTypeDefinitionPatchSchema,
@@ -24,6 +25,7 @@ import {
 import { listStoreCatalogProducts, getStoreCatalogProduct, createStorePrivateCatalogProduct, updateStoreCatalogProduct, submitStoreCatalogProduct, archiveStoreCatalogProduct } from "@/lib/services/catalog-product.service";
 import { listStoreCatalogOffers, getStoreCatalogOffer, createStoreCatalogOffer, updateStoreCatalogOffer, transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
 import { listStoreInventory, postCatalogInventoryMovement } from "@/lib/services/catalog-inventory.service";
+import { uploadCatalogInventory } from "@/lib/services/catalog-inventory-upload.service";
 import { listStoreModifierGroups, createStoreModifierGroup } from "@/lib/services/catalog-modifier.service";
 import { listStoreCatalogImports, createCatalogImportJob, validateCatalogImportJob, applyCatalogImportJob } from "@/lib/services/catalog-import.service";
 import { createStoreOfferPriceVersion } from "@/lib/services/store-price.service";
@@ -32,6 +34,7 @@ import { listCatalogCategories, createCatalogCategory, updateCatalogCategory } f
 import { listProductTypeDefinitions, createProductTypeDefinition, updateProductTypeDefinition, transitionProductTypeDefinition } from "@/lib/services/product-type.service";
 import { listCatalogModerationCases, getCatalogModerationCase, moderateCatalogProduct, moderateCatalogOffer } from "@/lib/services/catalog-moderation.service";
 import { listCatalogAdminProducts, listCatalogAdminOffers } from "@/lib/services/catalog-query.service";
+import { projectCatalogMediaAsset } from "@/lib/services/catalog-media-intake.service";
 
 function query(request: NextRequest) {
   return Object.fromEntries(request.nextUrl.searchParams.entries());
@@ -130,7 +133,7 @@ export async function storeDuplicateSearch(request: NextRequest) {
   const auth = await requireStoreCatalogPermission(PERMISSIONS.CATALOG_READ, request); if ("response" in auth) return auth.response;
   const title = request.nextUrl.searchParams.get("title")?.trim() ?? ""; const productTypeCode = request.nextUrl.searchParams.get("productTypeCode")?.trim() ?? "";
   if (title.length < 3 || productTypeCode.length < 2) return invalid("Duplicate search requires title and product type.");
-  try { return catalogJson({ candidates: await searchCatalogDuplicates({ title, productTypeCode, gtin: request.nextUrl.searchParams.get("gtin") ?? undefined, brandId: request.nextUrl.searchParams.get("brandId") ?? undefined, mpn: request.nextUrl.searchParams.get("mpn") ?? undefined }) }); } catch (error) { return catalogApiError(error); }
+  try { return catalogJson({ candidates: await searchCatalogDuplicates({ storeId: auth.store.id, title, productTypeCode, gtin: request.nextUrl.searchParams.get("gtin") ?? undefined, brandId: request.nextUrl.searchParams.get("brandId") ?? undefined, mpn: request.nextUrl.searchParams.get("mpn") ?? undefined }) }); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storeInventoryGet(request: NextRequest) {
@@ -142,6 +145,12 @@ export async function storeInventoryMovementPost(request: NextRequest, publicRef
   const prepared = await storeMutation(request, PERMISSIONS.CATALOG_INVENTORY_MANAGE, `/api/store/catalog/inventory/${publicReference}/movements`); if (!("body" in prepared)) return prepared.response;
   const parsed = InventoryMovementCreateSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ movement: await postCatalogInventoryMovement(prepared.store.id, prepared.user.id, publicReference, parsed.data) }, 201); } catch (error) { return catalogApiError(error); }
+}
+
+export async function storeInventoryUploadPost(request: NextRequest) {
+  const prepared = await storeMutation(request, PERMISSIONS.CATALOG_INVENTORY_MANAGE, "/api/store/catalog/inventory/upload"); if (!("body" in prepared)) return prepared.response;
+  const parsed = InventoryUploadSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
+  try { return catalogJson(await uploadCatalogInventory(prepared.store.id, prepared.user.id, parsed.data), parsed.data.dryRun ? 200 : 201); } catch (error) { return catalogApiError(error); }
 }
 
 export async function storeModifiersGet(request: NextRequest) {
@@ -238,7 +247,7 @@ export async function adminProductsGet(request: NextRequest) {
 
 export async function adminProductGet(request: NextRequest, id: string) {
   const auth = await requireCatalogAdminPermission(PERMISSIONS.CATALOG_MODERATION_READ, request); if ("response" in auth) return auth.response;
-  try { const product = await prisma.catalogProduct.findUnique({ where: { id }, include: { primaryCategory: true, productTypeDefinition: true, brand: true, variants: { include: { media: true } }, media: { include: { asset: true } }, offers: { include: { store: true, priceVersions: true, inventoryItem: { include: { levels: true } } } }, moderationCases: { include: { history: true } } } }); return product ? catalogJson({ product }) : catalogJson({ error: "Product was not found." }, 404); } catch (error) { return catalogApiError(error); }
+  try { const product = await prisma.catalogProduct.findUnique({ where: { id }, include: { primaryCategory: true, productTypeDefinition: true, brand: true, variants: { include: { media: true } }, media: { include: { asset: true } }, offers: { include: { store: true, priceVersions: true, inventoryItem: { include: { levels: true } } } }, moderationCases: { include: { history: true } } } }); return product ? catalogJson({ product: { ...product, media: product.media.map(attachment => ({ ...attachment, asset: projectCatalogMediaAsset(attachment.asset, true) })) } }) : catalogJson({ error: "Product was not found." }, 404); } catch (error) { return catalogApiError(error); }
 }
 
 export async function adminProductAction(request: NextRequest, id: string, action: "approve" | "request-changes" | "reject" | "suspend") {

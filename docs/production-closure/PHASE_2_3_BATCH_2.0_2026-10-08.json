@@ -1,0 +1,438 @@
+{
+  "phase": 2,
+  "batch": "2.0",
+  "classification": "COMPLETE",
+  "classificationScope": "Contract/fixture/proof inventory only; Phase 2 implementation and Phase 3 remain OPEN; production NOT_READY.",
+  "startingSha": "1f6e2f1ddb57e2a5f8b0b8035815ce1e9fb4937f",
+  "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+  "pushedSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+  "branch": "production-closure-2026-10-07",
+  "remoteSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+  "worktreeClean": true,
+  "checkpointObservation": "Inventory source push verified clean/equal before preparing this separate report-only commit. Final report tip and post-push state are returned in the session response.",
+  "finalReportSha": null,
+  "finalReportShaReason": "Containing commit cannot embed its own hash. Resolve git log -1 --format=%H -- docs/production-closure/PHASE_2_3_BATCH_2.0_2026-10-08.json; final response verifies remote equality.",
+  "prNumber": 17,
+  "prStatus": {
+    "state": "OPEN",
+    "isDraft": true,
+    "base": "main",
+    "mergedAt": null,
+    "observedAt": "session reconnaissance"
+  },
+  "startedAt": "2026-10-08T09:18:23Z",
+  "timeBudget": {
+    "activeTargetMinutes": 60,
+    "absoluteCeilingMinutes": 75,
+    "reportPreparedAt": "2026-10-08T09:39:55.767Z",
+    "finalStopObservation": "Final session response after report push",
+    "terminatedCommands": 0
+  },
+  "changes": [
+    {
+      "path": "docs/production-closure/PHASE_2_CONTRACT_MATRIX.md",
+      "kind": "inventory",
+      "reason": "Canonical contracts, authorities, nine placeholder proof plans, fixture/dependency gaps, actual batch sequence and CI runtime."
+    },
+    {
+      "path": "docs/production-closure/PHASE_2_3_EXECUTION_LEDGER.md",
+      "kind": "ledger",
+      "reason": "Preserve baseline/history, mark 2.0 complete and remaining batches OPEN."
+    },
+    {
+      "path": "docs/production-closure/PHASE_2_3_BATCH_2.0_2026-10-08.md",
+      "kind": "receipt",
+      "reason": "Exact-source checks, pending automatic CI, boundaries and next batch."
+    },
+    {
+      "path": "docs/production-closure/PHASE_2_3_BATCH_2.0_2026-10-08.json",
+      "kind": "receipt",
+      "reason": "Machine-readable counterpart with counts distinct from discovery."
+    }
+  ],
+  "tests": [
+    {
+      "name": "T1 existing canonical contracts",
+      "sha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/payments/paystack-contract.test.ts",
+        "tests/refunds/refund-production-readiness.test.ts",
+        "tests/refunds/refund-dual-control.test.ts",
+        "tests/marketplace-checkout/frozen-seller-settlement-evidence.test.ts",
+        "tests/policy/store-order-state-policy.test.ts",
+        "tests/scripts/safe-postgres-runner.test.ts",
+        "tests/security/e2e-checkout-authorities.test.ts",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json=output/production-closure/phase2-0-unit.json"
+      ],
+      "files": [
+        "tests/payments/paystack-contract.test.ts",
+        "tests/refunds/refund-production-readiness.test.ts",
+        "tests/refunds/refund-dual-control.test.ts",
+        "tests/marketplace-checkout/frozen-seller-settlement-evidence.test.ts",
+        "tests/policy/store-order-state-policy.test.ts",
+        "tests/scripts/safe-postgres-runner.test.ts",
+        "tests/security/e2e-checkout-authorities.test.ts"
+      ],
+      "timeoutSeconds": 180,
+      "durationSeconds": 11.594,
+      "exitCode": 0,
+      "processId": 10316,
+      "errorCode": null,
+      "assertionsPassed": 52,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "retries": 0,
+      "executedFiles": 7,
+      "status": "PASS",
+      "tier": "T1",
+      "job": "local existing contracts",
+      "run": null,
+      "evidenceUrl": null,
+      "evidencePath": "output/production-closure/phase2-0-unit.json",
+      "executedCount": 52,
+      "databaseIsolationEvidence": "No DB connection: pure policy and mocked canonical contracts; curated child environment excludes inherited credentials/DB URLs."
+    },
+    {
+      "name": "Chromium discovery only",
+      "tier": "T3_DISCOVERY_ONLY",
+      "job": "local Playwright --list",
+      "run": null,
+      "sha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "files": 25,
+      "assertionsPassed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "retries": 0,
+      "discoveredCount": 88,
+      "executedCount": 0,
+      "durationSeconds": 6.596,
+      "exitCode": 0,
+      "timeoutSeconds": 60,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "node_modules/playwright/cli.js",
+        "test",
+        "--project=chromium",
+        "--list",
+        "--reporter=json",
+        "--retries=0",
+        "--workers=1"
+      ],
+      "evidenceUrl": null,
+      "evidencePath": "output/production-closure/phase2-0-chromium-discovery.json",
+      "status": "DISCOVERY_ONLY"
+    },
+    {
+      "name": "Preinventory document path/credential-pattern audit",
+      "tier": "DOCUMENT_HYGIENE",
+      "job": "local",
+      "run": null,
+      "sha": "1f6e2f1ddb57e2a5f8b0b8035815ce1e9fb4937f",
+      "files": [
+        "docs/production-closure/PHASE_2_CONTRACT_MATRIX.md",
+        "docs/production-closure/PHASE_2_3_EXECUTION_LEDGER.md"
+      ],
+      "assertionsPassed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "retries": 0,
+      "durationSeconds": null,
+      "exitCode": 0,
+      "pathChecks": 20,
+      "findings": [],
+      "evidenceUrl": null,
+      "evidencePath": "output/production-closure/phase2-0-preinventory-document-audit.json",
+      "status": "PASS"
+    }
+  ],
+  "tierExecution": {
+    "T1": "PASS",
+    "T2": "NOT_RUN_DOCUMENTATION_ONLY",
+    "T3": "DISCOVERY_ONLY_NO_BROWSER_EXECUTION",
+    "T4": "NOT_RUN",
+    "T5": "UNAUTHORIZED_NOT_RUN",
+    "buildLintTypecheckPrismaMigrations": "No implementation or schema change; no local rerun. Required for affected later code acceptance."
+  },
+  "placeholderTracker": [
+    {
+      "path": "tests/e2e/marketplace-checkout-payment.spec.ts",
+      "declarations": 1,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: Paystack verified payment to one order",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/customer-wallet-refunds.spec.ts",
+      "declarations": 4,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: refund reserve/cancel and wallet read",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/refund-finance-admin.spec.ts",
+      "declarations": 4,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: separate actor refund completion and uncertainty",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/store-order-customer.spec.ts",
+      "declarations": 1,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: independent store groups and cancellation",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/store-order-merchant.spec.ts",
+      "declarations": 1,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: merchant review/accept/preparation",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/store-order-admin.spec.ts",
+      "declarations": 1,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: audited admin recovery",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/store-order-substitution.spec.ts",
+      "declarations": 1,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: owned substitution and adjustment",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/store-order-handoff.spec.ts",
+      "declarations": 1,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: store/driver pickup custody",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    },
+    {
+      "path": "tests/e2e/store-order-accessibility.spec.ts",
+      "declarations": 1,
+      "discoveredCount": 0,
+      "executedCount": 0,
+      "status": "OPEN_ENGINEERING",
+      "sourceSha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "skippedDeclarationCount": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "runner": "Chromium --list; all nine currently excluded by testMatch",
+      "databaseIsolationEvidence": null,
+      "positiveDomainTransition": "NOT_EXECUTED: keyboard/status/responsive financial actions",
+      "negativeAccessTest": "PLANNED in canonical matrix; not executed",
+      "ledgerOrInventoryProof": "PLANNED canonical PG before/after assertions; not executed",
+      "pendingLiveDependency": "Genuine provider/commercial/human/device approval remains separate from synthetic engineering tests"
+    }
+  ],
+  "identifiedIntegrationScaffolds": {
+    "trivialAssertionFiles": 11,
+    "acceptedAsDomainProof": false,
+    "sourceReferences": "Exact file list in PHASE_2_CONTRACT_MATRIX.md finding 4; pure refund integration tests separately identified."
+  },
+  "gates": [
+    {
+      "key": "marketplace_parcel_classification",
+      "status": "OPEN",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "notification_required_domains",
+      "status": "OPEN",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "commercial_financial_certification",
+      "status": "VALIDATION_BLOCKED",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "customer_vendor_driver_full_functional_acceptance",
+      "status": "OPEN",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "visual_acceptance",
+      "status": "OPEN",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "media_full_functional_acceptance",
+      "status": "OPEN",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "critical_skip_closure",
+      "status": "OPEN",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "fresh_production_protected_row_audit",
+      "status": "VALIDATION_BLOCKED",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    },
+    {
+      "key": "github_certification_and_deployment",
+      "status": "VALIDATION_BLOCKED",
+      "changed": false,
+      "evidence": "2.0 inventory does not close release gates."
+    }
+  ],
+  "externalBlockers": [
+    "Latest revised client policy document equivalence",
+    "Real coverage, tariff/VAT, parcel limits, commission and operational policy approvals",
+    "COD bank/limits/timing and vendor stock authenticity",
+    "Independent human notification and visual approvals",
+    "Real Paystack/money/Cloudinary/GPS/POD/device acceptance",
+    "Fresh separately authorized production row audit",
+    "Hazardous Railway staged patch operator handling, origin configuration, deployment/SHA parity authorization"
+  ],
+  "productionMutations": [],
+  "providerOperations": [],
+  "stoppedCommands": [],
+  "schemaChanges": [],
+  "visualInspection": "NONE_THIS_BATCH",
+  "automaticWorkflows": [
+    {
+      "name": "CI",
+      "run": 37757744504,
+      "sha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "observedStatus": "in_progress",
+      "acceptanceStatus": "PENDING",
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37757744504"
+    },
+    {
+      "name": "Production Certification",
+      "run": 37757744580,
+      "sha": "afe419467492f36a24801610ec863c3cd141cf1d",
+      "observedStatus": "queued",
+      "acceptanceStatus": "PENDING",
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/37757744580"
+    }
+  ],
+  "automaticWorkflowPolicy": "No manual dispatch/rerun/cancellation. Report-only push can supersede source runs via existing concurrency; snapshot final tip in final response, do not misattribute results.",
+  "nextBatch": {
+    "id": "2.1",
+    "status": "OPEN_NOT_STARTED",
+    "firstFile": "tests/e2e/marketplace-checkout-payment.spec.ts",
+    "nextAuthority": "lib/services/payment-provider-session.service.ts",
+    "authorization": "Next user-authorized bounded session only"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "command": "test:integration:closure",
+  "arguments": [],
+  "fullCommand": "npm run test:integration:closure",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T18:04:11.116Z",
+  "endedAt": "2026-10-11T18:07:53.667Z",
+  "durationMs": 222551,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 27,
+  "testsExpected": 178,
+  "testsExecuted": 178,
+  "testsPassed": 178,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 27
+      },
+      "passed": 178,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 178
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": false,
+    "databaseHostClass": "unset",
+    "emailProvider": "unset-or-other",
+    "paystackMode": "unset-or-other"
+  },
+  "stdoutPath": "output\\production-closure\\command-receipts\\test-integration-closure-1791741851116-5816.log",
+  "status": "PASS"
+}

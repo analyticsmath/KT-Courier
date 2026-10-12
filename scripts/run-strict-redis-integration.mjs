@@ -105,7 +105,7 @@ async function main() {
 
   const testResult = spawnSync(
     process.execPath,
-    ["node_modules/vitest/vitest.mjs", "run", "tests/security/real-redis-rate-limit.integration.test.ts"],
+    ["node_modules/vitest/vitest.mjs", "run", "--config", "vitest.redis-integration.config.ts"],
     {
       env: testEnv,
       stdio: "inherit",

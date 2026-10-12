@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
+import { DriverDocumentError } from "@/lib/driver-documents/errors";
 import { toDriverSelfDto, type DriverSelfDto } from "@/lib/dto/driver.dto";
 import { DriverAvailability, DriverOnboardingStatus, DocumentStatus, DocumentType, PrivateMediaOwnerType, PrivateMediaPurpose } from "@/types/db";
 import type { DriverSelfUpdateInput, DriverOnboardingInput } from "../validation/driver";
@@ -10,6 +12,7 @@ export async function getDriverProfileByUserId(userId: string): Promise<DriverSe
     where: { userId },
     include: {
       user: true,
+      profilePhoto: { select: { publicReference: true } },
       serviceRegions: {
         include: {
           deliveryRegion: true,
@@ -27,40 +30,41 @@ export async function updateOwnDriverProfile(
   userId: string,
   input: DriverSelfUpdateInput
 ): Promise<DriverSelfDto> {
-  const driver = await prisma.driverProfile.findUnique({ where: { userId } });
-  if (!driver) throw new Error("Driver profile not found.");
+  return prisma.$transaction(async (tx) => {
+    const driver = await tx.driverProfile.findUnique({ where: { userId } });
+    if (!driver) throw new Error("Driver profile not found.");
 
-  // Update DriverProfile display name and phone
-  const updated = await prisma.driverProfile.update({
-    where: { userId },
-    data: {
-      displayName: input.displayName,
-      phone: input.phone,
-      emergencyContactName: input.emergencyContactName,
-      emergencyContactPhone: input.emergencyContactPhone,
-    },
-    include: {
-      user: true,
-      serviceRegions: {
-        include: {
-          deliveryRegion: true,
+    // Both representations must commit together, including an explicitly cleared name.
+    if (input.displayName !== undefined || input.phone !== undefined) {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          ...(input.displayName !== undefined && { name: input.displayName }),
+          ...(input.phone !== undefined && { phone: input.phone }),
+        },
+      });
+    }
+    const updated = await tx.driverProfile.update({
+      where: { userId },
+      data: {
+        displayName: input.displayName,
+        phone: input.phone,
+        emergencyContactName: input.emergencyContactName,
+        emergencyContactPhone: input.emergencyContactPhone,
+      },
+      include: {
+        user: true,
+        profilePhoto: { select: { publicReference: true } },
+        serviceRegions: {
+          include: {
+            deliveryRegion: true,
+          },
         },
       },
-    },
-  });
-
-  // Keep user name & phone in sync if provided
-  if (input.displayName || input.phone) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(input.displayName !== undefined && { name: input.displayName }),
-        ...(input.phone !== undefined && { phone: input.phone }),
-      },
     });
-  }
 
-  return toDriverSelfDto(updated);
+    return toDriverSelfDto(updated);
+  });
 }
 
 // ─── Update own availability ──────────────────────────────────────────────────
@@ -83,7 +87,7 @@ export async function updateOwnAvailability(
   }
 
   if (driver.availability === availability) {
-    const full = await prisma.driverProfile.findUniqueOrThrow({ where: { userId }, include: { user: true, serviceRegions: { include: { deliveryRegion: true } } } });
+    const full = await prisma.driverProfile.findUniqueOrThrow({ where: { userId }, include: { user: true, profilePhoto: { select: { publicReference: true } }, serviceRegions: { include: { deliveryRegion: true } } } });
     return { ...toDriverSelfDto(full), availabilityRevision: revision };
   }
 
@@ -97,6 +101,7 @@ export async function updateOwnAvailability(
     where: { userId },
     include: {
       user: true,
+      profilePhoto: { select: { publicReference: true } },
       serviceRegions: {
         include: {
           deliveryRegion: true,
@@ -113,71 +118,64 @@ export async function completeDriverOnboarding(
   userId: string,
   input: DriverOnboardingInput
 ): Promise<DriverSelfDto> {
-  const driver = await prisma.driverProfile.findUnique({ where: { userId } });
-  if (!driver) throw new Error("Driver profile not found.");
+  return prisma.$transaction(async (tx) => {
+    const driver = await tx.driverProfile.findUnique({ where: { userId } });
+    if (!driver) throw new Error("Driver profile not found.");
 
-  let profilePhotoMediaId: string | undefined = undefined;
-  if (input.profilePhotoMediaReference) {
-    const media = await prisma.privateMediaObject.findUnique({
-      where: { publicReference: input.profilePhotoMediaReference },
-    });
-    if (
-      media &&
-      media.ownerType === PrivateMediaOwnerType.DRIVER &&
-      media.ownerId === driver.id &&
-      media.status === "READY" &&
-      media.purpose === PrivateMediaPurpose.DRIVER_PROFILE_PHOTO
-    ) {
+    let profilePhotoMediaId: string | undefined = undefined;
+    if (input.profilePhotoMediaReference) {
+      const media = await tx.privateMediaObject.findUnique({
+        where: { publicReference: input.profilePhotoMediaReference },
+      });
+      if (
+        !media ||
+        media.ownerType !== PrivateMediaOwnerType.DRIVER ||
+        media.ownerId !== driver.id ||
+        media.status !== "READY" ||
+        media.purpose !== PrivateMediaPurpose.DRIVER_PROFILE_PHOTO
+      ) {
+        throw new Error("The uploaded private media cannot be used as a driver profile photo.");
+      }
       profilePhotoMediaId = media.id;
     }
-  }
 
-  const identitySnapshot = {
-    idNumber: input.idNumber,
-    idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
-    dateOfBirth: input.dateOfBirth.toISOString(),
-    residentialAddress: input.residentialAddress,
-    completedAt: new Date().toISOString(),
-  };
-
-  const updated = await prisma.driverProfile.update({
-    where: { userId },
-    data: {
-      displayName: input.displayName || driver.displayName,
-      phone: input.phone,
-      licenseNumber: input.licenseNumber,
-      licenseExpiryDate: input.licenseExpiryDate,
-      emergencyContactName: input.emergencyContactName,
-      emergencyContactPhone: input.emergencyContactPhone,
-      idNumber: input.idNumber,
-      idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
-      dateOfBirth: input.dateOfBirth,
-      residentialAddress: input.residentialAddress,
-      ...(profilePhotoMediaId ? { profilePhotoMediaId } : {}),
-      internalNotes: JSON.stringify(identitySnapshot),
-      onboardingStatus: DriverOnboardingStatus.PENDING_REVIEW,
-      vehicleComplianceRequiredAt: driver.vehicleComplianceRequiredAt ?? new Date(),
-    },
-    include: {
-      user: true,
-      serviceRegions: {
-        include: {
-          deliveryRegion: true,
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        ...(input.displayName ? { name: input.displayName } : {}),
+        phone: input.phone,
+      },
+    });
+    const updated = await tx.driverProfile.update({
+      where: { userId },
+      data: {
+        displayName: input.displayName || driver.displayName,
+        phone: input.phone,
+        licenseNumber: input.licenseNumber,
+        licenseExpiryDate: input.licenseExpiryDate,
+        emergencyContactName: input.emergencyContactName,
+        emergencyContactPhone: input.emergencyContactPhone,
+        idNumber: input.idNumber,
+        idType: input.idType ?? (input.idNumber.length === 13 ? "RSA_ID" : "PASSPORT"),
+        dateOfBirth: input.dateOfBirth,
+        residentialAddress: input.residentialAddress,
+        ...(profilePhotoMediaId ? { profilePhotoMediaId } : {}),
+        onboardingStatus: DriverOnboardingStatus.PENDING_REVIEW,
+        vehicleComplianceRequiredAt: driver.vehicleComplianceRequiredAt ?? new Date(),
+      },
+      include: {
+        user: true,
+        profilePhoto: { select: { publicReference: true } },
+        serviceRegions: {
+          include: {
+            deliveryRegion: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  // Keep user sync
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      ...(input.displayName ? { name: input.displayName } : {}),
-      phone: input.phone,
-    },
+    return toDriverSelfDto(updated);
   });
-
-  return toDriverSelfDto(updated);
 }
 
 // ─── Attach Own Driver Document ───────────────────────────────────────────────
@@ -187,42 +185,31 @@ export async function attachOwnDriverDocument(input: {
   privateMediaReference: string;
   expiresAt?: Date | null;
 }) {
-  const driver = await prisma.driverProfile.findUnique({
-    where: { userId: input.driverUserId },
-    select: { id: true },
-  });
-  if (!driver) throw new Error("Driver profile not found.");
-
-  const media = await prisma.privateMediaObject.findUnique({
-    where: { publicReference: input.privateMediaReference },
-  });
-  if (
-    !media ||
-    media.ownerType !== PrivateMediaOwnerType.DRIVER ||
-    media.ownerId !== driver.id ||
-    media.status !== "READY"
-  ) {
-    throw new Error("The uploaded private media cannot be used for this driver document.");
-  }
-
   return prisma.$transaction(async (tx) => {
-    const prior = await tx.driverDocument.findFirst({
-      where: {
-        driverProfileId: driver.id,
-        documentType: input.documentType,
-        status: { in: [DocumentStatus.PENDING, DocumentStatus.SUBMITTED, DocumentStatus.APPROVED] },
-      },
-    });
-
-    if (prior) {
-      await tx.driverDocument.update({
-        where: { id: prior.id },
-        data: {
-          status: DocumentStatus.REJECTED,
-          rejectionReason: "SUPERSEDED_BY_NEW_UPLOAD",
-        },
-      });
+    // Serialize replacements for this driver before reading the current document.
+    const drivers = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "DriverProfile" WHERE "userId" = ${input.driverUserId} FOR UPDATE`);
+    const driver = drivers[0];
+    if (!driver) throw new DriverDocumentError("PROFILE_NOT_FOUND");
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "PrivateMediaObject" WHERE "publicReference" = ${input.privateMediaReference} FOR UPDATE`);
+    const media = await tx.privateMediaObject.findUnique({ where: { publicReference: input.privateMediaReference } });
+    const purposes: PrivateMediaPurpose[] = input.documentType === DocumentType.LICENSE
+      ? [PrivateMediaPurpose.DRIVER_LICENCE]
+      : input.documentType === DocumentType.OTHER
+        ? [PrivateMediaPurpose.DRIVER_IDENTITY_DOCUMENT, PrivateMediaPurpose.OTHER]
+        : [PrivateMediaPurpose.DRIVER_IDENTITY_DOCUMENT];
+    if (!media || media.ownerType !== PrivateMediaOwnerType.DRIVER || media.ownerId !== driver.id || media.status !== "READY" || input.documentType === DocumentType.VEHICLE_REGISTRATION || !purposes.includes(media.purpose)) {
+      throw new DriverDocumentError("MEDIA_INVALID");
     }
+    const include = { privateMediaObject: { select: { publicReference: true, originalFileName: true, detectedMimeType: true } } } as const;
+    const attached = await tx.driverDocument.findUnique({ where: { privateMediaObjectId: media.id }, include });
+    if (attached) {
+      if (attached.driverProfileId !== driver.id || attached.documentType !== input.documentType || (attached.expiresAt?.getTime() ?? null) !== (input.expiresAt?.getTime() ?? null)) throw new DriverDocumentError("MEDIA_ALREADY_ATTACHED");
+      return attached;
+    }
+    await tx.driverDocument.updateMany({
+      where: { driverProfileId: driver.id, documentType: input.documentType, status: { in: [DocumentStatus.PENDING, DocumentStatus.SUBMITTED, DocumentStatus.APPROVED] } },
+      data: { status: DocumentStatus.REJECTED, rejectionReason: "SUPERSEDED_BY_NEW_UPLOAD" },
+    });
 
     return tx.driverDocument.create({
       data: {
@@ -233,15 +220,7 @@ export async function attachOwnDriverDocument(input: {
         expiresAt: input.expiresAt ?? null,
         status: DocumentStatus.SUBMITTED,
       },
-      include: {
-        privateMediaObject: {
-          select: {
-            publicReference: true,
-            originalFileName: true,
-            detectedMimeType: true,
-          },
-        },
-      },
+      include,
     });
   });
 }
@@ -252,7 +231,7 @@ export async function listOwnDriverDocuments(driverUserId: string) {
     where: { userId: driverUserId },
     select: { id: true },
   });
-  if (!driver) throw new Error("Driver profile not found.");
+  if (!driver) throw new DriverDocumentError("PROFILE_NOT_FOUND");
 
   return prisma.driverDocument.findMany({
     where: { driverProfileId: driver.id },
@@ -298,6 +277,7 @@ export async function attachOwnProfilePhoto(input: {
     data: { profilePhotoMediaId: media.id },
     include: {
       user: true,
+      profilePhoto: { select: { publicReference: true } },
       serviceRegions: { include: { deliveryRegion: true } },
     },
   });

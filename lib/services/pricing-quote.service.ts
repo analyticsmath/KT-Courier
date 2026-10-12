@@ -2,7 +2,8 @@ import { Prisma, PricingQuoteOwnerType, PricingQuoteStatus } from "@prisma/clien
 import { prisma } from "@/lib/db/prisma";
 import type { AuthenticatedUser } from "@/types/domain";
 import { calculateRoute } from "@/lib/maps/routes.service";
-import { checkDeliveryZone, matchRegionByCity } from "@/lib/maps/delivery-zone.service";
+import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
+import { regionBoundaryIssues } from "@/lib/maps/region-boundaries";
 import { calculateDeliveryPrice } from "@/lib/pricing/calculator";
 import { getPricingConfiguration, PRICING_CALCULATION_VERSION } from "@/lib/pricing/config";
 import { pricingError } from "@/lib/pricing/errors";
@@ -24,11 +25,11 @@ async function ownerFor(user: AuthenticatedUser) {
 }
 
 async function regionFor(address: PricingQuoteRequestInput["dropoffAddress"]) {
-  if (address.latitude !== undefined && address.longitude !== undefined) {
+  if (address.latitude != null && address.longitude != null) {
     const zone = await checkDeliveryZone(address.latitude, address.longitude);
-    if (zone.regionId) return zone.regionId;
+    if (zone.regionId && zone.withinMaxDistance === true) return zone.regionId;
   }
-  return (await matchRegionByCity(address.city ?? null, address.province ?? null)).regionId;
+  throw pricingError.noRule();
 }
 
 function snapshotRule(rule: PricingRuleSnapshot) {
@@ -41,14 +42,14 @@ export async function createPricingQuoteForTrustedOwner(
   input: PricingQuoteRequestInput,
 ) {
   const coordinates = [input.pickupAddress.latitude, input.pickupAddress.longitude, input.dropoffAddress.latitude, input.dropoffAddress.longitude];
-  if (coordinates.some((value) => value === null)) throw pricingError.route();
+  if (coordinates.some((value) => value == null || !Number.isFinite(value))) throw pricingError.route();
   const route = await calculateRoute(coordinates[0]!, coordinates[1]!, coordinates[2]!, coordinates[3]!);
   if (!route.ok || route.route.distanceMeters <= 0) throw pricingError.route();
   const [originRegionId, destinationRegionId, config] = await Promise.all([regionFor(input.pickupAddress), regionFor(input.dropoffAddress), getPricingConfiguration()]);
-  const regions = await prisma.deliveryRegion.findMany({ where: { id: { in: [originRegionId, destinationRegionId].filter((id): id is string => !!id) }, active: true }, select: { id: true, highRiskSurcharge: true, pricingEnabled: true } });
+  const regions = await prisma.deliveryRegion.findMany({ where: { id: { in: [originRegionId, destinationRegionId] }, active: true, pricingEnabled: true }, select: { id: true, highRiskSurcharge: true, pricingEnabled: true, province: true, centerLat: true, centerLng: true, coverageRadiusKm: true, maxDistanceKm: true } });
   const byId = new Map(regions.map((region) => [region.id, region]));
   const destination = destinationRegionId ? byId.get(destinationRegionId) ?? null : null;
-  if (destination && !destination.pricingEnabled) throw pricingError.noRule();
+  if (!byId.has(originRegionId) || !destination || regions.some((region) => regionBoundaryIssues(region).length || route.route.distanceMeters / 1000 > Number(region.maxDistanceKm))) throw pricingError.noRule();
   const normalized: NormalizedPricingInput = { deliveryType: input.deliveryType, distanceMeters: route.route.distanceMeters, durationSeconds: route.route.durationSeconds, vehicleClass: input.vehicleClass ?? null, actualWeightKg: input.actualWeightKg ? new Decimal(input.actualWeightKg) : null, lengthCm: input.lengthCm ? new Decimal(input.lengthCm) : null, widthCm: input.widthCm ? new Decimal(input.widthCm) : null, heightCm: input.heightCm ? new Decimal(input.heightCm) : null };
   const rules = await prisma.pricingRule.findMany({ where: { active: true, archivedAt: null, currency: "ZAR", OR: [{ regionId: destinationRegionId }, { regionId: null }] } });
   const rawDistanceKm = new Decimal(route.route.distanceMeters.toString()).div("1000");

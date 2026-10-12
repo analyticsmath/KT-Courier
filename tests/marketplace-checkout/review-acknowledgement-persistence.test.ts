@@ -46,6 +46,17 @@ describe("marketplace checkout review and acknowledgement persistence", () => {
     const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue({ ...checkout, status: "READY_FOR_REVIEW", reviewVersion: 2, grandTotal: "15.00", commercialFingerprint: "fingerprint", changes: [{ type: "DELIVERY_FEE_CHANGED" }] }), findOperation: vi.fn().mockResolvedValue(null), createAcknowledgement };
     await expect(acknowledgeMarketplaceCheckoutReviewPersisted(repository as never, { reference: "checkout-1", owner, operationId: "ack-0001", requestHash: "ack", expectedVersion: 2, reviewVersion: 2, commercialFingerprint: "fingerprint", acknowledgedTotalReference: "15.00", termsVersion: "terms-1", privacyVersion: "privacy-1", refundPolicyReferences: ["refund-1"] })).resolves.toEqual({ acknowledged: true, reviewVersion: 2, checkoutVersion: 3 });
     expect(createAcknowledgement).toHaveBeenCalledOnce();
-    expect(createAcknowledgement).toHaveBeenCalledWith(expect.objectContaining({ settlementEvidenceVersions: ["settlement-evidence:v1:frozen"] }));
+    expect(createAcknowledgement).toHaveBeenCalledWith(expect.objectContaining({ checkoutVersion: 3, settlementEvidenceVersions: ["settlement-evidence:v1:frozen"] }));
+  });
+  it("replays the saved version after later checkout changes instead of inventing a new version", async () => {
+    const response = { acknowledged: true as const, reviewVersion: 2, checkoutVersion: 3 };
+    const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue({ ...checkout, version: 8 }), findOperation: vi.fn().mockResolvedValue({ requestHash: "ack", response }), createAcknowledgement: vi.fn() };
+    await expect(acknowledgeMarketplaceCheckoutReviewPersisted(repository as never, { reference: "checkout-1", owner, operationId: "ack-0001", requestHash: "ack", expectedVersion: 2, reviewVersion: 2, commercialFingerprint: "fingerprint", acknowledgedTotalReference: "15.00", termsVersion: "terms-1", privacyVersion: "privacy-1", refundPolicyReferences: ["refund-1"] })).resolves.toEqual(response);
+    expect(repository.createAcknowledgement).not.toHaveBeenCalled();
+  });
+  it("requires refresh when a historical receipt has no stored checkout version", async () => {
+    const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue({ ...checkout, version: 8 }), findOperation: vi.fn().mockResolvedValue({ requestHash: "ack", response: { acknowledged: true, reviewVersion: 2 } }), createAcknowledgement: vi.fn() };
+    await expect(acknowledgeMarketplaceCheckoutReviewPersisted(repository as never, { reference: "checkout-1", owner, operationId: "ack-0001", requestHash: "ack", expectedVersion: 2, reviewVersion: 2, commercialFingerprint: "fingerprint", acknowledgedTotalReference: "15.00", termsVersion: "terms-1", privacyVersion: "privacy-1", refundPolicyReferences: ["refund-1"] })).rejects.toMatchObject({ code: "CHECKOUT_OPERATION_CONFLICT" });
+    expect(repository.createAcknowledgement).not.toHaveBeenCalled();
   });
 });

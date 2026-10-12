@@ -30,6 +30,7 @@ export type ProviderRefundInput = Readonly<{
 export type ProviderRefundQueryInput = Readonly<{
   refundPublicReference: string;
   providerRefundId: string;
+  providerPaymentId?: string;
 }>;
 
 export type RefundProviderResultStatus = "SUCCEEDED" | "PROCESSING" | "FAILED" | "UNKNOWN" | "NEEDS_ATTENTION";
@@ -38,6 +39,9 @@ export type ProviderRefundResult = Readonly<{
   status: RefundProviderResultStatus;
   providerRefundId?: string;
   providerPaymentId?: string;
+  /** Independently returned provider facts, required for Paystack settlement. */
+  amount?: string;
+  currency?: string;
   providerStatusCode?: string;
   safeProviderStatus?: string;
   safeMetadata?: Readonly<Record<string, SafeProviderJson>>;

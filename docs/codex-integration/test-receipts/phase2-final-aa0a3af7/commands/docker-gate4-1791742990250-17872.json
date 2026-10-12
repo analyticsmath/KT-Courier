@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "command": "docker:gate4",
+  "arguments": [],
+  "fullCommand": "npm run docker:gate4",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T18:23:10.250Z",
+  "endedAt": "2026-10-11T18:25:28.584Z",
+  "durationMs": 138334,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 1,
+  "testsExpected": 8,
+  "testsExecuted": 8,
+  "testsPassed": 8,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 4
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 3
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 2
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 2
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 1
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 3
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 2
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 1
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 2
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 4
+    },
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 8
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": false,
+    "databaseHostClass": "loopback",
+    "emailProvider": "unset-or-other",
+    "paystackMode": "unset-or-other"
+  },
+  "stdoutPath": "output\\production-closure\\command-receipts\\docker-gate4-1791742990250-17872.log",
+  "status": "PASS"
+}

@@ -202,6 +202,18 @@ describe("Phase 1: Paystack Durable Webhook Inbox & Worker Delivery", () => {
   });
 
   describe("Durable Ingestion & Fingerprinting", () => {
+    for (const committed of [true, false]) it(`duplicate INSERT race acknowledges only a committed durable receipt (${committed})`, async () => {
+      const rawBody = JSON.stringify({ event: "charge.success", data: { id: 12345, reference: "ref_race", amount: 10000, currency: "ZAR", status: "success" } });
+      const conflict = { code: "P2002" };
+      (prisma.paymentWebhookEvent.findUnique as any).mockResolvedValueOnce(null).mockResolvedValueOnce(committed ? { id: "race_receipt", publicReference: "race_public", processingStatus: "RECEIVED" } : null);
+      (prisma.paymentWebhookEvent.upsert as any).mockRejectedValueOnce(conflict);
+      const result = ingestPaystackWebhook({ rawBody, signature: calculatePaystackHmac(rawBody, testSecret), secretKey: testSecret });
+      if (committed) await expect(result).resolves.toMatchObject({ received: true, webhookEventId: "race_receipt" });
+      else await expect(result).rejects.toBe(conflict);
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+      expect(prisma.paymentAttempt.update).not.toHaveBeenCalled();
+    });
+
     it("recognizes duplicate webhooks and avoids double-inserting", async () => {
       const payload = {
         event: "charge.success",

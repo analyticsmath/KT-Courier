@@ -63,6 +63,17 @@ beforeEach(() => {
   });
 });
 describe("conversation authorization", () => {
+  it("intersects a delivery reference with personal and store ownership before the list limit", async () => {
+    await listConversations(user, "personal", orderId);
+    expect(db.platformConversation.findMany.mock.calls[0][0].where).toMatchObject({
+      AND: [{ OR: expect.any(Array) }, { kind: "DELIVERY", orderId }],
+    });
+    await listConversations(user, "STORE", orderId);
+    expect(auth.storeAccess).toHaveBeenCalledWith(user.id, "chat");
+    expect(db.platformConversation.findMany.mock.calls[1][0].where).toEqual({
+      AND: [{ OR: [{ kind: "SUPPORT", storeId: "business" }, { kind: "DELIVERY", order: { storeId: "business" } }] }, { kind: "DELIVERY", orderId }],
+    });
+  });
   it("filters personal delivery chat by customer or current active driver", async () => {
     await listConversations(user, "personal");
     expect(

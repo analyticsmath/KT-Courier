@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "command": [
+    "npm",
+    "run",
+    "build"
+  ],
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "nodeVersion": "v24.18.0",
+  "buildId": "BNFJsZ-JKRsQ_JJF7OLtE",
+  "startedAt": "2026-10-11T15:34:53.800Z",
+  "endedAt": "2026-10-11T15:38:01.533Z",
+  "durationMs": 187733,
+  "commands": [
+    [
+      "npm.cmd",
+      "run",
+      "build"
+    ]
+  ],
+  "hostBuildEnvironment": "sanitized; workspace environment files and inherited provider credentials excluded",
+  "runtimeArtifact": "Next standalone .next output, server.js, static and public; packaged later over the disposable Linux migration image",
+  "failure": null,
+  "status": "PASS"
+}

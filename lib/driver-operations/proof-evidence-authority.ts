@@ -14,6 +14,7 @@ type ProofEvidenceRow = Readonly<{
   status: string;
   validatedAt: Date | null;
   usedAt: Date | null;
+  storageReference: string;
 }>;
 
 const SAFE_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
@@ -44,7 +45,7 @@ export async function consumeProofEvidenceInTx(
 
   const rows = await tx.$queryRaw<ProofEvidenceRow[]>(Prisma.sql`
     SELECT "id", "orderId", "assignmentId", "driverProfileId", "createdByUserId",
-      "contentType", "byteSize", "privateVisibility", "status", "validatedAt", "usedAt"
+      "contentType", "byteSize", "privateVisibility", "status", "validatedAt", "usedAt", "storageReference"
     FROM "DeliveryProofEvidence"
     WHERE "publicReference" = ${input.reference}
     FOR UPDATE
@@ -67,6 +68,11 @@ export async function consumeProofEvidenceInTx(
     evidence.byteSize > MAX_BYTES
   ) {
     throw new DriverOperationError("Proof evidence is not eligible for delivery use.", "DRIVER_OPERATION_INVALID_STATE");
+  }
+  if (evidence.storageReference?.startsWith("PMO-")) {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "PrivateMediaObject" WHERE "publicReference" = ${evidence.storageReference} FOR UPDATE`);
+    const asset = await tx.privateMediaObject.findFirst({ where: { publicReference: evidence.storageReference, ownerType: "PROOF_OF_DELIVERY", ownerId: input.orderId, purpose: "POD_EVIDENCE", createdByUserId: input.driverUserId, status: "READY" }, select: { id: true } });
+    if (!asset) throw new DriverOperationError("Private proof has been revoked or is unavailable.", "DRIVER_OPERATION_INVALID_STATE");
   }
 
   const changed = await tx.$executeRaw(Prisma.sql`

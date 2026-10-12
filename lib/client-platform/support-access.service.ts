@@ -25,6 +25,12 @@ async function authorize(u: AuthenticatedUser) {
       "Active super-admin access is required.",
       403,
     );
+  // SUPER_ADMIN has global administrative defaults, but business support is
+  // an explicitly constrained, audited capability. Honour its explicit DENY
+  // on every grant and read, including a previously issued support session.
+  if (await prisma.userPermission.findFirst({ where: { userId: u.id, effect: "DENY", permission: { key: "stores.read" } }, select: { id: true } })) {
+    throw new PlatformError("SUPPORT_ACCESS_FORBIDDEN", "Business support access is denied.", 403);
+  }
 }
 export async function grantBusinessSupportAccess(
   u: AuthenticatedUser,

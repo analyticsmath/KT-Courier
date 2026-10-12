@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { PrivateMediaOwnerType, PrivateMediaPurpose, PrivateMediaStatus, UserRole } from "@/types/db";
 import { createPrivateMediaStorageAdapter, type PrivateMediaStorageAdapter, PrivateMediaStorageError } from "./private-media-storage";
+import { normalizePrivateRaster, PrivateRasterError } from "./normalize-private-raster";
 
 const MAX_PRIVATE_MEDIA_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
@@ -77,12 +78,19 @@ export class PrivateMediaService {
     const fileName = assertUpload(input);
     assertPurposeOwner(input.ownerType, input.purpose);
     await this.assertCanManageOwner(input.actor, input.ownerType, input.ownerId, input.purpose);
-    // New raster evidence uses Cloudinary too; retain original bytes for evidence integrity.
-    // Injected adapters remain explicit test/operation boundaries, and PDFs retain document storage.
+    const raster = input.mimeType.startsWith("image/");
+    let bytes = input.bytes;
+    if (raster) {
+      try { bytes = await normalizePrivateRaster(input.bytes, input.mimeType); }
+      catch (error) { if (error instanceof PrivateRasterError) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_IMAGE_CONTENT_INVALID", 422, error.message); throw error; }
+      if (bytes.byteLength > MAX_PRIVATE_MEDIA_BYTES) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_SIZE_INVALID", 413, "Normalized private evidence exceeds 10 MB.");
+    }
+    // Normalize only new raster evidence; existing objects are untouched. PDFs
+    // and explicitly injected storage adapters retain their existing routing.
     let storage: PrivateMediaStorageAdapter;
     try { storage = !this.storageOverride && input.mimeType.startsWith("image/") ? createCloudinaryPrivateImageStorageAdapter() : this.storage; }
     catch (error) { storageError(error); }
-    const checksum = createHash("sha256").update(input.bytes).digest("hex");
+    const checksum = createHash("sha256").update(bytes).digest("hex");
     const duplicate = await prisma.privateMediaObject.findFirst({
       where: { ownerType: input.ownerType, ownerId: input.ownerId, purpose: input.purpose, checksum, storageProvider: storage.code, status: PrivateMediaStatus.READY },
       orderBy: { createdAt: "asc" },
@@ -104,16 +112,21 @@ export class PrivateMediaService {
         declaredMimeType: input.mimeType,
         retentionUntil: input.retentionUntil ?? null,
         createdByUserId: input.actor.userId,
+        ...(raster ? { metadata: { rasterNormalization: "PRIVATE_RASTER_V1", sourceChecksum: createHash("sha256").update(input.bytes).digest("hex"), sourceByteSize: input.bytes.byteLength } } : {}),
       },
     });
     try {
-      await storage.write({ key: storageKey, bytes: input.bytes, mimeType: input.mimeType });
+      await storage.write({ key: storageKey, bytes, mimeType: input.mimeType });
       const ready = await prisma.privateMediaObject.update({
         where: { id: record.id },
-        data: { status: PrivateMediaStatus.READY, detectedMimeType: input.mimeType, byteSize: input.bytes.byteLength, checksum },
+        data: { status: PrivateMediaStatus.READY, detectedMimeType: input.mimeType, byteSize: bytes.byteLength, checksum },
       });
       return this.safeMetadata(ready);
     } catch (error) {
+      // The key was generated for this intake alone. Clean up partial provider
+      // writes and uploads whose READY database write failed; a failed cleanup
+      // leaves a durable quarantined record for provider-aware operator recovery.
+      await storage.delete(storageKey).catch(() => undefined);
       await prisma.privateMediaObject.update({ where: { id: record.id }, data: { status: PrivateMediaStatus.QUARANTINED, rejectionReason: error instanceof Error ? error.name : "PRIVATE_MEDIA_STORAGE_FAILURE" } }).catch(() => undefined);
       storageError(error);
     }
@@ -209,6 +222,16 @@ export class PrivateMediaService {
         || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.CLAIMS_DECIDE });
     }
     if (ownerType === PrivateMediaOwnerType.USER) return ownerId === actor.userId;
+    // POD intake is owned by its canonical courier order before final delivery
+    // proof exists. Only an assigned active driver can upload through the
+    // separate delivery-proof route; completed assignments retain read access.
+    if (ownerType === PrivateMediaOwnerType.PROOF_OF_DELIVERY && actor.role === UserRole.DRIVER) {
+      const assignment = await prisma.orderAssignment.findFirst({
+        where: { orderId: ownerId, status: { in: ["ACCEPTED", "COMPLETED"] }, driverProfile: { userId: actor.userId, status: "ACTIVE", user: { status: "ACTIVE", role: "DRIVER" } } },
+        select: { id: true },
+      });
+      return Boolean(assignment);
+    }
     if (actor.role === UserRole.SUPER_ADMIN || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ })) return true;
     if (ownerType === PrivateMediaOwnerType.DRIVER) {
       const owner = await prisma.driverProfile.findUnique({ where: { id: ownerId }, select: { userId: true } });

@@ -146,7 +146,9 @@ export function ProductMediaGallery({ product, mediaGallery }: ProductMediaGalle
             ))
           ) : (
             <div className={styles.pdpMobileGallerySlide} data-kt-cart-flight-source="product-media">
-              <div className={styles.pdpGalleryEmpty}>Image unavailable</div>
+              <div className={styles.pdpMobileGalleryFrame}>
+                <div className={styles.pdpGalleryEmpty}>Image unavailable</div>
+              </div>
             </div>
           )}
         </div>

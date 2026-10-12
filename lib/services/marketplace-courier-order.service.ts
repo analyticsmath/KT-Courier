@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { OrderSource, OrderStatus } from "@/types/db";
 import { generateOrderNumber } from "@/lib/utils/order-number";
+import { isFrozenCourierQuote } from "@/lib/marketplace-checkout/frozen-courier-quote";
 
 export class MarketplaceCourierOrderError extends Error {
   constructor(readonly code: string, message: string) { super(message); this.name = "MarketplaceCourierOrderError"; }
@@ -25,7 +26,7 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
     const database = tx as any;
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "publicReference" = ${input.storeOrderReference} FOR UPDATE`);
     if (locked.length !== 1) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_STORE_ORDER_NOT_FOUND", "Marketplace store order was not found.");
-    const storeOrder = await database.marketplaceStoreOrder.findUnique({ where: { id: locked[0].id }, include: { marketplaceOrder: { include: { checkout: { include: { addressSnapshot: true, contactSnapshot: true } } } }, checkoutStoreGroup: { include: { store: { include: { defaultPickupAddress: true } } }, deliveryBridge: true } } });
+    const storeOrder = await database.marketplaceStoreOrder.findUnique({ where: { id: locked[0].id }, include: { marketplaceOrder: { include: { checkout: { include: { addressSnapshot: true, contactSnapshot: true } } } }, checkoutStoreGroup: { include: { store: { include: { defaultPickupAddress: true } } } }, deliveryBridge: true } });
     if (!storeOrder || storeOrder.acceptanceStatus !== "ACCEPTED" || !["CLEAR", "RESOLVED"].includes(storeOrder.resolutionStatus) || !["NOT_STARTED", "PREPARING", "READY_FOR_HANDOFF"].includes(storeOrder.preparationStatus)) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_ORDER_INELIGIBLE", "Store order is not eligible for canonical courier creation.");
     if (storeOrder.deliveryBridge?.courierOrderId && storeOrder.deliveryBridge.courierOrderReference) return Object.freeze({ courierOrderId: storeOrder.deliveryBridge.courierOrderId, courierOrderReference: storeOrder.deliveryBridge.courierOrderReference, replayed: true });
     const group = storeOrder.checkoutStoreGroup;
@@ -34,7 +35,7 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
     const destination = checkout.addressSnapshot;
     if (group.fulfilmentMode !== "COURIER_DELIVERY" || group.deliveryQuoteReference !== input.deliveryQuoteReference || group.deliveryQuoteVersion !== input.deliveryQuoteVersion || !group.pickupLocationReference || !pickup || !destination) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_FROZEN_EVIDENCE_INVALID", "Frozen Phase 6 quote, pickup location or Phase 20 destination evidence is unavailable.");
     const quote = await tx.pricingQuote.findUnique({ where: { id: input.deliveryQuoteReference } });
-    if (!quote || `phase6:${quote.id}` !== input.deliveryQuoteVersion || quote.currency !== "ZAR") throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_FROZEN_QUOTE_INVALID", "Frozen delivery quote cannot be bound to a canonical courier order.");
+    if (!quote || !isFrozenCourierQuote({ quote, storeId: storeOrder.storeId, reference: input.deliveryQuoteReference, version: input.deliveryQuoteVersion })) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_FROZEN_QUOTE_INVALID", "Frozen delivery quote cannot be bound to a canonical courier order.");
     const existingCourierOrder = await tx.order.findUnique({ where: { pricingQuoteId: quote.id }, select: { id: true, orderNumber: true, pricingSnapshot: true } });
     if (existingCourierOrder && (existingCourierOrder.pricingSnapshot as any)?.marketplaceStoreOrderReference === storeOrder.publicReference) return Object.freeze({ courierOrderId: existingCourierOrder.id, courierOrderReference: existingCourierOrder.orderNumber, replayed: true });
     if (existingCourierOrder) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_QUOTE_ALREADY_BOUND", "Frozen quote is already bound to another courier order.");

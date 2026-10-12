@@ -17,12 +17,15 @@ import {
   completeManualWithdrawalPayout,
 } from "@/lib/services/withdrawal-payout.service";
 import { createPayableOrder } from "./payment-fixtures";
-import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from "node:crypto";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const describeReal = hasDatabase ? describe : describe.skip;
 
-describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integration", () => {
+// These cases include full fixture creation plus multiple serializable ledger
+// transactions. Match the existing bounded PostgreSQL authority budget rather
+// than Vitest's five-second unit-test default; assertions and retries are intact.
+describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integration", { timeout: 30_000 }, () => {
   const hex64 = (s: string) => createHash("sha256").update(s).digest("hex");
   // Alphabetic entropy keeps synthetic bank references within the opaque-reference policy.
   const testNonce = randomBytes(8).toString("hex").replace(/[0-9a-f]/g, (digit) => String.fromCharCode(97 + parseInt(digit, 16)));
@@ -330,7 +333,7 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
 
     await prisma.withdrawalPolicy.upsert({
       where: { ownerType_currency: { ownerType: "STORE", currency: "ZAR" } },
-      update: { enabled: true },
+      update: { enabled: true, minimumAmount: new Prisma.Decimal("10.00"), maximumAmount: new Prisma.Decimal("50000.00"), dailyMaximumAmount: new Prisma.Decimal("100000.00") },
       create: {
         ownerType: "STORE",
         currency: "ZAR",
@@ -489,10 +492,11 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
     });
 
     const amountSubunits = Math.round(Number(amountStr) * 100);
+    const providerId = randomInt(1, 1_000_000_000_000);
     const rawBody = JSON.stringify({
       event: "charge.success",
       data: {
-        id: Math.floor(Math.random() * 10000000) + 1000000,
+        id: providerId,
         reference: attemptRef,
         status: "success",
         amount: amountSubunits,
@@ -513,7 +517,7 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
           verifyTransaction: async (ref: string) => ({
             status: true,
             message: "Verification successful",
-            data: { id: 12345678, status: "success", reference: ref, amount: amountSubunits, currency: "ZAR" },
+            data: { id: providerId, status: "success", reference: ref, amount: amountSubunits, currency: "ZAR" },
           }),
         } as unknown as PaystackClient,
         secretKey,
@@ -646,10 +650,11 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
       },
     });
 
+    const providerId = randomInt(1, 1_000_000_000_000);
     const rawBody = JSON.stringify({
       event: "charge.success",
       data: {
-        id: Math.floor(Math.random() * 10000000) + 1000000,
+        id: providerId,
         reference: attemptRef,
         status: "success",
         amount: 25000,
@@ -668,7 +673,7 @@ describeReal("Phase 1: Real PostgreSQL Webhook Concurrency & Durability Integrat
       verifyTransaction: async (ref: string) => ({
         status: true,
         message: "Verification successful",
-        data: { id: 12345678, status: "success", reference: ref, amount: 25000, currency: "ZAR" },
+        data: { id: providerId, status: "success", reference: ref, amount: 25000, currency: "ZAR" },
       }),
     } as unknown as PaystackClient;
 

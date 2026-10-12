@@ -8,6 +8,7 @@ export const PHASE27_EVENT_REGISTRY = [
   { sourceAuthority: "LEGACY_ORDER", eventType: "ORDER_STATUS_CHANGED", categoryKey: "ORDER_STATUS", purpose: "TRANSACTIONAL" },
   { sourceAuthority: "LEGACY_ORDER", eventType: "DELIVERY_OTP_ISSUED", categoryKey: "DELIVERY_SECURITY", purpose: "SECURITY" },
   { sourceAuthority: "AUTHENTICATION_SECURITY", eventType: "EMAIL_VERIFICATION_OTP", categoryKey: "ACCOUNT_SECURITY", purpose: "SECURITY" },
+  { sourceAuthority: "AUTHENTICATION_SECURITY", eventType: "GUEST_CHECKOUT_EMAIL_VERIFICATION_OTP", categoryKey: "ACCOUNT_SECURITY", purpose: "SECURITY" },
   { sourceAuthority: "AUTHENTICATION_SECURITY", eventType: "PASSWORD_RESET", categoryKey: "ACCOUNT_SECURITY", purpose: "SECURITY" },
   { sourceAuthority: "AUTHENTICATION_SECURITY", eventType: "PASSWORD_CHANGED", categoryKey: "ACCOUNT_SECURITY", purpose: "SECURITY" },
   { sourceAuthority: "AUTHENTICATION_SECURITY", eventType: "DELIVERY_OTP", categoryKey: "DELIVERY_SECURITY", purpose: "SECURITY" },
@@ -19,6 +20,12 @@ export const PHASE27_EVENT_REGISTRY = [
   { sourceAuthority: "STORE_ORDERS", eventType: "STORE_ORDER_REJECTED", categoryKey: "STORE_ORDER_STATUS", purpose: "TRANSACTIONAL" },
   { sourceAuthority: "STORE_ORDERS", eventType: "STORE_ORDER_READY_FOR_HANDOFF", categoryKey: "STORE_ORDER_STATUS", purpose: "TRANSACTIONAL" },
   { sourceAuthority: "STORE_ORDERS", eventType: "DELIVERY_ORDER_CREATED", categoryKey: "STORE_ORDER_STATUS", purpose: "TRANSACTIONAL" },
+  { sourceAuthority: "STORE_ORDERS", eventType: "COURIER_ORDER_BRIDGED", categoryKey: "STORE_ORDER_STATUS", purpose: "TRANSACTIONAL" },
+  { sourceAuthority: "STORE_ORDERS", eventType: "STORE_ORDER_RECEIVED", categoryKey: "STORE_ORDER_RECEIVED", purpose: "TRANSACTIONAL" },
+  { sourceAuthority: "MARKETPLACE", eventType: "MARKETPLACE_ORDER_CONFIRMED", categoryKey: "MARKETPLACE_ORDER_STATUS", purpose: "TRANSACTIONAL" },
+  { sourceAuthority: "PAYMENT", eventType: "PAYMENT_SUCCEEDED_VERIFIED", categoryKey: "PAYMENT_STATUS", purpose: "TRANSACTIONAL" },
+  { sourceAuthority: "PAYMENT", eventType: "PAYMENT_STATUS_CHANGED", categoryKey: "PAYMENT_STATUS", purpose: "TRANSACTIONAL" },
+  { sourceAuthority: "REFUND", eventType: "REFUND_STATUS_CHANGED", categoryKey: "REFUND_STATUS", purpose: "TRANSACTIONAL" },
 ] as const;
 
-export const KNOWN_NOTIFICATION_SOURCE_AUTHORITIES = ["LEGACY_ORDER", "AUTHENTICATION_SECURITY", "SUBSCRIPTIONS", "PROMOTERS", "STORE_ORDERS", "LEGACY_EMAIL_ADAPTER"] as const;
+export const KNOWN_NOTIFICATION_SOURCE_AUTHORITIES = ["LEGACY_ORDER", "AUTHENTICATION_SECURITY", "SUBSCRIPTIONS", "PROMOTERS", "STORE_ORDERS", "LEGACY_EMAIL_ADAPTER", "PAYMENT", "REFUND", "MARKETPLACE"] as const;

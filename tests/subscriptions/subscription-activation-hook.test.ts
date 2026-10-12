@@ -18,7 +18,7 @@ describe("verified subscription ITN activation", () => {
 
   it("opens subscription reconciliation after settlement failure but leaves Phase 12 payment success untouched", async () => {
     const reconcile = vi.fn();
-    await onVerifiedSubscriptionPaymentSucceeded({ getSuccessfulSubscriptionPayment: async () => payment, settleAndActivatePaidInvoice: async () => { throw new Error("ledger unavailable"); }, openApplicationReconciliation: reconcile }, payment.id);
+    await expect(onVerifiedSubscriptionPaymentSucceeded({ getSuccessfulSubscriptionPayment: async () => payment, settleAndActivatePaidInvoice: async () => { throw new Error("ledger unavailable"); }, openApplicationReconciliation: reconcile }, payment.id)).rejects.toThrow("ledger unavailable");
     expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({ reason: "APPLICATION_FAILURE", paymentId: "pay_A1" }));
   });
 
@@ -30,10 +30,16 @@ describe("verified subscription ITN activation", () => {
 
   it("holds a successful payment for reconciliation when verified subscription-event evidence is missing or mismatched", async () => {
     const settle = vi.fn(); const reconcile = vi.fn();
-    await onVerifiedSubscriptionPaymentSucceeded({ getSuccessfulSubscriptionPayment: async () => ({ ...payment, providerEvent: undefined }), settleAndActivatePaidInvoice: settle, openApplicationReconciliation: reconcile }, payment.id);
-    await onVerifiedSubscriptionPaymentSucceeded({ getSuccessfulSubscriptionPayment: async () => ({ ...payment, providerEvent: { ...providerEvent, providerTokenFingerprint: "unexpected" } }), settleAndActivatePaidInvoice: settle, openApplicationReconciliation: reconcile }, payment.id);
+    await expect(onVerifiedSubscriptionPaymentSucceeded({ getSuccessfulSubscriptionPayment: async () => ({ ...payment, providerEvent: undefined }), settleAndActivatePaidInvoice: settle, openApplicationReconciliation: reconcile }, payment.id)).rejects.toMatchObject({ code: "SUBSCRIPTION_RECONCILIATION_REQUIRED" });
+    await expect(onVerifiedSubscriptionPaymentSucceeded({ getSuccessfulSubscriptionPayment: async () => ({ ...payment, providerEvent: { ...providerEvent, providerTokenFingerprint: "unexpected" } }), settleAndActivatePaidInvoice: settle, openApplicationReconciliation: reconcile }, payment.id)).rejects.toMatchObject({ code: "SUBSCRIPTION_RECONCILIATION_REQUIRED" });
     expect(settle).not.toHaveBeenCalled();
     expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({ reason: "PROVIDER_EVENT_MISSING" }));
     expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({ reason: "PROVIDER_TOKEN_MISMATCH" }));
+  });
+  it("reports an inactive contract as reconciliation rather than consumer activation", async () => {
+    const reconcile = vi.fn();
+    await expect(onVerifiedSubscriptionPaymentSucceeded({ getSuccessfulSubscriptionPayment: async () => payment, settleAndActivatePaidInvoice: async () => ({ outcome: "RECONCILIATION_REQUIRED" }), openApplicationReconciliation: reconcile }, payment.id)).rejects.toMatchObject({ code: "SUBSCRIPTION_RECONCILIATION_REQUIRED" });
+    expect(reconcile).toHaveBeenCalledOnce();
+    expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({ reason: "PAYMENT_SUCCEEDED_CONTRACT_INACTIVE" }));
   });
 });

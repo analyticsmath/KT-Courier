@@ -3,13 +3,20 @@ import { detectDuplicateSignals } from "@/lib/catalog/catalog-duplicate-detectio
 import { CatalogNotFoundError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
 
-export async function searchCatalogDuplicates(input: { title: string; productTypeCode: string; gtin?: string; brandId?: string; mpn?: string }) {
+export async function searchCatalogDuplicates(input: { storeId: string; title: string; productTypeCode: string; gtin?: string; brandId?: string; mpn?: string }) {
   const candidates = await prisma.catalogProduct.findMany({
-    where: { productTypeDefinition: { code: input.productTypeCode }, OR: [{ normalizedTitle: input.title.toLocaleLowerCase("en-ZA") }, ...(input.gtin ? [{ variants: { some: { gtin: input.gtin.replace(/[\s-]/g, "") } } }] : [])] },
+    where: { productTypeDefinition: { code: input.productTypeCode }, AND: [
+      { OR: [{ scope: "STORE_PRIVATE", sourceStoreId: input.storeId }, { scope: "GLOBAL_CANONICAL", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" }] },
+      { OR: [{ normalizedTitle: input.title.toLocaleLowerCase("en-ZA") }, ...(input.gtin ? [{ variants: { some: { gtin: input.gtin.replace(/[\s-]/g, "") } } }] : [])] },
+    ] },
     include: { productTypeDefinition: { select: { code: true } }, variants: { select: { gtin: true, mpn: true, optionFingerprint: true } } },
     take: 20,
   });
-  return detectDuplicateSignals({ productId: "source", title: input.title, productTypeCode: input.productTypeCode, brandId: input.brandId, gtins: input.gtin ? [input.gtin] : [], mpns: input.mpn ? [input.mpn] : [] }, candidates.map((candidate) => ({ productId: candidate.id, title: candidate.title, productTypeCode: candidate.productTypeDefinition.code, brandId: candidate.brandId, gtins: candidate.variants.flatMap((variant) => variant.gtin ? [variant.gtin] : []), mpns: candidate.variants.flatMap((variant) => variant.mpn ? [variant.mpn] : []), variantFingerprints: candidate.variants.map((variant) => variant.optionFingerprint) })));
+  const signals = detectDuplicateSignals({ productId: "source", title: input.title, productTypeCode: input.productTypeCode, brandId: input.brandId, gtins: input.gtin ? [input.gtin] : [], mpns: input.mpn ? [input.mpn] : [] }, candidates.map((candidate) => ({ productId: candidate.id, title: candidate.title, productTypeCode: candidate.productTypeDefinition.code, brandId: candidate.brandId, gtins: candidate.variants.flatMap((variant) => variant.gtin ? [variant.gtin] : []), mpns: candidate.variants.flatMap((variant) => variant.mpn ? [variant.mpn] : []), variantFingerprints: candidate.variants.map((variant) => variant.optionFingerprint) })));
+  return signals.map(signal => {
+    const candidate = candidates.find(item => item.id === signal.candidateProductId)!;
+    return { publicReference: candidate.publicReference, title: candidate.title, reason: signal.reason, confidenceBand: signal.confidenceBand };
+  });
 }
 
 export async function listCatalogDuplicateCandidates() {

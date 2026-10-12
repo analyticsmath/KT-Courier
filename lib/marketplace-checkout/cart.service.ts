@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 20 delegates remain dynamic until Prisma generation is permitted in Phase 26.5. */
 import { randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCartMutable, assertSupportedQuantity, cartLineFingerprint, MAX_CART_LINES, MAX_CART_STORES } from "@/lib/marketplace-checkout/policy";
@@ -36,16 +37,16 @@ export function ownerWhere(owner: CartOwner): Record<string, unknown> {
 }
 
 /** Resolves client references against Phase 18 records; clients never supply store, price or modifier amounts. */
-export async function resolveMarketplaceCartLine(input: { offerReference: string; variantReference: string; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; quantity: number }): Promise<CartLineSelection> {
+export async function resolveMarketplaceCartLine(input: { offerReference: string; variantReference: string; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; quantity: number }, database: Pick<Prisma.TransactionClient, "storeCatalogOffer" | "storeOfferPriceVersion"> = prisma): Promise<CartLineSelection> {
   assertStorefrontPublicExposureAllowed();
   assertSupportedQuantity(input.quantity);
-  const offer = await prisma.storeCatalogOffer.findFirst({
+  const offer = await database.storeCatalogOffer.findFirst({
     where: { publicReference: input.offerReference, variant: { publicReference: input.variantReference }, status: "ACTIVE", publicationStatus: "PUBLISHED" },
     include: { product: true, variant: true, modifierGroups: { include: { group: { include: { options: true } } } } },
   });
   if (!offer) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "The selected item is unavailable.");
   if (offer.sellingUnit === "VARIABLE_WEIGHT" && !offer.packagedQuantity) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Variable-weight items cannot be checked out yet.");
-  const price = await prisma.storeOfferPriceVersion.findFirst({ where: { offerId: offer.id, status: "ACTIVE", effectiveFrom: { lte: new Date() }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: new Date() } }] }, orderBy: { versionNumber: "desc" } });
+  const price = await database.storeOfferPriceVersion.findFirst({ where: { offerId: offer.id, status: "ACTIVE", effectiveFrom: { lte: new Date() }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: new Date() } }] }, orderBy: { versionNumber: "desc" } });
   if (!price || price.currency !== "ZAR") throw new MarketplaceCheckoutError("CART_LINE_INVALID", "The selected item has no active price.");
   const attached = new Map(offer.modifierGroups.map((link) => [link.group.publicReference, link.group]));
   const selections = input.modifiers.map((selection) => {

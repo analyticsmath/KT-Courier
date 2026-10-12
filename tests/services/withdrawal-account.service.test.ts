@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
     wallet: { findUnique: vi.fn() },
+    ledgerAccount: { findFirst: vi.fn() },
   },
   ensureLedgerAccount: vi.fn(),
 }));
@@ -11,7 +13,7 @@ vi.mock("@/lib/db/prisma", () => ({ prisma: mocks.prisma }));
 vi.mock("@/lib/services/wallet-account.service", () => ({ ensureLedgerAccount: mocks.ensureLedgerAccount }));
 
 import { Prisma } from "@prisma/client";
-import { ensureWithdrawalAccounts, lockWithdrawalAccounts } from "@/lib/services/withdrawal-account.service";
+import { ensureOwnerWithdrawableAccount, ensureWithdrawalAccounts, lockWithdrawalAccounts } from "@/lib/services/withdrawal-account.service";
 
 describe("withdrawal account service", () => {
   beforeEach(() => {
@@ -68,5 +70,20 @@ describe("withdrawal account service", () => {
     await expect(
       ensureWithdrawalAccounts({ walletId: "wallet-1", ownerType: "DRIVER" })
     ).rejects.toMatchObject({ code: "LEDGER_WALLET_INACTIVE" });
+  });
+
+  it.each(["driver", "withdrawal", "unknown"])("preserves canonical %s driver account identity while refusing arbitrary definitions", async identity => {
+    const wallet = { id: "wallet-driver", ownerType: "DRIVER", ownerId: "driver-profile" };
+    const driverCode = `DRIVER-${createHash("sha256").update(wallet.ownerId).digest("hex").slice(0, 20).toUpperCase()}-OWNER-WITHDRAWABLE-ZAR`;
+    const withdrawalCode = "OWN-WD-WALLET-DRIVER";
+    mocks.prisma.ledgerAccount.findFirst.mockResolvedValue({ code: identity === "driver" ? driverCode : identity === "withdrawal" ? withdrawalCode : "ARBITRARY" });
+    mocks.ensureLedgerAccount.mockImplementation(async definition => {
+      if (identity === "unknown") throw Object.assign(new Error("Canonical definition conflict"), { code: "LEDGER_OWNER_INVALID" });
+      return { id: "source", ...definition };
+    });
+    const result = ensureOwnerWithdrawableAccount(wallet);
+    if (identity === "unknown") await expect(result).rejects.toMatchObject({ code: "LEDGER_OWNER_INVALID" });
+    else expect((await result).code).toBe(identity === "driver" ? driverCode : withdrawalCode);
+    expect(mocks.ensureLedgerAccount).toHaveBeenCalledWith(expect.objectContaining({ code: identity === "withdrawal" ? withdrawalCode : driverCode, purpose: "OWNER_WITHDRAWABLE", category: "LIABILITY", currency: "ZAR" }));
   });
 });

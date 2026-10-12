@@ -1,0 +1,12 @@
+{
+  "command": "Parse .github/workflows/ci.yml with js-yaml; inspect all actions/checkout@v4 refs; parse vercel.json",
+  "workingDirectory": "D:/KT-Courier-integration",
+  "sourceCommit": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe",
+  "sourceTree": "fceeb7d0df67f07af4ff41874fbff76b1553aae2",
+  "exitCode": 0,
+  "status": "PASS",
+  "checkoutStepsExpected": 28,
+  "checkoutStepsExactPullRequestHead": 28,
+  "vercelJsonParse": "PASS",
+  "stdout": "YAML valid; all 28 exact-head checkouts and exact Vercel branch rule pass"
+}

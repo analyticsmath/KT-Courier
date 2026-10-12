@@ -7,6 +7,7 @@ import { checkIpRateLimit, RATE_LIMITS, getClientIp } from "@/lib/security/rate-
 import { getDriverProfileIdForUser } from "@/lib/services/driver-assignments.service";
 import { getDeliveryAssignmentForDriver } from "@/lib/services/delivery-execution.service";
 import { generateAndSendDeliveryOtp, getDeliveryOtpStatus } from "@/lib/services/delivery-otp.service";
+import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
 import { prisma } from "@/lib/db/prisma";
 import { RequestDeliveryOtpSchema } from "@/lib/validation/delivery";
 import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
@@ -64,7 +65,7 @@ export async function POST(
   if (!parsed.success) return conflict("Invalid OTP request.");
   try {
     const replay = await findOperationReplay(parsed.data.operationId, parsed.data);
-    if (replay) return ok({ sent: true, replay: true, expiresAt: replay.completedAt });
+    if (replay) { await assertDriverReplayAuthority(assignmentId, driverProfileId, user.id, replay); return ok({ sent: true, replay: true, expiresAt: replay.completedAt }); }
     await assertAcceptedCurrentDriver(assignmentId, driverProfileId, parsed.data.assignmentVersion);
   } catch (error) {
     return conflict(error instanceof Error ? error.message : "OTP request was rejected.");
@@ -130,7 +131,7 @@ export async function POST(
     });
   } catch (err) {
     const replay = await findOperationReplay(parsed.data.operationId, parsed.data).catch(() => null);
-    if (replay) return ok({ sent: true, replay: true, expiresAt: replay.completedAt });
+    if (replay) { await assertDriverReplayAuthority(assignmentId, driverProfileId, user.id, replay); return ok({ sent: true, replay: true, expiresAt: replay.completedAt }); }
     await abandonReservedOperation(parsed.data.operationId);
     console.error("[driver/assignments/[id]/delivery/otp POST]", err);
     return serverError();

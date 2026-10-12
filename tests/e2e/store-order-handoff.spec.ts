@@ -1,2 +1,2 @@
-import { test } from "@playwright/test";
-test.skip("driver-authenticated two-party handoff requires Phase 26.5 browser validation", async () => {});
+import { storeOrderScenarios } from "./fixtures/store-order-scenarios";
+storeOrderScenarios("handoff");

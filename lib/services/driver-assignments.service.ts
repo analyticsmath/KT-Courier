@@ -42,7 +42,9 @@ export async function getDriverAssignmentDetail(
   driverProfileId: string
 ): Promise<DriverAssignmentDto | null> {
   const assignment = await getAssignmentOwnedByDriver(assignmentId, driverProfileId);
-  return assignment ? toDriverAssignmentDto(assignment) : null;
+  if (!assignment) return null;
+  const bridge = await prisma.marketplaceStoreOrderDeliveryBridge.findUnique({ where: { courierOrderId: assignment.orderId }, select: { storeOrder: { select: { publicReference: true } } } });
+  return { ...toDriverAssignmentDto(assignment), marketplaceStoreOrderReference: bridge?.storeOrder.publicReference ?? null };
 }
 
 // ─── Driver accept assignment ─────────────────────────────────────────────────

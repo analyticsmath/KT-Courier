@@ -4,6 +4,8 @@ import {
   PaymentConfigurationSchema,
   listPaymentConfigurations,
   savePaymentConfiguration,
+  PaymentApprovalSchema,
+  approvePaymentConfiguration,
 } from "@/lib/client-platform/payment-configuration.service";
 import { json, failure, mutation } from "@/lib/client-platform/api";
 export async function GET() {
@@ -14,6 +16,16 @@ export async function GET() {
   } catch (e) {
     return failure(e);
   }
+}
+export async function PATCH(req: NextRequest) {
+  const a = await requireAdminApiPermission("cod_operations.manage");
+  if (a.response) return a.response;
+  const b = await mutation(req, `payment-policy-review:${a.user.id}`);
+  if ("response" in b) return b.response;
+  const parsed = PaymentApprovalSchema.safeParse(b.body);
+  if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Provide valid review evidence." }, 422);
+  try { return json(await approvePaymentConfiguration(a.user, parsed.data)); }
+  catch (e) { return failure(e); }
 }
 export async function POST(req: NextRequest) {
   const a = await requireAdminApiPermission("cod_operations.manage");

@@ -66,7 +66,7 @@ try {
   safeLog("[STRICT_BOLA_RUNNER] PostgreSQL is ready. Executing strict BOLA database authority matrix...");
   const testResult = spawnSync(
     process.execPath,
-    [path.join("node_modules", "vitest", "vitest.mjs"), "run", "tests/security/bola-database-authority.integration.test.ts"],
+    [path.join("node_modules", "vitest", "vitest.mjs"), "run", "--config", "vitest.bola-integration.config.ts"],
     {
       cwd: process.cwd(),
       env,

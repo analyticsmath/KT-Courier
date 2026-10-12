@@ -5,7 +5,8 @@ import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { hasPermission } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db/prisma";
 import { notificationAdminAccess, notificationFailure, parseNotificationBody } from "@/lib/notifications/admin-api";
-import { customerOrderReviewPermissions, reviewCustomerOrderNotification } from "@/lib/notifications/customer-order-review";
+import { customerOrderReviewPermissions } from "@/lib/notifications/customer-order-review";
+import { reviewRequiredDomainNotification } from "@/lib/notifications/required-domain-configuration";
 
 const schema = z.object({ action: z.enum(["APPROVE_TEMPLATE", "PUBLISH_TEMPLATE", "APPROVE_RECIPIENT_POLICY", "PREPARE_ROUTE", "APPROVE_ROUTE", "ACTIVATE_ROUTE"]) }).strict();
 export async function POST(request: Request, context: { params: Promise<{ eventType: string }> }): Promise<Response> {
@@ -18,7 +19,7 @@ export async function POST(request: Request, context: { params: Promise<{ eventT
   try {
     const result = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('client-customer-notification-preparation')::bigint)`);
-      return reviewCustomerOrderNotification(tx, eventType, parsed.data.action, access.user.id);
+      return reviewRequiredDomainNotification(tx, eventType, parsed.data.action, access.user.id);
     });
     return NextResponse.json({ data: result });
   } catch (error) { return notificationFailure(error); }

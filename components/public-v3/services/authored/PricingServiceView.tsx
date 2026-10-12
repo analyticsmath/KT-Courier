@@ -16,19 +16,19 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
     },
     {
       title: "Delivery service type",
-      description: "Standard local courier, scheduled dispatch, bulk haulage, or direct dedicated movement.",
+      description: "Economy, Standard, or Express / Same-Day, where the selected service supports both addresses. A future collection date keeps the selected service tariff.",
     },
     {
       title: "Parcel count, dimensions and weight",
-      description: "Physical volume, weight classification, and loading requirements establish the appropriate vehicle.",
+      description: "The selected approved parcel profile defines dimension and weight limits. Quotes use its current version.",
     },
     {
       title: "Scheduling requirements",
-      description: "Same-day urgent dispatch, specific arrival window requests, or planned advance bookings.",
+      description: "Choose a future collection date or window when booking. Scheduling is separate from the delivery service and does not create another tariff.",
     },
     {
       title: "Current operational availability",
-      description: "Confirmed fleet capacity and driver availability across the requested route at dispatch time.",
+      description: "The quote engine validates both addresses against enabled service areas and a verified road route. Booking remains subject to operational availability.",
     },
   ];
 
@@ -45,7 +45,7 @@ export function PricingServiceView({ service }: AuthoredServiceViewProps) {
             {service.title}
           </h1>
           <p className="text-lg sm:text-xl text-[var(--kt-public-text-muted)] leading-relaxed">
-            KT Couriers does not advertise speculative rate tables or deploy client-side guessing calculators. Every quote is calculated from real physical requirements submitted through our authenticated delivery request flow.
+            {service.summary}
           </p>
           <div className="pt-2">
             <Link

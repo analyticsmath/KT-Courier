@@ -3,6 +3,7 @@ import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { StoreOrderError } from "@/lib/store-orders/errors";
 import { STORE_ORDER_PRODUCTION_BLOCK_REASON } from "@/lib/store-orders/production-lock";
+import { logApplicationEvent } from "@/lib/observability/logger";
 
 export const storeOrderNoStoreHeaders = { "Cache-Control": "private, no-store, max-age=0" };
 export const storeOrderJson = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: storeOrderNoStoreHeaders });
@@ -38,5 +39,8 @@ export function storeOrderError(error: unknown) {
     const status = error.code.includes("ACCESS") || error.code.includes("NOT_FOUND") ? 404 : error.code.includes("CONFLICT") ? 409 : error.code.includes("LOCKED") ? 503 : 422;
     return storeOrderJson({ error: error.message, code: error.code }, status);
   }
+  const failure = error as { name?: string; code?: string; message?: string };
+  const argument = failure?.message?.match(/(?:Unknown argument|Argument|Invalid value for argument) `([A-Za-z][A-Za-z0-9_]*)`/);
+  logApplicationEvent({ level: "ERROR", event: "STORE_ORDER_OPERATION_FAILED", message: "A store-order operation failed before returning its receipt.", outcome: "FAILURE", errorCategory: failure?.name ?? "UNKNOWN", context: { code: failure?.code ?? null, invalidArgument: argument?.[1] ?? null } });
   return storeOrderJson({ error: "The store-order operation could not be completed." }, 503);
 }

@@ -1,3 +1,4 @@
+import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -59,6 +60,7 @@ export async function recordDriverLocationSample(
 ): Promise<Readonly<{ reference: string; validationStatus: string; receivedAt: string }>> {
   const replay = await findOperationReplay(input.operationId, input);
   if (replay?.locationEvidenceReference && replay.locationValidationStatus) {
+    await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay);
     return Object.freeze({
       reference: replay.locationEvidenceReference,
       validationStatus: replay.locationValidationStatus,
@@ -140,6 +142,7 @@ export async function recordDriverLocationSample(
     if (isOperationReceiptConflict(error)) {
       const resolved = await getCompletedOperationResult(input.operationId);
       if (resolved?.locationEvidenceReference && resolved.locationValidationStatus) {
+        await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, resolved);
         return Object.freeze({ reference: resolved.locationEvidenceReference, validationStatus: resolved.locationValidationStatus, receivedAt: resolved.completedAt });
       }
     }

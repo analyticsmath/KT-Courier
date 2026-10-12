@@ -1,3 +1,4 @@
+import { resolveWithdrawalOwnerForUser } from "@/lib/withdrawals/withdrawal-owner-policy";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { FinanceWithdrawalDetailDto, FinanceWithdrawalListItemDto, OwnerWithdrawalDetailDto, OwnerWithdrawalListItemDto } from "@/lib/dto/withdrawal.dto";
@@ -54,38 +55,21 @@ export async function getOwnerWithdrawal(userId: string, publicReference: string
 }
 
 export async function listOwnerPayoutDestinations(userId: string) {
-  const ownerWallets = await prisma.wallet.findMany({ where: { ownerType: { in: ["STORE", "DRIVER", "PROMOTER"] }, status: "ACTIVE" }, select: { id: true, ownerType: true, ownerId: true } });
-  const eligibleWallets = [] as string[];
-  for (const wallet of ownerWallets) {
-    if (wallet.ownerType === "STORE" && await prisma.store.findFirst({ where: { id: wallet.ownerId, ownerUserId: userId, status: "ACTIVE" }, select: { id: true } })) eligibleWallets.push(wallet.id);
-    if (wallet.ownerType === "DRIVER" && await prisma.driverProfile.findFirst({ where: { id: wallet.ownerId, userId, active: true, status: "ACTIVE" }, select: { id: true } })) eligibleWallets.push(wallet.id);
-    if (wallet.ownerType === "PROMOTER" && await prisma.promoterProfile.findFirst({ where: { id: wallet.ownerId, userId, status: "ACTIVE" }, select: { id: true } })) eligibleWallets.push(wallet.id);
-  }
-  const rows = await prisma.payoutDestination.findMany({ where: { walletId: { in: eligibleWallets }, status: "ACTIVE" }, select: { publicReference: true, maskedLabel: true, institutionName: true, accountLast4: true, currency: true, status: true }, orderBy: { createdAt: "desc" } });
-  return Object.freeze(rows.map((row) => Object.freeze({ ...row, currency: "ZAR" as const })));
+  const owner = await resolveWithdrawalOwnerForUser(prisma, userId);
+  const wallet = await prisma.wallet.findUnique({ where: { ownerType_ownerId_currency: { ownerType: owner.ownerType, ownerId: owner.ownerId, currency: "ZAR" } }, select: { id: true, status: true } });
+  if (!wallet || wallet.status !== "ACTIVE") return Object.freeze([]);
+  const rows = await prisma.payoutDestination.findMany({ where: { walletId: wallet.id, ownerType: owner.ownerType, ownerId: owner.ownerId, currency: "ZAR", status: "ACTIVE" }, select: { publicReference: true, maskedLabel: true, institutionName: true, accountLast4: true, currency: true, status: true }, orderBy: { createdAt: "desc" } });
+  return Object.freeze(rows.map(row => Object.freeze({ ...row, currency: "ZAR" as const })));
 }
 
 export async function getOwnerWithdrawalOverview(userId: string) {
+  const owner = await resolveWithdrawalOwnerForUser(prisma, userId);
+  const wallet = await prisma.wallet.findUnique({ where: { ownerType_ownerId_currency: { ownerType: owner.ownerType, ownerId: owner.ownerId, currency: "ZAR" } }, select: { id: true, status: true, accounts: { where: { purpose: { in: ["OWNER_WITHDRAWABLE", "WITHDRAWAL_HELD"] }, currency: "ZAR", status: "ACTIVE" }, select: { purpose: true, currentBalance: true } } } });
+  if (!wallet || wallet.status !== "ACTIVE") return Object.freeze({ withdrawableBalance: "0.00", heldBalance: "0.00", destinations: Object.freeze([]) });
   const destinations = await listOwnerPayoutDestinations(userId);
-  const wallets = await prisma.wallet.findMany({ where: { accounts: { some: { purpose: { in: ["OWNER_WITHDRAWABLE", "WITHDRAWAL_HELD"] }, currency: "ZAR" } } }, select: { id: true, ownerType: true, ownerId: true, accounts: { where: { purpose: { in: ["OWNER_WITHDRAWABLE", "WITHDRAWAL_HELD"] }, currency: "ZAR" }, select: { purpose: true, currentBalance: true } } } });
-  let withdrawable = new Prisma.Decimal(0); let held = new Prisma.Decimal(0);
-  for (const wallet of wallets) {
-    const owner = wallet.ownerType === "STORE"
-      ? await prisma.store.findFirst({ where: { id: wallet.ownerId, ownerUserId: userId, status: "ACTIVE" }, select: { id: true } })
-      : wallet.ownerType === "DRIVER"
-        ? await prisma.driverProfile.findFirst({ where: { id: wallet.ownerId, userId, active: true, status: "ACTIVE" }, select: { id: true } })
-        : wallet.ownerType === "PROMOTER"
-          ? await prisma.promoterProfile.findFirst({ where: { id: wallet.ownerId, userId, status: "ACTIVE" }, select: { id: true } })
-          : null;
-    if (!owner) continue;
-    for (const account of wallet.accounts) {
-      if (account.purpose === "OWNER_WITHDRAWABLE") withdrawable = withdrawable.add(account.currentBalance);
-      if (account.purpose === "WITHDRAWAL_HELD") held = held.add(account.currentBalance);
-    }
-  }
-  return Object.freeze({ withdrawableBalance: withdrawable.toFixed(2), heldBalance: held.toFixed(2), destinations });
+  const balance = (purpose: string) => wallet.accounts.find(account => account.purpose === purpose)?.currentBalance.toFixed(2) ?? "0.00";
+  return Object.freeze({ withdrawableBalance: balance("OWNER_WITHDRAWABLE"), heldBalance: balance("WITHDRAWAL_HELD"), destinations });
 }
-
 export async function listFinanceWithdrawals(query: AdminListQuery) {
   const where: Prisma.WithdrawalRequestWhereInput = { ...(query.status && { status: query.status }), ...(query.ownerType && { ownerType: query.ownerType }), ...(query.payoutDestinationStatus && { payoutDestination: { status: query.payoutDestinationStatus } }), ...(query.reconciliation !== undefined && { reconciliationCases: query.reconciliation ? { some: { status: { in: ["OPEN", "MONITORING"] } } } : { none: { status: { in: ["OPEN", "MONITORING"] } } } }), ...(query.reference && { publicReference: { contains: query.reference, mode: "insensitive" } }), ...(query.from || query.to ? { createdAt: { ...(query.from && { gte: new Date(query.from) }), ...(query.to && { lte: new Date(query.to) }) } } : {}) };
   const [total, rows] = await prisma.$transaction([prisma.withdrawalRequest.count({ where }), prisma.withdrawalRequest.findMany({ where, include: financeInclude, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize })]);

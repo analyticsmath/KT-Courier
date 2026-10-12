@@ -8,6 +8,7 @@ import { FileInput } from "@/components/ui/FileInput";
 export function ProfileAvatar({ hasAvatar = false }: { hasAvatar?: boolean }) {
   const router = useRouter();
   const picker = useRef<HTMLInputElement>(null);
+  const submitting = useRef(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null),
     [busy, setBusy] = useState(false),
@@ -30,7 +31,8 @@ export function ProfileAvatar({ hasAvatar = false }: { hasAvatar?: boolean }) {
     setPreview(selected ? URL.createObjectURL(selected) : null);
   }
   async function save(remove = false) {
-    if (busy || (!remove && !file)) return;
+    if (submitting.current || (!remove && !file)) return;
+    submitting.current = true;
     setBusy(true);
     setMessage(remove ? "Removing your profile image…" : "Uploading your profile image…");
     try {
@@ -47,13 +49,14 @@ export function ProfileAvatar({ hasAvatar = false }: { hasAvatar?: boolean }) {
       setFile(null);
       setPreview(null);
       if (picker.current) picker.current.value = "";
-      setMessage(remove ? "Profile image removed." : "Profile image updated.");
+      setMessage((remove ? "Profile image removed." : "Profile image updated.") + (b.cleanupPending ? " Previous image access is revoked; storage cleanup is pending." : ""));
       router.refresh();
     } catch (e) {
       setMessage(
         e instanceof Error ? e.message : "The image could not be saved.",
       );
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }

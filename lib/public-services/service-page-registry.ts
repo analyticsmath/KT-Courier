@@ -57,15 +57,15 @@ export type ServiceFaqId = "request" | "scheduled" | "coverage" | "orders" | "bu
 export const serviceFaqs: Record<ServiceFaqId, { question: string; answer: string }> = {
   request: {
     question: "How do I request a delivery?",
-    answer: "Create a customer account, then enter pickup and dropoff details, a delivery type, parcel information, and any notes in the Request a Delivery form.",
+    answer: "Get a delivery quote without an account: enter pickup and dropoff addresses, parcel size, weight where applicable, and delivery service. Sign in when proceeding to booking, payment, or account features.",
   },
   scheduled: {
     question: "Can I plan a delivery for later?",
-    answer: "The delivery request form includes a Scheduled delivery type and a preferred date field for planned requests.",
+    answer: "Choose a future delivery date or window separately from your delivery service. Scheduling is not a separate tariff or speed product.",
   },
   coverage: {
     question: "How is coverage confirmed?",
-    answer: "KT Couriers operates in local service areas. Pickup and dropoff suitability is confirmed when the request is reviewed and can vary by delivery type.",
+    answer: "Courier operations currently focus on Gauteng, Johannesburg, Pretoria, and surrounding areas. The quote engine validates both pickup and dropoff against enabled operational boundaries for the selected service. Nationwide store availability is separate from courier coverage.",
   },
   orders: {
     question: "Where do I view delivery updates?",
@@ -81,7 +81,7 @@ export const serviceFaqs: Record<ServiceFaqId, { question: string; answer: strin
   },
   pricing: {
     question: "How is a quote prepared?",
-    answer: "A quote is prepared through the authenticated request flow using the delivery information provided for that request.",
+    answer: "Visitors may obtain a delivery quote without an account. Enter pickup and dropoff addresses, parcel size, weight where applicable, and delivery service at /quote. Authentication is required when proceeding to protected booking, payment, and account functionality. Coverage must be validated before a route is confirmed.",
   },
 };
 
@@ -115,9 +115,9 @@ export const publicServicePages = [
     family: "EVERYDAY_MOVEMENT",
     title: "Small parcels. Clear progress.",
     eyebrow: "Parcel and document delivery",
-    summary: "A direct route into the authenticated delivery-request flow for documents, parcels, and practical local handoffs.",
+    summary: "Get a quote without an account for documents, parcels, and practical local handoffs. Sign in when booking.",
     metadataTitle: "Parcel and document delivery",
-    metadataDescription: "Request local parcel and document delivery with KT Couriers. Coverage and delivery details are confirmed through the account-based request flow.",
+    metadataDescription: "Get a parcel or document delivery quote without an account. KT Couriers validates operational coverage before booking.",
     heroMediaId: "parcel-detail",
     detailMediaIds: ["parcel-handoff", "delivery-handoff"],
     idealFor: ["Documents and envelopes that need a clear pickup and dropoff.", "Small parcel requests with recipient details ready.", "Planned or local delivery requests handled through one account."],
@@ -204,7 +204,7 @@ export const publicServicePages = [
     eyebrow: "Grocery delivery",
     summary: "A delivery-request pathway for grocery-related local handoffs, with availability confirmed for the individual request.",
     metadataTitle: "Grocery delivery",
-    metadataDescription: "Request local grocery delivery through KT Couriers. Service availability is confirmed during the account-based quote process.",
+    metadataDescription: "Get a local grocery delivery quote without an account. Service availability and operational coverage are validated for the request.",
     heroMediaId: "food-grocery-preparation",
     detailMediaIds: ["delivery-handoff", "parcel-detail"],
     idealFor: ["Local grocery-related delivery requests with full addresses.", "Recipients who can be identified at the delivery address.", "Requests that need clear notes for the review team."],
@@ -385,7 +385,7 @@ export const publicServicePages = [
     process: [
       { title: "Ask about participation", description: "Contact the team for current network information." },
       { title: "Receive current guidance", description: "The team confirms what participation information is presently available." },
-      { title: "Keep delivery requests separate", description: "Customer delivery requests continue through the standard account-based quote flow." },
+      { title: "Get a delivery quote", description: "Customer delivery quotes are available without an account; sign in when proceeding to booking." },
     ],
     preparation: ["A clear enquiry about the information you need.", "Contact details for a reply from the team."],
     pricingFactors: ["Driver-network participation is not presented as a public customer price or booking product."],
@@ -405,20 +405,20 @@ export const publicServicePages = [
     family: "QUOTE_INTELLIGENCE",
     title: "Understand what shapes a quote.",
     eyebrow: "Pricing explanation",
-    summary: "An explanation of the request information used by the authenticated quote workflow, without a public calculator or advertised rates.",
+    summary: "Get a delivery quote without an account using pickup and dropoff addresses, parcel size, weight where applicable, and delivery service. Sign in when proceeding to booking or payment.",
     metadataTitle: "Delivery pricing explained",
-    metadataDescription: "Understand the delivery information used to prepare a KT Couriers quote. Submit an authenticated delivery request for current pricing.",
+    metadataDescription: "Get a KT Couriers delivery quote without an account. Pricing depends on your route, parcel, selected service, and validated operational coverage.",
     heroMediaId: "delivery-status-context",
     detailMediaIds: ["parcel-detail", "parcel-handoff"],
     idealFor: ["Customers preparing delivery information before requesting a quote.", "Businesses clarifying the details needed for repeat delivery requests.", "Visitors who need the canonical route to current pricing."],
     process: [
       { title: "Add the locations", description: "Enter pickup and dropoff information in the delivery request." },
       { title: "Describe the delivery", description: "Choose a delivery type and record parcel details and notes." },
-      { title: "Receive a current quote", description: "The authenticated request workflow prepares pricing from the request details." },
+      { title: "Receive a current quote", description: "The public quote form validates coverage and prepares pricing without an account. Sign in when proceeding to booking or payment." },
     ],
     preparation: requestPreparation,
     pricingFactors: requestPricingFactors,
-    restrictions: ["This page does not advertise fixed prices or replace the authenticated quote workflow."],
+    restrictions: ["Use /quote for current pricing and route serviceability. Quotes are available without an account; protected booking and payment require authentication."],
     coverageMode: "ACTIVE_REGIONS",
     relatedServiceIds: ["parcel", "business", "freight"],
     faqIds: ["pricing", "request", "coverage"],

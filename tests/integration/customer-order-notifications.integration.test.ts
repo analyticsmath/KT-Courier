@@ -6,13 +6,15 @@ import { prepareCustomerOrderNotifications, customerOrderNotificationDefinitions
 import { reviewCustomerOrderNotification } from "@/lib/notifications/customer-order-review";
 import { consumeCustomerOrderNotifications, listPendingCustomerOrderIntents, publishCustomerOrderIntent } from "@/lib/notifications/customer-order-publication";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
+import { notifyOrderStatusChanged } from "@/lib/services/notification-events.service";
 
 // No provider calls in this suite. Only the disposable, explicitly named database.
 vi.mock("@/lib/notifications/production-readiness", () => ({ assertNotificationProductionReady: () => {} }));
-const enabled = process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1" && new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent").pathname === "/kt_launch_test";
-describe.skipIf(!enabled)("customer order notification publication on isolated PostgreSQL", () => {
+describe("customer order notification publication on isolated PostgreSQL", () => {
   const prefix = `customer-notification-${randomUUID()}`;
   const users: string[] = []; const orders: string[] = [];
+  const operations: string[] = []; const intents: string[] = [];
+  let safetyValidated = false;
   let templateIds: string[] = []; let routeIds: string[] = [];
   const review = (eventType: string, action: Parameters<typeof reviewCustomerOrderNotification>[2], actor = "reviewer") => prisma.$transaction((tx) => reviewCustomerOrderNotification(tx, eventType, action, `${prefix}-${actor}`));
   async function activate() {
@@ -30,10 +32,18 @@ describe.skipIf(!enabled)("customer order notification publication on isolated P
     users.push(user.id);
     const order = await prisma.order.create({ data: { orderNumber: `${prefix}-${randomUUID()}`, customerId: options.customer === false ? null : user.id, source: "CUSTOMER", deliveryType: "SAME_DAY" } });
     orders.push(order.id);
-    const intent = await prisma.notificationEventIntent.create({ data: { sourceAuthority: options.sourceAuthority ?? "LEGACY_ORDER", eventType: options.eventType ?? "ORDER_CONFIRMED", aggregateReference: order.id, operationId: `${prefix}-${randomUUID()}`, safePayload: { orderNumber: "spoofed", customerUserId: "spoofed-user", email: "spoofed@example.test", status: "IN_TRANSIT" }, ...(options.createdAt ? { createdAt: options.createdAt } : {}) } });
+    const eventType = options.eventType ?? "ORDER_CONFIRMED";
+    // These synthetic source rows prove notification handling, not delivery.
+    const history = eventType === "ORDER_STATUS_CHANGED" ? await prisma.orderStatusHistory.create({ data: { orderId: order.id, status: "IN_TRANSIT" } }) : null;
+    const operationId = history ? `legacy-order-status-history:${history.id}` : eventType === "ORDER_CONFIRMED" ? `legacy-order-confirmed:${order.id}` : `${prefix}-${randomUUID()}`;
+    const intent = await prisma.notificationEventIntent.create({ data: { sourceAuthority: options.sourceAuthority ?? "LEGACY_ORDER", eventType, aggregateReference: order.id, operationId, safePayload: { orderNumber: "spoofed", customerUserId: "spoofed-user", email: "spoofed@example.test", status: "DELIVERED" }, ...(options.createdAt ? { createdAt: options.createdAt } : {}) } });
+    operations.push(intent.operationId); intents.push(intent.id);
     return { user, order, intent };
   }
   beforeAll(async () => {
+    const url = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
+    if (process.env.NODE_ENV === "production" || process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS !== "1" || url.pathname !== "/kt_launch_test" || !["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("Disposable closure database required.");
+    safetyValidated = true;
     await prisma.$transaction(prepareCustomerOrderNotifications);
     templateIds = (await prisma.notificationTemplate.findMany({ where: { key: { in: customerOrderNotificationDefinitions.map((d) => d.templateKey) } } })).map((r) => r.id);
     routeIds = (await prisma.notificationEventRoute.findMany({ where: { sourceAuthority: "LEGACY_ORDER", sourceEventType: { in: customerOrderNotificationDefinitions.map((d) => d.eventType) } } })).map((r) => r.id);
@@ -47,12 +57,13 @@ describe.skipIf(!enabled)("customer order notification publication on isolated P
     await prisma.notificationDelivery.deleteMany({ where: { recipientUserId: { in: users } } });
     await prisma.notificationRecipient.deleteMany({ where: { subjectUserId: { in: users } } });
     await prisma.notificationMessage.deleteMany({ where: { recipientUserId: { in: users } } });
-    const receipts = await prisma.notificationSourceReceipt.findMany({ where: { sourceEventId: { startsWith: prefix } }, select: { id: true } });
+    const receipts = await prisma.notificationSourceReceipt.findMany({ where: { sourceEventId: { in: operations } }, select: { id: true } });
     await prisma.notificationReconciliationCase.deleteMany({ where: { sourceReceiptId: { in: receipts.map((r) => r.id) } } });
-    await prisma.notificationSourceReceipt.deleteMany({ where: { sourceEventId: { startsWith: prefix } } });
-    await prisma.notificationEventIntent.deleteMany({ where: { operationId: { startsWith: prefix } } });
+    await prisma.notificationSourceReceipt.deleteMany({ where: { id: { in: receipts.map((r) => r.id) } } });
+    await prisma.notificationEventIntent.deleteMany({ where: { id: { in: intents } } });
   });
   afterAll(async () => {
+    if (!safetyValidated) return;
     // Fixtures are removed only in the disposable database, never production.
     await prisma.order.deleteMany({ where: { id: { in: orders } } });
     await prisma.user.deleteMany({ where: { id: { in: users } } });
@@ -135,6 +146,33 @@ describe.skipIf(!enabled)("customer order notification publication on isolated P
     await consumeCustomerOrderNotifications(50);
     expect(await prisma.notificationInboxItem.findFirst({ where: { ownerUserId: user.id } })).toMatchObject({ body: expect.stringContaining("in transit") });
     expect(await prisma.notificationDelivery.findFirst({ where: { recipientUserId: user.id, channel: "EMAIL" } })).toMatchObject({ status: "ELIGIBILITY_BLOCKED" });
+  });
+  it("reconciles a forged confirmation identity without duplicating the canonical message", async () => {
+    await activate(); const { user, intent } = await event();
+    const forged = await prisma.notificationEventIntent.create({ data: { sourceAuthority: intent.sourceAuthority, eventType: intent.eventType, aggregateReference: intent.aggregateReference, operationId: `${prefix}-forged-${randomUUID()}`, safePayload: { customerUserId: user.id } } });
+    operations.push(forged.operationId); intents.push(forged.id);
+    expect(await prisma.$transaction((tx) => publishCustomerOrderIntent(tx, forged.id))).toBe("RECONCILIATION");
+    expect((await consumeCustomerOrderNotifications(50)).itemsCompleted).toBe(1);
+    expect(await prisma.notificationInboxItem.count({ where: { ownerUserId: user.id } })).toBe(1);
+    expect((await consumeCustomerOrderNotifications(50)).itemsExamined).toBe(0);
+  });
+  it("reconciles a status history belonging to another order without queuing delivery", async () => {
+    await activate(); const { user, order, intent } = await event({ eventType: "ORDER_STATUS_CHANGED" });
+    const foreign = await event();
+    await prisma.notificationEventIntent.update({ where: { id: intent.id }, data: { aggregateReference: foreign.order.id } });
+    expect(await prisma.$transaction((tx) => publishCustomerOrderIntent(tx, intent.id))).toBe("RECONCILIATION");
+    expect(await prisma.notificationDelivery.count({ where: { recipientUserId: user.id } })).toBe(0);
+    expect(await prisma.orderStatusHistory.count({ where: { orderId: order.id, status: "IN_TRANSIT" } })).toBe(1);
+  });
+  it("compatibility status callers reuse canonical history identity and reject unsupported facts", async () => {
+    const { order, intent } = await event({ eventType: "ORDER_STATUS_CHANGED" });
+    const args = { orderId: order.id, orderNumber: "spoofed", newStatus: "IN_TRANSIT", source: "CUSTOMER", recipientEmail: "spoofed@example.test", recipientName: "Spoofed recipient" };
+    await notifyOrderStatusChanged(args); await notifyOrderStatusChanged(args);
+    expect(await prisma.notificationEventIntent.count({ where: { aggregateReference: order.id } })).toBe(1);
+    expect(await prisma.notificationEventIntent.findUnique({ where: { id: intent.id } })).toMatchObject({ operationId: intent.operationId });
+    await expect(notifyOrderStatusChanged({ ...args, newStatus: "DELIVERED" })).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+    await expect(notifyOrderStatusChanged({ ...args, newStatus: "FAKE_STATUS" })).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
+    expect(await prisma.notificationEventIntent.count({ where: { aggregateReference: order.id } })).toBe(1);
   });
   it("commits status and notification together, including rollback and same-status replay", async () => {
     const { user, order } = await event();

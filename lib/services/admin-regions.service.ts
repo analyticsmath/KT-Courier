@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import type { DeliveryRegion } from "@/types/db";
+import { assertRegionActivation, regionBoundaryIssues, RegionConfigurationError } from "@/lib/maps/region-boundaries";
+import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
 
 // ─── DTO ──────────────────────────────────────────────────────────────────────
 
@@ -9,6 +11,10 @@ export interface DeliveryRegionDto {
   slug: string;
   description: string | null;
   active: boolean;
+  pricingEnabled: boolean;
+  boundaryIssues: string[];
+  affectedServiceKeys?: string[];
+  serviceInspectionUnavailable?: boolean;
   city: string | null;
   province: string | null;
   centerLat: number | null;
@@ -29,6 +35,8 @@ function toDto(region: DeliveryRegion): DeliveryRegionDto {
     slug: region.slug,
     description: region.description,
     active: region.active,
+    pricingEnabled: region.pricingEnabled,
+    boundaryIssues: regionBoundaryIssues(region),
     city: region.city,
     province: region.province,
     centerLat: region.centerLat !== null ? Number(region.centerLat) : null,
@@ -50,7 +58,8 @@ export async function listDeliveryRegions(activeOnly = false): Promise<DeliveryR
     where: activeOnly ? { active: true } : undefined,
     orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
   });
-  return regions.map(toDto);
+  const services = await deliveryCatalog().catch(() => null);
+  return regions.map((region) => ({ ...toDto(region), serviceInspectionUnavailable: services === null, affectedServiceKeys: services?.filter((s) => !!region.province && s.provinces.includes(region.province as (typeof s.provinces)[number]) && (!s.regionIds.length || s.regionIds.includes(region.id))).map((s) => s.stableKey) }));
 }
 
 // ─── Get single ───────────────────────────────────────────────────────────────
@@ -67,26 +76,32 @@ export interface CreateDeliveryRegionInput {
   slug: string;
   description?: string;
   active?: boolean;
+  pricingEnabled?: boolean;
+  expectedUpdatedAt?: string;
   city?: string;
-  province?: string;
-  centerLat?: number;
-  centerLng?: number;
-  coverageRadiusKm?: number;
+  province?: string | null;
+  centerLat?: number | null;
+  centerLng?: number | null;
+  coverageRadiusKm?: number | null;
   baseFee?: number;
-  maxDistanceKm?: number;
+  maxDistanceKm?: number | null;
   notes?: string;
   displayOrder?: number;
 }
 
 export async function createDeliveryRegion(
-  input: CreateDeliveryRegionInput
+  input: CreateDeliveryRegionInput,
+  actorUserId?: string,
 ): Promise<DeliveryRegionDto> {
-  const region = await prisma.deliveryRegion.create({
+  assertRegionActivation({ ...input, active: input.active ?? true, pricingEnabled: input.pricingEnabled ?? true });
+  const region = await prisma.$transaction(async (tx) => {
+  const created = await tx.deliveryRegion.create({
     data: {
       name: input.name,
       slug: input.slug,
       description: input.description ?? null,
       active: input.active ?? true,
+      pricingEnabled: input.pricingEnabled ?? true,
       city: input.city ?? null,
       province: input.province ?? null,
       centerLat: input.centerLat ?? null,
@@ -98,6 +113,9 @@ export async function createDeliveryRegion(
       displayOrder: input.displayOrder ?? 0,
     },
   });
+  if (actorUserId) await tx.adminActivityLog.create({ data: { actorUserId, action: "CREATE", entityType: "DeliveryRegion", entityId: created.id, message: `Created delivery region: ${created.name}`, metadata: { active: created.active, pricingEnabled: created.pricingEnabled, boundaryIssues: regionBoundaryIssues(created) } } });
+  return created;
+  });
   return toDto(region);
 }
 
@@ -105,18 +123,25 @@ export async function createDeliveryRegion(
 
 export async function updateDeliveryRegion(
   id: string,
-  input: Partial<CreateDeliveryRegionInput>
+  input: Partial<CreateDeliveryRegionInput>,
+  actorUserId?: string,
 ): Promise<DeliveryRegionDto | null> {
   const existing = await prisma.deliveryRegion.findUnique({ where: { id } });
   if (!existing) return null;
 
-  const region = await prisma.deliveryRegion.update({
-    where: { id },
+  if (!input.expectedUpdatedAt || new Date(input.expectedUpdatedAt).getTime() !== existing.updatedAt.getTime()) {
+    throw new RegionConfigurationError(409, "Region changed. Refresh before saving.");
+  }
+  assertRegionActivation({ ...existing, ...input });
+  const region = await prisma.$transaction(async (tx) => {
+  const updated = await tx.deliveryRegion.update({
+    where: { id, updatedAt: existing.updatedAt },
     data: {
       ...(input.name !== undefined && { name: input.name }),
       ...(input.slug !== undefined && { slug: input.slug }),
       ...(input.description !== undefined && { description: input.description ?? null }),
       ...(input.active !== undefined && { active: input.active }),
+      ...(input.pricingEnabled !== undefined && { pricingEnabled: input.pricingEnabled }),
       ...(input.city !== undefined && { city: input.city ?? null }),
       ...(input.province !== undefined && { province: input.province ?? null }),
       ...(input.centerLat !== undefined && { centerLat: input.centerLat ?? null }),
@@ -128,20 +153,21 @@ export async function updateDeliveryRegion(
       ...(input.displayOrder !== undefined && { displayOrder: input.displayOrder }),
     },
   });
+  if (actorUserId) await tx.adminActivityLog.create({ data: { actorUserId, action: "UPDATE", entityType: "DeliveryRegion", entityId: id, message: `Updated delivery region: ${updated.name}`, metadata: { priorUpdatedAt: existing.updatedAt.toISOString(), changedFields: Object.keys(input).filter((key) => key !== "expectedUpdatedAt"), active: updated.active, pricingEnabled: updated.pricingEnabled, boundaryIssues: regionBoundaryIssues(updated) } } });
+  return updated;
+  });
   return toDto(region);
 }
 
 // ─── Toggle active status ─────────────────────────────────────────────────────
 
 export async function toggleDeliveryRegionActive(
-  id: string
+  id: string,
+  expectedUpdatedAt?: string,
+  actorUserId?: string,
 ): Promise<DeliveryRegionDto | null> {
   const existing = await prisma.deliveryRegion.findUnique({ where: { id } });
   if (!existing) return null;
 
-  const region = await prisma.deliveryRegion.update({
-    where: { id },
-    data: { active: !existing.active },
-  });
-  return toDto(region);
+  return updateDeliveryRegion(id, { active: !existing.active, expectedUpdatedAt }, actorUserId);
 }

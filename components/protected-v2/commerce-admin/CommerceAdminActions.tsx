@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./commerce-admin.module.css";
 
@@ -19,6 +19,10 @@ async function submit(url: string, body: unknown, method = "POST") {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 409) {
+      const detail = await response.json().catch(() => null);
+      if (detail?.code === "CANONICAL_REBUILD_UNAVAILABLE") throw new Error("This case requires correction through its canonical source event. A manual rebuild is unavailable.");
+    }
     if (response.status === 409 || response.status === 412) throw new Error("This record changed before the request completed. Refresh and review the canonical record before trying again.");
     if (response.status === 429) throw new Error("The administration service is temporarily rate limited. Wait before trying again.");
     if (response.status >= 500) throw new Error("The administration service is temporarily unavailable. Try again later.");
@@ -45,15 +49,22 @@ export function CatalogModerationActions({
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const moderationInFlight = useRef(false);
+  const moderationOperation = useRef<{ identity: string; operationId: string } | null>(null);
+
   async function act(action: typeof actions[number]) {
+    if (moderationInFlight.current) return;
+    moderationInFlight.current = true;
+    const identity = JSON.stringify({ productId, version, action, reasonCode });
+    if (moderationOperation.current?.identity !== identity) moderationOperation.current = { identity, operationId: operationId("catalog-moderation") };
     setBusy(true); setFailed(false); setMessage("Recording canonical moderation evidence…");
     try {
-      await submit(`/api/admin/catalog/products/${encodeURIComponent(productId)}/${action}`, { version, operationId: operationId("catalog-moderation"), reasonCode });
+      await submit(`/api/admin/catalog/products/${encodeURIComponent(productId)}/${action}`, { version, operationId: moderationOperation.current.operationId, reasonCode });
       setMessage("Moderation evidence was recorded. Refreshing the source-backed record…");
       router.refresh();
     } catch (error) {
-      setFailed(true); setMessage(error instanceof Error ? error.message : "The moderation request failed.");
-    } finally { setBusy(false); }
+      setFailed(true); setMessage(error instanceof TypeError ? "The moderation result could not be confirmed. Retry unchanged fields to check the saved operation." : error instanceof Error ? error.message : "The moderation request failed.");
+    } finally { moderationInFlight.current = false; setBusy(false); }
   }
 
   if (!actions.length) return <p className={styles.note}>This record is read-only for the current administrator or has no eligible moderation transition.</p>;
@@ -167,8 +178,8 @@ export function StorefrontProjectionActions({ reference, version, canReconcile, 
 export function StorefrontCollectionCreateForm({ canManage }: { canManage: boolean }) {
   const router = useRouter(); const [message, setMessage] = useState(""); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
   async function create(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setFailed(false); setMessage("Creating the canonical collection draft…");
-    try { await submit("/api/admin/storefront/collections", { name: String(form.get("name") ?? ""), slug: String(form.get("slug") ?? ""), collectionType: String(form.get("collectionType") ?? "EDITORIAL"), operationId: operationId("storefront-collection") }); setMessage("Collection draft created. Refreshing the source-backed list…"); event.currentTarget.reset(); router.refresh(); } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "The collection draft could not be created."); } finally { setBusy(false); }
+    event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement); setBusy(true); setFailed(false); setMessage("Creating the canonical collection draft…");
+    try { await submit("/api/admin/storefront/collections", { name: String(form.get("name") ?? ""), slug: String(form.get("slug") ?? ""), collectionType: String(form.get("collectionType") ?? "EDITORIAL"), operationId: operationId("storefront-collection") }); setMessage("Collection draft created. Refreshing the source-backed list…"); formElement.reset(); router.refresh(); } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "The collection draft could not be created."); } finally { setBusy(false); }
   }
   if (!canManage) return <p className={styles.note}>Read-only access. Collection drafts cannot be created.</p>;
   return <form className={styles.actionForm} onSubmit={(event) => void create(event)}><label htmlFor="collection-name">Name<input id="collection-name" maxLength={160} name="name" required /></label><label htmlFor="collection-slug">Slug<input id="collection-slug" maxLength={100} name="slug" pattern="[a-z0-9]+(-[a-z0-9]+)*" required /></label><label htmlFor="collection-type">Collection type<select defaultValue="EDITORIAL" id="collection-type" name="collectionType"><option value="EDITORIAL">Editorial</option><option value="SEASONAL">Seasonal</option><option value="CATEGORY_LANDING">Category landing</option></select></label><div className={styles.actionRow}><button className={`${styles.actionButton} ${styles.actionButtonPrimary}`} disabled={busy} type="submit">Create draft</button></div><ActionMessage error={failed} message={message} /></form>;
@@ -177,8 +188,8 @@ export function StorefrontCollectionCreateForm({ canManage }: { canManage: boole
 export function StorefrontCollectionItemForm({ reference, version, canManage }: { reference: string; version: number; canManage: boolean }) {
   const router = useRouter(); const [message, setMessage] = useState(""); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
   async function add(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setFailed(false); setMessage("Adding canonical collection evidence…");
-    try { await submit(`/api/admin/storefront/collections/${encodeURIComponent(reference)}/items`, { version, targetType: String(form.get("targetType") ?? "PRODUCT"), targetReference: String(form.get("targetReference") ?? ""), displayOrder: Number(form.get("displayOrder") ?? 0), safeLabelOverride: String(form.get("label") ?? "") || undefined, operationId: operationId("storefront-collection-item") }); setMessage("Collection evidence was added. Refreshing the source-backed record…"); event.currentTarget.reset(); router.refresh(); } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "The collection item could not be added."); } finally { setBusy(false); }
+    event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement); setBusy(true); setFailed(false); setMessage("Adding canonical collection evidence…");
+    try { await submit(`/api/admin/storefront/collections/${encodeURIComponent(reference)}/items`, { version, targetType: String(form.get("targetType") ?? "PRODUCT"), targetReference: String(form.get("targetReference") ?? ""), displayOrder: Number(form.get("displayOrder") ?? 0), safeLabelOverride: String(form.get("label") ?? "") || undefined, operationId: operationId("storefront-collection-item") }); setMessage("Collection evidence was added. Refreshing the source-backed record…"); formElement.reset(); router.refresh(); } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "The collection item could not be added."); } finally { setBusy(false); }
   }
   if (!canManage) return <p className={styles.note}>Read-only access. Collection items cannot be added.</p>;
   return <form className={styles.actionForm} onSubmit={(event) => void add(event)}><label htmlFor="collection-target-type">Target type<select id="collection-target-type" name="targetType"><option value="CATEGORY">Category</option><option value="PRODUCT">Product</option><option value="VARIANT">Variant</option><option value="STORE">Store</option></select></label><label htmlFor="collection-target-reference">Public reference<input id="collection-target-reference" maxLength={160} name="targetReference" required /></label><label htmlFor="collection-display-order">Display order<input defaultValue="0" id="collection-display-order" min="0" name="displayOrder" required type="number" /></label><label htmlFor="collection-label">Editorial label<input id="collection-label" maxLength={240} name="label" /></label><div className={styles.actionRow}><button className={`${styles.actionButton} ${styles.actionButtonPrimary}`} disabled={busy} type="submit">Add eligible item</button></div><ActionMessage error={failed} message={message} /></form>;
@@ -187,8 +198,8 @@ export function StorefrontCollectionItemForm({ reference, version, canManage }: 
 export function StorefrontSynonymCreateForm({ canManage }: { canManage: boolean }) {
   const router = useRouter(); const [message, setMessage] = useState(""); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false);
   async function create(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); const input = String(form.get("input") ?? ""); const output = String(form.get("output") ?? ""); setBusy(true); setFailed(false); setMessage("Creating the deterministic synonym draft…");
-    try { await submit("/api/admin/storefront/search-synonyms", { name: String(form.get("name") ?? ""), language: String(form.get("language") ?? "en-ZA"), terms: [{ input, outputs: [output], direction: String(form.get("direction") ?? "EQUIVALENT") }], operationId: operationId("storefront-synonym") }); setMessage("Synonym draft created. Refreshing the source-backed list…"); event.currentTarget.reset(); router.refresh(); } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "The synonym draft could not be created."); } finally { setBusy(false); }
+    event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement); const input = String(form.get("input") ?? ""); const output = String(form.get("output") ?? ""); setBusy(true); setFailed(false); setMessage("Creating the deterministic synonym draft…");
+    try { await submit("/api/admin/storefront/search-synonyms", { name: String(form.get("name") ?? ""), language: String(form.get("language") ?? "en-ZA"), terms: [{ input, outputs: [output], direction: String(form.get("direction") ?? "EQUIVALENT") }], operationId: operationId("storefront-synonym") }); setMessage("Synonym draft created. Refreshing the source-backed list…"); formElement.reset(); router.refresh(); } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "The synonym draft could not be created."); } finally { setBusy(false); }
   }
   if (!canManage) return <p className={styles.note}>Read-only access. Synonym drafts cannot be created.</p>;
   return <form className={styles.actionForm} onSubmit={(event) => void create(event)}><label htmlFor="synonym-name">Set name<input id="synonym-name" maxLength={120} name="name" required /></label><label htmlFor="synonym-language">Language<input defaultValue="en-ZA" id="synonym-language" maxLength={10} name="language" pattern="[a-z]{2,3}(-[A-Z]{2})?" required /></label><label htmlFor="synonym-input">Input term<input id="synonym-input" maxLength={120} name="input" required /></label><label htmlFor="synonym-output">Output term<input id="synonym-output" maxLength={120} name="output" required /></label><label htmlFor="synonym-direction">Direction<select defaultValue="EQUIVALENT" id="synonym-direction" name="direction"><option value="EQUIVALENT">Equivalent</option><option value="ONE_WAY">One way</option></select></label><p className={styles.note}>Terms are validated on the server. Rules remain deterministic data; executable rules and automatic activation are unavailable.</p><div className={styles.actionRow}><button className={`${styles.actionButton} ${styles.actionButtonPrimary}`} disabled={busy} type="submit">Create synonym draft</button></div><ActionMessage error={failed} message={message} /></form>;

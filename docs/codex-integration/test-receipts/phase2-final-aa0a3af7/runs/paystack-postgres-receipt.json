@@ -1,0 +1,12 @@
+{
+  "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+  "durationMs": 13915,
+  "exitCode": 0,
+  "testsPassed": 2,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsTodo": 0,
+  "status": "PASS",
+  "database": "kt_phase75_e2e",
+  "projectName": "kt-couriers-e2e-1791716820842-16168"
+}

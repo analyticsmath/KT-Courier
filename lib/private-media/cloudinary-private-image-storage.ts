@@ -1,5 +1,6 @@
 import { CloudinaryImageStorage, CloudinaryImageStorageError, cloudinaryImageConfig } from "@/lib/media/cloudinary-image-storage";
-import { PrivateMediaStorageError, type PrivateMediaStorageAdapter } from "./private-media-storage";
+import { LocalPrivateMediaStorageAdapter, PrivateMediaStorageError, type PrivateMediaStorageAdapter } from "./private-media-storage";
+import { disposableBrowserPrivateMediaAllowed } from "./disposable-private-media-policy";
 export const CLOUDINARY_PRIVATE_IMAGE_CODE = "CLOUDINARY_AUTHENTICATED_IMAGE";
 export class CloudinaryPrivateImageStorageAdapter implements PrivateMediaStorageAdapter {
   readonly code = CLOUDINARY_PRIVATE_IMAGE_CODE;
@@ -19,6 +20,7 @@ export class CloudinaryPrivateImageStorageAdapter implements PrivateMediaStorage
   async delete(key: string) { await this.operation(() => this.storage.delete(key)); }
 }
 export function createCloudinaryPrivateImageStorageAdapter(): PrivateMediaStorageAdapter {
+  if (disposableBrowserPrivateMediaAllowed()) return new LocalPrivateMediaStorageAdapter(process.env.PRIVATE_MEDIA_LOCAL_DIR);
   const config = cloudinaryImageConfig();
   if (!config) throw new PrivateMediaStorageError("PRIVATE_MEDIA_STORAGE_NOT_CONFIGURED", "Cloudinary profile image uploads are not configured.");
   return new CloudinaryPrivateImageStorageAdapter(new CloudinaryImageStorage(config));

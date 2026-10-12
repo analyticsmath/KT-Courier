@@ -2,12 +2,14 @@
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { createTransactionContext } from "@/lib/db/transaction-context";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import type { MarketplaceAcknowledgementRepository, MarketplaceCheckoutReviewRepository } from "@/lib/marketplace-checkout/checkout-review-persistence.service";
 import type { MarketplaceCheckoutReviewResult, ReviewGroup } from "@/lib/marketplace-checkout/checkout-review.service";
 import { freezeMarketplaceStoreSettlementEvidence } from "@/lib/marketplace-checkout/frozen-seller-settlement-evidence.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
+import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
 
 const money = (value: any) => typeof value === "string" ? value : value?.toFixed?.(2) ?? "0.00";
 const ownerWhere = (owner: CartOwner) => owner.type === "CUSTOMER" ? { customerUserId: owner.userId } : { guestAccessTokenHash: owner.guestTokenHash };
@@ -37,7 +39,7 @@ function toReviewable(row: any): any {
       storeReference: group.storeId,
       pickupLocationReference: group.pickupLocationReference ?? `loc_${group.storeId}`,
       fulfilmentMode: group.fulfilmentMode,
-      lines: group.lines.map((line: any) => ({
+      lines: group.lines.filter((line: any) => line.reviewVersion === row.reviewVersion).map((line: any) => ({
         lineReference: line.id,
         storeReference: group.storeId,
         offerReference: line.offerReference,
@@ -56,7 +58,7 @@ function toReviewable(row: any): any {
         includedTaxAmount: line.includedTaxAmount ? money(line.includedTaxAmount) : null,
         inventoryItemId: line.inventoryItemId,
         inventoryLocationId: line.inventoryLocationId,
-        modifiers: line.modifiers.map((modifier: any) => ({ ...modifier, priceDelta: money(modifier.priceDelta), totalContribution: money(modifier.totalContribution) })),
+        modifiers: line.modifiers.map((modifier: any) => ({ groupReference: modifier.groupReference, groupName: modifier.groupName, optionReference: modifier.optionReference, optionName: modifier.optionName, quantity: modifier.quantity, priceDelta: money(modifier.priceDelta), totalContribution: money(modifier.totalContribution), sourceVersion: modifier.sourceVersion })),
       })),
     })),
     sourceGroups: row.storeGroups.map((group: any) => ({ id: group.id, storeId: group.storeId })),
@@ -71,12 +73,9 @@ function publicReview(result: MarketplaceCheckoutReviewResult) {
 }
 
 export function createPrismaMarketplaceReviewRepository(database: any = prisma): MarketplaceCheckoutReviewRepository {
-  let db = database;
+  const { db, run } = createTransactionContext(database);
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => {
-      const previous = db; db = tx;
-      try { return await work(); } finally { db = previous; }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
     lockCheckout: async (reference: string, owner: CartOwner) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "publicReference" = ${reference} FOR UPDATE`);
       const row = await db.marketplaceCheckout.findFirst({ where: { publicReference: reference, ...ownerWhere(owner) }, include: checkoutInclude() });
@@ -251,9 +250,9 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
 }
 
 export function createPrismaMarketplaceAcknowledgementRepository(database: any = prisma): MarketplaceAcknowledgementRepository {
-  let db = database;
+  const { db, run } = createTransactionContext(database);
   return Object.freeze({
-    transaction: async <T>(work: () => Promise<T>) => database.$transaction(async (tx: any) => { const previous = db; db = tx; try { return await work(); } finally { db = previous; } }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
     lockCheckout: async (reference: string, owner: CartOwner) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "publicReference" = ${reference} FOR UPDATE`);
       const row = await db.marketplaceCheckout.findFirst({ where: { publicReference: reference, ...ownerWhere(owner) }, include: checkoutInclude() });
@@ -263,10 +262,13 @@ export function createPrismaMarketplaceAcknowledgementRepository(database: any =
     },
     findOperation: async (checkoutId: string, operationId: string) => {
       const row = await db.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId, operationId } } });
-      return row ? { requestHash: row.requestHash, response: row.response as { acknowledged: true; reviewVersion: number } } : null;
+      return row ? { requestHash: row.requestHash, response: row.response as { acknowledged: true; reviewVersion: number; checkoutVersion?: number } } : null;
     },
     createAcknowledgement: async (input) => {
-      const response = { acknowledged: true as const, reviewVersion: input.reviewVersion };
+      // The same serializable transaction owns the checkout lock and policy check.
+      // A browser-supplied or superseded legal reference cannot become evidence.
+      assertMarketplaceLegalEvidence(input, await resolveMarketplaceLegalEvidence(db));
+      const response = { acknowledged: true as const, reviewVersion: input.reviewVersion, checkoutVersion: input.checkoutVersion };
       await db.marketplaceCheckoutAcknowledgement.create({ data: { checkoutId: input.checkoutId, reviewVersion: input.reviewVersion, commercialFingerprint: input.commercialFingerprint, grandTotal: input.acknowledgedTotalReference, termsVersion: input.termsVersion, privacyVersion: input.privacyVersion, refundPolicyReferences: input.refundPolicyReferences, settlementEvidenceVersions: input.settlementEvidenceVersions, changeSet: input.changes } });
       await db.marketplaceCheckoutChange.updateMany({ where: { checkoutId: input.checkoutId, reviewVersion: input.reviewVersion, acknowledgedAt: null }, data: { acknowledgedAt: new Date() } });
       await db.marketplaceCheckout.update({ where: { id: input.checkoutId }, data: { status: "READY_FOR_REVIEW", acceptedFingerprint: input.commercialFingerprint, changesAcknowledgedAt: new Date(), termsAcknowledgedAt: new Date(), reviewAcceptedAt: new Date(), version: { increment: 1 } } });

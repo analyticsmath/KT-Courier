@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "command": "test:e2e",
+  "arguments": [
+    "--",
+    "--project=chromium",
+    "--phase1-catalog"
+  ],
+  "fullCommand": "npm run test:e2e -- --project=chromium --phase1-catalog",
+  "commitSha": "aa0a3af7a80855161c8b8c0a065106abf019e7f5",
+  "sourceTreeSha": "9567d168a78b75b89299784c3b13b82aa27ba522",
+  "startedAt": "2026-10-11T16:29:28.306Z",
+  "endedAt": "2026-10-11T17:19:48.757Z",
+  "durationMs": 3020451,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": null,
+  "testsExpected": 139,
+  "testsExecuted": 139,
+  "testsPassed": 139,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": {
+    "passedAttempts": 153,
+    "failedAttempts": 0,
+    "skippedAttempts": 0,
+    "flakyAttempts": 0,
+    "completedAttempts": 153
+  },
+  "executions": [
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 1,
+      "hasFinalSummary": true
+    },
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 4,
+      "hasFinalSummary": true
+    },
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 2,
+      "hasFinalSummary": true
+    },
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 4,
+      "hasFinalSummary": true
+    },
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 1,
+      "hasFinalSummary": true
+    },
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 2,
+      "hasFinalSummary": true
+    },
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 139,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 139,
+      "hasFinalSummary": true
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "disposable-compose-runner",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": false,
+    "databaseHostClass": "unset",
+    "emailProvider": "unset-or-other",
+    "paystackMode": "unset-or-other"
+  },
+  "stdoutPath": "output\\production-closure\\command-receipts\\test-e2e-1791736168306-21436.log",
+  "status": "PASS"
+}

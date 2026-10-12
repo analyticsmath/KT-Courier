@@ -25,7 +25,7 @@ export async function createProductTypeDefinition(args: {
   supersedesDefinitionId?: string;
   operationId: string;
 }) {
-  assertProductTypeSchemaBundle(args);
+  assertProductTypeSchemaBundle({ attributeSchema: args.attributeSchema, variantSchema: args.variantSchema, complianceSchema: args.complianceSchema, searchFacetSchema: args.searchFacetSchema });
   const publicReference = catalogPublicReference("PT");
   const { actorUserId, operationId, ...definitionData } = args;
   return prisma.$transaction(async (tx) => {

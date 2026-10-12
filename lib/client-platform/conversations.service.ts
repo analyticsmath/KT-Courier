@@ -93,9 +93,11 @@ const projection = {
 export async function listConversations(
   user: AuthenticatedUser,
   scope: ConversationScope,
+  orderId?: string,
 ) {
+  const owned = await scopeWhere(user, scope);
   return prisma.platformConversation.findMany({
-    where: await scopeWhere(user, scope),
+    where: orderId ? { AND: [owned, { kind: "DELIVERY", orderId }] } : owned,
     select: projection,
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     take: 100,

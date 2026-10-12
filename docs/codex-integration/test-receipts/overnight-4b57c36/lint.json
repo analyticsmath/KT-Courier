@@ -1,0 +1,11 @@
+{
+  "command": "npm run lint",
+  "workingDirectory": "D:/KT-Courier-integration",
+  "sourceCommit": "4b57c36cda111673bad1ea3689a8aafa66a01b03",
+  "sourceTree": "9497eba3a65fd68bfe842eaf3593fd70ac26f61d",
+  "executionDateLocal": "2026-10-12",
+  "exactProcessStart": "not separately recorded",
+  "exitCode": 0,
+  "status": "PASS",
+  "stdoutFile": "lint.stdout.txt"
+}

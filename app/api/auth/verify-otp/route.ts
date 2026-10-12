@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/db/prisma";
-import { otpHashCandidates } from "@/lib/auth/otp";
-import { createSession, setSessionCookie } from "@/lib/auth/session";
+import { setSessionCookie } from "@/lib/auth/session";
+import { verifyAccountEmail } from "@/lib/services/account-email-verification.service";
 import { VerifyOtpSchema, formatZodErrors } from "@/lib/validation/auth";
-import { OtpPurpose, UserStatus } from "@/types/db";
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
@@ -42,56 +40,12 @@ export async function POST(req: NextRequest) {
   );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
-  const otp = await prisma.otpCode.findFirst({
-    where: {
-      email,
-      codeHash: { in: otpHashCandidates(code) },
-      purpose: OtpPurpose.EMAIL_VERIFICATION,
-      consumedAt: null,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!otp) {
-    return NextResponse.json(
-      { error: "Invalid or already used verification code." },
-      { status: 400 },
-    );
-  }
-
-  if (otp.expiresAt < new Date()) {
-    return NextResponse.json(
-      { error: "Verification code has expired. Please request a new one." },
-      { status: 400 },
-    );
-  }
-
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    return NextResponse.json({ error: "Account not found." }, { status: 404 });
-  }
-
-  // Mark OTP consumed and activate user atomically.
-  await prisma.$transaction([
-    prisma.otpCode.update({
-      where: { id: otp.id },
-      data: { consumedAt: new Date() },
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerifiedAt: new Date(),
-        status: UserStatus.ACTIVE,
-      },
-    }),
-  ]);
-
-  // Create a session so the user is logged in immediately after verification.
-  const rawToken = await createSession(user.id);
+  const result = await verifyAccountEmail(email, code);
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   const cookieStore = await cookies();
-  setSessionCookie(cookieStore, rawToken);
+  setSessionCookie(cookieStore, result.rawToken);
 
-  const redirect = getPostAuthRedirect(user.role);
+  const redirect = getPostAuthRedirect(result.role);
 
   return NextResponse.json({
     message: "Email verified successfully.",

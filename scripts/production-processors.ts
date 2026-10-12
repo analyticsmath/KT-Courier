@@ -34,6 +34,10 @@ async function main() {
     firstCycle = false;
     lastCycleAt = Date.now();
     healthy = results.length === productionProcessors.length && results.every((result) => result.status !== "FAILED" && result.itemsRetried === 0);
+    try {
+      const value = { observedAt: new Date(lastCycleAt).toISOString(), healthy, releaseSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? null, processors: results.map((result) => ({ name: result.name, status: result.status, itemsRetried: result.itemsRetried })) };
+      await prisma.systemSetting.upsert({ where: { key: "production_processor_heartbeat" }, create: { key: "production_processor_heartbeat", label: "Operations processor heartbeat", type: "JSON", value }, update: { value } });
+    } catch { healthy = false; console.error(JSON.stringify({ event: "production_processors.heartbeat_failed", category: "DATABASE_UNAVAILABLE" })); }
     console.log(JSON.stringify({ event: "production_processors.cycle", healthy, results }));
     if (!stopping) await new Promise<void>((resolve) => {
       const timer = setTimeout(() => { wake = undefined; resolve(); }, 30_000);

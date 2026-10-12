@@ -71,6 +71,7 @@
 }
 
 .topicButton {
+  min-height: 44px;
   background-color: var(--kt-public-surface-primary);
   border: 1px solid var(--kt-cool-250);
   padding: 8px 16px;
@@ -127,6 +128,7 @@
 }
 
 .faqQuestion {
+  min-height: 44px;
   padding: 18px 24px;
   font-size: 1.05rem;
   font-weight: 560;
@@ -137,13 +139,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 }
 
 .faqQuestion::-webkit-details-marker {
   display: none;
 }
 
+.faqQuestion:focus-visible,
+.topicButton:focus-visible,
+.searchInput:focus-visible,
+.clearSearchButton:focus-visible {
+  outline: 2px solid var(--kt-public-text-primary);
+  outline-offset: 3px;
+}
+
 .faqQuestion::after {
+  flex-shrink: 0;
   content: "+";
   font-size: 1.25rem;
   font-weight: 400;
@@ -175,6 +187,7 @@
 }
 
 .clearSearchButton {
+  min-height: 44px;
   background: none;
   border: none;
   padding: 0;

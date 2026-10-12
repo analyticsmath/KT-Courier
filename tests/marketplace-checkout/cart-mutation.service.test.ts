@@ -71,6 +71,14 @@ function repository(
 }
 describe("marketplace cart mutation service", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("denies another owner even when a successful operation receipt is known", async () => {
+    const repo = repository({ id: "cart", publicReference: "cart-ref", owner: customer, status: "ACTIVE", version: 1, lines: [] });
+    const mutation = { operationId: "private-operation", requestHash: "a", expectedVersion: 1 };
+    await clearCart(repo, { cartId: "cart", owner: customer, mutation });
+    await expect(clearCart(repo, { cartId: "cart", owner: { type: "CUSTOMER", userId: "other" }, mutation })).rejects.toMatchObject({ code: "CART_ACCESS_DENIED" });
+    expect(repo.state.version).toBe(2);
+    expect(repo.receipts.size).toBe(1);
+  });
   it("does not resolve invalid cart lines", async () => {
     await expect(
       resolveMarketplaceCartLine({
@@ -268,6 +276,9 @@ describe("marketplace cart mutation service", () => {
     });
     expect(repo.transactions).toBe(1);
     expect(result.cart.lines[0]?.selection.unitPrice).toBe("11.00");
+    expect(result.cart.lines[0]?.publicReference).not.toBe("guest-line");
+    expect(guestCart.lines[0].publicReference).toBe("guest-line");
+    expect(result.cart.lines[0]?.quantity).toBe(1);
     expect(repo.receipts.get("operation-merge-1")?.type).toBe("MERGE");
   });
   it("rejects cross-owner cart access attempts", async () => {

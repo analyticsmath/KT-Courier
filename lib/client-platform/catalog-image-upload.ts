@@ -1,4 +1,6 @@
 import { createCloudinaryCatalogWriteAdapter } from "@/lib/catalog/media/cloudinary-catalog-media-storage";
+import { createProductionCatalogMediaStorageAdapter } from "@/lib/catalog/media/catalog-media-storage-adapter";
+import { disposableBrowserCatalogMediaAllowed } from "@/lib/catalog/media/disposable-catalog-media-policy";
 import type { NextRequest } from "next/server";
 import { parseBoundedMultipartRequest } from "@/lib/security/bounded-upload";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
@@ -25,7 +27,8 @@ export async function uploadNormalizedStoreImage(request: NextRequest, userId: s
   if (!file || Object.keys(upload.result.files).length !== 1 || Object.keys(upload.result.fields).length !== 1 || !purposes.includes(purpose)) return json({ error: "Select one image and a valid image purpose." }, 422);
   try {
     const bytes = await normalizeCatalogImage(file.bytes);
-    const service = createProductionCatalogMediaIntakeService(createCloudinaryCatalogWriteAdapter());
+    const storage = disposableBrowserCatalogMediaAllowed() ? createProductionCatalogMediaStorageAdapter() : createCloudinaryCatalogWriteAdapter();
+    const service = createProductionCatalogMediaIntakeService(storage);
     const intent = await service.createUploadIntent({ actorUserId: userId, ownerType: "STORE", storeId, purpose, declaredMimeType: "image/webp", declaredByteSize: bytes.length, operationId });
     await service.receiveUploadBytes({ actorUserId: userId, storeId, uploadReference: intent.upload.publicReference, bytes, operationId: `${operationId}:bytes` });
     const complete = await service.completeUpload({ actorUserId: userId, storeId, uploadReference: intent.upload.publicReference, operationId: `${operationId}:complete` });

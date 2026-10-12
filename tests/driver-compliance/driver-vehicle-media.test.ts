@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { PrivateMediaOwnerType, PrivateMediaPurpose, VehicleMediaPurpose, VehicleType } from "@/types/db";
 
 const mockPrisma = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   driverProfile: {
     findUnique: vi.fn(),
     update: vi.fn(),
@@ -36,6 +37,7 @@ import {
 describe("Phase 1 Acceptance: Structured Driver Identity & Vehicle Media Attachment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma));
   });
 
   describe("Driver Profile Photo Attachment", () => {

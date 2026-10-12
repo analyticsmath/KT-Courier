@@ -32,9 +32,10 @@ export async function beginRefundReview(input: Readonly<{ actorUserId: string; p
   const operationId = assertRefundOperationId(input.operationId);
   return withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const refund = await lockRefund(tx, input.publicReference);
+    if (refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot review their own refund administratively.");
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {
-      if (replay.toStatus === "UNDER_REVIEW") return refund;
+      if (replay.toStatus === "UNDER_REVIEW" && replay.actorUserId === input.actorUserId) return refund;
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
     if (refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot review their own refund administratively.");
@@ -51,9 +52,10 @@ export async function approveRefund(input: Readonly<{ actorUserId: string; publi
   const financeNote = sanitizeRefundNote(input.financeNote);
   return withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const refund = await lockRefund(tx, input.publicReference);
+    assertRefundApprovalControl({ customerUserId: refund.customerUserId ?? "", approverUserId: input.actorUserId });
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {
-      if (replay.toStatus === "APPROVED") return refund;
+      if (replay.toStatus === "APPROVED" && replay.actorUserId === input.actorUserId && refund.financeNote === financeNote) return refund;
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
     assertRefundApprovalControl({ customerUserId: refund.customerUserId ?? "", approverUserId: input.actorUserId });

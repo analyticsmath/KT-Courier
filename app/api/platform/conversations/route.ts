@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   ConversationSchema,
@@ -13,9 +14,12 @@ export async function GET(req: NextRequest) {
   const scope = req.nextUrl.searchParams.get("scope") ?? "personal";
   if (!["personal", "STORE", "admin"].includes(scope))
     return json({ error: "Invalid conversation scope." }, 422);
+  const orderId = req.nextUrl.searchParams.get("orderId") ?? undefined;
+  if (orderId !== undefined && !z.string().cuid().safeParse(orderId).success)
+    return json({ error: "Invalid delivery reference." }, 422);
   try {
     return json({
-      conversations: await listConversations(u, scope as ConversationScope),
+      conversations: await listConversations(u, scope as ConversationScope, orderId),
     });
   } catch (e) {
     return failure(e);

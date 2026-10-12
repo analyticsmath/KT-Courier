@@ -1,5 +1,6 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
 import { prisma } from "@/lib/db/prisma";
+import type { Prisma } from "@prisma/client";
 import { OrderSource, OrderStatus } from "@/types/db";
 import type { AuthenticatedUser } from "@/types/domain";
 import { generateOrderNumber } from "@/lib/utils/order-number";
@@ -53,6 +54,7 @@ export async function createOrder(
   user: AuthenticatedUser,
   input: CreateOrderInput,
   business = user.role === "STORE",
+  transaction?: Prisma.TransactionClient,
 ): Promise<OrderDetailDto> {
   let storeId: string | null = null;
   let customerId: string | null = null;
@@ -74,7 +76,7 @@ export async function createOrder(
   // are never accepted as order fields, only the quote identifier is.
   const quoteInputHash = hashPricingInput(pricingInputSnapshot(input));
 
-  const result = await prisma.$transaction(async (tx) => {
+  const persist = async (tx: Prisma.TransactionClient) => {
     const quote = await ownedActiveQuoteForOrder(
       tx,
       user,
@@ -221,7 +223,8 @@ export async function createOrder(
 
     await appendOrderConfirmedInTx(tx, order);
     return order;
-  });
+  };
+  const result = transaction ? await persist(transaction) : await prisma.$transaction(persist);
 
   const dto = toOrderDetailDto(result);
 

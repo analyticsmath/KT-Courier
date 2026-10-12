@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useSearchParams } from "next/navigation";
 import styles from "./commerce.module.css";
+import { GuestCheckoutEmailUpdates } from "./GuestCheckoutEmailUpdates";
 
 function formatMoney(amount: string | number | undefined | null) {
   if (amount === undefined || amount === null) return "R 0.00";
@@ -46,6 +47,8 @@ interface PublicCheckoutData {
   status: string;
   currency: "ZAR";
   version: number;
+  contact?: { recipientName: string; email: string; phone: string; preferredContactMethod: string | null };
+  deliveryAddress?: { line1: string; line2: string | null; suburb: string | null; city: string; province: string; postalCode: string | null; deliveryInstructions: string | null };
   totals: {
     merchandiseSubtotal: string;
     modifierSubtotal: string;
@@ -78,18 +81,27 @@ function retainCheckoutPresentation(next: PublicCheckoutData, previous: PublicCh
 export function CheckoutExperience() {
   const searchParams = useSearchParams();
   const checkoutRef = searchParams.get("ref");
+  return <CheckoutSession key={checkoutRef ?? "no-checkout"} checkoutRef={checkoutRef} />;
+}
+
+function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
   const [checkout, setCheckout] = useState<PublicCheckoutData | null>(null);
   const [loading, setLoading] = useState(Boolean(checkoutRef));
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const stepHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => {
+    stepHeadingRef.current?.focus();
+  }, [currentStep]);
 
   // Step 1: Contact
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactMethod, setContactMethod] = useState("EMAIL");
+  const [contactRevision, setContactRevision] = useState(0);
 
   // Step 2: Address
   const [addrLine1, setAddrLine1] = useState("");
@@ -104,7 +116,12 @@ export function CheckoutExperience() {
   // Step 4 & 5: Review & Acknowledgement
   const [reviewVersion, setReviewVersion] = useState<number | null>(null);
   const [commercialFingerprint, setCommercialFingerprint] = useState<string | null>(null);
+  const [legalEvidence, setLegalEvidence] = useState<{ termsVersion: string; privacyVersion: string; refundPolicyReferences: string[] } | null>(null);
   const [termsAgreed, setTermsAgreed] = useState(false);
+
+  function invalidateReview() {
+    setReviewVersion(null); setCommercialFingerprint(null); setLegalEvidence(null); setTermsAgreed(false);
+  }
 
   // Step 6 & 7: Reservation & Payment
   const [orderComplete, setOrderComplete] = useState(false);
@@ -113,7 +130,7 @@ export function CheckoutExperience() {
     let ignore = false;
     if (!checkoutRef) return;
 
-    fetch(`/api/checkout/${checkoutRef}`)
+    fetch(`/api/checkout/${encodeURIComponent(checkoutRef)}`)
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -124,6 +141,18 @@ export function CheckoutExperience() {
       .then((data) => {
         if (ignore) return;
         setCheckout(data.checkout);
+        const saved = data.checkout as PublicCheckoutData;
+        setContactName(saved.contact?.recipientName ?? "");
+        setContactEmail(saved.contact?.email ?? "");
+        setContactPhone(saved.contact?.phone ?? "");
+        setContactMethod(saved.contact?.preferredContactMethod ?? "EMAIL");
+        setAddrLine1(saved.deliveryAddress?.line1 ?? "");
+        setAddrLine2(saved.deliveryAddress?.line2 ?? "");
+        setAddrSuburb(saved.deliveryAddress?.suburb ?? "");
+        setAddrCity(saved.deliveryAddress?.city ?? "");
+        setAddrProvince(saved.deliveryAddress?.province ?? "Gauteng");
+        setAddrPostalCode(saved.deliveryAddress?.postalCode ?? "");
+        setAddrInstructions(saved.deliveryAddress?.deliveryInstructions ?? "");
         if (data.checkout.status === "RESERVED") {
           setCurrentStep(6);
         } else if (data.checkout.status === "COMPLETED") {
@@ -184,6 +213,8 @@ export function CheckoutExperience() {
           setCheckout(retainCheckoutPresentation(freshData.checkout, checkout));
         }
       }
+      setContactRevision((revision) => revision + 1);
+      invalidateReview();
       setCurrentStep(2);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to save contact.");
@@ -229,7 +260,7 @@ export function CheckoutExperience() {
       }
 
       const data = await res.json();
-      let nextVersion = checkout.version + 1;
+      let nextVersion: number | null = null;
       if (data.checkout && data.checkout.storeGroups) {
         setCheckout(retainCheckoutPresentation(data.checkout, checkout));
         nextVersion = data.checkout.version;
@@ -242,6 +273,8 @@ export function CheckoutExperience() {
         }
       }
 
+      invalidateReview();
+      if (!Number.isSafeInteger(nextVersion) || nextVersion === null || nextVersion < 1) throw new Error("The saved checkout version could not be verified. Refresh before continuing.");
       // Auto-trigger delivery quotes
       await calculateQuotes(nextVersion);
     } catch (err) {
@@ -273,6 +306,11 @@ export function CheckoutExperience() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || err.message || "Failed to calculate delivery quotes.");
       }
+
+      // Consume the authoritative response before refreshing the checkout.
+      // Leaving a fetch body unread can stall browser network receipts.
+      const quoteResult = await res.json();
+      if (!Array.isArray(quoteResult.quotes) || quoteResult.quotes.length !== checkout.storeGroups.length) throw new Error("Delivery quote evidence could not be verified. Refresh before continuing.");
 
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
@@ -315,7 +353,9 @@ export function CheckoutExperience() {
       }
 
       const optData = await optRes.json();
-      const currentVersionBeforeReview = optData.checkout?.version ?? (checkout.version + 1);
+      if (!Number.isSafeInteger(optData.checkout?.version) || optData.checkout.version < 1) throw new Error("The saved delivery selection could not be verified. Refresh before continuing.");
+      const currentVersionBeforeReview = optData.checkout.version;
+      invalidateReview();
 
       // 2. Perform authoritative Review
       const revOpId = `rev-${crypto.randomUUID()}`;
@@ -336,8 +376,11 @@ export function CheckoutExperience() {
       }
 
       const revData = await revRes.json();
-      setReviewVersion(revData.reviewVersion ?? revData.version ?? 1);
-      setCommercialFingerprint(revData.commercialFingerprint ?? "fingerprint-confirmed");
+      if (!Number.isSafeInteger(revData.reviewVersion) || revData.reviewVersion < 1 || typeof revData.commercialFingerprint !== "string" || !revData.commercialFingerprint || typeof revData.legalEvidence?.termsVersion !== "string" || typeof revData.legalEvidence?.privacyVersion !== "string" || !Array.isArray(revData.legalEvidence?.refundPolicyReferences) || !revData.legalEvidence.refundPolicyReferences.length || revData.legalEvidence.refundPolicyReferences.some((reference: unknown) => typeof reference !== "string" || !reference)) throw new Error("Current order review and published policy evidence are required before continuing.");
+      setReviewVersion(revData.reviewVersion);
+      setCommercialFingerprint(revData.commercialFingerprint);
+      setLegalEvidence(revData.legalEvidence);
+      setTermsAgreed(false);
 
       // Refresh checkout
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
@@ -355,7 +398,7 @@ export function CheckoutExperience() {
 
   // Step 4 Confirmation: Acknowledge & Reserve Inventory
   const handleAcknowledgeAndReserve = async () => {
-    if (!checkout || !termsAgreed || !commercialFingerprint || reviewVersion === null) return;
+    if (!checkout || !termsAgreed || !commercialFingerprint || reviewVersion === null || !legalEvidence) return;
     setSubmitting(true);
     setErrorMessage(null);
 
@@ -375,9 +418,7 @@ export function CheckoutExperience() {
           reviewVersion,
           commercialFingerprint,
           acknowledgedTotalReference: checkout.totals.grandTotal,
-          termsVersion: "terms-2026-v1",
-          privacyVersion: "privacy-2026-v1",
-          refundPolicyReferences: ["refund-policy-v1"],
+          ...legalEvidence,
         }),
       });
 
@@ -387,7 +428,8 @@ export function CheckoutExperience() {
       }
 
       const ackData = await ackRes.json();
-      const currentVersionAfterAck = ackData.checkoutVersion ?? (checkout.version + 1);
+      if (!Number.isSafeInteger(ackData.checkoutVersion) || ackData.checkoutVersion < 1) throw new Error("The acknowledged checkout version could not be verified. Refresh before continuing.");
+      const currentVersionAfterAck = ackData.checkoutVersion;
 
       // 2. Reserve with currentVersionAfterAck
       const resOpId = `res-${crypto.randomUUID()}`;
@@ -507,6 +549,14 @@ export function CheckoutExperience() {
     );
   }
 
+  if (!checkout) {
+    return <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center" }}>
+      <h1>Your checkout is not available</h1>
+      <p role="alert">{errorMessage ?? "The checkout could not be loaded. Please try again."}</p>
+      <Link href="/cart">Return to cart</Link>
+    </div>;
+  }
+
   if (orderComplete) {
     return (
       <div className={styles.commerceInner} style={{ padding: "4rem 0", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
@@ -551,6 +601,7 @@ export function CheckoutExperience() {
 
       {errorMessage && (
         <div
+          id="checkout-error"
           role="alert"
           style={{
             padding: "14px 18px",
@@ -565,6 +616,10 @@ export function CheckoutExperience() {
         </div>
       )}
 
+      <p role="status" aria-live="polite" aria-atomic="true">
+        Step {Math.min(currentStep, 5)} of 5: {["Contact", "Delivery address", "Delivery options", "Review your order", "Payment"][Math.min(currentStep, 5) - 1]}
+      </p>
+
       <div className={styles.checkoutMainLayout}>
         {/* Left Column: Multi-Step Flow */}
         <div className={styles.checkoutMainColumn}>
@@ -578,7 +633,7 @@ export function CheckoutExperience() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
+              <h2 id="checkout-contact-heading" ref={currentStep === 1 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
                 1. Contact
               </h2>
               {currentStep > 1 && (
@@ -593,7 +648,7 @@ export function CheckoutExperience() {
             </div>
 
             {currentStep === 1 ? (
-              <form onSubmit={handleSaveContact} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <form aria-labelledby="checkout-contact-heading" aria-describedby={errorMessage ? "checkout-error" : undefined} onSubmit={handleSaveContact} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <label htmlFor="contactName" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
                     Recipient Full Name
@@ -675,6 +730,7 @@ export function CheckoutExperience() {
             ) : (
               <div style={{ fontSize: "0.9rem", color: "var(--kt-public-text-muted)" }}>
                 {contactName} · {contactEmail} · {contactPhone} ({contactMethod})
+                {checkout && <GuestCheckoutEmailUpdates key={contactRevision} checkoutReference={checkoutRef || checkout.reference} />}
               </div>
             )}
           </div>
@@ -689,7 +745,7 @@ export function CheckoutExperience() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
+              <h2 id="checkout-address-heading" ref={currentStep === 2 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
                 2. Delivery address
               </h2>
               {currentStep > 2 && (
@@ -704,7 +760,7 @@ export function CheckoutExperience() {
             </div>
 
             {currentStep === 2 ? (
-              <form onSubmit={handleSaveAddress} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <form aria-labelledby="checkout-address-heading" aria-describedby={errorMessage ? "checkout-error" : undefined} onSubmit={handleSaveAddress} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY && <AddressAutocomplete
                   label="Find your delivery address on the map"
                   value={mappedAddress}
@@ -863,7 +919,7 @@ export function CheckoutExperience() {
                 backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+              <h2 ref={currentStep === 3 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
                 3. Delivery options
               </h2>
 
@@ -929,7 +985,7 @@ export function CheckoutExperience() {
                 backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+              <h2 ref={currentStep === 4 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
                 4. Review your order
               </h2>
 
@@ -949,7 +1005,7 @@ export function CheckoutExperience() {
                       style={{ marginTop: 3 }}
                     />
                     <span>
-                      I agree to the <Link href="/terms" target="_blank" style={{ textDecoration: "underline" }}>Terms of Service</Link>, <Link href="/privacy-policy" target="_blank" style={{ textDecoration: "underline" }}>Privacy Policy</Link>, and the standard KT Couriers Returns & Refund Guarantee.
+                      I accept the <Link href="/terms" target="_blank" style={{ textDecoration: "underline" }}>Terms of Service</Link> and <Link href="/refund-policy" target="_blank" style={{ textDecoration: "underline" }}>Refund and Cancellation Policy</Link>, and acknowledge the <Link href="/privacy-policy" target="_blank" style={{ textDecoration: "underline" }}>Privacy Policy</Link>.
                     </span>
                   </label>
 
@@ -985,7 +1041,7 @@ export function CheckoutExperience() {
                 backgroundColor: "var(--kt-public-surface-primary)",
               }}
             >
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+              <h2 ref={currentStep === 5 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
                 5. Payment
               </h2>
 

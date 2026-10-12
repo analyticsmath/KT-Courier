@@ -9,6 +9,11 @@ import { failure, json } from "@/lib/client-platform/api";
 import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import { createProductionCatalogMediaDeliveryStorageAdapter } from "@/lib/catalog/media/catalog-media-storage-adapter";
 import { CLOUDINARY_CATALOG_STORAGE_CODE, createCloudinaryCatalogWriteAdapter } from "@/lib/catalog/media/cloudinary-catalog-media-storage";
+import { z } from "zod";
+import { mutation } from "@/lib/client-platform/api";
+import { CatalogMediaArchiveSchema } from "@/lib/validation/catalog-media";
+import { createProductionCatalogMediaIntakeService } from "@/lib/services/catalog-media-intake.service";
+import { catalogApiError } from "@/lib/catalog/catalog-api-policy";
 
 export async function GET(request: NextRequest) {
   const denied = await requireBusinessApi("/api/store/profile-media");
@@ -47,4 +52,24 @@ export async function POST(request: NextRequest) {
     if (response.ok) await rebuildStorefrontStoreDocument(store.id);
     return response;
   } catch (error) { return failure(error); }
+}
+
+const RemoveBrandingSchema = CatalogMediaArchiveSchema.extend({ reference: z.string().regex(/^CMA-[A-Z0-9]+$/) }).strict();
+export async function DELETE(request: NextRequest) {
+  const denied = await requireBusinessApi("/api/store/profile-media");
+  if (denied) return denied;
+  try {
+    const user = await getCurrentUser();
+    if (!user) return json({ error: "Sign in to continue." }, 401);
+    const { store } = await storeAccess(user.id, "settings");
+    const prepared = await mutation(request, `store-branding-remove:${user.id}`);
+    if ("response" in prepared) return prepared.response;
+    const input = RemoveBrandingSchema.parse(prepared.body);
+    const owned = await prisma.catalogMediaAsset.findFirst({ where: { publicReference: input.reference, ownerType: "STORE", ownerStoreId: store.id, purpose: { in: ["STORE_LOGO", "STORE_HERO"] } }, select: { id: true } });
+    if (!owned) return json({ error: "Store image unavailable." }, 404);
+    const service = createProductionCatalogMediaIntakeService();
+    const asset = await service.archiveStoreAsset({ actorUserId: user.id, storeId: store.id, publicReference: input.reference, operationId: input.operationId });
+    await rebuildStorefrontStoreDocument(store.id);
+    return json({ asset });
+  } catch (error) { return error instanceof z.ZodError ? failure(error) : catalogApiError(error); }
 }

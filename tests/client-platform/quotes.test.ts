@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   zone: vi.fn(),
   route: vi.fn(),
   config: vi.fn(),
+  parcelProfileVersion: { findMany: vi.fn() },
   deliveryServiceDefinition: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -54,6 +55,7 @@ const input = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.parcelProfileVersion.findMany.mockResolvedValue(["SMALL", "MEDIUM", "LARGE"].map((stableKey) => ({ id: `parcel-${stableKey}`, stableKey, displayName: stableKey, versionNumber: 1, lengthCm: new Prisma.Decimal(20), widthCm: new Prisma.Decimal(20), heightCm: new Prisma.Decimal(20), maximumWeightKg: new Prisma.Decimal(25), sortOrder: 0 })));
   mocks.deliveryServiceDefinition.findMany.mockResolvedValue(
     INITIAL_DELIVERY.map((c, i) => ({
       id: `config-${i}`,
@@ -74,6 +76,7 @@ beforeEach(() => {
       province: "Gauteng",
       highRiskSurcharge: new Prisma.Decimal(0),
       pricingEnabled: true,
+      maxDistanceKm: new Prisma.Decimal(60),
     },
   ]);
   mocks.route.mockResolvedValue({
@@ -97,6 +100,24 @@ beforeEach(() => {
   mocks.$transaction.mockImplementation(async (callback) => callback(mocks));
 });
 describe("anonymous client delivery quotations", () => {
+  it("blocks quotation before persistence when no approved profile exists", async () => {
+    mocks.parcelProfileVersion.findMany.mockResolvedValue([]);
+    await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "PARCEL_CONFIGURATION_REQUIRED" });
+    expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
+  });
+  it("requires both pickup and dropoff coverage", async () => {
+    mocks.zone.mockResolvedValueOnce({ matched: true, regionId: "region-a", withinMaxDistance: true }).mockResolvedValueOnce({ matched: false, regionId: null });
+    await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "COVERAGE_UNAVAILABLE" });
+  });
+  it("requires affirmative serviceability evidence before routing or persisting a quote", async () => {
+    mocks.zone.mockResolvedValue({ matched: true, regionId: "region-a" });
+    await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "COVERAGE_UNAVAILABLE" });
+    expect(mocks.route).not.toHaveBeenCalled(); expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
+  });
+  it("rejects actual road routes exceeding a region maximum", async () => {
+    mocks.route.mockResolvedValue({ ok: true, route: { distanceMeters: 70000 } });
+    await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "COVERAGE_DISTANCE_EXCEEDED" });
+  });
   it.each([
     ["CLIENT_ECONOMY", "SMALL", "89.00"],
     ["CLIENT_ECONOMY", "MEDIUM", "129.00"],

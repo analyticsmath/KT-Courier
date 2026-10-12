@@ -78,6 +78,9 @@ export async function acquireProcessorLease(params: AcquireLeaseParams): Promise
         };
       }
 
+      // Serialize reclamation with heartbeat/completion writes as well as other
+      // acquisitions. The advisory lock alone does not protect those row writes.
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "OperationalProcessorRun" WHERE "jobName" = ${params.jobName} AND "partition" = ${partition} AND "status" IN ('LEASE_ACQUIRED', 'RUNNING') ORDER BY "startedAt" DESC FOR UPDATE`);
       // Check existing active lease for jobName + partition
       const activeRuns = await tx.operationalProcessorRun.findMany({
         where: {
@@ -151,17 +154,15 @@ export async function acquireProcessorLease(params: AcquireLeaseParams): Promise
 }
 
 export async function heartbeatProcessorLease(operationId: string, leaseOwner: string, extendSeconds = 120): Promise<boolean> {
-  const run = await prisma.operationalProcessorRun.findUnique({ where: { operationId } });
-  if (!run || run.leaseOwner !== leaseOwner || !["LEASE_ACQUIRED", "RUNNING"].includes(String(run.status))) {
-    return false;
-  }
-
-  const newExpiry = new Date(Date.now() + extendSeconds * 1000);
-  await prisma.operationalProcessorRun.update({
-    where: { id: String(run.id) },
-    data: { leaseExpiresAt: newExpiry, status: "RUNNING" },
+  if (!Number.isSafeInteger(extendSeconds) || extendSeconds <= 0) return false;
+  const now = new Date();
+  // Re-evaluate ownership/status/expiry in the write itself. A reclaimed or
+  // completed lease must never be revived by an earlier worker's heartbeat.
+  const result = await prisma.operationalProcessorRun.updateMany({
+    where: { operationId, leaseOwner, status: { in: ["LEASE_ACQUIRED", "RUNNING"] }, leaseExpiresAt: { gt: now } },
+    data: { leaseExpiresAt: new Date(now.getTime() + extendSeconds * 1000), status: "RUNNING" },
   });
-  return true;
+  return result.count === 1;
 }
 
 export async function completeProcessorRun(params: CompleteRunParams): Promise<boolean> {
@@ -173,11 +174,12 @@ export async function completeProcessorRun(params: CompleteRunParams): Promise<b
     throw new Error(`Stale lease owner '${params.leaseOwner}' cannot complete run owned by '${run.leaseOwner}'.`);
   }
 
-  await prisma.operationalProcessorRun.update({
-    where: { id: String(run.id) },
+  const now = new Date();
+  const result = await prisma.operationalProcessorRun.updateMany({
+    where: { id: run.id, operationId: params.operationId, leaseOwner: params.leaseOwner, status: { in: ["LEASE_ACQUIRED", "RUNNING"] }, leaseExpiresAt: { gt: now } },
     data: {
       status: params.status,
-      completedAt: new Date(),
+      completedAt: now,
       itemsClaimed: params.itemsClaimed ?? Number(run.itemsClaimed ?? 0),
       itemsCompleted: params.itemsCompleted ?? Number(run.itemsCompleted ?? 0),
       itemsRetried: params.itemsRetried ?? Number(run.itemsRetried ?? 0),
@@ -187,7 +189,7 @@ export async function completeProcessorRun(params: CompleteRunParams): Promise<b
       leaseExpiresAt: null, // release lease
     },
   });
-  return true;
+  return result.count === 1;
 }
 
 export async function listProcessorRuns(jobName?: string, limit = 50) {

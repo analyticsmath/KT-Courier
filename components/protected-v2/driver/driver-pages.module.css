@@ -53,6 +53,8 @@
 .scope :global(.eo-driver-form-actions) { display: flex; justify-content: flex-end; gap: var(--eo-space-2); border-top: 1px solid var(--eo-line-soft); padding-top: var(--eo-space-3); }
 .scope :global(.eo-driver-form-actions button) { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--eo-surface-dark); border-radius: var(--eo-radius-control); background: var(--eo-surface-dark); padding: 9px 14px; color: #fff; font: inherit; font-size: .875rem; font-weight: 650; }
 .scope :global(.eo-driver-form-actions button:disabled) { cursor: not-allowed; opacity: .62; }
+.scope :global(.eo-driver-identity-form input), .scope :global(.eo-driver-identity-form select), .scope :global(.eo-driver-onboarding-nav button) { min-height: 44px; }
+.scope :global(.eo-driver-form :is(input, button):focus-visible), .scope :global(.eo-driver-identity-form :is(input, select, button):focus-visible), .scope :global(.eo-driver-onboarding-nav button:focus-visible) { outline: 2px solid var(--eo-text); outline-offset: 3px; }
 
 @media (min-width: 1024px) {
   .scope :global(.eo-driver-home-grid) { grid-template-columns: minmax(0, 1fr) minmax(230px, .38fr); }

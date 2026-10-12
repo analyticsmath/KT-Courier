@@ -19,10 +19,11 @@ export function StoreCatalogNavigation() {
 export function StorefrontAvailability() {
   return (
     <OperationalPanel
+      className={styles.storefrontAvailability}
       title="Storefront publication is live"
       description="Published catalog offers are projected to the public KT Courier marketplace. Draft or review-state records remain private until they are published."
       padding="compact"
-      action={<Link className="text-sm font-semibold underline underline-offset-4" href="/shop">View live marketplace</Link>}
+      action={<Link className="whitespace-nowrap text-sm font-semibold underline underline-offset-4" href="/shop">View live marketplace</Link>}
     >
       <p className="text-sm text-[var(--eo-text-secondary)]">
         Manage product identity, pricing, inventory, media, and offers here. Published records can be browsed and purchased from the live storefront.

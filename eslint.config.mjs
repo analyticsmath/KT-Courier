@@ -10,6 +10,8 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
+    // Generated verification receipts and copied builds contain no source.
+    "output/**",
     "build/**",
     "coverage/**",
     "dist/**",

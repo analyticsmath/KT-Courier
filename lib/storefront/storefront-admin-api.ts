@@ -6,6 +6,7 @@ import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { readBoundedStorefrontJson, storefrontJson } from "@/lib/storefront/storefront-api-policy";
 import { StorefrontProductionLockedError } from "@/lib/storefront/storefront-production-lock";
+import { StorefrontReconciliationError } from "@/lib/services/storefront-reconciliation.service";
 
 export async function requireStorefrontAdminMutation(request: NextRequest, permission: string) {
   const auth = await requireAdminApiPermission(permission, { request });
@@ -25,6 +26,8 @@ export async function parseStorefrontAdminBody<T>(request: NextRequest, schema: 
 export class StorefrontAdminBodyError extends Error { constructor() { super("Invalid storefront administration input."); this.name = "StorefrontAdminBodyError"; } }
 export function storefrontAdminError(error: unknown) {
   if (error instanceof StorefrontAdminBodyError) return unprocessable("Invalid storefront administration input.");
+  if (error instanceof StorefrontReconciliationError && error.code === "CANONICAL_REBUILD_UNAVAILABLE") return storefrontJson({ code: "CANONICAL_REBUILD_UNAVAILABLE", error: "This case requires correction through its canonical source event. A manual rebuild is unavailable." }, 409, { private: true });
+  if (error instanceof StorefrontReconciliationError && error.code === "PROJECTION_CASE_RESOLVED") return conflict("This resolved projection case is immutable historical evidence.");
   if (error instanceof StorefrontProductionLockedError) return storefrontJson({ error: "Storefront production activation remains locked pending Phase 26.5 validation." }, 409, { private: true });
   if (error instanceof Error && /CONFLICT|IMMUTABLE|NOT_FOUND|INELIGIBLE|NOT_ACTIVATABLE|INVALID_LIFECYCLE/.test((error as { code?: string }).code ?? "")) return conflict("The storefront administration request could not be applied safely.");
   return storefrontJson({ error: "The storefront administration request could not be completed." }, 503, { private: true });

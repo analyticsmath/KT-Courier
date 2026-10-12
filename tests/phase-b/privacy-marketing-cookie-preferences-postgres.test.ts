@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { assertPrivacyDisposableDatabase } from "./privacy-disposable-guard";
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
@@ -8,7 +9,7 @@ import { getCookiePreference, getMarketingPreferences, hashAnonymousCookieSubjec
 
 const marker = `PPP${randomUUID().replaceAll("-", "").toUpperCase()}`;
 let userA = ""; let userB = "";
-beforeAll(async () => { await prisma.$queryRaw`SELECT 1`; const [a, b] = await Promise.all([prisma.user.create({ data: { email: `${marker.toLowerCase()}-a@example.test`, passwordHash: "phase-b-test-only", name: "Preference A", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE } }), prisma.user.create({ data: { email: `${marker.toLowerCase()}-b@example.test`, passwordHash: "phase-b-test-only", name: "Preference B", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE } })]); userA = a.id; userB = b.id; });
+beforeAll(async () => { await assertPrivacyDisposableDatabase(); const [a, b] = await Promise.all([prisma.user.create({ data: { email: `${marker.toLowerCase()}-a@example.test`, passwordHash: "phase-b-test-only", name: "Preference A", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE } }), prisma.user.create({ data: { email: `${marker.toLowerCase()}-b@example.test`, passwordHash: "phase-b-test-only", name: "Preference B", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE } })]); userA = a.id; userB = b.id; });
 
 describe("Phase B marketing and cookie preference PostgreSQL production-service proof", () => {
   it("enforces marketing opt-out without suppressing required communication and preserves separate cookie evidence", async () => {

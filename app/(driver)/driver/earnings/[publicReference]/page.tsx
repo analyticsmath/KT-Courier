@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DriverEarningsUnavailable } from "@/components/driver/DriverEarningsUnavailable";
 import { notFound } from "next/navigation";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { ProtectedContentGrid, ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { requireRole } from "@/lib/auth/guards";
+import { DriverEarningError } from "@/lib/driver-earnings/errors";
 import { getDriverEarningForOwner } from "@/lib/services/driver-earning-query.service";
 import { UserRole } from "@/types/db";
 import styles from "@/components/protected-v2/driver/driver-pages.module.css";
@@ -15,7 +17,12 @@ export const metadata: Metadata = { title: "Earning record" };
 export default async function DriverEarningDetailPage({ params }: { params: Promise<{ publicReference: string }> }) {
   const user = await requireRole(UserRole.DRIVER);
   const { publicReference } = await params;
-  const earning = await getDriverEarningForOwner(user.id, publicReference);
+  const result = await getDriverEarningForOwner(user.id, publicReference).then((earning) => ({ earning })).catch((error: unknown) => {
+    if (error instanceof DriverEarningError && error.code === "DRIVER_EARNING_FORBIDDEN") return null;
+    throw error;
+  });
+  if (!result) return <DriverEarningsUnavailable />;
+  const { earning } = result;
   if (!earning) notFound();
   return <div className={styles.scope}><ProtectedPageFrame>
     <ProtectedPageHeader eyebrow="Driver earnings" title={earning.publicReference} description="A source-backed earning record. Financial execution is not available from this view." actions={<Link className="eo-driver-button eo-driver-button--secondary" href="/driver/earnings">All earnings</Link>} />

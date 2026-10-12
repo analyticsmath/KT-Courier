@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { json, failure } from "@/lib/client-platform/api";
 import { normalizeProfileImage } from "@/lib/client-platform/images.service";
+import { replaceProfileAvatar, retireUnassociatedProfileAvatar } from "@/lib/client-platform/profile-avatar.service";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { parseBoundedMultipartRequest } from "@/lib/security/bounded-upload";
@@ -68,8 +69,10 @@ export async function POST(req: NextRequest) {
   )
     return json({ error: "Select one profile image." }, 422);
   try {
+    const previous = await prisma.user.findUniqueOrThrow({ where: { id: u.id }, select: { avatarMediaReference: true } });
     const bytes = await normalizeProfileImage(file.bytes);
-    const media = await new PrivateMediaService(createCloudinaryPrivateImageStorageAdapter()).upload({
+    const service = new PrivateMediaService(createCloudinaryPrivateImageStorageAdapter());
+    const media = await service.upload({
       actor: { userId: u.id, role: u.role },
       ownerType: "USER",
       ownerId: u.id,
@@ -78,11 +81,15 @@ export async function POST(req: NextRequest) {
       mimeType: "image/webp",
       bytes,
     });
-    await prisma.user.update({
-      where: { id: u.id },
-      data: { avatarMediaReference: media!.publicReference },
-    });
-    return json({ saved: true });
+    let result;
+    try {
+      result = await replaceProfileAvatar({ actor: { userId: u.id, role: u.role }, previousReference: previous.avatarMediaReference, nextReference: media!.publicReference }, service);
+    } catch (error) {
+      // A losing concurrent upload must not remain as unassociated READY media.
+      if (media!.publicReference !== previous.avatarMediaReference) await retireUnassociatedProfileAvatar({ userId: u.id, role: u.role }, media!.publicReference, service).catch(() => undefined);
+      throw error;
+    }
+    return json({ saved: true, ...result });
   } catch (e) {
     return imageFailure(e);
   }
@@ -92,9 +99,9 @@ export async function DELETE(req: NextRequest) {
   if (origin) return origin;
   const u = await getCurrentUser();
   if (!u) return json({ error: "Sign in to continue." }, 401);
-  await prisma.user.update({
-    where: { id: u.id },
-    data: { avatarMediaReference: null },
-  });
-  return json({ removed: true });
+  try {
+    const previous = await prisma.user.findUniqueOrThrow({ where: { id: u.id }, select: { avatarMediaReference: true } });
+    const result = await replaceProfileAvatar({ actor: { userId: u.id, role: u.role }, previousReference: previous.avatarMediaReference, nextReference: null }, new PrivateMediaService());
+    return json({ removed: true, ...result });
+  } catch (e) { return imageFailure(e); }
 }

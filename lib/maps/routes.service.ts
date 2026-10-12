@@ -2,7 +2,7 @@
 // Calculates route distance and duration using the Google Routes API.
 
 import { getMapsServerConfig } from "./google-maps-config";
-import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
+import { isDisposableBrowserValidationAllowed, isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import type {
   RouteCalculationResult,
   RoutesApiRequest,
@@ -22,7 +22,7 @@ export async function calculateRoute(
   // The isolated browser suite supplies a deterministic in-process provider. It
   // is intentionally opt-in and never available in normal runtime deployments.
   if (process.env.E2E_ROUTE_PROVIDER === "deterministic" || isLocalFullFlowAllowed()) {
-    if (process.env.NODE_ENV === "production" && !isLocalFullFlowAllowed()) {
+    if (process.env.NODE_ENV === "production" && !isLocalFullFlowAllowed() && !isDisposableBrowserValidationAllowed()) {
       return {
         ok: false,
         error: {

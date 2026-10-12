@@ -11,6 +11,11 @@ describe("withdrawal production readiness", () => {
     vi.unstubAllEnvs();
   });
 
+  it.each(["", "production", "e2e"])("production cannot bypass consolidated validation through runtime %s and payout flags", runtime => {
+    const source = { NODE_ENV: "production", KT_RUNTIME_ENV: runtime, WITHDRAWAL_PAYOUT_ENABLED: "true" };
+    expect(withdrawalProductionReadiness(source)).toMatchObject({ productionActive: false, payoutEnabled: true, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" });
+    expect(() => assertWithdrawalProductionActivation(source)).toThrowError(/locked pending/);
+  });
   it("keeps production fail-closed before consolidated validation approval", () => {
     expect(WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED).toBe(false);
     expect(WITHDRAWAL_PRODUCTION_BLOCK_REASON).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");

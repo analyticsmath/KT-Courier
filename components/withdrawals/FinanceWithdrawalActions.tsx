@@ -1,10 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export function FinanceWithdrawalActions({ id, status, payoutAttemptReference, canReview, canApprove, canProcess, completionLocked }: Readonly<{ id: string; status: string; payoutAttemptReference: string | null; canReview: boolean; canApprove: boolean; canProcess: boolean; completionLocked: boolean }>) {
   const [externalPayoutReference, setExternalPayoutReference] = useState(""); const [message, setMessage] = useState<string | null>(null); const [pending, setPending] = useState(false);
-  async function post(path: string, body: Record<string, string>) { setPending(true); setMessage(null); try { const response = await fetch(`/api/admin/withdrawals/${id}/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operationId: crypto.randomUUID(), ...body }) }); const payload = await response.json() as { error?: string }; setMessage(response.ok ? "Action recorded. Refresh to view the updated immutable history." : payload.error ?? "Action could not be recorded."); } catch { setMessage("Action could not be recorded."); } finally { setPending(false); } }
+  const inFlight = useRef(false);
+  const operations = useRef(new Map<string, string>());
+  async function post(path: string, body: Record<string, string>) {
+    if (inFlight.current) return;
+    inFlight.current = true; setPending(true); setMessage(null);
+    try {
+      const identity = JSON.stringify([id, path, body]);
+      const operationId = operations.current.get(identity) ?? crypto.randomUUID();
+      operations.current.set(identity, operationId);
+      const response = await fetch(`/api/admin/withdrawals/${id}/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operationId, ...body }) });
+      const payload = await response.json() as { error?: string };
+      setMessage(response.ok ? "Action recorded. Refresh to view the updated immutable history." : payload.error ?? "Action could not be recorded.");
+    } catch { setMessage("Action could not be sent. Check your connection and try again."); }
+    finally { inFlight.current = false; setPending(false); }
+  }
   return <section aria-label="Finance withdrawal actions" className="space-y-3"><h2 className="text-lg font-semibold">Finance actions</h2>
     {(status === "REQUESTED" && canReview) && <button disabled={pending} onClick={() => post("review", {})} className="rounded border px-3 py-2">Start review</button>}
     {(status === "REQUESTED" || status === "UNDER_REVIEW") && <>{canApprove ? <button disabled={pending} onClick={() => post("approve", {})} className="ml-2 rounded border px-3 py-2">Approve</button> : null}{canReview ? <button disabled={pending} onClick={() => post("reject", { reasonCode: "FINANCE_REJECTED" })} className="ml-2 rounded border px-3 py-2">Reject and release</button> : null}</>}

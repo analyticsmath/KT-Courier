@@ -16,7 +16,7 @@ const auth = readFileSync(
 );
 describe("store catalog API policy", () => {
   it("requires active exact business module permissions and explicit DENY-aware evaluator", () => {
-    expect(auth).toMatch(/storeAccess\(user\.id, "products"\)/);
+    expect(auth).toMatch(/storeAccess\(userId, "products"\)/);
     expect(auth).toMatch(/store\.status !== "ACTIVE"/);
     expect(auth).toMatch(/hasPermission/);
   });

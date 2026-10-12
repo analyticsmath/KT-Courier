@@ -1,3 +1,5 @@
+import { DriverOperationError } from "@/lib/driver-operations/errors";
+import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
 import { assertCashReadyForDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -194,6 +196,7 @@ export async function startDelivery(
   try {
     const replayResult = await findOperationReplay(input.operationId, input);
     if (replayResult) {
+      await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replayResult);
       const replay = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: DELIVERY_ASSIGNMENT_INCLUDE });
       return replay ? { ok: true, assignment: toDeliveryAssignmentDto(replay), operationResult: replayResult } : { ok: false, error: "Assignment not found." };
     }
@@ -278,8 +281,9 @@ export async function startDelivery(
     if (isOperationReceiptConflict(error)) {
       const replay = await findOperationReplay(input.operationId, input);
       const current = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: DELIVERY_ASSIGNMENT_INCLUDE });
-      if (replay && current) return { ok: true, assignment: toDeliveryAssignmentDto(current), operationResult: replay };
+      if (replay && current) { await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay); return { ok: true, assignment: toDeliveryAssignmentDto(current), operationResult: replay }; }
     }
+    if (error instanceof DriverOperationError) return { ok: false, error: error.message };
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
     }
@@ -324,6 +328,7 @@ export async function completeDelivery(
   try {
     const replayResult = await findOperationReplay(input.operationId, input);
     if (replayResult) {
+      await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replayResult);
       const replay = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: DELIVERY_ASSIGNMENT_INCLUDE });
       return replay ? { ok: true, assignment: toDeliveryAssignmentDto(replay), operationResult: replayResult } : { ok: false, error: "Assignment not found." };
     }
@@ -345,13 +350,17 @@ export async function completeDelivery(
   const deliveredAt = new Date();
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const outcome = await prisma.$transaction(async (tx) => {
       await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "DELIVERY_COMPLETE" });
       await assertDriverDeliveryResponsibilitiesInTx(tx, { assignmentId });
       await assertCashReadyForDeliveryWithinTransaction(tx, order.id, driverProfileId);
       const otpResult = await verifyDeliveryOtpInTx(tx, order.id, input.otpCode, assignmentId);
       if (!otpResult.ok) {
-        throw new OrderTransitionError(otpResult.error ?? "OTP verification failed.", "INVALID_TRANSITION");
+        // Invalid-code counters must commit so bounded OTP attempts cannot be
+        // reset by the delivery transaction rollback. No operation success,
+        // custody, proof use, or order transition is recorded for rejection.
+        await tx.driverOperationCommand.deleteMany({ where: { operationId: input.operationId, completedAt: null } });
+        return { otpRejected: otpResult.error ?? "OTP verification failed." };
       }
       const verifiedLocation = await requireVerifiedDeliveryLocationInTx(tx, {
         orderId: order.id,
@@ -491,12 +500,14 @@ export async function completeDelivery(
         newStatus: OrderAssignmentStatus.COMPLETED,
       });
     });
+    if (outcome?.otpRejected) return { ok: false, error: outcome.otpRejected };
   } catch (error) {
     if (isOperationReceiptConflict(error)) {
       const replay = await findOperationReplay(input.operationId, input);
       const current = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: DELIVERY_ASSIGNMENT_INCLUDE });
-      if (replay && current) return { ok: true, assignment: toDeliveryAssignmentDto(current), operationResult: replay };
+      if (replay && current) { await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay); return { ok: true, assignment: toDeliveryAssignmentDto(current), operationResult: replay }; }
     }
+    if (error instanceof DriverOperationError) return { ok: false, error: error.message };
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
     }
@@ -526,6 +537,7 @@ export async function recordDeliveryAttempted(
   try {
     const replayResult = await findOperationReplay(input.operationId, input);
     if (replayResult) {
+      await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replayResult);
       const replay = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: DELIVERY_ASSIGNMENT_INCLUDE });
       return replay ? { ok: true, assignment: toDeliveryAssignmentDto(replay), operationResult: replayResult } : { ok: false, error: "Assignment not found." };
     }
@@ -643,8 +655,9 @@ export async function recordDeliveryAttempted(
     if (isOperationReceiptConflict(error)) {
       const replay = await findOperationReplay(input.operationId, input);
       const current = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: DELIVERY_ASSIGNMENT_INCLUDE });
-      if (replay && current) return { ok: true, assignment: toDeliveryAssignmentDto(current), operationResult: replay };
+      if (replay && current) { await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay); return { ok: true, assignment: toDeliveryAssignmentDto(current), operationResult: replay }; }
     }
+    if (error instanceof DriverOperationError) return { ok: false, error: error.message };
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
     }
@@ -736,6 +749,7 @@ export async function recordDeliveryFailed(
       });
     });
   } catch (error) {
+    if (error instanceof DriverOperationError) return { ok: false, error: error.message };
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
     }
@@ -862,6 +876,7 @@ export async function adminManualDeliveryComplete(
       });
     });
   } catch (error) {
+    if (error instanceof DriverOperationError) return { ok: false, error: error.message };
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
     }

@@ -9,6 +9,7 @@ import { ResendEmailProvider } from "./providers";
 import { openSecurityPayload } from "./security-payload-vault";
 import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
 import type { ProviderSendResult } from "./providers";
+import { guestContactSubjectKey } from "./guest-recipient";
 
 const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
   EMAIL_VERIFICATION_OTP: EmailTemplateType.EMAIL_VERIFICATION_OTP,
@@ -80,16 +81,28 @@ export async function deliverSecurityEmail(deliveryId: string) {
     throw new NotificationPolicyError("SECURITY_EMAIL_RECIPIENT_MISMATCH");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: subjectUserId },
-    select: { id: true, email: true, status: true, emailVerifiedAt: true },
-  });
-  if (!user?.email) {
-    throw new NotificationPolicyError("SECURITY_EMAIL_RECIPIENT_NOT_FOUND");
+  const guestVerification = intent.eventType === "GUEST_CHECKOUT_EMAIL_VERIFICATION_OTP";
+  let destination: string;
+  if (guestVerification) {
+    const challenge = await prisma.marketplaceGuestContactVerification.findUnique({ where: { publicReference: intent.aggregateReference }, include: { contactSnapshot: { include: { checkout: { select: { id: true, customerUserId: true, guestAccessTokenHash: true } } } } } });
+    const contact = challenge?.contactSnapshot;
+    if (!challenge || !contact?.checkout || contact.checkout.id !== challenge.checkoutId || contact.checkout.customerUserId || !contact.checkout.guestAccessTokenHash || safe?.contactSnapshotId !== contact.id || subjectUserId !== guestContactSubjectKey(contact.id)) {
+      await prisma.notificationDelivery.updateMany({ where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } }, data: { status: "ELIGIBILITY_BLOCKED", eligibilityReason: "GUEST_CONTACT_AUTHORITY_REVOKED", nextAttemptAt: null } });
+      return { accepted: false, status: "ELIGIBILITY_BLOCKED", deliveryId: delivery.id };
+    }
+    if (challenge.verifiedAt || challenge.expiresAt <= new Date() || challenge.attempts >= 5) {
+      await prisma.notificationDelivery.updateMany({ where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } }, data: { status: "EXPIRED", nextAttemptAt: null } });
+      return { accepted: false, status: "EXPIRED", deliveryId: delivery.id };
+    }
+    destination = contact.email;
+  } else {
+    const user = await prisma.user.findUnique({ where: { id: subjectUserId }, select: { id: true, email: true, status: true, emailVerifiedAt: true } });
+    if (!user?.email) throw new NotificationPolicyError("SECURITY_EMAIL_RECIPIENT_NOT_FOUND");
+    destination = user.email;
   }
 
   const templateType = TEMPLATE_BY_EVENT[intent.eventType];
-  if (!templateType) {
+  if (!templateType && !guestVerification) {
     throw new NotificationPolicyError("SECURITY_EMAIL_TEMPLATE_NOT_SUPPORTED");
   }
 
@@ -105,11 +118,14 @@ export async function deliverSecurityEmail(deliveryId: string) {
       secure.encryptedPayload,
       intent.operationId,
     );
-    const rendered = renderTemplate(templateType, values);
+    if (guestVerification && (typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || typeof values.name !== "string" || values.name.length > 120 || values.expiresMinutes !== 15)) throw new NotificationPolicyError("SECURITY_EMAIL_PAYLOAD_INVALID");
+    const rendered = guestVerification
+      ? { subject: "Your KT Couriers verification code", text: `Hi ${values.name},\n\nYour guest checkout email verification code is ${values.otp}. It expires in 15 minutes.\n\nIf you did not request this code, ignore this email. This code verifies your email for checkout updates; it does not confirm payment.`, html: undefined }
+      : renderTemplate(templateType, values);
     const provider = new ResendEmailProvider();
 
     result = await provider.send({
-      destination: user.email,
+      destination,
       subject: rendered.subject,
       body: rendered.text,
       htmlBody: rendered.html,

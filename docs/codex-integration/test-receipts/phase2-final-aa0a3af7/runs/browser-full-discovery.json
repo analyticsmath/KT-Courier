@@ -1,0 +1,3369 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\KT-Courier-integration\\node_modules\\playwright\\cli.js",
+      "test",
+      "--project=chromium",
+      "--list",
+      "--reporter=json"
+    ],
+    "configFile": "D:\\KT-Courier-integration\\playwright.config.ts",
+    "rootDir": "D:/KT-Courier-integration/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": true,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/storefront-browsing\\.spec\\.ts/",
+          "/marketplace-cart\\.spec\\.ts/",
+          "/marketplace-checkout-guest\\.spec\\.ts/",
+          "/ledger-admin\\.spec\\.ts/",
+          "/commission-finance-admin\\.spec\\.ts/",
+          "/production-closure\\.spec\\.ts/",
+          "/marketplace-checkout-accessibility\\.spec\\.ts/",
+          "/marketplace-checkout-admin\\.spec\\.ts/",
+          "/storefront-product-detail\\.spec\\.ts/",
+          "/storefront-accessibility\\.spec\\.ts/",
+          "/driver-profile-onboarding\\.spec\\.ts/",
+          "/driver-documents\\.spec\\.ts/",
+          "/store-catalog-draft-isolation\\.spec\\.ts/",
+          "/store-product-catalog\\.spec\\.ts/",
+          "/catalog-administration\\.spec\\.ts/",
+          "/business-employee-access\\.spec\\.ts/",
+          "/marketplace-checkout-customer\\.spec\\.ts/",
+          "/marketplace-checkout-payment\\.spec\\.ts/",
+          "/customer-wallet-refunds\\.spec\\.ts/",
+          "/refund-finance-admin\\.spec\\.ts/",
+          "/store-order-(?:customer|merchant|admin|substitution|handoff|accessibility)\\.spec\\.ts/",
+          "/production-visual-review\\.spec\\.ts/",
+          "/profile-avatar-lifecycle\\.spec\\.ts/",
+          "/store-branding-lifecycle\\.spec\\.ts/",
+          "/transactional-notifications\\.spec\\.ts/",
+          "/trusted-parcel-classification\\.spec\\.ts/",
+          "/driver-canonical-delivery\\.spec\\.ts/",
+          "/cod-custody-remittance\\.spec\\.ts/",
+          "/catalog-inventory-upload\\.spec\\.ts/",
+          "/anonymous-courier-quote\\.spec\\.ts/",
+          "/customer-identity-lifecycle\\.spec\\.ts/",
+          "/store-order-positive-substitution\\.spec\\.ts/",
+          "/storefront-admin\\.spec\\.ts/",
+          "/driver-earnings\\.spec\\.ts/",
+          "/driver-earnings-finance-admin\\.spec\\.ts/",
+          "/store-earnings\\.spec\\.ts/",
+          "/store-earnings-finance-admin\\.spec\\.ts/",
+          "/withdrawal-owner\\.spec\\.ts/",
+          "/withdrawal-finance-admin\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "cinematic-1440",
+        "name": "cinematic-1440",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/",
+          "/storefront-search\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "cinematic-1366",
+        "name": "cinematic-1366",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "cinematic-mobile-390",
+        "name": "cinematic-mobile-390",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "cinematic-tablet-768",
+        "name": "cinematic-tablet-768",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/home-cinematic-regression\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "mobile",
+        "name": "mobile",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/mobile-viewport\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/KT-Courier-integration/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "keyboard",
+        "name": "keyboard",
+        "testDir": "D:/KT-Courier-integration/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/keyboard-navigation\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "anonymous-courier-quote.spec.ts",
+      "file": "anonymous-courier-quote.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "anonymous canonical courier quote, private ownership and signed-in booking at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "63ae5446847060528fcd-215cf131ef2e9f7d5c3b",
+          "file": "anonymous-courier-quote.spec.ts",
+          "line": 4,
+          "column": 38
+        },
+        {
+          "title": "anonymous canonical courier quote, private ownership and signed-in booking at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "63ae5446847060528fcd-8b0bb797470f3543894c",
+          "file": "anonymous-courier-quote.spec.ts",
+          "line": 4,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "business-employee-access.spec.ts",
+      "file": "business-employee-access.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "owner manages a products-only employee through invitation and access lifecycle at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "2a8c9a7fd4e1369e2e8e-006a8192755ed75b81a1",
+          "file": "business-employee-access.spec.ts",
+          "line": 15,
+          "column": 7
+        },
+        {
+          "title": "owner manages a products-only employee through invitation and access lifecycle at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "2a8c9a7fd4e1369e2e8e-d19e26291450598966c1",
+          "file": "business-employee-access.spec.ts",
+          "line": 15,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "catalog-administration.spec.ts",
+      "file": "catalog-administration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "catalog moderation preserves history and replays uncertain native actions at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "c77c38e037e2675a6d2a-aae104026acb8dd1bc43",
+          "file": "catalog-administration.spec.ts",
+          "line": 35,
+          "column": 7
+        },
+        {
+          "title": "catalog moderation preserves history and replays uncertain native actions at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "c77c38e037e2675a6d2a-1036894471967f0d38f3",
+          "file": "catalog-administration.spec.ts",
+          "line": 35,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "catalog-inventory-upload.spec.ts",
+      "file": "catalog-inventory-upload.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "native vendor CSV stock receipt with scoped preview and replay at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "7908d05963fea0ed9bfb-2e23d98fa726a3169702",
+          "file": "catalog-inventory-upload.spec.ts",
+          "line": 7,
+          "column": 38
+        },
+        {
+          "title": "native vendor CSV stock receipt with scoped preview and replay at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "7908d05963fea0ed9bfb-6ecb872a8e65395ec4f0",
+          "file": "catalog-inventory-upload.spec.ts",
+          "line": 7,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "cod-custody-remittance.spec.ts",
+      "file": "cod-custody-remittance.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "native synthetic COD deposit, custody and independent remittance at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "184fad036c59aed8f4fd-df53605d8d15cacd4658",
+          "file": "cod-custody-remittance.spec.ts",
+          "line": 9,
+          "column": 38
+        },
+        {
+          "title": "native synthetic COD deposit, custody and independent remittance at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "184fad036c59aed8f4fd-5e1a626fe3626524699c",
+          "file": "cod-custody-remittance.spec.ts",
+          "line": 9,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "commission-finance-admin.spec.ts",
+      "file": "commission-finance-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "finance commission administration in the disposable browser",
+          "file": "commission-finance-admin.spec.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "authors a store-specific draft from an explicit rate without approving it",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "773e38adc212cbfaeb0e-5ecb4452a22e03fea94a",
+              "file": "commission-finance-admin.spec.ts",
+              "line": 10,
+              "column": 7
+            },
+            {
+              "title": "persists a draft, rejects stale changes/self-approval, previews without accrual, and denies customer administration",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "773e38adc212cbfaeb0e-1b93ea419636221086f3",
+              "file": "commission-finance-admin.spec.ts",
+              "line": 28,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "customer-identity-lifecycle.spec.ts",
+      "file": "customer-identity-lifecycle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "native customer verification, owned addresses and password reset revocation at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "ee6e7122a5d26e07c6e5-46be6926398efb3cb725",
+          "file": "customer-identity-lifecycle.spec.ts",
+          "line": 14,
+          "column": 38
+        },
+        {
+          "title": "native customer verification, owned addresses and password reset revocation at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "ee6e7122a5d26e07c6e5-0f8d92972d37fe259ecb",
+          "file": "customer-identity-lifecycle.spec.ts",
+          "line": 14,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "customer-wallet-refunds.spec.ts",
+      "file": "customer-wallet-refunds.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "owned wallet refund reserves and cancels exact funds with safe history at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e02b5f266dcf3ed5c24d-3e35dbac7124549ab28f",
+          "file": "customer-wallet-refunds.spec.ts",
+          "line": 7,
+          "column": 38
+        },
+        {
+          "title": "owned wallet refund reserves and cancels exact funds with safe history at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e02b5f266dcf3ed5c24d-466d981abf224701478d",
+          "file": "customer-wallet-refunds.spec.ts",
+          "line": 7,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "driver-canonical-delivery.spec.ts",
+      "file": "driver-canonical-delivery.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "canonical assigned driver delivery, retry, private POD and synthetic location at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e7eb03709bbd0d0c17bd-ed684341c3130b784bf7",
+          "file": "driver-canonical-delivery.spec.ts",
+          "line": 4,
+          "column": 38
+        },
+        {
+          "title": "canonical assigned driver delivery, retry, private POD and synthetic location at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e7eb03709bbd0d0c17bd-af0175b93c4fb47e6675",
+          "file": "driver-canonical-delivery.spec.ts",
+          "line": 4,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "driver-documents.spec.ts",
+      "file": "driver-documents.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "driver uploads private licence evidence, replaces it and rejects foreign access at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "db277389e00a212c9dbe-cba0b5b55f7747768b27",
+          "file": "driver-documents.spec.ts",
+          "line": 11,
+          "column": 7
+        },
+        {
+          "title": "driver uploads private licence evidence, replaces it and rejects foreign access at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "db277389e00a212c9dbe-463c732f8374e1894fb0",
+          "file": "driver-documents.spec.ts",
+          "line": 11,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "driver-earnings-finance-admin.spec.ts",
+      "file": "driver-earnings-finance-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "finance inspects canonical driver evidence and reversal stays locked at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e908f7e3ea3ca700e13-4dec17419a5076ae8cd2",
+          "file": "driver-earnings-finance-admin.spec.ts",
+          "line": 10,
+          "column": 7
+        },
+        {
+          "title": "finance inspects canonical driver evidence and reversal stays locked at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e908f7e3ea3ca700e13-91a09305a1b9fa7fb3c0",
+          "file": "driver-earnings-finance-admin.spec.ts",
+          "line": 10,
+          "column": 7
+        },
+        {
+          "title": "driver finance endpoints deny wrong roles, explicit DENY and anonymous access",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e908f7e3ea3ca700e13-51a87f13e4d768a5fce6",
+          "file": "driver-earnings-finance-admin.spec.ts",
+          "line": 92,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "driver-earnings.spec.ts",
+      "file": "driver-earnings.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "driver reads exact accrual/release history and rejects foreign earnings at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a7876d07253fa4ccb6ec-ee819a93b0cc0eb95806",
+          "file": "driver-earnings.spec.ts",
+          "line": 14,
+          "column": 7
+        },
+        {
+          "title": "driver reads exact accrual/release history and rejects foreign earnings at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a7876d07253fa4ccb6ec-56473f3ea580a60886cb",
+          "file": "driver-earnings.spec.ts",
+          "line": 14,
+          "column": 7
+        },
+        {
+          "title": "driver financial reads deny inactive eligibility, wrong roles and anonymous requests",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a7876d07253fa4ccb6ec-4488a303d1d8becee2aa",
+          "file": "driver-earnings.spec.ts",
+          "line": 51,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "driver-profile-onboarding.spec.ts",
+      "file": "driver-profile-onboarding.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "driver contact editing and pending onboarding persist at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "d847281b3251b10134b9-58f1ea49dbed8590f206",
+          "file": "driver-profile-onboarding.spec.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "driver contact editing and pending onboarding persist at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "d847281b3251b10134b9-969b6c914683e2398725",
+          "file": "driver-profile-onboarding.spec.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "non-drivers cannot read or mutate driver identity, including forged foreign IDs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "d847281b3251b10134b9-9cd0c4a1b58e4219baa4",
+          "file": "driver-profile-onboarding.spec.ts",
+          "line": 67,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "ledger-admin.spec.ts",
+      "file": "ledger-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "read-only admin ledger",
+          "file": "ledger-admin.spec.ts",
+          "line": 4,
+          "column": 15,
+          "specs": [
+            {
+              "title": "authorized admin inspects accounts, filters, journal balancing, and reversal links",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "ccf821d8fb2d6c93b807-a71b321e4c9e937bbc44",
+              "file": "ledger-admin.spec.ts",
+              "line": 5,
+              "column": 7
+            },
+            {
+              "title": "explicit ledger.read DENY and non-admin roles cannot access",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "ccf821d8fb2d6c93b807-5e926d4ca2b695e24584",
+              "file": "ledger-admin.spec.ts",
+              "line": 50,
+              "column": 7
+            },
+            {
+              "title": "ledger inspection has no mutation controls or visible secret material",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "ccf821d8fb2d6c93b807-84ac8e289fb8abd2b4d4",
+              "file": "ledger-admin.spec.ts",
+              "line": 61,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "marketplace-cart.spec.ts",
+      "file": "marketplace-cart.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Marketplace canonical cart journey",
+          "file": "marketplace-cart.spec.ts",
+          "line": 17,
+          "column": 6,
+          "specs": [
+            {
+              "title": "anonymous cart persists ownership, exact server prices and its selection across reload",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-97a1bac027dfed004347",
+              "file": "marketplace-cart.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "quantity updates persist across reload with exact recalculated totals",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-99f06e3626722d07129c",
+              "file": "marketplace-cart.spec.ts",
+              "line": 31,
+              "column": 7
+            },
+            {
+              "title": "modifier changes apply the canonical option price",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-7be68173036404efc8f5",
+              "file": "marketplace-cart.spec.ts",
+              "line": 39,
+              "column": 7
+            },
+            {
+              "title": "removing a line leaves a truthful empty persisted cart",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-27f3847bff0042f93595",
+              "file": "marketplace-cart.spec.ts",
+              "line": 46,
+              "column": 7
+            },
+            {
+              "title": "authenticated claim clears the guest cookie and retains the selected line",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-3dbc4f1ad35222969248",
+              "file": "marketplace-cart.spec.ts",
+              "line": 53,
+              "column": 7
+            },
+            {
+              "title": "merge combines canonical customer and guest selections by fingerprint",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-a25394288dfc37d1d2c6",
+              "file": "marketplace-cart.spec.ts",
+              "line": 62,
+              "column": 7
+            },
+            {
+              "title": "operation replay preserves one line and one version",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-2f213adf87b5867f4776",
+              "file": "marketplace-cart.spec.ts",
+              "line": 73,
+              "column": 7
+            },
+            {
+              "title": "another browser cannot mutate the owner's line, including a known receipt",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-64a719767d7e4ea53344",
+              "file": "marketplace-cart.spec.ts",
+              "line": 82,
+              "column": 7
+            },
+            {
+              "title": "stale mutations fail deterministically without altering the accepted quantity",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "24cb470d30f5255f9738-3682d7b364e2d35953c0",
+              "file": "marketplace-cart.spec.ts",
+              "line": 92,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "marketplace-checkout-accessibility.spec.ts",
+      "file": "marketplace-checkout-accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "checkout keyboard progression announces server-backed review at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "eb30ef935d926c60f9e4-b5670f8ca874db8951cc",
+          "file": "marketplace-checkout-accessibility.spec.ts",
+          "line": 18,
+          "column": 7
+        },
+        {
+          "title": "checkout keyboard progression announces server-backed review at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "eb30ef935d926c60f9e4-0b76482c065ddc85bed3",
+          "file": "marketplace-checkout-accessibility.spec.ts",
+          "line": 18,
+          "column": 7
+        },
+        {
+          "title": "server contact rejection is announced and associated with the form without progressing",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "eb30ef935d926c60f9e4-484283908cca14f8fce0",
+          "file": "marketplace-checkout-accessibility.spec.ts",
+          "line": 60,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "marketplace-checkout-admin.spec.ts",
+      "file": "marketplace-checkout-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "admin checkout records match canonical unpaid evidence at desktop and mobile without mutation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "155f5ff6e8c5e77d949b-653863917d89e38f22e9",
+          "file": "marketplace-checkout-admin.spec.ts",
+          "line": 4,
+          "column": 5
+        },
+        {
+          "title": "both checkout administration API aliases deny customer, vendor and anonymous access",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "155f5ff6e8c5e77d949b-7dbcbc8232a95c2a8bfb",
+          "file": "marketplace-checkout-admin.spec.ts",
+          "line": 48,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "marketplace-checkout-customer.spec.ts",
+      "file": "marketplace-checkout-customer.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "customer corrects and resumes an unpaid checkout without granting foreign confirmation access at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "6179d520004ba7f3a893-a1da0650872176750e3a",
+          "file": "marketplace-checkout-customer.spec.ts",
+          "line": 12,
+          "column": 7
+        },
+        {
+          "title": "customer corrects and resumes an unpaid checkout without granting foreign confirmation access at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "6179d520004ba7f3a893-eed953d24b6d4bfe5331",
+          "file": "marketplace-checkout-customer.spec.ts",
+          "line": 12,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "marketplace-checkout-guest.spec.ts",
+      "file": "marketplace-checkout-guest.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Marketplace Guest Checkout Journey",
+          "file": "marketplace-checkout-guest.spec.ts",
+          "line": 16,
+          "column": 6,
+          "specs": [
+            {
+              "title": "checkout creation from active cart initializes canonical checkout reference and store groups",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-11749cfb2e756caad460",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 21,
+              "column": 3
+            },
+            {
+              "title": "contact details submission persists valid contact and rejects invalid input",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-cd7a0b6ea7a0174b7bb1",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 52,
+              "column": 3
+            },
+            {
+              "title": "delivery address submission updates checkout address snapshot and rejects client fee manipulation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-e3da3b9268747d59c63d",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 104,
+              "column": 3
+            },
+            {
+              "title": "delivery quote retrieval returns source-backed quote evidence",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-f01baae6818eddb59bb0",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 146,
+              "column": 3
+            },
+            {
+              "title": "checkout review calculates expected totals against fixture prices",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-1102d864715189fd11e0",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 181,
+              "column": 3
+            },
+            {
+              "title": "review acknowledgement updates accepted state and blocks unacknowledged progression",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-12ec3a4573cbeaddbb19",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 255,
+              "column": 3
+            },
+            {
+              "title": "cart or address modification invalidates previous review acknowledgement",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-8f376655de2c6d18bd01",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 346,
+              "column": 3
+            },
+            {
+              "title": "payment preparation requires review and preserves the unpaid checkout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-16f42744ae5a8e950763",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 438,
+              "column": 3
+            },
+            {
+              "title": "repeated unreviewed payment commands return the same rejection",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-86fe51e9bd01a0e9377f",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 496,
+              "column": 3
+            },
+            {
+              "title": "browser return route with fake parameters does not alter payment state or confirm order",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-307ab7fc3799700d9c9e",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 535,
+              "column": 3
+            },
+            {
+              "title": "unauthorized checkout access from different context returns safe access denial",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b37717d1404dda40d727-65029070ea3823294aea",
+              "file": "marketplace-checkout-guest.spec.ts",
+              "line": 574,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "marketplace-checkout-payment.spec.ts",
+      "file": "marketplace-checkout-payment.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-f37bd2c9eb87e187a905",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "column": 7
+        },
+        {
+          "title": "customer canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-bb773c4f2e15d2b2433c",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "column": 7
+        },
+        {
+          "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-3aa78a3e352352fe80cd",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "column": 7
+        },
+        {
+          "title": "verified guest canonical Paystack receipt consumes inventory and finalizes exactly once at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-86e30dc36e5f6586e920",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 104,
+          "column": 7
+        },
+        {
+          "title": "signed charge remains financially unchanged when independent Verify has amount mismatch",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-3340065ccdbc53e7e375",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "column": 7
+        },
+        {
+          "title": "signed charge remains financially unchanged when independent Verify has currency mismatch",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-4c018d9dbcdef753936c",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "column": 7
+        },
+        {
+          "title": "signed charge remains financially unchanged when independent Verify has unknown mismatch",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-2dcd1c2af9846f5a1ebe",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "column": 7
+        },
+        {
+          "title": "signed charge remains financially unchanged when independent Verify has reference mismatch",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-6f4df9e2d8ac08569116",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 182,
+          "column": 7
+        },
+        {
+          "title": "signed incorrect amounts and currency cannot override independent correct provider facts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3e4762ac7170e5b6a1d2-540b747bc8c0c82d91e2",
+          "file": "marketplace-checkout-payment.spec.ts",
+          "line": 194,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "production-closure.spec.ts",
+      "file": "production-closure.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "anonymous quote copy and form semantics work on desktop and mobile",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "fcbf803a4a4d5308a341-f3835a01ce51de948d68",
+          "file": "production-closure.spec.ts",
+          "line": 3,
+          "column": 5
+        },
+        {
+          "title": "protected readiness, parcel and marketplace configuration surfaces enforce roles and expose safe gates",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "fcbf803a4a4d5308a341-70fff45b222457e7a4e6",
+          "file": "production-closure.spec.ts",
+          "line": 21,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "production-visual-review.spec.ts",
+      "file": "production-visual-review.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "public and protected headings and navigation fit the viewport at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "59f7a6812e1858c9a70e-6076a6f1be077639908c",
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "column": 7
+        },
+        {
+          "title": "public and protected headings and navigation fit the viewport at 1366px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "59f7a6812e1858c9a70e-656adbde137fc1fa7e52",
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "column": 7
+        },
+        {
+          "title": "public and protected headings and navigation fit the viewport at 768px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "59f7a6812e1858c9a70e-fad0fdf12d7f54169497",
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "column": 7
+        },
+        {
+          "title": "public and protected headings and navigation fit the viewport at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "59f7a6812e1858c9a70e-34fd8e0ea0e4399b98ea",
+          "file": "production-visual-review.spec.ts",
+          "line": 18,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "profile-avatar-lifecycle.spec.ts",
+      "file": "profile-avatar-lifecycle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "customer owns upload, replacement and revoked removal at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e3839916831b63db44a5-ab1e3660a679bc8c7b19",
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "column": 7
+        },
+        {
+          "title": "customer owns upload, replacement and revoked removal at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e3839916831b63db44a5-d026f1609e17c1bc260f",
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "column": 7
+        },
+        {
+          "title": "store owns upload, replacement and revoked removal at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e3839916831b63db44a5-0d13f4ddbb22c07c5a7a",
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "column": 7
+        },
+        {
+          "title": "store owns upload, replacement and revoked removal at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e3839916831b63db44a5-3deec7e190da43d3e2c1",
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "column": 7
+        },
+        {
+          "title": "driver owns upload, replacement and revoked removal at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e3839916831b63db44a5-ce4d3cd35dddf327e21c",
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "column": 7
+        },
+        {
+          "title": "driver owns upload, replacement and revoked removal at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e3839916831b63db44a5-26e315d5f8bc5fbd3534",
+          "file": "profile-avatar-lifecycle.spec.ts",
+          "line": 15,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "refund-finance-admin.spec.ts",
+      "file": "refund-finance-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "distinct finance actors complete wallet once and retain Paystack uncertainty at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0663c5a38491d4d56008-3fef176a7c77d9bcfc1e",
+          "file": "refund-finance-admin.spec.ts",
+          "line": 7,
+          "column": 38
+        },
+        {
+          "title": "distinct finance actors complete wallet once and retain Paystack uncertainty at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0663c5a38491d4d56008-3a6c73a5e868908d0b3e",
+          "file": "refund-finance-admin.spec.ts",
+          "line": 7,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "store-branding-lifecycle.spec.ts",
+      "file": "store-branding-lifecycle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "native store logo and cover replacement, replay and revocation at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a66b005c598df56ed369-d4dc1c73e339e5c3f9ed",
+          "file": "store-branding-lifecycle.spec.ts",
+          "line": 15,
+          "column": 38
+        },
+        {
+          "title": "native store logo and cover replacement, replay and revocation at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a66b005c598df56ed369-98cc1b40dfa488897535",
+          "file": "store-branding-lifecycle.spec.ts",
+          "line": 15,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "store-catalog-draft-isolation.spec.ts",
+      "file": "store-catalog-draft-isolation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "catalog drafts stay with their authenticated owner/store at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3bcf287eb1a4658d3bf5-24f8588816bccae01c64",
+          "file": "store-catalog-draft-isolation.spec.ts",
+          "line": 20,
+          "column": 7
+        },
+        {
+          "title": "catalog drafts stay with their authenticated owner/store at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3bcf287eb1a4658d3bf5-d03ea02a008903febd17",
+          "file": "store-catalog-draft-isolation.spec.ts",
+          "line": 20,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "store-earnings-finance-admin.spec.ts",
+      "file": "store-earnings-finance-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "finance inspects store evidence and retains refused reversal input at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a370362d48e8e3ca16f8-87677374760d07de2019",
+          "file": "store-earnings-finance-admin.spec.ts",
+          "line": 8,
+          "column": 7
+        },
+        {
+          "title": "finance inspects store evidence and retains refused reversal input at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a370362d48e8e3ca16f8-b4a326efc37ab725a1c1",
+          "file": "store-earnings-finance-admin.spec.ts",
+          "line": 8,
+          "column": 7
+        },
+        {
+          "title": "store finance denies wrong roles, explicit DENY and anonymous access",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a370362d48e8e3ca16f8-b90eaf5177d32880466c",
+          "file": "store-earnings-finance-admin.spec.ts",
+          "line": 71,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "store-earnings.spec.ts",
+      "file": "store-earnings.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "store owner inspects exact accrued/released evidence and denies foreign records at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "dc2bbd1553242be91657-3cd2ecdec308040f2574",
+          "file": "store-earnings.spec.ts",
+          "line": 8,
+          "column": 7
+        },
+        {
+          "title": "store owner inspects exact accrued/released evidence and denies foreign records at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "dc2bbd1553242be91657-2f512c42ff788facc045",
+          "file": "store-earnings.spec.ts",
+          "line": 8,
+          "column": 7
+        },
+        {
+          "title": "store earning endpoints deny accounts without business finance access and anonymous requests",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "dc2bbd1553242be91657-63273d4686ae8652ad4f",
+          "file": "store-earnings.spec.ts",
+          "line": 42,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "store-order-accessibility.spec.ts",
+      "file": "store-order-accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "canonical accessibility store-order journey at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e0daadf42fd244256268-dcbdd27e798df0cf22bb",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical accessibility store-order journey at 768px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e0daadf42fd244256268-22072cfe86720a64d016",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical accessibility store-order journey at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e0daadf42fd244256268-cc677def686248df4ec5",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical accessibility store-order journey at 320px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e0daadf42fd244256268-c5a80bb8c78195c36686",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        }
+      ]
+    },
+    {
+      "title": "store-order-admin.spec.ts",
+      "file": "store-order-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "canonical admin store-order journey at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "1d5e43ae3fdfd4e32a60-5966332621fcd2273704",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical admin store-order journey at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "1d5e43ae3fdfd4e32a60-c0c8bbb4b08a729e8007",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        }
+      ]
+    },
+    {
+      "title": "store-order-customer.spec.ts",
+      "file": "store-order-customer.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "canonical customer store-order journey at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "510864cd5a09c5c59a10-4e78093750a63e0e61c4",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical customer store-order journey at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "510864cd5a09c5c59a10-c3dec1851247b9e4b9db",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        }
+      ]
+    },
+    {
+      "title": "store-order-handoff.spec.ts",
+      "file": "store-order-handoff.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "canonical handoff store-order journey at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e0629095f62e5136d68a-eb11b67ceb3b04a83c20",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical handoff store-order journey at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e0629095f62e5136d68a-81f5c43ff80a2a2912fb",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        }
+      ]
+    },
+    {
+      "title": "store-order-merchant.spec.ts",
+      "file": "store-order-merchant.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "canonical merchant store-order journey at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3bb9ac278e44db6391bb-5c798d97f2249ebe24df",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical merchant store-order journey at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "3bb9ac278e44db6391bb-d6b913d33cea44cb2d8e",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        }
+      ]
+    },
+    {
+      "title": "store-order-positive-substitution.spec.ts",
+      "file": "store-order-positive-substitution.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "native owned replacement approval and exact original-method refund at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a4e1416c4e19720e25ff-bbc33f8b7b71f8b9d966",
+          "file": "store-order-positive-substitution.spec.ts",
+          "line": 7,
+          "column": 38
+        },
+        {
+          "title": "native owned replacement approval and exact original-method refund at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a4e1416c4e19720e25ff-2cf7772671a016b0e47b",
+          "file": "store-order-positive-substitution.spec.ts",
+          "line": 7,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "store-order-substitution.spec.ts",
+      "file": "store-order-substitution.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "canonical substitution store-order journey at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "1e2a11205d06832bb00b-a141b069e5b210698312",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        },
+        {
+          "title": "canonical substitution store-order journey at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "1e2a11205d06832bb00b-e5d8d134a9032042253f",
+          "file": "fixtures/store-order-scenarios.ts",
+          "line": 9,
+          "column": 93
+        }
+      ]
+    },
+    {
+      "title": "store-product-catalog.spec.ts",
+      "file": "store-product-catalog.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "store saves a complete listing atomically and replays a lost confirmation at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "8c7e01be144ee0b2699b-45e9f9d9ec739b157260",
+          "file": "store-product-catalog.spec.ts",
+          "line": 12,
+          "column": 7
+        },
+        {
+          "title": "store saves a complete listing atomically and replays a lost confirmation at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "8c7e01be144ee0b2699b-62ef97393f396d32e848",
+          "file": "store-product-catalog.spec.ts",
+          "line": 12,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "storefront-accessibility.spec.ts",
+      "file": "storefront-accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "product quantity controls work with keyboard and announce persisted cart at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4825979abd004691c7a4-40f159e82250e4830412",
+          "file": "storefront-accessibility.spec.ts",
+          "line": 4,
+          "column": 7
+        },
+        {
+          "title": "product quantity controls work with keyboard and announce persisted cart at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4825979abd004691c7a4-4d80db715eb189100ad9",
+          "file": "storefront-accessibility.spec.ts",
+          "line": 4,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "storefront-admin.spec.ts",
+      "file": "storefront-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "admin authors and reviews canonical collection and synonym controls at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0baeca58c34c6c17c060-38bed5c956d33d0fa3a1",
+          "file": "storefront-admin.spec.ts",
+          "line": 17,
+          "column": 7
+        },
+        {
+          "title": "admin authors and reviews canonical collection and synonym controls at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0baeca58c34c6c17c060-83f0d73f5be206681fa5",
+          "file": "storefront-admin.spec.ts",
+          "line": 17,
+          "column": 7
+        },
+        {
+          "title": "projection controls reject public overrides and unsupported manual rebuild without changing evidence",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0baeca58c34c6c17c060-7d9fc3aeba5052f6d622",
+          "file": "storefront-admin.spec.ts",
+          "line": 88,
+          "column": 5
+        },
+        {
+          "title": "storefront admin APIs enforce role, anonymous and explicit DENY controls",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0baeca58c34c6c17c060-20bfb2e8dc44f1c94596",
+          "file": "storefront-admin.spec.ts",
+          "line": 109,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "storefront-browsing.spec.ts",
+      "file": "storefront-browsing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Storefront Browsing & Discovery",
+          "file": "storefront-browsing.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "untrusted lock headers cannot change the canonical exposure decision",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8383dc160fb11206aae4-707347713c6be8284f61",
+              "file": "storefront-browsing.spec.ts",
+              "line": 13,
+              "column": 7
+            },
+            {
+              "title": "safely activated state renders canonical storefront heading and source-backed content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8383dc160fb11206aae4-1d32c28f80a77fbeb5a1",
+              "file": "storefront-browsing.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "search filters known products by query and reflects normalized query state in URL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8383dc160fb11206aae4-89fd484b694fe05dff98",
+              "file": "storefront-browsing.spec.ts",
+              "line": 43,
+              "column": 7
+            },
+            {
+              "title": "category browsing displays category hierarchy, breadcrumbs and eligible products",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8383dc160fb11206aae4-4db9abe7532a7c82d625",
+              "file": "storefront-browsing.spec.ts",
+              "line": 60,
+              "column": 7
+            },
+            {
+              "title": "product detail page displays store, variant selection, price and handles variant changes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8383dc160fb11206aae4-bfe77d44c526ade6a3fb",
+              "file": "storefront-browsing.spec.ts",
+              "line": 82,
+              "column": 7
+            },
+            {
+              "title": "store detail page renders public store identity and eligible catalog items without private fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8383dc160fb11206aae4-0516f9fd2c04d33e6fdc",
+              "file": "storefront-browsing.spec.ts",
+              "line": 109,
+              "column": 7
+            },
+            {
+              "title": "media fallback presents neutral image placeholder for products without media",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "8383dc160fb11206aae4-9cf4e7a045f43dffb554",
+              "file": "storefront-browsing.spec.ts",
+              "line": 127,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "storefront-product-detail.spec.ts",
+      "file": "storefront-product-detail.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "keyboard variant navigation changes the canonical price without mutating the cart",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "433c8f65af1d3035bea6-1c473db2646073b39b6e",
+          "file": "storefront-product-detail.spec.ts",
+          "line": 3,
+          "column": 5
+        },
+        {
+          "title": "missing product media retains a visible gallery frame at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "433c8f65af1d3035bea6-b82000cdde686f1749c0",
+          "file": "storefront-product-detail.spec.ts",
+          "line": 23,
+          "column": 7
+        },
+        {
+          "title": "missing product media retains a visible gallery frame at 768px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "433c8f65af1d3035bea6-d5d8a860774e6fac1f26",
+          "file": "storefront-product-detail.spec.ts",
+          "line": 23,
+          "column": 7
+        },
+        {
+          "title": "short desktop purchase rail reveals keyboard-focused cart actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "433c8f65af1d3035bea6-202387fa7904dd25a961",
+          "file": "storefront-product-detail.spec.ts",
+          "line": 43,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "transactional-notifications.spec.ts",
+      "file": "transactional-notifications.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "owned paid, store and refund inbox, preferences and revocation at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4b35f85778b9bcad2cdd-a0797516f2a2590dcce6",
+          "file": "transactional-notifications.spec.ts",
+          "line": 16,
+          "column": 38
+        },
+        {
+          "title": "owned paid, store and refund inbox, preferences and revocation at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4b35f85778b9bcad2cdd-d27535cc09b0b3cafa92",
+          "file": "transactional-notifications.spec.ts",
+          "line": 16,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "trusted-parcel-classification.spec.ts",
+      "file": "trusted-parcel-classification.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "independent measured packaging governance and canonical quotes at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e1624f6a4b0533588cb2-5792c05f56498a52e9c3",
+          "file": "trusted-parcel-classification.spec.ts",
+          "line": 44,
+          "column": 38
+        },
+        {
+          "title": "independent measured packaging governance and canonical quotes at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e1624f6a4b0533588cb2-4a51c84a491ff60e4ee3",
+          "file": "trusted-parcel-classification.spec.ts",
+          "line": 44,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "title": "withdrawal-finance-admin.spec.ts",
+      "file": "withdrawal-finance-admin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "finance reviews, rejects with released capacity and investigates an uncertain payout at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "6c352ba6fd692dadeed8-70e7c7205761dc058fca",
+          "file": "withdrawal-finance-admin.spec.ts",
+          "line": 32,
+          "column": 7
+        },
+        {
+          "title": "finance reviews, rejects with released capacity and investigates an uncertain payout at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "6c352ba6fd692dadeed8-5b465d1dab50643c6d2a",
+          "file": "withdrawal-finance-admin.spec.ts",
+          "line": 32,
+          "column": 7
+        },
+        {
+          "title": "withdrawal finance reads and mutations deny wrong roles, explicit DENY and anonymous accounts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "6c352ba6fd692dadeed8-e1a84f6eb8060088fde2",
+          "file": "withdrawal-finance-admin.spec.ts",
+          "line": 130,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "withdrawal-owner.spec.ts",
+      "file": "withdrawal-owner.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "store owner reserves, retries a lost response, cancels and inspects masked destinations at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a923dfaa2bc10f472c42-da51c12374d620283bc5",
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "column": 7
+        },
+        {
+          "title": "store owner reserves, retries a lost response, cancels and inspects masked destinations at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a923dfaa2bc10f472c42-1ed48e888b0b88184a36",
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "column": 7
+        },
+        {
+          "title": "driver owner reserves, retries a lost response, cancels and inspects masked destinations at 1440px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a923dfaa2bc10f472c42-a4d3e5fc29421ed1ba12",
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "column": 7
+        },
+        {
+          "title": "driver owner reserves, retries a lost response, cancels and inspects masked destinations at 390px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a923dfaa2bc10f472c42-cd25f6c1da1f104f159e",
+          "file": "withdrawal-owner.spec.ts",
+          "line": 16,
+          "column": 7
+        },
+        {
+          "title": "withdrawal owner endpoints conceal foreign records and deny ineligible, unsupported and anonymous accounts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "a923dfaa2bc10f472c42-2a3db198c8046a322db9",
+          "file": "withdrawal-owner.spec.ts",
+          "line": 94,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-11T16:35:55.913Z",
+    "duration": 8999.289999999999,
+    "expected": 0,
+    "skipped": 139,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

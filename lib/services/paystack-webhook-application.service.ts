@@ -29,9 +29,8 @@ import { finalizeProviderRefundAttempt } from "@/lib/services/refund-provider-ex
 import type {
   PaymentProviderEnvironment,
   PaymentReconciliationReasonCode,
-  PaymentWebhookNormalizedStatusCode,
 } from "@/lib/payments/types";
-import { consumeVerifiedPaymentEvents } from "@/lib/payments/verified-payment-event-processor.service";
+import { consumeVerifiedPaymentEvents, reportVerifiedPaymentDispatchFailure } from "@/lib/payments/verified-payment-event-processor.service";
 
 export const VERIFIED_PAYMENT_EVENT_TYPE = "PAYMENT_SUCCEEDED_VERIFIED" as const;
 export const VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION = 1 as const;
@@ -303,7 +302,9 @@ export async function ingestPaystackWebhook(
   const sanitizedSnapshot = sanitizeEvidenceSnapshot(payload as unknown as Record<string, unknown>);
 
   // Fast HTTP ingestion upsert: stores raw event with sourceAddressVerified: false, signatureVerified: true
-  const eventRecord = await prisma.paymentWebhookEvent.upsert({
+  let eventRecord: PaymentWebhookEvent;
+  try {
+    eventRecord = await prisma.paymentWebhookEvent.upsert({
     where: { eventFingerprint },
     update: {},
     create: {
@@ -327,7 +328,15 @@ export async function ingestPaystackWebhook(
       safePayloadSnapshot: (sanitizedSnapshot ?? payload) as unknown as Prisma.InputJsonValue,
       unknownFieldCount: 0,
     },
-  });
+    });
+  } catch (error: unknown) {
+    // Prisma's empty-update upsert can race into two INSERTs. A duplicate
+    // receipt is acknowledged only after its committed durable row is read.
+    if ((error as { code?: string }).code !== "P2002") throw error;
+    const committed = await prisma.paymentWebhookEvent.findUnique({ where: { eventFingerprint } });
+    if (!committed) throw error;
+    eventRecord = committed;
+  }
 
   const duplicate = eventRecord.processingStatus === "APPLIED" || eventRecord.processingStatus === "DUPLICATE";
 
@@ -373,13 +382,16 @@ export async function applyPaystackWebhookEvent(
   const chargePayload = payload as PaystackChargeSuccessPayload;
   const { reference, amount: amountCents, currency, id: providerPaymentId } = chargePayload.data;
   const providerIdStr = String(providerPaymentId);
-  const eventFingerprint = chargePayload.data && "id" in chargePayload.data && chargePayload.data.id
-    ? `paystack:${chargePayload.event}:${chargePayload.data.id}`
-    : (event?.eventFingerprint ?? `paystack:${providerIdStr}`);
+  // Application must resolve the same durable inbox identity as signed intake.
+  // Reconstructing a second fingerprint attempts to reuse its unique public
+  // reference and rolls back mismatch/reconciliation handling.
+  const eventFingerprint = event?.eventFingerprint ?? createHash("sha256")
+    .update(`paystack:${chargePayload.event}:${providerIdStr}:${chargePayload.data.status}`).digest("hex");
 
-  // Look up matching PaymentAttempt by publicReference
+  // Paystack receives the locked merchant reference at initialization; the
+  // attempt's public API reference is a different identity in real sessions.
   const attempt = await prisma.paymentAttempt.findUnique({
-    where: { publicReference: reference },
+    where: { merchantReference: reference },
     include: { payment: true },
   });
 
@@ -438,19 +450,22 @@ export async function applyPaystackWebhookEvent(
   const verifyAmount = typeof verifyData?.amount === "number" ? verifyData.amount : undefined;
 
   const isVerifiedSuccess = verifyStatus === "success";
+  const isMerchantMatching = verifyData?.reference === reference && String(verifyData?.id) === providerIdStr;
   const isCurrencyZar = verifyCurrency === "ZAR" && currency === "ZAR";
   const expectedCents = zarToSubunitCents(attempt.amount.toString());
   const actualVerifiedAmount = verifyAmount ?? -1;
   const isAmountMatching = actualVerifiedAmount === amountCents && actualVerifiedAmount === expectedCents;
 
-  if (!isVerifiedSuccess || !isCurrencyZar || !isAmountMatching) {
-    const reason: PaymentReconciliationReasonCode = !isCurrencyZar
+  if (!isVerifiedSuccess || !isMerchantMatching || !isCurrencyZar || !isAmountMatching) {
+    const reason: PaymentReconciliationReasonCode = !isMerchantMatching
+      ? "PROVIDER_REFERENCE_CONFLICT"
+      : !isCurrencyZar
       ? "AMOUNT_MISMATCH"
       : !isAmountMatching
         ? "AMOUNT_MISMATCH"
         : "CONFLICTING_PROVIDER_STATUS";
 
-    return prisma.$transaction(async (tx) => {
+    return withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
       const upserted = await tx.paymentWebhookEvent.upsert({
         where: { eventFingerprint },
         update: {
@@ -458,10 +473,9 @@ export async function applyPaystackWebhookEvent(
           reconciliationReason: reason,
           paymentId: payment.id,
           attemptId: attempt.id,
-          merchantVerified: true,
+          merchantVerified: isMerchantMatching,
           amountVerified: isAmountMatching,
-          providerDataVerified: isVerifiedSuccess,
-          normalizedStatus: (isVerifiedSuccess ? "COMPLETE" : "FAILED") as PaymentWebhookNormalizedStatusCode,
+          providerDataVerified: isVerifiedSuccess && isMerchantMatching,
         },
         create: {
           publicReference: event?.publicReference ?? eventReference(),
@@ -471,7 +485,9 @@ export async function applyPaystackWebhookEvent(
           merchantReference: reference,
           providerPaymentId: providerIdStr,
           providerStatus: chargePayload.data.status,
-          normalizedStatus: (isVerifiedSuccess ? "COMPLETE" : "FAILED") as PaymentWebhookNormalizedStatusCode,
+          // Signed charge.success is immutable intake evidence. A differing
+          // Verify outcome belongs to reconciliation, not this receipt field.
+          normalizedStatus: "COMPLETE",
           processingStatus: "RECONCILIATION_REQUIRED",
           paymentId: payment.id,
           attemptId: attempt.id,
@@ -479,9 +495,9 @@ export async function applyPaystackWebhookEvent(
           sourceAddress: input.sourceAddress ?? "webhook",
           sourceAddressVerified: false,
           signatureVerified: true,
-          merchantVerified: true,
+          merchantVerified: isMerchantMatching,
           amountVerified: isAmountMatching,
-          providerDataVerified: isVerifiedSuccess,
+          providerDataVerified: isVerifiedSuccess && isMerchantMatching,
           safePayloadSnapshot: payload as unknown as Prisma.InputJsonValue,
           unknownFieldCount: 0,
           reconciliationReason: reason,
@@ -504,7 +520,7 @@ export async function applyPaystackWebhookEvent(
 
       await tx.payment.update({ where: { id: payment.id }, data: { reconciliationStatus: "REQUIRED" } });
       return Object.freeze({ outcome: "RECONCILIATION_REQUIRED", eventPublicReference: upserted.publicReference, ledgerJournalReference: null });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
   }
 
   // Handle late success for cancelled or expired attempts
@@ -668,7 +684,9 @@ export async function applyPaystackWebhookEvent(
       await tx.paymentAttempt.update({
         where: { id: freshAttempt.id },
         data: {
-          providerReference: providerIdStr,
+          // Initialization establishes the provider reference. The numeric
+          // transaction ID is separate evidence retained on the webhook/journal.
+          providerReference: freshAttempt.providerReference ?? providerIdStr,
           providerStatusCode: chargePayload.data.status,
           status: "SUCCEEDED",
           providerConfirmedAt: freshAttempt.providerConfirmedAt ?? now,
@@ -791,7 +809,7 @@ export async function applyPaystackWebhookEvent(
   });
 
   // Drain outbox asynchronously for immediate downstream effects
-  consumeVerifiedPaymentEvents({ limit: 10 }).catch(() => undefined);
+  consumeVerifiedPaymentEvents({ limit: 10 }).catch(reportVerifiedPaymentDispatchFailure);
 
   return applyResult;
 }
@@ -838,7 +856,10 @@ export interface ClaimedWebhookEvent {
 export async function claimPaystackWebhookEventsBatch(options?: {
   batchSize?: number;
   leaseDurationMs?: number;
+  merchantReferences?: readonly string[];
 }): Promise<ClaimedWebhookEvent[]> {
+  if (options?.merchantReferences?.length === 0) return [];
+  if ((options?.merchantReferences?.length ?? 0) > 100) throw new Error("Webhook claim scope exceeds bounded batch size.");
   const batchSize = Math.max(1, Math.min(options?.batchSize ?? 50, 100));
   const leaseDurationMs = options?.leaseDurationMs ?? 60_000;
   const leaseToken = randomUUID();
@@ -849,6 +870,7 @@ export async function claimPaystackWebhookEventsBatch(options?: {
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT "id" FROM "PaymentWebhookEvent"
       WHERE "provider" = 'PAYSTACK'
+        ${options?.merchantReferences ? Prisma.sql`AND "merchantReference" IN (${Prisma.join([...options.merchantReferences])})` : Prisma.empty}
         AND (
           "itnProcessingStatus" = 'RECEIVED'
           OR ("itnProcessingStatus" = 'PROCESSING' AND "leaseExpiresAt" IS NOT NULL AND "leaseExpiresAt" < ${now})

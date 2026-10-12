@@ -31,6 +31,18 @@ const dangerousPatterns = [
 ];
 const approvedDestructiveOperations = [
   {
+    migration: "20261008180000_store_earning_bounded_adjustment_evidence",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"StoreEarning"\s+DROP\s+CONSTRAINT\s+"StoreEarning_terminal_evidence_check"\s*;\s*$/i,
+    reason: "Atomically allows bounded reversals only with an exact immutable balanced journal chain; existing identity, capture, account and projection guards remain and no rows or columns are removed.",
+  },
+  {
+    migration: "20261007010000_inventory_reservation_evidence",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"CatalogInventoryMovement"\s+DROP\s+CONSTRAINT\s+"CatalogInventoryMovement_result_check"\s*;\s*$/i,
+    reason: "Atomically permits zero physical-stock delta for typed reservation evidence only; physical movements still require non-zero delta and no rows are rewritten or removed.",
+  },
+  {
     migration: "20261006014000_cloudinary_legacy_store_media_layouts",
     label: "DROP CONSTRAINT",
     statement: /^\s*ALTER\s+TABLE\s+"CatalogMediaAsset"\s+DROP\s+CONSTRAINT\s+"CatalogMediaAsset_declared_shape_check"\s*;\s*$/i,

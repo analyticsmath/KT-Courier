@@ -34,9 +34,12 @@ export async function onVerifiedMarketplacePaymentSucceeded(
     // The provider receipt and durable finalization intent are safe evidence;
     // only canonical finalization remains behind the source production gate.
     assertMarketplaceCheckoutProductionReady("ORDER_FINALIZATION", testApproval);
-    await finalizePaidMarketplaceCheckout(finalizationRepository, { paymentId: payment.id, checkoutId: payment.marketplaceCheckoutId!, operationId: receipt.operationId, testApproval });
+    await finalizePaidMarketplaceCheckout(finalizationRepository, { paymentId: payment.id, checkoutId: payment.marketplaceCheckoutId!, operationId: receipt.operationId, guestConfirmationHash: payment.checkoutCustomerUserId ? null : payment.checkoutGuestAccessTokenHash, testApproval });
   } catch (error) {
     await repository.markCheckoutReconciliationRequired({ checkoutId: payment.marketplaceCheckoutId!, paymentId: payment.id, operationId: receipt.operationId, safeReason: error instanceof MarketplaceCheckoutError ? error.code : "FINALIZATION_APPLICATION_FAILURE" });
+    // Keep the verified capture committed, but let the durable dispatcher
+    // record failure instead of claiming a paid order was finalized.
+    throw error;
   }
 }
 
@@ -48,10 +51,16 @@ export function createPrismaMarketplacePaymentSuccessHookRepository(database: an
       return { id: payment.id, subjectType: payment.subjectType, userId: payment.userId, orderId: payment.orderId, marketplaceCheckoutId: payment.marketplaceCheckoutId, marketplaceOrderId: payment.marketplaceOrderId, checkoutCustomerUserId: payment.marketplaceCheckout?.customerUserId ?? null, checkoutGuestAccessTokenHash: payment.marketplaceCheckout?.guestAccessTokenHash ?? null };
     },
     async createOrResolveFinalizationReceipt(input) {
-      const existing = await database.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId: input.checkoutId, operationId: input.operationId } } });
-      if (existing) return { operationId: existing.operationId };
-      await database.marketplaceCheckoutOperation.create({ data: { checkoutId: input.checkoutId, operationId: input.operationId, requestHash: `payment:${input.paymentId}`, type: "FINALIZE", response: { paymentId: input.paymentId } } });
-      return { operationId: input.operationId };
+      return database.$transaction(async (tx: any) => {
+        await tx.$queryRaw`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${input.checkoutId} FOR UPDATE`;
+        const existing = await tx.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId: input.checkoutId, operationId: input.operationId } } });
+        if (existing) {
+          if (existing.type !== "FINALIZE" || existing.requestHash !== `payment:${input.paymentId}`) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Finalization operation identity conflicts.");
+          return { operationId: existing.operationId };
+        }
+        await tx.marketplaceCheckoutOperation.create({ data: { checkoutId: input.checkoutId, operationId: input.operationId, requestHash: `payment:${input.paymentId}`, type: "FINALIZE", response: { paymentId: input.paymentId } } });
+        return { operationId: input.operationId };
+      }, { isolationLevel: "ReadCommitted" });
     },
     async markCheckoutReconciliationRequired(input) {
       await database.$transaction(async (tx: any) => {

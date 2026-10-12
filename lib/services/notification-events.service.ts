@@ -6,6 +6,8 @@
  */
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/types/db";
+import { OrderStatus } from "@/types/db";
+import { NotificationPolicyError } from "@/lib/notifications/contracts";
 import { toInputJsonObject } from "@/lib/json/input-json";
 
 async function append(eventType: string, aggregateReference: string, operationId: string, safePayload: Record<string, unknown>, db: Pick<Prisma.TransactionClient, "notificationEventIntent"> = prisma) {
@@ -53,7 +55,11 @@ export interface OrderStatusChangedEvent {
 }
 
 export async function notifyOrderStatusChanged(event: OrderStatusChangedEvent): Promise<void> {
-  await append("ORDER_STATUS_CHANGED", event.orderId, `legacy-order-status:${event.orderId}:${event.newStatus}`, { orderNumber: event.orderNumber, status: event.newStatus, source: event.source });
+  const status = Object.values(OrderStatus).find((value) => value === event.newStatus);
+  if (!status) throw new NotificationPolicyError("CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID");
+  const history = await prisma.orderStatusHistory.findFirst({ where: { orderId: event.orderId, status }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
+  if (!history) throw new NotificationPolicyError("CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID");
+  await append("ORDER_STATUS_CHANGED", event.orderId, `legacy-order-status-history:${history.id}`, { orderNumber: event.orderNumber, status: history.status, source: event.source });
 }
 
 export interface DeliveryOtpEvent {

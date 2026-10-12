@@ -1,0 +1,89 @@
+import { createHash, randomUUID } from "node:crypto";
+import { expect, it } from "vitest";
+import { prisma } from "../../lib/db/prisma";
+import { createMarketplaceRefundRequest, createRefundRequest } from "../../lib/services/refund-request.service";
+import { approveRefund } from "../../lib/services/refund-finance-review.service";
+import { completeRefundToCustomerWallet } from "../../lib/services/refund-wallet-completion.service";
+import { startProviderRefund } from "../../lib/services/refund-provider-execution.service";
+import { ExistingPhaseFinancialAdjustmentAuthority } from "../../lib/store-orders/financial-adjustment-composition";
+import { applyMarketplaceStoreOrderAdjustment, confirmStoreOrderLineAvailability } from "../../lib/store-orders/store-order.service";
+import { RefundProviderRegistry } from "../../lib/refunds/providers/refund-provider-registry";
+import { PaystackRefundAdapter } from "../../lib/refunds/providers/paystack/paystack-refund-adapter";
+import { assertDisposablePaystackAcceptance } from "../../lib/testing/disposable-paystack-policy";
+import { GUEST_REFUND_HELD_CODE } from "../../lib/services/refund-held-account.service";
+import { ensureCustomerRefundWallet } from "../../lib/services/customer-wallet.service";
+import { postLedgerJournalWithinTransaction } from "../../lib/services/ledger-posting.service";
+import { withCanonicalBrowser } from "./marketplace-canonical-support";
+import { createPaidCheckout, prepareStoreOrder } from "../e2e/fixtures/store-order";
+import { assertCanonicalRefundDatabase, CanonicalOfflineRefundClient, refundActors, protectedRefundState, assertJournalMoney } from "./refund-canonical-support";
+
+it("only persisted bounded store reversal evidence funds a partial settled-store refund", async () => withCanonicalBrowser(async page => {
+  await assertCanonicalRefundDatabase();
+  const f = await prepareStoreOrder(page, "pg-financial-partial", 390, { baseLine: { offerReference: "CO-E2E64GB", variantReference: "CV-E2E64GB", quantity: 2, modifiers: [] } });
+  const source = await prisma.payment.findUniqueOrThrow({ where: { id: f.snapshot.payment.id }, include: { successfulAttempt: true } });
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email: "e2e-store@ktcouriers.local" } }); const actors = await refundActors();
+  const client = new CanonicalOfflineRefundClient(source.successfulAttempt!.providerReference!); const registry = new RefundProviderRegistry([new PaystackRefundAdapter(client)]);
+  const dependencies = { assertProductionReady: () => assertDisposablePaystackAcceptance(), providerRegistry: registry, registry };
+  const command = () => { const operationId = randomUUID(); return { actorUserId: owner.id, storeOrderReference: f.storeReference, operationId, requestHash: createHash("sha256").update(operationId).digest("hex") }; };
+  await confirmStoreOrderLineAvailability({ ...command(), orderLineId: f.baseline.lines[0].id, availableQuantity: 1 });
+  const adjustment = await prisma.marketplaceStoreOrderAdjustment.findFirstOrThrow({ where: { marketplaceStoreOrderId: f.order.storeOrders[0].id } });
+  expect(adjustment.refundAmount.toFixed(2)).toBe("1500.00");
+  const generic = { actorUserId: source.userId!, paymentPublicReference: source.publicReference, amount: "1500.00", method: "ORIGINAL_PAYMENT_METHOD" as const, reasonCode: "SERVICE_NOT_PROVIDED" as const, operationId: randomUUID() };
+  await expect(createRefundRequest(generic, dependencies)).rejects.toMatchObject({ code: "REFUND_FUNDING_UNAVAILABLE" });
+  await expect(applyMarketplaceStoreOrderAdjustment({ ...command(), adjustmentReference: adjustment.publicReference })).rejects.toMatchObject({ code: "REFUND_PRODUCTION_NOT_READY" });
+  const reversed = await prisma.storeEarning.findFirstOrThrow({ where: { paymentId: source.id } }); expect(reversed.reversedAmount.greaterThan(0)).toBe(true); expect(reversed.reversedAmount.lessThan(reversed.amount)).toBe(true);
+  await expect(createRefundRequest({ ...generic, operationId: randomUUID() }, dependencies)).rejects.toMatchObject({ code: "REFUND_FUNDING_UNAVAILABLE" });
+  await expect(createMarketplaceRefundRequest({ ...generic, customerUserId: source.userId, sourceAdjustmentReference: adjustment.publicReference, operationId: randomUUID() }, dependencies)).rejects.toMatchObject({ code: "REFUND_FUNDING_UNAVAILABLE" });
+  const operation = { ...command(), adjustmentReference: adjustment.publicReference, dependencies: { financialAuthority: new ExistingPhaseFinancialAdjustmentAuthority(dependencies) } };
+  const recovered = await applyMarketplaceStoreOrderAdjustment(operation); if (!("refundReference" in recovered) || typeof recovered.refundReference !== "string") throw new Error("Canonical bound refund required.");
+  expect((await applyMarketplaceStoreOrderAdjustment(operation)).replayed).toBe(true);
+  await approveRefund({ actorUserId: actors.approver.id, publicReference: recovered.refundReference, operationId: randomUUID() });
+  await startProviderRefund({ actorUserId: actors.processor.id, publicReference: recovered.refundReference, operationId: randomUUID() }, dependencies);
+  const state = await protectedRefundState(source.id); expect(state.refunds).toHaveLength(1); assertJournalMoney(state.refunds[0].reserveLedgerJournal, "REFUND_RESERVE", "1500.00"); assertJournalMoney(state.refunds[0].completionLedgerJournal, "REFUND_EXTERNAL_PAYOUT", "1500.00");
+  expect(state.payment.totalRefundReservedAmount.isZero()).toBe(true); expect(state.payment.totalRefundedAmount.toFixed(2)).toBe("1500.00"); expect(client.calls).toBe(1);
+  expect((await prisma.storeEarning.findUniqueOrThrow({ where: { id: reversed.id } })).reversedAmount.equals(reversed.reversedAmount)).toBe(true);
+  expect((await prisma.marketplaceStoreOrderAdjustment.findUniqueOrThrow({ where: { id: adjustment.id } })).status).toBe("COMPLETED");
+  expect((await prisma.marketplaceStoreOrder.findUniqueOrThrow({ where: { id: f.order.storeOrders[0].id } })).resolutionStatus).toBe("RESOLVED");
+}), 240_000);
+
+it("verified guest reserves and pays only from the separate canonical original-method liability", async () => withCanonicalBrowser(async page => {
+  await assertCanonicalRefundDatabase(); const f = await createPaidCheckout(page, "pg-refund-guest", 390, {}, true);
+  const source = await prisma.payment.findUniqueOrThrow({ where: { id: f.snapshot.payment.id }, include: { successfulAttempt: true } }); expect(source.userId).toBeNull(); expect(f.snapshot.orders[0].guestCapabilityBound).toBe(true);
+  const actors = await refundActors(); const client = new CanonicalOfflineRefundClient(source.successfulAttempt!.providerReference!); const registry = new RefundProviderRegistry([new PaystackRefundAdapter(client)]);
+  const dependencies = { assertProductionReady: () => assertDisposablePaystackAcceptance(), providerRegistry: registry, registry };
+  const request = { paymentPublicReference: source.publicReference, guestConfirmationVerified: true, amount: "10.01", method: "ORIGINAL_PAYMENT_METHOD" as const, reasonCode: "SERVICE_NOT_PROVIDED" as const, operationId: randomUUID() };
+  await expect(createMarketplaceRefundRequest({ ...request, guestConfirmationVerified: false }, dependencies)).rejects.toMatchObject({ code: "REFUND_FORBIDDEN" });
+  await expect(createMarketplaceRefundRequest({ ...request, method: "CUSTOMER_WALLET" }, dependencies)).rejects.toMatchObject({ code: "REFUND_FORBIDDEN" });
+  await expect(createMarketplaceRefundRequest(request)).rejects.toMatchObject({ code: "REFUND_PRODUCTION_NOT_READY" });
+  const refund = await createMarketplaceRefundRequest(request, dependencies); expect(refund.customerUserId).toBeNull(); expect((await createMarketplaceRefundRequest(request, dependencies)).id).toBe(refund.id);
+  await expect(createMarketplaceRefundRequest({ ...request, amount: "10.02" }, dependencies)).rejects.toMatchObject({ code: "REFUND_IDEMPOTENCY_CONFLICT" });
+  const held = await prisma.ledgerAccount.findUniqueOrThrow({ where: { code: GUEST_REFUND_HELD_CODE } });
+  await ensureCustomerRefundWallet(actors.foreign.id);
+  const foreignHeld = await prisma.ledgerAccount.findFirstOrThrow({ where: { purpose: "CUSTOMER_REFUND_HELD", wallet: { ownerType: "CUSTOMER", ownerId: actors.foreign.id } } });
+  const heldMatches = await prisma.$queryRaw<Array<{ guest: boolean; wallet: boolean; foreign: boolean; absent: boolean }>>`
+    SELECT "phase1_refund_held_account_matches"(${held.id}, NULL, ${source.id}, 'ORIGINAL_PAYMENT_METHOD') AS guest,
+      "phase1_refund_held_account_matches"(${held.id}, NULL, ${source.id}, 'CUSTOMER_WALLET') AS wallet,
+      "phase1_refund_held_account_matches"(${foreignHeld.id}, NULL, ${source.id}, 'ORIGINAL_PAYMENT_METHOD') AS foreign,
+      "phase1_refund_held_account_matches"(${held.id}, NULL, 'absent-payment', 'ORIGINAL_PAYMENT_METHOD') AS absent`;
+  expect(heldMatches).toEqual([{ guest: true, wallet: false, foreign: false, absent: false }]);
+  const moneyBeforeInvalidReserve = await protectedRefundState(source.id);
+  const foreignBefore = await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: foreignHeld.id } });
+  const fundingHeld = await prisma.ledgerAccount.findUniqueOrThrow({ where: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" } });
+  const invalidOperation = `invalid-guest-liability:${randomUUID()}`;
+  await expect(prisma.$transaction(async tx => {
+    const invalidJournal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: invalidOperation, type: "REFUND_RESERVE", currency: "ZAR", actor: { kind: "SYSTEM" }, entries: [
+      { accountId: fundingHeld.id, direction: "DEBIT", amount: "10.01", lineCode: "REFUND_SOURCE" },
+      { accountId: foreignHeld.id, direction: "CREDIT", amount: "10.01", lineCode: "REFUND_HELD" },
+    ] });
+    return tx.paymentRefund.create({ data: { publicReference: `RF-INVALID-${randomUUID()}`, paymentId: source.id, customerUserId: null, method: "ORIGINAL_PAYMENT_METHOD", amount: "10.01", reasonCode: "SERVICE_NOT_PROVIDED", creationIdempotencyKey: invalidOperation, creationRequestHash: refund.creationRequestHash, reserveLedgerJournalId: invalidJournal.id } });
+  })).rejects.toThrow("refund reserve journal evidence is invalid");
+  expect(await protectedRefundState(source.id)).toEqual(moneyBeforeInvalidReserve);
+  expect(await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: foreignHeld.id } })).toEqual(foreignBefore);
+  expect(await prisma.ledgerJournal.count({ where: { idempotencyKey: invalidOperation } })).toBe(0);
+  const reserve = await prisma.ledgerJournal.findUniqueOrThrow({ where: { id: refund.reserveLedgerJournalId }, include: { entries: true } }); expect(reserve.entries[0].accountId).not.toBe(reserve.entries[1].accountId); expect(reserve.entries.find(e => e.direction === "CREDIT")?.accountId).toBe(held.id);
+  await approveRefund({ actorUserId: actors.approver.id, publicReference: refund.publicReference, operationId: randomUUID() });
+  await expect(completeRefundToCustomerWallet({ actorUserId: actors.processor.id, publicReference: refund.publicReference, operationId: randomUUID() }, dependencies)).rejects.toMatchObject({ code: "REFUND_INVALID_STATE" });
+  await startProviderRefund({ actorUserId: actors.processor.id, publicReference: refund.publicReference, operationId: randomUUID() }, dependencies);
+  const state = await protectedRefundState(source.id); assertJournalMoney(state.refunds[0].completionLedgerJournal, "REFUND_EXTERNAL_PAYOUT", "10.01"); expect(state.payment.totalRefundedAmount.toFixed(2)).toBe("10.01"); expect(state.payment.totalRefundReservedAmount.isZero()).toBe(true); expect(client.calls).toBe(1);
+  expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: held.id } })).currentBalance.isZero()).toBe(true);
+}), 240_000);

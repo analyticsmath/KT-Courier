@@ -1,5 +1,5 @@
 import { requireBusinessApi } from "@/lib/client-platform/business-auth";
-import { createHash } from "node:crypto";
+import { storeOrderRequestHash } from "@/lib/store-orders/request-hash";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
@@ -24,10 +24,7 @@ import {
   updateStoreOrderPreparationTime,
 } from "@/lib/store-orders/store-order.service";
 
-const hash = (action: string, body: Record<string, unknown>) =>
-  createHash("sha256")
-    .update(`${action}:${JSON.stringify(body)}`)
-    .digest("hex");
+const hash = storeOrderRequestHash;
 
 export async function POST(
   request: NextRequest,

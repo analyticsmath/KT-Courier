@@ -72,23 +72,27 @@ export function commissionReversalPosting(input: Readonly<{
  */
 export function commissionAdjustmentReversalPosting(input: Readonly<{
   accrualReference: string;
+  allocationReference: string;
   originalJournalId: string;
   heldAccountId: string;
   allocationAccountId: string;
   amount: string;
   operationId: string;
+  originalAmount: string;
+  previouslyReversedAmount: string;
   actorUserId?: string;
 }>): PostLedgerJournalInput {
   if (new Decimal(input.amount).lessThanOrEqualTo(0)) throw new CommissionError("COMMISSION_INVALID_COMMAND", "A commission adjustment reversal requires a positive amount.");
   return Object.freeze({
     idempotencyKey: `commission:${input.accrualReference}:adjust:${input.operationId}`,
-    sourceReference: `commission:${input.accrualReference}:adjust`,
-    type: "COMMISSION_REVERSAL",
+    sourceReference: `commission:${input.accrualReference}:adjust:${input.operationId}`,
+    // A bounded allocation adjustment is a transfer back to held funds. The
+    // direct COMMISSION_REVERSAL contract remains an exact whole-journal inverse.
+    type: "ACCOUNT_TRANSFER",
     currency: "ZAR",
-    reversalOfJournalId: input.originalJournalId,
     actor: ledgerActor(input.actorUserId),
     memo: `Commission adjustment reversal ${input.accrualReference}`,
-    metadata: { accrualReference: input.accrualReference, operationId: input.operationId, adjustmentAmount: input.amount },
+    metadata: { accrualReference: input.accrualReference, allocationReference: input.allocationReference, originalJournalId: input.originalJournalId, operationId: input.operationId, adjustmentAmount: input.amount, originalAmount: input.originalAmount, previouslyReversedAmount: input.previouslyReversedAmount },
     entries: Object.freeze([
       { accountId: input.allocationAccountId, direction: "DEBIT" as const, amount: input.amount, lineCode: "COMMISSION_ADJUSTMENT_REVERSAL" },
       { accountId: input.heldAccountId, direction: "CREDIT" as const, amount: input.amount, lineCode: "CUSTOMER_FUNDS_HELD" },

@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db/prisma";
 import { createOrder } from "@/lib/services/orders.service";
 import { CreateOrderSchema } from "@/lib/validation/order";
 import { json, failure, mutation } from "@/lib/client-platform/api";
+import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
 export async function POST(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -33,6 +34,9 @@ export async function POST(
   try {
     const id = (await c.params).id;
     const quote = await readPublicQuote(id, user.id);
+    const parcel = quote.ruleSnapshot as { parcelSize: string; parcelProfileId?: string };
+    const profile = await requireParcelProfile(parcel.parcelSize, String((quote.metadata as { bookingInput?: { actualWeightKg?: string } }).bookingInput?.actualWeightKg ?? "0"));
+    if (profile.id !== parcel.parcelProfileId) throw new PlatformError("PARCEL_PROFILE_CHANGED", "Parcel acceptance limits changed. Request a new quote.", 409);
     const business =
       user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE";
     const store = business
@@ -47,26 +51,6 @@ export async function POST(
       throw new PlatformError(
         "QUOTE_WORKSPACE_MISMATCH",
         "Request a new quote in this workspace.",
-        409,
-      );
-    const claimed = await prisma.pricingQuote.updateMany({
-      where: {
-        id,
-        ownerId: quote.ownerId,
-        status: "ACTIVE",
-        expiresAt: { gt: new Date() },
-        calculationVersion: "client-delivery-v1",
-      },
-      data: {
-        ownerId: user.id,
-        ownerType: business ? "STORE" : "CUSTOMER",
-        storeId: store?.id ?? null,
-      },
-    });
-    if (claimed.count !== 1)
-      throw new PlatformError(
-        "QUOTE_EXPIRED",
-        "Request a new quote before booking.",
         409,
       );
     const m = quote.metadata as {
@@ -90,7 +74,17 @@ export async function POST(
       parcelCount: 1,
     });
     // Strict order schema excludes sender helper fields rather than accepting extra client facts.
-    return json(await createOrder(user, input, business), 201);
+    const order = await prisma.$transaction(async tx => {
+      const claimed = await tx.pricingQuote.updateMany({
+        where: { id, ownerId: quote.ownerId, status: "ACTIVE", expiresAt: { gt: new Date() }, calculationVersion: "client-delivery-v1" },
+        data: { ownerId: user.id, ownerType: business ? "STORE" : "CUSTOMER", storeId: store?.id ?? null },
+      });
+      if (claimed.count !== 1) throw new PlatformError("QUOTE_EXPIRED", "Request a new quote before booking.", 409);
+      // Ownership, consumption, contacts and the canonical order commit together.
+      // A refused payment policy must leave the anonymous quote usable by its owner.
+      return createOrder(user, input, business, tx);
+    });
+    return json(order, 201);
   } catch (e) {
     return failure(e);
   }

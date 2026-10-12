@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
+import { type Prisma } from "@prisma/client";
 import { assertExactZarPrice, assertPricePeriod } from "@/lib/catalog/catalog-price-policy";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { assertCatalogProductionActivationAllowed } from "@/lib/catalog/catalog-production-lock";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError } from "@/lib/catalog/errors";
-import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
+import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 
 export async function createStoreOfferPriceVersion(storeId: string, actorUserId: string, input: {
   offerPublicReference: string;
@@ -15,11 +16,12 @@ export async function createStoreOfferPriceVersion(storeId: string, actorUserId:
   reasonCode?: string;
   offerVersion: number;
   operationId: string;
-}) {
+}, transaction?: Prisma.TransactionClient) {
+  const database = transaction ?? prisma;
   assertExactZarPrice(input);
-  const offer = await prisma.storeCatalogOffer.findFirst({ where: { publicReference: input.offerPublicReference, storeId }, include: { priceVersions: true } });
+  const offer = await database.storeCatalogOffer.findFirst({ where: { publicReference: input.offerPublicReference, storeId }, include: { priceVersions: true } });
   if (!offer) {
-    const exists = await prisma.storeCatalogOffer.findUnique({ where: { publicReference: input.offerPublicReference }, select: { storeId: true } });
+    const exists = await database.storeCatalogOffer.findUnique({ where: { publicReference: input.offerPublicReference }, select: { storeId: true } });
     if (exists && exists.storeId !== storeId) throw new CatalogOwnershipError();
     throw new CatalogNotFoundError("Store catalog offer was not found.");
   }
@@ -28,7 +30,7 @@ export async function createStoreOfferPriceVersion(storeId: string, actorUserId:
   assertPricePeriod({ effectiveFrom, effectiveUntil }, offer.priceVersions.filter((price) => ["SCHEDULED", "ACTIVE"].includes(price.status)));
   const nextNumber = Math.max(0, ...offer.priceVersions.map((price) => price.versionNumber)) + 1;
   const publicReference = catalogPublicReference("CPR");
-  return prisma.$transaction(async (tx) => {
+  return withCatalogTransaction(transaction, async (tx) => {
     const current = await tx.storeCatalogOffer.updateMany({ where: { id: offer.id, storeId, version: input.offerVersion }, data: { version: { increment: 1 } } });
     if (current.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before adding a price.");
     const price = await tx.storeOfferPriceVersion.create({ data: { publicReference, offerId: offer.id, versionNumber: nextNumber, amount: input.amount, currency: "ZAR", priceIncludesTax: true, effectiveFrom, effectiveUntil, status: "DRAFT", reasonCode: input.reasonCode, createdByUserId: actorUserId } });

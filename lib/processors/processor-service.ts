@@ -574,7 +574,7 @@ export async function executeRegisteredProcessor(
     const terminalStatus = mode === "DRY_RUN" ? "DRY_RUN_COMPLETED" : "APPLY_COMPLETED";
 
     if (processor.leaseRequired) {
-      await completeProcessorRun({
+      const completed = await completeProcessorRun({
         operationId,
         leaseOwner,
         status: terminalStatus,
@@ -584,6 +584,7 @@ export async function executeRegisteredProcessor(
         itemsReconciled: outcome.itemsReconciled,
         safeSummary: outcome.safeSummary,
       });
+      if (!completed) throw new Error("PROCESSOR_LEASE_LOST: Processor completion requires its current unexpired lease.");
     }
 
     if (options.actorUserId) {

@@ -9,7 +9,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ref
     if (!owner) return marketplaceJson({ error: "Checkout access is required." }, 401);
     const body = await readMarketplaceJson(request);
     assertExactKeys(body, ["recipientName", "line1", "line2", "suburb", "city", "province", "postalCode", "deliveryInstructions", "serviceAreaReference", "operationId", "requestHash", "checkoutVersion"]);
-    const optional = (key: string, max: number) => body[key] === undefined ? undefined : stringField(body, key, max);
+    const optional = (key: string, max: number) => body[key] === undefined || (typeof body[key] === "string" && !body[key].trim()) ? undefined : stringField(body, key, max);
     const { reference } = await context.params;
     const checkout = await updateMarketplaceCheckoutAddress({
       reference,

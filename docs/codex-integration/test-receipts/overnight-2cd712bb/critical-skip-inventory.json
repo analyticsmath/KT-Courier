@@ -1,0 +1,13 @@
+{
+  "command": "node scripts/audit-release-tests.mjs",
+  "sourceCommit": "2cd712bbe1aa27717dc78ff732f87b9e8360cafe",
+  "sourceTree": "fceeb7d0df67f07af4ff41874fbff76b1553aae2",
+  "exitCode": 0,
+  "status": "PASS",
+  "filesWithSkipOrDeferralMarkers": 65,
+  "releaseCriticalOpenPlaceholders": 0,
+  "releaseCriticalConditionalSuitesRemain": true,
+  "optionalInactiveExclusionsArePasses": false,
+  "gateDisposition": "OPEN_PENDING_FINAL_SHA_SELECTION_AND_EXECUTION_RECONCILIATION",
+  "stdout": "{\"files\":65,\"openCriticalPlaceholders\":0}"
+}

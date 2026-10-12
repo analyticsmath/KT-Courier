@@ -110,6 +110,7 @@ describe("withdrawal finance review service", () => {
         update: vi.fn().mockResolvedValue({ ...mockWithdrawal, status: "REJECTED" }),
       },
       withdrawalStatusHistory: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
+      withdrawalEarningAllocation: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
 
     mocks.prisma.$transaction.mockImplementation(async (cb: (tx: Record<string, unknown>) => unknown) => cb(tx));
@@ -120,5 +121,6 @@ describe("withdrawal finance review service", () => {
     const rejected = await rejectWithdrawal({ actorUserId: "admin-2", publicReference: "WD-100", operationId: "op-3", reasonCode: "INVALID_DOCUMENTATION" });
     expect(rejected.status).toBe("REJECTED");
     expect(mocks.postLedgerJournalWithinTransaction).toHaveBeenCalled();
+    expect(tx.withdrawalEarningAllocation.updateMany).toHaveBeenCalledWith({ where: { withdrawalRequestId: "wd-1", status: "RESERVED" }, data: { status: "CANCELLED" } });
   });
 });

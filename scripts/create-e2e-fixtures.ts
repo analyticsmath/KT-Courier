@@ -3,6 +3,19 @@ import { PrismaClient } from "@prisma/client";
 import { AddressType, DeliveryType, DriverAvailability, DriverOnboardingStatus, DriverStatus, OrderSource, OrderStatus, PermissionEffect, StoreStatus, UserRole, UserStatus, VehicleType } from "@/types/db";
 import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { reverseLedgerJournal } from "@/lib/services/ledger-reversal.service";
+import { createDisposableCheckoutAuthorities } from "./e2e-checkout-authorities";
+import { createDisposableResidualCatalog } from "./e2e-paystack-residual-fixtures";
+import { createDisposableHandoffActors } from "./e2e-handoff-actors";
+import { createDisposableDriverSettlement } from "./e2e-driver-settlement-fixture";
+import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-settlement-guard";
+import { accrueDriverEarning } from "@/lib/services/driver-earning-accrual.service";
+import { releaseDriverEarning } from "@/lib/services/driver-earning-release.service";
+import { createDriverEarningReconciliation } from "@/lib/services/driver-earning-reconciliation.service";
+import { createDisposableStoreSettlement } from "./e2e-store-settlement-fixture";
+import { accrueStoreEarning } from "@/lib/services/store-earning-accrual.service";
+import { releaseStoreEarning } from "@/lib/services/store-earning-release.service";
+import { createStoreEarningReconciliation } from "@/lib/services/store-earning-reconciliation.service";
+import { createDisposableOwnerWithdrawalSource, createDisposableDriverWithdrawalSource } from "./e2e-owner-withdrawal-fixture";
 
 const prisma = new PrismaClient();
 
@@ -64,6 +77,11 @@ async function seedPhase2Fixtures(passwordHash: string) {
     create: { ownerUserId: otherStoreUser.id, name: "E2E Other Store", slug: "e2e-other-store", status: StoreStatus.ACTIVE, city: "Johannesburg", province: "Gauteng", country: "South Africa" },
   });
 
+  const deniedCatalogOwner = await prisma.user.create({ data: { email: "e2e-catalog-denied@ktcouriers.local", name: "Disposable catalog denied owner", role: UserRole.STORE, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  await prisma.store.create({ data: { ownerUserId: deniedCatalogOwner.id, name: "Disposable denied catalog store", slug: "e2e-catalog-denied", status: StoreStatus.ACTIVE } });
+  const deniedCatalogPricing = await prisma.permission.findUniqueOrThrow({ where: { key: "catalog_pricing.manage" } });
+  await prisma.userPermission.create({ data: { userId: deniedCatalogOwner.id, permissionId: deniedCatalogPricing.id, effect: PermissionEffect.DENY } });
+
   // Category
   const category = await prisma.catalogCategory.upsert({
     where: { publicReference: "cat_electronics" },
@@ -81,25 +99,25 @@ async function seedPhase2Fixtures(passwordHash: string) {
   const productType = await prisma.productTypeDefinition.upsert({
     where: { code_versionNumber: { code: "smartphone", versionNumber: 1 } },
     update: { name: "Smartphone", status: "ACTIVE" },
-    create: { publicReference: "ptd_smartphone", code: "smartphone", name: "Smartphone", description: "Smartphones and mobile devices", versionNumber: 1, attributeSchema: {}, variantSchema: {}, complianceSchema: {}, searchFacetSchema: {}, status: "ACTIVE", createdByUserId: storeUser.id },
+    create: { publicReference: "ptd_smartphone", code: "smartphone", name: "Smartphone", description: "Smartphones and mobile devices", versionNumber: 1, attributeSchema: { attributes: [] }, variantSchema: {}, complianceSchema: {}, searchFacetSchema: {}, status: "ACTIVE", createdByUserId: storeUser.id },
   });
 
   // Product 1: Smartphone
   const smartphone = await prisma.catalogProduct.upsert({
-    where: { publicReference: "prod_e2esmartphone" },
+    where: { publicReference: "CP-E2ESMARTPHONE" },
     update: { title: "E2E Smartphone" },
-    create: { publicReference: "prod_e2esmartphone", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Smartphone", normalizedTitle: "e2e smartphone", slug: "e2e-smartphone", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
+    create: { publicReference: "CP-E2ESMARTPHONE", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Smartphone", normalizedTitle: "e2e smartphone", slug: "e2e-smartphone", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
   });
 
   const var64 = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_64gb" },
+    where: { publicReference: "CV-E2E64GB" },
     update: { title: "64GB / Black", status: "ACTIVE" },
-    create: { publicReference: "var_64gb", productId: smartphone.id, title: "64GB / Black", normalizedTitle: "64gb black", optionFingerprint: "var_64gb", skuReference: "E2E-PHONE-64", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2E64GB", productId: smartphone.id, title: "64GB / Black", normalizedTitle: "64gb black", optionFingerprint: "CV-E2E64GB", skuReference: "E2E-PHONE-64", attributeValues: {}, status: "ACTIVE" },
   });
   const var128 = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_128gb" },
+    where: { publicReference: "CV-E2E128GB" },
     update: { title: "128GB / Silver", status: "ACTIVE" },
-    create: { publicReference: "var_128gb", productId: smartphone.id, title: "128GB / Silver", normalizedTitle: "128gb silver", optionFingerprint: "var_128gb", skuReference: "E2E-PHONE-128", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2E128GB", productId: smartphone.id, title: "128GB / Silver", normalizedTitle: "128gb silver", optionFingerprint: "CV-E2E128GB", skuReference: "E2E-PHONE-128", attributeValues: {}, status: "ACTIVE" },
   });
 
   await prisma.catalogProduct.update({
@@ -109,14 +127,14 @@ async function seedPhase2Fixtures(passwordHash: string) {
 
   // Offers for Product 1
   const offer64 = await prisma.storeCatalogOffer.upsert({
-    where: { publicReference: "off_64gb" },
+    where: { publicReference: "CO-E2E64GB" },
     update: {},
-    create: { publicReference: "off_64gb", storeId: store.id, productId: smartphone.id, variantId: var64.id, storeSku: "OFF-PHONE-64", merchantTitle: "E2E Smartphone 64GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
+    create: { publicReference: "CO-E2E64GB", storeId: store.id, productId: smartphone.id, variantId: var64.id, storeSku: "OFF-PHONE-64", merchantTitle: "E2E Smartphone 64GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
   });
   const offer128 = await prisma.storeCatalogOffer.upsert({
-    where: { publicReference: "off_128gb" },
+    where: { publicReference: "CO-E2E128GB" },
     update: {},
-    create: { publicReference: "off_128gb", storeId: store.id, productId: smartphone.id, variantId: var128.id, storeSku: "OFF-PHONE-128", merchantTitle: "E2E Smartphone 128GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
+    create: { publicReference: "CO-E2E128GB", storeId: store.id, productId: smartphone.id, variantId: var128.id, storeSku: "OFF-PHONE-128", merchantTitle: "E2E Smartphone 128GB", status: "DRAFT", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: storeUser.id },
   });
 
   // Prices
@@ -205,14 +223,14 @@ async function seedPhase2Fixtures(passwordHash: string) {
 
   // Product 2: Product No Media
   const noMediaProduct = await prisma.catalogProduct.upsert({
-    where: { publicReference: "prod_nomedia" },
+    where: { publicReference: "CP-E2ENOMEDIA" },
     update: { title: "E2E Product No Media" },
-    create: { publicReference: "prod_nomedia", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Product No Media", normalizedTitle: "e2e product no media", slug: "e2e-product-no-media", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
+    create: { publicReference: "CP-E2ENOMEDIA", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "E2E Product No Media", normalizedTitle: "e2e product no media", slug: "e2e-product-no-media", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
   });
   const varNoMedia = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_nomedia" },
+    where: { publicReference: "CV-E2ENOMEDIA" },
     update: { title: "Standard", status: "ACTIVE" },
-    create: { publicReference: "var_nomedia", productId: noMediaProduct.id, title: "Standard", normalizedTitle: "standard", optionFingerprint: "var_nomedia", skuReference: "E2E-NOMEDIA-STD", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2ENOMEDIA", productId: noMediaProduct.id, title: "Standard", normalizedTitle: "standard", optionFingerprint: "CV-E2ENOMEDIA", skuReference: "E2E-NOMEDIA-STD", attributeValues: {}, status: "ACTIVE" },
   });
   await prisma.catalogProduct.update({
     where: { id: noMediaProduct.id },
@@ -239,14 +257,14 @@ async function seedPhase2Fixtures(passwordHash: string) {
 
   // Product 3: Headphones
   const headphones = await prisma.catalogProduct.upsert({
-    where: { publicReference: "prod_headphones" },
+    where: { publicReference: "CP-E2EHEADPHONES" },
     update: { title: "Wireless Headphones" },
-    create: { publicReference: "prod_headphones", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "Wireless Headphones", normalizedTitle: "wireless headphones", slug: "wireless-headphones", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
+    create: { publicReference: "CP-E2EHEADPHONES", scope: "GLOBAL_CANONICAL", productTypeDefinitionId: productType.id, productTypeVersionNumber: 1, primaryCategoryId: category.id, title: "Wireless Headphones", normalizedTitle: "wireless headphones", slug: "wireless-headphones", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: storeUser.id, status: "DRAFT", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED" },
   });
   const varHeadphones = await prisma.catalogProductVariant.upsert({
-    where: { publicReference: "var_headphones" },
+    where: { publicReference: "CV-E2EHEADPHONES" },
     update: { title: "Black", status: "ACTIVE" },
-    create: { publicReference: "var_headphones", productId: headphones.id, title: "Black", normalizedTitle: "black", optionFingerprint: "var_headphones", skuReference: "E2E-AUDIO-BLK", attributeValues: {}, status: "ACTIVE" },
+    create: { publicReference: "CV-E2EHEADPHONES", productId: headphones.id, title: "Black", normalizedTitle: "black", optionFingerprint: "CV-E2EHEADPHONES", skuReference: "E2E-AUDIO-BLK", attributeValues: {}, status: "ACTIVE" },
   });
   await prisma.catalogProduct.update({
     where: { id: headphones.id },
@@ -264,6 +282,10 @@ async function seedPhase2Fixtures(passwordHash: string) {
     create: { publicReference: "prc_headphones", offerId: offerHeadphones.id, versionNumber: 1, amount: "800.00", currency: "ZAR", effectiveFrom: new Date("2020-01-01"), status: "ACTIVE", createdByUserId: storeUser.id },
   });
   await prisma.storeCatalogOffer.update({ where: { id: offerHeadphones.id }, data: { currentPriceVersionId: priceHeadphones.id, status: "ACTIVE", publicationStatus: "PUBLISHED" } });
+  // Opening stock is input evidence for the real substitution reservation.
+  const headphoneItem = await prisma.catalogInventoryItem.create({ data: { publicReference: "inv_headphones", offerId: offerHeadphones.id, variantId: varHeadphones.id, trackingMode: "TRACKED" } });
+  await prisma.catalogInventoryMovement.create({ data: { publicReference: "mov_headphones", inventoryItemId: headphoneItem.id, locationId: invLoc.id, type: "INITIAL_STOCK", quantityDelta: 20, operationId: "disposable-headphones-opening", requestHash: "disposable-headphones-opening", reasonCode: "DISPOSABLE_INPUT_STOCK", actorUserId: storeUser.id, resultingOnHand: 20 } });
+  await prisma.catalogInventoryLevel.create({ data: { inventoryItemId: headphoneItem.id, locationId: invLoc.id, available: 20, onHand: 20, reserved: 0 } });
 
   const snapHeadphones = await prisma.catalogPublicationSnapshot.upsert({
     where: { offerId_publicationVersion: { offerId: offerHeadphones.id, publicationVersion: pubVer } },
@@ -290,19 +312,19 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snap64.id,
       publicationVersion: pubVer,
       productId: smartphone.id,
-      productPublicReference: "prod_e2esmartphone",
+      productPublicReference: "CP-E2ESMARTPHONE",
       productSlug: "e2e-smartphone",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: var64.id,
-      variantPublicReference: "var_64gb",
+      variantPublicReference: "CV-E2E64GB",
       offerId: offer64.id,
-      offerPublicReference: "off_64gb",
+      offerPublicReference: "CO-E2E64GB",
       storeId: store.id,
       storePublicReference: "e2e-store-ref",
       storeSlug: "e2e-store",
       categoryId: category.id,
       categoryPublicReference: "cat_electronics",
-      categoryPath: "electronics",
+      categoryPath: "/electronics",
       productTypeCode: "smartphone",
       productTypeVersion: 1,
       brandPublicReference: null,
@@ -338,19 +360,19 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snap128.id,
       publicationVersion: pubVer,
       productId: smartphone.id,
-      productPublicReference: "prod_e2esmartphone",
+      productPublicReference: "CP-E2ESMARTPHONE",
       productSlug: "e2e-smartphone",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: var128.id,
-      variantPublicReference: "var_128gb",
+      variantPublicReference: "CV-E2E128GB",
       offerId: offer128.id,
-      offerPublicReference: "off_128gb",
+      offerPublicReference: "CO-E2E128GB",
       storeId: store.id,
       storePublicReference: "e2e-store-ref",
       storeSlug: "e2e-store",
       categoryId: category.id,
       categoryPublicReference: "cat_electronics",
-      categoryPath: "electronics",
+      categoryPath: "/electronics",
       productTypeCode: "smartphone",
       productTypeVersion: 1,
       brandPublicReference: null,
@@ -386,11 +408,11 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snapNoMedia.id,
       publicationVersion: pubVer,
       productId: noMediaProduct.id,
-      productPublicReference: "prod_nomedia",
+      productPublicReference: "CP-E2ENOMEDIA",
       productSlug: "e2e-product-no-media",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: varNoMedia.id,
-      variantPublicReference: "var_nomedia",
+      variantPublicReference: "CV-E2ENOMEDIA",
       offerId: offerNoMedia.id,
       offerPublicReference: "off_nomedia",
       storeId: store.id,
@@ -398,7 +420,7 @@ async function seedPhase2Fixtures(passwordHash: string) {
       storeSlug: "e2e-store",
       categoryId: category.id,
       categoryPublicReference: "cat_electronics",
-      categoryPath: "electronics",
+      categoryPath: "/electronics",
       productTypeCode: "smartphone",
       productTypeVersion: 1,
       brandPublicReference: null,
@@ -434,11 +456,11 @@ async function seedPhase2Fixtures(passwordHash: string) {
       publicationSnapshotId: snapHeadphones.id,
       publicationVersion: pubVer,
       productId: headphones.id,
-      productPublicReference: "prod_headphones",
+      productPublicReference: "CP-E2EHEADPHONES",
       productSlug: "wireless-headphones",
       productScope: "GLOBAL_CANONICAL" as const,
       variantId: varHeadphones.id,
-      variantPublicReference: "var_headphones",
+      variantPublicReference: "CV-E2EHEADPHONES",
       offerId: offerHeadphones.id,
       offerPublicReference: "off_headphones",
       storeId: store.id,
@@ -446,7 +468,7 @@ async function seedPhase2Fixtures(passwordHash: string) {
       storeSlug: "e2e-store",
       categoryId: category.id,
       categoryPublicReference: "cat_electronics",
-      categoryPath: "electronics",
+      categoryPath: "/electronics",
       productTypeCode: "smartphone",
       productTypeVersion: 1,
       brandPublicReference: null,
@@ -489,6 +511,9 @@ async function seedPhase2Fixtures(passwordHash: string) {
 }
 
 async function main() {
+  requireDisposableDriverSettlementDatabase();
+  const fixtureDatabase = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
+  if (!["localhost", "127.0.0.1", "db"].includes(fixtureDatabase.hostname) || fixtureDatabase.pathname !== "/kt_phase75_e2e") throw new Error("E2E fixtures require the named disposable browser database.");
   // The search adapter uses pg_trgm's similarity() for fuzzy matching.
   // Install it in the E2E database before any storefront search is executed.
   await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
@@ -498,8 +523,41 @@ async function main() {
     prisma.user.findUniqueOrThrow({ where: { email: "customer@ktcouriers.local" } }),
     prisma.deliveryRegion.findUniqueOrThrow({ where: { slug: "johannesburg-metro" } }),
   ]);
+  // Synthetic serviceability belongs only to the disposable browser fixture.
+  await prisma.deliveryRegion.update({ where: { id: region.id }, data: { province: "Gauteng", centerLat: -26.2041, centerLng: 28.0473, coverageRadiusKm: 30, maxDistanceKm: 50, active: true, pricingEnabled: true } });
   await upsertStore("e2e-store@ktcouriers.local", "e2e-store", "E2E Store", passwordHash);
   await upsertStore("e2e-other-store@ktcouriers.local", "e2e-other-store", "E2E Other Store", passwordHash);
+  for (const width of [1440, 390]) {
+    await upsertStore(`e2e-avatar-store-${width}@ktcouriers.local`, `e2e-avatar-store-${width}`, "Disposable profile media store", passwordHash);
+    await prisma.user.create({ data: { email: `e2e-avatar-customer-${width}@ktcouriers.local`, name: "Disposable profile media customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    const avatarDriver = await prisma.user.create({ data: { email: `e2e-avatar-driver-${width}@ktcouriers.local`, name: "Disposable profile media driver", role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    await prisma.driverProfile.create({ data: { userId: avatarDriver.id, driverCode: `E2E-AVATAR-${width}` } });
+  }
+  // Verified synthetic accounts receive no business membership until the native invitation is accepted.
+  for (const width of [1440, 390]) {
+    await upsertStore(`e2e-team-owner-${width}@ktcouriers.local`, `e2e-team-${width}`, "Disposable employee lifecycle business", passwordHash);
+    await prisma.user.create({ data: { email: `e2e-team-employee-${width}@ktcouriers.local`, name: "Disposable employee lifecycle account", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  }
+  for (const suffix of ["1440", "390", "other"]) {
+    await prisma.user.create({ data: { email: `e2e-checkout-${suffix}@ktcouriers.local`, name: "Disposable checkout customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  }
+  for (const suffix of ["wallet-301440", "wallet-30390"]) await prisma.user.create({ data: { email: `e2e-paystack-${suffix}@ktcouriers.local`, name: "Disposable notification customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  for (const boundary of ["equal", "stale", "expiry"]) await prisma.user.create({ data: { email: `e2e-paystack-pg-substitution-${boundary}@ktcouriers.local`, name: "Disposable replacement boundary customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  for (const width of [1440, 390]) await prisma.user.create({ data: { email: `e2e-order-employee-${width}@ktcouriers.local`, name: "Disposable order-only employee", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  await prisma.user.create({ data: { email: "e2e-paystack-pg-financial-partial@ktcouriers.local", name: "Disposable partial recovery customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  for (const width of [1440, 390]) await prisma.user.create({ data: { email: `e2e-paystack-store-positive-${width}@ktcouriers.local`, name: "Disposable substitution customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  for (const suffix of ["driver-delivery-1440", "driver-delivery-390", "driver-delivery-pg", "pg-refund-wallet", "pg-refund-failed", "pg-refund-pending", "pg-refund-needs-attention", "pg-refund-unknown", "pg-refund-network-loss", "pg-refund-rate-limit", "pg-refund-wrong-amount", "pg-refund-wrong-currency", "pg-refund-wrong-reference", "pg-financial-recovery", "pg-full-rejection", "pg-full-customer", "pg-full-shortage", "pg-full-earned-boundary"]) await prisma.user.create({ data: { email: `e2e-paystack-${suffix}@ktcouriers.local`, name: "Disposable canonical recovery customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  for (const suffix of ["1440", "390", "amount", "currency", "unknown", "reference", "payload", "pg-success", "pg-unknown", "wallet-1440", "wallet-390", "finance-1440", "finance-390", "store-customer-1440", "store-customer-390", "store-merchant-1440", "store-merchant-390", "store-admin-1440", "store-admin-390", "store-substitution-1440", "store-substitution-390", "store-handoff-1440", "store-handoff-390", "store-accessibility-1440", "store-accessibility-390", "store-accessibility-768", "store-accessibility-320", "pg-store", "pg-store-acceptance", "pg-store-adjustment", "pg-store-delivery-bridge", "pg-store-handoff", "pg-store-invariants", "pg-store-inventory", "pg-store-reconciliation", "pg-store-refund", "pg-store-substitution", "pg-residual-one", "pg-residual-two", "pg-residual-three", "pg-residual-large", "pg-residual-multistore", "pg-residual-hash", "pg-residual-stale", "pg-residual-settlement"]) {
+    await prisma.user.create({ data: { email: `e2e-paystack-${suffix}@ktcouriers.local`, name: "Disposable Paystack customer", role: UserRole.CUSTOMER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  }
+  // Pending, unapproved driver accounts are owned by independent viewport
+  // assertions. No vehicle, licence approval or dispatch eligibility is seeded.
+  for (const width of [1440, 390]) {
+    const user = await prisma.user.create({ data: { email: `e2e-onboarding-${width}@ktcouriers.local`, name: "Disposable pending driver", phone: "+27820000000", role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    await prisma.driverProfile.create({ data: { userId: user.id, driverCode: `E2E-ONBOARDING-${width}`, displayName: user.name, phone: user.phone, internalNotes: "Disposable independent reviewer note" } });
+    const documentUser = await prisma.user.create({ data: { email: `e2e-documents-${width}@ktcouriers.local`, name: "Disposable document driver", role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+    await prisma.driverProfile.create({ data: { userId: documentUser.id, driverCode: `E2E-DOCUMENTS-${width}`, displayName: documentUser.name } });
+  }
   for (const orderNumber of ["E2E-DISPATCH-001", "E2E-DISPATCH-002"]) {
     const quote = await prisma.pricingQuote.create({
       data: {
@@ -522,6 +580,12 @@ async function main() {
     create: { email: "e2e-ledger-denied@ktcouriers.local", name: "E2E Ledger Denied", role: UserRole.ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash, adminProfile: { create: { displayName: "E2E Ledger Denied" } } },
   });
   const ledgerPermission = await prisma.permission.findUniqueOrThrow({ where: { key: "ledger.read" } });
+  await prisma.user.create({ data: { email: "e2e-editorial-reviewer@ktcouriers.local", name: "Disposable independent editorial reviewer", role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash } });
+  for (const key of ["catalog_moderation.read", "catalog_moderation.review", "catalog_moderation.approve", "catalog_moderation.suspend", "storefront_collections.read", "storefront_collections.manage", "storefront_search_synonyms.read", "storefront_search_synonyms.manage", "storefront_projections.read", "storefront_projections.reconcile", "driver_earnings.read", "driver_earnings.reverse", "driver_earnings.reconcile", "store_earnings.read", "store_earnings.reverse", "store_earnings.reconcile", "withdrawals.read", "withdrawals.review", "withdrawals.approve", "withdrawals.process", "withdrawals.reconcile", "payout_destinations.read", "payout_destinations.manage", "refunds.read", "refunds.review", "refunds.approve", "refunds.process", "refunds.reconcile", "refund_provider_status.read"]) {
+    const permission = await prisma.permission.findUniqueOrThrow({ where: { key } });
+    await prisma.userPermission.create({ data: { userId: deniedLedgerAdmin.id, permissionId: permission.id, effect: PermissionEffect.DENY } });
+  }
+  await prisma.storefrontProjectionCase.create({ data: { publicReference: "SPC-E2EEDITORIALCONTROL", aggregateType: "PRODUCT", aggregateReference: "CP-E2ESMARTPHONE", reason: "PUBLICATION_WITHDRAWAL_NOT_APPLIED", safeSummary: "Disposable case requires canonical source-event correction; no manual public override is permitted." } });
   await prisma.userPermission.upsert({
     where: { userId_permissionId: { userId: deniedLedgerAdmin.id, permissionId: ledgerPermission.id } },
     update: { effect: PermissionEffect.DENY },
@@ -547,7 +611,49 @@ async function main() {
   await reverseLedgerJournal({ originalJournalId: ledgerFixture.id, idempotencyKey: "e2e-ledger-reversal-v1", actor: { kind: "SYSTEM" }, memo: "E2E reversal relation fixture" });
 
   await seedPhase2Fixtures(passwordHash);
+  await createDisposableCheckoutAuthorities();
+  await createDisposableResidualCatalog();
+  await createDisposableHandoffActors(passwordHash, region.id);
+  for (const suffix of ["1440", "390", "other"]) {
+    for (const amount of ["100.25", "25.40"]) {
+      const source = await createDisposableDriverSettlement({ email: `e2e-earning-${suffix}@ktcouriers.local`, passwordHash, amount });
+      const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+      if (amount === "25.40") await releaseDriverEarning({ earningId: earning.id, operationId: `${source.tag}:release` }, { allowTestOnlyBypass: true });
+    }
+  }
 
+  for (const width of [1440, 390]) {
+    const source = await createDisposableDriverSettlement({ email: `e2e-earning-finance-${width}@ktcouriers.local`, passwordHash });
+    const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+    await createDriverEarningReconciliation({ caseKey: `${source.tag}:synthetic-exception`, driverEarningId: earning.id, reason: "APPLICATION_FAILURE", priority: "HIGH", safeSummary: `Synthetic finance review fixture at ${width}px; no real delivery or provider event.`, safeEvidence: { fixture: "disposable-driver-finance", privateMarker: "PRIVATE_INTERNAL_DRIVER_FINANCE_EVIDENCE" } });
+  }
+  for (const suffix of ["1440", "390", "other"]) {
+    const { store } = await upsertStore(`e2e-store-earning-${suffix}@ktcouriers.local`, `e2e-store-earning-${suffix}`, "Disposable earning store", passwordHash);
+    for (const amount of ["100.25", "25.40"]) {
+      const source = await createDisposableStoreSettlement({ storeId: store.id, amount });
+      const earning = await accrueStoreEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+      if (amount === "25.40") {
+        // Synthetic maturity only; the production hold policy is not approved.
+        await prisma.storeEarning.update({ where: { id: earning.id }, data: { releaseEligibleAt: new Date("2026-10-02T12:00:00Z") } });
+        await releaseStoreEarning({ earningId: earning.id, operationId: `${source.tag}:release` }, { allowTestOnlyBypass: true });
+      }
+    }
+  }
+  for (const width of [1440, 390]) {
+    const { store } = await upsertStore(`e2e-store-earning-finance-${width}@ktcouriers.local`, `e2e-store-earning-finance-${width}`, "Disposable finance earning store", passwordHash);
+    const source = await createDisposableStoreSettlement({ storeId: store.id });
+    const earning = await accrueStoreEarning({ operationId: source.tag, snapshot: source.snapshot }, { allowTestOnlyBypass: true });
+    await createStoreEarningReconciliation({ caseKey: `${source.tag}:synthetic-exception`, storeEarningId: earning.id, reason: "APPLICATION_FAILURE", priority: "HIGH", safeSummary: `Synthetic store finance review at ${width}px; no provider or commercial approval.`, safeEvidence: { fixture: "disposable-store-finance", privateMarker: "PRIVATE_INTERNAL_STORE_FINANCE_EVIDENCE" } });
+  }
+  for (const width of [1440, 390]) {
+    const { store } = await upsertStore(`e2e-withdrawal-store-${width}@ktcouriers.local`, `e2e-withdrawal-store-${width}`, "Disposable withdrawal store", passwordHash);
+    await createDisposableOwnerWithdrawalSource({ storeId: store.id });
+    await createDisposableDriverWithdrawalSource({ email: `e2e-withdrawal-driver-${width}@ktcouriers.local`, passwordHash });
+  }
+  for (const width of [1440, 390]) {
+    const { store } = await upsertStore(`e2e-withdrawal-finance-${width}@ktcouriers.local`, `e2e-withdrawal-finance-${width}`, "Disposable withdrawal finance owner", passwordHash);
+    await createDisposableOwnerWithdrawalSource({ storeId: store.id });
+  }
   console.log("E2E fixtures are ready.");
 }
 

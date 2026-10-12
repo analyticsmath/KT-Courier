@@ -6,9 +6,8 @@ export const WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED = false;
 export const WITHDRAWAL_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED";
 
 export function withdrawalProductionReadiness(source: Record<string, string | undefined> = process.env) {
-  const payoutApproved = source.WITHDRAWAL_PAYOUT_ENABLED === "true" || WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED;
-  const isProduction = source.NODE_ENV === "production" && source.KT_RUNTIME_ENV !== "e2e";
-  const active = !isProduction || payoutApproved;
+  const isProduction = source.NODE_ENV === "production";
+  const active = !isProduction || WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED;
   return Object.freeze({
     productionActive: active,
     payoutEnabled: source.WITHDRAWAL_PAYOUT_ENABLED === "true",

@@ -10,6 +10,7 @@ import {
 
 const root = process.cwd();
 const seed = readFileSync(path.join(root, "prisma", "seed.ts"), "utf8");
+const permissionBootstrap = readFileSync(path.join(root, "lib/auth/permission-bootstrap.ts"), "utf8");
 
 function isUnique(values: string[]): boolean {
   return new Set(values).size === values.length;
@@ -30,8 +31,9 @@ describe("seed idempotency contract", () => {
   });
 
   it("uses upserts for contract records and never logs password values", () => {
-    expect(seed).toMatch(/prisma\.permission\.upsert/);
-    expect(seed).toMatch(/prisma\.rolePermission\.upsert/);
+    expect(seed).toMatch(/installSystemPermissionDefaults\(prisma\)/);
+    expect(permissionBootstrap).toMatch(/db\.permission\.upsert/);
+    expect(permissionBootstrap).toMatch(/db\.rolePermission\.upsert/);
     expect(seed).not.toMatch(/prisma\.subscriptionPlan\.(?:create|createMany|update|updateMany|upsert)/);
     expect(seed).not.toMatch(/prisma\.subscriptionProgram\.(?:create|createMany|update|updateMany|upsert)/);
     expect(seed).toMatch(/prisma\.adPlacement\.upsert/);

@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 735,
+    "totalRoutes": 745,
     "totalServerActions": 0,
-    "publicRoutes": 116,
-    "authenticatedRoutes": 616,
-    "permissionGatedRoutes": 500,
+    "publicRoutes": 97,
+    "authenticatedRoutes": 645,
+    "permissionGatedRoutes": 506,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 192,
-    "generatedAt": "2026-10-06T11:10:00.000Z"
+    "rateLimitedRoutes": 200,
+    "generatedAt": "2026-10-08T18:31:25.629Z"
   },
   "serverActions": [],
   "routes": [
@@ -2478,6 +2478,23 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/marketplace-delivery-policy/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/admin/marketplace-orders/[id]/route.ts",
       "httpMethods": [
         "ALL"
@@ -2529,6 +2546,25 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/marketplace-trusted-packages/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/admin/notifications/categories/[reference]/route.ts",
       "httpMethods": [
         "PATCH"
@@ -2573,15 +2609,12 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [
-        "notification_template.read",
-        "action-specific:notification_template.approve|notification_template.publish|notification_route.manage|notification_route.approve|notification_route.activate"
-      ],
+      "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Same-origin notificationAdminAccess and authenticated actor; finite action-specific permissions; serialized canonical review transitions preserve approver/publisher separation. Runtime access tests included."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/admin/notifications/deliveries/[reference]/retry/route.ts",
@@ -3152,10 +3185,29 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/admin/payment-policies/route.ts",
+      "routePath": "app/api/admin/parcel-profiles/route.ts",
       "httpMethods": [
         "GET",
         "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/payment-policies/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
       ],
       "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
       "requiredRoles": [
@@ -3523,6 +3575,25 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/production-readiness/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -8003,12 +8074,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8018,12 +8092,15 @@
         "POST",
         "DELETE"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8032,12 +8109,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8047,12 +8127,15 @@
         "PATCH",
         "DELETE"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8061,12 +8144,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8089,12 +8175,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8103,12 +8192,15 @@
       "httpMethods": [
         "GET"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8131,12 +8223,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8145,12 +8240,51 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/checkout/[reference]/contact-notifications/route.ts",
+      "httpMethods": [
+        "PUT"
+      ],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/checkout/[reference]/contact-verification/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8159,12 +8293,15 @@
       "httpMethods": [
         "PUT"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8173,12 +8310,15 @@
       "httpMethods": [
         "PUT"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8187,12 +8327,15 @@
       "httpMethods": [
         "PUT"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8201,12 +8344,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8215,12 +8361,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8229,12 +8378,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8243,12 +8395,15 @@
       "httpMethods": [
         "GET"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8257,12 +8412,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8271,12 +8429,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8285,12 +8446,15 @@
       "httpMethods": [
         "GET"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8313,12 +8477,15 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "PUBLIC_BY_DESIGN",
-      "requiredRoles": [],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -8568,6 +8735,22 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/driver/assignments/[id]/delivery/proof/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "DRIVER_SESSION",
+      "requiredRoles": [
+        "DRIVER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9198,6 +9381,7 @@
     {
       "routePath": "app/api/marketplace-orders/[reference]/store-orders/[storeOrderReference]/actions/route.ts",
       "httpMethods": [
+        "GET",
         "POST"
       ],
       "authorizationMechanism": "AUTHENTICATED_SESSION",
@@ -10366,6 +10550,20 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/public/parcel-profiles/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "PUBLIC_BY_DESIGN",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/ready/route.ts",
       "httpMethods": [
         "GET"
@@ -10838,6 +11036,42 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/store/catalog/inventory/upload/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [
+        "catalog_inventory.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/store/catalog/listing-drafts/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/store/catalog/media/[publicReference]/archive/route.ts",
       "httpMethods": [
         "POST"
@@ -10876,19 +11110,17 @@
       "httpMethods": [
         "POST"
       ],
-      "authorizationMechanism": "AUTHENTICATED_SESSION_AND_STORE_PERMISSION",
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
       "requiredRoles": [
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [
-        "products"
-      ],
-      "rateLimitingApplied": true,
-      "idempotencyEnforced": true,
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Active business account and scoped storeAccess; catalogue image uploads additionally require CATALOG_MANAGE. Same-origin mutation, bounded multipart, per-user rate limit and owner-scoped media evidence."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/store/catalog/media/route.ts",
@@ -11582,21 +11814,20 @@
       "routePath": "app/api/store/profile-media/route.ts",
       "httpMethods": [
         "GET",
-        "POST"
+        "POST",
+        "DELETE"
       ],
-      "authorizationMechanism": "AUTHENTICATED_SESSION_AND_STORE_PERMISSION",
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
       "requiredRoles": [
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [
-        "settings"
-      ],
+      "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Active business account and scoped storeAccess; catalogue image uploads additionally require CATALOG_MANAGE. Same-origin mutation, bounded multipart, per-user rate limit and owner-scoped media evidence."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/store/profile/route.ts",

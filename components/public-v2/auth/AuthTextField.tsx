@@ -15,7 +15,7 @@ export function AuthTextField({ label, error, hint, id, required, ...props }: Au
   return (
     <div className={styles.fieldGroup}>
       <label className={styles.fieldLabel} htmlFor={id}>
-        {label}{required ? <span className={styles.required}> *</span> : null}
+        {label}{required ? <span aria-hidden="true" className={styles.required}> *</span> : null}
       </label>
       <input
         {...props}

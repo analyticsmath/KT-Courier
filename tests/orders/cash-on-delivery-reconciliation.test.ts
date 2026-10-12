@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
 import {
   createCashOnDeliveryObligation,
   recordCashCollection,
   reconcileCashCollection,
   adjustCashOnDelivery,
+  recordCashCollectionFailure,
 } from "@/lib/services/cash-on-delivery.service";
 import { prisma } from "@/lib/db/prisma";
 
@@ -26,6 +28,8 @@ vi.mock("@/lib/db/prisma", () => {
     driverProfile: {
       findUnique: vi.fn(async () => ({ id: "drv_001", status: "ACTIVE" })),
     },
+    cashOnDeliveryReconciliation: { findUnique: vi.fn(async () => null) },
+    cashOnDeliveryEvent: { findUnique: vi.fn(async () => null) },
     cashOnDelivery: {
       findUnique: vi.fn(),
       create: vi.fn(async (args: any) => ({
@@ -138,6 +142,8 @@ vi.mock("@/lib/db/prisma", () => {
 describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (prisma.cashOnDeliveryEvent.findUnique as any).mockResolvedValue(null);
+    (prisma.cashOnDeliveryReconciliation.findUnique as any).mockResolvedValue(null);
   });
 
   describe("createCashOnDeliveryObligation Boundary", () => {
@@ -179,6 +185,11 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
   });
 
   describe("recordCashCollection Boundary", () => {
+    it("refuses unready collection before creating any custody account", async () => {
+      (prisma.cashOnDelivery.findUnique as any).mockResolvedValue({ id: "cod-pending", status: "PENDING", order: { currentDriverProfileId: null, status: "PENDING" } });
+      await expect(recordCashCollection({ orderId: "order-pending", collectorDriverId: "drv_001", actorUserId: "driver-user", amount: "10.00", operationId: "denied-operation" })).rejects.toMatchObject({ code: "COD_COLLECTOR_NOT_AUTHORIZED" });
+      expect(prisma.wallet.create).not.toHaveBeenCalled(); expect(prisma.ledgerAccount.create).not.toHaveBeenCalled(); expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+    });
     it("debits driver custody and credits customer funds held on collection", async () => {
       const mockCod = {
         id: "cod_collect",
@@ -209,6 +220,7 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
           }),
         }),
       );
+      expect(prisma.ledgerAccount.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ purpose: "COD_SHORTAGE_SUSPENSE", code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR", allowNegative: false }) }));
 
       expect(prisma.ledgerEntry.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -299,6 +311,16 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
   });
 
   describe("adjustCashOnDelivery Boundary", () => {
+    it("binds replay to the full immutable adjustment payload and actor", async () => {
+      const input = { orderId: "order", actorUserId: "reviewer", adjustmentReason: "Synthetic shortage", adjustmentType: "RECOVER_FROM_DRIVER" as const, operationId: "operation-adjustment" };
+      const requestHash = createHash("sha256").update(JSON.stringify({ orderId: input.orderId, reason: input.adjustmentReason, type: input.adjustmentType, notes: null })).digest("hex");
+      (prisma.cashOnDelivery.findUnique as any).mockResolvedValue({ id: "cod", status: "RECONCILED", adjustmentJournalId: "journal" });
+      (prisma.cashOnDeliveryEvent.findUnique as any).mockResolvedValue({ cashOnDeliveryId: "cod", eventType: "ADMIN_ADJUSTED", requestHash, actorUserId: input.actorUserId });
+      await expect(adjustCashOnDelivery(input)).resolves.toMatchObject({ id: "cod" });
+      await expect(adjustCashOnDelivery({ ...input, adjustmentType: "FORGIVE_SHORTAGE" })).rejects.toMatchObject({ code: "COD_ADJUSTMENT_CONFLICT" });
+      await expect(adjustCashOnDelivery({ ...input, actorUserId: "other" })).rejects.toMatchObject({ code: "COD_ADJUSTMENT_CONFLICT" });
+      expect(prisma.cashOnDelivery.update).not.toHaveBeenCalled();
+    });
     it("clears suspense to platform adjustment on FORGIVE_SHORTAGE and transitions to RECONCILED", async () => {
       const mockCod = {
         id: "cod_adj",
@@ -396,5 +418,26 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
         }),
       );
     });
+  });
+
+  it("replays only the same bound remittance receipt after reconciliation", async () => {
+    const input = { orderId: "order", actorUserId: "reviewer", receivedAmount: "10.00", operationId: "remittance-operation", evidenceReference: "synthetic-receipt" };
+    const requestHash = createHash("sha256").update(JSON.stringify({ orderId: input.orderId, received: input.receivedAmount, evidenceReference: input.evidenceReference })).digest("hex");
+    (prisma.cashOnDelivery.findUnique as any).mockResolvedValue({ id: "cod", collectorDriverId: "driver", status: "RECONCILED", reconciliationJournalId: "journal" });
+    (prisma.cashOnDeliveryReconciliation.findUnique as any).mockResolvedValue({ cashOnDeliveryId: "cod", collectorDriverId: "driver", reconciledByUserId: input.actorUserId, requestHash });
+    await expect(reconcileCashCollection(input)).resolves.toMatchObject({ id: "cod" });
+    await expect(reconcileCashCollection({ ...input, receivedAmount: "10.01" })).rejects.toMatchObject({ code: "COD_RECONCILIATION_CONFLICT" });
+    await expect(reconcileCashCollection({ ...input, evidenceReference: "changed" })).rejects.toMatchObject({ code: "COD_RECONCILIATION_CONFLICT" });
+    expect(prisma.cashOnDelivery.update).not.toHaveBeenCalled();
+  });
+
+  it("replays a failed collection without inventing money and denies a changed failure", async () => {
+    const input = { orderId: "order", collectorDriverId: "driver", actorUserId: "driver-user", reasonCode: "INSUFFICIENT_CASH" as const, operationId: "failure-operation" };
+    const requestHash = createHash("sha256").update(JSON.stringify({ orderId: input.orderId, collectorDriverId: input.collectorDriverId, reasonCode: input.reasonCode })).digest("hex");
+    (prisma.cashOnDelivery.findUnique as any).mockResolvedValue({ id: "cod", status: "COLLECTION_FAILED", order: { currentDriverProfileId: "driver", status: "IN_TRANSIT" } });
+    (prisma.cashOnDeliveryEvent.findUnique as any).mockResolvedValue({ cashOnDeliveryId: "cod", eventType: "COLLECTION_FAILED", actorUserId: input.actorUserId, requestHash });
+    await expect(recordCashCollectionFailure(input)).resolves.toMatchObject({ id: "cod" });
+    await expect(recordCashCollectionFailure({ ...input, reasonCode: "CUSTOMER_REFUSED" })).rejects.toMatchObject({ code: "COD_COLLECTION_CONFLICT" });
+    expect(prisma.cashOnDelivery.update).not.toHaveBeenCalled();
   });
 });

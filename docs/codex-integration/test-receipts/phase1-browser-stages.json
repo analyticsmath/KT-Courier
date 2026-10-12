@@ -1,0 +1,160 @@
+[
+  {
+    "stage": "storefront-variant-target",
+    "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "command": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "node_modules\\playwright\\cli.js",
+      "test",
+      "tests/e2e/storefront-browsing.spec.ts",
+      "--grep=product detail page displays store",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/storefront-variant-target",
+      "--reporter=list,json"
+    ],
+    "exitCode": 0,
+    "expectedTests": 1,
+    "testsPassed": 1,
+    "skipped": 0,
+    "flaky": 0,
+    "durationMs": 13411,
+    "status": "PASS"
+  },
+  {
+    "stage": "storefront-product-detail",
+    "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "command": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "node_modules\\playwright\\cli.js",
+      "test",
+      "tests/e2e/storefront-product-detail.spec.ts",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/storefront-product-detail",
+      "--reporter=list,json"
+    ],
+    "exitCode": 0,
+    "expectedTests": 4,
+    "testsPassed": 4,
+    "skipped": 0,
+    "flaky": 0,
+    "durationMs": 13890,
+    "status": "PASS"
+  },
+  {
+    "stage": "catalog-1440",
+    "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "command": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "node_modules\\playwright\\cli.js",
+      "test",
+      "tests/e2e/store-product-catalog.spec.ts",
+      "tests/e2e/catalog-administration.spec.ts",
+      "--grep=1440px",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/catalog-1440",
+      "--reporter=list,json"
+    ],
+    "exitCode": 0,
+    "expectedTests": 2,
+    "testsPassed": 2,
+    "skipped": 0,
+    "flaky": 0,
+    "durationMs": 45821,
+    "status": "PASS"
+  },
+  {
+    "stage": "catalog-both",
+    "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "command": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "node_modules\\playwright\\cli.js",
+      "test",
+      "tests/e2e/store-product-catalog.spec.ts",
+      "tests/e2e/catalog-administration.spec.ts",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/catalog-both",
+      "--reporter=list,json"
+    ],
+    "exitCode": 0,
+    "expectedTests": 4,
+    "testsPassed": 4,
+    "skipped": 0,
+    "flaky": 0,
+    "durationMs": 77939,
+    "status": "PASS"
+  },
+  {
+    "stage": "employee-1440",
+    "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "command": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "node_modules\\playwright\\cli.js",
+      "test",
+      "tests/e2e/business-employee-access.spec.ts",
+      "--grep=1440px",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/employee-1440",
+      "--reporter=list,json"
+    ],
+    "exitCode": 0,
+    "expectedTests": 1,
+    "testsPassed": 1,
+    "skipped": 0,
+    "flaky": 0,
+    "durationMs": 22953,
+    "status": "PASS"
+  },
+  {
+    "stage": "employee-both",
+    "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "command": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "node_modules\\playwright\\cli.js",
+      "test",
+      "tests/e2e/business-employee-access.spec.ts",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/employee-both",
+      "--reporter=list,json"
+    ],
+    "exitCode": 0,
+    "expectedTests": 2,
+    "testsPassed": 2,
+    "skipped": 0,
+    "flaky": 0,
+    "durationMs": 37116,
+    "status": "PASS"
+  },
+  {
+    "stage": "full-chromium",
+    "commitSha": "6eed666775a30db5e7e4a70208c418072b76053b",
+    "command": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "node_modules\\playwright\\cli.js",
+      "test",
+      "--project=chromium",
+      "--retries=0",
+      "--workers=1",
+      "--output=test-results/full-chromium",
+      "--reporter=list,json"
+    ],
+    "exitCode": null,
+    "expectedTests": 139,
+    "testsPassed": null,
+    "skipped": null,
+    "flaky": null,
+    "durationMs": 1200153,
+    "status": "FAIL"
+  }
+]

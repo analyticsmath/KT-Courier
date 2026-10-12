@@ -19,7 +19,7 @@ export function PasswordField({ label, error, hint, id, required, ...props }: Pa
   return (
     <div className={styles.fieldGroup}>
       <label className={styles.fieldLabel} htmlFor={id}>
-        {label}{required ? <span className={styles.required}> *</span> : null}
+        {label}{required ? <span aria-hidden="true" className={styles.required}> *</span> : null}
       </label>
       <div className={styles.passwordWrap}>
         <input

@@ -56,17 +56,17 @@ export async function startWithdrawalPayout(input: Readonly<{ actorUserId: strin
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(operationId)) throw new WithdrawalError("WITHDRAWAL_INVALID_INPUT", "A valid operation ID is required.");
   return withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const withdrawal = await lockWithdrawal(tx, input.publicReference);
-    if (withdrawal.status !== "APPROVED" || !withdrawal.approvedByUserId) throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Only approved withdrawals can start payout processing.");
-    if (withdrawal.requestedByUserId === input.actorUserId) throw new WithdrawalError("WITHDRAWAL_DUAL_CONTROL_REQUIRED", "The requester cannot process their own withdrawal.");
-    if (withdrawal.payoutDestination.status !== "ACTIVE") throw new WithdrawalError("WITHDRAWAL_DESTINATION_INACTIVE", "The payout destination is not active.");
-    const active = await tx.withdrawalPayoutAttempt.count({ where: { withdrawalId: withdrawal.id, status: { in: ["RESERVED", "PROCESSING", "UNKNOWN"] } } });
-    if (active > 0) throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "This withdrawal already has an active payout attempt.");
     const requestHash = payoutAttemptHash({ withdrawalId: withdrawal.id, operationId, actorUserId: input.actorUserId });
     const existing = await tx.withdrawalPayoutAttempt.findUnique({ where: { idempotencyKey: operationId } });
     if (existing) {
       if (existing.requestHash !== requestHash || existing.withdrawalId !== withdrawal.id) throw new WithdrawalError("WITHDRAWAL_IDEMPOTENCY_CONFLICT", "The operation ID belongs to a different payout attempt.");
       return existing;
     }
+    if (withdrawal.status !== "APPROVED" || !withdrawal.approvedByUserId) throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Only approved withdrawals can start payout processing.");
+    if (withdrawal.requestedByUserId === input.actorUserId) throw new WithdrawalError("WITHDRAWAL_DUAL_CONTROL_REQUIRED", "The requester cannot process their own withdrawal.");
+    if (withdrawal.payoutDestination.status !== "ACTIVE") throw new WithdrawalError("WITHDRAWAL_DESTINATION_INACTIVE", "The payout destination is not active.");
+    const active = await tx.withdrawalPayoutAttempt.count({ where: { withdrawalId: withdrawal.id, status: { in: ["RESERVED", "PROCESSING", "UNKNOWN"] } } });
+    if (active > 0) throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "This withdrawal already has an active payout attempt.");
     const now = new Date();
     const attempt = await tx.withdrawalPayoutAttempt.create({ data: { publicReference: payoutAttemptReference(), withdrawalId: withdrawal.id, attemptNumber: withdrawal.latestAttemptNumber + 1, method: "MANUAL_EXTERNAL", status: "RESERVED", idempotencyKey: operationId, requestHash, initiatedByUserId: input.actorUserId } });
     const processingAttempt = await tx.withdrawalPayoutAttempt.update({ where: { id: attempt.id }, data: { status: "PROCESSING", startedAt: now, version: { increment: 1 } } });
