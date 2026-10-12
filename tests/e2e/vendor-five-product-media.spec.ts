@@ -34,7 +34,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const absentEmail = `e2e-no-account-${tag}@ktcouriers.local`;
   const absentResend = await page.request.post("/api/auth/resend-otp", { headers, data: { email: absentEmail } });
   const pendingResend = await page.request.post("/api/auth/resend-otp", { headers, data: { email } });
-  expect(absentResend.status()).toBe(200); expect(pendingResend.status()).toBe(200);
+  expect(absentResend.status()).toBe(202); expect(pendingResend.status()).toBe(202);
   expect(pendingResend.status()).toBe(absentResend.status()); expect(await pendingResend.json()).toEqual(await absentResend.json());
   const otp = await prisma.otpCode.findFirstOrThrow({ where: { userId: owner.id, consumedAt: null, purpose: "EMAIL_VERIFICATION" }, orderBy: { createdAt: "desc" } });
   const intent = await prisma.notificationEventIntent.findUniqueOrThrow({ where: { operationId: `email-verification:${otp.id}` } });

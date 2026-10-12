@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
   if (!user || user.status !== UserStatus.PENDING_VERIFICATION) {
     return NextResponse.json({
       message: VERIFICATION_NOTICE,
-    });
+      ...(process.env.NODE_ENV === "production" && { deliveryPending: true }),
+    }, { status: process.env.NODE_ENV === "production" ? 202 : 200, headers: { "Cache-Control": "no-store" } });
   }
 
   const code = generateOtpCode();
@@ -114,17 +115,19 @@ export async function POST(req: NextRequest) {
   if (!queued) return accountEmailQueueFailureResponse();
 
   if (process.env.NODE_ENV === "production" && queued.deliveryId) {
-    const delivered = await deliverSecurityEmail(queued.deliveryId).catch(
+    // The durable outbox owns retries. Inline provider failure must not turn a
+    // committed request into an account-existence signal or claim delivery.
+    await deliverSecurityEmail(queued.deliveryId).catch(
       () => null,
     );
-    if (!delivered?.accepted) return accountEmailQueueFailureResponse();
   }
 
   return NextResponse.json({
     message: VERIFICATION_NOTICE,
+    ...(process.env.NODE_ENV === "production" && { deliveryPending: true }),
     ...(process.env.NODE_ENV !== "production" && {
       _dev_otp: code,
       _dev_note: "OTP visible in development only.",
     }),
-  });
+  }, { status: process.env.NODE_ENV === "production" ? 202 : 200, headers: { "Cache-Control": "no-store" } });
 }
