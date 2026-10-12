@@ -1,0 +1,391 @@
+{
+  "schemaVersion": 1,
+  "checkedAtUtc": "2026-10-12T08:33:18.186Z",
+  "source": {
+    "branch": "main",
+    "commitSha": "bd7a6dfb5920a8e8c06a0b772896164a931d4721"
+  },
+  "railway": {
+    "projectId": "e9554aaa-1b53-4595-8731-e8c2885ac594",
+    "environment": {
+      "id": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+      "name": "production"
+    },
+    "web": {
+      "service": {
+        "id": "55254aaf-3719-4da9-a5b6-9214417101c6",
+        "name": "web"
+      },
+      "environment": {
+        "id": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+        "name": "production"
+      },
+      "config": {
+        "source": {
+          "repo": "analyticsmath/KT-Courier",
+          "branch": "main",
+          "checkSuites": false
+        },
+        "networking": {
+          "serviceDomains": {
+            "web-production-9f8bb.up.railway.app": {}
+          }
+        },
+        "build": {
+          "builder": "DOCKERFILE",
+          "watchPatterns": [
+            "/.release-control/approved-production-deploy-only-2026-10-12"
+          ],
+          "buildEnvironment": "V3",
+          "dockerfilePath": "Dockerfile"
+        },
+        "deploy": {
+          "startCommand": "node server.js",
+          "preDeployCommand": [
+            "sh -lc './node_modules/.bin/prisma migrate deploy && node node_modules/tsx/dist/cli.mjs scripts/initialize-client-delivery.ts && node node_modules/tsx/dist/cli.mjs scripts/initialize-reviewed-client-launch.ts && node node_modules/tsx/dist/cli.mjs scripts/audit-reviewed-production.ts'"
+          ],
+          "preDeployTimeoutSeconds": 300,
+          "healthcheckPath": "/api/ready",
+          "healthcheckTimeout": 60,
+          "restartPolicyMaxRetries": 5,
+          "useLegacyStacker": false,
+          "ipv6EgressEnabled": false,
+          "runtime": "V2",
+          "multiRegionConfig": {
+            "europe-west4-drams3a": {
+              "numReplicas": 1
+            }
+          }
+        }
+      },
+      "variableNames": [
+        "ALLOWED_ORIGINS",
+        "AUTH_OTP_HMAC_KEY",
+        "CATALOG_MEDIA_DELIVERY",
+        "CATALOG_MEDIA_S3_ACCESS_KEY_ID",
+        "CATALOG_MEDIA_S3_BUCKET",
+        "CATALOG_MEDIA_S3_ENDPOINT",
+        "CATALOG_MEDIA_S3_REGION",
+        "CATALOG_MEDIA_S3_SECRET_ACCESS_KEY",
+        "CATALOG_MEDIA_STORAGE",
+        "CHECKOUT_PUBLIC_ENABLED",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "CLOUDINARY_CATALOG_PREFIX",
+        "CLOUDINARY_CLOUD_NAME",
+        "CORS_ALLOW_ORIGIN",
+        "CRON_SECRET",
+        "DATABASE_URL",
+        "DEPLOYMENT_VERSION",
+        "DEVELOPER_API_CREDENTIAL_HMAC_KEY",
+        "DEVELOPER_API_CURSOR_HMAC_KEY",
+        "DEVELOPER_WEBHOOK_ENCRYPTION_KEY",
+        "EMAIL_FROM",
+        "EMAIL_PROVIDER",
+        "EMAIL_REPLY_TO",
+        "GOOGLE_MAPS_SERVER_KEY",
+        "INTERNAL_JOB_SECRET",
+        "KT_ALLOW_DEMO_SEED",
+        "KT_DATABASE_CLASSIFICATION",
+        "KT_DEMO_ACCOUNT_PASSWORD",
+        "KT_NEXT_BUILD_CPUS",
+        "KT_PRODUCTION_DEMO_UNIVERSE_SEED",
+        "KT_PRODUCTION_SHOWCASE_CATALOG_SEED",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY",
+        "NODE_ENV",
+        "NOTIFICATION_PRODUCTION_VALIDATION_APPROVED",
+        "NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY",
+        "PAYFAST_MODE",
+        "PAYMENT_APP_ORIGIN",
+        "PAYMENT_PROXY_MODE",
+        "PAYSTACK_CREDENTIAL_VERSION",
+        "PAYSTACK_MODE",
+        "PAYSTACK_PUBLIC_KEY",
+        "PAYSTACK_SECRET_KEY",
+        "PRIVATE_MEDIA_S3_ACCESS_KEY_ID",
+        "PRIVATE_MEDIA_S3_BUCKET",
+        "PRIVATE_MEDIA_S3_ENDPOINT",
+        "PRIVATE_MEDIA_S3_REGION",
+        "PRIVATE_MEDIA_S3_SECRET_ACCESS_KEY",
+        "PRIVATE_MEDIA_STORAGE",
+        "PROMOTION_CODE_HMAC_KEY",
+        "READINESS_INTERNAL_AUTH_SECRET",
+        "REDIS_URL",
+        "REPORT_ARTIFACT_S3_ACCESS_KEY_ID",
+        "REPORT_ARTIFACT_S3_BUCKET",
+        "REPORT_ARTIFACT_S3_ENDPOINT",
+        "REPORT_ARTIFACT_S3_REGION",
+        "REPORT_ARTIFACT_S3_SECRET_ACCESS_KEY",
+        "REPORT_ARTIFACT_STORAGE",
+        "RESEND_API_KEY",
+        "TRUSTED_PROXY_MODE",
+        "WITHDRAWAL_PAYOUT_ENABLED"
+      ],
+      "staged": null
+    },
+    "worker": {
+      "service": {
+        "id": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "name": "query-storefront-categories"
+      },
+      "environment": {
+        "id": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+        "name": "production"
+      },
+      "config": {
+        "source": {
+          "repo": "analyticsmath/KT-Courier",
+          "branch": "main",
+          "checkSuites": false
+        },
+        "build": {
+          "builder": "DOCKERFILE",
+          "watchPatterns": [
+            "/.release-control/approved-production-deploy-only-2026-10-12"
+          ],
+          "buildEnvironment": "V3",
+          "dockerfilePath": "Dockerfile.operations"
+        },
+        "deploy": {
+          "startCommand": "sh -lc 'node node_modules/tsx/dist/cli.mjs scripts/audit-reviewed-production.ts && exec node node_modules/tsx/dist/cli.mjs scripts/production-processors.ts'",
+          "preDeployCommand": [
+            "node scripts/validate-isolated-production-processors.mjs"
+          ],
+          "preDeployTimeoutSeconds": 1800,
+          "healthcheckPath": "/health",
+          "healthcheckTimeout": 120,
+          "restartPolicyMaxRetries": 3,
+          "useLegacyStacker": false,
+          "ipv6EgressEnabled": false,
+          "runtime": "V2",
+          "multiRegionConfig": {
+            "europe-west4-drams3a": {
+              "numReplicas": 1
+            }
+          }
+        }
+      },
+      "variableNames": [
+        "ALLOWED_ORIGINS",
+        "AUTH_OTP_HMAC_KEY",
+        "CATALOG_MEDIA_DELIVERY",
+        "CATALOG_MEDIA_S3_ACCESS_KEY_ID",
+        "CATALOG_MEDIA_S3_BUCKET",
+        "CATALOG_MEDIA_S3_ENDPOINT",
+        "CATALOG_MEDIA_S3_REGION",
+        "CATALOG_MEDIA_S3_SECRET_ACCESS_KEY",
+        "CATALOG_MEDIA_STORAGE",
+        "CHECKOUT_PUBLIC_ENABLED",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "CLOUDINARY_CATALOG_PREFIX",
+        "CLOUDINARY_CLOUD_NAME",
+        "CORS_ALLOW_ORIGIN",
+        "CRON_SECRET",
+        "DATABASE_URL",
+        "DEPLOYMENT_VERSION",
+        "DEVELOPER_API_CREDENTIAL_HMAC_KEY",
+        "DEVELOPER_API_CURSOR_HMAC_KEY",
+        "DEVELOPER_WEBHOOK_ENCRYPTION_KEY",
+        "EMAIL_FROM",
+        "EMAIL_PROVIDER",
+        "EMAIL_REPLY_TO",
+        "GOOGLE_MAPS_SERVER_KEY",
+        "INTERNAL_JOB_SECRET",
+        "KT_DATABASE_CLASSIFICATION",
+        "KT_LEGACY_6AMMART_PRODUCTION_APPROVED",
+        "KT_LEGACY_PAYLOAD_00",
+        "KT_LEGACY_PAYLOAD_01",
+        "KT_LEGACY_PAYLOAD_02",
+        "KT_LEGACY_PAYLOAD_03",
+        "KT_LEGACY_PAYLOAD_04",
+        "KT_LEGACY_PAYLOAD_05",
+        "KT_LEGACY_PAYLOAD_06",
+        "KT_LEGACY_PAYLOAD_07",
+        "KT_LEGACY_PAYLOAD_08",
+        "KT_LEGACY_PAYLOAD_09",
+        "KT_LEGACY_PAYLOAD_10",
+        "KT_LEGACY_PAYLOAD_11",
+        "KT_LEGACY_PAYLOAD_12",
+        "KT_LEGACY_PAYLOAD_13",
+        "KT_LEGACY_PAYLOAD_14",
+        "KT_LEGACY_PAYLOAD_15",
+        "KT_LEGACY_PAYLOAD_16",
+        "KT_LEGACY_PAYLOAD_CHUNKS",
+        "KT_LEGACY_PAYLOAD_SHA256",
+        "KT_NEXT_BUILD_CPUS",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY",
+        "NODE_ENV",
+        "NOTIFICATION_PRODUCTION_VALIDATION_APPROVED",
+        "NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY",
+        "PAYFAST_MODE",
+        "PAYMENT_APP_ORIGIN",
+        "PAYMENT_PROXY_MODE",
+        "PAYSTACK_CREDENTIAL_VERSION",
+        "PAYSTACK_MODE",
+        "PAYSTACK_PUBLIC_KEY",
+        "PAYSTACK_SECRET_KEY",
+        "PRIVATE_MEDIA_S3_ACCESS_KEY_ID",
+        "PRIVATE_MEDIA_S3_BUCKET",
+        "PRIVATE_MEDIA_S3_ENDPOINT",
+        "PRIVATE_MEDIA_S3_REGION",
+        "PRIVATE_MEDIA_S3_SECRET_ACCESS_KEY",
+        "PRIVATE_MEDIA_STORAGE",
+        "PROMOTION_CODE_HMAC_KEY",
+        "READINESS_INTERNAL_AUTH_SECRET",
+        "REDIS_URL",
+        "REPORT_ARTIFACT_S3_ACCESS_KEY_ID",
+        "REPORT_ARTIFACT_S3_BUCKET",
+        "REPORT_ARTIFACT_S3_ENDPOINT",
+        "REPORT_ARTIFACT_S3_REGION",
+        "REPORT_ARTIFACT_S3_SECRET_ACCESS_KEY",
+        "REPORT_ARTIFACT_STORAGE",
+        "RESEND_API_KEY",
+        "TRUSTED_PROXY_MODE",
+        "WITHDRAWAL_PAYOUT_ENABLED"
+      ],
+      "staged": {
+        "patchId": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+        "patchStatus": "STAGED",
+        "changeCount": 1,
+        "config": {
+          "isDeleted": true
+        },
+        "variableNames": []
+      }
+    },
+    "deployments": [
+      {
+        "id": "ec74f86d-f844-4375-9643-322c39fb5d75",
+        "status": "SKIPPED",
+        "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "commitSha": "bd7a6dfb5920a8e8c06a0b772896164a931d4721",
+        "createdAt": "2026-10-12T07:36:59.318Z",
+        "regions": []
+      },
+      {
+        "id": "87a33deb-8f28-4eac-bd39-0c34c87ef820",
+        "status": "SKIPPED",
+        "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+        "commitSha": "bd7a6dfb5920a8e8c06a0b772896164a931d4721",
+        "createdAt": "2026-10-12T07:36:59.293Z",
+        "regions": []
+      },
+      {
+        "id": "349dffa2-0a44-4bcd-aebf-7696574f76c4",
+        "status": "SKIPPED",
+        "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+        "commitSha": "99ed02d95258df46c7a1aa8b7cbed46137295b1f",
+        "createdAt": "2026-10-12T07:35:39.275Z",
+        "regions": []
+      },
+      {
+        "id": "2e7e3fb9-3691-4d0c-bd42-6a88e96fdde0",
+        "status": "SKIPPED",
+        "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "commitSha": "99ed02d95258df46c7a1aa8b7cbed46137295b1f",
+        "createdAt": "2026-10-12T07:35:39.187Z",
+        "regions": []
+      },
+      {
+        "id": "623e07b8-7116-44cf-b31b-78df02dfe1ee",
+        "status": "SKIPPED",
+        "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+        "commitSha": "e25449e43ad17e90230ae90721d52b8c5feb7703",
+        "createdAt": "2026-10-12T06:49:10.731Z",
+        "regions": []
+      },
+      {
+        "id": "10fb94b1-8565-49d1-93b5-5fc35085a8ac",
+        "status": "SKIPPED",
+        "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "commitSha": "e25449e43ad17e90230ae90721d52b8c5feb7703",
+        "createdAt": "2026-10-12T06:49:10.719Z",
+        "regions": []
+      },
+      {
+        "id": "8220e084-6ad3-4467-b3d8-65afe8fe29ff",
+        "status": "SUCCESS",
+        "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "commitSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+        "createdAt": "2026-10-06T21:07:20.323Z",
+        "regions": [
+          "europe-west4-drams3a"
+        ]
+      },
+      {
+        "id": "49d872d9-7fdb-442c-a4a4-cd01b70ff82f",
+        "status": "SUCCESS",
+        "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+        "commitSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+        "createdAt": "2026-10-06T21:07:19.791Z",
+        "regions": [
+          "europe-west4-drams3a"
+        ]
+      },
+      {
+        "id": "ff284931-f842-41bc-9651-42b70562a6f7",
+        "status": "REMOVED",
+        "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "commitSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+        "createdAt": "2026-10-06T21:05:14.173Z",
+        "regions": [
+          "europe-west4-drams3a"
+        ]
+      },
+      {
+        "id": "6be12b78-4e6c-489a-bf3f-9ee9e2d7fd3a",
+        "status": "REMOVED",
+        "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "commitSha": "7dc7317aa1952fbe2af245cae8ba5d36a4401298",
+        "createdAt": "2026-10-06T20:00:33.532Z",
+        "regions": [
+          "europe-west4-drams3a"
+        ]
+      }
+    ],
+    "pendingPatch": {
+      "id": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+      "status": "STAGED",
+      "changeCount": 5,
+      "destructive": true,
+      "resources": [
+        {
+          "id": "a5e3c97a-c6f1-4f92-9ab9-0caf00139bbe",
+          "name": "paystack-credential-test",
+          "action": "create",
+          "changedPaths": [
+            "services.a5e3c97a-c6f1-4f92-9ab9-0caf00139bbe.source.image",
+            "services.a5e3c97a-c6f1-4f92-9ab9-0caf00139bbe.deploy.restartPolicyType",
+            "services.a5e3c97a-c6f1-4f92-9ab9-0caf00139bbe.deploy.startCommand",
+            "services.a5e3c97a-c6f1-4f92-9ab9-0caf00139bbe.variables.PAYSTACK_SECRET_KEY.encryptedValue"
+          ]
+        },
+        {
+          "id": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+          "name": "query-storefront-categories",
+          "action": "delete",
+          "changedPaths": [
+            "services.fdd13e91-dffa-400e-9a44-ae2d1f891ff0.isDeleted"
+          ]
+        }
+      ]
+    }
+  },
+  "vercel": {
+    "projectId": "prj_Q6i3g8JIv1ibkXGspPotBem2FFLD",
+    "teamId": "team_VokbJb1VprvjeMjhEHIKCxCR",
+    "projectCliReadback": "MATCH",
+    "productionDeploymentCliReadback": {
+      "id": "dpl_5c9MCebLdhMKGp8XYJWV15HLiZKL",
+      "status": "READY"
+    },
+    "previewDisableReadback": "UNPROVEN",
+    "connectorReadback": "403_SCOPE_ACCESS"
+  },
+  "protectedProductionDataAccessed": false,
+  "productionMutated": false
+}
