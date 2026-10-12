@@ -11,7 +11,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <PublicMotionProvider>
       <PublicVisualRoot className="layout-public flex min-h-screen flex-col">
         <PublicHeader />
-        <main className="flex-1" id="main-content">
+        <main className="flex-1 scroll-mt-[66px] outline-none" id="main-content" tabIndex={-1}>
           <PublicPageTransition>{children}</PublicPageTransition>
         </main>
         <PublicFooter />

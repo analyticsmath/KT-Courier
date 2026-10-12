@@ -1,8 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { login, logout } from "./fixtures/auth";
 test("anonymous quote copy and form semantics work on desktop and mobile", async ({ page }) => {
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }, { width: 768, height: 1024 }, { width: 390, height: 844 }]) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 844 }, { width: 720, height: 450 }]) {
     await page.setViewportSize(viewport); await page.goto("/quote");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Skip to main content", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#main-content")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("group", { name: "Collection address", exact: true }).getByRole("textbox", { name: "Street address", exact: true })).toBeFocused();
     await expect(page.getByText("Get a quotation without an account.", { exact: false })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.getByLabel("Parcel size", { exact: true })).toBeVisible();
