@@ -23,7 +23,7 @@ export function CatalogOfferPublicationActions({ offerId, version, productVersio
       const response = await fetch(`/api/admin/catalog/offers/${offerId}/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...facts, operationId: operation.current.id }) });
       const result = await response.json();
       if (!response.ok) throw Error(result.error ?? "The offer action could not be completed.");
-      setMessage(action === "publish" ? "The reviewed listing is published." : "Offer review recorded. Publication is a separate action."); router.refresh();
+      setMessage(action === "publish" ? result.offer?.status === "ACTIVE" && result.offer?.publicationStatus === "PUBLISHED" ? "The reviewed listing is published." : "Publication receipt found. Review the current offer state." : "Offer review recorded. Publication is a separate action."); router.refresh();
     } catch (failure) { setError(failure instanceof TypeError ? "The result could not be confirmed. Retry unchanged fields to check its receipt." : failure instanceof Error ? failure.message : "The offer action could not be completed."); }
     finally { inFlight.current = false; setBusy(false); }
   }

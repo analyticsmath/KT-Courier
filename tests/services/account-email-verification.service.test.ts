@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { verifyAccountEmail } from "@/lib/services/account-email-verification.service";
+import { INVALID_VERIFICATION_NOTICE } from "@/lib/auth/public-auth-messages";
 const f = vi.hoisted(() => ({ identity: vi.fn(), user: vi.fn(), lock: vi.fn(), otp: vi.fn(), consume: vi.fn(), update: vi.fn(), session: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (work: (tx: unknown) => unknown) => work({ $queryRaw: f.lock, user: { findUnique: f.identity, findUniqueOrThrow: f.user, update: f.update }, otpCode: { findFirst: f.otp, updateMany: f.consume }, session: { create: f.session } }) } }));
 beforeEach(() => {
@@ -10,11 +11,11 @@ beforeEach(() => {
 describe("email verification eligibility and atomic session boundary (T1 doubles)", () => {
   it.each(["SUSPENDED", "DISABLED"])("never reactivates %s with an old code", async status => {
     f.user.mockResolvedValue({ id: "account", role: "CUSTOMER", status });
-    expect(await verifyAccountEmail("owned@example.test", "123456")).toMatchObject({ ok: false, status: 403 });
+    expect(await verifyAccountEmail("owned@example.test", "123456")).toMatchObject({ ok: false, status: 400, error: INVALID_VERIFICATION_NOTICE });
     expect(f.otp).not.toHaveBeenCalled(); expect(f.consume).not.toHaveBeenCalled(); expect(f.update).not.toHaveBeenCalled(); expect(f.session).not.toHaveBeenCalled();
   });
   it("does not consume a code when its account is missing", async () => {
-    f.identity.mockResolvedValue(null); expect(await verifyAccountEmail("missing@example.test", "123456")).toMatchObject({ ok: false, status: 404 });
+    f.identity.mockResolvedValue(null); expect(await verifyAccountEmail("missing@example.test", "123456")).toMatchObject({ ok: false, status: 400, error: INVALID_VERIFICATION_NOTICE });
     expect(f.lock).not.toHaveBeenCalled(); expect(f.consume).not.toHaveBeenCalled(); expect(f.session).not.toHaveBeenCalled();
   });
   it("refuses a missing or consumed matching code", async () => {
