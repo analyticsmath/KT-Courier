@@ -5,6 +5,25 @@ import { saveParcelProfile } from "@/lib/commercial/parcel-profiles";
 import { saveDeliveryMatrix, actOnDeliveryMatrix, listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { createCommissionPlan, submitCommissionPlan, approveCommissionPlan, activateCommissionPlan } from "@/lib/services/commission-plan.service";
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
+import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
+
+async function createSyntheticStoreCommission(storeId: string, slug: string, makerId: string, checkerId: string, residual = false) {
+  const plan = await createCommissionPlan({ subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${storeId}`, basisType: "ORDER_SUBTOTAL", effectiveFrom: "2026-01-01T00:00:00.000Z", calculationVersion: residual ? "disposable-residual-v2" : "disposable-browser-v1", rules: [{ ruleCode: "DISPOSABLE_PLATFORM", allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", ...(residual ? { calculationMethod: "PERCENTAGE_BPS" as const, rateBasisPoints: 5000 } : { calculationMethod: "FIXED_AMOUNT" as const, fixedAmount: "1.00" }), priority: 1 }], actorUserId: makerId, operationId: `disposable-${slug}-create` });
+  await submitCommissionPlan(plan.id, makerId, `disposable-${slug}-submit`);
+  await approveCommissionPlan(plan.id, checkerId, `disposable-${slug}-review`);
+  await activateCommissionPlan(plan.id, checkerId, `disposable-${slug}-activate`, { allowTestOnlyBypass: true });
+}
+
+/** Only supplies the already established synthetic commission fixture; never seller legal identity. */
+export async function createDisposableNewVendorCommission(storeId: string) {
+  assertDisposablePaystackAcceptance();
+  const rows = await prisma.$queryRaw<Array<{ database: string; role: string }>>`SELECT current_database() AS database, current_user AS role`;
+  if (rows[0]?.database !== "kt_phase75_e2e" || rows[0]?.role !== "kt_phase75_e2e") throw new Error("Disposable browser database identity is required.");
+  const store = await prisma.store.findUniqueOrThrow({ where: { id: storeId }, include: { ownerUser: { select: { email: true } } } });
+  if (store.status !== "ACTIVE" || !/^e2e-vendor-five-[a-f0-9]{8}@ktcouriers\.local$/.test(store.ownerUser?.email ?? "")) throw new Error("Only the new synthetic browser vendor is eligible for this fixture.");
+  const [maker, checker] = await Promise.all([prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" } }), prisma.user.findUniqueOrThrow({ where: { email: "disposable-checkout-reviewer@example.test" } })]);
+  await createSyntheticStoreCommission(store.id, store.slug, maker.id, checker.id);
+}
 
 /** Synthetic browser authority, never a production business approval or provider proof. */
 export async function createDisposableCheckoutAuthorities() {
@@ -28,11 +47,7 @@ export async function createDisposableCheckoutAuthorities() {
   for (const slug of ["e2e-store", "e2e-other-store"]) {
     const store = await prisma.store.findUniqueOrThrow({ where: { slug } });
     await prisma.storeSellerLegalIdentity.create({ data: { storeId: store.id, publicReference: `DISPOSABLE-SELLER-${slug}`, identityVersion: "disposable-v1", legalName: "Disposable browser seller; not a production legal entity", vatRegistrationStatus: "NOT_REGISTERED", status: "APPROVED", effectiveFrom: new Date("2026-01-01") } });
-    const residual = slug === "e2e-other-store";
-    const plan = await createCommissionPlan({ subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${store.id}`, basisType: "ORDER_SUBTOTAL", effectiveFrom: "2026-01-01T00:00:00.000Z", calculationVersion: residual ? "disposable-residual-v2" : "disposable-browser-v1", rules: [{ ruleCode: "DISPOSABLE_PLATFORM", allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", ...(residual ? { calculationMethod: "PERCENTAGE_BPS" as const, rateBasisPoints: 5000 } : { calculationMethod: "FIXED_AMOUNT" as const, fixedAmount: "1.00" }), priority: 1 }], actorUserId: maker.id, operationId: `disposable-${slug}-create` });
-    await submitCommissionPlan(plan.id, maker.id, `disposable-${slug}-submit`);
-    await approveCommissionPlan(plan.id, checker.id, `disposable-${slug}-review`);
-    await activateCommissionPlan(plan.id, checker.id, `disposable-${slug}-activate`, { allowTestOnlyBypass: true });
+    await createSyntheticStoreCommission(store.id, store.slug, maker.id, checker.id, slug === "e2e-other-store");
   }
   for (const documentType of ["TERMS_OF_SERVICE", "PRIVACY_NOTICE", "REFUND_POLICY"]) {
     const document = await createLegalDocumentDraft({ actorUserId: maker.id, documentType, jurisdiction: "ZA", version: "disposable-browser-v1", content: `Disposable ${documentType} content. This fixture is not production legal approval.` });

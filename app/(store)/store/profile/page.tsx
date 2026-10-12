@@ -12,11 +12,13 @@ import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/Protecte
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStoreProfile } from "@/lib/services/profiles.service";
 import { getStorePickupAddress } from "@/lib/services/store-addresses.service";
+import { StoreSellerIdentityForm } from "@/components/store/StoreSellerIdentityForm";
+import { getStoreSellerIdentityState } from "@/lib/services/store-seller-identity.service";
 
 export const metadata: Metadata = { title: "Store settings" };
 
 export default async function StoreProfilePage() {
-  await requireBusinessPage("/store/profile");
+  const access = await requireBusinessPage("/store/profile");
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
   const [profile, pickupState] = await Promise.all([
@@ -27,6 +29,7 @@ export default async function StoreProfilePage() {
     where: { id: user.id },
     select: { avatarMediaReference: true },
   });
+  const sellerIdentity = access.owner ? await getStoreSellerIdentityState(access.store.id) : null;
   const defaultValues = {
     storeName: profile?.storeProfile?.storeName ?? profile?.store?.name ?? "",
     contactPerson:
@@ -50,6 +53,7 @@ export default async function StoreProfilePage() {
         <ProfileAvatar hasAvatar={!!avatar?.avatarMediaReference} />
       </OperationalPanel>
       <OperationalPanel title="Store photos"><StoreBrandingUploader /></OperationalPanel>
+      {sellerIdentity ? <OperationalPanel title="Legal seller identity"><p>{sellerIdentity.currentIdentity ? `Approved version: ${sellerIdentity.currentIdentity.identityVersion}` : "Seller identity requires independent review before checkout."}</p><StoreSellerIdentityForm currentReference={sellerIdentity.currentIdentity?.publicReference ?? null} /><ul className="mt-4 space-y-2">{sellerIdentity.proposals.map(item => <li key={item.reference}>{item.input.identityVersion} · {item.status.replaceAll("_", " ")}</li>)}</ul></OperationalPanel> : null}
       <OperationalPanel
         title="Store identity"
         description="Existing validation and save authority remain inside this form."

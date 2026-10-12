@@ -6,6 +6,7 @@ import { openSecurityPayload } from "@/lib/notifications/security-payload-vault"
 import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
 import { login } from "./fixtures/auth";
 import { canonicalDriverDeliveryJourney } from "./fixtures/driver-delivery";
+import { createDisposableNewVendorCommission } from "@/scripts/e2e-checkout-authorities";
 
 test("new vendor verifies, creates five products with ten images, publishes, sells and delivers through persisted chat", async ({ page }, info) => {
   test.setTimeout(900_000);
@@ -51,6 +52,31 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const approval = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } }); expect(approval.status(), await approval.text()).toBe(200);
   const categoryName = `Synthetic accessories ${tag}`;
   const category = await page.request.post("/api/admin/catalog/categories", { headers, data: { name: categoryName, slug: `synthetic-accessories-${tag}`, status: "ACTIVE", displayOrder: 0, operationId: randomUUID() } }); expect(category.status(), await category.text()).toBe(201);
+  await login(page, email);
+  await page.goto("/store/profile");
+  const seller = page.getByRole("form", { name: "Seller legal identity submission", exact: true });
+  await seller.getByLabel("Identity version", { exact: true }).fill(`synthetic-${tag}-v1`);
+  await seller.getByLabel("Legal seller name", { exact: true }).fill(`Synthetic seller ${tag}; not a production legal entity`);
+  await seller.getByLabel("VAT registration status", { exact: true }).selectOption("NOT_REGISTERED");
+  await seller.getByLabel("Receipt classification", { exact: true }).selectOption("RECEIPT");
+  const localDate = await page.evaluate(() => { const date = new Date(); return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); });
+  await seller.getByLabel("Effective from", { exact: true }).fill(localDate);
+  await seller.getByLabel("Supplied evidence reference", { exact: true }).fill("SYNTHETIC_OWNER_DETAILS_NOT_REAL_APPROVAL");
+  await seller.getByLabel("I confirm these are the supplied seller details and evidence for review.", { exact: true }).check();
+  const sellerSubmitted = page.waitForResponse(response => response.url().endsWith("/api/store/seller-identity") && response.request().method() === "POST");
+  await seller.getByRole("button", { name: "Submit seller identity", exact: true }).click(); const pendingSeller = await sellerSubmitted; expect(pendingSeller.status(), await pendingSeller.text()).toBe(201);
+  expect(await prisma.storeSellerLegalIdentity.count({ where: { storeId: store.id } })).toBe(0);
+  expect((await page.request.post(`/api/admin/stores/${store.id}/seller-identity`, { headers, data: {} })).status()).toBe(403);
+  await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/stores/${store.id}/seller-identity`);
+  const sellerReview = page.getByRole("region", { name: "Independent seller identity review", exact: true });
+  await sellerReview.getByLabel("Seller review reason", { exact: true }).fill("Synthetic independent seller review only");
+  await sellerReview.getByLabel("Reviewed evidence reference", { exact: true }).fill("SYNTHETIC_REVIEW_NOT_PRODUCTION_ACCEPTANCE");
+  await sellerReview.getByLabel("I have independently reviewed the supplied seller details and evidence.", { exact: true }).check();
+  const reviewedSeller = page.waitForResponse(response => response.url().endsWith(`/api/admin/stores/${store.id}/seller-identity`));
+  await sellerReview.getByRole("button", { name: "Approve seller identity", exact: true }).click(); const sellerApproved = await reviewedSeller; expect(sellerApproved.status(), await sellerApproved.text()).toBe(200);
+  const sellerReplay = await page.request.post(`/api/admin/stores/${store.id}/seller-identity`, { headers, data: sellerApproved.request().postDataJSON() }); expect(sellerReplay.status()).toBe(200); expect((await sellerReplay.json()).proposal.replayed).toBe(true);
+  expect(await prisma.storeSellerLegalIdentity.count({ where: { storeId: store.id } })).toBe(1);
+  await createDisposableNewVendorCommission(store.id);
   await login(page, email);
   // Known synthetic coordinates are structural deterministic-map input, not
   // real Google Maps, physical GPS or provider/device acceptance evidence.

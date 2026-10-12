@@ -23,6 +23,7 @@ export default async function AdminStoresPage() {
     { id: "contact", header: "Contact", priority: "optional", cell: (store) => store.contactName ?? "Not supplied" },
     { id: "state", header: "Operational state", priority: "primary", cell: (store) => { const state = getStoreStatusConfig(store.status); return <ProtectedStatus label={state.label} tone={tone(state.variant)} />; } },
     ...(user.role === "SUPER_ADMIN" ? [{ id:"support", header:"Support", priority:"secondary" as const, cell:(store: {id:string})=><Link href={`/admin/business-support/${store.id}`} className="inline-flex min-h-11 items-center">Open support dashboard</Link> }] : []),
-    { id: "storefront", header: "Storefront", priority: "secondary", cell: () => <ProtectedStatus label="Publication locked" tone="locked" /> },
+    { id: "storefront", header: "Storefront", priority: "secondary", cell: () => <ProtectedStatus label="Separate catalog review" tone="information" /> },
+    { id: "seller", header: "Seller identity", priority: "secondary", cell: (store) => <Link href={`/admin/stores/${store.id}/seller-identity`} className="inline-flex min-h-11 items-center">Review seller identity</Link> },
   ]} /></OperationalPanel></ProtectedPageFrame>;
 }

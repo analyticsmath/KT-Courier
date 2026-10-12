@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 747,
+    "totalRoutes": 749,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 647,
-    "permissionGatedRoutes": 508,
+    "authenticatedRoutes": 649,
+    "permissionGatedRoutes": 510,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 202,
-    "generatedAt": "2026-10-12T16:14:58.317Z"
+    "rateLimitedRoutes": 204,
+    "generatedAt": "2026-10-12T20:31:53.200Z"
   },
   "serverActions": [],
   "routes": [
@@ -6875,6 +6875,23 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/stores/[id]/seller-identity/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/admin/stores/[id]/status/route.ts",
       "httpMethods": [
         "PATCH"
@@ -12010,6 +12027,24 @@
       ],
       "authorizationMechanism": "STORE_SESSION",
       "requiredRoles": [
+        "STORE"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/store/seller-identity/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
         "STORE"
       ],
       "requiredPermissions": [],
