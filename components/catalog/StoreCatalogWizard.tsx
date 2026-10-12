@@ -196,6 +196,9 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
       const body = await response.json().catch(() => ({})) as { error?: string; product?: { publicReference: string; offers: { publicReference: string }[] } };
       if (!response.ok) { setErrors([body.error ?? draftSaveFailure(response.status)]); setStatus("The listing save was not confirmed."); return; }
       if (!body.product?.offers[0]) { setErrors(["The catalog service did not return the saved listing confirmation. Retry to check this operation."]); setStatus("The listing save could not be confirmed."); return; }
+      // Retire only the confirmed draft. A lost response retains the draft and
+      // operation for replay; the next product must start without old modifiers.
+      persistDraft(draftKey, EMPTY);
       setSaved({ productReference: body.product.publicReference, offerReference: body.product.offers[0].publicReference });
       setStatus("Product, variants, images, offer, price, opening stock and modifiers were saved together. Review the saved records before submission."); setStep(12);
     } catch {

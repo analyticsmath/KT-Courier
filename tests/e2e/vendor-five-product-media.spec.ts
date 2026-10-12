@@ -74,6 +74,8 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     const step = async (name: string) => page.getByRole("button", { name: new RegExp(name) }).click();
     const title = `Synthetic product ${index + 1} ${tag}`;
     await page.goto("/store/catalog/products/new");
+    await step("Core information"); await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
+    await step("Modifiers"); await expect(page.getByLabel("Modifier groups", { exact: true })).toHaveValue("");
     await step("Type and category"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
     await page.getByLabel("Category", { exact: true }).selectOption(index % 2 ? { label: `${categoryName} · /synthetic-accessories-${tag}` } : { label: "Electronics · /electronics" });
     await step("Core information"); await page.getByLabel("Product title", { exact: true }).fill(title); await page.getByLabel("Description", { exact: true }).fill("Synthetic product for disposable browser acceptance only.");

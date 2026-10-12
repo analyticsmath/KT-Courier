@@ -313,6 +313,10 @@ const harnessSourceSha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "ut
 const harnessSourceTreeSha = spawnSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).stdout?.trim() ?? null;
 const harnessReceiptPath = path.resolve(`output/production-closure/e2e-harness-${nonce}.json`);
 mkdirSync(path.dirname(harnessReceiptPath), { recursive: true });
+let fullChromiumExpectedTests = null;
+if (phase1Acceptance) {
+  try { fullChromiumExpectedTests = JSON.parse(readFileSync("output/production-closure/phase1-browser-stages.json", "utf8")).find(stage => stage.stage === "full-chromium")?.expectedTests ?? null; } catch { /* Incomplete discovery is not an invented count. */ }
+}
 writeFileSync(harnessReceiptPath, JSON.stringify({
   schemaVersion: 1,
   command: [process.execPath, "scripts/e2e-test.mjs", ...playwrightArgs],
@@ -322,7 +326,7 @@ writeFileSync(harnessReceiptPath, JSON.stringify({
   startedAt: new Date(harnessStartedAt).toISOString(),
   endedAt: new Date(harnessEndedAt).toISOString(),
   durationMs: harnessEndedAt - harnessStartedAt,
-  expectedTests: phase1Acceptance ? 139 : phase2Canonical ? 41 : isExactPhase2And3DirectedSelection(playwrightArgs) ? 42 : null,
+  expectedTests: phase1Acceptance ? fullChromiumExpectedTests : phase2Canonical ? 41 : isExactPhase2And3DirectedSelection(playwrightArgs) ? 43 : null,
   process: { exitCode: failed ? 1 : 0 },
   cleanup: cleanupFailed ? "FAIL" : "PASS",
   environment: {
