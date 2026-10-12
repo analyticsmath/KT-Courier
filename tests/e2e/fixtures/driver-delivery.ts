@@ -86,7 +86,19 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
   const driverMessage = `Synthetic assigned driver response ${suffix}`;
   await page.getByLabel("Message", { exact: true }).fill(driverMessage);
+  const sentDriverChatPromise = page.waitForResponse(response => response.url().includes(`/conversations/${conversation.id}/messages`) && response.request().method() === "POST");
+  const driverHistoryPromise = page.waitForResponse(response => {
+    if (response.request().method() !== "GET") return false;
+    const url = new URL(response.url());
+    return url.pathname.endsWith(`/conversations/${conversation.id}/messages`) && !url.searchParams.has("after") && !url.searchParams.has("before");
+  });
   await page.getByRole("button", { name: "Send message", exact: true }).click();
+  const sentDriverChat = await sentDriverChatPromise;
+  expect(sentDriverChat.status(), await sentDriverChat.text()).toBe(201);
+  const driverHistory = await driverHistoryPromise;
+  const driverHistoryBody = await driverHistory.json();
+  expect(driverHistory.status(), JSON.stringify(driverHistoryBody)).toBe(200);
+  expect(driverHistoryBody.messages).toEqual(expect.arrayContaining([expect.objectContaining({ body: driverMessage, mine: true })]));
   await expect(page.getByText(driverMessage, { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByText(customerMessage, { exact: true })).toBeVisible();
