@@ -160,6 +160,8 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     for (const product of products) await expect(page.getByRole("link", { name: new RegExp(product.title) }).first()).toBeVisible();
     for (const product of products) { const image = page.locator(`img[src*="${product.primaryImageReference}"]`).first(); await image.scrollIntoViewIfNeeded(); await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0); }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     await info.attach(`five-products-store-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`five-products-store-${width}.png`) }), contentType: "image/png" });
   }
   await page.setViewportSize({ width: 390, height: 900 });
@@ -170,8 +172,15 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     await expect(purchase.getByRole("status")).toContainText(/added|cart/i);
   }
   const cart = await page.request.get("/api/cart"); expect((await cart.json()).cart.storeGroups[0].lines).toHaveLength(5);
-  await page.goto("/cart"); await info.attach("five-products-cart", { body: await page.screenshot({ fullPage: true, path: info.outputPath("five-products-cart.png") }), contentType: "image/png" });
-  const delivery = await canonicalDriverDeliveryJourney(page, "vendor-five-products", 390, async actor => { await info.attach(`five-products-chat-${actor}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`five-products-chat-${actor}.png`) }), contentType: "image/png" }); }, { storeEmail: email, checkout: { existingCart: true } });
+  await page.goto("/cart"); await expect(page.getByRole("heading", { name: "Shopping bag", exact: true })).toBeVisible();
+  for (const product of products) {
+    await expect(page.getByRole("link", { name: product.title, exact: true })).toBeVisible();
+    await expect.poll(() => page.locator(`img[src*="${product.primaryImageReference}"]`).first().evaluate(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  }
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await info.attach("five-products-cart", { body: await page.screenshot({ fullPage: true, path: info.outputPath("five-products-cart.png") }), contentType: "image/png" });
+  const delivery = await canonicalDriverDeliveryJourney(page, "vendor-five-products", 390, async actor => { await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" })); await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0); await info.attach(`five-products-chat-${actor}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`five-products-chat-${actor}.png`) }), contentType: "image/png" }); }, { storeEmail: email, checkout: { existingCart: true } });
   expect(delivery.final.order.status).toBe("DELIVERED"); expect(delivery.chat.persistedMessages).toBe(2);
   await info.attach("five-products-persisted-acceptance", { body: JSON.stringify({ evidenceClass: "DISPOSABLE_POSTGRES_OFFLINE_PROVIDER_AUTOMATED_EMULATION", vendorRegisteredThroughUi: true, products: products.map(product => ({ reference: product.reference, offerReference: product.offerReference })), productCount: 5, uploadedImages: 10, categoryCount: 2, viewports: [320, 390, 768, 1440], approvalSeparated: true, publicationReplay: true, delivery, protectedProductionAccessed: false, livePaymentPerformed: false, physicalDeviceAccepted: false }), contentType: "application/json" });
 });
