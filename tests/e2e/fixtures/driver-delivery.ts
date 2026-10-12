@@ -32,11 +32,12 @@ export async function deliveryControl(reference: string, action = "snapshot") {
 
 /** DEVICE_GPS here is a browser fixture at a synthetic destination. This is
  * canonical offline engineering proof, never physical/device acceptance. */
-export async function canonicalDriverDeliveryJourney(page: Page, suffix: string, width: number, captureChat?: (actor: "customer" | "driver") => Promise<void>) {
-  const f = await prepareStoreOrder(page, suffix, width);
-  await login(page, "e2e-store@ktcouriers.local");
-  for (const body of [{ action: "begin-review" }, { action: "confirm-availability", orderLineId: f.baseline.lines[0].id, availableQuantity: 1 }, { action: "accept", preparationMinutes: 30, pickupInstructions: "Disposable synthetic pickup" }, { action: "start-preparation" }, { action: "mark-ready" }]) { const res = await storeAction(page, f.storeReference, body); expect(res.status(), await res.text()).toBe(200); }
-  await completeSyntheticStoreHandoff(page, f.storeReference, suffix);
+export async function canonicalDriverDeliveryJourney(page: Page, suffix: string, width: number, captureChat?: (actor: "customer" | "driver") => Promise<void>, options: { storeEmail?: string; checkout?: Parameters<typeof prepareStoreOrder>[3] } = {}) {
+  const f = await prepareStoreOrder(page, suffix, width, options.checkout);
+  await login(page, options.storeEmail ?? "e2e-store@ktcouriers.local");
+  const available = f.baseline.lines.map(line => ({ action: "confirm-availability", orderLineId: line.id, availableQuantity: line.quantity }));
+  for (const body of [{ action: "begin-review" }, ...available, { action: "accept", preparationMinutes: 30, pickupInstructions: "Disposable synthetic pickup" }, { action: "start-preparation" }, { action: "mark-ready" }]) { const res = await storeAction(page, f.storeReference, body); expect(res.status(), await res.text()).toBe(200); }
+  await completeSyntheticStoreHandoff(page, f.storeReference, suffix, options.storeEmail);
   const baseline = await deliveryControl(f.storeReference) as DeliverySnapshot;
   expect(baseline.order.status).toBe("PICKED_UP"); expect(baseline.pod).toBeNull(); expect(baseline.locations).toBe(0);
   const path = `/api/driver/assignments/${baseline.assignment.id}`;

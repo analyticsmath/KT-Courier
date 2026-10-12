@@ -8,8 +8,6 @@ import { normalizeStorefrontQuery } from "@/lib/storefront/search/storefront-que
 import { STOREFRONT_SEARCH_INDEX_VERSION } from "@/lib/storefront/search/storefront-search-adapter";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
 
-const storefrontClient = prisma;
-
 export class StorefrontProjectionError extends Error {
   constructor(readonly reason: string, message: string, readonly aggregateReference: string) { super(message); this.name = "StorefrontProjectionError"; }
 }
@@ -37,7 +35,7 @@ function cleanDescription(value: string | undefined | null): string | undefined 
   return value.normalize("NFKC").replace(/<[^>]*>/g, "").trim().slice(0, 8_000) || undefined;
 }
 
-async function recordCase(args: { aggregateReference: string; reason: string; summary: string }) {
+async function recordCase(args: { aggregateReference: string; reason: string; summary: string }, storefrontClient: Prisma.TransactionClient = prisma) {
   const reason = args.reason as "SNAPSHOT_MISSING";
   await storefrontClient.storefrontProjectionCase.upsert({
     where: { aggregateType_aggregateReference_reason: { aggregateType: "SNAPSHOT", aggregateReference: args.aggregateReference, reason } },
@@ -47,8 +45,10 @@ async function recordCase(args: { aggregateReference: string; reason: string; su
 }
 
 export class StorefrontProjectionService {
+  constructor(private readonly client: Prisma.TransactionClient = prisma) {}
+
   async buildPublishedSnapshot(snapshotReference: string): Promise<StorefrontDocument> {
-    const source = await prisma.catalogPublicationSnapshot.findUnique({
+    const source = await this.client.catalogPublicationSnapshot.findUnique({
       where: { publicReference: snapshotReference },
       include: {
         product: { include: { primaryCategory: true, productTypeDefinition: true, brand: true, media: { include: { asset: true }, orderBy: { displayOrder: "asc" } } } },
@@ -56,22 +56,22 @@ export class StorefrontProjectionService {
         offer: { include: { store: true, priceVersions: { where: { status: "ACTIVE" }, orderBy: { versionNumber: "desc" } }, inventoryItem: { include: { levels: true } } } },
       },
     });
-    if (!source) { await recordCase({ aggregateReference: snapshotReference, reason: "SNAPSHOT_MISSING", summary: "No publication snapshot exists for the requested projection." }); throw new StorefrontProjectionError("SNAPSHOT_MISSING", "Published catalog evidence is unavailable.", snapshotReference); }
-    if (source.status !== "PUBLISHED" || source.supersededAt) { await recordCase({ aggregateReference: source.publicReference, reason: "SNAPSHOT_NOT_PUBLISHED", summary: "Snapshot is not currently published or has been superseded." }); throw new StorefrontProjectionError("SNAPSHOT_NOT_PUBLISHED", "Published catalog evidence is unavailable.", source.publicReference); }
-    try { assertSnapshotContainsNoPrivateKeys(source.snapshot); } catch { await recordCase({ aggregateReference: source.publicReference, reason: "APPLICATION_FAILURE", summary: "Snapshot failed the private-field safety check." }); throw new StorefrontProjectionError("APPLICATION_FAILURE", "Published catalog evidence is invalid.", source.publicReference); }
+    if (!source) { await recordCase({ aggregateReference: snapshotReference, reason: "SNAPSHOT_MISSING", summary: "No publication snapshot exists for the requested projection." }, this.client); throw new StorefrontProjectionError("SNAPSHOT_MISSING", "Published catalog evidence is unavailable.", snapshotReference); }
+    if (source.status !== "PUBLISHED" || source.supersededAt) { await recordCase({ aggregateReference: source.publicReference, reason: "SNAPSHOT_NOT_PUBLISHED", summary: "Snapshot is not currently published or has been superseded." }, this.client); throw new StorefrontProjectionError("SNAPSHOT_NOT_PUBLISHED", "Published catalog evidence is unavailable.", source.publicReference); }
+    try { assertSnapshotContainsNoPrivateKeys(source.snapshot); } catch { await recordCase({ aggregateReference: source.publicReference, reason: "APPLICATION_FAILURE", summary: "Snapshot failed the private-field safety check." }, this.client); throw new StorefrontProjectionError("APPLICATION_FAILURE", "Published catalog evidence is invalid.", source.publicReference); }
     const snapshot = source.snapshot as unknown as CatalogPublicationSnapshotValue;
     if (snapshot.publicationVersion !== source.publicationVersion || snapshot.productReference !== source.product.publicReference || snapshot.variantReference !== source.variant.publicReference || snapshot.offerReference !== source.offer.publicReference) {
-      await recordCase({ aggregateReference: source.publicReference, reason: "SNAPSHOT_VERSION_MISMATCH", summary: "Snapshot references do not match canonical source evidence." });
+      await recordCase({ aggregateReference: source.publicReference, reason: "SNAPSHOT_VERSION_MISMATCH", summary: "Snapshot references do not match canonical source evidence." }, this.client);
       throw new StorefrontProjectionError("SNAPSHOT_VERSION_MISMATCH", "Published catalog evidence is inconsistent.", source.publicReference);
     }
     const productEligible = source.product.status === "ACTIVE" && source.product.publicationStatus === "PUBLISHED" && source.variant.status === "ACTIVE" && source.product.primaryCategory.status === "ACTIVE" && source.product.productTypeDefinition.status === "ACTIVE" && source.product.productTypeDefinition.versionNumber === source.product.productTypeVersionNumber;
-    if (!productEligible) { await recordCase({ aggregateReference: source.publicReference, reason: "CATEGORY_NOT_ELIGIBLE", summary: "Product, category, variant, or product-type publication evidence is not eligible." }); throw new StorefrontProjectionError("CATEGORY_NOT_ELIGIBLE", "Published catalog evidence is unavailable.", source.publicReference); }
-    if (source.offer.status !== "ACTIVE" || source.offer.publicationStatus !== "PUBLISHED" || source.offer.store.status !== "ACTIVE") { await recordCase({ aggregateReference: source.publicReference, reason: "OFFER_NOT_ELIGIBLE", summary: "Offer or store does not meet public eligibility." }); throw new StorefrontProjectionError("OFFER_NOT_ELIGIBLE", "Published catalog evidence is unavailable.", source.publicReference); }
+    if (!productEligible) { await recordCase({ aggregateReference: source.publicReference, reason: "CATEGORY_NOT_ELIGIBLE", summary: "Product, category, variant, or product-type publication evidence is not eligible." }, this.client); throw new StorefrontProjectionError("CATEGORY_NOT_ELIGIBLE", "Published catalog evidence is unavailable.", source.publicReference); }
+    if (source.offer.status !== "ACTIVE" || source.offer.publicationStatus !== "PUBLISHED" || source.offer.store.status !== "ACTIVE") { await recordCase({ aggregateReference: source.publicReference, reason: "OFFER_NOT_ELIGIBLE", summary: "Offer or store does not meet public eligibility." }, this.client); throw new StorefrontProjectionError("OFFER_NOT_ELIGIBLE", "Published catalog evidence is unavailable.", source.publicReference); }
     const now = new Date();
     const price = source.offer.priceVersions.find((item) => item.effectiveFrom <= now && (!item.effectiveUntil || item.effectiveUntil > now) && item.currency === "ZAR" && item.priceIncludesTax);
-    if (!price || snapshot.price.versionReference !== price.publicReference || snapshot.price.amount !== price.amount.toFixed(2)) { await recordCase({ aggregateReference: source.publicReference, reason: "PRICE_VERSION_MISMATCH", summary: "Snapshot price does not match an active exact ZAR price version." }); throw new StorefrontProjectionError("PRICE_VERSION_MISMATCH", "Published catalog evidence is unavailable.", source.publicReference); }
+    if (!price || snapshot.price.versionReference !== price.publicReference || snapshot.price.amount !== price.amount.toFixed(2)) { await recordCase({ aggregateReference: source.publicReference, reason: "PRICE_VERSION_MISMATCH", summary: "Snapshot price does not match an active exact ZAR price version." }, this.client); throw new StorefrontProjectionError("PRICE_VERSION_MISMATCH", "Published catalog evidence is unavailable.", source.publicReference); }
     const primary = source.product.media.find((item) => item.role === "PRIMARY" && item.variantId === null && item.asset.status === "READY" && item.asset.privacyInspectionPassed && snapshot.media.some((media) => media.assetReference === item.asset.publicReference));
-    if (!primary || !primary.asset.width || !primary.asset.height) { await recordCase({ aggregateReference: source.publicReference, reason: "MEDIA_NOT_READY", summary: "Snapshot has no READY, privacy-inspected primary media evidence." }); throw new StorefrontProjectionError("MEDIA_NOT_READY", "Published catalog evidence is unavailable.", source.publicReference); }
+    if (!primary || !primary.asset.width || !primary.asset.height) { await recordCase({ aggregateReference: source.publicReference, reason: "MEDIA_NOT_READY", summary: "Snapshot has no READY, privacy-inspected primary media evidence." }, this.client); throw new StorefrontProjectionError("MEDIA_NOT_READY", "Published catalog evidence is unavailable.", source.publicReference); }
     const readyMedia = source.product.media
       .filter((item) => item.asset.status === "READY" && item.asset.privacyInspectionPassed && item.asset.width && item.asset.height && snapshot.media.some((m) => m.assetReference === item.asset.publicReference))
       .sort((a, b) => (a.role === "PRIMARY" ? -1 : b.role === "PRIMARY" ? 1 : a.displayOrder - b.displayOrder));
@@ -109,6 +109,7 @@ export class StorefrontProjectionService {
   }
 
   private async persist(snapshotId: string, document: StorefrontDocument, productId: string, variantId: string, offerId: string, storeId: string, categoryId: string, priceVersionId: string) {
+    const storefrontClient = this.client;
     const existing = await storefrontClient.storefrontProductDocument.findUnique({ where: { publicationSnapshotId: snapshotId }, select: { projectionVersion: true, publicReference: true } });
     if (existing) document.publicReference = existing.publicReference;
     const projectionVersion = (existing?.projectionVersion ?? 0) + 1;
@@ -129,6 +130,7 @@ export class StorefrontProjectionService {
   }
 
   async withdrawOffer(offerReference: string): Promise<void> {
+    const storefrontClient = this.client;
     await storefrontClient.storefrontProductDocument.updateMany({ where: { offerPublicReference: offerReference, status: "ACTIVE" }, data: { status: "WITHDRAWN", searchable: false, indexable: false } });
   }
 }

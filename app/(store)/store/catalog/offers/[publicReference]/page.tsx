@@ -12,6 +12,9 @@ import {
 } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { getStoreCatalogOffer } from "@/lib/services/store-offer.service";
+import { StoreOfferSubmit } from "@/components/catalog/StoreOfferSubmit";
+import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
 export default async function StoreOfferDetailPage({
   params,
@@ -19,9 +22,10 @@ export default async function StoreOfferDetailPage({
   params: Promise<{ publicReference: string }>;
 }) {
   await requireBusinessPage("/store/catalog/offers/[publicReference]");
-  const { store } = await getCurrentStoreForCatalogPage();
+  const { store, user } = await getCurrentStoreForCatalogPage();
   const { publicReference } = await params;
   const offer = await getStoreCatalogOffer(store.id, publicReference);
+  const submit = await storeCatalogPermission(user.id, PERMISSIONS.CATALOG_SUBMIT);
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
@@ -42,6 +46,7 @@ export default async function StoreOfferDetailPage({
         }
       />
       <StoreCatalogNavigation />
+      {submit.allowed && ["DRAFT", "NEEDS_CHANGES"].includes(offer.status) && <OperationalPanel title="Offer review"><StoreOfferSubmit key={`${offer.publicReference}:${offer.version}`} reference={offer.publicReference} version={offer.version} /></OperationalPanel>}
       <div className="grid gap-5 lg:grid-cols-2">
         <OperationalPanel title="Offer record" padding="compact">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">

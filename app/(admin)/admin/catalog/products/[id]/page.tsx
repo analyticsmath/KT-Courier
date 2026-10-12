@@ -15,6 +15,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { prisma } from "@/lib/db/prisma";
 import { storefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
 import { formatDateTime } from "@/lib/utils/formatters";
+import { CatalogOfferPublicationActions } from "@/components/catalog/CatalogOfferPublicationActions";
 
 export default async function AdminCatalogProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAdminPagePermission(PERMISSIONS.CATALOG_MODERATION_READ);
@@ -32,10 +33,11 @@ export default async function AdminCatalogProductDetailPage({ params }: { params
     },
   });
   if (!product) notFound();
-  const [canReview, canApprove, canSuspend] = await Promise.all([
+  const [canReview, canApprove, canSuspend, canPrice] = await Promise.all([
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.CATALOG_MODERATION_REVIEW }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.CATALOG_MODERATION_APPROVE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.CATALOG_MODERATION_SUSPEND }),
+    hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.CATALOG_PRICING_MANAGE }),
   ]);
   const actions = [
     ...(canApprove && product.status === "SUBMITTED" ? ["approve" as const] : []),
@@ -62,6 +64,7 @@ export default async function AdminCatalogProductDetailPage({ params }: { params
         {product.media.length ? <ul className={commerceAdminStyles.safeList}>{product.media.map((item) => { const state = presentCommerceStatus(item.asset.status); return <li key={item.id}><strong>{item.asset.publicReference}</strong><span>{item.role}{item.variantId ? " · Variant association" : " · Product association"}</span><span><ProtectedStatus label={state.label} tone={state.tone} /></span></li>; })}</ul> : <ProtectedState kind="empty" title="No media records" description="No catalog media association is recorded for this product." />}
       </OperationalPanel>
       <OperationalPanel title="Moderation actions" description="Actions are server-permissioned and source-state eligible. The canonical endpoint handles concurrency and confirmation."><CatalogModerationActions actions={actions} productId={product.id} version={product.version} /></OperationalPanel>
+      {product.offers.filter(offer => offer.status === "SUBMITTED").map(offer => <OperationalPanel key={offer.id} title={`Publish ${offer.storeSku}`}><p className="mb-3 text-sm">{offer.store.name} · {offer.status.replaceAll("_", " ")}. Product approval and offer review are required before publication.</p><CatalogOfferPublicationActions key={`${offer.id}:${offer.version}:${product.version}`} offerId={offer.id} version={offer.version} productVersion={product.version} reviewed={Boolean(offer.approvedByUserId)} canApprove={canApprove} canPublish={canApprove && canPrice && ["APPROVED", "ACTIVE"].includes(product.status)} price={offer.priceVersions[0] ? { publicReference: offer.priceVersions[0].publicReference, amount: offer.priceVersions[0].amount.toFixed(2) } : null} /></OperationalPanel>)}
       <OperationalPanel title="Immutable moderation history" description="Timeline events contain canonical action, reason, timestamp, and source version only.">
         {history.length ? <ActivityTimeline ariaLabel="Product moderation history" items={history.map((item) => ({ id: item.id, title: item.action, description: `${item.reasonCode} · version ${item.aggregateVersion}`, timestamp: formatDateTime(item.createdAt), tone: presentCommerceStatus(item.toStatus).tone }))} /> : <ProtectedState kind="empty" title="No moderation history" description="No canonical moderation action has been recorded for this product." />}
       </OperationalPanel>

@@ -5,7 +5,7 @@ import { storeControl, storeAction } from "./store-order";
 /** Exercises actor-authenticated HTTP assignment + two-party custody from a
  * canonical paid store group. Eligibility inputs are synthetic; no GPS or POD
  * result is fabricated and this is not live physical acceptance. */
-export async function completeSyntheticStoreHandoff(page: Page, reference: string, suffix: string) {
+export async function completeSyntheticStoreHandoff(page: Page, reference: string, suffix: string, storeEmail = "e2e-store@ktcouriers.local") {
   const baseline = await storeControl(reference);
   const offered = await storeControl(reference, "offer-handoff");
   expect(offered.custody.assignment?.status).toBe("ASSIGNED");
@@ -15,7 +15,7 @@ export async function completeSyntheticStoreHandoff(page: Page, reference: strin
   expect(accepted.status(), await accepted.text()).toBe(200);
   const generic = await page.request.post(`/api/driver/assignments/${assignment.id}/pickup/complete`, { data: { operationId: crypto.randomUUID(), assignmentVersion: (await storeControl(reference)).custody.assignment!.version, parcelCount: 1, parcelCondition: "NOT_RECORDED", confirmPickup: true }, headers: { origin: new URL(page.url()).origin } });
   expect(generic.status()).not.toBe(200);
-  await login(page, "e2e-store@ktcouriers.local");
+  await login(page, storeEmail);
   await page.goto(`/store/marketplace-orders/${reference}`);
   const issued = page.waitForResponse(response => response.url().endsWith(`/api/store/orders/${reference}/actions`) && response.request().postDataJSON().action === "generate-pickup-code");
   await page.getByRole("button", { name: "Generate store pickup code", exact: true }).click();
@@ -52,7 +52,7 @@ export async function completeSyntheticStoreHandoff(page: Page, reference: strin
   expect((await page.request.post(`/api/driver/store-order-handoffs/${reference}`, { data: replayBody, headers: { origin: new URL(page.url()).origin } })).status()).toBe(422);
   expect(await storeControl(reference)).toEqual(after);
   // The store cannot repeat collection after custody has transferred.
-  await login(page, "e2e-store@ktcouriers.local");
+  await login(page, storeEmail);
   expect((await storeAction(page, reference, { action: "generate-pickup-code" })).status()).toBe(422);
   return { assignmentId: assignment.id, assignmentVersion: after.custody.assignment!.version, courierOrderId: after.custody.courierOrderId! };
 }

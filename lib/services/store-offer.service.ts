@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { type Prisma } from "@prisma/client";
 import { assertOfferTransition } from "@/lib/catalog/catalog-state-machines";
-import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
+import { catalogPublicReference, catalogRequestHash } from "@/lib/catalog/catalog-normalization";
 import { normalizeStoreSku } from "@/lib/catalog/product-identifiers";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
@@ -107,22 +107,26 @@ export async function updateStoreCatalogOffer(storeId: string, publicReference: 
 }
 
 export async function transitionStoreCatalogOffer(storeId: string, publicReference: string, actorUserId: string, toStatus: "SUBMITTED" | "PAUSED" | "ARCHIVED", input: { version: number; operationId: string }) {
-  const current = await prisma.storeCatalogOffer.findFirst({ where: { publicReference, storeId }, include: { product: true, priceVersions: true, inventoryItem: { include: { levels: true } } } });
-  if (!current) {
-    const exists = await prisma.storeCatalogOffer.findUnique({ where: { publicReference }, select: { storeId: true } });
-    if (exists && exists.storeId !== storeId) throw new CatalogOwnershipError();
-    throw new CatalogNotFoundError("Store catalog offer was not found.");
-  }
-  assertOfferTransition(current.status, toStatus);
-  if (toStatus === "SUBMITTED" && !current.priceVersions.some((price) => ["DRAFT", "SCHEDULED", "ACTIVE"].includes(price.status))) {
-    throw new CatalogPolicyError("OFFER_PRICE_REQUIRED", "Offer submission requires a valid price version.");
-  }
-  const publicationStatus = toStatus === "ARCHIVED" ? "WITHDRAWN" : current.publicationStatus;
-  return prisma.$transaction(async (tx) => {
-    const result = await tx.storeCatalogOffer.updateMany({ where: { id: current.id, storeId, version: input.version }, data: { status: toStatus, publicationStatus, submittedByUserId: toStatus === "SUBMITTED" ? actorUserId : undefined, version: { increment: 1 } } });
+  const request = { ...input, toStatus };
+  const requestHash = catalogRequestHash(request);
+  return prisma.$transaction(async tx => {
+    const key = `${actorUserId}:offer-transition:${input.operationId}`;
+    await tx.$queryRaw`SELECT TRUE AS locked FROM pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+    const current = await tx.storeCatalogOffer.findUnique({ where: { publicReference }, include: { priceVersions: true } });
+    if (!current) throw new CatalogNotFoundError("Store catalog offer was not found.");
+    if (current.storeId !== storeId) throw new CatalogOwnershipError();
+    const receipt = await tx.catalogOperationReceipt.findUnique({ where: { actorUserId_action_operationId: { actorUserId, action: `OFFER:${toStatus}`, operationId: input.operationId } } });
+    if (receipt) {
+      if (receipt.storeId !== storeId || receipt.aggregateReference !== publicReference || receipt.requestHash !== requestHash) throw new CatalogConflictError("OPERATION_REPLAY_MISMATCH", "This operation was used for different offer facts.");
+      return tx.storeCatalogOffer.findUniqueOrThrow({ where: { id: current.id } });
+    }
+    if (current.version !== input.version) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before continuing.");
+    assertOfferTransition(current.status, toStatus);
+    if (toStatus === "SUBMITTED" && !current.priceVersions.some(price => ["DRAFT", "SCHEDULED", "ACTIVE"].includes(price.status))) throw new CatalogPolicyError("OFFER_PRICE_REQUIRED", "Offer submission requires a valid price version.");
+    const result = await tx.storeCatalogOffer.updateMany({ where: { id: current.id, storeId, version: input.version, status: current.status }, data: { status: toStatus, publicationStatus: toStatus === "ARCHIVED" ? "WITHDRAWN" : current.publicationStatus, submittedByUserId: toStatus === "SUBMITTED" ? actorUserId : undefined, version: { increment: 1 } } });
     if (result.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before continuing.");
     if (toStatus === "SUBMITTED") await tx.catalogModerationCase.create({ data: { publicReference: catalogPublicReference("CMC"), offerId: current.id, type: "OFFER", reasonCode: "OFFER_SUBMISSION", safeSummary: "Store offer submitted for catalog review.", submittedByUserId: actorUserId } });
-    await recordCatalogEvidence(tx, { aggregateType: "OFFER", aggregateReference: publicReference, aggregateVersion: current.version + 1, action: toStatus, eventType: "OFFER_UPDATED", actorUserId, operation: { operationId: input.operationId, storeId, request: { ...input, toStatus } } });
+    await recordCatalogEvidence(tx, { aggregateType: "OFFER", aggregateReference: publicReference, aggregateVersion: current.version + 1, action: toStatus, eventType: "OFFER_UPDATED", actorUserId, operation: { operationId: input.operationId, storeId, request } });
     return tx.storeCatalogOffer.findUniqueOrThrow({ where: { id: current.id } });
   });
 }

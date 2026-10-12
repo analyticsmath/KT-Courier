@@ -33,6 +33,7 @@ export default defineConfig({
         /driver-documents\.spec\.ts/,
         /store-catalog-draft-isolation\.spec\.ts/,
         /store-product-catalog\.spec\.ts/,
+        /vendor-five-product-media\.spec\.ts/,
         /catalog-administration\.spec\.ts/,
         /business-employee-access\.spec\.ts/,
         /marketplace-checkout-customer\.spec\.ts/,

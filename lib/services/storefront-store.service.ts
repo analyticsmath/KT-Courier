@@ -2,8 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 
 /** Builds the privacy-minimised store read projection. Store contact/address fields are intentionally absent. */
-export async function rebuildStorefrontStoreDocument(storeId: string): Promise<void> {
-  await prisma.$transaction(async tx => {
+export async function rebuildStorefrontStoreDocument(storeId: string, transaction?: Prisma.TransactionClient): Promise<void> {
+  const work = async (tx: Prisma.TransactionClient) => {
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${storeId} FOR UPDATE`);
     const store = await tx.store.findUnique({
       where: { id: storeId },
@@ -64,6 +64,8 @@ export async function rebuildStorefrontStoreDocument(storeId: string): Promise<v
         projectionVersion: { increment: 1 },
       },
     });
-    });
+    };
+  if (transaction) await work(transaction);
+  else await prisma.$transaction(work);
 }
 

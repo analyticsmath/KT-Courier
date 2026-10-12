@@ -34,7 +34,7 @@ async function main() {
     await initializeMarketplaceStoreOrderOperations({ storeOrderReference: reference, operationId, requestHash: createHash("sha256").update(operationId).digest("hex") });
   } else if (action === "offer-handoff") {
     const contact = source.marketplaceOrder.checkout.contactSnapshot!.email;
-    const suffix = /^e2e-paystack-(store-handoff-(?:1440|390)|pg-store-handoff|driver-delivery-(?:1440|390|pg))@ktcouriers\.local$/.exec(contact)?.[1];
+    const suffix = /^e2e-paystack-(vendor-five-products|store-handoff-(?:1440|390)|pg-store-handoff|driver-delivery-(?:1440|390|pg))@ktcouriers\.local$/.exec(contact)?.[1];
     if (!suffix) throw new Error("Handoff offers require an independently owned custody fixture namespace.");
     const bridge = await prisma.marketplaceStoreOrderDeliveryBridge.findUniqueOrThrow({ where: { marketplaceStoreOrderId: source.id } });
     if (!bridge.courierOrderId) throw new Error("Canonical courier bridge must exist before dispatch.");

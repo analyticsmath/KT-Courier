@@ -3,13 +3,13 @@ import { storefrontCategoryPredicate } from "@/lib/storefront/storefront-categor
 import { prisma } from "@/lib/db/prisma";
 
 type StorefrontCategoryClient = { storefrontCategoryDocument: { upsert(args: unknown): Promise<unknown> } };
-const storefrontClient = prisma as unknown as StorefrontCategoryClient;
-
 /** Builds category navigation from active taxonomy plus active public projection evidence. */
-export async function rebuildStorefrontCategoryDocument(categoryId: string): Promise<void> {
-  const category = await prisma.catalogCategory.findUnique({ where: { id: categoryId }, include: { imageAsset: true, parent: true, children: { where: { status: "ACTIVE" }, select: { publicReference: true, path: true, name: true }, orderBy: [{ displayOrder: "asc" }, { name: "asc" }] }, productTypeMappings: { include: { productTypeDefinition: { select: { code: true, searchFacetSchema: true, status: true } } } } } });
+export async function rebuildStorefrontCategoryDocument(categoryId: string, transaction?: Prisma.TransactionClient): Promise<void> {
+  const client = transaction ?? prisma;
+  const storefrontClient = client as unknown as StorefrontCategoryClient;
+  const category = await client.catalogCategory.findUnique({ where: { id: categoryId }, include: { imageAsset: true, parent: true, children: { where: { status: "ACTIVE" }, select: { publicReference: true, path: true, name: true }, orderBy: [{ displayOrder: "asc" }, { name: "asc" }] }, productTypeMappings: { include: { productTypeDefinition: { select: { code: true, searchFacetSchema: true, status: true } } } } } });
   if (!category || category.status !== "ACTIVE") return;
-  const countRows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`SELECT COUNT(DISTINCT "productPublicReference")::bigint AS count FROM "StorefrontProductDocument" WHERE ${storefrontCategoryPredicate(category.path)} AND "status" = 'ACTIVE' AND "searchable" = true`);
+  const countRows = await client.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`SELECT COUNT(DISTINCT "productPublicReference")::bigint AS count FROM "StorefrontProductDocument" WHERE ${storefrontCategoryPredicate(category.path)} AND "status" = 'ACTIVE' AND "searchable" = true`);
   const productCount = Number(countRows[0]?.count ?? 0);
   const publicImageReference = category.imageAsset?.status === "READY" && category.imageAsset.privacyInspectionPassed ? category.imageAsset.publicReference : null;
   const facetDefinitions = Object.fromEntries(category.productTypeMappings.filter((mapping) => mapping.productTypeDefinition.status === "ACTIVE").map((mapping) => [mapping.productTypeDefinition.code, mapping.productTypeDefinition.searchFacetSchema]));

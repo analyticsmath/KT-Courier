@@ -29,7 +29,7 @@ async function read(page: Page, reference: string) {
   return (await response.json()).checkout;
 }
 const operation = (version: number) => ({ checkoutVersion: version, operationId: crypto.randomUUID(), requestHash: crypto.randomUUID() });
-export async function prepareCheckout(page: Page, suffix: string, width: number, guest = false, options: { baseLine?: { offerReference: string; variantReference: string; quantity: number; modifiers: unknown[] }; lines?: Array<{ offerReference: string; variantReference: string; quantity: number; modifiers: unknown[] }>; stopAfterReview?: boolean } = {}) {
+export async function prepareCheckout(page: Page, suffix: string, width: number, guest = false, options: { baseLine?: { offerReference: string; variantReference: string; quantity: number; modifiers: unknown[] }; lines?: Array<{ offerReference: string; variantReference: string; quantity: number; modifiers: unknown[] }>; stopAfterReview?: boolean; existingCart?: boolean } = {}) {
   assertDisposablePaystackAcceptance();
   await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
   const email = `e2e-paystack-${suffix}@ktcouriers.local`;
@@ -37,6 +37,8 @@ export async function prepareCheckout(page: Page, suffix: string, width: number,
   else await login(page, email);
   const cartResponse = await page.request.get("/api/cart"); expect(cartResponse.status()).toBe(200);
   const cart = (await cartResponse.json()).cart;
+  let cartReference = cart.reference;
+  if (!options.existingCart) {
   let line = await page.request.post("/api/cart/lines", { data: { ...(options.baseLine ?? { offerReference: "CO-E2E64GB", variantReference: "CV-E2E64GB", quantity: 1, modifiers: [] }), operationId: crypto.randomUUID(), requestHash: crypto.randomUUID(), cartVersion: cart.version } });
   expect(line.status(), await line.text()).toBe(201);
   for (const selection of options.lines ?? []) {
@@ -44,7 +46,9 @@ export async function prepareCheckout(page: Page, suffix: string, width: number,
     line = await page.request.post("/api/cart/lines", { data: { ...selection, operationId: crypto.randomUUID(), requestHash: crypto.randomUUID(), cartVersion: (await current.json()).cart.version } });
     expect(line.status(), await line.text()).toBe(201);
   }
-  const created = await page.request.post("/api/checkout", { data: { cartReference: (await line.json()).cart.reference } });
+    cartReference = (await line.json()).cart.reference;
+  }
+  const created = await page.request.post("/api/checkout", { data: { cartReference } });
   expect(created.status(), await created.text()).toBe(201);
   const reference = (await created.json()).checkout.reference as string;
   await page.goto(`/checkout?ref=${reference}`);

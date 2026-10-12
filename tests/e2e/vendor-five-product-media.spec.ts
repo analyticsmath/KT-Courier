@@ -1,0 +1,134 @@
+import { randomUUID } from "node:crypto";
+import sharp from "sharp";
+import { expect, test } from "@playwright/test";
+import { prisma } from "@/lib/db/prisma";
+import { openSecurityPayload } from "@/lib/notifications/security-payload-vault";
+import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
+import { login } from "./fixtures/auth";
+import { canonicalDriverDeliveryJourney } from "./fixtures/driver-delivery";
+
+test("new vendor verifies, creates five products with ten images, publishes, sells and delivers through persisted chat", async ({ page }, info) => {
+  test.setTimeout(900_000);
+  assertDisposablePaystackAcceptance();
+  expect(await prisma.$queryRaw`SELECT current_database() AS database, current_user AS role`).toEqual([{ database: "kt_phase75_e2e", role: "kt_phase75_e2e" }]);
+  const tag = randomUUID().slice(0, 8); const email = `e2e-vendor-five-${tag}@ktcouriers.local`;
+  const storeName = `Synthetic five-product vendor ${tag}`;
+  const field = (name: string) => page.getByLabel(new RegExp(`^${name}(?:\\s*\\*)?$`));
+  const origin = process.env.E2E_BASE_URL!;
+  const headers = { origin };
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.goto("/signup?role=store");
+  await field("Business or store name").fill(storeName); await field("Contact person").fill("Synthetic vendor owner");
+  await field("Email address").fill(email); await field("Phone number").fill("0821112233");
+  await field("Password").fill("ChangeMe123!"); await field("Confirm password").fill("ChangeMe123!");
+  const signup = page.waitForResponse(response => response.url().endsWith("/api/auth/signup"));
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  const created = await signup; expect([201, 202], await created.text()).toContain(created.status());
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email } });
+  const store = await prisma.store.findFirstOrThrow({ where: { ownerUserId: owner.id } });
+  expect(store.status).toBe("PENDING");
+  const otp = await prisma.otpCode.findFirstOrThrow({ where: { userId: owner.id, consumedAt: null, purpose: "EMAIL_VERIFICATION" }, orderBy: { createdAt: "desc" } });
+  const intent = await prisma.notificationEventIntent.findUniqueOrThrow({ where: { operationId: `email-verification:${otp.id}` } });
+  const envelope = await prisma.notificationSecurePayload.findUniqueOrThrow({ where: { eventIntentId: intent.id } });
+  const code = String(openSecurityPayload(envelope.encryptedPayload, intent.operationId).otp);
+  await field("Verification code").fill(code);
+  const verified = page.waitForResponse(response => response.url().endsWith("/api/auth/verify-otp"));
+  await page.getByRole("button", { name: "Verify code", exact: true }).click(); expect((await verified).status()).toBe(200);
+  expect((await page.request.post("/api/auth/verify-otp", { headers, data: { email, code } })).status()).toBe(400);
+  expect((await page.request.get("/api/store/catalog/inventory/locations")).status()).toBe(403);
+  expect((await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } })).status()).toBe(403);
+  expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("PENDING");
+  await login(page, "superadmin@ktcouriers.local");
+  const approval = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } }); expect(approval.status(), await approval.text()).toBe(200);
+  const categoryName = `Synthetic accessories ${tag}`;
+  const category = await page.request.post("/api/admin/catalog/categories", { headers, data: { name: categoryName, slug: `synthetic-accessories-${tag}`, status: "ACTIVE", displayOrder: 0, operationId: randomUUID() } }); expect(category.status(), await category.text()).toBe(201);
+  await login(page, email);
+  // Known synthetic coordinates are structural deterministic-map input, not
+  // real Google Maps, physical GPS or provider/device acceptance evidence.
+  const pickup = await page.request.patch("/api/store/pickup-address", { headers, data: { label: "Synthetic pickup", contactName: "Synthetic vendor owner", contactPhone: "0821112233", line1: "10 E2E Pickup Road", city: "Johannesburg", province: "Gauteng", postalCode: "2001", country: "South Africa", latitude: -26.2041, longitude: 28.0473 } }); expect(pickup.status(), await pickup.text()).toBe(200);
+  await page.goto("/store/catalog/inventory"); await page.getByLabel("Stock location name", { exact: true }).fill("Synthetic stockroom");
+  const locationPath = "**/api/store/catalog/inventory/locations";
+  let stockCommand: Record<string, unknown> = {};
+  await page.route(locationPath, async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    stockCommand = route.request().postDataJSON(); const response = await route.fetch(); expect(response.status()).toBe(201); await route.abort("failed");
+  });
+  await page.getByRole("button", { name: "Save stock location", exact: true }).click();
+  await expect(page.locator("#stock-location-error")).not.toHaveText("");
+  await page.unroute(locationPath);
+  const retried = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/inventory/locations") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Save stock location", exact: true }).click();
+  const savedLocation = await retried; expect(savedLocation.status()).toBe(201); expect(savedLocation.request().postDataJSON()).toEqual(stockCommand);
+  expect(await prisma.inventoryLocation.count({ where: { storeId: store.id } })).toBe(1);
+  const products: Array<{ id: string; reference: string; title: string; slug: string; offerReference: string; offerId: string }> = [];
+  for (const index of [0, 1, 2, 3, 4]) {
+    const step = async (name: string) => page.getByRole("button", { name: new RegExp(name) }).click();
+    const title = `Synthetic product ${index + 1} ${tag}`;
+    await page.goto("/store/catalog/products/new");
+    await step("Type and category"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
+    await page.getByLabel("Category", { exact: true }).selectOption(index % 2 ? { label: `${categoryName} · /synthetic-accessories-${tag}` } : { label: "Electronics · /electronics" });
+    await step("Core information"); await page.getByLabel("Product title", { exact: true }).fill(title); await page.getByLabel("Description", { exact: true }).fill("Synthetic product for disposable browser acceptance only.");
+    if (index === 1) { await step("Variants"); await page.getByLabel("Variant matrix", { exact: true }).fill(JSON.stringify([{ title: "Blue", options: [{ code: "color", value: "blue" }], attributeValues: {} }])); }
+    await step("Store offer"); await page.getByLabel("Store SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
+    await step("Price"); await page.getByLabel("VAT-inclusive price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
+    await step("Inventory"); await page.getByLabel("Opening stock", { exact: true }).fill("7"); await page.getByLabel("Inventory location", { exact: true }).selectOption({ label: "Synthetic stockroom" });
+    await step("Media");
+    for (const image of [0, 1]) {
+      const bytes = await sharp({ create: { width: 400, height: 400, channels: 3, background: { r: 40 + index * 25, g: 70 + image * 70, b: 120 } } }).png().toBuffer();
+      const upload = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/media/normalized") && response.request().method() === "POST");
+      await page.getByLabel("Upload product image", { exact: true }).setInputFiles({ name: `synthetic-${index}-${image}.png`, mimeType: "image/png", buffer: bytes });
+      const uploaded = await upload; expect(uploaded.status(), await uploaded.text()).toBe(201);
+      await page.getByLabel("Alt text", { exact: true }).nth(image).fill(`${title} image ${image + 1}`);
+    }
+    await step("Submit"); const saved = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/listing-drafts") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Save product draft", exact: true }).click(); const response = await saved; expect(response.status(), await response.text()).toBe(201);
+    const draft = (await response.json()).product;
+    const row = await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: draft.publicReference }, include: { offers: true, media: { include: { asset: true } } } });
+    expect(row).toMatchObject({ status: "DRAFT", publicationStatus: "DRAFT" }); expect(row.media).toHaveLength(2); expect(row.media.every(media => media.asset.status === "READY" && media.asset.privacyInspectionPassed)).toBe(true);
+    products.push({ id: row.id, reference: row.publicReference, title, slug: row.slug, offerReference: row.offers[0].publicReference, offerId: row.offers[0].id });
+    await page.getByRole("link", { name: "View saved product", exact: true }).click();
+    const submission = page.waitForResponse(response => response.url().endsWith(`/api/store/catalog/products/${row.publicReference}/submit`));
+    await page.getByRole("button", { name: "Submit product for review", exact: true }).click(); expect((await submission).status()).toBe(200);
+    await page.goto(`/store/catalog/offers/${row.offers[0].publicReference}`);
+    const offerSubmission = page.waitForResponse(response => response.url().endsWith(`/api/store/catalog/offers/${row.offers[0].publicReference}/submit`));
+    await page.getByRole("button", { name: "Submit offer for review", exact: true }).click(); expect((await offerSubmission).status()).toBe(200);
+  }
+  expect(await prisma.catalogProduct.count({ where: { sourceStoreId: store.id } })).toBe(5);
+  expect(await prisma.catalogMediaAsset.count({ where: { ownerStoreId: store.id, purpose: "PRODUCT_IMAGE", status: "READY" } })).toBe(10);
+  expect(await prisma.storefrontProductDocument.count({ where: { storeId: store.id } })).toBe(0);
+  expect((await page.request.post(`/api/admin/catalog/offers/${products[0].offerId}/publish`, { headers, data: {} })).status()).toBe(403);
+  await login(page, "e2e-other-store@ktcouriers.local");
+  expect([403, 404]).toContain((await page.request.get(`/api/store/catalog/products/${products[0].reference}`)).status());
+  expect((await page.request.get("/api/store/catalog/inventory/locations")).status()).toBe(200);
+  expect((await (await page.request.get("/api/store/catalog/inventory/locations")).json()).locations.some((location: { name: string }) => location.name === "Synthetic stockroom")).toBe(false);
+  await login(page, "superadmin@ktcouriers.local");
+  for (const product of products) {
+    await page.goto(`/admin/catalog/products/${product.id}`); await page.getByLabel("Reason code", { exact: true }).fill("SYNTHETIC_PRODUCT_REVIEW");
+    const approved = page.waitForResponse(response => response.url().endsWith(`/api/admin/catalog/products/${product.id}/approve`)); await page.getByRole("button", { name: "Approve", exact: true }).click(); expect((await approved).status()).toBe(200);
+    await page.getByLabel("Offer publication reason", { exact: true }).fill("SYNTHETIC_OFFER_REVIEW");
+    const offerReview = page.waitForResponse(response => response.url().endsWith(`/api/admin/catalog/offers/${product.offerId}/approve`)); await page.getByRole("button", { name: "Approve offer", exact: true }).click(); expect((await offerReview).status()).toBe(200);
+    // Refresh creates a fresh version-bound publication form after offer review.
+    await page.getByLabel("Offer publication reason", { exact: true }).fill("SYNTHETIC_PUBLICATION");
+    const publication = page.waitForResponse(response => response.url().endsWith(`/api/admin/catalog/offers/${product.offerId}/publish`)); await page.getByRole("button", { name: "Publish reviewed listing", exact: true }).click(); const published = await publication; expect(published.status(), await published.text()).toBe(200);
+    const command = published.request().postDataJSON(); const replay = await page.request.post(`/api/admin/catalog/offers/${product.offerId}/publish`, { headers, data: command }); expect(replay.status()).toBe(200); expect((await replay.json()).replayed).toBe(true);
+    expect((await page.request.post(`/api/admin/catalog/offers/${product.offerId}/publish`, { headers, data: { ...command, reasonCode: "CHANGED_OPERATION" } })).status()).toBe(409);
+  }
+  expect(await prisma.storefrontProductDocument.count({ where: { storeId: store.id, status: "ACTIVE", searchable: true } })).toBe(5);
+  await login(page, "e2e-paystack-vendor-five-products@ktcouriers.local");
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 }); await page.goto(`/shop/stores/${store.slug}`);
+    for (const product of products) await expect(page.getByRole("link", { name: new RegExp(product.title) }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await info.attach(`five-products-store-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`five-products-store-${width}.png`) }), contentType: "image/png" });
+  }
+  await page.setViewportSize({ width: 390, height: 900 });
+  for (const product of products) {
+    await page.goto(`/shop/products/${product.slug}-${product.reference}`);
+    const purchase = page.getByRole("region", { name: "Purchase product", exact: true }); await purchase.getByRole("button", { name: "Add to cart", exact: true }).click(); await expect(purchase.getByRole("status")).toContainText(/added|cart/i);
+  }
+  const cart = await page.request.get("/api/cart"); expect((await cart.json()).cart.storeGroups[0].lines).toHaveLength(5);
+  await page.goto("/cart"); await info.attach("five-products-cart", { body: await page.screenshot({ fullPage: true, path: info.outputPath("five-products-cart.png") }), contentType: "image/png" });
+  const delivery = await canonicalDriverDeliveryJourney(page, "vendor-five-products", 390, async actor => { await info.attach(`five-products-chat-${actor}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`five-products-chat-${actor}.png`) }), contentType: "image/png" }); }, { storeEmail: email, checkout: { existingCart: true } });
+  expect(delivery.final.order.status).toBe("DELIVERED"); expect(delivery.chat.persistedMessages).toBe(2);
+  await info.attach("five-products-persisted-acceptance", { body: JSON.stringify({ evidenceClass: "DISPOSABLE_POSTGRES_OFFLINE_PROVIDER_AUTOMATED_EMULATION", vendorRegisteredThroughUi: true, products: products.map(product => ({ reference: product.reference, offerReference: product.offerReference })), productCount: 5, uploadedImages: 10, categoryCount: 2, viewports: [320, 390, 768, 1440], approvalSeparated: true, publicationReplay: true, delivery, protectedProductionAccessed: false, livePaymentPerformed: false, physicalDeviceAccepted: false }), contentType: "application/json" });
+});

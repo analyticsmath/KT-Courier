@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 746,
+    "totalRoutes": 747,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 646,
-    "permissionGatedRoutes": 507,
+    "authenticatedRoutes": 647,
+    "permissionGatedRoutes": 508,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 201,
-    "generatedAt": "2026-10-12T15:51:34.780Z"
+    "rateLimitedRoutes": 202,
+    "generatedAt": "2026-10-12T16:14:58.317Z"
   },
   "serverActions": [],
   "routes": [
@@ -565,6 +565,23 @@
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/catalog/offers/[id]/publish/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",

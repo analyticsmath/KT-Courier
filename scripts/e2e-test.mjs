@@ -140,7 +140,8 @@ function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv
     endedAt: new Date(endedAtMs).toISOString(),
     durationMs: endedAtMs - startedAtMs,
     timeoutMs,
-    expectedTests: isExactPhase2And3DirectedSelection(args) ? 42 : phase1Acceptance ? 139 : phase2Canonical ? 41 : null,
+    expectedTests: isExactPhase2And3DirectedSelection(args) ? 43 : phase1Acceptance ? null : phase2Canonical ? 41 : null,
+    expectedTestCountSource: phase1Acceptance ? "dynamic discovery and per-stage counts in phase1-browser-stages.json" : "fixed selection or custom runner report",
     process: { exitCode: result.status, signal: result.signal ?? null, errorCode: result.error?.code ?? null },
     environment: {
       profile: certificationEnvironmentProfile(runtimeEnv, "test:e2e"),
