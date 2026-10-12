@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "command": "test:e2e",
+  "arguments": [
+    "--",
+    "tests/e2e/customer-wallet-refunds.spec.ts",
+    "tests/e2e/refund-finance-admin.spec.ts",
+    "tests/e2e/store-order-customer.spec.ts",
+    "tests/e2e/store-order-merchant.spec.ts",
+    "tests/e2e/store-order-admin.spec.ts",
+    "tests/e2e/store-order-substitution.spec.ts",
+    "tests/e2e/store-order-handoff.spec.ts",
+    "tests/e2e/store-order-accessibility.spec.ts",
+    "tests/e2e/profile-avatar-lifecycle.spec.ts",
+    "tests/e2e/transactional-notifications.spec.ts",
+    "tests/e2e/trusted-parcel-classification.spec.ts",
+    "tests/e2e/driver-canonical-delivery.spec.ts",
+    "tests/e2e/cod-custody-remittance.spec.ts",
+    "tests/e2e/catalog-inventory-upload.spec.ts",
+    "tests/e2e/anonymous-courier-quote.spec.ts",
+    "tests/e2e/customer-identity-lifecycle.spec.ts",
+    "tests/e2e/store-order-positive-substitution.spec.ts",
+    "tests/e2e/store-branding-lifecycle.spec.ts",
+    "--project=chromium",
+    "--retries=0",
+    "--workers=1",
+    "--output=test-results/phase2-3-directed"
+  ],
+  "fullCommand": "npm run test:e2e -- tests/e2e/customer-wallet-refunds.spec.ts tests/e2e/refund-finance-admin.spec.ts tests/e2e/store-order-customer.spec.ts tests/e2e/store-order-merchant.spec.ts tests/e2e/store-order-admin.spec.ts tests/e2e/store-order-substitution.spec.ts tests/e2e/store-order-handoff.spec.ts tests/e2e/store-order-accessibility.spec.ts tests/e2e/profile-avatar-lifecycle.spec.ts tests/e2e/transactional-notifications.spec.ts tests/e2e/trusted-parcel-classification.spec.ts tests/e2e/driver-canonical-delivery.spec.ts tests/e2e/cod-custody-remittance.spec.ts tests/e2e/catalog-inventory-upload.spec.ts tests/e2e/anonymous-courier-quote.spec.ts tests/e2e/customer-identity-lifecycle.spec.ts tests/e2e/store-order-positive-substitution.spec.ts tests/e2e/store-branding-lifecycle.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/phase2-3-directed",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:11:43.255Z",
+  "endedAt": "2026-10-12T12:23:09.014Z",
+  "durationMs": 685759,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": null,
+  "testsExpected": 43,
+  "testsExecuted": 43,
+  "testsPassed": 43,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": {
+    "passedAttempts": 43,
+    "failedAttempts": 0,
+    "skippedAttempts": 0,
+    "flakyAttempts": 0,
+    "completedAttempts": 43
+  },
+  "executions": [
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 43,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 43,
+      "hasFinalSummary": true
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "disposable-compose-runner",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-e2e-1791807103255-2907.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-e2e-1791807103255-2907.json"
+}

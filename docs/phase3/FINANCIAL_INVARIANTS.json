@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "scope": "source-level and disposable-provider verification",
+  "liveTransactionsPerformed": false,
+  "productionRowsRead": false,
+  "productionActivationAuthorized": false,
+  "invariants": [
+    { "key": "verified_payment_source", "assertion": "A success notification requires the canonical verified payment event, matching attempt, webhook and balanced success journal.", "evidence": ["lib/notifications/required-domain-payload.ts", "tests/integration/required-domain-notifications.integration.test.ts", "tests/payments/"] },
+    { "key": "refund_completion", "assertion": "A succeeded refund notice requires matching refund history and completion ledger evidence.", "evidence": ["lib/notifications/required-domain-payload.ts", "tests/refunds/", "tests/integration/required-domain-notifications.integration.test.ts"] },
+    { "key": "withdrawal_reserve_and_payout", "assertion": "Withdrawal notices require a matching canonical wallet and owner; paid status also requires completion time and payout journal.", "evidence": ["lib/notifications/operational-domain-payload.ts", "tests/phase27/operational-domain-payload.test.ts", "tests/integration/owner-withdrawal-canonical-postgres.integration.test.ts"] },
+    { "key": "earning_accrual_release_reversal", "assertion": "Earning notices require a matching owner wallet and accrual journal; release or reversal requires its corresponding journal and timestamp.", "evidence": ["lib/notifications/operational-domain-payload.ts", "tests/phase27/operational-domain-payload.test.ts", "tests/integration/store-earning-canonical-postgres.integration.test.ts", "tests/integration/driver-earning-canonical-postgres.integration.test.ts"] },
+    { "key": "notification_is_not_settlement", "assertion": "Status notices perform no financial mutation and explicitly state that a notice is not a bank settlement receipt.", "evidence": ["lib/notifications/operational-domain-payload.ts", "lib/notifications/required-domain-definitions.ts"] }
+  ],
+  "externalAcceptance": "Finance, bank and Paystack merchant approval and a separately scoped capped test are still required."
+}

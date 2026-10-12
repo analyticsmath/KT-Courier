@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "command": "test:integration:storefront",
+  "arguments": [],
+  "fullCommand": "npm run test:integration:storefront",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:11:46.935Z",
+  "endedAt": "2026-10-12T12:11:50.877Z",
+  "durationMs": 3942,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 10,
+  "testsExpected": 17,
+  "testsExecuted": 17,
+  "testsPassed": 17,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 10
+      },
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 17
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "e2e",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-integration-storefront-1791807106935-2868.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-integration-storefront-1791807106935-2868.json"
+}

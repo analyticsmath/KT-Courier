@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "command": "test:payments",
+  "arguments": [],
+  "fullCommand": "npm run test:payments",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:16:35.355Z",
+  "endedAt": "2026-10-12T12:16:41.446Z",
+  "durationMs": 6091,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 56,
+  "testsExpected": 343,
+  "testsExecuted": 343,
+  "testsPassed": 343,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 56,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 56
+      },
+      "passed": 343,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 343
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-payments-1791807395355-10052.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-payments-1791807395355-10052.json"
+}

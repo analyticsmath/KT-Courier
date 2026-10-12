@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "command": "test:integration:pricing",
+  "arguments": [],
+  "fullCommand": "npm run test:integration:pricing",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:12:42.055Z",
+  "endedAt": "2026-10-12T12:13:45.934Z",
+  "durationMs": 63879,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 2,
+  "testsExpected": 3,
+  "testsExecuted": 3,
+  "testsPassed": 3,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 2
+      },
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 3
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "e2e",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-integration-pricing-1791807162055-2872.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-integration-pricing-1791807162055-2872.json"
+}

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "command": "test:e2e",
+  "arguments": [
+    "--",
+    "tests/e2e/marketplace-checkout-payment.spec.ts",
+    "--project=chromium",
+    "--retries=0",
+    "--workers=1",
+    "--output=test-results/paystack-focused"
+  ],
+  "fullCommand": "npm run test:e2e -- tests/e2e/marketplace-checkout-payment.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/paystack-focused",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:23:59.396Z",
+  "endedAt": "2026-10-12T12:25:38.139Z",
+  "durationMs": 98743,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": null,
+  "testsExpected": 9,
+  "testsExecuted": 9,
+  "testsPassed": 9,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": {
+    "passedAttempts": 9,
+    "failedAttempts": 0,
+    "skippedAttempts": 0,
+    "flakyAttempts": 0,
+    "completedAttempts": 9
+  },
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 1
+      },
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 2
+    },
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 9,
+      "hasFinalSummary": true
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "disposable-compose-runner",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-e2e-1791807839396-36085.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-e2e-1791807839396-36085.json"
+}

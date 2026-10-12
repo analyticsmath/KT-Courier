@@ -383,9 +383,78 @@
       "id": "dpl_5c9MCebLdhMKGp8XYJWV15HLiZKL",
       "status": "READY"
     },
-    "previewDisableReadback": "UNPROVEN",
+    "previewDisableReadback": "CONFIRMED_TRUE",
     "connectorReadback": "403_SCOPE_ACCESS"
   },
   "protectedProductionDataAccessed": false,
-  "productionMutated": false
+  "productionMutated": false,
+  "phase3CandidateReadback": {
+  "checkedAtUtc": "2026-10-12T13:32:18Z",
+    "mainSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+    "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+    "hostedCertification": {
+      "runId": "38247409666",
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/38247409666",
+      "status": "COMPLETED_COMPONENTS_PASS_GATE_NO_GO",
+      "exactSourceSha": "f30d2feb2172c32c709b4f0e173595eabe138d00"
+    },
+    "railway": {
+      "projectId": "e9554aaa-1b53-4595-8731-e8c2885ac594",
+      "environmentId": "2226be2a-86f7-4590-a7b4-72aa54dccf52",
+      "stagedPatch": {
+        "id": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb",
+        "status": "STAGED",
+        "changeCount": 5
+      },
+      "web": {
+        "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+        "candidateDeploymentId": "899d2d06-e1a6-4988-b850-da5ff5e7361e",
+        "candidateStatus": "SKIPPED",
+        "liveDeploymentId": "49d872d9-7fdb-442c-a4a4-cd01b70ff82f",
+        "liveSourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+      },
+      "worker": {
+        "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+        "candidateDeploymentId": "2d6f9eb6-9354-4d2d-93d9-5536701bf05f",
+        "candidateStatus": "SKIPPED",
+        "liveDeploymentId": "8220e084-6ad3-4467-b3d8-65afe8fe29ff",
+        "liveSourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1"
+      },
+      "checkedAtUtc": "2026-10-12T12:28:08Z",
+      "healthReadback": {
+        "checkedAtUtc": "2026-10-12T12:28:08Z",
+        "totalServices": 4,
+        "servicesWithIssues": 0,
+        "totalFailuresLast24h": 0,
+        "web": {
+          "serviceId": "55254aaf-3719-4da9-a5b6-9214417101c6",
+          "state": "online",
+          "runningReplicas": 1,
+          "totalReplicas": 1,
+          "liveDeploymentId": "49d872d9-7fdb-442c-a4a4-cd01b70ff82f"
+        },
+        "worker": {
+          "serviceId": "fdd13e91-dffa-400e-9a44-ae2d1f891ff0",
+          "state": "online",
+          "runningReplicas": 1,
+          "totalReplicas": 1,
+          "liveDeploymentId": "8220e084-6ad3-4467-b3d8-65afe8fe29ff"
+        },
+        "pendingPatchId": "9a3370a3-8d07-4ef9-9e8d-a57ff488fccb"
+      }
+    },
+    "productionMutated": false,
+    "vercel": {
+      "checkedAtUtc": "2026-10-12T12:11:00Z",
+      "projectId": "prj_Q6i3g8JIv1ibkXGspPotBem2FFLD",
+      "mainSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+      "latestProductionDeploymentId": "dpl_5c9MCebLdhMKGp8XYJWV15HLiZKL",
+      "latestProductionStatus": "READY",
+      "latestProductionCreatedAt": "2026-10-12T05:25:43Z",
+      "latestProductionSourceSha": "83a4d63078efa20d4e234fe081c10e15746387d1",
+      "candidateShaDeployed": false,
+      "readback": "Vercel CLI project inspect plus API GET /v9/projects by CLI fallback, and CLI list/inspect deployment",
+      "previewDeploymentsDisabled": true
+    }
+  }
 }

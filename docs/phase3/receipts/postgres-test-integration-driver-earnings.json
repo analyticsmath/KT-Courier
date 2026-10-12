@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "command": "test:integration:driver-earnings",
+  "arguments": [],
+  "fullCommand": "npm run test:integration:driver-earnings",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:12:07.151Z",
+  "endedAt": "2026-10-12T12:13:27.203Z",
+  "durationMs": 80052,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 8,
+  "testsExpected": 14,
+  "testsExecuted": 14,
+  "testsPassed": 14,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 8
+      },
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 14
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "e2e",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-integration-driver-earnings-1791807127151-2947.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-integration-driver-earnings-1791807127151-2947.json"
+}

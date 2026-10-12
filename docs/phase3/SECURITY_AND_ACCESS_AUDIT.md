@@ -1,0 +1,7 @@
+# Security and access audit
+
+Two source-level fixes are covered by regression tests. Vercel preview and unknown deployments fail closed before rendering or proxying to Railway; the proxy and build-time rewrite share a fixed project/environment allowlist. A user-supplied host/origin cannot select the production upstream. Separately, Super Admin capability checks now query the current user override so an explicit `DENY` wins in both `hasPermission` and the effective permission list.
+
+The checkout does not constitute a production protected-row audit or third-party penetration test. No protected production row or secret value was read. Existing negative authorization, webhook signature, rate-limit, media and tenant tests remain in the source selection. Exact-source CI [38246653617](https://github.com/analyticsmath/KT-Courier/actions/runs/38246653617) passed 10 applicable jobs; 18 conditional jobs were skipped. All 24 component jobs in manual certification [38247409666](https://github.com/analyticsmath/KT-Courier/actions/runs/38247409666) passed, including the zero-skip BOLA and browser selections. The separate terminal gate checker remains NO_GO because the production audit and other launch gates require external approval/evidence.
+
+The remaining data audit requires an independently approved read-only session, a named privacy/data reviewer, a redacted receipt and a verified backup/restore scope. The production deployment quarantine and destructive Railway patch remain explicit controls.

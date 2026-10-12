@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "command": "test:coverage",
+  "arguments": [],
+  "fullCommand": "npm run test:coverage",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:14:52.986Z",
+  "endedAt": "2026-10-12T12:16:35.288Z",
+  "durationMs": 102302,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 796,
+  "testsExpected": 3773,
+  "testsExecuted": 3773,
+  "testsPassed": 3773,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 796,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 796
+      },
+      "passed": 3773,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 3773
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-coverage-1791807292986-3054.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-coverage-1791807292986-3054.json"
+}

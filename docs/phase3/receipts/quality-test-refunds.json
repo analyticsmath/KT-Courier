@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "command": "test:refunds",
+  "arguments": [],
+  "fullCommand": "npm run test:refunds",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:16:41.510Z",
+  "endedAt": "2026-10-12T12:16:44.356Z",
+  "durationMs": 2846,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": 26,
+  "testsExpected": 115,
+  "testsExecuted": 115,
+  "testsPassed": 115,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": null,
+  "executions": [
+    {
+      "runner": "vitest",
+      "testFiles": {
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "todo": 0,
+        "pending": 0,
+        "flaky": 0,
+        "expected": 26
+      },
+      "passed": 115,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 115
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "command-specific",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-refunds-1791807401510-10519.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-refunds-1791807401510-10519.json"
+}

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "command": "test:e2e",
+  "arguments": [
+    "--",
+    "tests/e2e/withdrawal-finance-admin.spec.ts",
+    "--project=chromium",
+    "--retries=0",
+    "--workers=1",
+    "--output=test-results/withdrawal-finance-focused"
+  ],
+  "fullCommand": "npm run test:e2e -- tests/e2e/withdrawal-finance-admin.spec.ts --project=chromium --retries=0 --workers=1 --output=test-results/withdrawal-finance-focused",
+  "commitSha": "f30d2feb2172c32c709b4f0e173595eabe138d00",
+  "sourceTreeSha": "09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e",
+  "startedAt": "2026-10-12T12:23:09.090Z",
+  "endedAt": "2026-10-12T12:23:59.329Z",
+  "durationMs": 50239,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testFilesPassed": null,
+  "testsExpected": 3,
+  "testsExecuted": 3,
+  "testsPassed": 3,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "playwrightProgress": {
+    "passedAttempts": 3,
+    "failedAttempts": 0,
+    "skippedAttempts": 0,
+    "flakyAttempts": 0,
+    "completedAttempts": 3
+  },
+  "executions": [
+    {
+      "runner": "playwright",
+      "testFiles": null,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "pending": 0,
+      "flaky": 0,
+      "expected": 3,
+      "hasFinalSummary": true
+    }
+  ],
+  "skippedCriticalTestsDetected": false,
+  "flakyCriticalTestsDetected": false,
+  "environment": {
+    "commandIsolation": "disposable-compose-runner",
+    "nodeEnvironment": "unset-or-other",
+    "runtimeEnvironment": "unset-or-other",
+    "networkDisabled": true,
+    "databaseHostClass": "loopback",
+    "emailProvider": "console",
+    "paystackMode": "disabled"
+  },
+  "stdoutPath": "output/production-closure/command-receipts/test-e2e-1791807789090-33084.log",
+  "status": "PASS",
+  "receiptPath": "output/production-closure/command-receipts/test-e2e-1791807789090-33084.json"
+}

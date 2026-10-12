@@ -1,0 +1,5 @@
+# Recovery, backup and RTO/RPO
+
+The repository has disposable recovery and migration exercises, including `npm run recovery:drill`, PostgreSQL migration smoke checks and isolated closure suites. They do not read or restore a production backup. The exact-source recovery component passed in [manual certification run 38247409666](https://github.com/analyticsmath/KT-Courier/actions/runs/38247409666). Its raw artifact reports dump/restore, historical upgrade, fixture hashes and ledger invariants as passing without touching protected production data. The source-bound [normalized recovery receipt](receipts/recovery-certification-assertions.json) records five explicit artifact assertions, identifies the hosted job and artifact, and includes the raw artifact's SHA-256. These five assertions are evidence checks, not a test-suite count.
+
+Production backup encryption, restore target, observed recovery duration, data-loss window and operator have not been verified in this task. RTO/RPO values are intentionally left unset pending the data owner. Do not deploy schema changes or infer production recoverability from the disposable test database.
