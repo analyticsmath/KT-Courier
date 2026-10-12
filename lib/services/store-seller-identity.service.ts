@@ -39,6 +39,7 @@ export async function submitStoreSellerIdentity(storeId: string, actorUserId: st
       return { ...saved, updatedAt: prior.updatedAt.toISOString(), replayed: true };
     }
     if ((await latestIdentity(tx, storeId))?.publicReference !== (input.expectedIdentityReference ?? undefined)) throw new PlatformError("SELLER_IDENTITY_STALE", "Refresh the current seller identity before submitting.", 409);
+    if (await tx.storeSellerLegalIdentity.findFirst({ where: { storeId, identityVersion: input.identityVersion }, select: { id: true } })) throw new PlatformError("SELLER_VERSION_ALREADY_USED", "Use a new identity version; approved seller facts are preserved.", 409);
     if (await tx.systemSetting.count({ where: { key: { startsWith: prefix(storeId) }, value: { path: ["status"], equals: "PENDING_REVIEW" } } }) >= 20) throw new PlatformError("SELLER_REVIEW_LIMIT", "Resolve pending seller identity reviews before adding another.", 409);
     const record: Proposal = { schemaVersion: 1, reference: `SLP-${randomUUID().replaceAll("-", "").toUpperCase()}`, storeId, makerUserId: actorUserId, requestHash: digest(input), input, status: "PENDING_REVIEW" };
     const saved = await tx.systemSetting.create({ data: { key, label: "Store seller identity proposal", type: "JSON", value: jsonValue(record) } });

@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { certificationEnvironmentProfile, certificationTestCounts, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
+import { certificationEnvironmentProfile, certificationTestCounts, exactCertificationSource, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
+
+test("dirty, untracked, unreadable or changed source cannot certify a commit", () => {
+  const sha = "a".repeat(40);
+  assert.equal(exactCertificationSource(sha, sha, "", ""), true);
+  for (const [end, before, after] of [[sha, " M lib/source.ts\n", ""], [sha, "?? app/api/new-route/\n", ""], [sha, "", " M docs/report.md\n"], ["b".repeat(40), "", ""], [sha, undefined, ""]]) assert.equal(exactCertificationSource(sha, end, before, after), false);
+});
 
 test("the zero-marker static audit does not fail an entirely executed suite", () => {
   assert.equal(hasSkippedCriticalTests("Runtime [SKIP_TEST] markers: 0\nTests 3282 passed (3282)"), false);

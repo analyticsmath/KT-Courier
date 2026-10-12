@@ -30,6 +30,7 @@ export function validateFinalClosureEvidence(manifest, { root, expectedSha, laun
     if (createHash("sha256").update(bytes).digest("hex") !== entry.sha256) refuse("receipt digest");
     for (const key of ["command", "commitSha", "sourceTreeSha", "status", "testsExpected", "testsExecuted", "testsPassed", "testsFailed", "testsSkipped", "testsFlaky"]) if (entry[key] !== receipt[key]) refuse("receipt fields");
     if (!/^[a-f0-9]{40}$/.test(receipt.commitSha ?? "") || !/^[a-f0-9]{40}$/.test(receipt.sourceTreeSha ?? "")) refuse("receipt source");
+    if (receipt.status === "PASS" && receipt.sourceBinding && receipt.sourceBinding !== "EXACT_COMMIT") refuse("uncommitted source pass");
     if (receipt.status === "PASS" && (receipt.process?.exitCode !== 0 || receipt.testsFailed !== 0 || receipt.testsSkipped !== 0 || receipt.testsFlaky !== 0 || !Number.isSafeInteger(receipt.testsPassed) || receipt.testsPassed < 1 || receipt.testsExpected !== receipt.testsPassed || receipt.testsExecuted !== receipt.testsPassed)) refuse("false pass or incomplete counts");
     if (complete && (receipt.status !== "PASS" || receipt.commitSha !== expectedSha)) refuse("complete test evidence");
   }

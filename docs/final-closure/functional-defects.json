@@ -175,8 +175,25 @@
       "evidenceRefs": [
         "receipts/test-e2e.json"
       ]
+    },
+    {
+      "id": "KT-F09",
+      "severity": "P1",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/store/profile; /admin/stores/[id]/seller-identity",
+      "api": "/api/store/seller-identity; /api/admin/stores/[id]/seller-identity",
+      "stateSource": "Owner proposal and atomic submission/review audit -> versioned StoreSellerLegalIdentity -> frozen checkout seller authority",
+      "repro": "A new approved vendor reached checkout with five published cart lines but no approved seller identity, and no native submission/review path existed. Checkout correctly returned SELLER_IDENTITY_INCOMPLETE.",
+      "beforeSha": "f4aec14b3075c848091288b1de6d39010bd6ea58",
+      "fixSha": "305a028b8538bf2e70e4c0c81736977c7801f2b9",
+      "testPath": "tests/integration/store-seller-identity.integration.test.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38299270617",
+      "negativeTest": "Foreign owner/proposal, self-review, changed replay, stale parent, reused version, overlapping windows, forged owner evidence, rejected proposal and audit rollback; API permission/origin/body/rate/VAT checks",
+      "verifiedAt": "2026-10-12T21:08:35.245624+00:00",
+      "status": "IMPLEMENTED_PENDING_FINAL_EXACT_SOURCE_BROWSER_CERTIFICATION",
+      "externalDependency": "Actual legal seller facts, evidence and independent human approval; production finance and company address remain unapproved."
     }
   ],
-  "knownOpenP0P1InReproducedDefectSet": 0,
-  "scopeCaveat": "Zero open reproduced defects is not universal route coverage or independent acceptance."
+  "knownOpenP0P1InReproducedDefectSet": 1,
+  "scopeCaveat": "The seller workflow is implemented and pre-commit PG/API checks pass; the final linked browser and exact-checkout certification are pending. An implemented fix is not a completed acceptance."
 }

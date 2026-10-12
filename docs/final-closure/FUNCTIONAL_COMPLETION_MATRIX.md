@@ -48,3 +48,5 @@ The directed workbook below identifies the actual acceptance selectors. Every fi
 | R01 | Recovery/replay/worker isolation | Redis, lease/payment/refund PG and synthetic recovery job | Duplicate journals/lost lease; production restore/RTO/RPO OPEN |
 
 Paths above are under `tests/e2e` unless marked PostgreSQL/API; the PG sources are under `tests/integration`, `tests/phase-b` and the existing canonical acceptance configuration. Historical [Phase 3 journey matrix](../phase3/CUSTOMER_JOURNEYS_MATRIX.md) and [recipient matrix](../phase3/NOTIFICATION_AND_MESSAGE_RECIPIENT_MATRIX.md) retain context; final execution is required again on the final checkout.
+
+The successor source adds the seller identity profile/admin review controls and two guarded APIs. Source inventory is now 749 API files; inventory remains distinct from execution. V01/V04/C07/A01 additionally require store-seller-identity.integration.test.ts and store-seller-identity-api.test.ts. The final-source full closure now discovers 196 cases across 32 files. These counts must be regenerated and pass on the final checkout.

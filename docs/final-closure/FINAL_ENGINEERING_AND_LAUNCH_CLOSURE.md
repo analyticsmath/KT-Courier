@@ -10,3 +10,5 @@
 8. Owner tasks: signed package/coverage/tariff/commission/COD/address inputs, media/sender/provider and physical device acceptance, independent legal/product/finance review, personally approved payment/vendor demo. [Checklist](OWNER_PAYMENT_AND_LIVE_DEMO_CHECKLIST.md).
 9. Outcome: ENGINEERING_INCOMPLETE; HOSTED_BLOCKED; RELEASE_NOT_AUTHORIZED; NO_GO. Current automated evidence is real, but broad independent acceptance and coordinated current-source cutover are absent.
 10. Next external action: named owner/operator review of the concrete [release/rollback plan](VERIFIED_DEPLOYMENT_AND_ROLLBACK_PLAN.md), [data/backup scope](PROD_READ_ONLY_AND_BACKUP_APPROVAL_REGISTER.md) and exact safe Railway patch disposition. No live mutation is executed by this dossier.
+
+Later implementation: 305a028b adds owner-supplied, independently reviewed seller identity onboarding after the linked cart exposed the missing workflow. Checkout and finance/legal approval predicates remain fail-closed. The final checkout must be recertified; this committed snapshot does not claim future results.

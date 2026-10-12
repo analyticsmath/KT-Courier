@@ -2,11 +2,13 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { sanitize } from "./docker-common.mjs";
-import { certificationEnvironmentProfile, certificationTestCounts, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
+import { certificationEnvironmentProfile, certificationTestCounts, exactCertificationSource, hasFlakyCriticalTests, hasSkippedCriticalTests, verifyCertificationHead } from "./certification-output.mjs";
 const command = process.argv[2];
 if (!/^(build:e2e-host|test:(coverage|payments|refunds|security:bola|processors|e2e|integration:[a-z-]+)|docker:(migration-smoke|gate4))$/.test(command ?? "")) throw new Error("Unsupported certification command.");
 const commitSha = verifyCertificationHead(spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim(), process.env.KT_CERTIFICATION_HEAD_SHA);
 const sourceTreeSha = spawnSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).stdout?.trim();
+const initialStatus = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8" });
+const initialWorkingTreeClean = initialStatus.status === 0 && !initialStatus.stdout.trim();
 const started = Date.now();
 const startedAt = new Date(started).toISOString();
 const args = process.argv.slice(3);
@@ -31,7 +33,10 @@ child.on("close", (code, signal) => {
   const stem = `${command.replaceAll(":", "-")}-${runId}`;
   const stdoutPath = path.join(runDirectory, `${stem}.log`);
   const receiptPath = path.join(runDirectory, `${stem}.json`);
-  const status = code === 0 && !skipped && !flaky ? "PASS" : "FAIL";
+  const endingStatus = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8" });
+  const endingHead = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout?.trim();
+  const exactSource = initialStatus.status === 0 && endingStatus.status === 0 && exactCertificationSource(commitSha, endingHead, initialStatus.stdout, endingStatus.stdout);
+  const status = code === 0 && !skipped && !flaky && exactSource ? "PASS" : "FAIL";
   const receipt = {
     schemaVersion: 1,
     command,
@@ -39,6 +44,9 @@ child.on("close", (code, signal) => {
     fullCommand,
     commitSha,
     sourceTreeSha,
+    sourceBinding: exactSource ? "EXACT_COMMIT" : "UNCOMMITTED_OR_CHANGED_SOURCE",
+    initialWorkingTreeClean,
+    endingWorkingTreeClean: endingStatus.status === 0 && !endingStatus.stdout.trim(),
     startedAt,
     endedAt,
     durationMs: ended - started,
@@ -54,5 +62,6 @@ child.on("close", (code, signal) => {
   writeFileSync(receiptPath, JSON.stringify(receipt, null, 2));
   writeFileSync(`output/production-closure/${command.replaceAll(":", "-")}.json`, JSON.stringify({ ...receipt, receiptPath }, null, 2));
   console.log(`CERTIFICATION_RECEIPT=${receiptPath}`);
-  process.exitCode = code === 0 && !skipped && !flaky ? 0 : 1;
+  if (!exactSource) console.error("Certification source is uncommitted or changed; functional counts do not certify the recorded commit.");
+  process.exitCode = status === "PASS" ? 0 : 1;
 });

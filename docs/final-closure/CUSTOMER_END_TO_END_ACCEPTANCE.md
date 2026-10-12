@@ -5,3 +5,5 @@ The new exemplar uses a genuine vendor signup and a synthetic existing buyer/eli
 Existing directed cases cover guest/current-contact identity, refunds, order visibility, substitutions and private avatars; the full Chromium and canonical PostgreSQL selections remain mandatory. Changing totals, foreign identity, stale versions, wrong OTP, missing location and private media access must refuse before a canonical transition. The linked test includes foreign customer/driver chat denials and exact-message replay.
 
 This is automated acceptance within disposable fixtures. Named customer/product acceptance, real coverage/geocoding, sender delivery and live merchant demonstration remain unapproved.
+
+Checkout requires an effective approved seller identity. A new vendor now has an owner submission and separate admin review path. Current-source buyer completion remains subject to the final linked receipt; prior seller-gate failures remain recorded.

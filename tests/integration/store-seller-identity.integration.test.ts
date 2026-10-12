@@ -42,6 +42,7 @@ describe("seller identity owner submission and independent approval on real Post
     const f = await fixture(); const first = await submitStoreSellerIdentity(f.store.id, f.owner.id, f.input);
     const competing = await submitStoreSellerIdentity(f.store.id, f.owner.id, { ...f.input, identityVersion: "competing-v1", operationId: randomUUID() });
     const approved = await reviewStoreSellerIdentity(f.store.id, f.checker.id, review(first));
+    await expect(submitStoreSellerIdentity(f.store.id, f.owner.id, { ...f.input, expectedIdentityReference: approved.identityReference!, operationId: randomUUID() })).rejects.toMatchObject({ code: "SELLER_VERSION_ALREADY_USED" });
     await expect(reviewStoreSellerIdentity(f.store.id, f.checker.id, review(competing))).rejects.toMatchObject({ code: "SELLER_IDENTITY_STALE" });
     const next = await submitStoreSellerIdentity(f.store.id, f.owner.id, { ...f.input, identityVersion: "synthetic-v2", legalName: "Synthetic successor seller", expectedIdentityReference: approved.identityReference!, effectiveFrom: new Date().toISOString(), operationId: randomUUID() });
     await reviewStoreSellerIdentity(f.store.id, f.checker.id, review(next));

@@ -19,6 +19,10 @@ export function verifyCertificationHead(actual, expected = actual) {
   return actual;
 }
 
+export function exactCertificationSource(startingHead, endingHead, startingStatus, endingStatus) {
+  return /^[a-f0-9]{40}$/.test(startingHead ?? "") && startingHead === endingHead && typeof startingStatus === "string" && typeof endingStatus === "string" && !startingStatus.trim() && !endingStatus.trim();
+}
+
 export function certificationTestCounts(output) {
   const plain = output.replace(/\u001b\[[0-9;]*m/g, "");
   const executions = [];
