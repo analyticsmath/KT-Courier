@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateProductionConfiguration } from "@/lib/config/production-validation";
+import { assertProductionConfiguration, evaluateProductionConfiguration } from "@/lib/config/production-validation";
 import { getHealthPayload } from "@/lib/health/checks";
 import { getReadinessLockRegistry, type ReadinessLockState } from "@/lib/security/integration-registry";
 
@@ -14,6 +14,23 @@ const productionBase = {
 };
 
 describe("Phase 5 production readiness", () => {
+  it.each([
+    { KT_RUNTIME_ENV: "e2e" }, { KT_RUNTIME_ENV: "smoke" }, { NODE_ENV: "test" },
+    { KT_RUNTIME_ENV: "staging-demo", KT_STAGING_DEMO_ENABLED: "true" },
+  ])("test/staging flags cannot downgrade a protected production database: %j", flags => {
+    const env = { ...productionBase, KT_DATABASE_CLASSIFICATION: "production", ...flags };
+    expect(evaluateProductionConfiguration(env)).toMatchObject({ environment: "production", startupBlocked: true });
+    expect(() => assertProductionConfiguration(env)).toThrow("RUNTIME_CLASSIFICATION_CONFLICT");
+  });
+  it.each([
+    { RAILWAY_ENVIRONMENT_ID: "2226be2a-86f7-4590-a7b4-72aa54dccf52" },
+    { RAILWAY_ENVIRONMENT_NAME: "production" },
+  ])("production infrastructure independently rejects a copied e2e configuration: %j", identity => {
+    expect(() => assertProductionConfiguration({ NODE_ENV: "production", KT_RUNTIME_ENV: "e2e", KT_DATABASE_CLASSIFICATION: "development", DATABASE_URL: "postgresql://synthetic:synthetic@localhost/kt_launch_test", ...identity })).toThrow("RUNTIME_CLASSIFICATION_CONFLICT");
+  });
+  it("retains explicitly disposable browser builds without granting production authority", () => {
+    expect(evaluateProductionConfiguration({ NODE_ENV: "production", KT_RUNTIME_ENV: "e2e", KT_DATABASE_CLASSIFICATION: "development", DATABASE_URL: "postgresql://synthetic:synthetic@127.0.0.1/kt_launch_test" })).toMatchObject({ environment: "test", startupBlocked: false });
+  });
   it("rejects placeholder or local production database configuration without disclosing it", () => {
     const assessment = evaluateProductionConfiguration({ ...productionBase, DATABASE_URL: "postgresql://USER:PASSWORD@localhost:5432/app" });
     expect(assessment.startupBlocked).toBe(true);

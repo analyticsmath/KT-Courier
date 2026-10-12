@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import { edgeRewrites, resolveEdgeOrigin } from "./lib/deployment/edge-routing";
+
+// Evaluated before build/route discovery: unregistered previews cannot deploy.
+const edgeOrigin = resolveEdgeOrigin(process.env);
 
 const securityHeaders = [
   {
@@ -59,6 +63,9 @@ export function parseBuildCpuOverride(
 const buildCpuOverride = parseBuildCpuOverride(process.env.KT_NEXT_BUILD_CPUS);
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return edgeRewrites(edgeOrigin);
+  },
   output: "standalone",
   deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
   typescript: {

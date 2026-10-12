@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { railwayProductionOrigin } from "@/lib/config/railway-origin";
 import { proxy } from "@/proxy";
+import { PRODUCTION_EDGE_PROJECT } from "@/lib/deployment/edge-routing";
 
 describe("configured production edge origin", () => {
   const fakeUpstream = "https://preview-upstream.fixture.invalid";
@@ -13,17 +14,21 @@ describe("configured production edge origin", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("KT_RUNTIME_ENV", "");
     vi.stubEnv("KT_NETWORK_DISABLED", "");
+    vi.stubEnv("VERCEL_PROJECT_ID", "");
+    vi.stubEnv("KT_EDGE_ROLE", "");
   });
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
   it.each([undefined, "", "http://web.example", "https://user:pass@web.example", "https://web.example/path", "https://web.example?query=1", "https://web.example#fragment", "https://localhost", "https://web..example"])("fails closed for invalid origin %s", (value) => {
     expect(railwayProductionOrigin(value ?? "")).toBeNull();
   });
-  it("rewrites production path/query using only server deployment configuration", () => {
+  it("identified production defers path/query routing to the immutable build configuration", () => {
     vi.stubEnv("VERCEL", "1"); vi.stubEnv("VERCEL_ENV", "production"); vi.stubEnv("RAILWAY_PRODUCTION_ORIGIN", "https://runtime.example");
+    vi.stubEnv("VERCEL_PROJECT_ID", PRODUCTION_EDGE_PROJECT); vi.stubEnv("KT_EDGE_ROLE", "production");
     const response = proxy(new NextRequest("https://www.ktcouriers.com/quote?reference=abc"));
-    expect(response.headers.get("x-middleware-rewrite")).toBe("https://runtime.example/quote?reference=abc");
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
   });
-  it.each([["GET", "/"], ["GET", "/api/orders?cursor=next"], ["POST", "/api/orders"], ["POST", "/api/payments/paystack/webhook"]])("classifies production %s %s as a rewrite without making a provider request", (method, path) => {
+  it.each([["GET", "/"], ["GET", "/api/orders?cursor=next"], ["POST", "/api/orders"], ["POST", "/api/payments/paystack/webhook"]])("refuses unidentified production %s %s despite an arbitrary inherited origin", (method, path) => {
     vi.stubEnv("VERCEL", "1"); vi.stubEnv("VERCEL_ENV", "production"); vi.stubEnv("RAILWAY_PRODUCTION_ORIGIN", fakeUpstream);
     const requests: string[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
@@ -31,16 +36,18 @@ describe("configured production edge origin", () => {
       return new Response("fake origin received a request");
     });
     const response = proxy(new NextRequest(`https://www.ktcouriers.com${path}`, { method }));
-    expect(response.headers.get("x-middleware-rewrite")).toBe(`${fakeUpstream}${path}`);
+    expect(response.status).toBe(503);
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
     expect(requests).toEqual([]);
   });
   it("returns safe 503 when the edge backend is missing", () => {
     vi.stubEnv("VERCEL", "1"); vi.stubEnv("VERCEL_ENV", "production"); vi.stubEnv("RAILWAY_PRODUCTION_ORIGIN", "");
     expect(proxy(new NextRequest("https://www.ktcouriers.com/quote")).status).toBe(503);
   });
-  it("preserves preview homepage while protected routes still fail closed", () => {
+  it("denies the preview homepage as well as protected routes", () => {
     vi.stubEnv("VERCEL", "1"); vi.stubEnv("VERCEL_ENV", "preview"); vi.stubEnv("RAILWAY_PRODUCTION_ORIGIN", "");
     expect(proxy(new NextRequest("https://preview.example/")).headers.get("x-middleware-rewrite")).toBeNull();
+    expect(proxy(new NextRequest("https://preview.example/")).status).toBe(503);
     expect(proxy(new NextRequest("https://preview.example/admin")).status).toBe(503);
   });
   it.each(["/api/checkout", "/api/payments/paystack/webhook", "/admin", "/quote"])("refuses preview production routing for %s even with a valid inherited origin", (path) => {
@@ -60,7 +67,7 @@ describe("configured production edge origin", () => {
     ["POST", "/api/orders", false],
     ["POST", "/api/payments/paystack/webhook", false],
     ["POST", "/store/orders/checkout", false],
-  ])("keeps preview %s %s out of the fake upstream", (method, path, publicPreviewAsset) => {
+  ])("keeps preview %s %s out of the fake upstream", (method, path) => {
     vi.stubEnv("VERCEL", "1"); vi.stubEnv("VERCEL_ENV", "preview"); vi.stubEnv("RAILWAY_PRODUCTION_ORIGIN", fakeUpstream);
     vi.stubEnv("DATABASE_URL", "postgresql://fixture:fixture@db.invalid/disposable");
     vi.stubEnv("RAILWAY_SERVICE_ID", "inherited-service");
@@ -76,21 +83,12 @@ describe("configured production edge origin", () => {
     });
     const response = proxy(request);
 
-    if (publicPreviewAsset) {
-      expect(response.headers.get("x-middleware-rewrite")).toBeNull();
-      expect(response.headers.get("x-middleware-next")).toBe("1");
-      if (path === "/") {
-        expect(response.headers.get("x-frame-options")).toBe("DENY");
-        expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-        expect(response.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
-      }
-    } else {
-      expect(response.status).toBe(503);
-      expect(response.headers.get("cache-control")).toBe("no-store");
-      expect(response.headers.get("x-middleware-rewrite")).toBeNull();
-      expect(response.headers.get("location")).toBeNull();
-      expect(response.headers.get("set-cookie")).toBeNull();
-    }
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBeNull();
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("set-cookie")).toBeNull();
     expect(requests).toEqual([]);
   });
   it("retains the local protected-page login redirect and return target", () => {

@@ -34,6 +34,8 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run typecheck
+      - run: node --test scripts/staging-isolation.test.mjs scripts/phase3-evidence.test.mjs scripts/edge-build-refusal.test.mjs
+      - run: node scripts/validate-phase3-evidence.mjs
       - run: node --test scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
       - run: node scripts/certification-command.mjs test:coverage
       - run: node scripts/certification-command.mjs test:payments

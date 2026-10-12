@@ -70,7 +70,9 @@ test("CI tests the pull request head with read-only credentials and offline prov
 test("Vercel source config quarantines integration and main until Phase 3 production approval", () => {
   const branch = "integration/codex-phase1-phase2-2026-10-11";
   assert.deepEqual(vercelConfig.git?.deploymentEnabled, { [branch]: false, main: false });
-  assert.deepEqual(vercelConfig.rewrites, [
-    { source: "/:path*", destination: "https://web-production-9f8bb.up.railway.app/:path*" },
-  ]);
+  assert.equal(vercelConfig.rewrites, undefined, "static platform routes cannot inherit production");
+  assert.equal(vercelConfig.alias, undefined, "staging config cannot assign customer domains");
+  const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+  assert.match(nextConfig, /resolveEdgeOrigin\(process\.env\)/);
+  assert.match(nextConfig, /return edgeRewrites\(edgeOrigin\)/);
 });

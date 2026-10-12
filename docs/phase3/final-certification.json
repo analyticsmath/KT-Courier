@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "repo": "analyticsmath/KT-Courier",
+    "branch": "main",
+    "commitSha": "80804a5532b0fb3a582533151521c0e4f54b4de8",
+    "treeSha": "bef47d137d53b9226d5a65c21e0708f43f620740"
+  },
+  "classification": "ENGINEERING_IN_PROGRESS",
+  "checkedAtUtc": "2026-10-12T08:50:34.780Z",
+  "tests": [],
+  "gates": [
+    {
+      "key": "marketplace_parcel_classification",
+      "status": "OPEN",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "notification_required_domains",
+      "status": "OPEN",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "commercial_financial_certification",
+      "status": "VALIDATION_BLOCKED",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "customer_vendor_driver_full_functional_acceptance",
+      "status": "OPEN",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "visual_acceptance",
+      "status": "OPEN",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "media_full_functional_acceptance",
+      "status": "OPEN",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "critical_skip_closure",
+      "status": "OPEN",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "fresh_production_protected_row_audit",
+      "status": "VALIDATION_BLOCKED",
+      "engineeringProof": [],
+      "operatorApproval": null
+    },
+    {
+      "key": "github_certification_and_deployment",
+      "status": "VALIDATION_BLOCKED",
+      "engineeringProof": [],
+      "operatorApproval": null
+    }
+  ],
+  "protectedProductionDataAccessed": false,
+  "liveFinancialTransactionPerformed": false,
+  "releaseDecision": "NO_GO",
+  "blockers": [
+    "Phase 3 exact-source certification pending",
+    "Cloud staging owner/plan/spend/disposal approval absent",
+    "Client/operations commercial activation approvals absent",
+    "Finance/provider/bank acceptance absent",
+    "Communications/media/physical-device/product/legal acceptance absent",
+    "Protected-row read-only audit and production backup/restore operator evidence absent",
+    "Destructive Railway staged patch remains unresolved",
+    "Production release window/unfreeze approval absent"
+  ]
+}

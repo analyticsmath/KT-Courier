@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "staging:preflight": "node scripts/staging-preflight.mjs",
     "dev": "next dev",
     "build": "prisma generate && node scripts/build-next.mjs",
     "build:e2e-host": "node scripts/build-e2e-host-standalone.mjs",

@@ -1,4 +1,5 @@
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
+import { classifyRuntimeEnvironment } from "@/lib/runtime/deployment-classification";
 
 export type ConfigurationBlock = "STARTUP" | "READINESS" | "NONE";
 
@@ -54,6 +55,13 @@ function issue(
 export function evaluateProductionConfiguration(
   source: Environment = process.env
 ): ProductionConfigurationAssessment {
+  const productionInfrastructure = source.RAILWAY_ENVIRONMENT_NAME === "production" ||
+    source.RAILWAY_ENVIRONMENT_ID === "2226be2a-86f7-4590-a7b4-72aa54dccf52";
+  const classification = classifyRuntimeEnvironment(productionInfrastructure ? { ...source, KT_DATABASE_CLASSIFICATION: "production" } : source);
+  if (!classification.isValid || (classification.runtime === "production" && ["smoke", "e2e", "test", "staging-demo", "local-demo"].includes(source.KT_RUNTIME_ENV ?? ""))) {
+    return { environment: "production", startupBlocked: true, readinessBlocked: true,
+      issues: [issue("application", "RUNTIME_CLASSIFICATION_CONFLICT", "REMOVE_CONTRADICTORY_RUNTIME_FLAGS", "STARTUP")] };
+  }
   const isProduction = source.NODE_ENV === "production" && source.KT_RUNTIME_ENV !== "e2e" && source.KT_RUNTIME_ENV !== "smoke";
   const issues: SafeConfigurationIssue[] = [];
 

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isVercelProxyRuntime } from "@/lib/config/runtime-surface";
-import { railwayProductionOrigin } from "@/lib/config/railway-origin";
+import { resolveEdgeOrigin } from "@/lib/deployment/edge-routing";
 
 export const SESSION_COOKIE_NAME = "kt_session";
 export const HOST_SESSION_COOKIE_NAME = "__Host-kt_session";
@@ -54,22 +53,16 @@ export function sanitizeReturnUrl(url: string | null | undefined): string {
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
-  // Vercel deployment is intentionally used as the public edge while the
-  // production runtime and stateful dependencies live on Railway.
-  // The Vercel project currently has no production DATABASE_URL by design,
-  // so production routes use the healthy Railway runtime. Preview homepage
-  // assets and rendering stay on the branch for visual review.
-  const previewHome = process.env.VERCEL_ENV === "preview" && (pathname === "/" || pathname.startsWith("/_next/") || pathname.startsWith("/media/") || pathname.startsWith("/images/"));
-  // This denial is independent of runtime detection: inherited database or
-  // Railway variables must not turn a Vercel preview into a stateful backend.
-  if (process.env.VERCEL === "1" && !previewHome && (process.env.VERCEL_ENV !== "production" || process.env.NODE_ENV !== "production" || process.env.KT_RUNTIME_ENV === "e2e" || process.env.KT_NETWORK_DISABLED === "true")) {
-    return NextResponse.json({ error: "Stateful routing is unavailable in this environment." }, { status: 503, headers: { "Cache-Control": "no-store" } });
-  }
-  if (isVercelProxyRuntime() && !previewHome) {
-    const origin = railwayProductionOrigin();
-    if (!origin) return NextResponse.json({ error: "Production routing configuration is unavailable." }, { status: 503, headers: { "Cache-Control": "no-store" } });
-    const upstream = new URL(pathname + request.nextUrl.search, origin);
-    return NextResponse.rewrite(upstream);
+  if (process.env.VERCEL === "1") {
+    try {
+      if (process.env.NODE_ENV !== "production" || process.env.KT_RUNTIME_ENV === "e2e" || process.env.KT_NETWORK_DISABLED === "true") throw new Error("Invalid edge runtime");
+      if (!resolveEdgeOrigin(process.env)) throw new Error("Missing edge identity");
+      // The build's beforeFiles rewrites own the origin for every path/asset.
+      // Do not rewrite from mutable runtime origins or render preview pages.
+      return NextResponse.next();
+    } catch {
+      return NextResponse.json({ error: "Routing is unavailable in this environment." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    }
   }
 
   // Static assets and internal Next.js endpoints are always bypassed
