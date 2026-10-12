@@ -57,8 +57,8 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const seller = page.getByRole("form", { name: "Seller legal identity submission", exact: true });
   await seller.getByLabel("Identity version", { exact: true }).fill(`synthetic-${tag}-v1`);
   await seller.getByLabel("Legal seller name", { exact: true }).fill(`Synthetic seller ${tag}; not a production legal entity`);
-  await seller.getByLabel("VAT registration status", { exact: true }).selectOption("NOT_REGISTERED");
-  await seller.getByLabel("Receipt classification", { exact: true }).selectOption("RECEIPT");
+  await seller.getByRole("combobox", { name: "VAT registration status", exact: true }).selectOption("NOT_REGISTERED");
+  await seller.getByRole("combobox", { name: "Receipt classification", exact: true }).selectOption("RECEIPT");
   const localDate = await page.evaluate(() => { const date = new Date(); return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); });
   await seller.getByLabel("Effective from", { exact: true }).fill(localDate);
   await seller.getByLabel("Supplied evidence reference", { exact: true }).fill("SYNTHETIC_OWNER_DETAILS_NOT_REAL_APPROVAL");

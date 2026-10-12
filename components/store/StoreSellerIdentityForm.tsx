@@ -27,9 +27,9 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
       <label>Legal seller name<Input name="legalName" required maxLength={240} /></label>
       <label>Trading name<Input name="tradingName" maxLength={160} /></label>
       <label>Registration reference<Input name="registrationReference" maxLength={160} /></label>
-      <label>VAT registration status<select name="vatRegistrationStatus" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select supplied status</option><option value="NOT_REGISTERED">Not registered</option><option value="REGISTERED">Registered</option></select></label>
+      <div><label htmlFor="seller-vat-status">VAT registration status</label><select id="seller-vat-status" name="vatRegistrationStatus" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select supplied status</option><option value="NOT_REGISTERED">Not registered</option><option value="REGISTERED">Registered</option></select></div>
       <label>VAT reference<Input name="vatNumber" maxLength={160} /></label>
-      <label>Receipt classification<select name="invoiceClassification" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select reviewed classification</option><option value="RECEIPT">Receipt</option><option value="TAX_INVOICE">Tax invoice</option></select></label>
+      <div><label htmlFor="seller-receipt-classification">Receipt classification</label><select id="seller-receipt-classification" name="invoiceClassification" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select reviewed classification</option><option value="RECEIPT">Receipt</option><option value="TAX_INVOICE">Tax invoice</option></select></div>
       <label>Terms reference<Input name="termsReference" maxLength={160} /></label>
       <label>Effective from<Input name="effectiveFrom" type="datetime-local" required /></label>
       <label>Effective until (optional)<Input name="effectiveUntil" type="datetime-local" /></label>
