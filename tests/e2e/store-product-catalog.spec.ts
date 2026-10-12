@@ -104,7 +104,11 @@ for (const width of [1440, 390]) {
     await expect(page.getByText("ZAR 19.25", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
-    await page.goto("/store/catalog/products/new"); await step(page, "Find existing product"); await page.getByLabel("Find an existing product", { exact: true }).fill(editedTitle);
+    await page.goto("/store/catalog/products/new");
+    await step(page, "Core information"); await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
+    await step(page, "Modifiers"); await expect(page.getByLabel("Modifier groups", { exact: true })).toHaveValue("");
+    await step(page, "Type and category"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
+    await step(page, "Find existing product"); await page.getByLabel("Find an existing product", { exact: true }).fill(editedTitle);
     await page.getByRole("button", { name: "Search matching products", exact: true }).click();
     await expect(page.getByRole("region", { name: "Duplicate suggestions" })).toContainText(confirmed.publicReference);
     const otherStore = "e2e-other-store@ktcouriers.local"; await login(page, otherStore);
