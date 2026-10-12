@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}', fetch-depth: 0}
       - uses: actions/setup-node@v4
         with: {node-version: 24, cache: npm}
       - run: npm ci

@@ -43,7 +43,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}', fetch-depth: 0}
 
       - name: Setup Node
         uses: actions/setup-node@v4

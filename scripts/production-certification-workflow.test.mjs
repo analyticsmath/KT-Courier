@@ -17,6 +17,8 @@ test("every main PR update is eligible, with dispatch and approved release tags 
 });
 
 test("all certification jobs check out the same exact PR head or dispatch/tag SHA", () => {
+  assert.equal(workflow.jobs.quality.steps.find(step => step.uses === "actions/checkout@v4").with["fetch-depth"], 0);
+  assert.equal(ciWorkflow.jobs.quality.steps.find(step => step.uses === "actions/checkout@v4").with["fetch-depth"], 0);
   assert.equal(workflow.env.KT_CERTIFICATION_HEAD_SHA, "${{ github.event.pull_request.head.sha || github.sha }}");
   for (const [name, job] of Object.entries(workflow.jobs)) {
     const checkout = job.steps.find(step => step.uses === "actions/checkout@v4");

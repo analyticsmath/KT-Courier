@@ -31,6 +31,11 @@ describe("Phase 5 production readiness", () => {
   it("retains explicitly disposable browser builds without granting production authority", () => {
     expect(evaluateProductionConfiguration({ NODE_ENV: "production", KT_RUNTIME_ENV: "e2e", KT_DATABASE_CLASSIFICATION: "development", DATABASE_URL: "postgresql://synthetic:synthetic@127.0.0.1/kt_launch_test" })).toMatchObject({ environment: "test", startupBlocked: false });
   });
+  it("retains the dedicated Docker smoke identity while denying smoke against protected data", () => {
+    const env = { NODE_ENV: "production", KT_RUNTIME_ENV: "smoke", DATABASE_URL: "postgresql://kt_courier_baseline_smoke:synthetic@db/kt_courier_baseline_smoke" };
+    expect(evaluateProductionConfiguration(env)).toMatchObject({ environment: "test", startupBlocked: false });
+    expect(() => assertProductionConfiguration({ ...env, KT_DATABASE_CLASSIFICATION: "production" })).toThrow("RUNTIME_CLASSIFICATION_CONFLICT");
+  });
   it("rejects placeholder or local production database configuration without disclosing it", () => {
     const assessment = evaluateProductionConfiguration({ ...productionBase, DATABASE_URL: "postgresql://USER:PASSWORD@localhost:5432/app" });
     expect(assessment.startupBlocked).toBe(true);

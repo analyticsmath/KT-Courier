@@ -57,7 +57,10 @@ export function evaluateProductionConfiguration(
 ): ProductionConfigurationAssessment {
   const productionInfrastructure = source.RAILWAY_ENVIRONMENT_NAME === "production" ||
     source.RAILWAY_ENVIRONMENT_ID === "2226be2a-86f7-4590-a7b4-72aa54dccf52";
-  const classification = classifyRuntimeEnvironment(productionInfrastructure ? { ...source, KT_DATABASE_CLASSIFICATION: "production" } : source);
+  // The existing smoke runner uses a disposable database with a production build.
+  // Apply the same production-database precedence that protects the e2e runner.
+  const classifiedSource = source.KT_RUNTIME_ENV === "smoke" ? { ...source, KT_RUNTIME_ENV: "e2e" } : source;
+  const classification = classifyRuntimeEnvironment(productionInfrastructure ? { ...classifiedSource, KT_DATABASE_CLASSIFICATION: "production" } : classifiedSource);
   if (!classification.isValid || (classification.runtime === "production" && ["smoke", "e2e", "test", "staging-demo", "local-demo"].includes(source.KT_RUNTIME_ENV ?? ""))) {
     return { environment: "production", startupBlocked: true, readinessBlocked: true,
       issues: [issue("application", "RUNTIME_CLASSIFICATION_CONFLICT", "REMOVE_CONTRADICTORY_RUNTIME_FLAGS", "STARTUP")] };
