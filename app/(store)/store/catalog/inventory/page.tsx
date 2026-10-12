@@ -10,11 +10,13 @@ import { listStoreInventory } from "@/lib/services/catalog-inventory.service";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
 import { InventoryCsvUpload } from "@/components/store/InventoryCsvUpload";
+import { InventoryLocationForm } from "@/components/store/InventoryLocationForm";
+import { listStoreInventoryLocations } from "@/lib/services/catalog-inventory-location.service";
 
 export default async function StoreCatalogInventoryPage() {
   await requireBusinessPage("/store/catalog/inventory");
   const { store, user } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_INVENTORY_READ);
-  const [inventory, manage] = await Promise.all([listStoreInventory(store.id), storeCatalogPermission(user.id, PERMISSIONS.CATALOG_INVENTORY_MANAGE)]);
+  const [inventory, manage, locations] = await Promise.all([listStoreInventory(store.id), storeCatalogPermission(user.id, PERMISSIONS.CATALOG_INVENTORY_MANAGE), listStoreInventoryLocations(store.id)]);
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
@@ -23,6 +25,8 @@ export default async function StoreCatalogInventoryPage() {
         description="Location-aware inventory projections derived from canonical stock movements. No stock threshold, reservation, or adjustment authority is inferred here."
       />
       <StoreCatalogNavigation />
+      {manage.allowed && <InventoryLocationForm />}
+      {locations.length > 0 && <OperationalPanel title="Stock locations"><ul className="space-y-2 text-sm">{locations.map(location => <li key={location.publicReference} className="break-words">{location.name} · {location.status === "ACTIVE" ? "Active" : "Inactive"}{location.isPrimary ? " · Primary" : ""}</li>)}</ul></OperationalPanel>}
       {manage.allowed && <InventoryCsvUpload template={inventory.flatMap(item => item.trackingMode === "TRACKED" ? item.levels.filter(level => level.location.status === "ACTIVE").slice(0, 1).map(level => ({ inventoryReference: item.publicReference, locationReference: level.location.publicReference, version: item.version })) : [])} />}
       {inventory.length ? (
         <EditorialTable

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { newDriverCode } from "@/lib/utils/driver-code";
 import {
   toDriverSummaryDto,
   toDriverDetailDto,
@@ -187,9 +188,7 @@ export async function createDriverProfile(
     throw new Error("Driver profile already exists for this user.");
   }
 
-  // Generate driver code (DRV-XXXX)
-  const count = await prisma.driverProfile.count();
-  const driverCode = `DRV-${1000 + count + 1}`;
+  const driverCode = newDriverCode();
 
   const driver = await prisma.driverProfile.create({
     data: {

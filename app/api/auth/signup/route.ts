@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
 import { generateUniqueSlug } from "@/lib/utils/slug";
+import { newDriverCode } from "@/lib/utils/driver-code";
 import {
   CustomerSignupSchema,
   StoreSignupSchema,
@@ -166,8 +167,7 @@ export async function POST(req: NextRequest) {
           await tx.store.update({ where: { id: store.id }, data: { defaultPickupAddressId: pickup.id } });
         }
       } else {
-        const count = await tx.driverProfile.count();
-        const driverCode = `DRV-${1000 + count + 1}`;
+        const driverCode = newDriverCode();
         await tx.driverProfile.create({
           data: {
             userId: newUser.id,
