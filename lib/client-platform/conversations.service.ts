@@ -121,6 +121,17 @@ async function allowedConversation(
     );
   return row;
 }
+
+/** Current action authority, independent of a cached membership or queued email. */
+export async function canReceiveConversationUpdate(tx: Prisma.TransactionClient, userId: string, conversationId: string) {
+  const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, status: true } });
+  if (!user || user.status !== "ACTIVE" || !await tx.platformConversationMember.findUnique({ where: { conversationId_userId: { conversationId, userId } }, select: { id: true } })) return false;
+  for (const scope of ["personal", "STORE", "admin"] as const) {
+    try { await allowedConversation(user, conversationId, scope, tx); return true; }
+    catch (error) { if (!(error instanceof PlatformError)) throw error; }
+  }
+  return false;
+}
 export async function openConversation(
   user: AuthenticatedUser,
   input: z.infer<typeof ConversationSchema>,
@@ -307,7 +318,7 @@ export async function sendConversationMessage(
         body: input.body,
         operationId: input.operationId,
       },
-      select: { id: true },
+      select: { id: true, createdAt: true },
     });
     await tx.platformConversation.update({
       where: { id },
@@ -318,6 +329,13 @@ export async function sendConversationMessage(
       create: { conversationId: id, userId: user.id, lastReadAt: new Date() },
       update: { lastReadAt: new Date() },
     });
+    const recipients = await tx.platformConversationMember.findMany({ where: { conversationId: id, userId: { not: user.id }, user: { status: "ACTIVE" } }, select: { userId: true }, take: 201 });
+    if (recipients.length > 200) throw new PlatformError("CONVERSATION_RECIPIENT_LIMIT", "Conversation recipients require operational review.", 409);
+    await tx.notificationEventIntent.createMany({ skipDuplicates: true, data: recipients.map(recipient => ({
+      sourceAuthority: "CONVERSATION", eventType: "CONVERSATION_MESSAGE_RECEIVED", aggregateReference: id,
+      operationId: `conversation-message-notification:${message.id}:${recipient.userId}`,
+      safePayload: { sourceEventId: message.id, recipientUserId: recipient.userId }, createdAt: message.createdAt,
+    })) });
     return { id: message.id, replayed: false };
   });
 }

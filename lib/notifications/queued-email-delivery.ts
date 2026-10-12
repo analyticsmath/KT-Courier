@@ -4,6 +4,7 @@ import { deliverSecurityEmail } from "./security-email-delivery";
 import { assertNotificationProductionReady } from "./production-readiness";
 import { recoverStalledEmailDeliveries } from "./email-delivery-recovery";
 import { guestContactIdFromSubject, resolveVerifiedGuestContact } from "./guest-recipient";
+import { currentRequiredSourceRecipient } from "./current-source-recipient";
 
 /** Process due email only, through the canonical atomic claim/provider boundary. */
 export async function deliverQueuedEmails(limit: number) {
@@ -28,6 +29,7 @@ export async function deliverQueuedEmails(limit: number) {
       } else {
         const message = await prisma.notificationMessage.findUnique({ where: { id: delivery.messageId } });
         if (!message || message.recipientUserId !== delivery.recipientUserId) { await block("MESSAGE_RECIPIENT_MISMATCH"); skipped++; continue; }
+        if (!await currentRequiredSourceRecipient(prisma, message.sourceReceiptId, delivery.recipientUserId)) { await block("SOURCE_AUTHORITY_REVOKED"); skipped++; continue; }
         let destination: string;
         const contactSnapshotId = guestContactIdFromSubject(delivery.recipientUserId);
         if (contactSnapshotId) {

@@ -3,12 +3,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { prisma } from "@/lib/db/prisma";
 import { prepareRequiredDomainNotifications, reviewRequiredDomainNotification } from "@/lib/notifications/required-domain-configuration";
 import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
-import { appendRequiredDomainNotificationIntents } from "@/lib/notifications/required-domain-intake";
+import { appendRequiredDomainNotificationIntents, hasRequiredDomainNotificationWork } from "@/lib/notifications/required-domain-intake";
 import { consumeCustomerOrderNotifications } from "@/lib/notifications/customer-order-publication";
 import { requestGuestContactVerification, verifyGuestContact } from "@/lib/marketplace-checkout/guest-contact-verification.service";
 import { openSecurityPayload } from "@/lib/notifications/security-payload-vault";
 import { guestContactSubjectKey } from "@/lib/notifications/guest-recipient";
 import { deliverQueuedEmails } from "@/lib/notifications/queued-email-delivery";
+import { resolveRequiredDomainPayload } from "@/lib/notifications/required-domain-payload";
+import { sendConversationMessage } from "@/lib/client-platform/conversations.service";
 vi.mock("@/lib/notifications/production-readiness", () => ({ assertNotificationProductionReady: () => {} }));
 
 describe("durable required-domain notification intake on disposable PostgreSQL", () => {
@@ -16,6 +18,8 @@ describe("durable required-domain notification intake on disposable PostgreSQL",
   const definition = requiredDomainNotificationDefinitions.find((entry) => entry.eventType === "PAYMENT_STATUS_CHANGED")!;
   let routeId = ""; let templateId = ""; let userId = ""; let orderId = ""; let paymentId = "";
   let recipientSubjects: string[] = [];
+  const conversationIds: string[] = [];
+  const conversationIntentIds: string[] = [];
   const review = (action: Parameters<typeof reviewRequiredDomainNotification>[2], actor = "reviewer") => prisma.$transaction((tx) => reviewRequiredDomainNotification(tx, definition.eventType, action, `${prefix}-${actor}`));
   beforeAll(async () => {
     const url = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
@@ -34,6 +38,14 @@ describe("durable required-domain notification intake on disposable PostgreSQL",
     const payment = await prisma.payment.create({ data: { publicReference: `pay_${randomUUID()}`, userId, orderId, status: "FAILED", amount: "123.45", creationIdempotencyKey: randomUUID(), creationRequestHash: "a".repeat(64) } }); paymentId = payment.id;
   });
   afterEach(async () => {
+    if (conversationIds.length) {
+      await prisma.notificationEventIntent.deleteMany({ where: { operationId: { in: conversationIntentIds } } });
+      await prisma.platformConversationMessage.deleteMany({ where: { conversationId: { in: conversationIds } } });
+      await prisma.platformConversationMember.deleteMany({ where: { conversationId: { in: conversationIds } } });
+      await prisma.platformConversation.deleteMany({ where: { id: { in: conversationIds } } });
+      conversationIds.length = 0;
+      conversationIntentIds.length = 0;
+    }
     const histories = await prisma.paymentStatusHistory.findMany({ where: { paymentId }, select: { id: true } });
     const operations = histories.map((history) => `payment-status-notification:${history.id}`);
     const receipts = await prisma.notificationSourceReceipt.findMany({ where: { OR: [{ sourceEventId: { in: operations } }, { sourceEventId: { startsWith: prefix } }] }, select: { id: true } });
@@ -91,6 +103,8 @@ describe("durable required-domain notification intake on disposable PostgreSQL",
   });
   it("materializes post-activation canonical history once across concurrent consumers", async () => {
     await activate(); const source = await history();
+    expect(await prisma.notificationEventIntent.count({ where: { operationId: `payment-status-notification:${source.id}` } })).toBe(0);
+    expect(await hasRequiredDomainNotificationWork(prisma)).toBe(true);
     const results = await Promise.all([consumeCustomerOrderNotifications(50), consumeCustomerOrderNotifications(50)]);
     expect(results.reduce((sum, result) => sum + result.itemsCompleted, 0)).toBe(1);
     expect(results.reduce((sum, result) => sum + result.itemsRetried, 0)).toBe(0);
@@ -99,6 +113,30 @@ describe("durable required-domain notification intake on disposable PostgreSQL",
     expect(await prisma.notificationDelivery.findFirst({ where: { recipientUserId: userId, channel: "EMAIL" } })).toMatchObject({ status: "QUEUED" });
     expect(await prisma.notificationInboxItem.findFirst({ where: { ownerUserId: userId } })).toMatchObject({ body: expect.stringContaining("failed") });
     expect((await consumeCustomerOrderNotifications(50)).itemsExamined).toBe(0);
+    expect(await hasRequiredDomainNotificationWork(prisma)).toBe(false);
+  });
+  it("writes private message intents atomically and rechecks current support membership", async () => {
+    const support = await prisma.user.create({ data: { email: `${randomUUID()}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
+    const conversation = await prisma.platformConversation.create({ data: {
+      kind: "SUPPORT", subject: "Disposable support conversation", createdByUserId: userId,
+      members: { create: [{ userId }, { userId: support.id }] },
+    } });
+    conversationIds.push(conversation.id);
+    const result = await sendConversationMessage(
+      { id: userId, name: null, email: `${userId}@example.test`, role: "CUSTOMER", status: "ACTIVE" },
+      conversation.id,
+      "personal",
+      { body: "Private disposable support message", operationId: randomUUID() },
+    );
+    expect(result.replayed).toBe(false);
+    const operationId = `conversation-message-notification:${result.id}:${support.id}`;
+    conversationIntentIds.push(operationId);
+    const intent = await prisma.notificationEventIntent.findUniqueOrThrow({ where: { operationId } });
+    expect(intent.safePayload).toEqual({ sourceEventId: result.id, recipientUserId: support.id });
+    expect(JSON.stringify(intent.safePayload)).not.toContain("Private disposable support message");
+    expect(await resolveRequiredDomainPayload(prisma, intent)).toEqual({ actorUserId: support.id });
+    await prisma.platformConversationMember.delete({ where: { conversationId_userId: { conversationId: conversation.id, userId: support.id } } });
+    await expect(resolveRequiredDomainPayload(prisma, intent)).rejects.toMatchObject({ code: "CLIENT_NOTIFICATION_SOURCE_EVIDENCE_INVALID" });
   });
   it("does not backfill history preceding the first approved route activation", async () => {
     const old = await history(new Date("2020-01-01")); await activate(); const fresh = await history();
@@ -164,7 +202,7 @@ describe("durable required-domain notification intake on disposable PostgreSQL",
     const replacement = await prisma.marketplaceCheckoutContactSnapshot.create({ data: { recipientName: "Replacement", email: "replacement@example.test", phone: "+27820000000" } });
     await prisma.marketplaceCheckout.update({ where: { id: checkout.id }, data: { contactSnapshotId: replacement.id } });
     const result = await deliverQueuedEmails(50); expect(result.itemsRetried).toBe(0); expect(result.itemsCompleted).toBe(0);
-    expect(await prisma.notificationDelivery.findFirstOrThrow({ where: { messageId: message.id, channel: "EMAIL" } })).toMatchObject({ status: "ELIGIBILITY_BLOCKED", eligibilityReason: "RECIPIENT_NOT_ELIGIBLE", providerMessageReference: null });
+    expect(await prisma.notificationDelivery.findFirstOrThrow({ where: { messageId: message.id, channel: "EMAIL" } })).toMatchObject({ status: "ELIGIBILITY_BLOCKED", eligibilityReason: "SOURCE_AUTHORITY_REVOKED", providerMessageReference: null });
     const deliveries = await prisma.notificationDelivery.findMany({ where: { recipientUserId: subject }, select: { id: true } });
     expect(await prisma.notificationDeliveryAttempt.count({ where: { deliveryId: { in: deliveries.map((delivery) => delivery.id) } } })).toBe(0);
   });

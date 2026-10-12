@@ -71,7 +71,18 @@ async function delegatedStoreKeys(
 }
 
 export async function hasPermission(args: HasPermissionArgs): Promise<boolean> {
-  if (args.role === UserRole.SUPER_ADMIN) return true;
+  if (args.role === UserRole.SUPER_ADMIN) {
+    const permission = await prisma.permission.findUnique({
+      where: { key: args.permissionKey },
+      include: {
+        userPermissions: {
+          where: { userId: args.userId },
+          take: 1,
+        },
+      },
+    });
+    return permission?.userPermissions[0]?.effect !== PermissionEffect.DENY;
+  }
   if (!isPermissionBearingRole(args.role)) return false;
 
   if (args.role === UserRole.ADMIN || args.role === UserRole.PROMOTER) {
@@ -128,16 +139,24 @@ export async function getEffectivePermissionKeysForUser(
   args: PermissionActor,
 ): Promise<string[]> {
   if (args.role === UserRole.SUPER_ADMIN) {
-    const dbPermissions = await prisma.permission.findMany({
-      select: { key: true },
-      orderBy: [{ category: "asc" }, { key: "asc" }],
-    });
-    return Array.from(
-      new Set([
-        ...SYSTEM_PERMISSION_DEFINITIONS.map((permission) => permission.key),
-        ...dbPermissions.map((permission) => permission.key),
-      ]),
-    ).sort();
+    const [dbPermissions, deniedOverrides] = await Promise.all([
+      prisma.permission.findMany({
+        select: { key: true },
+        orderBy: [{ category: "asc" }, { key: "asc" }],
+      }),
+      prisma.userPermission.findMany({
+        where: { userId: args.userId, effect: PermissionEffect.DENY },
+        include: { permission: { select: { key: true } } },
+      }),
+    ]);
+    const effective = new Set([
+      ...SYSTEM_PERMISSION_DEFINITIONS.map((permission) => permission.key),
+      ...dbPermissions.map((permission) => permission.key),
+    ]);
+    for (const override of deniedOverrides) {
+      effective.delete(override.permission.key);
+    }
+    return Array.from(effective).sort();
   }
 
   if (!isPermissionBearingRole(args.role)) return [];

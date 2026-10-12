@@ -13,7 +13,9 @@ const db = vi.hoisted(() => ({
     findMany: vi.fn(),
     create: vi.fn(),
   },
-  platformConversationMember: { upsert: vi.fn() },
+  platformConversationMember: { upsert: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
+  notificationEventIntent: { createMany: vi.fn() },
+  user: { findUnique: vi.fn() },
   order: { findFirst: vi.fn() },
   $transaction: vi.fn(),
   $executeRaw: vi.fn(),
@@ -53,8 +55,10 @@ beforeEach(() => {
     closedAt: null,
   });
   db.platformConversationMessage.findUnique.mockResolvedValue(null);
-  db.platformConversationMessage.create.mockResolvedValue({ id: "message-1" });
+  db.platformConversationMessage.create.mockResolvedValue({ id: "message-1", createdAt: new Date() });
   db.platformConversationMember.upsert.mockResolvedValue({});
+  db.platformConversationMember.findMany.mockResolvedValue([]);
+  db.notificationEventIntent.createMany.mockResolvedValue({ count: 0 });
   db.platformConversation.update.mockResolvedValue({});
   auth.storeAccess.mockResolvedValue({
     store: { id: "business" },

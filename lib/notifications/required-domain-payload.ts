@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { NotificationPolicyError } from "./contracts";
+import { resolveOperationalDomainPayload } from "./operational-domain-payload";
+import { canReceiveConversationUpdate } from "@/lib/client-platform/conversations.service";
 
 type Intent = { sourceAuthority: string; eventType: string; aggregateReference: string; operationId: string; safePayload: unknown };
 const unsupported = (): never => { throw new NotificationPolicyError("CLIENT_NOTIFICATION_SOURCE_NOT_SUPPORTED"); };
@@ -11,6 +13,14 @@ const object = (value: unknown): Record<string, unknown> => value && typeof valu
 /** Destinations and recipient IDs are always reconstructed from canonical ownership. */
 export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient, intent: Intent): Promise<Record<string, unknown>> {
   const raw = object(intent.safePayload);
+  if (["DISPATCH", "WITHDRAWAL", "STORE_EARNINGS", "DRIVER_EARNINGS"].includes(intent.sourceAuthority)) return resolveOperationalDomainPayload(db, intent);
+  if (intent.sourceAuthority === "CONVERSATION") {
+    if (intent.eventType !== "CONVERSATION_MESSAGE_RECEIVED" || typeof raw.sourceEventId !== "string" || typeof raw.recipientUserId !== "string") return invalid();
+    requireOperation(intent, `conversation-message-notification:${raw.sourceEventId}:${raw.recipientUserId}`);
+    const message = await db.platformConversationMessage.findUnique({ where: { id: raw.sourceEventId }, select: { conversationId: true, senderUserId: true } });
+    if (!message || message.conversationId !== intent.aggregateReference || message.senderUserId === raw.recipientUserId || !await canReceiveConversationUpdate(db, raw.recipientUserId, message.conversationId)) return invalid();
+    return { actorUserId: raw.recipientUserId };
+  }
   if (intent.sourceAuthority === "LEGACY_ORDER") {
     const order = await db.order.findUnique({ where: { id: intent.aggregateReference }, select: { customerId: true, orderNumber: true } });
     if (!order) return invalid();

@@ -52,10 +52,12 @@ describe("permission evaluation", () => {
     prismaMock.permission.upsert.mockReset();
     prismaMock.rolePermission.findMany.mockReset();
     prismaMock.userPermission.findMany.mockReset();
+    prismaMock.userPermission.findMany.mockResolvedValue([]);
     prismaMock.$transaction.mockReset();
   });
 
-  it("allows SUPER_ADMIN for any permission", async () => {
+  it("allows SUPER_ADMIN for any permission without an explicit deny", async () => {
+    prismaMock.permission.findUnique.mockResolvedValue(null);
     await expect(
       hasPermission({
         userId: "super-admin",
@@ -65,6 +67,20 @@ describe("permission evaluation", () => {
     ).resolves.toBe(true);
 
     expect(prismaMock.permission.count).not.toHaveBeenCalled();
+  });
+
+  it("honors an explicit DENY for SUPER_ADMIN", async () => {
+    prismaMock.permission.findUnique.mockResolvedValue(
+      permissionRecord({ userPermissions: [{ effect: PermissionEffect.DENY }] }),
+    );
+
+    await expect(
+      hasPermission({
+        userId: "super-admin",
+        role: UserRole.SUPER_ADMIN,
+        permissionKey: PERMISSIONS.USERS_READ,
+      }),
+    ).resolves.toBe(false);
   });
 
   it("denies customer, store, and driver roles for admin permissions", async () => {
@@ -194,10 +210,13 @@ describe("permission evaluation", () => {
     ).resolves.toEqual([PERMISSIONS.ORDERS_READ, PERMISSIONS.USERS_READ]);
   });
 
-  it("returns all system and database permissions for SUPER_ADMIN", async () => {
+  it("returns system and database permissions minus explicit SUPER_ADMIN denies", async () => {
     prismaMock.permission.findMany.mockResolvedValue([
       { key: "custom.permission" },
       { key: PERMISSIONS.USERS_READ },
+    ]);
+    prismaMock.userPermission.findMany.mockResolvedValue([
+      { effect: PermissionEffect.DENY, permission: { key: PERMISSIONS.USERS_READ } },
     ]);
 
     const keys = await getEffectivePermissionKeysForUser({
@@ -205,7 +224,7 @@ describe("permission evaluation", () => {
       role: UserRole.SUPER_ADMIN,
     });
 
-    expect(keys).toContain(PERMISSIONS.USERS_READ);
+    expect(keys).not.toContain(PERMISSIONS.USERS_READ);
     expect(keys).toContain("custom.permission");
     expect(keys).toContain(PERMISSIONS.EMPLOYEES_PERMISSIONS_MANAGE);
   });
