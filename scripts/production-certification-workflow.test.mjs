@@ -67,7 +67,10 @@ test("CI tests the pull request head with read-only credentials and offline prov
   assert.doesNotMatch(ciSource, /secrets\./);
 });
 
-test("Vercel source config suppresses the integrated branch and leaves main unmatched", () => {
+test("Vercel source config quarantines integration and main until Phase 3 production approval", () => {
   const branch = "integration/codex-phase1-phase2-2026-10-11";
-  assert.deepEqual(vercelConfig.git?.deploymentEnabled, { [branch]: false });
+  assert.deepEqual(vercelConfig.git?.deploymentEnabled, { [branch]: false, main: false });
+  assert.deepEqual(vercelConfig.rewrites, [
+    { source: "/:path*", destination: "https://web-production-9f8bb.up.railway.app/:path*" },
+  ]);
 });
