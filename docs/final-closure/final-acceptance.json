@@ -17,7 +17,7 @@
   "tests": [
     {
       "path": "receipts/test-coverage.json",
-      "sha256": "0eea68ff02da08b6b00687161b767171fdc0c6ef03b256bc1ddcdfec731e31ab",
+      "sha256": "c5348216c27923eef3772b7d1f9ad074dcdb773a47b405e71ee42ba31be9c51c",
       "schemaVersion": 1,
       "command": "test:coverage",
       "arguments": [
@@ -44,7 +44,7 @@
     },
     {
       "path": "receipts/test-integration-closure.json",
-      "sha256": "a11809157de0d09bddc70abd480621fbd91d1df97bb65f50d0713cc51b89dbd0",
+      "sha256": "dd8f4dd5b1bda8078b592d6fe90389d5a3819d6dce2ba5a4af0093a29691700d",
       "schemaVersion": 1,
       "command": "test:integration:closure",
       "arguments": [],
@@ -68,7 +68,7 @@
     },
     {
       "path": "receipts/test-integration-redis-rate-limit.json",
-      "sha256": "eadfedc12364aaeab0ca25a5aaf8d0fbf31bf233bf31acf1018bf1bec98bee8f",
+      "sha256": "96854c57f22ffdb6c1a35daf96299d23adca5ed9d6be317309e82ee295832315",
       "schemaVersion": 1,
       "command": "test:integration:redis-rate-limit",
       "arguments": [],
@@ -92,7 +92,7 @@
     },
     {
       "path": "receipts/test-integration-bola-authority.json",
-      "sha256": "3faca0391990d4b370dcc02e8d5e4c652d2b91eed5c37810fd8060116f98a4b8",
+      "sha256": "95e48cbd1598adcdb5d4e9657d89b728aa45ff0f1ad4cb2c9291382a476fe423",
       "schemaVersion": 1,
       "command": "test:integration:bola-authority",
       "arguments": [],
@@ -116,7 +116,7 @@
     },
     {
       "path": "receipts/test-e2e.json",
-      "sha256": "31cb4ab77b6daace4838b15e94440de0aced888db9b38cb1c1db5256a8bbb58e",
+      "sha256": "fc03130675b2f6be6e1bceac7ff64fdb110cfece55104b625a38734245417294",
       "schemaVersion": 1,
       "command": "test:e2e",
       "arguments": [
