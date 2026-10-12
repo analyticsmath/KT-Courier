@@ -41,7 +41,7 @@ async function review(page: Page, reference: string) {
   await page.getByRole("button", { name: /Review order/ }).click(); const response = await pending; expect(response.status(), await response.text()).toBe(200);
   expect((await response.json()).status).toBe("READY_FOR_REVIEW"); await expect(page.getByRole("heading", { name: "4. Review your order", exact: true })).toBeFocused();
 }
-for (const width of [1440, 390]) test(`independent measured packaging governance and canonical quotes at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390, 320]) test(`independent measured packaging governance and canonical quotes at ${width}px`, async ({ page }, info) => {
   test.setTimeout(300_000);
   if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Named offline browser runtime required.");
   const tag = `parcel-${width}-${randomUUID().slice(0, 8)}`;
