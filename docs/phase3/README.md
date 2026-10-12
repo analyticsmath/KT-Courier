@@ -2,6 +2,8 @@
 
 **Current state: ENGINEERING_INCOMPLETE, NO_GO.** The tested application candidate is `main` commit `f30d2feb2172c32c709b4f0e173595eabe138d00` (tree `09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e`). Exact-source CI [38246653617](https://github.com/analyticsmath/KT-Courier/actions/runs/38246653617) passed all 10 applicable jobs; 18 conditional jobs were skipped and none failed. Manual certification [38247409666](https://github.com/analyticsmath/KT-Courier/actions/runs/38247409666) passed all 24 component jobs. The terminal gate checker returned `NOT_READY` because the nine launch gates remain unresolved. Its browser selections passed directed 43/43, finance 3/3, Paystack 9/9, full Chromium 140/140 and canonical PostgreSQL 41/41, with zero test failures, skips or flakes. The earlier B04 canonical run had one failed driver-chat visibility assertion (40/41); f30 adds POST-response and refreshed-history diagnostics, and current canonical passed. The full test inventory and hash-verified receipts are bound to f30. No staging resources or production changes were made.
 
+The exact tested application source is preserved by the annotated, non-release [rollback anchor tag `phase3-engineering-candidate-f30d2feb`](https://github.com/analyticsmath/KT-Courier/tree/phase3-engineering-candidate-f30d2feb); it points to f30 and does not authorize production release.
+
 ## Source, infrastructure and routing
 
 - [Baseline and source authority](BASELINE_AND_SOURCE_AUTHORITY.md)
