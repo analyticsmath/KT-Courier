@@ -112,9 +112,12 @@ export async function transitionStoreCatalogOffer(storeId: string, publicReferen
   return prisma.$transaction(async tx => {
     const key = `${actorUserId}:offer-transition:${input.operationId}`;
     await tx.$queryRaw`SELECT TRUE AS locked FROM pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
-    const current = await tx.storeCatalogOffer.findUnique({ where: { publicReference }, include: { priceVersions: true } });
-    if (!current) throw new CatalogNotFoundError("Store catalog offer was not found.");
-    if (current.storeId !== storeId) throw new CatalogOwnershipError();
+    const current = await tx.storeCatalogOffer.findFirst({ where: { publicReference, storeId }, include: { priceVersions: true } });
+    if (!current) {
+      const foreign = await tx.storeCatalogOffer.findUnique({ where: { publicReference }, select: { storeId: true } });
+      if (foreign && foreign.storeId !== storeId) throw new CatalogOwnershipError();
+      throw new CatalogNotFoundError("Store catalog offer was not found.");
+    }
     const receipt = await tx.catalogOperationReceipt.findUnique({ where: { actorUserId_action_operationId: { actorUserId, action: `OFFER:${toStatus}`, operationId: input.operationId } } });
     if (receipt) {
       if (receipt.storeId !== storeId || receipt.aggregateReference !== publicReference || receipt.requestHash !== requestHash) throw new CatalogConflictError("OPERATION_REPLAY_MISMATCH", "This operation was used for different offer facts.");

@@ -12,6 +12,7 @@ files.push("tests/integration/driver-earning-canonical-postgres.integration.test
 files.push("tests/integration/driver-registration-code.integration.test.ts");
 files.push("tests/integration/inventory-location.integration.test.ts");
 files.push("tests/integration/vendor-publication.integration.test.ts");
+files.push("tests/integration/vendor-signup-concurrency.integration.test.ts");
 files.push("tests/integration/store-earning-canonical-postgres.integration.test.ts");
 files.push("tests/integration/owner-withdrawal-canonical-postgres.integration.test.ts");
 files.push("tests/integration/catalog-listing-draft-postgres.integration.test.ts");

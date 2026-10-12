@@ -24,9 +24,17 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const signup = page.waitForResponse(response => response.url().endsWith("/api/auth/signup"));
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   const created = await signup; expect([201, 202], await created.text()).toContain(created.status());
+  const registrationReply = await created.json();
+  const repeatedSignup = await page.request.post("/api/auth/signup", { headers, data: created.request().postDataJSON() });
+  expect(repeatedSignup.status()).toBe(created.status()); expect(await repeatedSignup.json()).toEqual(registrationReply);
   const owner = await prisma.user.findUniqueOrThrow({ where: { email } });
   const store = await prisma.store.findFirstOrThrow({ where: { ownerUserId: owner.id } });
   expect(store.status).toBe("PENDING");
+  expect(await prisma.otpCode.count({ where: { userId: owner.id, purpose: "EMAIL_VERIFICATION" } })).toBe(1);
+  const absentEmail = `e2e-no-account-${tag}@ktcouriers.local`;
+  const absentResend = await page.request.post("/api/auth/resend-otp", { headers, data: { email: absentEmail } });
+  const pendingResend = await page.request.post("/api/auth/resend-otp", { headers, data: { email } });
+  expect(pendingResend.status()).toBe(absentResend.status()); expect(await pendingResend.json()).toEqual(await absentResend.json());
   const otp = await prisma.otpCode.findFirstOrThrow({ where: { userId: owner.id, consumedAt: null, purpose: "EMAIL_VERIFICATION" }, orderBy: { createdAt: "desc" } });
   const intent = await prisma.notificationEventIntent.findUniqueOrThrow({ where: { operationId: `email-verification:${otp.id}` } });
   const envelope = await prisma.notificationSecurePayload.findUniqueOrThrow({ where: { eventIntentId: intent.id } });
@@ -60,7 +68,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   await page.getByRole("button", { name: "Save stock location", exact: true }).click();
   const savedLocation = await retried; expect(savedLocation.status()).toBe(201); expect(savedLocation.request().postDataJSON()).toEqual(stockCommand);
   expect(await prisma.inventoryLocation.count({ where: { storeId: store.id } })).toBe(1);
-  const products: Array<{ id: string; reference: string; title: string; slug: string; offerReference: string; offerId: string }> = [];
+  const products: Array<{ id: string; reference: string; title: string; slug: string; offerReference: string; offerId: string; primaryImageReference: string }> = [];
   for (const index of [0, 1, 2, 3, 4]) {
     const step = async (name: string) => page.getByRole("button", { name: new RegExp(name) }).click();
     const title = `Synthetic product ${index + 1} ${tag}`;
@@ -72,6 +80,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     await step("Store offer"); await page.getByLabel("Store SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
     await step("Price"); await page.getByLabel("VAT-inclusive price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
     await step("Inventory"); await page.getByLabel("Opening stock", { exact: true }).fill("7"); await page.getByLabel("Inventory location", { exact: true }).selectOption({ label: "Synthetic stockroom" });
+    if (index === 2) { await step("Modifiers"); await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: `Synthetic gift wrap ${tag}`, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }])); }
     await step("Media");
     for (const image of [0, 1]) {
       const bytes = await sharp({ create: { width: 400, height: 400, channels: 3, background: { r: 40 + index * 25, g: 70 + image * 70, b: 120 } } }).png().toBuffer();
@@ -85,7 +94,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     const draft = (await response.json()).product;
     const row = await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: draft.publicReference }, include: { offers: true, media: { include: { asset: true } } } });
     expect(row).toMatchObject({ status: "DRAFT", publicationStatus: "DRAFT" }); expect(row.media).toHaveLength(2); expect(row.media.every(media => media.asset.status === "READY" && media.asset.privacyInspectionPassed)).toBe(true);
-    products.push({ id: row.id, reference: row.publicReference, title, slug: row.slug, offerReference: row.offers[0].publicReference, offerId: row.offers[0].id });
+    products.push({ id: row.id, reference: row.publicReference, title, slug: row.slug, offerReference: row.offers[0].publicReference, offerId: row.offers[0].id, primaryImageReference: row.media.find(media => media.role === "PRIMARY")!.asset.publicReference });
     await page.getByRole("link", { name: "View saved product", exact: true }).click();
     const submission = page.waitForResponse(response => response.url().endsWith(`/api/store/catalog/products/${row.publicReference}/submit`));
     await page.getByRole("button", { name: "Submit product for review", exact: true }).click(); expect((await submission).status()).toBe(200);
@@ -105,8 +114,10 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   for (const product of products) {
     await page.goto(`/admin/catalog/products/${product.id}`); await page.getByLabel("Reason code", { exact: true }).fill("SYNTHETIC_PRODUCT_REVIEW");
     const approved = page.waitForResponse(response => response.url().endsWith(`/api/admin/catalog/products/${product.id}/approve`)); await page.getByRole("button", { name: "Approve", exact: true }).click(); expect((await approved).status()).toBe(200);
+    await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
     await page.getByLabel("Offer publication reason", { exact: true }).fill("SYNTHETIC_OFFER_REVIEW");
     const offerReview = page.waitForResponse(response => response.url().endsWith(`/api/admin/catalog/offers/${product.offerId}/approve`)); await page.getByRole("button", { name: "Approve offer", exact: true }).click(); expect((await offerReview).status()).toBe(200);
+    await expect(page.getByRole("button", { name: "Publish reviewed listing", exact: true })).toBeVisible();
     // Refresh creates a fresh version-bound publication form after offer review.
     await page.getByLabel("Offer publication reason", { exact: true }).fill("SYNTHETIC_PUBLICATION");
     const publication = page.waitForResponse(response => response.url().endsWith(`/api/admin/catalog/offers/${product.offerId}/publish`)); await page.getByRole("button", { name: "Publish reviewed listing", exact: true }).click(); const published = await publication; expect(published.status(), await published.text()).toBe(200);
@@ -118,6 +129,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 }); await page.goto(`/shop/stores/${store.slug}`);
     for (const product of products) await expect(page.getByRole("link", { name: new RegExp(product.title) }).first()).toBeVisible();
+    for (const product of products) { const image = page.locator(`img[src*="${product.primaryImageReference}"]`).first(); await image.scrollIntoViewIfNeeded(); await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0); }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await info.attach(`five-products-store-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`five-products-store-${width}.png`) }), contentType: "image/png" });
   }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
 import { ResendOtpSchema, formatZodErrors } from "@/lib/validation/auth";
 import { OtpPurpose, UserStatus } from "@/types/db";
+import { VERIFICATION_NOTICE } from "@/lib/auth/public-auth-messages";
 import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
 import { deliverSecurityEmail } from "@/lib/notifications/security-email-delivery";
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
@@ -59,8 +60,7 @@ export async function POST(req: NextRequest) {
   // Always return success to avoid user enumeration.
   if (!user || user.status !== UserStatus.PENDING_VERIFICATION) {
     return NextResponse.json({
-      message:
-        "If your account exists and is unverified, a new code has been sent.",
+      message: VERIFICATION_NOTICE,
     });
   }
 
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    message: "A new verification code has been sent to your email.",
+    message: VERIFICATION_NOTICE,
     ...(process.env.NODE_ENV !== "production" && {
       _dev_otp: code,
       _dev_note: "OTP visible in development only.",

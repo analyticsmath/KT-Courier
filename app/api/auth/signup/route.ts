@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
-import { generateUniqueSlug } from "@/lib/utils/slug";
+import { generateSlug, generateUniqueSlug } from "@/lib/utils/slug";
 import { newDriverCode } from "@/lib/utils/driver-code";
+import { REGISTRATION_NOTICE } from "@/lib/auth/public-auth-messages";
 import {
   CustomerSignupSchema,
   StoreSignupSchema,
@@ -78,31 +79,25 @@ export async function POST(req: NextRequest) {
   const emailUnavailable = securityEmailUnavailableResponse();
   if (emailUnavailable) return emailUnavailable;
 
+  // Existing and new addresses incur the same password hashing work.
+  const passwordHash = await hashPassword(data.password);
   const existing = await prisma.user.findUnique({
     where: { email: data.email },
   });
   if (existing) {
+    if (process.env.NODE_ENV === "production") return NextResponse.json({ message: REGISTRATION_NOTICE, email: data.email, deliveryPending: true }, { status: 202, headers: { "Cache-Control": "no-store" } });
     return NextResponse.json(
       { error: "An account with this email already exists." },
       { status: 409 },
     );
   }
 
-  const passwordHash = await hashPassword(data.password);
   const role: UserRole =
     accountType === "CUSTOMER"
       ? UserRole.CUSTOMER
       : accountType === "STORE"
         ? UserRole.STORE
         : UserRole.DRIVER;
-
-  let storeSlug: string | undefined;
-  if (accountType === "STORE") {
-    const d = data as { storeName: string };
-    storeSlug = await generateUniqueSlug(d.storeName, (slug) =>
-      prisma.store.findUnique({ where: { slug } }).then(Boolean),
-    );
-  }
 
   const result = await prisma
     .$transaction(async (tx) => {
@@ -130,6 +125,11 @@ export async function POST(req: NextRequest) {
         });
       } else if (accountType === "STORE") {
         const d = data as StoreSignupInput;
+        const slugKey = `store-signup:${generateSlug(d.storeName) || "store"}`;
+        await tx.$queryRaw`SELECT TRUE AS locked FROM pg_advisory_xact_lock(hashtextextended(${slugKey}, 0))`;
+        const storeSlug = await generateUniqueSlug(d.storeName, slug =>
+          tx.store.findUnique({ where: { slug } }).then(Boolean),
+        );
 
         await tx.storeProfile.create({
           data: {
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
           data: {
             ownerUserId: newUser.id,
             name: d.storeName,
-            slug: storeSlug!,
+            slug: storeSlug,
             status: "PENDING",
             contactName: d.contactPerson,
             contactEmail: data.email,
@@ -233,16 +233,18 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(
     {
-      message: deliveryPending
+      message: process.env.NODE_ENV === "production" ? REGISTRATION_NOTICE : deliveryPending
         ? "Account created. Verification email delivery is pending; request another code on the verification screen."
         : "Account created. Please verify your email.",
       email: data.email,
-      deliveryPending,
+      // Accepted registration instructions stay asynchronous and reveal no
+      // account-existence or provider-delivery result to an anonymous caller.
+      deliveryPending: process.env.NODE_ENV === "production" ? true : deliveryPending,
       ...(process.env.NODE_ENV !== "production" && {
         _dev_otp: result.devOtp,
         _dev_note: "OTP visible in development only.",
       }),
     },
-    { status: deliveryPending ? 202 : 201 },
+    { status: process.env.NODE_ENV === "production" || deliveryPending ? 202 : 201, headers: { "Cache-Control": "no-store" } },
   );
 }
