@@ -25,6 +25,36 @@ test("anonymous quote copy and form semantics work on desktop and mobile", async
   await page.getByRole("searchbox", { name: "Search FAQ questions" }).fill("disposable-unmatched-query");
   await expect(page.getByRole("button", { name: "Clear search filter" })).toBeVisible();
 });
+
+test("public navigation drawer stays inert while closed and contains keyboard focus while open", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/quote");
+
+  const drawer = page.locator("#public-navigation-dialog");
+  const shopLink = drawer.locator('a[href="/shop"]');
+  await expect(drawer).toHaveAttribute("aria-hidden", "true");
+  const hiddenLinkReceivedFocus = await shopLink.evaluate((element) => {
+    (element as HTMLElement).focus();
+    return document.activeElement === element;
+  });
+  expect(hiddenLinkReceivedFocus).toBe(false);
+
+  const openButton = page.getByRole("button", { name: "Open expanded navigation menu", exact: true });
+  await openButton.focus();
+  await page.keyboard.press("Enter");
+  await expect(drawer).toHaveAttribute("aria-hidden", "false");
+  const closeButton = drawer.getByRole("button", { name: "Close menu", exact: true });
+  await expect(closeButton).toBeFocused();
+
+  const finalMenuLink = drawer.getByRole("link", { name: "Customer / Store Sign In", exact: true });
+  await page.keyboard.press("Shift+Tab");
+  await expect(finalMenuLink).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveAttribute("aria-hidden", "true");
+  await expect(openButton).toHaveAttribute("aria-expanded", "false");
+  await expect(openButton).toBeFocused();
+});
+
 test("protected readiness, parcel and marketplace configuration surfaces enforce roles and expose safe gates", async ({ page }) => {
   await login(page, "superadmin@ktcouriers.local");
   for (const [path, heading] of [["/admin/production-readiness", "Production readiness"], ["/admin/parcel-profiles", "Parcel profiles"], ["/admin/marketplace-delivery-policy", "Marketplace delivery policy"]]) {

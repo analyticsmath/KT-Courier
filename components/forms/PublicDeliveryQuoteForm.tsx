@@ -303,7 +303,12 @@ export function PublicDeliveryQuoteForm({
         {selectedParcel && <p id="quote-parcel-limits" role="status" className="text-sm">
           {selectedParcel.displayName} limits: {selectedParcel.lengthCm} × {selectedParcel.widthCm} × {selectedParcel.heightCm} cm; maximum {selectedParcel.maximumWeightKg} kg.
         </p>}
-        <Button type="submit" loading={busy} disabled={!services.length || !parcels.length}>
+        <Button
+          type="submit"
+          loading={busy}
+          disabled={!services.length || !parcels.length}
+          className="bg-[var(--kt-public-interactive-active)]"
+        >
           Calculate delivery price
         </Button>
       </form>

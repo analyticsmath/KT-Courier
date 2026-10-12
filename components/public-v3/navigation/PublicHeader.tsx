@@ -132,6 +132,8 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
             type="button"
             onClick={() => setMenuOpen(true)}
             aria-label="Open expanded navigation menu"
+            aria-controls="public-navigation-dialog"
+            aria-haspopup="dialog"
             aria-expanded={menuOpen}
             className="flex items-center gap-2 p-1.5 hover:text-[var(--kt-public-interactive-text)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
           >

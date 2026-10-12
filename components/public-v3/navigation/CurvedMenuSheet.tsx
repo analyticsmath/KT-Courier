@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 
+const FOCUSABLE_SELECTOR = `a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])`;
+
 interface CurvedMenuSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,36 +18,71 @@ export function CurvedMenuSheet({
   tone = "light",
 }: CurvedMenuSheetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
 
-  // Esc closes menu & focus trap
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Keep a closed drawer out of keyboard navigation and contain focus while it is open.
   useEffect(() => {
     if (!isOpen) return;
 
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousBodyOverflow = document.body.style.overflow;
+    const container = containerRef.current;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
+        return;
+      }
+
+      if (e.key !== "Tab" || !container) return;
+
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      const focusIsOutside = !container.contains(document.activeElement);
+
+      if (!first || !last) {
+        e.preventDefault();
+        container.focus();
+      } else if (e.shiftKey && (document.activeElement === first || focusIsOutside)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || focusIsOutside)) {
+        e.preventDefault();
+        first.focus();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+    container?.querySelector<HTMLButtonElement>('button[aria-label="Close menu"]')?.focus();
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousBodyOverflow;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const isDark = tone === "dark";
 
   return (
     <div
+      id="public-navigation-dialog"
       className={`fixed inset-0 z-50 pointer-events-none transition-opacity duration-300 ${
         isOpen ? "opacity-100" : "opacity-0"
       }`}
       aria-hidden={!isOpen}
+      inert={!isOpen}
       role="dialog"
-      aria-modal="true"
+      aria-modal={isOpen}
       aria-label="Navigation Menu"
     >
       {/* Dimmed backdrop */}
@@ -59,6 +96,7 @@ export function CurvedMenuSheet({
       {/* Curved leading edge sheet */}
       <aside
         ref={containerRef}
+        tabIndex={-1}
         data-tone={isDark ? "dark" : "light"}
         className={`absolute top-0 right-0 bottom-0 w-full max-w-[540px] p-8 sm:p-12 overflow-y-auto transition-transform duration-[580ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? "translate-x-0 pointer-events-auto" : "translate-x-full"

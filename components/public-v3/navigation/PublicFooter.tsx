@@ -34,9 +34,9 @@ export function PublicFooter() {
 
           {/* Col: Services */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--kt-public-text-inverse-muted)] mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--kt-public-text-inverse-muted)] mb-4">
               Services
-            </h4>
+            </h2>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/services/parcel" className="hover:text-[var(--kt-public-text-inverse)] hover:underline transition-colors">
@@ -73,9 +73,9 @@ export function PublicFooter() {
 
           {/* Col: Marketplace & Company */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--kt-public-text-inverse-muted)] mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--kt-public-text-inverse-muted)] mb-4">
               Explore
-            </h4>
+            </h2>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/shop" className="hover:text-[var(--kt-public-text-inverse)] hover:underline transition-colors">
@@ -112,9 +112,9 @@ export function PublicFooter() {
 
           {/* Col: Support & Legal */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--kt-public-text-inverse-muted)] mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--kt-public-text-inverse-muted)] mb-4">
               Information
-            </h4>
+            </h2>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/contact" className="hover:text-[var(--kt-public-text-inverse)] hover:underline transition-colors">
