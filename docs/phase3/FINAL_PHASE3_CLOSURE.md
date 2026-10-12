@@ -1,5 +1,7 @@
 # Phase 3 closure status
 
+See the [successor main-only final closure dossier](../final-closure/README.md) for later code fixes, exact-source evidence and the owner-directed no-cloud-staging release boundary. Historical Phase 3 tests and approvals retain their original source and scope.
+
 The Phase 3 source changes address deployment-origin isolation, explicit Super Admin permission denies, canonical operational notification recipients, stale recipient checks, private conversation-message notification intents and worker discovery of canonical events that have not yet been materialized in the outbox. The tested application candidate is `f30d2feb2172c32c709b4f0e173595eabe138d00` on `main`, tree `09dbf37cae3ba22b7a9468e6a69b473f6dbbb92e`. The final f30 source commit only adds diagnostic assertions for the driver chat POST response and refreshed server history; the preceding commits carry the application fixes.
 
 The exact-source hosted run is the certification evidence for f30. An earlier local content-identical run passed 3,773 unit/API tests and 179 disposable PostgreSQL tests and passed lint, typecheck, migration safety, Prisma generation/validation and the Next 16.3.8 build (521 static pages), but its dirty-tree wrapper did not mark those local receipts exact-SHA. A later local canonical rerun could not start because Docker could not allocate memory; this is a local environment limitation, not an application test failure.

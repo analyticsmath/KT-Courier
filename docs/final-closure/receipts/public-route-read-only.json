@@ -1,0 +1,30 @@
+[
+  {
+    "path": "/",
+    "status": 200
+  },
+  {
+    "path": "/quote",
+    "status": 200
+  },
+  {
+    "path": "/shop",
+    "status": 200
+  },
+  {
+    "path": "/shop/stores",
+    "status": 200
+  },
+  {
+    "path": "/contact",
+    "status": 200
+  },
+  {
+    "path": "/api/health",
+    "status": 200
+  },
+  {
+    "path": "/api/ready",
+    "status": 200
+  }
+]

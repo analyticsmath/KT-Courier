@@ -140,7 +140,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   for (const product of products) {
     await page.goto(`/shop/products/${product.slug}-${product.reference}`);
     const purchase = page.getByRole("region", { name: "Purchase product", exact: true });
-    await page.getByRole("region", { name: "Quick purchase dock", exact: true }).getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByRole("region", { name: "Quick purchase dock", exact: true }).getByRole("button", { name: "Add to cart", exact: true }).click();
     await expect(purchase.getByRole("status")).toContainText(/added|cart/i);
   }
   const cart = await page.request.get("/api/cart"); expect((await cart.json()).cart.storeGroups[0].lines).toHaveLength(5);

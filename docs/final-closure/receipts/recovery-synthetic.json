@@ -1,0 +1,13 @@
+{
+  "source": "DISPOSABLE_FIXTURES",
+  "dumpRestore": "PASS",
+  "historicalUpgrade": "PASS",
+  "protectedProductionDataTouched": false,
+  "fixtureCountsAndHashes": "MATCH",
+  "ledgerInvariants": "PASS",
+  "commitSha": null,
+  "sourceTreeSha": null,
+  "sourceBinding": "UNBOUND_LOCAL_RUN; use final hosted recovery artifact for exact source",
+  "assertionCount": 5,
+  "productionBackupRestored": false
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "command": "test:e2e",
+  "arguments": [
+    "--",
+    "tests/e2e/vendor-five-product-media.spec.ts",
+    "--project=chromium",
+    "--retries=0",
+    "--workers=1",
+    "--output=test-results/vendor-five-products"
+  ],
+  "commitSha": "fc276e13686afaebf5822149ecf9836036ebd6d4",
+  "sourceTreeSha": "2a55e60e262a62f542ffb3362ff6c272443a6b13",
+  "startedAt": "2026-10-12T18:48:23.845Z",
+  "endedAt": "2026-10-12T18:58:10.304Z",
+  "durationMs": 586459,
+  "process": {
+    "exitCode": 1,
+    "signal": null,
+    "spawnError": null
+  },
+  "testsExpected": 1,
+  "testsExecuted": 1,
+  "testsPassed": 0,
+  "testsFailed": 1,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "status": "FAIL"
+}

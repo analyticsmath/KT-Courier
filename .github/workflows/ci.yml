@@ -59,7 +59,7 @@ jobs:
 
       - name: Validate Phase 3 receipts and isolation guards
         run: |
-          node --test scripts/staging-isolation.test.mjs scripts/phase3-evidence.test.mjs scripts/edge-build-refusal.test.mjs
+          node --test scripts/staging-isolation.test.mjs scripts/phase3-evidence.test.mjs scripts/final-closure-evidence.test.mjs scripts/edge-build-refusal.test.mjs
           node scripts/validate-phase3-evidence.mjs
 
       - name: Audit production dependencies

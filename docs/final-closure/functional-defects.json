@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "fc276e13686afaebf5822149ecf9836036ebd6d4",
+  "defects": [
+    {
+      "id": "KT-F01",
+      "severity": "P1",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/store/catalog/inventory",
+      "api": "/api/store/catalog/inventory/locations",
+      "stateSource": "InventoryLocation + CatalogOperationReceipt",
+      "repro": "New vendor had no stock location and could not complete opening inventory.",
+      "beforeSha": "1e8c8d8156c6e66017d9b8343913a7ca7cac89cf",
+      "fixSha": "293a74216601d73a70020ebb28f61754bc116122",
+      "testPath": "tests/integration/inventory-location.integration.test.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Foreign store, missing grant, changed replay and inactive store denied",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_REGRESSION_VERIFIED",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-integration-closure.json",
+        "receipts/test-coverage.json"
+      ]
+    },
+    {
+      "id": "KT-F02",
+      "severity": "P1",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/signup?role=driver",
+      "api": "/api/auth/signup; admin driver profile",
+      "stateSource": "DriverProfile.driverCode",
+      "repro": "Count-derived next driver number collided after gaps or simultaneous creation.",
+      "beforeSha": "1e8c8d8156c6e66017d9b8343913a7ca7cac89cf",
+      "fixSha": "293a74216601d73a70020ebb28f61754bc116122",
+      "testPath": "tests/integration/driver-registration-code.integration.test.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Legacy numeric gap and concurrent distinct users preserve unique profiles",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_REGRESSION_VERIFIED",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-integration-closure.json",
+        "receipts/test-coverage.json"
+      ]
+    },
+    {
+      "id": "KT-F03",
+      "severity": "P1",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/admin/catalog/products/[id]",
+      "api": "/api/admin/catalog/offers/[id]/publish",
+      "stateSource": "CatalogPublicationSnapshot + storefront projections + publication receipts",
+      "repro": "Reviewed owner goods had no executable independent publication workflow.",
+      "beforeSha": "293a74216601d73a70020ebb28f61754bc116122",
+      "fixSha": "f6141af6a7f438f4756e0f08dd119f8d35337ed7",
+      "testPath": "tests/integration/vendor-publication.integration.test.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Unreviewed/stale/self-review denied; injected projection failure rolls back; concurrent replay",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_REGRESSION_VERIFIED",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-integration-closure.json",
+        "receipts/test-coverage.json"
+      ]
+    },
+    {
+      "id": "KT-F04",
+      "severity": "P2",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/admin/catalog/products/[id]",
+      "api": "Product approve then offer approve/publish",
+      "stateSource": "React form state + current offer version",
+      "repro": "Product approval refresh wiped the offer reason before the next review action.",
+      "beforeSha": "f6141af6a7f438f4756e0f08dd119f8d35337ed7",
+      "fixSha": "95ccabb2f593faed08c519edca2ed0b27868ba11",
+      "testPath": "tests/e2e/vendor-five-product-media.spec.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Offer reason persists; exact publication replay reflects current canonical state",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_SCOPED_ASSERTIONS_VERIFIED_FINAL_JOURNEY_PENDING",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-e2e.json"
+      ]
+    },
+    {
+      "id": "KT-F05",
+      "severity": "P1",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/signup?role=store",
+      "api": "/api/auth/signup",
+      "stateSource": "User + Store slug transaction",
+      "repro": "Simultaneous same-name vendor registrations collided on a unique slug.",
+      "beforeSha": "f6141af6a7f438f4756e0f08dd119f8d35337ed7",
+      "fixSha": "95ccabb2f593faed08c519edca2ed0b27868ba11",
+      "testPath": "tests/integration/vendor-signup-concurrency.integration.test.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Two independent same-name accounts succeed with distinct pending stores",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_REGRESSION_VERIFIED",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-integration-closure.json",
+        "receipts/test-coverage.json"
+      ]
+    },
+    {
+      "id": "KT-F06",
+      "severity": "P0",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/signup; /verify-email",
+      "api": "/api/auth/signup; /api/auth/verify-otp",
+      "stateSource": "OtpCode + User + Session",
+      "repro": "Production signup and invalid verification exposed account-state distinctions.",
+      "beforeSha": "f6141af6a7f438f4756e0f08dd119f8d35337ed7",
+      "fixSha": "95ccabb2f593faed08c519edca2ed0b27868ba11",
+      "testPath": "tests/integration/vendor-signup-concurrency.integration.test.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Duplicate account produces same pending JSON/no extra OTP; unknown/disabled/bad/replayed code never authenticates",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_REGRESSION_VERIFIED",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-integration-closure.json",
+        "receipts/test-coverage.json"
+      ]
+    },
+    {
+      "id": "KT-F07",
+      "severity": "P1",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/verify-email",
+      "api": "/api/auth/resend-otp",
+      "stateSource": "Encrypted security outbox + OTP transaction",
+      "repro": "Pending user resend returned 503 after committing OTP/outbox when inline delivery failed; absent account returned success.",
+      "beforeSha": "a161c2cea414a9c21bd31bbdf1aee3e066b68013",
+      "fixSha": "85514600aea15af1ee67bfb868e24591318d1d52",
+      "testPath": "tests/auth/resend-queued-privacy.test.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Reject/throw and accepted provider yield same queued JSON; persistence failure stays 503",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_REGRESSION_VERIFIED",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-integration-closure.json",
+        "receipts/test-coverage.json"
+      ]
+    },
+    {
+      "id": "KT-F08",
+      "severity": "P1",
+      "owner": "Coding agent / main",
+      "canonicalRoute": "/store/catalog/products/new",
+      "api": "/api/store/catalog/listing-drafts",
+      "stateSource": "Owner/store scoped local draft + canonical listing transaction",
+      "repro": "A confirmed saved draft carried its modifier into later products and caused StoreModifierGroup unique conflict.",
+      "beforeSha": "85514600aea15af1ee67bfb868e24591318d1d52",
+      "fixSha": "98a6801f5668093f4162a53b5fa9c286ac9241d2",
+      "testPath": "tests/e2e/vendor-five-product-media.spec.ts",
+      "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/38293182621",
+      "negativeTest": "Next product begins blank; lost-response canonical save replay remains covered by store-product-catalog.spec.ts",
+      "verifiedAt": "2026-10-12T19:06:37.695049+00:00",
+      "status": "FIXED_SCOPED_ASSERTIONS_VERIFIED_FINAL_JOURNEY_PENDING",
+      "externalDependency": null,
+      "evidenceScope": "Local source-bound receipt and named assertions; final checkout requires hosted certification.",
+      "evidenceRefs": [
+        "receipts/test-e2e.json"
+      ]
+    }
+  ],
+  "knownOpenP0P1InReproducedDefectSet": 0,
+  "scopeCaveat": "Zero open reproduced defects is not universal route coverage or independent acceptance."
+}

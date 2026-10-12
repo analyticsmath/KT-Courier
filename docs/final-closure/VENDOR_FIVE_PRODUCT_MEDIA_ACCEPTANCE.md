@@ -1,0 +1,11 @@
+# Five products and genuine media
+
+Executable: `tests/e2e/vendor-five-product-media.spec.ts`; canonical transaction regressions: `tests/integration/vendor-publication.integration.test.ts`. The browser creates a new store account, verifies the actual encrypted expiring OTP, obtains synthetic admin store approval, creates its first stock location using UI, simulates a lost response and replays the same operation without an extra row.
+
+It creates five separate goods across two categories, with distinct SKUs, stock and prices, ten real PNG uploads normalized to inspected READY media, a colour variant and a gift-wrap modifier. It submits products and offers through UI; a separate admin approves and publishes each exact product/offer/price version. All five canonical publication snapshots and searchable storefront documents must exist. Storefront captures at 320, 390, 768 and 1440 require loaded decoded primary images and product links, with no horizontal overflow.
+
+It adds all five to the buyer cart, completes the offline canonical order and merchant/driver journey and verifies two persisted chat messages plus delivery. Negative proofs include unauthorized/foreign commands, unreviewed/stale/self-review publication and changed operation payload. PostgreSQL fault injection proves publication/projection rollback, concurrent replay and no extra financial writes. Synthetic category/pickup/eligibility facts are fixture authority, never approval of real business coverage or driver compliance.
+
+Screenshots, trace and full logs are under `test-results/vendor-five-products` locally and the manual-certification browser artifact. The compact receipt records the actual result; a missing or failed receipt prevents acceptance. Named vendor/media review remains OPEN.
+
+The earlier 98a6801f run completed publication and all four store captures but failed when the test targeted the hidden desktop button at 320px. fc276e13 targeted the mobile dock but used the wrong accessible label; the successor corrects it to the observed “Add to cart” label. The fc276e13 receipt remains FAIL at that point; later checkout/delivery assertions are not recorded as passed in this snapshot. This was a test selector correction, not a product-button repair.

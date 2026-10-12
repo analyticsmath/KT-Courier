@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "command": "test:coverage",
+  "arguments": [
+    "--",
+    "--maxWorkers=2"
+  ],
+  "commitSha": "98a6801f5668093f4162a53b5fa9c286ac9241d2",
+  "sourceTreeSha": "f51538b43674d73b56948154cef34bc8272f0c78",
+  "startedAt": "2026-10-12T18:32:28.986Z",
+  "endedAt": "2026-10-12T18:38:32.732Z",
+  "durationMs": 363746,
+  "process": {
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null
+  },
+  "testsExpected": 3795,
+  "testsExecuted": 3795,
+  "testsPassed": 3795,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "testsFlaky": 0,
+  "status": "PASS"
+}
