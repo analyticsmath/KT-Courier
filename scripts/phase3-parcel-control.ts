@@ -19,7 +19,7 @@ async function main() {
   const identity = await prisma.$queryRaw<Array<{ database: string; role: string }>>`SELECT current_database() AS database, current_user AS role`;
   if (identity[0]?.database !== "kt_phase75_e2e" || identity[0]?.role !== "kt_phase75_e2e") throw new Error("Named disposable parcel database and role required.");
   const [action, tag, reference] = process.argv.slice(2);
-  if (!/^parcel-(1440|390)-[a-f0-9]{8}$/.test(tag ?? "")) throw new Error("Independent synthetic parcel namespace required.");
+  if (!/^parcel-(1440|390|320)-[a-f0-9]{8}$/.test(tag ?? "")) throw new Error("Independent synthetic parcel namespace required.");
   if (action === "setup") {
     const base = await prisma.store.findUniqueOrThrow({ where: { slug: "e2e-store" }, include: { defaultPickupAddress: true } });
     const password = (await prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" }, select: { passwordHash: true } })).passwordHash;
