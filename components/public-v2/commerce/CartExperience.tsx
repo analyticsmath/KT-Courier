@@ -31,7 +31,7 @@ export function CartExperience() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchCart = async () => {
+  const fetchCart = async (): Promise<boolean> => {
     try {
       setLoading(true);
       setErrorMessage(null);
@@ -39,8 +39,11 @@ export function CartExperience() {
       if (!res.ok) throw new Error("Failed to load cart.");
       const data = await res.json();
       setCart(data.cart);
+      window.dispatchEvent(new CustomEvent("kt-cart-updated"));
+      return true;
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Could not load cart.");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -95,6 +98,11 @@ export function CartExperience() {
         return;
       }
 
+      if (res.status === 404) {
+        if (await fetchCart()) setErrorMessage("Your cart changed before we could update this item. We refreshed it; review your cart and try again.");
+        return;
+      }
+
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || errData.message || "Failed to update quantity.");
@@ -138,6 +146,11 @@ export function CartExperience() {
         return;
       }
 
+      if (res.status === 404) {
+        if (await fetchCart()) setErrorMessage("Your cart changed before we could remove this item. We refreshed it; review your cart and try again.");
+        return;
+      }
+
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || errData.message || "Failed to remove item.");
@@ -177,6 +190,10 @@ export function CartExperience() {
       });
 
       if (!res.ok) {
+        if (res.status === 404) {
+          if (await fetchCart()) setErrorMessage("Your cart changed before it could be cleared. We refreshed it; review your cart and try again.");
+          return;
+        }
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || errData.message || "Failed to clear cart.");
       }
@@ -240,6 +257,7 @@ export function CartExperience() {
   if (isEmpty) {
     return (
       <div className={`${styles.commerceInner} ${styles.cartEmptyState}`}>
+        {errorMessage ? <p role="alert">{errorMessage}</p> : null}
         <svg aria-hidden="true" className={styles.cartEmptyIcon} fill="none" viewBox="0 0 64 64"><path d="M12 20h40l-4 34H16l-4-34Z" stroke="currentColor" strokeWidth="2"/><path d="M23 24v-6a9 9 0 0 1 18 0v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
         <h1 className={styles.commerceTitle}>Your cart is empty</h1>
         <p className={styles.commerceLead}>Find something you love, then it will be waiting here.</p>

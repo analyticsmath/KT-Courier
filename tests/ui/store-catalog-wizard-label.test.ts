@@ -11,8 +11,12 @@ it("the real wizard connects the punctuated ZAR price label to one visible nativ
   const root = createRoot(host);
   try {
     await act(async () => root.render(React.createElement(StoreCatalogWizard, { productTypes: [], categories: [], draftOwnerKey: "label-regression" })));
-    const priceStep = [...host.querySelectorAll("button")].find(button => button.textContent?.includes("Price") && button.closest("ol"))!;
-    await act(async () => priceStep.click());
+    const categoryLabel = [...host.querySelectorAll("label")].find(label => label.textContent === "Find a category")!;
+    expect(categoryLabel).toBeDefined();
+    expect(categoryLabel.control).toBeInstanceOf(HTMLInputElement);
+    expect((categoryLabel.control as HTMLInputElement).id).toBe(categoryLabel.htmlFor);
+    const offerStep = [...host.querySelectorAll("button")].find(button => button.textContent?.includes("Offer & stock") && button.closest("ol"))!;
+    await act(async () => offerStep.click());
     const label = [...host.querySelectorAll("label")].find(label => label.textContent === "VAT-inclusive price (ZAR)")!;
     expect(label).toBeDefined();
     expect(label.control).toBeInstanceOf(HTMLInputElement);

@@ -13,4 +13,12 @@ describe("production delivery coverage freshness", () => {
     expect(source).not.toContain("Active delivery operations continue as normal.");
     expect(source).toContain("cannot be verified automatically");
   });
+
+  it("states the documented multi-city Gauteng operating focus and verifies routes individually", () => {
+    const page = readFileSync("components/public-v2/coverage/CoveragePage.tsx", "utf8");
+    const details = readFileSync("components/public-v2/coverage/CoverageInteractiveView.tsx", "utf8");
+    expect(page).toContain("Johannesburg, Pretoria, Gauteng and surrounding areas");
+    expect(details).toContain("exact pickup and destination");
+    expect(details).toContain("current operational capacity");
+  });
 });

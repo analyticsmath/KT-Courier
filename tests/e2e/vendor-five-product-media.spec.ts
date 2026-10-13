@@ -101,20 +101,21 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   expect(await prisma.inventoryLocation.count({ where: { storeId: store.id } })).toBe(1);
   const products: Array<{ id: string; reference: string; title: string; slug: string; offerReference: string; offerId: string; primaryImageReference: string }> = [];
   for (const index of [0, 1, 2, 3, 4]) {
-    const step = async (name: string) => page.getByRole("button", { name: new RegExp(name) }).click();
+    const progress = page.getByRole("list", { name: "Product listing steps", exact: true });
+    const step = async (name: string) => progress.getByRole("button", { name: new RegExp(name) }).click();
     const title = `Synthetic product ${index + 1} ${tag}`;
     await page.goto("/store/catalog/products/new");
-    await step("Core information"); await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
-    await step("Modifiers"); await expect(page.getByLabel("Modifier groups", { exact: true })).toHaveValue("");
-    await step("Type and category"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
-    await page.getByLabel("Category", { exact: true }).selectOption(index % 2 ? { label: `${categoryName} · /synthetic-accessories-${tag}` } : { label: "Electronics · /electronics" });
-    await step("Core information"); await page.getByLabel("Product title", { exact: true }).fill(title); await page.getByLabel("Description", { exact: true }).fill("Synthetic product for disposable browser acceptance only.");
-    if (index === 1) { await step("Variants"); await page.getByLabel("Variant matrix", { exact: true }).fill(JSON.stringify([{ title: "Blue", options: [{ code: "color", value: "blue" }], attributeValues: {} }])); }
-    await step("Store offer"); await page.getByLabel("Store SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
-    await step("Price"); await page.getByLabel("VAT-inclusive price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
-    await step("Inventory"); await page.getByLabel("Opening stock", { exact: true }).fill("7"); await page.getByLabel("Inventory location", { exact: true }).selectOption({ label: "Synthetic stockroom" });
-    if (index === 2) { await step("Modifiers"); await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: `Synthetic gift wrap ${tag}`, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }])); }
-    await step("Media");
+    await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
+    await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
+    const categoryLabel = index % 2 ? `${categoryName} · /synthetic-accessories-${tag}` : "Electronics · /electronics";
+    await page.getByLabel("Find a category", { exact: true }).fill(index % 2 ? categoryName : "Electronics");
+    await page.getByLabel("Category", { exact: true }).selectOption({ label: categoryLabel });
+    await page.getByLabel("Product title", { exact: true }).fill(title);
+    await page.getByLabel("Description", { exact: true }).fill("Synthetic product for disposable browser acceptance only.");
+    await step("Photos & options");
+    await page.getByText("Variants, compliance and modifiers (optional)", { exact: true }).click();
+    if (index === 1) await page.getByLabel("Variant matrix", { exact: true }).fill(JSON.stringify([{ title: "Blue", options: [{ code: "color", value: "blue" }], attributeValues: {} }]));
+    if (index === 2) await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: `Synthetic gift wrap ${tag}`, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }]));
     for (const image of [0, 1]) {
       const bytes = await sharp({ create: { width: 400, height: 400, channels: 3, background: { r: 40 + index * 25, g: 70 + image * 70, b: 120 } } }).png().toBuffer();
       const upload = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/media/normalized") && response.request().method() === "POST");
@@ -122,7 +123,12 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
       const uploaded = await upload; expect(uploaded.status(), await uploaded.text()).toBe(201);
       await page.getByLabel("Alt text", { exact: true }).nth(image).fill(`${title} image ${image + 1}`);
     }
-    await step("Submit"); const saved = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/listing-drafts") && response.request().method() === "POST");
+    await step("Offer & stock");
+    await page.getByLabel("Store SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
+    await page.getByLabel("VAT-inclusive price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
+    await page.getByLabel("Opening stock", { exact: true }).fill("7");
+    await page.getByLabel("Inventory location", { exact: true }).selectOption({ label: "Synthetic stockroom" });
+    await step("Review & save"); const saved = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/listing-drafts") && response.request().method() === "POST");
     await page.getByRole("button", { name: "Save product draft", exact: true }).click(); const response = await saved; expect(response.status(), await response.text()).toBe(201);
     const draft = (await response.json()).product;
     const row = await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: draft.publicReference }, include: { offers: true, media: { include: { asset: true } } } });

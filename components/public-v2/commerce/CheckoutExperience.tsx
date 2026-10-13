@@ -90,6 +90,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
   const [loading, setLoading] = useState(Boolean(checkoutRef));
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deliveryReviewRequired, setDeliveryReviewRequired] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const stepHeadingRef = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => {
@@ -178,6 +179,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     if (!checkout) return;
     setSubmitting(true);
     setErrorMessage(null);
+    setDeliveryReviewRequired(false);
 
     const activeRef = checkoutRef || checkout.reference;
 
@@ -229,6 +231,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     if (!checkout) return;
     setSubmitting(true);
     setErrorMessage(null);
+    setDeliveryReviewRequired(false);
 
     const activeRef = checkoutRef || checkout.reference;
 
@@ -256,6 +259,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (err.code === "CHECKOUT_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
         throw new Error(err.error || err.message || "Failed to save delivery address.");
       }
 
@@ -304,6 +308,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (err.code === "CHECKOUT_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
         throw new Error(err.error || err.message || "Failed to calculate delivery quotes.");
       }
 
@@ -613,6 +618,11 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
           }}
         >
           {errorMessage}
+          {deliveryReviewRequired ? (
+            <p className="mt-2 text-sm">
+              Delivery availability must be confirmed for this address, active service, and route. Check <Link className="underline" href="/coverage-areas">current coverage</Link> or <Link className="underline" href="/contact">contact operations</Link> to verify it.
+            </p>
+          ) : null}
         </div>
       )}
 

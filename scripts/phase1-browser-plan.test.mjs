@@ -2,7 +2,21 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { phase1BrowserPlan, browserStagePassed, discoveredBrowserTests } from "./phase1-browser-plan.mjs";
 import { readFileSync } from "node:fs";
-import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eImageNames, e2eStandaloneRuntimeDockerfile, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_EXPECTED_TESTS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eImageNames, e2eStandaloneRuntimeDockerfile, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+
+test("directed acceptance count matches actual project discovery and includes every required spec", () => {
+  const result = spawnSync(process.execPath, ["node_modules/playwright/cli.js", "test", ...PHASE2_3_DIRECTED_SPECS, "--project=chromium", "--list", "--reporter=json"], {
+    cwd: fileURLToPath(new URL("../", import.meta.url)), encoding: "utf8", timeout: 60_000,
+    env: { ...disposableProviderEnvironment({ PATH: process.env.PATH }), NODE_ENV: "test", KT_RUNTIME_ENV: "e2e", KT_E2E_PAYSTACK_ACCEPTANCE: "true", KT_E2E_NETWORK_INTERNAL: "true", KT_NETWORK_DISABLED: "true", KT_LOCAL_STOREFRONT_VALIDATION: "true", KT_LOCAL_CHECKOUT_VALIDATION: "true", E2E_BASE_URL: "http://localhost:3200" },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(discoveredBrowserTests(report), PHASE2_3_DIRECTED_EXPECTED_TESTS);
+  assert.deepEqual(report.suites.map(suite => suite.file).sort(), PHASE2_3_DIRECTED_SPECS.map(spec => spec.split("/").at(-1)).sort());
+  for (const suite of report.suites) assert.ok(discoveredBrowserTests({ suites: [suite] }) > 0, suite.file);
+});
 
 test("required native selections precede the full suite and retain failure artifacts separately", () => {
   const plan = phase1BrowserPlan(93);

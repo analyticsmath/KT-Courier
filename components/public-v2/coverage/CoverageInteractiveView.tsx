@@ -35,7 +35,7 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
         <div className={styles.productTruthNotice}>
           <span className={styles.noticeTitle}>Delivery Verification</span>
           <p className={styles.noticeText}>
-            Availability is confirmed from the pickup and drop-off details in your request. For custom cross-provincial dispatches, contact our operations team.
+            Route availability depends on the exact pickup and destination, selected service and current operational capacity. Additional provinces can be enabled as KT Couriers expands. For custom cross-provincial dispatches, contact our operations team.
           </p>
         </div>
 

@@ -82,6 +82,38 @@ describeReal("Marketplace Checkout Real PostgreSQL & Concurrency Integration", (
     ).rejects.toThrow();
   });
 
+  it.each(["GUEST", "CUSTOMER"] as const)("mutates the current %s cart after an older checkout locks its cart", async (ownerType) => {
+    const repository = createPrismaMarketplaceCartRepository(prisma);
+    const owner = ownerType === "CUSTOMER"
+      ? { type: "CUSTOMER" as const, userId: createdUserId! }
+      : { type: "GUEST" as const, guestTokenHash: `lookup-hash-${nonce}` };
+    const ownerData = owner.type === "CUSTOMER"
+      ? { ownerType, customerUserId: owner.userId }
+      : { ownerType, guestTokenHash: owner.guestTokenHash };
+    const ids: string[] = [];
+    try {
+      const locked = await prisma.marketplaceCart.create({ data: { ...ownerData, publicReference: `lookup-old-${ownerType}-${nonce}`, status: "CHECKOUT_LOCKED" } });
+      ids.push(locked.id);
+      const active = await prisma.marketplaceCart.create({ data: { ...ownerData, publicReference: `lookup-current-${ownerType}-${nonce}`, status: "ACTIVE" } });
+      ids.push(active.id);
+      const foreign = await prisma.marketplaceCart.create({ data: { ownerType: "GUEST", guestTokenHash: `foreign-${ownerType}-${nonce}`, publicReference: `lookup-foreign-${ownerType}-${nonce}`, status: "ACTIVE" } });
+      ids.push(foreign.id);
+
+      expect((await repository.findCartByOwner(owner))?.id).toBe(active.id);
+      expect((await repository.lockCartByOwner(owner))?.id).toBe(active.id);
+      const selected = await repository.lockCartByOwner(owner, { publicReference: active.publicReference });
+      expect(selected?.id).toBe(active.id);
+      expect(await repository.lockCartByOwner(owner, { publicReference: foreign.publicReference })).toBeNull();
+      await clearCart(repository, { cartId: selected!.id, owner, mutation: { operationId: `lookup-clear-${ownerType}-${nonce}`, requestHash: "e".repeat(64), expectedVersion: selected!.version } });
+      expect((await prisma.marketplaceCart.findUniqueOrThrow({ where: { id: active.id } })).version).toBe(active.version + 1);
+      expect((await prisma.marketplaceCart.findUniqueOrThrow({ where: { id: locked.id } })).version).toBe(locked.version);
+      await expect(clearCart(repository, { cartId: locked.id, owner, mutation: { operationId: `lookup-locked-${ownerType}-${nonce}`, requestHash: "f".repeat(64), expectedVersion: locked.version } })).rejects.toThrow("CART_MUTATION_NOT_ALLOWED");
+    } finally {
+      await prisma.marketplaceCartOperation.deleteMany({ where: { cartId: { in: ids } } });
+      await prisma.marketplaceCart.deleteMany({ where: { id: { in: ids } } });
+    }
+  });
+
   it("concurrent canonical cart mutations commit one receipt and reject the stale writer", async () => {
     const raceCart = await prisma.marketplaceCart.create({ data: {
       publicReference: `race-cart-${nonce}`, ownerType: "GUEST",
