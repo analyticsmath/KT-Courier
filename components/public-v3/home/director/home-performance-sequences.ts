@@ -1,5 +1,6 @@
 import { clamp01, HOME_CINEMATIC_BEATS, range } from "./home-beats";
 
+// Serve committed transparent WebP derivatives; retain original authored PNGs as source masters.
 const boxRoot = "/media/public/KT_BOX_SEQUENCE_8_FRAMES/";
 const vanRoot = "/media/public/KT_Courier_White_Van_Courier_Performance_Pack/";
 const handoffRoot = "/media/public/KT_COURIER_HANDOFF_12_PNGS/";
@@ -8,7 +9,7 @@ export const BOX_PLATES = [
   "box_00_open_master", "box_01_side_flaps_early", "box_02_side_flaps_mid",
   "box_03_side_flaps_closed", "box_04_rear_flap_early", "box_05_rear_flap_near_closed",
   "box_06_front_flap_mid", "box_07_closed",
-].map((name) => `${boxRoot}${name}.png`);
+].map((name) => `${boxRoot}${name}.webp`);
 
 export const PICKUP_PLATES = [
   "pickup_A00_van_closed_right", "pickup_A01_door_15", "pickup_A02_door_35",
@@ -17,7 +18,7 @@ export const PICKUP_PLATES = [
   "pickup_A08_load_start", "pickup_A09_load_half", "pickup_A10_load_near_inside",
   "pickup_A11_parcel_released", "pickup_A12_courier_withdraw", "pickup_A13_courier_clear",
   "pickup_A14_door_closing_60", "pickup_A15_door_closing_25", "pickup_A16_ready_depart",
-].map((name) => `${vanRoot}${name}.png`);
+].map((name) => `${vanRoot}${name}.webp`);
 
 export const DELIVERY_PLATES = [
   "delivery_B00_van_closed_left", "delivery_B01_door_15", "delivery_B02_door_35",
@@ -25,20 +26,20 @@ export const DELIVERY_PLATES = [
   "delivery_B06_courier_emerging", "delivery_B07_courier_threshold_box",
   "delivery_B08_courier_out_box", "delivery_B09_walk_right_01",
   "delivery_B10_walk_right_02", "delivery_B11_handoff_entry_match",
-].map((name) => `${vanRoot}${name}.png`);
+].map((name) => `${vanRoot}${name}.webp`);
 
 export const HANDOFF_PLATES = [
   "handoff_01_approach", "handoff_02_arrival", "handoff_03_recipient_reach",
   "handoff_04_first_contact", "handoff_05_shared_parcel", "handoff_06_weight_transfer",
   "handoff_07_release", "handoff_08_withdrawal", "handoff_09_separation_begin",
   "handoff_10_departure_step", "handoff_11_walking_apart", "handoff_12_final_separation",
-].map((name) => `${handoffRoot}${name}.png`);
+].map((name) => `${handoffRoot}${name}.webp`);
 
 export const RETURN_PLATES = [
   "return_C01_walk_left", "return_C02_approach_van", "return_C03_enter_van",
   "return_C04_inside", "return_C05_door_closing_60",
   "return_C06_door_closing_25", "return_C07_departure_ready",
-].map((name) => `${vanRoot}${name}.png`);
+].map((name) => `${vanRoot}${name}.webp`);
 
 /** Inclusive scroll windows preserve each pose at the stage boundaries. */
 export function plateIndex(progress: number, start: number, end: number, first: number, last: number): number {
