@@ -1,6 +1,6 @@
 # KT Couriers — final client-authority reconciliation
-**Review date:** 13 October 2026  
-**Source:** Seven distinct client DOCX document bodies, comprising the two newly supplied documents and the five additional unique sources already preserved by the project. Duplicate copies of the two new uploads have identical SHA-256 hashes and add no new instructions.  
+**Review date:** 13 October 2026
+**Source:** Seven distinct client DOCX document bodies, comprising the two newly supplied documents and the five additional unique sources already preserved by the project. Duplicate copies of the two new uploads have identical SHA-256 hashes and add no new instructions.
 **Purpose:** Concrete application configuration decisions, not a claim of legal/financial acceptance.
 
 ## Precedence and evidence
