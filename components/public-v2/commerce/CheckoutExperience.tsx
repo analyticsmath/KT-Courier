@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 12820)
+Total output lines: 1165
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -90,6 +93,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
   const [loading, setLoading] = useState(Boolean(checkoutRef));
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deliveryReviewRequired, setDeliveryReviewRequired] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const stepHeadingRef = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => {
@@ -178,6 +182,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     if (!checkout) return;
     setSubmitting(true);
     setErrorMessage(null);
+    setDeliveryReviewRequired(false);
 
     const activeRef = checkoutRef || checkout.reference;
 
@@ -229,6 +234,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     if (!checkout) return;
     setSubmitting(true);
     setErrorMessage(null);
+    setDeliveryReviewRequired(false);
 
     const activeRef = checkoutRef || checkout.reference;
 
@@ -256,6 +262,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (err.code === "CHECKOUT_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
         throw new Error(err.error || err.message || "Failed to save delivery address.");
       }
 
@@ -304,6 +311,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (err.code === "CHECKOUT_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
         throw new Error(err.error || err.message || "Failed to calculate delivery quotes.");
       }
 
@@ -595,72 +603,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
           Secure checkout
         </h1>
         <p style={{ color: "var(--kt-public-text-muted)", margin: 0, fontSize: "0.95rem" }}>
-          Order reference: <span style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</span>
-        </p>
-      </div>
-
-      {errorMessage && (
-        <div
-          id="checkout-error"
-          role="alert"
-          style={{
-            padding: "14px 18px",
-            backgroundColor: "var(--kt-public-surface-secondary)",
-            border: "1px solid var(--kt-public-border-control)",
-            color: "var(--kt-state-error)",
-            borderRadius: 4,
-            marginBottom: "1.5rem",
-          }}
-        >
-          {errorMessage}
-        </div>
-      )}
-
-      <p role="status" aria-live="polite" aria-atomic="true">
-        Step {Math.min(currentStep, 5)} of 5: {["Contact", "Delivery address", "Delivery options", "Review your order", "Payment"][Math.min(currentStep, 5) - 1]}
-      </p>
-
-      <div className={styles.checkoutMainLayout}>
-        {/* Left Column: Multi-Step Flow */}
-        <div className={styles.checkoutMainColumn}>
-          {/* Step 1: Contact Details */}
-          <div
-            style={{
-              border: "1px solid var(--kt-public-border-control)",
-              borderRadius: 6,
-              padding: "24px",
-              backgroundColor: "var(--kt-public-surface-primary)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 id="checkout-contact-heading" ref={currentStep === 1 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
-                1. Contact
-              </h2>
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(1)}
-                  style={{ background: "none", border: "none", color: "var(--kt-public-interactive-text)", cursor: "pointer", fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}
-                >
-                  Edit
-                </button>
-              )}
-            </div>
-
-            {currentStep === 1 ? (
-              <form aria-labelledby="checkout-contact-heading" aria-describedby={errorMessage ? "checkout-error" : undefined} onSubmit={handleSaveContact} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div>
-                  <label htmlFor="contactName" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
-                    Recipient Full Name
-                  </label>
-                  <input
-                    id="contactName"
-                    type="text"
-                    required
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    placeholder="e.g. Sipho Dlamini"
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+…820 tokens truncated…x", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
                   />
                 </div>
 
