@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
 import type { AddressDto } from "@/lib/maps/google-maps.types";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -86,6 +87,7 @@ export function PublicDeliveryQuoteForm({
     return () => controller.abort();
   }, [quote, signedIn, business]);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [pickup, setPickup] = useState<Address>(
     prefill?.pickupAddress ?? defaultPickup ?? {},
@@ -154,6 +156,7 @@ export function PublicDeliveryQuoteForm({
     e.preventDefault();
     setBusy(true);
     setError("");
+    setErrorCode("");
     setQuote(null);
     const f = new FormData(e.currentTarget);
     try {
@@ -168,11 +171,16 @@ export function PublicDeliveryQuoteForm({
           dropoffAddress: address(f, "dropoff"),
         }),
       });
-      const v = await r.json();
-      if (!r.ok) throw new Error(v.error);
+      const v = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(typeof v.error === "string" ? v.error : "Quote unavailable. Please try again.");
+        setErrorCode(typeof v.code === "string" ? v.code : "");
+        return;
+      }
       setQuote(v);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Quote unavailable.");
+      setErrorCode("");
     } finally {
       setBusy(false);
     }
@@ -199,6 +207,8 @@ export function PublicDeliveryQuoteForm({
                 if (a) {
                   setValue(a);
                   setQuote(null);
+                  setError("");
+                  setErrorCode("");
                 }
               }}
             >
@@ -215,7 +225,7 @@ export function PublicDeliveryQuoteForm({
           id={`${prefix}-mapped-address`} label={`Find ${title.toLowerCase()}`}
           showContactFields={false} showNotesField={false}
           value={value.line1 ? { formattedAddress: value.formattedAddress ?? value.line1, placeId: value.placeId ?? null, line1: value.line1, line2: value.line2 ?? null, city: value.city ?? null, province: value.province ?? null, postalCode: value.postalCode ?? null, country: value.country ?? "South Africa", latitude: value.latitude ?? null, longitude: value.longitude ?? null } as AddressDto : null}
-          onChange={address => { setValue(address ?? {}); setQuote(null); }}
+          onChange={address => { setValue(address ?? {}); setQuote(null); setError(""); setErrorCode(""); }}
         />}
         {(
           [
@@ -235,6 +245,8 @@ export function PublicDeliveryQuoteForm({
               onChange={(e) => {
                 setValue({ ...value, [key]: e.target.value, latitude: null, longitude: null, placeId: null, formattedAddress: null });
                 setQuote(null);
+                setError("");
+                setErrorCode("");
               }}
             />
           </div>
@@ -249,6 +261,8 @@ export function PublicDeliveryQuoteForm({
           onChange={(e) => {
             setValue({ ...value, province: e.target.value, latitude: null, longitude: null, placeId: null, formattedAddress: null });
             setQuote(null);
+            setError("");
+            setErrorCode("");
           }}
         >
           <option value="">Select province</option>
@@ -261,7 +275,16 @@ export function PublicDeliveryQuoteForm({
   }
   return (
     <div className="space-y-8">
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <div className="space-y-2" aria-live="polite">
+          <p role="alert">{error}</p>
+          {errorCode === "COVERAGE_UNAVAILABLE" || errorCode === "COVERAGE_DISTANCE_EXCEEDED" ? (
+            <p className="text-sm">
+              Route availability is confirmed against active operating areas and capacity. Check <Link className="underline" href="/coverage-areas">current coverage</Link> or <Link className="underline" href="/contact">contact operations</Link> to verify this route.
+            </p>
+          ) : null}
+        </div>
+      )}
       {catalogLoading && <p id="quote-configuration-status" role="status">Loading delivery services and parcel limits…</p>}
       <form onSubmit={estimate} className="space-y-6" aria-busy={busy || catalogLoading}>
         <div className="grid gap-8 md:grid-cols-2">
@@ -278,7 +301,7 @@ export function PublicDeliveryQuoteForm({
               required
               disabled={catalogLoading || services.length === 0}
               aria-describedby={serviceCatalogError ? "quote-service-status" : undefined}
-              onChange={() => setQuote(null)}
+              onChange={() => { setQuote(null); setError(""); setErrorCode(""); }}
             >
               {services.length === 0 && <option value="">{catalogLoading ? "Loading services…" : "No delivery services available"}</option>}
               {services.map((s) => (
@@ -299,7 +322,7 @@ export function PublicDeliveryQuoteForm({
               disabled={catalogLoading || parcels.length === 0}
               aria-describedby={parcelCatalogError ? "quote-size-status" : "quote-parcel-limits"}
               value={selectedParcel?.stableKey ?? ""}
-              onChange={(e) => { setParcelKey(e.target.value); setQuote(null); }}
+              onChange={(e) => { setParcelKey(e.target.value); setQuote(null); setError(""); setErrorCode(""); }}
             >
               {parcels.length === 0 && <option value="">{catalogLoading ? "Loading parcel sizes…" : "No approved parcel sizes available"}</option>}
               {parcels.map((s) => (
@@ -322,7 +345,7 @@ export function PublicDeliveryQuoteForm({
               required
               disabled={catalogLoading || parcels.length === 0}
               aria-describedby={selectedParcel ? "quote-parcel-limits" : undefined}
-              onChange={() => setQuote(null)}
+              onChange={() => { setQuote(null); setError(""); setErrorCode(""); }}
             />
           </div>
         </div>
