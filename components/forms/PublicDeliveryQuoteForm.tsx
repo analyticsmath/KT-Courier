@@ -53,6 +53,9 @@ export function PublicDeliveryQuoteForm({
   const [parcelKey, setParcelKey] = useState("");
   const selectedParcel = parcels.find((p) => p.stableKey === parcelKey) ?? parcels[0];
   const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  const [parcelCatalogError, setParcelCatalogError] = useState("");
+  const [serviceCatalogError, setServiceCatalogError] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [methods, setMethods] = useState<{
     quoteId: string;
@@ -92,39 +95,53 @@ export function PublicDeliveryQuoteForm({
   );
   useEffect(() => {
     let live = true;
-    const parcelRequest = fetch("/api/public/parcel-profiles").then(async (r) => {
-      if (!r.ok) throw new Error("Parcel profiles unavailable.");
-      const profiles = await r.json();
-      if (live) { setParcels(profiles); if (!profiles.length) setError("Parcel acceptance limits await operational approval. Please contact support."); }
-    }).catch(() => { if (live) setError("Parcel profiles could not be loaded. Please retry."); });
-    const serviceRequest = fetch("/api/public/delivery-quotes")
+    const parcelRequest = fetch("/api/public/parcel-profiles", { cache: "no-store" })
       .then(async (r) => {
-        const v = await r.json();
-        if (!r.ok) throw new Error(v.error);
+        if (!r.ok) throw new Error("Parcel profiles unavailable.");
+        const profiles: unknown = await r.json();
+        if (!Array.isArray(profiles)) throw new Error("Invalid parcel profile response.");
         if (live) {
-          setServices(v);
-          if (!v.length) setError("Delivery services await operational configuration. Please contact support.");
+          setParcels(profiles);
+          setParcelCatalogError(profiles.length ? "" : "No approved parcel sizes are available. An administrator must activate the Small, Medium and Large operating limits before quotes can be calculated.");
         }
       })
       .catch(() => {
-        if (live)
-          setError("Delivery services could not be loaded. Please retry.");
+        if (live) {
+          setParcels([]);
+          setParcelCatalogError("Parcel sizes could not be loaded. Check your connection and refresh availability.");
+        }
       });
-    void Promise.all([parcelRequest, serviceRequest]).finally(() => { if (live) setCatalogLoading(false); });
+    const serviceRequest = fetch("/api/public/delivery-quotes", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("Delivery services unavailable.");
+        const items: unknown = await r.json();
+        if (!Array.isArray(items)) throw new Error("Invalid delivery service response.");
+        if (live) {
+          setServices(items);
+          setServiceCatalogError(items.length ? "" : "No delivery services are enabled. Please contact KT Couriers to confirm current operations.");
+        }
+      })
+      .catch(() => {
+        if (live) {
+          setServices([]);
+          setServiceCatalogError("Delivery services could not be loaded. Check your connection and refresh availability.");
+        }
+      });
+    void Promise.all([parcelRequest, serviceRequest]).finally(() => {
+      if (live) setCatalogLoading(false);
+    });
     if (reference)
       fetch(`/api/public/delivery-quotes/${reference}`)
         .then(async (r) => {
           const v = await r.json();
-          if (!r.ok) throw new Error(v.error);
+          if (!r.ok) throw Error(v.error);
           if (live) setQuote(v);
         })
         .catch((e) => {
-          if (live) setError(e.message);
+          if (live) setError(e instanceof Error ? e.message : "Could not load this quote.");
         });
-    return () => {
-      live = false;
-    };
-  }, [reference]);
+    return () => { live = false; };
+  }, [reference, catalogRevision]);
   const address = (f: FormData, p: string) => ({
     line1: String(f.get(`${p}-line1`)),
     city: String(f.get(`${p}-city`)),
@@ -259,14 +276,18 @@ export function PublicDeliveryQuoteForm({
               name="service"
               className="w-full border-b py-3"
               required
+              disabled={catalogLoading || services.length === 0}
+              aria-describedby={serviceCatalogError ? "quote-service-status" : undefined}
               onChange={() => setQuote(null)}
             >
+              {services.length === 0 && <option value="">{catalogLoading ? "Loading services…" : "No delivery services available"}</option>}
               {services.map((s) => (
                 <option key={s.stableKey} value={s.stableKey}>
                   {s.displayName} · {s.turnaround}
                 </option>
               ))}
             </select>
+            {serviceCatalogError && <p id="quote-service-status" role="status" className="mt-2 text-sm">{serviceCatalogError}</p>}
           </div>
           <div>
             <Label htmlFor="quote-size">Parcel size</Label>
@@ -275,15 +296,19 @@ export function PublicDeliveryQuoteForm({
               name="size"
               className="w-full border-b py-3"
               required
+              disabled={catalogLoading || parcels.length === 0}
+              aria-describedby={parcelCatalogError ? "quote-size-status" : "quote-parcel-limits"}
               value={selectedParcel?.stableKey ?? ""}
               onChange={(e) => { setParcelKey(e.target.value); setQuote(null); }}
             >
+              {parcels.length === 0 && <option value="">{catalogLoading ? "Loading parcel sizes…" : "No approved parcel sizes available"}</option>}
               {parcels.map((s) => (
                 <option key={s.id} value={s.stableKey}>
                   {s.displayName} · max {s.maximumWeightKg} kg
                 </option>
               ))}
             </select>
+            {parcelCatalogError && <p id="quote-size-status" role="status" className="mt-2 text-sm">{parcelCatalogError}</p>}
           </div>
           <div>
             <Label htmlFor="quote-weight">Weight (kg)</Label>
@@ -295,6 +320,7 @@ export function PublicDeliveryQuoteForm({
               max={selectedParcel?.maximumWeightKg}
               step="0.0001"
               required
+              disabled={catalogLoading || parcels.length === 0}
               aria-describedby={selectedParcel ? "quote-parcel-limits" : undefined}
               onChange={() => setQuote(null)}
             />
@@ -303,10 +329,24 @@ export function PublicDeliveryQuoteForm({
         {selectedParcel && <p id="quote-parcel-limits" role="status" className="text-sm">
           {selectedParcel.displayName} limits: {selectedParcel.lengthCm} × {selectedParcel.widthCm} × {selectedParcel.heightCm} cm; maximum {selectedParcel.maximumWeightKg} kg.
         </p>}
+        {(parcelCatalogError || serviceCatalogError) && (
+          <div className="space-y-2" role="status">
+            <p className="text-sm">Delivery pricing is temporarily unavailable until the required operating configuration is active.</p>
+            <Button type="button" variant="secondary" disabled={catalogLoading} onClick={() => {
+              setCatalogLoading(true);
+              setParcelCatalogError("");
+              setServiceCatalogError("");
+              setCatalogRevision((revision) => revision + 1);
+            }}>
+              Refresh delivery options
+            </Button>
+            <p className="text-sm">For help, contact <a className="underline" href="mailto:support@ktcouriers.com">support@ktcouriers.com</a>.</p>
+          </div>
+        )}
         <Button
           type="submit"
           loading={busy}
-          disabled={!services.length || !parcels.length}
+          disabled={busy || catalogLoading || !services.length || !parcels.length}
           className="bg-[var(--kt-public-interactive-active)]"
         >
           Calculate delivery price

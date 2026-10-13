@@ -57,8 +57,10 @@ const EMPTY_FORM: RegionFormState = {
   baseFee: "",
   notes: "",
   displayOrder: "0",
-  active: true,
-  pricingEnabled: true,
+  // A newly drafted region cannot accept customer bookings until its
+  // measured boundaries, operating capacity and price eligibility are reviewed.
+  active: false,
+  pricingEnabled: false,
 };
 
 function dtoToForm(dto: DeliveryRegionDto): RegionFormState {

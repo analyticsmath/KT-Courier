@@ -1,6 +1,21 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/db/prisma";
 import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
+test("public quotation explains missing approved parcel profiles instead of showing an empty picker", async ({ page }) => {
+  await page.route("**/api/public/parcel-profiles", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.goto("/quote");
+  const selector = page.getByLabel("Parcel size", { exact: true });
+  await expect(selector).toBeDisabled();
+  await expect(selector).toContainText("No approved parcel sizes available");
+  await expect(page.getByRole("status").filter({ hasText: "An administrator must activate" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Calculate delivery price" })).toBeDisabled();
+  await page.getByRole("button", { name: "Refresh delivery options" }).click();
+  await expect(selector).toBeDisabled();
+  await expect(page.getByRole("status").filter({ hasText: "An administrator must activate" })).toBeVisible();
+});
+
 for (const width of [1440, 390]) test(`anonymous canonical courier quote, private ownership and signed-in booking at ${width}px`, async ({ page, browser }, info) => {
   assertDisposablePaystackAcceptance(); await page.context().clearCookies(); await page.setViewportSize({ width, height: 900 }); await page.goto("/quote");
   const pickup = page.getByRole("group", { name: "Collection address", exact: true }), dropoff = page.getByRole("group", { name: "Delivery address", exact: true });
