@@ -80,9 +80,9 @@ test("five-product journey has a dedicated exact-count receipt and retains full 
   assert.match(steps[vendor].run, /test-e2e-vendor-five-products\.json/);
 });
 
-test("Vercel source config quarantines integration and main until Phase 3 production approval", () => {
+test("Vercel source enables production main but quarantines the unapproved integration branch", () => {
   const branch = "integration/codex-phase1-phase2-2026-10-11";
-  assert.deepEqual(vercelConfig.git?.deploymentEnabled, { [branch]: false, main: false });
+  assert.deepEqual(vercelConfig.git?.deploymentEnabled, { [branch]: false, main: true });
   assert.equal(vercelConfig.rewrites, undefined, "static platform routes cannot inherit production");
   assert.equal(vercelConfig.alias, undefined, "staging config cannot assign customer domains");
   const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
