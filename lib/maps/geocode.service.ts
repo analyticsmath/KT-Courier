@@ -2,6 +2,7 @@
 
 import { getMapsServerConfig, type MapsServerConfig } from "./google-maps-config";
 import { disposableGeocode, southAfricanAddressQuery } from "@/lib/testing/disposable-geocoding";
+import { PROVINCES } from "@/lib/client-platform/contracts";
 
 const TIMEOUT_MS = 8_000;
 
@@ -22,6 +23,7 @@ export type TrustedCoordinates = Readonly<{
 type GeocodeResponse = {
   status?: string;
   results?: Array<{
+    address_components?: Array<{ long_name?: string; short_name?: string; types?: string[] }>;
     geometry?: {
       location?: {
         lat?: number;
@@ -30,6 +32,45 @@ type GeocodeResponse = {
     };
   }>;
 };
+
+/** Resolve province from provider coordinates, never from a shopper's province label. */
+export async function reverseGeocodeSouthAfricanProvince(
+  latitude: number,
+  longitude: number,
+  configurationOverride?: MapsServerConfig,
+): Promise<(typeof PROVINCES)[number] | null> {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  const config = configurationOverride ?? getMapsServerConfig();
+  if (!config) return null;
+  const url = new URL(config.geocodeApiUrl);
+  url.searchParams.set("latlng", `${latitude},${longitude}`);
+  url.searchParams.set("result_type", "administrative_area_level_1");
+  url.searchParams.set("language", "en");
+  url.searchParams.set("key", config.serverKey);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, signal: controller.signal, cache: "no-store" });
+    if (!response.ok) return null;
+    const payload = await response.json() as GeocodeResponse;
+    if (payload.status !== "OK") return null;
+    const provinces = new Set<(typeof PROVINCES)[number]>();
+    for (const result of payload.results ?? []) {
+      const components = result.address_components ?? [];
+      const country = components.find(c => c.types?.includes("country"));
+      const province = components.find(c => c.types?.includes("administrative_area_level_1"));
+      if (country?.short_name !== "ZA") return null;
+      const canonical = PROVINCES.find(p => p.toLowerCase() === province?.long_name?.trim().toLowerCase());
+      if (!canonical) return null;
+      provinces.add(canonical);
+    }
+    return provinces.size === 1 ? [...provinces][0] : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export async function geocodeSouthAfricanAddress(
   address: GeocodableSouthAfricanAddress,

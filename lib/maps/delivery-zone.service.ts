@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/db/prisma";
 import type { DeliveryZoneCheckResult } from "./google-maps.types";
 import { regionBoundaryIssues } from "./region-boundaries";
+import { reverseGeocodeSouthAfricanProvince } from "./geocode.service";
 
 // ─── Haversine distance (km) between two lat/lng points ──────────────────────
 
@@ -40,6 +41,7 @@ export async function checkDeliveryZone(
         id: true,
         name: true,
         province: true,
+        coverageMode: true,
         centerLat: true,
         centerLng: true,
         coverageRadiusKm: true,
@@ -70,8 +72,10 @@ export async function checkDeliveryZone(
     };
   }
 
+  let distanceLimitedMatch: DeliveryZoneCheckResult | null = null;
   for (const region of regions) {
     if (regionBoundaryIssues(region).length) continue;
+    if (region.coverageMode === "PROVINCE") continue;
 
     const centerLat = Number(region.centerLat);
     const centerLng = Number(region.centerLng);
@@ -86,7 +90,7 @@ export async function checkDeliveryZone(
         ? distKm <= Number(region.maxDistanceKm)
         : null;
 
-      return {
+      const match: DeliveryZoneCheckResult = {
         matched: true,
         regionId: region.id,
         regionName: region.name,
@@ -96,8 +100,25 @@ export async function checkDeliveryZone(
           : null,
         calculationType: "geometric_haversine",
       };
+      if (withinMaxDistance === true) return match;
+      distanceLimitedMatch ??= match;
     }
   }
+
+  const provinceRegions = regions.filter(region => region.coverageMode === "PROVINCE" && regionBoundaryIssues(region).length === 0);
+  if (provinceRegions.length) {
+    const verifiedProvince = await reverseGeocodeSouthAfricanProvince(dropoffLat, dropoffLng);
+    const region = verifiedProvince ? provinceRegions.find(region => region.province === verifiedProvince) : null;
+    if (region) return {
+      matched: true,
+      regionId: region.id,
+      regionName: region.name,
+      withinMaxDistance: true, // Optional road-distance limits are checked against the verified route.
+      warningMessage: null,
+      calculationType: "provider_verified_province",
+    };
+  }
+  if (distanceLimitedMatch) return distanceLimitedMatch;
 
   return {
     matched: false,

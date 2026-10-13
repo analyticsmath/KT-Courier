@@ -52,7 +52,7 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
                   {[selectedRegion.city, selectedRegion.province].filter(Boolean).join(", ") || "Active Region"}
                 </span>
               </div>
-              {selectedRegion.coverageRadiusKm && (
+              {selectedRegion.coverageMode === "PROVINCE" ? <div><span style={{ fontSize: "0.75rem", textTransform: "uppercase", display: "block" }}>Coverage</span><span>Entire {selectedRegion.province} province</span></div> : selectedRegion.coverageRadiusKm && (
                 <div>
                   <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--kt-public-text-inverse-muted)", display: "block" }}>Service Range</span>
                   <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-public-text-inverse)" }}>
@@ -118,7 +118,7 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
                         <p className={styles.regionCardDesc}>{region.description}</p>
                       )}
 
-                      {region.coverageRadiusKm && (
+                      {region.coverageMode === "PROVINCE" ? <div className={styles.regionRadiusBadge}>Entire {region.province} province</div> : region.coverageRadiusKm && (
                         <div className={styles.regionRadiusBadge}>
                           Coverage Radius: ~{region.coverageRadiusKm} km
                         </div>

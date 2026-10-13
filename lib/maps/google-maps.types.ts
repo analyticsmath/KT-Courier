@@ -55,7 +55,7 @@ export interface DeliveryZoneCheckResult {
   regionName: string | null;
   withinMaxDistance: boolean | null;
   warningMessage: string | null;
-  calculationType: "geometric_haversine" | "provider_road";
+  calculationType: "geometric_haversine" | "provider_road" | "provider_verified_province";
 }
 
 // ─── Google Places prediction (client-side) ───────────────────────────────────

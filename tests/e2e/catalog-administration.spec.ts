@@ -15,8 +15,9 @@ async function product(page: Page, id: string) {
 }
 async function submittedProduct(page: Page) {
   await login(page, "e2e-store@ktcouriers.local"); await page.goto("/store/catalog/products/new");
-  await page.getByRole("button", { name: /Type and category/ }).click();
+  await page.getByRole("button", { name: /Product details/ }).click();
   const definition = await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
+  await page.getByLabel("Find a category", { exact: true }).fill("electronics");
   const category = await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics · /electronics" });
   const png = await sharp(randomBytes(400 * 400 * 3), { raw: { width: 400, height: 400, channels: 3 } }).png().toBuffer();
   const upload = await page.request.post("/api/store/catalog/media/normalized", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL!, "x-catalog-operation-id": randomUUID() }, multipart: { purpose: "PRODUCT_IMAGE", file: { name: "disposable-review.png", mimeType: "image/png", buffer: png } } });

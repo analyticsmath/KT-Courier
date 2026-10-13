@@ -10,6 +10,7 @@ files.push("tests/integration/checkout-owner-resume.integration.test.ts");
 files.push("tests/integration/storefront-editorial-atomicity.integration.test.ts");
 files.push("tests/integration/driver-earning-canonical-postgres.integration.test.ts");
 files.push("tests/integration/driver-registration-code.integration.test.ts");
+files.push("tests/integration/owner-approved-gauteng-coverage.integration.test.ts");
 files.push("tests/integration/inventory-location.integration.test.ts");
 files.push("tests/integration/vendor-publication.integration.test.ts");
 files.push("tests/integration/vendor-signup-concurrency.integration.test.ts");

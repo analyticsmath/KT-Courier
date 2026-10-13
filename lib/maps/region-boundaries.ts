@@ -1,6 +1,7 @@
 import { PROVINCES } from "@/lib/client-platform/contracts";
 
 export type RegionBoundary = {
+  coverageMode?: string | null;
   province?: string | null;
   centerLat?: unknown;
   centerLng?: unknown;
@@ -11,15 +12,26 @@ export type RegionBoundary = {
 export function regionBoundaryIssues(region: RegionBoundary): string[] {
   const issues: string[] = [];
   if (!PROVINCES.some((p) => p === region.province)) issues.push("province");
+  if (region.coverageMode != null && !["RADIUS", "PROVINCE"].includes(region.coverageMode)) issues.push("coverageMode");
+  const provinceWide = region.coverageMode === "PROVINCE";
   for (const [key, min, max] of [
     ["centerLat", -90, 90], ["centerLng", -180, 180],
     ["coverageRadiusKm", 0, 500], ["maxDistanceKm", 0, 500],
   ] as const) {
     const raw = region[key];
+    if (provinceWide && (key !== "maxDistanceKm" || raw == null || raw === "")) continue;
     const value = Number(raw);
     if (raw == null || raw === "" || !Number.isFinite(value) || value < min || value > max || (min === 0 && value === 0)) issues.push(key);
   }
   return issues;
+}
+
+/** Province-wide scope has no invented kilometre cap; explicit limits still apply. */
+export function regionRouteLimitKm(region: RegionBoundary): number | null {
+  if (region.coverageMode === "PROVINCE" && (region.maxDistanceKm == null || region.maxDistanceKm === "")) return null;
+  const limit = Number(region.maxDistanceKm);
+  if (!Number.isFinite(limit) || limit <= 0 || limit > 500) throw new RegionConfigurationError(422, "A valid operational road-distance limit is required.");
+  return limit;
 }
 
 export class RegionConfigurationError extends Error {

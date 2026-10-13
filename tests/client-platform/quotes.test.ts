@@ -100,6 +100,19 @@ beforeEach(() => {
   mocks.$transaction.mockImplementation(async (callback) => callback(mocks));
 });
 describe("anonymous client delivery quotations", () => {
+  it("quotes province-wide routes without treating an absent city-distance cap as zero", async () => {
+    mocks.deliveryRegion.findMany.mockResolvedValue([{ id: "region-a", coverageMode: "PROVINCE", province: "Gauteng", highRiskSurcharge: new Prisma.Decimal(0), pricingEnabled: true, maxDistanceKm: null }]);
+    mocks.route.mockResolvedValue({ ok: true, route: { distanceMeters: 180000, durationSeconds: 10800, provider: "GOOGLE_ROUTES", routeSummary: "Verified province-wide road route" } });
+    const quote = await createPublicQuote(input);
+    expect(quote.distanceMeters).toBe(180000);
+    expect(quote.total).toBe("129.00");
+  });
+  it("retains an explicitly configured road-distance cap for a province-wide region", async () => {
+    mocks.deliveryRegion.findMany.mockResolvedValue([{ id: "region-a", coverageMode: "PROVINCE", province: "Gauteng", highRiskSurcharge: new Prisma.Decimal(0), pricingEnabled: true, maxDistanceKm: new Prisma.Decimal(100) }]);
+    mocks.route.mockResolvedValue({ ok: true, route: { distanceMeters: 100001, durationSeconds: 6000, provider: "GOOGLE_ROUTES", routeSummary: "Verified road route" } });
+    await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "COVERAGE_DISTANCE_EXCEEDED" });
+    expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
+  });
   it("blocks quotation before persistence when no approved profile exists", async () => {
     mocks.parcelProfileVersion.findMany.mockResolvedValue([]);
     await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "PARCEL_CONFIGURATION_REQUIRED" });

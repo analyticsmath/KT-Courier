@@ -34,6 +34,9 @@
 | Heavy truck/overnight/relocation | Future pricing expressly deferred | Request custom review/quote rather than guessed tariff | No instant consumer pricing without effective rules |
 
 ## Coverage and product-visibility separation
+
+**Later owner decision:** The owner subsequently selected **Entire Gauteng province** and instructed continuation. That explicit decision approves province-wide geographic scope and supersedes the geographic uncertainty below. See [the audited coverage decision](../../operations/owner-approved-gauteng-coverage-2026-10-14.md). The existing parcel limits were separately owner-approved and activated; these dated source-review restrictions are historical, not current evidence that those limits remain drafts. Service eligibility, verified routing and remaining commercial decisions still apply.
+
 - Stores/products may be browsed across South Africa by default. A store's optional provincial restriction is distinct from KT's delivery serviceability.
 - The Shipping & Delivery and newer Delivery and Access documents describe current operations across Johannesburg, Pretoria, Gauteng and surrounding areas. **This is broader than one city**, but it is not proof that every address in Gauteng or every route is serviceable. No polygon, approved postcode set, service hours, cutoffs, vehicle capacity or high-risk boundary has been supplied.
 - The quote/checkout must evaluate active approved origin/destination zones, service enablement, parcel size, routing and current capacity rather than treat a province label as proof of availability. Expansion must remain configurable.

@@ -11,6 +11,7 @@ export interface PublicDeliveryRegion {
   description?: string | null;
   city?: string | null;
   province?: string | null;
+  coverageMode?: "RADIUS" | "PROVINCE";
   centerLat?: number | null;
   centerLng?: number | null;
   coverageRadiusKm?: number | null;
@@ -195,7 +196,7 @@ export function PublicCoverageMap({
       markersRef.current.push(marker);
 
       // Radius circle
-      if (region.coverageRadiusKm) {
+      if (region.coverageMode !== "PROVINCE" && region.coverageRadiusKm) {
         const circle = new google.maps.Circle({
           map,
           center: pos,

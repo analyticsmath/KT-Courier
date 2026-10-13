@@ -28,6 +28,7 @@ function StatusBadge({ active }: { active: boolean }) {
 // ─── Region form ───────────────────────────────────────────────────────────────
 
 interface RegionFormState {
+  coverageMode: "RADIUS" | "PROVINCE";
   name: string;
   slug: string;
   description: string;
@@ -45,6 +46,7 @@ interface RegionFormState {
 }
 
 const EMPTY_FORM: RegionFormState = {
+  coverageMode: "RADIUS",
   name: "",
   slug: "",
   description: "",
@@ -65,6 +67,7 @@ const EMPTY_FORM: RegionFormState = {
 
 function dtoToForm(dto: DeliveryRegionDto): RegionFormState {
   return {
+    coverageMode: dto.coverageMode ?? "RADIUS",
     name: dto.name,
     slug: dto.slug,
     description: dto.description ?? "",
@@ -130,6 +133,7 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
     setFormError(null);
 
     const payload = {
+      coverageMode: form.coverageMode,
       name: form.name.trim(),
       slug: form.slug.trim(),
       description: form.description.trim() || undefined,
@@ -138,9 +142,9 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
       ...(editId ? { expectedUpdatedAt: new Date(regions.find((r) => r.id === editId)!.updatedAt).toISOString() } : {}),
       city: form.city.trim() || undefined,
       province: form.province.trim() || null,
-      centerLat: form.centerLat ? parseFloat(form.centerLat) : null,
-      centerLng: form.centerLng ? parseFloat(form.centerLng) : null,
-      coverageRadiusKm: form.coverageRadiusKm ? parseFloat(form.coverageRadiusKm) : null,
+      centerLat: form.coverageMode === "RADIUS" && form.centerLat ? parseFloat(form.centerLat) : null,
+      centerLng: form.coverageMode === "RADIUS" && form.centerLng ? parseFloat(form.centerLng) : null,
+      coverageRadiusKm: form.coverageMode === "RADIUS" && form.coverageRadiusKm ? parseFloat(form.coverageRadiusKm) : null,
       maxDistanceKm: form.maxDistanceKm ? parseFloat(form.maxDistanceKm) : null,
       baseFee: form.baseFee ? parseFloat(form.baseFee) : undefined,
       notes: form.notes.trim() || undefined,
@@ -222,7 +226,14 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
 
           <div className="space-y-4">
             <label className="flex items-center gap-2"><input type="checkbox" checked={form.pricingEnabled} onChange={(e) => setField("pricingEnabled", e.target.checked)} />Pricing enabled</label>
-            <p className="text-sm">Active pricing requires a province, centre point, positive radius, and maximum route distance supplied by operations.</p>
+            <div>
+              <Label htmlFor="rg_coverage_mode">Coverage boundary</Label>
+              <select id="rg_coverage_mode" value={form.coverageMode} onChange={(e) => setField("coverageMode", e.target.value as RegionFormState["coverageMode"])} className="w-full rounded border p-2">
+                <option value="RADIUS">Defined radius</option>
+                <option value="PROVINCE">Entire province</option>
+              </select>
+            </div>
+            <p className="text-sm">{form.coverageMode === "PROVINCE" ? "Coverage includes verified addresses throughout the selected province. A road-distance limit is optional; leave it empty for province-wide routes." : "Active pricing requires a province, centre point, positive radius, and maximum route distance supplied by operations."}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="rg_name" required>Region name</Label>
@@ -269,6 +280,7 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {form.coverageMode === "RADIUS" ? <>
               <div>
                 <Label htmlFor="rg_lat">Center lat</Label>
                 <Input
@@ -300,8 +312,9 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
                   onChange={(e) => setField("coverageRadiusKm", e.target.value)}
                 />
               </div>
+              </> : null}
               <div>
-                <Label htmlFor="rg_maxdist">Max distance (km)</Label>
+                <Label htmlFor="rg_maxdist">{form.coverageMode === "PROVINCE" ? "Max road distance (optional, km)" : "Max distance (km)"}</Label>
                 <Input
                   id="rg_maxdist"
                   type="number"
