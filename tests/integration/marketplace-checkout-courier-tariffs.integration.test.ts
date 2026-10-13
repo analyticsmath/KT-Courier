@@ -49,7 +49,9 @@ describe("marketplace courier tariff persistence on isolated PostgreSQL", () => 
     expect(quote.ruleSnapshot).toMatchObject({ serviceKey: service.stableKey, serviceVersion: 1, serviceDefinitionId: service.id, checkoutReference: checkout.publicReference, parcelClassification: { weightKg: 4.5, sizeClass: "SMALL" } });
     expect(isFrozenCourierQuote({ quote, storeId: store.id, reference: result.id, version: result.quoteVersion })).toBe(true);
     expect(isFrozenCourierQuote({ quote, storeId: store.id, reference: result.id, version: result.quoteVersion.replace(":1:", ":2:") })).toBe(false);
-    await prisma.marketplaceCheckoutLineSnapshot.update({ where: { id: line.id }, data: { quantity: 2 } });
+    await expect(prisma.marketplaceCheckoutLineSnapshot.update({ where: { id: line.id }, data: { quantity: 2 } })).rejects.toThrow("snapshot evidence is immutable");
+    await prisma.marketplaceCheckout.update({ where: { id: checkout.id }, data: { reviewVersion: 2 } });
+    await prisma.marketplaceCheckoutLineSnapshot.create({ data: { ...line, id: undefined, createdAt: undefined, reviewVersion: 2, quantity: 2 } });
     await expect(createMarketplaceMatrixQuote(owner, input, region.id, checkout.publicReference, service.stableKey)).rejects.toThrow("packed dimensions and weight must be verified");
     expect(await prisma.pricingQuote.count({ where: { storeId: store.id } })).toBe(1);
   }, 90_000);
