@@ -5,6 +5,7 @@ import { activateCompanyProfile } from "../lib/services/company-profile.service"
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "../lib/services/legal-documents.service";
 import { DeliveryConfigurationSchema } from "../lib/client-platform/contracts";
 import { INITIAL_CLIENT_PARCEL_DRAFTS } from "../lib/commercial/initial-client-parcel-drafts";
+import { OWNER_PARCEL_LIMITS_APPROVAL, activateOwnerApprovedInitialParcelProfiles } from "../lib/commercial/owner-approved-initial-parcels";
 import { saveDeliveryConfiguration } from "../lib/client-platform/delivery.service";
 import { prepareCustomerOrderNotifications } from "../lib/notifications/customer-order-configuration";
 import { prepareRequiredDomainNotifications } from "../lib/notifications/required-domain-configuration";
@@ -41,6 +42,18 @@ async function main() {
     if (await prisma.parcelProfileVersion.findFirst({ where: { stableKey }, select: { id: true } })) continue;
     const row = await prisma.parcelProfileVersion.create({ data: { ...draft, versionNumber: 1, status: "DRAFT", sortOrder: index, effectiveFrom: new Date(), createdByUserId: actor.id } });
     await prisma.adminActivityLog.create({ data: { actorUserId: actor.id, action: "CREATE", entityType: "ParcelProfileVersion", entityId: row.id, message: "Initialised editable client example as DRAFT, not an approved operating limit.", metadata: { source, authorizedMaintenance: true, priorLegacyKey: "CLIENT_" + stableKey, activationApproved: false } } });
+  }
+
+  // Owner-approved limits are opt-in on the production service. Without the
+  // exact approval flag, prior client examples remain DRAFT and unchargeable.
+  // This operation creates new auditable versions; it never deletes prior ones.
+  if (process.env.KT_OWNER_APPROVED_PARCEL_LIMITS === OWNER_PARCEL_LIMITS_APPROVAL) {
+    const result = await activateOwnerApprovedInitialParcelProfiles(actor.id);
+    console.log(JSON.stringify({
+      event: "client_launch.owner_approved_parcels",
+      approvalDate: "2026-10-13",
+      ...result,
+    }));
   }
 
   const express = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: "CLIENT_EXPRESS" }, orderBy: { versionNumber: "desc" } });
