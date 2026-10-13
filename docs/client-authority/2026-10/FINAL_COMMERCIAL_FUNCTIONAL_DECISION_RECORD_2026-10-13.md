@@ -1,6 +1,6 @@
 # KT Couriers — final client-authority reconciliation
 **Review date:** 13 October 2026
-**Source:** Seven distinct client DOCX document bodies, comprising the two newly supplied documents and the five additional unique sources already preserved by the project. Duplicate copies of the two new uploads have identical SHA-256 hashes and add no new instructions.
+**Source:** Eight distinct client DOCX document bodies, comprising the two newly supplied documents and six additional unique sources preserved in the project review archive. Duplicate copies of the two new uploads have identical SHA-256 hashes and add no new instructions.
 **Purpose:** Concrete application configuration decisions, not a claim of legal/financial acceptance.
 
 ## Precedence and evidence
@@ -11,8 +11,9 @@
 5. `KT COURIERS (PTY) LTD – SHIPPING & DELIVERY.docx`: customer shipping commitments and active-service limitations.
 6. `KT COURIERS (PTY) LTD – TERMS AND CONDITIONS.docx`: contract and restricted goods.
 7. `KT COURIERS (PTY) LTD – PRIVACY POLICY.docx`: POPIA privacy, location, banking, retention and subject rights.
-8. `KT COURIERS (PTY) LTD – ABOUT US.docx`: brand, service mission and marketing descriptions.
-9. Source corpus and signed-off policy publication text: `docs/client-authority/2026-10/reviewed-client-documents.json`, `public-policies.json`; repository integration review `README.md`.
+8. `KT COURIERS (PTY) LTD – REFUND & CANCELLATION.docx`: case-dependent refunds, delivery fees and statutory consumer rights.
+9. `KT COURIERS (PTY) LTD – ABOUT US.docx`: brand, service mission and marketing descriptions.
+10. Source corpus and signed-off policy publication text: `docs/client-authority/2026-10/reviewed-client-documents.json`, `public-policies.json`; repository integration review `README.md`.
 
 ## Implementable commercial baseline
 
@@ -43,6 +44,7 @@
 - Communications: info@ktcouriers.com business email, support@ktcouriers.com support email; telephone 067 815 5245 / 075 019 2265.
 - **info@ktcouriers.com is an email address, not a physical street address.** No walk-in office is claimed. A compliant registered/business street address is still required if shown on legal/invoice surfaces; never invent it.
 - Reviewed shipping, privacy, terms and refund texts are preserved with version/hash. Existing adjustments to COD/upfront-payment and statutory refunds are source-reconciled, but no legal counsel sign-off is implied.
+- Refund handling stays case-based: no invented universal 24-hour cutoff, no exclusion of mandatory consumer rights, and original-method refunds where appropriate.
 - Show regulated pharmacy/high-risk restrictions, vendor identity obligations, privacy minimization and lawful access in all affected workflows.
 
 ## Functionality the documents require
