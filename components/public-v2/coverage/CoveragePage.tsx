@@ -36,7 +36,8 @@ export function CoveragePage({ snapshot }: CoveragePageProps) {
         <div className={styles.heroCopyBlock}>
           <h1 className={styles.heroTitle}>Where we deliver.</h1>
           <p className={styles.heroLead}>
-            Availability is confirmed from the pickup and drop-off details in your request.
+            KT Couriers currently operates primarily across Johannesburg, Pretoria, Gauteng and surrounding areas.
+            Availability for a specific route is confirmed from the pickup and drop-off details in your request.
           </p>
 
           {/* Product Truth Contract (Accessible / Screen Reader disclosure) */}
