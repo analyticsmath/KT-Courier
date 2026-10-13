@@ -160,8 +160,8 @@
 .productTileTitleLink:hover .productTileTitle { color: var(--commerce-ink); }
 .productTileStatus { position: absolute; top: 10px; left: 10px; z-index: 2; border-radius: 999px; padding: 6px 9px; background: var(--commerce-canvas); color: var(--commerce-ink); font-size: .7rem; font-weight: 650; }
 .productActionRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-.productActionButton { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; border: 1px solid var(--commerce-ink); border-radius: 999px; padding: 8px 11px; background: transparent; color: var(--commerce-ink); font: inherit; font-size: .82rem; font-weight: 620; line-height: 1.1; text-align: center; text-decoration: none; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
-.productActionButtonPrimary { background: var(--commerce-ink); color: var(--kt-public-text-inverse); }
+.productActionButton { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; border: 1px solid var(--commerce-ink, var(--kt-public-text-primary)); border-radius: 999px; padding: 8px 11px; background: transparent; color: var(--commerce-ink, var(--kt-public-text-primary)); font: inherit; font-size: .82rem; font-weight: 620; line-height: 1.1; text-align: center; text-decoration: none; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
+.productActionButtonPrimary { background: var(--commerce-ink, var(--kt-public-text-primary)); color: var(--kt-public-text-inverse); }
 .productActionButton:hover:not(:disabled) { background: var(--kt-public-action-primary-hover); border-color: var(--kt-public-action-primary-hover); color: var(--kt-public-text-inverse); }
 .productActionButton:disabled { cursor: not-allowed; background-color: var(--kt-public-surface-tertiary); color: var(--kt-public-text-disabled); border-color: var(--kt-public-text-disabled); --kt-public-text-muted: var(--kt-public-text-muted-on-surface); }
 .productActionFeedback { margin: 8px 0 0; color: var(--commerce-muted); font-size: .78rem; }
