@@ -6,7 +6,9 @@ import { HERO_VAN_FRAMES } from "../home/director/hero-van-sequence.generated";
 export function HeroVanSequenceActor() {
   return <>
     {HERO_VAN_FRAMES.map((frame, index) => {
-      const critical = index < 4 || index === HERO_VAN_FRAMES.length - 1;
+      // Only the opening pose competes for the critical rendering path.
+      // The director pre-decodes adjacent poses and streams later frames as needed.
+      const critical = index === 0;
       return <picture key={frame.id} className="kt-hero-van-picture">
         <source media="(max-width: 767px)" srcSet={critical ? frame.mobileSrc : undefined} data-hero-mobile-src={frame.mobileSrc} />
         {/* Direct picture sources select one preprocessed WebP per viewport; the director decodes frames on demand. */}
