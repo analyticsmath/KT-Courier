@@ -28,7 +28,7 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
         <div className={styles.categoryField} data-cinematic-category-field>
           <p className={styles.categoryFieldLabel}>Explore local categories</p>
           {categories.map((category, index) => <Link key={category.id} href={category.href} className={styles.categoryPlane} data-cinematic-category-plane={index} data-category-id={category.id} data-active={category.id === selectedCategoryId} onFocus={() => onCategorySelectionChange?.(category.id)}>
-            <img src={category.image} alt={category.alt} />
+            <img loading="lazy" decoding="async" fetchPriority="low" src={category.image} alt={category.alt} />
             <span className={styles.categoryShade} />
             <span className={styles.categoryText}><small>{category.categoryWord}</small><strong>{category.title}</strong><span>{category.description}</span><em>Explore category ↗</em></span>
           </Link>)}
@@ -36,14 +36,14 @@ export function CommerceWorldScene({ categories, products, selectedCategoryId, s
         <div className={styles.mobileCategoryTerritory} data-cinematic-mobile-category-territory>
           <p className={styles.eyebrow}>Explore local categories</p>
           <div className={styles.mobileCategoryRail} data-cinematic-mobile-category-rail tabIndex={0} aria-label="Marketplace categories">
-            {categories.map((category) => <Link key={category.id} href={category.href} className={styles.mobileCategoryCard} data-mobile-category-id={category.id} onFocus={() => onCategorySelectionChange?.(category.id)}><img src={category.image} alt={category.alt} /><span className={styles.categoryShade} /><span className={styles.categoryText}><small>{category.categoryWord}</small><strong>{category.title}</strong><span>{category.description}</span><em>Explore category ↗</em></span></Link>)}
+            {categories.map((category) => <Link key={category.id} href={category.href} className={styles.mobileCategoryCard} data-mobile-category-id={category.id} onFocus={() => onCategorySelectionChange?.(category.id)}><img loading="lazy" decoding="async" fetchPriority="low" src={category.image} alt={category.alt} /><span className={styles.categoryShade} /><span className={styles.categoryText}><small>{category.categoryWord}</small><strong>{category.title}</strong><span>{category.description}</span><em>Explore category ↗</em></span></Link>)}
           </div>
         </div>
       </> : <div className={styles.emptyCommerce}><p>Explore the KT marketplace.</p><Link href="/shop">Browse the shop ↗</Link></div>}
       {products.length ? <section className={styles.productWorld} data-cinematic-product-world aria-labelledby="cinematic-products-heading">
         <div className={styles.productHeading} data-cinematic-product-heading><p className={styles.eyebrow}>From the marketplace</p><h3 id="cinematic-products-heading" className={styles.giant}>Local stores.<br />Real finds.</h3></div>
         <div className={styles.productFan} data-cinematic-product-fan aria-label="Featured local products">
-          {products.slice(0, 5).map((product, index) => <button key={product.id} type="button" className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`Select ${product.title}`} aria-pressed={product.id === active?.id} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img src={product.image} alt={product.imageAlt} /></span></button>)}
+          {products.slice(0, 5).map((product, index) => <button key={product.id} type="button" className={styles.productPlane} data-cinematic-product-plane={index} data-product-id={product.id} data-active={product.id === active?.id} aria-label={`Select ${product.title}`} aria-pressed={product.id === active?.id} onFocus={() => onProductSelectionChange?.(product.id)} onClick={() => onProductSelectionChange?.(product.id)}><span data-commerce-selected-product-media={product.id === active?.id ? "active" : undefined}><img loading="lazy" decoding="async" fetchPriority="low" src={product.image} alt={product.imageAlt} /></span></button>)}
         </div>
         {active ? <div className={styles.productInfo} data-cinematic-product-info>{active.brandName ? <span>{active.brandName}</span> : null}<strong>{active.title}</strong><Link href={active.href}>View product ↗</Link></div> : null}
       </section> : <div className={styles.emptyProducts}><Link href="/shop">Browse products in the marketplace ↗</Link></div>}

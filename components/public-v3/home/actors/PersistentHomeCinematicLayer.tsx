@@ -3,21 +3,17 @@
 /* eslint-disable @next/next/no-img-element -- decoded local derivatives are director-owned */
 
 import styles from "../home-cinematic.module.css";
-import {
-  BOX_PLATES,
-  DELIVERY_PLATES,
-  HANDOFF_PLATES,
-  PICKUP_PLATES,
-} from "../director/home-performance-sequences";
 
 function VehicleStage({ kind }: { kind: "pickup" | "delivery" }) {
   return (
     <div className={styles.vehicleStage} data-cinematic-vehicle={kind}>
       <span className={styles.vehicleShadow} />
+      {/* The director supplies the first decoded frame only when this chapter is active. */}
       <img
         className={styles.vehiclePlate}
         data-vehicle-plate={kind}
-        src={kind === "pickup" ? PICKUP_PLATES[0] : DELIVERY_PLATES[0]}
+        loading="lazy"
+        decoding="async"
         alt=""
       />
     </div>
@@ -128,7 +124,7 @@ export function PersistentHomeCinematicLayer() {
       aria-hidden="true"
     >
       <div className={styles.mechanicalBox} data-cinematic-box>
-        <img data-box-plate src={BOX_PLATES[0]} alt="" />
+        <img data-box-plate loading="lazy" decoding="async" alt="" />
       </div>
       <VehicleStage kind="pickup" />
       <div className={styles.routeCamera} data-cinematic-route-camera>
@@ -142,7 +138,7 @@ export function PersistentHomeCinematicLayer() {
       </div>
       <VehicleStage kind="delivery" />
       <div className={styles.handoffStage} data-cinematic-handoff>
-        <img data-handoff-plate src={HANDOFF_PLATES[0]} alt="" />
+        <img data-handoff-plate loading="lazy" decoding="async" alt="" />
       </div>
       <div className={styles.freightTruckActor} data-cinematic-red-truck>
         <img data-cinematic-red-truck-image alt="" />

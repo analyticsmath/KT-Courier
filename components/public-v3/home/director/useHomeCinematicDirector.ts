@@ -12,7 +12,7 @@ import { HOME_CHAPTERS, reducedMotionChapterProgress, type HomeChapter } from ".
 import { heroVisibleUnderMarketplace, resolveHomeCinematicFrame, routeCamera } from "./home-cinematic-frame-resolver";
 import { HOME_CINEMATIC_ASSET_BY_ID, HOME_ROUTE_VAN_SEQUENCE } from "../data/home-cinematic-assets.generated";
 import { preloadCinematicTier, preloadCinematicWindow } from "../actors/home-cinematic-preload";
-import { preloadCinematicAsset, showCinematicFrame } from "../actors/home-cinematic-runtime";
+import { showCinematicFrame } from "../actors/home-cinematic-runtime";
 import { centeredFanOffset, selectedProductForTakeover, truckTrailingEdgeReveal, uniformProductPose } from "./home-cinematic-mechanics";
 import { BOX_PLATES, DELIVERY_PLATES, HANDOFF_PLATES, PICKUP_PLATES, RETURN_PLATES, deliveryPlateIndex, isTightVanPlate, pickupPlateIndex, plateIndex } from "./home-performance-sequences";
 
@@ -44,8 +44,9 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
     });
     actorStage?.querySelectorAll<HTMLElement>("[data-actor-slot]:not([data-actor-slot='hero-van'])").forEach((slot) => visible(slot, 0));
     if (actorStage) gsap.set(actorStage, { autoAlpha: 1, visibility: "visible" });
-    for (const index of [0, 1, 2, 3, 18, ...(prefersReducedMotion ? [10] : [])]) void decodeHeroVanFrame(heroLayers.get(HERO_VAN_SEQUENCE[index]));
-    void preloadCinematicAsset(HOME_ROUTE_VAN_SEQUENCE[0], window.innerWidth <= 767);
+    // Prioritize only the opening poses. The late hero/route frames are warmed by
+    // the existing rolling preloader as the user approaches those chapters.
+    for (const index of [0, 1, 2, 3, ...(prefersReducedMotion ? [10] : [])]) void decodeHeroVanFrame(heroLayers.get(HERO_VAN_SEQUENCE[index]));
     const activeHeroStates = new Set<string>();
     const heroKt = el(root, "[data-motion='hero-kt']");
     const heroCourier = el(root, "[data-motion='hero-courier']");
@@ -303,7 +304,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       if (parcelRead && isParcel) gsap.set(parcelRead, { y: 24 * (1 - smooth(range(p, 0, .13))) - 18 * range(p, .82, .98) });
       visible(parcelBridge, isParcel ? smooth(range(p, .91, .99)) : 0);
       visible(box, boxVisible ? 1 : 0);
-      showPlate(boxPlate, BOX_PLATES, isParcel ? plateIndex(p, ...B.parcelization.boxClose, 0, 7) : 7);
+      if (boxVisible) showPlate(boxPlate, BOX_PLATES, isParcel ? plateIndex(p, ...B.parcelization.boxClose, 0, 7) : 7);
       if (box) {
         const handoff = isPickup ? smooth(range(p, 0, B.pickup.doorOpen[0])) : 0;
         gsap.set(box, { x: viewportWidth * .15 * handoff, y: viewportHeight * .06 * handoff, scale: 1 - .82 * handoff });
