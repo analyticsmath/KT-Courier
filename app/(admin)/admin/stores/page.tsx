@@ -34,7 +34,8 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const user = await requireAdminPagePermission(PERMISSIONS.STORES_READ);
   const filters = await searchParams;
   const selectedFilter: StoreFilter = STORE_FILTERS.includes(filters.status as StoreFilter) ? filters.status as StoreFilter : "PENDING";
-  const page = Math.max(1, Number(filters.page) || 1);
+  const requestedPage = Number(filters.page);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 && (requestedPage - 1) * PAGE_SIZE <= 2_147_483_647 ? requestedPage : 1;
   const status = selectedFilter === "ALL" ? undefined : selectedFilter as StoreStatus;
   const [{ data: stores, total }, canApprove, canReviewSellerIdentity] = await Promise.all([
     listStores({ status, page, pageSize: PAGE_SIZE }),

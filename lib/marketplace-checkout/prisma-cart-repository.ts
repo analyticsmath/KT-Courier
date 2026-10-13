@@ -6,12 +6,13 @@ import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import type { CartOperationResult, MarketplaceCartMutationRepository, MarketplaceCartOperationType, MarketplaceCartState } from "@/lib/marketplace-checkout/cart-mutation.service";
 
 type Db = any;
+type CartLookupOptions = Readonly<{ includeMerged?: boolean; publicReference?: string }>;
 function ownerWhere(owner: CartOwner) { return owner.type === "CUSTOMER" ? { ownerType: "CUSTOMER", customerUserId: owner.userId } : { ownerType: "GUEST", guestTokenHash: owner.guestTokenHash }; }
 function toState(row: any): MarketplaceCartState { return { id: row.id, publicReference: row.publicReference, owner: row.ownerType === "CUSTOMER" ? { type: "CUSTOMER", userId: row.customerUserId } : { type: "GUEST", guestTokenHash: row.guestTokenHash }, status: row.status, version: row.version, lines: row.storeGroups.flatMap((group: any) => group.lines.map((line: any) => ({ publicReference: line.publicReference, storeId: group.storeId, quantity: line.quantity, fingerprint: line.lineFingerprint, selection: { offerReference: line.offerPublicReference, variantReference: line.variantPublicReference, productReference: line.productPublicReference, storeId: group.storeId, fulfilmentMode: group.fulfilmentMode, publicationVersion: line.observedPublicationVersion, priceVersion: line.observedPriceVersion, unitPrice: line.observedUnitPrice.toFixed(2), quantity: line.quantity, modifiers: line.modifiers.map((modifier: any) => ({ groupReference: modifier.modifierGroupPublicReference, optionReference: modifier.modifierOptionPublicReference, quantity: modifier.quantity, priceDelta: modifier.observedPriceDelta.toFixed(2) })) } }))) }; }
 const include = { storeGroups: { include: { lines: { include: { modifiers: true } } } } } as const;
 async function lock(db: Db, id: string) { await db.$queryRawUnsafe('SELECT "id" FROM "MarketplaceCart" WHERE "id" = $1 FOR UPDATE', id); return db.marketplaceCart.findUnique({ where: { id }, include }); }
 
-export function createPrismaMarketplaceCartRepository(database: Db = prisma): MarketplaceCartMutationRepository & { lockCartByOwner(owner: CartOwner, options?: Readonly<{ includeMerged?: boolean }>): Promise<MarketplaceCartState | null>; markMerged(guestCartId: string, customerCartId: string): Promise<void>; create(owner: CartOwner): Promise<MarketplaceCartState> } {
+export function createPrismaMarketplaceCartRepository(database: Db = prisma): MarketplaceCartMutationRepository & { lockCartByOwner(owner: CartOwner, options?: CartLookupOptions): Promise<MarketplaceCartState | null>; markMerged(guestCartId: string, customerCartId: string): Promise<void>; create(owner: CartOwner): Promise<MarketplaceCartState> } {
   const transactions = new AsyncLocalStorage<Db>();
   const current = () => transactions.getStore() ?? database;
   const repository: any = {
@@ -21,9 +22,14 @@ export function createPrismaMarketplaceCartRepository(database: Db = prisma): Ma
       ));
     },
     async lockCart(id: string) { const row = await lock(current(), id); return row ? toState(row) : null; },
-    async lockCartByOwner(owner: CartOwner, options?: Readonly<{ includeMerged?: boolean }>) {
-      const active = await current().marketplaceCart.findFirst({ where: { ...ownerWhere(owner), status: { in: ["ACTIVE", "CHECKOUT_LOCKED"] } }, include });
-      const row = active ?? (options?.includeMerged ? await current().marketplaceCart.findFirst({ where: { ...ownerWhere(owner), status: "MERGED" }, include }) : null);
+    async lockCartByOwner(owner: CartOwner, options?: CartLookupOptions) {
+      const where = { ...ownerWhere(owner), ...(options?.publicReference ? { publicReference: options.publicReference } : {}) };
+      // A previous checkout can leave a locked cart alongside the new active
+      // shopping bag. Resolve the explicit reference, or prefer the same
+      // active cart used by GET /api/cart, before considering a locked cart.
+      const active = await current().marketplaceCart.findFirst({ where: { ...where, status: "ACTIVE" }, include });
+      const checkout = active ?? await current().marketplaceCart.findFirst({ where: { ...where, status: "CHECKOUT_LOCKED" }, include });
+      const row = checkout ?? (options?.includeMerged ? await current().marketplaceCart.findFirst({ where: { ...where, status: "MERGED" }, include }) : null);
       if (!row) return null;
       const locked = await lock(current(), row.id);
       return locked ? toState(locked) : null;

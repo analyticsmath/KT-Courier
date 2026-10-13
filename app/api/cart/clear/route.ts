@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const body = await readMarketplaceJson(request);
     assertExactKeys(body, ["cartReference", "cartVersion", "operationId", "requestHash"]);
     const repository = createPrismaMarketplaceCartRepository();
-    const cart = await repository.lockCartByOwner(owner);
+    const cart = await repository.lockCartByOwner(owner, { publicReference: stringField(body, "cartReference", 160) });
     if (!cart || cart.publicReference !== stringField(body, "cartReference", 160)) return marketplaceJson({ error: "Cart is unavailable." }, 404);
     const result = await clearCart(repository, {
       cartId: cart.id,

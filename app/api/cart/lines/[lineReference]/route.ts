@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ l
     const body = await readMarketplaceJson(request);
     assertExactKeys(body, ["cartReference", "cartVersion", "operationId", "requestHash", "quantity", "modifiers"]);
     const repository = createPrismaMarketplaceCartRepository();
-    const cart = await repository.lockCartByOwner(owner as CartOwner);
+    const cart = await repository.lockCartByOwner(owner as CartOwner, { publicReference: stringField(body, "cartReference", 160) });
     if (!cart || cart.publicReference !== stringField(body, "cartReference", 160)) return marketplaceJson({ error: "Cart is unavailable." }, 404);
     const { lineReference } = await context.params;
     const mutation = { operationId: stringField(body, "operationId", 160), requestHash: stringField(body, "requestHash", 160), expectedVersion: integerField(body, "cartVersion") };
