@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
+import { regionRouteLimitKm } from "@/lib/maps/region-boundaries";
 import { calculateRoute } from "@/lib/maps/routes.service";
 import { getPricingConfiguration } from "@/lib/pricing/config";
 import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
@@ -207,7 +208,8 @@ export async function createPublicQuote(input: PublicQuoteInput) {
       503,
     );
   const config = await getPricingConfiguration();
-  if (regions.some((region) => route.route.distanceMeters > Number(region.maxDistanceKm) * 1000)) {
+  const routeLimits = regions.map(regionRouteLimitKm).filter((limit): limit is number => limit !== null);
+  if (routeLimits.some((limit) => route.route.distanceMeters > limit * 1000)) {
     throw new PlatformError("COVERAGE_DISTANCE_EXCEEDED", "This route exceeds the configured maximum distance.", 409);
   }
   const tariff = selected.tariffs[input.parcelSize];
@@ -252,7 +254,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
     weightIncrementKg: null,
     dimensionalPricingEnabled: false,
     volumetricDivisor: null,
-    maxDistanceKm: d(Math.min(...regions.map((region) => Number(region.maxDistanceKm)))),
+    maxDistanceKm: routeLimits.length ? d(Math.min(...routeLimits)) : null,
   };
   const calculation = calculateDeliveryPrice({
     input: {

@@ -11,6 +11,7 @@ export interface DeliveryRegionDto {
   slug: string;
   description: string | null;
   active: boolean;
+  coverageMode?: "RADIUS" | "PROVINCE";
   pricingEnabled: boolean;
   boundaryIssues: string[];
   affectedServiceKeys?: string[];
@@ -35,6 +36,7 @@ function toDto(region: DeliveryRegion): DeliveryRegionDto {
     slug: region.slug,
     description: region.description,
     active: region.active,
+    coverageMode: region.coverageMode,
     pricingEnabled: region.pricingEnabled,
     boundaryIssues: regionBoundaryIssues(region),
     city: region.city,
@@ -76,6 +78,7 @@ export interface CreateDeliveryRegionInput {
   slug: string;
   description?: string;
   active?: boolean;
+  coverageMode?: "RADIUS" | "PROVINCE";
   pricingEnabled?: boolean;
   expectedUpdatedAt?: string;
   city?: string;
@@ -101,6 +104,7 @@ export async function createDeliveryRegion(
       slug: input.slug,
       description: input.description ?? null,
       active: input.active ?? true,
+      coverageMode: input.coverageMode ?? "RADIUS",
       pricingEnabled: input.pricingEnabled ?? true,
       city: input.city ?? null,
       province: input.province ?? null,
@@ -141,6 +145,7 @@ export async function updateDeliveryRegion(
       ...(input.slug !== undefined && { slug: input.slug }),
       ...(input.description !== undefined && { description: input.description ?? null }),
       ...(input.active !== undefined && { active: input.active }),
+      ...(input.coverageMode !== undefined && { coverageMode: input.coverageMode }),
       ...(input.pricingEnabled !== undefined && { pricingEnabled: input.pricingEnabled }),
       ...(input.city !== undefined && { city: input.city ?? null }),
       ...(input.province !== undefined && { province: input.province ?? null }),

@@ -9,10 +9,10 @@ const legacyDraft = {
   attributes: "{}", variants: "Default", compliance: "{}", storeSku: "", price: "", stock: "0", modifiers: "",
 };
 
-async function openCoreInformation(page: Page) {
+async function openProductDetails(page: Page) {
   await page.goto("/store/catalog/products/new");
   await expect(page.getByRole("heading", { name: "New product", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Core information/ }).click();
+  await page.getByRole("button", { name: /Product details/ }).click();
   await expect(page.getByLabel("Product title", { exact: true })).toBeVisible();
 }
 
@@ -22,7 +22,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.setViewportSize(viewport);
     await login(page, "e2e-store@ktcouriers.local");
     await page.evaluate(({ key, draft }) => localStorage.setItem(key, JSON.stringify(draft)), { key: legacyKey, draft: legacyDraft });
-    await openCoreInformation(page);
+    await openProductDetails(page);
     const title = page.getByLabel("Product title", { exact: true });
     const description = page.getByLabel("Description", { exact: true });
     await expect(title).toHaveValue(""); await expect(description).toHaveValue("");
@@ -30,19 +30,19 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const ownerDescription = `First store private description ${viewport.width}`;
     await title.fill(ownerTitle); await description.fill(ownerDescription);
     await page.reload();
-    await page.getByRole("button", { name: /Core information/ }).click();
+    await page.getByRole("button", { name: /Product details/ }).click();
     await expect(title).toHaveValue(ownerTitle); await expect(description).toHaveValue(ownerDescription);
 
     // Login clears cookies, retaining this browser's storage exactly as an account switch does.
     await login(page, "e2e-other-store@ktcouriers.local");
-    await openCoreInformation(page);
+    await openProductDetails(page);
     await expect(title).toHaveValue(""); await expect(description).toHaveValue("");
     const otherTitle = `Second store private draft ${viewport.width}`;
     await title.fill(otherTitle);
-    await page.reload(); await page.getByRole("button", { name: /Core information/ }).click();
+    await page.reload(); await page.getByRole("button", { name: /Product details/ }).click();
     await expect(title).toHaveValue(otherTitle); await expect(description).toHaveValue("");
     await login(page, "e2e-store@ktcouriers.local");
-    await openCoreInformation(page);
+    await openProductDetails(page);
     await expect(title).toHaveValue(ownerTitle); await expect(description).toHaveValue(ownerDescription);
     const stored = await page.evaluate((prefix) => Object.keys(localStorage).filter(key => key.startsWith(prefix)).map(key => ({ key, draft: JSON.parse(localStorage.getItem(key)!) })), scopedPrefix);
     expect(stored).toHaveLength(2);
@@ -53,7 +53,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     // A second tab updates this owner's cached draft, while another owner's storage event is ignored.
     const secondTab = await page.context().newPage();
     try {
-      await openCoreInformation(secondTab);
+      await openProductDetails(secondTab);
       await secondTab.getByLabel("Product title", { exact: true }).fill(`${ownerTitle} updated`);
       await expect(title).toHaveValue(`${ownerTitle} updated`);
       const otherKey = stored.find(entry => entry.draft.title === otherTitle)!.key;

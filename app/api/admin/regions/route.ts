@@ -21,6 +21,7 @@ const CreateRegionSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens"),
   description: z.string().trim().max(500).optional(),
   active: z.boolean().default(true),
+  coverageMode: z.enum(["RADIUS", "PROVINCE"]).default("RADIUS"),
   pricingEnabled: z.boolean().default(true),
   city: z.string().trim().max(100).optional(),
   province: z.string().trim().max(100).nullable().optional(),

@@ -6,6 +6,7 @@ import { createLegalDocumentDraft, publishLegalDocumentVersion } from "../lib/se
 import { DeliveryConfigurationSchema } from "../lib/client-platform/contracts";
 import { INITIAL_CLIENT_PARCEL_DRAFTS } from "../lib/commercial/initial-client-parcel-drafts";
 import { OWNER_PARCEL_LIMITS_APPROVAL, activateOwnerApprovedInitialParcelProfiles } from "../lib/commercial/owner-approved-initial-parcels";
+import { OWNER_GAUTENG_COVERAGE_APPROVAL, activateOwnerApprovedGautengCoverage } from "../lib/commercial/owner-approved-gauteng-coverage";
 import { saveDeliveryConfiguration } from "../lib/client-platform/delivery.service";
 import { prepareCustomerOrderNotifications } from "../lib/notifications/customer-order-configuration";
 import { prepareRequiredDomainNotifications } from "../lib/notifications/required-domain-configuration";
@@ -54,6 +55,11 @@ async function main() {
       approvalDate: "2026-10-13",
       ...result,
     }));
+  }
+
+  if (process.env.KT_OWNER_APPROVED_GAUTENG_COVERAGE === OWNER_GAUTENG_COVERAGE_APPROVAL) {
+    const result = await activateOwnerApprovedGautengCoverage(actor.id);
+    console.log(JSON.stringify({ event: "client_launch.owner_approved_gauteng_coverage", approvalReference: OWNER_GAUTENG_COVERAGE_APPROVAL, ...result }));
   }
 
   const express = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: "CLIENT_EXPRESS" }, orderBy: { versionNumber: "desc" } });

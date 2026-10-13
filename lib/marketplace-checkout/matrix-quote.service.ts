@@ -1,6 +1,7 @@
 import { Prisma, type PricingQuoteOwnerType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
+import { regionRouteLimitKm } from "@/lib/maps/region-boundaries";
 import { calculateRoute } from "@/lib/maps/routes.service";
 import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
 import { getPricingConfiguration } from "@/lib/pricing/config";
@@ -26,7 +27,7 @@ export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQu
   if (!route.ok || route.route.distanceMeters <= 0) fail("A verified road route is required.");
   if (!route.ok) return fail("Route unavailable.");
   const distanceKm = route.route.distanceMeters / 1000;
-  if (regions.some((r) => distanceKm > Number(r.maxDistanceKm))) fail("Road distance exceeds the operational region limit.");
+  if (regions.some((r) => { const limit = regionRouteLimitKm(r); return limit !== null && distanceKm > limit; })) fail("Road distance exceeds the operational region limit.");
   const parcelClassification = await classifyPersistedCheckoutParcel(checkoutReference, owner.storeId);
   if (parcelClassification.status === "UNSUPPORTED") fail("The trusted package measurements exceed approved acceptance limits or contain invalid source quantities.");
   // Unknown aggregate packing remains eligible only for an independently

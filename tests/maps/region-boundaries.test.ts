@@ -19,4 +19,15 @@ describe("operational region activation", () => {
     expect(() => assertRegionActivation({ active: true, pricingEnabled: false })).not.toThrow();
     expect(() => assertRegionActivation(valid)).not.toThrow();
   });
+  it("permits explicit province-wide coverage without a fabricated city centre or radius", () => {
+    const province = { active: true, pricingEnabled: true, coverageMode: "PROVINCE" as const, province: "Gauteng" };
+    expect(regionBoundaryIssues(province)).toEqual([]);
+    expect(() => assertRegionActivation(province)).not.toThrow();
+    expect(regionBoundaryIssues({ ...province, province: "Unknown" })).toEqual(["province"]);
+  });
+  it("keeps an optional province-wide road distance limit valid and rejects unknown coverage modes", () => {
+    expect(regionBoundaryIssues({ coverageMode: "PROVINCE", province: "Gauteng", maxDistanceKm: 100 })).toEqual([]);
+    expect(regionBoundaryIssues({ coverageMode: "PROVINCE", province: "Gauteng", maxDistanceKm: 0 })).toContain("maxDistanceKm");
+    expect(regionBoundaryIssues({ ...valid, coverageMode: "UNKNOWN" })).toContain("coverageMode");
+  });
 });

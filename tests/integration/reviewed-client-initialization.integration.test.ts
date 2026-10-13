@@ -2,9 +2,21 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { loadPublishedPolicy, publicPolicyDefinitions, type PublicPolicyId } from "@/lib/public-legal/published-policy";
+import { activateOwnerApprovedGautengCoverage } from "@/lib/commercial/owner-approved-gauteng-coverage";
 
 const enabled = process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1" && new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent").pathname === "/kt_launch_test";
 describe.skipIf(!enabled)("reviewed client initialization on isolated PostgreSQL", () => {
+  it("retains legacy radius defaults and creates one audited province-wide region", async () => {
+    const actor = await prisma.user.create({ data: { email: `province-coverage-${crypto.randomUUID()}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
+    const legacy = await prisma.deliveryRegion.create({ data: { name: "Isolated legacy zone", slug: `isolated-radius-${crypto.randomUUID()}`, province: "Gauteng", active: false } });
+    expect(legacy.coverageMode).toBe("RADIUS");
+    const activation = await activateOwnerApprovedGautengCoverage(actor.id);
+    expect(activation.activated).toBe(true);
+    expect(await prisma.deliveryRegion.findUniqueOrThrow({ where: { id: activation.regionId } })).toMatchObject({ coverageMode: "PROVINCE", province: "Gauteng", active: true, pricingEnabled: true, centerLat: null, centerLng: null, coverageRadiusKm: null, maxDistanceKm: null });
+    expect(await activateOwnerApprovedGautengCoverage(actor.id)).toEqual({ ...activation, activated: false });
+    expect(await prisma.adminActivityLog.count({ where: { actorUserId: actor.id, entityId: activation.regionId, action: "CREATE" } })).toBe(1);
+    expect(await prisma.deliveryRegion.findUniqueOrThrow({ where: { id: legacy.id } })).toEqual(legacy);
+  });
   it("publishes the actual canonical policies and confirmed tariff once, leaving parcel examples as drafts", async () => {
     await prisma.user.create({ data: { email: "reviewed-admin@example.test", role: "SUPER_ADMIN", status: "ACTIVE" } });
     const execute = (script: string) => execFileSync(process.execPath, ["node_modules/tsx/dist/cli.mjs", script], { env: process.env, timeout: 60_000, stdio: "pipe" });
