@@ -35,7 +35,7 @@
 
 ## Coverage and product-visibility separation
 - Stores/products may be browsed across South Africa by default. A store's optional provincial restriction is distinct from KT's delivery serviceability.
-- Current delivery operations focus on Johannesburg, Pretoria and surrounding Gauteng areas, but **no polygon, set of approved postal codes, service hours, cutoffs, vehicle capacity or high-risk boundary has been supplied**.
+- The Shipping & Delivery and newer Delivery and Access documents describe current operations across Johannesburg, Pretoria, Gauteng and surrounding areas. **This is broader than one city**, but it is not proof that every address in Gauteng or every route is serviceable. No polygon, approved postcode set, service hours, cutoffs, vehicle capacity or high-risk boundary has been supplied.
 - The quote/checkout must evaluate active approved origin/destination zones, service enablement, parcel size, routing and current capacity rather than treat a province label as proof of availability. Expansion must remain configurable.
 - If an operational eligibility decision cannot be made, fail closed with an actionable unavailable/quote-request response; do not calculate or charge unapproved rates.
 
