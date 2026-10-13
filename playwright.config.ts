@@ -34,6 +34,7 @@ export default defineConfig({
         /store-catalog-draft-isolation\.spec\.ts/,
         /store-product-catalog\.spec\.ts/,
         /vendor-five-product-media\.spec\.ts/,
+        /home-v3-cinematic-media\.spec\.ts/,
         /catalog-administration\.spec\.ts/,
         /business-employee-access\.spec\.ts/,
         /marketplace-checkout-customer\.spec\.ts/,
