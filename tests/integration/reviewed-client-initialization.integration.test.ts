@@ -33,7 +33,8 @@ describe.skipIf(!enabled)("reviewed client initialization on isolated PostgreSQL
     expect(express[1].status).toBe("ACTIVE");
     expect(express[1].pricingPolicy).toMatchObject({ tariffs: { SMALL: { baseFee: "5.50", perKmRate: "5.50" }, MEDIUM: { baseFee: "8.50", perKmRate: "5.50" }, LARGE: { baseFee: "13.00", perKmRate: "5.50" } } });
     const before = await prisma.legalDocumentVersion.findMany({ orderBy: { id: "asc" } });
-    expect(before).toHaveLength(4);
+    // Other closure suites retain their own historical legal versions.
+    expect(before.filter((policy) => policy.version === "2026-10-06-client-v1")).toHaveLength(4);
     for (const id of Object.keys(publicPolicyDefinitions) as PublicPolicyId[]) {
       const policy = await loadPublishedPolicy(id);
       expect(policy?.version).toBe("2026-10-06-client-v1");
