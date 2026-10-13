@@ -5,7 +5,7 @@ import process from "node:process";
 import { disposableBrowserOrigins } from "./e2e-environment.mjs";
 import { runPhase1BrowserPlan } from "./phase1-browser-plan.mjs";
 import { certificationEnvironmentProfile } from "./certification-output.mjs";
-import { disposableProviderEnvironment, e2eImageNames, e2eStandaloneRuntimeDockerfile, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
+import { disposableProviderEnvironment, e2eImageNames, e2eStandaloneRuntimeDockerfile, isExactPhase2And3DirectedSelection, PHASE2_3_DIRECTED_EXPECTED_TESTS, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 import {
   assertSuccess,
   findAvailableLoopbackPort,
@@ -140,7 +140,7 @@ function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv
     endedAt: new Date(endedAtMs).toISOString(),
     durationMs: endedAtMs - startedAtMs,
     timeoutMs,
-    expectedTests: isExactPhase2And3DirectedSelection(args) ? 43 : phase1Acceptance ? null : phase2Canonical ? 41 : null,
+    expectedTests: isExactPhase2And3DirectedSelection(args) ? PHASE2_3_DIRECTED_EXPECTED_TESTS : phase1Acceptance ? null : phase2Canonical ? 41 : null,
     expectedTestCountSource: phase1Acceptance ? "dynamic discovery and per-stage counts in phase1-browser-stages.json" : "fixed selection or custom runner report",
     process: { exitCode: result.status, signal: result.signal ?? null, errorCode: result.error?.code ?? null },
     environment: {
@@ -326,7 +326,7 @@ writeFileSync(harnessReceiptPath, JSON.stringify({
   startedAt: new Date(harnessStartedAt).toISOString(),
   endedAt: new Date(harnessEndedAt).toISOString(),
   durationMs: harnessEndedAt - harnessStartedAt,
-  expectedTests: phase1Acceptance ? fullChromiumExpectedTests : phase2Canonical ? 41 : isExactPhase2And3DirectedSelection(playwrightArgs) ? 43 : null,
+  expectedTests: phase1Acceptance ? fullChromiumExpectedTests : phase2Canonical ? 41 : isExactPhase2And3DirectedSelection(playwrightArgs) ? PHASE2_3_DIRECTED_EXPECTED_TESTS : null,
   process: { exitCode: failed ? 1 : 0 },
   cleanup: cleanupFailed ? "FAIL" : "PASS",
   environment: {
