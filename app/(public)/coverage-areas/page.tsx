@@ -1,6 +1,8 @@
 import { CoveragePage } from "@/components/public-v2/coverage";
 import { getPublicCoverageSnapshot } from "@/lib/public-coverage/coverage";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
+// Delivery region status comes from operational database state, not build-time HTML.
+export const dynamic = "force-dynamic";
 
 export const metadata = publicPageMetadata({
   title: "Coverage areas",

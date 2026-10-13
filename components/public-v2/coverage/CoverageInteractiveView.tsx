@@ -80,7 +80,7 @@ export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewPro
 
           {snapshot.state === "SOURCE_UNAVAILABLE" ? (
             <div className={styles.emptyStateCard}>
-              <p>Our delivery region list is currently updating. Active delivery operations continue as normal. Contact our team to confirm service for your route.</p>
+              <p>Current delivery coverage cannot be verified automatically. Please contact our team to confirm pickup and destination availability before booking.</p>
               <Link className={styles.primaryActionButton} href="/contact">
                 Contact operations team &rarr;
               </Link>
