@@ -45,7 +45,11 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const verified = page.waitForResponse(response => response.url().endsWith("/api/auth/verify-otp"));
   await page.getByRole("button", { name: "Verify code", exact: true }).click(); expect((await verified).status()).toBe(200);
   expect((await page.request.post("/api/auth/verify-otp", { headers, data: { email, code } })).status()).toBe(400);
-  expect((await page.request.get("/api/store/catalog/inventory/locations")).status()).toBe(403);
+  // Pending business owners can prepare their private catalog while business approval is pending.
+  // This permission never authorizes self-approval or public product publication.
+  const pendingInventory = await page.request.get("/api/store/catalog/inventory/locations");
+  expect(pendingInventory.status(), await pendingInventory.text()).toBe(200);
+  expect(await pendingInventory.json()).toEqual({ locations: [] });
   expect((await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } })).status()).toBe(403);
   expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("PENDING");
   await login(page, "superadmin@ktcouriers.local");
