@@ -42,7 +42,9 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 
 
 test("product cart checkout action creates a canonical checkout session", async ({ page }) => {
   if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
-  const before = await cart(page.request);
+  const beforeResponse = await page.request.get("/api/cart");
+  expect(beforeResponse.status()).toBe(200);
+  const before = (await beforeResponse.json()).cart;
   expect(before.storeGroups).toHaveLength(0);
 
   await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
