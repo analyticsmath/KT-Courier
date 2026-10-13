@@ -6,6 +6,17 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_PLAYWRIGHT_TIMEOUT_MS, PHASE1_FULL_CHROMIUM_TIMEOUT_MS, PHASE2_3_DIRECTED_TIMEOUT_MS, PHASE2_3_DIRECTED_EXPECTED_TESTS, PHASE2_3_DIRECTED_SPECS, disposableProviderEnvironment, e2eImageNames, e2eStandaloneRuntimeDockerfile, isExactPhase2And3DirectedSelection, playwrightTimeoutMs } from "./e2e-runner-policy.mjs";
 
+test("every native browser stage count matches its actual discovery", () => {
+  const env = { ...disposableProviderEnvironment({ PATH: process.env.PATH }), NODE_ENV: "test", KT_RUNTIME_ENV: "e2e", KT_E2E_PAYSTACK_ACCEPTANCE: "true", KT_E2E_NETWORK_INTERNAL: "true", KT_NETWORK_DISABLED: "true", KT_LOCAL_STOREFRONT_VALIDATION: "true", KT_LOCAL_CHECKOUT_VALIDATION: "true", E2E_BASE_URL: "http://localhost:3200" };
+  for (const stage of phase1BrowserPlan().slice(0, -1)) {
+    const result = spawnSync(process.execPath, ["node_modules/playwright/cli.js", "test", ...stage.args, "--list", "--reporter=json"], {
+      cwd: fileURLToPath(new URL("../", import.meta.url)), env, encoding: "utf8", timeout: 60_000,
+    });
+    assert.equal(result.status, 0, `${stage.name}: ${result.stderr}`);
+    assert.equal(discoveredBrowserTests(JSON.parse(result.stdout)), stage.expectedTests, stage.name);
+  }
+});
+
 test("directed acceptance count matches actual project discovery and includes every required spec", () => {
   const result = spawnSync(process.execPath, ["node_modules/playwright/cli.js", "test", ...PHASE2_3_DIRECTED_SPECS, "--project=chromium", "--list", "--reporter=json"], {
     cwd: fileURLToPath(new URL("../", import.meta.url)), encoding: "utf8", timeout: 60_000,
@@ -20,7 +31,7 @@ test("directed acceptance count matches actual project discovery and includes ev
 
 test("required native selections precede the full suite and retain failure artifacts separately", () => {
   const plan = phase1BrowserPlan(93);
-  assert.deepEqual(plan.map(stage => [stage.name, stage.expectedTests]), [["storefront-variant-target", 1], ["storefront-product-detail", 4], ["catalog-1440", 2], ["catalog-both", 4], ["employee-1440", 1], ["employee-both", 2], ["full-chromium", 93]]);
+  assert.deepEqual(plan.map(stage => [stage.name, stage.expectedTests]), [["storefront-variant-target", 1], ["storefront-product-detail", 5], ["catalog-1440", 2], ["catalog-both", 4], ["employee-1440", 1], ["employee-both", 2], ["full-chromium", 93]]);
   assert.ok(plan.slice(0, -1).every(stage => stage.args.some(arg => arg.endsWith(".spec.ts"))));
   assert.ok(plan.every(stage => stage.args.includes("--retries=0") && stage.args.includes("--workers=1")));
   assert.equal(new Set(plan.map(stage => stage.name)).size, plan.length);
