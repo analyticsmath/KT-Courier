@@ -4,6 +4,7 @@ import { prisma } from "../lib/db/prisma";
 import { activateCompanyProfile } from "../lib/services/company-profile.service";
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "../lib/services/legal-documents.service";
 import { DeliveryConfigurationSchema } from "../lib/client-platform/contracts";
+import { INITIAL_CLIENT_PARCEL_DRAFTS } from "../lib/commercial/initial-client-parcel-drafts";
 import { saveDeliveryConfiguration } from "../lib/client-platform/delivery.service";
 import { prepareCustomerOrderNotifications } from "../lib/notifications/customer-order-configuration";
 import { prepareRequiredDomainNotifications } from "../lib/notifications/required-domain-configuration";
@@ -32,15 +33,14 @@ async function main() {
     console.log(JSON.stringify({ event: "client_launch.company_initialized", version: company.versionNumber }));
   }
 
-  // The client's dimensions are labelled examples, so preserve them as editable
-  // drafts. They do not silently become production weight/size acceptance rules.
-  for (const [index, [size, length, width, height, weight]] of ([
-    ["SMALL", 30, 20, 10, 5], ["MEDIUM", 50, 40, 30, 15], ["LARGE", 70, 50, 50, 30],
-  ] as const).entries()) {
-    const stableKey = `CLIENT_${size}`;
+  // Client-supplied measurements are EXAMPLES. Use canonical SMALL/MEDIUM/LARGE
+  // keys so the existing admin editor can find them, but never auto-activate.
+  // Earlier CLIENT_SMALL/... drafts, if present, are intentionally left intact.
+  for (const [index, draft] of INITIAL_CLIENT_PARCEL_DRAFTS.entries()) {
+    const stableKey = draft.stableKey;
     if (await prisma.parcelProfileVersion.findFirst({ where: { stableKey }, select: { id: true } })) continue;
-    const row = await prisma.parcelProfileVersion.create({ data: { stableKey, versionNumber: 1, displayName: size[0] + size.slice(1).toLowerCase(), lengthCm: length, widthCm: width, heightCm: height, maximumWeightKg: weight, status: "DRAFT", sortOrder: index, effectiveFrom: new Date(), createdByUserId: actor.id } });
-    await prisma.adminActivityLog.create({ data: { actorUserId: actor.id, action: "CREATE", entityType: "ParcelProfileVersion", entityId: row.id, message: "Initialised client example as draft parcel profile for operational review.", metadata: { source, authorizedMaintenance: true } } });
+    const row = await prisma.parcelProfileVersion.create({ data: { ...draft, versionNumber: 1, status: "DRAFT", sortOrder: index, effectiveFrom: new Date(), createdByUserId: actor.id } });
+    await prisma.adminActivityLog.create({ data: { actorUserId: actor.id, action: "CREATE", entityType: "ParcelProfileVersion", entityId: row.id, message: "Initialised editable client example as DRAFT, not an approved operating limit.", metadata: { source, authorizedMaintenance: true, priorLegacyKey: "CLIENT_" + stableKey, activationApproved: false } } });
   }
 
   const express = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: "CLIENT_EXPRESS" }, orderBy: { versionNumber: "desc" } });

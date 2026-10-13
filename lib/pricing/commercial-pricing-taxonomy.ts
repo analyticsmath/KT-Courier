@@ -180,6 +180,15 @@ export function assertCommercialServiceAvailable(
   persistedRule?: PricingRule | null,
   now: Date = new Date(),
 ): CommercialServicePrimitive {
+  // The client defines "Scheduled" as a future booking window, never an
+  // independently chargeable speed or tariff. Rate the selected service first.
+  if (tier === "SCHEDULED_DELIVERY") {
+    throw new PricingError(
+      "SCHEDULED_IS_BOOKING_WINDOW",
+      "Scheduled is a collection/delivery window. Select an approved delivery service for pricing.",
+      422,
+    );
+  }
   const primitive = COMMERCIAL_SERVICE_PRIMITIVES[tier];
   if (!primitive) {
     throw new PricingError(

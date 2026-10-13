@@ -62,6 +62,13 @@ describe("Phase 1: Commercial Pricing Taxonomy & Fail-Closed Validation", () => 
       );
     });
 
+    it("never treats Scheduled as a separate price even with an otherwise active rule", () => {
+      expect(() => assertCommercialServiceAvailable("SCHEDULED_DELIVERY", validRule, new Date("2026-06-01T00:00:00Z")))
+        .toThrowError(/Scheduled is a collection\/delivery window/);
+      expect(() => assertCommercialServiceAvailable("SCHEDULED_DELIVERY", null))
+        .toThrowError(/Scheduled is a collection\/delivery window/);
+    });
+
     it("succeeds when backed by an approved, active, persisted database rule", () => {
       const standard = assertCommercialServiceAvailable("STANDARD_COURIER", validRule, new Date("2026-06-01T00:00:00Z"));
       expect(standard.tier).toBe("STANDARD_COURIER");
