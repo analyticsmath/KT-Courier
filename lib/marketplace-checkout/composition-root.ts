@@ -103,7 +103,7 @@ export async function executeMarketplaceCheckoutAcknowledgement(input: Readonly<
 }
 
 export async function executeMarketplaceDeliveryQuotes(input: Readonly<{
-  reference: string; owner: CartOwner; expectedVersion: number;
+  reference: string; owner: CartOwner; expectedVersion: number; courierServiceKey?: string;
 }>) {
   const composition = resolveAndAssertMarketplaceCheckoutOperation("DELIVERY_QUOTE");
   const repository = createPrismaMarketplaceReviewRepository();
@@ -112,13 +112,14 @@ export async function executeMarketplaceDeliveryQuotes(input: Readonly<{
     if (!checkout || checkout.version !== input.expectedVersion) throw new Error("Checkout delivery evidence is stale.");
       const serviceArea = checkout.addressServiceAreaReference;
       if (!serviceArea) throw new Error("A validated service area is required before delivery quoting.");
-    return Promise.all(checkout.groups.map(async (group) => composition.deliveryQuotes.quoteStoreGroup({
+    return Promise.all(checkout.groups.map(async (group) => ({ storeReference: group.storeReference, ...await composition.deliveryQuotes.quoteStoreGroup({
       checkoutReference: checkout.publicReference,
       storeReference: group.storeReference,
       pickupLocationReference: group.pickupLocationReference ?? `loc_${group.storeReference}`,
       serviceAreaReference: serviceArea,
       fulfilmentMode: group.fulfilmentMode,
       lineCount: group.lines.length,
-    })));
+      courierServiceKey: input.courierServiceKey,
+    }) })));
   });
 }

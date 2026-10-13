@@ -11,14 +11,15 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ref
     if (!owner) return marketplaceJson({ error: "Checkout access is required." }, 401);
     const body = await readMarketplaceJson(request);
     if ("selections" in body) {
-      assertExactKeys(body, ["operationId", "requestHash", "checkoutVersion", "selections"]);
+      assertExactKeys(body, ["operationId", "requestHash", "checkoutVersion", "selections", "courierServiceKey"]);
     } else {
-      assertExactKeys(body, ["operationId", "requestHash", "checkoutVersion"]);
+      assertExactKeys(body, ["operationId", "requestHash", "checkoutVersion", "courierServiceKey"]);
     }
     const { reference } = await context.params;
     const checkout = await selectMarketplaceCheckoutDeliveryOptions({
       reference,
       owner,
+      courierServiceKey: body.courierServiceKey === undefined ? undefined : stringField(body, "courierServiceKey", 48),
       operation: {
         operationId: stringField(body, "operationId", 120),
         requestHash: stringField(body, "requestHash", 160),

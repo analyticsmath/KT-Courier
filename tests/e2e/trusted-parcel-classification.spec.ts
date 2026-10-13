@@ -6,7 +6,7 @@ import { login } from "./fixtures/auth";
 import type { TrustedPackageVersion } from "../../lib/marketplace-checkout/parcel-classification";
 const execute = promisify(execFile);
 type Fixture = { storeId: string; makerId: string; reviewerId: string; makerEmail: string; reviewerEmail: string; email: string; entries: TrustedPackageVersion["packages"]; packageStartingVersion: number };
-type Snapshot = { classification: { status: string; sizeClass: string | null; reason: string; packageVersion: number | null; profileVersion: number | null }; checkout: { status: string; version: number }; quotes: Array<{ subtotal: string; taxAmount: string; total: string; ruleSnapshot: { ruleKey: string; parcelClassification: { sizeClass: string | null; reason: string; packageVersion: number | null } } }>; stock: Array<{ onHand: number; reserved: number; available: number }>; paymentCount: number; orderCount: number; audit: Array<{ action: string; actorUserId: string; metadata: { afterStatus?: string } }> };
+type Snapshot = { classification: { status: string; sizeClass: string | null; reason: string; packageVersion: number | null; profileVersion: number | null }; checkout: { status: string; version: number }; quotes: Array<{ subtotal: string; taxAmount: string; total: string; ruleSnapshot: { ruleKey?: string; serviceKey?: string; serviceVersion?: number; parcelClassification: { sizeClass: string | null; reason: string; packageVersion: number | null } } }>; stock: Array<{ onHand: number; reserved: number; available: number }>; paymentCount: number; orderCount: number; audit: Array<{ action: string; actorUserId: string; metadata: { afterStatus?: string } }> };
 async function control<T>(action: string, tag: string, reference = ""): Promise<T> {
   const { stdout } = await execute(process.execPath, ["node_modules/tsx/dist/cli.mjs", "scripts/phase3-parcel-control.ts", action, tag, reference], { env: process.env, timeout: 60_000, maxBuffer: 2_000_000 });
   const line = stdout.split(/\r?\n/).find(value => value.startsWith("PARCEL_RECEIPT "));
@@ -47,6 +47,7 @@ for (const width of [1440, 390, 320]) test(`independent measured packaging gover
   const tag = `parcel-${width}-${randomUUID().slice(0, 8)}`;
   const f = await control<Fixture>("setup", tag);
   await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+  let originalCourierPolicy: { enabled: boolean; defaultServiceKey: string } | null = null;
   try {
     await control("tariff-size", tag); await login(page, f.makerEmail); await page.goto("/admin/marketplace-delivery-policy");
     await expect(page.getByRole("heading", { name: "Trusted measured packaging", exact: true })).toBeVisible();
@@ -98,7 +99,37 @@ for (const width of [1440, 390, 320]) test(`independent measured packaging gover
     await login(page, f.email); expect((await page.request.get("/api/admin/marketplace-trusted-packages")).status()).toBe(403);
     expect((await page.request.post("/api/admin/marketplace-trusted-packages", { headers, data: draft })).status()).toBe(403);
     expect(receipts[0].audit.filter(row => row.metadata.afterStatus === "APPROVED")).toEqual([expect.objectContaining({ actorUserId: f.reviewerId })]);
+    await login(page, f.reviewerEmail);
+    const original = await page.request.get("/api/admin/marketplace-courier-tariffs"); expect(original.status()).toBe(200); originalCourierPolicy = await original.json();
+    await page.goto("/admin/marketplace-delivery-policy");
+    await page.getByLabel("Marketplace delivery pricing model", { exact: true }).selectOption("COURIER_TARIFFS");
+    await page.getByLabel("Default marketplace courier service", { exact: true }).selectOption("CLIENT_ECONOMY");
+    await page.getByLabel("Pricing model audit reason", { exact: true }).fill("Disposable existing-tariff native acceptance only.");
+    const enabled = page.waitForResponse(response => response.url().endsWith("/api/admin/marketplace-courier-tariffs") && response.request().method() === "PUT");
+    await page.getByRole("button", { name: "Save marketplace pricing model", exact: true }).click(); expect((await enabled).status()).toBe(200);
+    await expect(page.getByText("Marketplace delivery pricing model and audit history saved.", { exact: true })).toBeVisible();
+    const courier = await freshCheckout(page, f, f.entries.find(e => e.offerReference.endsWith("-small"))!);
+    await page.getByLabel("Delivery service", { exact: true }).selectOption("CLIENT_ECONOMY");
+    const courierQuote = await calculate(page, courier); expect(courierQuote.status(), await courierQuote.text()).toBe(200);
+    await expect(page.getByRole("heading", { name: "3. Delivery options", exact: true })).toBeFocused();
+    await expect(page.getByText(/R\s*89[,.]00/).first()).toBeVisible();
+    await expect(page.getByText("Economy · 3–4 business days", { exact: true })).toBeVisible();
+    await review(page, courier);
+    const courierReceipt = await control<Snapshot>("snapshot", tag, courier);
+    expect(courierReceipt.quotes[0]).toMatchObject({ subtotal: "89.00", ruleSnapshot: { serviceKey: "CLIENT_ECONOMY", serviceVersion: expect.any(Number), parcelClassification: { sizeClass: "SMALL" } } });
+    expect(courierReceipt.paymentCount).toBe(0); expect(courierReceipt.orderCount).toBe(0); receipts.push(courierReceipt);
+    expect((await page.request.get("/api/admin/marketplace-courier-tariffs")).status()).toBe(403);
+    expect((await page.request.put("/api/admin/marketplace-courier-tariffs", { data: { enabled: false } })).status()).toBe(403);
     await info.attach(`trusted-parcel-postgres-${width}`, { body: JSON.stringify(receipts), contentType: "application/json" });
     await login(page, f.reviewerEmail); await page.goto("/admin/marketplace-delivery-policy"); await info.attach(`trusted-parcel-admin-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`trusted-parcel-admin-${width}.png`) }), contentType: "image/png" });
-  } finally { await control("cleanup", tag); }
+  } finally {
+    try {
+      if (originalCourierPolicy) {
+        await login(page, f.reviewerEmail);
+        const current = await page.request.get("/api/admin/marketplace-courier-tariffs"); expect(current.status()).toBe(200);
+        const configuration = await current.json();
+        const restored = await page.request.put("/api/admin/marketplace-courier-tariffs", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL! }, data: { enabled: originalCourierPolicy.enabled, defaultServiceKey: originalCourierPolicy.defaultServiceKey, expectedUpdatedAt: configuration.updatedAt, reason: "Restore disposable courier pricing model after native acceptance." } }); expect(restored.status()).toBe(200);
+      }
+    } finally { await control("cleanup", tag); }
+  }
 });

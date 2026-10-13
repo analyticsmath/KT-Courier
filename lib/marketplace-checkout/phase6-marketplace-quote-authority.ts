@@ -10,6 +10,7 @@ type Phase6Request = Readonly<{
   owner: { ownerType: PricingQuoteOwnerType; ownerId: string; storeId: string };
   quoteInput: any;
   serviceAreaReference: string;
+  courierServiceKey?: string;
 }>;
 
 function coordinates(value: unknown): Coordinates | null {
@@ -52,6 +53,9 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
       const serviceAreaReference = input.serviceAreaReference ?? destination?.serviceAreaReference;
       if (!checkout || !group || !pickup || !destination || !pickupCoordinates || !destinationCoordinates || !serviceAreaReference) return null;
       if (destination.serviceAreaReference && input.serviceAreaReference && destination.serviceAreaReference !== input.serviceAreaReference) return null;
+      const priorQuote = !input.courierServiceKey && group.deliveryQuoteReference ? await database.pricingQuote.findUnique({ where: { id: group.deliveryQuoteReference }, select: { storeId: true, calculationVersion: true, ruleSnapshot: true } }) : null;
+      const priorRules = priorQuote?.ruleSnapshot as { serviceKey?: string; checkoutReference?: string } | null;
+      const priorServiceKey = priorQuote?.storeId === group.storeId && priorQuote.calculationVersion === "marketplace-courier-tariff-v1" && priorRules?.checkoutReference === input.checkoutReference ? priorRules.serviceKey : undefined;
       const pickupLocationReference = input.pickupLocationReference || `loc_${input.storeReference}`;
       const phase6Request: Phase6Request = Object.freeze({
         owner: {
@@ -65,6 +69,7 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
           dropoffAddress: { line1: destination.line1, line2: destination.line2 ?? undefined, city: destination.city, province: destination.province, postalCode: destination.postalCode ?? undefined, country: destination.country || "South Africa", latitude: destinationCoordinates.latitude, longitude: destinationCoordinates.longitude },
         }),
         serviceAreaReference,
+        courierServiceKey: input.courierServiceKey ?? priorServiceKey,
       }) as any;
       return Object.freeze({
         checkoutReference: input.checkoutReference,
@@ -78,15 +83,15 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
     async quote(evidence: Phase6MarketplaceQuoteEvidence): Promise<MarketplaceDeliveryQuoteResult | null> {
       const request = evidence.phase6Request as Phase6Request | undefined;
       if (!request || request.serviceAreaReference !== evidence.serviceAreaReference) return null;
-      const quote = await createMarketplaceMatrixQuote(request.owner, request.quoteInput, evidence.serviceAreaReference, evidence.checkoutReference);
+      const quote = await createMarketplaceMatrixQuote(request.owner, request.quoteInput, evidence.serviceAreaReference, evidence.checkoutReference, request.courierServiceKey);
       return Object.freeze({
         fee: quote.total,
         currency: "ZAR",
         publicReference: quote.id,
-        version: `marketplace-matrix:${quote.policyVersion}:${quote.id}`,
+        version: quote.quoteVersion,
         expiresAt: quote.expiresAt,
         serviceabilityReference: evidence.serviceAreaReference,
-        serviceLevel: null,
+        serviceLevel: quote.serviceLevel,
       });
     },
   });

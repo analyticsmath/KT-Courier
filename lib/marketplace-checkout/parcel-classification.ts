@@ -22,7 +22,7 @@ export type TrustedPackageVersion = z.infer<typeof TrustedPackageVersionSchema>;
 export type ParcelClass = "SMALL" | "MEDIUM" | "LARGE";
 export type ParcelLimits = { id: string; stableKey: string; versionNumber: number; lengthCm: number; widthCm: number; heightCm: number; maximumWeightKg: number };
 export type ParcelSourceLine = { offerReference: string; variantReference: string; publicationVersion: string; quantity: number; modifiers: readonly { optionReference: string; quantity: number }[] };
-export type TrustedParcelClassification = { sizeClass: ParcelClass | null; status: "CLASSIFIED" | "UNKNOWN" | "UNSUPPORTED"; reason: string; packageVersion: number | null; profileId: string | null; profileVersion: number | null };
+export type TrustedParcelClassification = { sizeClass: ParcelClass | null; status: "CLASSIFIED" | "UNKNOWN" | "UNSUPPORTED"; reason: string; packageVersion: number | null; profileId: string | null; profileVersion: number | null; weightKg?: number };
 
 function selection(modifiers: readonly { optionReference: string; quantity: number }[]) {
   return JSON.stringify(modifiers.map(({ optionReference, quantity }) => ({ optionReference, quantity })).sort((a, b) => a.optionReference.localeCompare(b.optionReference)));
@@ -52,5 +52,5 @@ export function classifyTrustedMarketplaceParcel(input: { storeId: string; lines
   if (ordered.some((profile, index) => index > 0 && (profile.maximumWeightKg < ordered[index - 1].maximumWeightKg || sorted[index].some((dimension, axis) => dimension < sorted[index - 1][axis])))) return unknown("NON_MONOTONIC_PARCEL_LIMITS");
   const profile = ordered.find((candidate, index) => parcel.weightKg <= candidate.maximumWeightKg && dimensions.every((dimension, axis) => dimension <= sorted[index][axis]));
   if (!profile) return { ...unknown("MEASURED_PACKAGE_UNSUPPORTED"), status: "UNSUPPORTED", packageVersion: version.version };
-  return { sizeClass: profile.stableKey as ParcelClass, status: "CLASSIFIED", reason: "REVIEWED_SINGLE_PREPACKAGED_UNIT", packageVersion: version.version, profileId: profile.id, profileVersion: profile.versionNumber };
+  return { sizeClass: profile.stableKey as ParcelClass, status: "CLASSIFIED", reason: "REVIEWED_SINGLE_PREPACKAGED_UNIT", packageVersion: version.version, profileId: profile.id, profileVersion: profile.versionNumber, weightKg: parcel.weightKg };
 }

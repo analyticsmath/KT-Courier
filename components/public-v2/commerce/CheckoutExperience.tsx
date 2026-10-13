@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useSearchParams } from "next/navigation";
 import styles from "./commerce.module.css";
+import { storeDeliveryQuotePreviews, type StoreDeliveryQuotePreview } from "@/lib/marketplace-checkout/delivery-quote-preview";
 import { GuestCheckoutEmailUpdates } from "./GuestCheckoutEmailUpdates";
 
 function formatMoney(amount: string | number | undefined | null) {
@@ -91,6 +92,18 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deliveryReviewRequired, setDeliveryReviewRequired] = useState(false);
+  const [deliveryQuotePreviews, setDeliveryQuotePreviews] = useState<StoreDeliveryQuotePreview[]>([]);
+  const [courierServices, setCourierServices] = useState<Array<{ key: string; name: string; turnaround: string }>>([]);
+  const [courierServiceKey, setCourierServiceKey] = useState<string | undefined>();
+  useEffect(() => {
+    let ignore = false;
+    if (!checkoutRef) return;
+    fetch(`/api/checkout/${encodeURIComponent(checkoutRef)}/delivery-services`).then(async response => response.ok ? response.json() : null).then(data => {
+      if (ignore || data?.model !== "COURIER_TARIFFS" || !Array.isArray(data.services)) return;
+      setCourierServices(data.services); setCourierServiceKey(data.selectedServiceKey ?? data.defaultServiceKey);
+    }).catch(() => { if (!ignore) setCourierServices([]); });
+    return () => { ignore = true; };
+  }, [checkoutRef]);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const stepHeadingRef = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => {
@@ -180,6 +193,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     setSubmitting(true);
     setErrorMessage(null);
     setDeliveryReviewRequired(false);
+    setDeliveryQuotePreviews([]);
 
     const activeRef = checkoutRef || checkout.reference;
 
@@ -232,6 +246,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     setSubmitting(true);
     setErrorMessage(null);
     setDeliveryReviewRequired(false);
+    setDeliveryQuotePreviews([]);
 
     const activeRef = checkoutRef || checkout.reference;
 
@@ -295,7 +310,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     const activeRef = checkoutRef || checkout.reference;
     try {
       const opId = `qte-${crypto.randomUUID()}`;
-      const hash = await computeHash(`quotes:${activeRef}:${version}:${opId}`);
+      const hash = await computeHash(`quotes:${activeRef}:${version}:${courierServiceKey ?? "matrix"}:${opId}`);
       const res = await fetch(`/api/checkout/${activeRef}/delivery-quotes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -303,6 +318,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
           operationId: opId,
           requestHash: hash,
           checkoutVersion: version,
+          ...(courierServiceKey ? { courierServiceKey } : {}),
         }),
       });
 
@@ -315,7 +331,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
       // Consume the authoritative response before refreshing the checkout.
       // Leaving a fetch body unread can stall browser network receipts.
       const quoteResult = await res.json();
-      if (!Array.isArray(quoteResult.quotes) || quoteResult.quotes.length !== checkout.storeGroups.length) throw new Error("Delivery quote evidence could not be verified. Refresh before continuing.");
+      setDeliveryQuotePreviews(storeDeliveryQuotePreviews(checkout.storeGroups.map(group => group.storeReference), quoteResult.quotes));
 
       const freshRes = await fetch(`/api/checkout/${activeRef}`);
       if (freshRes.ok) {
@@ -341,7 +357,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     try {
       // 1. Confirm options & persist selection
       const optOpId = `opt-${crypto.randomUUID()}`;
-      const optHash = await computeHash(`options:${activeRef}:${optOpId}`);
+      const optHash = await computeHash(`options:${activeRef}:${courierServiceKey ?? "matrix"}:${optOpId}`);
       const optRes = await fetch(`/api/checkout/${activeRef}/delivery-options`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -349,6 +365,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
           operationId: optOpId,
           requestHash: optHash,
           checkoutVersion: checkout.version,
+          ...(courierServiceKey ? { courierServiceKey } : {}),
         }),
       });
 
@@ -880,6 +897,13 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                   </div>
                 </div>
 
+                {courierServices.length > 0 ? <div>
+                  <label htmlFor="checkout-courier-service" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>Delivery service</label>
+                  <select id="checkout-courier-service" value={courierServiceKey ?? ""} onChange={event => { setCourierServiceKey(event.target.value); setDeliveryQuotePreviews([]); invalidateReview(); }} style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}>
+                    {courierServices.map(service => <option key={service.key} value={service.key}>{service.name} · {service.turnaround}</option>)}
+                  </select>
+                </div> : null}
+
                 <div>
                   <label htmlFor="addrInstructions" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
                     Delivery Instructions / Gate Access
@@ -955,9 +979,9 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
-                        {group.deliveryFee ? formatMoney(group.deliveryFee) : "Calculated"}
+                        {formatMoney(deliveryQuotePreviews.find(quote => quote.storeReference === group.storeReference)?.fee ?? group.deliveryFee)}
                       </div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--kt-public-text-muted)" }}>Delivery fee</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--kt-public-text-muted)" }}>{deliveryQuotePreviews.find(quote => quote.storeReference === group.storeReference)?.serviceLevel ?? "Delivery fee"}</div>
                     </div>
                   </div>
                 ))}

@@ -15,7 +15,7 @@ function classify(pack = entry, source = line, versions: TrustedPackageVersion[]
 
 describe("server-authoritative marketplace parcel measurements", () => {
   it("classifies the exact small limit including rotated axes and freezes profile authority", () => {
-    expect(classify({ ...entry, lengthCm: 10, widthCm: 20, heightCm: 15 })).toEqual({ status: "CLASSIFIED", sizeClass: "SMALL", reason: "REVIEWED_SINGLE_PREPACKAGED_UNIT", packageVersion: 1, profileId: "small-1", profileVersion: 1 });
+    expect(classify({ ...entry, lengthCm: 10, widthCm: 20, heightCm: 15 })).toEqual({ status: "CLASSIFIED", sizeClass: "SMALL", reason: "REVIEWED_SINGLE_PREPACKAGED_UNIT", packageVersion: 1, profileId: "small-1", profileVersion: 1, weightKg: 5 });
   });
   it.each([{ weightKg: 5.0001 }, { lengthCm: 20.0001 }, { heightCm: 10.0001 }])("moves a package just beyond a small boundary to medium (%j)", (change) => { expect(classify({ ...entry, ...change }).sizeClass).toBe("MEDIUM"); });
   it("accepts large's exact boundary and refuses overweight or overflow rather than selecting ANY", () => {

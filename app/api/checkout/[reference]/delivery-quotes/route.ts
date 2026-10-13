@@ -8,9 +8,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ re
   try {
     const owner = await marketplaceOwner(request, "checkout"); if (!owner) throw new Error("Checkout access is required.");
     const body = await readMarketplaceJson(request);
-    assertExactKeys(body, ["operationId", "requestHash", "checkoutVersion"]);
+    assertExactKeys(body, ["operationId", "requestHash", "checkoutVersion", "courierServiceKey"]);
     stringField(body, "operationId", 120); stringField(body, "requestHash", 160);
     const { reference } = await context.params;
-    return marketplaceJson({ quotes: await executeMarketplaceDeliveryQuotes({ reference, owner, expectedVersion: integerField(body, "checkoutVersion") }) });
+    return marketplaceJson({ quotes: await executeMarketplaceDeliveryQuotes({ reference, owner, expectedVersion: integerField(body, "checkoutVersion"), courierServiceKey: body.courierServiceKey === undefined ? undefined : stringField(body, "courierServiceKey", 48) }) });
   } catch (error) { return marketplaceError(error); }
 }
