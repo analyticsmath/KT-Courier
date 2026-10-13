@@ -15,9 +15,10 @@ const auth = readFileSync(
   "utf8",
 );
 describe("store catalog API policy", () => {
-  it("requires active exact business module permissions and explicit DENY-aware evaluator", () => {
+  it("enforces exact business module, owner onboarding status, and explicit DENY-aware grants", () => {
     expect(auth).toMatch(/storeAccess\(userId, "products"\)/);
-    expect(auth).toMatch(/store\.status !== "ACTIVE"/);
+    expect(auth).toContain('status === "ACTIVE" || (owner && status === "PENDING")');
+    expect(auth).toContain("storeMayPrepareCatalog(store.status, access.owner)");
     expect(auth).toMatch(/hasPermission/);
   });
   it("requires same origin, bounded JSON and rates", () => {
