@@ -13,6 +13,10 @@ export async function rebuildCatalogPublicationSnapshot(offerId: string, actorUs
   if (publish) assertCatalogProductionActivationAllowed("PUBLICATION");
   const offer = await client.storeCatalogOffer.findUnique({ where: { id: offerId }, include: { store: true, product: { include: { productTypeDefinition: true, primaryCategory: true, brand: true, media: { include: { asset: true } } } }, variant: { include: { optionValues: { include: { optionValue: { include: { option: true } } } } } }, priceVersions: { where: { status: { in: ["ACTIVE", "SCHEDULED", "DRAFT"] } }, orderBy: { versionNumber: "desc" }, take: 1 }, inventoryItem: { include: { levels: { include: { location: true } } } } } });
   if (!offer) throw new CatalogNotFoundError("Catalog offer was not found.");
+  // Pending owners may preview drafts, but only ACTIVE stores may publish.
+  if (publish && offer.store.status !== "ACTIVE") {
+    throw new CatalogPolicyError("STORE_NOT_ACTIVE", "Public catalog publication requires an active business.");
+  }
   // A newer draft must never replace the offer's approved current price in a
   // public snapshot. Previews may continue to show the newest draft version.
   const price = publish

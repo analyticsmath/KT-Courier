@@ -35,6 +35,11 @@ export default async function StoreCatalogPage() {
         }
       />
       <StoreCatalogNavigation />
+      {store.status === "PENDING" ? (
+        <div role="status" className="rounded-[var(--eo-radius-panel)] border border-[var(--eo-border)] p-4 text-sm text-[var(--eo-text-secondary)]">
+          Business verification is pending. You can prepare product drafts, images, prices and stock now. Products become public only after the business is approved and the catalog passes moderation and publication checks.
+        </div>
+      ) : null}
       <div
         className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
         aria-label="Catalog summary"

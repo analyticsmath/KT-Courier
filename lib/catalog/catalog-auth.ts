@@ -40,9 +40,16 @@ async function hasPermissionForStoreCatalog(
   return permission.rolePermissions.length > 0;
 }
 
+function storeMayPrepareCatalog(status: string, owner: boolean): boolean {
+  // Registered business owners may prepare private listings during review.
+  // Suspended/rejected stores and employees of pending stores remain blocked.
+  return status === "ACTIVE" || (owner && status === "PENDING");
+}
+
 export async function storeCatalogPermission(userId: string, permissionKey: string) {
   const access = await storeAccess(userId, "products");
-  const allowed = access.store.status === "ACTIVE" && await hasPermissionForStoreCatalog(userId, permissionKey, access.owner);
+  const allowed = storeMayPrepareCatalog(access.store.status, access.owner)
+    && await hasPermissionForStoreCatalog(userId, permissionKey, access.owner);
   return { ...access, allowed };
 }
 
@@ -69,9 +76,9 @@ export async function requireStoreCatalogPermission(
     };
   }
   const { store } = access;
-  if (store.status !== "ACTIVE")
+  if (!storeMayPrepareCatalog(store.status, access.owner))
     return {
-      response: catalogJson({ error: "An active business is required." }, 403),
+      response: catalogJson({ error: "This business cannot manage its catalog in the current status." }, 403),
     };
   if (!access.allowed) {
     await recordSecurityEvent({

@@ -40,3 +40,28 @@ export async function installSystemPermissionDefaults(
   });
   return { permissionsUpserted: permissionIds.size, rolePermissionsUpserted };
 }
+
+/**
+ * Production-safe catalog-only permission repair. No dev/demo users are seeded.
+ * Existing disabled STORE grants and per-user DENYs remain unchanged.
+ */
+export async function installStoreCatalogPermissionDefaults(db: PermissionRegistry) {
+  const keys = (ROLE_DEFAULT_PERMISSION_KEYS[UserRole.STORE] ?? [])
+    .filter((key) => key.startsWith("catalog."));
+  const definitions = new Map(SYSTEM_PERMISSION_DEFINITIONS.map((definition) => [definition.key, definition]));
+  for (const key of keys) {
+    const definition = definitions.get(key);
+    if (!definition) throw new Error(`Missing system permission definition: ${key}`);
+    const permission = await db.permission.upsert({
+      where: { key },
+      update: { name: definition.name, category: definition.category, description: definition.description, isSystem: true },
+      create: { ...definition, isSystem: true },
+    });
+    await db.rolePermission.upsert({
+      where: { role_permissionId: { role: UserRole.STORE, permissionId: permission.id } },
+      update: {},
+      create: { role: UserRole.STORE, permissionId: permission.id, enabled: true },
+    });
+  }
+  return { permissionsUpserted: keys.length, rolePermissionsUpserted: keys.length };
+}

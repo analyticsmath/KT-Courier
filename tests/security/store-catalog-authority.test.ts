@@ -58,6 +58,16 @@ describe("store catalog HTTP authority", () => {
     mocks.db.permission.findUnique.mockResolvedValue({ rolePermissions: [], userPermissions: [] });
     expect(await status()).toBe(403);
   });
+  it("allows a new pending business owner to prepare product drafts and upload images", async () => {
+    mocks.db.store.findMany.mockResolvedValue([{ ...store, status: "PENDING" }]);
+    expect(await status(PERMISSIONS.CATALOG_READ)).toBe(200);
+    expect((await POST(request())).status).toBe(201);
+  });
+  it("keeps employees blocked until their business is active", async () => {
+    employee();
+    mocks.db.storeEmployeeMembership.findMany.mockResolvedValue([{ store: { ...store, status: "PENDING" }, permissions: ["products"] }]);
+    expect(await status(PERMISSIONS.CATALOG_READ)).toBe(403);
+  });
   it("retains the CUSTOMER employee identity and delegates only product read/manage/submit", async () => {
     employee();
     for (const key of [PERMISSIONS.CATALOG_READ, PERMISSIONS.CATALOG_MANAGE, PERMISSIONS.CATALOG_SUBMIT]) expect(await status(key)).toBe(200);
