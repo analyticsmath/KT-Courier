@@ -387,6 +387,46 @@ export function ProductDetailExperience({
     }
   };
 
+  const handleCheckoutFromCart = async () => {
+    if (addingToCart || buyingNow) return;
+    setBuyingNow(true);
+    setCartFeedback(null);
+
+    try {
+      const cartResponse = await fetch("/api/cart");
+      if (!cartResponse.ok) throw new Error("Failed to load your shopping cart.");
+      const cartData = await cartResponse.json();
+      const cartReference = cartData.cart?.reference;
+      if (!cartReference) throw new Error("Add an item to your cart before checking out.");
+
+      const checkoutResponse = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cartReference }),
+      });
+      if (!checkoutResponse.ok) {
+        const errorData = await checkoutResponse.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || errorData.message || "Checkout initialization failed.",
+        );
+      }
+
+      const checkoutData = await checkoutResponse.json();
+      const checkoutReference = checkoutData.checkout?.reference;
+      if (!checkoutReference) {
+        throw new Error("Server did not return a valid checkout session.");
+      }
+
+      router.push(`/checkout?ref=${encodeURIComponent(checkoutReference)}`);
+    } catch (err) {
+      setCartFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Could not proceed to checkout.",
+      });
+      setBuyingNow(false);
+    }
+  };
+
   const breadcrumbItems = [
     { label: "Shop", href: marketplaceHref() },
     ...categoryHierarchy.map((item) => ({ label: item.name, href: item.href })),
@@ -638,12 +678,14 @@ export function ProductDetailExperience({
                       <Link href="/cart" className={styles.pdpFeedbackBtn}>
                         View cart
                       </Link>
-                      <Link
-                        href="/checkout"
+                      <button
+                        type="button"
                         className={`${styles.pdpFeedbackBtn} ${styles.pdpFeedbackBtnPrimary}`}
+                        onClick={handleCheckoutFromCart}
+                        disabled={addingToCart || buyingNow}
                       >
-                        Checkout
-                      </Link>
+                        {buyingNow ? "Preparing checkout..." : "Checkout"}
+                      </button>
                     </div>
                   )}
                 </div>

@@ -40,6 +40,35 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 
   });
 }
 
+test("product cart checkout action creates a canonical checkout session", async ({ page }) => {
+  if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
+  const before = await cart(page.request);
+  expect(before.storeGroups).toHaveLength(0);
+
+  await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
+  const purchase = page.getByRole("region", { name: "Purchase product", exact: true });
+  await purchase.getByRole("button", { name: "Add to cart", exact: true }).click();
+  const feedback = purchase.getByRole("status");
+  await expect(feedback).toContainText("1 item added to your cart.");
+  await feedback.getByRole("button", { name: "Checkout", exact: true }).click();
+
+  await expect(page).toHaveURL(/\\/checkout\\?ref=checkout_/);
+  const reference = new URL(page.url()).searchParams.get("ref");
+  expect(reference).toBeTruthy();
+  await expect(page.getByRole("heading", { name: "Secure checkout", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Recipient Full Name", { exact: true })).toBeVisible();
+
+  const response = await page.request.get(`/api/checkout/${reference}`);
+  expect(response.status()).toBe(200);
+  const checkout = (await response.json()).checkout;
+  expect(checkout.storeGroups).toHaveLength(1);
+  expect(checkout.storeGroups[0].lines).toHaveLength(1);
+  expect(checkout.storeGroups[0].lines[0]).toMatchObject({
+    variantReference: "CV-E2E64GB",
+    quantity: 1,
+  });
+});
+
 test("short desktop purchase rail reveals keyboard-focused cart actions", async ({ page }) => {
   if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
   await page.setViewportSize({ width: 1366, height: 768 });
