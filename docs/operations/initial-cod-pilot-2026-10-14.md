@@ -12,7 +12,7 @@ This recommendation is **only an initial editable draft**; no bank account detai
 
 On production pre-deploy, `initializeLaunchPaymentPolicies`:
 - Creates an active global **DIGITAL** policy if no global policy has ever been authored. This is the document-selected full online payment baseline and does not authorize cash.
-- Prepares INACTIVE per-store/per-service **DEPOSIT_PLUS_COD** policies at 50/50 with a R1,000 **cash**, not order, ceiling. Only active stores with active verified owners and active Gauteng services are eligible for draft preparation.
+- Prepares INACTIVE per-store/per-service **DEPOSIT_PLUS_COD** policies at 50/50 with a R1,000 **cash**, not order, ceiling. Only active stores and active Gauteng services are included in **inactive** draft preparation. Their owners must be active and verified before any reviewed COD policy can be activated.
 - Does not overwrite any previously authored policy scope, including custom rates, inactive versions or superceded policies. This is idempotent and audit logged.
 - Does **not** approve or activate COD, fabricate bank instructions, send money or mark a delivery completed.
 

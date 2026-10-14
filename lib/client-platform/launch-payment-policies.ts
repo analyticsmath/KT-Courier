@@ -65,8 +65,11 @@ export async function initializeLaunchPaymentPolicies(actorUserId: string) {
     }
 
     const [stores, services, policies] = await Promise.all([
+      // Draft preparation is non-financial. Include active stores whose
+      // legacy owners still require identity/email verification: the canonical
+      // activation service refuses them until verification is complete.
       tx.store.findMany({
-        where: { status: "ACTIVE", ownerUser: { status: "ACTIVE", emailVerifiedAt: { not: null } } },
+        where: { status: "ACTIVE" },
         select: { id: true },
         take: 1000,
       }),
@@ -124,6 +127,10 @@ export async function initializeLaunchPaymentPolicies(actorUserId: string) {
         codDraftsCreated += 1;
       }
     }
-    return { digitalCreated, codDraftsCreated, activeCashPoliciesCreated: 0 };
+    return {
+      digitalCreated, codDraftsCreated, activeCashPoliciesCreated: 0,
+      activeStoresConsidered: stores.length,
+      activeServicesConsidered: services.length,
+    };
   }, { timeout: 90_000 });
 }
