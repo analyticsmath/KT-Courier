@@ -101,7 +101,7 @@ export function StoreOrderPolicyManager({ initialPolicies }: { initialPolicies: 
       </div>
       <div className="space-y-1">
         <label htmlFor="store-policy-effective" className="block text-sm font-semibold">Effective from (local time)</label>
-        <input id="store-policy-effective" name="effectiveFrom" type="datetime-local" required defaultValue={new Date(Date.now() + 3600000).toLocaleString("sv-SE").replace(" ", "T").slice(0,16)} className="w-full rounded-lg border px-3 py-2 text-[var(--kt-text)]" />
+        <input id="store-policy-effective" name="effectiveFrom" type="datetime-local" required className="w-full rounded-lg border px-3 py-2 text-[var(--kt-text)]" />
       </div>
       <div className="sm:col-span-2">
         <button disabled={busy} type="submit" className="rounded-lg bg-[var(--kt-text)] px-5 py-3 font-semibold text-white disabled:opacity-60">Create versioned draft</button>
