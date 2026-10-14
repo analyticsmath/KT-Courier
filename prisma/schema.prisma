@@ -14345,8 +14345,8 @@ model PersonalizedDeliveryRate {
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
-  @@unique([ownerType, ownerId, serviceKey, parcelSize, versionNumber])
-  @@index([ownerType, ownerId, serviceKey, parcelSize, status, effectiveFrom])
+  @@unique([ownerType, ownerId, serviceKey, parcelSize, versionNumber], map: "PersonalizedDeliveryRate_owner_scope_version_key")
+  @@index([ownerType, ownerId, serviceKey, parcelSize, status, effectiveFrom], map: "PersonalizedDeliveryRate_current_scope_idx")
 }
 
 model CommercialSurcharge {
