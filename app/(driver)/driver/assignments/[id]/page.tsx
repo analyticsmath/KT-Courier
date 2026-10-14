@@ -856,6 +856,7 @@ export default function DriverAssignmentDetailPage() {
           {locationStatus && <p className="text-xs text-[var(--kt-text-muted)]" role="status">{locationStatus}</p>}
           {["PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
             <DriverLiveLocationSharing
+              key={`${id}:${assignment.version}`}
               assignmentId={id}
               assignmentVersion={assignment.version}
             />
