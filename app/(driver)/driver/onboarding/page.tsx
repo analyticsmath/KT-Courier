@@ -49,6 +49,7 @@ export default async function DriverOnboardingPage() {
       status: vd.status,
       expiresAt: vd.expiresAt ? vd.expiresAt.toISOString() : null,
     })),
+    media: v.media.map(image => ({ purpose: image.purpose })),
   }));
 
   return (

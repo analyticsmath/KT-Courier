@@ -35,7 +35,7 @@ interface VehicleRow {
   capacityKg?: string | number | null;
   status: string;
   documents: Array<{ documentType: string; status: string; expiresAt: string | null }>;
-  media?: Array<{ id: string; purpose: string; publicReference: string }>;
+  media?: Array<{ purpose: string }>;
 }
 
 export function DriverOnboardingExperience({
