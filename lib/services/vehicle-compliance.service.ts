@@ -34,31 +34,76 @@ function documentPurpose(type: VehicleDocumentType): PrivateMediaPurpose {
 
 export async function createOwnVehicle(driverUserId: string, input: CreateVehicleInput) {
   const driver = await prisma.driverProfile.findUnique({ where: { userId: driverUserId }, select: { id: true } });
-  if (!driver) throw new VehicleComplianceError("DRIVER_PROFILE_NOT_FOUND", 404, "Driver profile was not found.");
+  if (!driver) throw new VehicleComplianceError("DRIVER_PROFILE_NOT_FOUND", 404, "Complete driver registration before adding a vehicle.");
   const registrationNumber = normalizedRegistration(input.registrationNumber);
   if (input.vehicleSubtype && VEHICLE_TYPE_FOR_SUBTYPE[input.vehicleSubtype] !== input.vehicleType) {
     throw new VehicleComplianceError("VEHICLE_TYPE_MISMATCH", 422, "Vehicle category and dispatch type must match.");
   }
-  const existing = await prisma.vehicle.findFirst({ where: { registrationNumber, archivedAt: null } });
-  if (existing) throw new VehicleComplianceError("VEHICLE_REGISTRATION_CONFLICT", 409, "A current vehicle already uses this registration number.");
+  const normalized = {
+    make: input.make.trim(),
+    model: input.model.trim(),
+    year: input.year ?? null,
+    colour: input.colour?.trim() || null,
+    capacityKg: input.capacityKg ?? null,
+  };
   try {
-    return await prisma.vehicle.create({
-      data: {
-        publicReference: `VEH-${randomUUID()}`,
-        driverProfileId: driver.id,
-        make: input.make.trim(),
-        model: input.model.trim(),
-        year: input.year ?? null,
-        colour: input.colour?.trim() || null,
-        registrationNumber,
-        vehicleType: input.vehicleType,
-        vehicleSubtype: input.vehicleSubtype ?? null,
-        capacityKg: input.capacityKg ?? null,
-      },
-      select: { id: true, publicReference: true, registrationNumber: true, vehicleType: true, vehicleSubtype: true, status: true, createdAt: true },
+    // Registration numbers are unique among active fleet entries. The schema
+    // does not enforce that invariant with a unique constraint, so serialize
+    // the lookup and insert using a PostgreSQL transaction-scoped advisory lock.
+    // A repeated submission by the same driver with identical facts is a safe
+    // replay, NOT a second vehicle or another driver's registration.
+    return await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"vehicle-registration:" + registrationNumber}))`;
+      const existing = await tx.vehicle.findFirst({ where: { registrationNumber, archivedAt: null } });
+      if (existing) {
+        const isSameDriverReplay =
+          existing.driverProfileId === driver.id &&
+          existing.make === normalized.make &&
+          existing.model === normalized.model &&
+          existing.year === normalized.year &&
+          (existing.colour ?? null) === normalized.colour &&
+          existing.vehicleType === input.vehicleType &&
+          (existing.vehicleSubtype ?? null) === (input.vehicleSubtype ?? null) &&
+          (existing.capacityKg?.toString() ?? null) ===
+            (normalized.capacityKg === null ? null : new Prisma.Decimal(normalized.capacityKg).toString());
+        if (!isSameDriverReplay) {
+          throw new VehicleComplianceError(
+            "VEHICLE_REGISTRATION_CONFLICT", 409,
+            existing.driverProfileId === driver.id
+              ? "This registration is already saved with different vehicle details. Open the registered vehicle or contact support before changing it."
+              : "This registration is already linked to another vehicle. Contact support if the previous registration should be transferred.",
+          );
+        }
+        return {
+          id: existing.id,
+          publicReference: existing.publicReference,
+          registrationNumber: existing.registrationNumber,
+          vehicleType: existing.vehicleType,
+          vehicleSubtype: existing.vehicleSubtype,
+          status: existing.status,
+          createdAt: existing.createdAt,
+        };
+      }
+      return tx.vehicle.create({
+        data: {
+          publicReference: `VEH-${randomUUID()}`,
+          driverProfileId: driver.id,
+          ...normalized,
+          registrationNumber,
+          vehicleType: input.vehicleType,
+          vehicleSubtype: input.vehicleSubtype ?? null,
+        },
+        select: {
+          id: true, publicReference: true, registrationNumber: true,
+          vehicleType: true, vehicleSubtype: true, status: true, createdAt: true,
+        },
+      });
     });
   } catch (error) {
-    if ((error as { code?: string }).code === "P2002") throw new VehicleComplianceError("VEHICLE_REGISTRATION_CONFLICT", 409, "A current vehicle already uses this registration number.");
+    if ((error as { code?: string }).code === "P2002") {
+      throw new VehicleComplianceError("VEHICLE_REGISTRATION_CONFLICT", 409,
+        "This vehicle was registered during your submission. Refresh your fleet before trying again.");
+    }
     throw error;
   }
 }
