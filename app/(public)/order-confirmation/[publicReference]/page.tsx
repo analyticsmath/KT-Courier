@@ -60,9 +60,10 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
             <li><span aria-hidden="true" /><div><strong>Store fulfilment</strong><p>{statusLabel(storeOrder.fulfilmentStatus)}</p></div></li>
             <li><span aria-hidden="true" /><div><strong>Delivery</strong><p>{statusLabel(storeOrder.deliveryStatus)}</p></div></li>
           </ol>
+          {storeOrder.proofOfDelivery && <p className={styles.orderLocationNote} role="status">Proof of delivery: {statusLabel(storeOrder.proofOfDelivery.method)} confirmed {new Date(storeOrder.proofOfDelivery.deliveredAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.</p>}
           <p className={styles.orderLocationNote}>{storeOrder.liveLocation
             ? `Courier location is available. Last update ${new Date(storeOrder.liveLocation.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.`
-            : "Courier location is not available at this stage."}</p>
+            : storeOrder.proofOfDelivery ? "Delivery complete. Live courier location is no longer shared." : "Courier location is not available at this stage."}</p>
           <CustomerStoreOrderControls marketplaceOrderReference={publicReference} data={decisions.find(decision => decision.storeOrderReference === storeOrder.storeOrderReference)!} />
         </article>)}
       </section>

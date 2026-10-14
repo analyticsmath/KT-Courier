@@ -19,6 +19,8 @@ const base: CustomerTrackingRow = {
   locationLatitude: new Prisma.Decimal("-33.9249"),
   locationLongitude: new Prisma.Decimal("18.4241"),
   locationObservedAt: new Date("2026-08-04T10:00:00.000Z"),
+  proofMethod: null,
+  proofDeliveredAt: null,
 };
 
 describe("marketplace customer tracking projection", () => {
@@ -29,5 +31,15 @@ describe("marketplace customer tracking projection", () => {
       observedAt: "2026-08-04T10:00:00.000Z",
     });
     expect(projectCustomerTrackingStoreOrder({ ...base, courierStatus: "DELIVERED", bridgeStatus: "DELIVERED" }).liveLocation).toBeNull();
+  });
+  it("retains customer-safe POD at DELIVERED and COMPLETED without retaining courier GPS", () => {
+    const confirmed = { ...base, proofMethod: "OTP", proofDeliveredAt: new Date("2026-08-04T11:00:00.000Z") };
+    expect(projectCustomerTrackingStoreOrder(confirmed).proofOfDelivery).toBeNull();
+    for (const terminal of ["DELIVERED", "COMPLETED"]) {
+      const view = projectCustomerTrackingStoreOrder({ ...confirmed, courierStatus: terminal });
+      expect(view.liveLocation).toBeNull();
+      expect(view.proofOfDelivery).toEqual({ method: "OTP", deliveredAt: "2026-08-04T11:00:00.000Z" });
+      expect(JSON.stringify(view)).not.toMatch(/recipientPhone|otpCode|evidenceReference/);
+    }
   });
 });

@@ -26,6 +26,8 @@ export type CustomerTrackingRow = Readonly<{
   locationLatitude: Prisma.Decimal | null;
   locationLongitude: Prisma.Decimal | null;
   locationObservedAt: Date | null;
+  proofMethod?: string | null;
+  proofDeliveredAt?: Date | null;
 }>;
 
 export type CustomerTrackingStoreOrder = Readonly<{
@@ -37,6 +39,7 @@ export type CustomerTrackingStoreOrder = Readonly<{
   courierOrderReference: string | null;
   assignmentStatus: string | null;
   liveLocation: Readonly<{ latitude: number; longitude: number; observedAt: string }> | null;
+  proofOfDelivery: Readonly<{ method: string; deliveredAt: string }> | null;
 }>;
 
 function allowsCustomerLocation(status: string | null): boolean {
@@ -57,6 +60,12 @@ export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow): Cus
     deliveryStatus: row.bridgeStatus,
     courierOrderReference: row.courierOrderReference,
     assignmentStatus: row.assignmentStatus,
+    // Only an owner who can access this marketplace order sees the proof.
+    // No recipient phone, internal note, raw GPS or evidence token is exposed.
+    proofOfDelivery: ["DELIVERED", "COMPLETED"].includes(row.courierStatus ?? "") &&
+      row.proofMethod && row.proofDeliveredAt
+      ? Object.freeze({ method: row.proofMethod, deliveredAt: row.proofDeliveredAt.toISOString() })
+      : null,
     liveLocation: mayExposeLocation && row.locationLatitude && row.locationLongitude && row.locationObservedAt
       ? Object.freeze({
         latitude: coarsenCoordinate(row.locationLatitude),
@@ -85,13 +94,15 @@ export async function getMarketplaceDeliveryTracking(input: Readonly<{
       store_order."deliveryBridgeStatus" AS "bridgeStatus", courier_order."orderNumber" AS "courierOrderReference",
       courier_order."status" AS "courierStatus", assignment."status" AS "assignmentStatus",
       latest_location."latitude" AS "locationLatitude", latest_location."longitude" AS "locationLongitude",
-      latest_location."receivedAt" AS "locationObservedAt"
+      latest_location."receivedAt" AS "locationObservedAt",
+      pod."method"::text AS "proofMethod", pod."deliveredAt" AS "proofDeliveredAt"
     FROM "MarketplaceOrder" marketplace_order
     JOIN "MarketplaceStoreOrder" store_order ON store_order."marketplaceOrderId" = marketplace_order."id"
     JOIN "Store" store ON store."id" = store_order."storeId"
     LEFT JOIN "MarketplaceStoreOrderDeliveryBridge" bridge ON bridge."marketplaceStoreOrderId" = store_order."id"
     LEFT JOIN "Order" courier_order ON courier_order."id" = bridge."courierOrderId"
     LEFT JOIN "OrderAssignment" assignment ON assignment."orderId" = courier_order."id" AND assignment."activeOrderGuard" = courier_order."id"
+    LEFT JOIN "ProofOfDelivery" pod ON pod."orderId" = courier_order."id"
     LEFT JOIN LATERAL (
       SELECT location."latitude", location."longitude", location."receivedAt"
       FROM "DriverLocationEvidence" location

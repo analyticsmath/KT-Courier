@@ -29,7 +29,7 @@ export default async function AccountOrderDetailPage({
   if (!order) notFound();
 
   const pod =
-    order.status === "DELIVERED" ? await getPublicPodForOrder(order.id) : null;
+    ["DELIVERED", "COMPLETED"].includes(order.status) ? await getPublicPodForOrder(order.id) : null;
   const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(order.status);
 
   const review = await prisma.deliveryReview.findFirst({
