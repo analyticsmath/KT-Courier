@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminOrderStatusUpdate } from "@/components/admin/AdminOrderStatusUpdate";
 import { AdminAssignmentActions } from "@/components/protected-v2/admin/AdminAssignmentActions";
+import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
 import { ActivityTimeline } from "@/components/protected-v2/feedback/ActivityTimeline";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
@@ -35,6 +36,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     getOrderAssignmentHistory(id),
     getOrderOperationalEvents(id),
   ]);
+  const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
   const candidates = eligible ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
   const orderState = presentOrderStatus(order.status);
@@ -59,6 +61,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <div className="mt-4"><AdminAssignmentActions orderId={id} assignment={activeAssignment ? { id: activeAssignment.id, driverProfileId: activeAssignment.driverProfileId, version: activeAssignment.version } : null} candidates={candidates} canAssign={canAssign} canReassign={canReassign} /></div>
           {assignmentHistory.length ? <ActivityTimeline ariaLabel="Assignment history" items={assignmentHistory.map((assignment) => { const state = presentAssignmentStatus(assignment.status); return { id: assignment.id, title: `${assignment.driverDisplayName ?? assignment.driverCode} — ${state.label}`, description: assignment.cancellationReason ?? assignment.rejectionReason ?? undefined, timestamp: formatDateTime(assignment.assignedAt), tone: state.tone }; })} /> : null}
         </OperationalPanel>
+
+        {canViewTracking && ["PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(order.status) && (
+          <OperationalPanel title="Live courier progress" description="Approximate, verified device GPS from the accepted driver. Precise location and post-delivery tracking are protected.">
+            <CourierTrackingMap scope="PARCEL" reference={order.id} />
+          </OperationalPanel>
+        )}
 
         <OperationalPanel title="Administrative action" description="Only permissions resolved on the server are shown. State changes wait for canonical server confirmation.">
           {canManageStatus ? <AdminOrderStatusUpdate orderId={id} currentStatus={order.status} /> : <ProtectedState kind="restricted" title="Read-only operational access" description="This administrator can review the order but does not have the state-transition permission." />}
