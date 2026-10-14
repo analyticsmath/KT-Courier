@@ -69,6 +69,12 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
           >
             Services
           </Link>
+          <Link
+            href="/track"
+            className="hover:text-[var(--kt-public-interactive-text)] transition-colors py-1 focus-visible:outline-2 focus-visible:outline-[var(--kt-public-focus)]"
+          >
+            Track delivery
+          </Link>
         </nav>
 
         {/* Right: Search, Cart, Account, Menu trigger */}
