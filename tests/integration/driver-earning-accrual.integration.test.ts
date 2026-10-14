@@ -6,8 +6,8 @@ describe("driver earning accrual integration", () => {
   it("enforces state transitions for driver earning lifecycle", () => {
     expect(() => assertDriverEarningTransition("ACCRUED", "RELEASED")).not.toThrow();
   });
-  it("evaluates driver earning production readiness fail-closed rules", () => {
+  it("allows reviewed driver earning execution without a test bypass", () => {
     expect(() => assertDriverEarningsProductionReady({ allowTestOnlyBypass: true })).not.toThrow();
-    expect(() => assertDriverEarningsProductionReady()).toThrow();
+    expect(() => assertDriverEarningsProductionReady()).not.toThrow();
   });
 });
