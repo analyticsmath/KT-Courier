@@ -8,6 +8,7 @@ import { INITIAL_CLIENT_PARCEL_DRAFTS } from "../lib/commercial/initial-client-p
 import { OWNER_PARCEL_LIMITS_APPROVAL, activateOwnerApprovedInitialParcelProfiles } from "../lib/commercial/owner-approved-initial-parcels";
 import { OWNER_GAUTENG_COVERAGE_APPROVAL, activateOwnerApprovedGautengCoverage } from "../lib/commercial/owner-approved-gauteng-coverage";
 import { saveDeliveryConfiguration } from "../lib/client-platform/delivery.service";
+import { OWNER_COURIER_TARIFF_APPROVAL, activateOwnerSelectedCourierTariffs } from "../lib/marketplace-checkout/courier-tariff-policy";
 import { prepareCustomerOrderNotifications } from "../lib/notifications/customer-order-configuration";
 import { prepareRequiredDomainNotifications } from "../lib/notifications/required-domain-configuration";
 
@@ -60,6 +61,11 @@ async function main() {
   if (process.env.KT_OWNER_APPROVED_GAUTENG_COVERAGE === OWNER_GAUTENG_COVERAGE_APPROVAL) {
     const result = await activateOwnerApprovedGautengCoverage(actor.id);
     console.log(JSON.stringify({ event: "client_launch.owner_approved_gauteng_coverage", approvalReference: OWNER_GAUTENG_COVERAGE_APPROVAL, ...result }));
+  }
+
+  if (process.env.KT_OWNER_SELECTED_MARKETPLACE_COURIER_TARIFFS === OWNER_COURIER_TARIFF_APPROVAL) {
+    const result = await activateOwnerSelectedCourierTariffs(actor.id);
+    console.log(JSON.stringify({ event: "client_launch.owner_selected_marketplace_courier_tariffs", approvalReference: OWNER_COURIER_TARIFF_APPROVAL, ...result }));
   }
 
   const express = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: "CLIENT_EXPRESS" }, orderBy: { versionNumber: "desc" } });

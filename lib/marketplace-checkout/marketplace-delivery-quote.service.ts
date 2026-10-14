@@ -2,7 +2,7 @@ import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 
 export type MarketplaceDeliveryQuoteInput = Readonly<{
   checkoutReference: string; storeReference: string; pickupLocationReference: string | null;
-  serviceAreaReference: string | null; fulfilmentMode: string; lineCount: number;
+  serviceAreaReference: string | null; fulfilmentMode: string; lineCount: number; courierServiceKey?: string;
 }>;
 export type MarketplaceDeliveryQuoteResult = Readonly<{
   fee: string; currency: "ZAR"; publicReference: string; version: string; expiresAt: Date;

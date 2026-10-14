@@ -10,6 +10,7 @@ export type DeliverySelectionInput = {
   reference: string;
   owner: CheckoutOwner;
   operation: CheckoutOperation;
+  courierServiceKey?: string;
   selections?: Array<{
     storeReference: string;
     quoteReference: string;
@@ -71,6 +72,7 @@ export async function selectMarketplaceCheckoutDeliveryOptions(input: DeliverySe
         serviceAreaReference: serviceArea,
         fulfilmentMode: selection?.fulfilmentMode ?? group.fulfilmentMode,
         lineCount: group.lines.length,
+        courierServiceKey: input.courierServiceKey,
       });
 
       if (!quote || quote.currency !== "ZAR" || !quote.publicReference) {

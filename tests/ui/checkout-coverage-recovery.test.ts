@@ -53,21 +53,28 @@ afterEach(async () => {
 });
 
 it("gives checkout customers a coverage and operations path when route verification blocks delivery", async () => {
-  fetchMock
-    .mockResolvedValueOnce(reply(200, { checkout }))
-    .mockResolvedValueOnce(reply(200, { checkout: { ...checkout, version: 2 } }))
-    .mockResolvedValueOnce(reply(422, { code: "CHECKOUT_REVIEW_REQUIRED", error: "Delivery is not available at this address in the currently active service areas." }));
+  fetchMock.mockImplementation(async (url: string) => {
+    if (url.endsWith("/delivery-services")) return reply(200, { model: "MATRIX", services: [] });
+    if (url.endsWith("/contact")) return reply(200, { checkout: { ...checkout, version: 2 } });
+    if (url.endsWith("/delivery-address")) return reply(422, { code: "CHECKOUT_REVIEW_REQUIRED", error: "Delivery is not available at this address in the currently active service areas." });
+    if (url === "/api/checkout/checkout_test") return reply(200, { checkout });
+    throw new Error(`Unexpected checkout request: ${url}`);
+  });
 
   await act(async () => root.render(React.createElement(CheckoutExperience)));
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+  await act(async () => {
   setInputValue(host.querySelector<HTMLInputElement>("#contactName")!, "Test Customer");
   setInputValue(host.querySelector<HTMLInputElement>("#contactEmail")!, "customer@example.test");
   setInputValue(host.querySelector<HTMLInputElement>("#contactPhone")!, "0821234567");
+  });
   await submit(host.querySelector<HTMLFormElement>('form[aria-labelledby="checkout-contact-heading"]')!);
 
   expect(host.querySelector<HTMLInputElement>("#addrLine1")).not.toBeNull();
+  await act(async () => {
   setInputValue(host.querySelector<HTMLInputElement>("#addrLine1")!, "10 Main Road");
   setInputValue(host.querySelector<HTMLInputElement>("#addrCity")!, "Johannesburg");
+  });
   await submit(host.querySelector<HTMLFormElement>('form[aria-labelledby="checkout-address-heading"]')!);
 
   expect(host.textContent).toContain("Delivery is not available at this address");
