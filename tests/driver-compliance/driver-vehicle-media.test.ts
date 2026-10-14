@@ -3,6 +3,7 @@ import { PrivateMediaOwnerType, PrivateMediaPurpose, VehicleMediaPurpose, Vehicl
 
 const mockPrisma = vi.hoisted(() => ({
   $transaction: vi.fn(),
+  $executeRaw: vi.fn(),
   driverProfile: {
     findUnique: vi.fn(),
     update: vi.fn(),

@@ -238,7 +238,7 @@ export async function attachOwnVehicleMedia(input: Readonly<{ driverUserId: stri
 }
 
 export async function reviewVehicle(input: Readonly<{ adminUserId: string; vehicleId: string; status: Extract<VehicleComplianceStatus, "APPROVED" | "REJECTED" | "SUSPENDED" | "ARCHIVED">; reason?: string }>) {
-  const vehicle = await prisma.vehicle.findUnique({ where: { id: input.vehicleId }, include: { documents: true } });
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: input.vehicleId }, include: { documents: true, media: true } });
   if (!vehicle) throw new VehicleComplianceError("VEHICLE_NOT_FOUND", 404, "Vehicle was not found.");
   if ((input.status === "REJECTED" || input.status === "SUSPENDED") && !input.reason?.trim()) throw new VehicleComplianceError("VEHICLE_REVIEW_REASON_REQUIRED", 422, "A reason is required for rejection or suspension.");
   if (input.status === "APPROVED") {
@@ -246,6 +246,14 @@ export async function reviewVehicle(input: Readonly<{ adminUserId: string; vehic
     const now = new Date();
     const missing = required.some((type) => !vehicle.documents.some((document) => document.documentType === type && document.status === DocumentStatus.APPROVED && (!document.expiresAt || document.expiresAt > now)));
     if (missing) throw new VehicleComplianceError("VEHICLE_COMPLIANCE_INCOMPLETE", 409, "Vehicle cannot be approved until its required valid documents are approved.");
+    // Drivers must supply front and side pictures for a reviewer to verify
+    // that the registration documents match the physical vehicle.
+    // This is enforced for new approvals, without silently withdrawing an
+    // existing in-flight dispatch assignment during a rollout.
+    if (![VehicleMediaPurpose.FRONT, VehicleMediaPurpose.SIDE].every(
+      purpose => vehicle.media.some(image => image.purpose === purpose),
+    )) throw new VehicleComplianceError("VEHICLE_PHOTOS_INCOMPLETE", 409,
+      "Upload clear front and side vehicle photos before submitting for administrator approval.");
   }
   const data = input.status === "APPROVED" ? { status: input.status, approvedAt: new Date(), approvedByUserId: input.adminUserId, rejectedAt: null, rejectedByUserId: null, rejectionReason: null, version: { increment: 1 } } : input.status === "REJECTED" ? { status: input.status, rejectedAt: new Date(), rejectedByUserId: input.adminUserId, rejectionReason: input.reason!.trim(), version: { increment: 1 } } : input.status === "SUSPENDED" ? { status: input.status, suspendedAt: new Date(), suspendedByUserId: input.adminUserId, suspensionReason: input.reason!.trim(), version: { increment: 1 } } : { status: input.status, archivedAt: new Date(), version: { increment: 1 } };
   const updated = await prisma.vehicle.update({ where: { id: vehicle.id }, data });
