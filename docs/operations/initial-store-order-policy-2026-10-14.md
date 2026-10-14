@@ -1,0 +1,7 @@
+# Initial store-order fulfilment policy proposal
+
+The priority client documents require unified store/vendor, customer, driver and administration workflows. The shipping policy describes vendor preparation before courier collection, but no binding merchant response windows, substitution thresholds or preparation limits are supplied. This technical initializer proposes **15 minutes** for acceptance, **30 minutes** for customer substitution decisions, **180 minutes** maximum preparation with **60 minutes** extension, up to **3 issue reports** and **2 substitution proposals per item line**. These timings are *editable operating suggestions*, not South African statutory limits or client-approved service commitments.
+
+The initializer only creates **one DRAFT** if no policy versions of any state already exist; it never replaces negotiated terms or active policies. Explicit independent operating review is necessary before an active policy can govern paid marketplace orders. A reviewer with existing `store_order_policies.approve` permission uses `/admin/store-order-policies` to approve and activate. No dummy reviewer and no settlement simulation is created.
+
+Default controls favour customer-approved substitutions, refund/rejection on timeout and two-party courier handoff. Actual refund execution and driver allocation remain subject to their canonical payment and fulfillment safeguards. The admin may author later versioned policies and review in accordance with real vendor operating capacities.

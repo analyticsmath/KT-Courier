@@ -13,6 +13,7 @@ import { OWNER_COMMISSION_DEFAULTS_APPROVAL, prepareOwnerSelectedCommissionDefau
 import { prepareCustomerOrderNotifications } from "../lib/notifications/customer-order-configuration";
 import { prepareRequiredDomainNotifications } from "../lib/notifications/required-domain-configuration";
 import { initializeLaunchPaymentPolicies } from "../lib/client-platform/launch-payment-policies";
+import { prepareInitialStoreOrderOperationalPolicy } from "../lib/store-orders/initial-operational-policy";
 
 type Policy = { documentType: string; version: string; content: string; contentHash: string; sourceSha256: string };
 const source = "CLIENT_REVIEW_2026_10_06";
@@ -77,6 +78,8 @@ async function main() {
 
   const paymentBaseline = await initializeLaunchPaymentPolicies(actor.id);
   console.log(JSON.stringify({ event: "client_launch.initial_payment_policies", ...paymentBaseline }));
+  const storeFulfilment = await prepareInitialStoreOrderOperationalPolicy(actor.id);
+  console.log(JSON.stringify({ event: "client_launch.initial_store_fulfilment_policy", ...storeFulfilment }));
 
   const express = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: "CLIENT_EXPRESS" }, orderBy: { versionNumber: "desc" } });
   if (express?.versionNumber === 1 && express.status === "DRAFT") {
