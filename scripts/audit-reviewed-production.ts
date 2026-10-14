@@ -14,16 +14,22 @@ export async function reviewedProtectedRowAudit() {
     // Aggregate operational blockers only: never export identity, private media,
     // registration numbers, document contents or customer/order data.
     const blockers: Record<string, number> = {};
+    const profileStatuses: Record<string, number> = {};
+    const availabilityStates: Record<string, number> = {};
+    let readyBeforeCapacity = 0;
     for (const driver of drivers) {
+      profileStatuses[driver.status] = (profileStatuses[driver.status] ?? 0) + 1;
+      availabilityStates[driver.availability] = (availabilityStates[driver.availability] ?? 0) + 1;
       const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles });
       const reasons = [...compliance.reasons];
       if (driver.status !== "ACTIVE") reasons.push("DRIVER_PROFILE_INACTIVE");
       if (driver.user.status !== "ACTIVE" || driver.user.role !== "DRIVER") reasons.push("DRIVER_USER_INACTIVE");
       if (driver.availability !== "AVAILABLE") reasons.push("DRIVER_UNAVAILABLE");
       if (!driver.serviceRegions.length) reasons.push("NO_SERVICE_REGIONS");
+      if (!reasons.length) readyBeforeCapacity++;
       for (const reason of reasons) blockers[reason] = (blockers[reason] ?? 0) + 1;
     }
-    report.driverReadiness = { profileCount: drivers.length, blockers };
+    report.driverReadiness = { profileCount: drivers.length, readyBeforeCapacity, profileStatuses, availabilityStates, blockers };
     const protectedRows: Record<string, unknown> = {};
     for (const name of ["User", "Store", "Address", "Order", "Payment", "MarketplaceOrder", "MarketplaceStoreOrder", "CashOnDelivery", "PrivateMediaObject", "StoreEarning", "DriverProfile", "LedgerAccount", "CatalogProduct", "CatalogProductVariant", "CatalogCategory", "CatalogMediaAsset", "StorefrontProductDocument"]) {
       const rows = await tx.$queryRawUnsafe<Record<string, unknown>[]>('SELECT count(*)::int AS count,encode(sha256(convert_to(COALESCE(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),\'\'),\'UTF8\')),\'hex\') AS hash FROM "' + name + '" t');
