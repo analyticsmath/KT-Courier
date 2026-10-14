@@ -31,7 +31,7 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       <div className={styles.heroTypographyBackground} aria-hidden="true">
         <div className={styles.heroBrandLockup}>
           <span className={styles.heroWordKt} data-motion="hero-kt">KT</span>
-          <span className={styles.heroWordCourier} data-motion="hero-courier">COURIER</span>
+          <span className={styles.heroWordCourier} data-motion="hero-courier">COURIERS</span>
         </div>
       </div>
 

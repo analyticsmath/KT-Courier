@@ -24,7 +24,7 @@ export function PublicFooter() {
             <div className="flex items-center gap-3">
               <CanonicalKtLogo size={44} />
               <span className="font-display font-extrabold text-xl tracking-tight uppercase">
-                KT COURIER
+                KT COURIERS
               </span>
             </div>
             <p className="text-sm text-[var(--kt-public-text-inverse-muted)] max-w-sm">
