@@ -13,7 +13,14 @@ describe("geocodeSouthAfricanAddress", () => {
           status: "OK",
           results: [
             {
+              types: ["street_address"],
+              address_components: [
+                { long_name: "South Africa", short_name: "ZA", types: ["country"] },
+                { long_name: "Gauteng", types: ["administrative_area_level_1"] },
+                { long_name: "Sandton", types: ["locality"] },
+              ],
               geometry: {
+                location_type: "ROOFTOP",
                 location: { lat: -26.107567, lng: 28.056702 },
               },
             },

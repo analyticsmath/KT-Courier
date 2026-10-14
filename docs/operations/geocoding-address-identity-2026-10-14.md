@@ -1,0 +1,9 @@
+# Forward address identity correction — 14 October 2026
+
+Live testing after Gauteng activation found that a Rustenburg street address submitted with a conflicting Gauteng province label was quoted as if its location were in Gauteng. The provider returned two partial matches: first, an approximate centroid of Gauteng; second, a street address in Rustenburg, North West. The former implementation chose the first coordinates without validating result identity. Reverse province verification alone therefore verified the wrong resolved location.
+
+The correction requires one unambiguous, non-partial street/premise/intersection/place result with a supported location precision, South Africa country evidence, the requested province, and a matching locality or municipal identity. Approximate province/city centres, missing components, mismatched cities/provinces and multiple conflicting results produce an unresolved-address response before pricing. Municipal identity comparisons normalize punctuation, diacritics and municipal wording. No provider coordinates are inferred from the shopper's label.
+
+The live read-only probe confirmed complete Johannesburg Civic Centre and Pretoria Union Buildings results. The Bronkhorstspruit query containing an extra Muniforum building label resolved only partially to an intersection; its street-only canonical query must be used for the subsequent positive verification. A previously calculated quote does not establish exact address acceptance. Nonbinding maintenance test quotes are not customer payments or physical delivery evidence.
+
+Official provider guidance: https://developers.google.com/maps/architecture/geocoding-address-validation and https://developers.google.com/maps/documentation/geocoding/guides-v3/requests-geocoding. Geocoding confidence checks do not establish physical deliverability; operational route and package checks still apply.
