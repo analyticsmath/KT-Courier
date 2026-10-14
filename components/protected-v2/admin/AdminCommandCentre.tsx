@@ -266,7 +266,7 @@ export function AdminCommandCentre({
             description="Active regional courier zones"
             action={
               desk.regions ? (
-                <Link className={`${styles.btn} ${styles.btnQuiet} ${styles.btnSm}`} href="/admin/delivery-regions">
+                <Link className={`${styles.btn} ${styles.btnQuiet} ${styles.btnSm}`} href="/admin/regions">
                   All regions
                 </Link>
               ) : undefined

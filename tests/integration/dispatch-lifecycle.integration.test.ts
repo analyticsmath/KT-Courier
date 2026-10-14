@@ -4,8 +4,25 @@ import { acceptDispatchAssignment, offerAssignment, reassignDispatchOrder, unass
 import { createDispatchOrder, createDriver, createRegion, createUser, integrationPrisma, uniqueTag } from "./phase7-5-fixtures";
 import { listEligibleDrivers } from "@/lib/services/driver-eligibility.service";
 import { getDispatchBoardData, getOrderActiveAssignment, listOrdersWithAssignmentState } from "@/lib/services/admin-dispatch.service";
+import { adminChangeAvailability } from "@/lib/services/admin-drivers.service";
+import { updateOwnAvailability } from "@/lib/services/driver-profile.service";
 
 describe("Phase 7.5 live dispatch lifecycle", () => {
+  it("prevents stale driver availability from overwriting an administrator's decision", async () => {
+    const tag = uniqueTag("dispatch-availability");
+    const admin = await createUser(`${tag}-admin`, UserRole.ADMIN);
+    const region = await createRegion(tag);
+    const driver = await createDriver(`${tag}-driver`, region.id);
+    await adminChangeAvailability(admin.id, driver.profile.id, "UNAVAILABLE");
+    const current = await integrationPrisma.driverProfile.findUniqueOrThrow({ where: { id: driver.profile.id } });
+    expect(current.availabilityRevision).toBe(driver.profile.availabilityRevision + 1);
+    expect(current.availabilityUpdatedAt).not.toBeNull();
+    await expect(updateOwnAvailability(driver.user.id, "AVAILABLE", driver.profile.availabilityRevision)).rejects.toThrow("DRIVER_AVAILABILITY_STALE");
+    expect((await integrationPrisma.driverProfile.findUniqueOrThrow({ where: { id: driver.profile.id } })).availability).toBe("UNAVAILABLE");
+    await updateOwnAvailability(driver.user.id, "AVAILABLE", current.availabilityRevision);
+    expect((await listEligibleDrivers(region.id)).recommended.some(item => item.id === driver.profile.id)).toBe(true);
+  });
+
   it("projects a compliant driver on the board and excludes full or unreviewed drivers from order choices", async () => {
     const tag = uniqueTag("dispatch-projection");
     const admin = await createUser(`${tag}-admin`, UserRole.ADMIN);
