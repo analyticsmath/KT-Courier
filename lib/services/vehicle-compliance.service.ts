@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
+import { VEHICLE_TYPE_FOR_SUBTYPE, type VehicleSubtype } from "@/lib/driver-operations/vehicle-subtypes";
 import { DocumentStatus, OrderStatus, PrivateMediaOwnerType, PrivateMediaPurpose, VehicleComplianceStatus, VehicleDocumentType, VehicleMediaPurpose, VehicleType, Prisma } from "@/types/db";
 
 export class VehicleComplianceError extends Error {
@@ -10,7 +11,7 @@ export class VehicleComplianceError extends Error {
   }
 }
 
-export type CreateVehicleInput = Readonly<{ make: string; model: string; year?: number | null; colour?: string | null; registrationNumber: string; vehicleType: VehicleType; capacityKg?: string | null }>;
+export type CreateVehicleInput = Readonly<{ make: string; model: string; year?: number | null; colour?: string | null; registrationNumber: string; vehicleType: VehicleType; vehicleSubtype?: VehicleSubtype; capacityKg?: string | null }>;
 
 function normalizedRegistration(input: string): string {
   const value = input.trim().toUpperCase().replace(/\s+/g, "");
@@ -35,6 +36,9 @@ export async function createOwnVehicle(driverUserId: string, input: CreateVehicl
   const driver = await prisma.driverProfile.findUnique({ where: { userId: driverUserId }, select: { id: true } });
   if (!driver) throw new VehicleComplianceError("DRIVER_PROFILE_NOT_FOUND", 404, "Driver profile was not found.");
   const registrationNumber = normalizedRegistration(input.registrationNumber);
+  if (input.vehicleSubtype && VEHICLE_TYPE_FOR_SUBTYPE[input.vehicleSubtype] !== input.vehicleType) {
+    throw new VehicleComplianceError("VEHICLE_TYPE_MISMATCH", 422, "Vehicle category and dispatch type must match.");
+  }
   const existing = await prisma.vehicle.findFirst({ where: { registrationNumber, archivedAt: null } });
   if (existing) throw new VehicleComplianceError("VEHICLE_REGISTRATION_CONFLICT", 409, "A current vehicle already uses this registration number.");
   try {
@@ -48,9 +52,10 @@ export async function createOwnVehicle(driverUserId: string, input: CreateVehicl
         colour: input.colour?.trim() || null,
         registrationNumber,
         vehicleType: input.vehicleType,
+        vehicleSubtype: input.vehicleSubtype ?? null,
         capacityKg: input.capacityKg ?? null,
       },
-      select: { id: true, publicReference: true, registrationNumber: true, vehicleType: true, status: true, createdAt: true },
+      select: { id: true, publicReference: true, registrationNumber: true, vehicleType: true, vehicleSubtype: true, status: true, createdAt: true },
     });
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") throw new VehicleComplianceError("VEHICLE_REGISTRATION_CONFLICT", 409, "A current vehicle already uses this registration number.");
@@ -64,7 +69,7 @@ export async function listOwnVehicles(driverUserId: string) {
   return prisma.vehicle.findMany({
     where: { driverProfileId: driver.id, archivedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, publicReference: true, make: true, model: true, year: true, colour: true, registrationNumber: true, vehicleType: true, capacityKg: true, status: true, createdAt: true, documents: { select: { documentType: true, status: true, expiresAt: true } }, media: { select: { purpose: true } } },
+    select: { id: true, publicReference: true, make: true, model: true, year: true, colour: true, registrationNumber: true, vehicleType: true, vehicleSubtype: true, capacityKg: true, status: true, createdAt: true, documents: { select: { documentType: true, status: true, expiresAt: true } }, media: { select: { purpose: true } } },
   });
 }
 
