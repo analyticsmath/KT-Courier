@@ -7,6 +7,7 @@ import { OperationalPanel } from "@/components/protected-v2/surfaces/Operational
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import styles from "@/components/protected-v2/driver/driver-pages.module.css";
 import { FileInput } from "@/components/ui/FileInput";
+import { VEHICLE_SUBTYPES, VEHICLE_SUBTYPE_LABELS, VEHICLE_TYPE_FOR_SUBTYPE, type VehicleSubtype } from "@/lib/driver-operations/vehicle-subtypes";
 
 interface DocumentRow {
   id: string;
@@ -30,6 +31,7 @@ interface VehicleRow {
   colour: string | null;
   registrationNumber: string;
   vehicleType: string;
+  vehicleSubtype?: string | null;
   capacityKg?: string | number | null;
   status: string;
   documents: Array<{ documentType: string; status: string; expiresAt: string | null }>;
@@ -78,8 +80,9 @@ export function DriverOnboardingExperience({
   const [vYear, setVYear] = useState<string>("");
   const [vColour, setVColour] = useState("");
   const [vReg, setVReg] = useState("");
-  const [vType, setVType] = useState("MOTORBIKE");
+  const [vType, setVType] = useState<VehicleSubtype>("MOTORCYCLE");
   const [vCapacityKg, setVCapacityKg] = useState("");
+  const [vehicleFieldErrors, setVehicleFieldErrors] = useState<Record<string, string>>({});
 
   // Status feedback
   const [loading, setLoading] = useState(false);
@@ -102,7 +105,7 @@ export function DriverOnboardingExperience({
 
   // Vehicle media photo upload state
   const [selectedVehicleMediaId, setSelectedVehicleMediaId] = useState("");
-  const [vehMediaPurpose, setVehMediaPurpose] = useState<"FRONT" | "SIDE">("FRONT");
+  const [vehMediaPurpose, setVehMediaPurpose] = useState<"FRONT" | "REAR" | "SIDE" | "INTERIOR">("FRONT");
   const [vehMediaFile, setVehMediaFile] = useState<File | null>(null);
   const [uploadingVehMedia, setUploadingVehMedia] = useState(false);
 
@@ -224,6 +227,7 @@ export function DriverOnboardingExperience({
   // Handle vehicle registration
   async function handleVehicleCreate(e: React.FormEvent) {
     e.preventDefault();
+    setVehicleFieldErrors({});
     setLoading(true);
     setMessage("");
     setError("");
@@ -237,18 +241,27 @@ export function DriverOnboardingExperience({
           model: vModel.trim(),
           year: vYear ? parseInt(vYear, 10) : null,
           colour: vColour.trim() || null,
-          registrationNumber: vReg.trim(),
-          vehicleType: vType,
+          registrationNumber: vReg.trim().toUpperCase().replace(/\s+/g, ""),
+          vehicleType: VEHICLE_TYPE_FOR_SUBTYPE[vType],
+          vehicleSubtype: vType,
           capacityKg: vCapacityKg.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to register vehicle.");
+        const fieldErrors: Record<string, string> = data.fields && typeof data.fields === "object" ? data.fields : {};
+        setVehicleFieldErrors(fieldErrors);
+        const firstFieldError = Object.entries(fieldErrors).find(([, detail]) => typeof detail === "string");
+        setError(firstFieldError ? `${firstFieldError[0]}: ${firstFieldError[1]}` : data.error || "Vehicle registration was rejected. Review the details and try again.");
         return;
       }
 
-      setMessage("Vehicle successfully registered in compliance roster.");
+      if (typeof data.id === "string") {
+        setSelectedVehicleId(data.id);
+        setSelectedVehicleMediaId(data.id);
+      }
+      setMessage("Vehicle registered for review. Upload its compliance documents and vehicle photographs below.");
+      setVType("MOTORCYCLE");
       setVMake("");
       setVModel("");
       setVYear("");
@@ -921,14 +934,11 @@ export function DriverOnboardingExperience({
                     </label>
                     <select
                       value={vType}
-                      onChange={(e) => setVType(e.target.value)}
+                      onChange={(e) => setVType(e.target.value as VehicleSubtype)}
                       className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
+                      aria-invalid={Boolean(vehicleFieldErrors.vehicleType || vehicleFieldErrors.vehicleSubtype)}
                     >
-                      <option value="MOTORBIKE">Motorbike</option>
-                      <option value="CAR">Car</option>
-                      <option value="VAN">Van</option>
-                      <option value="TRUCK">Truck</option>
-                      <option value="BICYCLE">Bicycle</option>
+                      {VEHICLE_SUBTYPES.map(type => <option key={type} value={type}>{VEHICLE_SUBTYPE_LABELS[type]}</option>)}
                     </select>
                   </div>
 
@@ -994,6 +1004,9 @@ export function DriverOnboardingExperience({
                       type="text"
                       required
                       value={vReg}
+                      minLength={2}
+                      maxLength={20}
+                      aria-invalid={Boolean(vehicleFieldErrors.registrationNumber)}
                       onChange={(e) => setVReg(e.target.value)}
                       className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
                       placeholder="e.g. CA 123-456"
@@ -1007,7 +1020,8 @@ export function DriverOnboardingExperience({
                     <input
                       type="number"
                       step="0.1"
-                      min="0"
+                      min="0.001"
+                      max="99999999"
                       value={vCapacityKg}
                       onChange={(e) => setVCapacityKg(e.target.value)}
                       className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
@@ -1016,6 +1030,7 @@ export function DriverOnboardingExperience({
                   </div>
                 </div>
 
+                <p className="text-xs text-[var(--kt-text-muted)]">Choose the vehicle category stated in your registration records. The plate, licence disc, registration certificate, insurance evidence and vehicle photographs are reviewed separately before dispatch.</p>
                 <div className="flex justify-end">
                   <button
                     type="submit"
@@ -1139,11 +1154,13 @@ export function DriverOnboardingExperience({
                       </label>
                       <select
                         value={vehMediaPurpose}
-                        onChange={(e) => setVehMediaPurpose(e.target.value as "FRONT" | "SIDE")}
+                        onChange={(e) => setVehMediaPurpose(e.target.value as "FRONT" | "REAR" | "SIDE" | "INTERIOR")}
                         className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
                       >
                         <option value="FRONT">Front View (With Number Plate)</option>
+                        <option value="REAR">Rear View</option>
                         <option value="SIDE">Side View</option>
+                        <option value="INTERIOR">Interior (where applicable)</option>
                       </select>
                     </div>
 
@@ -1194,7 +1211,7 @@ export function DriverOnboardingExperience({
                             {v.make} {v.model} ({v.registrationNumber})
                           </span>
                           <span className="text-[11px] text-[var(--kt-text-muted)] block">
-                            Type: {v.vehicleType} · {v.colour || "Color unspecified"} · Year: {v.year || "N/A"} · Capacity: {v.capacityKg ? `${v.capacityKg} kg` : "Not specified"}
+                            Type: {v.vehicleSubtype ? v.vehicleSubtype.replaceAll("_", " ") : v.vehicleType} · {v.colour || "Color unspecified"} · Year: {v.year || "N/A"} · Capacity: {v.capacityKg ? `${v.capacityKg} kg` : "Not specified"}
                           </span>
                         </div>
                         <ProtectedStatus
@@ -1240,7 +1257,7 @@ export function DriverOnboardingExperience({
                               </div>
                             );
                           })}
-                          {["FRONT", "SIDE"].map((purpose) => {
+                          {["FRONT", "REAR", "SIDE", "INTERIOR"].map((purpose) => {
                             const m = v.media?.find((med) => med.purpose === purpose);
                             return (
                               <div

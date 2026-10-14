@@ -69,7 +69,7 @@ export default async function AdminVehiclesPage() {
                             {v.registrationNumber}
                           </span>
                           <span className="block text-[10px] text-[var(--kt-text-muted)]">
-                            {v.vehicleType}
+                            {v.vehicleSubtype ? v.vehicleSubtype.replaceAll("_", " ") : v.vehicleType}
                           </span>
                         </td>
                         <td className="py-3 px-3">

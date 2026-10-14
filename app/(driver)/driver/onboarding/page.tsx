@@ -42,6 +42,7 @@ export default async function DriverOnboardingPage() {
     colour: v.colour,
     registrationNumber: v.registrationNumber,
     vehicleType: v.vehicleType,
+    vehicleSubtype: v.vehicleSubtype,
     status: v.status,
     documents: v.documents.map((vd) => ({
       documentType: vd.documentType,
