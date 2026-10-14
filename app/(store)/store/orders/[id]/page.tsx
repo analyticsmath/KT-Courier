@@ -1,4 +1,6 @@
 import { Conversations } from "@/components/forms/Conversations";
+import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
+import { getPublicPodForOrder } from "@/lib/services/proof-of-delivery.service";
 import { storeAccess } from "@/lib/client-platform/store-access";
 import { membershipAllows } from "@/lib/client-platform/store-permissions";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
@@ -34,6 +36,8 @@ export default async function StoreOrderDetailPage({
   const canPay =
     access.owner || membershipAllows(access.permissions, "finance");
   const canChat = access.owner || membershipAllows(access.permissions, "chat");
+  const canTrackDelivery = access.owner || membershipAllows(access.permissions, "deliveries");
+  const pod = ["DELIVERED", "COMPLETED"].includes(order.status) ? await getPublicPodForOrder(order.id) : null;
   const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(
     order.status as (typeof CUSTOMER_CANCELLABLE_STATUSES)[number],
   );
@@ -139,6 +143,22 @@ export default async function StoreOrderDetailPage({
           >
             Review payment
           </Link>
+        </OperationalPanel>
+      )}
+      {canTrackDelivery && ["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(order.status) && (
+        <OperationalPanel title="Live delivery tracking">
+          <CourierTrackingMap scope="PARCEL" reference={order.id} />
+        </OperationalPanel>
+      )}
+      {pod && (
+        <OperationalPanel title="Proof of delivery" padding="compact">
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div><dt className="font-semibold">Confirmation</dt><dd>{pod.methodLabel}</dd></div>
+            <div><dt className="font-semibold">Delivered</dt><dd>{formatDateTime(pod.deliveredAt)}</dd></div>
+            <div><dt className="font-semibold">Recipient</dt><dd>{pod.recipientName}</dd></div>
+            {pod.publicNote && <div><dt className="font-semibold">Delivery note</dt><dd>{pod.publicNote}</dd></div>}
+          </dl>
+          <p className="mt-3 text-xs text-[var(--eo-text-secondary)]">Live driver location is no longer shared after delivery.</p>
         </OperationalPanel>
       )}
       {canChat && (
