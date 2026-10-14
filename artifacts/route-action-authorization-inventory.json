@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 751,
+    "totalRoutes": 752,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 651,
-    "permissionGatedRoutes": 511,
+    "authenticatedRoutes": 652,
+    "permissionGatedRoutes": 512,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 205,
-    "generatedAt": "2026-10-14T00:21:47.568828+00:00"
+    "generatedAt": "2026-10-14T13:16:25.388Z"
   },
   "serverActions": [],
   "routes": [
@@ -3510,6 +3510,28 @@
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/pricing/personalized-rates/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "pricing.read",
+        "pricing.manage"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "GET requires pricing.read; POST/PATCH require pricing.manage, same-origin; customer/store identity resolved by server; draft and active policies audited; financial scopes are explicitly validated."
     },
     {
       "routePath": "app/api/admin/pricing/rules/[id]/route.ts",
