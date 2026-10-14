@@ -43,6 +43,8 @@ export default async function DriverOnboardingPage() {
     registrationNumber: v.registrationNumber,
     vehicleType: v.vehicleType,
     vehicleSubtype: v.vehicleSubtype,
+    // Prisma.Decimal cannot be passed as a server→client component prop.
+    capacityKg: v.capacityKg?.toString() ?? null,
     status: v.status,
     documents: v.documents.map((vd) => ({
       documentType: vd.documentType,
