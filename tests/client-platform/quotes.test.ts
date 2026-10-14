@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     updateMany: vi.fn(),
   },
   deliveryRegion: { findMany: vi.fn() },
+  personalizedDeliveryRate: { findMany: vi.fn() },
   commercialSurcharge: { findMany: vi.fn() },
   pricingQuote: { create: vi.fn(), findFirst: vi.fn() },
   adminActivityLog: { create: vi.fn() },
@@ -57,6 +58,7 @@ const input = {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.commercialSurcharge.findMany.mockResolvedValue([]);
+  mocks.personalizedDeliveryRate.findMany.mockResolvedValue([]);
   mocks.parcelProfileVersion.findMany.mockResolvedValue(["SMALL", "MEDIUM", "LARGE"].map((stableKey) => ({ id: `parcel-${stableKey}`, stableKey, displayName: stableKey, versionNumber: 1, lengthCm: new Prisma.Decimal(20), widthCm: new Prisma.Decimal(20), heightCm: new Prisma.Decimal(20), maximumWeightKg: new Prisma.Decimal(25), sortOrder: 0 })));
   mocks.deliveryServiceDefinition.findMany.mockResolvedValue(
     INITIAL_DELIVERY.map((c, i) => ({
@@ -174,6 +176,25 @@ describe("anonymous client delivery quotations", () => {
       expect.objectContaining({ stableKey: "RAINY_SEASON", versionNumber: 2, value: "0.1" }),
     ]);
     expect(mocks.commercialSurcharge.findMany).toHaveBeenCalledTimes(1);
+  });
+  it("uses only the authenticated account's active personalized rate for a frozen delivery quote", async () => {
+    mocks.personalizedDeliveryRate.findMany.mockResolvedValue([{
+      id:"rate-v2",ownerType:"CUSTOMER",ownerId:"customer-a",
+      serviceKey:"CLIENT_STANDARD",parcelSize:"SMALL",versionNumber:2,
+      baseFee:new Prisma.Decimal("75.00"),perKmRate:new Prisma.Decimal("1.5000"),
+      minimumCharge:null,
+    }]);
+    const quote=await createPublicQuote(input,{ownerType:"CUSTOMER",ownerId:"customer-a"});
+    expect(quote.total).toBe("90.00");
+    expect(quote.personalizedRateApplied).toBe(true);
+    expect(mocks.personalizedDeliveryRate.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where:expect.objectContaining({ownerType:"CUSTOMER",ownerId:"customer-a",serviceKey:"CLIENT_STANDARD",parcelSize:"SMALL",status:"ACTIVE"}),
+    }));
+    const saved=mocks.pricingQuote.create.mock.calls[0][0].data;
+    expect(saved.ruleSnapshot.personalizedRate).toEqual(expect.objectContaining({
+      id:"rate-v2",ownerId:"customer-a",versionNumber:2,
+    }));
+    expect(saved.total.toFixed(2)).toBe("90.00");
   });
   it("keeps the final Standard turnaround separate from future collection", async () => {
     expect((await createPublicQuote(input)).turnaround).toBe(

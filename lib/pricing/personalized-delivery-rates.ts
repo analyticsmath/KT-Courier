@@ -7,8 +7,8 @@ import { z } from "zod";
  * accepted from the customer: checkout prices are calculated exclusively from
  * active versioned configuration, scoped identity and verified routing.
  */
-const money = z.string().regex(/^\\d{1,5}(?:\\.\\d{1,2})?$/);
-const km = z.string().regex(/^\\d{1,4}(?:\\.\\d{1,4})?$/);
+const money = z.string().regex(/^\d{1,5}(?:\.\d{1,2})?$/);
+const km = z.string().regex(/^\d{1,4}(?:\.\d{1,4})?$/);
 export const PersonalizedDeliveryRateCreateSchema = z.object({
   ownerType: z.enum(["CUSTOMER", "STORE"]),
   ownerId: z.string().min(8).max(128),
