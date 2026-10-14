@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
 import { VEHICLE_TYPE_FOR_SUBTYPE, type VehicleSubtype } from "@/lib/driver-operations/vehicle-subtypes";
-import { DocumentStatus, OrderStatus, PrivateMediaOwnerType, PrivateMediaPurpose, VehicleComplianceStatus, VehicleDocumentType, VehicleMediaPurpose, VehicleType, Prisma } from "@/types/db";
+import { DocumentStatus, OrderStatus, PrivateMediaOwnerType, PrivateMediaPurpose, VehicleComplianceStatus, VehicleDocumentType, VehicleMediaPurpose, VehicleType } from "@/types/db";
 
 export class VehicleComplianceError extends Error {
   constructor(public readonly code: string, public readonly status: 400 | 403 | 404 | 409 | 422, message: string) {
