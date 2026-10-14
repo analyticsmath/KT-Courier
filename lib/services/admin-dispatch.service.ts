@@ -30,9 +30,17 @@ export interface DispatchBoardData {
 }
 
 export async function getDispatchBoardData(): Promise<DispatchBoardData> {
+  const activeWhere = {
+    status: { in: ACTIVE_ASSIGNMENT_STATUSES },
+    OR: [
+      { status: "ACCEPTED" as const },
+      { status: "ASSIGNED" as const, expiresAt: { gt: new Date() } },
+      { status: "ASSIGNED" as const, expiresAt: null },
+    ],
+  };
   // Orders assignable but with no active assignment
   const assignedOrderIds = await prisma.orderAssignment.findMany({
-    where: { status: { in: ACTIVE_ASSIGNMENT_STATUSES } },
+    where: activeWhere,
     select: { orderId: true },
   });
   const assignedIds = assignedOrderIds.map((a) => a.orderId);
@@ -54,7 +62,7 @@ export async function getDispatchBoardData(): Promise<DispatchBoardData> {
       take: 50,
     }),
     prisma.orderAssignment.findMany({
-      where: { status: { in: ACTIVE_ASSIGNMENT_STATUSES } },
+      where: activeWhere,
       include: ASSIGNMENT_FULL_INCLUDE,
       orderBy: { assignedAt: "desc" },
       take: 100,
@@ -304,9 +312,17 @@ export async function listOrdersWithAssignmentState(
   filters: AdminOrderListWithAssignmentFilters
 ): Promise<{ data: (OrderSummaryDto & { activeAssignment: AdminAssignmentDto | null })[]; total: number }> {
   const skip = (filters.page - 1) * filters.pageSize;
+  const activeWhere = {
+    status: { in: ACTIVE_ASSIGNMENT_STATUSES },
+    OR: [
+      { status: "ACCEPTED" as const },
+      { status: "ASSIGNED" as const, expiresAt: { gt: new Date() } },
+      { status: "ASSIGNED" as const, expiresAt: null },
+    ],
+  };
 
   const assignedOrderIds = await prisma.orderAssignment.findMany({
-    where: { status: { in: ACTIVE_ASSIGNMENT_STATUSES } },
+    where: activeWhere,
     select: { orderId: true },
   });
   const assignedIds = assignedOrderIds.map((a) => a.orderId);
@@ -346,7 +362,7 @@ export async function listOrdersWithAssignmentState(
         customer: { select: { name: true, email: true } },
         store: { select: { name: true } },
         assignments: {
-          where: { status: { in: ACTIVE_ASSIGNMENT_STATUSES } },
+          where: activeWhere,
           include: ASSIGNMENT_FULL_INCLUDE,
           take: 1,
         },

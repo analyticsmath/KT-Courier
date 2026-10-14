@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DispatchDriverReadiness } from "@/components/admin/DispatchDriverReadiness";
 import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
@@ -25,6 +26,9 @@ export default async function AdminDispatchPage() {
     <div className="grid gap-3 sm:grid-cols-3"><MetricTile label="Unassigned" value={data.counts.unassigned} description="DIRECT_AUTHORITY · assignable orders without active assignment" /><MetricTile label="Active assignments" value={data.counts.assigned} description="DIRECT_AUTHORITY · current active assignment records" /><MetricTile label="Eligible drivers" value={eligibleCount} description="DIRECT_AUTHORITY · existing dispatch eligibility projection" /></div>
     <ProtectedContentGrid contextRail={<OperationalPanel title="Live location" tone="subtle"><ProtectedStatus label="Available in order details" tone="neutral" /><p className="eo-panel-copy">Open an active delivery to view the driver’s approximate GPS after pickup. Assignment and vehicle eligibility remain authoritative even when location is unavailable.</p></OperationalPanel>}>
       <div className="grid gap-5">
+        <OperationalPanel title="Driver readiness" description="Available drivers across configured service regions. Open an order to check its exact region.">
+          <DispatchDriverReadiness drivers={data.eligibleDrivers} />
+        </OperationalPanel>
         <OperationalPanel title="Unassigned orders" description="Open an order to use its region-specific canonical eligible-driver projection.">
           <EditorialTable caption="Unassigned courier orders" mobileMode="stack" rows={data.unassignedOrders} emptyState={<ProtectedState kind="empty" title="No orders await dispatch" description="All currently assignable orders have an active assignment." illustration={<RouteQueueIllustration />} />} columns={[
             { id: "order", header: "Order", priority: "primary", cell: (order) => <div><Link className="eo-table-link" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link><small>{order.pickupCity ?? "Pickup unavailable"} → {order.dropoffCity ?? "Destination unavailable"}</small></div> },

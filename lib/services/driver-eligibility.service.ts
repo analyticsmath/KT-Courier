@@ -3,10 +3,10 @@ import { DriverStatus, DriverAvailability } from "@/types/db";
 import {
   toDispatchDriverDto,
   type DriverEligibilityDto,
-  type EligibilityCategory,
 } from "@/lib/dto/assignment.dto";
 import { ACTIVE_ASSIGNMENT_STATUSES } from "@/lib/constants/assignments";
 import { UserStatus, UserRole } from "@/types/db";
+import { evaluateDriverEligibility } from "@/lib/dispatch/eligibility";
 import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
 
 // ─── Eligibility check for a single driver ────────────────────────────────────
@@ -39,31 +39,7 @@ export async function computeDriverEligibility(
     },
   });
 
-  const base = toDispatchDriverDto(driver);
-  const warnings: string[] = [];
-
-  let regionMatch = false;
-  if (orderDeliveryRegionId) {
-    regionMatch = driver.serviceRegions.some(
-      (sr) => sr.deliveryRegionId === orderDeliveryRegionId
-    );
-    if (!regionMatch) warnings.push("Region mismatch — driver does not cover this order's region");
-  }
-
-  if (!driver.phone) warnings.push("No phone number on file");
-
-  const now = new Date();
-  const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now });
-  if (!compliance.eligible) warnings.push(...compliance.reasons);
-  const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER, compliance.eligible);
-
-  return {
-    ...base,
-    eligibility,
-    regionMatch,
-    activeAssignmentCount: activeCount,
-    warnings,
-  };
+  return projectDriver(driver, orderDeliveryRegionId, activeCount, new Date());
 }
 
 // ─── List eligible drivers for an order ──────────────────────────────────────
@@ -80,10 +56,6 @@ export async function listEligibleDrivers(
   orderDeliveryRegionId: string | null
 ): Promise<EligibleDriversResult> {
   const drivers = await prisma.driverProfile.findMany({
-    where: {
-      status: DriverStatus.ACTIVE,
-      user: { status: UserStatus.ACTIVE, role: UserRole.DRIVER },
-    },
     include: {
       user: true,
       serviceRegions: { include: { deliveryRegion: true } },
@@ -122,31 +94,8 @@ export async function listEligibleDrivers(
   const now = new Date();
   for (const driver of drivers) {
     const activeCount = countMap.get(driver.id) ?? 0;
-    const base = toDispatchDriverDto(driver);
-    const warnings: string[] = [];
-
-    let regionMatch = false;
-    if (orderDeliveryRegionId) {
-      regionMatch = driver.serviceRegions.some(
-        (sr) => sr.deliveryRegionId === orderDeliveryRegionId
-      );
-      if (!regionMatch) warnings.push("Does not cover this order's region");
-    }
-
-    if (!driver.phone) warnings.push("No phone number on file");
-    if (activeCount > 0) warnings.push(`${activeCount} active assignment(s)`);
-
-    const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now });
-    if (!compliance.eligible) warnings.push(...compliance.reasons);
-    const eligibility = computeCategory(driver.status, driver.availability, regionMatch, activeCount, driver.maxConcurrentAssignments, driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER, compliance.eligible);
-
-    const dto: DriverEligibilityDto = {
-      ...base,
-      eligibility,
-      regionMatch,
-      activeAssignmentCount: activeCount,
-      warnings,
-    };
+    const dto = projectDriver(driver, orderDeliveryRegionId, activeCount, now);
+    const eligibility = dto.eligibility;
 
     switch (eligibility) {
       case "RECOMMENDED":
@@ -158,6 +107,7 @@ export async function listEligibleDrivers(
       case "REGION_MISMATCH":
         result.regionMismatch.push(dto);
         break;
+      case "BUSY":
       case "UNAVAILABLE":
         result.unavailable.push(dto);
         break;
@@ -169,46 +119,39 @@ export async function listEligibleDrivers(
   return result;
 }
 
-// ─── Internal: compute eligibility category ───────────────────────────────────
+// Use the same eligibility authority as the assignment mutation. A board with
+// no selected order reports readiness across configured regions; order details
+// still require an exact region match before offering a driver.
+type EligibilityDriver = Parameters<typeof toDispatchDriverDto>[0] & {
+  documents: Parameters<typeof evaluateDispatchComplianceEvidence>[0]["driverDocuments"];
+  vehicles: Parameters<typeof evaluateDispatchComplianceEvidence>[0]["vehicles"];
+};
 
-function computeCategory(
-  status: DriverStatus,
-  availability: DriverAvailability,
-  regionMatch: boolean,
-  activeCount: number,
-  capacity: number,
-  userActive: boolean,
-  complianceEligible: boolean
-): EligibilityCategory {
-  if (!userActive || status !== DriverStatus.ACTIVE || !complianceEligible) return "NOT_ELIGIBLE";
+function projectDriver(driver: EligibilityDriver, regionId: string | null, activeCount: number, now: Date): DriverEligibilityDto {
+  const regionMatch = regionId
+    ? driver.serviceRegions.some(region => region.deliveryRegionId === regionId)
+    : driver.serviceRegions.length > 0;
+  const userActive = driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER;
+  const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now });
+  const result = evaluateDriverEligibility({ userActive, profileActive: driver.status === DriverStatus.ACTIVE, available: driver.availability === DriverAvailability.AVAILABLE, regionMatch, activeLoad: activeCount, capacity: driver.maxConcurrentAssignments, complianceEligible: compliance.eligible });
+  const warnings: string[] = [];
+  if (!userActive) warnings.push("Driver account must be active with the DRIVER role");
+  if (driver.status !== DriverStatus.ACTIVE) warnings.push(`Driver profile is ${driver.status}`);
+  if (!regionMatch) warnings.push(driver.serviceRegions.length ? "Does not cover this order's region" : "No delivery regions configured");
+  if (driver.availability !== DriverAvailability.AVAILABLE) warnings.push(`Driver availability is ${driver.availability}`);
+  if (result.reasons.includes("DRIVER_CAPACITY_REACHED")) warnings.push("Driver has reached assignment capacity");
+  if (activeCount > 0) warnings.push(`${activeCount} active assignment(s)`);
+  if (!driver.phone) warnings.push("No phone number on file");
+  warnings.push(...compliance.reasons);
 
-  if (availability === DriverAvailability.AVAILABLE && regionMatch && activeCount < capacity) {
-    if (activeCount === 0) return "RECOMMENDED";
-    return "AVAILABLE";
-  }
-
-  if (availability === DriverAvailability.AVAILABLE && regionMatch && activeCount === 0) {
-    return "RECOMMENDED";
-  }
-
-  if (availability === DriverAvailability.AVAILABLE && regionMatch) {
-    return "AVAILABLE";
-  }
-
-  if (availability === DriverAvailability.AVAILABLE && !regionMatch) {
-    return "REGION_MISMATCH";
-  }
-
-  if (availability === DriverAvailability.ON_DELIVERY) {
-    return "BUSY";
-  }
-
-  if (
-    availability === DriverAvailability.UNAVAILABLE ||
-    availability === DriverAvailability.OFFLINE
-  ) {
-    return "UNAVAILABLE";
-  }
-
-  return "NOT_ELIGIBLE";
+  const eligibility = !userActive || driver.status !== DriverStatus.ACTIVE || !compliance.eligible
+    ? "NOT_ELIGIBLE"
+    : result.reasons.includes("DRIVER_CAPACITY_REACHED") || driver.availability === DriverAvailability.ON_DELIVERY
+      ? "BUSY"
+      : driver.availability !== DriverAvailability.AVAILABLE
+        ? "UNAVAILABLE"
+        : !regionMatch
+          ? "REGION_MISMATCH"
+          : regionId && activeCount === 0 ? "RECOMMENDED" : "AVAILABLE";
+  return { ...toDispatchDriverDto(driver), eligibility, regionMatch, activeAssignmentCount: activeCount, warnings };
 }

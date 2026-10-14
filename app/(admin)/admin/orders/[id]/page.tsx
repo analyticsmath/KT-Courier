@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminOrderStatusUpdate } from "@/components/admin/AdminOrderStatusUpdate";
+import { DispatchDriverReadiness } from "@/components/admin/DispatchDriverReadiness";
 import { AdminAssignmentActions } from "@/components/protected-v2/admin/AdminAssignmentActions";
 import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
 import { ActivityTimeline } from "@/components/protected-v2/feedback/ActivityTimeline";
@@ -38,7 +39,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   ]);
   const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
-  const candidates = eligible ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
+  const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
   const orderState = presentOrderStatus(order.status);
 
   return <ProtectedPageFrame>
@@ -59,6 +60,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         <OperationalPanel title="Assignment" description="Eligibility, region compatibility, availability, audit, and version conflicts remain server-authoritative.">
           {activeAssignment ? <div className="eo-assignment-summary"><div><strong>{activeAssignment.driverDisplayName ?? activeAssignment.driverCode}</strong><p>{activeAssignment.driverCode} · {activeAssignment.vehicleType ?? "Vehicle not recorded"}</p></div><ProtectedStatus {...(() => { const state = presentAssignmentStatus(activeAssignment.status); return { label: state.label, tone: state.tone }; })()} /></div> : <ProtectedState kind="unavailable" title="No active assignment" description="The order has no active assignment in the canonical dispatch projection." />}
           <div className="mt-4"><AdminAssignmentActions orderId={id} assignment={activeAssignment ? { id: activeAssignment.id, driverProfileId: activeAssignment.driverProfileId, version: activeAssignment.version } : null} candidates={candidates} canAssign={canAssign} canReassign={canReassign} /></div>
+          {!order.deliveryRegionId ? <p role="status" className="mt-3">This order has no matched delivery region. Resolve its coverage before assigning a driver.</p> : null}
+          {eligible ? <div className="mt-4"><DispatchDriverReadiness drivers={eligible} /></div> : null}
           {assignmentHistory.length ? <ActivityTimeline ariaLabel="Assignment history" items={assignmentHistory.map((assignment) => { const state = presentAssignmentStatus(assignment.status); return { id: assignment.id, title: `${assignment.driverDisplayName ?? assignment.driverCode} — ${state.label}`, description: assignment.cancellationReason ?? assignment.rejectionReason ?? undefined, timestamp: formatDateTime(assignment.assignedAt), tone: state.tone }; })} /> : null}
         </OperationalPanel>
 

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db/prisma";
+import { evaluateDispatchComplianceEvidence } from "../lib/services/vehicle-compliance.service";
 
 export async function reviewedProtectedRowAudit() {
   const report: Record<string, unknown> = { event: "kt_reviewed_production_evidence", at: new Date().toISOString(), readOnly: true };
@@ -7,6 +8,22 @@ export async function reviewedProtectedRowAudit() {
     await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
     const identity = await tx.$queryRaw<Array<{ database: string; role: string; transactionReadOnly: string }>>`SELECT current_database() AS database, current_user AS role, current_setting('transaction_read_only') AS "transactionReadOnly"`;
     report.database = identity[0];
+    const drivers = await tx.driverProfile.findMany({
+      select: { status: true, availability: true, user: { select: { role: true, status: true } }, serviceRegions: { select: { deliveryRegionId: true } }, documents: { select: { documentType: true, status: true, expiresAt: true } }, vehicles: { where: { status: "APPROVED", archivedAt: null }, select: { id: true, documents: { select: { documentType: true, status: true, expiresAt: true } } } } },
+    });
+    // Aggregate operational blockers only: never export identity, private media,
+    // registration numbers, document contents or customer/order data.
+    const blockers: Record<string, number> = {};
+    for (const driver of drivers) {
+      const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles });
+      const reasons = [...compliance.reasons];
+      if (driver.status !== "ACTIVE") reasons.push("DRIVER_PROFILE_INACTIVE");
+      if (driver.user.status !== "ACTIVE" || driver.user.role !== "DRIVER") reasons.push("DRIVER_USER_INACTIVE");
+      if (driver.availability !== "AVAILABLE") reasons.push("DRIVER_UNAVAILABLE");
+      if (!driver.serviceRegions.length) reasons.push("NO_SERVICE_REGIONS");
+      for (const reason of reasons) blockers[reason] = (blockers[reason] ?? 0) + 1;
+    }
+    report.driverReadiness = { profileCount: drivers.length, blockers };
     const protectedRows: Record<string, unknown> = {};
     for (const name of ["User", "Store", "Address", "Order", "Payment", "MarketplaceOrder", "MarketplaceStoreOrder", "CashOnDelivery", "PrivateMediaObject", "StoreEarning", "DriverProfile", "LedgerAccount", "CatalogProduct", "CatalogProductVariant", "CatalogCategory", "CatalogMediaAsset", "StorefrontProductDocument"]) {
       const rows = await tx.$queryRawUnsafe<Record<string, unknown>[]>('SELECT count(*)::int AS count,encode(sha256(convert_to(COALESCE(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),\'\'),\'UTF8\')),\'hex\') AS hash FROM "' + name + '" t');
