@@ -14325,6 +14325,30 @@ model DriverDeliveryResponsibilityReport {
   @@index([orderId, requiresReview])
 }
 
+model PersonalizedDeliveryRate {
+  id              String                @id @default(cuid())
+  ownerType       PricingQuoteOwnerType
+  ownerId         String
+  serviceKey      String
+  parcelSize      String
+  versionNumber   Int
+  status          String                @default("DRAFT")
+  baseFee         Decimal               @db.Decimal(12, 2)
+  perKmRate       Decimal               @db.Decimal(12, 4)
+  minimumCharge   Decimal?              @db.Decimal(12, 2)
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  reason          String
+  createdByUserId String
+  activatedByUserId String?
+  activatedAt     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([ownerType, ownerId, serviceKey, parcelSize, versionNumber])
+  @@index([ownerType, ownerId, serviceKey, parcelSize, status, effectiveFrom])
+}
+
 model CommercialSurcharge {
   id              String                             @id @default(cuid())
   stableKey       String
