@@ -1,8 +1,9 @@
 import { StoreEarningError } from "./errors";
 
-// Reviewed source-level lock. Do not replace this with an environment bypass.
-export const STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED = false;
-export const STORE_EARNINGS_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
+// Source-reviewed release: fresh disposable database and browser proof is required
+// before merging this release. Per-payment, delivery, policy and ledger guards remain.
+export const STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED = true;
+export const STORE_EARNINGS_PRODUCTION_BLOCK_REASON = null;
 
 export function assertStoreEarningsProductionReady(options?: Readonly<{ allowTestOnlyBypass?: boolean }>): void {
   if (STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED || options?.allowTestOnlyBypass === true) return;

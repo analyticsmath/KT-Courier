@@ -18,9 +18,11 @@ export function assertStoreEarningReversalPolicy(input: Readonly<{
   reversalLedgerJournalId: string | null;
   commissionTreatmentCoherent: boolean;
   reviewedReconciliation: boolean;
+  reconciliationCases: readonly Readonly<{ reason: string; status: string }>[];
 }>): void {
   const stateAllowed = input.status === "ACCRUED" || (input.status === "RECONCILIATION_REQUIRED" && input.reviewedReconciliation);
-  if (!stateAllowed || !input.releasedAmount.isZero() || !input.refundReservedAmount.isZero() || !input.remainingAmount.greaterThan(0) || input.releaseLedgerJournalId || input.reversalLedgerJournalId || !input.commissionTreatmentCoherent) {
+  const hasUnresolvedCase = input.reconciliationCases.some((record) => (record.status === "OPEN" || record.status === "MONITORING") && record.reason !== "REVERSAL_BLOCKED_BY_COMMISSION");
+  if (!stateAllowed || hasUnresolvedCase || !input.releasedAmount.isZero() || !input.refundReservedAmount.isZero() || !input.remainingAmount.greaterThan(0) || input.releaseLedgerJournalId || input.reversalLedgerJournalId || !input.commissionTreatmentCoherent) {
     throw new StoreEarningError("STORE_EARNING_REVERSAL_NOT_ALLOWED", "Store earning cannot be reversed while downstream, refund, or commission evidence is unresolved.");
   }
 }

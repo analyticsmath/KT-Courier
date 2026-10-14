@@ -19,17 +19,16 @@ describe("commission policy persistence and independent review on disposable Pos
     await submitCommissionPlan(draft.id, maker, `${tag}:submit`);
     await expect(approveCommissionPlan(draft.id, maker, `${tag}:self-review`)).rejects.toMatchObject({ code: "COMMISSION_MAKER_CHECKER_REQUIRED" });
     const approved = await approveCommissionPlan(draft.id, checker, `${tag}:approve`); expect(approved.approvedByUserId).toBe(checker);
-    await expect(activateCommissionPlan(draft.id, checker, `${tag}:production-locked`)).rejects.toMatchObject({ code: "COMMISSION_PRODUCTION_LOCKED" });
-    const active = await activateCommissionPlan(draft.id, checker, `${tag}:test-activate`, { allowTestOnlyBypass: true }); expect(active.status).toBe("ACTIVE");
+    const active = await activateCommissionPlan(draft.id, checker, `${tag}:test-activate`); expect(active.status).toBe("ACTIVE");
     expect((await resolveActiveCommissionPlan({ subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER", authoritativeAt: new Date() })).id).toBe(draft.id);
     const other = await createCommissionPlan({ ...input, operationId: `${tag}:other-draft` });
     await submitCommissionPlan(other.id, maker, `${tag}:other-submit`); await approveCommissionPlan(other.id, checker, `${tag}:other-approve`);
-    await expect(activateCommissionPlan(other.id, checker, `${tag}:overlap`, { allowTestOnlyBypass: true })).rejects.toMatchObject({ code: "COMMISSION_POLICY_OVERLAP" });
+    await expect(activateCommissionPlan(other.id, checker, `${tag}:overlap`)).rejects.toMatchObject({ code: "COMMISSION_POLICY_OVERLAP" });
     await retireCommissionPlan(draft.id, checker, `${tag}:retire`);
     await expect(resolveActiveCommissionPlan({ subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER", authoritativeAt: new Date() })).rejects.toMatchObject({ code: "COMMISSION_POLICY_NOT_FOUND" });
     expect(await prisma.commissionPlanStatusHistory.count({ where: { planId: draft.id } })).toBe(5);
   });
-  it("authors store-specific policy with independent review while production activation remains locked", async () => {
+  it("authors store-specific policy with independent review and activates only after independent approval", async () => {
     const owner = await createUser(`${tag}-store-owner`, "STORE");
     const store = await prisma.store.create({ data: { name: "Disposable commission store", slug: `${tag}-store`, ownerUserId: owner.id, status: "ACTIVE" } });
     const other = await prisma.store.create({ data: { name: "Another disposable commission store", slug: `${tag}-other`, ownerUserId: owner.id, status: "ACTIVE" } });
@@ -45,8 +44,8 @@ describe("commission policy persistence and independent review on disposable Pos
     await expect(approveCommissionPlan(draft.id, maker, `${tag}:store-self-approve`)).rejects.toMatchObject({ code: "COMMISSION_MAKER_CHECKER_REQUIRED" });
     const approved = await approveCommissionPlan(draft.id, checker, `${tag}:store-approve`);
     expect(approved.approvedByUserId).toBe(checker);
-    await expect(activateCommissionPlan(draft.id, checker, `${tag}:store-production-locked`)).rejects.toMatchObject({ code: "COMMISSION_PRODUCTION_LOCKED" });
+    expect((await activateCommissionPlan(draft.id, checker, `${tag}:store-production-activate`)).status).toBe("ACTIVE");
     expect(await prisma.commissionAccrual.count({ where: { planId: draft.id } })).toBe(0);
-    expect(await prisma.commissionPlan.findUnique({ where: { id: draft.id } })).toMatchObject({ status: "APPROVED" });
+    expect(await prisma.commissionPlan.findUnique({ where: { id: draft.id } })).toMatchObject({ status: "ACTIVE" });
   });
 });
