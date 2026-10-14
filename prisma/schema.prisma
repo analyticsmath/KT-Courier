@@ -1331,6 +1331,7 @@ model Vehicle {
   colour             String?
   registrationNumber String
   vehicleType        VehicleType
+  vehicleSubtype     String?                @db.VarChar(32)
   capacityKg         Decimal?                @db.Decimal(12, 3)
   status             VehicleComplianceStatus @default(PENDING_REVIEW)
   approvedAt         DateTime?
