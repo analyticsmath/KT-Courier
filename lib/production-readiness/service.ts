@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { checkReadiness } from "@/lib/health/checks";
 import { getIntegrationRegistry } from "@/lib/security/integration-registry";
 import { regionBoundaryIssues } from "@/lib/maps/region-boundaries";
+import { evaluateCoverageEvidence } from "./coverage-evidence";
 import { getActiveParcelProfiles } from "@/lib/commercial/configuration.service";
 import { usableParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
@@ -51,9 +52,9 @@ export async function getProductionReadiness() {
     return capability("courier_services", count ? "READY" : "BLOCKED_CONFIGURATION", count ? "ACTIVE_SERVICES" : "NO_ACTIVE_SERVICE", "Current effective courier service definitions.", "OPERATIONS", { activeCount: count });
   });
   await probe("operational_coverage", async () => {
-    const regions = await prisma.deliveryRegion.findMany({ where: { active: true, pricingEnabled: true }, select: { id: true, province: true, centerLat: true, centerLng: true, coverageRadiusKm: true, maxDistanceKm: true } });
-    const invalid = regions.filter((r) => regionBoundaryIssues(r).length);
-    return capability("operational_coverage", regions.length && !invalid.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", invalid.length ? "REGION_BOUNDARIES_INCOMPLETE" : regions.length ? "BOUNDARIES_CONFIGURED" : "NO_OPERATIONAL_REGION", "Operations must supply complete boundaries for active pricing regions.", "OPERATIONS", { activeCount: regions.length, incompleteRegionIds: invalid.map((r) => r.id), missingFields: invalid.map((r) => `${r.id}: ${regionBoundaryIssues(r).join(", ")}`) });
+    const regions = await prisma.deliveryRegion.findMany({ where: { active: true, pricingEnabled: true }, select: { id: true, coverageMode: true, province: true, centerLat: true, centerLng: true, coverageRadiusKm: true, maxDistanceKm: true } });
+    const coverage = evaluateCoverageEvidence(regions);
+    return capability("operational_coverage", coverage.ready ? "READY" : "BLOCKED_EXTERNAL_INPUT", coverage.ready ? "BOUNDARIES_CONFIGURED" : regions.length ? "REGION_BOUNDARIES_INCOMPLETE" : "NO_OPERATIONAL_REGION", "Every active province requires a usable pricing region. Incomplete overlapping regions remain visible for operations review.", "OPERATIONS", { activeCount: regions.length, usableCount: coverage.usable.length, unavailableProvinces: coverage.unavailableProvinces, incompleteRegionIds: coverage.incomplete.map((r) => r.id), missingFields: coverage.incomplete.map((r) => `${r.id}: ${regionBoundaryIssues(r).join(", ")}`) });
   });
   await probe("parcel_profiles", async () => {
     const profiles = usableParcelProfiles(await getActiveParcelProfiles(now));
