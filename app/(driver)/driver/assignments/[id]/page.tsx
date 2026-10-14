@@ -1,5 +1,6 @@
 "use client";
 import { DriverDeliveryEvidencePanel } from "@/components/driver/DriverDeliveryEvidencePanel";
+import { DriverLiveLocationSharing } from "@/components/driver/DriverLiveLocationSharing";
 import { Conversations } from "@/components/forms/Conversations";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -853,6 +854,12 @@ export default function DriverAssignmentDetailPage() {
           )}
 
           {locationStatus && <p className="text-xs text-[var(--kt-text-muted)]" role="status">{locationStatus}</p>}
+          {["PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
+            <DriverLiveLocationSharing
+              assignmentId={id}
+              assignmentVersion={assignment.version}
+            />
+          )}
           {["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
             <div className="mb-3">
               <Button variant="ghost" onClick={handleRecordLocation} disabled={locationRecording}>
