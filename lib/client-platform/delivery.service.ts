@@ -8,6 +8,7 @@ import { regionRouteLimitKm } from "@/lib/maps/region-boundaries";
 import { calculateRoute } from "@/lib/maps/routes.service";
 import { getPricingConfiguration } from "@/lib/pricing/config";
 import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
+import { activeCommercialSurcharges, commercialSurchargeSnapshot } from "@/lib/commercial/configuration.service";
 import { calculateDeliveryPrice } from "@/lib/pricing/calculator";
 import {
   hashPricingInput,
@@ -256,6 +257,13 @@ export async function createPublicQuote(input: PublicQuoteInput) {
     volumetricDivisor: null,
     maxDistanceKm: routeLimits.length ? d(Math.min(...routeLimits)) : null,
   };
+  // Honor effective, admin-controlled delivery surcharges (including service
+  // and destination-region rules) in the same authoritative guest quote shown
+  // at booking. No separately invented per-km prices or percentage defaults.
+  const configuredSurcharges = await activeCommercialSurcharges({
+    serviceKey: selected.stableKey,
+    regionId: zones[1].regionId,
+  });
   const calculation = calculateDeliveryPrice({
     input: {
       deliveryType: bookingInput.deliveryType,
@@ -274,6 +282,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
     },
     taxConfig: config.tax,
     calculationVersion: VERSION,
+    configuredSurcharges,
   });
   const snapshot = pricingInputSnapshot(bookingInput);
   const owner = await guestQuoteOwner(true);
@@ -308,6 +317,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
         turnaround: selected.turnaround,
         bookingInput,
         routeSummary: route.route.routeSummary,
+        commercialSurcharges: commercialSurchargeSnapshot(configuredSurcharges),
       },
       distanceMeters: route.route.distanceMeters,
       durationSeconds: route.route.durationSeconds,
