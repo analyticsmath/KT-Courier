@@ -389,7 +389,7 @@ export async function adminChangeAvailability(
 
   const updated = await prisma.driverProfile.update({
     where: { id },
-    data: { availability },
+    data: { availability, availabilityUpdatedAt: new Date(), availabilityRevision: { increment: 1 } },
     include: {
       user: true,
       serviceRegions: {

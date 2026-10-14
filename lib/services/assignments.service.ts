@@ -34,6 +34,11 @@ export async function findActiveAssignment(orderId: string) {
     where: {
       orderId,
       status: { in: ACTIVE_ASSIGNMENT_STATUSES },
+      OR: [
+        { status: "ACCEPTED" },
+        { status: "ASSIGNED", expiresAt: { gt: new Date() } },
+        { status: "ASSIGNED", expiresAt: null },
+      ],
     },
     include: ASSIGNMENT_FULL_INCLUDE,
   });

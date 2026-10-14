@@ -2,8 +2,52 @@ import { describe, expect, it } from "vitest";
 import { OrderAssignmentEventType, OrderAssignmentStatus, OrderStatus, UserRole } from "@/types/db";
 import { acceptDispatchAssignment, offerAssignment, reassignDispatchOrder, unassignDispatchOrder } from "@/lib/services/dispatch-assignment.service";
 import { createDispatchOrder, createDriver, createRegion, createUser, integrationPrisma, uniqueTag } from "./phase7-5-fixtures";
+import { listEligibleDrivers } from "@/lib/services/driver-eligibility.service";
+import { getDispatchBoardData, getOrderActiveAssignment, listOrdersWithAssignmentState } from "@/lib/services/admin-dispatch.service";
+import { adminChangeAvailability } from "@/lib/services/admin-drivers.service";
+import { updateOwnAvailability } from "@/lib/services/driver-profile.service";
 
 describe("Phase 7.5 live dispatch lifecycle", () => {
+  it("prevents stale driver availability from overwriting an administrator's decision", async () => {
+    const tag = uniqueTag("dispatch-availability");
+    const admin = await createUser(`${tag}-admin`, UserRole.ADMIN);
+    const region = await createRegion(tag);
+    const driver = await createDriver(`${tag}-driver`, region.id);
+    await adminChangeAvailability(admin.id, driver.profile.id, "UNAVAILABLE");
+    const current = await integrationPrisma.driverProfile.findUniqueOrThrow({ where: { id: driver.profile.id } });
+    expect(current.availabilityRevision).toBe(driver.profile.availabilityRevision + 1);
+    expect(current.availabilityUpdatedAt).not.toBeNull();
+    await expect(updateOwnAvailability(driver.user.id, "AVAILABLE", driver.profile.availabilityRevision)).rejects.toThrow("DRIVER_AVAILABILITY_STALE");
+    expect((await integrationPrisma.driverProfile.findUniqueOrThrow({ where: { id: driver.profile.id } })).availability).toBe("UNAVAILABLE");
+    await updateOwnAvailability(driver.user.id, "AVAILABLE", current.availabilityRevision);
+    expect((await listEligibleDrivers(region.id)).recommended.some(item => item.id === driver.profile.id)).toBe(true);
+  });
+
+  it("projects a compliant driver on the board and excludes full or unreviewed drivers from order choices", async () => {
+    const tag = uniqueTag("dispatch-projection");
+    const admin = await createUser(`${tag}-admin`, UserRole.ADMIN);
+    const customer = await createUser(`${tag}-customer`, UserRole.CUSTOMER);
+    const region = await createRegion(tag);
+    const driver = await createDriver(`${tag}-driver`, region.id);
+    const order = await createDispatchOrder(tag, customer.id, region.id);
+    expect((await listEligibleDrivers(null)).available.some(item => item.id === driver.profile.id)).toBe(true);
+    expect((await listEligibleDrivers(region.id)).recommended.some(item => item.id === driver.profile.id)).toBe(true);
+    const offer = await offerAssignment(admin.id, order.id, { driverProfileId: driver.profile.id, reasonCode: "INITIAL" });
+    const full = await listEligibleDrivers(region.id);
+    expect([...full.recommended, ...full.available].some(item => item.id === driver.profile.id)).toBe(false);
+    expect(full.unavailable.find(item => item.id === driver.profile.id)?.warnings).toContain("Driver has reached assignment capacity");
+    await integrationPrisma.orderAssignment.update({ where: { id: offer.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    expect((await listEligibleDrivers(region.id)).recommended.some(item => item.id === driver.profile.id)).toBe(true);
+    expect(await getOrderActiveAssignment(order.id)).toBeNull();
+    expect((await getDispatchBoardData()).unassignedOrders.some(item => item.id === order.id)).toBe(true);
+    const queue = await listOrdersWithAssignmentState({ assignmentFilter: "unassigned", search: order.orderNumber, page: 1, pageSize: 10 });
+    expect(queue.data.find(item => item.id === order.id)?.activeAssignment).toBeNull();
+    await integrationPrisma.driverDocument.updateMany({ where: { driverProfileId: driver.profile.id, documentType: "LICENSE" }, data: { status: "SUBMITTED" } });
+    const unreviewed = await listEligibleDrivers(region.id);
+    expect(unreviewed.notEligible.find(item => item.id === driver.profile.id)?.warnings).toContain("DRIVER_DOCUMENT_LICENSE_INVALID");
+    expect([...unreviewed.recommended, ...unreviewed.available].some(item => item.id === driver.profile.id)).toBe(false);
+  });
+
   it("keeps the accepted-driver pointer and pricing snapshot consistent through accept, reassign, and unassign", async () => {
     const tag = uniqueTag("dispatch-lifecycle");
     const admin = await createUser(`${tag}-admin`, UserRole.ADMIN);
