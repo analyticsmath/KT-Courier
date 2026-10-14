@@ -114,7 +114,7 @@ export function CustomerOrderRecords({ orders }: { orders: readonly OrderSummary
           rows={orders}
           mobileMode="priority"
           columns={[
-            { id: "reference", header: "Delivery", priority: "primary", cell: (order) => <Link className={styles.reference} href={`/account/orders/${order.id}`}>{order.orderNumber}</Link> },
+            { id: "reference", header: "Tracking number", priority: "primary", cell: (order) => <Link className={styles.reference} href={`/account/orders/${order.id}`}>{order.orderNumber}</Link> },
             { id: "status", header: "Status", priority: "primary", cell: (order) => { const status = getCustomerOrderStatus(order.status); return <ProtectedStatus label={status.label} tone={status.tone} />; } },
             { id: "route", header: "Route", priority: "secondary", cell: (order) => `${order.pickupCity ?? order.pickupSummary} to ${order.dropoffCity ?? order.dropoffSummary}` },
             { id: "date", header: "Updated", priority: "secondary", cell: (order) => formatCustomerDateTime(order.updatedAt) ?? "—" },
@@ -157,7 +157,7 @@ export function CustomerOrderDetail({
     return { id: event.id, title: presentation.label, description: event.note ?? presentation.description, timestamp: formatCustomerDateTime(event.createdAt) ?? undefined, tone: presentation.tone };
   });
   return (
-    <CustomerPage eyebrow="Delivery" title={order.orderNumber} description={`${deliveryType} · Requested ${formatCustomerDateTime(order.createdAt) ?? "—"}`} actions={<div className={styles.actions}><CustomerAction href="/account/orders">Back to deliveries</CustomerAction><CustomerAction href={`/account/request-delivery?repeatFrom=${order.id}`}>Create similar</CustomerAction>{paymentAction}</div>}>
+    <CustomerPage eyebrow="Delivery" title={order.orderNumber} description={`Tracking number · ${deliveryType} · Requested ${formatCustomerDateTime(order.createdAt) ?? "—"}`} actions={<div className={styles.actions}><CustomerAction href="/account/orders">Back to deliveries</CustomerAction><CustomerAction href={`/account/request-delivery?repeatFrom=${order.id}`}>Create similar</CustomerAction>{paymentAction}</div>}>
       <OperationalPanel title="Current progress">
         <div className={styles.activeDelivery}>
           <div className={styles.activeDeliveryHead}><div><ProtectedStatus label={status.label} tone={status.tone} /><p className={styles.statusCopy}>{status.description}</p></div>{cancelAction}</div>
@@ -170,6 +170,7 @@ export function CustomerOrderDetail({
       </div>
       <OperationalPanel title="Delivery details">
         <dl className={styles.details}>
+          <div><dt>Tracking number</dt><dd><strong className={styles.reference}>{order.orderNumber}</strong></dd></div>
           <div><dt>Service</dt><dd>{deliveryType}</dd></div>
           <div><dt>Parcels</dt><dd>{order.parcelCount}</dd></div>
           {order.parcelDescription ? <div><dt>Description</dt><dd>{order.parcelDescription}</dd></div> : null}

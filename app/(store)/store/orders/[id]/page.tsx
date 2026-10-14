@@ -71,7 +71,7 @@ export default async function StoreOrderDetailPage({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <ProtectedStatus label={order.status.replaceAll("_", " ")} />
           <p className="text-sm text-[var(--eo-text-secondary)]">
-            This is a store-created courier request, not a marketplace
+            Tracking number: <strong>{order.orderNumber}</strong>. This is a store-created courier request, not a marketplace
             fulfilment order.
           </p>
         </div>
