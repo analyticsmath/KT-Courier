@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     updateMany: vi.fn(),
   },
   deliveryRegion: { findMany: vi.fn() },
+  commercialSurcharge: { findMany: vi.fn() },
   pricingQuote: { create: vi.fn(), findFirst: vi.fn() },
   adminActivityLog: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -55,6 +56,7 @@ const input = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.commercialSurcharge.findMany.mockResolvedValue([]);
   mocks.parcelProfileVersion.findMany.mockResolvedValue(["SMALL", "MEDIUM", "LARGE"].map((stableKey) => ({ id: `parcel-${stableKey}`, stableKey, displayName: stableKey, versionNumber: 1, lengthCm: new Prisma.Decimal(20), widthCm: new Prisma.Decimal(20), heightCm: new Prisma.Decimal(20), maximumWeightKg: new Prisma.Decimal(25), sortOrder: 0 })));
   mocks.deliveryServiceDefinition.findMany.mockResolvedValue(
     INITIAL_DELIVERY.map((c, i) => ({
@@ -154,6 +156,25 @@ describe("anonymous client delivery quotations", () => {
       ).toBe("PARCEL_DOCUMENT");
     },
   );
+  it("includes a configured active destination/service surcharge in a personalized public quote", async () => {
+    mocks.commercialSurcharge.findMany.mockResolvedValue([{
+      id: "surcharge-rain-1", stableKey: "RAINY_SEASON",
+      versionNumber: 2, calculationType: "PERCENTAGE",
+      value: new Prisma.Decimal("0.10"),
+      reason: "Heavy rain surcharge", customerMessage: "Heavy rain delivery surcharge",
+      priority: 1, serviceScope: ["CLIENT_STANDARD"], regionScope: ["region-a"], moduleScope: [],
+    }]);
+    const quote = await createPublicQuote(input);
+    expect(quote.total).toBe("141.90");
+    expect(quote.lineItems).toContainEqual(expect.objectContaining({
+      label: "Heavy rain delivery surcharge", amount: "12.90",
+    }));
+    const persisted = mocks.pricingQuote.create.mock.calls[0][0].data;
+    expect(persisted.metadata.commercialSurcharges).toEqual([
+      expect.objectContaining({ stableKey: "RAINY_SEASON", versionNumber: 2, value: "0.1" }),
+    ]);
+    expect(mocks.commercialSurcharge.findMany).toHaveBeenCalledTimes(1);
+  });
   it("keeps the final Standard turnaround separate from future collection", async () => {
     expect((await createPublicQuote(input)).turnaround).toBe(
       "1–2 business days",

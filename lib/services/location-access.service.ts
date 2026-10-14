@@ -26,8 +26,10 @@ export async function resolveLocationAccess(input: { actorUserId: string; actorR
     select: { storeOrder: { select: { storeId: true, store: { select: { ownerUserId: true } } } } },
   }) : null;
   const storeId = order.storeId ?? linked?.storeOrder?.storeId ?? null;
-  const ownerId = order.store?.ownerUserId ?? linked?.storeOrder?.store?.ownerUserId ?? null;
-  const storeOwner = Boolean(storeId) && ownerId === input.actorUserId;
+  const storeOwner = Boolean(storeId) && (
+    order.store?.ownerUserId === input.actorUserId ||
+    linked?.storeOrder?.store?.ownerUserId === input.actorUserId
+  );
   let storeEmployee = false;
   if (!admin && !customer && !storeOwner && storeId && ["STORE", "CUSTOMER"].includes(input.actorRole)) {
     const membership = await client.storeEmployeeMembership.findFirst({
