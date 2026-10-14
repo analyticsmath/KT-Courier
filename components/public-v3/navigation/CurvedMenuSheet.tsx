@@ -168,6 +168,15 @@ export function CurvedMenuSheet({
             </li>
             <li>
               <Link
+                href="/track"
+                onClick={onClose}
+                className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
+              >
+                Track a delivery
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/about"
                 onClick={onClose}
                 className="hover:text-[var(--kt-public-interactive-text)] transition-colors block"
