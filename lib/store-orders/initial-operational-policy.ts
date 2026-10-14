@@ -26,10 +26,10 @@ export async function prepareInitialStoreOrderOperationalPolicy(actorUserId: str
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"kt-launch-store-order-policy-draft-v1"}))`;
     const prior = await tx.storeOrderOperationalPolicy.findFirst({ select: { id: true } });
     if (prior) return { draftPrepared: false, existingPolicyPreserved: true, activated: false };
-    const proposal = operationalPolicyBounds(INITIAL_STORE_ORDER_POLICY_PROPOSAL);
+    operationalPolicyBounds(INITIAL_STORE_ORDER_POLICY_PROPOSAL);
     const row = await tx.storeOrderOperationalPolicy.create({
       data: {
-        ...proposal,
+        ...INITIAL_STORE_ORDER_POLICY_PROPOSAL,
         publicReference: `sopolicy_${randomUUID().replaceAll("-", "")}`,
         status: "DRAFT",
         timeoutOutcome: "REJECT_AND_REFUND",
