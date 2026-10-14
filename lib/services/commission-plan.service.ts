@@ -78,17 +78,21 @@ function normalizedDraft(input: PlanDraftInput) {
 
 const planInclude = { rules: { orderBy: { priority: "asc" as const } }, createdBy: { select: { id: true, name: true, email: true } }, submittedBy: { select: { id: true, name: true, email: true } }, approvedBy: { select: { id: true, name: true, email: true } } } satisfies Prisma.CommissionPlanInclude;
 
-export async function createCommissionPlan(input: PlanDraftInput & Readonly<{ actorUserId: string; operationId: string }>) {
+export type CommissionPlanDraftCommand = PlanDraftInput & Readonly<{ actorUserId: string; operationId: string }>;
+
+/** Reuses canonical validation when an audited initializer already owns the transaction. */
+export async function createCommissionPlanDraftInTransaction(tx: Prisma.TransactionClient, input: CommissionPlanDraftCommand) {
   const draft = normalizedDraft(input);
-  const result = await prisma.$transaction(async (tx) => {
-    if (draft.subjectType === "MARKETPLACE_STORE_ORDER") {
-      const store = await tx.store.findUnique({ where: { id: draft.scopeKey.slice("STORE:".length) }, select: { id: true, status: true } });
-      if (!store || store.status !== "ACTIVE") throw new CommissionError("COMMISSION_INVALID_PLAN", "The commission scope must identify an active marketplace store.");
-    }
-    const latest = await tx.commissionPlan.aggregate({ where: { subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR" }, _max: { versionNumber: true } });
-    return tx.commissionPlan.create({ data: { publicReference: ref("CP"), subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR", versionNumber: (latest._max.versionNumber ?? 0) + 1, status: "DRAFT", basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, createdByUserId: input.actorUserId, calculationVersion: draft.calculationVersion, rules: { create: draft.rules }, statusHistory: { create: { fromStatus: null, toStatus: "DRAFT", actorUserId: input.actorUserId, operationId: input.operationId, reasonCode: "PLAN_CREATED" } } }, include: planInclude });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-  return result;
+  if (draft.subjectType === "MARKETPLACE_STORE_ORDER") {
+    const store = await tx.store.findUnique({ where: { id: draft.scopeKey.slice("STORE:".length) }, select: { id: true, status: true } });
+    if (!store || store.status !== "ACTIVE") throw new CommissionError("COMMISSION_INVALID_PLAN", "The commission scope must identify an active marketplace store.");
+  }
+  const latest = await tx.commissionPlan.aggregate({ where: { subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR" }, _max: { versionNumber: true } });
+  return tx.commissionPlan.create({ data: { publicReference: ref("CP"), subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR", versionNumber: (latest._max.versionNumber ?? 0) + 1, status: "DRAFT", basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, createdByUserId: input.actorUserId, calculationVersion: draft.calculationVersion, rules: { create: draft.rules }, statusHistory: { create: { fromStatus: null, toStatus: "DRAFT", actorUserId: input.actorUserId, operationId: input.operationId, reasonCode: "PLAN_CREATED" } } }, include: planInclude });
+}
+
+export async function createCommissionPlan(input: CommissionPlanDraftCommand) {
+  return prisma.$transaction(tx => createCommissionPlanDraftInTransaction(tx, input), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
 export async function updateDraftCommissionPlan(planId: string, input: PlanDraftInput & Readonly<{ actorUserId: string; expectedVersion: number }>) {
