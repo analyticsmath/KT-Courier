@@ -7,6 +7,7 @@ import { accrueStoreEarning } from "@/lib/services/store-earning-accrual.service
 import { releaseStoreEarning } from "@/lib/services/store-earning-release.service";
 import { reverseStoreEarning } from "@/lib/services/store-earning-reversal.service";
 import { getStoreEarningForOwner } from "@/lib/services/store-earning-query.service";
+import { createStoreEarningReconciliation } from "@/lib/services/store-earning-reconciliation.service";
 
 async function accrued() {
   const source = await createDisposableStoreSettlement();
@@ -64,6 +65,20 @@ describe("canonical store accrual/release on isolated PostgreSQL", () => {
     await prisma.store.update({ where: { id: source.store.id }, data: { status: "SUSPENDED" } });
     await expect(releaseStoreEarning(command)).rejects.toMatchObject({ code: "STORE_EARNING_RELEASE_NOT_ELIGIBLE" });
     expect(await balances(source)).toEqual({ payable: "100.25", withdrawable: "0.00" });
+  });
+  it("refuses reversal for open and monitored failures while the earning still says accrued", async () => {
+    const { source, earning } = await accrued();
+    const incident = await createStoreEarningReconciliation({ caseKey: `${source.tag}:application-failure`, storeEarningId: earning.id, reason: "APPLICATION_FAILURE", safeSummary: "Synthetic unresolved application failure." });
+    const before = await prisma.storeEarning.findUniqueOrThrow({ where: { id: earning.id } });
+    expect(before.status).toBe("ACCRUED");
+    const command = { earningId: earning.id, operationId: `${source.tag}:reverse`, reasonCode: "AUTHORITATIVE_RECALCULATION" as const, actorUserId: source.ownerUserId };
+    for (const status of ["OPEN", "MONITORING"] as const) {
+      await prisma.storeEarningReconciliationCase.update({ where: { id: incident.id }, data: { status } });
+      await expect(reverseStoreEarning(command)).rejects.toMatchObject({ code: "STORE_EARNING_REVERSAL_NOT_ALLOWED" });
+      expect(await prisma.storeEarning.findUniqueOrThrow({ where: { id: earning.id } })).toEqual(before);
+      expect(await balances(source)).toEqual({ payable: "100.25", withdrawable: "0.00" });
+      expect((await prisma.storeEarningReconciliationCase.findUniqueOrThrow({ where: { id: incident.id } })).status).toBe(status);
+    }
   });
   it("concurrent exact reversal posts one balanced journal and preserves owner evidence", async () => {
     const { source, earning } = await accrued();
