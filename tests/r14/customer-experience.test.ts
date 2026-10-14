@@ -116,8 +116,16 @@ describe("R14 customer account experience", () => {
     expect(table).not.toContain('"none"');
   });
 
-  it("does not introduce anonymous customer tracking", () => {
-    const customerSources = customerRoutes.map((route) => source(`app/(account)/${route}`)).join("\n");
-    expect(customerSources).not.toMatch(/anonymous tracking|tracking number|live location|fake ETA/i);
+  it("allows short tracking numbers only after authenticated order ownership", () => {
+    const orders = source("app/(account)/account/orders/page.tsx");
+    expect(orders).toContain("getCurrentUser()");
+    expect(orders).toContain('if (!user) redirect("/auth/login")');
+    expect(orders).toContain("customerId: user.id, orderNumber: tracking");
+    expect(orders).toContain('name="tracking"');
+    expect(orders).not.toMatch(/where:\\s*\\{\\s*orderNumber:\\s*tracking\\s*\\}/);
+    // A tracking number identifies a parcel; it is never a public access credential.
+    const publicCopy = source("components/public-v2/site/tracking-copy.ts");
+    expect(publicCopy).toContain("/account/orders");
+    expect(publicCopy).toContain("Sign in to track");
   });
 });
