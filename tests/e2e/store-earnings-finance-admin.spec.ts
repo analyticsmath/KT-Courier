@@ -14,7 +14,7 @@ for (const width of [1440, 390]) {
     expect(record).toMatchObject({ originalEarningAmount: "100.25", availablePayableAmount: "100.25", attributedCommissionAmount: "0.00", reconciliationRequired: true });
     const before = (await read(page, `${base}/${record.id}`)).earning;
     expect(before.journals.accrual).toBeTruthy(); expect(before.journals.release).toBeNull(); expect(before.journals.reversal).toBeNull();
-    expect(before.refunds).toEqual([]); expect(before.commissionCharges).toEqual([]); expect(before.productionLock.active).toBe(true);
+    expect(before.refunds).toEqual([]); expect(before.commissionCharges).toEqual([]); expect(before.productionLock).toEqual({ active: false, blockReason: null });
     await page.goto("/admin/store-earnings"); await expect(page.getByRole("heading", { name: "Store Earnings", exact: true })).toBeVisible();
     const table = page.getByRole("region", { name: "Store earnings records", exact: true });
     expect(await table.locator("td.is-numeric").count()).toBeGreaterThan(0);
@@ -31,10 +31,10 @@ for (const width of [1440, 390]) {
     await page.getByRole("combobox", { name: "Approved reason", exact: true }).selectOption("AUTHORITATIVE_RECALCULATION");
     await page.getByRole("textbox", { name: "Safe note (optional)", exact: true }).fill(note);
     const responsePromise = page.waitForResponse(response => response.url().endsWith(`${base}/${record.id}/reverse`) && response.request().method() === "POST");
-    await page.getByRole("button", { name: "Request exact reversal", exact: true }).click(); const response = await responsePromise; expect(response.status()).toBe(503);
+    await page.getByRole("button", { name: "Request exact reversal", exact: true }).click(); const response = await responsePromise; expect(response.status()).toBe(409);
     expect(response.request().postDataJSON()).toMatchObject({ reasonCode: "AUTHORITATIVE_RECALCULATION", safeNote: note, operationId: expect.stringMatching(/^store-earning-ui:/) });
-    expect(response.request().postDataJSON()).not.toHaveProperty("amount"); expect(await response.json()).toMatchObject({ blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" });
-    await expect(page.getByRole("status").filter({ hasText: "Store earning operations are inactive pending consolidated validation approval." })).toBeVisible();
+    expect(response.request().postDataJSON()).not.toHaveProperty("amount"); expect(await response.json()).toMatchObject({ error: "Store earning operation conflicts with immutable financial evidence." });
+    await expect(page.getByRole("status").filter({ hasText: "Store earning operation conflicts with immutable financial evidence." })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Safe note (optional)", exact: true })).toHaveValue(note);
     await expect(page.getByRole("combobox", { name: "Approved reason", exact: true })).toHaveValue("AUTHORITATIVE_RECALCULATION");
 
