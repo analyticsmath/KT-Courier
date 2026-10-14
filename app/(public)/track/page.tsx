@@ -59,7 +59,7 @@ export default async function ParcelTrackingLookupPage({
       <div>
         <label htmlFor="parcel-tracking-number" className="mb-2 block text-sm font-semibold">Tracking number</label>
         <input id="parcel-tracking-number" type="text" name="reference" maxLength={40} required
-          value={raw.slice(0, 40)} readOnly={false}
+          defaultValue={raw.slice(0, 40)}
           placeholder="KT-2026-123456" autoComplete="off" spellCheck={false}
           className="w-full rounded-lg border border-[var(--kt-public-border-default)] bg-transparent px-4 py-3 font-mono text-base uppercase tracking-wider"
         />
