@@ -7,7 +7,7 @@ async function read(page: Page, path: string) {
   return response.json();
 }
 for (const width of [1440, 390]) {
-  test(`finance inspects canonical driver evidence and reversal stays locked at ${width}px`, async ({ page }) => {
+  test(`finance inspects canonical driver evidence and unreviewed reversal remains refused at ${width}px`, async ({ page }) => {
     if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
     await page.setViewportSize({ width, height: 900 });
     await login(page, `e2e-earning-finance-${width}@ktcouriers.local`);
@@ -42,9 +42,9 @@ for (const width of [1440, 390]) {
     await page.getByRole("textbox", { name: "Opaque evidence reference", exact: true }).fill(`fixture:driver-finance-review-${width}`);
     const reversalResponse = page.waitForResponse(response => response.url().endsWith(`${base}/${record.id}/reverse`) && response.request().method() === "POST");
     await page.getByRole("button", { name: "Request exact reversal", exact: true }).click();
-    const refused = await reversalResponse; expect(refused.status()).toBe(503);
-    expect(await refused.json()).toMatchObject({ blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" });
-    await expect(page.getByRole("status").filter({ hasText: "Driver earning operations are inactive pending consolidated validation approval." })).toBeVisible();
+    const refused = await reversalResponse; expect(refused.status()).toBe(409);
+    expect(await refused.json()).toMatchObject({ error: "Driver earning operation conflicts with immutable financial evidence." });
+    await expect(page.getByRole("status").filter({ hasText: "Driver earning operation conflicts with immutable financial evidence." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Request exact reversal", exact: true })).toBeEnabled();
     await expect(page.getByRole("combobox", { name: "Approved reason", exact: true })).toHaveValue("OTHER_REVIEWED");
     await expect(page.getByRole("textbox", { name: "Opaque evidence reference", exact: true })).toHaveValue(`fixture:driver-finance-review-${width}`);

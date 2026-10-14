@@ -25,7 +25,7 @@ for (const width of [1440, 390]) {
     await expect(page).toHaveURL(`/store/earnings/${released.publicReference}`);
     const detail = (await read(page, `/api/store/earnings/${released.publicReference}`)).earning;
     expect(detail.releaseJournalReference).toBeTruthy(); expect(detail.history.map((event: { reasonCode: string }) => event.reasonCode)).toContain("RELEASE_COMPLETED");
-    expect(detail).toMatchObject({ productionLock: { active: true, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" } });
+    expect(detail).toMatchObject({ productionLock: { active: false, blockReason: null } });
     await expect(page.getByRole("heading", { name: "Earning record", exact: true })).toBeVisible();
     await expect(page.getByText("ZAR 25.40", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /reverse|adjust|create earning|mark released/i })).toHaveCount(0);

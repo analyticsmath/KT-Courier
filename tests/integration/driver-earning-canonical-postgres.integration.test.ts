@@ -7,22 +7,21 @@ import { releaseDriverEarning } from "@/lib/services/driver-earning-release.serv
 import { getDriverEarningForOwner, listDriverEarningsForOwner } from "@/lib/services/driver-earning-query.service";
 import { getDriverEarningSummaryForOwner } from "@/lib/services/driver-earning-summary.service";
 
-const bypass = { allowTestOnlyBypass: true } as const;
 describe("driver earning canonical services on isolated PostgreSQL", () => {
-  it("production validation remains locked without creating an earning or accrual journal", async () => {
+  it("rejects a mismatched payment reference without creating an earning or accrual journal", async () => {
     const source = await createDisposableDriverSettlement();
-    await expect(accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot })).rejects.toMatchObject({ code: "DRIVER_EARNING_PRODUCTION_LOCKED" });
+    await expect(accrueDriverEarning({ operationId: source.tag, snapshot: { ...source.snapshot, paymentPublicReference: "PAY-MISMATCHED-REFERENCE" } })).rejects.toMatchObject({ code: "DRIVER_EARNING_PAYMENT_INVALID" });
     expect(await prisma.driverEarning.count({ where: { assignmentId: source.assignment.id } })).toBe(0);
     expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: source.accounts.account.id } })).currentBalance.toFixed(2)).toBe("0.00");
   });
   it("posts exact balanced accrual, returns safe owner evidence and preserves source history", async () => {
     const source = await createDisposableDriverSettlement();
-    const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, bypass);
+    const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot });
     expect(earning).toMatchObject({ status: "ACCRUED", amount: "100.25", currency: "ZAR", settlementBasisAmount: "100.25", attributedCommissionAmount: "0.00" });
     const journal = await prisma.ledgerJournal.findUniqueOrThrow({ where: { reference: earning.accrualLedgerJournalReference }, include: { entries: true } });
     expect(journal.entries).toHaveLength(2); expect(journal.totalDebits.toFixed(2)).toBe("100.25"); expect(journal.totalCredits.toFixed(2)).toBe("100.25");
     const detail = await getDriverEarningForOwner(source.driverUser.id, earning.publicReference);
-    expect(detail).toMatchObject({ originalEarningAmount: "100.25", availablePayableAmount: "100.25", refundReservedAmount: "0.00", releasedAmount: "0.00", productionLock: { active: true } });
+    expect(detail).toMatchObject({ originalEarningAmount: "100.25", availablePayableAmount: "100.25", refundReservedAmount: "0.00", releasedAmount: "0.00", productionLock: { active: false, blockReason: null } });
     expect(detail?.history.map(event => event.reasonCode)).toEqual(["ACCRUAL_POSTED", "COMMISSION_CHARGES_ATTRIBUTED"]);
     for (const field of ["id", "driverId", "walletId", "payableAccountId", "paymentId", "customer", "journals", "safeMetadata", "latitude", "proofOfDelivery"]) expect(detail).not.toHaveProperty(field);
     expect(JSON.stringify(detail)).not.toMatch(/PRIVATE_CUSTOMER|PRIVATE_RECIPIENT|PRIVATE_POD/);
@@ -31,24 +30,23 @@ describe("driver earning canonical services on isolated PostgreSQL", () => {
   it("concurrent same-operation accrual yields one earning, journal and financial projection", async () => {
     const source = await createDisposableDriverSettlement();
     const command = { operationId: source.tag, snapshot: source.snapshot };
-    const results = await Promise.all([accrueDriverEarning(command, bypass), accrueDriverEarning(command, bypass), accrueDriverEarning(command, bypass)]);
+    const results = await Promise.all([accrueDriverEarning(command), accrueDriverEarning(command), accrueDriverEarning(command)]);
     expect(new Set(results.map(row => row.id)).size).toBe(1);
     expect(await prisma.driverEarning.count({ where: { assignmentId: source.assignment.id } })).toBe(1);
     expect(await prisma.ledgerJournal.count({ where: { sourceReference: `DRIVER-EARNING:${results[0]!.publicReference}:ACCRUE` } })).toBe(1);
     expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: source.accounts.account.id } })).currentBalance.toFixed(2)).toBe("100.25");
     const before = await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: source.accounts.account.id } });
-    await expect(accrueDriverEarning({ ...command, snapshot: { ...source.snapshot, driverSettlementBasisAmount: "101.25", netDriverEarningAmount: "101.25" } }, bypass)).rejects.toMatchObject({ code: "DRIVER_EARNING_IDEMPOTENCY_CONFLICT" });
+    await expect(accrueDriverEarning({ ...command, snapshot: { ...source.snapshot, driverSettlementBasisAmount: "101.25", netDriverEarningAmount: "101.25" } })).rejects.toMatchObject({ code: "DRIVER_EARNING_IDEMPOTENCY_CONFLICT" });
     expect(await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: source.accounts.account.id } })).toEqual(before);
   });
   it("release transfers exact liability once and retains immutable accrual/history", async () => {
     const source = await createDisposableDriverSettlement({ amount: "25.40" });
-    const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, bypass);
+    const earning = await accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot });
     const input = { earningId: earning.id, operationId: `${source.tag}:release` };
-    await expect(releaseDriverEarning(input)).rejects.toMatchObject({ code: "DRIVER_EARNING_PRODUCTION_LOCKED" });
-    expect(await releaseDriverEarning(input, bypass)).toMatchObject({ status: "RELEASED", releasedAmount: "25.40", idempotent: false });
+    expect(await releaseDriverEarning(input)).toMatchObject({ status: "RELEASED", releasedAmount: "25.40", idempotent: false });
     const canonical = await prisma.driverEarning.findUniqueOrThrow({ where: { id: earning.id }, include: { releaseLedgerJournal: true } });
     expect(canonical.releaseLedgerJournal).not.toBeNull();
-    expect(await releaseDriverEarning(input, bypass)).toMatchObject({ releaseLedgerJournalReference: canonical.releaseLedgerJournal!.reference, idempotent: true });
+    expect(await releaseDriverEarning(input)).toMatchObject({ releaseLedgerJournalReference: canonical.releaseLedgerJournal!.reference, idempotent: true });
     expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: source.accounts.account.id } })).currentBalance.toFixed(2)).toBe("0.00");
     expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: source.accounts.ownerWithdrawable.id } })).currentBalance.toFixed(2)).toBe("25.40");
     expect(await getDriverEarningSummaryForOwner(source.driverUser.id)).toMatchObject({ totalAccrued: "25.40", payableBalance: "0.00", releasedToOwnerWithdrawable: "25.40" });
@@ -57,7 +55,7 @@ describe("driver earning canonical services on isolated PostgreSQL", () => {
   });
   it("foreign owners and suspended drivers cannot read another driver's earning", async () => {
     const [first, other] = await Promise.all([createDisposableDriverSettlement(), createDisposableDriverSettlement()]);
-    const earning = await accrueDriverEarning({ operationId: first.tag, snapshot: first.snapshot }, bypass);
+    const earning = await accrueDriverEarning({ operationId: first.tag, snapshot: first.snapshot });
     expect(await getDriverEarningForOwner(other.driverUser.id, earning.publicReference)).toBeNull();
     expect((await listDriverEarningsForOwner(other.driverUser.id, { page: 1, pageSize: 20 })).data).toEqual([]);
     await prisma.driverProfile.update({ where: { id: first.driver.id }, data: { status: "SUSPENDED" } });
@@ -71,7 +69,7 @@ describe("driver earning canonical services on isolated PostgreSQL", () => {
     await prisma.$executeRawUnsafe(`CREATE FUNCTION "${identifier}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."assignmentId" = '${source.assignment.id}' THEN RAISE EXCEPTION 'DISPOSABLE_DRIVER_EARNING_WRITE_FAILURE'; END IF; RETURN NEW; END $$`);
     try {
       await prisma.$executeRawUnsafe(`CREATE TRIGGER "${identifier}" BEFORE INSERT ON "DriverEarning" FOR EACH ROW EXECUTE FUNCTION "${identifier}"()`);
-      await expect(accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot }, bypass)).rejects.toThrow("DISPOSABLE_DRIVER_EARNING_WRITE_FAILURE");
+      await expect(accrueDriverEarning({ operationId: source.tag, snapshot: source.snapshot })).rejects.toThrow("DISPOSABLE_DRIVER_EARNING_WRITE_FAILURE");
       expect(await prisma.driverEarning.count({ where: { assignmentId: source.assignment.id } })).toBe(0);
       expect(await prisma.ledgerJournal.count({ where: { type: "DRIVER_EARNING_ACCRUAL", metadata: { path: ["assignmentReference"], equals: source.snapshot.assignmentPublicReference } } })).toBe(0);
       expect(await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: source.accounts.account.id } })).toEqual(before);

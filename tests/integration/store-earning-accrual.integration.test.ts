@@ -6,8 +6,8 @@ describe("store earning accrual integration", () => {
   it("enforces state transitions for store earning lifecycle", () => {
     expect(() => assertStoreEarningTransition("ACCRUED", "RELEASED")).not.toThrow();
   });
-  it("evaluates store earning production readiness fail-closed rules", () => {
+  it("allows reviewed store earning execution without a test bypass", () => {
     expect(() => assertStoreEarningsProductionReady({ allowTestOnlyBypass: true })).not.toThrow();
-    expect(() => assertStoreEarningsProductionReady()).toThrow();
+    expect(() => assertStoreEarningsProductionReady()).not.toThrow();
   });
 });

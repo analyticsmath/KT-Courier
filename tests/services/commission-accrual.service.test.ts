@@ -4,5 +4,5 @@ import { describe, expect, it } from "vitest";
 import { COMMISSION_PRODUCTION_VALIDATION_APPROVED } from "@/lib/commissions/commission-production-readiness";
 
 describe("commission accrual service contract", () => {
-  it("remains source-level validation locked", () => expect(COMMISSION_PRODUCTION_VALIDATION_APPROVED).toBe(false));
+  it("releases reviewed commission execution", () => expect(COMMISSION_PRODUCTION_VALIDATION_APPROVED).toBe(true));
 });
