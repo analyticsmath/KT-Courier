@@ -23,8 +23,11 @@ export type TrustedCoordinates = Readonly<{
 type GeocodeResponse = {
   status?: string;
   results?: Array<{
+    partial_match?: boolean;
+    types?: string[];
     address_components?: Array<{ long_name?: string; short_name?: string; types?: string[] }>;
     geometry?: {
+      location_type?: string;
       location?: {
         lat?: number;
         lng?: number;
@@ -72,6 +75,10 @@ export async function reverseGeocodeSouthAfricanProvince(
   }
 }
 
+function normalizedCity(value: string): string {
+  return value.normalize("NFKD").replace(/\p{M}/gu, "").toLocaleLowerCase("en-ZA").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\b(city|of|metropolitan|municipality|local|district)\b/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export async function geocodeSouthAfricanAddress(
   address: GeocodableSouthAfricanAddress,
   configurationOverride?: MapsServerConfig,
@@ -106,8 +113,20 @@ export async function geocodeSouthAfricanAddress(
     const payload = await response.json() as GeocodeResponse;
     if (payload.status !== "OK") return null;
 
-    const location = payload.results?.[0]?.geometry?.location;
-    if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return null;
+    // Google can resolve a conflicting street/city query to a province or
+    // another town. Such coordinates are not the requested delivery address.
+    if (payload.results?.length !== 1) return null;
+    const result = payload.results[0];
+    if (result.partial_match === true || !["ROOFTOP", "RANGE_INTERPOLATED", "GEOMETRIC_CENTER"].includes(result.geometry?.location_type ?? "")) return null;
+    if (!result.types?.some(type => ["street_address", "premise", "subpremise", "establishment", "intersection", "point_of_interest"].includes(type))) return null;
+    const components = result.address_components ?? [];
+    if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return null;
+    if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return null;
+    const city = normalizedCity(address.city);
+    const cityMatches = city && components.some(component => component.types?.some(type => ["locality", "postal_town", "administrative_area_level_2", "administrative_area_level_3", "sublocality_level_1"].includes(type)) && normalizedCity(component.long_name ?? "") === city);
+    if (!cityMatches) return null;
+    const location = result.geometry?.location;
+    if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng) || location.lat! < -90 || location.lat! > 90 || location.lng! < -180 || location.lng! > 180) return null;
 
     return Object.freeze({
       latitude: location.lat as number,
