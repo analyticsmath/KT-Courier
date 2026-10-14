@@ -24,6 +24,7 @@ type Address = {
 type Quote = {
   id: string;
   total: string;
+  personalizedRateApplied?: boolean;
   currency: string;
   serviceName: string;
   turnaround: string;
@@ -162,7 +163,7 @@ export function PublicDeliveryQuoteForm({
     try {
       const r = await fetch("/api/public/delivery-quotes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(business ? { "X-KT-Workspace": "STORE" } : {}) },
         body: JSON.stringify({
           serviceKey: f.get("service"),
           parcelSize: f.get("size"),
@@ -386,6 +387,7 @@ export function PublicDeliveryQuoteForm({
           <p>
             {quote.turnaround} · {quote.parcelSize.toLowerCase()} parcel
           </p>
+          {quote.personalizedRateApplied && <p role="status" className="text-sm font-semibold">Your account-specific KT Couriers delivery rate has been applied.</p>}
           <dl>
             {quote.lineItems.map((i) => (
               <div key={i.code} className="flex justify-between gap-4">

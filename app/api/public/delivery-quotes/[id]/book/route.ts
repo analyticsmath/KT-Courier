@@ -61,6 +61,11 @@ export async function POST(
         actualWeightKg: string;
       };
     };
+    const negotiated=(quote.ruleSnapshot as {personalizedRate?:{ownerType?:string;ownerId?:string}}).personalizedRate;
+    if(negotiated && (
+      negotiated.ownerType !== (business?"STORE":"CUSTOMER") ||
+      negotiated.ownerId !== (business?store?.id:user.id)
+    )) throw new PlatformError("PERSONALIZED_RATE_OWNER_MISMATCH","This delivery tariff belongs to another account or workspace. Request a new quote.",403);
     const { pickupContactName, pickupContactPhone, ...booking } = parsed.data;
     const input = CreateOrderSchema.parse({
       ...m.bookingInput,

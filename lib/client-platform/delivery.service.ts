@@ -9,6 +9,7 @@ import { calculateRoute } from "@/lib/maps/routes.service";
 import { getPricingConfiguration } from "@/lib/pricing/config";
 import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
 import { activeCommercialSurcharges, commercialSurchargeSnapshot } from "@/lib/commercial/configuration.service";
+import { activePersonalizedDeliveryRate, personalizedDeliveryRateSnapshot } from "@/lib/pricing/personalized-delivery-rates";
 import { calculateDeliveryPrice } from "@/lib/pricing/calculator";
 import {
   hashPricingInput,
@@ -123,7 +124,7 @@ export async function saveDeliveryConfiguration(
     return { id: row.id, version: row.versionNumber };
   });
 }
-export async function createPublicQuote(input: PublicQuoteInput) {
+export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerType:"CUSTOMER"|"STORE";ownerId:string}|null = null) {
   const parcelProfile = await requireParcelProfile(input.parcelSize, input.weightKg);
   const selected = (await deliveryCatalog()).find(
     (c) => c.stableKey === input.serviceKey && c.active,
@@ -220,6 +221,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
       "This parcel exceeds the service weight limit.",
       422,
     );
+  const personalRate = await activePersonalizedDeliveryRate(scope, selected.stableKey, input.parcelSize);
   const d = (v: string | number) => new Prisma.Decimal(v);
   const bookingInput = {
     deliveryType: "PARCEL_DOCUMENT" as const,
@@ -241,11 +243,11 @@ export async function createPublicQuote(input: PublicQuoteInput) {
     currency: "ZAR" as const,
     deliveryType: bookingInput.deliveryType,
     regionId: null,
-    baseFee: d(tariff.baseFee),
-    perKmRate: d(tariff.perKmRate),
+    baseFee: personalRate?.baseFee ?? d(tariff.baseFee),
+    perKmRate: personalRate?.perKmRate ?? d(tariff.perKmRate),
     includedDistanceKm: d(0),
     distanceIncrementKm: d("0.001"),
-    minimumCharge: tariff.minimumCharge ? d(tariff.minimumCharge) : null,
+    minimumCharge: personalRate ? personalRate.minimumCharge : tariff.minimumCharge ? d(tariff.minimumCharge) : null,
     maximumWeightKg: tariff.maximumWeightKg ? d(tariff.maximumWeightKg) : null,
     flatSurcharge: null,
     vehicleClass: null,
@@ -303,6 +305,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
         parcelProfileId: parcelProfile.id,
         parcelProfileVersion: parcelProfile.versionNumber,
         tariff,
+        personalizedRate: personalRate ? personalizedDeliveryRateSnapshot(personalRate) : null,
       },
       regionSnapshot: {
         originRegionId: zones[0].regionId,
@@ -318,6 +321,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
         bookingInput,
         routeSummary: route.route.routeSummary,
         commercialSurcharges: commercialSurchargeSnapshot(configuredSurcharges),
+        personalizedRateApplied: Boolean(personalRate),
       },
       distanceMeters: route.route.distanceMeters,
       durationSeconds: route.route.durationSeconds,
@@ -348,6 +352,7 @@ export async function createPublicQuote(input: PublicQuoteInput) {
   return {
     ...toQuoteDto(quote),
     serviceName: selected.displayName,
+    personalizedRateApplied: Boolean(personalRate),
     turnaround: selected.turnaround,
     parcelSize: input.parcelSize,
     pickupSummary: input.pickupAddress.line1,
