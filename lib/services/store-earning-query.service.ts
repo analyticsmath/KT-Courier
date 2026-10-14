@@ -1,3 +1,4 @@
+import { STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED } from "@/lib/store-earnings/store-earning-production-readiness";
 import { storeAccess } from "@/lib/client-platform/store-access";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -30,7 +31,7 @@ function storeItem(row: Row): StoreEarningListItemDto {
 }
 
 function storeDetail(row: Row): StoreEarningDetailDto {
-  return Object.freeze({ ...storeItem(row), releaseJournalReference: row.releaseLedgerJournal?.reference ?? null, history: Object.freeze(row.statusHistory.map((event) => Object.freeze({ status: event.toStatus, reasonCode: event.reasonCode, createdAt: event.createdAt.toISOString() }))), productionLock: Object.freeze({ active: true as const, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const }) });
+  return Object.freeze({ ...storeItem(row), releaseJournalReference: row.releaseLedgerJournal?.reference ?? null, history: Object.freeze(row.statusHistory.map((event) => Object.freeze({ status: event.toStatus, reasonCode: event.reasonCode, createdAt: event.createdAt.toISOString() }))), productionLock: Object.freeze({ active: !STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED, blockReason: STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED ? null : "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const }) });
 }
 
 function financeItem(row: Row): FinanceStoreEarningListItemDto {
@@ -45,7 +46,7 @@ function financeDetail(row: Row) {
     refunds: Object.freeze(row.fundingAllocations.map((allocation) => Object.freeze({ fundingReference: allocation.publicReference, refundReference: allocation.refund.publicReference, status: allocation.refund.status, amount: formatStoreEarningMoney(allocation.amount), currency: "ZAR" as const }))),
     history: Object.freeze(row.statusHistory.map((event) => Object.freeze({ fromStatus: event.fromStatus, toStatus: event.toStatus, actorType: event.actorType, reasonCode: event.reasonCode, safeMetadata: event.safeMetadata, createdAt: event.createdAt.toISOString() }))),
     reconciliation: Object.freeze(row.reconciliationCases.map((record) => Object.freeze({ publicReference: record.publicReference, reason: record.reason, status: record.status, priority: record.priority, safeSummary: record.safeSummary, safeEvidence: record.safeEvidence, observationCount: record.observationCount, openedAt: record.openedAt.toISOString(), lastObservedAt: record.lastObservedAt.toISOString(), resolvedAt: record.resolvedAt?.toISOString() ?? null, resolutionCode: record.resolutionCode }))),
-    productionLock: Object.freeze({ active: true, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }),
+    productionLock: Object.freeze({ active: !STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED, blockReason: STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED ? null : "CONSOLIDATED_VALIDATION_NOT_APPROVED" }),
   });
 }
 
