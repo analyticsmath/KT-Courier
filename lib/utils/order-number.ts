@@ -18,8 +18,16 @@ export async function generateOrderNumber(): Promise<string> {
     if (!existing) return orderNumber;
   }
 
-  // Collision-safe fallback: timestamp base36 + 4-char hex
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = crypto.randomBytes(2).toString("hex").toUpperCase();
-  return `KT-${year}-${ts}${rand}`;
+  // Retain a compact reference even under extraordinary primary-number
+  // collisions. Eight random base36 characters provide over 41 bits of
+  // entropy; every candidate is checked before returning it.
+  for (let i = 0; i < 12; i++) {
+    const random = crypto.randomBytes(8).readBigUInt64BE();
+    const suffix = random.toString(36).toUpperCase().padStart(8, "0").slice(-8);
+    const candidate = `KT-${year}-${suffix}`;
+    const existing = await prisma.order.findUnique({ where: { orderNumber: candidate }, select: { id: true } });
+    if (!existing) return candidate;
+  }
+  // Failing closed is preferable to issuing a duplicate tracking number.
+  throw new Error("ORDER_REFERENCE_EXHAUSTED");
 }
