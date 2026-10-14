@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 749,
+    "totalRoutes": 751,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 649,
-    "permissionGatedRoutes": 510,
+    "authenticatedRoutes": 651,
+    "permissionGatedRoutes": 511,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 204,
-    "generatedAt": "2026-10-12T20:31:53.200Z"
+    "rateLimitedRoutes": 205,
+    "generatedAt": "2026-10-14T00:21:47.568828+00:00"
   },
   "serverActions": [],
   "routes": [
@@ -2493,6 +2493,27 @@
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/marketplace-courier-tariffs/route.ts",
+      "httpMethods": [
+        "GET",
+        "PUT"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "commercial_configuration.read",
+        "commercial_configuration.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "GET requires commercial configuration read permission. PUT requires manage permission, same-origin/rate checks and a current configuration timestamp; both use the authenticated administrator."
     },
     {
       "routePath": "app/api/admin/marketplace-delivery-policy/route.ts",
@@ -8389,6 +8410,23 @@
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/checkout/[reference]/delivery-services/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "CUSTOMER_SESSION_OR_SCOPED_GUEST_COOKIE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "GUEST_CHECKOUT_OWNER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Resolves the authenticated customer or scoped guest cookie, then verifies ownership of the requested checkout before reading available courier services or restoring the selected service."
     },
     {
       "routePath": "app/api/checkout/[reference]/prepare-payment/route.ts",

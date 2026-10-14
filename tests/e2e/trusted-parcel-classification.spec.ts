@@ -112,11 +112,13 @@ for (const width of [1440, 390, 320]) test(`independent measured packaging gover
     await page.getByLabel("Delivery service", { exact: true }).selectOption("CLIENT_ECONOMY");
     const courierQuote = await calculate(page, courier); expect(courierQuote.status(), await courierQuote.text()).toBe(200);
     await expect(page.getByRole("heading", { name: "3. Delivery options", exact: true })).toBeFocused();
-    await expect(page.getByText(/R\s*89[,.]00/).first()).toBeVisible();
+    await expect(page.getByText(/R\s*102[,.]35/).first()).toBeVisible();
     await expect(page.getByText("Economy · 3–4 business days", { exact: true })).toBeVisible();
+    await expect(page.getByText("Estimated total", { exact: true })).toBeVisible();
+    await expect(page.getByText(/R\s*112[,.]35/)).toBeVisible();
     await review(page, courier);
     const courierReceipt = await control<Snapshot>("snapshot", tag, courier);
-    expect(courierReceipt.quotes[0]).toMatchObject({ subtotal: "89.00", ruleSnapshot: { serviceKey: "CLIENT_ECONOMY", serviceVersion: expect.any(Number), parcelClassification: { sizeClass: "SMALL" } } });
+    expect(courierReceipt.quotes[0]).toMatchObject({ subtotal: "89.00", taxAmount: "13.35", total: "102.35", ruleSnapshot: { serviceKey: "CLIENT_ECONOMY", serviceVersion: expect.any(Number), parcelClassification: { sizeClass: "SMALL" } } });
     expect(courierReceipt.paymentCount).toBe(0); expect(courierReceipt.orderCount).toBe(0); receipts.push(courierReceipt);
     expect((await page.request.get("/api/admin/marketplace-courier-tariffs")).status()).toBe(403);
     expect((await page.request.put("/api/admin/marketplace-courier-tariffs", { data: { enabled: false } })).status()).toBe(403);

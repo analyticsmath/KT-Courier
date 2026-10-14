@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useSearchParams } from "next/navigation";
 import styles from "./commerce.module.css";
-import { storeDeliveryQuotePreviews, type StoreDeliveryQuotePreview } from "@/lib/marketplace-checkout/delivery-quote-preview";
+import { storeDeliveryQuotePreviews, storeDeliveryQuotePreviewTotals, type StoreDeliveryQuotePreview } from "@/lib/marketplace-checkout/delivery-quote-preview";
 import { GuestCheckoutEmailUpdates } from "./GuestCheckoutEmailUpdates";
 
 function formatMoney(amount: string | number | undefined | null) {
@@ -610,6 +610,9 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     );
   }
 
+  const estimatedQuoteTotals = checkout && currentStep === 3 && deliveryQuotePreviews.length === checkout.storeGroups.length
+    ? storeDeliveryQuotePreviewTotals(checkout.totals, deliveryQuotePreviews) : null;
+
   return (
     <div className={styles.commerceInner} style={{ padding: "2.5rem 0 5rem" }}>
       <div style={{ marginBottom: "2rem" }}>
@@ -1148,7 +1151,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--kt-public-text-muted)" }}>Delivery Fees Total</span>
               <span style={{ fontWeight: 540 }}>
-                {Number(checkout?.totals.deliveryFeeTotal ?? 0) > 0 ? formatMoney(checkout?.totals.deliveryFeeTotal) : "Pending address"}
+                {estimatedQuoteTotals ? formatMoney(estimatedQuoteTotals.deliveryFeeTotal) : Number(checkout?.totals.deliveryFeeTotal ?? 0) > 0 ? formatMoney(checkout?.totals.deliveryFeeTotal) : "Pending address"}
               </span>
             </div>
 
@@ -1164,8 +1167,8 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                 color: "var(--kt-public-text-primary)",
               }}
             >
-              <span>Total</span>
-              <span>{formatMoney(checkout?.totals.grandTotal)}</span>
+              <span>{estimatedQuoteTotals ? "Estimated total" : "Total"}</span>
+              <span>{formatMoney(estimatedQuoteTotals?.grandTotal ?? checkout?.totals.grandTotal)}</span>
             </div>
           </div>
 

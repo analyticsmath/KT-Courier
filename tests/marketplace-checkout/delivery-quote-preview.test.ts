@@ -1,6 +1,8 @@
 import { expect, it } from "vitest";
-import { storeDeliveryQuotePreviews } from "@/lib/marketplace-checkout/delivery-quote-preview";
+import { storeDeliveryQuotePreviews, storeDeliveryQuotePreviewTotals } from "@/lib/marketplace-checkout/delivery-quote-preview";
 const quote = { storeReference: "store", fee: "89.00", currency: "ZAR", publicReference: "quote", serviceLevel: "Economy · 3–4 business days" };
 it("shows the quoted fee even before delivery-option persistence", () => { expect(storeDeliveryQuotePreviews(["store"], [quote])).toEqual([{ storeReference: "store", fee: "89.00", serviceLevel: quote.serviceLevel }]); });
 it.each([{ storeReference: "foreign" }, { fee: "-1.00" }, { fee: "1.234" }, { fee: "Infinity" }, { currency: "USD" }, { publicReference: "" }])("refuses foreign or malformed preview evidence %j", change => { expect(() => storeDeliveryQuotePreviews(["store"], [{ ...quote, ...change }])).toThrow(); });
 it("refuses duplicate or omitted store quotes", () => { expect(() => storeDeliveryQuotePreviews(["store", "other"], [quote, quote])).toThrow(); expect(() => storeDeliveryQuotePreviews(["store"], [])).toThrow(); });
+it("includes the tax-inclusive quoted delivery fee in the estimated total", () => { expect(storeDeliveryQuotePreviewTotals({ deliveryFeeTotal: "0.00", grandTotal: "10.00" }, [{ storeReference: "store", fee: "102.35", serviceLevel: "Economy" }])).toEqual({ deliveryFeeTotal: "102.35", grandTotal: "112.35" }); });
+it("replaces a prior delivery estimate without charging it twice or losing existing discounts", () => { expect(storeDeliveryQuotePreviewTotals({ deliveryFeeTotal: "23.45", grandTotal: "28.45" }, [{ storeReference: "store", fee: "102.35", serviceLevel: "Economy" }])).toEqual({ deliveryFeeTotal: "102.35", grandTotal: "107.35" }); });
