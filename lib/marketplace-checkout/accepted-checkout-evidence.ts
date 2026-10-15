@@ -1,4 +1,4 @@
-import { assertMarketplacePaymentPlanTotals, parseMarketplacePaymentPlan, resolveMarketplacePaymentPlan } from "./payment-plan";
+import { assertMarketplacePaymentPlanTotals, marketplacePaymentPlansEqual, resolveMarketplacePaymentPlan } from "./payment-plan";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { resolveMarketplaceCartLine } from "./cart.service";
@@ -26,11 +26,10 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
     if (!quote) return fail();
     if (quote.expiresAt <= at || quote.ownerId !== group.store.ownerUserId || quote.storeId !== group.storeId || !quote.total.equals(group.deliveryFee)) fail();
     if (group.paymentPlan) {
-      const prior = parseMarketplacePaymentPlan(group.paymentPlan);
       const pickup = await prisma.store.findUnique({ where: { id: group.storeId }, include: { defaultPickupAddress: true } });
       const destination = await prisma.marketplaceCheckoutAddressSnapshot.findUnique({ where: { id: checkout.addressSnapshotId! } });
       const current = await resolveMarketplacePaymentPlan({ storeId: group.storeId, orderType: "STORE", deliveryServiceId: quote.deliveryType, deliveryServiceKey: quote.deliveryType, regionId: quote.destinationRegionId, provinces: [...new Set([pickup?.defaultPickupAddress?.province, destination?.province].filter((p): p is string => Boolean(p)))], total: group.groupTotal.toFixed(2), fulfilmentMode: group.fulfilmentMode, groupCount: checkout.storeGroups.length }, prisma);
-      if (JSON.stringify(current) !== JSON.stringify(prior)) fail();
+      if (!marketplacePaymentPlansEqual(current, group.paymentPlan)) fail();
     }
     const rule = quote.ruleSnapshot as { policyVersion?: number; policyAuthority?: string };
     if (rule.policyAuthority === "marketplace_delivery_matrix" && rule.policyVersion !== currentMatrixVersion) fail();
