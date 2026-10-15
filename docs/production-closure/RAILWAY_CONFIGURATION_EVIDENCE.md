@@ -7,7 +7,7 @@ Read-only environment and live service configuration captured before mutations:
 - Project: `e9554aaa-1b53-4595-8731-e8c2885ac594`.
 - Production environment: `2226be2a-86f7-4590-a7b4-72aa54dccf52`.
 - Web: `55254aaf-3719-4da9-a5b6-9214417101c6`, Dockerfile, `node server.js`, `/api/ready`.
-- Operations: `fdd13e91-dffa-400e-9a44-ae2d1f891ff0`, existing name `query-storefront-categories`, Dockerfile.operations, repository `analyticsmath/KT-Courier`, branch `main`, health check `/health`.
+- Operations: `fdd13e91-dffa-400e-9a44-ae2d1f891ff0`, existing name `query-storefront-categories`, Dockerfile.operations, repository `analyticsmath/KT-Courier`, branch `main`, liveness health check `/health`; processor readiness is `/ready`.
 - Operations runs the read-only audit followed by `scripts/production-processors.ts`; reviewed scope remains Paystack inbox processing, verified payment consumption, and notifications.
 - Both live services have SUCCESS deployments and one running replica. PostgreSQL and Redis are online.
 - Live source configuration has `checkSuites: false`; merging main triggers deployments, so main must remain untouched while certification is incomplete.
