@@ -114,14 +114,22 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         for (const button of await page.getByRole("button", { name: /Begin review|Confirm availability|Accept order/ }).all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         if (width === 1440) {
-          await page.evaluate(() => { document.documentElement.style.zoom = "2"; });
+          // A 200% browser zoom exposes half the CSS viewport. Set that effective
+          // viewport directly so responsive breakpoints behave as they do for users.
+          await page.setViewportSize({ width: 720, height: 450 });
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+          const itemsHeading = await page.getByRole("heading", { name: "Order items", exact: true }).boundingBox();
+          const actionsHeading = await page.getByRole("heading", { name: "Fulfilment actions", exact: true }).boundingBox();
+          expect(itemsHeading).not.toBeNull();
+          expect(actionsHeading).not.toBeNull();
+          expect(actionsHeading!.y).toBeGreaterThan(itemsHeading!.y);
+          expect(Math.abs(actionsHeading!.x - itemsHeading!.x)).toBeLessThanOrEqual(24);
           await input.focus(); await expect(input).toBeFocused();
           await page.keyboard.press("Tab"); await expect(page.getByLabel("Pickup instructions")).toBeFocused();
           await expect(page.getByRole("button", { name: "Accept order", exact: true })).toBeVisible();
           expect(await storeControl(f.storeReference)).toEqual(f.baseline);
           await info.attach("store-order-200-percent", { body: await page.screenshot({ fullPage: true, path: info.outputPath("store-order-200-percent.png") }), contentType: "image/png" });
-          await page.evaluate(() => { document.documentElement.style.zoom = ""; });
+          await page.setViewportSize({ width: 1440, height: 900 });
         }
         await info.attach(`store-order-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`store-order-${width}.png`) }), contentType: "image/png" });
       } else {
