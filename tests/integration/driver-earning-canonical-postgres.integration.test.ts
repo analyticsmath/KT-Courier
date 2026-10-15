@@ -93,8 +93,8 @@ describe("real courier settlement producer on isolated PostgreSQL", () => {
     const platform = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
     await ensureLedgerAccount({ walletId: platform.id, code: "PLATFORM-COMMISSION-REVENUE-ZAR", purpose: "PLATFORM_REVENUE", category: "REVENUE", currency: "ZAR" });
     await prisma.commissionPlan.create({ data: { publicReference: `CP-PRODUCER-${tag}`, subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER", currency: "ZAR", status: "ACTIVE", versionNumber: 1, basisType: "ORDER_TOTAL", calculationVersion: "producer-proof-v1", effectiveFrom: new Date("2001-01-01T00:00:00Z"), effectiveUntil: new Date("2001-01-02T00:00:00Z"), approvedAt: new Date("2000-12-01T00:00:00Z"), approvedByUserId: reviewer.id, createdByUserId: reviewer.id, rules: { create: { publicReference: `CR-PRODUCER-${tag}`, ruleCode: "PLATFORM", allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: 1000, priority: 1, isRequired: true } } } });
-    async function source() {
-      const s = await createDisposableDriverSettlement();
+    async function source(options: { paymentAmount?: string } = {}) {
+      const s = await createDisposableDriverSettlement(options);
       const quote = await prisma.pricingQuote.create({ data: { status: "USED", ownerType: "CUSTOMER", ownerId: s.customer.id, deliveryType: "SAME_DAY", currency: "ZAR", calculationVersion: "producer-proof-v1", inputHash: s.tag, distanceMeters: 1000, rawDistanceKm: "1.0000", billableDistanceKm: "1.0000", subtotal: "100.25", taxRate: "0.0000", taxAmount: "0.00", total: "100.25", inputSnapshot: {}, ruleSnapshot: {}, regionSnapshot: {}, taxSnapshot: {}, expiresAt: completedAt, usedAt: completedAt } });
       await prisma.order.update({ where: { id: s.order.id }, data: { pricingQuoteId: quote.id } });
       await prisma.orderAssignment.update({ where: { id: s.assignment.id }, data: { completedAt } });
@@ -123,8 +123,7 @@ describe("real courier settlement producer on isolated PostgreSQL", () => {
       await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${identifier}" ON "DriverEarning"`);
       await prisma.$executeRawUnsafe(`DROP FUNCTION "${identifier}"()`);
     }
-    const unfunded = await source();
-    await prisma.payment.update({ where: { id: unfunded.payment.id }, data: { amount: "50.00" } });
+    const unfunded = await source({ paymentAmount: "50.00" });
     await expect(produceDriverSettlement(unfunded.order.id)).rejects.toMatchObject({ code: "DRIVER_EARNING_PAYMENT_INVALID" });
     expect(await prisma.commissionAccrual.count({ where: { subjectId: unfunded.order.id } })).toBe(0);
   });
