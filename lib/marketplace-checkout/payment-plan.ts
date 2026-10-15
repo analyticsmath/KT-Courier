@@ -14,12 +14,21 @@ export type MarketplacePaymentPlan = Readonly<{
 }>;
 const invalid = () => new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The frozen marketplace payment split is invalid or unsupported. Review this checkout again.");
 const amount = (v: unknown) => typeof v === "string" && /^\d+\.\d{2}$/.test(v) ? new Prisma.Decimal(v) : null;
+const canonicalJson = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, canonicalJson(item)]));
+  return value;
+};
 export function parseMarketplacePaymentPlan(value: unknown): MarketplacePaymentPlan {
   const p = value as MarketplacePaymentPlan | null;
   const total = amount(p?.authoritativeTotal), digital = amount(p?.digitalRequired), cash = amount(p?.cashRequired);
   if (!p || p.version !== "marketplace-payment-v1" || !total || !digital || !cash || !digital.add(cash).equals(total) || !["DIGITAL_ONLY", "DEPOSIT_PLUS_COD"].includes(p.mode)) throw invalid();
   if (p.mode === "DIGITAL_ONLY" ? !cash.isZero() : !digital.gt(0) || !cash.gt(0) || !p.policyId || !Number.isInteger(p.policyVersion) || (p.policyVersion ?? 0) < 1) throw invalid();
   return p;
+}
+export function marketplacePaymentPlansEqual(left: unknown, right: unknown): boolean {
+  const a = parseMarketplacePaymentPlan(left), b = parseMarketplacePaymentPlan(right);
+  return JSON.stringify(canonicalJson(a)) === JSON.stringify(canonicalJson(b));
 }
 export function digitalMarketplacePaymentPlan(total: string): MarketplacePaymentPlan {
   return { version: "marketplace-payment-v1", mode: "DIGITAL_ONLY", authoritativeTotal: total, digitalRequired: total, cashRequired: "0.00", policyId: null, policyVersion: null, policyEvidence: null };
