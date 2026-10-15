@@ -27,8 +27,9 @@ describe("atomic delivery OTP issuance on disposable PostgreSQL", () => {
     const driver = await prisma.user.create({ data: { email: `otp-driver-${nonce}@example.test`, role: "DRIVER", status: "ACTIVE" } }); driverUserId = driver.id;
     const admin = await prisma.user.create({ data: { email: `otp-admin-${nonce}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } }); adminId = admin.id;
     const profile = await prisma.driverProfile.create({ data: { userId: driverUserId, driverCode: `OTP-${nonce}`, status: "ACTIVE", active: true } }); driverId = profile.id;
-    const order = await prisma.order.create({ data: { orderNumber: `OTP-${nonce}`, source: "CUSTOMER", deliveryType: "PARCEL_DOCUMENT", status: "IN_TRANSIT", recipientName: "Unregistered receiver", recipientEmail: `otp-receiver-${nonce}@example.test`, currentDriverProfileId: driverId } }); orderId = order.id;
+    const order = await prisma.order.create({ data: { orderNumber: `OTP-${nonce}`, source: "CUSTOMER", deliveryType: "PARCEL_DOCUMENT", status: "IN_TRANSIT", recipientName: "Unregistered receiver", recipientEmail: `otp-receiver-${nonce}@example.test` } }); orderId = order.id;
     const assignment = await prisma.orderAssignment.create({ data: { orderId, driverProfileId: driverId, assignedByAdminId: adminId, assignedAt: new Date(), acceptedAt: new Date(), status: "ACCEPTED", activeOrderGuard: orderId } }); assignmentId = assignment.id;
+    await prisma.order.update({ where: { id: orderId }, data: { currentDriverProfileId: driverId } });
   });
   afterEach(async () => {
     if (!validated) return;
@@ -40,6 +41,7 @@ describe("atomic delivery OTP issuance on disposable PostgreSQL", () => {
     await prisma.notificationEventIntent.deleteMany({ where: { id: { in: ids } } });
     await prisma.driverOperationCommand.deleteMany({ where: { orderId } });
     await prisma.deliveryOtp.deleteMany({ where: { orderId } });
+    await prisma.order.updateMany({ where: { id: orderId }, data: { currentDriverProfileId: null } });
     await prisma.orderAssignment.deleteMany({ where: { id: assignmentId } });
     await prisma.order.deleteMany({ where: { id: orderId } });
     await prisma.driverProfile.deleteMany({ where: { id: driverId } });
