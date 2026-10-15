@@ -11,7 +11,7 @@
 - Public `/api/ready`: HTTP 200, database reachable, Redis configured/connected/HEALTHY.
 - GitHub CI run `37531580137`: FAILURE at audited SHA. Certification is not granted.
 - Production database values are withheld by the OAuth connector. A fresh protected-row audit cannot be run locally through that connector. No usable current protected-row audit was obtained from historical startup retrieval. An approved read-only execution path or operator artifact is required.
-- Processor has no public domain. Railway deployment health check is `/health`; independent external HTTP health is unavailable without an approved access path.
+- Processor has no public domain. Railway deployment health check `/health` reports process liveness; `/ready` reports a recent healthy processor cycle. Independent external HTTP readiness is unavailable without an approved access path.
 
 No production mutations, live payments, refunds, payouts, seeds, resets, or fabricated approvals were performed.
 

@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { prisma } from "../lib/db/prisma";
 import { executeRegisteredProcessor } from "../lib/processors/processor-service";
+import { getProductionProcessorHealthState, getProductionProcessorHealthStatus } from "../lib/processors/production-health";
 import { uninitializedMarketplaceOrdersWhere, expiredMarketplaceReservationsWhere } from "../lib/marketplace-checkout/lifecycle-batch.service";
 import { dueMarketplaceSettlementJobsWhere } from "../lib/marketplace-checkout/settlement-batch.service";
 import { createProductionCycleWorkCheck, productionProcessors, runProductionCycle } from "../lib/processors/production-loop";
@@ -15,10 +16,10 @@ let lastCycleAt = 0;
 let healthy = false;
 let wake: (() => void) | undefined;
 const server = createServer((request, response) => {
-  if (request.url !== "/health") { response.writeHead(404).end(); return; }
-  const ready = !stopping && healthy && Date.now() - lastCycleAt < 420_000;
-  response.writeHead(ready ? 200 : 503, { "content-type": "application/json" });
-  response.end(JSON.stringify({ ready, processors: productionProcessors, lastCycleAt: lastCycleAt ? new Date(lastCycleAt).toISOString() : null }));
+  const state = getProductionProcessorHealthState({ stopping, healthy, lastCycleAt });
+  const status = getProductionProcessorHealthStatus(request.url ?? "", state);
+  response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
+  response.end(JSON.stringify({ ...state, processors: productionProcessors, lastCycleAt: lastCycleAt ? new Date(lastCycleAt).toISOString() : null }));
 });
 server.listen(Number(process.env.PORT ?? 3000), "0.0.0.0");
 const shutdown = () => { stopping = true; healthy = false; wake?.(); };
