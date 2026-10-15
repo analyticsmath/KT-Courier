@@ -180,6 +180,8 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   const liveTracking = await page.request.get(`/api/tracking/orders/${started.order.id}/location`);
   expect(liveTracking.status(), await liveTracking.text()).toBe(200);
   expect(await liveTracking.json()).toMatchObject({ data: { active: true, latestKnownLocation: { source: "DEVICE_GPS", validationStatus: "ACCEPTED", latitude: Math.round(Number(destination.latitude) * 100) / 100, longitude: Math.round(Number(destination.longitude) * 100) / 100 } } });
+  await page.goto(`/account/orders/${started.order.id}`);
+  await expect(page.getByText(/Courier: last report/)).toBeVisible({ timeout: 10_000 });
   const customerHistory = await page.request.get(messagesPath); expect(customerHistory.status()).toBe(200);
   expect((await customerHistory.json()).messages).toHaveLength(2);
   await login(page, `e2e-handoff-driver-${suffix}@ktcouriers.local`); await page.goto(`/driver/assignments/${baseline.assignment.id}`);

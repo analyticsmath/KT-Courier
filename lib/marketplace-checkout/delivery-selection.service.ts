@@ -117,6 +117,8 @@ export async function selectMarketplaceCheckoutDeliveryOptions(input: DeliverySe
       data: {
         deliveryFeeTotal: feeTotal,
         grandTotal,
+        digitalRequired: null,
+        cashRequired: "0.00",
         status: "VALIDATING",
         version: { increment: 1 },
       },

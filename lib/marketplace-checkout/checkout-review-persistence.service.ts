@@ -33,7 +33,7 @@ export type MarketplaceCheckoutReviewRepository = Readonly<{
   transaction<T>(work: () => Promise<T>): Promise<T>;
   lockCheckout(reference: string, owner: Readonly<{ type: "CUSTOMER"; userId: string } | { type: "GUEST"; guestTokenHash: string }>): Promise<ReviewableCheckout | null>;
   findOperation(checkoutId: string, operationId: string): Promise<{ requestHash: string; response: MarketplaceCheckoutReviewResult } | null>;
-  freezeSettlementEvidence(input: Readonly<{ checkout: ReviewableCheckout; result: MarketplaceCheckoutReviewResult }>): Promise<Readonly<{ commercialFingerprint: string; evidence: readonly FrozenMarketplaceStoreSettlementEvidence[] }>>;
+  freezeSettlementEvidence(input: Readonly<{ checkout: ReviewableCheckout; result: MarketplaceCheckoutReviewResult }>): Promise<Readonly<{ commercialFingerprint: string; evidence: readonly FrozenMarketplaceStoreSettlementEvidence[]; paymentPlans?: MarketplaceCheckoutReviewResult["paymentPlans"]; digitalRequired?: string; cashRequired?: string }>>;
   persistReview(input: Readonly<{
     checkout: ReviewableCheckout;
     result: MarketplaceCheckoutReviewResult;
@@ -84,7 +84,7 @@ export async function reviewMarketplaceCheckout(
       commissionPolicyVersion: input.commissionPolicyVersion,
     });
     const frozen = await repository.freezeSettlementEvidence({ checkout, result: reviewed });
-    const result = Object.freeze({ ...reviewed, commercialFingerprint: frozen.commercialFingerprint });
+    const result = Object.freeze({ ...reviewed, commercialFingerprint: frozen.commercialFingerprint, ...(frozen.paymentPlans ? { paymentPlans: frozen.paymentPlans, digitalRequired: frozen.digitalRequired, cashRequired: frozen.cashRequired } : {}) });
     await repository.persistReview({ checkout, result, settlementEvidence: frozen.evidence, operationId: input.operationId, requestHash: input.requestHash, commissionPolicyVersion: input.commissionPolicyVersion });
     return result;
   });

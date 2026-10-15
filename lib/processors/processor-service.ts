@@ -59,6 +59,22 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "process-earning-lifecycle": async (context) => {
+    const { runEarningLifecycleBatch } = await import("@/lib/services/earning-lifecycle-batch.service");
+    return runEarningLifecycleBatch(context);
+  },
+  "initialize-marketplace-store-orders": async (context) => {
+    const { initializeMarketplaceOrdersBatch } = await import("@/lib/marketplace-checkout/lifecycle-batch.service");
+    return initializeMarketplaceOrdersBatch(context);
+  },
+  "expire-marketplace-reservations": async (context) => {
+    const { expireMarketplaceReservationsBatch } = await import("@/lib/marketplace-checkout/lifecycle-batch.service");
+    return expireMarketplaceReservationsBatch(context);
+  },
+  "settle-marketplace-store-orders": async (context) => {
+    const { runMarketplaceSettlementBatch } = await import("@/lib/marketplace-checkout/settlement-batch.service");
+    return runMarketplaceSettlementBatch(context);
+  },
   "consume-verified-payment-events": async ({ mode, batchSize }) => {
     if (mode === "DRY_RUN") {
       const { createPrismaVerifiedPaymentEventRepository } = await import(

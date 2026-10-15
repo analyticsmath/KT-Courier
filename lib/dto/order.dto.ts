@@ -182,6 +182,7 @@ export function toOrderSummaryDto(order: OrderWithAddresses): OrderSummaryDto {
 // ─── Order detail (customer/store — public fields only) ───────────────────────
 
 export interface OrderDetailDto extends OrderSummaryDto {
+  recipientEmail?: string | null;
   pickupAddress: AddressDto | null;
   dropoffAddress: AddressDto | null;
   customerNote: string | null;
@@ -204,6 +205,7 @@ export function toOrderDetailDto(order: OrderWithFull): OrderDetailDto {
   const summary = toOrderSummaryDto(order);
   return {
     ...summary,
+    recipientEmail: order.recipientEmail ?? null,
     pickupAddress: order.pickupAddress ? toAddressDto(order.pickupAddress) : null,
     dropoffAddress: order.dropoffAddress ? toAddressDto(order.dropoffAddress) : null,
     customerNote: order.customerNote,

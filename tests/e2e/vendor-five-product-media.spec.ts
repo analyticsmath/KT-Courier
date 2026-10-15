@@ -114,7 +114,12 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     await page.getByLabel("Description", { exact: true }).fill("Synthetic product for disposable browser acceptance only.");
     await step("Photos & options");
     await page.getByText("Variants, compliance and modifiers (optional)", { exact: true }).click();
-    if (index === 1) await page.getByLabel("Variant matrix", { exact: true }).fill(JSON.stringify([{ title: "Blue", options: [{ code: "color", value: "blue" }], attributeValues: {} }]));
+    if (index === 1) {
+      await page.getByLabel("Sell sizes, colours or other product options", { exact: true }).check();
+      await page.getByLabel("Variant name", { exact: true }).fill("Blue");
+      await page.getByLabel("Option name", { exact: true }).fill("color");
+      await page.getByLabel("Option value", { exact: true }).fill("blue");
+    }
     if (index === 2) await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: `Synthetic gift wrap ${tag}`, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }]));
     for (const image of [0, 1]) {
       const bytes = await sharp({ create: { width: 400, height: 400, channels: 3, background: { r: 40 + index * 25, g: 70 + image * 70, b: 120 } } }).png().toBuffer();
@@ -124,9 +129,15 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
       await page.getByLabel("Alt text", { exact: true }).nth(image).fill(`${title} image ${image + 1}`);
     }
     await step("Offer & stock");
-    await page.getByLabel("Store SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
-    await page.getByLabel("VAT-inclusive price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
-    await page.getByLabel("Opening stock", { exact: true }).fill("7");
+    if (index === 1) {
+      await page.getByLabel("Variant SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
+      await page.getByLabel("Variant price including VAT (ZAR)", { exact: true }).fill(`${20 + index}.25`);
+      await page.getByLabel("Variant opening stock", { exact: true }).fill("7");
+    } else {
+      await page.getByLabel("Store SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
+      await page.getByLabel("VAT-inclusive price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
+      await page.getByLabel("Opening stock", { exact: true }).fill("7");
+    }
     await page.getByLabel("Inventory location", { exact: true }).selectOption({ label: "Synthetic stockroom" });
     await step("Review & save"); const saved = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/listing-drafts") && response.request().method() === "POST");
     await page.getByRole("button", { name: "Save product draft", exact: true }).click(); const response = await saved; expect(response.status(), await response.text()).toBe(201);
@@ -167,6 +178,17 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   await login(page, "e2e-paystack-vendor-five-products@ktcouriers.local");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 }); await page.goto(`/shop/stores/${store.slug}`);
+    const storeCategories = page.getByRole("navigation", { name: "Store categories", exact: true });
+    await expect(storeCategories.getByRole("link")).toHaveCount(2);
+    expect(await storeCategories.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const categoryBounds = await Promise.all((await storeCategories.getByRole("link").all()).map(link => link.boundingBox()));
+    const navBounds = await storeCategories.boundingBox();
+    expect(navBounds).not.toBeNull();
+    for (const bounds of categoryBounds) {
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(navBounds!.x);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(navBounds!.x + navBounds!.width + 1);
+    }
     for (const product of products) await expect(page.getByRole("link", { name: new RegExp(product.title) }).first()).toBeVisible();
     for (const product of products) { const image = page.locator(`img[src*="${product.primaryImageReference}"]`).first(); await image.scrollIntoViewIfNeeded(); await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0); }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

@@ -1,3 +1,4 @@
+import { assertMarketplacePaymentPlanTotals, marketplacePaymentPlansEqual, resolveMarketplacePaymentPlan } from "./payment-plan";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { resolveMarketplaceCartLine } from "./cart.service";
@@ -18,11 +19,18 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
   if (!checkout.customerUserId && !await prisma.marketplaceGuestContactVerification.findFirst({ where: { checkoutId, contactSnapshotId: checkout.contactSnapshotId!, verifiedAt: { not: null } } })) fail();
   const activeMatrices = (await listDeliveryMatrices()).filter(v => v.status === "ACTIVE" && v.approvedAt && v.approvedByUserId && v.approvedByUserId !== v.createdByUserId && new Date(v.effectiveFrom) <= at && (!v.effectiveTo || new Date(v.effectiveTo) > at));
   const currentMatrixVersion = Math.max(0, ...activeMatrices.map(v => v.version));
+  assertMarketplacePaymentPlanTotals({ grandTotal: checkout.grandTotal.toFixed(2), digitalRequired: checkout.digitalRequired?.toFixed(2), cashRequired: checkout.cashRequired.toFixed(2), groups: checkout.storeGroups.map(g => ({ ...g, groupTotal: g.groupTotal.toFixed(2) })) });
   for (const group of checkout.storeGroups) {
     if (!group.deliveryQuoteReference || !group.deliveryQuoteExpiresAt || group.deliveryQuoteExpiresAt <= at || !group.deliveryQuoteVersion) fail();
     const quote = await prisma.pricingQuote.findUnique({ where: { id: group.deliveryQuoteReference! } });
     if (!quote) return fail();
     if (quote.expiresAt <= at || quote.ownerId !== group.store.ownerUserId || quote.storeId !== group.storeId || !quote.total.equals(group.deliveryFee)) fail();
+    if (group.paymentPlan) {
+      const pickup = await prisma.store.findUnique({ where: { id: group.storeId }, include: { defaultPickupAddress: true } });
+      const destination = await prisma.marketplaceCheckoutAddressSnapshot.findUnique({ where: { id: checkout.addressSnapshotId! } });
+      const current = await resolveMarketplacePaymentPlan({ storeId: group.storeId, orderType: "STORE", deliveryServiceId: quote.deliveryType, deliveryServiceKey: quote.deliveryType, regionId: quote.destinationRegionId, provinces: [...new Set([pickup?.defaultPickupAddress?.province, destination?.province].filter((p): p is string => Boolean(p)))], total: group.groupTotal.toFixed(2), fulfilmentMode: group.fulfilmentMode, groupCount: checkout.storeGroups.length }, prisma);
+      if (!marketplacePaymentPlansEqual(current, group.paymentPlan)) fail();
+    }
     const rule = quote.ruleSnapshot as { policyVersion?: number; policyAuthority?: string };
     if (rule.policyAuthority === "marketplace_delivery_matrix" && rule.policyVersion !== currentMatrixVersion) fail();
     for (const line of group.lines.filter(line => line.reviewVersion === checkout.reviewVersion)) {

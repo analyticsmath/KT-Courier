@@ -256,6 +256,10 @@ jobs:
         run: npm run test:security:bola
       - name: Refund lifecycle & reconciliation tests
         run: npm run test:refunds
+      - name: Delivery OTP atomicity and concurrency on isolated PostgreSQL
+        env:
+          KT_ALLOW_ISOLATED_POSTGRES_TESTS: '1'
+        run: npx vitest run --config vitest.integration.config.ts tests/integration/delivery-otp-atomicity.integration.test.ts tests/integration/marketplace-reservation-expiry.integration.test.ts
 
   phase-1-financial-concurrency-integration:
     name: Phase 1 PostgreSQL Webhook Concurrency Integration

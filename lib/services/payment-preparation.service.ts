@@ -9,6 +9,7 @@ import { PAYMENT_POLICY_VERSION } from "@/lib/payments/types";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
 import { PrepareOrderPaymentSchema, type PrepareOrderPaymentInput } from "@/lib/validation/payments";
 import { resolveOrderPaymentSubject } from "./payment-subject.service";
+import { assertMarketplacePaymentPlanTotals } from "@/lib/marketplace-checkout/payment-plan";
 import { assertPaymentSubjectIntegrity, marketplacePaymentSubject } from "@/lib/payments/payment-subject-policy";
 
 const PAYMENT_SUMMARY_INCLUDE = {
@@ -201,8 +202,9 @@ export async function prepareMarketplaceCheckoutPayment(
     policyVersion: PAYMENT_POLICY_VERSION,
   });
   return withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
-    const checkout = await tx.marketplaceCheckout.findUnique({ where: { id: command.checkoutId }, select: { id: true, publicReference: true, customerUserId: true, guestAccessTokenHash: true, acceptedFingerprint: true, grandTotal: true, currency: true } });
-    if (!checkout || checkout.publicReference !== command.checkoutReference || checkout.acceptedFingerprint !== command.commercialFingerprint || checkout.currency !== "ZAR" || checkout.grandTotal.toFixed(2) !== command.amount) {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${command.checkoutId} FOR UPDATE`);
+    const checkout = await tx.marketplaceCheckout.findUnique({ where: { id: command.checkoutId }, select: { id: true, publicReference: true, customerUserId: true, guestAccessTokenHash: true, acceptedFingerprint: true, grandTotal: true, digitalRequired: true, cashRequired: true, currency: true, status: true, storeGroups: true } });
+    if (!checkout || checkout.publicReference !== command.checkoutReference || checkout.acceptedFingerprint !== command.commercialFingerprint || checkout.currency !== "ZAR" || (checkout.digitalRequired ?? checkout.grandTotal).toFixed(2) !== command.amount) {
       throw new PaymentError("PAYMENT_METADATA_INVALID", "Marketplace checkout evidence changed before payment preparation.");
     }
     assertPaymentSubjectIntegrity({
@@ -217,6 +219,11 @@ export async function prepareMarketplaceCheckoutPayment(
     }
     const existingCheckoutPayment = await tx.payment.findUnique({ where: { marketplaceCheckoutId: command.checkoutId } });
     if (existingCheckoutPayment) throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Marketplace checkout already has a payment under a different operation.");
+    // Expiry and preparation serialize on the checkout. A stale outer HTTP
+    // read can never create a fresh payment after reservation release wins.
+    const reservation = await tx.marketplaceInventoryReservation.findFirst({ where: { checkoutId: checkout.id, status: { in: ["ACTIVE", "PAYMENT_PENDING_HOLD"] }, commercialFingerprint: command.commercialFingerprint, expiresAt: { gt: new Date() } } });
+    if (!["RESERVED", "PAYMENT_PREPARING", "PAYMENT_PENDING"].includes(checkout.status) || !reservation) throw new PaymentError("PAYMENT_METADATA_INVALID", "An unexpired accepted inventory reservation is required before creating a marketplace payment.");
+    assertMarketplacePaymentPlanTotals({ grandTotal: checkout.grandTotal.toFixed(2), digitalRequired: checkout.digitalRequired?.toFixed(2), cashRequired: checkout.cashRequired.toFixed(2), groups: checkout.storeGroups.map(group => ({ ...group, groupTotal: group.groupTotal.toFixed(2) })) });
     const payment = await tx.payment.create({ data: {
       publicReference: newPublicPaymentReference(), subjectType: "MARKETPLACE_CHECKOUT", marketplaceCheckoutId: command.checkoutId,
       orderId: null, userId: subject.customerUserId ?? null, provider: null, purpose: "ORDER", status: "CREATED",
@@ -224,6 +231,8 @@ export async function prepareMarketplaceCheckoutPayment(
       creationRequestHash: requestHash, version: 0, latestAttemptNumber: 0,
       metadata: { subjectType: "MARKETPLACE_CHECKOUT", checkoutReference: command.checkoutReference, commercialFingerprint: command.commercialFingerprint, policyVersion: PAYMENT_POLICY_VERSION },
     } });
+    await tx.marketplaceInventoryReservation.update({ where: { id: reservation.id }, data: { status: "PAYMENT_PENDING_HOLD", paymentId: payment.id } });
+    await tx.marketplaceCheckout.update({ where: { id: checkout.id }, data: { status: "PAYMENT_PENDING" } });
     await tx.paymentStatusHistory.create({ data: { paymentId: payment.id, fromStatus: null, toStatus: "CREATED", reasonCode: "MARKETPLACE_PAYMENT_PREPARED", actorType: subject.customerUserId ? "PAYER" : "SYSTEM", actorId: subject.customerUserId ?? null, metadata: { checkoutReference: command.checkoutReference, commercialFingerprint: command.commercialFingerprint } } });
     return Object.freeze({ id: payment.id, publicReference: payment.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR" as const, replayed: false });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));

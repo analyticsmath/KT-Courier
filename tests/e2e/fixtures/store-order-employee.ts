@@ -16,7 +16,8 @@ export async function proveStoreOrderEmployeeScope(page: Page, reference: string
   expect((await page.request.get("/api/store/orders")).status()).toBe(200);
   for (const path of ["/api/store/catalog/products", "/api/store/earnings", "/api/store/employees"]) expect((await page.request.get(path)).status()).toBe(403);
   await page.goto(`/store/marketplace-orders/${reference}`);
-  await expect(page.getByRole("heading", { name: reference, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Marketplace store order", exact: true })).toBeVisible();
+  await expect(page.getByText(reference, { exact: true })).toBeVisible();
   await storeControl(reference, "deny-employee-review");
   expect((await storeAction(page, reference, { action: "begin-review" })).status()).toBe(404);
   expect(await storeControl(reference)).toEqual(baseline);

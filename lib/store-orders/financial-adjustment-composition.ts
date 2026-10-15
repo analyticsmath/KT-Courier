@@ -7,6 +7,7 @@ import { createMarketplaceRefundRequest, type RefundRequestDependencies } from "
 import type { StoreOrderFinancialAuthority } from "@/lib/store-orders/contracts";
 import { StoreOrderError } from "@/lib/store-orders/errors";
 import { storeAdjustmentChildOperation } from "./financial-operation";
+import { assertUnstartedMarketplaceCodFunding } from "@/lib/services/marketplace-adjustment-refund-authority";
 
 const zero = () => new Prisma.Decimal(0);
 
@@ -88,7 +89,9 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
           allocations: true,
           storeOrder: {
             include: {
-              marketplaceOrder: { select: { customerUserId: true, payment: { select: { publicReference: true } } } },
+              marketplaceOrder: { include: { payment: { select: { publicReference: true } } } },
+              checkoutStoreGroup: true,
+              deliveryBridge: true,
               settlementSnapshots: { orderBy: { createdAt: "asc" }, take: 1 },
             },
           },
@@ -102,6 +105,15 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
         return replay;
       }
       const snapshot = adjustment.storeOrder.settlementSnapshots[0];
+      const cancellation = adjustment.financialEvidence?.unstartedCodCancellation;
+      if (cancellation) {
+        if (!snapshot || !["FULL_STORE_REJECTION", "CUSTOMER_CANCELLATION"].includes(adjustment.adjustmentType) || adjustment.storeOrder.preparationStatus !== "ABORTED" || adjustment.allocations.length || !adjustment.deliveryFeeAmount.isZero() || snapshot.settlementVersion !== adjustment.sourceVersion) throw new StoreOrderError("STORE_ORDER_FINANCIAL_EVIDENCE_INVALID", "An unstarted COD cancellation must use its captured deposit only.");
+        const proof = await assertUnstartedMarketplaceCodFunding(tx, adjustment.storeOrder, snapshot);
+        if (!Object.entries(proof).every(([key, value]) => cancellation[key] === value) || !adjustment.refundAmount.equals(proof.digitalRequired)) throw new StoreOrderError("STORE_ORDER_FINANCIAL_EVIDENCE_INVALID", "COD cancellation evidence no longer matches its captured deposit.");
+        const committedEvidence: { operationId: string; paymentReference: string; customerUserId: string | null; refundAmount: string; commissionReversalReferences: string[]; storeEarningReversalReference?: string; fundingSource: string; captureJournalId: string } = { operationId: input.operationId, paymentReference: proof.paymentReference, customerUserId: adjustment.storeOrder.marketplaceOrder.customerUserId, refundAmount: proof.digitalRequired, commissionReversalReferences: [] as string[], fundingSource: "UNSTARTED_COD_DEPOSIT", captureJournalId: proof.captureJournalId };
+        await database.marketplaceStoreOrderAdjustment.update({ where: { id: adjustment.id }, data: { financialEvidence: { ...(adjustment.financialEvidence ?? {}), phase21CommittedReversals: committedEvidence } } });
+        return committedEvidence;
+      }
       if (!snapshot || snapshot.status !== "COMPLETED" || snapshot.settlementVersion !== adjustment.sourceVersion || !snapshot.commissionAccrualReference || !snapshot.storeEarningReference) throw new StoreOrderError("STORE_ORDER_ORIGINAL_SETTLEMENT_PENDING", "The original Phase 20 settlement must complete before an adjustment can be composed.");
       const sellerBasis = sum(adjustment.allocations, "SELLER_BASIS");
       const commission = sum(adjustment.allocations, "COMMISSION");

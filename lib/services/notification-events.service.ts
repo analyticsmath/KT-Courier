@@ -22,7 +22,13 @@ export async function appendOrderConfirmedInTx(db: Pick<Prisma.TransactionClient
   await append("ORDER_CONFIRMED", order.id, `legacy-order-confirmed:${order.id}`, { orderNumber: order.orderNumber, deliveryType: order.deliveryType, source: order.source }, db);
 }
 
-export async function appendOrderStatusChangedInTx(db: Pick<Prisma.TransactionClient, "notificationEventIntent">, order: { id: string; orderNumber: string; status: string; source: string }, historyId: string) {
+export async function appendOrderStatusChangedInTx(db: Pick<Prisma.TransactionClient, "notificationEventIntent">, order: { id: string; orderNumber: string; status: string; source: string; pricingSnapshot?: unknown }, historyId: string) {
+  // Marketplace execution projects a canonical COURIER_* store-order event in
+  // this transaction. Its checkout recipient policy supports both account and
+  // verified guest customers; the legacy customer-only route would duplicate
+  // account messages and cannot resolve a guest shipment.
+  const snapshot = order.pricingSnapshot;
+  if (snapshot && typeof snapshot === "object" && "marketplaceStoreOrderReference" in snapshot) return;
   await append("ORDER_STATUS_CHANGED", order.id, `legacy-order-status-history:${historyId}`, { orderNumber: order.orderNumber, status: order.status, source: order.source }, db);
 }
 

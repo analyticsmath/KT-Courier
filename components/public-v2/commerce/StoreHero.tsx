@@ -77,7 +77,7 @@ export function StoreHero({ store }: StoreHeroProps) {
           )}
 
           {categories.length > 0 && (
-            <div className={styles.storeCategoryNav}>
+            <nav aria-label="Store categories" className={styles.storeCategoryNav}>
               {categories.map((cat) => {
                 const href = marketplaceStoreCategoryHref(store.slug, cat.path);
                 if (!href) return null;
@@ -91,7 +91,7 @@ export function StoreHero({ store }: StoreHeroProps) {
                   </Link>
                 );
               })}
-            </div>
+            </nav>
           )}
         </div>
       </div>

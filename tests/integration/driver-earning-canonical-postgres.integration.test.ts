@@ -81,3 +81,86 @@ describe("driver earning canonical services on isolated PostgreSQL", () => {
   // Source facts are synthetic. Provider verification, physical delivery and
   // production financial approval require their independent acceptance gates.
 });
+
+import { runEarningLifecycleBatch } from "@/lib/services/earning-lifecycle-batch.service";
+import { CLEARANCE_POLICY_KEY } from "@/lib/earnings/clearance-policy";
+import { produceDriverSettlement } from "@/lib/services/driver-settlement-producer.service";
+import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
+
+describe("real courier settlement producer on isolated PostgreSQL", () => {
+  it("derives approved deductions from a real quote, commits once under concurrency and rolls back commission if earning fails", async () => {
+    const completedAt = new Date("2001-01-01T12:00:00.000Z");
+    const tag = randomUUID();
+    const reviewer = await prisma.user.create({ data: { email: `producer-reviewer-${tag}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
+    const platform = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
+    await ensureLedgerAccount({ walletId: platform.id, code: "PLATFORM-COMMISSION-REVENUE-ZAR", purpose: "PLATFORM_REVENUE", category: "REVENUE", currency: "ZAR" });
+    await prisma.commissionPlan.create({ data: { publicReference: `CP-PRODUCER-${tag}`, subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER", currency: "ZAR", status: "ACTIVE", versionNumber: 1, basisType: "ORDER_TOTAL", calculationVersion: "producer-proof-v1", effectiveFrom: new Date("2001-01-01T00:00:00Z"), effectiveUntil: new Date("2001-01-02T00:00:00Z"), approvedAt: new Date("2000-12-01T00:00:00Z"), approvedByUserId: reviewer.id, createdByUserId: reviewer.id, rules: { create: { publicReference: `CR-PRODUCER-${tag}`, ruleCode: "PLATFORM", allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: 1000, priority: 1, isRequired: true } } } });
+    async function source(options: { paymentAmount?: string } = {}) {
+      const s = await createDisposableDriverSettlement(options);
+      const quote = await prisma.pricingQuote.create({ data: { status: "USED", ownerType: "CUSTOMER", ownerId: s.customer.id, deliveryType: "SAME_DAY", currency: "ZAR", calculationVersion: "producer-proof-v1", inputHash: s.tag, distanceMeters: 1000, rawDistanceKm: "1.0000", billableDistanceKm: "1.0000", subtotal: "100.25", taxRate: "0.0000", taxAmount: "0.00", total: "100.25", inputSnapshot: {}, ruleSnapshot: {}, regionSnapshot: {}, taxSnapshot: {}, expiresAt: completedAt, usedAt: completedAt } });
+      await prisma.order.update({ where: { id: s.order.id }, data: { pricingQuoteId: quote.id } });
+      await prisma.orderAssignment.update({ where: { id: s.assignment.id }, data: { completedAt } });
+      await prisma.proofOfDelivery.update({ where: { id: s.pod.id }, data: { deliveredAt: completedAt } });
+      return s;
+    }
+    const s = await source();
+    const results = await Promise.all([produceDriverSettlement(s.order.id), produceDriverSettlement(s.order.id)]);
+    expect(new Set(results.map(r => r.publicReference)).size).toBe(1);
+    const earning = await prisma.driverEarning.findFirstOrThrow({ where: { orderId: s.order.id } });
+    expect(earning.amount.toFixed(2)).toBe("90.22");
+    expect(earning.attributedCommissionAmount.toFixed(2)).toBe("10.03");
+    expect(earning.releaseEligibleAt).toBeNull();
+    expect(await prisma.commissionAccrual.count({ where: { subjectId: s.order.id } })).toBe(1);
+    expect(await prisma.driverEarning.count({ where: { orderId: s.order.id } })).toBe(1);
+    const failed = await source();
+    const identifier = `producer_failure_${randomUUID().replaceAll("-", "")}`;
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION "${identifier}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."orderId" = '${failed.order.id}' THEN RAISE EXCEPTION 'PRODUCER_EARNING_WRITE_FAILURE'; END IF; RETURN NEW; END $$`);
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TRIGGER "${identifier}" BEFORE INSERT ON "DriverEarning" FOR EACH ROW EXECUTE FUNCTION "${identifier}"()`);
+      await expect(produceDriverSettlement(failed.order.id)).rejects.toThrow("PRODUCER_EARNING_WRITE_FAILURE");
+      expect(await prisma.commissionAccrual.count({ where: { subjectId: failed.order.id } })).toBe(0);
+      expect(await prisma.driverEarning.count({ where: { orderId: failed.order.id } })).toBe(0);
+      expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: failed.accounts.account.id } })).currentBalance.toFixed(2)).toBe("0.00");
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${identifier}" ON "DriverEarning"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION "${identifier}"()`);
+    }
+    const unfunded = await source({ paymentAmount: "50.00" });
+    await expect(produceDriverSettlement(unfunded.order.id)).rejects.toMatchObject({ code: "DRIVER_EARNING_PAYMENT_INVALID" });
+    expect(await prisma.commissionAccrual.count({ where: { subjectId: unfunded.order.id } })).toBe(0);
+    // Synthetic isolated PostgreSQL proof: the actual worker path must produce,
+    // clear and release the exact liability without external transfers.
+    const automatic = await source();
+    const cursorKey = "finance.earning_lifecycle_cursor.v1";
+    const priorPolicy = await prisma.systemSetting.findUnique({ where: { key: CLEARANCE_POLICY_KEY } });
+    const priorCursor = await prisma.systemSetting.findUnique({ where: { key: cursorKey } });
+    try {
+      const policy = { version: `synthetic-${tag}`, effectiveFrom: "2000-12-01T00:00:00.000Z", storeHoldHours: 0, driverHoldHours: 0, reason: "Synthetic independent clearance acceptance only", submittedByUserId: s.customer.id, submittedAt: "2000-12-01T00:00:00.000Z", reviewedByUserId: reviewer.id, reviewedAt: "2000-12-02T00:00:00.000Z" };
+      await prisma.systemSetting.upsert({ where: { key: CLEARANCE_POLICY_KEY }, create: { key: CLEARANCE_POLICY_KEY, label: "Synthetic clearance policy", type: "JSON", value: policy }, update: { value: policy } });
+      await prisma.systemSetting.deleteMany({ where: { key: cursorKey } });
+      await runEarningLifecycleBatch({ mode: "DRY_RUN", batchSize: 25 });
+      expect(await prisma.driverEarning.count({ where: { orderId: automatic.order.id } })).toBe(0);
+      expect(await prisma.systemSetting.findUnique({ where: { key: cursorKey } })).toBeNull();
+      // Bounded cursor passes can encounter earlier blocked synthetic sources.
+      for (let pass = 0; pass < 5; pass++) {
+        await runEarningLifecycleBatch({ mode: "APPLY", batchSize: 25 });
+        const row = await prisma.driverEarning.findFirst({ where: { orderId: automatic.order.id } });
+        if (row?.status === "RELEASED") break;
+      }
+      const released = await prisma.driverEarning.findFirstOrThrow({ where: { orderId: automatic.order.id } });
+      expect(released.status).toBe("RELEASED"); expect(released.releasedAmount.toFixed(2)).toBe("90.22");
+      expect(released.releaseEligibleAt?.toISOString()).toBe(completedAt.toISOString());
+      const account = await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: automatic.accounts.ownerWithdrawable.id } });
+      expect(account.currentBalance.toFixed(2)).toBe("90.22");
+      await runEarningLifecycleBatch({ mode: "APPLY", batchSize: 25 });
+      expect(await prisma.driverEarning.count({ where: { orderId: automatic.order.id } })).toBe(1);
+      expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: account.id } })).currentBalance.toFixed(2)).toBe("90.22");
+      expect(await prisma.commissionAccrual.count({ where: { subjectId: unfunded.order.id } })).toBe(0);
+    } finally {
+      for (const [key, prior] of [[CLEARANCE_POLICY_KEY, priorPolicy], [cursorKey, priorCursor]] as const) {
+        if (prior) await prisma.systemSetting.update({ where: { key }, data: { value: prior.value! } });
+        else await prisma.systemSetting.deleteMany({ where: { key } });
+      }
+    }
+  });
+});

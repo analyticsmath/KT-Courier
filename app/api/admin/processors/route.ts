@@ -2,9 +2,10 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import { badRequest, ok, unprocessable } from "@/lib/api/response";
+import { badRequest, forbidden, ok, unprocessable } from "@/lib/api/response";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { executeRegisteredProcessor, getProcessorInventory } from "@/lib/processors/processor-service";
+import { getRegisteredProcessor } from "@/lib/processors/processor-registry";
 
 const executeSchema = z
   .object({
@@ -38,13 +39,24 @@ export async function POST(request: NextRequest) {
     return unprocessable("Processor execution request is invalid.");
   }
 
+  const processor = getRegisteredProcessor(parsed.data.name);
+  if (!processor) return badRequest("Processor is not registered.");
+  if (!processor.manualExecutionAllowed) return forbidden("This processor only accepts internal scheduled execution.");
+  // Monitoring access never grants authority to post financial or operational
+  // effects. Require the selected domain's execution permission even in dry run.
+  const executionAuth = await requireAdminApiPermission(processor.requiredPermission, { request });
+  if (executionAuth.response) return executionAuth.response;
+  if (processor.classification === "SINGLETON_MUTATING_PROCESSOR" && parsed.data.partition && parsed.data.partition !== processor.defaultPartition) {
+    return badRequest("Singleton processors must use their registered partition.");
+  }
+
   try {
     const result = await executeRegisteredProcessor({
       name: parsed.data.name,
       partition: parsed.data.partition,
       mode: parsed.data.mode,
       batchSize: parsed.data.batchSize,
-      actorUserId: auth.user.id,
+      actorUserId: executionAuth.user.id,
       operationId: parsed.data.operationId,
     });
     return ok({ data: result });

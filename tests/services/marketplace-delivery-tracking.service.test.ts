@@ -32,6 +32,14 @@ describe("marketplace customer tracking projection", () => {
     });
     expect(projectCustomerTrackingStoreOrder({ ...base, courierStatus: "DELIVERED", bridgeStatus: "DELIVERED" }).liveLocation).toBeNull();
   });
+  it("shows cash still due, collected or cancelled without confusing bank remittance with customer debt", () => {
+    const cash = { ...base, cashObligation: new Prisma.Decimal("60.01"), cashCollected: new Prisma.Decimal(0), cashStatus: "READY" };
+    expect(projectCustomerTrackingStoreOrder(cash).cashOnDelivery).toEqual({ obligation: "60.01", collected: "0.00", outstanding: "60.01", status: "READY" });
+    expect(projectCustomerTrackingStoreOrder({ ...cash, cashCollected: new Prisma.Decimal("60.01"), cashStatus: "COLLECTED" }).cashOnDelivery?.outstanding).toBe("0.00");
+    expect(projectCustomerTrackingStoreOrder({ ...cash, cashStatus: "CANCELLED" }).cashOnDelivery?.outstanding).toBe("0.00");
+    expect(projectCustomerTrackingStoreOrder({ ...cash, acceptanceStatus: "REJECTED", cashStatus: null }).cashOnDelivery).toMatchObject({ status: "CANCELLED", outstanding: "0.00" });
+    expect(projectCustomerTrackingStoreOrder(base).cashOnDelivery).toBeNull();
+  });
   it("retains customer-safe POD at DELIVERED and COMPLETED without retaining courier GPS", () => {
     const confirmed = { ...base, proofMethod: "OTP", proofDeliveredAt: new Date("2026-08-04T11:00:00.000Z") };
     expect(projectCustomerTrackingStoreOrder(confirmed).proofOfDelivery).toBeNull();

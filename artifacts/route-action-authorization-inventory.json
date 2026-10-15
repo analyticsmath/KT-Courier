@@ -1,12 +1,12 @@
 {
   "summary": {
-    "totalRoutes": 752,
+    "totalRoutes": 754,
     "totalServerActions": 0,
     "publicRoutes": 97,
-    "authenticatedRoutes": 652,
-    "permissionGatedRoutes": 512,
+    "authenticatedRoutes": 654,
+    "permissionGatedRoutes": 514,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 205,
+    "rateLimitedRoutes": 206,
     "generatedAt": "2026-10-14T13:16:25.388Z"
   },
   "serverActions": [],
@@ -450,6 +450,25 @@
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/catalog/media/[id]/content/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "catalog_moderation.read"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Requires CATALOG_MODERATION_READ before private validated image bytes are read; no public publication bypass or storage identity exposure."
     },
     {
       "routePath": "app/api/admin/catalog/media/[id]/quarantine/route.ts",
@@ -1547,6 +1566,28 @@
       "bolaOwnershipValidated": true,
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/earning-clearance-policy/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "commission_plans.read",
+        "commission_plans.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Read/manage permission before policy access; same-origin rate-limited mutations and independent reviewer/version authority in service."
     },
     {
       "routePath": "app/api/admin/emails/logs/[id]/route.ts",

@@ -50,7 +50,7 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   expect(await forbiddenCash.json()).toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
   expect(await prisma.pricingQuote.findUnique({ where: { id: dto.id } })).toEqual(before);
   expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(0);
-  for (const [label, value] of [["Sender name", "Disposable sender"], ["Sender phone", "+27820000000"], ["Recipient name", "Disposable recipient"], ["Recipient phone", "+27820000001"]]) await page.getByLabel(label, { exact: true }).fill(value);
+  for (const [label, value] of [["Sender name", "Disposable sender"], ["Sender phone", "+27820000000"], ["Recipient name", "Disposable recipient"], ["Recipient email for delivery code", `recipient-${width}@ktcouriers.local`], ["Recipient phone", "+27820000001"]]) await page.getByLabel(label, { exact: true }).fill(value);
   const booked = page.waitForResponse(result => result.url().endsWith(endpoint)); await page.getByRole("button", { name: "Book this delivery", exact: true }).click();
   const created = await booked; expect(created.status(), await created.text()).toBe(201); const result = await created.json();
   const order = await prisma.order.findUniqueOrThrow({ where: { id: result.id } });

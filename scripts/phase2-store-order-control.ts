@@ -1,10 +1,9 @@
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { prisma } from "../lib/db/prisma";
 import { assertDisposablePaystackAcceptance, assertDisposablePaystackEmail } from "../lib/testing/disposable-paystack-policy";
-import { settleMarketplaceStoreOrder } from "../lib/marketplace-checkout/settlement.service";
-import { createPrismaMarketplaceSettlementRepository } from "../lib/marketplace-checkout/prisma-marketplace-settlement.repository";
+import { runMarketplaceSettlementBatch } from "../lib/marketplace-checkout/settlement-batch.service";
 import { createStoreOrderOperationalPolicy, submitStoreOrderOperationalPolicy, approveStoreOrderOperationalPolicy, activateStoreOrderOperationalPolicy } from "../lib/store-orders/operational-policy.service";
-import { initializeMarketplaceStoreOrderOperations } from "../lib/store-orders/store-order.service";
+import { initializeMarketplaceOrdersBatch } from "../lib/marketplace-checkout/lifecycle-batch.service";
 import { ensureWalletForOwner } from "../lib/services/wallet-account.service";
 import { ensureStoreEarningPayableAccount } from "../lib/services/store-earning-account.service";
 import { offerAssignment } from "../lib/services/dispatch-assignment.service";
@@ -21,7 +20,10 @@ async function main() {
   if (action === "initialize") {
     await ensureWalletForOwner({ ownerType: "STORE", ownerId: source.storeId, currency: "ZAR" });
     await ensureStoreEarningPayableAccount(source.storeId);
-    await settleMarketplaceStoreOrder({ marketplaceStoreOrderReference: reference, operationId: `disposable-settle-${source.id}` }, createPrismaMarketplaceSettlementRepository());
+    await runMarketplaceSettlementBatch({ mode: "APPLY", batchSize: 100 });
+    const settlement = await prisma.marketplaceSettlementSnapshot.findUniqueOrThrow({ where: { marketplaceStoreOrderId_settlementVersion: { marketplaceStoreOrderId: source.id, settlementVersion: "phase20-v1" } } });
+    if (source.marketplaceOrder.cashRequired.isZero() && settlement.status !== "COMPLETED") throw new Error("Automatic prepaid marketplace settlement must complete before merchant operations.");
+    if (source.marketplaceOrder.cashRequired.gt(0) && !["PENDING", "COMPLETED"].includes(settlement.status)) throw new Error("Cash marketplace merchant review requires a coherent prepared settlement.");
     const active = await prisma.storeOrderOperationalPolicy.findFirst({ where: { status: "ACTIVE" } });
     if (!active) {
       const checker = await prisma.user.findUniqueOrThrow({ where: { email: "disposable-checkout-reviewer@example.test" } });
@@ -30,8 +32,9 @@ async function main() {
       await approveStoreOrderOperationalPolicy({ publicReference: policy.publicReference, approvedByUserId: checker.id });
       await activateStoreOrderOperationalPolicy({ publicReference: policy.publicReference });
     }
-    const operationId = `disposable-initialize-${source.id}`;
-    await initializeMarketplaceStoreOrderOperations({ storeOrderReference: reference, operationId, requestHash: createHash("sha256").update(operationId).digest("hex") });
+    await initializeMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 100 });
+    const initialized = await prisma.marketplaceStoreOrder.findUniqueOrThrow({ where: { id: source.id } });
+    if (!initialized.operationalPolicyId) throw new Error("Automatic merchant operations initialization must complete.");
   } else if (action === "offer-handoff") {
     const contact = source.marketplaceOrder.checkout.contactSnapshot!.email;
     const suffix = /^e2e-paystack-(vendor-five-products|store-handoff-(?:1440|390)|pg-store-handoff|driver-delivery-(?:1440|390|pg))@ktcouriers\.local$/.exec(contact)?.[1];

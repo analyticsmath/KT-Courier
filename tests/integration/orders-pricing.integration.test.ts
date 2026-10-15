@@ -7,9 +7,11 @@ describe("Phase 7.5 live quote-to-order consumption", () => {
   it("creates one immutable order from an owned active quote", async () => {
     const customer = await createUser(uniqueTag("orders-customer"), "CUSTOMER");
     const { quote, input } = await createPersistedQuote(customer, uniqueTag("orders-quote"));
-    const order = await createOrder(customer, input);
+    const order = await createOrder(customer, { ...input, recipientEmail: "receiving-person@example.test" });
     const reloaded = await integrationPrisma.order.findUniqueOrThrow({ where: { id: order.id }, include: { pricingQuote: true, statusHistory: true } });
 
+    expect(reloaded.recipientEmail).toBe("receiving-person@example.test");
+    expect(order.recipientEmail).toBe("receiving-person@example.test");
     expect(reloaded.pricingQuoteId).toBe(quote.id);
     expect(reloaded.priceEstimate?.toFixed(2)).toBe("115.00");
     expect(reloaded.pricingQuote?.status).toBe("USED");

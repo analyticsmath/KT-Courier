@@ -15,6 +15,9 @@ export type CanonicalMarketplaceSettlement = Readonly<{
   marketplaceOrderId: string;
   marketplaceOrderReference: string;
   marketplaceOrderGrandTotal: string;
+  digitalRequired?: string;
+  cashRequired?: string;
+  cashFunding?: Readonly<{ status: string; paymentId: string | null; authoritativePayable: string; digitalRequired: string; digitalPaid: string; cashObligation: string; cashCollected: string; cashReconciled: string; remittanceDiscrepancy: string; collectionJournalId: string | null; reconciliationJournalId: string | null }> | null;
   payment: Readonly<{ id: string; publicReference: string; status: string; subjectType: string; marketplaceOrderId: string | null; amount: string; currency: string }>;
   snapshot: Readonly<{ id: string; publicReference: string; settlementVersion: string; authoritativeAt: string; status: string; sellerBasis: string; commissionAmount: string; storeEarningAmount: string; deliveryFeeResidual: string; currency: string; commissionPlanReference: string | null; commissionPlanVersion: string | null; sourceEvidenceFingerprint: string; commissionBeneficiarySnapshots: readonly Readonly<{ beneficiaryType: "PROMOTER"; ownerId: string; walletId: string; commissionPayableAccountId: string; attributionReference: string; attributionVersion: string }>[]; commissionAccrualReference: string | null; storeEarningReference: string | null }>;
   storeWalletId: string;
@@ -45,7 +48,14 @@ export function assertCanonicalMarketplaceSettlement(settlement: CanonicalMarket
   const snapshot = settlement.snapshot;
   if (!["PENDING", "RECONCILIATION_REQUIRED"].includes(snapshot.status) || !["PENDING_SETTLEMENT", "RECONCILIATION_REQUIRED"].includes(settlement.storeOrderStatus)) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Marketplace store settlement is not eligible for canonical settlement.");
   if (!snapshot.commissionPlanReference || !snapshot.commissionPlanVersion || snapshot.currency !== "ZAR" || settlement.payment.currency !== "ZAR" || settlement.payment.status !== "SUCCEEDED" || settlement.payment.subjectType !== "MARKETPLACE_CHECKOUT" || settlement.payment.marketplaceOrderId !== settlement.marketplaceOrderId) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Canonical settlement payment, frozen plan, or currency evidence is invalid.");
-  if (settlement.payment.amount !== settlementOrderTotal(settlement)) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Verified marketplace payment amount does not equal its parent marketplace order total.");
+  if (settlement.payment.amount !== (settlement.digitalRequired ?? settlementOrderTotal(settlement))) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Verified marketplace payment amount does not equal its parent marketplace order total.");
+  const cash = BigInt(parseZarToCents(settlement.cashRequired ?? "0.00"));
+  if (BigInt(parseZarToCents(settlement.digitalRequired ?? settlementOrderTotal(settlement))) + cash !== BigInt(parseZarToCents(settlementOrderTotal(settlement)))) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Marketplace payment allocation does not equal the order total.");
+  if (cash > BigInt(0)) {
+    const c = settlement.cashFunding;
+    if (!c || !["RECONCILED"].includes(c.status)) throw new MarketplaceCheckoutError("SETTLEMENT_AWAITING_CASH", "Cash settlement awaits the source driver's verified remittance.");
+    if (c.paymentId !== settlement.payment.id || c.authoritativePayable !== settlementOrderTotal(settlement) || c.digitalRequired !== settlement.payment.amount || c.digitalPaid !== c.digitalRequired || BigInt(parseZarToCents(c.cashObligation)) !== cash || c.cashCollected !== c.cashObligation || c.cashReconciled !== c.cashObligation || c.remittanceDiscrepancy !== "0.00" || !c.collectionJournalId || !c.reconciliationJournalId) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Cash settlement requires the exact source collection and bank reconciliation receipts.");
+  }
   assertSettlementArithmetic(snapshot);
   if (sum(settlement.lines, "SELLER_BASIS") !== BigInt(parseZarToCents(snapshot.sellerBasis)) || sum(settlement.lines, "COMMISSION") !== BigInt(parseZarToCents(snapshot.commissionAmount)) || sum(settlement.lines, "STORE_EARNING") !== BigInt(parseZarToCents(snapshot.storeEarningAmount))) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Immutable line financial allocations do not equal the store settlement snapshot.");
 }
@@ -75,7 +85,7 @@ export async function settleMarketplaceStoreOrder(input: Readonly<{ marketplaceS
     const safeError = error instanceof Error ? error.name : "SETTLEMENT_FAILURE";
     // The source production lock must not create settlement side effects. Real
     // settlement failures, by contrast, retain durable retry/reconciliation evidence.
-    if ((error as { code?: string })?.code !== "CONSOLIDATED_VALIDATION_NOT_APPROVED") await repository.recordReconciliationRequired({ marketplaceStoreOrderReference: input.marketplaceStoreOrderReference, operationId: input.operationId, safeError });
+    if (!["CONSOLIDATED_VALIDATION_NOT_APPROVED", "SETTLEMENT_AWAITING_CASH"].includes((error as { code?: string })?.code ?? "")) await repository.recordReconciliationRequired({ marketplaceStoreOrderReference: input.marketplaceStoreOrderReference, operationId: input.operationId, safeError });
     throw error;
   }
 }

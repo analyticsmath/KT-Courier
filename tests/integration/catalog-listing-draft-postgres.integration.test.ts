@@ -9,6 +9,7 @@ import { type CatalogListingDraftInput } from "@/lib/validation/catalog-listing-
 import { archiveStoreCatalogProduct, getStoreCatalogProduct, submitStoreCatalogProduct, updateStoreCatalogProduct } from "@/lib/services/catalog-product.service";
 import { transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
 import { moderateCatalogOffer, moderateCatalogProduct } from "@/lib/services/catalog-moderation.service";
+import { publishApprovedCatalogListing } from "@/lib/services/catalog-listing-publication.service";
 
 async function foundation() {
   requireDisposableStoreSettlementDatabase();
@@ -22,7 +23,7 @@ async function foundation() {
   const asset = await prisma.catalogMediaAsset.create({ data: { publicReference: catalogPublicReference("CMA"), ownerType: "STORE", ownerStoreId: store.id, purpose: "PRODUCT_IMAGE", storageKey: `catalog-media/${createHash("sha256").update(tag).digest("hex")}`, storageProvider: "DISPOSABLE_FIXTURE", declaredMimeType: "image/png", mimeType: "image/png", declaredByteSize: 100, byteSize: 100, width: 100, height: 100, checksum: "a".repeat(64), privacyInspectionPassed: true, storageConfirmedAt: new Date(), validatedAt: new Date(), status: "READY", createdByUserId: user.id, updatedByUserId: user.id } });
   const input: CatalogListingDraftInput = {
     operationId: tag, product: { scope: "STORE_PRIVATE", productTypeDefinitionId: definition.id, primaryCategoryId: category.id, title: `Disposable product ${tag}`, description: "Synthetic listing facts for transaction checks only.", condition: "NEW", attributeValues: { material: "cotton" }, complianceValues: {} },
-    variants: [{ title: "Blue", options: [{ code: "color", value: "blue" }], attributeValues: {} }], storeSku: `DISPOSABLE-${tag}`,
+    variants: [], storeSku: `DISPOSABLE-${tag}`,
     price: { amount: "19.25", currency: "ZAR", priceIncludesTax: true, effectiveFrom: new Date().toISOString() }, openingStock: 7, inventoryLocationPublicReference: location.publicReference,
     modifiers: [{ name: "Gift wrap", minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }],
     media: [{ assetPublicReference: asset.publicReference, altText: "Disposable cotton product", displayOrder: 0, primary: true, variantAssociation: "PRODUCT" }],
@@ -182,9 +183,9 @@ describe("atomic canonical catalog listing drafts on isolated PostgreSQL", { tim
   it("persists each listing fact through canonical commands without publishing or reserving stock", async () => {
     const source = await foundation();
     const product = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
-    expect(product.status).toBe("DRAFT"); expect(product.variants.map(row => row.title).sort()).toEqual(["Blue", "Default"]);
+    expect(product.status).toBe("DRAFT"); expect(product.variants.map(row => row.title).sort()).toEqual(["Default"]);
     expect(product.offers).toHaveLength(1); const offer = product.offers[0];
-    expect(offer).toMatchObject({ storeSku: source.input.storeSku.toUpperCase(), status: "DRAFT", priceVersions: [{ amount: expect.anything(), currency: "ZAR", status: "DRAFT" }], inventoryItem: { levels: [{ onHand: 7, reserved: 0, available: 7 }] }, modifierGroups: [{ group: { name: "Gift wrap" } }] });
+    expect(offer).toMatchObject({ storeSku: source.input.storeSku!.toUpperCase(), status: "DRAFT", priceVersions: [{ amount: expect.anything(), currency: "ZAR", status: "DRAFT" }], inventoryItem: { levels: [{ onHand: 7, reserved: 0, available: 7 }] }, modifierGroups: [{ group: { name: "Gift wrap" } }] });
     expect(offer.priceVersions[0].amount.toFixed(2)).toBe("19.25");
     const canonical = await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: product.publicReference }, include: { media: true } });
     expect(canonical.media).toMatchObject([{ assetId: source.asset.id, altText: "Disposable cotton product", role: "PRIMARY" }]);
@@ -204,6 +205,66 @@ describe("atomic canonical catalog listing drafts on isolated PostgreSQL", { tim
     await expect(createStoreCatalogListingDraft(source.store.id, source.user.id, { ...source.input, openingStock: 9 })).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
     expect(await counts(source.store.id)).toEqual(before);
     expect(await prisma.catalogInventoryMovement.count({ where: { inventoryItem: { offer: { storeId: source.store.id } } } })).toBe(1);
+  });
+  it("persists independently sellable options and replays without cloning price, stock or modifiers", async () => {
+    const source = await foundation();
+    const input: CatalogListingDraftInput = { ...source.input, storeSku: undefined, price: undefined, openingStock: undefined, variants: [
+      { title: "Blue small", options: [{ code: "colour", value: "Blue" }, { code: "size", value: "Small" }], attributeValues: {}, storeSku: `BLUE-${source.input.operationId}`, price: { ...source.input.price!, amount: "19.25" }, openingStock: 3 },
+      { title: "Red large", options: [{ code: "colour", value: "Red" }, { code: "size", value: "Large" }], attributeValues: {}, storeSku: `RED-${source.input.operationId}`, price: { ...source.input.price!, amount: "27.50" }, openingStock: 8 },
+    ] };
+    const results = await Promise.all([createStoreCatalogListingDraft(source.store.id, source.user.id, input), createStoreCatalogListingDraft(source.store.id, source.user.id, input)]);
+    expect(results[0]).toEqual(results[1]); const draft = results[0];
+    expect(draft.variants.map(variant => variant.title).sort()).toEqual(["Blue small", "Red large"]);
+    expect(draft.offers).toHaveLength(2);
+    const canonical = await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: draft.publicReference }, include: {
+      options: { include: { values: true } }, variants: { include: { optionValues: { include: { optionValue: { include: { option: true } } } } } },
+      offers: { include: { variant: true, priceVersions: true, inventoryItem: { include: { levels: true } }, modifierGroups: true } },
+    } });
+    expect(canonical.options.map(option => option.code).sort()).toEqual(["colour", "size"]);
+    expect(canonical.options.flatMap(option => option.values)).toHaveLength(4);
+    for (const expected of input.variants) {
+      const variant = canonical.variants.find(item => item.title === expected.title)!;
+      expect(Object.fromEntries(variant.optionValues.map(link => [link.optionValue.option.code, link.optionValue.label]))).toEqual(Object.fromEntries(expected.options.map(option => [option.code, option.value])));
+      const offer = canonical.offers.find(item => item.variantId === variant.id)!;
+      expect(offer.storeSku).toBe(expected.storeSku.toUpperCase());
+      expect(offer.priceVersions).toHaveLength(1); expect(offer.priceVersions[0].amount.toFixed(2)).toBe(expected.price.amount);
+      expect(offer.inventoryItem?.levels).toMatchObject([{ onHand: expected.openingStock, available: expected.openingStock, reserved: 0 }]);
+      expect(offer.modifierGroups).toHaveLength(1);
+    }
+    expect(await counts(source.store.id)).toMatchObject({ products: 1, offers: 2, groups: 1 });
+    expect(await prisma.catalogInventoryMovement.count({ where: { inventoryItem: { offer: { storeId: source.store.id } } } })).toBe(2);
+    await expect(createStoreCatalogListingDraft(source.store.id, source.user.id, { ...input, variants: [{ ...input.variants[0], openingStock: 4 }, input.variants[1]] })).rejects.toMatchObject({ code: "OPERATION_REPLAY_MISMATCH" });
+
+    // Synthetic separate reviewer exercises publication authority; no human
+    // approval or external storage certification is represented by this fixture.
+    const reviewer = await prisma.user.create({ data: { email: `variant-review-${randomUUID()}@example.test`, role: "ADMIN", status: "ACTIVE" } });
+    await prisma.productTypeDefinition.update({ where: { id: source.definition.id }, data: { status: "ACTIVE" } });
+    const submitted = await submitStoreCatalogProduct(source.store.id, draft.publicReference, source.user.id, { version: draft.version, operationId: randomUUID() });
+    await moderateCatalogProduct(submitted.id, reviewer.id, "APPROVE", { version: submitted.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_VARIANT_REVIEW" });
+    for (const offer of draft.offers) {
+      const submittedOffer = await transitionStoreCatalogOffer(source.store.id, offer.publicReference, source.user.id, "SUBMITTED", { version: offer.version, operationId: randomUUID() });
+      const reviewed = await moderateCatalogOffer(submittedOffer.id, reviewer.id, "APPROVE", { version: submittedOffer.version, operationId: randomUUID(), reasonCode: "DISPOSABLE_VARIANT_REVIEW" });
+      const currentProduct = await prisma.catalogProduct.findUniqueOrThrow({ where: { id: submitted.id } });
+      await publishApprovedCatalogListing(reviewed.id, reviewer.id, { operationId: randomUUID(), version: reviewed.version, productVersion: currentProduct.version, priceVersionReference: offer.priceVersions[0].publicReference, reasonCode: "DISPOSABLE_VARIANT_PUBLICATION" });
+    }
+    const published = await prisma.storefrontProductDocument.findMany({ where: { productId: submitted.id, status: "ACTIVE" } });
+    expect(published).toHaveLength(2);
+    expect(published.map(item => item.variantOptions)).toEqual(expect.arrayContaining([{ colour: "Blue", size: "Small" }, { colour: "Red", size: "Large" }]));
+    expect(published.map(item => item.priceAmount.toFixed(2)).sort()).toEqual(["19.25", "27.50"]);
+  });
+  it("rejects incomplete custom variants and rolls back every variant when a later SKU conflicts", async () => {
+    const source = await foundation(); const original = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const before = await counts(source.store.id);
+    const custom = { ...source.input, operationId: randomUUID(), variants: [
+      { title: "Blue", options: [{ code: "colour", value: "Blue" }], attributeValues: {}, storeSku: `NEW-${randomUUID()}`, price: source.input.price!, openingStock: 3 },
+      { title: "Red", options: [{ code: "colour", value: "Red" }], attributeValues: {}, storeSku: source.input.storeSku!, price: source.input.price!, openingStock: 8 },
+    ] };
+    await expect(createStoreCatalogListingDraft(source.store.id, source.user.id, custom)).rejects.toMatchObject({ code: "P2002" });
+    expect(await counts(source.store.id)).toEqual(before);
+    expect(await prisma.catalogProductOption.count({ where: { product: { sourceStoreId: source.store.id } } })).toBe(0);
+    await expect(createStoreCatalogListingDraft(source.store.id, source.user.id, { ...custom, variants: [{ ...custom.variants[0], price: undefined }] } as never)).rejects.toMatchObject({ code: "LISTING_DRAFT_INVALID" });
+    expect(await counts(source.store.id)).toEqual(before);
+    expect(await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input)).toEqual(original);
   });
   it("rolls back every listing write when a foreign READY image is supplied", async () => {
     const source = await foundation(); const foreign = await foundation(); const before = await counts(source.store.id);

@@ -96,7 +96,8 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       await login(page, "e2e-other-store@ktcouriers.local"); expect((await storeAction(page, f.storeReference, { action: "begin-review" })).status()).toBe(404);
       expect(await storeControl(f.storeReference)).toEqual(f.baseline);
       await login(page, "e2e-store@ktcouriers.local"); await page.goto(`/store/marketplace-orders/${f.storeReference}`);
-      await expect(page.getByRole("heading", { name: f.storeReference, exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Marketplace store order", exact: true })).toBeVisible();
+      await expect(page.getByText(f.storeReference, { exact: true })).toBeVisible();
       if (domain === "merchant") {
         await proveStoreOrderEmployeeScope(page, f.storeReference, width);
         await page.goto(`/store/marketplace-orders/${f.storeReference}`);
@@ -113,14 +114,22 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         for (const button of await page.getByRole("button", { name: /Begin review|Confirm availability|Accept order/ }).all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         if (width === 1440) {
-          await page.evaluate(() => { document.documentElement.style.zoom = "2"; });
+          // A 200% browser zoom exposes half the CSS viewport. Set that effective
+          // viewport directly so responsive breakpoints behave as they do for users.
+          await page.setViewportSize({ width: 720, height: 450 });
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+          const itemsHeading = await page.getByRole("heading", { name: "Order items", exact: true }).boundingBox();
+          const actionsHeading = await page.getByRole("heading", { name: "Fulfilment actions", exact: true }).boundingBox();
+          expect(itemsHeading).not.toBeNull();
+          expect(actionsHeading).not.toBeNull();
+          expect(actionsHeading!.y).toBeGreaterThan(itemsHeading!.y);
+          expect(Math.abs(actionsHeading!.x - itemsHeading!.x)).toBeLessThanOrEqual(24);
           await input.focus(); await expect(input).toBeFocused();
           await page.keyboard.press("Tab"); await expect(page.getByLabel("Pickup instructions")).toBeFocused();
           await expect(page.getByRole("button", { name: "Accept order", exact: true })).toBeVisible();
           expect(await storeControl(f.storeReference)).toEqual(f.baseline);
           await info.attach("store-order-200-percent", { body: await page.screenshot({ fullPage: true, path: info.outputPath("store-order-200-percent.png") }), contentType: "image/png" });
-          await page.evaluate(() => { document.documentElement.style.zoom = ""; });
+          await page.setViewportSize({ width: 1440, height: 900 });
         }
         await info.attach(`store-order-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`store-order-${width}.png`) }), contentType: "image/png" });
       } else {

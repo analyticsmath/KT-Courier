@@ -10,24 +10,25 @@ export function CourierTrackingMap({ reference, scope }: { reference: string; sc
   const markers = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const [ready, setReady] = useState(false);
   const [points, setPoints] = useState<TrackingMapPoint[]>([]);
-  const [status, setStatus] = useState("Checking the latest delivery location…");
+  const [locationStatus, setLocationStatus] = useState("Checking the latest delivery location…");
+  const [mapStatus, setMapStatus] = useState("");
   const keyConfigured = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY);
 
   useEffect(() => {
     if (!keyConfigured) return;
     let active = true;
-    const failed = () => { if (active) { setReady(false); setStatus("The map is temporarily unavailable."); } };
+    const failed = () => { if (active) { setReady(false); setMapStatus("The map is temporarily unavailable. Approximate location details remain available below."); } };
     window.addEventListener(GOOGLE_MAPS_AUTH_FAILURE, failed);
     void loadGoogleBrowserMaps().then(() => {
       if (!active || !container.current) return;
       map.current = new google.maps.Map(container.current, { center: { lat: -26.2041, lng: 28.0473 }, zoom: 10, mapId: process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID", mapTypeControl: false, streetViewControl: false, gestureHandling: "cooperative" });
+      setMapStatus("");
       setReady(true);
     }, failed);
     return () => { active = false; window.removeEventListener(GOOGLE_MAPS_AUTH_FAILURE, failed); markers.current.forEach(marker => { marker.map = null; }); markers.current = []; map.current = null; };
   }, [keyConfigured]);
 
   useEffect(() => {
-    if (!keyConfigured) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     let stopped = false;
@@ -43,9 +44,9 @@ export function CourierTrackingMap({ reference, scope }: { reference: string; sc
         const next = trackingMapPoints(await response.json(), scope, reference);
         if (controller.signal.aborted) return;
         setPoints(next);
-        setStatus(next.length ? "Courier’s last reported location. Updates every 30 seconds while this page is open." : "Courier location is not available at this stage.");
+        setLocationStatus(next.length ? "Courier’s last reported location. Updates every 30 seconds while this page is open." : "Courier location is not available at this stage.");
       } catch {
-        if (!controller.signal.aborted) { setPoints([]); setStatus("Courier location is unavailable. Check your delivery status for updates."); }
+        if (!controller.signal.aborted) { setPoints([]); setLocationStatus("Courier location is unavailable. Check your delivery status for updates."); }
       } finally { if (!controller.signal.aborted && !stopped) timer = setTimeout(() => { void refresh(); }, 30_000); }
     }
     void refresh();
@@ -60,10 +61,10 @@ export function CourierTrackingMap({ reference, scope }: { reference: string; sc
     else if (points.length > 1) { const bounds = new google.maps.LatLngBounds(); points.forEach(point => bounds.extend({ lat: point.latitude, lng: point.longitude })); map.current.fitBounds(bounds, 48); }
   }, [ready, points]);
 
-  if (!keyConfigured) return <p role="status" className="text-sm text-[var(--kt-text-muted)]">The delivery map is temporarily unavailable. Your order status remains available.</p>;
   return <div className="space-y-3">
-    <div ref={container} aria-label="Delivery tracking map" className="h-72 w-full rounded-xl border bg-[var(--kt-cloud-blue)]" />
-    <p role="status" className="text-sm text-[var(--kt-text-muted)]">{status}</p>
+    {keyConfigured ? <div ref={container} aria-label="Delivery tracking map" className="h-72 w-full rounded-xl border bg-[var(--kt-cloud-blue)]" /> : null}
+    {mapStatus ? <p role="status" className="text-sm text-[var(--kt-text-muted)]">{mapStatus}</p> : null}
+    <p role="status" className="text-sm text-[var(--kt-text-muted)]">{locationStatus}</p>
     {points.length > 0 && <ul className="space-y-1 text-xs">{points.map(point => <li key={point.id}>{point.label}: last report {new Date(point.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}. Location is approximate.</li>)}</ul>}
   </div>;
 }

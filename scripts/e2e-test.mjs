@@ -53,6 +53,7 @@ function buildEnv(port, appPort) {
     // The application uses the owned Compose service in compose.e2e.yml.
     REDIS_URL: "redis://127.0.0.1:1/0",
     NEXT_PUBLIC_APP_URL: `http://localhost:${appPort}`,
+    NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY: "",
     APP_URL: `http://localhost:${appPort}`,
     ALLOWED_ORIGINS: disposableBrowserOrigins(appPort),
     EMAIL_PROVIDER: "console",

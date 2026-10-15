@@ -1,3 +1,5 @@
+import { parseMarketplacePaymentPlan } from "@/lib/marketplace-checkout/payment-plan";
+import { assertMarketplaceDigitalReceipt, marketplaceDigitalReceiptInclude } from "@/lib/marketplace-checkout/payment-funding";
 import { storeAccess } from "@/lib/client-platform/store-access";
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 21 Prisma delegates are intentionally dynamic until Phase 26.5 permits generation. */
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
@@ -47,7 +49,7 @@ async function lockOrder(tx: Phase21Database, publicReference: string, storeId?:
     include: {
       store: { select: { id: true, status: true } },
       marketplaceOrder: { select: { customerUserId: true, paymentId: true, guestConfirmationHash: true } },
-      checkoutStoreGroup: { select: { fulfilmentMode: true, pickupLocationReference: true, deliveryQuoteReference: true, deliveryQuoteVersion: true } },
+      checkoutStoreGroup: { select: { paymentPlan: true, groupTotal: true, fulfilmentMode: true, pickupLocationReference: true, deliveryQuoteReference: true, deliveryQuoteVersion: true } },
       lines: { include: { financialAllocations: true, fulfilment: { include: { issues: { where: { status: { in: ["OPEN", "CUSTOMER_ACTION_REQUIRED", "REFUND_PENDING"] } } } } } } },
       settlementSnapshots: { orderBy: { createdAt: "asc" } },
       operationalPolicy: true,
@@ -162,7 +164,13 @@ export async function confirmStoreOrderLineAvailability(input: Readonly<{ storeO
       assertStoreOrder(existingIssues.length < policy.maximumIssueCount, "STORE_ORDER_ISSUE_LIMIT", "The immutable policy issue limit has been reached.");
       issueReference = ref("soissue");
       const issue = await model(tx, "marketplaceStoreOrderIssue").create({ data: { publicReference: issueReference, marketplaceStoreOrderId: order.id, marketplaceOrderLineId: line.id, lineFulfilmentId: fulfilment.id, issueType: input.availableQuantity === 0 ? "OUT_OF_STOCK" : "PARTIAL_STOCK", reasonCode: input.reasonCode?.slice(0, 80) || "STORE_REPORTED_AVAILABILITY", affectedQuantity: line.quantity - input.availableQuantity, status: "OPEN", reportedByUserId: input.actorUserId } });
-      if (["REFUND_IF_UNAVAILABLE", "NO_SUBSTITUTION"].includes(fulfilment.substitutionPreference)) {
+      const depositOrder = order.checkoutStoreGroup.paymentPlan && parseMarketplacePaymentPlan(order.checkoutStoreGroup.paymentPlan).mode === "DEPOSIT_PLUS_COD";
+      if (depositOrder) {
+        // The first cash flow promises the frozen single-store amount. A stock
+        // issue is resolved by full rejection/refund before acceptance, never by
+        // silently changing the cash a courier will collect.
+        await updateOrder(tx, order, { resolutionStatus: "ISSUE_OPEN", acceptanceStatus: "REVIEWING" });
+      } else if (["REFUND_IF_UNAVAILABLE", "NO_SUBSTITUTION"].includes(fulfilment.substitutionPreference)) {
         automaticAdjustmentReference = await createLineAdjustment(tx, order, issue, fulfilment, { type: input.availableQuantity === 0 ? "ITEM_REMOVAL" : "QUANTITY_REDUCTION", reasonCode: "CUSTOMER_SUBSTITUTION_PREFERENCE_REFUND", operationId: `${input.operationId}:automatic-refund`, requestHash: requestHash("automatic-refund", { line: line.id, quantity: line.quantity - input.availableQuantity }), actorUserId: input.actorUserId });
         await updateOrder(tx, order, { resolutionStatus: "ADJUSTMENT_PENDING", financialResolutionStatus: "ADJUSTMENT_CALCULATED", acceptanceStatus: "REVIEWING" });
       } else {
@@ -265,6 +273,7 @@ export async function proposeStoreOrderSubstitution(input: Readonly<{ storeOrder
   return transaction(async (tx) => {
     const order = await authorize(tx, input.storeOrderReference, input.actorUserId, "store_orders.substitutions");
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
+    assertStoreOrder(!order.checkoutStoreGroup.paymentPlan || parseMarketplacePaymentPlan(order.checkoutStoreGroup.paymentPlan).mode !== "DEPOSIT_PLUS_COD", "STORE_ORDER_SUBSTITUTION_NOT_PERMITTED", "This cash order requires full store rejection and a deposit refund when goods are unavailable. Start a new checkout for replacement goods.");
     const policy = currentPolicy(order);
     const issue = await model(tx, "marketplaceStoreOrderIssue").findUnique({ where: { publicReference: input.issueReference }, include: { lineFulfilment: true, orderLine: true, proposals: { where: { status: "PROPOSED" } } } });
     assertStoreOrder(issue?.marketplaceStoreOrderId === order.id && ["OUT_OF_STOCK", "PARTIAL_STOCK"].includes(issue.issueType) && ["OPEN", "CUSTOMER_ACTION_REQUIRED"].includes(issue.status), "STORE_ORDER_SUBSTITUTION_ISSUE_INVALID", "A current item-unavailable issue is required.");
@@ -354,9 +363,10 @@ export async function decideStoreOrderSubstitution(input: Readonly<{ storeOrderR
 
 /** Expiry follows the safe default: release the hold and create a refund-only
  * adjustment. It never silently substitutes an item. */
-export async function expireStoreOrderSubstitutions(input: Readonly<{ now?: Date; operationIdFactory: (proposalReference: string) => string; testApproval?: TestApproval }>) {
+export async function expireStoreOrderSubstitutions(input: Readonly<{ now?: Date; batchSize?: number; operationIdFactory: (proposalReference: string) => string; testApproval?: TestApproval }>) {
   assertStoreOrderProductionReady("SUBSTITUTION", input.testApproval);
-  const proposals = await prisma.marketplaceStoreOrderSubstitutionProposal.findMany({ where: { status: "PROPOSED", expiresAt: { lte: input.now ?? new Date() } }, select: { publicReference: true, storeOrder: { select: { publicReference: true } } } });
+  const take = Math.max(1, Math.min(100, Number.isInteger(input.batchSize) ? input.batchSize! : 25));
+  const proposals = await prisma.marketplaceStoreOrderSubstitutionProposal.findMany({ where: { status: "PROPOSED", expiresAt: { lte: input.now ?? new Date() } }, select: { publicReference: true, storeOrder: { select: { publicReference: true } } }, orderBy: [{ expiresAt: "asc" }, { id: "asc" }], take });
   return Promise.all(proposals.map(async (candidate) => {
     const operationId = input.operationIdFactory(candidate.publicReference);
     const hash = requestHash("substitution-expiry", { proposal: candidate.publicReference, operationId });
@@ -378,6 +388,7 @@ export async function expireStoreOrderSubstitutions(input: Readonly<{ now?: Date
 }
 
 async function createLineAdjustment(tx: Phase21Database, order: any, issue: any, fulfilment: any, input: Readonly<{ type: "QUANTITY_REDUCTION" | "ITEM_REMOVAL" | "SUBSTITUTION"; reasonCode: string; operationId: string; requestHash: string; decisionReference?: string; replacementCharge?: string; actorUserId?: string }>) {
+  assertStoreOrder(!order.checkoutStoreGroup.paymentPlan || parseMarketplacePaymentPlan(order.checkoutStoreGroup.paymentPlan).mode !== "DEPOSIT_PLUS_COD", "STORE_ORDER_ADJUSTMENT_INVALID", "Cash orders retain their accepted amount; reject the unstarted order for a full deposit refund instead of changing lines.");
   const sourceLine = order.lines.find((line: any) => line.id === issue.marketplaceOrderLineId);
   assertStoreOrder(sourceLine, "STORE_ORDER_LINE_NOT_FOUND", "Adjustment source line was not found.");
   const before = fulfilment.resolvedFulfilmentQuantity;
@@ -822,12 +833,19 @@ export async function initializeMarketplaceStoreOrderOperations(input: Readonly<
   return transaction(async (tx) => {
     const order = await lockOrder(tx, input.storeOrderReference);
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
-    assertStoreOrder(order.status === "SETTLED", "STORE_ORDER_SETTLEMENT_PENDING", "Operational review begins only after the Phase 20 store settlement is coherent.");
+    assertStoreOrder(!["REJECTED", "TIMED_OUT"].includes(order.acceptanceStatus) && order.preparationStatus !== "ABORTED", "STORE_ORDER_SETTLEMENT_PENDING", "A rejected or cancelled order cannot begin merchant operations.");
+    if (order.status !== "SETTLED") {
+      const plan = parseMarketplacePaymentPlan(order.checkoutStoreGroup.paymentPlan);
+      assertStoreOrder(plan.mode === "DEPOSIT_PLUS_COD" && order.status === "PENDING_SETTLEMENT" && order.checkoutStoreGroup.fulfilmentMode === "COURIER_DELIVERY" && order.checkoutStoreGroup.groupTotal.equals(plan.authoritativeTotal), "STORE_ORDER_SETTLEMENT_PENDING", "Operational review requires a settled digital order or a verified committed courier deposit.");
+      const payment = await model(tx, "payment").findUnique({ where: { id: order.marketplaceOrder.paymentId }, include: { ...marketplaceDigitalReceiptInclude, marketplaceOrder: { include: { storeOrders: { select: { id: true } } } } } });
+      assertStoreOrder(payment?.marketplaceOrder?.storeOrders.length === 1 && payment.marketplaceOrder.storeOrders[0].id === order.id, "STORE_ORDER_SETTLEMENT_PENDING", "The deposit must belong to this single-store order.");
+      assertMarketplaceDigitalReceipt(payment, plan.digitalRequired);
+    }
     assertStoreOrder(!order.operationalPolicyId && !order.operationalSnapshot, "STORE_ORDER_ALREADY_INITIALIZED", "Operational snapshot is already immutable.");
     const policy = await model(tx, "storeOrderOperationalPolicy").findFirst({ where: { status: "ACTIVE", effectiveFrom: { lte: new Date() }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: new Date() } }] }, orderBy: [{ effectiveFrom: "desc" }, { versionNumber: "desc" }] });
     assertStoreOrder(policy, "STORE_ORDER_POLICY_MISSING", "No active bounded operational policy is available.");
     const snapshot = { operationalPolicyReference: policy.publicReference, operationalPolicyVersion: policy.versionNumber, sellerIdentityEvidence: order.sellerIdentityEvidence, storeId: order.storeId, fulfilmentMode: order.checkoutStoreGroup.fulfilmentMode, pickupLocationReference: order.checkoutStoreGroup.pickupLocationReference, deliveryQuoteReference: order.checkoutStoreGroup.deliveryQuoteReference, deliveryQuoteVersion: order.checkoutStoreGroup.deliveryQuoteVersion, expectedPreparationWindowMinutes: policy.maximumPrepMinutes, customerSubstitutionDefault: "REFUND_IF_UNAVAILABLE", contactPrivacyPolicy: "phase21-minimum-necessary-v1", urgencyClass: "STANDARD", sourceCommercialFingerprint: order.settlementSnapshots[0]?.sourceCommercialFingerprint ?? null };
-    assertStoreOrder(Boolean(snapshot.pickupLocationReference) && Boolean(snapshot.deliveryQuoteReference) && Boolean(snapshot.deliveryQuoteVersion), "STORE_ORDER_SNAPSHOT_INVALID", "Paid checkout lacks frozen pickup or delivery quote evidence.");
+    assertStoreOrder(Boolean(snapshot.pickupLocationReference) && (snapshot.fulfilmentMode !== "COURIER_DELIVERY" || Boolean(snapshot.deliveryQuoteReference) && Boolean(snapshot.deliveryQuoteVersion)), "STORE_ORDER_SNAPSHOT_INVALID", "Paid checkout lacks its frozen pickup location or required courier quote evidence.");
     const deadline = new Date(Date.now() + policy.acceptanceWindowSeconds * 1000);
     // Create each missing real fulfilment record idempotently through its
     // immutable unique order-line key.

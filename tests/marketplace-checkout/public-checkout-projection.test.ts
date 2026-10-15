@@ -8,7 +8,7 @@ describe("public checkout money projection", () => {
       merchandiseSubtotal: new Prisma.Decimal(1500), modifierSubtotal: new Prisma.Decimal("0.50"), deliveryFeeTotal: new Prisma.Decimal("10.01"), grandTotal: new Prisma.Decimal("1510.51"),
       storeGroups: [{ storeId: "store", deliveryFee: new Prisma.Decimal("10.01"), lines: [{ baseUnitPrice: new Prisma.Decimal(1500), modifierUnitTotal: new Prisma.Decimal("0.5"), lineTotal: new Prisma.Decimal("1500.5") }] }],
     });
-    expect(projected!.totals).toEqual({ merchandiseSubtotal: "1500.00", modifierSubtotal: "0.50", deliveryFeeTotal: "10.01", grandTotal: "1510.51" });
+    expect(projected!.totals).toEqual({ merchandiseSubtotal: "1500.00", modifierSubtotal: "0.50", deliveryFeeTotal: "10.01", grandTotal: "1510.51", digitalRequired: "1510.51", cashRequired: "0.00" });
     expect(projected!.storeGroups[0].lines[0]).toMatchObject({ baseUnitPrice: "1500.00", modifierUnitTotal: "0.50", lineTotal: "1500.50" });
   });
   it("returns only editable owner contact/address facts and excludes verification and serviceability secrets", () => {

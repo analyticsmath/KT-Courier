@@ -49,8 +49,8 @@ export default async function MarketplaceStoreOrderPage({
     <ProtectedPageFrame>
       <ProtectedPageHeader
         eyebrow="Marketplace fulfilment"
-        title={order.publicReference}
-        description="Store-safe operational detail. Customer payment, courier dispatch, and driver-private data are not exposed here."
+        title="Marketplace store order"
+        description="Review store-owned availability, preparation, and handoff. Customer payment and driver-private data are not exposed here."
         actions={
           <Link
             className="inline-flex min-h-11 items-center rounded-[var(--eo-radius-control)] border border-[var(--eo-line-strong)] px-3 text-sm font-semibold text-[var(--eo-text)]"
@@ -60,6 +60,9 @@ export default async function MarketplaceStoreOrderPage({
           </Link>
         }
       />
+      <p className="mt-2 max-w-full break-all text-xs text-[var(--eo-text-secondary)]">
+        Order reference: <code className="font-mono">{order.publicReference}</code>
+      </p>
       {courier && (
         <section className="mt-6 rounded-xl border border-[var(--eo-line-soft)] p-5" aria-label="Linked courier delivery">
           <h2 className="text-lg font-semibold">Courier delivery</h2>

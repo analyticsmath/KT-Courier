@@ -4,6 +4,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { OrderSource, OrderStatus } from "@/types/db";
 import { generateOrderNumber } from "@/lib/utils/order-number";
+import { parseMarketplacePaymentPlan } from "@/lib/marketplace-checkout/payment-plan";
+import { assertMarketplaceDigitalReceipt, marketplaceDigitalReceiptInclude } from "@/lib/marketplace-checkout/payment-funding";
+import { createCashOnDeliveryObligationWithinTransaction, activateDepositCashOnDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { isFrozenCourierQuote } from "@/lib/marketplace-checkout/frozen-courier-quote";
 
 export class MarketplaceCourierOrderError extends Error {
@@ -54,12 +57,20 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
           orderBy: { versionNumber: "desc" },
         })
       : null;
+    const paymentPlan = group.paymentPlan ? parseMarketplacePaymentPlan(group.paymentPlan) : null;
+    const isCod = paymentPlan?.mode === "DEPOSIT_PLUS_COD";
+    const payment = isCod ? await tx.payment.findUnique({ where: { id: storeOrder.marketplaceOrder.paymentId }, include: marketplaceDigitalReceiptInclude }) : null;
+    if (isCod) {
+      const groupCount = await database.marketplaceStoreOrder.count({ where: { marketplaceOrderId: storeOrder.marketplaceOrderId } });
+      if (groupCount !== 1 || !new Prisma.Decimal(paymentPlan.authoritativeTotal).equals(storeOrder.groupTotal) || !payment || payment.marketplaceCheckoutId !== checkout.id || payment.marketplaceOrderId !== storeOrder.marketplaceOrderId) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_PAYMENT_INVALID", "Cash requires a source-bound single-store deposit.");
+      assertMarketplaceDigitalReceipt(payment, paymentPlan.digitalRequired);
+    }
     const resolvedDeliveryType = serviceDefinition?.stableKey ?? quote.deliveryType ?? "SAME_DAY";
 
     const courierOrder = await tx.order.create({ data: {
       orderNumber, source: OrderSource.STORE, status: OrderStatus.CONFIRMED, deliveryType: resolvedDeliveryType as any, currency: "ZAR",
       customerId: storeOrder.marketplaceOrder.customerUserId, storeId: storeOrder.storeId, pickupAddressId: pickupAddress.id, dropoffAddressId: dropoffAddress.id,
-      recipientName: destination.recipientName, recipientPhone: checkout.contactSnapshot?.phone ?? null, parcelDescription: `Marketplace store order ${storeOrder.publicReference}`, parcelCount: 1,
+      recipientName: destination.recipientName, recipientEmail: checkout.contactSnapshot?.email ?? null, recipientPhone: checkout.contactSnapshot?.phone ?? null, parcelDescription: `Marketplace store order ${storeOrder.publicReference}`, parcelCount: 1,
       scheduledFor: storeOrder.scheduledFulfilmentAt ?? null, priceEstimate: group.deliveryFee, pricingQuoteId: quote.id,
       pricingSubtotal: quote.subtotal, pricingTaxAmount: quote.taxAmount, pricingTaxRate: quote.taxRate,
       pricingSnapshot: {
@@ -67,7 +78,8 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
         deliveryQuoteReference: input.deliveryQuoteReference,
         deliveryQuoteVersion: input.deliveryQuoteVersion,
         marketplaceStoreOrderReference: storeOrder.publicReference,
-        prepaidMarketplacePayment: true,
+        prepaidMarketplacePayment: !isCod,
+        marketplacePaymentPlan: paymentPlan as Prisma.InputJsonValue | null,
         deliveryServiceDefinition: serviceDefinition ? {
           id: serviceDefinition.id,
           stableKey: serviceDefinition.stableKey,
@@ -79,6 +91,10 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
       deliveryRegionId: quote.destinationRegionId, distanceMeters: quote.distanceMeters, durationSeconds: quote.durationSeconds, routeCalculatedAt: quote.createdAt, routeProvider: quote.routeProvider,
       statusHistory: { create: { status: OrderStatus.CONFIRMED, note: "Prepaid marketplace courier order created from frozen Phase 20/6 evidence." } },
     } });
+    if (isCod && payment && paymentPlan) {
+      await createCashOnDeliveryObligationWithinTransaction(tx, { orderId: courierOrder.id, paymentId: payment.id, policyMode: "DEPOSIT_PLUS_COD", authoritativePayable: paymentPlan.authoritativeTotal, digitalRequired: paymentPlan.digitalRequired, policyEvidence: paymentPlan });
+      await activateDepositCashOnDeliveryWithinTransaction(tx, { orderId: courierOrder.id, paymentId: payment.id, amount: payment.amount, verifiedEventReference: payment.successWebhookEventId! });
+    }
     return Object.freeze({ courierOrderId: courierOrder.id, courierOrderReference: courierOrder.orderNumber, replayed: false });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

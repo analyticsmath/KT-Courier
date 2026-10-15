@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Prisma generation is intentionally deferred to Phase 26.5. */
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { assertMarketplaceDigitalReceipt, assertMarketplaceCashJournals, marketplaceDigitalReceiptInclude } from "./payment-funding";
+import { assertMarketplacePaymentPlanTotals } from "./payment-plan";
 import { prisma } from "@/lib/db/prisma";
 import { createTransactionContext } from "@/lib/db/transaction-context";
 import { accrueCommissionInTransaction } from "@/lib/services/commission-accrual.service";
@@ -50,13 +52,20 @@ export function createPrismaMarketplaceSettlementRepository(database: any = pris
     lockCanonicalSettlement: async (publicReference): Promise<CanonicalMarketplaceSettlement | null> => {
       const client = current();
       await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "publicReference" = ${publicReference} FOR UPDATE`);
-      const row = await client.marketplaceStoreOrder.findUnique({ where: { publicReference }, include: { marketplaceOrder: { include: { checkout: true, payment: true } }, store: true, settlementSnapshots: { include: { sourceSettlementEvidence: true }, orderBy: { createdAt: "desc" }, take: 1 }, lines: { include: { financialAllocations: true } } } });
+      const row = await client.marketplaceStoreOrder.findUnique({ where: { publicReference }, include: { checkoutStoreGroup: true, deliveryBridge: { include: { courierOrder: { include: { cashOnDelivery: true } } } }, marketplaceOrder: { include: { checkout: { include: { storeGroups: true } }, payment: { include: marketplaceDigitalReceiptInclude } } }, store: true, settlementSnapshots: { include: { sourceSettlementEvidence: true }, orderBy: { createdAt: "desc" }, take: 1 }, lines: { include: { financialAllocations: true } } } });
       const snapshot = row?.settlementSnapshots[0]; if (!row || !snapshot) return null;
       await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceSettlementSnapshot" WHERE "id" = ${snapshot.id} FOR UPDATE`);
       await client.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${row.marketplaceOrder.paymentId} FOR UPDATE`);
+      assertMarketplaceDigitalReceipt(row.marketplaceOrder.payment, money(row.marketplaceOrder.digitalRequired));
+      assertMarketplacePaymentPlanTotals({ grandTotal: money(row.marketplaceOrder.grandTotal), digitalRequired: money(row.marketplaceOrder.digitalRequired), cashRequired: money(row.marketplaceOrder.cashRequired), groups: row.marketplaceOrder.checkout.storeGroups.map((g: any) => ({ ...g, groupTotal: money(g.groupTotal) })) });
+      const cod = row.deliveryBridge?.courierOrder?.cashOnDelivery;
+      if (cod) await client.$queryRaw(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "id" = ${cod.id} FOR UPDATE`);
+      if (cod?.status === "RECONCILED" && cod.remittanceDiscrepancy.isZero()) await assertMarketplaceCashJournals(client, cod);
       const wallet = await client.wallet.findUnique({ where: { ownerType_ownerId_currency: { ownerType: "STORE", ownerId: row.storeId, currency: "ZAR" } }, select: { id: true } });
       if (!wallet) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Canonical store wallet evidence is missing.");
       return Object.freeze({
+        digitalRequired: money(row.marketplaceOrder.digitalRequired), cashRequired: money(row.marketplaceOrder.cashRequired),
+        cashFunding: cod ? { status: cod.status, paymentId: cod.paymentId, authoritativePayable: money(cod.authoritativePayable), digitalRequired: money(cod.digitalRequired), digitalPaid: money(cod.digitalPaid), cashObligation: money(cod.cashObligation), cashCollected: money(cod.cashCollected), cashReconciled: money(cod.cashReconciled), remittanceDiscrepancy: money(cod.remittanceDiscrepancy), collectionJournalId: cod.collectionJournalId, reconciliationJournalId: cod.reconciliationJournalId } : null,
         checkoutId: row.marketplaceOrder.checkoutId, checkoutReference: row.marketplaceOrder.checkout.publicReference,
         storeOrderId: row.id, storeOrderReference: row.publicReference, storeOrderStatus: row.status, storeId: row.storeId, storePublicReference: row.store.slug,
         marketplaceOrderId: row.marketplaceOrderId, marketplaceOrderReference: row.marketplaceOrder.publicReference, marketplaceOrderGrandTotal: money(row.marketplaceOrder.grandTotal),
@@ -104,7 +113,7 @@ export function createPrismaMarketplaceSettlementRepository(database: any = pris
       const caseRow = requiresReconciliation
         ? await client.marketplaceCheckoutReconciliationCase.upsert({
             where: { checkoutId_reason_operationId: { checkoutId: row.marketplaceOrder.checkoutId, reason: "STORE_SETTLEMENT_FAILED", operationId } },
-            create: { publicReference: reference("mrec"), checkoutId: row.marketplaceOrder.checkoutId, marketplaceOrderId: row.marketplaceOrderId, paymentId: row.marketplaceOrder.paymentId, marketplaceStoreOrderId: row.id, reason: "STORE_SETTLEMENT_FAILED", priority: "HIGH", safeSummary, safeEvidence: safeJson({ settlementSnapshot: snapshot.publicReference, operationId }) },
+            create: { publicReference: reference("mrec"), checkoutId: row.marketplaceOrder.checkoutId, marketplaceOrderId: row.marketplaceOrderId, paymentId: row.marketplaceOrder.paymentId, marketplaceStoreOrderId: row.id, reason: "STORE_SETTLEMENT_FAILED", operationId, priority: "HIGH", safeSummary, safeEvidence: safeJson({ settlementSnapshot: snapshot.publicReference, operationId }) },
             update: { observationCount: { increment: 1 }, safeSummary },
           })
         : null;

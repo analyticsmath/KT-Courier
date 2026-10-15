@@ -14,6 +14,7 @@ import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getAdminCatalogMediaForPage } from "@/lib/services/catalog-media-page.service";
 import { formatDateTime } from "@/lib/utils/formatters";
+import { CatalogModerationImage } from "@/components/catalog/CatalogModerationImage";
 
 export default async function AdminCatalogMediaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAdminPagePermission(PERMISSIONS.CATALOG_MODERATION_READ);
@@ -34,6 +35,7 @@ export default async function AdminCatalogMediaDetailPage({ params }: { params: 
     <CatalogAdministrationNav currentPath="/admin/catalog/media" />
     <ProtectedContentGrid contextRail={<OperationalPanel title="Lifecycle" padding="compact"><ProtectedStatus label={state.label} tone={state.tone} /></OperationalPanel>}>
       <OperationalPanel title="Validated evidence" description="Only safe media properties are displayed.">
+        <CatalogModerationImage asset={asset} alt={asset.productMedia[0]?.altText || "Catalog image under review"} />
         <CommerceDefinitionList items={[{ label: "Owner scope", value: asset.ownerType }, { label: "Owning store", value: asset.ownerStore?.name ?? "Not applicable" }, { label: "Purpose", value: asset.purpose }, { label: "MIME type", value: asset.mimeType ?? `Declared ${asset.declaredMimeType}` }, { label: "Byte size", value: asset.byteSize ?? asset.declaredByteSize }, { label: "Dimensions", value: asset.width && asset.height ? `${asset.width} × ${asset.height}` : "Not validated" }, { label: "Checksum fingerprint", value: asset.checksum ?? "Calculated on upload" }, { label: "Alt text state", value: asset.productMedia.some((item) => Boolean(item.altText)) ? "Present on attached record" : "No attached alt text" }]} />
       </OperationalPanel>
       <OperationalPanel title="Review actions" description="Actions are rendered only when the current administrator has the canonical permission and the source state has an eligible transition."><CatalogMediaReviewActions actions={actions} assetId={asset.id} /></OperationalPanel>

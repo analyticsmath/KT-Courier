@@ -688,6 +688,7 @@ model Order {
   dropoffAddressId             String?
   recipientName                String?
   recipientPhone               String?
+  recipientEmail               String?
   parcelDescription            String?
   parcelCount                  Int                                  @default(1)
   scheduledFor                 DateTime?
@@ -9356,6 +9357,8 @@ model MarketplaceCheckout {
   modifierSubtotal        Decimal                   @default(0) @db.Decimal(18, 2)
   deliveryFeeTotal        Decimal                   @default(0) @db.Decimal(18, 2)
   grandTotal              Decimal                   @default(0) @db.Decimal(18, 2)
+  digitalRequired         Decimal?                  @db.Decimal(18, 2)
+  cashRequired            Decimal                   @default(0) @db.Decimal(18, 2)
   reviewVersion           Int                       @default(1)
   commercialFingerprint   String?
   acceptedFingerprint     String?
@@ -9458,6 +9461,7 @@ model MarketplaceCheckoutStoreGroup {
   modifierSubtotal        Decimal                             @default(0) @db.Decimal(18, 2)
   deliveryFee             Decimal                             @default(0) @db.Decimal(18, 2)
   groupTotal              Decimal                             @default(0) @db.Decimal(18, 2)
+  paymentPlan             Json?
   deliveryQuoteReference  String?
   deliveryQuoteVersion    String?
   deliveryQuoteExpiresAt  DateTime?
@@ -9698,6 +9702,8 @@ model MarketplaceOrder {
   deliveryFeeTotal      Decimal                @db.Decimal(18, 2)
   grandTotal            Decimal                @db.Decimal(18, 2)
   status                MarketplaceOrderStatus @default(CONFIRMED)
+  digitalRequired       Decimal                @default(0) @db.Decimal(18, 2)
+  cashRequired          Decimal                @default(0) @db.Decimal(18, 2)
   commercialFingerprint String
   confirmedAt           DateTime               @default(now())
   createdAt             DateTime               @default(now())

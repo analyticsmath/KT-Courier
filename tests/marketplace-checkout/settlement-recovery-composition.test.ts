@@ -74,7 +74,9 @@ describe("Phase 20 settlement and recovery composition", () => {
     const support = source("scripts/marketplace-checkout-script-support.mjs");
     for (const token of ["--dry-run", "--apply", "--limit"]) expect(support).toContain(token);
     expect(source("scripts/phase20-finalize-paid-marketplace-checkouts.worker.ts")).toContain("consumeVerifiedPaymentEvents");
-    expect(source("scripts/phase20-settle-marketplace-store-orders.worker.ts")).toContain("settleMarketplaceStoreOrder");
+    expect(source("scripts/phase20-settle-marketplace-store-orders.worker.ts")).toContain('name: "settle-marketplace-store-orders"');
+    expect(source("lib/processors/processor-service.ts")).toContain("runMarketplaceSettlementBatch");
+    expect(source("lib/marketplace-checkout/settlement-batch.service.ts")).toContain("settleMarketplaceStoreOrder");
     expect(source("scripts/phase20-expire-checkout-reservations.worker.ts")).toContain("expireMarketplaceCheckoutReservation");
   });
 });

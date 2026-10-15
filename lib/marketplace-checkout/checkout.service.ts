@@ -543,6 +543,8 @@ export function projectPublicCheckout(checkout: any) {
       modifierSubtotal: money(checkout.modifierSubtotal),
       deliveryFeeTotal: money(checkout.deliveryFeeTotal),
       grandTotal: money(checkout.grandTotal),
+      digitalRequired: money(checkout.digitalRequired ?? checkout.grandTotal),
+      cashRequired: money(checkout.cashRequired),
     },
     changes: (checkout.changes ?? []).map((item: any) => ({
       type: item.type,
@@ -556,6 +558,7 @@ export function projectPublicCheckout(checkout: any) {
       status: group.status,
       fulfilmentMode: group.fulfilmentMode,
       deliveryFee: money(group.deliveryFee),
+      paymentPlan: group.paymentPlan ?? null,
       quoteReference: group.deliveryQuoteReference,
       quoteExpiresAt: group.deliveryQuoteExpiresAt,
       lines: (group.lines ?? []).map((line: any) => ({
