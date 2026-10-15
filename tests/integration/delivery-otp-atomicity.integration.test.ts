@@ -46,8 +46,10 @@ describe("atomic delivery OTP issuance on disposable PostgreSQL", () => {
     await prisma.notificationEventIntent.deleteMany({ where: { id: { in: ids } } });
     await prisma.driverOperationCommand.deleteMany({ where: { orderId } });
     await prisma.deliveryOtp.deleteMany({ where: { orderId } });
-    await prisma.order.updateMany({ where: { id: orderId }, data: { currentDriverProfileId: null } });
-    await prisma.orderAssignment.deleteMany({ where: { id: assignmentId } });
+    await prisma.$transaction(async (tx) => {
+      await tx.order.updateMany({ where: { id: orderId }, data: { currentDriverProfileId: null } });
+      await tx.orderAssignment.deleteMany({ where: { id: assignmentId } });
+    });
     await prisma.order.deleteMany({ where: { id: orderId } });
     await prisma.driverProfile.deleteMany({ where: { id: driverId } });
     await prisma.user.deleteMany({ where: { id: { in: [driverUserId, adminId] } } });
