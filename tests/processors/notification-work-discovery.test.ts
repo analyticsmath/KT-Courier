@@ -16,6 +16,6 @@ describe("canonical notification work discovery", () => {
     expect(await hasRequiredDomainNotificationWork({ $queryRaw: vi.fn().mockResolvedValue([]) } as unknown as Prisma.TransactionClient)).toBe(false);
     const worker = readFileSync("scripts/production-processors.ts", "utf8");
     expect(worker).toContain("return await hasRequiredDomainNotificationWork(prisma) ||");
-    expect(worker).toContain("firstCycle ? undefined : hasWork");
+    expect(worker).toContain("createProductionCycleWorkCheck(hasWork, firstCycle)");
   });
 });

@@ -15,6 +15,16 @@ export const productionProcessors = [
 
 export type ProductionProcessor = typeof productionProcessors[number];
 type Executor = (input: { name: ProductionProcessor; mode: "APPLY"; operationId: string }) => Promise<{ itemsCompleted: number; itemsRetried: number }>;
+type WorkCheck = (name: ProductionProcessor) => Promise<boolean>;
+
+/** Avoid a full empty-queue sweep during worker startup, but let the earning
+ * lifecycle make its first cursor pass so persisted cursors can wrap safely. */
+export function createProductionCycleWorkCheck(hasWork: WorkCheck, firstCycle: boolean): WorkCheck {
+  return async (name) => {
+    if (firstCycle && name === "process-earning-lifecycle") return true;
+    return hasWork(name);
+  };
+}
 
 export async function runProductionCycle(execute: Executor, stopping: () => boolean = () => false, hasWork?: (name: ProductionProcessor) => Promise<boolean>) {
   const results: { name: ProductionProcessor; status: "COMPLETED" | "PEER_LEASE" | "FAILED" | "IDLE"; itemsCompleted: number; itemsRetried: number }[] = [];
