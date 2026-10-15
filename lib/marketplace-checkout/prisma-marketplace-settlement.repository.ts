@@ -1,82 +1,92 @@
-import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db/prisma";
-import { createMarketplaceSettlementRepository } from "./settlement.repository";
-import { postLedgerTransaction } from "@/lib/payments/ledger.service";
-import { createCommissionAccrual } from "@/lib/payments/commission.service";
-import { createStoreEarningFromCanonicalSale } from "@/lib/finance/store-earning.service";
-import { MarketplaceCheckoutError } from "./errors";
+/* eslint-disable @typescript-eslint/no-explicit-any -- Prisma generation is intentionally deferred to Phase 26.5. */
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import { assertMarketplaceDigitalReceipt, assertMarketplaceCashJournals, marketplaceDigitalReceiptInclude } from "./payment-funding";
+import { assertMarketplacePaymentPlanTotals } from "./payment-plan";
+import { prisma } from "@/lib/db/prisma";
+import { createTransactionContext } from "@/lib/db/transaction-context";
+import { accrueCommissionInTransaction } from "@/lib/services/commission-accrual.service";
+import { accrueStoreEarningInTransaction } from "@/lib/services/store-earning-accrual.service";
+import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
+import type { CanonicalMarketplaceSettlement, MarketplaceSettlementRepository, SettlementOperationReceipt } from "@/lib/marketplace-checkout/settlement.service";
 
 const reference = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
-const safeJson = (value: unknown) => value as Prisma.InputJsonValue;
+const money = (value: any) => typeof value === "string" ? value : value?.toFixed?.(2) ?? "0.00";
 
-type Database = typeof prisma;
-type Transaction = Prisma.TransactionClient;
+function safeJson(value: unknown): Prisma.InputJsonValue { return value as Prisma.InputJsonValue; }
 
-/** PostgreSQL-backed settlement repository. The operation row, immutable
- * settlement snapshot and ledger/commission/earning writes remain the
- * canonical source of truth; callers only receive opaque public references. */
-export function createPrismaMarketplaceSettlementRepository(database: Database = prisma) {
-  let tx: Transaction | null = null;
-  const current = () => tx ?? database;
-  return createMarketplaceSettlementRepository({
-    begin: async (work) => database.$transaction(async (client) => {
-      const previous = tx; tx = client;
-      try { return await work(); } finally { tx = previous; }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
-    findSettlementByStoreOrderReference: async (marketplaceStoreOrderReference) => {
-      const row = await current().marketplaceStoreOrder.findUnique({
-        where: { publicReference: marketplaceStoreOrderReference },
-        include: {
-          marketplaceOrder: { include: { checkout: true, payment: true } },
-          store: { select: { id: true, publicReference: true, walletId: true } },
-          settlementSnapshots: { orderBy: { settlementVersion: "desc" }, take: 1 },
-        },
-      });
-      if (!row) return null;
-      const snapshot = row.settlementSnapshots[0];
-      if (!snapshot) return null;
-      return Object.freeze({
-        checkoutId: row.marketplaceOrder.checkoutId,
-        marketplaceOrderId: row.marketplaceOrderId,
-        marketplaceOrderReference: row.marketplaceOrder.publicReference,
-        storeOrderId: row.id,
-        storeOrderReference: row.publicReference,
-        storeId: row.store.id,
-        storePublicReference: row.store.publicReference,
-        storeWalletId: row.store.walletId,
-        orderStatus: row.status,
-        groupTotal: row.groupTotal.toFixed(2),
-        payment: Object.freeze({ id: row.marketplaceOrder.payment.id, publicReference: row.marketplaceOrder.payment.publicReference, status: row.marketplaceOrder.payment.status, amount: row.marketplaceOrder.payment.amount.toFixed(2), currency: row.marketplaceOrder.payment.currency }),
-        snapshot: Object.freeze({ id: snapshot.id, publicReference: snapshot.publicReference, status: snapshot.status, settlementVersion: snapshot.settlementVersion, authoritativeTotal: snapshot.authoritativeTotal.toFixed(2), sellerBasis: snapshot.sellerBasis.toFixed(2), commissionAmount: snapshot.commissionAmount.toFixed(2), storeEarningAmount: snapshot.storeEarningAmount.toFixed(2), deliveryFeeResidual: snapshot.deliveryFeeResidual.toFixed(2), commissionPlanId: snapshot.commissionPlanId, commissionPlanVersion: snapshot.commissionPlanVersion, commissionPercent: snapshot.commissionPercent?.toFixed(6) ?? null, commissionFixedAmount: snapshot.commissionFixedAmount?.toFixed(2) ?? null }),
-      });
-    },
-    claimSettlementOperation: async ({ settlement, operationId, requestHash }) => {
+function frozenCommissionBeneficiaries(value: unknown): readonly Readonly<{ beneficiaryType: "PROMOTER"; ownerId: string; walletId: string; commissionPayableAccountId: string; attributionReference: string; attributionVersion: string }>[] {
+  const allocations = (value as { beneficiaryAllocations?: unknown })?.beneficiaryAllocations;
+  if (!Array.isArray(allocations)) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "Frozen commission allocation evidence is incomplete.");
+  return Object.freeze(allocations.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && (item as Record<string, unknown>).beneficiaryType === "PROMOTER").map((item) => {
+    const ownerId = item.beneficiaryOwnerId; const walletId = item.beneficiaryWalletId; const commissionPayableAccountId = item.commissionPayableAccountId; const attributionReference = item.beneficiaryReference; const attributionVersion = item.beneficiaryVersion;
+    if (typeof ownerId !== "string" || typeof walletId !== "string" || typeof commissionPayableAccountId !== "string" || typeof attributionReference !== "string" || typeof attributionVersion !== "string") throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "Frozen promoter commission evidence is incomplete.");
+    return Object.freeze({ beneficiaryType: "PROMOTER" as const, ownerId, walletId, commissionPayableAccountId, attributionReference, attributionVersion });
+  }));
+}
+
+/**
+ * The only production settlement adapter. It starts a Serializable transaction,
+ * locks the aggregate in a stable order, and composes Phase 14 then Phase 16.
+ */
+export function createPrismaMarketplaceSettlementRepository(database: any = prisma): MarketplaceSettlementRepository {
+  const { db, run } = createTransactionContext(database);
+  const current = () => db;
+
+  return Object.freeze({
+    transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    resolveOperationReceipt: async ({ marketplaceStoreOrderReference, operationId, requestHash }): Promise<SettlementOperationReceipt> => {
       const client = current();
-      const existing = await client.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId: settlement.checkoutId, operationId } } });
+      const storeOrder = await client.marketplaceStoreOrder.findUnique({ where: { publicReference: marketplaceStoreOrderReference }, include: { marketplaceOrder: { select: { checkoutId: true } } } });
+      if (!storeOrder) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The marketplace store order does not exist.");
+      await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${storeOrder.marketplaceOrder.checkoutId} FOR UPDATE`);
+      const existing = await client.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId: storeOrder.marketplaceOrder.checkoutId, operationId } } });
       if (existing) {
-        if (existing.requestHash !== requestHash || existing.operationType !== "STORE_SETTLEMENT") throw new MarketplaceCheckoutError("IDEMPOTENCY_CONFLICT", "Settlement operation does not match the original request.");
-        return Object.freeze({ replayed: Boolean(existing.response) });
+        if (existing.requestHash !== requestHash) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The operation ID is bound to changed settlement meaning.");
+        const response = existing.response as { commissionAccrualReference?: string; storeEarningReference?: string } | null;
+        return Object.freeze({ completed: Boolean(response?.commissionAccrualReference && response?.storeEarningReference), response: response?.commissionAccrualReference && response?.storeEarningReference ? { commissionAccrualReference: response.commissionAccrualReference, storeEarningReference: response.storeEarningReference } : null });
       }
-      await client.marketplaceCheckoutOperation.create({ data: { checkoutId: settlement.checkoutId, operationId, operationType: "STORE_SETTLEMENT", requestHash, response: Prisma.JsonNull } });
-      return Object.freeze({ replayed: false });
+      await client.marketplaceCheckoutOperation.create({ data: { checkoutId: storeOrder.marketplaceOrder.checkoutId, operationId, requestHash, type: "SETTLE" } });
+      return Object.freeze({ completed: false, response: null });
     },
-    assertCanonicalPaidSource: async (settlement) => {
-      if (settlement.payment.status !== "SUCCEEDED" || settlement.payment.currency !== "ZAR" || new Prisma.Decimal(settlement.payment.amount).lt(settlement.snapshot.authoritativeTotal)) throw new MarketplaceCheckoutError("PAYMENT_NOT_CONFIRMED", "Canonical marketplace payment is not fully confirmed for settlement.");
-      if (settlement.orderStatus !== "DELIVERED" && settlement.orderStatus !== "SETTLED") throw new MarketplaceCheckoutError("ORDER_NOT_DELIVERED", "Store order must be delivered before settlement.");
-    },
-    postSettlementMoney: async ({ settlement, operationId }) => {
+    lockCanonicalSettlement: async (publicReference): Promise<CanonicalMarketplaceSettlement | null> => {
       const client = current();
-      const platform = await client.ledgerAccount.findFirst({ where: { purpose: "PLATFORM_REVENUE", currency: "ZAR", status: "ACTIVE" }, select: { id: true } });
-      const store = await client.ledgerAccount.findFirst({ where: { walletId: settlement.storeWalletId, purpose: "AVAILABLE", currency: "ZAR", status: "ACTIVE" }, select: { id: true } });
-      if (!platform || !store) throw new MarketplaceCheckoutError("SETTLEMENT_ACCOUNTS_MISSING", "Canonical settlement accounts are not configured.");
-      const journal = await postLedgerTransaction({ transactionType: "MARKETPLACE_SETTLEMENT", currency: "ZAR", entries: [{ accountId: platform.id, direction: "CREDIT", amount: settlement.snapshot.commissionAmount }, { accountId: store.id, direction: "CREDIT", amount: settlement.snapshot.storeEarningAmount }], metadata: { marketplaceStoreOrderId: settlement.storeOrderId, settlementSnapshotId: settlement.snapshot.id, operationId } }, client);
-      return Object.freeze({ journalReference: journal.publicReference });
+      await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "publicReference" = ${publicReference} FOR UPDATE`);
+      const row = await client.marketplaceStoreOrder.findUnique({ where: { publicReference }, include: { checkoutStoreGroup: true, deliveryBridge: { include: { courierOrder: { include: { cashOnDelivery: true } } } }, marketplaceOrder: { include: { checkout: { include: { storeGroups: true } }, payment: { include: marketplaceDigitalReceiptInclude } } }, store: true, settlementSnapshots: { include: { sourceSettlementEvidence: true }, orderBy: { createdAt: "desc" }, take: 1 }, lines: { include: { financialAllocations: true } } } });
+      const snapshot = row?.settlementSnapshots[0]; if (!row || !snapshot) return null;
+      await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceSettlementSnapshot" WHERE "id" = ${snapshot.id} FOR UPDATE`);
+      await client.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${row.marketplaceOrder.paymentId} FOR UPDATE`);
+      assertMarketplaceDigitalReceipt(row.marketplaceOrder.payment, money(row.marketplaceOrder.digitalRequired));
+      assertMarketplacePaymentPlanTotals({ grandTotal: money(row.marketplaceOrder.grandTotal), digitalRequired: money(row.marketplaceOrder.digitalRequired), cashRequired: money(row.marketplaceOrder.cashRequired), groups: row.marketplaceOrder.checkout.storeGroups.map((g: any) => ({ ...g, groupTotal: money(g.groupTotal) })) });
+      const cod = row.deliveryBridge?.courierOrder?.cashOnDelivery;
+      if (cod) await client.$queryRaw(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "id" = ${cod.id} FOR UPDATE`);
+      if (cod?.status === "RECONCILED" && cod.remittanceDiscrepancy.isZero()) await assertMarketplaceCashJournals(client, cod);
+      const wallet = await client.wallet.findUnique({ where: { ownerType_ownerId_currency: { ownerType: "STORE", ownerId: row.storeId, currency: "ZAR" } }, select: { id: true } });
+      if (!wallet) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Canonical store wallet evidence is missing.");
+      return Object.freeze({
+        digitalRequired: money(row.marketplaceOrder.digitalRequired), cashRequired: money(row.marketplaceOrder.cashRequired),
+        cashFunding: cod ? { status: cod.status, paymentId: cod.paymentId, authoritativePayable: money(cod.authoritativePayable), digitalRequired: money(cod.digitalRequired), digitalPaid: money(cod.digitalPaid), cashObligation: money(cod.cashObligation), cashCollected: money(cod.cashCollected), cashReconciled: money(cod.cashReconciled), remittanceDiscrepancy: money(cod.remittanceDiscrepancy), collectionJournalId: cod.collectionJournalId, reconciliationJournalId: cod.reconciliationJournalId } : null,
+        checkoutId: row.marketplaceOrder.checkoutId, checkoutReference: row.marketplaceOrder.checkout.publicReference,
+        storeOrderId: row.id, storeOrderReference: row.publicReference, storeOrderStatus: row.status, storeId: row.storeId, storePublicReference: row.store.slug,
+        marketplaceOrderId: row.marketplaceOrderId, marketplaceOrderReference: row.marketplaceOrder.publicReference, marketplaceOrderGrandTotal: money(row.marketplaceOrder.grandTotal),
+        payment: { id: row.marketplaceOrder.payment.id, publicReference: row.marketplaceOrder.payment.publicReference, status: row.marketplaceOrder.payment.status, subjectType: row.marketplaceOrder.payment.subjectType, marketplaceOrderId: row.marketplaceOrder.payment.marketplaceOrderId, amount: money(row.marketplaceOrder.payment.amount), currency: row.marketplaceOrder.payment.currency },
+        snapshot: { id: snapshot.id, publicReference: snapshot.publicReference, settlementVersion: snapshot.settlementVersion, authoritativeAt: snapshot.authoritativeAt.toISOString(), status: snapshot.status, sellerBasis: money(snapshot.sellerBasis), commissionAmount: money(snapshot.commissionAmount), storeEarningAmount: money(snapshot.storeEarningAmount), deliveryFeeResidual: money(snapshot.deliveryFeeResidual), currency: snapshot.currency, commissionPlanReference: snapshot.commissionPlanReference, commissionPlanVersion: snapshot.commissionPlanVersion, sourceEvidenceFingerprint: snapshot.sourceEvidenceFingerprint, commissionBeneficiarySnapshots: frozenCommissionBeneficiaries(snapshot.sourceSettlementEvidence.commissionEvidence), commissionAccrualReference: snapshot.commissionAccrualReference, storeEarningReference: snapshot.storeEarningReference },
+        storeWalletId: wallet.id,
+        lines: Object.freeze(row.lines.map((line: any) => Object.freeze({ allocations: Object.freeze(line.financialAllocations.map((allocation: any) => Object.freeze({ type: allocation.type, amount: money(allocation.amount) }))) }))),
+      });
     },
-    createCommissionAndEarning: async ({ settlement, operationId, authoritativeAt }) => {
-      const client = current();
-      const commission = await createCommissionAccrual({ subjectType: "MARKETPLACE_STORE_ORDER", subjectId: settlement.storeOrderId, subjectPublicReference: settlement.storeOrderReference, storeId: settlement.storeId, grossAmount: settlement.snapshot.sellerBasis, currency: "ZAR", commissionPlanId: settlement.snapshot.commissionPlanId, commissionPlanVersion: settlement.snapshot.commissionPlanVersion, commissionPercent: settlement.snapshot.commissionPercent, commissionFixedAmount: settlement.snapshot.commissionFixedAmount, authoritativeAt }, client);
-      const earning = await createStoreEarningFromCanonicalSale({
+    accrueCommissionAndStoreEarning: async ({ settlement, operationId }) => {
+      const tx = current();
+      const authoritativeAt = settlement.snapshot.authoritativeAt;
+      const commission = await accrueCommissionInTransaction(tx, {
+        subjectType: "MARKETPLACE_STORE_ORDER", subjectId: settlement.storeOrderId, subjectPublicReference: settlement.storeOrderReference,
+        settlementVersion: settlement.snapshot.settlementVersion, scopeKey: `STORE:${settlement.storeId}`, authoritativeAt,
+        basis: { subjectType: "MARKETPLACE_STORE_ORDER", subjectId: settlement.storeOrderId, subjectPublicReference: settlement.storeOrderReference, pricingReference: settlement.snapshot.publicReference, pricingVersion: settlement.snapshot.settlementVersion, subtotal: settlement.snapshot.sellerBasis, tax: "0.00", total: settlement.snapshot.sellerBasis, currency: "ZAR", authoritativeAt },
+        planPublicReference: settlement.snapshot.commissionPlanReference ?? undefined, planVersionNumber: Number(settlement.snapshot.commissionPlanVersion), beneficiarySnapshots: settlement.snapshot.commissionBeneficiarySnapshots,
+      }, { operationId: `${operationId}:commission` });
+      if (commission.totalAmount !== settlement.snapshot.commissionAmount) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Frozen settlement commission does not equal the Phase 14 result.");
+      const earning = await accrueStoreEarningInTransaction(tx, {
+        subjectType: "MARKETPLACE_ORDER", subjectId: settlement.marketplaceOrderId, subjectPublicReference: settlement.marketplaceOrderReference,
         storeId: settlement.storeId, storePublicReference: settlement.storePublicReference, walletId: settlement.storeWalletId,
         paymentId: settlement.payment.id, paymentPublicReference: settlement.payment.publicReference, settlementReference: settlement.snapshot.publicReference, settlementVersion: settlement.snapshot.settlementVersion,
         calculationVersion: "phase20-frozen-v1", authoritativeAt, sellerSettlementBasisAmount: settlement.snapshot.sellerBasis, attributedCommissionAmount: settlement.snapshot.commissionAmount,
