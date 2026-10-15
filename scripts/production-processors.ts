@@ -3,7 +3,7 @@ import { prisma } from "../lib/db/prisma";
 import { executeRegisteredProcessor } from "../lib/processors/processor-service";
 import { uninitializedMarketplaceOrdersWhere, expiredMarketplaceReservationsWhere } from "../lib/marketplace-checkout/lifecycle-batch.service";
 import { dueMarketplaceSettlementJobsWhere } from "../lib/marketplace-checkout/settlement-batch.service";
-import { productionProcessors, runProductionCycle } from "../lib/processors/production-loop";
+import { createProductionCycleWorkCheck, productionProcessors, runProductionCycle } from "../lib/processors/production-loop";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
 import { listPendingCustomerOrderIntents } from "../lib/notifications/customer-order-publication";
@@ -40,7 +40,7 @@ async function main() {
     return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } });
   }
   while (!stopping) {
-    const results = await runProductionCycle(executeRegisteredProcessor, () => stopping, firstCycle ? undefined : hasWork);
+    const results = await runProductionCycle(executeRegisteredProcessor, () => stopping, createProductionCycleWorkCheck(hasWork, firstCycle));
     firstCycle = false;
     lastCycleAt = Date.now();
     healthy = results.length === productionProcessors.length && results.every((result) => result.status !== "FAILED" && result.itemsRetried === 0);

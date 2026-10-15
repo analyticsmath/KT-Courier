@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { productionProcessors, runProductionCycle } from "@/lib/processors/production-loop";
+import { createProductionCycleWorkCheck, productionProcessors, runProductionCycle } from "@/lib/processors/production-loop";
 
 describe("production processor orchestration", () => {
   it("settles marketplace jobs after verified payment finalization", () => {
@@ -9,6 +9,21 @@ describe("production processor orchestration", () => {
     const execute = vi.fn();
     expect((await runProductionCycle(execute, () => false, async () => false)).every((r) => r.status === "IDLE")).toBe(true);
     expect(execute).not.toHaveBeenCalled();
+  });
+  it("uses queue discovery on startup while preserving the earning cursor's first pass", async () => {
+    const hasWork = vi.fn(async (name: (typeof productionProcessors)[number]) => name === "deliver-notifications");
+    const executed: string[] = [];
+    const execute = vi.fn(async (input: { name: (typeof productionProcessors)[number]; mode: "APPLY"; operationId: string }) => {
+      executed.push(input.name);
+      return { itemsCompleted: 0, itemsRetried: 0 };
+    });
+    const firstCycleWork = createProductionCycleWorkCheck(hasWork, true);
+
+    const results = await runProductionCycle(execute, () => false, firstCycleWork);
+
+    expect(executed).toEqual(["process-earning-lifecycle", "deliver-notifications"]);
+    expect(results.filter((result) => result.status === "IDLE")).toHaveLength(productionProcessors.length - 2);
+    expect(hasWork).not.toHaveBeenCalledWith("process-earning-lifecycle");
   });
   it("finishes each approved task before starting the next and gives each execution a unique receipt", async () => {
     let inFlight = 0;
