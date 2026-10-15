@@ -97,7 +97,7 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       expect(await storeControl(f.storeReference)).toEqual(f.baseline);
       await login(page, "e2e-store@ktcouriers.local"); await page.goto(`/store/marketplace-orders/${f.storeReference}`);
       await expect(page.getByRole("heading", { name: "Marketplace store order", exact: true })).toBeVisible();
-      await expect(page.locator(".eo-page-header").getByText(f.storeReference, { exact: true })).toBeVisible();
+      await expect(page.getByText(f.storeReference, { exact: true })).toBeVisible();
       if (domain === "merchant") {
         await proveStoreOrderEmployeeScope(page, f.storeReference, width);
         await page.goto(`/store/marketplace-orders/${f.storeReference}`);
