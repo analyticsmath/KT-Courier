@@ -23,7 +23,10 @@ for (const width of [1440, 390]) {
     await page.getByLabel("Product title", { exact: true }).fill(title);
     await page.getByLabel("Description", { exact: true }).fill("Synthetic catalog listing for transaction validation only.");
     await step(page, "Photos & options"); await page.getByText("Variants, compliance and modifiers (optional)", { exact: true }).click();
-    await page.getByLabel("Variant matrix", { exact: true }).fill(JSON.stringify([{ title: "Blue", options: [{ code: "color", value: "blue" }], attributeValues: {} }]));
+    await page.getByRole("checkbox", { name: "Sell sizes, colours or other product options", exact: true }).check();
+    await page.getByLabel("Variant name", { exact: true }).fill("Blue");
+    await page.getByLabel("Option name", { exact: true }).fill("color");
+    await page.getByLabel("Option value", { exact: true }).fill("blue");
     await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: modifierName, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }]));
     const file = page.getByLabel("Upload product image", { exact: true });
     await file.setInputFiles({ name: "invalid.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
@@ -38,12 +41,12 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("radio", { name: "Primary image", exact: true })).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
-    await step(page, "Offer & stock"); await page.getByLabel("Store SKU", { exact: true }).fill(sku);
-    const price = page.getByLabel("VAT-inclusive price (ZAR)", { exact: true });
+    await step(page, "Offer & stock"); await page.getByLabel("Variant SKU", { exact: true }).fill(sku);
+    const price = page.getByLabel("Variant price including VAT (ZAR)", { exact: true });
     await expect(price).toHaveCount(1); await expect(price).toBeVisible();
     expect(await price.evaluate(input => (input as HTMLInputElement).labels?.length)).toBe(1);
     await price.focus(); await price.pressSequentially("19.25");
-    await page.getByLabel("Opening stock", { exact: true }).fill("7");
+    await page.getByLabel("Variant opening stock", { exact: true }).fill("7");
     await page.getByLabel("Inventory location", { exact: true }).selectOption({ label: "Primary E2E Warehouse" });
     await step(page, "Review & save"); await expect(page.getByRole("region", { name: "Exact draft preview" })).toContainText("19.25");
     const save = page.getByRole("button", { name: "Save product draft", exact: true });
@@ -61,12 +64,12 @@ for (const width of [1440, 390]) {
     const canonical = (await read(page, "/api/store/catalog/products/" + confirmed.publicReference)).product;
     expect(JSON.stringify(canonical)).not.toContain('"storageKey"'); expect(JSON.stringify(canonical)).not.toContain('"storageProvider"');
     expect(canonical).toMatchObject({ title, status: "DRAFT", publicationStatus: "DRAFT", media: [{ altText: "Disposable synthetic product image", role: "PRIMARY" }] });
-    expect(canonical.variants.map((row: { title: string }) => row.title).sort()).toEqual(["Blue", "Default"]);
+    expect(canonical.variants.map((row: { title: string }) => row.title).sort()).toEqual(["Blue"]);
     const offer = (await read(page, "/api/store/catalog/offers/" + confirmed.offers[0].publicReference)).offer;
     expect(offer).toMatchObject({ storeSku: sku, status: "DRAFT", inventoryItem: { levels: [{ onHand: 7, reserved: 0, available: 7 }], movements: [{ quantityDelta: 7, type: "INITIAL_STOCK" }] }, modifierGroups: [{ group: { name: modifierName, options: [{ priceDelta: "1.1" }] } }] });
     expect(Number(offer.priceVersions[0].amount).toFixed(2)).toBe("19.25"); expect(offer.priceVersions).toHaveLength(1);
     const products = (await read(page, "/api/store/catalog/products?search=" + encodeURIComponent(title))).products; expect(products).toHaveLength(1);
-    const changed = await page.request.post("/api/store/catalog/listing-drafts", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: { ...command, openingStock: 9 } }); expect(changed.status()).toBe(409);
+    const changed = await page.request.post("/api/store/catalog/listing-drafts", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: { ...command, variants: (command.variants as Record<string, unknown>[]).map(variant => ({ ...variant, openingStock: 9 })) } }); expect(changed.status()).toBe(409);
     await page.getByRole("link", { name: "View saved product", exact: true }).click();
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
     const editedTitle = title + " edited";
@@ -119,7 +122,7 @@ for (const width of [1440, 390]) {
     expect((await page.request.get("/api/store/catalog/products/" + confirmed.publicReference)).status()).toBe(404);
     expect((await page.request.get("/api/store/catalog/offers/" + confirmed.offers[0].publicReference)).status()).toBe(404);
     const suggestions = await read(page, "/api/store/catalog/products/duplicate-search?" + new URLSearchParams({ title: editedTitle, productTypeCode: "smartphone" })); expect(suggestions.candidates).toEqual([]);
-    const foreign = await page.request.post("/api/store/catalog/listing-drafts", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: { ...command, operationId: randomUUID(), openingStock: 0, inventoryLocationPublicReference: undefined } }); expect(foreign.status()).toBe(403);
+    const foreign = await page.request.post("/api/store/catalog/listing-drafts", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: { ...command, operationId: randomUUID(), variants: (command.variants as Record<string, unknown>[]).map(variant => ({ ...variant, openingStock: 0, inventoryLocationPublicReference: undefined })), inventoryLocationPublicReference: undefined } }); expect(foreign.status()).toBe(403);
     await login(page, "e2e-catalog-denied@ktcouriers.local");
     expect((await read(page, "/api/store/catalog/products")).products).toEqual([]);
     expect((await page.request.post("/api/store/catalog/listing-drafts", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL }, data: command })).status()).toBe(403);
