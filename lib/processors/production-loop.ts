@@ -9,6 +9,7 @@ export const productionProcessors = [
   "settle-marketplace-store-orders",
   "initialize-marketplace-store-orders",
   "expire-marketplace-reservations",
+  "process-earning-lifecycle",
   "deliver-notifications",
 ] as const satisfies readonly ImplementedProcessorName[];
 

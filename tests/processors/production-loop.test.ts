@@ -3,7 +3,7 @@ import { productionProcessors, runProductionCycle } from "@/lib/processors/produ
 
 describe("production processor orchestration", () => {
   it("settles marketplace jobs after verified payment finalization", () => {
-    expect(productionProcessors).toEqual(["apply-paystack-webhook-events", "consume-verified-payment-events", "settle-marketplace-store-orders", "initialize-marketplace-store-orders", "expire-marketplace-reservations", "deliver-notifications"]);
+    expect(productionProcessors).toEqual(["apply-paystack-webhook-events", "consume-verified-payment-events", "settle-marketplace-store-orders", "initialize-marketplace-store-orders", "expire-marketplace-reservations", "process-earning-lifecycle", "deliver-notifications"]);
   });
   it("avoids creating processor receipts for empty queues", async () => {
     const execute = vi.fn();

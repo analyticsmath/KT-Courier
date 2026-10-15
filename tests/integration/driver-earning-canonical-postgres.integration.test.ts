@@ -82,6 +82,8 @@ describe("driver earning canonical services on isolated PostgreSQL", () => {
   // production financial approval require their independent acceptance gates.
 });
 
+import { runEarningLifecycleBatch } from "@/lib/services/earning-lifecycle-batch.service";
+import { CLEARANCE_POLICY_KEY } from "@/lib/earnings/clearance-policy";
 import { produceDriverSettlement } from "@/lib/services/driver-settlement-producer.service";
 import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
 
@@ -126,5 +128,39 @@ describe("real courier settlement producer on isolated PostgreSQL", () => {
     const unfunded = await source({ paymentAmount: "50.00" });
     await expect(produceDriverSettlement(unfunded.order.id)).rejects.toMatchObject({ code: "DRIVER_EARNING_PAYMENT_INVALID" });
     expect(await prisma.commissionAccrual.count({ where: { subjectId: unfunded.order.id } })).toBe(0);
+    // Synthetic isolated PostgreSQL proof: the actual worker path must produce,
+    // clear and release the exact liability without external transfers.
+    const automatic = await source();
+    const cursorKey = "finance.earning_lifecycle_cursor.v1";
+    const priorPolicy = await prisma.systemSetting.findUnique({ where: { key: CLEARANCE_POLICY_KEY } });
+    const priorCursor = await prisma.systemSetting.findUnique({ where: { key: cursorKey } });
+    try {
+      const policy = { version: `synthetic-${tag}`, effectiveFrom: "2000-12-01T00:00:00.000Z", storeHoldHours: 0, driverHoldHours: 0, reason: "Synthetic independent clearance acceptance only", submittedByUserId: s.customer.id, submittedAt: "2000-12-01T00:00:00.000Z", reviewedByUserId: reviewer.id, reviewedAt: "2000-12-02T00:00:00.000Z" };
+      await prisma.systemSetting.upsert({ where: { key: CLEARANCE_POLICY_KEY }, create: { key: CLEARANCE_POLICY_KEY, label: "Synthetic clearance policy", type: "JSON", value: policy }, update: { value: policy } });
+      await prisma.systemSetting.deleteMany({ where: { key: cursorKey } });
+      await runEarningLifecycleBatch({ mode: "DRY_RUN", batchSize: 25 });
+      expect(await prisma.driverEarning.count({ where: { orderId: automatic.order.id } })).toBe(0);
+      expect(await prisma.systemSetting.findUnique({ where: { key: cursorKey } })).toBeNull();
+      // Bounded cursor passes can encounter earlier blocked synthetic sources.
+      for (let pass = 0; pass < 5; pass++) {
+        await runEarningLifecycleBatch({ mode: "APPLY", batchSize: 25 });
+        const row = await prisma.driverEarning.findFirst({ where: { orderId: automatic.order.id } });
+        if (row?.status === "RELEASED") break;
+      }
+      const released = await prisma.driverEarning.findFirstOrThrow({ where: { orderId: automatic.order.id } });
+      expect(released.status).toBe("RELEASED"); expect(released.releasedAmount.toFixed(2)).toBe("90.22");
+      expect(released.releaseEligibleAt?.toISOString()).toBe(completedAt.toISOString());
+      const account = await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: automatic.accounts.ownerWithdrawable.id } });
+      expect(account.currentBalance.toFixed(2)).toBe("90.22");
+      await runEarningLifecycleBatch({ mode: "APPLY", batchSize: 25 });
+      expect(await prisma.driverEarning.count({ where: { orderId: automatic.order.id } })).toBe(1);
+      expect((await prisma.ledgerAccount.findUniqueOrThrow({ where: { id: account.id } })).currentBalance.toFixed(2)).toBe("90.22");
+      expect(await prisma.commissionAccrual.count({ where: { subjectId: unfunded.order.id } })).toBe(0);
+    } finally {
+      for (const [key, prior] of [[CLEARANCE_POLICY_KEY, priorPolicy], [cursorKey, priorCursor]] as const) {
+        if (prior) await prisma.systemSetting.update({ where: { key }, data: { value: prior.value! } });
+        else await prisma.systemSetting.deleteMany({ where: { key } });
+      }
+    }
   });
 });

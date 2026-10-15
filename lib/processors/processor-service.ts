@@ -59,6 +59,10 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "process-earning-lifecycle": async (context) => {
+    const { runEarningLifecycleBatch } = await import("@/lib/services/earning-lifecycle-batch.service");
+    return runEarningLifecycleBatch(context);
+  },
   "initialize-marketplace-store-orders": async (context) => {
     const { initializeMarketplaceOrdersBatch } = await import("@/lib/marketplace-checkout/lifecycle-batch.service");
     return initializeMarketplaceOrdersBatch(context);

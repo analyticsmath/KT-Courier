@@ -204,6 +204,16 @@ export const PROCESSOR_REGISTRY = {
     operationalOwnerCategory: "Withdrawals & Finance",
     status: "IMPLEMENTED",
   },
+  "process-earning-lifecycle": {
+    name: "process-earning-lifecycle", version: "1.0.0",
+    purpose: "Accrues completed courier earnings, assigns reviewed clearance and releases eligible internal liabilities",
+    triggerType: "CRON", classification: "SINGLETON_MUTATING_PROCESSOR", leaseRequired: true,
+    defaultPartition: "earning-lifecycle", defaultBatchSize: 10, maxBatchSize: 25,
+    maxExecutionDurationSeconds: 240, retryPolicy: "RETRY_NEXT_CYCLE",
+    idempotencyStrategy: "CANONICAL_SOURCE_RECEIPTS_AND_STABLE_CURSORS", dryRunSupported: true,
+    manualExecutionAllowed: false, requiredPermission: PERMISSIONS.DRIVER_EARNINGS_RECONCILE,
+    operationalOwnerCategory: "Driver and Store Settlement", status: "IMPLEMENTED",
+  },
   "release-mature-store-earnings": {
     name: "release-mature-store-earnings",
     version: "1.0.0",
