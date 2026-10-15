@@ -7,11 +7,7 @@ import { checkIpRateLimit, RATE_LIMITS, getClientIp } from "@/lib/security/rate-
 import { getDriverProfileIdForUser } from "@/lib/services/driver-assignments.service";
 import { getDeliveryAssignmentForDriver } from "@/lib/services/delivery-execution.service";
 import { generateAndSendDeliveryOtp, getDeliveryOtpStatus } from "@/lib/services/delivery-otp.service";
-import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
-import { prisma } from "@/lib/db/prisma";
 import { RequestDeliveryOtpSchema } from "@/lib/validation/delivery";
-import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
-import { abandonReservedOperation, completeReservedOperation, findOperationReplay, reserveOperation } from "@/lib/driver-operations/idempotency";
 
 export async function GET(
   _req: NextRequest,
@@ -64,75 +60,10 @@ export async function POST(
   const parsed = RequestDeliveryOtpSchema.safeParse(body);
   if (!parsed.success) return conflict("Invalid OTP request.");
   try {
-    const replay = await findOperationReplay(parsed.data.operationId, parsed.data);
-    if (replay) { await assertDriverReplayAuthority(assignmentId, driverProfileId, user.id, replay); return ok({ sent: true, replay: true, expiresAt: replay.completedAt }); }
-    await assertAcceptedCurrentDriver(assignmentId, driverProfileId, parsed.data.assignmentVersion);
-  } catch (error) {
-    return conflict(error instanceof Error ? error.message : "OTP request was rejected.");
-  }
-
-  const assignment = await getDeliveryAssignmentForDriver(assignmentId, driverProfileId);
-  if (!assignment) return forbidden("Assignment not found.");
-  if (!["IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus)) return conflict("OTP can only be requested while delivery is in transit.");
-
-  // Fetch the full order to get recipient email
-  const order = await prisma.order.findUnique({
-    where: { id: assignment.orderId },
-    include: {
-      customer: { select: { email: true, name: true } },
-      store: { include: { ownerUser: { select: { email: true, name: true } } } },
-    },
-  });
-
-  if (!order) return conflict("Order not found.");
-
-  let recipientEmail: string | null = null;
-  let recipientName: string = "Recipient";
-
-  if (order.customer?.email) {
-    recipientEmail = order.customer.email;
-    recipientName = order.customer.name ?? recipientName;
-  } else if (order.store?.ownerUser?.email) {
-    recipientEmail = order.store.ownerUser.email;
-    recipientName = order.store.ownerUser.name ?? recipientName;
-  }
-
-  if (!recipientEmail) {
-    return conflict("No recipient email on file for this order. Cannot send OTP.");
-  }
-
-  try {
-    await reserveOperation({ operationId: parsed.data.operationId, payload: parsed.data, orderId: order.id, assignmentId, driverProfileId, type: "DELIVERY_OTP_REQUEST" });
-    const result = await generateAndSendDeliveryOtp(
-      order.id,
-      assignmentId,
-      user.id,
-      recipientEmail,
-      recipientName,
-      order.orderNumber,
-      order.source,
-      parsed.data.operationId
-    );
-
-    if (!result.ok) {
-      await abandonReservedOperation(parsed.data.operationId);
-      return conflict(result.error);
-    }
-    await completeReservedOperation(parsed.data.operationId, {
-      type: "DELIVERY_OTP_REQUEST", orderId: order.id, assignmentId, driverProfileId,
-      orderStatus: order.status, assignmentStatus: assignment.assignmentStatus,
-      completedAt: new Date().toISOString(),
-    });
-
-    return ok({
-      sent: true,
-      sentToEmail: result.sentToEmailMasked,
-      expiresAt: result.expiresAt,
-    });
+    const result = await generateAndSendDeliveryOtp(assignmentId, driverProfileId, user.id, parsed.data);
+    if (!result.ok) return conflict(result.error);
+    return ok({ sent: true, replay: result.replay, sentToEmail: result.sentToEmailMasked, expiresAt: result.expiresAt });
   } catch (err) {
-    const replay = await findOperationReplay(parsed.data.operationId, parsed.data).catch(() => null);
-    if (replay) { await assertDriverReplayAuthority(assignmentId, driverProfileId, user.id, replay); return ok({ sent: true, replay: true, expiresAt: replay.completedAt }); }
-    await abandonReservedOperation(parsed.data.operationId);
     console.error("[driver/assignments/[id]/delivery/otp POST]", err);
     return serverError();
   }

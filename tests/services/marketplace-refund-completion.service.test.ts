@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { beforeEach, expect, it, vi } from "vitest";
 import { projectMarketplaceRefundCompletion } from "@/lib/services/marketplace-refund-completion.service";
-const f = vi.hoisted(() => ({ adjustments: vi.fn(), pending: vi.fn(), refund: vi.fn(), lock: vi.fn(), adjustmentUpdate: vi.fn(), issueUpdate: vi.fn(), adjustmentCount: vi.fn(), issueCount: vi.fn(), caseCount: vi.fn(), caseUpdate: vi.fn(), order: vi.fn(), orderUpdate: vi.fn(), history: vi.fn(), event: vi.fn() }));
+const f = vi.hoisted(() => ({ funding: vi.fn(), adjustments: vi.fn(), pending: vi.fn(), refund: vi.fn(), lock: vi.fn(), adjustmentUpdate: vi.fn(), issueUpdate: vi.fn(), adjustmentCount: vi.fn(), issueCount: vi.fn(), caseCount: vi.fn(), caseUpdate: vi.fn(), order: vi.fn(), orderUpdate: vi.fn(), history: vi.fn(), event: vi.fn() }));
+vi.mock("@/lib/services/marketplace-adjustment-refund-authority", () => ({ assertCommittedMarketplaceAdjustmentFunding: f.funding }));
 const tx = { $queryRaw: f.lock, marketplaceStoreOrderAdjustment: { findMany: (args: { where: { refundId?: string } }) => args.where.refundId ? f.adjustments(args) : f.pending(args), update: f.adjustmentUpdate, count: f.adjustmentCount }, paymentRefund: { findUnique: f.refund }, marketplaceStoreOrderIssue: { updateMany: f.issueUpdate, count: f.issueCount }, marketplaceStoreOrderReconciliationCase: { updateMany: f.caseUpdate, count: f.caseCount }, marketplaceStoreOrder: { findUniqueOrThrow: f.order, update: f.orderUpdate }, marketplaceStoreOrderHistory: { upsert: f.history }, marketplaceStoreOrderEventIntent: { upsert: f.event } } as unknown as Prisma.TransactionClient;
 beforeEach(() => {
   vi.resetAllMocks();
@@ -22,3 +23,17 @@ it("refuses to project the same refund onto two adjustments", async () => { cons
 it("keeps unrelated open reconciliation authority", async () => { f.caseCount.mockResolvedValue(1); await projectMarketplaceRefundCompletion(tx, "refund"); expect(f.adjustmentUpdate).toHaveBeenCalledOnce(); expect(f.orderUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ resolutionStatus: "RECONCILIATION_REQUIRED", financialResolutionStatus: "RECONCILIATION_REQUIRED" }) })); });
 it("keeps a second approved adjustment actionable after the first refund completes", async () => { f.pending.mockResolvedValue([{ status: "APPROVED" }]); await projectMarketplaceRefundCompletion(tx, "refund"); expect(f.orderUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ resolutionStatus: "REFUND_PENDING", financialResolutionStatus: "ADJUSTMENT_CALCULATED" }) })); });
 it("replay and ordinary refunds do not create store projection effects", async () => { f.adjustments.mockResolvedValue([]); await projectMarketplaceRefundCompletion(tx, "refund"); expect(f.refund).not.toHaveBeenCalled(); expect(f.history).not.toHaveBeenCalled(); });
+
+it("revalidates the captured COD deposit before projecting its completed refund", async () => {
+  const rows = await f.adjustments(); rows[0].financialEvidence.unstartedCodCancellation = { version: "unstarted-marketplace-cod-v1" };
+  const refund = await f.refund(); refund.creationIdempotencyKey = "apply:refund";
+  await projectMarketplaceRefundCompletion(tx, "refund");
+  expect(f.funding).toHaveBeenCalledWith(tx, { adjustmentReference: "adjustment-ref", paymentId: "payment", customerUserId: "customer", operationId: "apply:refund", amount: "10.00" });
+  expect(f.adjustmentUpdate).toHaveBeenCalledOnce();
+});
+it("leaves COD fulfilment unresolved when committed deposit authority fails", async () => {
+  const rows = await f.adjustments(); rows[0].financialEvidence.unstartedCodCancellation = { version: "unstarted-marketplace-cod-v1" };
+  f.funding.mockRejectedValue(new Error("Captured deposit is incoherent"));
+  await expect(projectMarketplaceRefundCompletion(tx, "refund")).rejects.toThrow("Captured deposit is incoherent");
+  expect(f.adjustmentUpdate).not.toHaveBeenCalled(); expect(f.orderUpdate).not.toHaveBeenCalled(); expect(f.event).not.toHaveBeenCalled();
+});

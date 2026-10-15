@@ -27,6 +27,7 @@ export const PHASE27_EVENT_REGISTRY = [
   { sourceAuthority: "PAYMENT", eventType: "PAYMENT_STATUS_CHANGED", categoryKey: "PAYMENT_STATUS", purpose: "TRANSACTIONAL" },
   { sourceAuthority: "REFUND", eventType: "REFUND_STATUS_CHANGED", categoryKey: "REFUND_STATUS", purpose: "TRANSACTIONAL" },
   ...["STORE_ORDER_TIMED_OUT", "PREPARATION_STARTED", "SUBSTITUTION_PROPOSED", "SUBSTITUTION_DECIDED", "SUBSTITUTION_EXPIRED_TO_REFUND", "STORE_ORDER_CANCELLATION_REQUESTED", "STORE_PICKUP_HANDOFF_VERIFIED"].map(eventType => ({ sourceAuthority: "STORE_ORDERS", eventType, categoryKey: "STORE_ORDER_STATUS", purpose: "TRANSACTIONAL" })),
+  ...["COURIER_DRIVER_ASSIGNED", "COURIER_PICKED_UP", "COURIER_IN_TRANSIT", "COURIER_DELIVERY_ATTEMPTED", "COURIER_DELIVERED", "COURIER_FAILED"].map(eventType => ({ sourceAuthority: "STORE_ORDERS", eventType, categoryKey: "STORE_ORDER_STATUS", purpose: "TRANSACTIONAL" })),
   { sourceAuthority: "DISPATCH", eventType: "DRIVER_ASSIGNMENT_STATUS_CHANGED", categoryKey: "DRIVER_ASSIGNMENT_STATUS", purpose: "TRANSACTIONAL" },
   ...(["STORE", "DRIVER"] as const).map(owner => ({ sourceAuthority: "WITHDRAWAL", eventType: `${owner}_WITHDRAWAL_STATUS_CHANGED`, categoryKey: `${owner}_WITHDRAWAL_STATUS`, purpose: "TRANSACTIONAL" })),
   ...(["STORE", "DRIVER"] as const).map(owner => ({ sourceAuthority: `${owner}_EARNINGS`, eventType: `${owner}_EARNING_STATUS_CHANGED`, categoryKey: `${owner}_EARNING_STATUS`, purpose: "TRANSACTIONAL" })),

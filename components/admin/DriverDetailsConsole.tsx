@@ -7,7 +7,7 @@ import type { BadgeVariant } from "@/types/ui";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { DriverDetailDto } from "@/lib/dto/driver.dto";
+import { DriverDetailDto, type DriverDocumentMediaDto } from "@/lib/dto/driver.dto";
 import { DRIVER_STATUS_LABELS, DRIVER_AVAILABILITY_LABELS } from "@/lib/constants/drivers";
 import { DriverStatus, DriverAvailability } from "@/types/db";
 
@@ -32,6 +32,15 @@ interface DriverDetailsConsoleProps {
   initialDriver: DriverDetailDto;
   allRegions: Region[];
   activityLogs: ActivityLog[];
+}
+
+function DocumentDownload({ media, label }: { media?: DriverDocumentMediaDto | null; label: string }) {
+  if (!media || media.status !== "READY") return <span className="text-[10px] text-[var(--kt-text-muted)] block">No uploaded document available</span>;
+  return <a
+    href={`/api/private-media/${encodeURIComponent(media.publicReference)}`}
+    className="text-[10px] font-semibold text-[var(--kt-signal-cobalt)] underline block mt-1"
+    aria-label={`Download ${label}: ${media.originalFileName}`}
+  >Download document</a>;
 }
 
 export function DriverDetailsConsole({
@@ -873,6 +882,7 @@ export function DriverDetailsConsole({
                     <div key={doc.id} className="p-3 bg-[var(--kt-studio-white)] rounded-xl border border-[var(--kt-soft-border)] flex justify-between items-center text-xs">
                       <div>
                         <span className="font-semibold text-[var(--kt-ink-navy)] block">{doc.documentType.replace(/_/g, " ")}</span>
+                        <DocumentDownload media={doc.privateMediaObject} label={doc.documentType.replace(/_/g, " ")} />
                         <span className="text-[10px] text-[var(--kt-text-muted)] block">
                           {doc.expiresAt ? `Expires: ${new Date(doc.expiresAt).toLocaleDateString("en-ZA")}` : "No expiry recorded"}
                         </span>
@@ -954,11 +964,14 @@ export function DriverDetailsConsole({
                       <span className="text-[10px] font-semibold text-[var(--kt-text-muted)] uppercase tracking-wider block">Vehicle Documents</span>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                         {["REGISTRATION", "LICENCE_DISC", "INSURANCE"].map((docType) => {
-                          const doc = v.documents.find((d) => d.documentType === docType);
+                          // The service returns newest first. Superseded evidence
+                          // remains in history but must not hide its replacement.
+                          const doc = v.documents.find((d) => d.documentType === docType && d.rejectionReason !== "SUPERSEDED_BY_NEW_UPLOAD");
                           return (
                             <div key={docType} className="p-2 bg-white rounded-lg border border-[var(--kt-soft-border)] text-[11px] flex justify-between items-center">
                               <div>
                                 <span className="font-medium text-[var(--kt-ink-navy)] block">{docType.replace(/_/g, " ")}</span>
+                                {doc ? <DocumentDownload media={doc.privateMediaObject} label={`${v.registrationNumber} ${docType.replace(/_/g, " ")}`} /> : null}
                                 <span className={`text-[10px] font-bold ${doc?.status === "APPROVED" ? "text-[var(--kt-teal-emerald)]" : doc?.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}>
                                   {doc ? doc.status : "MISSING"}
                                 </span>

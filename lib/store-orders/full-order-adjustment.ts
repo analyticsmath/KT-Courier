@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { frozenRefundAllocation, cents, money } from "./allocation";
 import { assertStoreOrder } from "./errors";
+import { assertUnstartedMarketplaceCodFunding } from "@/lib/services/marketplace-adjustment-refund-authority";
 
 /** Only an unaccepted, unstarted child with no courier obligation has an
  * automatic full cancellation boundary. Later stages require policy review. */
@@ -10,11 +11,27 @@ export function unearnedStoreOrderCancellation(order: { acceptanceStatus: string
 }
 
 export async function createUnstartedFullAdjustment(tx: Prisma.TransactionClient, input: { storeOrderId: string; adjustmentType: "FULL_STORE_REJECTION" | "CUSTOMER_CANCELLATION"; actorUserId?: string; reasonCode: string; operationId: string; requestHash: string; publicReference: string }) {
-  const order = await tx.marketplaceStoreOrder.findUniqueOrThrow({ where: { id: input.storeOrderId }, include: { store: { select: { ownerUserId: true } }, marketplaceOrder: true, deliveryBridge: true, settlementSnapshots: { orderBy: { createdAt: "asc" } }, lines: { include: { financialAllocations: true, fulfilment: true, issues: true } } } });
+  const order = await tx.marketplaceStoreOrder.findUniqueOrThrow({ where: { id: input.storeOrderId }, include: { store: { select: { ownerUserId: true } }, marketplaceOrder: true, checkoutStoreGroup: true, deliveryBridge: true, settlementSnapshots: { orderBy: { createdAt: "asc" } }, lines: { include: { financialAllocations: true, fulfilment: true, issues: true } } } });
   assertStoreOrder(unearnedStoreOrderCancellation(order), "STORE_ORDER_CANCELLATION_TOO_LATE", "Automatic full cancellation requires unaccepted, unstarted goods and no courier obligation.");
   const snapshot = order.settlementSnapshots[0];
   assertStoreOrder(snapshot && snapshot.sourcePaymentId === order.marketplaceOrder.paymentId && snapshot.sourceCheckoutId === order.marketplaceOrder.checkoutId && snapshot.deliveryFeeResidual.equals(order.deliveryFee), "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Exact frozen settlement evidence is required.");
   const previous = await tx.marketplaceStoreOrderAdjustment.findMany({ where: { marketplaceStoreOrderId: order.id, status: { not: "REJECTED" } }, include: { allocations: true } });
+  // Commercial value includes uncollected cash. An unstarted COD cancellation
+  // refunds only the captured deposit and never reverses unaccrued earnings.
+  if (order.marketplaceOrder.cashRequired?.greaterThan(0) || (order.checkoutStoreGroup?.paymentPlan as { mode?: string } | null)?.mode === "DEPOSIT_PLUS_COD") {
+    assertStoreOrder(previous.length === 0, "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "An unstarted COD order can have only one full cancellation.");
+    const proof = await assertUnstartedMarketplaceCodFunding(tx, order, snapshot);
+    const issues = order.lines.flatMap(line => line.issues).filter(issue => ["OPEN", "CUSTOMER_ACTION_REQUIRED"].includes(issue.status));
+    const inventory = await reverseUnstartedGoodsCommitments(tx, order, input);
+    if (proof.cashObligationId) await tx.cashOnDelivery.update({ where: { id: proof.cashObligationId }, data: { status: "CANCELLED", version: { increment: 1 }, events: { create: { operationId: `${input.operationId}:cod-cancel`, requestHash: input.requestHash, eventType: "CANCELLED", actorUserId: input.actorUserId, safeReasonCode: "UNSTARTED_MARKETPLACE_CANCELLED", safeEvidence: { adjustmentReference: input.publicReference, cashCancelled: proof.cashCancelled } } } } });
+    // There is no CANCELLED settlement enum. Keep the immutable unaccrued
+    // snapshot PENDING and close its job with an explicit cancellation receipt.
+    const closed = await tx.marketplaceStoreSettlementJob.updateMany({ where: { marketplaceStoreOrderId: order.id, settlementSnapshotId: snapshot.id, status: { in: ["PENDING", "RETRYABLE"] } }, data: { status: "COMPLETED", completedAt: new Date(), lastSafeError: "UNSTARTED_COD_CANCELLED" } });
+    assertStoreOrder(closed.count === 1, "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "The unaccrued COD settlement job must be cancelled exactly once.");
+    const adjustment = await tx.marketplaceStoreOrderAdjustment.create({ data: { publicReference: input.publicReference, marketplaceStoreOrderId: order.id, adjustmentType: input.adjustmentType, status: "APPROVED", reasonCode: input.reasonCode, sourceVersion: snapshot.settlementVersion, operationId: input.operationId, requestHash: input.requestHash, refundAmount: proof.digitalRequired, deliveryFeeAmount: "0.00", financialEvidence: { settlementSnapshotReference: snapshot.publicReference, sourceCommercialFingerprint: snapshot.sourceCommercialFingerprint, refundMethod: "ORIGINAL_PAYMENT_METHOD", inventory, issueReferences: issues.map(issue => issue.publicReference), unstartedCodCancellation: proof } } });
+    await tx.marketplaceStoreOrderIssue.updateMany({ where: { id: { in: issues.map(issue => issue.id) } }, data: { status: "REFUND_PENDING", version: { increment: 1 } } });
+    return adjustment.publicReference;
+  }
   const priorFee = previous.reduce((total, item) => total.add(item.deliveryFeeAmount), new Prisma.Decimal(0));
   const fee = snapshot.deliveryFeeResidual.sub(priorFee);
   assertStoreOrder(fee.greaterThanOrEqualTo(0), "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Prior delivery refunds exceed the frozen fee.");

@@ -159,6 +159,7 @@ export async function createOrder(
         dropoffAddressId: dropoff.id,
         recipientName: input.recipientName,
         recipientPhone: input.recipientPhone,
+        recipientEmail: input.recipientEmail ?? null,
         parcelDescription: input.parcelDescription ?? null,
         parcelCount: input.parcelCount,
         scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
@@ -307,6 +308,7 @@ export interface RepeatDeliveryPrefillDto {
   dropoffAddress: RepeatDeliveryAddressPrefill | null;
   recipientName: string;
   recipientPhone: string;
+  recipientEmail?: string;
   parcelCount: number;
   parcelDescription: string;
   customerNote: string;
@@ -360,6 +362,7 @@ export async function getRepeatDeliveryPrefill(
       order.recipientName ?? order.dropoffAddress?.contactName ?? "",
     recipientPhone:
       order.recipientPhone ?? order.dropoffAddress?.contactPhone ?? "",
+    recipientEmail: order.recipientEmail ?? "",
     parcelCount: order.parcelCount,
     parcelDescription: order.parcelDescription ?? "",
     customerNote: order.customerNote ?? "",

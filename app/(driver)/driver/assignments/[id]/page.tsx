@@ -23,6 +23,8 @@ import { formatDateTime } from "@/lib/utils/formatters";
 import type { DriverAssignmentDto } from "@/lib/dto/assignment.dto";
 import type { WorkbenchAssignmentDto } from "@/lib/dto/pickup.dto";
 import { createDriverOperationIdStore } from "@/lib/driver-operations/client-operation";
+import { requiresAttemptEvidence } from "@/lib/driver-operations/delivery-attempt-policy";
+import type { DeliveryExceptionReason } from "@/types/db";
 import styles from "@/components/protected-v2/driver/driver-pages.module.css";
 
 interface OtpStatus {
@@ -511,13 +513,17 @@ export default function DriverAssignmentDetailPage() {
       setDeliveryError("A driver note is required.");
       return;
     }
+    if (requiresAttemptEvidence(attemptReason as DeliveryExceptionReason) && !deliveryProofReference) {
+      setDeliveryError("Upload private delivery evidence before recording this damage or safety issue.");
+      return;
+    }
     setDeliveryLoading(true);
     setDeliveryError(null);
     try {
       const res = await fetch(`/api/driver/assignments/${id}/delivery/attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...operationCommand("delivery-attempt", { reason: attemptReason, driverNote: attemptDriverNote }), reason: attemptReason, driverNote: attemptDriverNote }),
+        body: JSON.stringify({ ...operationCommand("delivery-attempt", { reason: attemptReason, driverNote: attemptDriverNote, evidenceReference: deliveryProofReference }), reason: attemptReason, driverNote: attemptDriverNote, evidenceReference: deliveryProofReference }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -526,6 +532,7 @@ export default function DriverAssignmentDetailPage() {
         return;
       }
       setDeliveryAction("idle");
+      setDeliveryProofReference(undefined);
       clearOperation("delivery-attempt");
       loadAssignment();
     } catch {
@@ -915,7 +922,7 @@ export default function DriverAssignmentDetailPage() {
             </div>
           )}
 
-          {["IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && <DriverDeliveryEvidencePanel assignmentId={id} assignmentVersion={assignment.version} onProof={setDeliveryProofReference} /> }
+          {["PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && <DriverDeliveryEvidencePanel assignmentId={id} assignmentVersion={assignment.version} onProof={setDeliveryProofReference} /> }
 
           {/* Start delivery */}
           {deliveryAction === "start" && (
@@ -1073,6 +1080,7 @@ export default function DriverAssignmentDetailPage() {
                   required
                 />
               </div>
+              {requiresAttemptEvidence(attemptReason as DeliveryExceptionReason) && <p className="text-sm" role="status">Damage and safety reports require private evidence. Upload an image in Delivery evidence and responsibilities before submitting.</p>}
               <div className="p-3 rounded-xl bg-[var(--kt-amber-wash)] border border-[var(--kt-solar-amber)]/30 text-xs text-[var(--kt-ink-navy)]">
                 The order will be marked as DELIVERY ATTEMPTED. KT Couriers will review and may reschedule.
               </div>

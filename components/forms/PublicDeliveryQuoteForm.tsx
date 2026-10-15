@@ -423,6 +423,7 @@ export function PublicDeliveryQuoteForm({
                         pickupContactPhone: f.get("pickupContactPhone"),
                         recipientName: f.get("recipientName"),
                         recipientPhone: f.get("recipientPhone"),
+                        recipientEmail: f.get("recipientEmail"),
                         parcelDescription: f.get("parcelDescription"),
                         paymentMethod: f.get("paymentMethod") || "DIGITAL_ONLY",
                         ...(scheduled
@@ -454,6 +455,7 @@ export function PublicDeliveryQuoteForm({
                   ["pickupContactName", "Sender name", pickup.contactName],
                   ["pickupContactPhone", "Sender phone", pickup.contactPhone],
                   ["recipientName", "Recipient name", prefill?.recipientName],
+                  ["recipientEmail", "Recipient email for delivery code", prefill?.recipientEmail],
                   [
                     "recipientPhone",
                     "Recipient phone",
@@ -467,8 +469,9 @@ export function PublicDeliveryQuoteForm({
                     id={`booking-${key}`}
                     name={key}
                     required
+                    type={key === "recipientEmail" ? "email" : key.endsWith("Phone") ? "tel" : "text"}
                     minLength={key.endsWith("Phone") ? 7 : 2}
-                    maxLength={key.endsWith("Phone") ? 30 : 150}
+                    maxLength={key === "recipientEmail" ? 254 : key.endsWith("Phone") ? 30 : 150}
                     defaultValue={value ?? ""}
                   />
                 </div>

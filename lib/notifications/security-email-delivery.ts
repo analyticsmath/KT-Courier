@@ -10,6 +10,8 @@ import { openSecurityPayload } from "./security-payload-vault";
 import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
 import type { ProviderSendResult } from "./providers";
 import { guestContactSubjectKey } from "./guest-recipient";
+import { resolveDeliveryOtpRecipient } from "@/lib/services/delivery-recipient.service";
+import { hashOtp } from "@/lib/auth/otp";
 
 const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
   EMAIL_VERIFICATION_OTP: EmailTemplateType.EMAIL_VERIFICATION_OTP,
@@ -20,6 +22,18 @@ const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
 
 function acceptedStatus(status: string): boolean {
   return status === "PROVIDER_ACCEPTED" || status === "DELIVERED";
+}
+
+/** The completed issuance receipt binds one encrypted intent to its own code
+ * and assignment. A newer resend must not allow a delayed old email to send. */
+async function activeDeliveryOtp(operationId: string, orderId: string) {
+  const command = await prisma.driverOperationCommand.findUnique({ where: { operationId }, select: { completedAt: true, resultSnapshot: true } });
+  const receipt = command?.resultSnapshot;
+  if (!command?.completedAt || !receipt || typeof receipt !== "object" || Array.isArray(receipt) || receipt.type !== "DELIVERY_OTP_REQUEST" || receipt.orderId !== orderId || typeof receipt.createdOtpId !== "string" || typeof receipt.assignmentId !== "string" || typeof receipt.driverProfileId !== "string") return null;
+  const otp = await prisma.deliveryOtp.findFirst({ where: { id: receipt.createdOtpId, orderId, assignmentId: receipt.assignmentId, consumedAt: null, invalidatedAt: null, verifiedAt: null, lockedAt: null, expiresAt: { gt: new Date() } }, include: { assignment: { include: { order: { select: { status: true, currentDriverProfileId: true } }, driverProfile: { include: { user: { select: { status: true, role: true } } } } } } } });
+  const assignment = otp?.assignment;
+  if (!otp || otp.attempts >= otp.maxAttempts || !assignment || assignment.status !== "ACCEPTED" || assignment.driverProfileId !== receipt.driverProfileId || assignment.order.currentDriverProfileId !== receipt.driverProfileId || !["IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.order.status) || assignment.driverProfile.status !== "ACTIVE" || assignment.driverProfile.user.status !== "ACTIVE" || assignment.driverProfile.user.role !== "DRIVER" || otp.createdByUserId !== assignment.driverProfile.userId) return null;
+  return otp;
 }
 
 /**
@@ -95,6 +109,16 @@ export async function deliverSecurityEmail(deliveryId: string) {
       return { accepted: false, status: "EXPIRED", deliveryId: delivery.id };
     }
     destination = contact.email;
+  } else if (intent.eventType === "DELIVERY_OTP") {
+    try {
+      const recipient = await resolveDeliveryOtpRecipient(intent.aggregateReference);
+      if (recipient.subjectUserId !== subjectUserId) throw new NotificationPolicyError("SECURITY_EMAIL_RECIPIENT_MISMATCH");
+      destination = recipient.email;
+    } catch (error) {
+      if (!(error instanceof NotificationPolicyError)) throw error;
+      await prisma.notificationDelivery.updateMany({ where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } }, data: { status: "ELIGIBILITY_BLOCKED", eligibilityReason: "DELIVERY_RECIPIENT_AUTHORITY_REVOKED", nextAttemptAt: null } });
+      return { accepted: false, status: "ELIGIBILITY_BLOCKED", deliveryId: delivery.id };
+    }
   } else {
     const user = await prisma.user.findUnique({ where: { id: subjectUserId }, select: { id: true, email: true, status: true, emailVerifiedAt: true } });
     if (!user?.email) throw new NotificationPolicyError("SECURITY_EMAIL_RECIPIENT_NOT_FOUND");
@@ -104,6 +128,10 @@ export async function deliverSecurityEmail(deliveryId: string) {
   const templateType = TEMPLATE_BY_EVENT[intent.eventType];
   if (!templateType && !guestVerification) {
     throw new NotificationPolicyError("SECURITY_EMAIL_TEMPLATE_NOT_SUPPORTED");
+  }
+  if (intent.eventType === "DELIVERY_OTP" && !await activeDeliveryOtp(intent.operationId, intent.aggregateReference)) {
+    await prisma.notificationDelivery.updateMany({ where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } }, data: { status: "ELIGIBILITY_BLOCKED", eligibilityReason: "DELIVERY_OTP_NOT_ACTIVE", nextAttemptAt: null } });
+    return { accepted: false, status: "ELIGIBILITY_BLOCKED", deliveryId: delivery.id };
   }
 
   const claim = await claimEmailAttempt(prisma, { deliveryId: delivery.id, provider: "RESEND_EMAIL", operationId: `${intent.operationId}:email-attempt` });
@@ -118,6 +146,10 @@ export async function deliverSecurityEmail(deliveryId: string) {
       secure.encryptedPayload,
       intent.operationId,
     );
+    if (intent.eventType === "DELIVERY_OTP") {
+      const otp = await activeDeliveryOtp(intent.operationId, intent.aggregateReference);
+      if (!otp || typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || hashOtp(values.otp) !== otp.codeHash) throw new NotificationPolicyError("DELIVERY_OTP_NOT_ACTIVE");
+    }
     if (guestVerification && (typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || typeof values.name !== "string" || values.name.length > 120 || values.expiresMinutes !== 15)) throw new NotificationPolicyError("SECURITY_EMAIL_PAYLOAD_INVALID");
     const rendered = guestVerification
       ? { subject: "Your KT Couriers verification code", text: `Hi ${values.name},\n\nYour guest checkout email verification code is ${values.otp}. It expires in 15 minutes.\n\nIf you did not request this code, ignore this email. This code verifies your email for checkout updates; it does not confirm payment.`, html: undefined }
@@ -134,11 +166,12 @@ export async function deliverSecurityEmail(deliveryId: string) {
       // duplicate security messages for the same immutable delivery.
       idempotencyKey: delivery.publicReference,
     });
-  } catch {
+  } catch (error) {
+    const inactiveOtp = error instanceof NotificationPolicyError && error.code === "DELIVERY_OTP_NOT_ACTIVE";
     result = {
       accepted: false,
-      failureClass: "CONFIGURATION_FAILURE",
-      safeCode: "SECURITY_EMAIL_RENDER_OR_PROVIDER_FAILURE",
+      failureClass: inactiveOtp ? "CONTENT_REJECTED" : "CONFIGURATION_FAILURE",
+      safeCode: inactiveOtp ? "DELIVERY_OTP_NOT_ACTIVE" : "SECURITY_EMAIL_RENDER_OR_PROVIDER_FAILURE",
     };
   }
 

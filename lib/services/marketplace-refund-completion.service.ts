@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { RefundError } from "@/lib/refunds/errors";
+import { assertCommittedMarketplaceAdjustmentFunding } from "./marketplace-adjustment-refund-authority";
 import { completedAdjustmentResolution } from "@/lib/store-orders/adjustment-resolution";
 import { deriveStoreOrderStatus } from "@/lib/store-orders/state-machine";
 
@@ -16,6 +17,7 @@ export async function projectMarketplaceRefundCompletion(tx: Prisma.TransactionC
     const order = adjustment.storeOrder;
     if (order.marketplaceOrder.paymentId !== refund.paymentId || order.marketplaceOrder.customerUserId !== refund.customerUserId || !adjustment.refundAmount.equals(refund.amount)) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Store adjustment does not match its completed original payment refund.");
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "id" = ${order.id} FOR UPDATE`);
+    if ((adjustment.financialEvidence as Record<string, unknown> | null)?.unstartedCodCancellation) await assertCommittedMarketplaceAdjustmentFunding(tx, { adjustmentReference: adjustment.publicReference, paymentId: refund.paymentId, customerUserId: refund.customerUserId, operationId: refund.creationIdempotencyKey, amount: refund.amount.toFixed(2) });
     await tx.marketplaceStoreOrderAdjustment.update({ where: { id: adjustment.id }, data: { status: "COMPLETED", completedAt: refund.completedAt } });
     const issueReference = (adjustment.financialEvidence as Record<string, unknown> | null)?.issueReference;
     if (typeof issueReference === "string") await tx.marketplaceStoreOrderIssue.updateMany({ where: { marketplaceStoreOrderId: order.id, publicReference: issueReference, status: "REFUND_PENDING" }, data: { status: "RESOLVED", resolvedAt: refund.completedAt, version: { increment: 1 } } });

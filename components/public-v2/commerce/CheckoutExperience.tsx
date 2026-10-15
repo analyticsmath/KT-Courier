@@ -6,6 +6,7 @@ import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components
 import { useSearchParams } from "next/navigation";
 import styles from "./commerce.module.css";
 import { storeDeliveryQuotePreviews, storeDeliveryQuotePreviewTotals, type StoreDeliveryQuotePreview } from "@/lib/marketplace-checkout/delivery-quote-preview";
+import { CheckoutPaymentSummary } from "./CheckoutPaymentSummary";
 import { GuestCheckoutEmailUpdates } from "./GuestCheckoutEmailUpdates";
 
 function formatMoney(amount: string | number | undefined | null) {
@@ -55,6 +56,8 @@ interface PublicCheckoutData {
     modifierSubtotal: string;
     deliveryFeeTotal: string;
     grandTotal: string;
+    digitalRequired?: string;
+    cashRequired?: string;
   };
   storeGroups: CheckoutStoreGroup[];
   changes?: Array<{ type: string; lineReference: string; acknowledgedAt: string | null }>;
@@ -592,6 +595,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
         <p style={{ color: "var(--kt-public-text-muted)", lineHeight: 1.6, marginBottom: "2rem" }}>
           Your order is being prepared by the stores shown in your order summary. You can follow its progress as fulfilment updates become available.
         </p>
+        <CheckoutPaymentSummary digitalRequired={checkout.totals.digitalRequired ?? checkout.totals.grandTotal} cashRequired={checkout.totals.cashRequired ?? "0.00"} />
         <Link
           href="/shop"
           style={{
@@ -1103,7 +1107,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                 </div>
 
                 <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", lineHeight: 1.4 }}>
-                  You will be securely redirected to Paystack to complete your card or instant EFT authorization for <strong>{formatMoney(checkout?.totals.grandTotal)}</strong>.
+                  You will be securely redirected to Paystack to complete your card or instant EFT authorization for <strong>{formatMoney(checkout?.totals.digitalRequired ?? checkout?.totals.grandTotal)}</strong>.
                 </p>
 
                 <button
@@ -1122,7 +1126,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                     cursor: submitting ? "not-allowed" : "pointer",
                   }}
                 >
-                  {submitting ? "Initiating Paystack Gateway..." : `Pay ${formatMoney(checkout?.totals.grandTotal)} with Paystack \u2192`}
+                  {submitting ? "Initiating Paystack Gateway..." : `Pay ${formatMoney(checkout?.totals.digitalRequired ?? checkout?.totals.grandTotal)} with Paystack \u2192`}
                 </button>
               </div>
             </div>
@@ -1170,6 +1174,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
               <span>{estimatedQuoteTotals ? "Estimated total" : "Total"}</span>
               <span>{formatMoney(estimatedQuoteTotals?.grandTotal ?? checkout?.totals.grandTotal)}</span>
             </div>
+            {!estimatedQuoteTotals && <CheckoutPaymentSummary digitalRequired={checkout.totals.digitalRequired ?? checkout.totals.grandTotal} cashRequired={checkout.totals.cashRequired ?? "0.00"} />}
           </div>
 
           <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--kt-public-surface-tertiary)", paddingTop: "1rem" }}>

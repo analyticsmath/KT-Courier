@@ -75,6 +75,7 @@ export interface RepeatDeliveryPrefill {
   dropoffAddress: DeliveryAddressPrefill | null;
   recipientName: string;
   recipientPhone: string;
+  recipientEmail?: string;
   parcelCount: number;
   parcelDescription: string;
   customerNote: string;
@@ -154,6 +155,8 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 function RecipientFields({
   recipientName,
   recipientPhone,
+  recipientEmail,
+  onEmailChange,
   onNameChange,
   onPhoneChange,
   nameError,
@@ -161,6 +164,8 @@ function RecipientFields({
 }: {
   recipientName: string;
   recipientPhone: string;
+  recipientEmail: string;
+  onEmailChange: (v: string) => void;
   onNameChange: (v: string) => void;
   onPhoneChange: (v: string) => void;
   nameError?: string;
@@ -190,6 +195,11 @@ function RecipientFields({
           aria-invalid={!!phoneError}
         />
         {phoneError && <p className="mt-1 text-xs text-red-600">{phoneError}</p>}
+      </div>
+      <div className="sm:col-span-2">
+        <Label htmlFor="recipient_email" required>Recipient email</Label>
+        <Input id="recipient_email" type="email" required maxLength={254} value={recipientEmail} onChange={(e) => onEmailChange(e.target.value)} placeholder="Email for the delivery confirmation code" />
+        <p className="mt-1 text-xs text-[--kt-text-muted]">The delivery code is sent to the person receiving the parcel.</p>
       </div>
     </div>
   );
@@ -305,6 +315,7 @@ export function DeliveryRequestForm({
   );
   const [recipientName, setRecipientName] = useState(repeatPrefill?.recipientName ?? "");
   const [recipientPhone, setRecipientPhone] = useState(repeatPrefill?.recipientPhone ?? "");
+  const [recipientEmail, setRecipientEmail] = useState(repeatPrefill?.recipientEmail ?? "");
   const [dropoffAccessNotes, setDropoffAccessNotes] = useState(
     repeatPrefill?.dropoffAddress?.accessNotes ?? ""
   );
@@ -435,7 +446,7 @@ export function DeliveryRequestForm({
       return (
         (dropoffAddress?.line1?.trim().length ?? 0) >= 3 &&
         recipientName.trim().length >= 2 &&
-        recipientPhone.trim().length >= 7
+        recipientPhone.trim().length >= 7 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim())
       );
     }
     return true;
@@ -486,6 +497,7 @@ export function DeliveryRequestForm({
         },
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
+        recipientEmail: recipientEmail.trim().toLowerCase(),
         parcelCount: Math.max(1, parseInt(parcel.parcelCount) || 1),
         parcelDescription: parcel.parcelDescription.trim() || undefined,
         scheduledFor: parcel.scheduledFor
@@ -641,6 +653,8 @@ export function DeliveryRequestForm({
             <RecipientFields
               recipientName={recipientName}
               recipientPhone={recipientPhone}
+              recipientEmail={recipientEmail}
+              onEmailChange={setRecipientEmail}
               onNameChange={setRecipientName}
               onPhoneChange={setRecipientPhone}
               nameError={fieldErrors["recipientName"]}

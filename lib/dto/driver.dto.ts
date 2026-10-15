@@ -22,6 +22,13 @@ export interface DriverRegionDto {
 }
 
 // Driver Document summary
+export interface DriverDocumentMediaDto {
+  publicReference: string;
+  originalFileName: string;
+  detectedMimeType: string | null;
+  status: string;
+}
+
 export interface DriverDocumentDto {
   id: string;
   documentType: DocumentType;
@@ -30,6 +37,7 @@ export interface DriverDocumentDto {
   expiresAt: Date | null;
   reviewedAt: Date | null;
   rejectionReason: string | null;
+  privateMediaObject?: DriverDocumentMediaDto | null;
 }
 
 // ─── DTO for Driver List in Admin ───────────────────────────────────────────
@@ -101,6 +109,7 @@ export interface VehicleDocumentSummaryDto {
   status: string;
   expiresAt: Date | null;
   rejectionReason: string | null;
+  privateMediaObject?: DriverDocumentMediaDto | null;
 }
 
 export interface DriverVehicleSummaryDto {
@@ -161,7 +170,16 @@ export function toDriverRegionDto(
   };
 }
 
-export function toDriverDocumentDto(doc: DriverDocument): DriverDocumentDto {
+export function toDriverDocumentMediaDto(media: DriverDocumentMediaDto | null | undefined): DriverDocumentMediaDto | null {
+  return media ? {
+    publicReference: media.publicReference,
+    originalFileName: media.originalFileName,
+    detectedMimeType: media.detectedMimeType,
+    status: media.status,
+  } : null;
+}
+
+export function toDriverDocumentDto(doc: DriverDocument & { privateMediaObject?: DriverDocumentMediaDto | null }): DriverDocumentDto {
   return {
     id: doc.id,
     documentType: doc.documentType,
@@ -170,6 +188,7 @@ export function toDriverDocumentDto(doc: DriverDocument): DriverDocumentDto {
     expiresAt: doc.expiresAt,
     reviewedAt: doc.reviewedAt,
     rejectionReason: doc.rejectionReason,
+    privateMediaObject: toDriverDocumentMediaDto(doc.privateMediaObject),
   };
 }
 

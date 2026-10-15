@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { productionProcessors, runProductionCycle } from "@/lib/processors/production-loop";
 
 describe("production processor orchestration", () => {
+  it("settles marketplace jobs after verified payment finalization", () => {
+    expect(productionProcessors).toEqual(["apply-paystack-webhook-events", "consume-verified-payment-events", "settle-marketplace-store-orders", "initialize-marketplace-store-orders", "expire-marketplace-reservations", "deliver-notifications"]);
+  });
   it("avoids creating processor receipts for empty queues", async () => {
     const execute = vi.fn();
     expect((await runProductionCycle(execute, () => false, async () => false)).every((r) => r.status === "IDLE")).toBe(true);
@@ -19,19 +22,19 @@ describe("production processor orchestration", () => {
       return { itemsCompleted: 2, itemsRetried: 0 };
     });
     expect(names).toEqual(productionProcessors);
-    expect(new Set(ids).size).toBe(3);
+    expect(new Set(ids).size).toBe(productionProcessors.length);
     expect(result.every((r) => r.status === "COMPLETED")).toBe(true);
   });
   it("keeps notifications running when payment processing fails, without exposing provider errors", async () => {
     const execute = vi.fn().mockRejectedValueOnce(new Error("private-provider-details")).mockResolvedValue({ itemsCompleted: 0, itemsRetried: 0 });
     const result = await runProductionCycle(execute);
-    expect(execute).toHaveBeenCalledTimes(3);
-    expect(result.map((r) => r.status)).toEqual(["FAILED", "COMPLETED", "COMPLETED"]);
+    expect(execute).toHaveBeenCalledTimes(productionProcessors.length);
+    expect(result.map((r) => r.status)).toEqual(["FAILED", ...productionProcessors.slice(1).map(() => "COMPLETED")]);
     expect(JSON.stringify(result)).not.toContain("private-provider-details");
   });
   it("recognises lease contention without treating database failures as a healthy peer", async () => {
     const execute = vi.fn().mockRejectedValueOnce(new Error("Active unexpired lease")).mockRejectedValueOnce(new Error("Database unavailable")).mockResolvedValue({ itemsCompleted: 0, itemsRetried: 0 });
-    expect((await runProductionCycle(execute)).map((r) => r.status)).toEqual(["PEER_LEASE", "FAILED", "COMPLETED"]);
+    expect((await runProductionCycle(execute)).map((r) => r.status)).toEqual(["PEER_LEASE", "FAILED", ...productionProcessors.slice(2).map(() => "COMPLETED")]);
   });
   it("stops after finishing the in-flight task when shutdown is requested", async () => {
     let stop = false;

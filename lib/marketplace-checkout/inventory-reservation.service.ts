@@ -9,6 +9,7 @@ export type MarketplaceReservationRepository = Readonly<{
   lockCheckout(checkoutId: string): Promise<{ id: string; status: string; acceptedFingerprint: string | null; reviewAcceptedAt: Date | null } | null>;
   lockLevelsInStableOrder(levelIds: readonly string[]): Promise<readonly InventoryLevelState[]>;
   findActiveReservation(checkoutId: string): Promise<MarketplaceReservationState | null>;
+  lockReservationForRelease(checkoutId: string, reservationId: string): Promise<Readonly<{ reservation: MarketplaceReservationState; paymentStatus: string | null; paymentOutcomeKnown: boolean }> | null>;
   createReservation(input: MarketplaceReservationState): Promise<MarketplaceReservationState>;
   updateReservation(id: string, patch: Partial<MarketplaceReservationState>): Promise<MarketplaceReservationState>;
   applyLevelReservation(levelId: string, quantityDelta: number): Promise<void>;
@@ -49,21 +50,35 @@ export async function reserveMarketplaceCheckoutInventory(repository: Marketplac
 
 export async function releaseMarketplaceCheckoutReservation(repository: MarketplaceReservationRepository, input: Readonly<{ reservation: MarketplaceReservationState; operationId: string; reason: "CHECKOUT_CANCELLED" | "CHECKOUT_EXPIRED" | "PAYMENT_DEFINITELY_FAILED" | "REPRICE_REQUIRED" | "ADMIN_RECONCILIATION"; paymentStatus?: string | null; paymentOutcomeKnown: boolean }>): Promise<MarketplaceReservationState> {
   return repository.transaction(async () => {
-    if (input.reservation.status === "RELEASED" || input.reservation.status === "EXPIRED") return input.reservation;
-    if (!reservationReleaseAllowed({ reservationStatus: input.reservation.status, paymentStatus: input.paymentStatus, paymentOutcomeKnown: input.paymentOutcomeKnown })) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Reservation cannot be released while payment outcome is uncertain.");
-    const items = uniqueSorted(input.reservation.items); await repository.lockLevelsInStableOrder(items.map((item) => item.inventoryLevelId));
-    for (const item of items) { await repository.applyLevelReservation(item.inventoryLevelId, -item.quantity); await repository.appendMovement({ inventoryItemReference: item.inventoryItemReference, locationReference: item.locationReference, levelId: item.inventoryLevelId, type: "RESERVATION_RELEASE", quantityDelta: 0, operationId: `${input.operationId}:${item.inventoryLevelId}`, reasonCode: input.reason }); }
-    const status = input.reason === "CHECKOUT_EXPIRED" ? "EXPIRED" : "RELEASED";
-    const reservation = await repository.updateReservation(input.reservation.id, { status, paymentId: input.reservation.paymentId ?? null });
-    await repository.updateCheckout(input.reservation.checkoutId, { status: status === "EXPIRED" ? "EXPIRED" : "CANCELLED", reservationExpiresAt: null });
-    await repository.completeOperation?.({ checkoutId: input.reservation.checkoutId, operationId: input.operationId, requestHash: input.reservation.commercialFingerprint, type: "RELEASE_RESERVATION", response: { reservationId: reservation.id, status: reservation.status } });
-    return reservation;
+    const released = await releaseLockedReservation(repository, input);
+    if (!released) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Reservation is unavailable for release.");
+    return released;
   });
 }
 
+async function releaseLockedReservation(repository: MarketplaceReservationRepository, input: Parameters<typeof releaseMarketplaceCheckoutReservation>[1], expiryTime?: Date): Promise<MarketplaceReservationState | null> {
+    const authority = await repository.lockReservationForRelease(input.reservation.checkoutId, input.reservation.id);
+    if (!authority) return null;
+    const current = authority.reservation;
+    if (current.status === "RELEASED" || current.status === "EXPIRED") return current;
+    // Expiry is opportunistic. Payment preparation or another reservation
+    // transition may have won since candidate discovery; leave its hold intact.
+    if (expiryTime && (current.status !== "ACTIVE" || current.expiresAt > expiryTime)) return null;
+    if (!reservationReleaseAllowed({ reservationStatus: current.status, paymentStatus: authority.paymentStatus, paymentOutcomeKnown: authority.paymentOutcomeKnown })) {
+      if (expiryTime) return null;
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Reservation cannot be released while payment outcome is uncertain.");
+    }
+    const items = uniqueSorted(current.items); await repository.lockLevelsInStableOrder(items.map((item) => item.inventoryLevelId));
+    for (const item of items) { await repository.applyLevelReservation(item.inventoryLevelId, -item.quantity); await repository.appendMovement({ inventoryItemReference: item.inventoryItemReference, locationReference: item.locationReference, levelId: item.inventoryLevelId, type: "RESERVATION_RELEASE", quantityDelta: 0, operationId: `${input.operationId}:${item.inventoryLevelId}`, reasonCode: input.reason }); }
+    const status = input.reason === "CHECKOUT_EXPIRED" ? "EXPIRED" : "RELEASED";
+    const reservation = await repository.updateReservation(current.id, { status, paymentId: current.paymentId ?? null });
+    await repository.updateCheckout(current.checkoutId, { status: status === "EXPIRED" ? "EXPIRED" : "CANCELLED", reservationExpiresAt: null });
+    await repository.completeOperation?.({ checkoutId: current.checkoutId, operationId: input.operationId, requestHash: current.commercialFingerprint, type: "RELEASE_RESERVATION", response: { reservationId: reservation.id, status: reservation.status } });
+    return reservation;
+}
+
 export async function expireMarketplaceCheckoutReservation(repository: MarketplaceReservationRepository, reservation: MarketplaceReservationState, now: Date, operationId: string): Promise<MarketplaceReservationState | null> {
-  if (reservation.expiresAt > now || ["PAYMENT_PENDING_HOLD", "PAYMENT_UNCERTAIN"].includes(reservation.status)) return null;
-  return releaseMarketplaceCheckoutReservation(repository, { reservation, operationId, reason: "CHECKOUT_EXPIRED", paymentOutcomeKnown: true, paymentStatus: null });
+  return repository.transaction(() => releaseLockedReservation(repository, { reservation, operationId, reason: "CHECKOUT_EXPIRED", paymentOutcomeKnown: true }, now));
 }
 
 export async function holdReservationForUncertainPayment(repository: MarketplaceReservationRepository, reservation: MarketplaceReservationState, paymentId: string): Promise<MarketplaceReservationState> {

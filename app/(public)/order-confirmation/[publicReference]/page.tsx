@@ -56,6 +56,11 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
             <div><h3>{storeOrder.storeName}</h3><p>Store order reference · {storeOrder.storeOrderReference}</p></div>
             <span className={styles.orderStatusPill}>{statusLabel(storeOrder.deliveryStatus)}</span>
           </header>
+          {storeOrder.cashOnDelivery && <p className={styles.orderLocationNote} role="status">
+            {storeOrder.cashOnDelivery.status === "CANCELLED" ? "Cash payment cancelled." : Number(storeOrder.cashOnDelivery.outstanding) > 0
+              ? `Cash due on delivery: ${new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" }).format(Number(storeOrder.cashOnDelivery.outstanding))}.`
+              : `Cash collected: ${new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" }).format(Number(storeOrder.cashOnDelivery.collected))}. No cash balance remains due.`}
+          </p>}
           <ol className={styles.orderTimeline}>
             <li><span aria-hidden="true" /><div><strong>Store fulfilment</strong><p>{statusLabel(storeOrder.fulfilmentStatus)}</p></div></li>
             <li><span aria-hidden="true" /><div><strong>Delivery</strong><p>{statusLabel(storeOrder.deliveryStatus)}</p></div></li>

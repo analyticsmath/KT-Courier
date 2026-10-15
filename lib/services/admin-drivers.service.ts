@@ -3,6 +3,7 @@ import { newDriverCode } from "@/lib/utils/driver-code";
 import {
   toDriverSummaryDto,
   toDriverDetailDto,
+  toDriverDocumentMediaDto,
   type DriverSummaryDto,
   type DriverDetailDto,
 } from "@/lib/dto/driver.dto";
@@ -96,11 +97,17 @@ export async function getDriverDetail(id: string): Promise<DriverDetailDto | nul
             deliveryRegion: true,
           },
         },
-        documents: true,
+        documents: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          include: { privateMediaObject: { select: { publicReference: true, originalFileName: true, detectedMimeType: true, status: true } } },
+        },
         vehicles: {
           where: { archivedAt: null },
           include: {
-            documents: true,
+            documents: {
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              include: { privateMediaObject: { select: { publicReference: true, originalFileName: true, detectedMimeType: true, status: true } } },
+            },
             media: {
               include: {
                 privateMediaObject: true,
@@ -153,6 +160,7 @@ export async function getDriverDetail(id: string): Promise<DriverDetailDto | nul
         status: d.status,
         expiresAt: d.expiresAt,
         rejectionReason: d.rejectionReason,
+        privateMediaObject: toDriverDocumentMediaDto(d.privateMediaObject),
       })),
       media: v.media.map((m) => ({
         id: m.id,

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { CatalogMediaUploader, type CatalogMediaDraft } from "@/components/catalog/CatalogMediaUploader";
+import { CatalogVariantFields, readCatalogVariantDrafts } from "@/components/catalog/CatalogVariantFields";
 
 type ProductTypeChoice = { id: string; name: string; code: string; versionNumber: number; attributeSchema: unknown };
 type CategoryChoice = { id: string; name: string; path: string };
@@ -142,7 +143,7 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
   const [saving, setSaving] = useState(false);
   const inFlight = useRef(false);
   const operation = useRef<{ identity: string; id: string; effectiveFrom: string } | null>(null);
-  const [saved, setSaved] = useState<{ productReference: string; offerReference: string } | null>(null);
+  const [saved, setSaved] = useState<{ productReference: string; offers: { publicReference: string; storeSku?: string; variant?: { title: string } }[] } | null>(null);
   const [duplicateSearch, setDuplicateSearch] = useState<{ pending: boolean; message: string; candidates: { publicReference: string; title: string; confidenceBand: string }[] }>({ pending: false, message: "", candidates: [] });
 
   const selectedType = productTypes.find((choice) => choice.id === draft.productTypeDefinitionId);
@@ -157,8 +158,12 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
   }, [categories, categorySearch, draft.primaryCategoryId]);
   const mediaReady = draft.media.length > 0 && draft.media.every((item) => item.status === "READY" && item.altText.trim()) && draft.media.filter((item) => item.primary && item.variantAssociation === "PRODUCT").length === 1;
   const detailsComplete = !!draft.productTypeDefinitionId && !!draft.primaryCategoryId && draft.title.trim().length >= 3 && draft.description.trim().length >= 20 && isJson(draft.attributes);
-  const optionsComplete = mediaReady && (draft.variants.trim() === "Default" || isJsonArray(draft.variants)) && isJson(draft.compliance) && (!draft.modifiers.trim() || isJsonArray(draft.modifiers));
-  const offerComplete = !!draft.storeSku.trim() && /^\d+\.\d{2}$/.test(draft.price) && Number.isSafeInteger(Number(draft.stock)) && Number(draft.stock) >= 0 && (Number(draft.stock) === 0 || !!draft.inventoryLocation);
+  const customVariants = draft.variants.trim() !== "Default";
+  const variantDrafts = readCatalogVariantDrafts(draft.variants);
+  const optionsComplete = mediaReady && (!customVariants || Boolean(variantDrafts?.length && variantDrafts.every(variant => variant.title.trim() && variant.options.length && variant.options.every(option => option.code && option.value.trim())))) && isJson(draft.compliance) && (!draft.modifiers.trim() || isJsonArray(draft.modifiers));
+  const offerComplete = customVariants
+    ? Boolean(variantDrafts?.length && variantDrafts.every(variant => variant.storeSku.trim() && /^(?:0|[1-9]\d{0,15})\.\d{2}$/.test(variant.price) && /^\d+$/.test(variant.openingStock) && Number.isSafeInteger(Number(variant.openingStock)) && Number(variant.openingStock) <= 2_147_483_647 && (Number(variant.openingStock) === 0 || variant.inventoryLocationPublicReference || draft.inventoryLocation)))
+    : !!draft.storeSku.trim() && /^\d+\.\d{2}$/.test(draft.price) && /^\d+$/.test(draft.stock) && Number.isSafeInteger(Number(draft.stock)) && Number(draft.stock) >= 0 && (Number(draft.stock) === 0 || !!draft.inventoryLocation);
   const completed = [detailsComplete, optionsComplete, offerComplete, detailsComplete && optionsComplete && offerComplete];
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) { persistDraft(draftKey, { ...draft, [key]: value }); setErrors([]); setStatus("Draft changed in this browser view."); }
@@ -182,11 +187,16 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
     if (draft.title.trim().length < 3) nextErrors.push("Enter a product title.");
     if (!isJson(draft.attributes)) nextErrors.push("Attributes must be valid JSON.");
     if (!isJson(draft.compliance)) nextErrors.push("Compliance data must be valid JSON.");
-    if (!draft.storeSku.trim()) nextErrors.push("Enter this store's SKU.");
-    if (!/^(?:0|[1-9]\d{0,15})\.\d{2}$/.test(draft.price)) nextErrors.push("Enter a VAT-inclusive ZAR price with exactly two decimal places.");
-    if (!/^\d+$/.test(draft.stock) || !Number.isSafeInteger(Number(draft.stock)) || Number(draft.stock) > 2_147_483_647) nextErrors.push("Enter a non-negative whole opening stock count.");
-    if (Number(draft.stock) > 0 && !draft.inventoryLocation) nextErrors.push("Select an active inventory location for opening stock.");
-    if (draft.variants.trim() !== "Default" && !isJsonArray(draft.variants)) nextErrors.push("Enter Default or a JSON array of variant definitions.");
+    if (!customVariants) {
+      if (!draft.storeSku.trim()) nextErrors.push("Enter this store's SKU.");
+      if (!/^(?:0|[1-9]\d{0,15})\.\d{2}$/.test(draft.price)) nextErrors.push("Enter a VAT-inclusive ZAR price with exactly two decimal places.");
+      if (!/^\d+$/.test(draft.stock) || !Number.isSafeInteger(Number(draft.stock)) || Number(draft.stock) > 2_147_483_647) nextErrors.push("Enter a non-negative whole opening stock count.");
+      if (Number(draft.stock) > 0 && !draft.inventoryLocation) nextErrors.push("Select an active inventory location for opening stock.");
+    } else {
+      if (!variantDrafts?.length) nextErrors.push("Add at least one complete product variant.");
+      if (!offerComplete) nextErrors.push("Enter a unique SKU, exact price and whole opening stock count for every variant, with a stock location when needed.");
+      if (draft.media.some(item => item.variantAssociation === "DEFAULT")) nextErrors.push("Use shared product photos for custom variants. Remove any Default variant image association.");
+    }
     if (draft.modifiers.trim() && !isJsonArray(draft.modifiers)) nextErrors.push("Modifier groups must be a JSON array.");
     if (draft.media.length < 1) nextErrors.push("Attach at least one READY product image.");
     if (draft.media.some((item) => !item.altText.trim())) nextErrors.push("Enter alt text for every attached image.");
@@ -195,32 +205,34 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
     if (nextErrors.length) { setStep(1); document.getElementById("catalog-error-summary")?.focus(); return; }
     inFlight.current = true; setSaving(true); setStatus("Saving the listing draft…");
     try {
+      const identity = JSON.stringify([draftOwnerKey, draft]);
+      if (operation.current?.identity !== identity) operation.current = { identity, id: crypto.randomUUID(), effectiveFrom: new Date().toISOString() };
+      const price = (amount: string) => ({ amount, currency: "ZAR", priceIncludesTax: true, effectiveFrom: operation.current!.effectiveFrom });
       const facts = {
         product: { scope: "STORE_PRIVATE", productTypeDefinitionId: draft.productTypeDefinitionId, primaryCategoryId: draft.primaryCategoryId, title: draft.title, description: draft.description || undefined, condition: "NEW", attributeValues: JSON.parse(draft.attributes), complianceValues: JSON.parse(draft.compliance) },
-        variants: draft.variants.trim() === "Default" ? [] : JSON.parse(draft.variants),
-        storeSku: draft.storeSku, openingStock: Number(draft.stock), inventoryLocationPublicReference: draft.inventoryLocation || undefined,
+        variants: !customVariants ? [] : (variantDrafts ?? []).map(variant => ({ title: variant.title, options: variant.options, attributeValues: variant.attributeValues, storeSku: variant.storeSku, price: price(variant.price), openingStock: Number(variant.openingStock), inventoryLocationPublicReference: variant.inventoryLocationPublicReference || undefined })),
+        ...(!customVariants ? { storeSku: draft.storeSku, price: price(draft.price), openingStock: Number(draft.stock) } : {}),
+        inventoryLocationPublicReference: draft.inventoryLocation || undefined,
         modifiers: draft.modifiers.trim() ? JSON.parse(draft.modifiers) : [],
         media: draft.media.map((media, displayOrder) => ({ assetPublicReference: media.assetPublicReference, altText: media.altText, primary: media.primary, variantAssociation: media.variantAssociation, displayOrder })),
       };
-      const identity = JSON.stringify([draftOwnerKey, facts, draft.price]);
-      if (operation.current?.identity !== identity) operation.current = { identity, id: crypto.randomUUID(), effectiveFrom: new Date().toISOString() };
-      const parsed = CatalogListingDraftSchema.safeParse({ ...facts, operationId: operation.current.id, price: { amount: draft.price, currency: "ZAR", priceIncludesTax: true, effectiveFrom: operation.current.effectiveFrom } });
-      if (!parsed.success) { setErrors(["Review the variant, modifier, price and media definitions before saving."]); setStatus("The listing has not been sent."); return; }
+      const parsed = CatalogListingDraftSchema.safeParse({ ...facts, operationId: operation.current.id });
+      if (!parsed.success) { setErrors(parsed.error.issues.slice(0, 8).map(issue => `${issue.path.join(" · ")}: ${issue.message}`)); setStatus("Review the highlighted listing fields before saving."); return; }
       const response = await fetch("/api/store/catalog/listing-drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data) });
-      const body = await response.json().catch(() => ({})) as { error?: string; product?: { publicReference: string; offers: { publicReference: string }[] } };
+      const body = await response.json().catch(() => ({})) as { error?: string; product?: { publicReference: string; offers: { publicReference: string; storeSku?: string; variant?: { title: string } }[] } };
       if (!response.ok) { setErrors([body.error ?? draftSaveFailure(response.status)]); setStatus("The listing save was not confirmed."); return; }
       if (!body.product?.offers[0]) { setErrors(["The catalog service did not return the saved listing confirmation. Retry to check this operation."]); setStatus("The listing save could not be confirmed."); return; }
       // Retire only the confirmed draft. A lost response retains the draft and
       // operation for replay; the next product must start without old modifiers.
       persistDraft(draftKey, EMPTY);
-      setSaved({ productReference: body.product.publicReference, offerReference: body.product.offers[0].publicReference });
+      setSaved({ productReference: body.product.publicReference, offers: body.product.offers });
       setStatus("Product, variants, images, offer, price, opening stock and modifiers were saved together. Review the saved records before submission."); setStep(3);
     } catch {
       setErrors(["The save could not be confirmed. Check your connection and retry; the unchanged listing keeps the same operation."]); setStatus("The listing save could not be confirmed.");
     } finally { inFlight.current = false; setSaving(false); }
   }
 
-  if (saved) return <Card><h2 className="text-xl font-bold">Listing draft saved</h2><p className="mt-3" role="status">{status}</p><div className="mt-4 flex flex-wrap gap-4"><Link className="underline" href={`/store/catalog/products/${saved.productReference}`}>View saved product</Link><Link className="underline" href={`/store/catalog/offers/${saved.offerReference}`}>View saved offer</Link></div></Card>;
+  if (saved) return <Card><h2 className="text-xl font-bold">Listing draft saved</h2><p className="mt-3" role="status">{status}</p><div className="mt-4 space-y-3"><Link className="underline" href={`/store/catalog/products/${saved.productReference}`}>View saved product</Link><ul className="space-y-2">{saved.offers.map(offer => <li key={offer.publicReference}><Link className="underline" href={`/store/catalog/offers/${offer.publicReference}`}>View saved offer{offer.variant ? `: ${offer.variant.title}` : offer.storeSku ? `: ${offer.storeSku}` : ""}</Link></li>)}</ul><p className="text-sm">Review and submit the product and each saved offer for independent approval.</p></div></Card>;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -278,14 +290,14 @@ function renderStepField(step: number, draft: Draft, update: <K extends keyof Dr
   if (step === 1) return <div className="space-y-4"><Field label="Product type" help="The stored version remains attached to this product."><Select id="product-type" value={draft.productTypeDefinitionId} onChange={(event) => update("productTypeDefinitionId", event.target.value)} placeholder="Select a product type" options={productTypes.map((item) => ({ value: item.id, label: `${item.name} · v${item.versionNumber}` }))} /></Field><Field label="Find a category" help="Type at least two letters to filter the category list."><Input id="find-a-category" value={categorySearch} onChange={(event) => onCategorySearch(event.target.value)} placeholder="Search categories" /></Field><Field label="Category" help="Categories organize store navigation; product type controls product attributes."><Select id="category" value={draft.primaryCategoryId} onChange={(event) => update("primaryCategoryId", event.target.value)} placeholder={categorySearch.trim().length < 2 ? "Search to see categories" : "Select a category"} options={categoryOptions} /></Field></div>;
   if (step === 2) return <><Field label="Product title" help="Describe the product identity, not price or stock."><Input id="product-title" value={draft.title} onChange={(event) => update("title", event.target.value)} /></Field><Field label="Description" help="Plain text only. Include material facts and condition disclosures."><Textarea id="description" value={draft.description} onChange={(event) => update("description", event.target.value)} rows={7} /></Field></>;
   if (step === 3) return <Field label="Attribute values" help={`Schema-driven JSON for ${selectedType?.code ?? "the selected product type"}. Unknown fields are rejected.`}><Textarea id="attribute-values" value={draft.attributes} onChange={(event) => update("attributes", event.target.value)} rows={9} className="font-mono" /></Field>;
-  if (step === 4) return <Field label="Variant matrix" help={'Keep Default for one variant, or enter a JSON array such as [{"title":"Blue","options":[{"code":"color","value":"blue"}],"attributeValues":{}}]. The offer below sells the Default variant.'}><Textarea id="variant-matrix" value={draft.variants} onChange={(event) => update("variants", event.target.value)} rows={6} /></Field>;
-  if (step === 5) return <CatalogMediaUploader value={draft.media} onChange={(media) => update("media", media)} />;
+  if (step === 4) return <CatalogVariantFields raw={draft.variants} onChange={value => update("variants", value)} mode="options" />;
+  if (step === 5) return <CatalogMediaUploader productOnly={draft.variants.trim() !== "Default"} value={draft.media} onChange={(media) => update("media", media)} />;
   if (step === 6) return <Field label="Compliance values" help="Ingredients, allergens, origin, condition and restriction evidence are validated before submission."><Textarea id="compliance-values" value={draft.compliance} onChange={(event) => update("compliance", event.target.value)} rows={8} className="font-mono" /></Field>;
   if (step === 7) return <Field label="Store SKU" help="Unique inside this store. It does not replace GTIN or manufacturer part number."><Input id="store-sku" value={draft.storeSku} onChange={(event) => update("storeSku", event.target.value)} /></Field>;
   if (step === 8) return <Field label="VAT-inclusive price (ZAR)" help="Enter an exact amount such as 24999.00. Price versions are immutable after activation."><Input id="vat-inclusive-price-zar" inputMode="decimal" value={draft.price} onChange={(event) => update("price", event.target.value)} /></Field>;
-  if (step === 9) return <><Field label="Opening stock" help="Enter a whole count for the Default variant. Saving records an opening stock movement."><Input id="opening-stock" inputMode="numeric" value={draft.stock} onChange={(event) => update("stock", event.target.value)} /></Field><Field label="Inventory location" help="Choose an existing active location. Opening stock above zero requires a location."><Select id="inventory-location" value={draft.inventoryLocation} onChange={(event) => update("inventoryLocation", event.target.value)} placeholder="Select an inventory location" options={inventoryLocations.map(item => ({ value: item.publicReference, label: item.name }))} /></Field>{inventoryLocations.length === 0 ? <p role="status">No active stock location is available. <Link href="/store/catalog/inventory" className="underline">Create a stock location</Link> before adding opening stock, or save with zero stock.</p> : null}</>;
+  if (step === 9) return <>{draft.variants.trim() === "Default" ? <Field label="Opening stock" help="Enter a whole count. Saving records an opening stock movement."><Input id="opening-stock" inputMode="numeric" value={draft.stock} onChange={(event) => update("stock", event.target.value)} /></Field> : null}<Field label="Inventory location" help="Choose an active shared location. Each variant may select its own location above."><Select id="inventory-location" value={draft.inventoryLocation} onChange={(event) => update("inventoryLocation", event.target.value)} placeholder="Select an inventory location" options={inventoryLocations.map(item => ({ value: item.publicReference, label: item.name }))} /></Field>{inventoryLocations.length === 0 ? <p role="status">No active stock location is available. <Link href="/store/catalog/inventory" className="underline">Create a stock location</Link> before adding opening stock, or save with zero stock.</p> : null}</>;
   if (step === 10) return <Field label="Modifier groups" help={'Optional JSON array of groups. Each group needs name, minimumSelections, maximumSelections, isRequired and options. Each option needs name, priceDelta (for example "1.00"), currency "ZAR" and displayOrder. Leave blank for none.'}><Textarea id="modifier-groups" value={draft.modifiers} onChange={(event) => update("modifiers", event.target.value)} rows={6} /></Field>;
-  if (step === 11) return <div role="region" aria-label="Exact draft preview" className="space-y-2 rounded-xl border border-[var(--kt-soft-border)] p-4"><h3 className="text-lg font-black">{draft.title || "Untitled product"}</h3><p>{draft.description || "No description"}</p><dl className="grid gap-2 text-sm sm:grid-cols-2"><div><dt className="font-bold">SKU</dt><dd>{draft.storeSku || "Not ready"}</dd></div><div><dt className="font-bold">Price</dt><dd>{draft.price ? `R ${draft.price}` : "Not ready"}</dd></div><div><dt className="font-bold">Stock</dt><dd>{draft.stock}</dd></div><div><dt className="font-bold">Publication</dt><dd>Draft only; review and publication are separate</dd></div></dl></div>;
+  if (step === 11) return <div role="region" aria-label="Exact draft preview" className="space-y-3 rounded-xl border border-[var(--kt-soft-border)] p-4"><h3 className="text-lg font-black">{draft.title || "Untitled product"}</h3><p>{draft.description || "No description"}</p>{draft.variants.trim() !== "Default" ? <table className="w-full text-left text-sm"><caption className="sr-only">Each sellable product variant</caption><thead><tr><th>Variant</th><th>SKU</th><th>Price</th><th>Stock</th></tr></thead><tbody>{(readCatalogVariantDrafts(draft.variants) ?? []).map((variant, index) => <tr key={index}><td>{variant.title || "Not ready"}<span className="block text-xs">{variant.options.map(option => `${option.code}: ${option.value}`).join(" · ")}</span></td><td>{variant.storeSku || "Not ready"}</td><td>{variant.price ? `R ${variant.price}` : "Not ready"}</td><td>{variant.openingStock || "Not ready"}</td></tr>)}</tbody></table> : <dl className="grid gap-2 text-sm sm:grid-cols-2"><div><dt className="font-bold">SKU</dt><dd>{draft.storeSku || "Not ready"}</dd></div><div><dt className="font-bold">Price</dt><dd>{draft.price ? `R ${draft.price}` : "Not ready"}</dd></div><div><dt className="font-bold">Stock</dt><dd>{draft.stock}</dd></div></dl>}<p className="text-sm">Draft only; review and publication are separate.</p></div>;
   return <div><h3 className="font-black">Quality checklist</h3><ul className="mt-3 space-y-2">{["Product type and category", "Core information", "Attributes", "Variant", "Compliance", "Offer SKU", "Price", "Inventory"].map((item, index) => <li key={item} className="flex gap-2"><span aria-hidden="true">{completedForSubmit(index, draft) ? "✓" : "○"}</span>{item}</li>)}</ul><p className="mt-4 text-sm text-[var(--kt-text-muted)]">Saving creates a draft only. Submission and public activation are separate reviewed actions.</p></div>;
 }
 
@@ -293,8 +305,13 @@ function renderStep(step: number, draft: Draft, update: <K extends keyof Draft>(
   const field = (index: number) => renderStepField(index, draft, update, productTypes, selectedType, inventoryLocations, categorySearch, onCategorySearch, categoryOptions);
   if (step === 0) return <div className="space-y-6"><section className="space-y-4"><h3 className="font-black">Product details</h3>{field(1)}{field(2)}</section><details className="rounded-xl border border-[var(--kt-soft-border)] p-4"><summary className="cursor-pointer font-bold">Product attributes (optional)</summary><div className="mt-4">{field(3)}</div></details></div>;
   if (step === 1) return <div className="space-y-6"><section className="space-y-4"><h3 className="font-black">Product photos</h3>{field(5)}</section><details className="rounded-xl border border-[var(--kt-soft-border)] p-4"><summary className="cursor-pointer font-bold">Variants, compliance and modifiers (optional)</summary><div className="mt-4 space-y-5">{field(4)}{field(6)}{field(10)}</div></details></div>;
-  if (step === 2) return <div className="space-y-5"><h3 className="font-black">Store offer and stock</h3><div className="grid gap-4 md:grid-cols-2">{field(7)}{field(8)}</div>{field(9)}</div>;
+  if (step === 2) return <div className="space-y-5"><h3 className="font-black">Store offer and stock</h3>{draft.variants.trim() === "Default" ? <div className="grid gap-4 md:grid-cols-2">{field(7)}{field(8)}</div> : <CatalogVariantFields raw={draft.variants} onChange={value => update("variants", value)} mode="commerce" locations={inventoryLocations} />}{field(9)}</div>;
   return <div className="space-y-5">{field(11)}{field(12)}</div>;
 }
 
-function completedForSubmit(index: number, draft: Draft) { return [!!draft.productTypeDefinitionId && !!draft.primaryCategoryId, draft.title.length >= 3, isJson(draft.attributes), draft.variants.length > 0, isJson(draft.compliance), draft.storeSku.length > 0, /^\d+\.\d{2}$/.test(draft.price), Number(draft.stock) >= 0][index]; }
+function completedForSubmit(index: number, draft: Draft) {
+  const variants = readCatalogVariantDrafts(draft.variants);
+  const custom = draft.variants.trim() !== "Default";
+  const hasVariants = Boolean(variants?.length);
+  return [!!draft.productTypeDefinitionId && !!draft.primaryCategoryId, draft.title.length >= 3, isJson(draft.attributes), !custom || hasVariants, isJson(draft.compliance), custom ? hasVariants && variants!.every(variant => variant.storeSku.trim()) : draft.storeSku.length > 0, custom ? hasVariants && variants!.every(variant => /^\d+\.\d{2}$/.test(variant.price)) : /^\d+\.\d{2}$/.test(draft.price), custom ? hasVariants && variants!.every(variant => /^\d+$/.test(variant.openingStock)) : /^\d+$/.test(draft.stock)][index];
+}

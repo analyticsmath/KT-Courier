@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { ImplementedProcessorName } from "./processor-registry";
 
-// Only the approved payment inbox/outbox and email delivery are automatic.
-// Retention, settlements and commercial programmes require separate activation.
+// Canonical payment, marketplace settlement and notification queues run automatically.
+// External payout execution and commercial programmes retain their separate approval gates.
 export const productionProcessors = [
   "apply-paystack-webhook-events",
   "consume-verified-payment-events",
+  "settle-marketplace-store-orders",
+  "initialize-marketplace-store-orders",
+  "expire-marketplace-reservations",
   "deliver-notifications",
 ] as const satisfies readonly ImplementedProcessorName[];
 

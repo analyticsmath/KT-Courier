@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { prisma } from "../lib/db/prisma";
 import { executeRegisteredProcessor } from "../lib/processors/processor-service";
+import { uninitializedMarketplaceOrdersWhere, expiredMarketplaceReservationsWhere } from "../lib/marketplace-checkout/lifecycle-batch.service";
+import { dueMarketplaceSettlementJobsWhere } from "../lib/marketplace-checkout/settlement-batch.service";
 import { productionProcessors, runProductionCycle } from "../lib/processors/production-loop";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
@@ -28,6 +30,9 @@ async function main() {
   async function hasWork(name: ProductionProcessor) {
     if (name === "consume-verified-payment-events") return (await createPrismaVerifiedPaymentEventRepository(prisma).listCandidates(1)).length > 0;
     if (name === "apply-paystack-webhook-events") return !!await prisma.paymentWebhookEvent.findFirst({ where: { provider: "PAYSTACK", OR: [{ processingStatus: "RECEIVED" }, { processingStatus: "PROCESSING", leaseExpiresAt: { lt: new Date() } }] }, select: { id: true } });
+    if (name === "settle-marketplace-store-orders") return !!await prisma.marketplaceStoreSettlementJob.findFirst({ where: dueMarketplaceSettlementJobsWhere(), select: { id: true } });
+    if (name === "initialize-marketplace-store-orders") return !!await prisma.marketplaceStoreOrder.findFirst({ where: uninitializedMarketplaceOrdersWhere(), select: { id: true } });
+    if (name === "expire-marketplace-reservations") return !!await prisma.marketplaceInventoryReservation.findFirst({ where: expiredMarketplaceReservationsWhere(), select: { id: true } });
     return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } });
   }
   while (!stopping) {

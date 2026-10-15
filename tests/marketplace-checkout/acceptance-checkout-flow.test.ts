@@ -77,6 +77,8 @@ describe("Phase 1 Acceptance: Checkout Flow & Concurrency Corrections", () => {
         modifierSubtotal: "30.00",
         deliveryFeeTotal: "45.00",
         grandTotal: "325.00",
+        digitalRequired: "325.00",
+        cashRequired: "0.00",
       });
       expect(projection?.storeGroups).toHaveLength(1);
       expect(projection?.storeGroups[0].storeReference).toBe("store-abc");

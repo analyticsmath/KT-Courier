@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 20 Prisma client generation is deferred by instruction. */
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { assertMarketplaceDigitalReceipt, marketplaceDigitalReceiptInclude } from "./payment-funding";
+import { assertMarketplacePaymentPlanTotals } from "./payment-plan";
 import { prisma } from "@/lib/db/prisma";
 import { createTransactionContext } from "@/lib/db/transaction-context";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
@@ -40,12 +42,13 @@ function line(row: any, allocation: any): MarketplacePaidLine {
 }
 
 export function buildPaidMarketplaceCheckoutFromFrozenEvidence(row: any, evidence: readonly any[], acknowledgement: any): PaidMarketplaceCheckout {
+  assertMarketplacePaymentPlanTotals({ grandTotal: money(row.grandTotal), digitalRequired: row.digitalRequired == null ? null : money(row.digitalRequired), cashRequired: money(row.cashRequired), groups: row.storeGroups.map((g: any) => ({ ...g, groupTotal: money(g.groupTotal) })) });
   const commercialFingerprint = row.acceptedFingerprint ?? row.commercialFingerprint ?? "";
   const expectedVersions = evidence.map((item: any) => `${item.publicReference}:${item.evidenceVersion}:${item.sourceEvidenceFingerprint}`).sort();
   const acknowledgedVersions = Array.isArray(acknowledgement?.settlementEvidenceVersions) ? [...acknowledgement.settlementEvidenceVersions].sort() : [];
   if (!commercialFingerprint || acknowledgement?.commercialFingerprint !== commercialFingerprint || JSON.stringify(expectedVersions) !== JSON.stringify(acknowledgedVersions)) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "The accepted checkout does not bind the complete frozen seller settlement evidence.");
   return {
-    id: row.id, publicReference: row.publicReference, cartId: row.cartId, status: row.status, currency: row.currency, grandTotal: money(row.grandTotal), commercialFingerprint, customerUserId: row.customerUserId,
+    id: row.id, publicReference: row.publicReference, cartId: row.cartId, status: row.status, currency: row.currency, grandTotal: money(row.grandTotal), digitalRequired: money(row.digitalRequired ?? row.grandTotal), cashRequired: money(row.cashRequired), commercialFingerprint, customerUserId: row.customerUserId,
     storeGroups: row.storeGroups.map((group: any) => {
       const frozenEvidence = evidence.find((item: any) => item.checkoutStoreGroupId === group.id);
       const frozen = settlement(group, frozenEvidence, commercialFingerprint);
@@ -55,7 +58,7 @@ export function buildPaidMarketplaceCheckoutFromFrozenEvidence(row: any, evidenc
       if (!same(total(lines.map((item: any) => item.allocations[0].amount)), frozen.sellerBasis) || !same(total(lines.map((item: any) => item.allocations[1].amount)), frozen.commissionAmount) || !same(total(lines.map((item: any) => item.allocations[2].amount)), frozen.storeEarningAmount) || !same(total([money(group.merchandiseSubtotal), money(group.modifierSubtotal), money(group.deliveryFee)]), money(group.groupTotal))) throw new MarketplaceCheckoutError("SETTLEMENT_ALLOCATION_MISMATCH", "Frozen store settlement totals do not reconcile with the accepted checkout.");
       const seller = frozenEvidence.sellerIdentityEvidence as Record<string, unknown>; const policies = frozenEvidence.policyReferences as Record<string, unknown>;
       if (typeof seller.storePublicReference !== "string" || typeof seller.legalName !== "string") throw new MarketplaceCheckoutError("SELLER_IDENTITY_INCOMPLETE", "Frozen seller identity evidence is incomplete.");
-      return { checkoutStoreGroupId: group.id, storeId: group.storeId, storeReference: seller.storePublicReference, merchandiseSubtotal: money(group.merchandiseSubtotal), modifierSubtotal: money(group.modifierSubtotal), deliveryFee: money(group.deliveryFee), groupTotal: money(group.groupTotal), sellerIdentityEvidence: seller, taxEvidence: frozenEvidence.taxEvidence, termsReference: typeof policies.termsReference === "string" ? policies.termsReference : null, refundPolicyReference: null, lines, settlement: frozen };
+      return { checkoutStoreGroupId: group.id, paymentPlan: group.paymentPlan, fulfilmentMode: group.fulfilmentMode, storeId: group.storeId, storeReference: seller.storePublicReference, merchandiseSubtotal: money(group.merchandiseSubtotal), modifierSubtotal: money(group.modifierSubtotal), deliveryFee: money(group.deliveryFee), groupTotal: money(group.groupTotal), sellerIdentityEvidence: seller, taxEvidence: frozenEvidence.taxEvidence, termsReference: typeof policies.termsReference === "string" ? policies.termsReference : null, refundPolicyReference: null, lines, settlement: frozen };
     }),
   };
 }
@@ -67,7 +70,8 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
     transaction: async <T>(work: () => Promise<T>) => database.$transaction((tx: any) => run(tx, work), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000, maxWait: 10000 }),
     lockVerifiedSuccessfulPayment: async (paymentId: string) => {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${paymentId} FOR UPDATE`);
-      const payment = await db.payment.findUnique({ where: { id: paymentId } });
+      const payment = await db.payment.findUnique({ where: { id: paymentId }, include: marketplaceDigitalReceiptInclude });
+      if (payment?.status === "SUCCEEDED") assertMarketplaceDigitalReceipt(payment, money(payment.amount));
       return payment ? { id: payment.id, publicReference: payment.publicReference, status: payment.status, amount: money(payment.amount), currency: payment.currency, marketplaceCheckoutId: payment.marketplaceCheckoutId } : null;
     },
     lockCheckout: async (checkoutId: string) => {
@@ -104,7 +108,7 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
     },
     createMarketplaceOrder: async ({ checkout: paid, paymentId, paymentReference, guestConfirmationHash }) => {
       void paymentReference;
-      const created = await db.marketplaceOrder.create({ data: { publicReference: reference("morder"), checkoutId: paid.id, paymentId, customerUserId: paid.customerUserId, guestConfirmationHash, currency: "ZAR", merchandiseSubtotal: total(paid.storeGroups.map((group) => group.merchandiseSubtotal)), modifierSubtotal: total(paid.storeGroups.map((group) => group.modifierSubtotal)), deliveryFeeTotal: total(paid.storeGroups.map((group) => group.deliveryFee)), grandTotal: paid.grandTotal, commercialFingerprint: paid.commercialFingerprint, status: "CONFIRMED" } });
+      const created = await db.marketplaceOrder.create({ data: { publicReference: reference("morder"), checkoutId: paid.id, paymentId, customerUserId: paid.customerUserId, guestConfirmationHash, currency: "ZAR", merchandiseSubtotal: total(paid.storeGroups.map((group) => group.merchandiseSubtotal)), modifierSubtotal: total(paid.storeGroups.map((group) => group.modifierSubtotal)), deliveryFeeTotal: total(paid.storeGroups.map((group) => group.deliveryFee)), grandTotal: paid.grandTotal, digitalRequired: paid.digitalRequired ?? paid.grandTotal, cashRequired: paid.cashRequired ?? "0.00", commercialFingerprint: paid.commercialFingerprint, status: "CONFIRMED" } });
       await db.payment.update({ where: { id: paymentId }, data: { marketplaceOrderId: created.id } });
       return { id: created.id, publicReference: created.publicReference };
     },

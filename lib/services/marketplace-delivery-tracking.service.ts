@@ -18,6 +18,7 @@ export type CustomerTrackingRow = Readonly<{
   storeName: string;
   storeSlug: string;
   preparationStatus: string;
+  acceptanceStatus?: string;
   resolutionStatus: string;
   bridgeStatus: string;
   courierOrderReference: string | null;
@@ -26,6 +27,9 @@ export type CustomerTrackingRow = Readonly<{
   locationLatitude: Prisma.Decimal | null;
   locationLongitude: Prisma.Decimal | null;
   locationObservedAt: Date | null;
+  cashObligation?: Prisma.Decimal | null;
+  cashCollected?: Prisma.Decimal | null;
+  cashStatus?: string | null;
   proofMethod?: string | null;
   proofDeliveredAt?: Date | null;
 }>;
@@ -38,6 +42,7 @@ export type CustomerTrackingStoreOrder = Readonly<{
   deliveryStatus: string;
   courierOrderReference: string | null;
   assignmentStatus: string | null;
+  cashOnDelivery: Readonly<{ obligation: string; collected: string; outstanding: string; status: string }> | null;
   liveLocation: Readonly<{ latitude: number; longitude: number; observedAt: string }> | null;
   proofOfDelivery: Readonly<{ method: string; deliveredAt: string }> | null;
 }>;
@@ -52,7 +57,12 @@ function coarsenCoordinate(value: Prisma.Decimal): number {
 
 export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow): CustomerTrackingStoreOrder {
   const mayExposeLocation = allowsCustomerLocation(row.courierStatus);
+  const obligation = row.cashObligation ?? new Prisma.Decimal(0);
+  const collected = row.cashCollected ?? new Prisma.Decimal(0);
+  const cashStatus = ["REJECTED", "TIMED_OUT"].includes(row.acceptanceStatus ?? "") || row.preparationStatus === "ABORTED" ? "CANCELLED" : row.cashStatus ?? "PENDING";
+  const outstanding = cashStatus === "CANCELLED" ? new Prisma.Decimal(0) : Prisma.Decimal.max(0, obligation.sub(collected));
   return Object.freeze({
+    cashOnDelivery: obligation.gt(0) ? Object.freeze({ obligation: obligation.toFixed(2), collected: collected.toFixed(2), outstanding: outstanding.toFixed(2), status: cashStatus }) : null,
     storeOrderReference: row.storeOrderReference,
     storeName: row.storeName,
     storeSlug: row.storeSlug,
@@ -89,18 +99,21 @@ export async function getMarketplaceDeliveryTracking(input: Readonly<{
   const rows = await prisma.$queryRaw<CustomerTrackingRow[]>(Prisma.sql`
     SELECT marketplace_order."publicReference" AS "marketplaceOrderReference",
       marketplace_order."customerUserId", marketplace_order."guestConfirmationHash", marketplace_order."status" AS "marketplaceStatus",
-      store_order."publicReference" AS "storeOrderReference", store_order."preparationStatus", store_order."resolutionStatus",
+      store_order."publicReference" AS "storeOrderReference", store_order."preparationStatus", store_order."acceptanceStatus", store_order."resolutionStatus",
       store."name" AS "storeName", store."slug" AS "storeSlug",
       store_order."deliveryBridgeStatus" AS "bridgeStatus", courier_order."orderNumber" AS "courierOrderReference",
       courier_order."status" AS "courierStatus", assignment."status" AS "assignmentStatus",
       latest_location."latitude" AS "locationLatitude", latest_location."longitude" AS "locationLongitude",
       latest_location."receivedAt" AS "locationObservedAt",
+      COALESCE(cod."cashObligation", marketplace_order."cashRequired") AS "cashObligation",
+      cod."cashCollected", cod."status"::text AS "cashStatus",
       pod."method"::text AS "proofMethod", pod."deliveredAt" AS "proofDeliveredAt"
     FROM "MarketplaceOrder" marketplace_order
     JOIN "MarketplaceStoreOrder" store_order ON store_order."marketplaceOrderId" = marketplace_order."id"
     JOIN "Store" store ON store."id" = store_order."storeId"
     LEFT JOIN "MarketplaceStoreOrderDeliveryBridge" bridge ON bridge."marketplaceStoreOrderId" = store_order."id"
     LEFT JOIN "Order" courier_order ON courier_order."id" = bridge."courierOrderId"
+    LEFT JOIN "CashOnDelivery" cod ON cod."orderId" = courier_order."id"
     LEFT JOIN "OrderAssignment" assignment ON assignment."orderId" = courier_order."id" AND assignment."activeOrderGuard" = courier_order."id"
     LEFT JOIN "ProofOfDelivery" pod ON pod."orderId" = courier_order."id"
     LEFT JOIN LATERAL (

@@ -10,6 +10,8 @@ files.push("tests/integration/checkout-owner-resume.integration.test.ts");
 files.push("tests/integration/storefront-editorial-atomicity.integration.test.ts");
 files.push("tests/integration/driver-earning-canonical-postgres.integration.test.ts");
 files.push("tests/integration/driver-registration-code.integration.test.ts");
+files.push("tests/integration/delivery-otp-atomicity.integration.test.ts");
+files.push("tests/integration/marketplace-reservation-expiry.integration.test.ts");
 files.push("tests/integration/owner-approved-gauteng-coverage.integration.test.ts");
 files.push("tests/integration/owner-selected-commission-defaults.integration.test.ts");
 files.push("tests/integration/inventory-location.integration.test.ts");

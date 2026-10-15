@@ -8,6 +8,7 @@ import type { MarketplaceAcknowledgementRepository, MarketplaceCheckoutReviewRep
 import type { MarketplaceCheckoutReviewResult, ReviewGroup } from "@/lib/marketplace-checkout/checkout-review.service";
 import { freezeMarketplaceStoreSettlementEvidence } from "@/lib/marketplace-checkout/frozen-seller-settlement-evidence.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
+import { resolveMarketplacePaymentPlan } from "./payment-plan";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
 
@@ -158,7 +159,17 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         }
         return { group, stored, store, identity, plan };
       }));
-      const commercialFingerprint = evidenceFingerprint({ reviewedFingerprint: result.commercialFingerprint, reviewVersion: result.reviewVersion, authorities: authority.map(({ stored, identity, plan }) => ({ group: stored.id, identityReference: identity.publicReference, identityVersion: identity.identityVersion, planReference: plan.publicReference, planVersion: plan.versionNumber, calculationVersion: plan.calculationVersion })) });
+      const paymentPlans = await Promise.all(authority.map(async ({ group, stored }) => {
+        const reviewedQuote = result.quotes.find(q => q.storeReference === group.storeReference);
+        const quote = reviewedQuote ? await db.pricingQuote.findUnique({ where: { id: reviewedQuote.quoteReference } }) : null;
+        const scope = await db.marketplaceCheckout.findUnique({ where: { id: checkout.id }, include: { addressSnapshot: true } });
+        const pickup = await db.store.findUnique({ where: { id: stored.storeId }, include: { defaultPickupAddress: true } });
+        const total = group.lines.reduce((sum, line) => sum.add(line.lineTotal), new Prisma.Decimal(reviewedQuote?.deliveryFee ?? 0)).toFixed(2);
+        return { storeId: stored.storeId, plan: await resolveMarketplacePaymentPlan({ storeId: stored.storeId, orderType: "STORE", deliveryServiceId: quote?.deliveryType, deliveryServiceKey: quote?.deliveryType, regionId: quote?.destinationRegionId, provinces: [...new Set([pickup?.defaultPickupAddress?.province, scope?.addressSnapshot?.province].filter((p): p is string => Boolean(p)))], total, fulfilmentMode: group.fulfilmentMode, groupCount: authority.length, promotionDiscount: result.promotionDiscount }, db) };
+      }));
+      const digitalRequired = paymentPlans.reduce((sum, item) => sum.add(item.plan.digitalRequired), new Prisma.Decimal(0)).toFixed(2);
+      const cashRequired = paymentPlans.reduce((sum, item) => sum.add(item.plan.cashRequired), new Prisma.Decimal(0)).toFixed(2);
+      const commercialFingerprint = evidenceFingerprint({ paymentPlans, reviewedFingerprint: result.commercialFingerprint, reviewVersion: result.reviewVersion, authorities: authority.map(({ stored, identity, plan }) => ({ group: stored.id, identityReference: identity.publicReference, identityVersion: identity.identityVersion, planReference: plan.publicReference, planVersion: plan.versionNumber, calculationVersion: plan.calculationVersion })) });
       const evidence = authority.map(({ group, stored, store, identity, plan }) => {
         const quote = result.quotes.find((item) => item.storeReference === group.storeReference);
         if (!quote) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "The reviewed store lacks delivery quote evidence.");
@@ -179,7 +190,7 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
 
         return freezeMarketplaceStoreSettlementEvidence({ checkoutReference: checkout.publicReference, reviewVersion: result.reviewVersion, commercialFingerprint, checkoutStoreGroupReference: stored.id, storeId: store.id, storeReference: store.slug, deliveryFee: quote.deliveryFee, sellerIdentity: { publicReference: identity.publicReference, identityVersion: identity.identityVersion, legalName: identity.legalName, tradingName: identity.tradingName, registrationReference: identity.registrationReference, vatRegistrationStatus: identity.vatRegistrationStatus, vatNumber: identity.vatNumber, countryCode: identity.countryCode, termsReference: identity.termsReference, invoiceClassification: identity.invoiceClassification }, commissionPlan: { publicReference: plan.publicReference, versionNumber: plan.versionNumber, calculationVersion: plan.calculationVersion, basisType: plan.basisType, subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: plan.scopeKey, rules: plan.rules }, lines: group.lines, authoritativeAt: authoritativeAt.toISOString(), storeFundedPromotionAmount, frozenPromotionEvidence: result.promotionEvidence });
       });
-      return Object.freeze({ commercialFingerprint, evidence: Object.freeze(evidence) });
+      return Object.freeze({ commercialFingerprint, evidence: Object.freeze(evidence), paymentPlans, digitalRequired, cashRequired });
     },
     persistReview: async ({ checkout, result, settlementEvidence, operationId, requestHash }) => {
       if (settlementEvidence.length !== result.revalidatedGroups.length) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "Every reviewed store group requires frozen settlement evidence.");
@@ -194,6 +205,7 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         await db.marketplaceCheckoutStoreGroup.update({ where: { id: stored.id }, data: {
           merchandiseSubtotal: groupMerchandise, modifierSubtotal: groupModifiers, deliveryFee,
           groupTotal: exact(exact(groupMerchandise, groupModifiers), deliveryFee),
+          paymentPlan: result.paymentPlans?.find(p => p.storeId === stored.storeId)?.plan,
           deliveryQuoteReference: quote?.quoteReference ?? null, deliveryQuoteVersion: quote?.quoteVersion ?? null, deliveryQuoteExpiresAt: quote?.quoteExpiresAt ?? null,
           serviceabilityReference: quote?.serviceabilityReference ?? null,
           status: quote ? "READY" : "NOT_SERVICEABLE",
@@ -241,7 +253,7 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
       if (result.changes.length) await db.marketplaceCheckoutChange.createMany({ data: result.changes.map((change) => ({ checkoutId: checkout.id, reviewVersion: result.reviewVersion, type: change.type, lineReference: change.lineReference ?? null, details: change.details })) });
       await db.marketplaceCheckout.update({ where: { id: checkout.id }, data: {
         status: result.status, reviewVersion: result.reviewVersion, merchandiseSubtotal: result.merchandiseSubtotal, modifierSubtotal: result.modifierSubtotal,
-        deliveryFeeTotal: result.deliveryFeeTotal, grandTotal: result.grandTotal, commercialFingerprint: result.commercialFingerprint,
+        deliveryFeeTotal: result.deliveryFeeTotal, grandTotal: result.grandTotal, digitalRequired: result.digitalRequired ?? result.grandTotal, cashRequired: result.cashRequired ?? "0.00", commercialFingerprint: result.commercialFingerprint,
         acceptedFingerprint: null, changesAcknowledgedAt: null, reviewAcceptedAt: null, termsAcknowledgedAt: null, version: { increment: 1 },
       } });
       await db.marketplaceCheckoutOperation.create({ data: { checkoutId: checkout.id, operationId, requestHash, type: "REVIEW", response: publicReview(result) } });

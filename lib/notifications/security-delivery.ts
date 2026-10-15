@@ -2,6 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { NotificationPolicyError } from "./contracts";
+import { resolveDeliveryOtpRecipient } from "@/lib/services/delivery-recipient.service";
 import {
   canonicalSecurityValues,
   openSecurityPayload,
@@ -125,7 +126,9 @@ export async function queueSecurityNotification(
     // first attempts.
     await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${`security-notification:${input.operationId}`}, 0)) IS NULL) AS locked`;
 
-    const user = await tx.user.findUnique({
+    const deliveryRecipient = input.eventType === "DELIVERY_OTP" ? await resolveDeliveryOtpRecipient(input.aggregateReference, tx) : null;
+    if (deliveryRecipient && deliveryRecipient.subjectUserId !== input.subjectUserId) throw new NotificationPolicyError("VERIFIED_NOTIFICATION_DESTINATION_REQUIRED");
+    const user = deliveryRecipient ? null : await tx.user.findUnique({
       where: { id: input.subjectUserId },
       select: {
         id: true,
@@ -135,14 +138,14 @@ export async function queueSecurityNotification(
       },
     });
 
-    if (
+    if (!deliveryRecipient && (
       !user?.email ||
       !(
         user.status === "ACTIVE" ||
         (bootstrap && user.status === "PENDING_VERIFICATION")
       ) ||
       (!user.emailVerifiedAt && !bootstrap)
-    ) {
+    )) {
       throw new NotificationPolicyError(
         "VERIFIED_NOTIFICATION_DESTINATION_REQUIRED",
       );
@@ -184,7 +187,7 @@ export async function queueSecurityNotification(
         tx,
         input,
         existing.id,
-        user.id,
+        deliveryRecipient?.subjectUserId ?? user!.id,
       );
       return { intent: existing, delivery, replay: true };
     }
@@ -216,7 +219,7 @@ export async function queueSecurityNotification(
       tx,
       input,
       intent.id,
-      user.id,
+      deliveryRecipient?.subjectUserId ?? user!.id,
     );
 
     return { intent, delivery, replay: false };

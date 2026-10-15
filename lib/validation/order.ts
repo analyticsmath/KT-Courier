@@ -43,6 +43,7 @@ export const CreateOrderSchema = z
     dropoffAddress: AddressInputSchema,
     recipientName: z.string().min(2, "Recipient name is required").max(150).trim(),
     recipientPhone: z.string().min(7, "Recipient phone is required").max(30).trim(),
+    recipientEmail: z.string().trim().toLowerCase().email("Enter a valid recipient email.").max(254).optional(),
     parcelDescription: z.string().trim().max(500).optional(),
     parcelCount: z
       .number({ error: "Parcel count must be a number" })

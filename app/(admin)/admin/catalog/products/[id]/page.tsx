@@ -16,6 +16,7 @@ import { prisma } from "@/lib/db/prisma";
 import { storefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
 import { formatDateTime } from "@/lib/utils/formatters";
 import { CatalogOfferPublicationActions } from "@/components/catalog/CatalogOfferPublicationActions";
+import { CatalogModerationImage } from "@/components/catalog/CatalogModerationImage";
 
 export default async function AdminCatalogProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAdminPagePermission(PERMISSIONS.CATALOG_MODERATION_READ);
@@ -27,7 +28,7 @@ export default async function AdminCatalogProductDetailPage({ params }: { params
       primaryCategory: { select: { path: true, name: true } },
       productTypeDefinition: { select: { code: true, name: true } },
       variants: { select: { id: true, publicReference: true, title: true } },
-      media: { include: { asset: { select: { publicReference: true, status: true } } } },
+      media: { include: { asset: { select: { id: true, publicReference: true, status: true, mimeType: true, privacyInspectionPassed: true } } } },
       offers: { include: { store: { select: { name: true, slug: true } }, priceVersions: { orderBy: { versionNumber: "desc" }, take: 1 }, inventoryItem: { include: { levels: true } } } },
       moderationCases: { include: { history: { orderBy: { createdAt: "asc" } } } },
     },
@@ -61,7 +62,7 @@ export default async function AdminCatalogProductDetailPage({ params }: { params
         {product.offers.length ? <ul className={commerceAdminStyles.safeList}>{product.offers.map((offer) => <li key={offer.id}><strong>{offer.store.name} · {offer.storeSku}</strong><span>{offer.priceVersions[0] ? `${offer.priceVersions[0].amount.toString()} ${offer.priceVersions[0].currency}` : "No current price record"} · {offer.inventoryItem?.levels.length ?? 0} inventory record(s)</span><span><ProtectedStatus label={presentCommerceStatus(offer.status).label} tone={presentCommerceStatus(offer.status).tone} /> <ProtectedStatus label={presentCommerceStatus(offer.publicationStatus).label} tone={presentCommerceStatus(offer.publicationStatus).tone} /></span></li>)}</ul> : <ProtectedState kind="empty" title="No store offer records" description="This product has no canonical store offer projection." />}
       </OperationalPanel>
       <OperationalPanel title="Media records" description="Safe media references and canonical lifecycle state only; no storage key or provider detail is exposed.">
-        {product.media.length ? <ul className={commerceAdminStyles.safeList}>{product.media.map((item) => { const state = presentCommerceStatus(item.asset.status); return <li key={item.id}><strong>{item.asset.publicReference}</strong><span>{item.role}{item.variantId ? " · Variant association" : " · Product association"}</span><span><ProtectedStatus label={state.label} tone={state.tone} /></span></li>; })}</ul> : <ProtectedState kind="empty" title="No media records" description="No catalog media association is recorded for this product." />}
+        {product.media.length ? <ul className={commerceAdminStyles.safeList}>{product.media.map((item) => { const state = presentCommerceStatus(item.asset.status); return <li key={item.id}><strong>{item.asset.publicReference}</strong><span>{item.role}{item.variantId ? " · Variant association" : " · Product association"}</span><span><ProtectedStatus label={state.label} tone={state.tone} /></span><CatalogModerationImage asset={item.asset} alt={item.altText || product.title} /></li>; })}</ul> : <ProtectedState kind="empty" title="No media records" description="No catalog media association is recorded for this product." />}
       </OperationalPanel>
       <OperationalPanel title="Moderation actions" description="Actions are server-permissioned and source-state eligible. The canonical endpoint handles concurrency and confirmation."><CatalogModerationActions actions={actions} productId={product.id} version={product.version} /></OperationalPanel>
       {product.offers.filter(offer => offer.status === "SUBMITTED").map(offer => <OperationalPanel key={offer.id} title={`Publish ${offer.storeSku}`}><p className="mb-3 text-sm">{offer.store.name} · {offer.status.replaceAll("_", " ")}. Product approval and offer review are required before publication.</p><CatalogOfferPublicationActions key={`${offer.id}:${offer.version}`} offerId={offer.id} version={offer.version} productVersion={product.version} reviewed={Boolean(offer.approvedByUserId)} canApprove={canApprove} canPublish={canApprove && canPrice && ["APPROVED", "ACTIVE"].includes(product.status)} price={offer.priceVersions[0] ? { publicReference: offer.priceVersions[0].publicReference, amount: offer.priceVersions[0].amount.toFixed(2) } : null} /></OperationalPanel>)}
