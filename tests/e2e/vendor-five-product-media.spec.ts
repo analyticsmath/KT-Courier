@@ -178,6 +178,17 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   await login(page, "e2e-paystack-vendor-five-products@ktcouriers.local");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 }); await page.goto(`/shop/stores/${store.slug}`);
+    const storeCategories = page.getByRole("navigation", { name: "Store categories", exact: true });
+    await expect(storeCategories.getByRole("link")).toHaveCount(2);
+    expect(await storeCategories.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const categoryBounds = await Promise.all((await storeCategories.getByRole("link").all()).map(link => link.boundingBox()));
+    const navBounds = await storeCategories.boundingBox();
+    expect(navBounds).not.toBeNull();
+    for (const bounds of categoryBounds) {
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(navBounds!.x);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(navBounds!.x + navBounds!.width + 1);
+    }
     for (const product of products) await expect(page.getByRole("link", { name: new RegExp(product.title) }).first()).toBeVisible();
     for (const product of products) { const image = page.locator(`img[src*="${product.primaryImageReference}"]`).first(); await image.scrollIntoViewIfNeeded(); await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0); }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

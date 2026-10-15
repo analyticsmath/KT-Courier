@@ -1998,6 +1998,21 @@
   padding-top: 8px;
 }
 
+@media (max-width: 640px) {
+  .storeCategoryNav {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .storeHeroWrapper .subcategoryTile {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* =========================================================================
    10. PRODUCT DETAIL PAGE (PDP) ARCHITECTURE (PERFECTION PASS)
    ========================================================================= */
