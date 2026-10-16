@@ -13,6 +13,23 @@ export const productionProcessors = [
   "deliver-notifications",
 ] as const satisfies readonly ImplementedProcessorName[];
 
+export type ProductionCycleResult = Readonly<{
+  name: ProductionProcessor;
+  status: "COMPLETED" | "PEER_LEASE" | "FAILED" | "IDLE";
+  itemsCompleted: number;
+  itemsRetried: number;
+}>;
+
+export function summarizeProductionCycleReadiness(results: readonly ProductionCycleResult[], blockers: readonly string[] = []) {
+  const readinessBlockers = [...new Set(blockers)].sort();
+  return {
+    healthy: results.length === productionProcessors.length &&
+      results.every((result) => result.status !== "FAILED" && result.itemsRetried === 0) &&
+      readinessBlockers.length === 0,
+    readinessBlockers,
+  };
+}
+
 export type ProductionProcessor = typeof productionProcessors[number];
 type Executor = (input: { name: ProductionProcessor; mode: "APPLY"; operationId: string }) => Promise<{ itemsCompleted: number; itemsRetried: number }>;
 type WorkCheck = (name: ProductionProcessor) => Promise<boolean>;

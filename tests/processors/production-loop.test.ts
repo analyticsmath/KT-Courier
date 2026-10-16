@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createProductionCycleWorkCheck, productionProcessors, runProductionCycle } from "@/lib/processors/production-loop";
+import { checkMarketplaceStoreOrderInitializationReadiness } from "@/lib/processors/marketplace-store-order-readiness";
+import { createProductionCycleWorkCheck, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "@/lib/processors/production-loop";
 
 describe("production processor orchestration", () => {
   it("settles marketplace jobs after verified payment finalization", () => {
@@ -9,6 +10,40 @@ describe("production processor orchestration", () => {
     const execute = vi.fn();
     expect((await runProductionCycle(execute, () => false, async () => false)).every((r) => r.status === "IDLE")).toBe(true);
     expect(execute).not.toHaveBeenCalled();
+  });
+  it("holds pending store orders without retrying when the active operations policy is missing", async () => {
+    const hasPendingOrder = vi.fn().mockResolvedValue(true);
+    const hasActivePolicy = vi.fn().mockResolvedValue(false);
+    const readiness = await checkMarketplaceStoreOrderInitializationReadiness({ hasPendingOrder, hasActivePolicy });
+
+    expect(readiness).toEqual({ hasWork: false, blocker: "STORE_ORDER_OPERATIONAL_POLICY_REQUIRED" });
+    expect(hasPendingOrder).toHaveBeenCalledOnce();
+    expect(hasActivePolicy).toHaveBeenCalledOnce();
+  });
+  it("does not report a policy blocker when no store orders are waiting", async () => {
+    const hasPendingOrder = vi.fn().mockResolvedValue(false);
+    const hasActivePolicy = vi.fn();
+    const readiness = await checkMarketplaceStoreOrderInitializationReadiness({ hasPendingOrder, hasActivePolicy });
+
+    expect(readiness).toEqual({ hasWork: false, blocker: null });
+    expect(hasActivePolicy).not.toHaveBeenCalled();
+  });
+  it("allows store-order initialization once an active policy is available", async () => {
+    const readiness = await checkMarketplaceStoreOrderInitializationReadiness({
+      hasPendingOrder: async () => true,
+      hasActivePolicy: async () => true,
+    });
+
+    expect(readiness).toEqual({ hasWork: true, blocker: null });
+  });
+  it("keeps processor readiness blocked when the queue is held by policy configuration", () => {
+    const idle = productionProcessors.map((name) => ({ name, status: "IDLE" as const, itemsCompleted: 0, itemsRetried: 0 }));
+
+    expect(summarizeProductionCycleReadiness(idle, ["STORE_ORDER_OPERATIONAL_POLICY_REQUIRED"])).toEqual({
+      healthy: false,
+      readinessBlockers: ["STORE_ORDER_OPERATIONAL_POLICY_REQUIRED"],
+    });
+    expect(summarizeProductionCycleReadiness(idle, [])).toEqual({ healthy: true, readinessBlockers: [] });
   });
   it("uses queue discovery on startup while preserving the earning cursor's first pass", async () => {
     const hasWork = vi.fn(async (name: (typeof productionProcessors)[number]) => name === "deliver-notifications");
