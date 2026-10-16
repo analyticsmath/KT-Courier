@@ -33,3 +33,18 @@ export function verificationReturnUrl(
   if (deliveryPending) params.set("delivery", "pending");
   return `/verify-otp?${params}`;
 }
+
+export function signupVerificationReturnUrl(
+  email: string,
+  accountType: "customer" | "store" | "driver",
+  returnUrl?: string,
+  deliveryPending = false,
+) {
+  const safeReturnUrl = safeAuthReturnUrl(returnUrl);
+  const defaultReturnUrl = accountType === "driver" ? "/driver/onboarding" : undefined;
+  return verificationReturnUrl(
+    email,
+    safeReturnUrl ?? defaultReturnUrl,
+    deliveryPending,
+  );
+}

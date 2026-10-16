@@ -1,7 +1,7 @@
 "use client";
 import {
   safeAuthReturnUrl,
-  verificationReturnUrl,
+  signupVerificationReturnUrl,
 } from "@/lib/auth/return-url";
 
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
@@ -102,8 +102,9 @@ export function SignupForm() {
       }
 
       router.push(
-        verificationReturnUrl(
+        signupVerificationReturnUrl(
           data.email,
+          accountType,
           returnUrl,
           data.deliveryPending === true,
         ),
@@ -148,7 +149,7 @@ export function SignupForm() {
         >
           <span className={styles.accountChoiceTitle}>Courier Driver</span>
           <span className={styles.accountChoiceText}>
-            Drive and deliver with the KT courier fleet.
+            Apply to drive with KT by submitting your identity and vehicle for review.
           </span>
         </button>
       </div>

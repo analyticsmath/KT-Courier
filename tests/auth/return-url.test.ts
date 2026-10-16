@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  signupVerificationReturnUrl,
   safeAuthReturnUrl,
   verificationReturnUrl,
 } from "@/lib/auth/return-url";
@@ -32,5 +33,42 @@ describe("authentication continuation", () => {
     expect(url.pathname).toBe("/verify-otp");
     expect(url.searchParams.get("returnUrl")).toBe(destination);
     expect(url.searchParams.get("email")).toBe("worker@example.com");
+  });
+
+  it("continues a new driver into protected onboarding after email verification", () => {
+    const url = new URL(
+      signupVerificationReturnUrl("driver@example.com", "driver"),
+      "https://example.test",
+    );
+    expect(url.pathname).toBe("/verify-otp");
+    expect(url.searchParams.get("returnUrl")).toBe("/driver/onboarding");
+  });
+
+  it("preserves an explicit safe continuation for driver signup", () => {
+    const url = new URL(
+      signupVerificationReturnUrl(
+        "driver@example.com",
+        "driver",
+        "/driver/profile?tab=documents",
+        true,
+      ),
+      "https://example.test",
+    );
+    expect(url.searchParams.get("returnUrl")).toBe(
+      "/driver/profile?tab=documents",
+    );
+    expect(url.searchParams.get("delivery")).toBe("pending");
+  });
+
+  it("uses the protected onboarding default when a driver continuation is unsafe", () => {
+    const url = new URL(
+      signupVerificationReturnUrl(
+        "driver@example.com",
+        "driver",
+        "https://evil.invalid",
+      ),
+      "https://example.test",
+    );
+    expect(url.searchParams.get("returnUrl")).toBe("/driver/onboarding");
   });
 });

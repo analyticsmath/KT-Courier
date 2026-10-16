@@ -5,7 +5,7 @@ import { SignupForm } from "./SignupForm";
 
 export const metadata: Metadata = {
   title: "Create an account",
-  description: "Create a customer or business account with KT Couriers.",
+  description: "Create a customer, business, or courier driver account with KT Couriers.",
   robots: { index: false, follow: false },
 };
 

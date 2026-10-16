@@ -91,16 +91,27 @@ describe("R9 public marketplace, participation, and developer entry surfaces", (
     );
   });
 
-  it("uses only verified participation actions and excludes earnings or requirement promises", () => {
+  it("routes driver participation into guarded account onboarding without promising approval or earnings", () => {
     expect(participationRegistry.STORE.primaryAction.href).toBe(
       "/signup?role=store",
     );
-    expect(participationRegistry.DRIVER.primaryAction.href).toBe(
-      "/services/driver-network",
-    );
+    expect(participationRegistry.DRIVER.state).toBe("APPLICATION_AVAILABLE");
+    expect(participationRegistry.DRIVER.primaryAction).toEqual({
+      label: "Create driver account",
+      href: "/signup?role=driver",
+    });
     expect(participationRegistry.PROMOTER.primaryAction.href).toBe("/contact");
 
-    const source = `${read("lib/public-participation/participation-registry.ts")}\n${read("components/public-v2/participation/ParticipationPage.tsx")}`;
+    const source = [
+      "lib/public-participation/participation-registry.ts",
+      "components/public-v2/participation/ParticipationPage.tsx",
+      "components/public-v2/participation/ParticipationRoleSelector.tsx",
+      "lib/public-services/service-page-registry.ts",
+    ].map(read).join("\n");
+    expect(source).toContain("/signup?role=driver");
+    expect(source).toMatch(/identity.*licen[cs]e.*vehicle.*review/i);
+    expect(source).toMatch(/service region.*dispatch|dispatch.*service region/i);
+    expect(source).not.toContain("This page does not provide a public enrolment or earnings flow.");
     expect(source).not.toMatch(
       /guaranteed (?:earnings|work|acceptance|referrals)|commission percentage|approval time|licence categories|insurance requirements/i,
     );

@@ -16,16 +16,18 @@ const pathways = [
     tagline: "Publish your store catalog and coordinate courier delivery for customer orders.",
     badge: "STORE PARTNER",
     description: "Store partners manage published catalog items, receive delivery requests, and coordinate parcel collections directly with KT couriers.",
+    requirementsNote: "Account creation is separate from store approval and public marketplace publication.",
     action: { label: "Create store account", href: "/signup?role=store" },
     media: ktMediaV3.pages.join.merchantHero,
   },
   {
     id: "driver",
     title: "Driver & Courier Network",
-    tagline: "Provide courier delivery across designated hubs and regional transit routes.",
+    tagline: "Create a driver account and submit your vehicle details for review.",
     badge: "COURIER DRIVER",
-    description: "Courier drivers provide physical parcel transit and custody handoffs across confirmed local delivery routes.",
-    action: { label: "Driver network information", href: "/services/driver-network" },
+    description: "Complete your identity, licence, and vehicle onboarding. Dispatch offers require administrator approval and an assigned service region.",
+    requirementsNote: "Account creation does not approve your profile or vehicle, or guarantee dispatch offers.",
+    action: { label: "Create driver account", href: "/signup?role=driver" },
     media: ktMediaV3.pages.join.driverHero,
   },
   {
@@ -34,6 +36,7 @@ const pathways = [
     tagline: "Connect local merchants and customers with the KT marketplace and delivery network.",
     badge: "COMMUNITY PARTNER",
     description: "Promoters introduce local stores and merchants to the KT delivery network and marketplace platform.",
+    requirementsNote: "Programme availability and application steps are confirmed through support.",
     action: { label: "Inquire about promoter partnership", href: "/contact" },
     media: ktMediaV3.pages.join.transitAction,
   },
@@ -109,7 +112,7 @@ export function ParticipationRoleSelector() {
 
               <div className={styles.roleRequirementsBlock}>
                 <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", fontStyle: "italic", margin: 0 }}>
-                  Contact KT for current participation requirements.
+                  {activePathway.requirementsNote}
                 </p>
               </div>
 

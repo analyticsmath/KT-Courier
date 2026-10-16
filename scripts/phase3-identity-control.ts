@@ -12,11 +12,14 @@ async function main() {
   const identity = await prisma.$queryRaw<Array<{ database: string; role: string }>>`SELECT current_database() AS database, current_user AS role`;
   assert.deepEqual(identity, [{ database: "kt_phase75_e2e", role: "kt_phase75_e2e" }]);
   const [email, action] = process.argv.slice(2);
-  assert.match(email ?? "", /^e2e-identity-(1440|390)-[a-f0-9]{8}@ktcouriers\.local$/);
+  const identityEmail = /^e2e-identity-(1440|390)-[a-f0-9]{8}@ktcouriers\.local$/.test(email ?? "");
+  const driverEmail = /^e2e-driver-account-(1440|390)-[a-f0-9]{8}@ktcouriers\.local$/.test(email ?? "");
+  assert.ok(identityEmail || driverEmail);
   assert.ok(action === "verification" || action === "reset");
+  assert.ok(!driverEmail || action === "verification");
   stage = "OWNER";
   const owner = await prisma.user.findUniqueOrThrow({ where: { email }, select: { id: true, role: true, status: true, emailVerifiedAt: true } });
-  assert.equal(owner.role, "CUSTOMER");
+  assert.equal(owner.role, driverEmail ? "DRIVER" : "CUSTOMER");
   if (action === "reset") { stage = "OWNER_ELIGIBILITY"; assert.equal(owner.status, "ACTIVE"); assert.ok(owner.emailVerifiedAt); }
   stage = "LIVE_SOURCE";
   const source = action === "verification"
