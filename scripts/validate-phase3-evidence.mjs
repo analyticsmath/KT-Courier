@@ -12,12 +12,17 @@ try {
   console.log(JSON.stringify(validatePhase3Evidence(manifest, { root: process.cwd(), expectedSha, launchGates: gates })));
   if (existsSync("docs/final-closure/final-acceptance.json")) {
     const final = JSON.parse(readFileSync("docs/final-closure/final-acceptance.json", "utf8"));
+    const exactCurrentComplete = final.engineeringClassification === "ENGINEERING_COMPLETE";
     for (const source of [final.source, ...final.tests.map(test => ({ commitSha: test.commitSha, treeSha: test.sourceTreeSha }))]) {
       const tree = execFileSync("git", ["rev-parse", `${source.commitSha}^{tree}`], { encoding: "utf8" }).trim();
       if (tree !== source.treeSha) throw new Error("FINAL_CLOSURE_EVIDENCE_INVALID: recorded tree");
-      execFileSync("git", ["merge-base", "--is-ancestor", source.commitSha, expectedSha]);
+      // An incomplete dossier may retain verified historical receipts from
+      // abandoned or superseded branches. They remain archival evidence only;
+      // complete acceptance is bound to the exact current checkout below.
+      if (exactCurrentComplete) execFileSync("git", ["merge-base", "--is-ancestor", source.commitSha, expectedSha]);
     }
-    console.log(JSON.stringify(validateFinalClosureEvidence(final, { root: process.cwd(), expectedSha, launchGates: gates })));
+    const result = validateFinalClosureEvidence(final, { root: process.cwd(), expectedSha, launchGates: gates });
+    console.log(JSON.stringify({ ...result, historicalEvidenceOnly: !exactCurrentComplete }));
   }
 } catch (error) {
   console.error(error instanceof Error && /^(PHASE3|FINAL_CLOSURE)_EVIDENCE_INVALID:/.test(error.message) ? error.message : "PHASE3_EVIDENCE_INVALID: unreadable manifest or source");

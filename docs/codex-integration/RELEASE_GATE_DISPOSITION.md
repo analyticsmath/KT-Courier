@@ -1,17 +1,17 @@
 # Release gate disposition
 
-The authoritative [engineering-gates.json](../production-closure/engineering-gates.json) remains unchanged at NOT_READY. The final local evidence and reasons are recorded in [PHASE_2_FINAL_CLOSURE.md](PHASE_2_FINAL_CLOSURE.md). No gate was promoted by this report.
+Last reconciled: **16 October 2026**. The current production certification manifest is [engineering-gates.json](../production-closure/engineering-gates.json). Main and production source are currently `a91de94741dcef0724eb3a91d812d707ad05dbd5`. Main CI passed, Vercel production is READY, and Railway web plus the operations worker are deployed at that SHA. The operations worker is running but its readiness is blocked by marketplace orders waiting for an approved store-order policy.
 
-| Gate | Status | Owner/action |
+| Gate | Status | Current evidence and remaining action |
 |---|---|---|
-| marketplace_parcel_classification | OPEN | Client/operations sign physical limits, ANY policy and effective tariff. |
-| notification_required_domains | OPEN | Engineering/communications complete recipient policy and approve templates. |
-| commercial_financial_certification | VALIDATION_BLOCKED | Finance/provider/bank approve tariffs, commissions, COD and settlement; exact hosted checks follow isolation. |
-| customer_vendor_driver_full_functional_acceptance | OPEN | Engineering, QA and client review remaining actor/state combinations. |
-| visual_acceptance | OPEN | QA/product review target viewports, zoom, keyboard and assistive technology. |
-| media_full_functional_acceptance | OPEN | Media/device owners complete isolated lifecycle and separately authorized provider acceptance. |
-| critical_skip_closure | OPEN | Engineering/release owner audit remaining required guards and hosted exact-SHA workflow. |
-| fresh_production_protected_row_audit | VALIDATION_BLOCKED | Authorized production data operator runs approved read-only audit. |
-| github_certification_and_deployment | VALIDATION_BLOCKED | Platform owner proves preview isolation; release owner authorizes publication and later deployment steps. |
+| `marketplace_parcel_classification` | OPEN | Canonical active parcel profiles and all three approved Gauteng courier tariffs are confirmed. Actual vendor product/package measurements and multi-item packing-to-dispatch acceptance remain. |
+| `notification_required_domains` | OPEN | Production has 30 templates UNDER_REVIEW, six recipient policies DRAFT and zero event routes. Independent approval, publication, activation and genuine recipient delivery remain. |
+| `commercial_financial_certification` | VALIDATION_BLOCKED | Owner-approved default commission values and 50/50 initial COD split do not complete maker/checker review, COD limits/custody, VAT, settlement or real provider acceptance. Keep payment/refund/payout and settlement source locks intact until bounded evidence exists. |
+| `customer_vendor_driver_full_functional_acceptance` | OPEN | Production has 25 driver profiles and zero dispatch-ready. The worker retries 25 marketplace store-order candidates because there is no active approved operational policy. Real role-based order, pickup, GPS, OTP, POD and tracking acceptance remains. |
+| `visual_acceptance` | OPEN | Automated browser coverage is not a human viewport, keyboard and assistive-technology sign-off for real role journeys. |
+| `media_full_functional_acceptance` | OPEN | Automated private-media proof does not establish live provider, camera/device, GPS/POD, privacy/retention or real-account acceptance. |
+| `critical_skip_closure` | OPEN | Current audit finds 65 marker-bearing test files and zero release-critical placeholders; 13 focused deferral/workflow tests pass. Keep open until current exact-main certification proves mandatory selections execute with no skips/flakes and the owner confirms inactive optional scope. |
+| `fresh_production_protected_row_audit` | VALIDATION_BLOCKED | A pre-acceptance, transaction-read-only audit ran at 2026-10-16T00:08:51.874Z on the current production worker and main SHA; it verified `transaction_read_only=on` and captured aggregate counts/hashes for 17 protected tables. Its DB role was `postgres`, not a least-privilege read-only login. Obtain an approved read-only role/path and repeat/compare before acceptance mutations. |
+| `github_certification_and_deployment` | VALIDATION_BLOCKED | Main CI and Vercel/Railway deployment parity are verified at the current SHA. The latest full certification is on a prior SHA; exact-current-main full certification is still required. |
 
-Current local exact-SHA test evidence is green for the directed 42, full Chromium 139, canonical PostgreSQL 41, configured quality and disposable integration checks. The full development audit retains five high advisories. The branch has no hosted run. Thus the final status is PHASE_2_NOT_ACCEPTED; production remains PRODUCTION_NOT_READY.
+The full current production audit, deployment evidence and owner decisions are recorded in the manifest and [CLIENT_INPUTS_REQUIRED.md](../production-closure/CLIENT_INPUTS_REQUIRED.md). The production result is **NOT_READY**. A green deployment or automated fixture does not establish human approval, provider acceptance, real payment, genuine stock, or a physical delivery.
