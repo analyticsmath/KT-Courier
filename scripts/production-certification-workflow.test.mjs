@@ -9,10 +9,11 @@ const ciSource = readFileSync(new URL("../.github/workflows/ci.yml", import.meta
 const ciWorkflow = yaml.load(ciSource);
 const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
 
-test("every main PR update is eligible, with dispatch and approved release tags preserved", () => {
+test("every main update and PR is eligible, with dispatch and release tags preserved", () => {
   assert.deepEqual(workflow.on.pull_request.branches, ["main"]);
   for (const filter of ["paths", "paths-ignore", "branches-ignore", "types"]) assert.equal(filter in workflow.on.pull_request, false);
   assert.equal("workflow_dispatch" in workflow.on, true);
+  assert.deepEqual(workflow.on.push.branches, ["main"]);
   assert.deepEqual(workflow.on.push.tags, ["release-*"]);
 });
 

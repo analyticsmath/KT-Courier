@@ -2,6 +2,7 @@ name: Production Certification
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     tags: ['release-*']
   pull_request:
     branches: [main]
