@@ -4,7 +4,7 @@ import { executeRegisteredProcessor } from "../lib/processors/processor-service"
 import { getProductionProcessorHealthState, getProductionProcessorHealthStatus } from "../lib/processors/production-health";
 import { uninitializedMarketplaceOrdersWhere, expiredMarketplaceReservationsWhere } from "../lib/marketplace-checkout/lifecycle-batch.service";
 import { dueMarketplaceSettlementJobsWhere } from "../lib/marketplace-checkout/settlement-batch.service";
-import { createProductionCycleWorkCheck, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "../lib/processors/production-loop";
+import { createProcessorCadenceTracker, createProductionCycleWorkCheck, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "../lib/processors/production-loop";
 import { checkMarketplaceStoreOrderInitializationReadiness } from "../lib/processors/marketplace-store-order-readiness";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
@@ -30,6 +30,7 @@ process.on("SIGINT", shutdown);
 
 async function main() {
   let firstCycle = true;
+  const cadenceTracker = createProcessorCadenceTracker();
   async function hasWork(name: ProductionProcessor) {
     if (name === "consume-verified-payment-events") return (await createPrismaVerifiedPaymentEventRepository(prisma).listCandidates(1)).length > 0;
     if (name === "apply-paystack-webhook-events") return !!await prisma.paymentWebhookEvent.findFirst({ where: { provider: "PAYSTACK", OR: [{ processingStatus: "RECEIVED" }, { processingStatus: "PROCESSING", leaseExpiresAt: { lt: new Date() } }] }, select: { id: true } });
@@ -51,6 +52,14 @@ async function main() {
     if (name === "process-earning-lifecycle") return !!await prisma.order.findFirst({ where: { status: { in: ["DELIVERED", "COMPLETED"] }, assignments: { some: { status: "COMPLETED" } }, driverEarnings: { none: {} } }, select: { id: true } })
       || !!await prisma.storeEarning.findFirst({ where: { status: "ACCRUED", OR: [{ releaseEligibleAt: null }, { releaseEligibleAt: { lte: new Date() } }] }, select: { id: true } })
       || !!await prisma.driverEarning.findFirst({ where: { status: "ACCRUED", OR: [{ releaseEligibleAt: null }, { releaseEligibleAt: { lte: new Date() } }] }, select: { id: true } });
+    if (name === "reconcile-expired-dispatch") {
+      if (!cadenceTracker.isDue(name)) return false;
+      cadenceTracker.markChecked(name);
+      return !!await prisma.orderAssignment.findFirst({
+        where: { status: "ASSIGNED", expiresAt: { lte: new Date() } },
+        select: { id: true },
+      });
+    }
     return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } });
   }
   while (!stopping) {

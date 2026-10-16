@@ -11,6 +11,7 @@ export const productionProcessors = [
   "expire-marketplace-reservations",
   "process-earning-lifecycle",
   "deliver-notifications",
+  "reconcile-expired-dispatch",
 ] as const satisfies readonly ImplementedProcessorName[];
 
 export type ProductionCycleResult = Readonly<{
@@ -34,10 +35,48 @@ export type ProductionProcessor = typeof productionProcessors[number];
 type Executor = (input: { name: ProductionProcessor; mode: "APPLY"; operationId: string }) => Promise<{ itemsCompleted: number; itemsRetried: number }>;
 type WorkCheck = (name: ProductionProcessor) => Promise<boolean>;
 
+export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<ProductionProcessor, number>>> = {
+  "reconcile-expired-dispatch": 60_000,
+};
+
+export interface ProcessorCadenceTracker {
+  isDue(name: ProductionProcessor, now?: number): boolean;
+  markChecked(name: ProductionProcessor, now?: number): void;
+  reset(): void;
+}
+
+export function createProcessorCadenceTracker(
+  cadences: Partial<Record<ProductionProcessor, number>> = DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS,
+  nowFn: () => number = () => Date.now(),
+): ProcessorCadenceTracker {
+  const lastCheckedAt = new Map<ProductionProcessor, number>();
+  return {
+    isDue(name: ProductionProcessor, now = nowFn()): boolean {
+      const minInterval = cadences[name];
+      if (!minInterval) return true;
+      const last = lastCheckedAt.get(name) ?? 0;
+      return now - last >= minInterval;
+    },
+    markChecked(name: ProductionProcessor, now = nowFn()): void {
+      lastCheckedAt.set(name, now);
+    },
+    reset(): void {
+      lastCheckedAt.clear();
+    },
+  };
+}
+
 /** Avoid a full empty-queue sweep during worker startup, but let the earning
- * lifecycle make its first cursor pass so persisted cursors can wrap safely. */
-export function createProductionCycleWorkCheck(hasWork: WorkCheck, firstCycle: boolean): WorkCheck {
+ * lifecycle make its first cursor pass so persisted cursors can wrap safely.
+ * Cadence-configured processors can be throttled via an optional cadence tracker. */
+export function createProductionCycleWorkCheck(
+  hasWork: WorkCheck,
+  firstCycle: boolean,
+  cadenceTracker?: ProcessorCadenceTracker,
+): WorkCheck {
   return async (name) => {
+    if (cadenceTracker && !cadenceTracker.isDue(name)) return false;
+    if (cadenceTracker) cadenceTracker.markChecked(name);
     if (firstCycle && name === "process-earning-lifecycle") return true;
     return hasWork(name);
   };

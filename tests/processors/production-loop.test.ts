@@ -1,10 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { checkMarketplaceStoreOrderInitializationReadiness } from "@/lib/processors/marketplace-store-order-readiness";
-import { createProductionCycleWorkCheck, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "@/lib/processors/production-loop";
+import {
+  createProcessorCadenceTracker,
+  createProductionCycleWorkCheck,
+  DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS,
+  productionProcessors,
+  runProductionCycle,
+  summarizeProductionCycleReadiness,
+} from "@/lib/processors/production-loop";
 
 describe("production processor orchestration", () => {
   it("settles marketplace jobs after verified payment finalization", () => {
-    expect(productionProcessors).toEqual(["apply-paystack-webhook-events", "consume-verified-payment-events", "settle-marketplace-store-orders", "initialize-marketplace-store-orders", "expire-marketplace-reservations", "process-earning-lifecycle", "deliver-notifications"]);
+    expect(productionProcessors).toEqual([
+      "apply-paystack-webhook-events",
+      "consume-verified-payment-events",
+      "settle-marketplace-store-orders",
+      "initialize-marketplace-store-orders",
+      "expire-marketplace-reservations",
+      "process-earning-lifecycle",
+      "deliver-notifications",
+      "reconcile-expired-dispatch",
+    ]);
   });
   it("avoids creating processor receipts for empty queues", async () => {
     const execute = vi.fn();
@@ -91,5 +107,49 @@ describe("production processor orchestration", () => {
     const execute = vi.fn(async () => { stop = true; return { itemsCompleted: 1, itemsRetried: 0 }; });
     expect(await runProductionCycle(execute, () => stop)).toHaveLength(1);
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+  it("throttles cadence-configured processors to bounded execution intervals", () => {
+    let mockTime = 100_000;
+    const tracker = createProcessorCadenceTracker(DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS, () => mockTime);
+
+    // Initial cycle: due immediately (last = 0)
+    expect(tracker.isDue("reconcile-expired-dispatch")).toBe(true);
+    // Unconfigured processor: always due
+    expect(tracker.isDue("apply-paystack-webhook-events")).toBe(true);
+
+    // Mark checked at mockTime
+    tracker.markChecked("reconcile-expired-dispatch");
+    expect(tracker.isDue("reconcile-expired-dispatch")).toBe(false);
+
+    // Advance by 30 seconds (standard loop interval): still not due (needs 60s)
+    mockTime += 30_000;
+    expect(tracker.isDue("reconcile-expired-dispatch")).toBe(false);
+
+    // Advance by another 30 seconds: now 60s has passed, should be due
+    mockTime += 30_000;
+    expect(tracker.isDue("reconcile-expired-dispatch")).toBe(true);
+  });
+  it("integrates cadence filter into work check to prevent empty database sweeps", async () => {
+    let mockTime = 1_000_000;
+    const tracker = createProcessorCadenceTracker({ "reconcile-expired-dispatch": 60_000 }, () => mockTime);
+    const hasWork = vi.fn(async () => true);
+    const workCheck = createProductionCycleWorkCheck(hasWork, false, tracker);
+
+    // First cycle: due, so hasWork is invoked
+    const res1 = await workCheck("reconcile-expired-dispatch");
+    expect(res1).toBe(true);
+    expect(hasWork).toHaveBeenCalledTimes(1);
+
+    // Second cycle after 30s: not due, hasWork is NOT invoked (preventing DB sweep)
+    mockTime += 30_000;
+    const res2 = await workCheck("reconcile-expired-dispatch");
+    expect(res2).toBe(false);
+    expect(hasWork).toHaveBeenCalledTimes(1);
+
+    // Third cycle after another 30s: due again, hasWork is invoked
+    mockTime += 30_000;
+    const res3 = await workCheck("reconcile-expired-dispatch");
+    expect(res3).toBe(true);
+    expect(hasWork).toHaveBeenCalledTimes(2);
   });
 });
