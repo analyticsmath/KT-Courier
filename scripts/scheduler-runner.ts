@@ -14,11 +14,16 @@ interface ScheduledTask {
 
 const SCHEDULED_TASKS: ScheduledTask[] = [
   // High-frequency jobs (every 1 minute)
+  { name: "consume-verified-payment-events", intervalMs: 60_000, lastRunAt: 0 },
   { name: "finalize-paid-marketplace-checkouts", intervalMs: 60_000, lastRunAt: 0 },
+  { name: "initialize-marketplace-store-orders", intervalMs: 60_000, lastRunAt: 0 },
+  { name: "expire-marketplace-reservations", intervalMs: 60_000, lastRunAt: 0 },
   { name: "apply-paystack-webhook-events", intervalMs: 60_000, lastRunAt: 0 },
   { name: "reconcile-expired-dispatch", intervalMs: 60_000, lastRunAt: 0 },
+  { name: "deliver-notifications", intervalMs: 60_000, lastRunAt: 0 },
 
   // Medium-frequency jobs (every 5 minutes)
+  { name: "process-earning-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
   { name: "process-managed-marketing-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
 
   // Periodic reconciliation & accounting (every 15 to 30 minutes)
@@ -28,6 +33,7 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   { name: "scan-refund-reconciliation", intervalMs: 900_000, lastRunAt: 0 },
 
   // Settlement & cleanup (hourly)
+  { name: "settle-marketplace-store-orders", intervalMs: 3_600_000, lastRunAt: 0 },
   { name: "release-mature-store-earnings", intervalMs: 3_600_000, lastRunAt: 0 },
   { name: "release-mature-driver-earnings", intervalMs: 3_600_000, lastRunAt: 0 },
 

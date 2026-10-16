@@ -122,8 +122,8 @@ export function StoreCinema({ stores, mode, query = "" }: {
 
   if (!featured.length) return <section className={styles.emptyScene} ref={sceneRef} aria-labelledby="store-empty-title">
     <div className={styles.emptyTop}><span>{mode === "directory" ? "STORES" : "INDEPENDENT STOREFRONTS"}</span>{mode === "directory" && <div className={styles.cinemaSearch}><CommerceSearchCommand action={marketplaceStoresHref()} appearance="cinema" placeholder="Search storefronts" query={query} /></div>}</div>
-    <h1 id="store-empty-title">{mode === "directory" ? "No matching storefronts" : "Storefronts are coming soon"}</h1>
-    <p>{mode === "directory" ? "Try another search or browse all storefronts." : "Discover more from the marketplace."}</p>
+    <h1 id="store-empty-title">{mode === "directory" ? "No matching storefronts" : "No featured storefronts currently available"}</h1>
+    <p>{mode === "directory" ? "Try another search or browse all storefronts." : "Discover products and independent stores across the marketplace."}</p>
     <Link href={mode === "directory" ? marketplaceStoresHref() : "/shop/search"}>{mode === "directory" ? "Clear search →" : "Explore products →"}</Link>
   </section>;
 

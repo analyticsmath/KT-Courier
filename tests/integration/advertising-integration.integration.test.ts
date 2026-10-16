@@ -1,54 +1,111 @@
 import { describe, expect, it } from "vitest";
+import { AdvertisingFundingError } from "@/lib/advertising/funding.service";
+import { assertAdvertisingProductionReady } from "@/lib/advertising/production-lock";
+import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
 
-describe("Phase 24: Advertising Live PostgreSQL Integration Tests (Scaffolding)", () => {
-  // 1. AdvertisingAccount binds to store
-  it("Integration 1: AdvertisingAccount is successfully provisioned and bound to store", async () => {
-    // Scaffold database assertions
-    expect(true).toBe(true);
+describe("Phase 24: Advertising Live & Managed Marketing Domain Integration Tests", () => {
+  it("Integration 1: Advertising Funding Error instantiates with correct error codes", () => {
+    const error = new AdvertisingFundingError("INSUFFICIENT_FUNDS", "Store wallet balance is insufficient.");
+    expect(error.name).toBe("AdvertisingFundingError");
+    expect(error.code).toBe("INSUFFICIENT_FUNDS");
+    expect(error.message).toBe("Store wallet balance is insufficient.");
   });
 
-  // 2. Campaign creation inserts draft campaign
-  it("Integration 2: Campaign draft creation inserts valid row", async () => {
-    expect(true).toBe(true);
+  it("Integration 2: assertAdvertisingProductionReady throws fail-closed error when production lock is active", () => {
+    expect(() => assertAdvertisingProductionReady("CAMPAIGN_FUNDING")).toThrowError(/validation is approved|inactive/i);
   });
 
-  // 3. Campaign version creation persists version, snapshots, and targets
-  it("Integration 3: Campaign version persists with creative snapshots and targets", async () => {
-    expect(true).toBe(true);
+  it("Integration 3: ManagedMarketingService validates channel code structure", async () => {
+    const service = new ManagedMarketingService();
+    await expect(
+      service.createChannel({
+        actorUserId: "admin-1",
+        actorRole: "ADMIN",
+        code: "invalid_lowercase",
+        displayName: "Invalid Channel",
+      })
+    ).rejects.toThrow();
   });
 
-  // 4. Exclusion targeting filters campaigns
-  it("Integration 4: Search keyword exclusion targets filter out matching campaigns", async () => {
-    expect(true).toBe(true);
+  it("Integration 4: ManagedMarketingService enforces explicit execution mode capability", async () => {
+    const service = new ManagedMarketingService();
+    await expect(
+      service.requireApprovedForExecution("REQ-NON-EXISTENT")
+    ).rejects.toThrow();
   });
 
-  // 5. Inclusion targeting filters campaigns
-  it("Integration 5: Category inclusion targets require match to serve campaign", async () => {
-    expect(true).toBe(true);
+  it("Integration 5: ManagedMarketingService rejects unapproved request mutations", async () => {
+    const service = new ManagedMarketingService();
+    await expect(
+      service.runManually(
+        { actorUserId: "admin-1", actorRole: "ADMIN" },
+        "REQ-DRAFT-REF",
+        { operationId: "op-run-1", externalReference: "ext-123" }
+      )
+    ).rejects.toThrow();
   });
 
-  // 6. Frequency caps suppress serving
-  it("Integration 6: Frequency caps limit exposures in session context", async () => {
-    expect(true).toBe(true);
+  it("Integration 6: Commercial pricing snapshot calculation asserts gross revenue balance", () => {
+    const service = new ManagedMarketingService();
+    const testRequest = {
+      priceSnapshot: "1000.00",
+      taxSnapshot: "0.15",
+      currency: "ZAR",
+    };
+    const commercial = (service as any).deriveCommercialDto(testRequest);
+    expect(commercial).not.toBeNull();
+    expect(commercial.currency).toBe("ZAR");
+    expect(Number(commercial.grossAmount)).toBeCloseTo(1150.0, 2);
+    expect(Number(commercial.taxAmount)).toBeCloseTo(150.0, 2);
   });
 
-  // 7. Ledger allocation transfer posts correct double entry journal
-  it("Integration 7: Funding allocation DEBITs store payable and CREDITs platform held advertising funds", async () => {
-    expect(true).toBe(true);
+  it("Integration 7: Provider configuration guards prevent unverified automation execution", () => {
+    const service = new ManagedMarketingService();
+    expect(() =>
+      (service as any).assertExecutionCapability("AUTOMATED_PROVIDER", [
+        { active: true, automatedProviderCapability: "MANUAL_AVAILABLE" },
+      ])
+    ).toThrowError(/Automated provider publishing requires an explicitly configured provider/i);
   });
 
-  // 8. Return unused funding posts correct journal reversal
-  it("Integration 8: Return unused funding DEBITs platform held and CREDITs store payable", async () => {
-    expect(true).toBe(true);
+  it("Integration 8: Placement target validation distinguishes on-platform from external placements", async () => {
+    const service = new ManagedMarketingService();
+    await expect(
+      (service as any).resolvePlacementTarget({
+        kind: "ON_PLATFORM",
+        advertisingPlacementReference: null,
+      })
+    ).rejects.toThrowError(/Placement target is invalid/i);
   });
 
-  // 9. Click charge posts correct billing journal
-  it("Integration 9: Click charge DEBITs platform held and CREDITs platform revenue", async () => {
-    expect(true).toBe(true);
+  it("Integration 9: Reject action requires actor and structured rejection reason", async () => {
+    const service = new ManagedMarketingService();
+    await expect(
+      service.rejectRequest(
+        { actorUserId: "", actorRole: "ADMIN" } as any,
+        "REQ-TEST",
+        "OP-1",
+        ""
+      )
+    ).rejects.toThrow();
   });
 
-  // 10. Click reversal posts correct reversal journal
-  it("Integration 10: Click reversal DEBITs platform revenue and CREDITs platform held", async () => {
-    expect(true).toBe(true);
+  it("Integration 10: Performance recording rejects invalid metrics", async () => {
+    const service = new ManagedMarketingService();
+    await expect(
+      service.recordPerformance(
+        { actorUserId: "admin-1", actorRole: "ADMIN" },
+        "REQ-TEST",
+        {
+          operationId: "op-perf-1",
+          impressions: -5,
+          clicks: 10,
+          conversions: 0,
+          periodStartsAt: new Date(),
+          periodEndsAt: new Date(),
+          externalReference: "ext-1",
+        }
+      )
+    ).rejects.toThrow();
   });
 });
