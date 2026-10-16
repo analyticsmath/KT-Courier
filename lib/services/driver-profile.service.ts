@@ -285,3 +285,102 @@ export async function attachOwnProfilePhoto(input: {
   return toDriverSelfDto(updated);
 }
 
+// ─── Driver Self Service Regions ──────────────────────────────────────────────
+export async function getOwnDriverRegions(userId: string) {
+  const driver = await prisma.driverProfile.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      serviceRegions: {
+        include: {
+          deliveryRegion: true,
+        },
+      },
+    },
+  });
+  if (!driver) throw new Error("Driver profile not found.");
+
+  const allRegions = await prisma.deliveryRegion.findMany({
+    where: { active: true },
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      city: true,
+      province: true,
+    },
+  });
+
+  const assignedRegions = driver.serviceRegions.map((sr) => ({
+    regionId: sr.deliveryRegionId,
+    name: sr.deliveryRegion.name,
+    slug: sr.deliveryRegion.slug,
+    isPrimary: sr.isPrimary,
+  }));
+
+  const primaryRegionId = driver.serviceRegions.find((sr) => sr.isPrimary)?.deliveryRegionId ?? null;
+
+  return {
+    allRegions,
+    assignedRegions,
+    primaryRegionId,
+  };
+}
+
+export async function updateOwnDriverRegions(
+  userId: string,
+  regionIds: string[],
+  primaryRegionId?: string | null
+) {
+  return prisma.$transaction(async (tx) => {
+    const driver = await tx.driverProfile.findUnique({ where: { userId }, select: { id: true } });
+    if (!driver) throw new Error("Driver profile not found.");
+
+    // Validate that all regionIds exist and are active
+    const validRegions = await tx.deliveryRegion.findMany({
+      where: { id: { in: regionIds }, active: true },
+      select: { id: true },
+    });
+
+    if (validRegions.length !== regionIds.length) {
+      throw new Error("One or more selected delivery regions are invalid or inactive.");
+    }
+
+    const resolvedPrimary = primaryRegionId && regionIds.includes(primaryRegionId)
+      ? primaryRegionId
+      : regionIds[0] ?? null;
+
+    // Delete existing mappings
+    await tx.driverServiceRegion.deleteMany({
+      where: { driverProfileId: driver.id },
+    });
+
+    // Create new mappings
+    if (regionIds.length > 0) {
+      await tx.driverServiceRegion.createMany({
+        data: regionIds.map((rId) => ({
+          driverProfileId: driver.id,
+          deliveryRegionId: rId,
+          isPrimary: rId === resolvedPrimary,
+        })),
+      });
+    }
+
+    const updated = await tx.driverServiceRegion.findMany({
+      where: { driverProfileId: driver.id },
+      include: { deliveryRegion: true },
+    });
+
+    return {
+      assignedRegions: updated.map((sr) => ({
+        regionId: sr.deliveryRegionId,
+        name: sr.deliveryRegion.name,
+        slug: sr.deliveryRegion.slug,
+        isPrimary: sr.isPrimary,
+      })),
+      primaryRegionId: resolvedPrimary,
+    };
+  });
+}
+

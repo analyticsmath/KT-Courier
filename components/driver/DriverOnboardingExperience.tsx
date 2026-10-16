@@ -38,14 +38,61 @@ interface VehicleRow {
   media?: Array<{ purpose: string }>;
 }
 
+interface RegionOption {
+  id: string;
+  name: string;
+  slug: string;
+  city?: string | null;
+  province?: string | null;
+}
+
+interface AssignedRegion {
+  regionId: string;
+  name: string;
+  slug: string;
+  isPrimary: boolean;
+}
+
+interface DriverReadinessData {
+  isDispatchReady: boolean;
+  canBeAvailable: boolean;
+  reasons: string[];
+  blockers: Array<{
+    key: string;
+    category: string;
+    message: string;
+    actionLabel: string;
+    actionHref: string;
+  }>;
+  checklist: Array<{
+    key: string;
+    label: string;
+    description: string;
+    status: string;
+    detail?: string;
+    actionLabel?: string;
+    actionHref?: string;
+  }>;
+}
+
 export function DriverOnboardingExperience({
   initialDriver,
   initialDocuments = [],
   initialVehicles = [],
+  initialRegions,
+  initialReadiness,
+  initialTab = "identity",
 }: {
   initialDriver: DriverSelfDto;
   initialDocuments?: DocumentRow[];
   initialVehicles?: VehicleRow[];
+  initialRegions?: {
+    allRegions: RegionOption[];
+    assignedRegions: AssignedRegion[];
+    primaryRegionId: string | null;
+  };
+  initialReadiness?: DriverReadinessData | null;
+  initialTab?: "identity" | "documents" | "vehicles" | "regions";
 }) {
   const [driver, setDriver] = useState(initialDriver);
   const [documents, setDocuments] = useState<DocumentRow[]>(initialDocuments);
@@ -84,11 +131,26 @@ export function DriverOnboardingExperience({
   const [vCapacityKg, setVCapacityKg] = useState("");
   const [vehicleFieldErrors, setVehicleFieldErrors] = useState<Record<string, string>>({});
 
+  // Regions state
+  const [regions] = useState<RegionOption[]>(initialRegions?.allRegions ?? []);
+  const [assignedRegionIds, setAssignedRegionIds] = useState<string[]>(
+    initialRegions?.assignedRegions.map((r) => r.regionId) ?? driver.serviceRegions.map((r) => r.regionId)
+  );
+  const [primaryRegionId, setPrimaryRegionId] = useState<string>(
+    initialRegions?.primaryRegionId ?? driver.serviceRegions.find((r) => r.isPrimary)?.regionId ?? ""
+  );
+  const [savingRegions, setSavingRegions] = useState(false);
+  const [regionsMessage, setRegionsMessage] = useState("");
+  const [regionsError, setRegionsError] = useState("");
+
+  // Readiness state
+  const [readiness, setReadiness] = useState<DriverReadinessData | null>(initialReadiness ?? null);
+
   // Status feedback
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"identity" | "documents" | "vehicles">("identity");
+  const [activeTab, setActiveTab] = useState<"identity" | "documents" | "vehicles" | "regions">(initialTab);
 
   // Document upload state
   const [uploadingDoc, setUploadingDoc] = useState(false);
@@ -109,6 +171,19 @@ export function DriverOnboardingExperience({
   const [vehMediaFile, setVehMediaFile] = useState<File | null>(null);
   const [uploadingVehMedia, setUploadingVehMedia] = useState(false);
 
+  // Refresh readiness
+  async function refreshReadiness() {
+    try {
+      const res = await fetch("/api/driver/readiness");
+      if (res.ok) {
+        const data = await res.json();
+        setReadiness(data);
+      }
+    } catch {
+      // non-blocking
+    }
+  }
+
   // Refresh documents
   async function refreshDocuments() {
     try {
@@ -116,6 +191,7 @@ export function DriverOnboardingExperience({
       if (res.ok) {
         const data = await res.json();
         setDocuments(data);
+        await refreshReadiness();
       }
     } catch {
       // non-blocking
@@ -129,9 +205,42 @@ export function DriverOnboardingExperience({
       if (res.ok) {
         const data = await res.json();
         setVehicles(data);
+        await refreshReadiness();
       }
     } catch {
       // non-blocking
+    }
+  }
+
+  // Handle saving operating regions
+  async function handleSaveRegions(e: React.FormEvent) {
+    e.preventDefault();
+    if (assignedRegionIds.length === 0) {
+      setRegionsError("Please select at least one delivery region.");
+      return;
+    }
+    setSavingRegions(true);
+    setRegionsError("");
+    setRegionsMessage("");
+    try {
+      const res = await fetch("/api/driver/regions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          regionIds: assignedRegionIds,
+          primaryRegionId: primaryRegionId || assignedRegionIds[0] || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update operating regions.");
+      }
+      setRegionsMessage("Operating regions updated successfully.");
+      await refreshReadiness();
+    } catch (err) {
+      setRegionsError(err instanceof Error ? err.message : "Failed to update operating regions.");
+    } finally {
+      setSavingRegions(false);
     }
   }
 
@@ -476,60 +585,136 @@ export function DriverOnboardingExperience({
       <div className="space-y-6">
         {/* Status banner */}
         <OperationalPanel title="Compliance and Onboarding Status">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-[var(--kt-ink-navy)]">
-                  {driver.displayName || "Courier Driver"} ({driver.driverCode})
-                </span>
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold text-[var(--kt-ink-navy)]">
+                    {driver.displayName || "Courier Driver"} ({driver.driverCode})
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-medium text-[var(--kt-text-muted)]">Profile:</span>
+                    <ProtectedStatus
+                      label={driver.onboardingStatus.replace(/_/g, " ")}
+                      tone={profileStatusTone}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-medium text-[var(--kt-text-muted)]">Vehicle:</span>
+                    <ProtectedStatus
+                      label={
+                        hasApprovedVehicle
+                          ? "APPROVED"
+                          : hasPendingVehicle
+                          ? "PENDING REVIEW"
+                          : vehicles.length > 0
+                          ? "ACTION REQUIRED"
+                          : "NO VEHICLE"
+                      }
+                      tone={vehicleStatusTone}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-medium text-[var(--kt-text-muted)]">Operating Regions:</span>
+                    <ProtectedStatus
+                      label={assignedRegionIds.length > 0 ? `${assignedRegionIds.length} ASSIGNED` : "NONE"}
+                      tone={assignedRegionIds.length > 0 ? "success" : "danger"}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-medium text-[var(--kt-text-muted)]">Dispatch:</span>
+                    <ProtectedStatus
+                      label={readiness?.isDispatchReady ? "DISPATCH READY" : readiness?.canBeAvailable ? "ONLINE ACTION REQUIRED" : "NOT READY"}
+                      tone={readiness?.isDispatchReady ? "success" : readiness?.canBeAvailable ? "information" : "warning"}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--kt-text-muted)] mt-1">
+                  {readiness?.isDispatchReady
+                    ? "Your driver profile, identity, licence, vehicle compliance, and delivery regions are verified. You are active and eligible for dispatch offers."
+                    : readiness && readiness.blockers.length > 0
+                    ? `Dispatch readiness incomplete: ${readiness.blockers.length} requirement(s) must be satisfied before orders can be offered.`
+                    : "Complete all required steps to activate your courier delivery profile."}
+                </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium text-[var(--kt-text-muted)]">Profile:</span>
-                  <ProtectedStatus
-                    label={driver.onboardingStatus.replace(/_/g, " ")}
-                    tone={profileStatusTone}
-                  />
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium text-[var(--kt-text-muted)]">Vehicle:</span>
-                  <ProtectedStatus
-                    label={
-                      hasApprovedVehicle
-                        ? "APPROVED"
-                        : hasPendingVehicle
-                        ? "PENDING REVIEW"
-                        : vehicles.length > 0
-                        ? "ACTION REQUIRED"
-                        : "NO VEHICLE"
-                    }
-                    tone={vehicleStatusTone}
-                  />
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium text-[var(--kt-text-muted)]">Dispatch:</span>
-                  <ProtectedStatus
-                    label={isDispatchEligible ? "ELIGIBLE" : "NOT ELIGIBLE"}
-                    tone={dispatchStatusTone}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-[var(--kt-text-muted)] mt-1">
-                {isDispatchEligible
-                  ? "Your driver profile and vehicle compliance have both been verified and approved. You are eligible for dispatch assignments."
-                  : isProfileApproved && !hasApprovedVehicle
-                  ? "Your personal profile and identity credentials are approved. However, you do not have an approved, compliant vehicle. Vehicle registration and document approval (registration, licence disc, insurance) are mandatory before dispatch activation."
-                  : driver.onboardingStatus === "PENDING_REVIEW"
-                  ? "Your profile is awaiting administrator review. Check the document and vehicle sections below for any outstanding requirements."
-                  : driver.onboardingStatus === "REJECTED"
-                  ? "Your onboarding profile requires corrections. Please review the details below and resubmit."
-                  : "Complete all required steps to activate your courier delivery profile."}
-              </p>
+              {readiness?.isDispatchReady && (
+                <Link className="eo-driver-button eo-driver-button--primary" href="/driver">
+                  Go to Driver Dashboard →
+                </Link>
+              )}
             </div>
-            {isDispatchEligible && (
-              <Link className="eo-driver-button eo-driver-button--primary" href="/driver">
-                Go to Driver Dashboard →
-              </Link>
+
+            {/* Authoritative Readiness Checklist */}
+            {readiness?.checklist && (
+              <div className="pt-3 border-t border-[var(--kt-soft-border)]">
+                <span className="block text-xs font-bold uppercase tracking-wider text-[var(--kt-ink-navy)] mb-2.5">
+                  Readiness & Compliance Checklist ({readiness.checklist.filter((c) => c.status === "COMPLETED").length}/{readiness.checklist.length} verified)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {readiness.checklist.map((item) => {
+                    const isDone = item.status === "COMPLETED";
+                    const isPending = item.status === "PENDING_REVIEW";
+                    const isExpired = item.status === "EXPIRED";
+                    const isRejected = item.status === "REJECTED";
+                    const tone: "success" | "warning" | "danger" | "neutral" = isDone
+                      ? "success"
+                      : isPending
+                      ? "warning"
+                      : isExpired || isRejected
+                      ? "danger"
+                      : "neutral";
+
+                    const targetTab =
+                      item.key === "IDENTITY_DOCUMENT" || item.key === "DRIVING_LICENCE"
+                        ? "documents"
+                        : item.key === "COMPLIANT_VEHICLE"
+                        ? "vehicles"
+                        : item.key === "SERVICE_REGIONS"
+                        ? "regions"
+                        : item.key === "DRIVER_PROFILE" || item.key === "USER_ACCOUNT"
+                        ? "identity"
+                        : null;
+
+                    return (
+                      <div
+                        key={item.key}
+                        className={`p-2.5 rounded-xl border flex flex-col justify-between gap-1.5 ${
+                          isDone
+                            ? "bg-[var(--kt-mint-wash)]/30 border-[var(--kt-teal-emerald)]/30"
+                            : isPending
+                            ? "bg-amber-50/50 border-amber-200"
+                            : "bg-[var(--kt-cool-gray)]/50 border-[var(--kt-soft-border)]"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold text-[var(--kt-ink-navy)] truncate">
+                              {item.label}
+                            </span>
+                            <ProtectedStatus label={item.status} tone={tone} />
+                          </div>
+                          {item.detail && (
+                            <p className="text-[11px] text-[var(--kt-text-muted)] mt-1 truncate" title={item.detail}>
+                              {item.detail}
+                            </p>
+                          )}
+                        </div>
+                        {!isDone && targetTab && (
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab(targetTab)}
+                            className="text-[11px] font-semibold text-[var(--kt-signal-cobalt)] hover:underline text-left mt-1"
+                          >
+                            Resolve in {targetTab} →
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </OperationalPanel>
@@ -571,6 +756,18 @@ export function DriverOnboardingExperience({
             aria-pressed={activeTab === "vehicles"}
           >
             3. Fleet Vehicles ({vehicles.length})
+          </button>
+          <button
+            type="button"
+            className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${
+              activeTab === "regions"
+                ? "border-[var(--kt-signal-cobalt)] text-[var(--kt-signal-cobalt)]"
+                : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+            }`}
+            onClick={() => setActiveTab("regions")}
+            aria-pressed={activeTab === "regions"}
+          >
+            4. Operating Regions ({assignedRegionIds.length})
           </button>
         </div>
 
@@ -1284,7 +1481,7 @@ export function DriverOnboardingExperience({
                 </div>
               )}
 
-              <div className="flex justify-between pt-4 border-t border-[var(--kt-soft-border)] mt-4">
+              <div className="flex justify-between items-center pt-4 border-t border-[var(--kt-soft-border)] mt-4">
                 <button
                   type="button"
                   onClick={() => setActiveTab("documents")}
@@ -1292,10 +1489,160 @@ export function DriverOnboardingExperience({
                 >
                   ← Back to Documents
                 </button>
-                <Link className="eo-driver-button eo-driver-button--primary" href="/driver">
-                  View Driver Home →
-                </Link>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("regions")}
+                    className="eo-driver-button eo-driver-button--primary"
+                  >
+                    Next: Operating Regions →
+                  </button>
+                </div>
               </div>
+            </OperationalPanel>
+          </div>
+        )}
+
+        {/* Tab 4: Operating Regions */}
+        {activeTab === "regions" && (
+          <div className="space-y-6">
+            <OperationalPanel
+              title="Step 4: Operating Delivery Regions"
+              description="Select the coverage areas where you are available to collect and deliver orders. Choose your primary region where you spend most of your operational hours."
+            >
+              <form onSubmit={handleSaveRegions} className="space-y-5">
+                {regionsMessage && (
+                  <div role="status" className="p-3 text-xs bg-[var(--kt-mint-wash)] text-[var(--kt-teal-emerald)] rounded-xl border border-[var(--kt-teal-emerald)] font-semibold">
+                    {regionsMessage}
+                  </div>
+                )}
+                {regionsError && (
+                  <div role="alert" className="p-3 text-xs bg-[var(--kt-red-soft)] text-[var(--kt-red)] rounded-xl border border-[var(--kt-red)] font-semibold">
+                    {regionsError}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[var(--kt-ink-navy)]">
+                      Available Delivery Regions ({assignedRegionIds.length} selected)
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allIds = regions.map((r) => r.id);
+                          setAssignedRegionIds(allIds);
+                          if (!primaryRegionId && allIds.length > 0) setPrimaryRegionId(allIds[0]);
+                        }}
+                        className="text-xs font-semibold text-[var(--kt-signal-cobalt)] hover:underline"
+                      >
+                        Select all
+                      </button>
+                      <span className="text-xs text-[var(--kt-soft-border)]">|</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAssignedRegionIds([]);
+                          setPrimaryRegionId("");
+                        }}
+                        className="text-xs font-semibold text-[var(--kt-text-muted)] hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {regions.length === 0 ? (
+                    <p className="text-sm text-[var(--kt-text-muted)] py-4 text-center">
+                      No active delivery regions configured in the system.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {regions.map((reg) => {
+                        const isChecked = assignedRegionIds.includes(reg.id);
+                        const isPrimary = primaryRegionId === reg.id;
+                        return (
+                          <div
+                            key={reg.id}
+                            className={`p-3.5 rounded-xl border transition-colors flex items-start justify-between gap-3 ${
+                              isChecked
+                                ? "bg-[var(--kt-mint-wash)]/20 border-[var(--kt-signal-cobalt)]"
+                                : "bg-white border-[var(--kt-soft-border)]"
+                            }`}
+                          >
+                            <label className="flex items-start gap-3 cursor-pointer flex-1">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const next = [...assignedRegionIds, reg.id];
+                                    setAssignedRegionIds(next);
+                                    if (!primaryRegionId) setPrimaryRegionId(reg.id);
+                                  } else {
+                                    const next = assignedRegionIds.filter((id) => id !== reg.id);
+                                    setAssignedRegionIds(next);
+                                    if (primaryRegionId === reg.id) {
+                                      setPrimaryRegionId(next[0] ?? "");
+                                    }
+                                  }
+                                }}
+                                className="mt-1 h-4 w-4 rounded border-[var(--kt-soft-border)] text-[var(--kt-signal-cobalt)]"
+                              />
+                              <div>
+                                <span className="text-sm font-bold text-[var(--kt-ink-navy)] block">
+                                  {reg.name}
+                                </span>
+                                {(reg.city || reg.province) && (
+                                  <span className="text-xs text-[var(--kt-text-muted)] block">
+                                    {[reg.city, reg.province].filter(Boolean).join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                            </label>
+
+                            {isChecked && (
+                              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-[var(--kt-ink-navy)] whitespace-nowrap pt-1">
+                                <input
+                                  type="radio"
+                                  name="primaryRegion"
+                                  checked={isPrimary}
+                                  onChange={() => setPrimaryRegionId(reg.id)}
+                                  className="h-3.5 w-3.5 text-[var(--kt-signal-cobalt)]"
+                                />
+                                <span>Primary</span>
+                              </label>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center pt-4 border-t border-[var(--kt-soft-border)]">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("vehicles")}
+                    className="eo-driver-button eo-driver-button--secondary"
+                  >
+                    ← Back to Vehicles
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="submit"
+                      disabled={savingRegions || assignedRegionIds.length === 0}
+                      className="eo-driver-button eo-driver-button--primary"
+                    >
+                      {savingRegions ? "Saving..." : "Save Operating Regions"}
+                    </button>
+                    <Link className="eo-driver-button eo-driver-button--secondary" href="/driver">
+                      Driver Home →
+                    </Link>
+                  </div>
+                </div>
+              </form>
             </OperationalPanel>
           </div>
         )}

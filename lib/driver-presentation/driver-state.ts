@@ -41,6 +41,8 @@ export function getDriverOperationalPresentation(args: {
   status: DriverStatus | string;
   availability: DriverAvailability | string;
   assignments: readonly DriverAssignmentStateInput[];
+  complianceEligible?: boolean;
+  complianceSummary?: string;
 }): DriverOperationalPresentation {
   if (args.status === "SUSPENDED" || args.status === "REJECTED") {
     return {
@@ -95,6 +97,16 @@ export function getDriverOperationalPresentation(args: {
       description: "Review the dispatched assignment and use the canonical accept or reject action.",
       tone: "warning",
       assignmentId: offer.id,
+    };
+  }
+
+  if (args.complianceEligible === false) {
+    return {
+      state: "ACCOUNT_ACTION_REQUIRED",
+      label: "Readiness requirements incomplete",
+      description: args.complianceSummary ?? "You have incomplete compliance or fleet requirements before dispatch can assign orders to you.",
+      tone: "warning",
+      assignmentId: null,
     };
   }
 

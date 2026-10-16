@@ -28,10 +28,49 @@ interface ActivityLog {
   } | null;
 }
 
+interface AssignedDeliveryItem {
+  id: string;
+  status: string;
+  assignedAt: string;
+  acceptedAt?: string | null;
+  order: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    originCity?: string | null;
+    destinationCity?: string | null;
+    totalAmount?: string | null;
+  };
+}
+
+interface DriverReadinessSummary {
+  isDispatchReady: boolean;
+  canBeAvailable: boolean;
+  reasons: string[];
+  blockers: Array<{
+    key: string;
+    category: string;
+    message: string;
+    actionLabel: string;
+    actionHref: string;
+  }>;
+  checklist: Array<{
+    key: string;
+    label: string;
+    description: string;
+    status: string;
+    detail?: string;
+  }>;
+  activeAssignmentCount: number;
+  maxConcurrentAssignments: number;
+}
+
 interface DriverDetailsConsoleProps {
   initialDriver: DriverDetailDto;
   allRegions: Region[];
   activityLogs: ActivityLog[];
+  readiness?: DriverReadinessSummary | null;
+  recentAssignments?: AssignedDeliveryItem[];
 }
 
 function DocumentDownload({ media, label }: { media?: DriverDocumentMediaDto | null; label: string }) {
@@ -47,6 +86,8 @@ export function DriverDetailsConsole({
   initialDriver,
   allRegions,
   activityLogs,
+  readiness,
+  recentAssignments = [],
 }: DriverDetailsConsoleProps) {
   const [driver, setDriver] = useState<DriverDetailDto>(initialDriver);
   const [logs, setLogs] = useState<ActivityLog[]>(activityLogs);
@@ -1035,20 +1076,168 @@ export function DriverDetailsConsole({
           </div>
         </Card>
 
-        {/* Future Assignments Placeholder */}
+        {/* Driver Readiness & Dispatch Eligibility Inspection */}
         <Card>
-          <div className="space-y-2">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
-              Assigned Deliveries
-            </h3>
-            <div className="p-8 text-center bg-[var(--kt-cool-gray)] rounded-2xl border border-[var(--kt-soft-border)]">
-              <p className="text-sm font-semibold text-[var(--kt-text-muted)]">
-                Assignments will appear after dispatch is enabled.
-              </p>
-              <p className="text-xs text-[var(--kt-text-muted)] mt-1">
-                Dispatch engine is scheduled for Phase 2.5.
-              </p>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--kt-soft-border)] pb-2">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)]">
+                  Driver Readiness & Dispatch Eligibility Inspection
+                </h3>
+                <p className="text-xs text-[var(--kt-text-muted)] mt-0.5">
+                  Authoritative multi-factor evaluation of account, identity, driving credentials, fleet compliance, and service regions.
+                </p>
+              </div>
+              <div>
+                <Badge
+                  variant={readiness?.isDispatchReady ? "green" : "amber"}
+                >
+                  {readiness?.isDispatchReady ? "DISPATCH READY" : "ELIGIBILITY BLOCKED"}
+                </Badge>
+              </div>
             </div>
+
+            {readiness?.checklist && (
+              <div className="space-y-3">
+                <span className="block text-xs font-bold uppercase tracking-wider text-[var(--kt-ink-navy)]">
+                  Evaluation Factors ({readiness.checklist.filter((c) => c.status === "COMPLETED").length}/{readiness.checklist.length} verified)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {readiness.checklist.map((item) => {
+                    const isDone = item.status === "COMPLETED";
+                    const isPending = item.status === "PENDING_REVIEW";
+                    const isExpired = item.status === "EXPIRED";
+                    const isRejected = item.status === "REJECTED";
+                    const variant: BadgeVariant = isDone
+                      ? "green"
+                      : isPending
+                      ? "amber"
+                      : isExpired || isRejected
+                      ? "red"
+                      : "slate";
+
+                    return (
+                      <div
+                        key={item.key}
+                        className={`p-3 rounded-xl border flex flex-col justify-between gap-1.5 ${
+                          isDone
+                            ? "bg-[var(--kt-mint-wash)]/30 border-[var(--kt-teal-emerald)]/30"
+                            : isPending
+                            ? "bg-amber-50/50 border-amber-200"
+                            : "bg-[var(--kt-cool-gray)]/50 border-[var(--kt-soft-border)]"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold text-[var(--kt-ink-navy)] truncate">
+                              {item.label}
+                            </span>
+                            <Badge variant={variant}>
+                              {item.status}
+                            </Badge>
+                          </div>
+                          {item.detail && (
+                            <p className="text-[11px] text-[var(--kt-text-muted)] mt-1 line-clamp-2" title={item.detail}>
+                              {item.detail}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {readiness && !readiness.isDispatchReady && readiness.blockers.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2">
+                <span className="block text-xs font-bold uppercase tracking-wider text-amber-900">
+                  Active Dispatch Blockers ({readiness.blockers.length})
+                </span>
+                <ul className="space-y-1.5 list-none p-0 m-0">
+                  {readiness.blockers.map((b) => (
+                    <li key={b.key} className="flex items-start gap-2 text-xs text-amber-950 font-medium">
+                      <span className="text-amber-600 font-bold">•</span>
+                      <span>{b.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Assigned Deliveries */}
+        <Card>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-[var(--kt-soft-border)] pb-2">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)]">
+                Assigned Deliveries ({recentAssignments.length})
+              </h3>
+              <span className="text-xs text-[var(--kt-text-muted)] font-medium">
+                Active load: {readiness?.activeAssignmentCount ?? 0} / {readiness?.maxConcurrentAssignments ?? 1}
+              </span>
+            </div>
+
+            {recentAssignments.length === 0 ? (
+              <div className="p-6 text-center bg-[var(--kt-cool-gray)] rounded-2xl border border-[var(--kt-soft-border)]">
+                <p className="text-sm font-semibold text-[var(--kt-text-muted)]">
+                  No deliveries assigned to this driver yet.
+                </p>
+                <p className="text-xs text-[var(--kt-text-muted)] mt-1">
+                  Dispatched orders will appear here with live assignment and transit statuses.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-[var(--kt-soft-border)] text-[var(--kt-text-muted)] uppercase tracking-wider text-[10px]">
+                      <th className="py-2 px-3 font-bold">Tracking #</th>
+                      <th className="py-2 px-3 font-bold">Route</th>
+                      <th className="py-2 px-3 font-bold">Assignment</th>
+                      <th className="py-2 px-3 font-bold">Order Status</th>
+                      <th className="py-2 px-3 font-bold">Assigned At</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--kt-soft-border)]">
+                    {recentAssignments.map((a) => (
+                      <tr key={a.id} className="hover:bg-[var(--kt-cool-gray)]/40 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-[var(--kt-signal-cobalt)]">
+                          <a href={`/admin/orders/${a.order.id}`} className="hover:underline">
+                            {a.order.orderNumber}
+                          </a>
+                        </td>
+                        <td className="py-2.5 px-3 text-[var(--kt-text)]">
+                          {[a.order.originCity, a.order.destinationCity].filter(Boolean).join(" → ") || "Local"}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <Badge
+                            variant={
+                              a.status === "COMPLETED"
+                                ? "green"
+                                : a.status === "ACCEPTED" || a.status === "ASSIGNED"
+                                ? "blue"
+                                : a.status === "REJECTED" || a.status === "CANCELLED"
+                                ? "red"
+                                : "slate"
+                            }
+                          >
+                            {a.status}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3 font-medium text-[var(--kt-ink-navy)]">
+                          {a.order.status.replace(/_/g, " ")}
+                        </td>
+                        <td className="py-2.5 px-3 text-[var(--kt-text-muted)]">
+                          {new Date(a.assignedAt).toLocaleDateString()} {new Date(a.assignedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </Card>
 

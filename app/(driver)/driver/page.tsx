@@ -7,6 +7,7 @@ import { AccessBoundaryIllustration } from "@/components/protected-v2/illustrati
 import { requireRole } from "@/lib/auth/guards";
 import { getDriverProfileByUserId } from "@/lib/services/driver-profile.service";
 import { getDriverProfileIdForUser, listDriverAssignments } from "@/lib/services/driver-assignments.service";
+import { evaluateDriverReadiness } from "@/lib/services/driver-readiness.service";
 import { UserRole } from "@/types/db";
 import { getDriverDashboardInsights } from "@/lib/dashboard-insights/driver-dashboard-insights";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
@@ -40,15 +41,17 @@ export default async function DriverDashboardPage({
 
   const driverProfileId = await getDriverProfileIdForUser(user.id);
   const period = parseDashboardPeriod((await searchParams).period);
-  const [assignments, insight] = await Promise.all([
+  const [assignments, insight, readiness] = await Promise.all([
     driverProfileId ? listDriverAssignments(driverProfileId, "all") : [],
     getDriverDashboardInsights(period),
+    evaluateDriverReadiness(driver.id).catch(() => null),
   ]);
 
   return (
     <DriverHomePage
       driver={driver}
       assignments={assignments}
+      readiness={readiness}
       insight={insight}
       period={period}
     />

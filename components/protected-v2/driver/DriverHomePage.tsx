@@ -20,11 +20,13 @@ import {
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { DriverActiveRun } from "./DriverActiveRun";
 import type { CountInsight, DashboardPeriod } from "@/lib/dashboard-insights/types";
+import type { DriverReadinessEvaluation } from "@/lib/services/driver-readiness.service";
 import styles from "../dashboard/dashboard.module.css";
 
 export interface DriverHomePageProps {
   driver: DriverSelfDto;
   assignments: readonly DriverAssignmentDto[];
+  readiness?: DriverReadinessEvaluation | null;
   insight?: CountInsight | null;
   period?: DashboardPeriod;
   activity?: React.ReactNode;
@@ -33,6 +35,7 @@ export interface DriverHomePageProps {
 export function DriverHomePage({
   driver,
   assignments,
+  readiness,
   insight,
   period = "7_DAYS",
   activity,
@@ -42,6 +45,8 @@ export function DriverHomePage({
     status: driver.status,
     availability: driver.availability,
     assignments: ordered,
+    complianceEligible: readiness ? readiness.canBeAvailable : undefined,
+    complianceSummary: readiness?.blockers[0]?.message,
   });
 
   const active = state.assignmentId ? ordered.find((a) => a.id === state.assignmentId) ?? null : null;
@@ -134,21 +139,64 @@ export function DriverHomePage({
           ) : (
             <DashboardCard
               tone="surface"
-              eyebrow="Driver status"
-              title={state.label}
+              eyebrow={readiness && !readiness.isDispatchReady ? "Dispatch readiness" : "Driver status"}
+              title={
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <span className="text-lg font-bold tracking-tight">{state.label}</span>
+                  {readiness && !readiness.isDispatchReady && (
+                    <ProtectedStatus
+                      label={readiness.canBeAvailable ? "Online action required" : `${readiness.blockers.length} requirement(s) pending`}
+                      tone={readiness.canBeAvailable ? "information" : "warning"}
+                    />
+                  )}
+                </div>
+              }
               description={state.description}
               padding="normal"
             >
-              <div className="flex flex-col sm:flex-row items-center gap-5 py-2">
-                <DashboardIllustrationAsset role="driver" className={styles.illustrationCompact} />
-                <div className="flex flex-col gap-3 text-center sm:text-left">
-                  <p className="text-sm text-[var(--dash-ink-secondary)] m-0">{state.description}</p>
-                  <div>
-                    <Link className={`${styles.btn} ${styles.btnSecondary}`} href="/driver/availability">
-                      Manage availability
-                    </Link>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col sm:flex-row items-center gap-5">
+                  <DashboardIllustrationAsset role="driver" className={styles.illustrationCompact} />
+                  <div className="flex flex-col gap-2 text-center sm:text-left flex-1">
+                    <p className="text-sm text-[var(--dash-ink-secondary)] m-0">{state.description}</p>
+                    {readiness && (
+                      <span className="text-xs font-semibold text-[var(--dash-muted)]">
+                        {readiness.checklist.filter((c) => c.status === "COMPLETED").length} of {readiness.checklist.length} readiness requirements satisfied
+                      </span>
+                    )}
+                    <div>
+                      <Link className={`${styles.btn} ${styles.btnSecondary}`} href="/driver/availability">
+                        Manage availability
+                      </Link>
+                    </div>
                   </div>
                 </div>
+
+                {readiness && !readiness.isDispatchReady && readiness.blockers.length > 0 && (
+                  <div className="rounded-xl border border-[var(--dash-line)] bg-[var(--dash-surface-subtle)] p-3.5 space-y-2.5">
+                    <span className="block text-xs font-bold uppercase tracking-wider text-[var(--dash-ink)]">
+                      Action Required for Dispatch Eligibility
+                    </span>
+                    <ul className="space-y-2 list-none p-0 m-0">
+                      {readiness.blockers.map((b) => (
+                        <li
+                          key={b.key}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-[var(--dash-surface)] border border-[var(--dash-line)]"
+                        >
+                          <span className="text-xs text-[var(--dash-ink)] font-medium">
+                            {b.message}
+                          </span>
+                          <Link
+                            className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSm} whitespace-nowrap self-start sm:self-auto`}
+                            href={b.actionHref}
+                          >
+                            {b.actionLabel}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </DashboardCard>
           )}

@@ -67,6 +67,14 @@ export const AdminDriverRegionsSchema = z.object({
 
 export type AdminDriverRegionsInput = z.infer<typeof AdminDriverRegionsSchema>;
 
+// ─── Driver Self Service Regions Input ────────────────────────────────────────
+export const DriverSelfRegionsSchema = z.object({
+  regionIds: z.array(z.string().min(1, "Region ID cannot be empty")).min(1, "Select at least one operating region"),
+  primaryRegionId: z.string().nullable().optional(),
+});
+
+export type DriverSelfRegionsInput = z.infer<typeof DriverSelfRegionsSchema>;
+
 // ─── Driver Self Profile Update ──────────────────────────────────────────────
 export const DriverSelfUpdateSchema = z.object({
   displayName: z.string().max(100, "Display name is too long").trim().optional(),

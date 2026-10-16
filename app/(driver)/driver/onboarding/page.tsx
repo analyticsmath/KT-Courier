@@ -4,21 +4,34 @@ import { DriverOnboardingExperience } from "@/components/driver/DriverOnboarding
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { requireRole } from "@/lib/auth/guards";
-import { getDriverProfileByUserId, listOwnDriverDocuments } from "@/lib/services/driver-profile.service";
+import { getDriverProfileByUserId, listOwnDriverDocuments, getOwnDriverRegions } from "@/lib/services/driver-profile.service";
 import { listOwnVehicles } from "@/lib/services/vehicle-compliance.service";
+import { evaluateDriverReadiness } from "@/lib/services/driver-readiness.service";
 import { UserRole } from "@/types/db";
 
 export const metadata: Metadata = { title: "Driver onboarding & compliance" };
 
-export default async function DriverOnboardingPage() {
+export default async function DriverOnboardingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string }>;
+}) {
   const user = await requireRole(UserRole.DRIVER);
   const driver = await getDriverProfileByUserId(user.id);
   if (!driver) notFound();
 
-  const [rawDocs, rawVehicles] = await Promise.all([
+  const [rawDocs, rawVehicles, regionsData, readiness] = await Promise.all([
     listOwnDriverDocuments(user.id).catch(() => []),
     listOwnVehicles(user.id).catch(() => []),
+    getOwnDriverRegions(user.id).catch(() => ({ allRegions: [], assignedRegions: [], primaryRegionId: null })),
+    evaluateDriverReadiness(driver.id).catch(() => null),
   ]);
+
+  const params = searchParams ? await searchParams : {};
+  const requestedTab = params.tab;
+  const initialTab = (requestedTab === "documents" || requestedTab === "vehicles" || requestedTab === "regions")
+    ? requestedTab
+    : "identity";
 
   const initialDocuments = rawDocs.map((d) => ({
     id: d.id,
@@ -51,7 +64,7 @@ export default async function DriverOnboardingPage() {
       status: vd.status,
       expiresAt: vd.expiresAt ? vd.expiresAt.toISOString() : null,
     })),
-    media: v.media.map(image => ({ purpose: image.purpose })),
+    media: v.media.map((image) => ({ purpose: image.purpose })),
   }));
 
   return (
@@ -65,6 +78,9 @@ export default async function DriverOnboardingPage() {
         initialDriver={driver}
         initialDocuments={initialDocuments}
         initialVehicles={initialVehicles}
+        initialRegions={regionsData}
+        initialReadiness={readiness}
+        initialTab={initialTab}
       />
     </ProtectedPageFrame>
   );
