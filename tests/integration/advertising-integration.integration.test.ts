@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AdvertisingFundingError } from "@/lib/advertising/funding.service";
 import { assertAdvertisingProductionReady } from "@/lib/advertising/production-lock";
 import { ManagedMarketingService } from "@/lib/advertising/managed-marketing.service";
+import { UserRole } from "@/types/db";
 
 describe("Phase 24: Advertising Live & Managed Marketing Domain Integration Tests", () => {
   it("Integration 1: Advertising Funding Error instantiates with correct error codes", () => {
@@ -45,24 +46,32 @@ describe("Phase 24: Advertising Live & Managed Marketing Domain Integration Test
     ).rejects.toThrow();
   });
 
+interface ManagedMarketingServiceInternals {
+  deriveCommercialDto(request: unknown): { currency: string; grossAmount: string; taxAmount: string } | null;
+  assertExecutionCapability(mode: string, channels: unknown[]): void;
+  resolvePlacementTarget(input: unknown): Promise<{ advertisingPlacementDefinitionId: string | null; externalPlacementReference: string | null }>;
+}
+
   it("Integration 6: Commercial pricing snapshot calculation asserts gross revenue balance", () => {
     const service = new ManagedMarketingService();
+    const internals = service as unknown as ManagedMarketingServiceInternals;
     const testRequest = {
       priceSnapshot: "1000.00",
       taxSnapshot: "0.15",
       currency: "ZAR",
     };
-    const commercial = (service as any).deriveCommercialDto(testRequest);
+    const commercial = internals.deriveCommercialDto(testRequest);
     expect(commercial).not.toBeNull();
-    expect(commercial.currency).toBe("ZAR");
-    expect(Number(commercial.grossAmount)).toBeCloseTo(1150.0, 2);
-    expect(Number(commercial.taxAmount)).toBeCloseTo(150.0, 2);
+    expect(commercial?.currency).toBe("ZAR");
+    expect(Number(commercial?.grossAmount)).toBeCloseTo(1150.0, 2);
+    expect(Number(commercial?.taxAmount)).toBeCloseTo(150.0, 2);
   });
 
   it("Integration 7: Provider configuration guards prevent unverified automation execution", () => {
     const service = new ManagedMarketingService();
+    const internals = service as unknown as ManagedMarketingServiceInternals;
     expect(() =>
-      (service as any).assertExecutionCapability("AUTOMATED_PROVIDER", [
+      internals.assertExecutionCapability("AUTOMATED_PROVIDER", [
         { active: true, automatedProviderCapability: "MANUAL_AVAILABLE" },
       ])
     ).toThrowError(/Automated provider publishing requires an explicitly configured provider/i);
@@ -70,8 +79,9 @@ describe("Phase 24: Advertising Live & Managed Marketing Domain Integration Test
 
   it("Integration 8: Placement target validation distinguishes on-platform from external placements", async () => {
     const service = new ManagedMarketingService();
+    const internals = service as unknown as ManagedMarketingServiceInternals;
     await expect(
-      (service as any).resolvePlacementTarget({
+      internals.resolvePlacementTarget({
         kind: "ON_PLATFORM",
         advertisingPlacementReference: null,
       })
@@ -82,7 +92,7 @@ describe("Phase 24: Advertising Live & Managed Marketing Domain Integration Test
     const service = new ManagedMarketingService();
     await expect(
       service.rejectRequest(
-        { actorUserId: "", actorRole: "ADMIN" } as any,
+        { actorUserId: "", actorRole: UserRole.ADMIN },
         "REQ-TEST",
         "OP-1",
         ""

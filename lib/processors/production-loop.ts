@@ -12,6 +12,7 @@ export const productionProcessors = [
   "process-earning-lifecycle",
   "deliver-notifications",
   "reconcile-expired-dispatch",
+  "dispatch-marketplace-orders",
 ] as const satisfies readonly ImplementedProcessorName[];
 
 export type ProductionCycleResult = Readonly<{
@@ -37,6 +38,7 @@ type WorkCheck = (name: ProductionProcessor) => Promise<boolean>;
 
 export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<ProductionProcessor, number>>> = {
   "reconcile-expired-dispatch": 60_000,
+  "dispatch-marketplace-orders": 60_000,
 };
 
 export interface ProcessorCadenceTracker {

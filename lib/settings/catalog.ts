@@ -35,6 +35,7 @@ export const SYSTEM_SETTING_CATALOG: Record<string, SystemSettingDefinition> = {
   "dispatch.policy_version": mutable("dispatch.policy_version", SystemSettingType.STRING, "dispatch-v1"),
   "dispatch.default_driver_capacity": mutable("dispatch.default_driver_capacity", SystemSettingType.STRING, "1"),
   "dispatch.serializable_retry_count": mutable("dispatch.serializable_retry_count", SystemSettingType.STRING, "3"),
+  "dispatch.auto_dispatch_enabled": mutable("dispatch.auto_dispatch_enabled", SystemSettingType.BOOLEAN, true),
   "notifications.email_enabled": mutable("notifications.email_enabled", SystemSettingType.BOOLEAN, false, { readinessImpact: "transactional_email" }),
   "coverage.confirmation_required": mutable("coverage.confirmation_required", SystemSettingType.BOOLEAN, true),
 };

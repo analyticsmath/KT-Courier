@@ -60,6 +60,37 @@ async function main() {
         select: { id: true },
       });
     }
+    if (name === "dispatch-marketplace-orders") {
+      if (!cadenceTracker.isDue(name)) return false;
+      cadenceTracker.markChecked(name);
+      return !!await prisma.marketplaceStoreOrderDeliveryBridge.findFirst({
+        where: {
+          courierOrderId: { not: null },
+          status: { in: ["DISPATCH_PENDING", "DELIVERY_ORDER_CREATED"] },
+          storeOrder: {
+            acceptanceStatus: "ACCEPTED",
+            OR: [
+              { derivedStatus: "READY_FOR_PICKUP" },
+              { preparationStatus: "READY_FOR_HANDOFF" },
+            ],
+          },
+          courierOrder: {
+            status: { in: ["CONFIRMED", "PICKUP_SCHEDULED"] },
+            assignments: {
+              none: {
+                status: { in: ["ASSIGNED", "ACCEPTED"] },
+                OR: [
+                  { status: "ACCEPTED" },
+                  { status: "ASSIGNED", expiresAt: { gt: new Date() } },
+                  { status: "ASSIGNED", expiresAt: null },
+                ],
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+    }
     return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } });
   }
   while (!stopping) {

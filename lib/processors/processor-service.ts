@@ -88,6 +88,10 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
       safeSummary: `Reconciled ${result.expired} expired dispatch offers out of ${result.scanned} scanned.`,
     };
   },
+  "dispatch-marketplace-orders": async (context) => {
+    const { dispatchReadyMarketplaceOrdersBatch } = await import("@/lib/services/marketplace-dispatch-eligibility.service");
+    return dispatchReadyMarketplaceOrdersBatch(context);
+  },
   "process-earning-lifecycle": async (context) => {
     const { runEarningLifecycleBatch } = await import("@/lib/services/earning-lifecycle-batch.service");
     return runEarningLifecycleBatch(context);

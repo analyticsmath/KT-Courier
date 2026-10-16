@@ -3,7 +3,13 @@ import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/Protecte
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { managedMarketingService } from "@/lib/advertising/managed-marketing-admin-route";
-import { AdminAdvertisingWorkbench } from "@/components/admin/AdminAdvertisingWorkbench";
+import {
+  AdminAdvertisingWorkbench,
+  type ManagedMarketingAdminRequest,
+  type ManagedMarketingPackageSummary,
+  type ManagedMarketingPlacementSummary,
+  type ManagedMarketingRevenueReport,
+} from "@/components/admin/AdminAdvertisingWorkbench";
 
 export default async function AdminAdvertisingPage() {
   const admin = await requireAdminPagePermission(PERMISSIONS.ADVERTISING_READ);
@@ -24,10 +30,10 @@ export default async function AdminAdvertisingPage() {
         description="Review managed marketing campaigns, inspect rate cards & placements, and moderate advertising requests."
       />
       <AdminAdvertisingWorkbench
-        initialRequests={requests as any}
-        initialPackages={packages as any}
-        initialPlacements={placements as any}
-        initialRevenueReports={revenueReports as any}
+        initialRequests={requests as unknown as ManagedMarketingAdminRequest[]}
+        initialPackages={packages as unknown as ManagedMarketingPackageSummary[]}
+        initialPlacements={placements as unknown as ManagedMarketingPlacementSummary[]}
+        initialRevenueReports={revenueReports as unknown as ManagedMarketingRevenueReport[]}
       />
     </ProtectedPageFrame>
   );

@@ -6,8 +6,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { Select } from "@/components/ui/Select";
-import { Textarea } from "@/components/ui/Textarea";
+
+function generatePrivacyOperationId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    const raw = crypto.randomUUID().replaceAll("-", "").toUpperCase();
+    return `DSAROP-${raw.substring(0, 16)}`;
+  }
+  return "DSAROP-REQUEST001";
+}
 
 export interface SecurityUserDto {
   id: string;
@@ -153,8 +159,7 @@ export function CustomerSecurityWorkbench({
     setPrivacySuccess(null);
     setSubmittingPrivacy(true);
 
-    const randomSuffix = Math.random().toString(36).substring(2, 10).toUpperCase() + Date.now().toString(36).toUpperCase();
-    const operationId = `DSAROP-${randomSuffix}`;
+    const operationId = generatePrivacyOperationId();
 
     try {
       const res = await fetch("/api/privacy/requests", {

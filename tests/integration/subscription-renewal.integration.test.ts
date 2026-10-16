@@ -78,7 +78,7 @@ describe("Subscription Renewal Lifecycle Integration Tests", () => {
 
     const fakeProvider = {
       chargeBillingCycle: async () => ({
-        status: "UNKNOWN" as any,
+        status: "UNKNOWN" as const,
         safeEvidence: { reason: "TIMEOUT" },
       }),
     } as unknown as RecurringPaymentProvider;

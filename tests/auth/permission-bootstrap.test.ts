@@ -23,7 +23,7 @@ describe("production catalog grant initialization", () => {
   it("creates missing STORE catalog defaults only and never overwrites disabled grants", async () => {
     const db = {
       permission: { upsert: vi.fn(({ where }: { where: { key: string } }) => Promise.resolve({ id: where.key })) },
-      rolePermission: { upsert: vi.fn((_command: unknown) => Promise.resolve({})) },
+      rolePermission: { upsert: vi.fn((command: { update: object; create: { enabled: boolean; role: string } }) => { void command; return Promise.resolve({}); }) },
     };
     const result = await installStoreCatalogPermissionDefaults(db as unknown as Prisma.TransactionClient);
     expect(result.permissionsUpserted).toBeGreaterThan(0);

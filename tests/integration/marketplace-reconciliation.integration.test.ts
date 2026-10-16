@@ -11,13 +11,21 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
+interface MockPrisma {
+  marketplaceInventoryReservation: {
+    findUnique: ReturnType<typeof vi.fn>;
+  };
+}
+
+const mockPrisma = prisma as unknown as MockPrisma;
+
 describe("Phase 20 Marketplace Reconciliation Integration Tests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("throws CHECKOUT_NOT_FOUND when reservation does not exist", async () => {
-    (prisma as any).marketplaceInventoryReservation.findUnique.mockResolvedValue(null);
+    mockPrisma.marketplaceInventoryReservation.findUnique.mockResolvedValue(null);
 
     await expect(
       reconcileMarketplaceReservation("NON-EXISTENT-RES", "op-rec-1")
@@ -25,7 +33,7 @@ describe("Phase 20 Marketplace Reconciliation Integration Tests", () => {
   });
 
   it("fails closed on missing production authorization", async () => {
-    (prisma as any).marketplaceInventoryReservation.findUnique.mockResolvedValue({
+    mockPrisma.marketplaceInventoryReservation.findUnique.mockResolvedValue({
       id: "res-1",
       checkoutId: "chk-1",
       publicReference: "RES-TEST",

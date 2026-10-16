@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   CHECKOUT_TERMINAL_STATUSES,
-  CHECKOUT_LIVE_STATUSES,
   mayTransitionCheckout,
   assertCheckoutTransition,
   type CheckoutStatus,

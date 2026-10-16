@@ -8,7 +8,6 @@ import {
   UserStatus,
   VehicleComplianceStatus,
   VehicleDocumentType,
-  VehicleMediaPurpose,
 } from "@/types/db";
 import { ACTIVE_ASSIGNMENT_STATUSES } from "@/lib/constants/assignments";
 

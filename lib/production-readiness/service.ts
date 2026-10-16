@@ -61,17 +61,45 @@ export async function getProductionReadiness() {
     const missing = ["SMALL", "MEDIUM", "LARGE"].filter((size) => !profiles.some((p) => p.stableKey === size));
     return capability("parcel_profiles", missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? "PARCEL_OPERATIONAL_APPROVAL_REQUIRED" : "ACTIVE_PARCEL_PROFILES", "Draft examples are not production acceptance limits.", "OPERATIONS", { missingSizes: missing });
   });
-  for (const [key, load, owner] of [
-    ["approved_commission_plan", () => prisma.commissionPlan.count({ where: { status: "ACTIVE", approvedAt: { not: null }, effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] } }), "FINANCE"],
-    ["store_subscription_configuration", () => prisma.subscriptionPlanVersion.count({ where: { status: "ACTIVE", approvedAt: { not: null }, effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] } }), "CLIENT"],
-    ["promoter_commercial_configuration", () => prisma.promoterProgramVersion.count({ where: { status: "ACTIVE", approvedAt: { not: null }, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] } }), "CLIENT"],
-    ["advertising_package_configuration", () => prisma.advertisingRateCardVersion.count({ where: { status: "ACTIVE", approvedAt: { not: null }, effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] } }), "CLIENT"],
+  await probe("approved_commission_plan", async () => {
+    const count = await prisma.commissionPlan.count({
+      where: {
+        status: "ACTIVE",
+        approvedAt: { not: null },
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+      },
+    });
+    return capability(
+      "approved_commission_plan",
+      count ? "READY" : "BLOCKED_EXTERNAL_INPUT",
+      count ? "ACTIVE_COMMISSION_PLAN" : "NO_APPROVED_COMMERCIAL_CONFIGURATION",
+      count ? "Approved commission plan is active." : "Supply real commercial values through the versioned admin workflow.",
+      "FINANCE",
+      { approvedEffectiveCount: count }
+    );
+  });
+
+  // Launch scope policy: Subscriptions, promoter recruitment, and paid advertising
+  // are out of initial launch scope per client authority decision record (2026-10-16).
+  for (const [key, load, programLabel] of [
+    ["store_subscription_configuration", () => prisma.subscriptionPlanVersion.count({ where: { status: "ACTIVE", approvedAt: { not: null }, effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] } }), "Store subscription program"],
+    ["promoter_commercial_configuration", () => prisma.promoterProgramVersion.count({ where: { status: "ACTIVE", approvedAt: { not: null }, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] } }), "Promoter recruitment and payouts"],
+    ["advertising_package_configuration", () => prisma.advertisingRateCardVersion.count({ where: { status: "ACTIVE", approvedAt: { not: null }, effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] } }), "Paid advertising rate cards"],
   ] as const) {
     await probe(key, async () => {
       const count = await load();
-      return capability(key, count ? "BLOCKED_CONFIGURATION" : "BLOCKED_EXTERNAL_INPUT", count ? "SCOPED_ENGINE_ACTIVATION_REVIEW_REQUIRED" : "NO_APPROVED_COMMERCIAL_CONFIGURATION", count ? "Approved configuration exists; confirm scoped engine readiness and explicit processor activation." : "Supply real commercial values through the versioned admin workflow.", owner, { approvedEffectiveCount: count });
+      return capability(
+        key,
+        "DISABLED_BY_POLICY",
+        "COMMERCIAL_PROGRAM_INACTIVE_BY_POLICY",
+        `${programLabel} is an inactive optional commercial program outside initial delivery and marketplace launch scope.`,
+        "CLIENT",
+        { approvedEffectiveCount: count, launchScope: "EXCLUDED_BY_POLICY_v1" }
+      );
     });
   }
+
   await probe("cod_policy", async () => {
     const rows = await prisma.paymentMethodPolicy.findMany({ where: { status: "ACTIVE", mode: "DEPOSIT_PLUS_COD", effectiveFrom: { lte: now }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }] } });
     const bank = await prisma.systemSetting.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { updatedAt: true } });
@@ -90,7 +118,57 @@ export async function getProductionReadiness() {
     const [routes, versions, templates, policies] = await Promise.all([prisma.notificationEventRoute.findMany(), prisma.notificationEventRouteVersion.findMany({ where: { status: "ACTIVE", approvedAt: { not: null }, activatedAt: { not: null } } }), prisma.notificationTemplateVersion.findMany({ where: { status: "PUBLISHED", approvedAt: { not: null } } }), prisma.notificationRecipientPolicyVersion.findMany({ where: { status: "APPROVED", approvedAt: { not: null } } })]);
     const missing = required.filter((e) => !versions.some((v) => routes.some((r) => r.id === v.routeId && r.sourceAuthority === e.sourceAuthority && r.sourceEventType === e.eventType) && templates.some((t) => t.id === v.templateVersionId) && policies.some((p) => p.id === v.recipientPolicyVersionId))).map((e) => `${e.sourceAuthority}:${e.eventType}`);
     for (const key of ["notification_templates", "notification_recipient_policy", "notification_routes"]) entries.push(capability(key, missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? "DOMAIN_GOVERNANCE_APPROVAL_REQUIRED" : "ACTIVE_DOMAIN_GOVERNANCE", "Required registered domains must have published templates, approved recipient policies and active routes.", "ADMIN_REVIEW", { missingDomains: missing }));
-    return capability("notification_domain_engineering", "BLOCKED_CONFIGURATION", "NOTIFICATION_DOMAIN_CERTIFICATION_REQUIRED", "Payment, refund and guest marketplace notification adapters and functional acceptance require certification beyond registered courier routes.", "ENGINEERING");
+
+    // Precise checks for payment, refund, and marketplace notification routes and delivery adapters
+    const coreDomains = ["PAYMENT", "REFUND", "MARKETPLACE", "STORE_ORDERS"];
+    const missingCoreDomainRoutes = required
+      .filter((e) => coreDomains.includes(e.sourceAuthority) && !versions.some((v) => routes.some((r) => r.id === v.routeId && r.sourceAuthority === e.sourceAuthority && r.sourceEventType === e.eventType) && templates.some((t) => t.id === v.templateVersionId) && policies.some((p) => p.id === v.recipientPolicyVersionId)))
+      .map((e) => `${e.sourceAuthority}:${e.eventType}`);
+
+    const emailProviderReady = entries.find((e) => e.key === "email_provider")?.status === "READY";
+    const notificationApproved = process.env.NOTIFICATION_PRODUCTION_VALIDATION_APPROVED === "true";
+
+    if (missingCoreDomainRoutes.length > 0) {
+      return capability(
+        "notification_domain_engineering",
+        "BLOCKED_CONFIGURATION",
+        "NOTIFICATION_DOMAIN_ROUTES_MISSING",
+        `Active routes with published templates are missing for core transactional domains: ${missingCoreDomainRoutes.slice(0, 3).join(", ")}${missingCoreDomainRoutes.length > 3 ? "..." : ""}`,
+        "ENGINEERING",
+        { missingCoreDomains: missingCoreDomainRoutes, emailProviderReady }
+      );
+    }
+
+    if (!emailProviderReady) {
+      return capability(
+        "notification_domain_engineering",
+        "BLOCKED_CONFIGURATION",
+        "NOTIFICATION_EMAIL_PROVIDER_UNCONFIGURED",
+        "Email delivery provider (Resend) credentials and sender domain are not fully verified in this runtime.",
+        "ENGINEERING",
+        { emailProviderReady: false }
+      );
+    }
+
+    if (!notificationApproved) {
+      return capability(
+        "notification_domain_engineering",
+        "BLOCKED_LIVE_ACCEPTANCE",
+        "NOTIFICATION_PRODUCTION_VALIDATION_REQUIRED",
+        "Payment, refund, and marketplace notification adapters and route governance are complete; live delivery remains fail-closed until live provider credential validation.",
+        "ENGINEERING",
+        { emailProviderReady: true, missingCoreDomainsCount: 0 }
+      );
+    }
+
+    return capability(
+      "notification_domain_engineering",
+      "READY",
+      "NOTIFICATION_DOMAINS_ACTIVE",
+      "Payment, refund, and marketplace notification routes, templates, and delivery adapters are active.",
+      "ENGINEERING",
+      { emailProviderReady: true, missingCoreDomainsCount: 0 }
+    );
   });
   await probe("marketplace_delivery_fee_matrix", async () => {
     const matrices = await listDeliveryMatrices();

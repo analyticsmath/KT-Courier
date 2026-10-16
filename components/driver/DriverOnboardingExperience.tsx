@@ -555,11 +555,9 @@ export function DriverOnboardingExperience({
     }
   }
 
-  const isProfileApproved = driver.onboardingStatus === "APPROVED";
   const approvedVehicles = vehicles.filter((v) => v.status === "APPROVED");
   const hasApprovedVehicle = approvedVehicles.length > 0;
   const hasPendingVehicle = vehicles.some((v) => v.status === "PENDING_REVIEW");
-  const isDispatchEligible = isProfileApproved && hasApprovedVehicle;
 
   const profileStatusTone =
     driver.onboardingStatus === "APPROVED"
@@ -578,7 +576,7 @@ export function DriverOnboardingExperience({
     ? "danger"
     : "neutral";
 
-  const dispatchStatusTone = isDispatchEligible ? "success" : "neutral";
+  const isProfilePending = driver.onboardingStatus === "PENDING_REVIEW" || driver.status === "PENDING_REVIEW";
 
   return (
     <div className={styles.scope}>
@@ -631,6 +629,11 @@ export function DriverOnboardingExperience({
                     />
                   </div>
                 </div>
+                {isProfilePending && (
+                  <div className="p-3 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-medium mt-2">
+                    Your profile is awaiting administrator review. Check the document and vehicle sections below for any outstanding requirements.
+                  </div>
+                )}
                 <p className="text-xs text-[var(--kt-text-muted)] mt-1">
                   {readiness?.isDispatchReady
                     ? "Your driver profile, identity, licence, vehicle compliance, and delivery regions are verified. You are active and eligible for dispatch offers."

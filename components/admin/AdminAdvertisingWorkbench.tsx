@@ -116,6 +116,13 @@ interface AdminAdvertisingWorkbenchProps {
   revenueReports?: ManagedMarketingRevenueReport[];
 }
 
+function generateWorkbenchOperationId(action: string, reference: string): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `admin-${action}-${reference}-${crypto.randomUUID()}`;
+  }
+  return `admin-${action}-${reference}`;
+}
+
 const STATUS_FILTERS = [
   "ALL",
   "SUBMITTED",
@@ -178,7 +185,7 @@ export function AdminAdvertisingWorkbench({
     setError(null);
     setSuccess(null);
     try {
-      const operationId = `admin-action-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const operationId = generateWorkbenchOperationId(action, reference);
       const response = await fetch(
         `/api/admin/managed-marketing/requests/${reference}/${action}`,
         {

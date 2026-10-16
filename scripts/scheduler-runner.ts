@@ -20,6 +20,7 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   { name: "expire-marketplace-reservations", intervalMs: 60_000, lastRunAt: 0 },
   { name: "apply-paystack-webhook-events", intervalMs: 60_000, lastRunAt: 0 },
   { name: "reconcile-expired-dispatch", intervalMs: 60_000, lastRunAt: 0 },
+  { name: "dispatch-marketplace-orders", intervalMs: 60_000, lastRunAt: 0 },
   { name: "deliver-notifications", intervalMs: 60_000, lastRunAt: 0 },
 
   // Medium-frequency jobs (every 5 minutes)

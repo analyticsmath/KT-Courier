@@ -1,7 +1,8 @@
 export {};
 
 declare global {
-  interface RouteContext<T = string> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface RouteContext<_T = string> {
     params: Promise<Record<string, string>>;
   }
 }
