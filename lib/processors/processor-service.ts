@@ -59,6 +59,35 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "reconcile-expired-dispatch": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const candidates = await prisma.orderAssignment.findMany({
+        where: { status: "ASSIGNED", expiresAt: { lte: new Date() } },
+        select: { id: true },
+        take: batchSize,
+      });
+      return {
+        itemsExamined: candidates.length,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: candidates.length,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Found ${candidates.length} expired dispatch offers to reconcile.`,
+      };
+    }
+    const { reconcileExpiredDispatchOffers } = await import("@/lib/services/dispatch-assignment.service");
+    const result = await reconcileExpiredDispatchOffers(batchSize);
+    return {
+      itemsExamined: result.scanned,
+      itemsClaimed: result.expired,
+      itemsCompleted: result.expired,
+      itemsSkipped: result.scanned - result.expired,
+      itemsRetried: 0,
+      itemsReconciled: result.expired,
+      safeSummary: `Reconciled ${result.expired} expired dispatch offers out of ${result.scanned} scanned.`,
+    };
+  },
   "process-earning-lifecycle": async (context) => {
     const { runEarningLifecycleBatch } = await import("@/lib/services/earning-lifecycle-batch.service");
     return runEarningLifecycleBatch(context);
