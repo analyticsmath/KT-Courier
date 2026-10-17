@@ -679,7 +679,7 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
       expect(candidateQuery.where.storeOrder).toEqual(
         expect.objectContaining({
           acceptanceStatus: "ACCEPTED",
-          status: { notIn: ["CANCELLED", "RECONCILIATION_REQUIRED"] },
+          status: { notIn: ["CANCELLED", "RECONCILIATION_REQUIRED", "PENDING_STORE_REVIEW"] },
           resolutionStatus: { in: ["CLEAR", "RESOLVED"] },
           financialResolutionStatus: { in: ["UNCHANGED", "REFUND_COMPLETED"] },
           cancellationRequests: {

@@ -10,7 +10,9 @@ import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import {
   assertMarketplaceStoreOrderEligibility,
+  resolveMarketplaceStoreOrderPaymentMode,
   MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
+  MarketplaceDispatchEligibilityError,
 } from "./marketplace-dispatch-contract.service";
 import { createDispatchCandidateEvaluationInTx, selectDispatchCandidateInTx, setDispatchCandidateDispositionForAssignmentInTx } from "@/lib/services/dispatch-candidate-evidence.service";
 import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
@@ -129,6 +131,7 @@ export async function resolveBridgeManualDispatchInTx(
         dispatchRouting: resolution.dispatchRouting,
         manualDispatchResolvedAt: new Date().toISOString(),
         consecutiveFailures: 0,
+        nextAttemptAt: null,
         history: [
           ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
           historyEntry,
@@ -168,9 +171,11 @@ export async function offerAssignment(authority: DispatchOfferAuthority, orderId
       });
 
       if (bridge?.storeOrder) {
+        const { isCod } = resolveMarketplaceStoreOrderPaymentMode(bridge.storeOrder);
         try {
           assertMarketplaceStoreOrderEligibility(bridge.storeOrder, {
             stage: "OFFER_ASSIGNMENT",
+            isCod,
           });
         } catch (err: unknown) {
           throw dispatchError.orderNotAssignable(
@@ -287,12 +292,119 @@ export async function acceptDispatchAssignment(driverProfileId: string, assignme
     await lockOrderAndDrivers(tx, minimal.orderId, [driverProfileId]);
     const assignment = await tx.orderAssignment.findUniqueOrThrow({ where: { id: assignmentId }, include: { order: true, driverProfile: { include: { user: true, serviceRegions: true } } } });
     if (!input.expectedVersion) throw dispatchError.stale();
-    if (assignment.status === OrderAssignmentStatus.ACCEPTED && assignment.version > input.expectedVersion) return assignment;
+    if (assignment.status === OrderAssignmentStatus.ACCEPTED && assignment.version >= input.expectedVersion) return assignment;
     if (assignment.status !== OrderAssignmentStatus.ASSIGNED) throw dispatchError.resolved();
     if (assignment.version !== input.expectedVersion) throw dispatchError.stale();
     if (assignment.expiresAt && assignment.expiresAt <= new Date()) { await reconcileExpired(tx, assignment.orderId, assignment.driverProfile.userId); throw dispatchError.expired(); }
     assertAssignable(assignment.order);
     await validateDriver(tx, driverProfileId, assignment.order, assignmentId);
+
+    // For marketplace-bridged orders, revalidate the canonical store order contract
+    // within the same serializable transaction before driver acceptance can advance the order.
+    if (tx.marketplaceStoreOrderDeliveryBridge?.findFirst) {
+      const bridge = await tx.marketplaceStoreOrderDeliveryBridge.findFirst({
+        where: { courierOrderId: assignment.orderId },
+        select: {
+          id: true,
+          status: true,
+          marketplaceStoreOrderId: true,
+          dispatchEvidence: true,
+          storeOrder: {
+            select: { id: true },
+          },
+        },
+      });
+
+      if (bridge?.storeOrder) {
+        // Lock the store order for update to serialize with store-order cancellations/updates
+        // (Documented lock order: courier order locked first via lockOrderAndDrivers, then store order)
+        if (tx.$queryRaw) {
+          await tx.$queryRaw(
+            PrismaClient.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "id" = ${bridge.storeOrder.id} FOR UPDATE`
+          );
+        }
+
+        const freshStoreOrder = await tx.marketplaceStoreOrder.findUnique({
+          where: { id: bridge.storeOrder.id },
+          select: MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
+        });
+
+        if (!freshStoreOrder) {
+          throw dispatchError.orderNotAssignable("Marketplace store order was not found during acceptance verification.");
+        }
+
+        const { isCod } = resolveMarketplaceStoreOrderPaymentMode(freshStoreOrder);
+
+        let eligibilityError: MarketplaceDispatchEligibilityError | null = null;
+        try {
+          assertMarketplaceStoreOrderEligibility(freshStoreOrder, {
+            stage: "DRIVER_ACCEPTANCE",
+            isCod,
+          });
+        } catch (err: unknown) {
+          if (err instanceof MarketplaceDispatchEligibilityError) {
+            eligibilityError = err;
+          } else {
+            throw err;
+          }
+        }
+
+        if (eligibilityError) {
+          // If the order is no longer eligible (e.g. cancellation requested, refund/reconciliation required, aborted):
+          // Invalidate/revoke the stale offer and leave a durable, actionable exception record.
+          // Do NOT set currentDriverProfileId, advance the courier order, or project DRIVER_ASSIGNED.
+          await tx.orderAssignment.updateMany({
+            where: { id: assignmentId, status: OrderAssignmentStatus.ASSIGNED, version: input.expectedVersion },
+            data: {
+              status: OrderAssignmentStatus.REVOKED,
+              activeOrderGuard: null,
+              reasonCode: eligibilityError.code,
+              reasonNote: eligibilityError.message,
+              version: { increment: 1 },
+            },
+          });
+
+          await writeEvents(tx, {
+            assignmentId,
+            orderId: assignment.orderId,
+            driverProfileId,
+            actorSystemIdentity: DISPATCH_SYSTEM_ACTOR,
+            actorRole: "SYSTEM",
+            eventType: OrderAssignmentEventType.ASSIGNMENT_REVOKED,
+            operationalType: OrderOperationalEventType.ASSIGNMENT_REVOKED,
+            previousStatus: OrderAssignmentStatus.ASSIGNED,
+            nextStatus: OrderAssignmentStatus.REVOKED,
+            reasonCode: eligibilityError.code,
+            note: `Stale offer revoked on driver acceptance: ${eligibilityError.message}`,
+          });
+
+          const existingEvidence =
+            typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null
+              ? (bridge.dispatchEvidence as Record<string, unknown>)
+              : {};
+
+          await tx.marketplaceStoreOrderDeliveryBridge.update({
+            where: { id: bridge.id },
+            data: {
+              dispatchEvidence: {
+                ...existingEvidence,
+                manualDispatchRequired: true,
+                dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
+                reason: eligibilityError.code,
+                reasonLabel: eligibilityError.message,
+                revokedOfferAssignmentId: assignmentId,
+                revokedAt: new Date().toISOString(),
+              },
+            },
+          });
+
+          throw dispatchError.orderNotAssignable(
+            `Marketplace store order is no longer eligible for dispatch (${eligibilityError.message}).`
+          );
+        }
+      }
+    }
+
     const changed = await tx.orderAssignment.updateMany({ where: { id: assignmentId, status: OrderAssignmentStatus.ASSIGNED, version: input.expectedVersion }, data: { status: OrderAssignmentStatus.ACCEPTED, acceptedAt: new Date(), respondedAt: new Date(), version: { increment: 1 } } });
     if (!changed.count) throw dispatchError.stale();
     await tx.order.update({ where: { id: assignment.orderId }, data: { currentDriverProfileId: driverProfileId } });

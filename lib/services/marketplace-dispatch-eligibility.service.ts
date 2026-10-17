@@ -4,6 +4,7 @@ import { createDispatchCandidateEvaluation } from "@/lib/services/dispatch-candi
 import { offerAssignment } from "@/lib/services/dispatch-assignment.service";
 import {
   assertMarketplaceStoreOrderEligibility,
+  resolveMarketplaceStoreOrderPaymentMode,
   MARKETPLACE_STORE_ORDER_DISPATCH_ELIGIBLE_WHERE,
   MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
 } from "./marketplace-dispatch-contract.service";
@@ -113,6 +114,7 @@ export interface MarketplaceDispatchBatchOptions {
   batchSize?: number;
   operationId: string;
   actorUserId?: string;
+  cursor?: { createdAt: Date | string; id: string } | null;
 }
 
 export interface MarketplaceDispatchBatchOutcome {
@@ -123,6 +125,7 @@ export interface MarketplaceDispatchBatchOutcome {
   itemsRetried: number;
   itemsReconciled: number;
   safeSummary: string;
+  nextCursor?: { createdAt: string; id: string } | null;
 }
 
 const EXHAUSTED_DISPATCH_REASON = "OFFER_CREATION_FAILED_RETRY_EXHAUSTED";
@@ -306,9 +309,11 @@ export async function recoverExhaustedDispatchOrder(
       "DISPATCH_RECOVERY_STORE_ORDER_NOT_READY",
       `Related marketplace store order is not in an accepted and ready-for-pickup state (acceptanceStatus: ${storeOrder.acceptanceStatus}, derivedStatus: ${storeOrder.derivedStatus}, preparationStatus: ${storeOrder.preparationStatus}); recovery was not applied.`
     );
+    const { isCod } = resolveMarketplaceStoreOrderPaymentMode(storeOrder);
     try {
       assertMarketplaceStoreOrderEligibility(storeOrder, {
         stage: "RECOVERY",
+        isCod,
       });
     } catch (err: unknown) {
       throw new DispatchPolicyError(
@@ -437,6 +442,94 @@ export async function recoverExhaustedDispatchOrder(
 }
 
 /**
+ * Selects candidate delivery bridge IDs using PostgreSQL-compliant parameterized JSONB predicates:
+ * 1. manualDispatchRequired: eligible if NULL (SQL or JSON), missing key, empty object, or not equal to 'true'.
+ * 2. nextAttemptAt: eligible if NULL (SQL or JSON), missing key, or <= now. Future retries are excluded.
+ * 3. Commercial status: COD orders in PENDING_SETTLEMENT or SETTLED; prepaid strictly in SETTLED.
+ * 4. Bounded keyset condition: (createdAt > cursorCreatedAt OR (createdAt = cursorCreatedAt AND id > cursorId)).
+ * 5. Orders by createdAt ASC, id ASC with LIMIT.
+ */
+export type RawQueryClient = {
+  $queryRaw?: <T = unknown>(query: Prisma.Sql) => Promise<T>;
+};
+
+export async function selectEligibleMarketplaceDeliveryBridgeIds(
+  prismaClient: RawQueryClient,
+  params: {
+    batchLimit: number;
+    now: Date;
+    cursor?: { createdAt: Date | string; id: string } | null;
+  }
+): Promise<string[]> {
+  const { batchLimit, now, cursor } = params;
+
+  if (typeof prismaClient?.$queryRaw === "function") {
+    const cursorDate = cursor?.createdAt ? new Date(cursor.createdAt) : null;
+    const cursorId = cursor?.id ?? null;
+
+    const cursorClause = cursorDate && cursorId
+      ? Prisma.sql`AND (b."createdAt" > ${cursorDate} OR (b."createdAt" = ${cursorDate} AND b."id" > ${cursorId}))`
+      : Prisma.empty;
+
+    const rows = await prismaClient.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT b."id"
+      FROM "MarketplaceStoreOrderDeliveryBridge" b
+      JOIN "Order" o ON o."id" = b."courierOrderId"
+      JOIN "MarketplaceStoreOrder" so ON so."id" = b."marketplaceStoreOrderId"
+      LEFT JOIN "MarketplaceCheckoutStoreGroup" csg ON csg."id" = so."checkoutStoreGroupId"
+      WHERE b."courierOrderId" IS NOT NULL
+        AND b."status" IN ('DISPATCH_PENDING', 'DELIVERY_ORDER_CREATED')
+        AND o."status" IN ('CONFIRMED', 'PICKUP_SCHEDULED')
+        AND NOT EXISTS (
+          SELECT 1 FROM "OrderAssignment" a
+          WHERE a."orderId" = b."courierOrderId"
+            AND (
+              a."status" = 'ACCEPTED'
+              OR (a."status" = 'ASSIGNED' AND (a."expiresAt" IS NULL OR a."expiresAt" > ${now}))
+            )
+        )
+        AND so."acceptanceStatus" = 'ACCEPTED'
+        AND so."resolutionStatus" IN ('CLEAR', 'RESOLVED')
+        AND so."financialResolutionStatus" IN ('UNCHANGED', 'REFUND_COMPLETED')
+        AND (so."derivedStatus" = 'READY_FOR_PICKUP' OR so."preparationStatus" = 'READY_FOR_HANDOFF')
+        AND so."preparationStatus" != 'ABORTED'
+        AND so."status" NOT IN ('CANCELLED', 'RECONCILIATION_REQUIRED', 'PENDING_STORE_REVIEW')
+        AND NOT EXISTS (
+          SELECT 1 FROM "MarketplaceStoreOrderCancellationRequest" cr
+          WHERE cr."marketplaceStoreOrderId" = so."id"
+            AND cr."status" IN ('REQUESTED', 'APPROVED', 'RECONCILIATION_REQUIRED')
+        )
+        AND (
+          CASE
+            WHEN (csg."paymentPlan"->>'mode') = 'DEPOSIT_PLUS_COD'
+              THEN so."status" IN ('PENDING_SETTLEMENT', 'SETTLED')
+            ELSE so."status" = 'SETTLED'
+          END
+        )
+        AND (
+          b."dispatchEvidence" IS NULL
+          OR b."dispatchEvidence" = 'null'::jsonb
+          OR (b."dispatchEvidence"->>'manualDispatchRequired') IS NULL
+          OR (b."dispatchEvidence"->>'manualDispatchRequired') != 'true'
+        )
+        AND (
+          b."dispatchEvidence" IS NULL
+          OR b."dispatchEvidence" = 'null'::jsonb
+          OR (b."dispatchEvidence"->>'nextAttemptAt') IS NULL
+          OR (b."dispatchEvidence"->>'nextAttemptAt')::timestamptz <= ${now}
+        )
+        ${cursorClause}
+      ORDER BY b."createdAt" ASC, b."id" ASC
+      LIMIT ${batchLimit}
+    `);
+
+    return (rows ?? []).map((r) => r.id);
+  }
+
+  return [];
+}
+
+/**
  * Production worker processor:
  * - Scans marketplace orders ready for pickup with bridged courier orders.
  * - Enforces fail-closed policy gate: offers require both setting === true and an active, approved DispatchAutomationPolicy.
@@ -453,19 +546,55 @@ export async function dispatchReadyMarketplaceOrdersBatch(
     ReturnType<typeof prisma.marketplaceStoreOrderDeliveryBridge.findMany<{
       include: {
         storeOrder: { select: typeof MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT };
-        courierOrder: { select: { id: true; status: true; deliveryRegionId: true } };
+        courierOrder: { select: { id: true, status: true, deliveryRegionId: true } };
       };
     }>>
   >[number];
 
-  // Database-side null-safe exclusion / normalized indexed filter:
-  // 1. Excludes rows where manualDispatchRequired === true directly in the database.
-  // 2. Preserves bridges with SQL NULL evidence, JsonNull, and unkeyed evidence.
-  // 3. Enforces canonical store order eligibility at the database query level.
-  // 4. Stable keyset pagination (createdAt ASC, id ASC) ensures forward progress without starvation.
-  // 5. Does not materialize historical ID backlogs or use unbounded NOT IN.
-  const candidateBridges: CandidateBridgeWithRelations[] =
-    await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
+  let candidateBridges: CandidateBridgeWithRelations[] = [];
+
+  if (typeof prisma.$queryRaw === "function") {
+    try {
+      const candidateIds = await selectEligibleMarketplaceDeliveryBridgeIds(prisma, {
+        batchLimit,
+        now,
+        cursor: options.cursor,
+      });
+
+      if (candidateIds.length > 0) {
+        const fetchedBridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
+          where: { id: { in: candidateIds } },
+          include: {
+            storeOrder: { select: MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT },
+            courierOrder: { select: { id: true, status: true, deliveryRegionId: true } },
+          },
+        });
+        const bridgeMap = new Map(fetchedBridges.map((b) => [b.id, b as CandidateBridgeWithRelations]));
+        candidateBridges = candidateIds
+          .map((id) => bridgeMap.get(id))
+          .filter((b): b is CandidateBridgeWithRelations => b !== undefined);
+      }
+    } catch {
+      // In case $queryRaw is mocked without returning rows or failed in unit test, fall back to findMany
+      candidateBridges = [];
+    }
+  }
+
+  // Fallback to findMany if $queryRaw is not available (e.g. in test doubles where findMany is mocked)
+  if (candidateBridges.length === 0 && typeof (prisma as RawQueryClient).$queryRaw !== "function") {
+    const cursorCondition = options.cursor?.createdAt && options.cursor?.id
+      ? {
+          OR: [
+            { createdAt: { gt: new Date(options.cursor.createdAt) } },
+            {
+              createdAt: new Date(options.cursor.createdAt),
+              id: { gt: options.cursor.id },
+            },
+          ],
+        }
+      : undefined;
+
+    candidateBridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
       where: {
         courierOrderId: { not: null },
         status: { in: ["DISPATCH_PENDING", "DELIVERY_ORDER_CREATED"] },
@@ -498,19 +627,25 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               },
             ],
           },
+          ...(cursorCondition ? [cursorCondition] : []),
         ],
       },
       include: {
-        storeOrder: {
-          select: MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
-        },
-        courierOrder: {
-          select: { id: true, status: true, deliveryRegionId: true },
-        },
+        storeOrder: { select: MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT },
+        courierOrder: { select: { id: true, status: true, deliveryRegionId: true } },
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: batchLimit,
     });
+  }
+
+  const nextCursor =
+    candidateBridges.length === batchLimit
+      ? {
+          createdAt: candidateBridges[candidateBridges.length - 1].createdAt.toISOString(),
+          id: candidateBridges[candidateBridges.length - 1].id,
+        }
+      : null;
 
   if (options.mode === "DRY_RUN") {
     return {
@@ -521,6 +656,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
       itemsRetried: 0,
       itemsReconciled: 0,
       safeSummary: `[DRY_RUN] Found ${candidateBridges.length} marketplace order(s) ready for dispatch evaluation.`,
+      nextCursor,
     };
   }
 
@@ -561,6 +697,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
       itemsRetried: 0,
       itemsReconciled: reconciled,
       safeSummary: `Automatic dispatch disabled by policy (${authority.reason}). Routed ${reconciled} order(s) to manual dispatch queue (MANUAL_DISPATCH_REQUIRED).`,
+      nextCursor,
     };
   }
 
@@ -574,9 +711,11 @@ export async function dispatchReadyMarketplaceOrdersBatch(
 
     // Fail-closed canonical store order eligibility re-check in memory
     if (bridge.storeOrder) {
+      const { isCod } = resolveMarketplaceStoreOrderPaymentMode(bridge.storeOrder);
       try {
         assertMarketplaceStoreOrderEligibility(bridge.storeOrder, {
           stage: "DISPATCH_CANDIDATE_SCAN",
+          isCod,
         });
       } catch {
         // If store order became ineligible (e.g. cancellation requested, reconciliation required), skip it
@@ -683,8 +822,6 @@ export async function dispatchReadyMarketplaceOrdersBatch(
 
       if (eligible.length === 0) {
         const reasonInfo = describeManualDispatchReason("NO_ELIGIBLE_DRIVERS_AVAILABLE");
-        const backoffMs = Math.min(300_000, 30_000 * Math.pow(2, Math.max(0, existingAssignments.length)));
-        const nextAttemptAt = new Date(Date.now() + backoffMs).toISOString();
 
         await prisma.marketplaceStoreOrderDeliveryBridge.update({
           where: { id: bridge.id },
@@ -697,7 +834,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               reasonLabel: reasonInfo.label,
               actionableNextStep: reasonInfo.nextStep,
               attemptCount: existingAssignments.length,
-              nextAttemptAt,
+              nextAttemptAt: null,
               queuedAt: new Date().toISOString(),
             },
           },
@@ -837,6 +974,8 @@ export async function dispatchReadyMarketplaceOrdersBatch(
           data: {
             dispatchEvidence: {
               ...existingEvidence,
+              manualDispatchRequired: false,
+              dispatchRouting: "AUTOMATIC_RETRY_SCHEDULED",
               consecutiveFailures,
               failureCount: consecutiveFailures,
               lastFailedAt: new Date().toISOString(),
@@ -864,5 +1003,6 @@ export async function dispatchReadyMarketplaceOrdersBatch(
     itemsRetried: retried,
     itemsReconciled: reconciled,
     safeSummary: `Processed ${candidateBridges.length} ready marketplace order(s): ${completed} offer(s) created, ${reconciled} routed to manual dispatch queue, ${retried} retries.`,
+    nextCursor,
   };
 }

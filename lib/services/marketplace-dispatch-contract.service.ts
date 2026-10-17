@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { parseMarketplacePaymentPlan, type MarketplacePaymentPlan } from "@/lib/marketplace-checkout/payment-plan";
 
 export class MarketplaceDispatchEligibilityError extends Error {
   constructor(
@@ -14,6 +15,7 @@ export type DispatchEligibilityStage =
   | "COURIER_ORDER_CREATION"
   | "DISPATCH_CANDIDATE_SCAN"
   | "OFFER_ASSIGNMENT"
+  | "DRIVER_ACCEPTANCE"
   | "RECOVERY";
 
 export interface MarketplaceStoreOrderEligibilityCandidate {
@@ -31,6 +33,7 @@ export interface MarketplaceStoreOrderEligibilityCandidate {
     status: string; // StoreOrderCancellationRequestStatus
   }> | null;
   checkoutStoreGroup?: {
+    id?: string;
     paymentPlan?: unknown;
   } | null;
 }
@@ -42,12 +45,31 @@ export interface EligibilityEvaluationResult {
 }
 
 /**
+ * Authoritatively inspects and parses the checkoutStoreGroup payment plan.
+ * Malformed or missing plans fail closed as non-COD / prepaid.
+ */
+export function resolveMarketplaceStoreOrderPaymentMode(storeOrder: {
+  checkoutStoreGroup?: { id?: string; paymentPlan?: unknown } | null;
+}): { isCod: boolean; paymentPlan: MarketplacePaymentPlan | null } {
+  if (!storeOrder.checkoutStoreGroup?.paymentPlan) {
+    return { isCod: false, paymentPlan: null };
+  }
+  try {
+    const plan = parseMarketplacePaymentPlan(storeOrder.checkoutStoreGroup.paymentPlan);
+    return { isCod: plan.mode === "DEPOSIT_PLUS_COD", paymentPlan: plan };
+  } catch {
+    return { isCod: false, paymentPlan: null };
+  }
+}
+
+/**
  * Authoritative fail-closed eligibility contract for marketplace store orders
  * across all courier lifecycle phases:
  * 1. COURIER_ORDER_CREATION (Phase 21: canonical Order creation from frozen evidence)
  * 2. DISPATCH_CANDIDATE_SCAN (Phase 7: automatic batch scan and ranking)
  * 3. OFFER_ASSIGNMENT (Phase 7.5: transactional driver offer creation)
- * 4. RECOVERY (Authorized operator recovery of exhausted exception queue)
+ * 4. DRIVER_ACCEPTANCE (Phase 7.5: driver acceptance before assignment activation)
+ * 5. RECOVERY (Authorized operator recovery of exhausted exception queue)
  */
 export function evaluateMarketplaceStoreOrderEligibility(
   storeOrder: MarketplaceStoreOrderEligibilityCandidate,
@@ -99,8 +121,9 @@ export function evaluateMarketplaceStoreOrderEligibility(
     };
   }
 
-  // 5. Commercial status: CANCELLED and RECONCILIATION_REQUIRED are strictly blocked
-  if (["CANCELLED", "RECONCILIATION_REQUIRED"].includes(storeOrder.status)) {
+  // 5. Commercial status & payment mode resolution:
+  // Disallow CANCELLED, RECONCILIATION_REQUIRED, and PENDING_STORE_REVIEW
+  if (["CANCELLED", "RECONCILIATION_REQUIRED", "PENDING_STORE_REVIEW"].includes(storeOrder.status)) {
     return {
       eligible: false,
       code: "STORE_ORDER_STATUS_INELIGIBLE",
@@ -108,19 +131,28 @@ export function evaluateMarketplaceStoreOrderEligibility(
     };
   }
 
-  // For prepaid orders (non-COD): must be SETTLED
-  const isCod =
-    options.isCod ??
-    (storeOrder.checkoutStoreGroup?.paymentPlan
-      ? (storeOrder.checkoutStoreGroup.paymentPlan as { mode?: string })?.mode === "DEPOSIT_PLUS_COD"
-      : false);
+  // Resolve payment mode from store order if not explicitly supplied
+  const resolvedPayment = resolveMarketplaceStoreOrderPaymentMode(storeOrder);
+  const isCod = options.isCod !== undefined ? options.isCod : resolvedPayment.isCod;
 
-  if (!isCod && !["SETTLED", "CONFIRMED"].includes(storeOrder.status)) {
-    return {
-      eligible: false,
-      code: "STORE_ORDER_NOT_SETTLED",
-      message: `Prepaid marketplace store order must be in SETTLED commercial status (currently ${storeOrder.status}).`,
-    };
+  if (!isCod) {
+    // Prepaid orders strictly require SETTLED (no undocumented synonyms like CONFIRMED)
+    if (storeOrder.status !== "SETTLED") {
+      return {
+        eligible: false,
+        code: "STORE_ORDER_NOT_SETTLED",
+        message: `Prepaid marketplace store order must be in SETTLED commercial status (currently ${storeOrder.status}).`,
+      };
+    }
+  } else {
+    // COD orders: require DEPOSIT_PLUS_COD plan and status PENDING_SETTLEMENT or SETTLED
+    if (!["PENDING_SETTLEMENT", "SETTLED"].includes(storeOrder.status)) {
+      return {
+        eligible: false,
+        code: "STORE_ORDER_COD_STATUS_INELIGIBLE",
+        message: `COD marketplace store order must be in PENDING_SETTLEMENT or SETTLED commercial status (currently ${storeOrder.status}).`,
+      };
+    }
   }
 
   // 6. Preparation / Readiness checks
@@ -136,7 +168,7 @@ export function evaluateMarketplaceStoreOrderEligibility(
       };
     }
   } else {
-    // For DISPATCH_CANDIDATE_SCAN, OFFER_ASSIGNMENT, and RECOVERY:
+    // For DISPATCH_CANDIDATE_SCAN, OFFER_ASSIGNMENT, DRIVER_ACCEPTANCE, and RECOVERY:
     // Store order must be ready for handoff / pickup and never ABORTED
     const isReady =
       storeOrder.derivedStatus === "READY_FOR_PICKUP" ||
@@ -177,7 +209,7 @@ export function assertMarketplaceStoreOrderEligibility(
  */
 export const MARKETPLACE_STORE_ORDER_DISPATCH_ELIGIBLE_WHERE: Prisma.MarketplaceStoreOrderWhereInput = {
   acceptanceStatus: "ACCEPTED",
-  status: { notIn: ["CANCELLED", "RECONCILIATION_REQUIRED"] },
+  status: { notIn: ["CANCELLED", "RECONCILIATION_REQUIRED", "PENDING_STORE_REVIEW"] },
   resolutionStatus: { in: ["CLEAR", "RESOLVED"] },
   financialResolutionStatus: { in: ["UNCHANGED", "REFUND_COMPLETED"] },
   OR: [
@@ -189,11 +221,27 @@ export const MARKETPLACE_STORE_ORDER_DISPATCH_ELIGIBLE_WHERE: Prisma.Marketplace
       status: { in: ["REQUESTED", "APPROVED", "RECONCILIATION_REQUIRED"] },
     },
   },
+  AND: [
+    {
+      OR: [
+        { status: "SETTLED" },
+        {
+          status: "PENDING_SETTLEMENT",
+          checkoutStoreGroup: {
+            paymentPlan: {
+              path: ["mode"],
+              equals: "DEPOSIT_PLUS_COD",
+            },
+          },
+        },
+      ],
+    },
+  ],
 };
 
 /**
- * Authoritative Prisma select projection ensuring all required eligibility fields
- * and cancellation requests are loaded in memory for revalidation.
+ * Authoritative Prisma select projection ensuring all required eligibility fields,
+ * payment plan, and cancellation requests are loaded in memory for revalidation.
  */
 export const MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT: Prisma.MarketplaceStoreOrderSelect = {
   id: true,
@@ -212,6 +260,12 @@ export const MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT: Prisma.MarketplaceStore
     select: {
       id: true,
       status: true,
+    },
+  },
+  checkoutStoreGroup: {
+    select: {
+      id: true,
+      paymentPlan: true,
     },
   },
 };

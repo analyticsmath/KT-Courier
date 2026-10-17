@@ -4,10 +4,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { OrderSource, OrderStatus } from "@/types/db";
 import { generateOrderNumber } from "@/lib/utils/order-number";
-import { parseMarketplacePaymentPlan } from "@/lib/marketplace-checkout/payment-plan";
 import { assertMarketplaceDigitalReceipt, marketplaceDigitalReceiptInclude } from "@/lib/marketplace-checkout/payment-funding";
 import {
   assertMarketplaceStoreOrderEligibility,
+  resolveMarketplaceStoreOrderPaymentMode,
   MarketplaceDispatchEligibilityError,
 } from "./marketplace-dispatch-contract.service";
 import { createCashOnDeliveryObligationWithinTransaction, activateDepositCashOnDeliveryWithinTransaction } from "./cash-on-delivery.service";
@@ -61,8 +61,7 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
     });
     if (!storeOrder) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_STORE_ORDER_NOT_FOUND", "Marketplace store order was not found.");
     const group = storeOrder.checkoutStoreGroup;
-    const paymentPlan = group.paymentPlan ? parseMarketplacePaymentPlan(group.paymentPlan) : null;
-    const isCod = paymentPlan?.mode === "DEPOSIT_PLUS_COD";
+    const { isCod, paymentPlan } = resolveMarketplaceStoreOrderPaymentMode(storeOrder);
 
     try {
       assertMarketplaceStoreOrderEligibility(storeOrder, {
