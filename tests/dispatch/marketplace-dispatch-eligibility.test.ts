@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const db = vi.hoisted(() => ({
-  order: { findUnique: vi.fn() },
-  systemSetting: { findUnique: vi.fn() },
-  user: { findUnique: vi.fn(), findFirst: vi.fn() },
-  orderAssignment: { findMany: vi.fn() },
-  marketplaceStoreOrderDeliveryBridge: { findMany: vi.fn(), update: vi.fn() },
-  dispatchAutomationPolicy: { findFirst: vi.fn() },
-}));
+const db = vi.hoisted(() => {
+  const mockDb = {
+    order: { findUnique: vi.fn() },
+    systemSetting: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findFirst: vi.fn() },
+    orderAssignment: { findMany: vi.fn() },
+    marketplaceStoreOrderDeliveryBridge: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+    dispatchAutomationPolicy: { findFirst: vi.fn() },
+    adminActivityLog: { create: vi.fn() },
+    $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockDb)),
+  };
+  return mockDb;
+});
 
 const dispatchEvidenceMocks = vi.hoisted(() => ({
   createDispatchCandidateEvaluation: vi.fn(),
@@ -26,6 +31,7 @@ import {
   findEligibleDriversForOrder,
   isAutomaticDispatchEnabled,
   dispatchReadyMarketplaceOrdersBatch,
+  recoverExhaustedDispatchOrder,
 } from "@/lib/services/marketplace-dispatch-eligibility.service";
 
 describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", () => {
@@ -470,6 +476,244 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
           }),
         })
       );
+
+      // P2: Verify raw exception text is not persisted in bridge evidence
+      const updateCall = db.marketplaceStoreOrderDeliveryBridge.update.mock.calls.at(-1);
+      const historyEntry = updateCall[0].data.dispatchEvidence.history.at(-1);
+      expect(historyEntry).not.toHaveProperty("message");
+      expect(historyEntry.errorCode).toBe("CONCURRENCY_CONFLICT");
+    });
+
+    it("does not retry or create offers for orders already in terminal OFFER_CREATION_FAILED_RETRY_EXHAUSTED state on subsequent runs", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
+        {
+          id: "br-terminal-1",
+          courierOrderId: "ord-term-1",
+          dispatchEvidence: {
+            manualDispatchRequired: true,
+            dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
+            reason: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
+            consecutiveFailures: 3,
+            failureCount: 3,
+          },
+          courierOrder: { id: "ord-term-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
+      ]);
+      db.orderAssignment.findMany.mockResolvedValue([]);
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({
+        mode: "APPLY",
+        operationId: "op-subsequent-run",
+      });
+
+      // Assert no candidate evaluation or offer assignment is attempted
+      expect(dispatchEvidenceMocks.createDispatchCandidateEvaluation).not.toHaveBeenCalled();
+      expect(dispatchAssignmentMocks.offerAssignment).not.toHaveBeenCalled();
+      expect(db.marketplaceStoreOrderDeliveryBridge.update).not.toHaveBeenCalled();
+      expect(result.itemsCompleted).toBe(0);
+      expect(result.itemsRetried).toBe(0);
+      expect(result.itemsReconciled).toBe(1);
+    });
+
+    it("excludes driver whose offer is still marked ASSIGNED but has expired (expiresAt <= now)", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
+        {
+          id: "br-timed-out",
+          courierOrderId: "ord-timeout-1",
+          dispatchEvidence: {},
+          courierOrder: { id: "ord-timeout-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
+      ]);
+
+      const expiredAt = new Date(Date.now() - 60000); // 1 minute ago
+      db.orderAssignment.findMany.mockResolvedValue([
+        {
+          id: "as-stale",
+          driverProfileId: "drv-stale",
+          status: "ASSIGNED",
+          expiresAt: expiredAt,
+        },
+      ]);
+
+      dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
+        candidates: [
+          { driverProfileId: "drv-next", driverCode: "DRV-NEXT", displayName: "Next Driver", eligible: true, rank: 1 },
+        ],
+      });
+      dispatchAssignmentMocks.offerAssignment.mockResolvedValue({
+        id: "as-new",
+        expiresAt: new Date(Date.now() + 180000),
+      });
+      db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({
+        mode: "APPLY",
+        operationId: "op-expired-offer-test",
+      });
+
+      expect(result.itemsCompleted).toBe(1);
+      // Verify findEligibleDriversForOrder excluded drv-stale
+      expect(dispatchEvidenceMocks.createDispatchCandidateEvaluation).toHaveBeenCalled();
+      // Verify offerAssignment was called with the next driver, NOT drv-stale
+      expect(dispatchAssignmentMocks.offerAssignment).toHaveBeenCalledWith(
+        expect.anything(),
+        "ord-timeout-1",
+        expect.objectContaining({
+          driverProfileId: "drv-next",
+        })
+      );
+    });
+
+    it("blocks creating a second offer when a non-expired ASSIGNED offer is active", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
+        {
+          id: "br-active-offer",
+          courierOrderId: "ord-active-1",
+          dispatchEvidence: {},
+          courierOrder: { id: "ord-active-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
+      ]);
+
+      const futureExpiresAt = new Date(Date.now() + 120000); // 2 minutes in future
+      db.orderAssignment.findMany.mockResolvedValue([
+        {
+          id: "as-active",
+          driverProfileId: "drv-active",
+          status: "ASSIGNED",
+          expiresAt: futureExpiresAt,
+        },
+      ]);
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({
+        mode: "APPLY",
+        operationId: "op-active-offer-test",
+      });
+
+      expect(result.itemsCompleted).toBe(0);
+      expect(dispatchAssignmentMocks.offerAssignment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("recoverExhaustedDispatchOrder", () => {
+    it("rejects unauthorized non-admin actor", async () => {
+      db.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        recoverExhaustedDispatchOrder({
+          bridgeId: "br-term-1",
+          actorUserId: "usr-non-admin",
+          reason: "Manual operator review cleared lock",
+        })
+      ).rejects.toThrowError(/Actor must be an active administrator/);
+    });
+
+    it("authorizes active admin, resets consecutiveFailures, clears manualDispatchRequired, and writes audit log", async () => {
+      db.user.findFirst.mockResolvedValue({
+        id: "usr-admin-1",
+        role: "ADMIN",
+        status: "ACTIVE",
+      });
+      db.marketplaceStoreOrderDeliveryBridge.findFirst.mockResolvedValue({
+        id: "br-term-1",
+        courierOrderId: "ord-term-1",
+        marketplaceStoreOrderId: "so-1",
+        dispatchEvidence: {
+          manualDispatchRequired: true,
+          dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
+          reason: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
+          consecutiveFailures: 3,
+          history: [],
+        },
+      });
+      db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
+      db.adminActivityLog.create.mockResolvedValue({});
+
+      const outcome = await recoverExhaustedDispatchOrder({
+        bridgeId: "br-term-1",
+        actorUserId: "usr-admin-1",
+        reason: "Inspected DB locks and recovered dispatch",
+        idempotencyKey: "rec-key-001",
+        policyReference: "dspauto_valid",
+      });
+
+      expect(outcome.status).toBe("RECOVERED");
+      expect(outcome.bridgeId).toBe("br-term-1");
+      expect(outcome.idempotencyKey).toBe("rec-key-001");
+
+      expect(db.marketplaceStoreOrderDeliveryBridge.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "br-term-1" },
+          data: expect.objectContaining({
+            dispatchEvidence: expect.objectContaining({
+              manualDispatchRequired: false,
+              dispatchRouting: "PENDING_DISPATCH_RETRY",
+              consecutiveFailures: 0,
+              reason: null,
+              lastRecoveryIdempotencyKey: "rec-key-001",
+              lastRecoveryReason: "Inspected DB locks and recovered dispatch",
+              history: expect.arrayContaining([
+                expect.objectContaining({
+                  event: "EXHAUSTED_DISPATCH_RECOVERED",
+                  actorUserId: "usr-admin-1",
+                  reason: "Inspected DB locks and recovered dispatch",
+                  idempotencyKey: "rec-key-001",
+                }),
+              ]),
+            }),
+          }),
+        })
+      );
+
+      expect(db.adminActivityLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            actorUserId: "usr-admin-1",
+            action: "STATUS_CHANGE",
+            entityType: "MarketplaceStoreOrderDeliveryBridge",
+            entityId: "br-term-1",
+            metadata: expect.objectContaining({
+              idempotencyKey: "rec-key-001",
+              reason: "Inspected DB locks and recovered dispatch",
+            }),
+          }),
+        })
+      );
+    });
+
+    it("enforces idempotency key deduplication without duplicate updates", async () => {
+      db.user.findFirst.mockResolvedValue({
+        id: "usr-admin-1",
+        role: "ADMIN",
+        status: "ACTIVE",
+      });
+      db.marketplaceStoreOrderDeliveryBridge.findFirst.mockResolvedValue({
+        id: "br-term-1",
+        courierOrderId: "ord-term-1",
+        marketplaceStoreOrderId: "so-1",
+        dispatchEvidence: {
+          lastRecoveryIdempotencyKey: "rec-key-001",
+          lastRecoveredAt: "2026-10-17T07:00:00.000Z",
+          lastRecoveredByUserId: "usr-admin-1",
+        },
+      });
+
+      const outcome = await recoverExhaustedDispatchOrder({
+        bridgeId: "br-term-1",
+        actorUserId: "usr-admin-1",
+        reason: "Duplicate recovery attempt",
+        idempotencyKey: "rec-key-001",
+      });
+
+      expect(outcome.status).toBe("IDEMPOTENT_IGNORED");
+      expect(outcome.idempotencyKey).toBe("rec-key-001");
+      expect(db.marketplaceStoreOrderDeliveryBridge.update).not.toHaveBeenCalled();
+      expect(db.adminActivityLog.create).not.toHaveBeenCalled();
     });
   });
 });

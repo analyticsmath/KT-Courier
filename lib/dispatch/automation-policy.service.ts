@@ -14,7 +14,7 @@ export class DispatchPolicyError extends Error {
   }
 }
 
-const assertPolicy = (condition: unknown, code: string, message: string): void => {
+export const assertPolicy = (condition: unknown, code: string, message: string): void => {
   if (!condition) throw new DispatchPolicyError(code, message);
 };
 
@@ -23,7 +23,7 @@ type Client = Pick<typeof prisma, "systemSetting" | "dispatchAutomationPolicy">;
 /**
  * Validates that actorUserId belongs to an active administrator.
  */
-async function assertActiveAdminActor(
+export async function assertActiveAdminActor(
   client: { user: { findFirst(args: unknown): Promise<{ id: string; role: UserRole; status: UserStatus } | null> } },
   actorUserId: string
 ): Promise<string> {

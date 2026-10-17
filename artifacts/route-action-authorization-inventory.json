@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 759,
+    "totalRoutes": 760,
     "totalServerActions": 0,
     "publicRoutes": 96,
-    "authenticatedRoutes": 660,
-    "permissionGatedRoutes": 516,
+    "authenticatedRoutes": 661,
+    "permissionGatedRoutes": 517,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 208,
-    "generatedAt": "2026-10-17T02:13:17.809Z"
+    "rateLimitedRoutes": 209,
+    "generatedAt": "2026-10-17T07:36:17.059Z"
   },
   "serverActions": [],
   "routes": [
@@ -1453,6 +1453,24 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/dispatch/recover/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
