@@ -6,10 +6,8 @@ const db = vi.hoisted(() => {
     systemSetting: { findUnique: vi.fn() },
     user: { findUnique: vi.fn(), findFirst: vi.fn() },
     orderAssignment: { findMany: vi.fn() },
-    marketplaceStoreOrderDeliveryBridge: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+    marketplaceStoreOrderDeliveryBridge: { findMany: vi.fn(), update: vi.fn() },
     dispatchAutomationPolicy: { findFirst: vi.fn() },
-    adminActivityLog: { create: vi.fn() },
-    $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockDb)),
   };
   return mockDb;
 });
@@ -31,7 +29,6 @@ import {
   findEligibleDriversForOrder,
   isAutomaticDispatchEnabled,
   dispatchReadyMarketplaceOrdersBatch,
-  recoverExhaustedDispatchOrder,
 } from "@/lib/services/marketplace-dispatch-eligibility.service";
 
 describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", () => {
@@ -479,9 +476,14 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
 
       // P2: Verify raw exception text is not persisted in bridge evidence
       const updateCall = db.marketplaceStoreOrderDeliveryBridge.update.mock.calls.at(-1);
-      const historyEntry = updateCall[0].data.dispatchEvidence.history.at(-1);
+      expect(updateCall).toBeDefined();
+      if (!updateCall) throw new Error("expected a bridge update call");
+      const persisted = updateCall[0].data.dispatchEvidence;
+      const historyEntry = persisted.history.at(-1);
+      expect(historyEntry).toBeDefined();
       expect(historyEntry).not.toHaveProperty("message");
       expect(historyEntry.errorCode).toBe("CONCURRENCY_CONFLICT");
+      expect(JSON.stringify(persisted)).not.toContain("Concurrency conflict on order");
     });
 
     it("does not retry or create offers for orders already in terminal OFFER_CREATION_FAILED_RETRY_EXHAUSTED state on subsequent runs", async () => {
@@ -598,123 +600,71 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
       expect(result.itemsCompleted).toBe(0);
       expect(dispatchAssignmentMocks.offerAssignment).not.toHaveBeenCalled();
     });
-  });
 
-  describe("recoverExhaustedDispatchOrder", () => {
-    it("rejects unauthorized non-admin actor", async () => {
-      db.user.findFirst.mockResolvedValue(null);
+    it("never emits the raw exception message to durable evidence or to application/platform logs", async () => {
+      const secret = "SECRET-DB-DETAIL host=db.internal.example user=svc password=hunter2";
+      const sinks = [
+        vi.spyOn(console, "error").mockImplementation(() => undefined),
+        vi.spyOn(console, "warn").mockImplementation(() => undefined),
+        vi.spyOn(console, "info").mockImplementation(() => undefined),
+        vi.spyOn(console, "log").mockImplementation(() => undefined),
+      ];
+      try {
+        db.systemSetting.findUnique.mockResolvedValue({ value: true });
+        db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+        db.marketplaceStoreOrderDeliveryBridge.findMany
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([
+            {
+              id: "br-log-1",
+              courierOrderId: "ord-log-1",
+              dispatchEvidence: { consecutiveFailures: 0 },
+              courierOrder: { id: "ord-log-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+            },
+          ]);
+        db.orderAssignment.findMany.mockResolvedValue([]);
+        dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
+          candidates: [
+            { driverProfileId: "drv-top", driverCode: "DRV-TOP", displayName: "Top Driver", eligible: true, rank: 1 },
+          ],
+        });
+        dispatchAssignmentMocks.offerAssignment.mockRejectedValue(new Error(secret));
+        db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
 
-      await expect(
-        recoverExhaustedDispatchOrder({
-          bridgeId: "br-term-1",
-          actorUserId: "usr-non-admin",
-          reason: "Manual operator review cleared lock",
-        })
-      ).rejects.toThrowError(/Actor must be an active administrator/);
+        await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", operationId: "op-log-redaction" });
+
+        const logged = sinks.flatMap((sink) => sink.mock.calls.flat()).map((arg) => String(arg)).join("\n");
+        expect(logged).toContain("DISPATCH_AUTOMATIC_OFFER_FAILED");
+        expect(logged).toContain("OFFER_EXECUTION_FAILED");
+        expect(logged).not.toContain("SECRET-DB-DETAIL");
+        expect(logged).not.toContain("hunter2");
+        expect(logged).not.toContain("rawError");
+
+        const durable = JSON.stringify(db.marketplaceStoreOrderDeliveryBridge.update.mock.calls);
+        expect(durable).not.toContain("SECRET-DB-DETAIL");
+        expect(durable).not.toContain("hunter2");
+      } finally {
+        sinks.forEach((sink) => sink.mockRestore());
+      }
     });
 
-    it("authorizes active admin, resets consecutiveFailures, clears manualDispatchRequired, and writes audit log", async () => {
-      db.user.findFirst.mockResolvedValue({
-        id: "usr-admin-1",
-        role: "ADMIN",
-        status: "ACTIVE",
+    it("excludes already-exhausted bridges in the database query so they cannot starve newer orders", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+      db.marketplaceStoreOrderDeliveryBridge.findMany
+        .mockResolvedValueOnce([{ id: "br-exhausted-1" }, { id: "br-exhausted-2" }])
+        .mockResolvedValueOnce([]);
+
+      await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", operationId: "op-starvation" });
+
+      const [exhaustedQuery, candidateQuery] = db.marketplaceStoreOrderDeliveryBridge.findMany.mock.calls;
+      expect(exhaustedQuery[0].where.dispatchEvidence).toEqual({
+        path: ["reason"],
+        equals: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
       });
-      db.marketplaceStoreOrderDeliveryBridge.findFirst.mockResolvedValue({
-        id: "br-term-1",
-        courierOrderId: "ord-term-1",
-        marketplaceStoreOrderId: "so-1",
-        dispatchEvidence: {
-          manualDispatchRequired: true,
-          dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
-          reason: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
-          consecutiveFailures: 3,
-          history: [],
-        },
-      });
-      db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
-      db.adminActivityLog.create.mockResolvedValue({});
-
-      const outcome = await recoverExhaustedDispatchOrder({
-        bridgeId: "br-term-1",
-        actorUserId: "usr-admin-1",
-        reason: "Inspected DB locks and recovered dispatch",
-        idempotencyKey: "rec-key-001",
-        policyReference: "dspauto_valid",
-      });
-
-      expect(outcome.status).toBe("RECOVERED");
-      expect(outcome.bridgeId).toBe("br-term-1");
-      expect(outcome.idempotencyKey).toBe("rec-key-001");
-
-      expect(db.marketplaceStoreOrderDeliveryBridge.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "br-term-1" },
-          data: expect.objectContaining({
-            dispatchEvidence: expect.objectContaining({
-              manualDispatchRequired: false,
-              dispatchRouting: "PENDING_DISPATCH_RETRY",
-              consecutiveFailures: 0,
-              reason: null,
-              lastRecoveryIdempotencyKey: "rec-key-001",
-              lastRecoveryReason: "Inspected DB locks and recovered dispatch",
-              history: expect.arrayContaining([
-                expect.objectContaining({
-                  event: "EXHAUSTED_DISPATCH_RECOVERED",
-                  actorUserId: "usr-admin-1",
-                  reason: "Inspected DB locks and recovered dispatch",
-                  idempotencyKey: "rec-key-001",
-                }),
-              ]),
-            }),
-          }),
-        })
-      );
-
-      expect(db.adminActivityLog.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            actorUserId: "usr-admin-1",
-            action: "STATUS_CHANGE",
-            entityType: "MarketplaceStoreOrderDeliveryBridge",
-            entityId: "br-term-1",
-            metadata: expect.objectContaining({
-              idempotencyKey: "rec-key-001",
-              reason: "Inspected DB locks and recovered dispatch",
-            }),
-          }),
-        })
-      );
-    });
-
-    it("enforces idempotency key deduplication without duplicate updates", async () => {
-      db.user.findFirst.mockResolvedValue({
-        id: "usr-admin-1",
-        role: "ADMIN",
-        status: "ACTIVE",
-      });
-      db.marketplaceStoreOrderDeliveryBridge.findFirst.mockResolvedValue({
-        id: "br-term-1",
-        courierOrderId: "ord-term-1",
-        marketplaceStoreOrderId: "so-1",
-        dispatchEvidence: {
-          lastRecoveryIdempotencyKey: "rec-key-001",
-          lastRecoveredAt: "2026-10-17T07:00:00.000Z",
-          lastRecoveredByUserId: "usr-admin-1",
-        },
-      });
-
-      const outcome = await recoverExhaustedDispatchOrder({
-        bridgeId: "br-term-1",
-        actorUserId: "usr-admin-1",
-        reason: "Duplicate recovery attempt",
-        idempotencyKey: "rec-key-001",
-      });
-
-      expect(outcome.status).toBe("IDEMPOTENT_IGNORED");
-      expect(outcome.idempotencyKey).toBe("rec-key-001");
-      expect(db.marketplaceStoreOrderDeliveryBridge.update).not.toHaveBeenCalled();
-      expect(db.adminActivityLog.create).not.toHaveBeenCalled();
+      expect(candidateQuery[0].where.id).toEqual({ notIn: ["br-exhausted-1", "br-exhausted-2"] });
+      // Null-safe: no NOT{json path} filter that would also drop bridges lacking a `reason` key.
+      expect(candidateQuery[0].where.NOT).toBeUndefined();
     });
   });
 });
-

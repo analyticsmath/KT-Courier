@@ -21,6 +21,22 @@ function walk(dir) {
 
 const routeFiles = walk(apiDir).sort();
 
+// Resolve PERMISSIONS.<KEY> to its canonical string from the single source of truth.
+const permissionValues = (() => {
+  const source = fs.readFileSync(
+    path.join(root, "lib", "auth", "permission-keys.ts"),
+    "utf8",
+  );
+  const start = source.indexOf("export const PERMISSIONS");
+  const end = source.indexOf("as const", start);
+  const block = start >= 0 && end > start ? source.slice(start, end) : "";
+  const map = new Map();
+  for (const m of block.matchAll(/^\s+([A-Z0-9_]+):\s*"([^"]+)"/gm)) {
+    map.set(m[1], m[2]);
+  }
+  return map;
+})();
+
 const inventory = [];
 
 let publicCount = 0;
@@ -164,15 +180,28 @@ for (const file of routeFiles) {
     publicCount++;
   }
 
-  // Detect Idempotency
+  // Detect Idempotency. An `idempotencyKey` that the route declares optional/nullable is NOT
+  // enforcement (callers may omit it and the mutation is then never deduplicated), so it does not
+  // count unless another mandatory token (operationId / clientMutationId) is also present.
+  const idempotencyKeyDeclaredOptional =
+    /\bidempotencyKey\s*\?\s*:/.test(content) ||
+    /\bidempotencyKey\s*:\s*z\.[^\n]*\.(optional|nullish)\(\)/.test(content);
   const hasIdempotency =
     content.includes("operationId") ||
-    content.includes("idempotencyKey") ||
+    (content.includes("idempotencyKey") && !idempotencyKeyDeclaredOptional) ||
     content.includes("clientMutationId");
   // This delegated handler performs scoped origin/rate checks and binds its
   // mandatory operationId to the canonical CSV receipt, not the route wrapper.
   const delegatedInventoryUpload = content.includes("storeInventoryUploadPost");
   if (delegatedInventoryUpload) requiredPermissions = ["catalog_inventory.manage"];
+  // Extract the permission key(s) actually passed to requireAdminApiPermission(PERMISSIONS.X, ...)
+  // and resolve them to their canonical string values from lib/auth/permission-keys.ts.
+  for (const match of content.matchAll(
+    /requireAdminApiPermission\(\s*PERMISSIONS\.([A-Z0-9_]+)/g,
+  )) {
+    const value = permissionValues.get(match[1]);
+    if (value && !requiredPermissions.includes(value)) requiredPermissions.push(value);
+  }
 
   // Detect BOLA. A route without a dynamic object segment that passes the
   // authenticated session identity to its service is scoped to the caller's own data.

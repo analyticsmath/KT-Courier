@@ -35,7 +35,17 @@ vi.mock("@/lib/dispatch/automation-policy.service", () => {
 });
 
 import { POST as postRecover } from "@/app/api/admin/dispatch/recover/route";
+import { DispatchPolicyError } from "@/lib/dispatch/automation-policy.service";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
+
+const VALID_KEY = "recover-key-0001";
+
+function request(body: unknown) {
+  return new NextRequest("http://localhost:3000/api/admin/dispatch/recover", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
 
 describe("Admin Dispatch Recovery API Route (app/api/admin/dispatch/recover)", () => {
   const adminUser = { id: "admin-1", role: "ADMIN" };
@@ -49,65 +59,59 @@ describe("Admin Dispatch Recovery API Route (app/api/admin/dispatch/recover)", (
       bridgeId: "br-1",
       courierOrderId: "ord-1",
       status: "RECOVERED",
+      replayed: false,
       recoveredAt: "2026-10-17T07:00:00.000Z",
       actorUserId: "admin-1",
+      idempotencyKey: VALID_KEY,
     });
   });
 
-  it("enforces DISPATCH_MANAGE permission", async () => {
-    const req = new NextRequest("http://localhost:3000/api/admin/dispatch/recover", {
-      method: "POST",
-      body: JSON.stringify({
-        bridgeId: "br-1",
-        reason: "Cleared system lock",
-      }),
-    });
-
+  it("enforces DISPATCH_MANAGE permission, origin and rate limiting before doing any work", async () => {
+    const req = request({ bridgeId: "br-1", reason: "Cleared system lock", idempotencyKey: VALID_KEY });
     await postRecover(req);
 
+    expect(mocks.enforceSameOriginRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.checkIpRateLimit).toHaveBeenCalledTimes(1);
     expect(mocks.requireAdminApiPermission).toHaveBeenCalledWith(
       PERMISSIONS.DISPATCH_MANAGE,
       expect.objectContaining({ request: req })
     );
   });
 
-  it("validates request body requires at least one target identifier", async () => {
-    const req = new NextRequest("http://localhost:3000/api/admin/dispatch/recover", {
-      method: "POST",
-      body: JSON.stringify({
-        reason: "Cleared system lock",
-      }),
-    });
-
-    const res = await postRecover(req);
-    expect(res.status).toBe(422);
-    const json = await res.json();
-    expect(json.error).toBe("Validation failed.");
+  it("does not call the service when the permission check fails", async () => {
+    const denied = new Response(null, { status: 403 });
+    mocks.requireAdminApiPermission.mockResolvedValue({ user: null, response: denied });
+    const res = await postRecover(request({ bridgeId: "br-1", reason: "x", idempotencyKey: VALID_KEY }));
+    expect(res.status).toBe(403);
+    expect(mocks.recoverExhaustedDispatchOrder).not.toHaveBeenCalled();
   });
 
-  it("calls recoverExhaustedDispatchOrder with actor and returns result", async () => {
-    mocks.recoverExhaustedDispatchOrder.mockResolvedValue({
-      bridgeId: "br-1",
-      courierOrderId: "ord-1",
-      status: "RECOVERED",
-      recoveredAt: "2026-10-17T07:00:00.000Z",
-      actorUserId: "admin-1",
-      idempotencyKey: "idem-key-1",
-    });
+  it("requires at least one target identifier", async () => {
+    const res = await postRecover(request({ reason: "Cleared system lock", idempotencyKey: VALID_KEY }));
+    expect(res.status).toBe(422);
+    expect(mocks.recoverExhaustedDispatchOrder).not.toHaveBeenCalled();
+  });
 
-    const req = new NextRequest("http://localhost:3000/api/admin/dispatch/recover", {
-      method: "POST",
-      body: JSON.stringify({
-        bridgeId: "br-1",
-        reason: "Cleared system lock",
-        idempotencyKey: "idem-key-1",
-      }),
-    });
+  it.each([
+    ["missing", undefined],
+    ["too short", "short"],
+    ["illegal characters", "has spaces and !!"],
+    ["too long", "k".repeat(129)],
+  ])("rejects a %s idempotency key with 422 and never reaches the service", async (_label, key) => {
+    const body: Record<string, unknown> = { bridgeId: "br-1", reason: "Cleared system lock" };
+    if (key !== undefined) body.idempotencyKey = key;
+    const res = await postRecover(request(body));
+    expect(res.status).toBe(422);
+    expect(mocks.recoverExhaustedDispatchOrder).not.toHaveBeenCalled();
+  });
 
-    const res = await postRecover(req);
+  it("calls the service with the authenticated actor and returns the result", async () => {
+    const res = await postRecover(
+      request({ bridgeId: "br-1", reason: "Cleared system lock", idempotencyKey: VALID_KEY })
+    );
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data.status).toBe("RECOVERED");
+    expect(json.data).toMatchObject({ status: "RECOVERED", replayed: false });
     expect(mocks.recoverExhaustedDispatchOrder).toHaveBeenCalledWith({
       bridgeId: "br-1",
       courierOrderId: undefined,
@@ -115,7 +119,20 @@ describe("Admin Dispatch Recovery API Route (app/api/admin/dispatch/recover)", (
       actorUserId: "admin-1",
       reason: "Cleared system lock",
       policyReference: undefined,
-      idempotencyKey: "idem-key-1",
+      idempotencyKey: VALID_KEY,
     });
+  });
+
+  it.each([
+    ["DISPATCH_RECOVERY_STATE_CONFLICT", 409],
+    ["DISPATCH_RECOVERY_IDEMPOTENCY_KEY_REUSED", 409],
+    ["DISPATCH_RECOVERY_NOT_FOUND", 404],
+    ["DISPATCH_POLICY_UNAUTHORIZED_ACTOR", 400],
+  ])("maps %s to HTTP %i", async (code, status) => {
+    mocks.recoverExhaustedDispatchOrder.mockRejectedValue(new DispatchPolicyError(code, "details"));
+    const res = await postRecover(
+      request({ bridgeId: "br-1", reason: "Cleared system lock", idempotencyKey: VALID_KEY })
+    );
+    expect(res.status).toBe(status);
   });
 });

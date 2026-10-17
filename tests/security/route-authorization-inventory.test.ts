@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
 function walkApiRoutes(dir: string): string[] {
   let results: string[] = [];
@@ -62,5 +63,44 @@ describe("P1R-009: Route and Server Action Authorization Inventory Drift Prevent
       expect(typeof item.bolaOwnershipValidated, `bolaOwnershipValidated missing in ${item.routePath}`).toBe("boolean");
       expect(typeof item.remediationStatus, `remediationStatus missing in ${item.routePath}`).toBe("string");
     }
+  });
+
+  it("records the permission each admin route actually enforces (no empty requiredPermissions)", () => {
+    const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const byPath = new Map<string, any>(content.routes.map((r: any) => [r.routePath, r]));
+    const offenders: string[] = [];
+    for (const file of walkApiRoutes(apiDir)) {
+      const rel = path.relative(root, file).replace(/\\/g, "/");
+      const source = fs.readFileSync(file, "utf8");
+      for (const match of source.matchAll(/requireAdminApiPermission\(\s*PERMISSIONS\.([A-Z0-9_]+)/g)) {
+        const expected = (PERMISSIONS as Record<string, string>)[match[1]];
+        const entry = byPath.get(rel);
+        if (!expected || !entry || !entry.requiredPermissions.includes(expected)) {
+          offenders.push(`${rel} -> ${match[1]}`);
+        }
+      }
+    }
+    expect(offenders, `Routes whose enforced permission is missing from the inventory:\n${offenders.join("\n")}`).toEqual([]);
+  });
+
+  it("keeps the dispatch recovery route inventory truthful (method, role, permission, protections, idempotency)", () => {
+    const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const entry = content.routes.find((r: any) => r.routePath === "app/api/admin/dispatch/recover/route.ts");
+    expect(entry).toBeDefined();
+    expect(entry.httpMethods).toEqual(["POST"]);
+    expect(entry.authorizationMechanism).toBe("ADMIN_SESSION_PERMISSION");
+    expect(entry.requiredRoles).toEqual(["ADMIN", "SUPER_ADMIN"]);
+    expect(entry.requiredPermissions).toEqual([PERMISSIONS.DISPATCH_MANAGE]);
+    expect(entry.originProtection).toBe("ENFORCED_IN_ROUTE");
+    expect(entry.rateLimitingApplied).toBe(true);
+
+    // idempotencyEnforced may only be true while the route really requires the key.
+    const source = fs.readFileSync(path.join(root, entry.routePath), "utf8");
+    const keyDeclaredOptional =
+      /\bidempotencyKey\s*\?\s*:/.test(source) ||
+      /\bidempotencyKey\s*:\s*z\.[^\n]*\.(optional|nullish)\(\)/.test(source);
+    expect(source).toMatch(/idempotencyKey\s*:\s*z/);
+    expect(keyDeclaredOptional).toBe(false);
+    expect(entry.idempotencyEnforced).toBe(true);
   });
 });

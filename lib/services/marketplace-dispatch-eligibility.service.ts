@@ -15,6 +15,7 @@ import {
 } from "@/lib/dispatch/automation-policy.service";
 import { DispatchError } from "@/lib/dispatch/errors";
 import { logApplicationEvent } from "@/lib/observability/logger";
+import { RECOVERY_IDEMPOTENCY_KEY_PATTERN, RECOVERY_REASON_MAX_LENGTH } from "@/lib/dispatch/recovery-constants";
 
 function classifyDispatchFailure(err: unknown): string {
   if (err instanceof DispatchError) {
@@ -119,6 +120,10 @@ export interface MarketplaceDispatchBatchOutcome {
   safeSummary: string;
 }
 
+const EXHAUSTED_DISPATCH_REASON = "OFFER_CREATION_FAILED_RETRY_EXHAUSTED";
+const EXHAUSTED_RECOVERY_EVENT = "EXHAUSTED_DISPATCH_RECOVERED";
+
+
 export interface RecoverExhaustedDispatchInput {
   bridgeId?: string;
   courierOrderId?: string;
@@ -126,25 +131,55 @@ export interface RecoverExhaustedDispatchInput {
   actorUserId: string;
   reason: string;
   policyReference?: string;
-  idempotencyKey?: string;
+  /** Mandatory: 8-128 chars of [A-Za-z0-9._:-]. Scopes exactly one recovery transition per bridge. */
+  idempotencyKey: string;
 }
 
 export interface RecoverExhaustedDispatchResult {
   bridgeId: string;
   courierOrderId: string | null;
-  status: "RECOVERED" | "IDEMPOTENT_IGNORED";
+  status: "RECOVERED";
+  /** True when this call replayed the original recovery for the same idempotency key (no new writes). */
+  replayed: boolean;
   recoveredAt: string;
   actorUserId: string;
-  idempotencyKey?: string;
+  idempotencyKey: string;
+}
+
+function asEvidenceRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function findRecoveryReplayEntry(
+  evidence: Record<string, unknown>,
+  idempotencyKey: string
+): Record<string, unknown> | null {
+  const history = Array.isArray(evidence.history) ? evidence.history : [];
+  for (const entry of history) {
+    const record = asEvidenceRecord(entry);
+    if (record.event === EXHAUSTED_RECOVERY_EVENT && record.idempotencyKey === idempotencyKey) {
+      return record;
+    }
+  }
+  return null;
 }
 
 /**
- * Authorized, auditable operator recovery path for orders stuck in
- * OFFER_CREATION_FAILED_RETRY_EXHAUSTED manual queue.
+ * Authorized, auditable operator recovery for orders parked in the terminal
+ * OFFER_CREATION_FAILED_RETRY_EXHAUSTED manual-queue state.
  *
- * Verifies active admin credentials, enforces idempotency, clears the terminal failure lock,
- * resets consecutive failures to 0, appends EXHAUSTED_DISPATCH_RECOVERED to bridge history,
- * records an AdminActivityLog audit entry, and emits safe application event telemetry.
+ * Every authoritative check and the write happen inside ONE transaction:
+ * 1. the actor is re-verified as an active administrator;
+ * 2. a prior recovery with the same idempotency key is replayed (no writes) when found in durable
+ *    bridge history; a key reused by a different actor is rejected;
+ * 3. the bridge must currently be manualDispatchRequired === true with the exhausted reason, still be
+ *    awaiting dispatch, and its courier order must have no live assignment;
+ * 4. the transition is a compare-and-set (updatedAt + the exhausted JSON state) so a stale read or a
+ *    concurrent dispatch/recovery cannot clear a changed row. A lost race re-reads the committed row:
+ *    same key => replay, anything else => a state conflict.
+ * The success audit entry is created only after the compare-and-set wins.
  */
 export async function recoverExhaustedDispatchOrder(
   input: RecoverExhaustedDispatchInput
@@ -154,61 +189,125 @@ export async function recoverExhaustedDispatchOrder(
     "DISPATCH_RECOVERY_TARGET_REQUIRED",
     "Must specify bridgeId, courierOrderId, or marketplaceStoreOrderId."
   );
+  const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+  assertPolicy(reason.length > 0, "DISPATCH_RECOVERY_REASON_REQUIRED", "Recovery reason is required.");
   assertPolicy(
-    typeof input.reason === "string" && input.reason.trim().length > 0,
-    "DISPATCH_RECOVERY_REASON_REQUIRED",
-    "Recovery reason is required."
+    reason.length <= RECOVERY_REASON_MAX_LENGTH,
+    "DISPATCH_RECOVERY_REASON_TOO_LONG",
+    `Recovery reason must be at most ${RECOVERY_REASON_MAX_LENGTH} characters.`
   );
+  assertPolicy(
+    typeof input.idempotencyKey === "string" && RECOVERY_IDEMPOTENCY_KEY_PATTERN.test(input.idempotencyKey),
+    "DISPATCH_RECOVERY_IDEMPOTENCY_KEY_INVALID",
+    "A valid idempotency key (8-128 characters of letters, digits, '.', '_', ':' or '-') is required."
+  );
+  const idempotencyKey = input.idempotencyKey;
 
-  await assertActiveAdminActor(prisma, input.actorUserId);
-
-  const bridge = await prisma.marketplaceStoreOrderDeliveryBridge.findFirst({
-    where: input.bridgeId
-      ? { id: input.bridgeId }
-      : input.courierOrderId
+  const targetWhere = input.bridgeId
+    ? { id: input.bridgeId }
+    : input.courierOrderId
       ? { courierOrderId: input.courierOrderId }
-      : { marketplaceStoreOrderId: input.marketplaceStoreOrderId! },
-  });
+      : { marketplaceStoreOrderId: input.marketplaceStoreOrderId! };
 
-  if (!bridge) {
-    throw new DispatchPolicyError("DISPATCH_RECOVERY_NOT_FOUND", "Marketplace delivery bridge not found.");
-  }
+  const outcome = await prisma.$transaction(async (tx) => {
+    await assertActiveAdminActor(tx, input.actorUserId);
 
-  const existingEvidence = typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null
-    ? bridge.dispatchEvidence as Record<string, unknown>
-    : {};
+    const loadBridge = () =>
+      tx.marketplaceStoreOrderDeliveryBridge.findFirst({
+        where: targetWhere,
+        select: {
+          id: true,
+          courierOrderId: true,
+          marketplaceStoreOrderId: true,
+          status: true,
+          dispatchEvidence: true,
+          updatedAt: true,
+          courierOrder: { select: { status: true } },
+        },
+      });
 
-  // Idempotency check: if this recovery has already been applied with the same idempotencyKey, return early
-  if (
-    input.idempotencyKey &&
-    existingEvidence.lastRecoveryIdempotencyKey === input.idempotencyKey
-  ) {
-    return {
-      bridgeId: bridge.id,
-      courierOrderId: bridge.courierOrderId,
-      status: "IDEMPOTENT_IGNORED",
-      recoveredAt: String(existingEvidence.lastRecoveredAt ?? new Date().toISOString()),
-      actorUserId: String(existingEvidence.lastRecoveredByUserId ?? input.actorUserId),
-      idempotencyKey: input.idempotencyKey,
+    const replayFrom = (
+      bridge: { id: string; courierOrderId: string | null },
+      entry: Record<string, unknown>
+    ): RecoverExhaustedDispatchResult => {
+      assertPolicy(
+        entry.actorUserId === input.actorUserId,
+        "DISPATCH_RECOVERY_IDEMPOTENCY_KEY_REUSED",
+        "This idempotency key was already used by a different administrator."
+      );
+      return {
+        bridgeId: bridge.id,
+        courierOrderId: bridge.courierOrderId,
+        status: "RECOVERED",
+        replayed: true,
+        recoveredAt: String(entry.timestamp),
+        actorUserId: String(entry.actorUserId),
+        idempotencyKey,
+      };
     };
-  }
 
-  const recoveredAt = new Date().toISOString();
-  const recoveryEntry = {
-    event: "EXHAUSTED_DISPATCH_RECOVERED",
-    timestamp: recoveredAt,
-    actorUserId: input.actorUserId,
-    reason: input.reason,
-    policyReference: input.policyReference ?? (existingEvidence.policyReference as string | undefined) ?? null,
-    idempotencyKey: input.idempotencyKey ?? null,
-  };
+    const bridge = await loadBridge();
+    if (!bridge) {
+      throw new DispatchPolicyError("DISPATCH_RECOVERY_NOT_FOUND", "Marketplace delivery bridge not found.");
+    }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.marketplaceStoreOrderDeliveryBridge.update({
-      where: { id: bridge.id },
+    const evidence = asEvidenceRecord(bridge.dispatchEvidence);
+
+    const priorRecovery = findRecoveryReplayEntry(evidence, idempotencyKey);
+    if (priorRecovery) return replayFrom(bridge, priorRecovery);
+
+    assertPolicy(
+      evidence.manualDispatchRequired === true && evidence.reason === EXHAUSTED_DISPATCH_REASON,
+      "DISPATCH_RECOVERY_STATE_CONFLICT",
+      "Order is not in the exhausted automatic-dispatch state; recovery was not applied."
+    );
+    assertPolicy(
+      bridge.courierOrderId &&
+        (bridge.status === "DISPATCH_PENDING" || bridge.status === "DELIVERY_ORDER_CREATED") &&
+        (bridge.courierOrder?.status === "CONFIRMED" || bridge.courierOrder?.status === "PICKUP_SCHEDULED"),
+      "DISPATCH_RECOVERY_STATE_CONFLICT",
+      "Order is no longer awaiting dispatch; recovery was not applied."
+    );
+    const activeAssignment = await tx.orderAssignment.findFirst({
+      where: {
+        orderId: bridge.courierOrderId!,
+        OR: [
+          { status: "ACCEPTED" },
+          { status: "ASSIGNED", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        ],
+      },
+      select: { id: true },
+    });
+    assertPolicy(
+      !activeAssignment,
+      "DISPATCH_RECOVERY_STATE_CONFLICT",
+      "Order already has a live driver assignment; recovery was not applied."
+    );
+
+    const recoveredAt = new Date().toISOString();
+    const policyReference =
+      input.policyReference ?? (typeof evidence.policyReference === "string" ? evidence.policyReference : null);
+    const recoveryEntry = {
+      event: EXHAUSTED_RECOVERY_EVENT,
+      timestamp: recoveredAt,
+      actorUserId: input.actorUserId,
+      reason,
+      policyReference,
+      idempotencyKey,
+    };
+
+    const swapped = await tx.marketplaceStoreOrderDeliveryBridge.updateMany({
+      where: {
+        id: bridge.id,
+        updatedAt: bridge.updatedAt,
+        AND: [
+          { dispatchEvidence: { path: ["manualDispatchRequired"], equals: true } },
+          { dispatchEvidence: { path: ["reason"], equals: EXHAUSTED_DISPATCH_REASON } },
+        ],
+      },
       data: {
         dispatchEvidence: {
-          ...existingEvidence,
+          ...evidence,
           manualDispatchRequired: false,
           dispatchRouting: "PENDING_DISPATCH_RETRY",
           manualDispatchResolvedAt: recoveredAt,
@@ -218,15 +317,24 @@ export async function recoverExhaustedDispatchOrder(
           actionableNextStep: null,
           lastRecoveredAt: recoveredAt,
           lastRecoveredByUserId: input.actorUserId,
-          lastRecoveryReason: input.reason,
-          lastRecoveryIdempotencyKey: input.idempotencyKey ?? null,
-          history: [
-            ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
-            recoveryEntry,
-          ],
+          lastRecoveryReason: reason,
+          lastRecoveryIdempotencyKey: idempotencyKey,
+          history: [...(Array.isArray(evidence.history) ? evidence.history : []), recoveryEntry],
         },
       },
     });
+
+    if (swapped.count !== 1) {
+      // Lost a race with a concurrent recovery/dispatch. Re-read the committed row: the same key is a
+      // replay of the winner; anything else is a conflict. No evidence or audit write happens here.
+      const current = await loadBridge();
+      const winner = current ? findRecoveryReplayEntry(asEvidenceRecord(current.dispatchEvidence), idempotencyKey) : null;
+      if (current && winner) return replayFrom(current, winner);
+      throw new DispatchPolicyError(
+        "DISPATCH_RECOVERY_STATE_CONFLICT",
+        "Dispatch state changed concurrently; recovery was not applied."
+      );
+    }
 
     await tx.adminActivityLog.create({
       data: {
@@ -234,44 +342,47 @@ export async function recoverExhaustedDispatchOrder(
         action: AdminActionType.STATUS_CHANGE,
         entityType: "MarketplaceStoreOrderDeliveryBridge",
         entityId: bridge.id,
-        message: `Authorized recovery of exhausted dispatch order: ${input.reason}`,
+        message: `Authorized recovery of exhausted dispatch order: ${reason}`,
         metadata: {
           courierOrderId: bridge.courierOrderId,
           marketplaceStoreOrderId: bridge.marketplaceStoreOrderId,
-          reason: input.reason,
-          policyReference: input.policyReference ?? existingEvidence.policyReference ?? null,
-          idempotencyKey: input.idempotencyKey ?? null,
+          reason,
+          policyReference,
+          idempotencyKey,
           recoveredAt,
         },
       },
     });
-  });
 
-  logApplicationEvent({
-    level: "INFO",
-    event: "DISPATCH_EXHAUSTED_RETRY_RECOVERED",
-    message: "Authorized operator recovered exhausted marketplace dispatch order.",
-    actorType: "ADMIN",
-    actorReference: input.actorUserId,
-    resourceReference: bridge.courierOrderId ?? bridge.id,
-    outcome: "SUCCESS",
-    context: {
+    return {
       bridgeId: bridge.id,
       courierOrderId: bridge.courierOrderId,
-      reason: input.reason,
-      policyReference: input.policyReference ?? existingEvidence.policyReference ?? null,
-      idempotencyKey: input.idempotencyKey ?? null,
-    },
+      status: "RECOVERED" as const,
+      replayed: false,
+      recoveredAt,
+      actorUserId: input.actorUserId,
+      idempotencyKey,
+    };
   });
 
-  return {
-    bridgeId: bridge.id,
-    courierOrderId: bridge.courierOrderId,
-    status: "RECOVERED",
-    recoveredAt,
-    actorUserId: input.actorUserId,
-    idempotencyKey: input.idempotencyKey,
-  };
+  if (!outcome.replayed) {
+    logApplicationEvent({
+      level: "INFO",
+      event: "DISPATCH_EXHAUSTED_RETRY_RECOVERED",
+      message: "Authorized operator recovered exhausted marketplace dispatch order.",
+      actorType: "ADMIN",
+      actorReference: input.actorUserId,
+      resourceReference: outcome.courierOrderId ?? outcome.bridgeId,
+      outcome: "SUCCESS",
+      context: {
+        bridgeId: outcome.bridgeId,
+        courierOrderId: outcome.courierOrderId,
+        idempotencyKey,
+      },
+    });
+  }
+
+  return outcome;
 }
 
 /**
@@ -286,8 +397,22 @@ export async function dispatchReadyMarketplaceOrdersBatch(
 ): Promise<MarketplaceDispatchBatchOutcome> {
   const batchLimit = Math.min(100, Math.max(1, options.batchSize ?? 20));
 
+  // Exhausted bridges are terminal for automatic dispatch until an authorized recovery. They are
+  // excluded in the database so they cannot occupy batch slots and starve newer orders. A positive
+  // JSON-path match plus `id notIn` is used instead of `NOT { json path }`, because SQL three-valued
+  // logic would also drop every bridge whose evidence has no `reason` key (including new bridges).
+  const exhaustedBridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
+    where: {
+      dispatchEvidence: { path: ["reason"], equals: EXHAUSTED_DISPATCH_REASON },
+    },
+    select: { id: true },
+    take: 5000,
+  });
+  const exhaustedBridgeIds = (exhaustedBridges ?? []).map((row) => row.id);
+
   const candidateBridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
     where: {
+      ...(exhaustedBridgeIds.length > 0 ? { id: { notIn: exhaustedBridgeIds } } : {}),
       courierOrderId: { not: null },
       status: { in: ["DISPATCH_PENDING", "DELIVERY_ORDER_CREATED"] },
       storeOrder: {
@@ -308,12 +433,6 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               { status: "ASSIGNED", expiresAt: null },
             ],
           },
-        },
-      },
-      NOT: {
-        dispatchEvidence: {
-          path: ["reason"],
-          equals: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
         },
       },
     },
@@ -590,13 +709,14 @@ export async function dispatchReadyMarketplaceOrdersBatch(
         resourceReference: courierOrderId,
         outcome: isExhausted ? "FAILURE" : "RETRY",
         errorCategory: boundedErrorCode,
+        // Only the bounded error category/code and safe references are logged. The raw exception
+        // message and stack are deliberately excluded: hosting log systems retain console output.
         context: {
           bridgeId: bridge.id,
           courierOrderId,
           consecutiveFailures,
           isExhausted,
           policyReference: authority.policyReference,
-          rawError: err instanceof Error ? err.message : String(err),
         },
       });
 
