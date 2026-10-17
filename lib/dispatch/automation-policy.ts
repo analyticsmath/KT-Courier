@@ -124,6 +124,7 @@ export const MANUAL_DISPATCH_REASONS: Readonly<Record<string, Readonly<{ label: 
   ORDER_REGION_OUTSIDE_POLICY_SCOPE: { label: "This delivery region is not covered by the approved automation policy.", nextStep: "Select a compliant driver manually, or review the policy scope." },
   NO_ELIGIBLE_DRIVERS_AVAILABLE: { label: "No compliant, available driver qualified for this delivery.", nextStep: "Contact operations to recruit or free capacity, then select a driver manually." },
   MAX_OFFER_ATTEMPTS_EXCEEDED: { label: "Automatic offers were declined or expired the approved number of times.", nextStep: "Select a compliant driver manually." },
+  OFFER_CREATION_FAILED_RETRY_EXHAUSTED: { label: "Automatic offer creation encountered consecutive system errors and exhausted retries.", nextStep: "Inspect offer creation error logs and select a compliant driver manually." },
   SYSTEM_ACTOR_UNAVAILABLE: { label: "A valid system actor could not be established, so no automatic offer was made.", nextStep: "Contact engineering; select a compliant driver manually meanwhile." },
 });
 
@@ -135,4 +136,16 @@ export function describeManualDispatchReason(reason: unknown): Readonly<{ code: 
     label: known?.label ?? "Automatic routing stopped for an unrecorded reason.",
     nextStep: known?.nextStep ?? "Select a compliant driver manually or contact operations.",
   });
+}
+
+/**
+ * Returns true if a previously recorded manual-dispatch blocker has been cleared or resolved.
+ */
+export function isManualDispatchBlockerResolved(evidence: Record<string, unknown> | null | undefined): boolean {
+  if (!evidence || typeof evidence !== "object") return false;
+  if (evidence.manualDispatchRequired === false) return true;
+  if (Boolean(evidence.manualDispatchResolvedAt)) return true;
+  const routing = typeof evidence.dispatchRouting === "string" ? evidence.dispatchRouting : null;
+  if (routing === "AUTOMATIC_OFFER_ACTIVE" || routing === "ASSIGNED") return true;
+  return false;
 }

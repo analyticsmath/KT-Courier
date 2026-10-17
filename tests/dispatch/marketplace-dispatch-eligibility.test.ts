@@ -369,10 +369,103 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
           data: expect.objectContaining({
             status: "DISPATCH_PENDING",
             dispatchEvidence: expect.objectContaining({
+              manualDispatchRequired: false,
+              dispatchRouting: "AUTOMATIC_OFFER_ACTIVE",
               lastOfferedAssignmentId: "assign-new-1",
               offeredDriverProfileId: "drv-top",
               systemActor: "SYSTEM:marketplace-dispatch",
               policyReference: "dspauto_valid",
+              consecutiveFailures: 0,
+            }),
+          }),
+        })
+      );
+    });
+
+    it("records structured per-order failure and increments retried when offer fails", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
+        {
+          id: "br-1",
+          courierOrderId: "ord-1",
+          dispatchEvidence: { consecutiveFailures: 1 },
+          courierOrder: { id: "ord-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
+      ]);
+      db.orderAssignment.findMany.mockResolvedValue([]);
+      dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
+        candidates: [
+          { driverProfileId: "drv-top", driverCode: "DRV-TOP", displayName: "Top Driver", eligible: true, rank: 1 },
+        ],
+      });
+      dispatchAssignmentMocks.offerAssignment.mockRejectedValue(new Error("Database lock timeout on driver profile"));
+      db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({
+        mode: "APPLY",
+        operationId: "op-offer-fail",
+      });
+
+      expect(result.itemsRetried).toBe(1);
+      expect(result.itemsCompleted).toBe(0);
+      expect(result.itemsReconciled).toBe(0);
+      expect(db.marketplaceStoreOrderDeliveryBridge.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "br-1" },
+          data: expect.objectContaining({
+            dispatchEvidence: expect.objectContaining({
+              consecutiveFailures: 2,
+              failureCount: 2,
+              lastErrorCode: "LOCK_TIMEOUT",
+              policyReference: "dspauto_valid",
+              operationId: "op-offer-fail",
+            }),
+          }),
+        })
+      );
+    });
+
+    it("routes to manual exception queue with OFFER_CREATION_FAILED_RETRY_EXHAUSTED when 3 failures reached", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
+        {
+          id: "br-1",
+          courierOrderId: "ord-1",
+          dispatchEvidence: { consecutiveFailures: 2 },
+          courierOrder: { id: "ord-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
+      ]);
+      db.orderAssignment.findMany.mockResolvedValue([]);
+      dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
+        candidates: [
+          { driverProfileId: "drv-top", driverCode: "DRV-TOP", displayName: "Top Driver", eligible: true, rank: 1 },
+        ],
+      });
+      dispatchAssignmentMocks.offerAssignment.mockRejectedValue(new Error("Concurrency conflict on order"));
+      db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({
+        mode: "APPLY",
+        operationId: "op-exhaust-fail",
+      });
+
+      expect(result.itemsReconciled).toBe(1);
+      expect(result.itemsCompleted).toBe(0);
+      expect(db.marketplaceStoreOrderDeliveryBridge.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "br-1" },
+          data: expect.objectContaining({
+            dispatchEvidence: expect.objectContaining({
+              manualDispatchRequired: true,
+              dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
+              reason: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
+              reasonLabel: expect.stringContaining("Automatic offer creation encountered consecutive system errors"),
+              actionableNextStep: expect.stringContaining("Inspect offer creation error logs"),
+              consecutiveFailures: 3,
+              failureCount: 3,
+              lastErrorCode: "CONCURRENCY_CONFLICT",
             }),
           }),
         })
@@ -380,3 +473,4 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
     });
   });
 });
+

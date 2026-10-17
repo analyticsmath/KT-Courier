@@ -8,6 +8,21 @@ import {
   dispatchPolicyAllowsRegion,
 } from "@/lib/dispatch/automation-policy";
 import { resolveDispatchAutomationAuthority } from "@/lib/dispatch/automation-policy.service";
+import { DispatchError } from "@/lib/dispatch/errors";
+
+function classifyDispatchFailure(err: unknown): string {
+  if (err instanceof DispatchError) {
+    return err.code;
+  }
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes("concurrency") || msg.includes("conflict") || msg.includes("stale")) return "CONCURRENCY_CONFLICT";
+    if (msg.includes("lock") || msg.includes("timeout") || msg.includes("timed out")) return "LOCK_TIMEOUT";
+    if (msg.includes("capacity")) return "CAPACITY_REACHED";
+    if (msg.includes("validation")) return "VALIDATION_FAILED";
+  }
+  return "OFFER_EXECUTION_FAILED";
+}
 
 /** Phase 7 composition boundary: schedules eligibility evidence only, never a driver. */
 export async function scheduleMarketplaceDispatchEligibility(input: Readonly<{
@@ -305,12 +320,26 @@ export async function dispatchReadyMarketplaceOrdersBatch(
         }
       );
 
+      const offerHistoryEntry = {
+        event: "AUTOMATIC_OFFER_CREATED",
+        timestamp: new Date().toISOString(),
+        actor: DISPATCH_SYSTEM_ACTOR,
+        policyReference: authority.policyReference,
+        offeredDriverProfileId: targetDriver.driverProfileId,
+        assignmentId: offer.id,
+        attemptNumber: existingAssignments.length + 1,
+        previousReason: existingEvidence.reason ?? null,
+      };
+
       await prisma.marketplaceStoreOrderDeliveryBridge.update({
         where: { id: bridge.id },
         data: {
           status: "DISPATCH_PENDING",
           dispatchEvidence: {
             ...existingEvidence,
+            manualDispatchRequired: false,
+            dispatchRouting: "AUTOMATIC_OFFER_ACTIVE",
+            manualDispatchResolvedAt: new Date().toISOString(),
             lastOfferedAssignmentId: offer.id,
             offeredDriverProfileId: targetDriver.driverProfileId,
             offeredAt: new Date().toISOString(),
@@ -318,13 +347,82 @@ export async function dispatchReadyMarketplaceOrdersBatch(
             attemptNumber: existingAssignments.length + 1,
             policyReference: authority.policyReference,
             systemActor: DISPATCH_SYSTEM_ACTOR,
+            consecutiveFailures: 0,
+            history: [
+              ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
+              offerHistoryEntry,
+            ],
           },
         },
       });
 
       completed += 1;
-    } catch {
-      retried += 1;
+    } catch (err: unknown) {
+      const existingEvidence = (typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null)
+        ? bridge.dispatchEvidence as Record<string, unknown>
+        : {};
+      const previousFailures = typeof existingEvidence.consecutiveFailures === "number" ? existingEvidence.consecutiveFailures : 0;
+      const consecutiveFailures = previousFailures + 1;
+      const boundedErrorCode = classifyDispatchFailure(err);
+      const isExhausted = consecutiveFailures >= 3;
+
+      const failureEntry = {
+        event: "OFFER_CREATION_FAILED",
+        timestamp: new Date().toISOString(),
+        operationId: options.operationId,
+        policyReference: authority.policyReference,
+        consecutiveFailures,
+        errorCode: boundedErrorCode,
+        message: err instanceof Error ? err.message.slice(0, 200) : "Unknown error",
+      };
+
+      if (isExhausted) {
+        const reasonInfo = describeManualDispatchReason("OFFER_CREATION_FAILED_RETRY_EXHAUSTED");
+        await prisma.marketplaceStoreOrderDeliveryBridge.update({
+          where: { id: bridge.id },
+          data: {
+            dispatchEvidence: {
+              ...existingEvidence,
+              manualDispatchRequired: true,
+              dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
+              reason: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
+              reasonLabel: reasonInfo.label,
+              actionableNextStep: reasonInfo.nextStep,
+              consecutiveFailures,
+              failureCount: consecutiveFailures,
+              lastFailedAt: new Date().toISOString(),
+              lastErrorCode: boundedErrorCode,
+              policyReference: authority.policyReference,
+              operationId: options.operationId,
+              history: [
+                ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
+                failureEntry,
+              ],
+            },
+          },
+        });
+        reconciled += 1;
+      } else {
+        await prisma.marketplaceStoreOrderDeliveryBridge.update({
+          where: { id: bridge.id },
+          data: {
+            dispatchEvidence: {
+              ...existingEvidence,
+              consecutiveFailures,
+              failureCount: consecutiveFailures,
+              lastFailedAt: new Date().toISOString(),
+              lastErrorCode: boundedErrorCode,
+              policyReference: authority.policyReference,
+              operationId: options.operationId,
+              history: [
+                ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
+                failureEntry,
+              ],
+            },
+          },
+        });
+        retried += 1;
+      }
     }
   }
 

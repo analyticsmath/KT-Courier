@@ -84,6 +84,56 @@ function assertAssignable(order: { status: OrderStatus } | null) {
 }
 function assertBeforeCustody(status: OrderStatus) { if (CUSTODY.includes(status)) throw dispatchError.custody(); }
 
+export async function resolveBridgeManualDispatchInTx(
+  tx: Tx,
+  orderId: string,
+  resolution: {
+    actorUserId?: string | null;
+    actorSystemIdentity?: string | null;
+    assignmentId: string;
+    driverProfileId: string;
+    event: "AUTOMATIC_OFFER_CREATED" | "ADMIN_OFFER_CREATED" | "MANUALLY_ASSIGNED" | "REASSIGNED" | "ACCEPTED";
+    dispatchRouting: "AUTOMATIC_OFFER_ACTIVE" | "ASSIGNED";
+  }
+) {
+  if (!tx.marketplaceStoreOrderDeliveryBridge?.findFirst) return;
+  const bridge = await tx.marketplaceStoreOrderDeliveryBridge.findFirst({
+    where: { courierOrderId: orderId },
+    select: { id: true, dispatchEvidence: true },
+  });
+  if (!bridge) return;
+
+  const existingEvidence = (typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null)
+    ? bridge.dispatchEvidence as Record<string, unknown>
+    : {};
+
+  const historyEntry = {
+    event: resolution.event,
+    timestamp: new Date().toISOString(),
+    actor: resolution.actorUserId ? `ADMIN:${resolution.actorUserId}` : (resolution.actorSystemIdentity ?? DISPATCH_SYSTEM_ACTOR),
+    assignmentId: resolution.assignmentId,
+    driverProfileId: resolution.driverProfileId,
+    previousReason: existingEvidence.reason ?? null,
+  };
+
+  await tx.marketplaceStoreOrderDeliveryBridge.update({
+    where: { id: bridge.id },
+    data: {
+      dispatchEvidence: {
+        ...existingEvidence,
+        manualDispatchRequired: false,
+        dispatchRouting: resolution.dispatchRouting,
+        manualDispatchResolvedAt: new Date().toISOString(),
+        consecutiveFailures: 0,
+        history: [
+          ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
+          historyEntry,
+        ],
+      },
+    },
+  });
+}
+
 export async function offerAssignment(authority: DispatchOfferAuthority, orderId: string, input: AdminAssignOrderInput) {
   const evaluationOperationId = randomUUID();
   const isSystem = typeof authority === "object" || (typeof authority === "string" && (authority === DISPATCH_SYSTEM_ACTOR || authority.startsWith("SYSTEM:")));
@@ -175,6 +225,14 @@ export async function offerAssignment(authority: DispatchOfferAuthority, orderId
         },
       });
     }
+    await resolveBridgeManualDispatchInTx(tx, orderId, {
+      actorUserId: adminUserId,
+      actorSystemIdentity: systemActor,
+      assignmentId: assignment.id,
+      driverProfileId: input.driverProfileId,
+      event: isSystem ? "AUTOMATIC_OFFER_CREATED" : "ADMIN_OFFER_CREATED",
+      dispatchRouting: isSystem ? "AUTOMATIC_OFFER_ACTIVE" : "ASSIGNED",
+    });
     return assignment;
   }, { isolationLevel: PrismaClient.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 10_000 }));
 }
@@ -202,6 +260,13 @@ export async function acceptDispatchAssignment(driverProfileId: string, assignme
       status: "DRIVER_ASSIGNED",
       operationId: `dispatch-accept:${assignmentId}:${input.expectedVersion}`,
       actorUserId: assignment.driverProfile.userId,
+    });
+    await resolveBridgeManualDispatchInTx(tx, assignment.orderId, {
+      actorUserId: assignment.driverProfile.userId,
+      assignmentId: assignment.id,
+      driverProfileId,
+      event: "ACCEPTED",
+      dispatchRouting: "ASSIGNED",
     });
     return tx.orderAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
   }, { isolationLevel: PrismaClient.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 10_000 }));

@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import { OrderStatus, OrderSource, DeliveryType } from "@/types/db";
 import { toAdminAssignmentDto, type AdminAssignmentDto } from "@/lib/dto/assignment.dto";
 import { toOrderSummaryDto, type OrderSummaryDto } from "@/lib/dto/order.dto";
-import { describeManualDispatchReason } from "@/lib/dispatch/automation-policy";
+import { describeManualDispatchReason, isManualDispatchBlockerResolved } from "@/lib/dispatch/automation-policy";
+import { resolveBridgeManualDispatchInTx } from "./dispatch-assignment.service";
 import {
   ASSIGNMENT_FULL_INCLUDE,
   assertOrderAssignable,
@@ -91,8 +92,9 @@ export async function getDispatchBoardData(): Promise<DispatchBoardData> {
     if (evidence) {
       const routing = typeof evidence.dispatchRouting === "string" ? evidence.dispatchRouting : null;
       const rawReason = evidence.reason ?? evidence.policyGate ?? null;
-      const manualRequired = Boolean(evidence.manualDispatchRequired) || routing === "MANUAL_DISPATCH_REQUIRED";
-      if (manualRequired || rawReason) {
+      const manualRequired = evidence.manualDispatchRequired === true || routing === "MANUAL_DISPATCH_REQUIRED";
+      const isResolved = isManualDispatchBlockerResolved(evidence);
+      if (!isResolved && (manualRequired || (rawReason && evidence.manualDispatchRequired !== false))) {
         const desc = describeManualDispatchReason(rawReason);
         summary.manualDispatchRequired = true;
         summary.manualDispatchReason = desc.code;
@@ -147,12 +149,22 @@ export async function assignOrderToDriver(
       .filter(Boolean)
       .join(" | ") || null;
 
-    return createAssignmentInTx(tx, {
+    const created = await createAssignmentInTx(tx, {
       orderId,
       driverProfileId: input.driverProfileId,
       assignedByAdminId: adminUserId,
       adminNote: note ?? undefined,
     });
+
+    await resolveBridgeManualDispatchInTx(tx, orderId, {
+      actorUserId: adminUserId,
+      assignmentId: created.id,
+      driverProfileId: input.driverProfileId,
+      event: "MANUALLY_ASSIGNED",
+      dispatchRouting: "ASSIGNED",
+    });
+
+    return created;
   });
 
   await recordAdminActivity({
@@ -220,13 +232,23 @@ export async function reassignOrder(
       .filter(Boolean)
       .join(" | ") || null;
 
-    return createAssignmentInTx(tx, {
+    const reassigned = await createAssignmentInTx(tx, {
       orderId,
       driverProfileId,
       assignedByAdminId: adminUserId,
       adminNote: note ?? undefined,
       reassignedFromId: existingAssignment!.id,
     });
+
+    await resolveBridgeManualDispatchInTx(tx, orderId, {
+      actorUserId: adminUserId,
+      assignmentId: reassigned.id,
+      driverProfileId,
+      event: "REASSIGNED",
+      dispatchRouting: "ASSIGNED",
+    });
+
+    return reassigned;
   });
 
   await recordAdminActivity({

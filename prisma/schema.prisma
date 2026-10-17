@@ -1683,7 +1683,7 @@ model OrderAssignment {
 
   order                         Order                        @relation(fields: [orderId], references: [id])
   driverProfile                 DriverProfile                @relation(fields: [driverProfileId], references: [id])
-  assignedByAdmin               User?                        @relation("AdminAssignments", fields: [assignedByAdminId], references: [id])
+  assignedByAdmin               User?                        @relation("AdminAssignments", fields: [assignedByAdminId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   cancelledByAdmin              User?                        @relation("AdminCancellations", fields: [cancelledByAdminId], references: [id])
   reassignedFrom                OrderAssignment?             @relation("ReassignmentChain", fields: [reassignedFromId], references: [id])
   reassignments                 OrderAssignment[]            @relation("ReassignmentChain")

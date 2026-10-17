@@ -13,7 +13,7 @@ import {
   OrderTransitionError,
 } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
-import { describeManualDispatchReason } from "@/lib/dispatch/automation-policy";
+import { describeManualDispatchReason, isManualDispatchBlockerResolved } from "@/lib/dispatch/automation-policy";
 
 const ORDER_FULL_INCLUDE = {
   pickupAddress: true,
@@ -96,7 +96,7 @@ export async function listAdminOrders(
 // ─── Detail ───────────────────────────────────────────────────────────────────
 
 export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetailDto | null> {
-  const [order, bridge] = await Promise.all([
+  const [order, bridge, activeAssignment] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
       include: ORDER_FULL_INCLUDE,
@@ -105,15 +105,29 @@ export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetailD
       where: { courierOrderId: id },
       select: { dispatchEvidence: true },
     }),
+    prisma.orderAssignment.findFirst({
+      where: {
+        orderId: id,
+        status: { in: ["ASSIGNED", "ACCEPTED"] },
+        OR: [
+          { status: "ACCEPTED" },
+          { status: "ASSIGNED", expiresAt: { gt: new Date() } },
+          { status: "ASSIGNED", expiresAt: null },
+        ],
+      },
+      select: { id: true, status: true },
+    }),
   ]);
   if (!order) return null;
   const dto = toAdminOrderDetailDto(order);
+  const hasActiveAssignmentOrCustody = Boolean(activeAssignment) || (order.status !== OrderStatus.CONFIRMED && order.status !== OrderStatus.PICKUP_SCHEDULED);
   if (bridge && typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null) {
     const evidence = bridge.dispatchEvidence as Record<string, unknown>;
     const routing = typeof evidence.dispatchRouting === "string" ? evidence.dispatchRouting : null;
     const rawReason = evidence.reason ?? evidence.policyGate ?? null;
-    const manualRequired = Boolean(evidence.manualDispatchRequired) || routing === "MANUAL_DISPATCH_REQUIRED";
-    if (manualRequired || rawReason) {
+    const manualRequired = evidence.manualDispatchRequired === true || routing === "MANUAL_DISPATCH_REQUIRED";
+    const isResolved = isManualDispatchBlockerResolved(evidence) || hasActiveAssignmentOrCustody;
+    if (!isResolved && (manualRequired || (rawReason && evidence.manualDispatchRequired !== false))) {
       const desc = describeManualDispatchReason(rawReason);
       dto.manualDispatchRequired = true;
       dto.manualDispatchReason = desc.code;

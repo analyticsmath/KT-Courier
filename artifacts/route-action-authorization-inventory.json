@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 757,
+    "totalRoutes": 759,
     "totalServerActions": 0,
     "publicRoutes": 96,
-    "authenticatedRoutes": 658,
-    "permissionGatedRoutes": 514,
+    "authenticatedRoutes": 660,
+    "permissionGatedRoutes": 516,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 206,
-    "generatedAt": "2026-10-16T23:54:03.204Z"
+    "rateLimitedRoutes": 208,
+    "generatedAt": "2026-10-17T02:13:17.809Z"
   },
   "serverActions": [],
   "routes": [
@@ -49,7 +49,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -70,7 +70,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -1419,6 +1419,43 @@
       "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "REVIEW_REQUIRED_ORIGIN_PROTECTION",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/dispatch/policies/[id]/[action]/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/dispatch/policies/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
@@ -8269,7 +8306,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "REVIEW_REQUIRED_ORIGIN_PROTECTION",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -8314,7 +8351,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "REVIEW_REQUIRED_ORIGIN_PROTECTION",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -8337,7 +8374,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "REVIEW_REQUIRED_ORIGIN_PROTECTION",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -8531,7 +8568,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -8609,7 +8646,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9225,7 +9262,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9262,7 +9299,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9284,7 +9321,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9592,7 +9629,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9661,7 +9698,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9678,7 +9715,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9713,7 +9750,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9747,7 +9784,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9764,7 +9801,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9781,7 +9818,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9849,7 +9886,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9867,7 +9904,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9884,7 +9921,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9903,7 +9940,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -9972,7 +10009,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10314,7 +10351,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10329,7 +10366,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10344,7 +10381,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10534,7 +10571,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10555,7 +10592,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10652,7 +10689,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10760,7 +10797,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -10889,7 +10926,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -11004,7 +11041,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -11277,7 +11314,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -11471,7 +11508,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -11605,7 +11642,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -13508,7 +13545,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -13523,7 +13560,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -13553,7 +13590,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -13595,7 +13632,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -13695,7 +13732,7 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
-      "bolaOwnershipValidated": false,
+      "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."

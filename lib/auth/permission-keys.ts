@@ -42,6 +42,7 @@ export const PERMISSIONS = {
   DISPATCH_REASSIGN: "dispatch.reassign",
   DISPATCH_UNASSIGN: "dispatch.unassign",
   DISPATCH_OVERRIDE: "dispatch.override",
+  DISPATCH_MANAGE: "dispatch.manage",
 
   REGIONS_READ: "regions.read",
   REGIONS_MANAGE: "regions.manage",
@@ -678,6 +679,12 @@ export const SYSTEM_PERMISSION_DEFINITIONS: SystemPermissionDefinition[] = [
     name: "Override dispatch",
     category: "Dispatch",
     description: "Reassign or unassign drivers and perform dispatch overrides.",
+  },
+  {
+    key: PERMISSIONS.DISPATCH_MANAGE,
+    name: "Manage dispatch policy",
+    category: "Dispatch",
+    description: "Create, submit, review, activate, or retire automatic dispatch policies.",
   },
   {
     key: PERMISSIONS.REGIONS_READ,
@@ -1587,6 +1594,7 @@ export const DEFAULT_ADMIN_PERMISSION_KEYS: PermissionKey[] = [
   PERMISSIONS.PRIVATE_MEDIA_DELETE,
   PERMISSIONS.ORDERS_READ,
   PERMISSIONS.DISPATCH_READ,
+  PERMISSIONS.DISPATCH_MANAGE,
   PERMISSIONS.REGIONS_READ,
   PERMISSIONS.PRICING_READ,
   PERMISSIONS.COMPANY_SETTINGS_READ,
