@@ -86,8 +86,21 @@ describe("Admin Dispatch Recovery API Route (app/api/admin/dispatch/recover)", (
     expect(mocks.recoverExhaustedDispatchOrder).not.toHaveBeenCalled();
   });
 
-  it("requires at least one target identifier", async () => {
+  it("requires exactly one target identifier (rejects missing target)", async () => {
     const res = await postRecover(request({ reason: "Cleared system lock", idempotencyKey: VALID_KEY }));
+    expect(res.status).toBe(422);
+    expect(mocks.recoverExhaustedDispatchOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects requests with multiple target identifiers with 422", async () => {
+    const res = await postRecover(
+      request({
+        bridgeId: "br-1",
+        courierOrderId: "ord-1",
+        reason: "Cleared system lock",
+        idempotencyKey: VALID_KEY,
+      })
+    );
     expect(res.status).toBe(422);
     expect(mocks.recoverExhaustedDispatchOrder).not.toHaveBeenCalled();
   });
@@ -126,6 +139,7 @@ describe("Admin Dispatch Recovery API Route (app/api/admin/dispatch/recover)", (
   it.each([
     ["DISPATCH_RECOVERY_STATE_CONFLICT", 409],
     ["DISPATCH_RECOVERY_IDEMPOTENCY_KEY_REUSED", 409],
+    ["DISPATCH_RECOVERY_STORE_ORDER_NOT_READY", 409],
     ["DISPATCH_RECOVERY_NOT_FOUND", 404],
     ["DISPATCH_POLICY_UNAUTHORIZED_ACTOR", 400],
   ])("maps %s to HTTP %i", async (code, status) => {

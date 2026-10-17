@@ -7,7 +7,7 @@
     "permissionGatedRoutes": 517,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 209,
-    "generatedAt": "2026-10-17T08:19:30.946Z"
+    "generatedAt": "2026-10-17T10:28:32.759Z"
   },
   "serverActions": [],
   "routes": [

@@ -648,7 +648,7 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
       }
     });
 
-    it("excludes already-exhausted bridges in the database query so they cannot starve newer orders", async () => {
+    it("excludes already-exhausted bridges in the database query without an arbitrary take limit", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: true });
       db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
       db.marketplaceStoreOrderDeliveryBridge.findMany
@@ -662,9 +662,65 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
         path: ["reason"],
         equals: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
       });
+      // Verification: arbitrary 5,000 ceiling is removed
+      expect(exhaustedQuery[0].take).toBeUndefined();
       expect(candidateQuery[0].where.id).toEqual({ notIn: ["br-exhausted-1", "br-exhausted-2"] });
       // Null-safe: no NOT{json path} filter that would also drop bridges lacking a `reason` key.
       expect(candidateQuery[0].where.NOT).toBeUndefined();
+    });
+
+    it("excludes more than 5,000 exhausted bridges and includes bridges with null or missing evidence", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+
+      // Boundary: simulate 5,005 exhausted bridge IDs (exceeding previous 5,000 ceiling)
+      const mockExhaustedIds = Array.from({ length: 5005 }, (_, i) => ({ id: `br-exhausted-${i}` }));
+      const runnableBridgeNull = {
+        id: "br-run-null",
+        courierOrderId: "ord-run-1",
+        dispatchEvidence: null, // SQL NULL
+        courierOrder: { id: "ord-run-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+      };
+      const runnableBridgeMissingKey = {
+        id: "br-run-missing",
+        courierOrderId: "ord-run-2",
+        dispatchEvidence: { consecutiveFailures: 1 }, // Missing 'reason' key
+        courierOrder: { id: "ord-run-2", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+      };
+
+      db.marketplaceStoreOrderDeliveryBridge.findMany
+        .mockResolvedValueOnce(mockExhaustedIds) // unbounded exhausted query
+        .mockResolvedValueOnce([runnableBridgeNull, runnableBridgeMissingKey]); // candidate query
+
+      db.orderAssignment.findMany.mockResolvedValue([]);
+      dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
+        candidates: [{ driverProfileId: "drv-1", driverCode: "DRV-1", displayName: "Driver 1", eligible: true, rank: 1 }],
+      });
+      dispatchAssignmentMocks.offerAssignment.mockResolvedValue({ id: "asg-1", expiresAt: new Date(Date.now() + 60_000) });
+      db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 20, operationId: "op-boundary" });
+
+      const [exhaustedQuery, candidateQuery] = db.marketplaceStoreOrderDeliveryBridge.findMany.mock.calls;
+      // Verification: no ceiling on exhausted query
+      expect(exhaustedQuery[0].take).toBeUndefined();
+      // All 5,005 IDs excluded in candidate query
+      expect(candidateQuery[0].where.id.notIn).toHaveLength(5005);
+      expect(candidateQuery[0].where.NOT).toBeUndefined();
+
+      // Both runnable bridges (null evidence & missing reason) were processed successfully
+      expect(result.itemsCompleted).toBe(2);
+      expect(dispatchAssignmentMocks.offerAssignment).toHaveBeenCalledTimes(2);
+      expect(dispatchAssignmentMocks.offerAssignment).toHaveBeenCalledWith(
+        expect.anything(),
+        "ord-run-1",
+        expect.anything()
+      );
+      expect(dispatchAssignmentMocks.offerAssignment).toHaveBeenCalledWith(
+        expect.anything(),
+        "ord-run-2",
+        expect.anything()
+      );
     });
   });
 });

@@ -1,18 +1,72 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Service-level invariants for recoverExhaustedDispatchOrder. The fake database below models only what
- * the contract depends on: one bridge row with an `updatedAt` version, JSON-path conditions evaluated
- * against the CURRENT row inside an atomic updateMany (the compare-and-set), an admin audit sink, and
- * a transaction wrapper. Nothing is reachable outside `$transaction`, so any pre-transaction read or
- * write by the service fails the test.
+ * Service-level invariants for recoverExhaustedDispatchOrder.
+ *
+ * SCOPE & BOUNDARY:
+ * These tests model compare-and-set behavior in memory using a typed test double;
+ * they are not a PostgreSQL concurrency test.
+ *
+ * The double models only what the service contract depends on:
+ * - One delivery bridge row with an `updatedAt` version stamp;
+ * - JSON-path conditions evaluated against the CURRENT row inside an atomic updateMany (CAS swap);
+ * - Store order acceptance and readiness validation within the transaction;
+ * - Verification that the actor is an active administrator inside the transaction;
+ * - An append-only admin activity audit log;
+ * - An interactive transaction wrapper where operations outside $transaction fail.
  */
+
+interface FakeStoreOrder {
+  id: string;
+  status: string;
+  acceptanceStatus: string;
+  derivedStatus: string;
+  preparationStatus: string;
+}
+
+interface FakeCourierOrder {
+  status: string;
+}
+
+interface FakeBridge {
+  id: string;
+  courierOrderId: string | null;
+  marketplaceStoreOrderId: string;
+  status: string;
+  dispatchEvidence: Record<string, unknown> | null;
+  updatedAt: Date;
+  courierOrder?: FakeCourierOrder | null;
+  storeOrder?: FakeStoreOrder | null;
+}
+
+interface FakeUser {
+  id: string;
+  role: string;
+  status: string;
+}
+
+interface FakeAssignment {
+  id: string;
+  orderId?: string;
+  driverProfileId?: string;
+  status: string;
+  expiresAt: Date | null;
+}
+
+interface FakeAuditLog {
+  actorUserId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+}
+
 interface FakeState {
-  bridge: any;
-  users: Map<string, { id: string; role: string; status: string }>;
-  assignments: any[];
-  audit: any[];
+  bridge: FakeBridge | null;
+  users: Map<string, FakeUser>;
+  assignments: FakeAssignment[];
+  audit: FakeAuditLog[];
   updateManyAttempts: number;
   successfulSwaps: number;
   inTx: boolean;
@@ -24,15 +78,61 @@ interface FakeState {
   beforeSwap: (() => void) | null;
 }
 
-const fake = vi.hoisted(() => ({ state: {} as any }));
+interface UserFindFirstParams {
+  where: {
+    id: string;
+    role: { in: string[] };
+    status: string;
+  };
+}
+
+interface BridgeFindFirstParams {
+  where: {
+    id?: string;
+    courierOrderId?: string;
+    marketplaceStoreOrderId?: string;
+  };
+  select?: Record<string, unknown>;
+}
+
+interface BridgeUpdateManyParams {
+  where: {
+    id: string;
+    updatedAt: Date;
+    manualDispatchRequired?: boolean;
+    AND?: Array<{
+      dispatchEvidence: {
+        path: string[];
+        equals: unknown;
+      };
+    }>;
+  };
+  data: {
+    dispatchEvidence: Record<string, unknown>;
+  };
+}
+
+interface AdminActivityLogCreateParams {
+  data: FakeAuditLog;
+}
+
+const fake = vi.hoisted(() => ({ state: null as unknown as FakeState }));
 
 vi.mock("@/lib/db/prisma", () => {
-  const readPath = (evidence: any, path: string[]) =>
-    path.reduce((acc: any, key: string) => (acc && typeof acc === "object" ? acc[key] : undefined), evidence);
+  const readPath = (evidence: Record<string, unknown> | null, path: string[]): unknown => {
+    let curr: unknown = evidence;
+    for (const key of path) {
+      if (!curr || typeof curr !== "object" || Array.isArray(curr)) {
+        return undefined;
+      }
+      curr = (curr as Record<string, unknown>)[key];
+    }
+    return curr;
+  };
 
   const tx = {
     user: {
-      findFirst: vi.fn(async ({ where }: any) => {
+      findFirst: vi.fn(async ({ where }: UserFindFirstParams) => {
         const s: FakeState = fake.state;
         if (s.inTx) s.userChecksInsideTx += 1;
         else s.userChecksOutsideTx += 1;
@@ -41,7 +141,7 @@ vi.mock("@/lib/db/prisma", () => {
       }),
     },
     marketplaceStoreOrderDeliveryBridge: {
-      findFirst: vi.fn(async ({ where }: any) => {
+      findFirst: vi.fn(async ({ where }: BridgeFindFirstParams) => {
         const s: FakeState = fake.state;
         const b = s.bridge;
         const matches =
@@ -53,7 +153,7 @@ vi.mock("@/lib/db/prisma", () => {
         if (s.bridgeReadGate) await s.bridgeReadGate();
         return snapshot;
       }),
-      updateMany: vi.fn(async ({ where, data }: any) => {
+      updateMany: vi.fn(async ({ where, data }: BridgeUpdateManyParams) => {
         const s: FakeState = fake.state;
         s.updateManyAttempts += 1;
         if (s.beforeSwap) {
@@ -63,7 +163,7 @@ vi.mock("@/lib/db/prisma", () => {
         }
         const b = s.bridge;
         const jsonOk = (where.AND ?? []).every(
-          (c: any) => readPath(b.dispatchEvidence, c.dispatchEvidence.path) === c.dispatchEvidence.equals
+          (c) => readPath(b?.dispatchEvidence ?? null, c.dispatchEvidence.path) === c.dispatchEvidence.equals
         );
         if (!b || b.id !== where.id || b.updatedAt.getTime() !== where.updatedAt.getTime() || !jsonOk) {
           return { count: 0 };
@@ -77,11 +177,15 @@ vi.mock("@/lib/db/prisma", () => {
     orderAssignment: {
       findFirst: vi.fn(async () => {
         const s: FakeState = fake.state;
-        return s.assignments.find((a) => a.status === "ACCEPTED" || (a.status === "ASSIGNED" && (a.expiresAt === null || a.expiresAt > new Date()))) ?? null;
+        return (
+          s.assignments.find(
+            (a) => a.status === "ACCEPTED" || (a.status === "ASSIGNED" && (a.expiresAt === null || a.expiresAt > new Date()))
+          ) ?? null
+        );
       }),
     },
     adminActivityLog: {
-      create: vi.fn(async ({ data }: any) => {
+      create: vi.fn(async ({ data }: AdminActivityLogCreateParams) => {
         fake.state.audit.push(structuredClone(data));
         return data;
       }),
@@ -115,7 +219,7 @@ const EXHAUSTED = "OFFER_CREATION_FAILED_RETRY_EXHAUSTED";
 const KEY_A = "recover-key-0001";
 const KEY_B = "recover-key-0002";
 
-function exhaustedBridge(overrides: Record<string, unknown> = {}) {
+function exhaustedBridge(overrides: Partial<FakeBridge> = {}): FakeBridge {
   return {
     id: "br-1",
     courierOrderId: "ord-1",
@@ -123,6 +227,13 @@ function exhaustedBridge(overrides: Record<string, unknown> = {}) {
     status: "DISPATCH_PENDING",
     updatedAt: new Date("2026-10-17T07:00:00.000Z"),
     courierOrder: { status: "CONFIRMED" },
+    storeOrder: {
+      id: "so-1",
+      status: "CONFIRMED",
+      acceptanceStatus: "ACCEPTED",
+      derivedStatus: "READY_FOR_PICKUP",
+      preparationStatus: "READY_FOR_HANDOFF",
+    },
     dispatchEvidence: {
       manualDispatchRequired: true,
       dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
@@ -145,8 +256,10 @@ function recoverInput(overrides: Record<string, unknown> = {}) {
   } as Parameters<typeof recoverExhaustedDispatchOrder>[0];
 }
 
-function recoveryEntries(): any[] {
-  return fake.state.bridge.dispatchEvidence.history.filter((e: any) => e.event === "EXHAUSTED_DISPATCH_RECOVERED");
+function recoveryEntries(): Record<string, unknown>[] {
+  const history = fake.state.bridge?.dispatchEvidence?.history;
+  if (!Array.isArray(history)) return [];
+  return (history as Record<string, unknown>[]).filter((e) => e.event === "EXHAUSTED_DISPATCH_RECOVERED");
 }
 
 describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
@@ -193,9 +306,12 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
       expect(fake.state.audit).toHaveLength(0);
     });
 
-    it("requires a target and a bounded non-empty reason", async () => {
+    it("requires exactly one target and a bounded non-empty reason", async () => {
       await expect(
         recoverExhaustedDispatchOrder(recoverInput({ bridgeId: undefined }))
+      ).rejects.toMatchObject({ code: "DISPATCH_RECOVERY_TARGET_REQUIRED" });
+      await expect(
+        recoverExhaustedDispatchOrder(recoverInput({ bridgeId: "br-1", courierOrderId: "ord-1" }))
       ).rejects.toMatchObject({ code: "DISPATCH_RECOVERY_TARGET_REQUIRED" });
       await expect(recoverExhaustedDispatchOrder(recoverInput({ reason: "   " }))).rejects.toMatchObject({
         code: "DISPATCH_RECOVERY_REASON_REQUIRED",
@@ -205,17 +321,30 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
       ).rejects.toMatchObject({ code: "DISPATCH_RECOVERY_REASON_TOO_LONG" });
       expect(fake.state.audit).toHaveLength(0);
     });
+
+    it("supports single-target selection by courierOrderId or marketplaceStoreOrderId", async () => {
+      const byCourier = await recoverExhaustedDispatchOrder(
+        recoverInput({ bridgeId: undefined, courierOrderId: "ord-1", idempotencyKey: "key-courier-01" })
+      );
+      expect(byCourier.status).toBe("RECOVERED");
+
+      fake.state.bridge = exhaustedBridge({ id: "br-2", marketplaceStoreOrderId: "so-2" });
+      const byStore = await recoverExhaustedDispatchOrder(
+        recoverInput({ bridgeId: undefined, marketplaceStoreOrderId: "so-2", idempotencyKey: "key-store-01" })
+      );
+      expect(byStore.status).toBe("RECOVERED");
+    });
   });
 
   describe("authorization", () => {
     it.each(["customer-1", "admin-suspended", "ghost-user"])(
       "rejects actor %s without altering evidence or auditing success",
       async (actor) => {
-        const before = structuredClone(fake.state.bridge.dispatchEvidence);
+        const before = structuredClone(fake.state.bridge?.dispatchEvidence);
         await expect(recoverExhaustedDispatchOrder(recoverInput({ actorUserId: actor }))).rejects.toMatchObject({
           code: "DISPATCH_POLICY_UNAUTHORIZED_ACTOR",
         });
-        expect(fake.state.bridge.dispatchEvidence).toEqual(before);
+        expect(fake.state.bridge?.dispatchEvidence).toEqual(before);
         expect(fake.state.audit).toHaveLength(0);
       }
     );
@@ -232,7 +361,7 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
       const result = await recoverExhaustedDispatchOrder(recoverInput());
       expect(result).toMatchObject({ status: "RECOVERED", replayed: false, bridgeId: "br-1", idempotencyKey: KEY_A });
 
-      const evidence = fake.state.bridge.dispatchEvidence;
+      const evidence = fake.state.bridge?.dispatchEvidence;
       expect(evidence).toMatchObject({
         manualDispatchRequired: false,
         dispatchRouting: "PENDING_DISPATCH_RETRY",
@@ -252,7 +381,8 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
         metadata: expect.objectContaining({ idempotencyKey: KEY_A }),
       });
       // prior failure history is preserved (append-only)
-      expect(evidence.history[0]).toMatchObject({ event: "OFFER_CREATION_FAILED" });
+      const history = evidence?.history as Array<Record<string, unknown>>;
+      expect(history[0]).toMatchObject({ event: "OFFER_CREATION_FAILED" });
     });
 
     it.each([
@@ -260,13 +390,15 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
       ["never manual-queued", { manualDispatchRequired: false, reason: null }],
       ["empty evidence", null],
     ])("rejects a bridge in state: %s", async (_label, patch) => {
-      fake.state.bridge.dispatchEvidence =
-        patch === null ? {} : { ...fake.state.bridge.dispatchEvidence, ...patch };
-      const before = structuredClone(fake.state.bridge.dispatchEvidence);
+      if (fake.state.bridge) {
+        fake.state.bridge.dispatchEvidence =
+          patch === null ? {} : { ...fake.state.bridge.dispatchEvidence, ...patch };
+      }
+      const before = structuredClone(fake.state.bridge?.dispatchEvidence);
       await expect(recoverExhaustedDispatchOrder(recoverInput())).rejects.toMatchObject({
         code: "DISPATCH_RECOVERY_STATE_CONFLICT",
       });
-      expect(fake.state.bridge.dispatchEvidence).toEqual(before);
+      expect(fake.state.bridge?.dispatchEvidence).toEqual(before);
       expect(fake.state.updateManyAttempts).toBe(0);
       expect(fake.state.audit).toHaveLength(0);
     });
@@ -281,7 +413,43 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
         code: "DISPATCH_RECOVERY_STATE_CONFLICT",
       });
       expect(fake.state.audit).toHaveLength(0);
-      expect(fake.state.bridge.dispatchEvidence.reason).toBe(EXHAUSTED);
+      expect(fake.state.bridge?.dispatchEvidence?.reason).toBe(EXHAUSTED);
+    });
+
+    it("rejects recovery when store order is not accepted", async () => {
+      fake.state.bridge = exhaustedBridge({
+        storeOrder: {
+          id: "so-1",
+          status: "CANCELLED",
+          acceptanceStatus: "REJECTED",
+          derivedStatus: "CANCELLED",
+          preparationStatus: "CANCELLED",
+        },
+      });
+      await expect(recoverExhaustedDispatchOrder(recoverInput())).rejects.toMatchObject({
+        code: "DISPATCH_RECOVERY_STORE_ORDER_NOT_READY",
+      });
+      expect(fake.state.successfulSwaps).toBe(0);
+      expect(fake.state.audit).toHaveLength(0);
+      expect(fake.state.bridge?.dispatchEvidence?.reason).toBe(EXHAUSTED);
+    });
+
+    it("rejects recovery when store order is not ready for pickup or handoff", async () => {
+      fake.state.bridge = exhaustedBridge({
+        storeOrder: {
+          id: "so-1",
+          status: "IN_PREPARATION",
+          acceptanceStatus: "ACCEPTED",
+          derivedStatus: "IN_PREPARATION",
+          preparationStatus: "PREPARING",
+        },
+      });
+      await expect(recoverExhaustedDispatchOrder(recoverInput())).rejects.toMatchObject({
+        code: "DISPATCH_RECOVERY_STORE_ORDER_NOT_READY",
+      });
+      expect(fake.state.successfulSwaps).toBe(0);
+      expect(fake.state.audit).toHaveLength(0);
+      expect(fake.state.bridge?.dispatchEvidence?.reason).toBe(EXHAUSTED);
     });
 
     it("rejects when the courier order already has a live driver assignment", async () => {
@@ -289,7 +457,7 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
       await expect(recoverExhaustedDispatchOrder(recoverInput())).rejects.toMatchObject({
         code: "DISPATCH_RECOVERY_STATE_CONFLICT",
       });
-      expect(fake.state.bridge.dispatchEvidence.reason).toBe(EXHAUSTED);
+      expect(fake.state.bridge?.dispatchEvidence?.reason).toBe(EXHAUSTED);
       expect(fake.state.audit).toHaveLength(0);
     });
 
@@ -302,7 +470,7 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
 
     it("compare-and-set refuses to clear a row that changed after it was read (stale read)", async () => {
       fake.state.beforeSwap = () => {
-        // A concurrent dispatch cycle re-queued the order for a different reason between read and swap.
+        if (!fake.state.bridge) return;
         fake.state.bridge.dispatchEvidence = {
           ...fake.state.bridge.dispatchEvidence,
           reason: "NO_ELIGIBLE_DRIVERS_AVAILABLE",
@@ -313,8 +481,8 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
         code: "DISPATCH_RECOVERY_STATE_CONFLICT",
       });
       expect(fake.state.successfulSwaps).toBe(0);
-      expect(fake.state.bridge.dispatchEvidence.reason).toBe("NO_ELIGIBLE_DRIVERS_AVAILABLE");
-      expect(fake.state.bridge.dispatchEvidence.manualDispatchRequired).toBe(true);
+      expect(fake.state.bridge?.dispatchEvidence?.reason).toBe("NO_ELIGIBLE_DRIVERS_AVAILABLE");
+      expect(fake.state.bridge?.dispatchEvidence?.manualDispatchRequired).toBe(true);
       expect(fake.state.audit).toHaveLength(0);
       expect(recoveryEntries()).toHaveLength(0);
     });
@@ -363,14 +531,13 @@ describe("recoverExhaustedDispatchOrder (service-level invariants)", () => {
 
     it("concurrent same-key requests that both read the exhausted row: one wins the compare-and-set, the loser replays", async () => {
       fake.state.serialize = false;
-      // Both transactions read the pre-recovery row before either one writes (no row lock).
       let reached = 0;
       let release: () => void = () => undefined;
       const gate = new Promise<void>((resolve) => (release = resolve));
       fake.state.bridgeReadGate = async () => {
         reached += 1;
         if (reached === 2) {
-          fake.state.bridgeReadGate = null; // later (post-loss) re-reads are not gated
+          fake.state.bridgeReadGate = null;
           release();
         }
         await gate;

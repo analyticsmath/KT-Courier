@@ -184,10 +184,18 @@ function findRecoveryReplayEntry(
 export async function recoverExhaustedDispatchOrder(
   input: RecoverExhaustedDispatchInput
 ): Promise<RecoverExhaustedDispatchResult> {
+  const specifiedTargets = [
+    input.bridgeId ? { field: "bridgeId" as const, value: input.bridgeId } : null,
+    input.courierOrderId ? { field: "courierOrderId" as const, value: input.courierOrderId } : null,
+    input.marketplaceStoreOrderId ? { field: "marketplaceStoreOrderId" as const, value: input.marketplaceStoreOrderId } : null,
+  ].filter((t): t is { field: "bridgeId" | "courierOrderId" | "marketplaceStoreOrderId"; value: string } => t !== null);
+
   assertPolicy(
-    Boolean(input.bridgeId || input.courierOrderId || input.marketplaceStoreOrderId),
+    specifiedTargets.length === 1,
     "DISPATCH_RECOVERY_TARGET_REQUIRED",
-    "Must specify bridgeId, courierOrderId, or marketplaceStoreOrderId."
+    specifiedTargets.length === 0
+      ? "Must specify exactly one target selector (bridgeId, courierOrderId, or marketplaceStoreOrderId)."
+      : `Multiple conflicting target selectors provided (${specifiedTargets.map((t) => t.field).join(", ")}). Must specify exactly one target selector.`
   );
   const reason = typeof input.reason === "string" ? input.reason.trim() : "";
   assertPolicy(reason.length > 0, "DISPATCH_RECOVERY_REASON_REQUIRED", "Recovery reason is required.");
@@ -203,11 +211,13 @@ export async function recoverExhaustedDispatchOrder(
   );
   const idempotencyKey = input.idempotencyKey;
 
-  const targetWhere = input.bridgeId
-    ? { id: input.bridgeId }
-    : input.courierOrderId
-      ? { courierOrderId: input.courierOrderId }
-      : { marketplaceStoreOrderId: input.marketplaceStoreOrderId! };
+  const target = specifiedTargets[0];
+  const targetWhere =
+    target.field === "bridgeId"
+      ? { id: target.value }
+      : target.field === "courierOrderId"
+        ? { courierOrderId: target.value }
+        : { marketplaceStoreOrderId: target.value };
 
   const outcome = await prisma.$transaction(async (tx) => {
     await assertActiveAdminActor(tx, input.actorUserId);
@@ -223,6 +233,15 @@ export async function recoverExhaustedDispatchOrder(
           dispatchEvidence: true,
           updatedAt: true,
           courierOrder: { select: { status: true } },
+          storeOrder: {
+            select: {
+              id: true,
+              status: true,
+              acceptanceStatus: true,
+              derivedStatus: true,
+              preparationStatus: true,
+            },
+          },
         },
       });
 
@@ -268,6 +287,26 @@ export async function recoverExhaustedDispatchOrder(
       "DISPATCH_RECOVERY_STATE_CONFLICT",
       "Order is no longer awaiting dispatch; recovery was not applied."
     );
+
+    // Validate store order acceptance and readiness before clearing manual state.
+    // If the store order ceased to be accepted or ready for pickup/handoff while in the exception
+    // queue, reject recovery so the order cannot disappear from the actionable exception workflow.
+    assertPolicy(
+      Boolean(bridge.storeOrder),
+      "DISPATCH_RECOVERY_STORE_ORDER_NOT_FOUND",
+      "Related marketplace store order not found; recovery was not applied."
+    );
+    const storeOrder = bridge.storeOrder!;
+    const isStoreOrderAccepted = storeOrder.acceptanceStatus === "ACCEPTED";
+    const isStoreOrderReady =
+      storeOrder.derivedStatus === "READY_FOR_PICKUP" ||
+      storeOrder.preparationStatus === "READY_FOR_HANDOFF";
+    assertPolicy(
+      isStoreOrderAccepted && isStoreOrderReady,
+      "DISPATCH_RECOVERY_STORE_ORDER_NOT_READY",
+      `Related marketplace store order is not in an accepted and ready-for-pickup state (acceptanceStatus: ${storeOrder.acceptanceStatus}, derivedStatus: ${storeOrder.derivedStatus}, preparationStatus: ${storeOrder.preparationStatus}); recovery was not applied.`
+    );
+
     const activeAssignment = await tx.orderAssignment.findFirst({
       where: {
         orderId: bridge.courierOrderId!,
@@ -401,52 +440,62 @@ export async function dispatchReadyMarketplaceOrdersBatch(
   // excluded in the database so they cannot occupy batch slots and starve newer orders. A positive
   // JSON-path match plus `id notIn` is used instead of `NOT { json path }`, because SQL three-valued
   // logic would also drop every bridge whose evidence has no `reason` key (including new bridges).
+  // The query has no arbitrary ceiling (removes the 5,000-row cap).
   const exhaustedBridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
     where: {
       dispatchEvidence: { path: ["reason"], equals: EXHAUSTED_DISPATCH_REASON },
     },
     select: { id: true },
-    take: 5000,
   });
   const exhaustedBridgeIds = (exhaustedBridges ?? []).map((row) => row.id);
 
-  const candidateBridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
-    where: {
-      ...(exhaustedBridgeIds.length > 0 ? { id: { notIn: exhaustedBridgeIds } } : {}),
-      courierOrderId: { not: null },
-      status: { in: ["DISPATCH_PENDING", "DELIVERY_ORDER_CREATED"] },
-      storeOrder: {
-        acceptanceStatus: "ACCEPTED",
-        OR: [
-          { derivedStatus: "READY_FOR_PICKUP" },
-          { preparationStatus: "READY_FOR_HANDOFF" },
-        ],
-      },
-      courierOrder: {
-        status: { in: ["CONFIRMED", "PICKUP_SCHEDULED"] },
-        assignments: {
-          none: {
-            status: { in: ["ASSIGNED", "ACCEPTED"] },
-            OR: [
-              { status: "ACCEPTED" },
-              { status: "ASSIGNED", expiresAt: { gt: new Date() } },
-              { status: "ASSIGNED", expiresAt: null },
-            ],
+  type CandidateBridgeWithRelations = Awaited<
+    ReturnType<typeof prisma.marketplaceStoreOrderDeliveryBridge.findMany<{
+      include: {
+        storeOrder: { select: { id: true; publicReference: true; derivedStatus: true } };
+        courierOrder: { select: { id: true; status: true; deliveryRegionId: true } };
+      };
+    }>>
+  >[number];
+
+  const candidateBridges: CandidateBridgeWithRelations[] =
+    await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
+      where: {
+        ...(exhaustedBridgeIds.length > 0 ? { id: { notIn: exhaustedBridgeIds } } : {}),
+        courierOrderId: { not: null },
+        status: { in: ["DISPATCH_PENDING", "DELIVERY_ORDER_CREATED"] },
+        storeOrder: {
+          acceptanceStatus: "ACCEPTED",
+          OR: [
+            { derivedStatus: "READY_FOR_PICKUP" },
+            { preparationStatus: "READY_FOR_HANDOFF" },
+          ],
+        },
+        courierOrder: {
+          status: { in: ["CONFIRMED", "PICKUP_SCHEDULED"] },
+          assignments: {
+            none: {
+              status: { in: ["ASSIGNED", "ACCEPTED"] },
+              OR: [
+                { status: "ACCEPTED" },
+                { status: "ASSIGNED", expiresAt: { gt: new Date() } },
+                { status: "ASSIGNED", expiresAt: null },
+              ],
+            },
           },
         },
       },
-    },
-    include: {
-      storeOrder: {
-        select: { id: true, publicReference: true, derivedStatus: true },
+      include: {
+        storeOrder: {
+          select: { id: true, publicReference: true, derivedStatus: true },
+        },
+        courierOrder: {
+          select: { id: true, status: true, deliveryRegionId: true },
+        },
       },
-      courierOrder: {
-        select: { id: true, status: true, deliveryRegionId: true },
-      },
-    },
-    orderBy: { createdAt: "asc" },
-    take: batchLimit,
-  });
+      orderBy: { createdAt: "asc" },
+      take: batchLimit,
+    });
 
   if (options.mode === "DRY_RUN") {
     return {

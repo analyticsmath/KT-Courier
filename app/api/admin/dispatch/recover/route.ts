@@ -25,13 +25,20 @@ const RecoverDispatchSchema = z
         "Idempotency key must be 8-128 characters of letters, digits, '.', '_', ':' or '-'."
       ),
   })
-  .refine((data) => Boolean(data.bridgeId || data.courierOrderId || data.marketplaceStoreOrderId), {
-    message: "Must provide bridgeId, courierOrderId, or marketplaceStoreOrderId.",
-  });
+  .refine(
+    (data) => {
+      const targets = [data.bridgeId, data.courierOrderId, data.marketplaceStoreOrderId].filter(Boolean);
+      return targets.length === 1;
+    },
+    {
+      message: "Must provide exactly one target selector (bridgeId, courierOrderId, or marketplaceStoreOrderId).",
+    }
+  );
 
 const CONFLICT_CODES = new Set([
   "DISPATCH_RECOVERY_STATE_CONFLICT",
   "DISPATCH_RECOVERY_IDEMPOTENCY_KEY_REUSED",
+  "DISPATCH_RECOVERY_STORE_ORDER_NOT_READY",
 ]);
 
 export async function POST(req: NextRequest) {
