@@ -33,6 +33,14 @@ export default async function AdminDispatchPage() {
           <EditorialTable caption="Unassigned courier orders" mobileMode="stack" rows={data.unassignedOrders} emptyState={<ProtectedState kind="empty" title="No orders await dispatch" description="All currently assignable orders have an active assignment." illustration={<RouteQueueIllustration />} />} columns={[
             { id: "order", header: "Order", priority: "primary", cell: (order) => <div><Link className="eo-table-link" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link><small>{order.pickupCity ?? "Pickup unavailable"} → {order.dropoffCity ?? "Destination unavailable"}</small></div> },
             { id: "region", header: "Region", priority: "secondary", cell: (order) => order.deliveryRegionName ?? "Not matched" },
+            { id: "routing", header: "Dispatch status", priority: "primary", cell: (order) => order.manualDispatchRequired ? (
+              <div>
+                <ProtectedStatus label={order.manualDispatchReason ?? "MANUAL_DISPATCH_REQUIRED"} tone="warning" />
+                <small className="block text-xs text-muted-foreground mt-0.5">{order.manualDispatchLabel}</small>
+              </div>
+            ) : (
+              <span className="text-muted-foreground text-xs">Standard queue</span>
+            ) },
             { id: "created", header: "Created", priority: "secondary", cell: (order) => <time>{formatDateTime(order.createdAt)}</time> },
             { id: "action", header: "", priority: "optional", cell: (order) => <Link className="eo-table-action" href={`/admin/orders/${order.id}`}>Review dispatch<span className="sr-only"> for {order.orderNumber}</span></Link> },
           ]} />

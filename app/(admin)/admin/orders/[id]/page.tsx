@@ -58,6 +58,20 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         </OperationalPanel>
 
         <OperationalPanel title="Assignment" description="Eligibility, region compatibility, availability, audit, and version conflicts remain server-authoritative.">
+          {order.manualDispatchRequired ? (
+            <div className="mb-4 p-3 rounded border border-amber-500/30 bg-amber-500/10 text-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <ProtectedStatus label={order.manualDispatchReason ?? "MANUAL_DISPATCH_REQUIRED"} tone="warning" />
+                <span className="font-semibold text-foreground">Manual dispatch required</span>
+              </div>
+              <p className="text-muted-foreground">{order.manualDispatchLabel}</p>
+              {order.manualDispatchNextStep ? (
+                <p className="mt-1 font-medium text-foreground">
+                  <strong>Actionable next step:</strong> {order.manualDispatchNextStep}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {activeAssignment ? <div className="eo-assignment-summary"><div><strong>{activeAssignment.driverDisplayName ?? activeAssignment.driverCode}</strong><p>{activeAssignment.driverCode} · {activeAssignment.vehicleType ?? "Vehicle not recorded"}</p></div><ProtectedStatus {...(() => { const state = presentAssignmentStatus(activeAssignment.status); return { label: state.label, tone: state.tone }; })()} /></div> : <ProtectedState kind="unavailable" title="No active assignment" description="The order has no active assignment in the canonical dispatch projection." />}
           <div className="mt-4"><AdminAssignmentActions orderId={id} assignment={activeAssignment ? { id: activeAssignment.id, driverProfileId: activeAssignment.driverProfileId, version: activeAssignment.version } : null} candidates={candidates} canAssign={canAssign} canReassign={canReassign} /></div>
           {!order.deliveryRegionId ? <p role="status" className="mt-3">This order has no matched delivery region. Resolve its coverage before assigning a driver.</p> : null}

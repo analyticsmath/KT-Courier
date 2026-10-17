@@ -20,6 +20,7 @@ describe("production processor orchestration", () => {
       "process-earning-lifecycle",
       "deliver-notifications",
       "reconcile-expired-dispatch",
+      "dispatch-marketplace-orders",
     ]);
   });
   it("avoids creating processor receipts for empty queues", async () => {
@@ -114,20 +115,25 @@ describe("production processor orchestration", () => {
 
     // Initial cycle: due immediately (last = 0)
     expect(tracker.isDue("reconcile-expired-dispatch")).toBe(true);
+    expect(tracker.isDue("dispatch-marketplace-orders")).toBe(true);
     // Unconfigured processor: always due
     expect(tracker.isDue("apply-paystack-webhook-events")).toBe(true);
 
     // Mark checked at mockTime
     tracker.markChecked("reconcile-expired-dispatch");
+    tracker.markChecked("dispatch-marketplace-orders");
     expect(tracker.isDue("reconcile-expired-dispatch")).toBe(false);
+    expect(tracker.isDue("dispatch-marketplace-orders")).toBe(false);
 
     // Advance by 30 seconds (standard loop interval): still not due (needs 60s)
     mockTime += 30_000;
     expect(tracker.isDue("reconcile-expired-dispatch")).toBe(false);
+    expect(tracker.isDue("dispatch-marketplace-orders")).toBe(false);
 
     // Advance by another 30 seconds: now 60s has passed, should be due
     mockTime += 30_000;
     expect(tracker.isDue("reconcile-expired-dispatch")).toBe(true);
+    expect(tracker.isDue("dispatch-marketplace-orders")).toBe(true);
   });
   it("integrates cadence filter into work check to prevent empty database sweeps", async () => {
     let mockTime = 1_000_000;

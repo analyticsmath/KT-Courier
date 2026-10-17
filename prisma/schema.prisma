@@ -1650,7 +1650,10 @@ model OrderAssignment {
   id                    String                @id @default(cuid())
   orderId               String
   driverProfileId       String
-  assignedByAdminId     String
+  assignedByAdminId     String?
+  assignedBySystemActor String?
+  dispatchPolicyReference String?
+  dispatchOperationId   String?
   status                OrderAssignmentStatus @default(ASSIGNED)
   assignedAt            DateTime
   acceptedAt            DateTime?
@@ -1680,7 +1683,7 @@ model OrderAssignment {
 
   order                         Order                        @relation(fields: [orderId], references: [id])
   driverProfile                 DriverProfile                @relation(fields: [driverProfileId], references: [id])
-  assignedByAdmin               User                         @relation("AdminAssignments", fields: [assignedByAdminId], references: [id])
+  assignedByAdmin               User?                        @relation("AdminAssignments", fields: [assignedByAdminId], references: [id])
   cancelledByAdmin              User?                        @relation("AdminCancellations", fields: [cancelledByAdminId], references: [id])
   reassignedFrom                OrderAssignment?             @relation("ReassignmentChain", fields: [reassignedFromId], references: [id])
   reassignments                 OrderAssignment[]            @relation("ReassignmentChain")
@@ -1772,12 +1775,39 @@ model DispatchCandidateEvidence {
   @@index([orderId, createdAt], map: "DispatchCandidateEvidence_order_created_idx")
 }
 
+/// Governed, maker/checker approval record that must be ACTIVE and effective before the
+/// production worker may create automatic driver offers. A missing row means no automatic offers.
+model DispatchAutomationPolicy {
+  id                 String    @id @default(cuid())
+  publicReference    String    @unique
+  versionNumber      Int       @unique
+  /// DRAFT | UNDER_REVIEW | APPROVED | ACTIVE | RETIRED | REJECTED (enforced by a database check).
+  status             String    @default("DRAFT")
+  /// Non-empty JSON array of DeliveryRegion ids in which automatic offers are approved.
+  regionIds          Json
+  maxOfferAttempts   Int       @default(3)
+  effectiveFrom      DateTime
+  effectiveUntil     DateTime?
+  createdByUserId    String
+  approvedByUserId   String?
+  approvedAt         DateTime?
+  activatedByUserId  String?
+  activatedAt        DateTime?
+  retiredAt          DateTime?
+  rejectionReasonCode String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status, effectiveFrom])
+}
+
 model OrderAssignmentEvent {
   id              String                   @id @default(cuid())
   assignmentId    String
   orderId         String
   driverProfileId String
-  actorUserId     String
+  actorUserId     String?
+  actorSystemIdentity String?
   actorRole       String
   eventType       OrderAssignmentEventType
   previousStatus  OrderAssignmentStatus?

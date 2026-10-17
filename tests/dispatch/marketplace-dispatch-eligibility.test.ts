@@ -6,6 +6,7 @@ const db = vi.hoisted(() => ({
   user: { findUnique: vi.fn(), findFirst: vi.fn() },
   orderAssignment: { findMany: vi.fn() },
   marketplaceStoreOrderDeliveryBridge: { findMany: vi.fn(), update: vi.fn() },
+  dispatchAutomationPolicy: { findFirst: vi.fn() },
 }));
 
 const dispatchEvidenceMocks = vi.hoisted(() => ({
@@ -101,27 +102,68 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
   });
 
   describe("isAutomaticDispatchEnabled", () => {
-    it("returns true when setting is absent or enabled", async () => {
+    it("returns false when setting is absent or null (fail-closed)", async () => {
       db.systemSetting.findUnique.mockResolvedValue(null);
-      expect(await isAutomaticDispatchEnabled()).toBe(true);
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(null);
+      expect(await isAutomaticDispatchEnabled()).toBe(false);
 
-      db.systemSetting.findUnique.mockResolvedValue({ value: true });
-      expect(await isAutomaticDispatchEnabled()).toBe(true);
-
-      db.systemSetting.findUnique.mockResolvedValue({ value: "true" });
-      expect(await isAutomaticDispatchEnabled()).toBe(true);
+      db.systemSetting.findUnique.mockResolvedValue({ value: null });
+      expect(await isAutomaticDispatchEnabled()).toBe(false);
     });
 
     it("returns false when setting is explicitly disabled", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: false });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(null);
       expect(await isAutomaticDispatchEnabled()).toBe(false);
 
       db.systemSetting.findUnique.mockResolvedValue({ value: "false" });
       expect(await isAutomaticDispatchEnabled()).toBe(false);
     });
+
+    it("returns false when setting is true but no active policy is approved", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(null);
+      expect(await isAutomaticDispatchEnabled()).toBe(false);
+    });
+
+    it("returns true only when setting is enabled AND governed policy is active", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue({
+        id: "pol-1",
+        publicReference: "dspauto_valid",
+        versionNumber: 1,
+        status: "ACTIVE",
+        regionIds: ["reg-1"],
+        maxOfferAttempts: 3,
+        effectiveFrom: new Date("2026-01-01"),
+        effectiveUntil: null,
+        createdByUserId: "usr-creator",
+        approvedByUserId: "usr-approver",
+        approvedAt: new Date("2026-01-02"),
+        activatedByUserId: "usr-activator",
+        activatedAt: new Date("2026-01-02"),
+      });
+      expect(await isAutomaticDispatchEnabled()).toBe(true);
+    });
   });
 
   describe("dispatchReadyMarketplaceOrdersBatch", () => {
+    const validPolicy = {
+      id: "pol-1",
+      publicReference: "dspauto_valid",
+      versionNumber: 1,
+      status: "ACTIVE",
+      regionIds: ["reg-1"],
+      maxOfferAttempts: 3,
+      effectiveFrom: new Date("2026-01-01"),
+      effectiveUntil: null,
+      createdByUserId: "usr-creator",
+      approvedByUserId: "usr-approver",
+      approvedAt: new Date("2026-01-02"),
+      activatedByUserId: "usr-activator",
+      activatedAt: new Date("2026-01-02"),
+    };
+
     it("summarizes pending items in DRY_RUN mode without updates", async () => {
       db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
         { id: "br-1", courierOrderId: "ord-1" },
@@ -141,6 +183,7 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
 
     it("routes orders to manual dispatch queue when automatic dispatch is disabled by policy", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: false });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(null);
       db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
         { id: "br-1", courierOrderId: "ord-1", dispatchEvidence: {} },
       ]);
@@ -160,6 +203,44 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
             dispatchEvidence: expect.objectContaining({
               dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
               policyGate: "AUTO_DISPATCH_DISABLED_BY_POLICY",
+              reason: "AUTO_DISPATCH_SETTING_OFF",
+            }),
+          }),
+        })
+      );
+    });
+
+    it("routes order to manual dispatch queue when delivery region is outside policy scope", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue({
+        ...validPolicy,
+        regionIds: ["reg-other"],
+      });
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
+        {
+          id: "br-1",
+          courierOrderId: "ord-1",
+          dispatchEvidence: {},
+          courierOrder: { id: "ord-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
+      ]);
+      db.orderAssignment.findMany.mockResolvedValue([]);
+      db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({
+        mode: "APPLY",
+        operationId: "op-outside-region",
+      });
+
+      expect(result.itemsReconciled).toBe(1);
+      expect(result.itemsCompleted).toBe(0);
+      expect(db.marketplaceStoreOrderDeliveryBridge.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "br-1" },
+          data: expect.objectContaining({
+            dispatchEvidence: expect.objectContaining({
+              dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
+              reason: "ORDER_REGION_OUTSIDE_POLICY_SCOPE",
             }),
           }),
         })
@@ -168,9 +249,14 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
 
     it("routes order to manual dispatch queue when max attempts are exceeded", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: true });
-      db.user.findFirst.mockResolvedValue({ id: "admin-1" });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
       db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
-        { id: "br-1", courierOrderId: "ord-1", dispatchEvidence: {} },
+        {
+          id: "br-1",
+          courierOrderId: "ord-1",
+          dispatchEvidence: {},
+          courierOrder: { id: "ord-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
       ]);
       db.orderAssignment.findMany.mockResolvedValue([
         { id: "as-1", driverProfileId: "drv-1", status: "REJECTED" },
@@ -201,9 +287,14 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
 
     it("routes order to manual dispatch queue when no drivers are available", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: true });
-      db.user.findFirst.mockResolvedValue({ id: "admin-1" });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
       db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
-        { id: "br-1", courierOrderId: "ord-1", dispatchEvidence: {} },
+        {
+          id: "br-1",
+          courierOrderId: "ord-1",
+          dispatchEvidence: {},
+          courierOrder: { id: "ord-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
       ]);
       db.orderAssignment.findMany.mockResolvedValue([]);
       dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
@@ -231,11 +322,16 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
       );
     });
 
-    it("offers assignment to top eligible candidate and updates bridge status", async () => {
+    it("offers assignment to top eligible candidate using typed system actor and updates bridge status", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: true });
-      db.user.findFirst.mockResolvedValue({ id: "admin-1" });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
       db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValue([
-        { id: "br-1", courierOrderId: "ord-1", dispatchEvidence: {} },
+        {
+          id: "br-1",
+          courierOrderId: "ord-1",
+          dispatchEvidence: {},
+          courierOrder: { id: "ord-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        },
       ]);
       db.orderAssignment.findMany.mockResolvedValue([]);
       dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
@@ -256,7 +352,11 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
 
       expect(result.itemsCompleted).toBe(1);
       expect(dispatchAssignmentMocks.offerAssignment).toHaveBeenCalledWith(
-        "admin-1",
+        {
+          systemActor: "SYSTEM:marketplace-dispatch",
+          policyReference: "dspauto_valid",
+          dispatchOperationId: "op-offer-success",
+        },
         "ord-1",
         expect.objectContaining({
           driverProfileId: "drv-top",
@@ -271,6 +371,8 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
             dispatchEvidence: expect.objectContaining({
               lastOfferedAssignmentId: "assign-new-1",
               offeredDriverProfileId: "drv-top",
+              systemActor: "SYSTEM:marketplace-dispatch",
+              policyReference: "dspauto_valid",
             }),
           }),
         })

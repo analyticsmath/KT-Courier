@@ -1,8 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
-import { UserRole, UserStatus } from "@/types/db";
 import { createDispatchCandidateEvaluation } from "@/lib/services/dispatch-candidate-evidence.service";
 import { offerAssignment } from "@/lib/services/dispatch-assignment.service";
+import {
+  DISPATCH_SYSTEM_ACTOR,
+  describeManualDispatchReason,
+  dispatchPolicyAllowsRegion,
+} from "@/lib/dispatch/automation-policy";
+import { resolveDispatchAutomationAuthority } from "@/lib/dispatch/automation-policy.service";
 
 /** Phase 7 composition boundary: schedules eligibility evidence only, never a driver. */
 export async function scheduleMarketplaceDispatchEligibility(input: Readonly<{
@@ -67,40 +72,13 @@ export async function findEligibleDriversForOrder(
 }
 
 /**
- * Checks system setting for whether automatic dispatch is active.
- * Fails closed if explicitly disabled in SystemSetting.
+ * Checks whether automatic dispatch is active.
+ * Fails closed: Requires BOTH setting === true AND an active, approved DispatchAutomationPolicy.
  */
 export async function isAutomaticDispatchEnabled(tx?: Prisma.TransactionClient): Promise<boolean> {
-  const client = tx ?? prisma;
-  const setting = await client.systemSetting.findUnique({
-    where: { key: "dispatch.auto_dispatch_enabled" },
-    select: { value: true },
-  });
-  if (!setting || setting.value === null || setting.value === undefined) return true;
-  if (typeof setting.value === "boolean") return setting.value;
-  if (typeof setting.value === "string") return setting.value.toLowerCase() !== "false";
-  return true;
-}
-
-async function resolveDispatchActorUserId(requestedUserId?: string): Promise<string> {
-  if (requestedUserId) {
-    const user = await prisma.user.findUnique({ where: { id: requestedUserId }, select: { id: true } });
-    if (user) return user.id;
-  }
-  const admin = await prisma.user.findFirst({
-    where: { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (admin) return admin.id;
-
-  const fallback = await prisma.user.findFirst({
-    where: { status: UserStatus.ACTIVE },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (fallback) return fallback.id;
-  throw new Error("No active user available for dispatch authority.");
+  const client = (tx ?? prisma) as Pick<typeof prisma, "systemSetting" | "dispatchAutomationPolicy">;
+  const decision = await resolveDispatchAutomationAuthority(client);
+  return decision.allowed;
 }
 
 export interface MarketplaceDispatchBatchOptions {
@@ -123,9 +101,9 @@ export interface MarketplaceDispatchBatchOutcome {
 /**
  * Production worker processor:
  * - Scans marketplace orders ready for pickup with bridged courier orders.
- * - Enforces policy gate: if auto-dispatch is disabled by policy, routes orders to MANUAL_DISPATCH_REQUIRED.
- * - If enabled, evaluates candidates, creates expiring driver offers with TTL, and bounds retries.
- * - If drivers are unavailable or max attempts reached, routes orders to actionable manual dispatch queue.
+ * - Enforces fail-closed policy gate: offers require both setting === true and an active, approved DispatchAutomationPolicy.
+ * - If blocked or outside policy region, routes orders to MANUAL_DISPATCH_REQUIRED with actionable operator steps.
+ * - When allowed, evaluates candidates and creates expiring driver offers attributed strictly to DISPATCH_SYSTEM_ACTOR.
  */
 export async function dispatchReadyMarketplaceOrdersBatch(
   options: MarketplaceDispatchBatchOptions
@@ -181,13 +159,15 @@ export async function dispatchReadyMarketplaceOrdersBatch(
     };
   }
 
-  const autoDispatch = await isAutomaticDispatchEnabled();
+  const now = new Date();
+  const authority = await resolveDispatchAutomationAuthority(prisma, now);
   let completed = 0;
   let reconciled = 0;
   let retried = 0;
   const skipped = 0;
 
-  if (!autoDispatch) {
+  if (!authority.allowed) {
+    const reasonInfo = describeManualDispatchReason(authority.reason);
     for (const bridge of candidateBridges) {
       const existingEvidence = typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null
         ? bridge.dispatchEvidence as Record<string, unknown>
@@ -200,7 +180,10 @@ export async function dispatchReadyMarketplaceOrdersBatch(
             manualDispatchRequired: true,
             dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
             policyGate: "AUTO_DISPATCH_DISABLED_BY_POLICY",
-            queuedAt: new Date().toISOString(),
+            reason: authority.reason,
+            reasonLabel: reasonInfo.label,
+            actionableNextStep: reasonInfo.nextStep,
+            queuedAt: now.toISOString(),
           },
         },
       });
@@ -213,15 +196,13 @@ export async function dispatchReadyMarketplaceOrdersBatch(
       itemsSkipped: 0,
       itemsRetried: 0,
       itemsReconciled: reconciled,
-      safeSummary: `Automatic dispatch disabled by policy. Routed ${reconciled} order(s) to manual dispatch queue (MANUAL_DISPATCH_REQUIRED).`,
+      safeSummary: `Automatic dispatch disabled by policy (${authority.reason}). Routed ${reconciled} order(s) to manual dispatch queue (MANUAL_DISPATCH_REQUIRED).`,
     };
   }
 
-  const actorUserId = await resolveDispatchActorUserId(options.actorUserId);
-  const MAX_DISPATCH_OFFER_ATTEMPTS = 3;
-
   for (const bridge of candidateBridges) {
     const courierOrderId = bridge.courierOrderId!;
+    const deliveryRegionId = bridge.courierOrder?.deliveryRegionId ?? null;
     try {
       const existingAssignments = await prisma.orderAssignment.findMany({
         where: { orderId: courierOrderId },
@@ -233,7 +214,32 @@ export async function dispatchReadyMarketplaceOrdersBatch(
         ? bridge.dispatchEvidence as Record<string, unknown>
         : {};
 
-      if (existingAssignments.length >= MAX_DISPATCH_OFFER_ATTEMPTS) {
+      // Region check against approved policy scope
+      if (!dispatchPolicyAllowsRegion(authority, deliveryRegionId)) {
+        const reasonInfo = describeManualDispatchReason("ORDER_REGION_OUTSIDE_POLICY_SCOPE");
+        await prisma.marketplaceStoreOrderDeliveryBridge.update({
+          where: { id: bridge.id },
+          data: {
+            dispatchEvidence: {
+              ...existingEvidence,
+              manualDispatchRequired: true,
+              dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
+              reason: "ORDER_REGION_OUTSIDE_POLICY_SCOPE",
+              reasonLabel: reasonInfo.label,
+              actionableNextStep: reasonInfo.nextStep,
+              policyReference: authority.policyReference,
+              deliveryRegionId,
+              queuedAt: new Date().toISOString(),
+            },
+          },
+        });
+        reconciled += 1;
+        continue;
+      }
+
+      // Max attempts check against approved policy limit
+      if (existingAssignments.length >= authority.maxOfferAttempts) {
+        const reasonInfo = describeManualDispatchReason("MAX_OFFER_ATTEMPTS_EXCEEDED");
         await prisma.marketplaceStoreOrderDeliveryBridge.update({
           where: { id: bridge.id },
           data: {
@@ -242,7 +248,10 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               manualDispatchRequired: true,
               dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
               reason: "MAX_OFFER_ATTEMPTS_EXCEEDED",
+              reasonLabel: reasonInfo.label,
+              actionableNextStep: reasonInfo.nextStep,
               attemptCount: existingAssignments.length,
+              maxAllowedAttempts: authority.maxOfferAttempts,
               queuedAt: new Date().toISOString(),
             },
           },
@@ -261,6 +270,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
       });
 
       if (eligible.length === 0) {
+        const reasonInfo = describeManualDispatchReason("NO_ELIGIBLE_DRIVERS_AVAILABLE");
         await prisma.marketplaceStoreOrderDeliveryBridge.update({
           where: { id: bridge.id },
           data: {
@@ -269,6 +279,8 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               manualDispatchRequired: true,
               dispatchRouting: "MANUAL_DISPATCH_REQUIRED",
               reason: "NO_ELIGIBLE_DRIVERS_AVAILABLE",
+              reasonLabel: reasonInfo.label,
+              actionableNextStep: reasonInfo.nextStep,
               attemptCount: existingAssignments.length,
               queuedAt: new Date().toISOString(),
             },
@@ -279,11 +291,19 @@ export async function dispatchReadyMarketplaceOrdersBatch(
       }
 
       const targetDriver = eligible[0];
-      const offer = await offerAssignment(actorUserId, courierOrderId, {
-        driverProfileId: targetDriver.driverProfileId,
-        reasonCode: "AUTOMATIC_DISPATCH_OFFER",
-        adminNote: `System automated dispatch offer (attempt ${existingAssignments.length + 1})`,
-      });
+      const offer = await offerAssignment(
+        {
+          systemActor: DISPATCH_SYSTEM_ACTOR,
+          policyReference: authority.policyReference,
+          dispatchOperationId: options.operationId,
+        },
+        courierOrderId,
+        {
+          driverProfileId: targetDriver.driverProfileId,
+          reasonCode: "AUTOMATIC_DISPATCH_OFFER",
+          adminNote: `Automated marketplace dispatch offer under policy ${authority.policyReference} (attempt ${existingAssignments.length + 1})`,
+        }
+      );
 
       await prisma.marketplaceStoreOrderDeliveryBridge.update({
         where: { id: bridge.id },
@@ -296,6 +316,8 @@ export async function dispatchReadyMarketplaceOrdersBatch(
             offeredAt: new Date().toISOString(),
             expiresAt: offer.expiresAt?.toISOString() ?? null,
             attemptNumber: existingAssignments.length + 1,
+            policyReference: authority.policyReference,
+            systemActor: DISPATCH_SYSTEM_ACTOR,
           },
         },
       });

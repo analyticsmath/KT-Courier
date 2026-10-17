@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { OrderStatus, OrderSource, DeliveryType } from "@/types/db";
 import { toAdminAssignmentDto, type AdminAssignmentDto } from "@/lib/dto/assignment.dto";
 import { toOrderSummaryDto, type OrderSummaryDto } from "@/lib/dto/order.dto";
+import { describeManualDispatchReason } from "@/lib/dispatch/automation-policy";
 import {
   ASSIGNMENT_FULL_INCLUDE,
   assertOrderAssignable,
@@ -69,14 +70,48 @@ export async function getDispatchBoardData(): Promise<DispatchBoardData> {
     }),
   ]);
 
+  const bridgeMap = new Map<string, Record<string, unknown>>();
+  if (unassignedOrders.length > 0) {
+    const bridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
+      where: {
+        courierOrderId: { in: unassignedOrders.map((o) => o.id) },
+      },
+      select: { courierOrderId: true, dispatchEvidence: true },
+    });
+    for (const b of bridges) {
+      if (b.courierOrderId && typeof b.dispatchEvidence === "object" && b.dispatchEvidence !== null) {
+        bridgeMap.set(b.courierOrderId, b.dispatchEvidence as Record<string, unknown>);
+      }
+    }
+  }
+
+  const mappedUnassigned = unassignedOrders.map((order) => {
+    const summary = toOrderSummaryDto(order);
+    const evidence = bridgeMap.get(order.id);
+    if (evidence) {
+      const routing = typeof evidence.dispatchRouting === "string" ? evidence.dispatchRouting : null;
+      const rawReason = evidence.reason ?? evidence.policyGate ?? null;
+      const manualRequired = Boolean(evidence.manualDispatchRequired) || routing === "MANUAL_DISPATCH_REQUIRED";
+      if (manualRequired || rawReason) {
+        const desc = describeManualDispatchReason(rawReason);
+        summary.manualDispatchRequired = true;
+        summary.manualDispatchReason = desc.code;
+        summary.manualDispatchLabel = desc.label;
+        summary.manualDispatchNextStep = desc.nextStep;
+        summary.dispatchRouting = routing ?? "MANUAL_DISPATCH_REQUIRED";
+      }
+    }
+    return summary;
+  });
+
   const eligibleDrivers = await listEligibleDrivers(null);
 
   return {
-    unassignedOrders: unassignedOrders.map(toOrderSummaryDto),
+    unassignedOrders: mappedUnassigned,
     assignedOrders: activeAssignments.map(toAdminAssignmentDto),
     eligibleDrivers,
     counts: {
-      unassigned: unassignedOrders.length,
+      unassigned: mappedUnassigned.length,
       assigned: activeAssignments.length,
       totalActive: activeAssignments.length,
     },

@@ -10,7 +10,17 @@ import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import { createDispatchCandidateEvaluationInTx, selectDispatchCandidateInTx, setDispatchCandidateDispositionForAssignmentInTx } from "@/lib/services/dispatch-candidate-evidence.service";
 import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
+import { DISPATCH_SYSTEM_ACTOR } from "@/lib/dispatch/automation-policy";
+export { DISPATCH_SYSTEM_ACTOR };
 import type { AdminAssignOrderInput, AdminCancelAssignmentInput, AdminReassignOrderInput, DriverAcceptAssignmentInput, DriverRejectAssignmentInput } from "@/lib/validation/assignment";
+
+export type SystemDispatchOfferAuthority = {
+  systemActor: string;
+  policyReference: string;
+  dispatchOperationId?: string;
+};
+
+export type DispatchOfferAuthority = string | SystemDispatchOfferAuthority;
 
 type Tx = Prisma.TransactionClient;
 const CURRENT = [OrderAssignmentStatus.ASSIGNED, OrderAssignmentStatus.ACCEPTED];
@@ -27,11 +37,15 @@ async function settings(tx: Tx) {
   return { ttlMinutes: Math.min(120, Math.max(1, Number.parseInt(value("dispatch.assignment_offer_ttl_minutes", "10"), 10) || 10)), policyVersion: value("dispatch.policy_version", "dispatch-v1"), defaultCapacity: Math.min(10, Math.max(1, Number.parseInt(value("dispatch.default_driver_capacity", "1"), 10) || 1)) };
 }
 
-async function reconcileExpired(tx: Tx, orderId: string, actorUserId: string) {
+function eventActor(actorUserId: string | null | undefined): EventActor {
+  return actorUserId ? { actorUserId } : { actorSystemIdentity: DISPATCH_SYSTEM_ACTOR };
+}
+
+async function reconcileExpired(tx: Tx, orderId: string, actorUserId: string | null) {
   const expired = await tx.orderAssignment.findMany({ where: { orderId, status: OrderAssignmentStatus.ASSIGNED, expiresAt: { lte: new Date() } } });
   for (const assignment of expired) {
     const updated = await tx.orderAssignment.updateMany({ where: { id: assignment.id, status: OrderAssignmentStatus.ASSIGNED, version: assignment.version }, data: { status: OrderAssignmentStatus.EXPIRED, activeOrderGuard: null, expiredAt: new Date(), respondedAt: new Date(), version: { increment: 1 } } });
-    if (updated.count) await writeEvents(tx, { assignmentId: assignment.id, orderId, driverProfileId: assignment.driverProfileId, actorUserId, actorRole: "SYSTEM", eventType: OrderAssignmentEventType.ASSIGNMENT_EXPIRED, operationalType: OrderOperationalEventType.ASSIGNMENT_EXPIRED, previousStatus: OrderAssignmentStatus.ASSIGNED, nextStatus: OrderAssignmentStatus.EXPIRED, reasonCode: "OFFER_EXPIRED" });
+    if (updated.count) await writeEvents(tx, { assignmentId: assignment.id, orderId, driverProfileId: assignment.driverProfileId, ...eventActor(actorUserId), actorRole: "SYSTEM", eventType: OrderAssignmentEventType.ASSIGNMENT_EXPIRED, operationalType: OrderOperationalEventType.ASSIGNMENT_EXPIRED, previousStatus: OrderAssignmentStatus.ASSIGNED, nextStatus: OrderAssignmentStatus.EXPIRED, reasonCode: "OFFER_EXPIRED" });
   }
 }
 
@@ -52,9 +66,15 @@ async function validateDriver(tx: Tx, driverProfileId: string, order: { id: stri
   return { driver, eligibility: { ...result, policyVersion: config.policyVersion }, config };
 }
 
-async function writeEvents(tx: Tx, input: { assignmentId: string; orderId: string; driverProfileId: string; actorUserId: string; actorRole: string; eventType: OrderAssignmentEventType; operationalType: OrderOperationalEventType; previousStatus: OrderAssignmentStatus | null; nextStatus: OrderAssignmentStatus; reasonCode?: string; note?: string }) {
-  await tx.orderAssignmentEvent.create({ data: { assignmentId: input.assignmentId, orderId: input.orderId, driverProfileId: input.driverProfileId, actorUserId: input.actorUserId, actorRole: input.actorRole, eventType: input.eventType, previousStatus: input.previousStatus, newStatus: input.nextStatus, reasonCode: input.reasonCode ?? null, note: input.note ?? null, metadata: { policy: "dispatch-v1" } } });
-  await tx.orderOperationalEvent.create({ data: { orderId: input.orderId, assignmentId: input.assignmentId, driverProfileId: input.driverProfileId, actorUserId: input.actorUserId, actorRole: input.actorRole, eventType: input.operationalType, publicNote: null, internalNote: input.note ?? null, metadata: { reasonCode: input.reasonCode ?? null, policy: "dispatch-v1" } } });
+type EventActor = { actorUserId: string; actorSystemIdentity?: never } | { actorUserId?: null; actorSystemIdentity: string };
+
+async function writeEvents(tx: Tx, input: EventActor & { assignmentId: string; orderId: string; driverProfileId: string; actorRole: string; eventType: OrderAssignmentEventType; operationalType: OrderOperationalEventType; previousStatus: OrderAssignmentStatus | null; nextStatus: OrderAssignmentStatus; reasonCode?: string; note?: string; metadata?: Record<string, unknown> }) {
+  const human = typeof input.actorUserId === "string" && input.actorUserId.length > 0;
+  if (!human && !input.actorSystemIdentity) throw dispatchError.driverIneligible("A dispatch event requires a human actor or a typed system identity.");
+  await tx.orderAssignmentEvent.create({ data: { assignmentId: input.assignmentId, orderId: input.orderId, driverProfileId: input.driverProfileId, actorUserId: human ? input.actorUserId! : null, actorSystemIdentity: human ? null : input.actorSystemIdentity!, actorRole: input.actorRole, eventType: input.eventType, previousStatus: input.previousStatus, newStatus: input.nextStatus, reasonCode: input.reasonCode ?? null, note: input.note ?? null, metadata: ({ policy: "dispatch-v1", ...(input.metadata ?? {}) } as PrismaClient.InputJsonValue) } });
+  // The operational timeline requires a real user reference. System-originated events are
+  // recorded on the assignment event only, never attributed to an unrelated account.
+  if (human) await tx.orderOperationalEvent.create({ data: { orderId: input.orderId, assignmentId: input.assignmentId, driverProfileId: input.driverProfileId, actorUserId: input.actorUserId!, actorRole: input.actorRole, eventType: input.operationalType, publicNote: null, internalNote: input.note ?? null, metadata: { reasonCode: input.reasonCode ?? null, policy: "dispatch-v1" } } });
 }
 
 function assertAssignable(order: { status: OrderStatus } | null) {
@@ -64,8 +84,16 @@ function assertAssignable(order: { status: OrderStatus } | null) {
 }
 function assertBeforeCustody(status: OrderStatus) { if (CUSTODY.includes(status)) throw dispatchError.custody(); }
 
-export async function offerAssignment(adminUserId: string, orderId: string, input: AdminAssignOrderInput) {
+export async function offerAssignment(authority: DispatchOfferAuthority, orderId: string, input: AdminAssignOrderInput) {
   const evaluationOperationId = randomUUID();
+  const isSystem = typeof authority === "object" || (typeof authority === "string" && (authority === DISPATCH_SYSTEM_ACTOR || authority.startsWith("SYSTEM:")));
+  const systemActor = isSystem
+    ? (typeof authority === "object" ? authority.systemActor : authority)
+    : null;
+  const dispatchPolicyReference = isSystem && typeof authority === "object" ? authority.policyReference : null;
+  const dispatchOperationId = isSystem && typeof authority === "object" ? (authority.dispatchOperationId ?? null) : null;
+  const adminUserId = isSystem ? null : (authority as string);
+
   return withDispatchRetry(() => prisma.$transaction(async (tx) => {
     await lockOrderAndDrivers(tx, orderId, [input.driverProfileId]);
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true } });
@@ -82,11 +110,71 @@ export async function offerAssignment(adminUserId: string, orderId: string, inpu
     // The evidence is a snapshot. Validate again immediately before the
     // assignment write so a stale candidate can never become assignable.
     const { eligibility, config } = await validateDriver(tx, input.driverProfileId, order!);
-    const reasonCode = input.reasonCode ?? "INITIAL_ASSIGNMENT";
-    const assignment = await (tx as unknown as { orderAssignment: { create(args: unknown): Promise<{ id: string; status: OrderAssignmentStatus; version: number; expiresAt: Date | null }> } }).orderAssignment.create({ data: { orderId, driverProfileId: input.driverProfileId, assignedByAdminId: adminUserId, status: OrderAssignmentStatus.ASSIGNED, assignedAt: new Date(), offeredAt: new Date(), expiresAt: new Date(Date.now() + config.ttlMinutes * 60_000), activeOrderGuard: orderId, dispatchPolicyVersion: config.policyVersion, eligibilitySnapshot: eligibility, reasonCode, adminNote: input.adminNote ?? null, dispatchCandidateEvaluationId: evaluation.evaluationId } });
+    const reasonCode = input.reasonCode ?? (isSystem ? "AUTOMATIC_DISPATCH_OFFER" : "INITIAL_ASSIGNMENT");
+    const assignment = await (tx as unknown as { orderAssignment: { create(args: unknown): Promise<{ id: string; status: OrderAssignmentStatus; version: number; expiresAt: Date | null }> } }).orderAssignment.create({
+      data: {
+        orderId,
+        driverProfileId: input.driverProfileId,
+        assignedByAdminId: adminUserId,
+        assignedBySystemActor: systemActor,
+        dispatchPolicyReference,
+        dispatchOperationId,
+        status: OrderAssignmentStatus.ASSIGNED,
+        assignedAt: new Date(),
+        offeredAt: new Date(),
+        expiresAt: new Date(Date.now() + config.ttlMinutes * 60_000),
+        activeOrderGuard: orderId,
+        dispatchPolicyVersion: config.policyVersion,
+        eligibilitySnapshot: eligibility,
+        reasonCode,
+        adminNote: input.adminNote ?? null,
+        dispatchCandidateEvaluationId: evaluation.evaluationId,
+      },
+    });
     await selectDispatchCandidateInTx(tx, evaluation.evaluationId, input.driverProfileId, assignment.id);
-    await writeEvents(tx, { assignmentId: assignment.id, orderId, driverProfileId: input.driverProfileId, actorUserId: adminUserId, actorRole: "ADMIN", eventType: OrderAssignmentEventType.ASSIGNMENT_CREATED, operationalType: OrderOperationalEventType.ASSIGNMENT_OFFERED, previousStatus: null, nextStatus: OrderAssignmentStatus.ASSIGNED, reasonCode, note: input.adminNote });
-    await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: AdminActionType.CREATE, entityType: "OrderAssignment", entityId: assignment.id, message: "Dispatch offer created.", metadata: { orderId, driverProfileId: input.driverProfileId, reasonCode } } });
+    if (isSystem) {
+      await writeEvents(tx, {
+        assignmentId: assignment.id,
+        orderId,
+        driverProfileId: input.driverProfileId,
+        actorSystemIdentity: systemActor!,
+        actorRole: "SYSTEM",
+        eventType: OrderAssignmentEventType.ASSIGNMENT_CREATED,
+        operationalType: OrderOperationalEventType.ASSIGNMENT_OFFERED,
+        previousStatus: null,
+        nextStatus: OrderAssignmentStatus.ASSIGNED,
+        reasonCode,
+        note: input.adminNote,
+        metadata: {
+          policyReference: dispatchPolicyReference,
+          operationId: dispatchOperationId,
+        },
+      });
+    } else {
+      await writeEvents(tx, {
+        assignmentId: assignment.id,
+        orderId,
+        driverProfileId: input.driverProfileId,
+        actorUserId: adminUserId!,
+        actorRole: "ADMIN",
+        eventType: OrderAssignmentEventType.ASSIGNMENT_CREATED,
+        operationalType: OrderOperationalEventType.ASSIGNMENT_OFFERED,
+        previousStatus: null,
+        nextStatus: OrderAssignmentStatus.ASSIGNED,
+        reasonCode,
+        note: input.adminNote,
+      });
+      await tx.adminActivityLog.create({
+        data: {
+          actorUserId: adminUserId!,
+          action: AdminActionType.CREATE,
+          entityType: "OrderAssignment",
+          entityId: assignment.id,
+          message: "Dispatch offer created.",
+          metadata: { orderId, driverProfileId: input.driverProfileId, reasonCode },
+        },
+      });
+    }
     return assignment;
   }, { isolationLevel: PrismaClient.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 10_000 }));
 }
@@ -195,7 +283,7 @@ export async function unassignDispatchOrder(adminUserId: string, orderId: string
 
 /** Bounded operational command; safe for repeated or concurrent invocation. */
 export async function reconcileExpiredDispatchOffers(limit = 100) {
-  const candidates = await prisma.orderAssignment.findMany({ where: { status: OrderAssignmentStatus.ASSIGNED, expiresAt: { lte: new Date() } }, select: { id: true, orderId: true, driverProfileId: true, assignedByAdminId: true, version: true }, orderBy: { expiresAt: "asc" }, take: Math.min(500, Math.max(1, limit)) });
+  const candidates = await prisma.orderAssignment.findMany({ where: { status: OrderAssignmentStatus.ASSIGNED, expiresAt: { lte: new Date() } }, select: { id: true, orderId: true, driverProfileId: true, assignedByAdminId: true, assignedBySystemActor: true, version: true }, orderBy: { expiresAt: "asc" }, take: Math.min(500, Math.max(1, limit)) });
   let expired = 0;
   for (const candidate of candidates) {
     await prisma.$transaction(async (tx) => {
@@ -204,7 +292,18 @@ export async function reconcileExpiredDispatchOffers(limit = 100) {
       if (changed.count) {
         expired += 1;
         await setDispatchCandidateDispositionForAssignmentInTx(tx, candidate.id, "EXPIRED");
-        await writeEvents(tx, { assignmentId: candidate.id, orderId: candidate.orderId, driverProfileId: candidate.driverProfileId, actorUserId: candidate.assignedByAdminId, actorRole: "SYSTEM", eventType: OrderAssignmentEventType.ASSIGNMENT_EXPIRED, operationalType: OrderOperationalEventType.ASSIGNMENT_EXPIRED, previousStatus: OrderAssignmentStatus.ASSIGNED, nextStatus: OrderAssignmentStatus.EXPIRED, reasonCode: "OFFER_EXPIRED" });
+        await writeEvents(tx, {
+          assignmentId: candidate.id,
+          orderId: candidate.orderId,
+          driverProfileId: candidate.driverProfileId,
+          actorSystemIdentity: DISPATCH_SYSTEM_ACTOR,
+          actorRole: "SYSTEM",
+          eventType: OrderAssignmentEventType.ASSIGNMENT_EXPIRED,
+          operationalType: OrderOperationalEventType.ASSIGNMENT_EXPIRED,
+          previousStatus: OrderAssignmentStatus.ASSIGNED,
+          nextStatus: OrderAssignmentStatus.EXPIRED,
+          reasonCode: "OFFER_EXPIRED",
+        });
       }
     }, { isolationLevel: PrismaClient.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 10_000 });
   }

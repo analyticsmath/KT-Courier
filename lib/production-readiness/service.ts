@@ -89,13 +89,23 @@ export async function getProductionReadiness() {
   ] as const) {
     await probe(key, async () => {
       const count = await load();
+      if (count > 0) {
+        return capability(
+          key,
+          "BLOCKED_CONFIGURATION",
+          "COMMERCIAL_SCOPE_CONFLICT",
+          `${programLabel} has ${count} active version(s) configured in the database, but this program is excluded from launch scope by policy. Either retire the active versions or formally update the launch scope.`,
+          "CLIENT",
+          { approvedEffectiveCount: count, launchScope: "EXCLUDED_BY_POLICY_v1" }
+        );
+      }
       return capability(
         key,
         "DISABLED_BY_POLICY",
         "COMMERCIAL_PROGRAM_INACTIVE_BY_POLICY",
         `${programLabel} is an inactive optional commercial program outside initial delivery and marketplace launch scope.`,
         "CLIENT",
-        { approvedEffectiveCount: count, launchScope: "EXCLUDED_BY_POLICY_v1" }
+        { approvedEffectiveCount: 0, launchScope: "EXCLUDED_BY_POLICY_v1" }
       );
     });
   }

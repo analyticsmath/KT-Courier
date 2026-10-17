@@ -13,6 +13,7 @@ import {
   OrderTransitionError,
 } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
+import { describeManualDispatchReason } from "@/lib/dispatch/automation-policy";
 
 const ORDER_FULL_INCLUDE = {
   pickupAddress: true,
@@ -95,11 +96,33 @@ export async function listAdminOrders(
 // ─── Detail ───────────────────────────────────────────────────────────────────
 
 export async function getAdminOrderDetail(id: string): Promise<AdminOrderDetailDto | null> {
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: ORDER_FULL_INCLUDE,
-  });
-  return order ? toAdminOrderDetailDto(order) : null;
+  const [order, bridge] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      include: ORDER_FULL_INCLUDE,
+    }),
+    prisma.marketplaceStoreOrderDeliveryBridge.findFirst({
+      where: { courierOrderId: id },
+      select: { dispatchEvidence: true },
+    }),
+  ]);
+  if (!order) return null;
+  const dto = toAdminOrderDetailDto(order);
+  if (bridge && typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null) {
+    const evidence = bridge.dispatchEvidence as Record<string, unknown>;
+    const routing = typeof evidence.dispatchRouting === "string" ? evidence.dispatchRouting : null;
+    const rawReason = evidence.reason ?? evidence.policyGate ?? null;
+    const manualRequired = Boolean(evidence.manualDispatchRequired) || routing === "MANUAL_DISPATCH_REQUIRED";
+    if (manualRequired || rawReason) {
+      const desc = describeManualDispatchReason(rawReason);
+      dto.manualDispatchRequired = true;
+      dto.manualDispatchReason = desc.code;
+      dto.manualDispatchLabel = desc.label;
+      dto.manualDispatchNextStep = desc.nextStep;
+      dto.dispatchRouting = routing ?? "MANUAL_DISPATCH_REQUIRED";
+    }
+  }
+  return dto;
 }
 
 // ─── Status update ────────────────────────────────────────────────────────────

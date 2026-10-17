@@ -134,6 +134,11 @@ export interface OrderSummaryDto {
   deliveryRegionName: string | null;
   createdAt: Date;
   updatedAt: Date;
+  manualDispatchRequired?: boolean;
+  manualDispatchReason?: string | null;
+  manualDispatchLabel?: string | null;
+  manualDispatchNextStep?: string | null;
+  dispatchRouting?: string | null;
 }
 
 type OrderWithAddresses = Order & {

@@ -174,8 +174,12 @@ for (const file of routeFiles) {
   const delegatedInventoryUpload = content.includes("storeInventoryUploadPost");
   if (delegatedInventoryUpload) requiredPermissions = ["catalog_inventory.manage"];
 
-  // Detect BOLA
+  // Detect BOLA. A route without a dynamic object segment that passes the
+  // authenticated session identity to its service is scoped to the caller's own data.
+  const sessionIdentityScoped =
+    !relPath.includes("[") && /\b(session|user)\.id\b/.test(content);
   const hasBola =
+    sessionIdentityScoped ||
     content.includes("marketplaceOwner") ||
     content.includes("ownerUserId") ||
     content.includes("userId") ||
@@ -222,6 +226,38 @@ for (const file of routeFiles) {
       "SUPER_ADMIN",
       "PROMOTER",
     ];
+  // Origin protection evidence (CSRF boundary for cookie-authenticated mutations).
+  const mutatingMethods = methods.filter((m) => m !== "GET");
+  const originEnforcedDirectly =
+    /\benforceSameOrigin\w*\s*\(/.test(content) ||
+    /\bassertSameOrigin\w*\s*\(/.test(content);
+  const delegatesOrigin =
+    content.includes("notificationAdminAccess") ||
+    content.includes("requireNotificationUser") ||
+    content.includes("requireBusinessApi") ||
+    content.includes("requireAdminApiPermission") ||
+    content.includes("requireStorefrontAdminMutation") ||
+    content.includes("enforceStoreOrderMutation") ||
+    content.includes("enforceMarketplaceMutation") ||
+    content.includes("prepareCatalogMutation") ||
+    /\bmutation\(/.test(content);
+  const originProtection = !mutatingMethods.length
+    ? "NOT_APPLICABLE_READ_ONLY"
+    : authMechanism === "WEBHOOK_SIGNATURE"
+      ? "NOT_APPLICABLE_SIGNED_WEBHOOK"
+      : originEnforcedDirectly
+        ? "ENFORCED_IN_ROUTE"
+        : delegatesOrigin
+          ? "DELEGATED_TO_GUARD_HELPER"
+          : "NOT_DETECTED";
+  const sessionBound =
+    authMechanism !== "PUBLIC_BY_DESIGN" &&
+    authMechanism !== "PUBLIC_AUTHENTICATION_GATEWAY" &&
+    authMechanism !== "PUBLIC_OR_SESSION_FALLBACK";
+  // COMPLIANT only when static evidence exists for the guard that applies; otherwise
+  // the route stays visible for human review rather than being marked compliant by presence.
+  const needsOriginReview =
+    mutatingMethods.length > 0 && sessionBound && originProtection === "NOT_DETECTED";
   inventory.push({
     routePath: relPath,
     httpMethods: methods.length > 0 ? methods : ["ALL"],
@@ -231,7 +267,8 @@ for (const file of routeFiles) {
     rateLimitingApplied: hasRateLimit,
     idempotencyEnforced: hasIdempotency || delegatedInventoryUpload,
     bolaOwnershipValidated: hasBola || authMechanism.includes("ADMIN"),
-    remediationStatus: "COMPLIANT",
+    originProtection,
+    remediationStatus: needsOriginReview ? "REVIEW_REQUIRED_ORIGIN_PROTECTION" : "COMPLIANT",
     authorizationEvidence:
       "Static route inventory; service authority and runtime behavior require separate verification.",
   });
