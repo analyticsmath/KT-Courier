@@ -8,6 +8,10 @@ import { evaluateDriverEligibility } from "@/lib/dispatch/eligibility";
 import { withDispatchRetry } from "@/lib/dispatch/retry";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
+import {
+  assertMarketplaceStoreOrderEligibility,
+  MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
+} from "./marketplace-dispatch-contract.service";
 import { createDispatchCandidateEvaluationInTx, selectDispatchCandidateInTx, setDispatchCandidateDispositionForAssignmentInTx } from "@/lib/services/dispatch-candidate-evidence.service";
 import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
 import { DISPATCH_SYSTEM_ACTOR } from "@/lib/dispatch/automation-policy";
@@ -148,6 +152,45 @@ export async function offerAssignment(authority: DispatchOfferAuthority, orderId
     await lockOrderAndDrivers(tx, orderId, [input.driverProfileId]);
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true } });
     assertAssignable(order);
+
+    if (tx.marketplaceStoreOrderDeliveryBridge?.findFirst) {
+      const bridge = await tx.marketplaceStoreOrderDeliveryBridge.findFirst({
+        where: { courierOrderId: orderId },
+        select: {
+          id: true,
+          status: true,
+          marketplaceStoreOrderId: true,
+          dispatchEvidence: true,
+          storeOrder: {
+            select: MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
+          },
+        },
+      });
+
+      if (bridge?.storeOrder) {
+        try {
+          assertMarketplaceStoreOrderEligibility(bridge.storeOrder, {
+            stage: "OFFER_ASSIGNMENT",
+          });
+        } catch (err: unknown) {
+          throw dispatchError.orderNotAssignable(
+            err instanceof Error ? err.message : "Marketplace store order is not eligible for dispatch assignment."
+          );
+        }
+
+        if (isSystem) {
+          const evidence =
+            typeof bridge.dispatchEvidence === "object" && bridge.dispatchEvidence !== null
+              ? (bridge.dispatchEvidence as Record<string, unknown>)
+              : {};
+          if (evidence.manualDispatchRequired === true) {
+            throw dispatchError.orderNotAssignable(
+              `Marketplace delivery bridge is queued for manual dispatch (${evidence.reason ?? "MANUAL_DISPATCH_REQUIRED"}).`
+            );
+          }
+        }
+      }
+    }
     await reconcileExpired(tx, orderId, adminUserId);
     const current = await tx.orderAssignment.findFirst({ where: { orderId, activeOrderGuard: orderId } });
     if (current?.driverProfileId === input.driverProfileId && current.status === OrderAssignmentStatus.ASSIGNED) return current;

@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
-import { AdminActionType, type Prisma } from "@prisma/client";
+import { AdminActionType, Prisma } from "@prisma/client";
 import { createDispatchCandidateEvaluation } from "@/lib/services/dispatch-candidate-evidence.service";
 import { offerAssignment } from "@/lib/services/dispatch-assignment.service";
+import {
+  assertMarketplaceStoreOrderEligibility,
+  MARKETPLACE_STORE_ORDER_DISPATCH_ELIGIBLE_WHERE,
+  MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
+} from "./marketplace-dispatch-contract.service";
 import {
   DISPATCH_SYSTEM_ACTOR,
   describeManualDispatchReason,
@@ -234,13 +239,7 @@ export async function recoverExhaustedDispatchOrder(
           updatedAt: true,
           courierOrder: { select: { status: true } },
           storeOrder: {
-            select: {
-              id: true,
-              status: true,
-              acceptanceStatus: true,
-              derivedStatus: true,
-              preparationStatus: true,
-            },
+            select: MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
           },
         },
       });
@@ -288,9 +287,10 @@ export async function recoverExhaustedDispatchOrder(
       "Order is no longer awaiting dispatch; recovery was not applied."
     );
 
-    // Validate store order acceptance and readiness before clearing manual state.
-    // If the store order ceased to be accepted or ready for pickup/handoff while in the exception
-    // queue, reject recovery so the order cannot disappear from the actionable exception workflow.
+    // Validate store order acceptance, readiness, and commercial/financial prerequisites before clearing manual state.
+    // If the store order ceased to be accepted or ready for pickup/handoff, or has an unresolved cancellation
+    // or financial issue while in the exception queue, reject recovery so the order cannot disappear from the
+    // actionable exception workflow.
     assertPolicy(
       Boolean(bridge.storeOrder),
       "DISPATCH_RECOVERY_STORE_ORDER_NOT_FOUND",
@@ -306,6 +306,16 @@ export async function recoverExhaustedDispatchOrder(
       "DISPATCH_RECOVERY_STORE_ORDER_NOT_READY",
       `Related marketplace store order is not in an accepted and ready-for-pickup state (acceptanceStatus: ${storeOrder.acceptanceStatus}, derivedStatus: ${storeOrder.derivedStatus}, preparationStatus: ${storeOrder.preparationStatus}); recovery was not applied.`
     );
+    try {
+      assertMarketplaceStoreOrderEligibility(storeOrder, {
+        stage: "RECOVERY",
+      });
+    } catch (err: unknown) {
+      throw new DispatchPolicyError(
+        "DISPATCH_RECOVERY_STORE_ORDER_NOT_READY",
+        err instanceof Error ? err.message : "Related marketplace store order is not eligible for recovery."
+      );
+    }
 
     const activeAssignment = await tx.orderAssignment.findFirst({
       where: {
@@ -351,6 +361,8 @@ export async function recoverExhaustedDispatchOrder(
           dispatchRouting: "PENDING_DISPATCH_RETRY",
           manualDispatchResolvedAt: recoveredAt,
           consecutiveFailures: 0,
+          driverSearchAttempts: 0,
+          nextAttemptAt: null,
           reason: null,
           reasonLabel: null,
           actionableNextStep: null,
@@ -435,42 +447,29 @@ export async function dispatchReadyMarketplaceOrdersBatch(
   options: MarketplaceDispatchBatchOptions
 ): Promise<MarketplaceDispatchBatchOutcome> {
   const batchLimit = Math.min(100, Math.max(1, options.batchSize ?? 20));
-
-  // Exhausted bridges are terminal for automatic dispatch until an authorized recovery. They are
-  // excluded in the database so they cannot occupy batch slots and starve newer orders. A positive
-  // JSON-path match plus `id notIn` is used instead of `NOT { json path }`, because SQL three-valued
-  // logic would also drop every bridge whose evidence has no `reason` key (including new bridges).
-  // The query has no arbitrary ceiling (removes the 5,000-row cap).
-  const exhaustedBridges = await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
-    where: {
-      dispatchEvidence: { path: ["reason"], equals: EXHAUSTED_DISPATCH_REASON },
-    },
-    select: { id: true },
-  });
-  const exhaustedBridgeIds = (exhaustedBridges ?? []).map((row) => row.id);
+  const now = new Date();
 
   type CandidateBridgeWithRelations = Awaited<
     ReturnType<typeof prisma.marketplaceStoreOrderDeliveryBridge.findMany<{
       include: {
-        storeOrder: { select: { id: true; publicReference: true; derivedStatus: true } };
+        storeOrder: { select: typeof MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT };
         courierOrder: { select: { id: true; status: true; deliveryRegionId: true } };
       };
     }>>
   >[number];
 
+  // Database-side null-safe exclusion / normalized indexed filter:
+  // 1. Excludes rows where manualDispatchRequired === true directly in the database.
+  // 2. Preserves bridges with SQL NULL evidence, JsonNull, and unkeyed evidence.
+  // 3. Enforces canonical store order eligibility at the database query level.
+  // 4. Stable keyset pagination (createdAt ASC, id ASC) ensures forward progress without starvation.
+  // 5. Does not materialize historical ID backlogs or use unbounded NOT IN.
   const candidateBridges: CandidateBridgeWithRelations[] =
     await prisma.marketplaceStoreOrderDeliveryBridge.findMany({
       where: {
-        ...(exhaustedBridgeIds.length > 0 ? { id: { notIn: exhaustedBridgeIds } } : {}),
         courierOrderId: { not: null },
         status: { in: ["DISPATCH_PENDING", "DELIVERY_ORDER_CREATED"] },
-        storeOrder: {
-          acceptanceStatus: "ACCEPTED",
-          OR: [
-            { derivedStatus: "READY_FOR_PICKUP" },
-            { preparationStatus: "READY_FOR_HANDOFF" },
-          ],
-        },
+        storeOrder: MARKETPLACE_STORE_ORDER_DISPATCH_ELIGIBLE_WHERE,
         courierOrder: {
           status: { in: ["CONFIRMED", "PICKUP_SCHEDULED"] },
           assignments: {
@@ -478,22 +477,38 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               status: { in: ["ASSIGNED", "ACCEPTED"] },
               OR: [
                 { status: "ACCEPTED" },
-                { status: "ASSIGNED", expiresAt: { gt: new Date() } },
+                { status: "ASSIGNED", expiresAt: { gt: now } },
                 { status: "ASSIGNED", expiresAt: null },
               ],
             },
           },
         },
+        AND: [
+          {
+            OR: [
+              { dispatchEvidence: { equals: Prisma.DbNull } },
+              { dispatchEvidence: { equals: Prisma.JsonNull } },
+              {
+                NOT: {
+                  dispatchEvidence: {
+                    path: ["manualDispatchRequired"],
+                    equals: true,
+                  },
+                },
+              },
+            ],
+          },
+        ],
       },
       include: {
         storeOrder: {
-          select: { id: true, publicReference: true, derivedStatus: true },
+          select: MARKETPLACE_STORE_ORDER_ELIGIBILITY_SELECT,
         },
         courierOrder: {
           select: { id: true, status: true, deliveryRegionId: true },
         },
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: batchLimit,
     });
 
@@ -509,7 +524,6 @@ export async function dispatchReadyMarketplaceOrdersBatch(
     };
   }
 
-  const now = new Date();
   const authority = await resolveDispatchAutomationAuthority(prisma, now);
   let completed = 0;
   let reconciled = 0;
@@ -558,18 +572,32 @@ export async function dispatchReadyMarketplaceOrdersBatch(
       ? bridge.dispatchEvidence as Record<string, unknown>
       : {};
 
-    const consecutiveFailures = typeof existingEvidence.consecutiveFailures === "number"
-      ? existingEvidence.consecutiveFailures
-      : 0;
+    // Fail-closed canonical store order eligibility re-check in memory
+    if (bridge.storeOrder) {
+      try {
+        assertMarketplaceStoreOrderEligibility(bridge.storeOrder, {
+          stage: "DISPATCH_CANDIDATE_SCAN",
+        });
+      } catch {
+        // If store order became ineligible (e.g. cancellation requested, reconciliation required), skip it
+        reconciled += 1;
+        continue;
+      }
+    }
 
-    // P0: Treat OFFER_CREATION_FAILED_RETRY_EXHAUSTED as a terminal automatic-retry state.
-    // Keep the order visible in the manual queue and do not call offerAssignment again
-    // until an authorized, auditable recovery action explicitly clears or reopens the failure state.
-    if (
-      existingEvidence.manualDispatchRequired === true &&
-      (existingEvidence.reason === "OFFER_CREATION_FAILED_RETRY_EXHAUSTED" || consecutiveFailures >= 3)
-    ) {
+    // P0: Treat any terminal manual-dispatch state (manualDispatchRequired === true)
+    // as excluded from automatic retry.
+    if (existingEvidence.manualDispatchRequired === true) {
       reconciled += 1;
+      continue;
+    }
+
+    // Check bounded backoff: if a retry was scheduled for the future, skip until due
+    if (
+      existingEvidence.nextAttemptAt &&
+      new Date(String(existingEvidence.nextAttemptAt)) > now
+    ) {
+      retried += 1;
       continue;
     }
 
@@ -655,6 +683,9 @@ export async function dispatchReadyMarketplaceOrdersBatch(
 
       if (eligible.length === 0) {
         const reasonInfo = describeManualDispatchReason("NO_ELIGIBLE_DRIVERS_AVAILABLE");
+        const backoffMs = Math.min(300_000, 30_000 * Math.pow(2, Math.max(0, existingAssignments.length)));
+        const nextAttemptAt = new Date(Date.now() + backoffMs).toISOString();
+
         await prisma.marketplaceStoreOrderDeliveryBridge.update({
           where: { id: bridge.id },
           data: {
@@ -666,6 +697,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               reasonLabel: reasonInfo.label,
               actionableNextStep: reasonInfo.nextStep,
               attemptCount: existingAssignments.length,
+              nextAttemptAt,
               queuedAt: new Date().toISOString(),
             },
           },
@@ -717,6 +749,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
             policyReference: authority.policyReference,
             systemActor: DISPATCH_SYSTEM_ACTOR,
             consecutiveFailures: 0,
+            nextAttemptAt: null,
             history: [
               ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
               offerHistoryEntry,
@@ -787,6 +820,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               lastErrorCode: boundedErrorCode,
               policyReference: authority.policyReference,
               operationId: options.operationId,
+              nextAttemptAt: null,
               history: [
                 ...(Array.isArray(existingEvidence.history) ? existingEvidence.history : []),
                 failureEntry,
@@ -796,6 +830,8 @@ export async function dispatchReadyMarketplaceOrdersBatch(
         });
         reconciled += 1;
       } else {
+        const backoffMs = Math.min(300_000, 15_000 * consecutiveFailures);
+        const nextAttemptAt = new Date(Date.now() + backoffMs).toISOString();
         await prisma.marketplaceStoreOrderDeliveryBridge.update({
           where: { id: bridge.id },
           data: {
@@ -805,6 +841,7 @@ export async function dispatchReadyMarketplaceOrdersBatch(
               failureCount: consecutiveFailures,
               lastFailedAt: new Date().toISOString(),
               lastErrorCode: boundedErrorCode,
+              nextAttemptAt,
               policyReference: authority.policyReference,
               operationId: options.operationId,
               history: [

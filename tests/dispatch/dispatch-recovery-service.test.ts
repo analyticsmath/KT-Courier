@@ -22,6 +22,9 @@ interface FakeStoreOrder {
   acceptanceStatus: string;
   derivedStatus: string;
   preparationStatus: string;
+  resolutionStatus?: string;
+  financialResolutionStatus?: string;
+  cancellationRequests?: Array<{ id?: string; status: string }>;
 }
 
 interface FakeCourierOrder {
@@ -229,10 +232,13 @@ function exhaustedBridge(overrides: Partial<FakeBridge> = {}): FakeBridge {
     courierOrder: { status: "CONFIRMED" },
     storeOrder: {
       id: "so-1",
-      status: "CONFIRMED",
+      status: "SETTLED",
       acceptanceStatus: "ACCEPTED",
       derivedStatus: "READY_FOR_PICKUP",
       preparationStatus: "READY_FOR_HANDOFF",
+      resolutionStatus: "CLEAR",
+      financialResolutionStatus: "UNCHANGED",
+      cancellationRequests: [],
     },
     dispatchEvidence: {
       manualDispatchRequired: true,

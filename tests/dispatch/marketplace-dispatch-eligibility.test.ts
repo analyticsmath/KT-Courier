@@ -612,16 +612,14 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
       try {
         db.systemSetting.findUnique.mockResolvedValue({ value: true });
         db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
-        db.marketplaceStoreOrderDeliveryBridge.findMany
-          .mockResolvedValueOnce([])
-          .mockResolvedValueOnce([
-            {
-              id: "br-log-1",
-              courierOrderId: "ord-log-1",
-              dispatchEvidence: { consecutiveFailures: 0 },
-              courierOrder: { id: "ord-log-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
-            },
-          ]);
+        db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValueOnce([
+          {
+            id: "br-log-1",
+            courierOrderId: "ord-log-1",
+            dispatchEvidence: { consecutiveFailures: 0 },
+            courierOrder: { id: "ord-log-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+          },
+        ]);
         db.orderAssignment.findMany.mockResolvedValue([]);
         dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
           candidates: [
@@ -648,49 +646,97 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
       }
     });
 
-    it("excludes already-exhausted bridges in the database query without an arbitrary take limit", async () => {
+    it("excludes manual-dispatch bridges directly in the database query with null-safe filter and keyset ordering", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: true });
       db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
-      db.marketplaceStoreOrderDeliveryBridge.findMany
-        .mockResolvedValueOnce([{ id: "br-exhausted-1" }, { id: "br-exhausted-2" }])
-        .mockResolvedValueOnce([]);
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValueOnce([]);
 
-      await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", operationId: "op-starvation" });
+      await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", operationId: "op-db-query" });
 
-      const [exhaustedQuery, candidateQuery] = db.marketplaceStoreOrderDeliveryBridge.findMany.mock.calls;
-      expect(exhaustedQuery[0].where.dispatchEvidence).toEqual({
-        path: ["reason"],
-        equals: "OFFER_CREATION_FAILED_RETRY_EXHAUSTED",
-      });
-      // Verification: arbitrary 5,000 ceiling is removed
-      expect(exhaustedQuery[0].take).toBeUndefined();
-      expect(candidateQuery[0].where.id).toEqual({ notIn: ["br-exhausted-1", "br-exhausted-2"] });
-      // Null-safe: no NOT{json path} filter that would also drop bridges lacking a `reason` key.
-      expect(candidateQuery[0].where.NOT).toBeUndefined();
+      // Verification: exactly ONE query is performed to find candidates (no unbounded prior exhausted read)
+      expect(db.marketplaceStoreOrderDeliveryBridge.findMany).toHaveBeenCalledTimes(1);
+      const [candidateQuery] = db.marketplaceStoreOrderDeliveryBridge.findMany.mock.calls[0];
+
+      // Verification: database-side null-safe exclusion of manualDispatchRequired
+      expect(candidateQuery.where.AND).toEqual([
+        expect.objectContaining({
+          OR: [
+            { dispatchEvidence: { equals: expect.anything() } },
+            { dispatchEvidence: { equals: expect.anything() } },
+            {
+              NOT: {
+                dispatchEvidence: {
+                  path: ["manualDispatchRequired"],
+                  equals: true,
+                },
+              },
+            },
+          ],
+        }),
+      ]);
+
+      // Verification: canonical store order eligibility enforced at database level
+      expect(candidateQuery.where.storeOrder).toEqual(
+        expect.objectContaining({
+          acceptanceStatus: "ACCEPTED",
+          status: { notIn: ["CANCELLED", "RECONCILIATION_REQUIRED"] },
+          resolutionStatus: { in: ["CLEAR", "RESOLVED"] },
+          financialResolutionStatus: { in: ["UNCHANGED", "REFUND_COMPLETED"] },
+          cancellationRequests: {
+            none: {
+              status: { in: ["REQUESTED", "APPROVED", "RECONCILIATION_REQUIRED"] },
+            },
+          },
+        })
+      );
+
+      // Verification: keyset deterministic ordering prevents starvation
+      expect(candidateQuery.orderBy).toEqual([{ createdAt: "asc" }, { id: "asc" }]);
+      // Verification: no unbounded notIn list
+      expect(candidateQuery.where.id).toBeUndefined();
     });
 
-    it("excludes more than 5,000 exhausted bridges and includes bridges with null or missing evidence", async () => {
+    it("processes runnable bridges with SQL null, JsonNull, and unkeyed evidence without starvation", async () => {
       db.systemSetting.findUnique.mockResolvedValue({ value: true });
       db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
 
-      // Boundary: simulate 5,005 exhausted bridge IDs (exceeding previous 5,000 ceiling)
-      const mockExhaustedIds = Array.from({ length: 5005 }, (_, i) => ({ id: `br-exhausted-${i}` }));
       const runnableBridgeNull = {
         id: "br-run-null",
         courierOrderId: "ord-run-1",
         dispatchEvidence: null, // SQL NULL
         courierOrder: { id: "ord-run-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        storeOrder: {
+          id: "so-1",
+          status: "SETTLED",
+          acceptanceStatus: "ACCEPTED",
+          derivedStatus: "READY_FOR_PICKUP",
+          preparationStatus: "READY_FOR_HANDOFF",
+          resolutionStatus: "CLEAR",
+          financialResolutionStatus: "UNCHANGED",
+          cancellationRequests: [],
+        },
       };
       const runnableBridgeMissingKey = {
         id: "br-run-missing",
         courierOrderId: "ord-run-2",
-        dispatchEvidence: { consecutiveFailures: 1 }, // Missing 'reason' key
+        dispatchEvidence: { consecutiveFailures: 1 }, // Missing manualDispatchRequired / reason keys
         courierOrder: { id: "ord-run-2", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        storeOrder: {
+          id: "so-2",
+          status: "SETTLED",
+          acceptanceStatus: "ACCEPTED",
+          derivedStatus: "READY_FOR_PICKUP",
+          preparationStatus: "READY_FOR_HANDOFF",
+          resolutionStatus: "CLEAR",
+          financialResolutionStatus: "UNCHANGED",
+          cancellationRequests: [],
+        },
       };
 
-      db.marketplaceStoreOrderDeliveryBridge.findMany
-        .mockResolvedValueOnce(mockExhaustedIds) // unbounded exhausted query
-        .mockResolvedValueOnce([runnableBridgeNull, runnableBridgeMissingKey]); // candidate query
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValueOnce([
+        runnableBridgeNull,
+        runnableBridgeMissingKey,
+      ]);
 
       db.orderAssignment.findMany.mockResolvedValue([]);
       dispatchEvidenceMocks.createDispatchCandidateEvaluation.mockResolvedValue({
@@ -699,16 +745,8 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
       dispatchAssignmentMocks.offerAssignment.mockResolvedValue({ id: "asg-1", expiresAt: new Date(Date.now() + 60_000) });
       db.marketplaceStoreOrderDeliveryBridge.update.mockResolvedValue({});
 
-      const result = await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 20, operationId: "op-boundary" });
+      const result = await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 20, operationId: "op-null-safe" });
 
-      const [exhaustedQuery, candidateQuery] = db.marketplaceStoreOrderDeliveryBridge.findMany.mock.calls;
-      // Verification: no ceiling on exhausted query
-      expect(exhaustedQuery[0].take).toBeUndefined();
-      // All 5,005 IDs excluded in candidate query
-      expect(candidateQuery[0].where.id.notIn).toHaveLength(5005);
-      expect(candidateQuery[0].where.NOT).toBeUndefined();
-
-      // Both runnable bridges (null evidence & missing reason) were processed successfully
       expect(result.itemsCompleted).toBe(2);
       expect(dispatchAssignmentMocks.offerAssignment).toHaveBeenCalledTimes(2);
       expect(dispatchAssignmentMocks.offerAssignment).toHaveBeenCalledWith(
@@ -721,6 +759,71 @@ describe("Marketplace Dispatch Eligibility and Automated Dispatch Lifecycle", ()
         "ord-run-2",
         expect.anything()
       );
+    });
+
+    it("skips bridges with future backoff nextAttemptAt without calling offerAssignment", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+
+      const futureDate = new Date(Date.now() + 60_000).toISOString();
+      const backoffBridge = {
+        id: "br-backoff",
+        courierOrderId: "ord-backoff-1",
+        dispatchEvidence: {
+          nextAttemptAt: futureDate,
+          consecutiveFailures: 1,
+        },
+        courierOrder: { id: "ord-backoff-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        storeOrder: {
+          id: "so-backoff",
+          status: "SETTLED",
+          acceptanceStatus: "ACCEPTED",
+          derivedStatus: "READY_FOR_PICKUP",
+          preparationStatus: "READY_FOR_HANDOFF",
+          resolutionStatus: "CLEAR",
+          financialResolutionStatus: "UNCHANGED",
+          cancellationRequests: [],
+        },
+      };
+
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValueOnce([backoffBridge]);
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", operationId: "op-backoff" });
+
+      expect(result.itemsRetried).toBe(1);
+      expect(result.itemsCompleted).toBe(0);
+      expect(dispatchEvidenceMocks.createDispatchCandidateEvaluation).not.toHaveBeenCalled();
+      expect(dispatchAssignmentMocks.offerAssignment).not.toHaveBeenCalled();
+    });
+
+    it("skips bridges and reconciles when store order becomes ineligible in memory", async () => {
+      db.systemSetting.findUnique.mockResolvedValue({ value: true });
+      db.dispatchAutomationPolicy.findFirst.mockResolvedValue(validPolicy);
+
+      const storeOrderCancelled = {
+        id: "br-cancelled",
+        courierOrderId: "ord-cancelled-1",
+        dispatchEvidence: {},
+        courierOrder: { id: "ord-cancelled-1", status: "CONFIRMED", deliveryRegionId: "reg-1" },
+        storeOrder: {
+          id: "so-cancelled",
+          status: "CANCELLED",
+          acceptanceStatus: "ACCEPTED",
+          derivedStatus: "READY_FOR_PICKUP",
+          preparationStatus: "READY_FOR_HANDOFF",
+          resolutionStatus: "CLEAR",
+          financialResolutionStatus: "UNCHANGED",
+          cancellationRequests: [],
+        },
+      };
+
+      db.marketplaceStoreOrderDeliveryBridge.findMany.mockResolvedValueOnce([storeOrderCancelled]);
+
+      const result = await dispatchReadyMarketplaceOrdersBatch({ mode: "APPLY", operationId: "op-mem-check" });
+
+      expect(result.itemsReconciled).toBe(1);
+      expect(result.itemsCompleted).toBe(0);
+      expect(dispatchAssignmentMocks.offerAssignment).not.toHaveBeenCalled();
     });
   });
 });

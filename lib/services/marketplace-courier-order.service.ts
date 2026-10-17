@@ -6,6 +6,10 @@ import { OrderSource, OrderStatus } from "@/types/db";
 import { generateOrderNumber } from "@/lib/utils/order-number";
 import { parseMarketplacePaymentPlan } from "@/lib/marketplace-checkout/payment-plan";
 import { assertMarketplaceDigitalReceipt, marketplaceDigitalReceiptInclude } from "@/lib/marketplace-checkout/payment-funding";
+import {
+  assertMarketplaceStoreOrderEligibility,
+  MarketplaceDispatchEligibilityError,
+} from "./marketplace-dispatch-contract.service";
 import { createCashOnDeliveryObligationWithinTransaction, activateDepositCashOnDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { isFrozenCourierQuote } from "@/lib/marketplace-checkout/frozen-courier-quote";
 
@@ -29,10 +33,50 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
     const database = tx as any;
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "publicReference" = ${input.storeOrderReference} FOR UPDATE`);
     if (locked.length !== 1) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_STORE_ORDER_NOT_FOUND", "Marketplace store order was not found.");
-    const storeOrder = await database.marketplaceStoreOrder.findUnique({ where: { id: locked[0].id }, include: { marketplaceOrder: { include: { checkout: { include: { addressSnapshot: true, contactSnapshot: true } } } }, checkoutStoreGroup: { include: { store: { include: { defaultPickupAddress: true } } } }, deliveryBridge: true } });
-    if (!storeOrder || storeOrder.acceptanceStatus !== "ACCEPTED" || !["CLEAR", "RESOLVED"].includes(storeOrder.resolutionStatus) || !["NOT_STARTED", "PREPARING", "READY_FOR_HANDOFF"].includes(storeOrder.preparationStatus)) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_ORDER_INELIGIBLE", "Store order is not eligible for canonical courier creation.");
-    if (storeOrder.deliveryBridge?.courierOrderId && storeOrder.deliveryBridge.courierOrderReference) return Object.freeze({ courierOrderId: storeOrder.deliveryBridge.courierOrderId, courierOrderReference: storeOrder.deliveryBridge.courierOrderReference, replayed: true });
+    const storeOrder = await database.marketplaceStoreOrder.findUnique({
+      where: { id: locked[0].id },
+      include: {
+        marketplaceOrder: {
+          include: {
+            checkout: {
+              include: { addressSnapshot: true, contactSnapshot: true },
+            },
+          },
+        },
+        checkoutStoreGroup: {
+          include: {
+            store: {
+              include: { defaultPickupAddress: true },
+            },
+          },
+        },
+        deliveryBridge: true,
+        cancellationRequests: {
+          where: {
+            status: { in: ["REQUESTED", "APPROVED", "RECONCILIATION_REQUIRED"] },
+          },
+          select: { id: true, status: true },
+        },
+      },
+    });
+    if (!storeOrder) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_STORE_ORDER_NOT_FOUND", "Marketplace store order was not found.");
     const group = storeOrder.checkoutStoreGroup;
+    const paymentPlan = group.paymentPlan ? parseMarketplacePaymentPlan(group.paymentPlan) : null;
+    const isCod = paymentPlan?.mode === "DEPOSIT_PLUS_COD";
+
+    try {
+      assertMarketplaceStoreOrderEligibility(storeOrder, {
+        stage: "COURIER_ORDER_CREATION",
+        isCod,
+      });
+    } catch (err: unknown) {
+      if (err instanceof MarketplaceDispatchEligibilityError) {
+        throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_ORDER_INELIGIBLE", err.message);
+      }
+      throw err;
+    }
+
+    if (storeOrder.deliveryBridge?.courierOrderId && storeOrder.deliveryBridge.courierOrderReference) return Object.freeze({ courierOrderId: storeOrder.deliveryBridge.courierOrderId, courierOrderReference: storeOrder.deliveryBridge.courierOrderReference, replayed: true });
     const checkout = storeOrder.marketplaceOrder.checkout;
     const pickup = group.store.defaultPickupAddress;
     const destination = checkout.addressSnapshot;
@@ -57,13 +101,33 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
           orderBy: { versionNumber: "desc" },
         })
       : null;
-    const paymentPlan = group.paymentPlan ? parseMarketplacePaymentPlan(group.paymentPlan) : null;
-    const isCod = paymentPlan?.mode === "DEPOSIT_PLUS_COD";
-    const payment = isCod ? await tx.payment.findUnique({ where: { id: storeOrder.marketplaceOrder.paymentId }, include: marketplaceDigitalReceiptInclude }) : null;
+
+    const payment = await tx.payment.findUnique({
+      where: { id: storeOrder.marketplaceOrder.paymentId },
+      include: marketplaceDigitalReceiptInclude,
+    });
+
     if (isCod) {
       const groupCount = await database.marketplaceStoreOrder.count({ where: { marketplaceOrderId: storeOrder.marketplaceOrderId } });
-      if (groupCount !== 1 || !new Prisma.Decimal(paymentPlan.authoritativeTotal).equals(storeOrder.groupTotal) || !payment || payment.marketplaceCheckoutId !== checkout.id || payment.marketplaceOrderId !== storeOrder.marketplaceOrderId) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_PAYMENT_INVALID", "Cash requires a source-bound single-store deposit.");
-      assertMarketplaceDigitalReceipt(payment, paymentPlan.digitalRequired);
+      if (groupCount !== 1 || !new Prisma.Decimal(paymentPlan!.authoritativeTotal).equals(storeOrder.groupTotal) || !payment || payment.marketplaceCheckoutId !== checkout.id || payment.marketplaceOrderId !== storeOrder.marketplaceOrderId) throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_PAYMENT_INVALID", "Cash requires a source-bound single-store deposit.");
+      try {
+        assertMarketplaceDigitalReceipt(payment, paymentPlan!.digitalRequired);
+      } catch (err: unknown) {
+        throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_PAYMENT_INVALID", err instanceof Error ? err.message : "Digital deposit receipt is invalid.");
+      }
+    } else {
+      if (!payment || payment.marketplaceCheckoutId !== checkout.id || payment.marketplaceOrderId !== storeOrder.marketplaceOrderId) {
+        throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_PAYMENT_INVALID", "Prepaid store order requires a matching source-bound payment.");
+      }
+      if (payment.status !== "SUCCEEDED" || payment.currency !== "ZAR") {
+        throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_PAYMENT_INVALID", "Prepaid payment is not succeeded or currency is invalid.");
+      }
+      try {
+        const requiredAmount = paymentPlan ? paymentPlan.digitalRequired : payment.amount.toFixed(2);
+        assertMarketplaceDigitalReceipt(payment, requiredAmount);
+      } catch (err: unknown) {
+        throw new MarketplaceCourierOrderError("MARKETPLACE_COURIER_PAYMENT_INVALID", err instanceof Error ? err.message : "Digital receipt verification failed for prepaid courier order.");
+      }
     }
     const resolvedDeliveryType = serviceDefinition?.stableKey ?? quote.deliveryType ?? "SAME_DAY";
 
