@@ -1,3 +1,4 @@
+import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import styles from "@/components/public-v3/foundation/utility-experience.module.css";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -25,7 +26,9 @@ export default async function ParcelTrackingLookupPage({
   const entered = raw.trim().length > 0;
   const storeWorkspace = params.workspace === "store";
   const user = await getCurrentUser();
-  const signedIn = user?.status === "ACTIVE" && (user.role === "CUSTOMER" || user.role === "STORE");
+  const signedIn =
+    user?.status === "ACTIVE" &&
+    (user.role === "CUSTOMER" || user.role === "STORE");
   let notOwned = false;
 
   if (reference && signedIn && user) {
@@ -50,41 +53,102 @@ export default async function ParcelTrackingLookupPage({
     notOwned = true;
   }
 
-  return <section className={styles.utility} aria-labelledby="track-parcel-title">
-    <div className={styles.inner}>
-    <header className={styles.head}>
-      <h1 id="track-parcel-title" className={styles.title}>Track your delivery.</h1>
-      <p className={styles.description}>
-        Enter the tracking reference from your booking. Delivery details, permitted location data and proof of delivery remain protected in the account that placed the order.
-      </p>
-    </header>
-    <div className={styles.body}>
-    <form method="GET" action="/track" className={styles.referenceBox}>
-      <div>
-        <label htmlFor="parcel-tracking-number" className="mb-2 block text-sm font-semibold">Tracking number</label>
-        <input id="parcel-tracking-number" type="text" name="reference" maxLength={40} required
-          defaultValue={raw.slice(0, 40)}
-          placeholder="KT-2026-123456" autoComplete="off" spellCheck={false}
-          className="font-mono uppercase tracking-wider"
-        />
-        <p className="mt-2 text-xs text-[var(--kt-public-text-secondary)]">New parcel references are short and start with KT. A tracking number by itself does not give strangers access to customer addresses or live driver location.</p>
-      </div>
-      {storeWorkspace && <input type="hidden" name="workspace" value="store" />}
-      <button type="submit" >View delivery</button>
-    </form>
-    {entered && !reference && <p className={styles.result} role="alert">Check your tracking number and try again. You can also open the delivery from your account order history.</p>}
-    {entered && reference && !signedIn && <div className={styles.result} role="status">
-      <p className="text-sm">Sign in to the account that booked this delivery to see its location and proof of delivery.</p>
-      <Link href="/login" className="mt-3 inline-flex underline underline-offset-4">Sign in securely</Link>
-    </div>}
-    {notOwned && <p className={styles.result} role="status">No parcel with that reference was found in this account. Confirm your tracking number or switch to the correct account/workspace.</p>}
-    {signedIn && <p className={styles.result}>
-      Tracking a {storeWorkspace || user?.role === "STORE" ? "store" : "personal"} delivery. {user?.role === "CUSTOMER" &&
-      <Link href={storeWorkspace ? "/track" : "/track?workspace=store"} className="underline underline-offset-4">
-        Switch to {storeWorkspace ? "personal" : "store"} tracking
-      </Link>}
-    </p>}
-    </div>
-    </div>
-  </section>;
+  return (
+    <EditorialMotion>
+      <section className={styles.utility} aria-labelledby="track-parcel-title">
+        <div className={styles.inner}>
+          <header className={styles.head}>
+            <h1
+              data-split-heading
+              id="track-parcel-title"
+              className={styles.title}
+            >
+              Track your delivery.
+            </h1>
+            <p className={styles.description}>
+              Enter the tracking reference from your booking. Delivery details,
+              permitted location data and proof of delivery remain protected in
+              the account that placed the order.
+            </p>
+          </header>
+          <div className={styles.body}>
+            <form method="GET" action="/track" className={styles.referenceBox}>
+              <div>
+                <label
+                  htmlFor="parcel-tracking-number"
+                  className="mb-2 block text-sm font-semibold"
+                >
+                  Tracking number
+                </label>
+                <input
+                  id="parcel-tracking-number"
+                  type="text"
+                  name="reference"
+                  maxLength={40}
+                  required
+                  defaultValue={raw.slice(0, 40)}
+                  placeholder="KT-2026-123456"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="font-mono uppercase tracking-wider"
+                />
+                <p className="mt-2 text-xs text-[var(--kt-public-text-secondary)]">
+                  New parcel references are short and start with KT. A tracking
+                  number by itself does not give strangers access to customer
+                  addresses or live driver location.
+                </p>
+              </div>
+              {storeWorkspace && (
+                <input type="hidden" name="workspace" value="store" />
+              )}
+              <button type="submit">View delivery</button>
+            </form>
+            {entered && !reference && (
+              <p className={styles.result} role="alert">
+                Check your tracking number and try again. You can also open the
+                delivery from your account order history.
+              </p>
+            )}
+            {entered && reference && !signedIn && (
+              <div className={styles.result} role="status">
+                <p className="text-sm">
+                  Sign in to the account that booked this delivery to see its
+                  location and proof of delivery.
+                </p>
+                <Link
+                  href="/login"
+                  className="mt-3 inline-flex underline underline-offset-4"
+                >
+                  Sign in securely
+                </Link>
+              </div>
+            )}
+            {notOwned && (
+              <p className={styles.result} role="status">
+                No parcel with that reference was found in this account. Confirm
+                your tracking number or switch to the correct account/workspace.
+              </p>
+            )}
+            {signedIn && (
+              <p className={styles.result}>
+                Tracking a{" "}
+                {storeWorkspace || user?.role === "STORE"
+                  ? "store"
+                  : "personal"}{" "}
+                delivery.{" "}
+                {user?.role === "CUSTOMER" && (
+                  <Link
+                    href={storeWorkspace ? "/track" : "/track?workspace=store"}
+                    className="underline underline-offset-4"
+                  >
+                    Switch to {storeWorkspace ? "personal" : "store"} tracking
+                  </Link>
+                )}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    </EditorialMotion>
+  );
 }

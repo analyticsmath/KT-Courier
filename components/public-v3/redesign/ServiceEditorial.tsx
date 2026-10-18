@@ -29,7 +29,7 @@ export function ServiceEditorial({
           <Link href="/services" className="kt-text-link">
             ← All delivery services
           </Link>
-          <h1>{title}</h1>
+          <h1 data-split-heading>{title}</h1>
           <p>{service.summary}</p>
           <div className="kt-detail-actions">
             <Link href={service.primaryAction.href} className="kt-pill">
@@ -49,7 +49,7 @@ export function ServiceEditorial({
             ) : null}
           </div>
         </div>
-        <div className="kt-detail-hero-image">
+        <div className="kt-detail-hero-image" data-media-aperture>
           <Image
             src={
               parcel
@@ -79,7 +79,11 @@ export function ServiceEditorial({
           />
         </div>
       )}
-      <section className="kt-detail-process">
+      <section
+        className="kt-detail-process"
+        data-section-transition="sweep"
+        data-process-sequence
+      >
         <div className="kt-detail-process-photo">
           <Image
             data-parallax
@@ -90,27 +94,29 @@ export function ServiceEditorial({
           />
         </div>
         <div>
-          <h2 data-reveal>
+          <h2 data-split-heading>
             {parcel
               ? "A clear start.\nA considered handoff."
               : "Start with the details."}
           </h2>
           {service.process.map((step) => (
-            <div data-reveal className="kt-process-point" key={step.title}>
+            <div className="kt-process-point" key={step.title}>
               <h3>{step.title}</h3>
               <p>{step.description}</p>
             </div>
           ))}
         </div>
       </section>
-      <section className="kt-detail-preparation">
+      <section className="kt-detail-preparation" data-section-transition="open">
         <div data-reveal>
-          <h2>{parcel ? "Ready to send?" : "Before it moves."}</h2>
+          <h2 data-split-heading>
+            {parcel ? "Ready to send?" : "Before it moves."}
+          </h2>
           <Link href={service.primaryAction.href} className="kt-text-link">
             {service.primaryAction.label} ↗
           </Link>
         </div>
-        <div className="kt-detail-guidance">
+        <div className="kt-detail-guidance" data-card-sequence>
           <section>
             <h3>What to have ready</h3>
             <ul>
@@ -137,8 +143,8 @@ export function ServiceEditorial({
           )}
         </div>
       </section>
-      <section className="kt-detail-questions">
-        <h2 data-reveal>
+      <section className="kt-detail-questions" data-section-transition="rise">
+        <h2 data-split-heading>
           A little more
           <br />
           clarity.

@@ -113,15 +113,16 @@ export function PublicHomeExperience() {
       </section>
       <section
         className="kt-journey-scene"
+        data-section-transition="rise"
         data-vehicle-scene
         aria-labelledby="kt-move-title"
       >
-        <div className="kt-journey-heading" data-reveal>
-          <h2 id="kt-move-title">
+        <div className="kt-journey-heading">
+          <h2 data-split-heading id="kt-move-title">
             A little care.
             <br />A long way.
           </h2>
-          <p>
+          <p data-text-scrub>
             An order ready to leave the store. A parcel for someone you love.
             Start with the details. We’ll help you take the next step.
           </p>
@@ -143,11 +144,12 @@ export function PublicHomeExperience() {
       </section>
       <section
         className="kt-local-reel"
+        data-section-transition="open"
         aria-labelledby="kt-local-heading"
         data-local-reel
       >
-        <div className="kt-local-reel-heading" data-reveal>
-          <h2 id="kt-local-heading">
+        <div className="kt-local-reel-heading">
+          <h2 data-split-heading id="kt-local-heading">
             There’s a whole
             <br />
             world of local.
@@ -173,7 +175,7 @@ export function PublicHomeExperience() {
             ))}
           </div>
         </div>
-        <p className="kt-reel-note">
+        <p className="kt-reel-note" data-text-scrub>
           Independent stores. Everyday essentials. Unexpected finds.
           <br />
           Discover the people and places behind your next delivery.
@@ -181,10 +183,11 @@ export function PublicHomeExperience() {
       </section>
       <section
         className="kt-freight-directed"
+        data-section-transition="sweep"
         data-vehicle-scene
         aria-labelledby="kt-scale-heading"
       >
-        <h2 id="kt-scale-heading" data-reveal>
+        <h2 data-split-heading id="kt-scale-heading">
           Big plans?
           <br />
           Room to move.
@@ -211,8 +214,12 @@ export function PublicHomeExperience() {
           </Link>
         </div>
       </section>
-      <section className="kt-service-cinema" aria-labelledby="kt-fit-heading">
-        <h2 id="kt-fit-heading" data-reveal>
+      <section
+        className="kt-service-cinema"
+        data-section-transition="open"
+        aria-labelledby="kt-fit-heading"
+      >
+        <h2 data-split-heading id="kt-fit-heading">
           Whatever moves you.
         </h2>
         <div className="kt-service-panels" data-card-sequence>

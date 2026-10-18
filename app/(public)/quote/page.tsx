@@ -1,3 +1,4 @@
+import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import styles from "@/components/public-v3/foundation/utility-experience.module.css";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { PublicDeliveryQuoteForm } from "@/components/forms/PublicDeliveryQuoteForm";
@@ -14,23 +15,28 @@ export default async function Page({
 }) {
   const [u, p] = await Promise.all([getCurrentUser(), searchParams]);
   return (
-    <article className={styles.utility}>
-      <div className={styles.inner}>
-        <header className={styles.head}>
-          <h1 className={styles.title}>Get a delivery quote.</h1>
-          <p className={styles.description}>
-            Enter your collection and destination addresses, choose a parcel
-            size and service, and get a quote before you book. No account needed to start.
-          </p>
-        </header>
-        <div className={`${styles.body} ${styles.quoteBody}`}>
-      <PublicDeliveryQuoteForm
-        signedIn={u?.role === "CUSTOMER" || u?.role === "STORE"}
-        business={u?.role === "STORE"}
-        reference={p.reference}
-      />
+    <EditorialMotion>
+      <article className={styles.utility}>
+        <div className={styles.inner}>
+          <header className={styles.head}>
+            <h1 data-split-heading className={styles.title}>
+              Get a delivery quote.
+            </h1>
+            <p className={styles.description}>
+              Enter your collection and destination addresses, choose a parcel
+              size and service, and get a quote before you book. No account
+              needed to start.
+            </p>
+          </header>
+          <div className={`${styles.body} ${styles.quoteBody}`}>
+            <PublicDeliveryQuoteForm
+              signedIn={u?.role === "CUSTOMER" || u?.role === "STORE"}
+              business={u?.role === "STORE"}
+              reference={p.reference}
+            />
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+    </EditorialMotion>
   );
 }

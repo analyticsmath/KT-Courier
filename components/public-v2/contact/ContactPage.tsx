@@ -1,3 +1,4 @@
+import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import Image from "next/image";
 import Link from "next/link";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
@@ -7,81 +8,93 @@ import styles from "./contact-page.module.css";
 
 export function ContactPage() {
   return (
-    <article className={styles.contactRoot}>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: publicBreadcrumbJsonLd([
-            { label: "Home", href: "/" },
-            { label: "Contact Support", href: "/contact" },
-          ]),
-        }}
-        type="application/ld+json"
-      />
+    <EditorialMotion>
+      <article className={styles.contactRoot}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: publicBreadcrumbJsonLd([
+              { label: "Home", href: "/" },
+              { label: "Contact Support", href: "/contact" },
+            ]),
+          }}
+          type="application/ld+json"
+        />
 
-      <div className={styles.contactInner}>
-        <div className="mb-6">
-          <Link
-            href="/"
-            className="text-xs font-mono tracking-wider uppercase text-[var(--kt-public-text-muted)] hover:text-[var(--kt-public-text-primary)] transition-colors inline-flex items-center gap-1.5"
+        <div className={styles.contactInner}>
+          <div className="mb-6">
+            <Link
+              href="/"
+              className="text-xs font-mono tracking-wider uppercase text-[var(--kt-public-text-muted)] hover:text-[var(--kt-public-text-primary)] transition-colors inline-flex items-center gap-1.5"
+            >
+              ← Home
+            </Link>
+          </div>
+
+          <section
+            aria-labelledby="contact-title"
+            className={styles.contactHero}
           >
-            ← Home
-          </Link>
-        </div>
+            <h1
+              data-split-heading
+              className={styles.contactTitle}
+              id="contact-title"
+            >
+              Start with the right conversation.
+            </h1>
+            <p className={styles.contactLead}>
+              KT Couriers operates online and has no public walk-in office.
+              Contact our logistics and account support team at{" "}
+              <a href="mailto:info@ktcouriers.com">info@ktcouriers.com</a>.
+            </p>
+          </section>
 
-        <section aria-labelledby="contact-title" className={styles.contactHero}>
-          <h1 className={styles.contactTitle} id="contact-title">
-            Start with the right conversation.
-          </h1>
-          <p className={styles.contactLead}>
-            KT Couriers operates online and has no public walk-in office.
-            Contact our logistics and account support team at{" "}
-            <a href="mailto:info@ktcouriers.com">info@ktcouriers.com</a>.
-          </p>
-        </section>
+          <div className={styles.contactFormLayout}>
+            {/* Form Column */}
+            <div className={styles.contactFormColumn}>
+              <div className={styles.formContainer}>
+                <ContactForm />
+                <p className={styles.privacyNotice}>
+                  Please provide only the necessary dispatch or account
+                  information. Read our{" "}
+                  <Link className={styles.privacyLink} href="/privacy-policy">
+                    Privacy Policy
+                  </Link>{" "}
+                  for data protection standards.
+                </p>
+              </div>
+            </div>
 
-        <div className={styles.contactFormLayout}>
-          {/* Form Column */}
-          <div className={styles.contactFormColumn}>
-            <div className={styles.formContainer}>
-              <ContactForm />
-              <p className={styles.privacyNotice}>
-                Please provide only the necessary dispatch or account
-                information. Read our{" "}
-                <Link className={styles.privacyLink} href="/privacy-policy">
-                  Privacy Policy
-                </Link>{" "}
-                for data protection standards.
-              </p>
+            {/* Desktop Media Fragment */}
+            <div className={styles.contactMediaColumn}>
+              <div className={styles.contactMediaFrame} data-media-aperture>
+                <Image
+                  alt={ktMediaV3.pages.services.business.primary.alt}
+                  fill
+                  priority
+                  sizes="(max-width: 1023px) 0px, 480px"
+                  src={ktMediaV3.pages.services.business.primary.src}
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
+              <div
+                className={styles.contactAccountBox}
+                data-section-transition="rise"
+              >
+                <h3 className={styles.accountBoxTitle}>
+                  Already have an active order?
+                </h3>
+                <p className={styles.accountBoxText}>
+                  You can review verified status updates directly inside your
+                  account orders dashboard without waiting for email support.
+                </p>
+                <Link className={styles.accountBoxLink} href="/account/orders">
+                  View Account Orders &rarr;
+                </Link>
+              </div>
             </div>
           </div>
-
-          {/* Desktop Media Fragment */}
-          <div className={styles.contactMediaColumn}>
-            <div className={styles.contactMediaFrame}>
-              <Image
-                alt={ktMediaV3.pages.services.business.primary.alt}
-                fill
-                priority
-                sizes="(max-width: 1023px) 0px, 480px"
-                src={ktMediaV3.pages.services.business.primary.src}
-                style={{ objectFit: "cover" }}
-              />
-            </div>
-            <div className={styles.contactAccountBox}>
-              <h3 className={styles.accountBoxTitle}>
-                Already have an active order?
-              </h3>
-              <p className={styles.accountBoxText}>
-                You can review verified status updates directly inside your
-                account orders dashboard without waiting for email support.
-              </p>
-              <Link className={styles.accountBoxLink} href="/account/orders">
-                View Account Orders &rarr;
-              </Link>
-            </div>
-          </div>
         </div>
-      </div>
-    </article>
+      </article>
+    </EditorialMotion>
   );
 }

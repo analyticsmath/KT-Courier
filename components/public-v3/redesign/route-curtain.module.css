@@ -1,0 +1,46 @@
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: hidden;
+  color: #191919;
+  font-family: var(--kt-redesign-font, Arial), sans-serif;
+}
+.panels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  position: absolute;
+  inset: 0;
+}
+.panels i {
+  display: block;
+  height: 100%;
+  background: #f4f4f4;
+}
+.panels i:nth-child(2) {
+  background: #fff;
+}
+.label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8vw;
+  text-align: center;
+}
+.label span {
+  max-width: 1100px;
+  font-size: clamp(46px, 7.5vw, 120px);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+@media (max-width: 760px) {
+  .label span {
+    font-size: clamp(36px, 10vw, 70px);
+  }
+}

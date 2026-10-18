@@ -3,6 +3,10 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { SplitText } from "gsap/SplitText";
+import { usePathname } from "next/navigation";
+import { createSectionChoreography } from "./section-choreography";
+import { refreshPublicMotion } from "./motion-refresh";
 
 /** Local, reversible enhancements. Content is visible before JS and without motion. */
 export function EditorialMotion({
@@ -13,16 +17,21 @@ export function EditorialMotion({
   className?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
   useEffect(() => {
     if (!root.current) return;
-    gsap.registerPlugin(ScrollTrigger);
+    gsap.registerPlugin(ScrollTrigger, SplitText);
     const mm = gsap.matchMedia();
     mm.add("(prefers-reduced-motion: no-preference)", () => {
+      let disposeChoreography: (() => void) | undefined;
       const ctx = gsap.context(() => {
+        if (root.current)
+          disposeChoreography = createSectionChoreography(root.current);
         const title = root.current?.querySelector("[data-title-reveal]");
         if (title)
           gsap.from(title.children, {
-            y: 35,
+            yPercent: 28,
+            clipPath: "inset(0 0 100% 0)",
             opacity: 0,
             stagger: 0.12,
             duration: 1.1,
@@ -87,17 +96,22 @@ export function EditorialMotion({
         root.current
           ?.querySelectorAll<HTMLElement>("[data-card-sequence]")
           .forEach((sequence) => {
+            const fan = sequence.classList.contains("kt-service-panels");
             Array.from(sequence.children).forEach((card, index) => {
               gsap.from(card, {
-                y: 75 + index * 25,
-                rotation: index === 1 ? 2 : -2,
-                opacity: 0.3,
+                xPercent: () =>
+                  fan && window.innerWidth > 760 ? (1 - index) * 80 : 0,
+                y: () => (window.innerWidth > 760 ? 100 + index * 35 : 55),
+                scale: () => (window.innerWidth > 760 ? 0.82 : 0.96),
+                rotation: fan && window.innerWidth > 760 ? (index - 1) * 5 : 0,
+                opacity: 0.4,
                 ease: "none",
                 scrollTrigger: {
-                  trigger: card,
-                  start: "top 96%",
-                  end: "top 48%",
-                  scrub: 0.6,
+                  trigger: sequence,
+                  start: "top 94%",
+                  end: "top 22%",
+                  scrub: 0.7,
+                  invalidateOnRefresh: true,
                 },
               });
             });
@@ -188,7 +202,10 @@ export function EditorialMotion({
               .to(detail, { xPercent: -22, yPercent: -18, ease: "none" }, 0);
           });
       }, root);
-      return () => ctx.revert();
+      return () => {
+        disposeChoreography?.();
+        ctx.revert();
+      };
     });
     mm.add(
       "(min-width: 1000px) and (min-height: 520px) and (prefers-reduced-motion: no-preference)",
@@ -221,8 +238,19 @@ export function EditorialMotion({
         return () => ctx.revert();
       },
     );
-    return () => mm.revert();
-  }, []);
+    refreshPublicMotion();
+    let active = true;
+    void document.fonts.ready.then(() => {
+      if (active) refreshPublicMotion();
+    });
+    const observer = new ResizeObserver(() => refreshPublicMotion());
+    observer.observe(root.current);
+    return () => {
+      active = false;
+      observer.disconnect();
+      mm.revert();
+    };
+  }, [pathname]);
   return (
     <div ref={root} className={className}>
       {children}

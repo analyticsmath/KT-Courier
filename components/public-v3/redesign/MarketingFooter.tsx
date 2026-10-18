@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 import { EditorialMotion } from "./EditorialMotion";
+import styles from "./marketing-footer.module.css";
 
 const groups = [
   {
@@ -34,23 +35,23 @@ const groups = [
 ];
 export function MarketingFooter() {
   return (
-    <footer className="kt-new-footer">
-      <EditorialMotion>
-        <div className="kt-footer-invitation" data-reveal>
-          <h2>
+    <footer className={styles.footer}>
+      <EditorialMotion className="kt-footer-motion">
+        <div className={styles.invitation} data-section-transition="open">
+          <h2 data-split-heading>
             Ready when
             <br />
             you are.
           </h2>
           <Link
             href="/quote"
-            className="kt-footer-round-link"
+            className={styles.roundLink}
             aria-label="Get a delivery quote"
           >
             <span aria-hidden="true">↗</span>
           </Link>
         </div>
-        <div className="kt-footer-directory">
+        <div className={styles.directory} data-footer-directory>
           <Link href="/" className="kt-new-brand" aria-label="KT Couriers home">
             <CanonicalKtLogo size={76} priority={false} />
           </Link>
@@ -65,15 +66,11 @@ export function MarketingFooter() {
             </nav>
           ))}
         </div>
-        <div
-          className="kt-footer-wordmark"
-          data-wordmark
-          aria-label="KT Couriers"
-        >
+        <div className={styles.wordmark} data-wordmark aria-label="KT Couriers">
           <span aria-hidden="true">KT COURIERS</span>
         </div>
       </EditorialMotion>
-      <div className="kt-footer-bottom">
+      <div className={styles.bottom}>
         <span>© {new Date().getFullYear()} KT Couriers (Pty) Ltd.</span>
         <nav aria-label="Policies">
           <Link href="/faq">Help</Link>

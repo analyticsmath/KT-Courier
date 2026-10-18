@@ -1,3 +1,4 @@
+import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import Image from "next/image";
 import Link from "next/link";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
@@ -35,137 +36,160 @@ const networkPillars = [
 
 export function AboutPage() {
   return (
-    <article className={styles.aboutRoot}>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: publicBreadcrumbJsonLd([
-            { label: "Home", href: "/" },
-            { label: "About", href: "/about" },
-          ]),
-        }}
-        type="application/ld+json"
-      />
+    <EditorialMotion>
+      <article className={styles.aboutRoot}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: publicBreadcrumbJsonLd([
+              { label: "Home", href: "/" },
+              { label: "About", href: "/about" },
+            ]),
+          }}
+          type="application/ld+json"
+        />
 
-      <div className={styles.aboutInner}>
-        {/* Narrative Intro with Inline-Image-In-Type Moment */}
-        <section aria-labelledby="about-heading" className={styles.aboutHero}>
-          <h1 className={styles.aboutTitle} id="about-heading">
-            Commerce does not end at the checkout.{" "}
-            <span className="inline-block align-middle mx-1 sm:mx-2 w-12 h-6 sm:w-20 sm:h-9 relative overflow-hidden rounded-full border border-[var(--kt-public-surface-inverse)]/15 shadow-inner">
-              <Image
-                src={ktMediaV3.pages.about.photoEssay[3].src}
-                alt={ktMediaV3.pages.about.photoEssay[3].alt}
-                fill
-                sizes="80px"
-                preload
-                className="object-cover"
-              />
-            </span>{" "}
-            Delivery does not start at the road. KT sits between the two.
-          </h1>
-          <p className={styles.aboutLead}>
-            KT Couriers connects local merchant stores, independent senders, and courier operators across South African communities.
-          </p>
-        </section>
-
-        {/* Human Narrative Sequence */}
-        <section aria-label="Our Network" className={styles.ecosystemSequence}>
-          {networkPillars.map((pillar, index) => (
-            <div className={styles.ecosystemNode} key={pillar.category}>
-              <div className={styles.nodeMediaFrame}>
+        <div className={styles.aboutInner}>
+          {/* Narrative Intro with Inline-Image-In-Type Moment */}
+          <section aria-labelledby="about-heading" className={styles.aboutHero}>
+            <h1 className={styles.aboutTitle} id="about-heading">
+              Commerce does not end at the checkout.{" "}
+              <span className="inline-block align-middle mx-1 sm:mx-2 w-12 h-6 sm:w-20 sm:h-9 relative overflow-hidden rounded-full border border-[var(--kt-public-surface-inverse)]/15 shadow-inner">
                 <Image
-                  alt={pillar.media.alt}
+                  src={ktMediaV3.pages.about.photoEssay[3].src}
+                  alt={ktMediaV3.pages.about.photoEssay[3].alt}
                   fill
-                  sizes="(max-width: 899px) 100vw, 50vw"
-                  preload={index === 0}
-                  src={pillar.media.src}
+                  sizes="80px"
+                  preload
                   className="object-cover"
                 />
+              </span>{" "}
+              Delivery does not start at the road. KT sits between the two.
+            </h1>
+            <p className={styles.aboutLead}>
+              KT Couriers connects local merchant stores, independent senders,
+              and courier operators across South African communities.
+            </p>
+          </section>
+
+          {/* Human Narrative Sequence */}
+          <section
+            aria-label="Our Network"
+            className={styles.ecosystemSequence}
+            data-section-transition="sweep"
+          >
+            {networkPillars.map((pillar, index) => (
+              <div className={styles.ecosystemNode} key={pillar.category}>
+                <div className={styles.nodeMediaFrame} data-media-aperture>
+                  <Image
+                    alt={pillar.media.alt}
+                    fill
+                    sizes="(max-width: 899px) 100vw, 50vw"
+                    preload={index === 0}
+                    src={pillar.media.src}
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className={styles.nodeCopyPlane}>
+                  <span className={styles.nodeStepIndex}>
+                    {pillar.category}
+                  </span>
+                  <h2 data-split-heading className={styles.nodeTitle}>
+                    {pillar.title}
+                  </h2>
+                  <p className={styles.nodeDesc} data-text-scrub>
+                    {pillar.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* Floating Asymmetrical Gallery */}
+          <FloatingImageGallery />
+
+          {/* The People Behind the Network — Unboxed Editorial Portraits */}
+          <section
+            data-section-transition="open"
+            aria-label="People of KT Couriers"
+            className="my-16 pt-12 border-t border-[var(--kt-public-border-default)]/40"
+          >
+            <div className="max-w-2xl mb-8">
+              <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-public-text-muted)] font-semibold block mb-2">
+                People behind the journey
+              </span>
+              <h2
+                data-split-heading
+                className="font-display text-3xl sm:text-4xl font-extrabold text-[var(--kt-public-text-primary)]"
+              >
+                The people who build and move the network.
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:divide-x md:divide-[var(--kt-public-border-default)]/40">
+              <div className="space-y-4 md:pr-6">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
+                  <Image
+                    src={ktMediaV3.pages.about.portraits[0].src}
+                    alt={ktMediaV3.pages.about.portraits[0].alt}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 45vw"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="pt-2">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
+                    Local Merchants
+                  </span>
+                  <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
+                    Artisans & Independent Shops
+                  </h3>
+                  <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
+                    From neighborhood craft markets to established boutiques,
+                    independent South African merchants rely on KT for
+                    dependable fulfillment.
+                  </p>
+                </div>
               </div>
 
-              <div className={styles.nodeCopyPlane}>
-                <span className={styles.nodeStepIndex}>{pillar.category}</span>
-                <h2 className={styles.nodeTitle}>{pillar.title}</h2>
-                <p className={styles.nodeDesc}>{pillar.desc}</p>
+              <div className="space-y-4 md:pl-6">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
+                  <Image
+                    src={ktMediaV3.pages.about.portraits[1].src}
+                    alt={ktMediaV3.pages.about.portraits[1].alt}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 45vw"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="pt-2">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
+                    Couriers & Drivers
+                  </span>
+                  <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
+                    Delivery & Route Operators
+                  </h3>
+                  <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
+                    Operating across urban corridors and regional roads,
+                    bringing packages safely to their destinations.
+                  </p>
+                </div>
               </div>
             </div>
-          ))}
-        </section>
+          </section>
 
-        {/* Floating Asymmetrical Gallery */}
-        <FloatingImageGallery />
-
-        {/* The People Behind the Network — Unboxed Editorial Portraits */}
-        <section aria-label="People of KT Couriers" className="my-16 pt-12 border-t border-[var(--kt-public-border-default)]/40">
-          <div className="max-w-2xl mb-8">
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-public-text-muted)] font-semibold block mb-2">
-              People behind the journey
-            </span>
-            <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[var(--kt-public-text-primary)]">
-              The people who build and move the network.
-            </h2>
+          {/* Direct Pathway Links */}
+          <div className={styles.pathwayRow}>
+            <Link className={styles.pathwayLink} href="/shop">
+              <span>Explore Marketplace</span>
+              <KtIconArrowRight size={18} />
+            </Link>
+            <Link className={styles.pathwayLink} href="/services">
+              <span>Explore Delivery Services</span>
+              <KtIconArrowRight size={18} />
+            </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:divide-x md:divide-[var(--kt-public-border-default)]/40">
-            <div className="space-y-4 md:pr-6">
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
-                <Image
-                  src={ktMediaV3.pages.about.portraits[0].src}
-                  alt={ktMediaV3.pages.about.portraits[0].alt}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 45vw"
-                  className="object-cover"
-                />
-              </div>
-              <div className="pt-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
-                  Local Merchants
-                </span>
-                <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
-                  Artisans & Independent Shops
-                </h3>
-                <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
-                  From neighborhood craft markets to established boutiques, independent South African merchants rely on KT for dependable fulfillment.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4 md:pl-6">
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
-                <Image
-                  src={ktMediaV3.pages.about.portraits[1].src}
-                  alt={ktMediaV3.pages.about.portraits[1].alt}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 45vw"
-                  className="object-cover"
-                />
-              </div>
-              <div className="pt-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
-                  Couriers & Drivers
-                </span>
-                <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
-                  Delivery & Route Operators
-                </h3>
-                <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
-                  Operating across urban corridors and regional roads, bringing packages safely to their destinations.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Direct Pathway Links */}
-        <div className={styles.pathwayRow}>
-          <Link className={styles.pathwayLink} href="/shop">
-            <span>Explore Marketplace</span>
-            <KtIconArrowRight size={18} />
-          </Link>
-          <Link className={styles.pathwayLink} href="/services">
-            <span>Explore Delivery Services</span>
-            <KtIconArrowRight size={18} />
-          </Link>
         </div>
-      </div>
-    </article>
+      </article>
+    </EditorialMotion>
   );
 }

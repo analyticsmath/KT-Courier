@@ -35,14 +35,17 @@ export function PublicServicesOverview() {
     list.current
       ?.querySelectorAll("[data-service-index]")
       .forEach((row) => observer.observe(row));
-    return () => { observer.disconnect(); requested.current = -1; };
+    return () => {
+      observer.disconnect();
+      requested.current = -1;
+    };
   }, [select]);
   const selected = publicServicePages[active] ?? publicServicePages[0];
   const asset = serviceMedia[selected.heroMediaId];
   return (
     <EditorialMotion className="kt-services-new">
       <section className="kt-services-opening">
-        <h1>
+        <h1 data-split-heading>
           Find the
           <br />
           right delivery.
@@ -56,7 +59,7 @@ export function PublicServicesOverview() {
             Get a delivery quote <span aria-hidden="true">↗</span>
           </Link>
         </div>
-        <div className="kt-services-hero-photo">
+        <div className="kt-services-hero-photo" data-media-aperture>
           <Image
             src="/media/public/derived/photo-courier-merchant-pickup-handoff-1440w.webp"
             alt="A courier collecting a parcel from a merchant"
@@ -68,6 +71,7 @@ export function PublicServicesOverview() {
       </section>
       <section
         className="kt-service-atlas"
+        data-section-transition="sweep"
         aria-label="Choose a delivery service"
       >
         <div ref={list} className="kt-atlas-index">

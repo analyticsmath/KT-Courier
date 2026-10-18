@@ -34,3 +34,17 @@ The homepage no longer renders or fetches products. A three-image documentary op
 Cart populated/loading roots and the primary checkout button no longer combine conflicting legacy padding/background classes. This fixes the source of header collision and white-on-white checkout text without modifying cart operations.
 
 Validation: full TypeScript check, homepage TypeScript check, targeted ESLint, 20 relevant frontend assertions and clean production build (532 routes) passed. Source review identified and resolved the oversized van image risk. Deployed visual verification is recorded after publication.
+
+## Section choreography pass — 18 October 2026
+
+The client accepted the composition and requested substantially more section and page motion. Preserve the existing white/neutral palette, Mona Sans, photography, vehicles and header. No generated imagery or palette reset. Review of the Aegis reference source (`showcase/editorial-motion.js`) informed paired departure/arrival panels; United Carriers informed scene continuity and persistent object staging. GSAP's official SplitText and ScrollTrigger documentation informed responsive line masks, reversible ownership and post-pin refresh order.
+
+Homepage boundaries now have explicit open/rise/directional sweep treatments. The local and freight surfaces overlap through reserved padding, making the section edge itself move rather than relying on a page-wide fade. Opening media recedes into a masked frame; headings reveal by responsive lines; selected paragraphs reveal progressively with scroll; the three service panels fan from a stack. Existing full-vehicle containment and horizontal local reel remain.
+
+Services and parcel/detail pages use media apertures, line masks, process-point scrubbing, section sweeps and preparation-card entrances. About, Contact and Coverage receive local section/media/text choreography. Quote and Track receive heading motion without animating their controls.
+
+The shared footer now owns an isolated CSS module rather than inheriting legacy footer selectors. The same logo, CTA, three directory columns, wordmark and policies appear on all public and authentication pages. Editorial motion is rebuilt on pathname changes; font/size/route updates coalesce a sorted ScrollTrigger refresh after pins mount, addressing stale homepage geometry when navigating to shorter routes such as Track.
+
+Public page navigation uses three staggered departure/arrival panels and a destination phrase. Modified clicks, external links, downloads, same-page anchors, catalog and transaction destinations retain native/immediate navigation. A timeout releases a stalled departure. Reduced motion skips interception and scroll animation. Contexts, split text, observers, listeners and timelines are cleaned up.
+
+Validation before publication: full TypeScript, homepage TypeScript, targeted lint and 38 frontend checks passed. Production build and deployed desktop/mobile inspection are checked separately; these checks do not establish a numeric design score.
